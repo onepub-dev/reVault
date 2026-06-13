@@ -257,7 +257,7 @@ The CLI must resolve the key server URL in this order:
 1 command line: --server URL
 2 environment: LOCKBOX_KEY_SERVER
 3 YAML config: share.server
-4 built-in default: https://keyshare.onepub.dev/v1/share
+4 built-in default: https://keyshare.revault.onepub.dev/v1/share
 ```
 
 The YAML config path should reuse the existing CLI config path logic:
@@ -271,7 +271,7 @@ Config shape:
 
 ```yaml
 share:
-  server: "https://keyshare.onepub.dev/v1/share"
+  server: "https://keyshare.revault.onepub.dev/v1/share"
 ```
 
 The config parser should be small and strict. Unknown top-level fields can be
@@ -925,7 +925,7 @@ Do not use JSON for contact, history, identity, or replacement records.
 ## Implementation Order
 
 1. Add CLI config module with `share.server` YAML support and default
-   `keyshare.onepub.dev`.
+   `keyshare.revault.onepub.dev`.
 2. Add binary contact record codec to `lockbox_vault`.
 3. Replace trusted-recipient vault APIs with contact-record APIs.
 4. Update access resolution to load only verified contact current keys and warn

@@ -505,11 +505,16 @@ fn server_status_round_trips_binary_documents() {
 
 #[test]
 fn http_transport_accepts_https_urls() {
+    assert!(lockbox_share_protocol::HttpTransport::new(
+        "https://keyshare.revault.onepub.dev/v1/share"
+    )
+    .is_ok());
     assert!(
-        lockbox_share_protocol::HttpTransport::new("https://keyshare.onepub.dev/v1/share").is_ok()
+        lockbox_share_protocol::HttpTransport::new("https://keyshare.revault.onepub.dev").is_ok()
     );
-    assert!(lockbox_share_protocol::HttpTransport::new("https://keyshare.onepub.dev").is_ok());
-    assert!(lockbox_share_protocol::HttpTransport::new("ftp://keyshare.onepub.dev").is_err());
+    assert!(
+        lockbox_share_protocol::HttpTransport::new("ftp://keyshare.revault.onepub.dev").is_err()
+    );
 }
 
 #[test]

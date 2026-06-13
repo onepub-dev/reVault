@@ -20,7 +20,7 @@ The first production deployment runs one server:
 
 ```text
 server_id: 0
-url: https://keyshare.onepub.dev/v1/share
+url: https://keyshare.revault.onepub.dev/v1/share
 ```
 
 The server still generates self-routing share codes:
@@ -97,11 +97,11 @@ The operator configures this topology on the key servers:
 ```yaml
 key_servers:
   - id: 0
-    url: https://keyshare0.onepub.dev/v1/share
+    url: https://keyshare0.revault.onepub.dev/v1/share
   - id: 1
-    url: https://keyshare1.onepub.dev/v1/share
+    url: https://keyshare1.revault.onepub.dev/v1/share
   - id: 2
-    url: https://keyshare2.onepub.dev/v1/share
+    url: https://keyshare2.revault.onepub.dev/v1/share
 ```
 
 For `SHARE`, the CLI may choose a configured server randomly or by health. The

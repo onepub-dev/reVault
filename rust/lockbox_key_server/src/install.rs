@@ -185,9 +185,9 @@ fn default_config() -> &'static str {
 state_dir = \"/var/lib/lockbox-key-server\"\n\
 server_id = 0\n\
 cluster_id = \"default\"\n\
-public_url = \"https://keyshare.onepub.dev/v1/share\"\n\
+public_url = \"https://keyshare.revault.onepub.dev/v1/share\"\n\
 topology_version = 1\n\
-topology_server = \"0=https://keyshare.onepub.dev/v1/share,active\"\n\
+topology_server = \"0=https://keyshare.revault.onepub.dev/v1/share,active\"\n\
 route = \"0=0\"\n\
 origin_epoch = 1\n\
 default_ttl_seconds = 900\n\
@@ -256,10 +256,10 @@ mod tests {
     fn default_config_includes_public_single_server_topology() {
         let config = default_config();
         assert!(config.contains("server_id = 0"));
-        assert!(config.contains("public_url = \"https://keyshare.onepub.dev/v1/share\""));
-        assert!(
-            config.contains("topology_server = \"0=https://keyshare.onepub.dev/v1/share,active\"")
-        );
+        assert!(config.contains("public_url = \"https://keyshare.revault.onepub.dev/v1/share\""));
+        assert!(config.contains(
+            "topology_server = \"0=https://keyshare.revault.onepub.dev/v1/share,active\""
+        ));
         assert!(config.contains("route = \"0=0\""));
     }
 }

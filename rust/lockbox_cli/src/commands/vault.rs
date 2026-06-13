@@ -703,7 +703,10 @@ fn share_client_pool(options: &ShareCliOptions) -> CliResult<ShareClientPool> {
         ))?);
     }
     Ok(ShareClientPool::new([normalize_share_url(
-        config.server.as_deref().unwrap_or("keyshare.onepub.dev"),
+        config
+            .server
+            .as_deref()
+            .unwrap_or("https://keyshare.revault.onepub.dev/v1/share"),
     )])?)
 }
 
