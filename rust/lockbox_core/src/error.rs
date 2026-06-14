@@ -23,7 +23,7 @@ pub enum Error {
     InvalidKeyMaterial(String),
     /// The requested operation conflicts with the current lockbox state.
     InvalidOperation(String),
-    /// A vault-backed operation could not use the local vault or unlock cache.
+    /// A vault-backed operation could not use the local vault or open cache.
     VaultUnavailable(String),
     /// A required host or process configuration value is missing or invalid.
     Configuration(String),
@@ -50,7 +50,7 @@ impl Error {
             Error::CorruptVaultRecord(_) => {
                 "The local vault metadata is inconsistent; delete or recreate the named vault record after confirming it is not needed."
             }
-            Error::InvalidKey => "Check the password, content key, recipient keypair, or local vault unlock state.",
+            Error::InvalidKey => "Check the password, content key, contact keypair, or local vault open state.",
             Error::NotFound(_) => {
                 "Check the logical lockbox path and list the parent directory to see available entries."
             }
@@ -70,7 +70,7 @@ impl Error {
                 "Check the current entry state and use the API intended for that state."
             }
             Error::VaultUnavailable(_) => {
-                "Unlock the lockbox with a password, recipient keypair, or content key, or configure the local vault before retrying."
+                "Open the lockbox with a password, contact keypair, or content key, or configure the local vault before retrying."
             }
             Error::Configuration(_) => {
                 "Set the required variable or pass an explicit path/value."
@@ -102,58 +102,46 @@ impl From<lockbox_secure::Error> for Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::CorruptHeader => {
-                write!(f, "corrupt lockbox header. {}", self.guidance())
-            }
-            Error::CorruptRecord => {
-                write!(f, "corrupt lockbox page or record. {}", self.guidance())
-            }
+            Error::CorruptHeader => write!(f, "corrupt lockbox header"),
+            Error::CorruptRecord => write!(f, "corrupt lockbox page or record"),
             Error::CorruptVaultRecord(message) => {
-                write!(f, "corrupt vault record: {message}. {}", self.guidance())
+                write!(f, "corrupt vault record: {message}")
             }
             Error::InvalidKey => {
-                write!(
-                    f,
-                    "unlock failed or payload authentication failed. {}",
-                    self.guidance()
-                )
+                write!(f, "open failed or payload authentication failed")
             }
             Error::NotFound(path) => {
-                write!(f, "lockbox entry not found: {path}. {}", self.guidance())
+                write!(f, "lockbox entry not found: {path}")
             }
             Error::AlreadyExists(path) => {
-                write!(
-                    f,
-                    "lockbox entry already exists: {path}. {}",
-                    self.guidance()
-                )
+                write!(f, "lockbox entry already exists: {path}")
             }
             Error::InvalidPath(path) => {
-                write!(f, "invalid lockbox path: {path}. {}", self.guidance())
+                write!(f, "invalid lockbox path: {path}")
             }
             Error::InvalidInput(message) => {
-                write!(f, "invalid input: {message}. {}", self.guidance())
+                write!(f, "invalid input: {message}")
             }
             Error::InvalidKeyMaterial(message) => {
-                write!(f, "invalid key material: {message}. {}", self.guidance())
+                write!(f, "invalid key material: {message}")
             }
             Error::InvalidOperation(message) => {
-                write!(f, "invalid operation: {message}. {}", self.guidance())
+                write!(f, "invalid operation: {message}")
             }
             Error::VaultUnavailable(message) => {
-                write!(f, "vault unavailable: {message}. {}", self.guidance())
+                write!(f, "vault unavailable: {message}")
             }
             Error::Configuration(message) => {
-                write!(f, "configuration error: {message}. {}", self.guidance())
+                write!(f, "configuration error: {message}")
             }
             Error::UnsupportedHostPath(message) => {
-                write!(f, "unsupported host path: {message}. {}", self.guidance())
+                write!(f, "unsupported host path: {message}")
             }
-            Error::Io(message) => write!(f, "io error: {message}. {}", self.guidance()),
+            Error::Io(message) => write!(f, "io error: {message}"),
             Error::SecurityLimitExceeded(message) => {
-                write!(f, "security limit exceeded: {message}. {}", self.guidance())
+                write!(f, "security limit exceeded: {message}")
             }
-            Error::Truncated => write!(f, "truncated lockbox input. {}", self.guidance()),
+            Error::Truncated => write!(f, "truncated lockbox input"),
         }
     }
 }
@@ -166,45 +154,50 @@ mod tests {
     use super::Error;
 
     #[test]
-    fn display_errors_include_context_and_guidance() {
+    fn display_errors_are_concise_and_guidance_is_explicit() {
         let invalid_path = Error::InvalidPath("../secret".to_string()).to_string();
-        assert!(invalid_path.contains("invalid lockbox path: ../secret"));
-        assert!(invalid_path.contains("Use an absolute logical lockbox path"));
+        assert_eq!(invalid_path, "invalid lockbox path: ../secret");
+        assert!(Error::InvalidPath("../secret".to_string())
+            .guidance()
+            .contains("Use an absolute logical lockbox path"));
 
         let missing = Error::NotFound("/missing".to_string()).to_string();
-        assert!(missing.contains("lockbox entry not found: /missing"));
-        assert!(missing.contains("list the parent directory"));
+        assert_eq!(missing, "lockbox entry not found: /missing");
+        assert!(Error::NotFound("/missing".to_string())
+            .guidance()
+            .contains("list the parent directory"));
 
         let duplicate = Error::AlreadyExists("/exists".to_string()).to_string();
-        assert!(duplicate.contains("lockbox entry already exists: /exists"));
-        assert!(duplicate.contains("replace = true"));
+        assert_eq!(duplicate, "lockbox entry already exists: /exists");
 
         let invalid_key = Error::InvalidKey.to_string();
-        assert!(invalid_key.contains("unlock failed"));
-        assert!(invalid_key.contains("password"));
+        assert_eq!(invalid_key, "open failed or payload authentication failed");
 
         let corrupt_vault_record =
             Error::CorruptVaultRecord("bad private key record".to_string()).to_string();
-        assert!(corrupt_vault_record.contains("corrupt vault record: bad private key record"));
+        assert_eq!(
+            corrupt_vault_record,
+            "corrupt vault record: bad private key record"
+        );
 
         let invalid_input = Error::InvalidInput("bad variable value".to_string()).to_string();
-        assert!(invalid_input.contains("invalid input: bad variable value"));
+        assert_eq!(invalid_input, "invalid input: bad variable value");
 
         let invalid_key_material =
             Error::InvalidKeyMaterial("bad public key".to_string()).to_string();
-        assert!(invalid_key_material.contains("invalid key material: bad public key"));
+        assert_eq!(invalid_key_material, "invalid key material: bad public key");
 
         let invalid_operation =
             Error::InvalidOperation("variable is secret".to_string()).to_string();
-        assert!(invalid_operation.contains("invalid operation: variable is secret"));
+        assert_eq!(invalid_operation, "invalid operation: variable is secret");
 
         let vault = Error::VaultUnavailable("no cached key".to_string()).to_string();
-        assert!(vault.contains("vault unavailable: no cached key"));
+        assert_eq!(vault, "vault unavailable: no cached key");
 
         let config = Error::Configuration("HOME is not set".to_string()).to_string();
-        assert!(config.contains("configuration error: HOME is not set"));
+        assert_eq!(config, "configuration error: HOME is not set");
 
         let host_path = Error::UnsupportedHostPath("socket".to_string()).to_string();
-        assert!(host_path.contains("unsupported host path: socket"));
+        assert_eq!(host_path, "unsupported host path: socket");
     }
 }

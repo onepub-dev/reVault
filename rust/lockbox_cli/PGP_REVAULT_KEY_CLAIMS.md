@@ -6,7 +6,7 @@ A PGP-signed reVault key claim lets a user bind an existing OpenPGP identity to
 a reVault public key.
 
 This can remove the need for person-to-person verification of the reVault key
-when the recipient already trusts the signer's PGP identity.
+when the contact already trusts the signer's PGP identity.
 
 ## Trust Model
 
@@ -32,7 +32,7 @@ This is useful when one of these is true:
 - Enterprise policy says keys from a specific domain directory are authoritative.
 
 If Bob does not already trust Alice's PGP key, the signature only proves that the
-reVault key was signed by the fetched PGP key. It does not prove that the PGP key
+reVault key was signed by the received PGP key. It does not prove that the PGP key
 belongs to Alice.
 
 ## Proposed CLI
@@ -62,7 +62,7 @@ lockbox vault contact import alice@example.com ./alice.pub --fingerprint <hex>
 
 reVault should:
 
-1. Fetch Alice's PGP public key from WKD, a configured keyserver, or a supplied
+1. Receive Alice's PGP public key from WKD, a configured keyserver, or a supplied
    local key file.
 2. Verify the signed reVault-key claim.
 3. Check whether the PGP key is trusted by local policy or prior verification.

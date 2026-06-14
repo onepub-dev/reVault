@@ -55,9 +55,9 @@ fn open_populates_cache_and_close_clears_it() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let unlocked_list = String::from_utf8_lossy(&output.stdout);
-    assert!(unlocked_list.contains("open\t"));
-    assert!(unlocked_list.contains(vault.to_str().unwrap()));
+    let open_list_text = String::from_utf8_lossy(&output.stdout);
+    assert!(open_list_text.contains("open\t"));
+    assert!(open_list_text.contains(vault.to_str().unwrap()));
 
     let output = run_output(bin, &agent_dir, &vault_dir, &["session"]);
     assert!(
@@ -67,10 +67,10 @@ fn open_populates_cache_and_close_clears_it() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    let vault_unlocked = String::from_utf8_lossy(&output.stdout);
-    assert!(vault_unlocked.contains("Active lockbox:"));
-    assert!(vault_unlocked.contains("Open lockboxes:"));
-    assert!(vault_unlocked.contains(vault.to_str().unwrap()));
+    let vault_opened = String::from_utf8_lossy(&output.stdout);
+    assert!(vault_opened.contains("Active lockbox:"));
+    assert!(vault_opened.contains("Open lockboxes:"));
+    assert!(vault_opened.contains(vault.to_str().unwrap()));
 
     run(
         bin,

@@ -31,8 +31,8 @@ pub struct CachedLockbox {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SecretActivityKind {
-    Unlock,
     Open,
+    Close,
     Variables,
     Form,
     Recovery,
@@ -42,8 +42,8 @@ pub enum SecretActivityKind {
 impl SecretActivityKind {
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Unlock => "open",
             Self::Open => "open",
+            Self::Close => "close",
             Self::Variables => "variables",
             Self::Form => "form",
             Self::Recovery => "recovery",
@@ -53,8 +53,8 @@ impl SecretActivityKind {
 
     fn to_wire(self) -> u8 {
         match self {
-            Self::Unlock => 1,
-            Self::Open => 2,
+            Self::Open => 1,
+            Self::Close => 2,
             Self::Variables => 3,
             Self::Form => 4,
             Self::Recovery => 5,
@@ -584,8 +584,8 @@ fn validate_pid(pid: u32) -> io::Result<u32> {
 
 fn kind_from_wire(value: u8) -> io::Result<SecretActivityKind> {
     match value {
-        1 => Ok(SecretActivityKind::Unlock),
-        2 => Ok(SecretActivityKind::Open),
+        1 => Ok(SecretActivityKind::Open),
+        2 => Ok(SecretActivityKind::Close),
         3 => Ok(SecretActivityKind::Variables),
         4 => Ok(SecretActivityKind::Form),
         5 => Ok(SecretActivityKind::Recovery),
@@ -674,9 +674,9 @@ mod tests {
             _ => panic!("expected LIST"),
         }
 
-        let request = encode_register_secret_activity(42, SecretActivityKind::Unlock).unwrap();
+        let request = encode_register_secret_activity(42, SecretActivityKind::Open).unwrap();
         match parse_control_request(&request).unwrap() {
-            ControlRequest::RegisterSecretActivity(42, SecretActivityKind::Unlock) => {}
+            ControlRequest::RegisterSecretActivity(42, SecretActivityKind::Open) => {}
             _ => panic!("expected activity registration"),
         }
         let response = encode_registered_response(123).unwrap();

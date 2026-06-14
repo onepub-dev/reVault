@@ -1,5 +1,5 @@
 use base64ct::{Base64, Base64UrlUnpadded, Encoding};
-use lockbox_core::{Error, RecipientKeyPair, RecipientPublicKey, Result, SecretVec};
+use lockbox_core::{ContactKeyPair, ContactPublicKey, Error, Result, SecretVec};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -15,7 +15,7 @@ const KTY: &str = "AKP";
 const ALG: &str = "X25519-ML-KEM-768";
 const CRV: &str = "X25519-ML-KEM-768";
 
-/// Supported recipient key serialization formats.
+/// Supported contact key serialization formats.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyFormat {
     /// Lockbox PEM envelope containing a Lockbox JWK payload.
@@ -67,13 +67,13 @@ struct Jwks {
     keys: Vec<JwkKey>,
 }
 
-/// Exports a recipient private key in the requested format.
+/// Exports a contact private key in the requested format.
 ///
 /// Private-key output is returned as `SecretVec` so the serialized secret
 /// material is zeroized on drop. `LockboxPem`, `Jwk`, and `Jwks` include both
 /// public-key metadata and the private key record; `RawHex` contains only the
 /// private key record bytes encoded as hexadecimal text.
-pub fn export_private_key(keypair: &RecipientKeyPair, format: KeyFormat) -> Result<SecretVec> {
+pub fn export_private_key(keypair: &ContactKeyPair, format: KeyFormat) -> Result<SecretVec> {
     let public = keypair.public_key();
     let public_bytes = public.to_bytes();
     let public_x = Base64UrlUnpadded::encode_string(&public_bytes);
@@ -93,20 +93,20 @@ pub fn export_private_key(keypair: &RecipientKeyPair, format: KeyFormat) -> Resu
     }
 }
 
-/// Imports a recipient private key from PEM, JWK, JWKS-compatible JWK, or hex.
+/// Imports a contact private key from PEM, JWK, JWKS-compatible JWK, or hex.
 ///
 /// The input buffer is normalized in place and remains secret memory for the
 /// duration of parsing.
-pub fn import_private_key(mut bytes: SecretVec) -> Result<RecipientKeyPair> {
+pub fn import_private_key(mut bytes: SecretVec) -> Result<ContactKeyPair> {
     normalize_private_key_record(&mut bytes)?;
-    RecipientKeyPair::from_private_key_record(bytes)
+    ContactKeyPair::from_private_key_record(bytes)
 }
 
-/// Reads and imports a recipient private key from a file.
+/// Reads and imports a contact private key from a file.
 ///
 /// File contents are loaded into `SecretVec` before parsing so private material
 /// uses the same zeroizing path as `import_private_key`.
-pub fn import_private_key_file(path: impl AsRef<Path>) -> Result<RecipientKeyPair> {
+pub fn import_private_key_file(path: impl AsRef<Path>) -> Result<ContactKeyPair> {
     let mut file = fs::File::open(path.as_ref()).map_err(|err| Error::Io(err.to_string()))?;
     let len = usize::try_from(
         file.metadata()
@@ -125,13 +125,13 @@ pub fn import_private_key_file(path: impl AsRef<Path>) -> Result<RecipientKeyPai
     import_private_key(bytes)
 }
 
-/// Returns the stable fingerprint for a recipient public key.
-pub fn public_key_fingerprint(key: &RecipientPublicKey) -> Vec<u8> {
+/// Returns the stable fingerprint for a contact public key.
+pub fn public_key_fingerprint(key: &ContactPublicKey) -> Vec<u8> {
     fingerprint_bytes(&key.to_bytes())
 }
 
-/// Exports a recipient public key in the requested format.
-pub fn export_public_key(key: &RecipientPublicKey, format: KeyFormat) -> Result<Vec<u8>> {
+/// Exports a contact public key in the requested format.
+pub fn export_public_key(key: &ContactPublicKey, format: KeyFormat) -> Result<Vec<u8>> {
     match format {
         KeyFormat::LockboxPem => pem(PUBLIC_LABEL, &public_jwk(key)?),
         KeyFormat::Jwk => {
@@ -145,8 +145,8 @@ pub fn export_public_key(key: &RecipientPublicKey, format: KeyFormat) -> Result<
     }
 }
 
-/// Imports a recipient public key from Lockbox PEM, JWK, JWKS, or raw hex.
-pub fn import_public_key(bytes: &[u8]) -> Result<RecipientPublicKey> {
+/// Imports a contact public key from Lockbox PEM, JWK, JWKS, or raw hex.
+pub fn import_public_key(bytes: &[u8]) -> Result<ContactPublicKey> {
     let text = std::str::from_utf8(bytes)
         .map_err(|_| Error::InvalidKeyMaterial("public key is not UTF-8 text".to_string()))?;
     if text.trim_start().starts_with("-----BEGIN ") {
@@ -170,7 +170,7 @@ pub fn import_public_key(bytes: &[u8]) -> Result<RecipientPublicKey> {
         })?;
         return public_from_jwk(&key);
     }
-    RecipientPublicKey::from_bytes(&decode_hex(text.trim()).map_err(|_| {
+    ContactPublicKey::from_bytes(&decode_hex(text.trim()).map_err(|_| {
         Error::InvalidKeyMaterial("public key is not valid hexadecimal bytes".to_string())
     })?)
 }
@@ -426,7 +426,7 @@ fn trim_ascii_range(bytes: &[u8]) -> (usize, usize) {
     (start, end)
 }
 
-fn public_jwk(key: &RecipientPublicKey) -> Result<JwkKey> {
+fn public_jwk(key: &ContactPublicKey) -> Result<JwkKey> {
     let public_bytes = key.to_bytes();
     Ok(JwkKey {
         kty: KTY.to_string(),
@@ -439,12 +439,12 @@ fn public_jwk(key: &RecipientPublicKey) -> Result<JwkKey> {
     })
 }
 
-fn public_from_jwk(key: &JwkKey) -> Result<RecipientPublicKey> {
+fn public_from_jwk(key: &JwkKey) -> Result<ContactPublicKey> {
     validate_jwk_header(key)?;
     let public = Base64UrlUnpadded::decode_vec(&key.x).map_err(|_| {
         Error::InvalidKeyMaterial("public JWK x value is not valid base64url".to_string())
     })?;
-    RecipientPublicKey::from_bytes(&public)
+    ContactPublicKey::from_bytes(&public)
 }
 
 fn validate_jwk_header(key: &JwkKey) -> Result<()> {
@@ -519,7 +519,7 @@ mod tests {
 
     #[test]
     fn native_pem_round_trips_private_and_public_keys() {
-        let keypair = RecipientKeyPair::generate().unwrap();
+        let keypair = ContactKeyPair::generate().unwrap();
         let private = export_private_key(&keypair, KeyFormat::LockboxPem).unwrap();
         let loaded = import_private_key(private).unwrap();
         assert_eq!(
@@ -534,7 +534,7 @@ mod tests {
 
     #[test]
     fn jwk_and_jwks_round_trip() {
-        let keypair = RecipientKeyPair::generate().unwrap();
+        let keypair = ContactKeyPair::generate().unwrap();
         let jwk = export_private_key(&keypair, KeyFormat::Jwk).unwrap();
         let public_jwk = export_public_key(&keypair.public_key(), KeyFormat::Jwk).unwrap();
         let public_jwk_text = std::str::from_utf8(&public_jwk).unwrap();
@@ -558,7 +558,7 @@ mod tests {
 
     #[test]
     fn raw_hex_remains_importable() {
-        let keypair = RecipientKeyPair::generate().unwrap();
+        let keypair = ContactKeyPair::generate().unwrap();
         let raw = export_private_key(&keypair, KeyFormat::RawHex).unwrap();
         assert_eq!(
             import_private_key(raw)

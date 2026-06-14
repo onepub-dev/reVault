@@ -1,7 +1,7 @@
 use std::process::{Command, Output};
 
 #[test]
-fn contact_receive_no_longer_accepts_fetch_alias() {
+fn contact_receive_rejects_legacy_fetch_command() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
 
     let receive_help = run_output(bin, &["vault", "contact", "receive", "--help"]);

@@ -21,7 +21,7 @@ pub(crate) fn run(args: &[String]) -> CliResult<()> {
             Ok(())
         }
         Some("close-all") => {
-            local_vault().lock_all()?;
+            local_vault().close_all()?;
             clear_active_lockbox()?;
             println!("All lockbox sessions closed.");
             Ok(())
@@ -148,24 +148,24 @@ fn auto_open(args: &[String]) -> CliResult<()> {
                 return Ok(());
             }
             set_auto_open_scope(AutoOpenScope::Off)?;
-            local_vault().lock_all()?;
+            local_vault().close_all()?;
             clear_active_lockbox()?;
             auto_open_status(&[])
         }
         "vault" => {
             let password = read_vault_password("Vault pass phrase: ")?;
-            VaultDirectory::unlock_or_create_default(&password)?;
+            VaultDirectory::open_or_create_default(&password)?;
             set_auto_open_scope(AutoOpenScope::Vault)?;
             let _ = put_platform_vault_password(&password);
-            local_vault().lock_all()?;
+            local_vault().close_all()?;
             auto_open_status(&[])
         }
         "lockboxes" => {
             let password = read_vault_password("Vault pass phrase: ")?;
-            VaultDirectory::unlock_or_create_default(&password)?;
+            VaultDirectory::open_or_create_default(&password)?;
             set_auto_open_scope(AutoOpenScope::Lockboxes)?;
             let _ = put_platform_vault_password(&password);
-            local_vault().lock_all()?;
+            local_vault().close_all()?;
             auto_open_status(&[])
         }
         _ => {

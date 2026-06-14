@@ -9,7 +9,7 @@ pub const CONTACT_FINGERPRINT_LEN: usize = 16;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
 pub enum PayloadType {
-    ContactShare = 1,
+    ContactPublish = 1,
     SignedKeyReplacement = 2,
     UnsignedKeyReplacement = 3,
 }
@@ -17,7 +17,7 @@ pub enum PayloadType {
 impl PayloadType {
     fn from_u16(value: u16) -> Option<Self> {
         match value {
-            1 => Some(Self::ContactShare),
+            1 => Some(Self::ContactPublish),
             2 => Some(Self::SignedKeyReplacement),
             3 => Some(Self::UnsignedKeyReplacement),
             _ => None,
@@ -64,7 +64,7 @@ pub fn validate_payload(bytes: &[u8]) -> Result<PayloadType, PayloadError> {
     }
     let mut reader = PayloadReader::new(&bytes[HEADER_LEN..]);
     match payload_type {
-        PayloadType::ContactShare => validate_contact_share(&mut reader)?,
+        PayloadType::ContactPublish => validate_contact_publish(&mut reader)?,
         PayloadType::SignedKeyReplacement => validate_signed_key_replacement(&mut reader)?,
         PayloadType::UnsignedKeyReplacement => validate_unsigned_key_replacement(&mut reader)?,
     }
@@ -74,12 +74,12 @@ pub fn validate_payload(bytes: &[u8]) -> Result<PayloadType, PayloadError> {
     Ok(payload_type)
 }
 
-pub fn encode_contact_share(
+pub fn encode_contact_publish(
     identity: &str,
     public_key: &[u8],
     signing_public_key: &[u8],
     fingerprint: &[u8],
-    share_nonce: &[u8],
+    publish_nonce: &[u8],
     created_at_unix_ms: u64,
     expires_at_unix_ms: u64,
 ) -> Vec<u8> {
@@ -88,10 +88,10 @@ pub fn encode_contact_share(
     put_bytes(&mut body, public_key);
     put_bytes(&mut body, signing_public_key);
     put_bytes(&mut body, fingerprint);
-    put_bytes(&mut body, share_nonce);
+    put_bytes(&mut body, publish_nonce);
     put_u64(&mut body, created_at_unix_ms);
     put_u64(&mut body, expires_at_unix_ms);
-    encode_payload(PayloadType::ContactShare, &body)
+    encode_payload(PayloadType::ContactPublish, &body)
 }
 
 pub fn normalize_contact_email(email: &str) -> Result<String, PayloadError> {
@@ -110,15 +110,15 @@ pub fn normalize_contact_email(email: &str) -> Result<String, PayloadError> {
 
 pub fn contact_fingerprint(
     email: &str,
-    recipient_public_key: &[u8],
+    contact_public_key: &[u8],
     signing_public_key: &[u8],
 ) -> Result<Vec<u8>, PayloadError> {
     let email = normalize_contact_email(email)?;
     let mut hasher = Sha256::new();
     update_fingerprint_field(&mut hasher, b"revault-contact-fingerprint-v1");
     update_fingerprint_field(&mut hasher, email.as_bytes());
-    update_fingerprint_field(&mut hasher, b"recipient-public-key-bytes-v1");
-    update_fingerprint_field(&mut hasher, recipient_public_key);
+    update_fingerprint_field(&mut hasher, b"contact-public-key-bytes-v1");
+    update_fingerprint_field(&mut hasher, contact_public_key);
     update_fingerprint_field(&mut hasher, b"owner-signing-public-key-bytes-v1");
     update_fingerprint_field(&mut hasher, signing_public_key);
     Ok(hasher.finalize()[..CONTACT_FINGERPRINT_LEN].to_vec())
@@ -130,28 +130,28 @@ fn update_fingerprint_field(hasher: &mut Sha256, value: &[u8]) {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct DecodedContactShare {
+pub struct DecodedContactPublish {
     pub identity: String,
     pub public_key: Vec<u8>,
     pub signing_public_key: Vec<u8>,
     pub fingerprint: Vec<u8>,
-    pub share_nonce: Vec<u8>,
+    pub publish_nonce: Vec<u8>,
     pub created_at_unix_ms: u64,
     pub expires_at_unix_ms: u64,
 }
 
-pub fn decode_contact_share(bytes: &[u8]) -> Result<DecodedContactShare, PayloadError> {
-    if validate_payload(bytes)? != PayloadType::ContactShare {
+pub fn decode_contact_publish(bytes: &[u8]) -> Result<DecodedContactPublish, PayloadError> {
+    if validate_payload(bytes)? != PayloadType::ContactPublish {
         return Err(PayloadError::UnknownType);
     }
     let body_len = read_u32(bytes, 8) as usize;
     let mut reader = PayloadReader::new(&bytes[HEADER_LEN..HEADER_LEN + body_len]);
-    Ok(DecodedContactShare {
+    Ok(DecodedContactPublish {
         identity: reader.string(254)?,
         public_key: reader.bytes(4096)?,
         signing_public_key: reader.bytes(4096)?,
         fingerprint: reader.bytes(128)?,
-        share_nonce: reader.bytes(64)?,
+        publish_nonce: reader.bytes(64)?,
         created_at_unix_ms: reader.u64()?,
         expires_at_unix_ms: reader.u64()?,
     })
@@ -213,7 +213,7 @@ pub fn encode_unsigned_key_replacement(replacement: UnsignedKeyReplacement<'_>) 
     encode_payload(PayloadType::UnsignedKeyReplacement, &body)
 }
 
-fn validate_contact_share(reader: &mut PayloadReader<'_>) -> Result<(), PayloadError> {
+fn validate_contact_publish(reader: &mut PayloadReader<'_>) -> Result<(), PayloadError> {
     let identity = reader.string(254)?;
     validate_identity(&identity)?;
     let public_key = reader.bytes(4096)?;

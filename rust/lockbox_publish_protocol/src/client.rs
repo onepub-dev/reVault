@@ -15,23 +15,25 @@ const DEFAULT_RETRY_ATTEMPTS: usize = 3;
 const DEFAULT_INITIAL_BACKOFF: Duration = Duration::from_millis(10);
 const DEFAULT_MAX_BACKOFF: Duration = Duration::from_millis(100);
 const REQUEST_TOPOLOGY_HEADER: &str = "x-topology-version";
+const SERVER_TOKEN_HEADER: &str = "x-lockbox-server-token";
 const DEFAULT_TOPOLOGY_TTL_MS: u64 = 60_000;
+const DEFAULT_STICKY_SERVER_TTL_MS: u64 = 24 * 60 * 60 * 1_000;
 
 #[derive(Clone, Debug)]
-pub struct ShareClient<T = HttpTransport> {
+pub struct PublishClient<T = HttpTransport> {
     transport: T,
     max_response_bytes: usize,
     retry_policy: RetryPolicy,
 }
 
 #[derive(Clone, Debug)]
-pub struct ShareClientPool<T = HttpTransport> {
-    state: Arc<Mutex<ShareTopologyState<T>>>,
+pub struct PublishClientPool<T = HttpTransport> {
+    state: Arc<Mutex<PublishTopologyState<T>>>,
 }
 
 #[derive(Clone, Debug)]
-struct ShareTopologyState<T> {
-    clients: Vec<ShareClient<T>>,
+struct PublishTopologyState<T> {
+    clients: Vec<PublishClient<T>>,
     server_ids: Vec<u8>,
     topology: Option<ClusterTopology>,
     routes: Vec<TopologyRoute>,
@@ -39,6 +41,8 @@ struct ShareTopologyState<T> {
     topology_server_urls: Vec<String>,
     topology_ttl_ms: u64,
     topology_refreshed_ms: u64,
+    sticky_server_id: Option<u8>,
+    sticky_until_ms: u64,
 }
 
 #[derive(Clone, Debug)]
@@ -49,7 +53,7 @@ pub struct TopologyAwareResponse<R> {
 
 #[derive(Clone, Debug)]
 struct TopologyStateSnapshot<T> {
-    clients: Vec<ShareClient<T>>,
+    clients: Vec<PublishClient<T>>,
     server_ids: Vec<u8>,
     routes: Vec<TopologyRoute>,
     topology: Option<ClusterTopology>,
@@ -57,9 +61,17 @@ struct TopologyStateSnapshot<T> {
     topology_server_urls: Vec<String>,
     topology_ttl_ms: u64,
     topology_refreshed_ms: u64,
+    sticky_server_id: Option<u8>,
+    sticky_until_ms: u64,
 }
 
-impl<T: Clone> ShareTopologyState<T> {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StickyPublishServer {
+    pub server_id: u8,
+    pub expires_at_unix_ms: u64,
+}
+
+impl<T: Clone> PublishTopologyState<T> {
     fn snapshot(&self) -> TopologyStateSnapshot<T> {
         TopologyStateSnapshot {
             clients: self.clients.clone(),
@@ -70,6 +82,8 @@ impl<T: Clone> ShareTopologyState<T> {
             topology_server_urls: self.topology_server_urls.clone(),
             topology_ttl_ms: self.topology_ttl_ms,
             topology_refreshed_ms: self.topology_refreshed_ms,
+            sticky_server_id: self.sticky_server_id,
+            sticky_until_ms: self.sticky_until_ms,
         }
     }
 }
@@ -112,20 +126,20 @@ enum Scheme {
 }
 
 #[derive(Clone, Debug)]
-pub struct ShareResult {
-    pub share_code: String,
+pub struct PublishResult {
+    pub publish_code: String,
     pub delete_token: Vec<u8>,
     pub expires_at_unix_ms: u64,
-    pub max_fetches: u16,
+    pub max_receives: u16,
     pub verification_url: Option<String>,
 }
 
 #[derive(Clone, Debug)]
-pub struct FetchedShare {
+pub struct ReceivedPublish {
     pub payload: Vec<u8>,
     pub payload_type: PayloadType,
     pub expires_at_unix_ms: u64,
-    pub remaining_fetches: u16,
+    pub remaining_receives: u16,
     pub email_verification: Option<protocol::EmailVerification>,
 }
 
@@ -219,11 +233,11 @@ impl From<payload::PayloadError> for ClientError {
     }
 }
 
-fn share_state_poisoned<T>(_err: PoisonError<T>) -> ClientError {
-    ClientError::Topology("share client state lock was poisoned".to_string())
+fn publish_state_poisoned<T>(_err: PoisonError<T>) -> ClientError {
+    ClientError::Topology("publish client state lock was poisoned".to_string())
 }
 
-impl ShareClient<HttpTransport> {
+impl PublishClient<HttpTransport> {
     pub fn new(server_url: &str) -> Result<Self, ClientError> {
         Ok(Self {
             transport: HttpTransport::new(server_url)?,
@@ -238,7 +252,7 @@ impl ShareClient<HttpTransport> {
     }
 }
 
-impl ShareClientPool<HttpTransport> {
+impl PublishClientPool<HttpTransport> {
     pub fn new<I, S>(server_urls: I) -> Result<Self, ClientError>
     where
         I: IntoIterator<Item = S>,
@@ -246,7 +260,7 @@ impl ShareClientPool<HttpTransport> {
     {
         let mut clients = Vec::new();
         for url in server_urls {
-            clients.push(ShareClient::new(url.as_ref())?);
+            clients.push(PublishClient::new(url.as_ref())?);
         }
         Self::from_clients(clients)
     }
@@ -284,11 +298,11 @@ impl ShareClientPool<HttpTransport> {
         let mut clients = Vec::new();
         let mut server_ids = Vec::new();
         for server in &topology.servers {
-            clients.push(ShareClient::new(&server.url)?);
+            clients.push(PublishClient::new(&server.url)?);
             server_ids.push(server.id);
         }
         Ok(Self {
-            state: Arc::new(Mutex::new(ShareTopologyState {
+            state: Arc::new(Mutex::new(PublishTopologyState {
                 clients,
                 server_ids,
                 topology: Some(topology.clone()),
@@ -297,6 +311,8 @@ impl ShareClientPool<HttpTransport> {
                 topology_server_urls: topology_urls_from_servers(&topology.servers),
                 topology_ttl_ms: DEFAULT_TOPOLOGY_TTL_MS,
                 topology_refreshed_ms: unix_ms_now(),
+                sticky_server_id: None,
+                sticky_until_ms: 0,
             })),
         })
     }
@@ -308,9 +324,9 @@ impl ShareClientPool<HttpTransport> {
         let topology = topology::decode_topology(&bytes)?;
         let pool = Self::from_topology(&topology)?;
         {
-            let mut state = pool.state.lock().map_err(share_state_poisoned)?;
+            let mut state = pool.state.lock().map_err(publish_state_poisoned)?;
             let mut topology_server_urls = topology_urls_from_servers(&topology.servers);
-            if let Some(topology_url) = topology_url_from_share_url(topology_url) {
+            if let Some(topology_url) = topology_url_from_publish_url(topology_url) {
                 topology_server_urls.push(topology_url);
             }
             state.topology_server_urls = dedupe_urls(topology_server_urls);
@@ -320,8 +336,8 @@ impl ShareClientPool<HttpTransport> {
     }
 }
 
-impl<T: Transport> ShareClientPool<T> {
-    pub fn from_clients(clients: Vec<ShareClient<T>>) -> Result<Self, ClientError> {
+impl<T: Transport> PublishClientPool<T> {
+    pub fn from_clients(clients: Vec<PublishClient<T>>) -> Result<Self, ClientError> {
         let server_ids = (0..clients.len())
             .map(|index| index as u8)
             .collect::<Vec<_>>();
@@ -329,7 +345,7 @@ impl<T: Transport> ShareClientPool<T> {
     }
 
     pub fn from_clients_with_ids(
-        clients: Vec<ShareClient<T>>,
+        clients: Vec<PublishClient<T>>,
         server_ids: Vec<u8>,
         routes: Vec<TopologyRoute>,
     ) -> Result<Self, ClientError> {
@@ -356,7 +372,7 @@ impl<T: Transport> ShareClientPool<T> {
             routes
         };
         Ok(Self {
-            state: Arc::new(Mutex::new(ShareTopologyState {
+            state: Arc::new(Mutex::new(PublishTopologyState {
                 clients,
                 server_ids,
                 routes,
@@ -365,6 +381,8 @@ impl<T: Transport> ShareClientPool<T> {
                 topology_server_urls: Vec::new(),
                 topology_ttl_ms: DEFAULT_TOPOLOGY_TTL_MS,
                 topology_refreshed_ms: 0,
+                sticky_server_id: None,
+                sticky_until_ms: 0,
             })),
         })
     }
@@ -372,7 +390,7 @@ impl<T: Transport> ShareClientPool<T> {
     pub fn from_transports(transports: Vec<T>) -> Result<Self, ClientError> {
         let clients = transports
             .into_iter()
-            .map(ShareClient::from_transport)
+            .map(PublishClient::from_transport)
             .collect::<Vec<_>>();
         Self::from_clients(clients)
     }
@@ -386,69 +404,117 @@ impl<T: Transport> ShareClientPool<T> {
         self
     }
 
-    pub fn share_payload(
-        &self,
-        ttl_seconds: u32,
-        max_fetches: u16,
-        payload: &[u8],
-    ) -> Result<ShareResult, ClientError> {
-        self.share_payload_with_email(ttl_seconds, max_fetches, payload, None)
+    pub fn with_sticky_server(
+        self,
+        server_id: u8,
+        expires_at_unix_ms: u64,
+    ) -> Result<Self, ClientError> {
+        self.set_sticky_server(server_id, expires_at_unix_ms)?;
+        Ok(self)
     }
 
-    pub fn share_payload_with_email(
+    pub fn set_sticky_server(
+        &self,
+        server_id: u8,
+        expires_at_unix_ms: u64,
+    ) -> Result<(), ClientError> {
+        let mut state = self.state.lock().map_err(publish_state_poisoned)?;
+        if !state.server_ids.contains(&server_id) {
+            return Err(ClientError::Topology(format!(
+                "sticky server id {server_id} is not in the current publish topology"
+            )));
+        }
+        state.sticky_server_id = Some(server_id);
+        state.sticky_until_ms = expires_at_unix_ms;
+        Ok(())
+    }
+
+    pub fn sticky_server(&self) -> Result<Option<StickyPublishServer>, ClientError> {
+        let snapshot = self.snapshot()?;
+        let now = unix_ms_now();
+        match snapshot.sticky_server_id {
+            Some(server_id)
+                if snapshot.sticky_until_ms > now && snapshot.server_ids.contains(&server_id) =>
+            {
+                Ok(Some(StickyPublishServer {
+                    server_id,
+                    expires_at_unix_ms: snapshot.sticky_until_ms,
+                }))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    pub fn ensure_sticky_server(&self) -> Result<Option<StickyPublishServer>, ClientError> {
+        if self.sticky_server()?.is_none() {
+            let _ = self.selection_offset();
+        }
+        self.sticky_server()
+    }
+
+    pub fn publish_payload(
         &self,
         ttl_seconds: u32,
-        max_fetches: u16,
+        max_receives: u16,
+        payload: &[u8],
+    ) -> Result<PublishResult, ClientError> {
+        self.publish_payload_with_email(ttl_seconds, max_receives, payload, None)
+    }
+
+    pub fn publish_payload_with_email(
+        &self,
+        ttl_seconds: u32,
+        max_receives: u16,
         payload: &[u8],
         verification_email: Option<&str>,
-    ) -> Result<ShareResult, ClientError> {
+    ) -> Result<PublishResult, ClientError> {
         self.try_clients_from(
             self.selection_offset(),
             |client, topology_version| {
-                client.share_payload_with_email_with_version(
+                client.publish_payload_with_email_with_version(
                     ttl_seconds,
-                    max_fetches,
+                    max_receives,
                     payload,
                     verification_email,
                     topology_version,
                 )
             },
-            retry_share_error,
+            retry_publish_error,
         )
     }
 
-    pub fn share_contact(
+    pub fn publish_contact(
         &self,
         ttl_seconds: u32,
-        max_fetches: u16,
-        contact: ContactShare<'_>,
-    ) -> Result<ShareResult, ClientError> {
-        let payload = payload::encode_contact_share(
+        max_receives: u16,
+        contact: ContactPublish<'_>,
+    ) -> Result<PublishResult, ClientError> {
+        let payload = payload::encode_contact_publish(
             contact.identity,
             contact.public_key,
             contact.signing_public_key,
             contact.fingerprint,
-            contact.share_nonce,
+            contact.publish_nonce,
             contact.created_at_unix_ms,
             contact.expires_at_unix_ms,
         );
-        self.share_payload_with_email(
+        self.publish_payload_with_email(
             ttl_seconds,
-            max_fetches,
+            max_receives,
             &payload,
             contact.verification_email,
         )
     }
 
-    pub fn fetch(&self, share_code: &str) -> Result<FetchedShare, ClientError> {
+    pub fn receive(&self, publish_code: &str) -> Result<ReceivedPublish, ClientError> {
         self.try_clients_for_code(
-            share_code,
-            |client, topology_version| client.fetch_with_version(share_code, topology_version),
-            retry_fetch_or_delete_error,
+            publish_code,
+            |client, topology_version| client.receive_with_version(publish_code, topology_version),
+            retry_receive_or_delete_error,
         )
     }
 
-    pub fn delete(&self, share_code: &str, delete_token: &[u8]) -> Result<bool, ClientError> {
+    pub fn delete(&self, publish_code: &str, delete_token: &[u8]) -> Result<bool, ClientError> {
         let snapshot = self.snapshot()?;
         if snapshot.clients.is_empty() {
             return Err(ClientError::Url(
@@ -459,9 +525,9 @@ impl<T: Transport> ShareClientPool<T> {
         let mut last_error = None;
         for _ in 0..2 {
             let topology_version = snapshot.topology_version.if_version_for_request();
-            let clients = self.clients_for_code(share_code, &snapshot);
+            let clients = self.clients_for_code(publish_code, &snapshot);
             for client in clients {
-                match client.delete_with_version(share_code, delete_token, topology_version) {
+                match client.delete_with_version(publish_code, delete_token, topology_version) {
                     Ok(response) => {
                         if let Some(topology) = response.topology {
                             let _ = self.apply_topology_update(topology);
@@ -470,11 +536,11 @@ impl<T: Transport> ShareClientPool<T> {
                             return Ok(true);
                         }
                         last_error = Some(ClientError::Server {
-                            status: Status::ShareNotFound,
+                            status: Status::PublishNotFound,
                             message: "delete not performed on this server".to_string(),
                         });
                     }
-                    Err(err) if retry_fetch_or_delete_error(&err) => {
+                    Err(err) if retry_receive_or_delete_error(&err) => {
                         last_error = Some(err);
                     }
                     Err(err) => return Err(err),
@@ -488,7 +554,7 @@ impl<T: Transport> ShareClientPool<T> {
         }
         match last_error {
             Some(ClientError::Server {
-                status: Status::ShareNotFound,
+                status: Status::PublishNotFound,
                 ..
             }) => Ok(false),
             Some(err) => Err(err),
@@ -500,7 +566,7 @@ impl<T: Transport> ShareClientPool<T> {
         &self,
         start: usize,
         mut call: impl FnMut(
-            &ShareClient<T>,
+            &PublishClient<T>,
             Option<u64>,
         ) -> Result<TopologyAwareResponse<R>, ClientError>,
         retry: impl Fn(&ClientError) -> bool,
@@ -541,23 +607,40 @@ impl<T: Transport> ShareClientPool<T> {
     }
 
     fn selection_offset(&self) -> usize {
-        let Ok(snapshot) = self.snapshot() else {
+        let Ok(mut state) = self.state.lock() else {
             return 0;
         };
-        if snapshot.clients.len() <= 1 {
+        let now = unix_ms_now();
+        if state.clients.len() <= 1 {
+            state.sticky_server_id = state.server_ids.first().copied();
+            state.sticky_until_ms = now.saturating_add(DEFAULT_STICKY_SERVER_TTL_MS);
             return 0;
         }
-        SystemTime::now()
+        if let Some(sticky_server_id) = state.sticky_server_id {
+            if state.sticky_until_ms > now {
+                if let Some(index) = state
+                    .server_ids
+                    .iter()
+                    .position(|server_id| *server_id == sticky_server_id)
+                {
+                    return index;
+                }
+            }
+        }
+        let index = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|duration| duration.subsec_nanos() as usize % snapshot.clients.len())
-            .unwrap_or(0)
+            .map(|duration| duration.subsec_nanos() as usize % state.clients.len())
+            .unwrap_or(0);
+        state.sticky_server_id = state.server_ids.get(index).copied();
+        state.sticky_until_ms = now.saturating_add(DEFAULT_STICKY_SERVER_TTL_MS);
+        index
     }
 
     fn try_clients_for_code<R>(
         &self,
-        share_code: &str,
+        publish_code: &str,
         mut call: impl FnMut(
-            &ShareClient<T>,
+            &PublishClient<T>,
             Option<u64>,
         ) -> Result<TopologyAwareResponse<R>, ClientError>,
         retry: impl Fn(&ClientError) -> bool,
@@ -572,7 +655,7 @@ impl<T: Transport> ShareClientPool<T> {
         let mut last_error = None;
         for _ in 0..2 {
             let topology_version = snapshot.topology_version.if_version_for_request();
-            let clients = self.clients_for_code(share_code, &snapshot);
+            let clients = self.clients_for_code(publish_code, &snapshot);
             for client in clients {
                 match call(&client, topology_version) {
                     Ok(response) => {
@@ -597,16 +680,20 @@ impl<T: Transport> ShareClientPool<T> {
     }
 
     fn snapshot(&self) -> Result<TopologyStateSnapshot<T>, ClientError> {
-        Ok(self.state.lock().map_err(share_state_poisoned)?.snapshot())
+        Ok(self
+            .state
+            .lock()
+            .map_err(publish_state_poisoned)?
+            .snapshot())
     }
 
     fn clients_for_code(
         &self,
-        share_code: &str,
+        publish_code: &str,
         snapshot: &TopologyStateSnapshot<T>,
-    ) -> Vec<ShareClient<T>> {
+    ) -> Vec<PublishClient<T>> {
         let mut preferred_ids = Vec::new();
-        if let Some((owner_id, secondary_id)) = topology::share_code_locator(share_code) {
+        if let Some((owner_id, secondary_id)) = topology::publish_code_locator(publish_code) {
             if let Some(route) = snapshot
                 .routes
                 .iter()
@@ -647,7 +734,7 @@ impl<T: Transport> ShareClientPool<T> {
 
     fn apply_topology_update(&self, topology: ClusterTopology) -> Result<(), ClientError> {
         let topology = dedupe_topology(topology);
-        let mut state = self.state.lock().map_err(share_state_poisoned)?;
+        let mut state = self.state.lock().map_err(publish_state_poisoned)?;
         if topology.version != 0 {
             if topology.version <= state.topology_version {
                 return Ok(());
@@ -682,7 +769,7 @@ impl<T: Transport> ShareClientPool<T> {
         let mut server_ids = Vec::new();
         for server in &topology.servers {
             if let Some(transport) = T::from_url(&server.url) {
-                let mut client = ShareClient::from_transport(transport);
+                let mut client = PublishClient::from_transport(transport);
                 if let Some(previous) = state.clients.first() {
                     client.max_response_bytes = previous.max_response_bytes;
                     client.retry_policy = previous.retry_policy;
@@ -695,6 +782,13 @@ impl<T: Transport> ShareClientPool<T> {
             return Err(ClientError::Topology(
                 "topology update yielded no reachable key servers".to_string(),
             ));
+        }
+        if state
+            .sticky_server_id
+            .is_some_and(|sticky_server_id| !server_ids.contains(&sticky_server_id))
+        {
+            state.sticky_server_id = None;
+            state.sticky_until_ms = 0;
         }
         state.clients = clients;
         state.server_ids = server_ids;
@@ -764,7 +858,7 @@ impl TopologyVersionExt for u64 {
     }
 }
 
-impl<T: Transport> ShareClient<T> {
+impl<T: Transport> PublishClient<T> {
     pub fn from_transport(transport: T) -> Self {
         Self {
             transport,
@@ -792,26 +886,26 @@ impl<T: Transport> ShareClient<T> {
         self
     }
 
-    pub fn share_payload(
+    pub fn publish_payload(
         &self,
         ttl_seconds: u32,
-        max_fetches: u16,
+        max_receives: u16,
         payload: &[u8],
-    ) -> Result<ShareResult, ClientError> {
-        self.share_payload_with_email(ttl_seconds, max_fetches, payload, None)
+    ) -> Result<PublishResult, ClientError> {
+        self.publish_payload_with_email(ttl_seconds, max_receives, payload, None)
     }
 
-    pub fn share_payload_with_email(
+    pub fn publish_payload_with_email(
         &self,
         ttl_seconds: u32,
-        max_fetches: u16,
+        max_receives: u16,
         payload: &[u8],
         verification_email: Option<&str>,
-    ) -> Result<ShareResult, ClientError> {
+    ) -> Result<PublishResult, ClientError> {
         Ok(self
-            .share_payload_with_email_with_version(
+            .publish_payload_with_email_with_version(
                 ttl_seconds,
-                max_fetches,
+                max_receives,
                 payload,
                 verification_email,
                 None,
@@ -819,106 +913,106 @@ impl<T: Transport> ShareClient<T> {
             .value)
     }
 
-    pub fn share_payload_with_email_with_version(
+    pub fn publish_payload_with_email_with_version(
         &self,
         ttl_seconds: u32,
-        max_fetches: u16,
+        max_receives: u16,
         payload: &[u8],
         verification_email: Option<&str>,
         topology_version: Option<u64>,
-    ) -> Result<TopologyAwareResponse<ShareResult>, ClientError> {
+    ) -> Result<TopologyAwareResponse<PublishResult>, ClientError> {
         payload::validate_payload(payload)?;
-        let body = protocol::encode_share_request_with_email(
+        let body = protocol::encode_publish_request_with_email(
             ttl_seconds,
-            max_fetches,
+            max_receives,
             payload,
             verification_email,
         );
         let response = self.request_with_retry(
-            Operation::Share,
+            Operation::Publish,
             &body,
             topology_version,
             retry_single_client_error,
         )?;
-        let decoded = protocol::decode_share_response_document(&response.value.payload)?;
+        let decoded = protocol::decode_publish_response_document(&response.value.payload)?;
         Ok(TopologyAwareResponse {
-            value: ShareResult {
-                share_code: decoded.share_code,
+            value: PublishResult {
+                publish_code: decoded.publish_code,
                 delete_token: decoded.delete_token,
                 expires_at_unix_ms: decoded.expires_at_unix_ms,
-                max_fetches: decoded.max_fetches,
+                max_receives: decoded.max_receives,
                 verification_url: decoded.verification_url,
             },
             topology: response.topology,
         })
     }
 
-    pub fn share_contact(
+    pub fn publish_contact(
         &self,
         ttl_seconds: u32,
-        max_fetches: u16,
-        contact: ContactShare<'_>,
-    ) -> Result<ShareResult, ClientError> {
-        let payload = payload::encode_contact_share(
+        max_receives: u16,
+        contact: ContactPublish<'_>,
+    ) -> Result<PublishResult, ClientError> {
+        let payload = payload::encode_contact_publish(
             contact.identity,
             contact.public_key,
             contact.signing_public_key,
             contact.fingerprint,
-            contact.share_nonce,
+            contact.publish_nonce,
             contact.created_at_unix_ms,
             contact.expires_at_unix_ms,
         );
-        self.share_payload_with_email(
+        self.publish_payload_with_email(
             ttl_seconds,
-            max_fetches,
+            max_receives,
             &payload,
             contact.verification_email,
         )
     }
 
-    pub fn fetch(&self, share_code: &str) -> Result<FetchedShare, ClientError> {
-        Ok(self.fetch_with_version(share_code, None)?.value)
+    pub fn receive(&self, publish_code: &str) -> Result<ReceivedPublish, ClientError> {
+        Ok(self.receive_with_version(publish_code, None)?.value)
     }
 
-    pub fn fetch_with_version(
+    pub fn receive_with_version(
         &self,
-        share_code: &str,
+        publish_code: &str,
         topology_version: Option<u64>,
-    ) -> Result<TopologyAwareResponse<FetchedShare>, ClientError> {
-        let body = protocol::encode_fetch_request(share_code);
+    ) -> Result<TopologyAwareResponse<ReceivedPublish>, ClientError> {
+        let body = protocol::encode_receive_request(publish_code);
         let response = self.request_with_retry(
-            Operation::Fetch,
+            Operation::Receive,
             &body,
             topology_version,
             retry_single_client_error,
         )?;
-        let decoded = protocol::decode_fetch_response_document(&response.value.payload)?;
-        let payload_type = payload::validate_payload(&decoded.share_payload)?;
+        let decoded = protocol::decode_receive_response_document(&response.value.payload)?;
+        let payload_type = payload::validate_payload(&decoded.publish_payload)?;
         Ok(TopologyAwareResponse {
-            value: FetchedShare {
-                payload: decoded.share_payload,
+            value: ReceivedPublish {
+                payload: decoded.publish_payload,
                 payload_type,
                 expires_at_unix_ms: decoded.expires_at_unix_ms,
-                remaining_fetches: decoded.remaining_fetches,
+                remaining_receives: decoded.remaining_receives,
                 email_verification: decoded.email_verification,
             },
             topology: response.topology,
         })
     }
 
-    pub fn delete(&self, share_code: &str, delete_token: &[u8]) -> Result<bool, ClientError> {
+    pub fn delete(&self, publish_code: &str, delete_token: &[u8]) -> Result<bool, ClientError> {
         Ok(self
-            .delete_with_version(share_code, delete_token, None)?
+            .delete_with_version(publish_code, delete_token, None)?
             .value)
     }
 
     pub fn delete_with_version(
         &self,
-        share_code: &str,
+        publish_code: &str,
         delete_token: &[u8],
         topology_version: Option<u64>,
     ) -> Result<TopologyAwareResponse<bool>, ClientError> {
-        let body = protocol::encode_delete_request(share_code, delete_token);
+        let body = protocol::encode_delete_request(publish_code, delete_token);
         let response = self.request_with_retry(
             Operation::Delete,
             &body,
@@ -1011,13 +1105,30 @@ impl HttpTransport {
     }
 
     fn post_binary_std(&self, body: &[u8]) -> Result<Vec<u8>, ClientError> {
-        self.post_binary_std_with_topology(body, None)
+        self.post_binary_std_with_headers(body, None, None)
     }
 
     fn post_binary_std_with_topology(
         &self,
         body: &[u8],
         topology_version: Option<u64>,
+    ) -> Result<Vec<u8>, ClientError> {
+        self.post_binary_std_with_headers(body, topology_version, None)
+    }
+
+    pub fn post_binary_with_server_token(
+        &self,
+        body: &[u8],
+        server_token: &str,
+    ) -> Result<Vec<u8>, ClientError> {
+        self.post_binary_std_with_headers(body, None, Some(server_token))
+    }
+
+    fn post_binary_std_with_headers(
+        &self,
+        body: &[u8],
+        topology_version: Option<u64>,
+        server_token: Option<&str>,
     ) -> Result<Vec<u8>, ClientError> {
         if self.endpoint.scheme == Scheme::Https {
             return tls_request(
@@ -1027,14 +1138,18 @@ impl HttpTransport {
                 self.timeout,
                 DEFAULT_MAX_RESPONSE_BYTES,
                 topology_version,
+                server_token,
             );
         }
         let mut stream = self.endpoint.connect(self.timeout)?;
         let topology_header = topology_version
             .map(|version| format!("{}: {version}\r\n", REQUEST_TOPOLOGY_HEADER))
             .unwrap_or_default();
+        let server_token_header = server_token
+            .map(|token| format!("{}: {token}\r\n", SERVER_TOKEN_HEADER))
+            .unwrap_or_default();
         let request = format!(
-            "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/octet-stream\r\n{topology_header}Content-Length: {}\r\nConnection: close\r\n\r\n",
+            "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/octet-stream\r\n{topology_header}{server_token_header}Content-Length: {}\r\nConnection: close\r\n\r\n",
             self.endpoint.path,
             self.endpoint.host,
             body.len()
@@ -1058,7 +1173,7 @@ impl Transport for HttpTransport {
 
     fn get_topology(url: &str) -> Option<Vec<u8>> {
         let mut endpoint = Endpoint::parse(url).ok()?;
-        endpoint.path = "/v1/topology".to_string();
+        endpoint.path = topology_path(&endpoint.path);
         endpoint
             .get(Duration::from_secs(10), DEFAULT_MAX_RESPONSE_BYTES)
             .ok()
@@ -1074,12 +1189,12 @@ impl Transport for HttpTransport {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct ContactShare<'a> {
+pub struct ContactPublish<'a> {
     pub identity: &'a str,
     pub public_key: &'a [u8],
     pub signing_public_key: &'a [u8],
     pub fingerprint: &'a [u8],
-    pub share_nonce: &'a [u8],
+    pub publish_nonce: &'a [u8],
     pub created_at_unix_ms: u64,
     pub expires_at_unix_ms: u64,
     pub verification_email: Option<&'a str>,
@@ -1098,7 +1213,7 @@ impl Endpoint {
         };
         let (authority, path) = match rest.split_once('/') {
             Some((authority, path)) => (authority, format!("/{path}")),
-            None => (rest, "/v1/share".to_string()),
+            None => (rest, "/v1/publish".to_string()),
         };
         if authority.is_empty() {
             return Err(ClientError::Url("missing host".to_string()));
@@ -1143,7 +1258,15 @@ impl Endpoint {
 
     fn get(&self, timeout: Duration, max_response_bytes: usize) -> Result<Vec<u8>, ClientError> {
         if self.scheme == Scheme::Https {
-            return tls_request("GET", &self.url(), None, timeout, max_response_bytes, None);
+            return tls_request(
+                "GET",
+                &self.url(),
+                None,
+                timeout,
+                max_response_bytes,
+                None,
+                None,
+            );
         }
         let mut stream = self.connect(timeout)?;
         let request = format!(
@@ -1180,6 +1303,7 @@ fn tls_request(
     timeout: Duration,
     max_response_bytes: usize,
     topology_version: Option<u64>,
+    server_token: Option<&str>,
 ) -> Result<Vec<u8>, ClientError> {
     let agent = ureq::AgentBuilder::new().timeout(timeout).build();
     let request = match method {
@@ -1195,6 +1319,9 @@ fn tls_request(
                 .set("Connection", "close");
             if let Some(version) = topology_version {
                 request = request.set(REQUEST_TOPOLOGY_HEADER, &version.to_string());
+            }
+            if let Some(token) = server_token {
+                request = request.set(SERVER_TOKEN_HEADER, token);
             }
             request
         }
@@ -1237,28 +1364,25 @@ fn ureq_error(err: ureq::Error) -> ClientError {
     }
 }
 
-fn retry_share_error(err: &ClientError) -> bool {
+fn retry_publish_error(err: &ClientError) -> bool {
     matches!(
         err,
         ClientError::Io(_)
             | ClientError::Http(_)
             | ClientError::Server {
-                status: Status::StoreUnavailable | Status::RateLimited | Status::InternalError,
+                status: Status::StoreUnavailable | Status::InternalError,
                 ..
             }
     )
 }
 
-fn retry_fetch_or_delete_error(err: &ClientError) -> bool {
+fn retry_receive_or_delete_error(err: &ClientError) -> bool {
     matches!(
         err,
         ClientError::Io(_)
             | ClientError::Http(_)
             | ClientError::Server {
-                status: Status::ShareNotFound
-                    | Status::StoreUnavailable
-                    | Status::RateLimited
-                    | Status::InternalError,
+                status: Status::PublishNotFound | Status::StoreUnavailable | Status::InternalError,
                 ..
             }
     )
@@ -1349,14 +1473,19 @@ fn topology_urls_from_servers(servers: &[TopologyServer]) -> Vec<String> {
     dedupe_urls(
         servers
             .iter()
-            .map(|server| topology_url_from_share_url(&server.url))
+            .map(|server| topology_url_from_publish_url(&server.url))
             .filter_map(|url| url),
     )
 }
 
-fn topology_url_from_share_url(url: &str) -> Option<String> {
+fn topology_path(path: &str) -> String {
+    let _ = path;
+    "/v1/topology".to_string()
+}
+
+fn topology_url_from_publish_url(url: &str) -> Option<String> {
     let mut endpoint = Endpoint::parse(url).ok()?;
-    endpoint.path = "/v1/topology".to_string();
+    endpoint.path = topology_path(&endpoint.path);
     Some(endpoint.url())
 }
 
@@ -1393,4 +1522,26 @@ fn fallback_routes(server_ids: &[u8]) -> Vec<TopologyRoute> {
         });
     }
     routes
+}
+#[cfg(test)]
+mod tests {
+    use super::{topology_path, topology_url_from_publish_url};
+
+    #[test]
+    fn topology_path_strips_existing_query_token() {
+        assert_eq!(
+            topology_path("/v1/topology?token=server-token"),
+            "/v1/topology"
+        );
+        assert_eq!(
+            topology_path("/v1/publish?token=server-token"),
+            "/v1/topology"
+        );
+        assert_eq!(topology_path("/v1/publish"), "/v1/topology");
+        assert_eq!(
+            topology_url_from_publish_url("https://server.example/v1/publish?token=server-token")
+                .as_deref(),
+            Some("https://server.example/v1/topology")
+        );
+    }
 }

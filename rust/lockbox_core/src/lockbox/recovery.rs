@@ -18,6 +18,7 @@ use crate::record::{DecodedRecord, RecordKind};
 use crate::signing::verify_commit_signatures;
 use crate::toc_entry::TocEntry;
 use crate::variable_btree::{decode_variable_node_secure, VariableNode, VariableValue};
+use crate::OwnerSigningKeyPair;
 use crate::{
     Error, FormDefinition, FormRecord, FormTypeId, LockboxEntry, LockboxPath, RecoveryReport,
     Result, VariableName,
@@ -60,17 +61,22 @@ impl RecoveryScanner {
     /// Returns `Error::InvalidKey` if the supplied key cannot authenticate any
     /// recoverable records, or `Error::CorruptRecord`/storage errors if the
     /// recovered content cannot be written into the new lockbox.
-    pub fn salvage_bytes(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> Result<Lockbox> {
-        salvage_bytes(bytes, key)
+    pub fn salvage_bytes(
+        bytes: Vec<u8>,
+        key: impl AsRef<[u8]>,
+        signing_key: &OwnerSigningKeyPair,
+    ) -> Result<Lockbox> {
+        salvage_bytes(bytes, key, signing_key)
     }
 
     /// Salvage a damaged lockbox using a content key held in secure memory.
     pub fn salvage_bytes_with_secret_key(
         bytes: Vec<u8>,
         key: &crate::SecretVec,
+        signing_key: &OwnerSigningKeyPair,
     ) -> Result<Lockbox> {
         let key_bytes = Zeroizing::new(key.with_bytes(|key| key.to_vec())?);
-        salvage_bytes(bytes, &*key_bytes)
+        salvage_bytes(bytes, &*key_bytes, signing_key)
     }
 }
 
@@ -156,7 +162,11 @@ fn recover_bytes(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> RecoveryReport {
     }
 }
 
-fn salvage_bytes(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> Result<Lockbox> {
+fn salvage_bytes(
+    bytes: Vec<u8>,
+    key: impl AsRef<[u8]>,
+    signing_key: &OwnerSigningKeyPair,
+) -> Result<Lockbox> {
     let key_bytes = key.as_ref().to_vec();
     let lockbox_id = lockbox_id_from_bytes_unchecked(&bytes);
     let scanner = PageScanner::new(&bytes, lockbox_id, &key_bytes);
@@ -170,6 +180,7 @@ fn salvage_bytes(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> Result<Lockbox> {
         lockbox_id,
         crate::LockboxOptions::default(),
     );
+    recovered.set_owner_signing_key(signing_key.try_clone()?);
     let mut latest_paths = BTreeMap::new();
 
     for record in &scan.records {

@@ -7,7 +7,7 @@ const STATUS_VERSION: u16 = 1;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KeyServerStatus {
     pub created: u64,
-    pub fetched: u64,
+    pub received: u64,
     pub deleted: u64,
     pub expired: u64,
     pub misses: u64,
@@ -22,7 +22,7 @@ pub fn encode_status(status: &KeyServerStatus) -> Vec<u8> {
     out.extend_from_slice(STATUS_MAGIC);
     protocol::put_u16(&mut out, STATUS_VERSION);
     protocol::put_u64(&mut out, status.created);
-    protocol::put_u64(&mut out, status.fetched);
+    protocol::put_u64(&mut out, status.received);
     protocol::put_u64(&mut out, status.deleted);
     protocol::put_u64(&mut out, status.expired);
     protocol::put_u64(&mut out, status.misses);
@@ -47,7 +47,7 @@ pub fn decode_status(bytes: &[u8]) -> Result<KeyServerStatus, ClientError> {
     }
     Ok(KeyServerStatus {
         created: reader.u64().map_err(status_protocol_error)?,
-        fetched: reader.u64().map_err(status_protocol_error)?,
+        received: reader.u64().map_err(status_protocol_error)?,
         deleted: reader.u64().map_err(status_protocol_error)?,
         expired: reader.u64().map_err(status_protocol_error)?,
         misses: reader.u64().map_err(status_protocol_error)?,

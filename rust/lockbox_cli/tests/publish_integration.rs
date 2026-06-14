@@ -7,9 +7,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use lockbox_key_server::{server::run_listener, store::ServerConfig, store::ShareStore};
-use lockbox_share_protocol::{
-    decode_contact_share, share_code_locator, ServerStatus, ShareClientPool, TopologyRoute,
+use lockbox_key_server::{server::run_listener, store::PublishStore, store::ServerConfig};
+use lockbox_publish_protocol::{
+    decode_contact_publish, publish_code_locator, PublishClientPool, ServerStatus, TopologyRoute,
     TopologyServer,
 };
 
@@ -28,7 +28,7 @@ fn cli_publish_and_receive_with_two_servers() {
     init_vault_with_email(bin, &vault_root, &agent_root, "alice@example.test");
 
     let publish = publish_contact(bin, &vault_root, &agent_root, &cluster.topology_url());
-    let owner = cluster.owner_store(&publish.share_code);
+    let owner = cluster.owner_store(&publish.publish_code);
     let verified = owner.verify_email(&publish.verified_query_code, &publish.verified_query_token);
     assert!(
         verified.success,
@@ -43,7 +43,7 @@ fn cli_publish_and_receive_with_two_servers() {
             "vault",
             "contact",
             "receive",
-            &publish.share_code,
+            &publish.publish_code,
             "received",
             "--topology-url",
             &cluster.topology_url(),
@@ -57,14 +57,14 @@ fn cli_publish_and_receive_with_two_servers() {
     );
     assert_success(&receive);
     let receive_text = String::from_utf8_lossy(&receive.stdout);
-    assert!(receive_text.contains(&format!("share_code={}", publish.share_code)));
+    assert!(receive_text.contains(&format!("publish_code={}", publish.publish_code)));
     assert!(receive_text.contains("contact=received"));
     assert!(receive_text.contains("fingerprint_verified=yes"));
 }
 
 #[test]
 #[ignore = "requires local TCP sockets; run explicitly on a host with loopback networking"]
-fn cli_publish_can_be_fetched_from_failover_path() {
+fn cli_publish_can_be_received_from_failover_path() {
     if !has_loopback_sockets() {
         eprintln!("skipping local-socket e2e test in restricted environment");
         return;
@@ -75,23 +75,23 @@ fn cli_publish_can_be_fetched_from_failover_path() {
     init_vault_with_email(bin, &vault_root, &agent_root, "alice@example.test");
 
     let publish = publish_contact(bin, &vault_root, &agent_root, &cluster.topology_url());
-    let owner_store = cluster.owner_store(&publish.share_code);
+    let owner_store = cluster.owner_store(&publish.publish_code);
     let (owner_id, _secondary_id) = cluster
-        .share_locator(&publish.share_code)
-        .expect("publish share code has valid locator");
+        .publish_locator(&publish.publish_code)
+        .expect("publish code has valid locator");
     let failover_pool = cluster.pool_with_dead_server(owner_id);
-    let non_owner = cluster.non_owner_store(&publish.share_code);
+    let non_owner = cluster.non_owner_store(&publish.publish_code);
 
     wait_until(
-        "share replicated to standby",
+        "publish replicated to standby",
         Duration::from_secs(10),
-        || cluster.standby.store.fetch(&publish.share_code).is_ok(),
+        || cluster.standby.store.receive(&publish.publish_code).is_ok(),
     );
 
-    let fetched = failover_pool
-        .fetch(&publish.share_code)
-        .expect("failover fetch");
-    let decoded = decode_contact_share(&fetched.payload).expect("decode failover payload");
+    let received = failover_pool
+        .receive(&publish.publish_code)
+        .expect("failover receive");
+    let decoded = decode_contact_publish(&received.payload).expect("decode failover payload");
     assert_eq!(decoded.identity, "default");
 
     let verify =
@@ -101,19 +101,19 @@ fn cli_publish_can_be_fetched_from_failover_path() {
         non_owner.verify_email(&publish.verified_query_code, &publish.verified_query_token);
     assert!(
         !non_owner_verify.success,
-        "non-owner should not verify share code without owner responsibility"
+        "non-owner should not verify publish code without owner responsibility"
     );
 }
 
 impl TwoServerCluster {
-    fn share_locator(&self, share_code: &str) -> Option<(u8, u8)> {
-        share_code_locator(share_code)
+    fn publish_locator(&self, publish_code: &str) -> Option<(u8, u8)> {
+        publish_code_locator(publish_code)
     }
 
-    fn owner_store(&self, share_code: &str) -> &ShareStore {
+    fn owner_store(&self, publish_code: &str) -> &PublishStore {
         let (owner_id, _) = self
-            .share_locator(share_code)
-            .expect("invalid share locator");
+            .publish_locator(publish_code)
+            .expect("invalid publish locator");
         match owner_id {
             0 => self.primary.store.as_ref(),
             1 => self.standby.store.as_ref(),
@@ -121,10 +121,10 @@ impl TwoServerCluster {
         }
     }
 
-    fn non_owner_store(&self, share_code: &str) -> &ShareStore {
+    fn non_owner_store(&self, publish_code: &str) -> &PublishStore {
         let (owner_id, _) = self
-            .share_locator(share_code)
-            .expect("invalid share locator");
+            .publish_locator(publish_code)
+            .expect("invalid publish locator");
         match owner_id {
             0 => self.standby.store.as_ref(),
             1 => self.primary.store.as_ref(),
@@ -133,8 +133,8 @@ impl TwoServerCluster {
     }
 }
 
-struct PublishedShare {
-    share_code: String,
+struct PublishedIdentity {
+    publish_code: String,
     contact_fingerprint: String,
     verified_query_code: String,
     verified_query_token: String,
@@ -145,7 +145,7 @@ fn publish_contact(
     vault_root: &PathBuf,
     agent_root: &PathBuf,
     topology_url: &str,
-) -> PublishedShare {
+) -> PublishedIdentity {
     let publish = run_output_in(
         bin,
         &[
@@ -156,7 +156,7 @@ fn publish_contact(
             topology_url,
             "--ttl",
             "300",
-            "--max-fetches",
+            "--max-receives",
             "10",
         ],
         vault_root,
@@ -176,14 +176,14 @@ fn init_vault_with_email(bin: &str, vault_root: &PathBuf, agent_root: &PathBuf, 
     );
 }
 
-fn parse_publish_output(text: &str) -> PublishedShare {
-    let mut share_code = None;
+fn parse_publish_output(text: &str) -> PublishedIdentity {
+    let mut publish_code = None;
     let mut contact_fingerprint = None;
     let mut verification_url = None;
 
     for line in text.lines() {
-        if let Some(value) = line.strip_prefix("share_code=") {
-            share_code = Some(value.to_string());
+        if let Some(value) = line.strip_prefix("publish_code=") {
+            publish_code = Some(value.to_string());
             continue;
         }
         if let Some(value) = line.strip_prefix("contact_fingerprint=") {
@@ -195,15 +195,15 @@ fn parse_publish_output(text: &str) -> PublishedShare {
         }
     }
 
-    let share_code = share_code.expect("publish output did not include share_code");
+    let publish_code = publish_code.expect("publish output did not include publish_code");
     let contact_fingerprint =
         contact_fingerprint.expect("publish output did not include contact_fingerprint");
     let verification_url =
         verification_url.expect("publish output did not include verification_url");
     let (verified_query_code, verified_query_token) = verification_query_parts(&verification_url);
 
-    PublishedShare {
-        share_code,
+    PublishedIdentity {
+        publish_code,
         contact_fingerprint,
         verified_query_code,
         verified_query_token,
@@ -298,8 +298,8 @@ impl TwoServerCluster {
         let primary_addr = primary_listener.local_addr().unwrap();
         let standby_addr = standby_listener.local_addr().unwrap();
 
-        let primary_url = share_url(primary_addr);
-        let standby_url = share_url(standby_addr);
+        let primary_url = publish_url(primary_addr);
+        let standby_url = publish_url(standby_addr);
         let primary_replicate_url = replicate_url(primary_addr);
         let standby_replicate_url = replicate_url(standby_addr);
 
@@ -368,47 +368,47 @@ impl TwoServerCluster {
         }
     }
 
-    fn pool_with_dead_server(&self, dead_server_id: u8) -> ShareClientPool {
+    fn pool_with_dead_server(&self, dead_server_id: u8) -> PublishClientPool {
         let mut servers = self.topology_servers.clone();
         if let Some(server) = servers
             .iter_mut()
             .find(|server| server.id == dead_server_id)
         {
-            server.url = unused_share_url();
+            server.url = unused_publish_url();
         }
-        let topology = lockbox_share_protocol::ClusterTopology {
+        let topology = lockbox_publish_protocol::ClusterTopology {
             cluster_id: "cli-integration".to_string(),
             version: 1,
             servers,
             routes: self.topology_routes.clone(),
         };
-        ShareClientPool::from_topology(&topology)
+        PublishClientPool::from_topology(&topology)
             .unwrap()
             .with_timeout(Duration::from_millis(150))
             .with_retry_policy(100, Duration::from_millis(5), Duration::from_millis(250))
     }
 
     fn primary_url(&self) -> String {
-        self.primary.share_url()
+        self.primary.publish_url()
     }
 
     fn topology_url(&self) -> String {
         format!(
             "{}/v1/topology",
-            self.primary_url().trim_end_matches("/v1/share")
+            self.primary_url().trim_end_matches("/v1/publish")
         )
     }
 }
 
 struct RunningServer {
     addr: SocketAddr,
-    store: std::sync::Arc<ShareStore>,
+    store: std::sync::Arc<PublishStore>,
 }
 
 impl RunningServer {
     fn start(listener: TcpListener, config: ServerConfig) -> Self {
         let addr = listener.local_addr().unwrap();
-        let store = std::sync::Arc::new(ShareStore::open(config).unwrap());
+        let store = std::sync::Arc::new(PublishStore::open(config).unwrap());
         let server_store = std::sync::Arc::clone(&store);
         thread::spawn(move || {
             let _ = run_listener(listener, server_store);
@@ -417,8 +417,8 @@ impl RunningServer {
         Self { addr, store }
     }
 
-    fn share_url(&self) -> String {
-        share_url(self.addr)
+    fn publish_url(&self) -> String {
+        publish_url(self.addr)
     }
 }
 
@@ -436,7 +436,7 @@ fn config(
         state_dir,
         server_id,
         cluster_id: "e2e".to_string(),
-        public_url: Some(share_url(addr)),
+        public_url: Some(publish_url(addr)),
         topology_version: 1,
         topology_servers,
         topology_routes,
@@ -444,15 +444,16 @@ fn config(
         replication_peer_urls,
         promoted_owner_ids,
         max_payload_bytes: 8 * 1024,
-        default_ttl: Duration::from_secs(600),
-        max_ttl: Duration::from_secs(600),
+        verification_ttl: Duration::from_secs(1800),
+        default_receive_ttl: Duration::from_secs(600),
+        max_receive_ttl: Duration::from_secs(600),
         shard_count: 4,
-        developer_mode: false,
+        developer_mode: true,
         benchmark_requests: 0,
         benchmark_payload_bytes: 0,
         benchmark_concurrency: 0,
-        benchmark_preload_shares: 0,
-        max_fetches_per_share: 64,
+        benchmark_preload_published_payloads: 0,
+        max_receives_per_publish: 64,
         compact_min_bytes: 1024 * 1024,
         index_cache_entries: 100_000,
         rate_limit_per_minute: 0,
@@ -461,19 +462,19 @@ fn config(
     }
 }
 
-fn share_url(addr: SocketAddr) -> String {
-    format!("http://{addr}/v1/share")
+fn publish_url(addr: SocketAddr) -> String {
+    format!("http://{addr}/v1/publish")
 }
 
 fn replicate_url(addr: SocketAddr) -> String {
     format!("http://{addr}/v1/replicate")
 }
 
-fn unused_share_url() -> String {
+fn unused_publish_url() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let addr = listener.local_addr().unwrap();
     drop(listener);
-    share_url(addr)
+    publish_url(addr)
 }
 
 fn wait_for_http(addr: SocketAddr) {
@@ -525,7 +526,7 @@ fn temp_dir(label: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../target/test-tmp")
         .join(format!(
-            "lockbox-cli-share-{label}-{}-{counter}-{nanos}",
+            "lockbox-cli-publish-{label}-{}-{counter}-{nanos}",
             std::process::id()
         ))
 }
@@ -539,7 +540,7 @@ impl TempDir {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../target/test-tmp")
             .join(format!(
-                "lockbox-share-e2e-{name}-{}-{:?}",
+                "lockbox-publish-e2e-{name}-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             ));

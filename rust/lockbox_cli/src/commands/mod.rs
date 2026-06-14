@@ -104,7 +104,8 @@ fn reject_variables_set_single_dash_secret(args: &[String]) -> CliResult<()> {
 
 fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
     match command {
-        "open" => Some(SecretActivityKind::Unlock),
+        "open" => Some(SecretActivityKind::Open),
+        "close" => Some(SecretActivityKind::Close),
         "add" | "extract" | "cat" | "list" | "rm" | "rename" | "visualize" => {
             Some(SecretActivityKind::Open)
         }
@@ -167,9 +168,9 @@ fn create_args(matches: &ArgMatches) -> Vec<String> {
     if matches.get_flag("password") {
         args.push("--password".to_string());
     }
-    if let Some(recipient) = matches.get_one::<String>("for") {
-        args.push("--recipient".to_string());
-        args.push(recipient.clone());
+    if let Some(contact) = matches.get_one::<String>("for") {
+        args.push("--contact".to_string());
+        args.push(contact.clone());
     }
     args.push(value(matches, "lockbox"));
     args
@@ -550,6 +551,7 @@ fn vault_args(matches: &ArgMatches) -> CliResult<Vec<String>> {
                 "email" => {
                     push_many(&mut args, identity_sub, "args");
                 }
+                "fingerprint" => push_optional(&mut args, identity_sub, "name"),
                 "import" => {
                     push_option(&mut args, identity_sub, "public", "--public");
                     push_option(&mut args, identity_sub, "private", "--private");
@@ -567,7 +569,7 @@ fn vault_args(matches: &ArgMatches) -> CliResult<Vec<String>> {
                 }
                 "rotate" => push_optional(&mut args, identity_sub, "name"),
                 "publish" => {
-                    push_share_publish_options(&mut args, identity_sub);
+                    push_publish_identity_options(&mut args, identity_sub);
                     push_optional(&mut args, identity_sub, "name");
                 }
                 _ => {
@@ -596,7 +598,7 @@ fn vault_args(matches: &ArgMatches) -> CliResult<Vec<String>> {
                     }
                     "list" | "ls" => push_option(&mut args, contact_sub, "format", "--format"),
                     "receive" => {
-                        push_share_transport_options(&mut args, contact_sub);
+                        push_publish_transport_options(&mut args, contact_sub);
                         push_option(&mut args, contact_sub, "fingerprint", "--fingerprint");
                         push_option(
                             &mut args,
@@ -605,7 +607,7 @@ fn vault_args(matches: &ArgMatches) -> CliResult<Vec<String>> {
                             "--fingerprint-channel",
                         );
                         push_flag(&mut args, contact_sub, "overwrite", "--overwrite");
-                        args.push(value(contact_sub, "share-code"));
+                        args.push(value(contact_sub, "publish-code"));
                         push_optional(&mut args, contact_sub, "contact-name");
                     }
                     "remove" | "rm" => args.push(value(contact_sub, "name")),
@@ -714,15 +716,15 @@ fn session_args(matches: &ArgMatches) -> CliResult<Vec<String>> {
     Ok(args)
 }
 
-fn push_share_transport_options(args: &mut Vec<String>, matches: &ArgMatches) {
+fn push_publish_transport_options(args: &mut Vec<String>, matches: &ArgMatches) {
     push_option(args, matches, "server", "--server");
     push_option(args, matches, "topology-url", "--topology-url");
 }
 
-fn push_share_publish_options(args: &mut Vec<String>, matches: &ArgMatches) {
-    push_share_transport_options(args, matches);
+fn push_publish_identity_options(args: &mut Vec<String>, matches: &ArgMatches) {
+    push_publish_transport_options(args, matches);
     push_option(args, matches, "ttl", "--ttl");
-    push_option(args, matches, "max-fetches", "--max-fetches");
+    push_option(args, matches, "max-receives", "--max-receives");
 }
 
 fn access_args(matches: &ArgMatches) -> CliResult<Vec<String>> {

@@ -194,7 +194,7 @@ mod tests {
             terminate_on_suspend: false,
         };
         let mut registry = ActiveSecretRegistry::new(config);
-        let token = registry.register(1234, SecretActivityKind::Unlock).unwrap();
+        let token = registry.register(1234, SecretActivityKind::Open).unwrap();
         assert!(!registry.is_empty());
         registry.unregister(1234, token);
         assert!(registry.is_empty());

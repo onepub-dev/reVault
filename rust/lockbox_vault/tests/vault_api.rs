@@ -1,7 +1,7 @@
-use lockbox_core::vault_bridge::VaultUnlock;
+use lockbox_core::vault_bridge::VaultOpen;
 use lockbox_core::{
-    Error, Lockbox, LockboxPath, LockboxProtection, LockboxUnlock, OwnerSigningKeyPair,
-    RecipientKeyPair, Result, SecretVec,
+    ContactKeyPair, Error, Lockbox, LockboxOpen, LockboxPath, LockboxProtection,
+    OwnerSigningKeyPair, Result, SecretVec,
 };
 use lockbox_vault::{
     export_private_key, import_private_key_file, ContentKeyStore, IdentityGenerationStatus,
@@ -17,6 +17,10 @@ static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 fn p(path: impl AsRef<str>) -> LockboxPath {
     LockboxPath::new(path).unwrap()
+}
+
+fn signing_key() -> OwnerSigningKeyPair {
+    OwnerSigningKeyPair::generate().unwrap()
 }
 
 #[derive(Default)]
@@ -85,6 +89,10 @@ impl ContentKeyStore for SecureCloneStore {
 
 #[test]
 fn vault_create_open_and_lock_with_content_key() {
+    let _env_guard = ENV_LOCK.lock().unwrap();
+    let _platform_guard = EnvVarGuard::set("LOCKBOX_PLATFORM_SECRET_STORE", "disabled");
+    let (vault_root, _vault_dir_guard, _vault_password_guard) =
+        install_default_vault("raw-default-vault");
     let path = unique_path("raw");
     let vault = Vault::new(MemoryStore::default());
     let key = SecretVec::try_from_slice(b"0123456789abcdef0123456789abcdef").unwrap();
@@ -100,17 +108,22 @@ fn vault_create_open_and_lock_with_content_key() {
     let opened = vault.open_lockbox(&path).unwrap();
     assert_eq!(opened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
 
-    vault.lock_lockbox(&path).unwrap();
+    vault.close_lockbox(&path).unwrap();
     assert!(matches!(
         vault.open_lockbox(&path),
         Err(Error::VaultUnavailable(_))
     ));
 
     let _ = fs::remove_file(path);
+    let _ = fs::remove_dir_all(vault_root);
 }
 
 #[test]
-fn vault_password_create_and_unlock_cache_keys_outside_secure_read_access() {
+fn vault_password_create_and_open_cache_keys_outside_secure_read_access() {
+    let _env_guard = ENV_LOCK.lock().unwrap();
+    let _platform_guard = EnvVarGuard::set("LOCKBOX_PLATFORM_SECRET_STORE", "disabled");
+    let (vault_root, _vault_dir_guard, _vault_password_guard) =
+        install_default_vault("password-cache-default-vault");
     let path = unique_path("password-secure-cache");
     let vault = Vault::new(SecureCloneStore::default());
     let password = SecretString::try_from_slice(b"password").unwrap();
@@ -126,23 +139,26 @@ fn vault_password_create_and_unlock_cache_keys_outside_secure_read_access() {
     let cached = vault.open_lockbox(&path).unwrap();
     assert_eq!(cached.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
 
-    vault.lock_lockbox(&path).unwrap();
+    vault.close_lockbox(&path).unwrap();
     assert!(matches!(
         vault.open_lockbox(&path),
         Err(Error::VaultUnavailable(_))
     ));
 
-    let unlocked = vault
-        .unlock_lockbox_with_password(&path, &password)
-        .unwrap();
-    assert_eq!(unlocked.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    let opened = vault.open_lockbox_with_password(&path, &password).unwrap();
+    assert_eq!(opened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
 
     let recached = vault.open_lockbox(&path).unwrap();
     assert_eq!(recached.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    let _ = fs::remove_dir_all(vault_root);
 }
 
 #[test]
 fn vault_open_populates_cache_for_password_lockbox() {
+    let _env_guard = ENV_LOCK.lock().unwrap();
+    let _platform_guard = EnvVarGuard::set("LOCKBOX_PLATFORM_SECRET_STORE", "disabled");
+    let (vault_root, _vault_dir_guard, _vault_password_guard) =
+        install_default_vault("password-default-vault");
     let path = unique_path("password");
     let vault = Vault::new(MemoryStore::default());
     let password = SecretString::try_from_bytes(b"shared password".to_vec()).unwrap();
@@ -154,7 +170,7 @@ fn vault_open_populates_cache_for_password_lockbox() {
         .add_file(&p("/secret.txt"), b"bravo", false)
         .unwrap();
     lockbox.commit().unwrap();
-    vault.lock_lockbox(&path).unwrap();
+    vault.close_lockbox(&path).unwrap();
 
     assert!(matches!(
         vault.open_lockbox(&path),
@@ -162,24 +178,25 @@ fn vault_open_populates_cache_for_password_lockbox() {
     ));
 
     vault
-        .unlock_lockbox(&path, LockboxUnlock::Password(&password))
+        .open_lockbox_with(&path, LockboxOpen::Password(&password))
         .unwrap();
     let opened = vault.open_lockbox(&path).unwrap();
     assert_eq!(opened.get_file(&p("/secret.txt")).unwrap(), b"bravo");
 
     let _ = fs::remove_file(path);
+    let _ = fs::remove_dir_all(vault_root);
 }
 
 #[test]
 fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
     let root = unique_dir("directory");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
-    let vault = VaultDirectory::unlock_or_create(&root, &vault_password).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
     assert_eq!(
         vault.structure_version().unwrap(),
         CURRENT_VAULT_STRUCTURE_VERSION
     );
-    let keypair = RecipientKeyPair::generate().unwrap();
+    let keypair = ContactKeyPair::generate().unwrap();
     vault.store_private_key("default", &keypair).unwrap();
     let encrypted = fs::read(root.join("local-vault.lbox")).unwrap();
     assert!(!String::from_utf8_lossy(&encrypted).contains("default.key"));
@@ -217,11 +234,15 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
 
     let password = SecretString::try_from_bytes(b"pw".to_vec()).unwrap();
     let lockbox_path = root.join("backup-source.lbox");
-    let mut lockbox =
-        Lockbox::create_file(&lockbox_path, LockboxProtection::Password(&password)).unwrap();
+    let mut lockbox = Lockbox::create_file(
+        &lockbox_path,
+        LockboxProtection::Password(&password),
+        &signing_key(),
+    )
+    .unwrap();
     lockbox.add_file(&p("/a.txt"), b"alpha", false).unwrap();
     lockbox.commit().unwrap();
-    let backup = VaultUnlock::export_key_directory_backup(&lockbox).unwrap();
+    let backup = VaultOpen::export_key_directory_backup(&lockbox).unwrap();
     vault
         .store_key_directory_backup(lockbox.lockbox_id(), &backup)
         .unwrap();
@@ -256,10 +277,15 @@ fn vault_directory_rejects_unversioned_existing_vaults() {
     let vault_path = root.join("local-vault.lbox");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
 
-    Lockbox::create_file(&vault_path, LockboxProtection::Password(&vault_password)).unwrap();
+    Lockbox::create_file(
+        &vault_path,
+        LockboxProtection::Password(&vault_password),
+        &signing_key(),
+    )
+    .unwrap();
 
     assert!(matches!(
-        VaultDirectory::unlock_or_create(&root, &vault_password),
+        VaultDirectory::open_or_create(&root, &vault_password),
         Err(Error::Configuration(message))
             if message.contains("structure version is missing")
     ));
@@ -271,18 +297,26 @@ fn vault_directory_rejects_unversioned_existing_vaults() {
 fn vault_directory_rejects_older_structure_versions() {
     let root = unique_dir("explicit-legacy-vault-version");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
-    VaultDirectory::unlock_or_create(&root, &vault_password).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    let signing_key = vault
+        .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
+        .unwrap();
+    drop(vault);
 
     let vault_path = root.join("local-vault.lbox");
-    let mut lockbox =
-        Lockbox::open_file(&vault_path, LockboxUnlock::Password(&vault_password)).unwrap();
+    let mut lockbox = Lockbox::open_file_with_owner_signing_key(
+        &vault_path,
+        LockboxOpen::Password(&vault_password),
+        signing_key,
+    )
+    .unwrap();
     lockbox
         .add_file(&p("/vault/structure-version"), b"0\n", true)
         .unwrap();
     lockbox.commit().unwrap();
 
     assert!(matches!(
-        VaultDirectory::unlock_or_create(&root, &vault_password),
+        VaultDirectory::open_or_create(&root, &vault_password),
         Err(Error::Configuration(message)) if message.contains("cannot be migrated")
     ));
 
@@ -293,18 +327,26 @@ fn vault_directory_rejects_older_structure_versions() {
 fn vault_directory_rejects_newer_structure_versions() {
     let root = unique_dir("future-vault-version");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
-    VaultDirectory::unlock_or_create(&root, &vault_password).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    let signing_key = vault
+        .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
+        .unwrap();
+    drop(vault);
 
     let vault_path = root.join("local-vault.lbox");
-    let mut lockbox =
-        Lockbox::open_file(&vault_path, LockboxUnlock::Password(&vault_password)).unwrap();
+    let mut lockbox = Lockbox::open_file_with_owner_signing_key(
+        &vault_path,
+        LockboxOpen::Password(&vault_password),
+        signing_key,
+    )
+    .unwrap();
     lockbox
         .add_file(&p("/vault/structure-version"), b"999\n", true)
         .unwrap();
     lockbox.commit().unwrap();
 
     assert!(matches!(
-        VaultDirectory::unlock_or_create(&root, &vault_password),
+        VaultDirectory::open_or_create(&root, &vault_password),
         Err(Error::Configuration(message))
             if message.contains("newer than this reVault build supports")
     ));
@@ -313,7 +355,7 @@ fn vault_directory_rejects_newer_structure_versions() {
 }
 
 #[test]
-fn vault_unlock_uses_key_directory_backup_when_embedded_directory_is_corrupt() {
+fn vault_open_uses_key_directory_backup_when_embedded_directory_is_corrupt() {
     let _env_guard = ENV_LOCK.lock().unwrap();
     let path = unique_path("backup-fallback");
     let vault_root = unique_dir("backup-fallback-vault");
@@ -321,18 +363,22 @@ fn vault_unlock_uses_key_directory_backup_when_embedded_directory_is_corrupt() {
     let _ = fs::remove_dir_all(&vault_root);
 
     let password = SecretString::try_from_bytes(b"shared password".to_vec()).unwrap();
-    let mut lockbox = Lockbox::create_file(&path, LockboxProtection::Password(&password))
-        .expect("create password lockbox");
+    let mut lockbox = Lockbox::create_file(
+        &path,
+        LockboxProtection::Password(&password),
+        &signing_key(),
+    )
+    .expect("create password lockbox");
     lockbox
         .add_file(&p("/secret.txt"), b"bravo", false)
         .unwrap();
     lockbox.commit().unwrap();
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
-    VaultDirectory::unlock_or_create(&vault_root, &vault_password)
+    VaultDirectory::open_or_create(&vault_root, &vault_password)
         .unwrap()
         .store_key_directory_backup(
             lockbox.lockbox_id(),
-            &VaultUnlock::export_key_directory_backup(&lockbox).unwrap(),
+            &VaultOpen::export_key_directory_backup(&lockbox).unwrap(),
         )
         .unwrap();
 
@@ -342,7 +388,7 @@ fn vault_unlock_uses_key_directory_backup_when_embedded_directory_is_corrupt() {
     let _vault_password_guard = EnvVarGuard::set("LOCKBOX_VAULT_PASSWORD", "vault-password");
     let vault = Vault::new(MemoryStore::default());
     let opened = vault
-        .unlock_lockbox(&path, LockboxUnlock::Password(&password))
+        .open_lockbox_with(&path, LockboxOpen::Password(&password))
         .unwrap();
     assert_eq!(opened.get_file(&p("/secret.txt")).unwrap(), b"bravo");
 
@@ -351,7 +397,11 @@ fn vault_unlock_uses_key_directory_backup_when_embedded_directory_is_corrupt() {
 }
 
 #[test]
-fn vault_convenience_password_store_and_lock_all_flow() {
+fn vault_convenience_password_store_and_close_all_flow() {
+    let _env_guard = ENV_LOCK.lock().unwrap();
+    let _platform_guard = EnvVarGuard::set("LOCKBOX_PLATFORM_SECRET_STORE", "disabled");
+    let (vault_root, _vault_dir_guard, _vault_password_guard) =
+        install_default_vault("password-convenience-default-vault");
     let path = unique_path("password-convenience");
     let store = MemoryStore::default();
     let vault = Vault::new(store);
@@ -365,15 +415,13 @@ fn vault_convenience_password_store_and_lock_all_flow() {
         .add_file(&p("/secret.txt"), b"charlie", false)
         .unwrap();
     lockbox.commit().unwrap();
-    vault.lock_lockbox(&path).unwrap();
+    vault.close_lockbox(&path).unwrap();
     assert!(matches!(
         vault.open_lockbox(&path),
         Err(Error::VaultUnavailable(_))
     ));
 
-    let opened = vault
-        .unlock_lockbox_with_password(&path, &password)
-        .unwrap();
+    let opened = vault.open_lockbox_with_password(&path, &password).unwrap();
     assert_eq!(opened.get_file(&p("/secret.txt")).unwrap(), b"charlie");
     assert_eq!(
         vault
@@ -384,24 +432,25 @@ fn vault_convenience_password_store_and_lock_all_flow() {
         b"charlie"
     );
 
-    vault.lock_all().unwrap();
+    vault.close_all().unwrap();
     assert!(matches!(
         vault.open_lockbox(&path),
         Err(Error::VaultUnavailable(_))
     ));
 
     let _ = fs::remove_file(path);
+    let _ = fs::remove_dir_all(vault_root);
 }
 
 #[test]
 fn vault_directory_public_crud_helpers_flow() {
     let root = unique_dir("directory-crud");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
-    let vault = VaultDirectory::unlock_or_create(&root, &vault_password).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
     assert_eq!(vault.root(), root.as_path());
     assert_eq!(vault.path(), root.join("local-vault.lbox").as_path());
 
-    let keypair = RecipientKeyPair::generate().unwrap();
+    let keypair = ContactKeyPair::generate().unwrap();
     assert!(!vault.private_key_exists("default").unwrap());
     vault.store_private_key("default", &keypair).unwrap();
     assert!(vault.private_key_exists("default").unwrap());
@@ -420,18 +469,18 @@ fn vault_directory_public_crud_helpers_flow() {
     vault.delete_private_key("default").unwrap();
     assert!(!vault.private_key_exists("default").unwrap());
 
-    let recipient = keypair.public_key();
+    let contact = keypair.public_key();
     let signing = OwnerSigningKeyPair::generate().unwrap().public_key();
     assert!(!vault.contact_exists("alice").unwrap());
-    vault.store_contact("alice", &recipient).unwrap();
+    vault.store_contact("alice", &contact).unwrap();
     vault.store_contact_signing_key("alice", &signing).unwrap();
     assert!(vault.contact_exists("alice").unwrap());
-    assert_eq!(vault.load_contact("alice").unwrap(), recipient);
+    assert_eq!(vault.load_contact("alice").unwrap(), contact);
     assert_eq!(vault.load_contact_signing_key("alice").unwrap(), signing);
-    let recipients = vault.list_contacts().unwrap();
-    assert_eq!(recipients.len(), 1);
-    assert_eq!(recipients[0].name, "alice");
-    assert_eq!(recipients[0].key, recipient);
+    let contacts = vault.list_contacts().unwrap();
+    assert_eq!(contacts.len(), 1);
+    assert_eq!(contacts[0].name, "alice");
+    assert_eq!(contacts[0].key, contact);
     vault.delete_contact("alice").unwrap();
     assert!(!vault.contact_exists("alice").unwrap());
     assert!(vault.load_contact_signing_key("alice").is_err());
@@ -439,19 +488,23 @@ fn vault_directory_public_crud_helpers_flow() {
     assert_eq!(vault.key_directory_backup_count().unwrap(), 0);
     let password = SecretString::try_from_bytes(b"pw".to_vec()).unwrap();
     let lockbox_path = root.join("backup-count-source.lbox");
-    let mut lockbox =
-        Lockbox::create_file(&lockbox_path, LockboxProtection::Password(&password)).unwrap();
+    let mut lockbox = Lockbox::create_file(
+        &lockbox_path,
+        LockboxProtection::Password(&password),
+        &signing_key(),
+    )
+    .unwrap();
     lockbox.commit().unwrap();
     vault
         .store_key_directory_backup(
             lockbox.lockbox_id(),
-            &VaultUnlock::export_key_directory_backup(&lockbox).unwrap(),
+            &VaultOpen::export_key_directory_backup(&lockbox).unwrap(),
         )
         .unwrap();
     vault
         .store_key_directory_backup(
             lockbox.lockbox_id(),
-            &VaultUnlock::export_key_directory_backup(&lockbox).unwrap(),
+            &VaultOpen::export_key_directory_backup(&lockbox).unwrap(),
         )
         .unwrap();
     assert_eq!(vault.key_directory_backup_count().unwrap(), 1);
@@ -463,9 +516,9 @@ fn vault_directory_public_crud_helpers_flow() {
 fn vault_directory_tracks_identity_generations_and_rotation() {
     let root = unique_dir("identity-generations");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
-    let vault = VaultDirectory::unlock_or_create(&root, &vault_password).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
 
-    let original = RecipientKeyPair::generate().unwrap();
+    let original = ContactKeyPair::generate().unwrap();
     vault.store_private_key("default", &original).unwrap();
     let original_signing_public = vault
         .load_owner_signing_key_generation("default", 1)
@@ -553,10 +606,10 @@ fn vault_directory_tracks_identity_generations_and_rotation() {
 fn vault_directory_stores_identity_email_metadata() {
     let root = unique_dir("identity-email");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
-    let vault = VaultDirectory::unlock_or_create(&root, &vault_password).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
 
     vault
-        .store_private_key("default", &RecipientKeyPair::generate().unwrap())
+        .store_private_key("default", &ContactKeyPair::generate().unwrap())
         .unwrap();
     assert_eq!(vault.identity_email("default").unwrap(), None);
 
@@ -579,7 +632,7 @@ fn private_key_file_import_uses_secure_import_path() {
     let root = unique_dir("private-key-file-import");
     fs::create_dir_all(&root).unwrap();
     let path = root.join("private.key");
-    let keypair = RecipientKeyPair::generate().unwrap();
+    let keypair = ContactKeyPair::generate().unwrap();
     let private = export_private_key(&keypair, KeyFormat::RawHex).unwrap();
     private
         .with_bytes(|bytes| fs::write(&path, bytes))
@@ -607,6 +660,16 @@ fn unique_dir(label: &str) -> PathBuf {
             std::process::id(),
             monotonic_suffix()
         ))
+}
+
+fn install_default_vault(label: &str) -> (PathBuf, EnvVarGuard, EnvVarGuard) {
+    let root = unique_dir(label);
+    let _ = fs::remove_dir_all(&root);
+    let dir_guard = EnvVarGuard::set("LOCKBOX_VAULT_DIR", &root);
+    let password_guard = EnvVarGuard::set("LOCKBOX_VAULT_PASSWORD", "vault-password");
+    let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    VaultDirectory::open_or_create_default(&password).unwrap();
+    (root, dir_guard, password_guard)
 }
 
 fn monotonic_suffix() -> u128 {

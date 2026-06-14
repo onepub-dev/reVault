@@ -15,37 +15,37 @@ const HYBRID_KEY_VERSION: u16 = 1;
 const HYBRID_ALGORITHM_X25519_MLKEM768: u16 = 1;
 const X25519_KEY_LEN: usize = 32;
 
-/// Hybrid X25519 + ML-KEM-768 recipient keypair.
+/// Hybrid X25519 + ML-KEM-768 contact keypair.
 ///
 /// The private material is stored as a versioned Lockbox binary record in
-/// `SecretVec`. The public recipient key is cached separately for wrapping new
+/// `SecretVec`. The public contact key is cached separately for wrapping new
 /// content keys.
-pub struct RecipientKeyPair {
+pub struct ContactKeyPair {
     private_key_bytes: SecretVec,
     x25519_public_key: [u8; X25519_KEY_LEN],
     mlkem_encapsulation_key: ml_kem::EncapsulationKey768,
 }
 
-/// Public hybrid X25519 + ML-KEM-768 recipient key.
+/// Public hybrid X25519 + ML-KEM-768 contact key.
 ///
 /// This key can be shared with a lockbox creator. It can wrap a lockbox content
-/// key for the holder of the matching `RecipientKeyPair`, but it cannot unlock a
+/// key for the holder of the matching `ContactKeyPair`, but it cannot open a
 /// lockbox by itself.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RecipientPublicKey {
+pub struct ContactPublicKey {
     x25519_public_key: [u8; X25519_KEY_LEN],
     mlkem_encapsulation_key: ml_kem::EncapsulationKey768,
 }
 
-/// Content key wrapped to a hybrid X25519 + ML-KEM-768 recipient.
+/// Content key wrapped to a hybrid X25519 + ML-KEM-768 contact.
 #[derive(Debug, Clone)]
-pub struct RecipientWrappedKey {
+pub struct ContactWrappedKey {
     x25519_ephemeral_public_key: [u8; X25519_KEY_LEN],
     mlkem_ciphertext: ml_kem::Ciphertext<MlKem768>,
     encrypted_key: Vec<u8>,
 }
 
-impl RecipientKeyPair {
+impl ContactKeyPair {
     /// Generate a fresh hybrid X25519 + ML-KEM-768 keypair.
     ///
     /// Returns `Error::SecurityLimitExceeded` if the private record cannot be
@@ -70,10 +70,10 @@ impl RecipientKeyPair {
         })
     }
 
-    /// Encrypt a content key to this keypair's public recipient key.
+    /// Encrypt a content key to this keypair's public contact key.
     ///
     /// Returns `Error::InvalidKey` if authenticated wrapping fails.
-    pub fn encrypt(&self, content_key: &[u8]) -> Result<RecipientWrappedKey> {
+    pub fn encrypt(&self, content_key: &[u8]) -> Result<ContactWrappedKey> {
         self.public_key().encrypt(content_key)
     }
 
@@ -82,7 +82,7 @@ impl RecipientKeyPair {
     /// Returns `Error::InvalidKey` if authenticated decrypt fails,
     /// `Error::InvalidKeyMaterial` if the stored private key cannot be decoded,
     /// or `Error::SecurityLimitExceeded` if secure memory access fails.
-    pub fn decrypt(&self, wrapped: &RecipientWrappedKey) -> Result<Vec<u8>> {
+    pub fn decrypt(&self, wrapped: &ContactWrappedKey) -> Result<Vec<u8>> {
         self.private_key_bytes.with_bytes(|bytes| {
             let decoded = decode_private_key(bytes)?;
             let x25519_secret_key = X25519SecretKey::from(decoded.x25519_secret_key);
@@ -109,9 +109,9 @@ impl RecipientKeyPair {
         })?
     }
 
-    /// Return the public recipient key for this keypair.
-    pub fn public_key(&self) -> RecipientPublicKey {
-        RecipientPublicKey {
+    /// Return the public contact key for this keypair.
+    pub fn public_key(&self) -> ContactPublicKey {
+        ContactPublicKey {
             x25519_public_key: self.x25519_public_key,
             mlkem_encapsulation_key: self.mlkem_encapsulation_key.clone(),
         }
@@ -120,7 +120,7 @@ impl RecipientKeyPair {
     /// Construct a keypair by taking ownership of a private key record buffer.
     ///
     /// Returns `Error::InvalidKeyMaterial` if the bytes do not encode a
-    /// supported Lockbox hybrid recipient private key, or
+    /// supported Lockbox hybrid contact private key, or
     /// `Error::SecurityLimitExceeded` if secure memory access fails.
     pub fn from_private_key_record(private_key_bytes: SecretVec) -> Result<Self> {
         let (x25519_public_key, mlkem_encapsulation_key) =
@@ -155,25 +155,25 @@ impl RecipientKeyPair {
     }
 }
 
-impl RecipientPublicKey {
-    /// Decode a public recipient key from its versioned Lockbox byte
+impl ContactPublicKey {
+    /// Decode a public contact key from its versioned Lockbox byte
     /// representation.
     ///
     /// Returns `Error::InvalidKeyMaterial` if the bytes do not encode a
-    /// supported hybrid recipient public key.
+    /// supported hybrid contact public key.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         decode_public_key(bytes)
     }
 
-    /// Encode this public recipient key as versioned Lockbox bytes.
+    /// Encode this public contact key as versioned Lockbox bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         encode_public_key(self)
     }
 
-    /// Wrap a content key for this recipient.
+    /// Wrap a content key for this contact.
     ///
     /// Returns `Error::InvalidKey` if authenticated wrapping fails.
-    pub fn encrypt(&self, content_key: &[u8]) -> Result<RecipientWrappedKey> {
+    pub fn encrypt(&self, content_key: &[u8]) -> Result<ContactWrappedKey> {
         let mut ephemeral_secret_bytes = [0_u8; X25519_KEY_LEN];
         getrandom::getrandom(&mut ephemeral_secret_bytes)
             .map_err(|err| Error::Io(err.to_string()))?;
@@ -192,7 +192,7 @@ impl RecipientPublicKey {
             .encrypt(Nonce::from_slice(&[0_u8; 12]), content_key)
             .map_err(|_| Error::InvalidKey)?;
         wrapping_key.zeroize();
-        Ok(RecipientWrappedKey {
+        Ok(ContactWrappedKey {
             x25519_ephemeral_public_key,
             mlkem_ciphertext,
             encrypted_key,
@@ -200,7 +200,7 @@ impl RecipientPublicKey {
     }
 }
 
-impl RecipientWrappedKey {
+impl ContactWrappedKey {
     /// Reconstruct a wrapped key from serialized hybrid ciphertext components.
     ///
     /// Returns `Error::InvalidKeyMaterial` if the component bytes are invalid.
@@ -250,7 +250,7 @@ struct DecodedPrivateKey {
     mlkem_seed: Vec<u8>,
 }
 
-fn encode_public_key(key: &RecipientPublicKey) -> Vec<u8> {
+fn encode_public_key(key: &ContactPublicKey) -> Vec<u8> {
     let mlkem_public = key.mlkem_encapsulation_key.to_bytes();
     let mut out = Vec::with_capacity(16 + X25519_KEY_LEN + 4 + mlkem_public.len());
     out.extend_from_slice(PUBLIC_MAGIC);
@@ -261,7 +261,7 @@ fn encode_public_key(key: &RecipientPublicKey) -> Vec<u8> {
     out
 }
 
-fn decode_public_key(bytes: &[u8]) -> Result<RecipientPublicKey> {
+fn decode_public_key(bytes: &[u8]) -> Result<ContactPublicKey> {
     let mut reader = Reader::new(bytes);
     reader.magic(PUBLIC_MAGIC)?;
     reader.version()?;
@@ -276,7 +276,7 @@ fn decode_public_key(bytes: &[u8]) -> Result<RecipientPublicKey> {
     let mlkem_encapsulation_key = ml_kem::EncapsulationKey768::new(&key).map_err(|_| {
         Error::InvalidKeyMaterial("ML-KEM public key bytes are invalid".to_string())
     })?;
-    Ok(RecipientPublicKey {
+    Ok(ContactPublicKey {
         x25519_public_key: x25519_public,
         mlkem_encapsulation_key,
     })
@@ -314,7 +314,7 @@ fn derive_wrapping_key(x25519_secret: &[u8], mlkem_secret: &[u8]) -> Result<[u8;
     let mut input = Vec::with_capacity(4 + x25519_secret.len() + 4 + mlkem_secret.len());
     put_bytes(&mut input, x25519_secret);
     put_bytes(&mut input, mlkem_secret);
-    let hkdf = Hkdf::<Sha256>::new(Some(b"lockbox-v2-hybrid-recipient-wrap"), &input);
+    let hkdf = Hkdf::<Sha256>::new(Some(b"lockbox-v2-hybrid-contact-wrap"), &input);
     let mut out = [0_u8; 32];
     hkdf.expand(b"x25519-mlkem768-chacha20poly1305", &mut out)
         .map_err(|_| {
@@ -346,7 +346,7 @@ impl<'a> Reader<'a> {
     fn magic(&mut self, expected: &[u8]) -> Result<()> {
         if self.bytes.get(self.offset..self.offset + expected.len()) != Some(expected) {
             return Err(Error::InvalidKeyMaterial(
-                "recipient key has invalid magic".to_string(),
+                "contact key has invalid magic".to_string(),
             ));
         }
         self.offset += expected.len();
@@ -357,7 +357,7 @@ impl<'a> Reader<'a> {
         let version = self.u16()?;
         if version != HYBRID_KEY_VERSION {
             return Err(Error::InvalidKeyMaterial(format!(
-                "recipient key version {version} is not supported"
+                "contact key version {version} is not supported"
             )));
         }
         Ok(())
@@ -367,7 +367,7 @@ impl<'a> Reader<'a> {
         let algorithm = self.u16()?;
         if algorithm != HYBRID_ALGORITHM_X25519_MLKEM768 {
             return Err(Error::InvalidKeyMaterial(format!(
-                "recipient key algorithm {algorithm} is not supported"
+                "contact key algorithm {algorithm} is not supported"
             )));
         }
         Ok(())
@@ -376,7 +376,7 @@ impl<'a> Reader<'a> {
     fn u16(&mut self) -> Result<u16> {
         if self.offset + 2 > self.bytes.len() {
             return Err(Error::InvalidKeyMaterial(
-                "recipient key is truncated".to_string(),
+                "contact key is truncated".to_string(),
             ));
         }
         let value = u16::from_le_bytes([self.bytes[self.offset], self.bytes[self.offset + 1]]);
@@ -387,7 +387,7 @@ impl<'a> Reader<'a> {
     fn x25519_key(&mut self) -> Result<[u8; X25519_KEY_LEN]> {
         if self.offset + X25519_KEY_LEN > self.bytes.len() {
             return Err(Error::InvalidKeyMaterial(
-                "recipient key is missing X25519 material".to_string(),
+                "contact key is missing X25519 material".to_string(),
             ));
         }
         let mut out = [0_u8; X25519_KEY_LEN];
@@ -399,7 +399,7 @@ impl<'a> Reader<'a> {
     fn bytes(&mut self) -> Result<Vec<u8>> {
         if self.offset + 4 > self.bytes.len() {
             return Err(Error::InvalidKeyMaterial(
-                "recipient key is truncated".to_string(),
+                "contact key is truncated".to_string(),
             ));
         }
         let len = u32::from_le_bytes([
@@ -411,7 +411,7 @@ impl<'a> Reader<'a> {
         self.offset += 4;
         if self.offset + len > self.bytes.len() {
             return Err(Error::InvalidKeyMaterial(
-                "recipient key field is truncated".to_string(),
+                "contact key field is truncated".to_string(),
             ));
         }
         let out = self.bytes[self.offset..self.offset + len].to_vec();
@@ -422,7 +422,7 @@ impl<'a> Reader<'a> {
     fn done(&self) -> Result<()> {
         if self.offset != self.bytes.len() {
             return Err(Error::InvalidKeyMaterial(
-                "recipient key contains trailing bytes".to_string(),
+                "contact key contains trailing bytes".to_string(),
             ));
         }
         Ok(())

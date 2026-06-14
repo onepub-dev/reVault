@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use lockbox_core::{Lockbox, LockboxUnlock, SecretVec};
+use lockbox_core::{Lockbox, LockboxOpen, SecretVec};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static LOCKBOX_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -13,8 +13,8 @@ fuzz_target!(|data: &[u8]| {
         std::process::id()
     ));
     if std::fs::write(&path, data).is_ok() {
-        let unlock = LockboxUnlock::ContentKey(SecretVec::try_from_slice(b"fuzz key").unwrap());
-        let _ = Lockbox::open_file(&path, unlock);
+        let open = LockboxOpen::ContentKey(SecretVec::try_from_slice(b"fuzz key").unwrap());
+        let _ = Lockbox::open_file(&path, open);
         let _ = std::fs::remove_file(path);
     }
 });

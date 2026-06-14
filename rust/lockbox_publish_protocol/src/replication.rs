@@ -4,9 +4,10 @@ use sha2::{Digest, Sha256};
 
 const REPLICATION_MAGIC: &[u8; 4] = b"LBSX";
 const REPLICATION_VERSION: u16 = 1;
-const EVENT_PUT_SHARE: u16 = 1;
-const EVENT_FETCH_COUNT: u16 = 2;
+const EVENT_PUT_PUBLISH: u16 = 1;
+const EVENT_RECEIVE_COUNT: u16 = 2;
 const EVENT_TOMBSTONE: u16 = 3;
+const EVENT_RATE_LIMIT_BLOCK: u16 = 4;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReplicationRequest {
@@ -24,21 +25,27 @@ pub struct ReplicationEvent {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ReplicationEventKind {
-    PutShare {
-        share_code: String,
+    PutPublish {
+        publish_code: String,
         delete_token_hash: Vec<u8>,
         payload: Vec<u8>,
         contact_email: Option<String>,
         expires_at_unix_ms: u64,
-        max_fetches: u16,
-        fetches: u16,
+        receive_ttl_ms: u64,
+        email_verified_at_unix_ms: u64,
+        max_receives: u16,
+        receives: u16,
     },
-    FetchCount {
-        share_code: String,
-        fetches: u16,
+    ReceiveCount {
+        publish_code: String,
+        receives: u16,
     },
     Tombstone {
-        share_code: String,
+        publish_code: String,
+    },
+    RateLimitBlock {
+        client_ip: String,
+        expires_at_unix_ms: u64,
     },
 }
 
@@ -66,37 +73,49 @@ fn encode_event_body(out: &mut Vec<u8>, event: &ReplicationEvent) {
     protocol::put_u64(out, event.origin_epoch);
     protocol::put_u64(out, event.origin_sequence);
     match &event.kind {
-        ReplicationEventKind::PutShare {
-            share_code,
+        ReplicationEventKind::PutPublish {
+            publish_code,
             delete_token_hash,
             payload,
             contact_email,
             expires_at_unix_ms,
-            max_fetches,
-            fetches,
+            receive_ttl_ms,
+            email_verified_at_unix_ms,
+            max_receives,
+            receives,
         } => {
-            protocol::put_u16(out, EVENT_PUT_SHARE);
-            protocol::put_string(out, share_code);
+            protocol::put_u16(out, EVENT_PUT_PUBLISH);
+            protocol::put_string(out, publish_code);
             protocol::put_bytes(out, delete_token_hash);
             protocol::put_bytes(out, payload);
             protocol::put_u64(out, *expires_at_unix_ms);
-            protocol::put_u16(out, *max_fetches);
-            protocol::put_u16(out, *fetches);
+            protocol::put_u64(out, *receive_ttl_ms);
+            protocol::put_u64(out, *email_verified_at_unix_ms);
+            protocol::put_u16(out, *max_receives);
+            protocol::put_u16(out, *receives);
             if let Some(email) = contact_email {
                 protocol::put_string(out, email);
             }
         }
-        ReplicationEventKind::FetchCount {
-            share_code,
-            fetches,
+        ReplicationEventKind::ReceiveCount {
+            publish_code,
+            receives,
         } => {
-            protocol::put_u16(out, EVENT_FETCH_COUNT);
-            protocol::put_string(out, share_code);
-            protocol::put_u16(out, *fetches);
+            protocol::put_u16(out, EVENT_RECEIVE_COUNT);
+            protocol::put_string(out, publish_code);
+            protocol::put_u16(out, *receives);
         }
-        ReplicationEventKind::Tombstone { share_code } => {
+        ReplicationEventKind::Tombstone { publish_code } => {
             protocol::put_u16(out, EVENT_TOMBSTONE);
-            protocol::put_string(out, share_code);
+            protocol::put_string(out, publish_code);
+        }
+        ReplicationEventKind::RateLimitBlock {
+            client_ip,
+            expires_at_unix_ms,
+        } => {
+            protocol::put_u16(out, EVENT_RATE_LIMIT_BLOCK);
+            protocol::put_string(out, client_ip);
+            protocol::put_u64(out, *expires_at_unix_ms);
         }
     }
 }
@@ -123,25 +142,31 @@ pub fn decode_replication_request(bytes: &[u8]) -> Result<ReplicationRequest, Cl
     let origin_sequence = reader.u64().map_err(replication_protocol_error)?;
     let event_type = reader.u16().map_err(replication_protocol_error)?;
     let kind = match event_type {
-        EVENT_PUT_SHARE => ReplicationEventKind::PutShare {
-            share_code: reader.string().map_err(replication_protocol_error)?,
+        EVENT_PUT_PUBLISH => ReplicationEventKind::PutPublish {
+            publish_code: reader.string().map_err(replication_protocol_error)?,
             delete_token_hash: reader.bytes().map_err(replication_protocol_error)?,
             payload: reader.bytes().map_err(replication_protocol_error)?,
             expires_at_unix_ms: reader.u64().map_err(replication_protocol_error)?,
-            max_fetches: reader.u16().map_err(replication_protocol_error)?,
-            fetches: reader.u16().map_err(replication_protocol_error)?,
+            receive_ttl_ms: reader.u64().map_err(replication_protocol_error)?,
+            email_verified_at_unix_ms: reader.u64().map_err(replication_protocol_error)?,
+            max_receives: reader.u16().map_err(replication_protocol_error)?,
+            receives: reader.u16().map_err(replication_protocol_error)?,
             contact_email: if reader.is_done() {
                 None
             } else {
                 Some(reader.string().map_err(replication_protocol_error)?)
             },
         },
-        EVENT_FETCH_COUNT => ReplicationEventKind::FetchCount {
-            share_code: reader.string().map_err(replication_protocol_error)?,
-            fetches: reader.u16().map_err(replication_protocol_error)?,
+        EVENT_RECEIVE_COUNT => ReplicationEventKind::ReceiveCount {
+            publish_code: reader.string().map_err(replication_protocol_error)?,
+            receives: reader.u16().map_err(replication_protocol_error)?,
         },
         EVENT_TOMBSTONE => ReplicationEventKind::Tombstone {
-            share_code: reader.string().map_err(replication_protocol_error)?,
+            publish_code: reader.string().map_err(replication_protocol_error)?,
+        },
+        EVENT_RATE_LIMIT_BLOCK => ReplicationEventKind::RateLimitBlock {
+            client_ip: reader.string().map_err(replication_protocol_error)?,
+            expires_at_unix_ms: reader.u64().map_err(replication_protocol_error)?,
         },
         _ => {
             return Err(ClientError::Replication(format!(

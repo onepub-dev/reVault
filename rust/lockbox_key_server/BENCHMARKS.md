@@ -1,7 +1,7 @@
 # reVault Key Server Benchmarks
 
 Benchmarks were run on the local development host with the release binary.
-HTTP benchmarks use one binary `POST /v1/share` per TCP connection because the
+HTTP benchmarks use one binary `POST /v1/publish` per TCP connection because the
 expected client model is a single CLI request rather than a long-lived
 keep-alive session.
 
@@ -12,7 +12,7 @@ Command:
 ```bash
 /usr/bin/time -v target/release/lockbox_key_server \
   bench-store \
-  --state-dir /tmp/lockbox-share-store-bench-200k-compact-001 \
+  --state-dir /tmp/lockbox-publish-store-bench-200k-compact-001 \
   --requests 200000 \
   --payload-bytes 512
 ```
@@ -21,14 +21,14 @@ Result:
 
 ```text
 store_create_rps=216805
-store_fetch_rps=302815
+store_receive_rps=302815
 live=200000
 max_rss_kb=52436
 ```
 
-This keeps 200k live shares with 512-byte payloads below the 100 MB memory
+This keeps 200k live published payloads with 512-byte payloads below the 100 MB memory
 target. Payloads are persisted in append-only segment files; the live in-memory
-index stores hashes, offsets, lengths, expiry, and fetch state.
+index stores hashes, offsets, lengths, expiry, and receive state.
 
 ## HTTP Benchmark
 
@@ -37,7 +37,7 @@ Command:
 ```bash
 /usr/bin/time -v target/release/lockbox_key_server \
   bench-http \
-  --state-dir /tmp/lockbox-share-http-bench-compact-001 \
+  --state-dir /tmp/lockbox-publish-http-bench-compact-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -46,24 +46,24 @@ Command:
 Result:
 
 ```text
-http_single_request_share_rps=54179
+http_single_request_publish_rps=54179
 requests=50000
 concurrency=128
 live=50000
 max_rss_kb=18292
 ```
 
-The HTTP path handles tens of thousands of single-request shares per second
+The HTTP path handles tens of thousands of single-request published payloads per second
 while staying well under the 100 MB target.
 
-## HTTP Fetch Benchmark
+## HTTP Receive Benchmark
 
 Command:
 
 ```bash
 /usr/bin/time -v target/release/lockbox_key_server \
-  bench-http-fetch \
-  --state-dir /tmp/lockbox-share-http-fetch-bench-001 \
+  bench-http-receive \
+  --state-dir /tmp/lockbox-publish-http-receive-bench-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -72,16 +72,16 @@ Command:
 Result:
 
 ```text
-http_single_request_fetch_rps=58846
+http_single_request_receive_rps=58846
 requests=50000
 concurrency=128
 live=0
 max_rss_kb=20616
 ```
 
-This preloads 50k single-use shares, then fetches them over HTTP using one TCP
-connection per request. `live=0` verifies that successful single-use fetches
-consume and tombstone the pending shares.
+This preloads 50k single-use published payloads, then receives them over HTTP using one TCP
+connection per request. `live=0` verifies that successful single-use receives
+consume and tombstone the pending published payloads.
 
 ## HTTP End-to-End Flow Benchmark
 
@@ -90,7 +90,7 @@ Command:
 ```bash
 /usr/bin/time -v target/release/lockbox_key_server \
   bench-http-flow \
-  --state-dir /tmp/lockbox-share-http-flow-bench-001 \
+  --state-dir /tmp/lockbox-publish-http-flow-bench-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -109,18 +109,18 @@ max_rss_kb=13284
 ```
 
 Each flow performs two separate TCP connections: one `SHARE` request followed
-by one `FETCH` request. This is the closest benchmark to the expected CLI
-usage pattern. `live=0` confirms single-use shares are consumed after receipt.
+by one `RECEIVE` request. This is the closest benchmark to the expected CLI
+usage pattern. `live=0` confirms single-use published payloads are consumed after receipt.
 
-## HTTP End-to-End Flow With 1M Preloaded Shares
+## HTTP End-to-End Flow With 1M Preloaded Published Payloads
 
 Command:
 
 ```bash
 /usr/bin/time -v target/release/lockbox_key_server \
   bench-http-flow \
-  --state-dir target/lockbox-share-http-flow-preload-1m-bucket-002 \
-  --preload-shares 1000000 \
+  --state-dir target/lockbox-publish-http-flow-preload-1m-bucket-002 \
+  --preload-published-payloads 1000000 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -138,35 +138,35 @@ live=1000000
 max_rss_kb=82376
 ```
 
-This preloads one million pending shares before timing the end-to-end flow.
+This preloads one million pending published payloads before timing the end-to-end flow.
 The result stays below the 100 MB memory target by using compact disk bucket
-index files plus a bounded in-memory recent-share cache. This benchmark uses
-12-digit share codes because 8-digit codes have too much collision pressure at
-one million live shares.
+index files plus a bounded in-memory recent-published-payload cache. This benchmark uses
+12-digit publish codes because 8-digit codes have too much collision pressure at
+one million live published payloads.
 
 Benchmarks disable the per-IP rate limiter so they measure server throughput.
 Production defaults enable a per-IP token bucket.
 
 ## Compaction
 
-Single-use shares are tombstoned immediately after successful fetch. Background
+Single-use published payloads are tombstoned immediately after successful receive. Background
 compaction rewrites shard segment files when they contain enough dead bytes,
 and explicit `compact()` tests prove tombstoned single-use backlogs can shrink
-back to zero segment bytes when no live shares remain.
+back to zero segment bytes when no live published payloads remain.
 
 ## Indexing
 
 Payloads are stored in append-only segment files. Live lookup metadata is
-stored in compact fixed-size disk bucket records keyed by the share-code hash.
-The process keeps only a bounded recent-share cache in memory. This avoids
-retaining every pending share in RAM while preserving single-key lookup without
+stored in compact fixed-size disk bucket records keyed by the published payload-code hash.
+The process keeps only a bounded recent-published-payload cache in memory. This avoids
+retaining every pending published payload in RAM while preserving single-key lookup without
 scanning the full store.
 
-## Share Code Space
+## Publish Code Space
 
 The production default is one server routing digit plus a 12 digit random body.
 Six random body digits are still supported for smaller deployments, but they
-are not appropriate for sustained high-rate pending-share populations because
+are not appropriate for sustained high-rate pending-published-payload populations because
 the live code space is capped at one million per server id. The server clamps
 configurable random body length to 6..12 digits.
 
@@ -176,17 +176,25 @@ Production defaults are intentionally bounded:
 
 ```text
 payload_cap=8 KiB
-default_ttl=15 minutes
-max_ttl=15 minutes
-max_fetches_per_share=8
+verification_ttl=30 minutes
+default_receive_ttl=2 hours
+max_receive_ttl=2 hours
+max_receives_per_publish=8
 rate_limit_per_ip=120 requests/minute
 rate_limit_burst=40
 ```
 
-The server validates typed, versioned reVault share payloads before storing
+The server validates typed, versioned reVault publish payloads before storing
 them, so arbitrary blobs are rejected. The remaining controls reduce usefulness
 as a store-and-forward relay by limiting payload size, lifetime, fan-out, and
-request rate for syntactically valid but still untrusted share messages.
+request rate for syntactically valid but still untrusted publish messages.
+
+The CLI keeps topology-based publish selection sticky for 24 hours and treats
+`RateLimited` as terminal for the current operation. A rate-limited client
+therefore waits instead of retrying the same operation against another cluster
+member. Key servers also replicate 24 hour anonymous-client blocks after a
+rate-limit violation, so the limit is enforced at cluster scope rather than by
+one server process only.
 
 ## CPU Profile
 
@@ -197,7 +205,7 @@ perf stat \
   -e cycles,instructions,context-switches,cpu-migrations,page-faults \
   target/release/lockbox_key_server \
   bench-http \
-  --state-dir /tmp/lockbox-share-http-perf-002 \
+  --state-dir /tmp/lockbox-publish-http-perf-002 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -206,7 +214,7 @@ perf stat \
 Result:
 
 ```text
-http_single_request_share_rps=70819
+http_single_request_publish_rps=70819
 cycles=39657318266
 instructions=20756037342
 context_switches=87850
@@ -217,23 +225,23 @@ user_seconds=0.555298
 sys_seconds=9.250256
 ```
 
-Fetch-path counter command:
+Receive-path counter command:
 
 ```bash
 perf stat \
   -e cycles,instructions,context-switches,cpu-migrations,page-faults \
   target/release/lockbox_key_server \
-  bench-http-fetch \
-  --state-dir /tmp/lockbox-share-http-fetch-perf-001 \
+  bench-http-receive \
+  --state-dir /tmp/lockbox-publish-http-receive-perf-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
 ```
 
-Fetch-path result:
+Receive-path result:
 
 ```text
-http_single_request_fetch_rps=70551
+http_single_request_receive_rps=70551
 cycles=40298295480
 instructions=21396337648
 context_switches=86477
@@ -251,7 +259,7 @@ perf stat \
   -e cycles,instructions,context-switches,cpu-migrations,page-faults \
   target/release/lockbox_key_server \
   bench-http-flow \
-  --state-dir /tmp/lockbox-share-http-flow-perf-001 \
+  --state-dir /tmp/lockbox-publish-http-flow-perf-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -282,10 +290,10 @@ single HTTP request per TCP connection.
 The test suite covers:
 
 ```text
-live share replay after store reopen
-fetch count replay after store reopen
-exhausted share tombstone replay
-single-use share removal on successful fetch
+live publish replay after store reopen
+receive count replay after store reopen
+exhausted published payload tombstone replay
+single-use publish removal on successful receive
 20k-record persistent store replay
 compaction removes tombstoned single-use backlog
 compaction preserves live records

@@ -1,20 +1,20 @@
 use lockbox_core::{LockboxId, Result, SecretVec};
 use std::path::Path;
 
-/// Storage backend for unlocked Lockbox content keys.
+/// Storage backend for opened Lockbox content keys.
 ///
 /// `Vault` uses this trait to cache content keys after a lockbox is created or
-/// unlocked, and to retrieve them for later cache-only opens. Implementations
+/// opened, and to retrieve them for later cache-only opens. Implementations
 /// may keep keys in memory, forward them to a local agent, or deliberately
 /// discard them.
 pub trait ContentKeyStore {
     /// Returns the cached content key for `lockbox_id`, if one is available.
     fn get_content_key(&self, lockbox_id: LockboxId) -> Result<Option<SecretVec>>;
 
-    /// Stores the unlocked content key for `lockbox_id`.
+    /// Stores the opened content key for `lockbox_id`.
     fn put_content_key(&self, lockbox_id: LockboxId, key: SecretVec) -> Result<()>;
 
-    /// Stores the unlocked content key with a display path for diagnostics.
+    /// Stores the opened content key with a display path for diagnostics.
     fn put_content_key_for_path(
         &self,
         lockbox_id: LockboxId,
@@ -24,7 +24,7 @@ pub trait ContentKeyStore {
         self.put_content_key(lockbox_id, key)
     }
 
-    /// Stores the unlocked content key with an explicit cache lifetime.
+    /// Stores the opened content key with an explicit cache lifetime.
     fn put_content_key_for_path_with_ttl(
         &self,
         lockbox_id: LockboxId,

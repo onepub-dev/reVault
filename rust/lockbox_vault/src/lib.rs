@@ -1,8 +1,8 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
-//! Native vault and unlock-cache support for reVault.
+//! Native vault and open-cache support for reVault.
 //!
-//! This crate includes the **Lockbox Session Agent**, a local unlock-cache service
+//! This crate includes the **Lockbox Session Agent**, a local open-cache service
 //! that reduces password prompts by keeping lockbox content keys in a short-lived,
 //! in-memory process cache.
 //!

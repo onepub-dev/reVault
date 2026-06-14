@@ -2,17 +2,17 @@
 
 ## Goals
 
-The share service must start as a simple single-server deployment while keeping
-the wire format and share codes compatible with a future redundant deployment.
+The published payload service must start as a simple single-server deployment while keeping
+the wire format and publish codes compatible with a future redundant deployment.
 
 The redundancy design must:
 
 - keep standalone mode as the default
-- avoid DNS round-robin sending fetches to the wrong server
+- avoid DNS round-robin sending receives to the wrong server
 - support more than two servers later
 - provide a clear standby and recovery path
 - avoid replication storms
-- preserve single-use share semantics
+- preserve single-use publish semantics
 
 ## Phase 0: Single Server
 
@@ -20,10 +20,10 @@ The first production deployment runs one server:
 
 ```text
 server_id: 0
-url: https://keyshare.revault.onepub.dev/v1/share
+url: https://keypublish.revault.onepub.dev/v1/publish
 ```
 
-The server still generates self-routing share codes:
+The server still generates self-routing publish codes:
 
 ```text
 0 123456789012
@@ -36,7 +36,7 @@ The first digit is the server id. The remaining digits are the random
 rendezvous code body. With the default body length of 12 digits, the displayed
 code is 13 decimal digits.
 
-Using the routing digit from day one means existing pending shares remain
+Using the routing digit from day one means existing pending published payloads remain
 compatible when extra servers are added later.
 
 ## Server Ids
@@ -50,18 +50,18 @@ version rather than overloading existing codes.
 
 The server id is stable operational configuration, not a random instance id.
 A replacement machine for server `3` must run with `server_id = 3` when it is
-serving shares owned by that id.
+serving published payloads owned by that id.
 
 ## Client Routing
 
 Users should not have to configure failover pairs. Failover topology belongs on
 the servers.
 
-For an organization running its own share service, clients should be configured
+For an organization running its own publish service, clients should be configured
 with a discovery base URL or topology URL:
 
 ```yaml
-share_topology_url: https://share.example.com/v1/topology
+publish_topology_url: https://publish.example.com/v1/topology
 ```
 
 The topology endpoint returns public routing metadata as a binary document:
@@ -97,28 +97,41 @@ The operator configures this topology on the key servers:
 ```yaml
 key_servers:
   - id: 0
-    url: https://keyshare0.revault.onepub.dev/v1/share
+    url: https://keypublish0.revault.onepub.dev/v1/publish
   - id: 1
-    url: https://keyshare1.revault.onepub.dev/v1/share
+    url: https://keypublish1.revault.onepub.dev/v1/publish
   - id: 2
-    url: https://keyshare2.revault.onepub.dev/v1/share
+    url: https://keypublish2.revault.onepub.dev/v1/publish
 ```
 
-For `SHARE`, the CLI may choose a configured server randomly or by health. The
-selected server generates a code prefixed with its own id.
+For `PUBLISH`, the CLI chooses a topology server and keeps that choice sticky
+for 24 hours. The sticky selection is persisted locally so repeated CLI
+invocations normally use the same server instead of spreading requests across
+the cluster. The selected server generates a code prefixed with its own id.
 
-For `FETCH` and `DELETE`, the CLI reads the first digit and sends the request
+For `RECEIVE` and `DELETE`, the CLI reads the first digit and sends the request
 to the primary endpoint for that owner id first. It then tries the failover
 list from topology. If the topology is missing or stale, the client may try
 every endpoint in the same discovered cluster.
 
+If any publish, receive, or delete attempt receives a `RateLimited` response,
+the CLI does not fail over to another server for that operation. This prevents
+clients from bypassing per-server limits by hopping across the cluster.
+
+Servers also turn an anonymous-client rate-limit violation into a 24 hour
+cluster block for that source IP. The block is held locally before the token
+bucket is checked and is replicated to peers over the authenticated replication
+channel, so a client cannot wait for a different server's bucket and retry
+there. Server-token authenticated topology and replication traffic is exempt
+from this client block.
+
 Trying every server is acceptable as a fallback within one trusted cluster. It
-must not spray share codes across unrelated public services.
+must not spray publish codes across unrelated public services.
 
 DNS may still be used for normal host resolution and coarse failover, but DNS
 round-robin is not the primary routing mechanism. Without self-routing codes or
-replicated state, DNS round-robin can randomly send fetches to a server that
-does not own the share.
+replicated state, DNS round-robin can randomly send receives to a server that
+does not own the published payload.
 
 ## Standby Replication
 
@@ -144,7 +157,7 @@ Each server is authoritative for its own prefixed codes. It streams state
 events to its standby peer. The standby stores those events as replica state for
 the original owner id.
 
-The standby does not normally serve replicated shares. It serves them only when
+The standby does not normally serve replicated published payloads. It serves them only when
 it is explicitly promoted for that owner id.
 
 ## Replication Events
@@ -155,11 +168,12 @@ requests.
 The required event types are:
 
 ```text
-put_share
-fetch_count
-consume_share
-delete_share
-expire_share
+put_publish
+receive_count
+consume_publish
+delete_publish
+expire_publish
+rate_limit_block
 ```
 
 The replication envelope must include:
@@ -187,25 +201,26 @@ events are ignored.
 Client and replication traffic must be separate operations:
 
 ```text
-POST /v1/share
+POST /v1/publish
 POST /v1/replicate
 ```
 
 Rules:
 
-- client-originated share events are appended locally and queued for replication
+- client-originated publish events are appended locally and queued for replication
 - peer-originated replication events are applied idempotently
 - replicated events are not re-replicated by default
 - chain replication is out of scope for the first redundant version
 
 This prevents a two-server pair from bouncing the same event forever and
-prevents a ring from amplifying each share into a storm.
+prevents a ring from amplifying each published payload into a storm.
 
-The current implementation sends `put_share`, `fetch_count`, and `delete`
-tombstone events to configured peers. The standby applies peer events through
-`/v1/replicate` and does not enqueue those peer events for replication again.
-Expired shares are still rejected by timestamp when a standby is promoted, but
-active expiry purge events are not yet replicated as first-class events.
+The current implementation sends `put_publish`, `receive_count`, `delete`
+tombstone, and `rate_limit_block` events to configured peers. The standby
+applies peer events through `/v1/replicate` and does not enqueue those peer
+events for replication again. Expired published payloads are still rejected by
+timestamp when a standby is promoted, but active expiry purge events are not yet
+replicated as first-class events.
 
 ## Failover
 
@@ -219,13 +234,13 @@ If server `2` fails:
 4. The old server resyncs from the promoted node before serving owner id `2`.
 
 Automatic dual-serving is not allowed in the first redundant design because it
-can duplicate single-use fetches during partial network failures.
+can duplicate single-use receives during partial network failures.
 
 ## Recovery
 
 A promoted standby must persist:
 
-- the replicated share records
+- the replicated publish records
 - consumed/deleted tombstones
 - the origin epoch and sequence position
 
@@ -239,18 +254,18 @@ switch authority back only after sync is complete
 ```
 
 If sequence continuity cannot be proven, the safe recovery path is to keep the
-promoted standby authoritative until all pending shares for that owner id have
+promoted standby authoritative until all pending published payloads for that owner id have
 expired.
 
 ## Why Not Hot/Hot First
 
-Hot/hot serving is harder because `FETCH` mutates state. A single-use share must
+Hot/hot serving is harder because `RECEIVE` mutates state. A single-use publish must
 not be returned by two servers during a race.
 
 A future hot/hot design should use deterministic ownership:
 
 ```text
-owner = first share-code digit
+owner = first publish-code digit
 ```
 
 Any server may accept the HTTP connection, but mutating operations for owner
@@ -265,7 +280,7 @@ promotion is the safer design.
 Implemented:
 
 - server id configuration, defaulting to `0`
-- generated share codes include the server id prefix
+- generated publish codes include the server id prefix
 - default random body length remains 12 digits
 - client pool support can prefer the server encoded in the first digit
 - public topology model and binary codec
@@ -273,20 +288,20 @@ Implemented:
 - server CLI topology flags
 - client pool construction from discovered topology
 - client-side binary topology cache helpers
-- share client pool selection across configured/discovered servers
+- publish client pool selection across configured/discovered servers
 - `/v1/replicate`
-- signed peer replication using a configured shared secret
+- signed peer replication using a configured published secret
 - local origin epoch and monotonically increasing origin sequence numbers
 - standby idempotency tracking persisted across restarts
 - promotion gating through configured promoted owner ids
 - replication storm avoidance by separating client and peer operations
 - self-installing systemd service support with boot enablement
 - CLI YAML topology URL/default public service config
-- vault CLI publish/receive/delete wiring through `ShareClientPool`
+- vault CLI publish/receive/delete wiring through `PublishClientPool`
 - durable outbound replication outbox with retry
 - expiry/exhaustion tombstones queued for replication
 - binary `/v1/status` replication lag/status reporting
-- `resync-peer` operator tooling for live-share replay to a peer
+- `resync-peer` operator tooling for live-published-payload replay to a peer
 - signed replication envelopes
 - TLS-capable client transport for the public default service
 

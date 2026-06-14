@@ -1,8 +1,8 @@
 use lockbox_core::{
-    Error, FormDefinition, FormFieldDefinition, FormFieldKind, FormTypeId, ListOptions, Lockbox,
-    LockboxEntryKind, LockboxId, LockboxPath, LockboxProtection, LockboxUnlock,
-    OwnerSigningKeyPair, OwnerSigningPublicKey, RecipientKeyPair, RecipientPublicKey, Result,
-    SecretString, SecretVec, VariableName,
+    ContactKeyPair, ContactPublicKey, Error, FormDefinition, FormFieldDefinition, FormFieldKind,
+    FormTypeId, ListOptions, Lockbox, LockboxEntryKind, LockboxId, LockboxOpen, LockboxPath,
+    LockboxProtection, OwnerSigningKeyPair, OwnerSigningPublicKey, Result, SecretString, SecretVec,
+    VariableName,
 };
 use sha2::{Digest, Sha256};
 use std::cell::{Cell, RefCell};
@@ -38,11 +38,11 @@ pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 1;
 /// Contact entry stored in a `VaultDirectory`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredContact {
-    /// User-assigned recipient name.
+    /// User-assigned contact name.
     pub name: String,
 
-    /// Recipient public key associated with `name`.
-    pub key: RecipientPublicKey,
+    /// Contact public key associated with `name`.
+    pub key: ContactPublicKey,
 }
 
 /// Lockbox path remembered by the local vault for diagnostics and bulk access
@@ -73,7 +73,7 @@ pub struct AccessSlotLabel {
 pub struct IdentityGeneration {
     pub index: u16,
     pub status: IdentityGenerationStatus,
-    pub recipient_fingerprint: Vec<u8>,
+    pub contact_fingerprint: Vec<u8>,
     pub created_at_unix_ms: u64,
     pub retired_at_unix_ms: Option<u64>,
 }
@@ -115,7 +115,7 @@ pub struct VaultBackupManifest {
 /// Password-protected local vault file for native reVault metadata.
 ///
 /// A `VaultDirectory` stores its data in `local-vault.lbox` under a private
-/// directory. It can hold recipient private keys, contact public keys,
+/// directory. It can hold contact private keys, contact public keys,
 /// and key-directory backups used by `Vault` recovery fallback paths.
 #[derive(Debug)]
 pub struct VaultDirectory {
@@ -125,14 +125,14 @@ pub struct VaultDirectory {
 }
 
 impl VaultDirectory {
-    /// Default name used for the primary local recipient key.
+    /// Default name used for the primary local contact key.
     pub const DEFAULT_KEY_NAME: &'static str = "default";
 
-    /// Unlocks or creates the default vault directory using `password`.
+    /// Opens or creates the default vault directory using `password`.
     ///
     /// The directory is chosen by `default_vault_dir`.
-    pub fn unlock_or_create_default(password: &SecretString) -> Result<Self> {
-        Self::unlock_or_create(default_vault_dir()?, password)
+    pub fn open_or_create_default(password: &SecretString) -> Result<Self> {
+        Self::open_or_create(default_vault_dir()?, password)
     }
 
     /// Replaces the default vault directory using `password`.
@@ -165,9 +165,18 @@ impl VaultDirectory {
             ));
         }
         let _guard = VaultFileLock::acquire(&root)?;
-        let mut lockbox = Lockbox::open_file(&path, LockboxUnlock::Password(old_password))?;
-        lockbox.replace_password(old_password, new_password)?;
-        set_private_file_permissions(&path)?;
+        let lockbox = Lockbox::open_file(&path, LockboxOpen::Password(old_password))?;
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+        };
+        vault.attach_or_create_default_owner_signing_key()?;
+        vault
+            .lockbox
+            .borrow_mut()
+            .replace_password(old_password, new_password)?;
+        set_private_file_permissions(&vault.path)?;
         Ok(())
     }
 
@@ -180,39 +189,52 @@ impl VaultDirectory {
         if path.exists() {
             fs::remove_file(&path).map_err(|err| Error::Io(err.to_string()))?;
         }
-        let lockbox = Lockbox::create_file(&path, LockboxProtection::Password(password))?;
+        let signing_key = OwnerSigningKeyPair::generate()?;
+        let lockbox =
+            Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
         set_private_file_permissions(&path)?;
         let vault = Self {
             root,
             path,
             lockbox: RefCell::new(lockbox),
         };
+        vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
         vault.ensure_structure_version(true)?;
         Ok(vault)
     }
 
-    /// Unlocks or creates a vault directory at `root`.
+    /// Opens or creates a vault directory at `root`.
     ///
     /// The vault file is protected with `password`. When a new vault file is
     /// created, private file permissions are applied on supported platforms.
-    pub fn unlock_or_create(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+    pub fn open_or_create(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
         let root = root.as_ref().to_path_buf();
         create_private_dir(&root)?;
         let _guard = VaultFileLock::acquire(&root)?;
         let path = root.join(VAULT_FILE_NAME);
         let existed = path.exists();
         let lockbox = if existed {
-            Lockbox::open_file(&path, LockboxUnlock::Password(password))?
+            Lockbox::open_file(&path, LockboxOpen::Password(password))?
         } else {
-            let lockbox = Lockbox::create_file(&path, LockboxProtection::Password(password))?;
+            let signing_key = OwnerSigningKeyPair::generate()?;
+            let lockbox =
+                Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
             set_private_file_permissions(&path)?;
-            lockbox
+            let vault = Self {
+                root,
+                path,
+                lockbox: RefCell::new(lockbox),
+            };
+            vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
+            vault.ensure_structure_version(true)?;
+            return Ok(vault);
         };
         let vault = Self {
             root,
             path,
             lockbox: RefCell::new(lockbox),
         };
+        vault.attach_or_create_default_owner_signing_key()?;
         vault.ensure_structure_version(!existed)?;
         Ok(vault)
     }
@@ -227,6 +249,23 @@ impl VaultDirectory {
         &self.path
     }
 
+    fn attach_or_create_default_owner_signing_key(&self) -> Result<()> {
+        let signing_key = match self.load_owner_signing_key_existing(Self::DEFAULT_KEY_NAME) {
+            Ok(signing_key) => signing_key,
+            Err(Error::NotFound(_)) => {
+                let signing_key = OwnerSigningKeyPair::generate()?;
+                self.lockbox
+                    .borrow_mut()
+                    .set_owner_signing_key(signing_key.try_clone()?);
+                self.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
+                return Ok(());
+            }
+            Err(err) => return Err(err),
+        };
+        self.lockbox.borrow_mut().set_owner_signing_key(signing_key);
+        Ok(())
+    }
+
     /// Returns the structure version recorded inside this vault.
     pub fn structure_version(&self) -> Result<u32> {
         self.read_structure_version()?.ok_or_else(|| {
@@ -234,10 +273,10 @@ impl VaultDirectory {
         })
     }
 
-    /// Stores a recipient private key under `name`.
+    /// Stores a contact private key under `name`.
     ///
     /// Names must contain only ASCII letters, digits, `-`, or `_`.
-    pub fn store_private_key(&self, name: &str, keypair: &RecipientKeyPair) -> Result<()> {
+    pub fn store_private_key(&self, name: &str, keypair: &ContactKeyPair) -> Result<()> {
         let variable_name = private_key_variable_name(name)?;
         let private_record = export_private_key(keypair, KeyFormat::RawHex)?;
         let value = SecretString::from_secure_vec(private_record);
@@ -256,7 +295,7 @@ impl VaultDirectory {
                 generations: vec![IdentityGeneration {
                     index: 1,
                     status: IdentityGenerationStatus::Active,
-                    recipient_fingerprint: recipient_fingerprint(&keypair.public_key()),
+                    contact_fingerprint: contact_fingerprint(&keypair.public_key()),
                     created_at_unix_ms: now,
                     retired_at_unix_ms: None,
                 }],
@@ -265,8 +304,8 @@ impl VaultDirectory {
         Ok(())
     }
 
-    /// Loads a recipient private key previously stored under `name`.
-    pub fn load_private_key(&self, name: &str) -> Result<RecipientKeyPair> {
+    /// Loads a contact private key previously stored under `name`.
+    pub fn load_private_key(&self, name: &str) -> Result<ContactKeyPair> {
         let variable_name = private_key_variable_name(name)?;
         let secret = self
             .lockbox
@@ -378,7 +417,7 @@ impl VaultDirectory {
             .max()
             .unwrap_or(0)
             .saturating_add(1);
-        let keypair = RecipientKeyPair::generate()?;
+        let keypair = ContactKeyPair::generate()?;
         let signing_key = OwnerSigningKeyPair::generate()?;
         self.store_private_key_current_only(name, &keypair)?;
         self.store_owner_signing_key_current_only(name, &signing_key)?;
@@ -388,7 +427,7 @@ impl VaultDirectory {
         history.generations.push(IdentityGeneration {
             index: new_index,
             status: IdentityGenerationStatus::Active,
-            recipient_fingerprint: recipient_fingerprint(&keypair.public_key()),
+            contact_fingerprint: contact_fingerprint(&keypair.public_key()),
             created_at_unix_ms: now,
             retired_at_unix_ms: None,
         });
@@ -397,7 +436,7 @@ impl VaultDirectory {
     }
 
     /// Loads one identity generation by index.
-    pub fn load_private_key_generation(&self, name: &str, index: u16) -> Result<RecipientKeyPair> {
+    pub fn load_private_key_generation(&self, name: &str, index: u16) -> Result<ContactKeyPair> {
         let variable_name = private_key_generation_variable_name(name, index)?;
         let secret = self
             .lockbox
@@ -436,7 +475,7 @@ impl VaultDirectory {
     /// Stores a contact public key under `name`.
     ///
     /// Names must contain only ASCII letters, digits, `-`, or `_`.
-    pub fn store_contact(&self, name: &str, key: &RecipientPublicKey) -> Result<()> {
+    pub fn store_contact(&self, name: &str, key: &ContactPublicKey) -> Result<()> {
         self.put_record(&contact_record_path(name)?, &key.to_bytes())
     }
 
@@ -446,8 +485,8 @@ impl VaultDirectory {
     }
 
     /// Loads a contact public key by name.
-    pub fn load_contact(&self, name: &str) -> Result<RecipientPublicKey> {
-        RecipientPublicKey::from_bytes(&self.get_record(&contact_record_path(name)?)?)
+    pub fn load_contact(&self, name: &str) -> Result<ContactPublicKey> {
+        ContactPublicKey::from_bytes(&self.get_record(&contact_record_path(name)?)?)
     }
 
     /// Loads the contact signing public key associated with a contact.
@@ -487,7 +526,7 @@ impl VaultDirectory {
 
     /// Stores an exported key-directory backup for `lockbox_id`.
     ///
-    /// Backups can be used by `Vault` to recover unlockability when the
+    /// Backups can be used by `Vault` to recover openability when the
     /// embedded key directory in a lockbox file is damaged.
     pub fn store_key_directory_backup(
         &self,
@@ -554,7 +593,7 @@ impl VaultDirectory {
     /// Remember a local name for one lockbox access slot.
     ///
     /// This mapping is stored only inside the encrypted local vault. It is not
-    /// written to the shared lockbox, so it does not disclose recipients to
+    /// written to the shared lockbox, so it does not disclose contacts to
     /// third parties who inspect the lockbox file.
     pub fn remember_access_slot_label(
         &self,
@@ -827,7 +866,7 @@ impl VaultDirectory {
         self.put_record_replace(&vault_structure_version_record_path()?, bytes.as_bytes())
     }
 
-    fn store_private_key_current_only(&self, name: &str, keypair: &RecipientKeyPair) -> Result<()> {
+    fn store_private_key_current_only(&self, name: &str, keypair: &ContactKeyPair) -> Result<()> {
         let private_record = export_private_key(keypair, KeyFormat::RawHex)?;
         let value = SecretString::from_secure_vec(private_record);
         self.put_secret_variable_record(&private_key_variable_name(name)?, &value)
@@ -870,7 +909,7 @@ impl VaultDirectory {
         &self,
         name: &str,
         index: u16,
-        keypair: &RecipientKeyPair,
+        keypair: &ContactKeyPair,
     ) -> Result<()> {
         let private_record = export_private_key(keypair, KeyFormat::RawHex)?;
         let value = SecretString::from_secure_vec(private_record);
@@ -905,7 +944,7 @@ impl VaultDirectory {
             generations: vec![IdentityGeneration {
                 index: 1,
                 status: IdentityGenerationStatus::Active,
-                recipient_fingerprint: recipient_fingerprint(&keypair.public_key()),
+                contact_fingerprint: contact_fingerprint(&keypair.public_key()),
                 created_at_unix_ms: unix_ms(SystemTime::now()),
                 retired_at_unix_ms: None,
             }],
@@ -1165,7 +1204,7 @@ impl Drop for VaultFileLock {
         if let Some(file) = &self.file {
             use std::os::fd::AsRawFd;
 
-            // SAFETY: this unlocks the same valid descriptor locked in `acquire`.
+            // SAFETY: this releases the same valid descriptor locked in `acquire`.
             let _ = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_UN) };
         }
         #[cfg(not(unix))]
@@ -1600,7 +1639,7 @@ fn encode_identity_history(history: &IdentityHistory) -> Vec<u8> {
                 put_u64(&mut out, 0);
             }
         }
-        put_bytes(&mut out, &generation.recipient_fingerprint);
+        put_bytes(&mut out, &generation.contact_fingerprint);
     }
     out
 }
@@ -1627,11 +1666,11 @@ fn decode_identity_history(name: &str, bytes: &[u8]) -> Result<IdentityHistory> 
         let created_at_unix_ms = reader.u64()?;
         let retired_present = reader.u8()? != 0;
         let retired_at = reader.u64()?;
-        let recipient_fingerprint = reader.length_prefixed_bytes()?.to_vec();
+        let contact_fingerprint = reader.length_prefixed_bytes()?.to_vec();
         generations.push(IdentityGeneration {
             index,
             status,
-            recipient_fingerprint,
+            contact_fingerprint,
             created_at_unix_ms,
             retired_at_unix_ms: retired_present.then_some(retired_at),
         });
@@ -1750,7 +1789,7 @@ fn generation_status_from_u16(value: u16) -> Result<IdentityGenerationStatus> {
     }
 }
 
-fn recipient_fingerprint(public_key: &RecipientPublicKey) -> Vec<u8> {
+fn contact_fingerprint(public_key: &ContactPublicKey) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(public_key.to_bytes());
     hasher.finalize()[..16].to_vec()

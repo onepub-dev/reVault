@@ -1,19 +1,19 @@
 //! Narrow bridge used by `lockbox_vault`.
 //!
 //! Normal callers should use `Lockbox::open_file`. This module exists because
-//! the vault crate needs to cache an unlocked content key and recover from
+//! the vault crate needs to cache an opened content key and recover from
 //! vault-stored key-directory backups.
 
 use std::path::Path;
 
-use crate::{Lockbox, LockboxId, RecipientKeyPair, Result, SecretString};
+use crate::{ContactKeyPair, Lockbox, LockboxId, Result, SecretString};
 
-pub use crate::lockbox::UnlockedContentKey;
+pub use crate::lockbox::OpenedContentKey;
 
-/// Unlock helpers needed by the separate vault crate.
-pub struct VaultUnlock;
+/// Open helpers needed by the separate vault crate.
+pub struct VaultOpen;
 
-impl VaultUnlock {
+impl VaultOpen {
     /// Read the lockbox id from a lockbox file header for vault cache lookup.
     pub fn read_lockbox_id(path: &Path) -> Result<LockboxId> {
         Lockbox::read_lockbox_id(path)
@@ -24,32 +24,29 @@ impl VaultUnlock {
         lockbox.export_key_directory_backup()
     }
 
-    /// Unlock the embedded key directory with a password and return the content key.
-    pub fn path_with_password(path: &Path, password: &SecretString) -> Result<UnlockedContentKey> {
-        Lockbox::unlock_path_with_password(path, password)
+    /// Open the embedded key directory with a password and return the content key.
+    pub fn path_with_password(path: &Path, password: &SecretString) -> Result<OpenedContentKey> {
+        Lockbox::open_path_with_password(path, password)
     }
 
-    /// Unlock key-directory backup bytes with a password.
+    /// Open key-directory backup bytes with a password.
     pub fn key_directory_backup_with_password(
         bytes: &[u8],
         password: &SecretString,
-    ) -> Result<UnlockedContentKey> {
-        Lockbox::unlock_key_directory_backup_with_password(bytes, password)
+    ) -> Result<OpenedContentKey> {
+        Lockbox::open_key_directory_backup_with_password(bytes, password)
     }
 
-    /// Unlock the embedded key directory with a recipient keypair and return the content key.
-    pub fn path_with_recipient(
-        path: &Path,
-        recipient: &RecipientKeyPair,
-    ) -> Result<UnlockedContentKey> {
-        Lockbox::unlock_path_with_recipient(path, recipient)
+    /// Open the embedded key directory with a contact keypair and return the content key.
+    pub fn path_with_contact(path: &Path, contact: &ContactKeyPair) -> Result<OpenedContentKey> {
+        Lockbox::open_path_with_contact(path, contact)
     }
 
-    /// Unlock key-directory backup bytes with a recipient keypair.
-    pub fn key_directory_backup_with_recipient(
+    /// Open key-directory backup bytes with a contact keypair.
+    pub fn key_directory_backup_with_contact(
         bytes: &[u8],
-        recipient: &RecipientKeyPair,
-    ) -> Result<UnlockedContentKey> {
-        Lockbox::unlock_key_directory_backup_with_recipient(bytes, recipient)
+        contact: &ContactKeyPair,
+    ) -> Result<OpenedContentKey> {
+        Lockbox::open_key_directory_backup_with_contact(bytes, contact)
     }
 }

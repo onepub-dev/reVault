@@ -1,5 +1,6 @@
 use lockbox_core::{
-    ExtractPolicy, ListOptions, Lockbox, LockboxPath, LockboxProtection, SecretVec, VariableName,
+    ExtractPolicy, ListOptions, Lockbox, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
+    SecretVec, VariableName,
 };
 use std::io::{Read, Result as IoResult};
 use std::path::PathBuf;
@@ -13,6 +14,10 @@ fn p(path: impl AsRef<str>) -> LockboxPath {
 
 fn variable(name: impl AsRef<str>) -> VariableName {
     VariableName::new(name).unwrap()
+}
+
+fn signing_key() -> OwnerSigningKeyPair {
+    OwnerSigningKeyPair::generate().unwrap()
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -340,6 +345,7 @@ impl BenchLockbox {
                 lockbox: Lockbox::create_file(
                     &path,
                     LockboxProtection::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+                    &signing_key(),
                 )?,
                 path: Some(path),
                 backend,
@@ -352,6 +358,7 @@ impl BenchLockbox {
                 lockbox: Lockbox::create_file(
                     &path,
                     LockboxProtection::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+                    &signing_key(),
                 )?,
                 path: Some(path),
                 backend,

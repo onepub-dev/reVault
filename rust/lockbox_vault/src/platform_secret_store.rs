@@ -70,7 +70,7 @@ pub fn enable_platform_secret_store() -> Result<()> {
 
 /// Disables platform secret-store lookup for the default local vault.
 ///
-/// The stored vault unlock secret is removed before the disable marker is
+/// The stored vault open secret is removed before the disable marker is
 /// written.
 pub fn disable_platform_secret_store() -> Result<()> {
     set_auto_open_scope(AutoOpenScope::Off)

@@ -1,8 +1,7 @@
 use crate::secret_prompt::prompt_secret;
-use lockbox_core::vault_bridge::VaultUnlock;
+use lockbox_core::vault_bridge::VaultOpen;
 use lockbox_core::{
-    Error, Lockbox, LockboxProtection, LockboxUnlock, RecipientKeyPair, RecipientPublicKey,
-    SecretVec,
+    ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxOpen, LockboxProtection, SecretVec,
 };
 use lockbox_vault::{
     auto_open_scope, default_vault_path, forget_platform_vault_password,
@@ -41,8 +40,11 @@ pub(crate) enum Access {
 pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
     ensure_lockbox_path_accessible(path)?;
     match access {
-        Access::ContentKey(key) => Ok(Vault::new(NoopStore)
-            .unlock_lockbox(path, LockboxUnlock::ContentKey(key.try_clone()?))?),
+        Access::ContentKey(key) => {
+            let _vault = default_vault()?;
+            Ok(Vault::new(NoopStore)
+                .open_lockbox_with(path, LockboxOpen::ContentKey(key.try_clone()?))?)
+        }
         Access::PromptPassword => Err(cli_error(
             "password prompting is only used when creating a new lockbox; pass --key or open through the local vault",
         )),
@@ -86,18 +88,18 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
                 "vault pass phrase is not stored for auto-open".to_string(),
             )
         })?;
-    let vault = VaultDirectory::unlock_or_create_default(&password)
+    let vault = VaultDirectory::open_or_create_default(&password)
         .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
-    let lockbox_id = VaultUnlock::read_lockbox_id(Path::new(path))
+    let lockbox_id = VaultOpen::read_lockbox_id(Path::new(path))
         .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
     if let Some(lockbox_password) = vault
         .remembered_lockbox_password(lockbox_id)
         .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?
     {
         if let Ok(lockbox) =
-            Vault::new(NoopStore).unlock_lockbox_with_password(path, &lockbox_password)
+            Vault::new(NoopStore).open_lockbox_with_password(path, &lockbox_password)
         {
-            let _ = local_vault().unlock_lockbox_with_password(path, &lockbox_password);
+            let _ = local_vault().open_lockbox_with_password(path, &lockbox_password);
             return Ok(lockbox);
         }
     }
@@ -109,14 +111,14 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
             continue;
         };
         if Vault::new(NoopStore)
-            .unlock_lockbox(path, LockboxUnlock::RecipientKeyPair(keypair))
+            .open_lockbox_with(path, LockboxOpen::ContactKeyPair(keypair))
             .is_ok()
         {
             let cache_keypair = vault
                 .load_private_key(&identity)
                 .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
             local_vault()
-                .unlock_lockbox(path, LockboxUnlock::RecipientKeyPair(cache_keypair))
+                .open_lockbox_with(path, LockboxOpen::ContactKeyPair(cache_keypair))
                 .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
             return local_vault()
                 .open_lockbox(path)
@@ -134,6 +136,7 @@ pub(crate) fn open_or_create(path: &str, access: &Access) -> CliResult<Lockbox> 
     } else {
         match access {
             Access::ContentKey(key) => {
+                let _vault = default_vault()?;
                 let lockbox = Vault::new(NoopStore)
                     .create_lockbox(path, LockboxProtection::ContentKey(key.try_clone()?))?;
                 mirror_key_directory(&lockbox, path)?;
@@ -308,13 +311,13 @@ pub(crate) fn remember_default_vault_password(password: &SecretString) -> Result
 
 pub(crate) fn default_vault() -> Result<VaultDirectory, Error> {
     if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
-        return VaultDirectory::unlock_or_create_default(&password);
+        return VaultDirectory::open_or_create_default(&password);
     }
 
     let platform_enabled = !platform_secret_store_disabled()?;
     if platform_enabled {
         if let Ok(Some(password)) = get_platform_vault_password() {
-            match VaultDirectory::unlock_or_create_default(&password) {
+            match VaultDirectory::open_or_create_default(&password) {
                 Ok(vault) => return Ok(vault),
                 Err(_) => {
                     let _ = forget_platform_vault_password();
@@ -325,7 +328,7 @@ pub(crate) fn default_vault() -> Result<VaultDirectory, Error> {
 
     let password =
         prompt_secret("Vault pass phrase: ").map_err(|err| Error::Io(err.to_string()))?;
-    let vault = VaultDirectory::unlock_or_create_default(&password)?;
+    let vault = VaultDirectory::open_or_create_default(&password)?;
     if platform_enabled {
         let _ = put_platform_vault_password(&password);
     }
@@ -347,33 +350,33 @@ pub(crate) fn mirror_key_directory(lockbox: &Lockbox, path: impl AsRef<Path>) ->
     }
     ensure_default_vault_initialized()?;
     let vault = default_vault()?;
-    let backup = VaultUnlock::export_key_directory_backup(lockbox)?;
+    let backup = VaultOpen::export_key_directory_backup(lockbox)?;
     vault.store_key_directory_backup(lockbox.lockbox_id(), &backup)?;
     vault.remember_known_lockbox(lockbox.lockbox_id(), path)?;
     Ok(())
 }
 
-pub(crate) fn load_private_key_from_arg(arg: Option<&str>) -> CliResult<RecipientKeyPair> {
+pub(crate) fn load_private_key_from_arg(arg: Option<&str>) -> CliResult<ContactKeyPair> {
     let vault = default_vault()?;
     let name_or_path = arg.unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
     Ok(vault.load_private_key(name_or_path)?)
 }
 
-pub(crate) struct ResolvedRecipient {
+pub(crate) struct ResolvedContact {
     pub(crate) name: Option<String>,
-    pub(crate) public_key: RecipientPublicKey,
+    pub(crate) public_key: ContactPublicKey,
 }
 
-pub(crate) fn load_recipient_file(name: &str, path: &str) -> CliResult<ResolvedRecipient> {
-    Ok(ResolvedRecipient {
+pub(crate) fn load_contact_file(name: &str, path: &str) -> CliResult<ResolvedContact> {
+    Ok(ResolvedContact {
         name: Some(name.to_string()),
         public_key: import_public_key(&std::fs::read(path)?)?,
     })
 }
 
-pub(crate) fn load_recipient_from_arg(arg: &str) -> CliResult<ResolvedRecipient> {
+pub(crate) fn load_contact_from_arg(arg: &str) -> CliResult<ResolvedContact> {
     if std::path::Path::new(arg).exists() {
-        return Ok(ResolvedRecipient {
+        return Ok(ResolvedContact {
             name: None,
             public_key: import_public_key(&std::fs::read(arg)?)?,
         });
@@ -383,7 +386,7 @@ pub(crate) fn load_recipient_from_arg(arg: &str) -> CliResult<ResolvedRecipient>
         if name.is_empty() {
             return Err(cli_error("missing identity name after identity:"));
         }
-        return Ok(ResolvedRecipient {
+        return Ok(ResolvedContact {
             name: Some(name.to_string()),
             public_key: vault.load_private_key(name)?.public_key(),
         });
@@ -392,7 +395,7 @@ pub(crate) fn load_recipient_from_arg(arg: &str) -> CliResult<ResolvedRecipient>
         if name.is_empty() {
             return Err(cli_error("missing contact name after contact:"));
         }
-        return Ok(ResolvedRecipient {
+        return Ok(ResolvedContact {
             name: Some(name.to_string()),
             public_key: vault.load_contact(name)?,
         });
@@ -403,11 +406,11 @@ pub(crate) fn load_recipient_from_arg(arg: &str) -> CliResult<ResolvedRecipient>
         (true, true) => Err(cli_error(format!(
             "ambiguous access target: {arg} matches both an identity and a contact. Use identity:{arg} or contact:{arg}."
         ))),
-        (true, false) => Ok(ResolvedRecipient {
+        (true, false) => Ok(ResolvedContact {
             name: Some(arg.to_string()),
             public_key: vault.load_private_key(arg)?.public_key(),
         }),
-        (false, true) => Ok(ResolvedRecipient {
+        (false, true) => Ok(ResolvedContact {
             name: Some(arg.to_string()),
             public_key: vault.load_contact(arg)?,
         }),

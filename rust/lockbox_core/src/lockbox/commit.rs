@@ -42,7 +42,9 @@ impl Lockbox {
         options: LockboxOptions,
     ) -> Result<Self> {
         let key = crate::SecretVec::try_from_slice(key.as_ref())?;
-        Self::open_path_with_secret_key_options(path, key, options)
+        let mut lockbox = Self::open_path_with_secret_key_options(path, key, options)?;
+        lockbox.set_owner_signing_key(crate::OwnerSigningKeyPair::generate()?);
+        Ok(lockbox)
     }
 
     pub(crate) fn open_path_with_secret_key_options(
@@ -81,7 +83,10 @@ impl Lockbox {
         options: LockboxOptions,
     ) -> Result<Self> {
         let key = crate::SecretVec::try_from_slice(key.as_ref())?;
-        Self::create_path_with_secret_key_and_options(path, key, lockbox_id, options)
+        let mut lockbox =
+            Self::create_path_with_secret_key_and_options(path, key, lockbox_id, options)?;
+        lockbox.set_owner_signing_key(crate::OwnerSigningKeyPair::generate()?);
+        Ok(lockbox)
     }
 
     pub(crate) fn create_path_with_secret_key_and_options(
@@ -120,7 +125,7 @@ impl Lockbox {
     pub fn commit(&mut self) -> Result<()> {
         if self.read_only {
             return Err(Error::InvalidOperation(
-                "recipient-opened lockboxes are read-only; copy the lockbox before editing"
+                "contact-opened lockboxes are read-only; copy the lockbox before editing"
                     .to_string(),
             ));
         }
@@ -182,7 +187,7 @@ impl Lockbox {
         let lockbox_id = self.lockbox_id;
         let sequence = self.sequence;
         let commit_root_offset = self.commit_root_offset;
-        let signer = self.ensure_owner_signing_key()?;
+        let signer = self.require_owner_signing_key()?;
         let mut auth = CommitAuth {
             lockbox_id,
             sequence,
@@ -902,19 +907,19 @@ mod tests {
     }
 
     #[test]
-    fn recipient_opened_lockbox_cannot_commit_changes() {
-        let recipient = crate::RecipientKeyPair::generate().unwrap();
-        let mut lb = Lockbox::create_with_recipient(&recipient.public_key()).unwrap();
+    fn contact_opened_lockbox_cannot_commit_changes() {
+        let contact = crate::ContactKeyPair::generate().unwrap();
+        let mut lb = Lockbox::create_with_contact(&contact.public_key()).unwrap();
         lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
         lb.commit().unwrap();
 
-        let mut opened = Lockbox::open_with_recipient(lb.to_bytes(), &recipient).unwrap();
+        let mut opened = Lockbox::open_with_contact(lb.to_bytes(), &contact).unwrap();
         opened.add_file(&p("/docs/b.txt"), b"bravo", false).unwrap();
 
         assert!(matches!(
             opened.commit(),
             Err(crate::Error::InvalidOperation(message))
-                if message.contains("recipient-opened lockboxes are read-only")
+                if message.contains("contact-opened lockboxes are read-only")
         ));
     }
 

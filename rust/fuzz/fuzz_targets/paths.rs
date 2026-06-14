@@ -1,10 +1,16 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use lockbox_core::{ListOptions, Lockbox, LockboxPath, LockboxProtection, SecretVec};
+use lockbox_core::{
+    ListOptions, Lockbox, LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretVec,
+};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static LOCKBOX_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn signing_key() -> OwnerSigningKeyPair {
+    OwnerSigningKeyPair::generate().unwrap()
+}
 
 fuzz_target!(|data: &[u8]| {
     if let Ok(path) = std::str::from_utf8(data) {
@@ -19,6 +25,7 @@ fuzz_target!(|data: &[u8]| {
         let mut lockbox = Lockbox::create_file(
             &storage_path,
             LockboxProtection::ContentKey(SecretVec::try_from_slice(b"fuzz key").unwrap()),
+            &signing_key(),
         )
         .unwrap();
         let _ = lockbox.add_file(&path, b"x", false);

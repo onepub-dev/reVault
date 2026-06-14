@@ -1,10 +1,10 @@
 use crate::{
-    CacheLimit, Error, ExtractPolicy, FormFieldDefinition, FormFieldKind, FormValue, ListOptions,
-    Lockbox, LockboxEntry, LockboxEntryKind, LockboxKeySlotAlgorithm, LockboxKeySlotProtection,
-    LockboxOptions, LockboxPath, LockboxProtection, LockboxUnlock, RecipientKeyPair,
-    RecipientPublicKey, RecoveryReportOptions, RecoveryScanner, Result, SecretString, SecretVec,
-    VariableName, VariableNamePattern, VariableSensitivity, VariableValueRef, WorkerPolicy,
-    WorkloadProfile, MAX_KEY_SLOT_NAME_BYTES,
+    CacheLimit, ContactKeyPair, ContactPublicKey, Error, ExtractPolicy, FormFieldDefinition,
+    FormFieldKind, FormValue, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind,
+    LockboxKeySlotAlgorithm, LockboxKeySlotProtection, LockboxOpen, LockboxOptions, LockboxPath,
+    LockboxProtection, OwnerSigningKeyPair, RecoveryReportOptions, RecoveryScanner, Result,
+    SecretString, SecretVec, VariableName, VariableNamePattern, VariableSensitivity,
+    VariableValueRef, WorkerPolicy, WorkloadProfile, MAX_KEY_SLOT_NAME_BYTES,
 };
 use sha2::{Digest, Sha256};
 use std::io::Cursor;
@@ -21,6 +21,10 @@ fn p(path: impl AsRef<str>) -> LockboxPath {
 
 fn variable(name: impl AsRef<str>) -> VariableName {
     VariableName::new(name).unwrap()
+}
+
+fn signing_key() -> OwnerSigningKeyPair {
+    OwnerSigningKeyPair::generate().unwrap()
 }
 
 #[test]
@@ -402,8 +406,8 @@ fn file_content_can_be_loaded_and_extracted_with_streaming_apis() {
 }
 
 #[test]
-fn content_keys_can_be_wrapped_with_hybrid_recipient_key() {
-    let key_pair = RecipientKeyPair::generate().unwrap();
+fn content_keys_can_be_wrapped_with_hybrid_contact_key() {
+    let key_pair = ContactKeyPair::generate().unwrap();
     let content_key = [9u8; 32];
 
     let wrapped = key_pair.encrypt(&content_key).unwrap();
@@ -414,8 +418,8 @@ fn content_keys_can_be_wrapped_with_hybrid_recipient_key() {
 }
 
 #[test]
-fn hybrid_wraps_for_same_recipient_do_not_share_key_exchange_material() {
-    let key_pair = RecipientKeyPair::generate().unwrap();
+fn hybrid_wraps_for_same_contact_do_not_share_key_exchange_material() {
+    let key_pair = ContactKeyPair::generate().unwrap();
     let content_key = [9u8; 32];
 
     let first = key_pair.encrypt(&content_key).unwrap();
@@ -431,51 +435,50 @@ fn hybrid_wraps_for_same_recipient_do_not_share_key_exchange_material() {
 }
 
 #[test]
-fn recipient_slot_names_are_not_persisted() {
-    let alice = RecipientKeyPair::generate().unwrap();
-    let bob = RecipientKeyPair::generate().unwrap();
-    let mut lb = Lockbox::create_with_recipient(&alice.public_key()).unwrap();
+fn contact_slot_labels_are_not_persisted() {
+    let alice = ContactKeyPair::generate().unwrap();
+    let bob = ContactKeyPair::generate().unwrap();
+    let mut lb = Lockbox::create_with_contact(&alice.public_key()).unwrap();
 
-    lb.add_recipient_named("bob-laptop", &bob.public_key())
+    lb.add_contact_named("bob-laptop", &bob.public_key())
         .unwrap();
     lb.commit().unwrap();
 
     let bytes = lb.to_bytes();
     assert!(!String::from_utf8_lossy(&bytes).contains("bob-laptop"));
 
-    let reopened = Lockbox::open_with_recipient(lb.to_bytes(), &bob).unwrap();
-    let recipient_slot = reopened
+    let reopened = Lockbox::open_with_contact(lb.to_bytes(), &bob).unwrap();
+    let contact_slot = reopened
         .list_key_slots()
         .into_iter()
-        .find(|slot| slot.protection == LockboxKeySlotProtection::Recipient)
-        .expect("recipient slot");
+        .find(|slot| slot.protection == LockboxKeySlotProtection::Contact)
+        .expect("contact slot");
 
-    assert_eq!(recipient_slot.name, None);
     assert_eq!(
-        recipient_slot.algorithm,
+        contact_slot.algorithm,
         LockboxKeySlotAlgorithm::X25519MlKem768ChaCha20Poly1305
     );
 }
 
 #[test]
-fn recipient_slot_names_are_bounded() {
-    let alice = RecipientKeyPair::generate().unwrap();
-    let bob = RecipientKeyPair::generate().unwrap();
-    let mut lb = Lockbox::create_with_recipient(&alice.public_key()).unwrap();
+fn contact_slot_names_are_bounded() {
+    let alice = ContactKeyPair::generate().unwrap();
+    let bob = ContactKeyPair::generate().unwrap();
+    let mut lb = Lockbox::create_with_contact(&alice.public_key()).unwrap();
     let too_long = "a".repeat(MAX_KEY_SLOT_NAME_BYTES + 1);
 
     assert!(matches!(
-        lb.add_recipient_named(too_long, &bob.public_key()),
+        lb.add_contact_named(too_long, &bob.public_key()),
         Err(Error::InvalidInput(message)) if message.contains("access name exceeds")
     ));
     assert!(matches!(
-        lb.add_recipient_named("bob/laptop", &bob.public_key()),
+        lb.add_contact_named("bob/laptop", &bob.public_key()),
         Err(Error::InvalidInput(message)) if message.contains("ASCII letters")
     ));
 }
 
 #[test]
-fn password_slots_unlock_the_random_content_key() {
+fn password_slots_open_the_random_content_key() {
     let share_password = password("share-password");
     let mut lb = Lockbox::create_with_password(&share_password).unwrap();
     let lockbox_id = lb.lockbox_id();
@@ -500,7 +503,7 @@ fn password_slots_unlock_the_random_content_key() {
 }
 
 #[test]
-fn password_unlock_recovers_when_header_is_corrupt() {
+fn password_open_recovers_when_header_is_corrupt() {
     let share_password = password("share-password");
     let mut lb = Lockbox::create_with_password(&share_password).unwrap();
     lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
@@ -514,7 +517,7 @@ fn password_unlock_recovers_when_header_is_corrupt() {
 }
 
 #[test]
-fn password_unlock_recovers_when_primary_key_directory_is_corrupt() {
+fn password_open_recovers_when_primary_key_directory_is_corrupt() {
     let share_password = password("share-password");
     let mut lb = Lockbox::create_with_password(&share_password).unwrap();
     lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
@@ -530,14 +533,14 @@ fn password_unlock_recovers_when_primary_key_directory_is_corrupt() {
 }
 
 #[test]
-fn multiple_key_slots_are_tried_until_one_unlocks() {
-    let alice = RecipientKeyPair::generate().unwrap();
-    let bob = RecipientKeyPair::generate().unwrap();
-    let outsider = RecipientKeyPair::generate().unwrap();
-    let bob_public = RecipientPublicKey::from_bytes(&bob.public_key().to_bytes()).unwrap();
+fn multiple_key_slots_are_tried_until_one_opens() {
+    let alice = ContactKeyPair::generate().unwrap();
+    let bob = ContactKeyPair::generate().unwrap();
+    let outsider = ContactKeyPair::generate().unwrap();
+    let bob_public = ContactPublicKey::from_bytes(&bob.public_key().to_bytes()).unwrap();
 
-    let mut lb = Lockbox::create_with_recipient(&alice.public_key()).unwrap();
-    lb.add_recipient(&bob_public).unwrap();
+    let mut lb = Lockbox::create_with_contact(&alice.public_key()).unwrap();
+    lb.add_contact(&bob_public).unwrap();
     let backup_password = password("backup-password");
     lb.add_password(&backup_password).unwrap();
     lb.add_file(&p("/shared/report.txt"), b"report", false)
@@ -546,11 +549,11 @@ fn multiple_key_slots_are_tried_until_one_unlocks() {
 
     let bytes = lb.to_bytes();
     assert!(matches!(
-        Lockbox::open_with_recipient(bytes.clone(), &outsider),
+        Lockbox::open_with_contact(bytes.clone(), &outsider),
         Err(Error::InvalidKey)
     ));
 
-    let by_bob = Lockbox::open_with_recipient(bytes.clone(), &bob).unwrap();
+    let by_bob = Lockbox::open_with_contact(bytes.clone(), &bob).unwrap();
     assert_eq!(
         by_bob.get_file(&p("/shared/report.txt")).unwrap(),
         b"report"
@@ -619,8 +622,12 @@ fn path_backed_key_slot_removal_compacts_and_remains_file_backed() {
     let path = temp_path("path-backed-key-compaction");
     let primary_password = password("primary-password");
     let temporary_password = password("temporary-password");
-    let mut lb =
-        Lockbox::create_file(&path, LockboxProtection::Password(&primary_password)).unwrap();
+    let mut lb = Lockbox::create_file(
+        &path,
+        LockboxProtection::Password(&primary_password),
+        &signing_key(),
+    )
+    .unwrap();
     let temporary_id = lb.add_password(&temporary_password).unwrap();
     lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
     lb.commit().unwrap();
@@ -633,10 +640,10 @@ fn path_backed_key_slot_removal_compacts_and_remains_file_backed() {
 
     assert!(after <= before + 4 * PAGE_BYTES as u64);
     assert!(matches!(
-        Lockbox::open_file(&path, LockboxUnlock::Password(&temporary_password)),
+        Lockbox::open_file(&path, LockboxOpen::Password(&temporary_password)),
         Err(Error::InvalidKey)
     ));
-    let reopened = Lockbox::open_file(&path, LockboxUnlock::Password(&primary_password)).unwrap();
+    let reopened = Lockbox::open_file(&path, LockboxOpen::Password(&primary_password)).unwrap();
     assert_eq!(reopened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
     assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
 
@@ -2421,7 +2428,7 @@ fn salvage_writes_intact_files_to_a_clean_lockbox() {
     let mut damaged = bytes;
     damaged[0] ^= 0xff;
 
-    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY).unwrap();
+    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
     assert_eq!(salvaged.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
     assert_eq!(salvaged.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
     assert_eq!(salvaged.get_file(&p("/photos/c.jpg")).unwrap(), b"image");
@@ -2432,7 +2439,7 @@ fn salvage_omits_corrupt_file_records() {
     let mut damaged = sample_lockbox();
     damaged[64 + 55] ^= 0xaa;
 
-    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY).unwrap();
+    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
     assert!(matches!(
         salvaged.get_file(&p("/docs/a.txt")),
         Err(Error::NotFound(_))
@@ -2515,7 +2522,7 @@ fn large_file_recovery_reassembles_segments_after_toc_loss() {
     assert_eq!(report.intact_file_count, 1);
     assert_eq!(report.partial_files, 0);
 
-    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY).unwrap();
+    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
     assert_eq!(
         salvaged.get_file(&p("/large/recover.bin")).unwrap(),
         payload
@@ -2807,7 +2814,7 @@ fn recovery_preserves_variable_paths_and_forms_from_commit_root() {
     assert_eq!(report.form_definition_count, 1);
     assert_eq!(report.form_record_count, 1);
 
-    let recovered = RecoveryScanner::salvage_bytes(bytes, KEY).unwrap();
+    let recovered = RecoveryScanner::salvage_bytes(bytes, KEY, &signing_key()).unwrap();
     assert_eq!(recovered.get_file(&p("/payload.txt")).unwrap(), b"payload");
     assert_eq!(
         recovered
@@ -2881,7 +2888,7 @@ fn path_backed_recovery_preserves_variable_paths_and_forms_from_commit_root() {
 
     let reopened = Lockbox::open_file(
         &path,
-        LockboxUnlock::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
     )
     .unwrap();
     let reopened_bytes = reopened.bytes().unwrap();
@@ -2895,7 +2902,7 @@ fn path_backed_recovery_preserves_variable_paths_and_forms_from_commit_root() {
     assert_eq!(inspector_report.form_definition_count, 1);
     assert_eq!(inspector_report.form_record_count, 1);
 
-    let recovered = RecoveryScanner::salvage_bytes(bytes, key).unwrap();
+    let recovered = RecoveryScanner::salvage_bytes(bytes, key, &signing_key()).unwrap();
     assert_eq!(
         recovered
             .get_variable(&variable("/prod/API_KEY"))
@@ -2915,15 +2922,22 @@ fn path_backed_recovery_preserves_variable_paths_and_forms_from_commit_root() {
 fn path_backed_recovery_report_counts_variables_after_multiple_commits() {
     let path = temp_path("recovery-variable-count-multiple-commits");
     let key = b"test-key";
-    let mut lb = Lockbox::create_path(&path, key).unwrap();
+    let signing_key = signing_key();
+    let mut lb = Lockbox::create_file(
+        &path,
+        LockboxProtection::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        &signing_key,
+    )
+    .unwrap();
     lb.set_variable(&variable("/APIO_KEY"), "normal-key")
         .unwrap();
     lb.commit().unwrap();
     drop(lb);
 
-    let mut lb = Lockbox::open_file(
+    let mut lb = Lockbox::open_file_with_owner_signing_key(
         &path,
-        LockboxUnlock::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        signing_key.try_clone().unwrap(),
     )
     .unwrap();
     lb.set_secret_variable(&variable("/product/API_KEY"), &password("secret-key"))
@@ -2931,9 +2945,10 @@ fn path_backed_recovery_report_counts_variables_after_multiple_commits() {
     lb.commit().unwrap();
     drop(lb);
 
-    let mut lb = Lockbox::open_file(
+    let mut lb = Lockbox::open_file_with_owner_signing_key(
         &path,
-        LockboxUnlock::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+        signing_key,
     )
     .unwrap();
     lb.set_variable(&variable("/product/API_KEY1"), "normal-key-1")

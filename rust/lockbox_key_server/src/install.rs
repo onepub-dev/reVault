@@ -14,7 +14,7 @@ const STATE_DIR: &str = "/var/lib/lockbox-key-server";
 const CACHE_DIR: &str = "/var/cache/lockbox-key-server";
 const LOG_DIR: &str = "/var/log/lockbox-key-server";
 const LOG_FILE: &str = "/var/log/lockbox-key-server/server.log";
-const USER: &str = "lockbox-share";
+const USER: &str = "lockbox-publish";
 
 pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Error>> {
     require_root()?;
@@ -185,20 +185,37 @@ fn default_config() -> &'static str {
 state_dir = \"/var/lib/lockbox-key-server\"\n\
 server_id = 0\n\
 cluster_id = \"default\"\n\
-public_url = \"https://keyshare.revault.onepub.dev/v1/share\"\n\
+public_url = \"https://keypublish.revault.onepub.dev/v1/publish\"\n\
 topology_version = 1\n\
-topology_server = \"0=https://keyshare.revault.onepub.dev/v1/share,active\"\n\
-route = \"0=0\"\n\
 origin_epoch = 1\n\
-default_ttl_seconds = 900\n\
-max_ttl_seconds = 900\n\
+verification_ttl_seconds = 1800\n\
+default_receive_ttl_seconds = 7200\n\
+max_receive_ttl_seconds = 7200\n\
 max_payload_bytes = 8192\n\
-max_fetches_per_share = 8\n\
+max_receives_per_publish = 8\n\
 rate_limit_per_minute = 120\n\
 rate_limit_burst = 40\n\
-verification_email_command = \"\"\n\
+smtp_host = \"smtp.gmail.com\"\n\
+smtp_port = 587\n\
+smtp_username = \"\"\n\
+smtp_password = \"\"\n\
+smtp_from = \"\"\n\
+smtp_tls = \"starttls\"\n\
+smtp_timeout_seconds = 30\n\
+verification_email_subject = \"Verify your reVault publish\"\n\
+verification_email_template = \"Verify {email} for this reVault publish:\\n\\n{verification_url}\\n\\nThis link expires in 30 minutes.\"\n\
 verification_email_rate_limit_per_hour = 5\n\
-verification_email_ip_rate_limit_per_hour = 30\n"
+verification_email_ip_rate_limit_per_hour = 30\n\
+\n\
+[[topology_server]]\n\
+id = 0\n\
+url = \"https://keypublish.revault.onepub.dev/v1/publish\"\n\
+status = \"active\"\n\
+\n\
+[[route]]\n\
+owner = 0\n\
+primary = 0\n\
+failover = []\n"
 }
 
 fn unit_file(binary: &str) -> String {
@@ -256,10 +273,12 @@ mod tests {
     fn default_config_includes_public_single_server_topology() {
         let config = default_config();
         assert!(config.contains("server_id = 0"));
-        assert!(config.contains("public_url = \"https://keyshare.revault.onepub.dev/v1/share\""));
-        assert!(config.contains(
-            "topology_server = \"0=https://keyshare.revault.onepub.dev/v1/share,active\""
-        ));
-        assert!(config.contains("route = \"0=0\""));
+        assert!(
+            config.contains("public_url = \"https://keypublish.revault.onepub.dev/v1/publish\"")
+        );
+        assert!(config.contains("[[topology_server]]"));
+        assert!(config.contains("url = \"https://keypublish.revault.onepub.dev/v1/publish\""));
+        assert!(config.contains("[[route]]"));
+        assert!(config.contains("primary = 0"));
     }
 }

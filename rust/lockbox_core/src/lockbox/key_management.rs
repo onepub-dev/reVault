@@ -2,13 +2,12 @@ use super::Lockbox;
 use crate::file_format::read_header;
 #[cfg(feature = "vault-bridge")]
 use crate::key_directory::encode_key_directory;
-#[cfg(test)]
 use crate::key_directory::read_key_directory;
 #[cfg(feature = "vault-bridge")]
 use crate::key_directory::read_key_directory_backup;
 use crate::key_directory::{best_key_directory, scan_key_directories};
 use crate::key_slot::{next_key_slot_id, random_content_key, random_salt, KeySlot, LockboxKeySlot};
-use crate::key_wrap::{RecipientKeyPair, RecipientPublicKey};
+use crate::key_wrap::{ContactKeyPair, ContactPublicKey};
 use crate::lockbox_id::LockboxId;
 use crate::secret_vec::{SecretString, SecretVec};
 use crate::signing::OwnerSigningKeyPair;
@@ -18,10 +17,10 @@ use std::fs;
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
 
-/// Decrypted content key produced by unlocking a key slot.
+/// Decrypted content key produced by opening a key slot.
 #[derive(Debug, PartialEq, Eq)]
-pub struct UnlockedContentKey {
-    /// Lockbox id associated with the unlocked key.
+pub struct OpenedContentKey {
+    /// Lockbox id associated with the opened key.
     pub lockbox_id: LockboxId,
     key: SecretVec,
     read_only: bool,
@@ -29,7 +28,7 @@ pub struct UnlockedContentKey {
 
 /// Key material used when creating a new lockbox file.
 ///
-/// `Password` and `RecipientPublicKey` generate a fresh random content key and
+/// `Password` and `ContactPublicKey` generate a fresh random content key and
 /// store only a wrapped copy of that key in the lockbox key directory.
 /// `ContentKey` is for callers that already manage the high-entropy secret
 /// used to derive page encryption keys.
@@ -42,37 +41,37 @@ pub enum LockboxProtection<'a> {
     ContentKey(SecretVec),
     /// Generate a content key and protect it with a password key slot.
     Password(&'a SecretString),
-    /// Generate a content key and protect it with a recipient public key.
+    /// Generate a content key and protect it with a contact public key.
     ///
-    /// This is the public half of a hybrid recipient keypair.
-    RecipientPublicKey {
+    /// This is the public half of a hybrid contact keypair.
+    ContactPublicKey {
         name: Option<String>,
-        recipient: RecipientPublicKey,
+        contact: ContactPublicKey,
     },
 }
 
-/// Key material used to unlock an existing lockbox file.
+/// Key material used to open an existing lockbox file.
 ///
-/// `Password` and `RecipientKeyPair` unwrap a stored content key from the
+/// `Password` and `ContactKeyPair` unwrap a stored content key from the
 /// lockbox key directory. `ContentKey` is for callers that already hold the
 /// content key and therefore do not need a key slot.
 #[allow(clippy::large_enum_variant)]
-pub enum LockboxUnlock<'a> {
-    /// Unlock directly with a caller-provided content key.
+pub enum LockboxOpen<'a> {
+    /// Open directly with a caller-provided content key.
     ///
     /// This must be the same high-entropy secret used with
     /// `LockboxProtection::ContentKey`.
     ContentKey(SecretVec),
-    /// Unlock with a password key slot.
+    /// Open with a password key slot.
     Password(&'a SecretString),
-    /// Unlock with a recipient keypair.
+    /// Open with a contact keypair.
     ///
     /// The keypair contains the private decapsulation material needed to unwrap
     /// a content key stored for its public key.
-    RecipientKeyPair(RecipientKeyPair),
+    ContactKeyPair(ContactKeyPair),
 }
 
-impl UnlockedContentKey {
+impl OpenedContentKey {
     /// Clone the decrypted content key into a new secure allocation.
     ///
     /// This lets vault integrations hand a copy to an external key cache
@@ -90,7 +89,10 @@ impl UnlockedContentKey {
         Ok(self.key.with_bytes(f)?)
     }
 
-    #[cfg(test)]
+    /// Open in-memory lockbox bytes with this opened content key.
+    ///
+    /// This is primarily useful for bytes-oriented callers such as WASM
+    /// wrappers or vault integrations.
     pub fn open_bytes(self, bytes: Vec<u8>) -> Result<Lockbox> {
         let mut lockbox = Lockbox::open_storage_with_secret_key(
             StorageBackend::memory(bytes),
@@ -103,7 +105,7 @@ impl UnlockedContentKey {
         Ok(lockbox)
     }
 
-    /// Open a lockbox file with this unlocked content key.
+    /// Open a lockbox file with this opened content key.
     ///
     /// Returns `Error::Io` if the host file cannot be read, `Error::InvalidKey`
     /// if authentication fails, or corrupt/truncated errors if the lockbox
@@ -119,30 +121,76 @@ impl UnlockedContentKey {
 }
 
 impl Lockbox {
+    /// Create a new in-memory lockbox using the supplied key material.
+    ///
+    /// This is the bytes-oriented counterpart to `Lockbox::create_file`.
+    /// Call `commit` after mutations, then `try_to_bytes` to serialize the
+    /// lockbox.
+    pub fn create_in_memory(
+        protection: LockboxProtection<'_>,
+        signing_key: &OwnerSigningKeyPair,
+    ) -> Result<Self> {
+        let mut lockbox = Self::create_in_memory_uncommitted(protection)?;
+        lockbox.set_owner_signing_key(signing_key.try_clone()?);
+        lockbox.commit()?;
+        Ok(lockbox)
+    }
+
+    fn create_in_memory_uncommitted(protection: LockboxProtection<'_>) -> Result<Self> {
+        Ok(match protection {
+            LockboxProtection::ContentKey(key) => Self::create_with_secret_key_and_options(
+                key,
+                LockboxId::new_random()?,
+                LockboxOptions::default(),
+            ),
+            LockboxProtection::Password(password) => {
+                let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
+                let mut lockbox = Self::create_with_secret_key_and_options(
+                    content_key,
+                    LockboxId::new_random()?,
+                    LockboxOptions::default(),
+                );
+                lockbox.add_password(password)?;
+                lockbox
+            }
+            LockboxProtection::ContactPublicKey { name, contact } => {
+                let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
+                let mut lockbox = Self::create_with_secret_key_and_options(
+                    content_key,
+                    LockboxId::new_random()?,
+                    LockboxOptions::default(),
+                );
+                match name {
+                    Some(name) => {
+                        lockbox.add_contact_named(name, &contact)?;
+                    }
+                    None => {
+                        lockbox.add_contact(&contact)?;
+                    }
+                }
+                lockbox
+            }
+        })
+    }
+
     /// Create a new lockbox file using the supplied key material.
     ///
     /// Returns `Error::Io` if the host file cannot be created or written,
     /// `Error::SecurityLimitExceeded` if key material cannot be generated or
     /// wrapped, and storage/encoding errors from the initial commit.
-    pub fn create_file(path: &Path, protection: LockboxProtection<'_>) -> Result<Self> {
-        Self::create_file_with_optional_owner_signing_key(path, protection, None)
-    }
-
-    /// Create a new lockbox file and sign its initial commit with `signing_key`.
-    pub fn create_file_with_owner_signing_key(
+    pub fn create_file(
         path: &Path,
         protection: LockboxProtection<'_>,
-        signing_key: OwnerSigningKeyPair,
+        signing_key: &OwnerSigningKeyPair,
     ) -> Result<Self> {
-        Self::create_file_with_optional_owner_signing_key(path, protection, Some(signing_key))
+        let mut lockbox = Self::create_file_uncommitted(path, protection)?;
+        lockbox.set_owner_signing_key(signing_key.try_clone()?);
+        lockbox.commit()?;
+        Ok(lockbox)
     }
 
-    fn create_file_with_optional_owner_signing_key(
-        path: &Path,
-        protection: LockboxProtection<'_>,
-        signing_key: Option<OwnerSigningKeyPair>,
-    ) -> Result<Self> {
-        let mut lockbox = match protection {
+    fn create_file_uncommitted(path: &Path, protection: LockboxProtection<'_>) -> Result<Self> {
+        Ok(match protection {
             LockboxProtection::ContentKey(key) => Self::create_path_with_secret_key_and_options(
                 path,
                 key,
@@ -160,7 +208,7 @@ impl Lockbox {
                 lockbox.add_password(password)?;
                 lockbox
             }
-            LockboxProtection::RecipientPublicKey { name, recipient } => {
+            LockboxProtection::ContactPublicKey { name, contact } => {
                 let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
                 let mut lockbox = Self::create_path_with_secret_key_and_options(
                     path,
@@ -170,61 +218,96 @@ impl Lockbox {
                 )?;
                 match name {
                     Some(name) => {
-                        lockbox.add_recipient_named(name, &recipient)?;
+                        lockbox.add_contact_named(name, &contact)?;
                     }
                     None => {
-                        lockbox.add_recipient(&recipient)?;
+                        lockbox.add_contact(&contact)?;
                     }
                 }
                 lockbox
             }
-        };
+        })
+    }
+
+    /// Open an in-memory lockbox using the supplied open key material.
+    pub fn open_bytes(bytes: Vec<u8>, open: LockboxOpen<'_>) -> Result<Self> {
+        Self::open_bytes_with_optional_owner_signing_key(bytes, open, None)
+    }
+
+    /// Open an in-memory lockbox and attach `signing_key` for future commits.
+    pub fn open_bytes_with_owner_signing_key(
+        bytes: Vec<u8>,
+        open: LockboxOpen<'_>,
+        signing_key: OwnerSigningKeyPair,
+    ) -> Result<Self> {
+        Self::open_bytes_with_optional_owner_signing_key(bytes, open, Some(signing_key))
+    }
+
+    fn open_bytes_with_optional_owner_signing_key(
+        bytes: Vec<u8>,
+        open: LockboxOpen<'_>,
+        signing_key: Option<OwnerSigningKeyPair>,
+    ) -> Result<Self> {
+        let mut lockbox = match open {
+            LockboxOpen::ContentKey(key) => Self::open_storage_with_secret_key(
+                StorageBackend::memory(bytes),
+                key,
+                LockboxOptions::default(),
+            ),
+            LockboxOpen::Password(password) => {
+                let opened = Self::open_bytes_with_password(&bytes, password)?;
+                opened.open_bytes(bytes)
+            }
+            LockboxOpen::ContactKeyPair(contact) => {
+                let opened = Self::open_bytes_with_contact(&bytes, &contact)?;
+                opened.open_bytes(bytes)
+            }
+        }?;
         if let Some(signing_key) = signing_key {
             lockbox.set_owner_signing_key(signing_key);
         }
-        lockbox.commit()?;
         Ok(lockbox)
     }
 
-    /// Open an existing lockbox file using the supplied unlock key material.
+    /// Open an existing lockbox file using the supplied open key material.
     ///
-    /// Password and recipient unlocks use only key slots embedded in the
+    /// Password and contact opens use only key slots embedded in the
     /// lockbox file. This method does not read the local vault, cached content
     /// keys, or vault-stored key-directory backups. Use `lockbox_vault::Vault`
     /// when that behavior is required.
     ///
     /// Returns `Error::Io` if the host file cannot be read, `Error::InvalidKey`
-    /// when the supplied unlock material cannot authenticate the content key, or
+    /// when the supplied open material cannot authenticate the content key, or
     /// corrupt/truncated errors if the lockbox structure cannot be parsed.
-    pub fn open_file(path: &Path, unlock: LockboxUnlock<'_>) -> Result<Self> {
-        Self::open_file_with_optional_owner_signing_key(path, unlock, None)
+    pub fn open_file(path: &Path, open: LockboxOpen<'_>) -> Result<Self> {
+        Self::open_file_with_optional_owner_signing_key(path, open, None)
     }
 
     /// Open a lockbox file and attach `signing_key` for future commits.
     pub fn open_file_with_owner_signing_key(
         path: &Path,
-        unlock: LockboxUnlock<'_>,
+        open: LockboxOpen<'_>,
         signing_key: OwnerSigningKeyPair,
     ) -> Result<Self> {
-        Self::open_file_with_optional_owner_signing_key(path, unlock, Some(signing_key))
+        Self::open_file_with_optional_owner_signing_key(path, open, Some(signing_key))
     }
 
     fn open_file_with_optional_owner_signing_key(
         path: &Path,
-        unlock: LockboxUnlock<'_>,
+        open: LockboxOpen<'_>,
         signing_key: Option<OwnerSigningKeyPair>,
     ) -> Result<Self> {
-        let mut lockbox = match unlock {
-            LockboxUnlock::ContentKey(key) => {
+        let mut lockbox = match open {
+            LockboxOpen::ContentKey(key) => {
                 Self::open_path_with_secret_key_options(path, key, LockboxOptions::default())
             }
-            LockboxUnlock::Password(password) => {
-                let unlocked = Self::unlock_path_with_password(path, password)?;
-                unlocked.open_path(path)
+            LockboxOpen::Password(password) => {
+                let opened = Self::open_path_with_password(path, password)?;
+                opened.open_path(path)
             }
-            LockboxUnlock::RecipientKeyPair(recipient) => {
-                let unlocked = Self::unlock_path_with_recipient(path, &recipient)?;
-                unlocked.open_path(path)
+            LockboxOpen::ContactKeyPair(contact) => {
+                let opened = Self::open_path_with_contact(path, &contact)?;
+                opened.open_path(path)
             }
         }?;
         if let Some(signing_key) = signing_key {
@@ -248,23 +331,16 @@ impl Lockbox {
         Ok(lockbox)
     }
 
-    #[cfg(test)]
-    pub fn open_with_password(bytes: Vec<u8>, password: &SecretString) -> Result<Self> {
-        let unlocked = Self::unlock_with_password(&bytes, password)?;
-        unlocked.open_bytes(bytes)
-    }
-
-    #[cfg(test)]
-    pub fn unlock_with_password(
+    pub(crate) fn open_bytes_with_password(
         bytes: &[u8],
         password: &SecretString,
-    ) -> Result<UnlockedContentKey> {
+    ) -> Result<OpenedContentKey> {
         for directory in key_directories_from_bytes(bytes)? {
             for slot in directory.slots {
                 let Ok(key) = slot.try_password(password) else {
                     continue;
                 };
-                return Ok(UnlockedContentKey {
+                return Ok(OpenedContentKey {
                     lockbox_id: directory.lockbox_id,
                     key: SecretVec::try_from_vec(key)?,
                     read_only: false,
@@ -274,18 +350,18 @@ impl Lockbox {
         Err(Error::InvalidKey)
     }
 
-    /// Unlock a lockbox file with a password and return its decrypted content key.
-    pub(crate) fn unlock_path_with_password(
+    /// Open a lockbox file with a password and return its decrypted content key.
+    pub(crate) fn open_path_with_password(
         path: &Path,
         password: &SecretString,
-    ) -> Result<UnlockedContentKey> {
+    ) -> Result<OpenedContentKey> {
         let storage = StorageBackend::file(path)?;
         for directory in key_directories_from_storage(&storage)? {
             for slot in directory.slots {
                 let Ok(key) = slot.try_password(password) else {
                     continue;
                 };
-                return Ok(UnlockedContentKey {
+                return Ok(OpenedContentKey {
                     lockbox_id: directory.lockbox_id,
                     key: SecretVec::try_from_vec(key)?,
                     read_only: false,
@@ -295,18 +371,18 @@ impl Lockbox {
         Err(Error::InvalidKey)
     }
 
-    /// Unlock a key-directory backup with a password.
+    /// Open a key-directory backup with a password.
     #[cfg(feature = "vault-bridge")]
-    pub(crate) fn unlock_key_directory_backup_with_password(
+    pub(crate) fn open_key_directory_backup_with_password(
         bytes: &[u8],
         password: &SecretString,
-    ) -> Result<UnlockedContentKey> {
+    ) -> Result<OpenedContentKey> {
         let directory = read_key_directory_backup(bytes)?;
         for slot in directory.slots {
             let Ok(key) = slot.try_password(password) else {
                 continue;
             };
-            return Ok(UnlockedContentKey {
+            return Ok(OpenedContentKey {
                 lockbox_id: directory.lockbox_id,
                 key: SecretVec::try_from_vec(key)?,
                 read_only: false,
@@ -316,30 +392,35 @@ impl Lockbox {
     }
 
     #[cfg(test)]
-    pub fn create_with_recipient(recipient: &RecipientPublicKey) -> Result<Self> {
+    pub fn create_with_contact(contact: &ContactPublicKey) -> Result<Self> {
         let content_key = random_content_key()?;
         let mut lockbox = Self::create(content_key);
-        lockbox.add_recipient(recipient)?;
+        lockbox.add_contact(contact)?;
         Ok(lockbox)
     }
 
     #[cfg(test)]
-    pub fn open_with_recipient(bytes: Vec<u8>, recipient: &RecipientKeyPair) -> Result<Self> {
-        let unlocked = Self::unlock_with_recipient(&bytes, recipient)?;
-        unlocked.open_bytes(bytes)
+    pub fn open_with_password(bytes: Vec<u8>, password: &SecretString) -> Result<Self> {
+        let opened = Self::open_bytes_with_password(&bytes, password)?;
+        opened.open_bytes(bytes)
     }
 
     #[cfg(test)]
-    pub fn unlock_with_recipient(
+    pub fn open_with_contact(bytes: Vec<u8>, contact: &ContactKeyPair) -> Result<Self> {
+        let opened = Self::open_bytes_with_contact(&bytes, contact)?;
+        opened.open_bytes(bytes)
+    }
+
+    pub(crate) fn open_bytes_with_contact(
         bytes: &[u8],
-        recipient: &RecipientKeyPair,
-    ) -> Result<UnlockedContentKey> {
+        contact: &ContactKeyPair,
+    ) -> Result<OpenedContentKey> {
         for directory in key_directories_from_bytes(bytes)? {
             for slot in directory.slots {
-                let Ok(key) = slot.try_recipient(recipient) else {
+                let Ok(key) = slot.try_contact(contact) else {
                     continue;
                 };
-                return Ok(UnlockedContentKey {
+                return Ok(OpenedContentKey {
                     lockbox_id: directory.lockbox_id,
                     key: SecretVec::try_from_vec(key)?,
                     read_only: true,
@@ -349,18 +430,18 @@ impl Lockbox {
         Err(Error::InvalidKey)
     }
 
-    /// Unlock a lockbox file with a recipient private key.
-    pub(crate) fn unlock_path_with_recipient(
+    /// Open a lockbox file with a contact private key.
+    pub(crate) fn open_path_with_contact(
         path: &Path,
-        recipient: &RecipientKeyPair,
-    ) -> Result<UnlockedContentKey> {
+        contact: &ContactKeyPair,
+    ) -> Result<OpenedContentKey> {
         let storage = StorageBackend::file(path)?;
         for directory in key_directories_from_storage(&storage)? {
             for slot in directory.slots {
-                let Ok(key) = slot.try_recipient(recipient) else {
+                let Ok(key) = slot.try_contact(contact) else {
                     continue;
                 };
-                return Ok(UnlockedContentKey {
+                return Ok(OpenedContentKey {
                     lockbox_id: directory.lockbox_id,
                     key: SecretVec::try_from_vec(key)?,
                     read_only: true,
@@ -370,18 +451,18 @@ impl Lockbox {
         Err(Error::InvalidKey)
     }
 
-    /// Unlock a key-directory backup with a recipient private key.
+    /// Open a key-directory backup with a contact private key.
     #[cfg(feature = "vault-bridge")]
-    pub(crate) fn unlock_key_directory_backup_with_recipient(
+    pub(crate) fn open_key_directory_backup_with_contact(
         bytes: &[u8],
-        recipient: &RecipientKeyPair,
-    ) -> Result<UnlockedContentKey> {
+        contact: &ContactKeyPair,
+    ) -> Result<OpenedContentKey> {
         let directory = read_key_directory_backup(bytes)?;
         for slot in directory.slots {
-            let Ok(key) = slot.try_recipient(recipient) else {
+            let Ok(key) = slot.try_contact(contact) else {
                 continue;
             };
-            return Ok(UnlockedContentKey {
+            return Ok(OpenedContentKey {
                 lockbox_id: directory.lockbox_id,
                 key: SecretVec::try_from_vec(key)?,
                 read_only: true,
@@ -390,11 +471,11 @@ impl Lockbox {
         Err(Error::InvalidKey)
     }
 
-    /// Add another password that can unlock this lockbox and return its key id.
+    /// Add another password that can open this lockbox and return its key id.
     ///
     /// A password does not encrypt file content directly. The lockbox content
     /// key is random; each password wraps that same content key in an embedded
-    /// key-directory entry. `Lockbox::open_file` with `LockboxUnlock::Password`
+    /// key-directory entry. `Lockbox::open_file` with `LockboxOpen::Password`
     /// tries each embedded password entry until one unwraps the content key.
     ///
     /// Returns `Error::Io` if random salt generation fails,
@@ -416,47 +497,40 @@ impl Lockbox {
         Ok(id)
     }
 
-    /// Add a recipient public key to the lockbox and return its key id.
+    /// Add a contact public key to the lockbox and return its key id.
     ///
-    /// Once a recipient's public key has been added to a lockbox, the matching
-    /// recipient's private keypair can be used to unlock the lockbox. Add
-    /// recipients with their public key, not their private keypair.
+    /// Once a contact's public key has been added to a lockbox, the matching
+    /// contact's private keypair can be used to open the lockbox. Add
+    /// contacts with their public key, not their private keypair.
     ///
-    /// To add a recipient to the box, you must be able to unlock the box with
+    /// To add a contact to the box, you must be able to open the box with
     /// your own key.
     ///
     /// Returns `Error::SecurityLimitExceeded` if secure key access or key
     /// wrapping fails.
-    pub fn add_recipient(&mut self, recipient: &RecipientPublicKey) -> Result<u64> {
-        self.add_recipient_with_name(None, recipient)
-    }
-
-    /// Add a recipient public key selected by a local name and return its key id.
-    ///
-    /// The name is validated for CLI compatibility, but is not stored in the
-    /// lockbox. Persisting names would leak who can open a shared lockbox.
-    pub fn add_recipient_named(
-        &mut self,
-        name: impl Into<String>,
-        recipient: &RecipientPublicKey,
-    ) -> Result<u64> {
-        let name = name.into();
-        crate::key_slot::validate_key_slot_name(&name)?;
-        self.add_recipient_with_name(None, recipient)
-    }
-
-    fn add_recipient_with_name(
-        &mut self,
-        name: Option<String>,
-        recipient: &RecipientPublicKey,
-    ) -> Result<u64> {
+    pub fn add_contact(&mut self, contact: &ContactPublicKey) -> Result<u64> {
         let id = next_key_slot_id(&self.key_slots);
-        let slot = self.key.with_bytes(|content_key| {
-            KeySlot::hybrid_recipient(id, name, recipient, content_key)
-        })??;
+        let slot = self
+            .key
+            .with_bytes(|content_key| KeySlot::hybrid_contact(id, contact, content_key))??;
         self.key_slots.push(slot);
         self.mark_key_directory_dirty();
         Ok(id)
+    }
+
+    /// Add a contact public key selected by a local name and return its key id.
+    ///
+    /// The name is validated for caller-side label storage, but is not stored
+    /// in the lockbox. Persisting names would leak who can open a shared
+    /// lockbox.
+    pub fn add_contact_named(
+        &mut self,
+        name: impl Into<String>,
+        contact: &ContactPublicKey,
+    ) -> Result<u64> {
+        let name = name.into();
+        crate::key_slot::validate_key_slot_name(&name)?;
+        self.add_contact(contact)
     }
 
     fn remove_key_slot(&mut self, id: u64) -> Result<()> {
@@ -510,7 +584,7 @@ impl Lockbox {
         )
     }
 
-    /// List the keys that can unlock this lockbox.
+    /// List the keys that can open this lockbox.
     pub fn list_key_slots(&self) -> Vec<LockboxKeySlot> {
         self.key_slots.iter().map(KeySlot::info).collect()
     }
@@ -518,7 +592,7 @@ impl Lockbox {
     /// Replace one existing password with a new password and return the new key id.
     ///
     /// The old password is used only to find a matching embedded password entry.
-    /// Other passwords and recipient keys are left unchanged. Returns
+    /// Other passwords and contact keys are left unchanged. Returns
     /// `Error::InvalidKey` if no embedded password entry matches `old_password`;
     /// returns storage or encoding errors if compaction fails after the
     /// replacement.
@@ -557,11 +631,13 @@ impl Lockbox {
         }
 
         let key = self.key.try_clone()?;
+        let signing_key = self.require_owner_signing_key()?.try_clone()?;
         let mut compacted = Lockbox::create_with_secret_key_and_options(
             key,
             self.lockbox_id,
             self.compaction_options(),
         );
+        compacted.set_owner_signing_key(signing_key);
         self.populate_compacted(&mut compacted, entries, variables, forms)?;
         compacted.commit()?;
         *self = compacted;
@@ -584,6 +660,7 @@ impl Lockbox {
         let temp_path = compact_temp_path(&path);
         let _ = fs::remove_file(&temp_path);
         let options = self.compaction_options();
+        let signing_key = self.require_owner_signing_key()?.try_clone()?;
         let result = (|| {
             let key = self.key.try_clone()?;
             let reopen_key = key.try_clone()?;
@@ -593,11 +670,14 @@ impl Lockbox {
                 self.lockbox_id,
                 options,
             )?;
+            compacted.set_owner_signing_key(signing_key.try_clone()?);
             self.populate_compacted(&mut compacted, entries, variables, forms)?;
             compacted.commit()?;
             drop(compacted);
             replace_file_with_compacted(&temp_path, &path)?;
-            let reopened = Lockbox::open_path_with_secret_key_options(&path, reopen_key, options)?;
+            let mut reopened =
+                Lockbox::open_path_with_secret_key_options(&path, reopen_key, options)?;
+            reopened.set_owner_signing_key(signing_key);
             *self = reopened;
             Ok(())
         })();
@@ -760,7 +840,6 @@ impl Read for FileEntryReader<'_> {
     }
 }
 
-#[cfg(test)]
 fn key_directories_from_bytes(
     bytes: &[u8],
 ) -> Result<Vec<crate::key_directory::DecodedKeyDirectory>> {

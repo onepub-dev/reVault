@@ -15,7 +15,13 @@ path = "src/main.rs"
 
 [dependencies]
 getrandom = "0.2"
-lockbox_share_protocol = { path = "../lockbox_share_protocol" }
+lettre = { version = "0.11", default-features = false, features = [
+    "builder",
+    "hostname",
+    "smtp-transport",
+    "rustls-tls",
+] }
+lockbox_publish_protocol = { path = "../lockbox_publish_protocol" }
 sha2 = "0.10"
 
 [target.'cfg(unix)'.dependencies]

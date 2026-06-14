@@ -156,14 +156,14 @@ fn print_access_methods(inspection: &LockboxFileInspection) {
         .iter()
         .filter(|slot| slot.protection == LockboxKeySlotProtection::Password)
         .count();
-    let recipient_count = inspection
+    let contact_count = inspection
         .key_slots
         .iter()
-        .filter(|slot| slot.protection == LockboxKeySlotProtection::Recipient)
+        .filter(|slot| slot.protection == LockboxKeySlotProtection::Contact)
         .count();
     println!("Access methods");
     println!("  pass phrase slots: {password_count}");
-    println!("  recipient-key slots: {recipient_count}");
+    println!("  contact-key slots: {contact_count}");
     println!(
         "  key directory: {}",
         if inspection.key_directory_copy_count == 0 {
@@ -178,12 +178,7 @@ fn print_access_methods(inspection: &LockboxFileInspection) {
     if !inspection.key_slots.is_empty() {
         println!("  slots:");
         for slot in &inspection.key_slots {
-            println!(
-                "    {}: {} {}",
-                slot.id,
-                slot_protection(slot.protection),
-                slot.name.as_deref().unwrap_or("-")
-            );
+            println!("    {}: {}", slot.id, slot_protection(slot.protection));
         }
     }
 }
@@ -279,7 +274,7 @@ fn header_status(inspection: &LockboxFileInspection) -> &'static str {
 fn slot_protection(protection: LockboxKeySlotProtection) -> &'static str {
     match protection {
         LockboxKeySlotProtection::Password => "pass phrase",
-        LockboxKeySlotProtection::Recipient => "recipient key",
+        LockboxKeySlotProtection::Contact => "contact key",
         _ => "unknown",
     }
 }
@@ -294,11 +289,11 @@ fn yes_no(value: bool) -> &'static str {
 
 fn default_vault_noninteractive() -> Result<Option<VaultDirectory>, Box<dyn std::error::Error>> {
     if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
-        return Ok(Some(VaultDirectory::unlock_or_create_default(&password)?));
+        return Ok(Some(VaultDirectory::open_or_create_default(&password)?));
     }
     if !platform_secret_store_disabled()? {
         if let Ok(Some(password)) = get_platform_vault_password() {
-            return Ok(Some(VaultDirectory::unlock_or_create_default(&password)?));
+            return Ok(Some(VaultDirectory::open_or_create_default(&password)?));
         }
     }
     Ok(None)

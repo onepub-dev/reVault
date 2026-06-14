@@ -1,4 +1,4 @@
-# reVault Share CLI and Vault Design
+# reVault Publish CLI and Vault Design
 
 ## Purpose
 
@@ -10,7 +10,7 @@ ownership, key continuity, or trust. Those decisions belong in the CLI and the
 local vault.
 
 ```text
-share/import/fetch -> candidate key
+publish/import/receive -> candidate key
 verification code -> user-confirmed candidate key
 vault contact record -> remembered trust state
 key replacement -> verified contact plus optional pending replacement
@@ -21,9 +21,9 @@ key replacement -> verified contact plus optional pending replacement
 This design covers:
 
 ```text
-lockbox vault share
-lockbox vault contact add --share-code
-lockbox vault contact update --share-code
+lockbox vault identity publish
+lockbox vault contact add --publish-code
+lockbox vault contact update --publish-code
 lockbox vault contact update --accept
 lockbox vault contact update --reject
 lockbox vault identity rotate
@@ -44,12 +44,12 @@ The contact subcommand remains under `vault`.
 New and amended commands:
 
 ```text
-lockbox vault share [identity] [--key-index N] [--server URL] [--ttl 15m] [--max-fetches 1]
+lockbox vault identity publish [identity] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
 
-lockbox vault contact add <identity> --share-code CODE [--server URL]
+lockbox vault contact add <identity> --publish-code CODE [--server URL]
 lockbox vault contact add <identity> <public-key-file>
 
-lockbox vault contact update <identity> --share-code CODE [--server URL]
+lockbox vault contact update <identity> --publish-code CODE [--server URL]
 lockbox vault contact update <identity> <public-key-file>
 lockbox vault contact update <identity> --accept
 lockbox vault contact update <identity> --reject
@@ -75,7 +75,7 @@ handles both signed and unsigned replacement payloads and direct offline public
 key files.
 
 `vault identity rotate` is local-only. It does not contact the key server.
-After rotation, the user can call `lockbox vault share` to share either the
+After rotation, the user can call `lockbox vault identity publish` to publish either the
 active key or a retired key generation.
 
 `access refresh` updates lockbox access entries from retired identity
@@ -87,20 +87,21 @@ vault's known-lockbox list. It does not modify the lockbox file itself.
 
 ## Worked Examples
 
-### Initial Share Through The Server
+### Initial Publish Through The Server
 
-Alice shares her active identity:
+Alice publishes her active identity:
 
 ```bash
-lockbox vault share alice@example.com
+lockbox vault identity publish alice@example.com
 ```
 
 Alice sees:
 
 ```text
-Share code: 0123456789012
+Publish code: 0123456789012
 Verification code: 71-44-92
-Expires: 15 minutes
+Email verification expires: 30 minutes
+Receive expires after verification: 2 hours
 ```
 
 Alice gives both codes to Bob over an independent channel.
@@ -108,7 +109,7 @@ Alice gives both codes to Bob over an independent channel.
 Bob adds Alice:
 
 ```bash
-lockbox vault contact add alice@example.com --share-code 0123456789012
+lockbox vault contact add alice@example.com --publish-code 0123456789012
 ```
 
 Bob is prompted:
@@ -148,10 +149,10 @@ lockbox vault identity rotate alice@example.com
 This creates a new active key generation and keeps the old generation retired.
 It does not upload anything.
 
-Alice shares a replacement for Bob:
+Alice publishes a replacement for Bob:
 
 ```bash
-lockbox vault share alice@example.com
+lockbox vault identity publish alice@example.com
 ```
 
 Because Alice has an old retired signing key, the CLI builds a
@@ -160,7 +161,7 @@ Because Alice has an old retired signing key, the CLI builds a
 Bob updates Alice:
 
 ```bash
-lockbox vault contact update alice@example.com --share-code 0123456789012
+lockbox vault contact update alice@example.com --publish-code 0123456789012
 ```
 
 If the signature verifies against Alice's current verified contact key, Bob's
@@ -169,16 +170,16 @@ contact record is promoted to the new key and remains verified.
 ### Unsigned Key Replacement
 
 Alice lost her old vault and cannot sign with the previous key. She creates a
-new identity with the same public identity string and shares it:
+new identity with the same public identity string and publishes it:
 
 ```bash
-lockbox vault share alice@example.com --unsigned-replacement
+lockbox vault identity publish alice@example.com --unsigned-replacement
 ```
 
 Bob updates Alice:
 
 ```bash
-lockbox vault contact update alice@example.com --share-code 0123456789012
+lockbox vault contact update alice@example.com --publish-code 0123456789012
 ```
 
 The CLI detects `unsigned_key_replacement_v1`, computes the replacement
@@ -194,13 +195,13 @@ Alice lists identity generations:
 lockbox vault identity history alice@example.com
 ```
 
-Then shares a retired key because a third party needs access to an old archive:
+Then publishes a retired key because a third party needs access to an old archive:
 
 ```bash
-lockbox vault share alice@example.com --key-index 1
+lockbox vault identity publish alice@example.com --key-index 1
 ```
 
-The CLI must warn that a retired key is being shared.
+The CLI must warn that a retired key is being published.
 
 ### Rewrapping An Old Lockbox
 
@@ -211,7 +212,7 @@ depends on the retired key:
 lockbox access refresh project.lbox alice@example.com
 ```
 
-The CLI unlocks with any available generation, adds the active generation, then
+The CLI opens with any available generation, adds the active generation, then
 removes the retired generation.
 
 Alice refreshes every known lockbox for every identity:
@@ -241,7 +242,7 @@ Missing:
 
 Could not check:
   client.lbox
-    cannot unlock with any vault identity
+    cannot open with any vault identity
 
 Apply these updates? [y/N]
 ```
@@ -256,8 +257,8 @@ The CLI must resolve the key server URL in this order:
 ```text
 1 command line: --server URL
 2 environment: LOCKBOX_KEY_SERVER
-3 YAML config: share.server
-4 built-in default: https://keyshare.revault.onepub.dev/v1/share
+3 YAML config: publish.server
+4 built-in default: https://keypublish.revault.onepub.dev/v1/publish
 ```
 
 The YAML config path should reuse the existing CLI config path logic:
@@ -270,18 +271,18 @@ platform config.yaml path
 Config shape:
 
 ```yaml
-share:
-  server: "https://keyshare.revault.onepub.dev/v1/share"
+publish:
+  server: "https://keypublish.revault.onepub.dev/v1/publish"
 ```
 
 The config parser should be small and strict. Unknown top-level fields can be
-ignored for forward compatibility, but malformed `share.server` must be a clear
+ignored for forward compatibility, but malformed `publish.server` must be a clear
 configuration error.
 
-## Shared Protocol Crate
+## Published Protocol Crate
 
-`lockbox_share_protocol` is the only crate that owns the share wire protocol
-and typed share payload encoding.
+`lockbox_publish_protocol` is the only crate that owns the published payload wire protocol
+and typed publish payload encoding.
 
 It provides:
 
@@ -289,25 +290,25 @@ It provides:
 binary request and response envelope codecs
 operation body versioning
 typed payload envelope validation
-contact share payload encoder
+contact publish payload encoder
 signed replacement payload encoder
 unsigned replacement payload encoder
-blocking ShareClient
+blocking PublishClient
 transport trait for tests and future TLS support
 ```
 
-The CLI must depend on `lockbox_share_protocol`; it must not duplicate protocol
+The CLI must depend on `lockbox_publish_protocol`; it must not duplicate protocol
 parsing or manually build key server request bytes.
 
 ## Verification Code
 
-The verification code is derived from the fetched payload. It detects server
+The verification code is derived from the received payload. It detects server
 substitution. It does not prove the human identity by itself.
 
-For initial contact shares:
+For initial contact publishs:
 
 ```text
-hash("lockbox contact verify v1" || identity || public_key || share_nonce)
+hash("lockbox contact verify v1" || identity || public_key || publish_nonce)
 ```
 
 For replacements:
@@ -343,8 +344,8 @@ store or update the contact record.
 
 Use binary contact records, not JSON.
 
-No compatibility is required for the existing `/trusted_recipients/*.pub`
-records because the project is pre-release. Replace the old trusted-recipient
+No compatibility is required for the existing `/trusted_contacts/*.pub`
+records because the project is pre-release. Replace the old trusted-contact
 record model with a single binary contact record per contact:
 
 ```text
@@ -488,67 +489,68 @@ what fingerprint did I previously trust?
 
 ## CLI Commands
 
-### Share Vault Identity
+### Publish Vault Identity
 
 ```bash
-lockbox vault share [identity] [--key-index N] [--server URL] [--ttl 15m] [--max-fetches 1]
+lockbox vault identity publish [identity] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
 ```
 
-This shares a vault identity's public contact material. If `identity` is
+This publishes a vault identity's public contact material. If `identity` is
 omitted, use the vault default identity.
 
-Publicly shared identity strings should be email addresses. The CLI should
+Publicly published identity strings should be email addresses. The CLI should
 strongly encourage this and may require an email-like value for identities that
-are shared through the server. Email addresses provide a natural globally
+are published through the server. Email addresses provide a natural globally
 unique contact key for other users' vaults.
 
 Local aliases can still exist, but they should not be the identity string in a
-share payload. If a local identity has alias `default`, the vault share command
+publish payload. If a local identity has alias `default`, the vault identity publish command
 should either use the email identity stored in that identity record or require:
 
 ```bash
-lockbox vault share default --as alice@example.com
+lockbox vault identity publish default --as alice@example.com
 ```
 
-`--key-index` selects a historical identity generation. Omitting it shares the
+`--key-index` selects a historical identity generation. Omitting it publishes the
 active generation. Sharing a retired generation must print a warning.
 
 Output:
 
 ```text
-Share code: 0123456789012
+Publish code: 0123456789012
 Verification code: 71-44-92
-Expires: 15 minutes
+Email verification expires: 30 minutes
+Receive expires after verification: 2 hours
 ```
 
-The `share` command must:
+The `publish` command must:
 
 ```text
 load the identity record from the vault
 select the active or requested key generation
-build a contact_share_v1, signed_key_replacement_v1, or unsigned_key_replacement_v1 payload
-upload it through ShareClient
+build a contact_publish_v1, signed_key_replacement_v1, or unsigned_key_replacement_v1 payload
+upload it through PublishClient
 compute the verification code locally
-print the share code and verification code
+print the published payload code and verification code
 ```
 
 When the identity has retired generations, the CLI decides the payload type:
 
 ```text
-no known previous contact context -> contact_share_v1
+no known previous contact context -> contact_publish_v1
 active generation with prior retired signing key -> signed_key_replacement_v1
 explicit --unsigned-replacement -> unsigned_key_replacement_v1
-retired --key-index N -> contact_share_v1 for that retired key
+retired --key-index N -> contact_publish_v1 for that retired key
 ```
 
 The key server does not decide whether a payload is signed. It only validates
 the submitted payload structure.
 
-### Add Contact By Share Code
+### Add Contact By Publish Code
 
 ```bash
 lockbox vault contact add alice@example.com \
-  --share-code 0123456789012 \
+  --publish-code 0123456789012 \
   [--server URL] \
   [--verification-code 71-44-92]
 ```
@@ -556,8 +558,8 @@ lockbox vault contact add alice@example.com \
 The command must:
 
 ```text
-fetch the share payload
-require PayloadType::ContactShare
+receive the published payload payload
+require PayloadType::ContactPublish
 decode the contact payload
 verify the payload identity matches the requested contact name
 compute the verification code
@@ -568,11 +570,11 @@ store the contact as verified only if the code matches
 The command should reject overwriting an existing contact unless an explicit
 replace/update flow is used.
 
-### Receive Replacement By Share Code
+### Receive Replacement By Publish Code
 
 ```bash
 lockbox vault contact update alice@example.com \
-  --share-code 0123456789012 \
+  --publish-code 0123456789012 \
   [--server URL] \
   [--verification-code 71-44-92]
 ```
@@ -581,7 +583,7 @@ The command must:
 
 ```text
 load the existing contact record
-fetch the share payload
+receive the published payload payload
 dispatch on PayloadType
 require signed or unsigned key replacement payload
 verify payload identity matches contact name
@@ -610,7 +612,7 @@ append unsigned_replacement_accepted history
 remain verified
 ```
 
-If an unsigned replacement is fetched but verification is deferred, store it as
+If an unsigned replacement is received but verification is deferred, store it as
 `pending_replacement` and warn on use of the old key.
 
 ### Accept Or Reject Pending Replacement
@@ -633,8 +635,8 @@ unsigned replacement: verification code was confirmed
 
 ## Identity Records And Signing
 
-Current `RecipientKeyPair` material is used for key wrapping. It is not a
-signing identity. In the current code it is hybrid X25519 + ML-KEM recipient
+Current `ContactKeyPair` material is used for key wrapping. It is not a
+signing identity. In the current code it is hybrid X25519 + ML-KEM contact
 material. X25519 performs key agreement and ML-KEM performs key encapsulation;
 neither component is a digital signature algorithm.
 
@@ -644,7 +646,7 @@ generation needs to contain the key material required for the jobs that
 generation performs:
 
 ```text
-recipient key material: unwrap lockbox content keys
+contact key material: unwrap lockbox content keys
 signing key material: sign identity replacement claims
 ```
 
@@ -652,7 +654,7 @@ The old identity generation signs the replacement claim with its old signing
 private key. Contacts verify that claim with the old signing public key they
 already trust. If a future identity key type can both unwrap and sign safely,
 the record format can encode that as one cryptographic keypair. The current
-hybrid recipient key cannot do that, so a signing component is required inside
+hybrid contact key cannot do that, so a signing component is required inside
 the same identity generation.
 
 Vault identities should become versioned binary identity records:
@@ -668,12 +670,12 @@ IdentityRecord {
 
 IdentityGeneration {
     index: u16
-    recipient_keypair: secret bytes
+    contact_keypair: secret bytes
     signing_keypair: secret bytes
     status: u16
     created_at_unix_ms: u64
     retired_at_unix_ms: optional u64
-    recipient_fingerprint: bytes
+    contact_fingerprint: bytes
     signing_public_key: bytes
 }
 ```
@@ -687,9 +689,9 @@ Generation status values:
 ```
 
 The signing component is generated with each identity generation and included
-in contact share payloads as the public signing key. Signed key replacement
+in contact publish payloads as the public signing key. Signed key replacement
 signs the canonical replacement body with the old generation's signing private
-key. The replacement payload carries the new generation's recipient public key
+key. The replacement payload carries the new generation's contact public key
 and new signing public key.
 
 The key server does not create or verify signatures. It only validates that a
@@ -707,31 +709,31 @@ lockbox vault identity rotate [identity]
 Default behavior:
 
 ```text
-generate a new recipient keypair
+generate a new contact keypair
 generate a new signing keypair
 keep the old identity key material
 mark the previous active generation as retired
 make the new generation active
 print a warning that existing lockboxes may still depend on retired keys
-suggest lockbox vault share to notify contacts
+suggest lockbox vault identity publish to notify contacts
 suggest access refresh to migrate old lockboxes
 ```
 
-The user then shares the new active generation with one or more third parties:
+The user then publishes the new active generation with one or more third parties:
 
 ```bash
-lockbox vault share alice@example.com
+lockbox vault identity publish alice@example.com
 ```
 
-The user can share a retired generation when another party needs to access an
+The user can publish a retired generation when another party needs to access an
 old archive:
 
 ```bash
-lockbox vault share alice@example.com --key-index 1
+lockbox vault identity publish alice@example.com --key-index 1
 ```
 
 The CLI must warn whenever it uses a retired identity generation, including for
-unlocking, sharing, or refreshing access. The warning should include the
+opening, sharing, or refreshing access. The warning should include the
 generation index and fingerprint.
 
 Identity history lists addressable generations:
@@ -745,7 +747,7 @@ Output columns:
 ```text
 index
 status
-recipient_fingerprint
+contact_fingerprint
 signing_fingerprint
 created
 retired
@@ -756,11 +758,11 @@ known_lockboxes
 lockboxes used each generation, print `unknown`.
 
 If a user lost their old vault, they cannot produce a signed replacement. In
-that case they create or import a new identity and share an unsigned
+that case they create or import a new identity and publish an unsigned
 replacement:
 
 ```bash
-lockbox vault share alice@example.com --unsigned-replacement
+lockbox vault identity publish alice@example.com --unsigned-replacement
 ```
 
 The receiver must verify by code before accepting it.
@@ -769,7 +771,7 @@ The receiver must verify by code before accepting it.
 
 Identity rotation does not automatically update old lockboxes.
 
-Any lockbox encrypted to the old recipient public key remains unlockable only
+Any lockbox encrypted to the old contact public key remains openable only
 with the matching old private key until its access entries are refreshed to the
 new active key.
 
@@ -831,14 +833,14 @@ lockbox vault identity history <identity>
 The refresh flow must:
 
 ```text
-unlock the lockbox using any available current or retired identity generation
+open the lockbox using any available current or retired identity generation
 add access for the new identity public key
 remove access for the retired identity public key
 commit the lockbox
 update key-directory backup in the vault
 ```
 
-If a lockbox cannot be unlocked with any available generation, report it and
+If a lockbox cannot be opened with any available generation, report it and
 leave it unchanged.
 
 Deleting retired private key material should require an explicit command and a
@@ -846,7 +848,7 @@ strong warning because unmigrated lockboxes may become inaccessible.
 
 ## Known Lockboxes
 
-The vault should track lockboxes it has created, unlocked, or modified through
+The vault should track lockboxes it has created, opened, or modified through
 access operations. Each known-lockbox record should be binary and contain:
 
 ```text
@@ -924,19 +926,19 @@ Do not use JSON for contact, history, identity, or replacement records.
 
 ## Implementation Order
 
-1. Add CLI config module with `share.server` YAML support and default
-   `keyshare.revault.onepub.dev`.
+1. Add CLI config module with `publish.server` YAML support and default
+   `keypublish.revault.onepub.dev`.
 2. Add binary contact record codec to `lockbox_vault`.
-3. Replace trusted-recipient vault APIs with contact-record APIs.
+3. Replace trusted-contact vault APIs with contact-record APIs.
 4. Update access resolution to load only verified contact current keys and warn
    on pending replacement.
 5. Add binary identity records with signing key material.
 6. Add verification-code helpers and canonical signing body helpers to the
-   shared protocol or a small contact-sharing module.
-7. Implement `lockbox vault share` publish/receive/delete.
-8. Implement `lockbox vault contact add --share-code`.
+   published protocol or a small contact-sharing module.
+7. Implement `lockbox vault identity publish` publish/receive/delete.
+8. Implement `lockbox vault contact add --publish-code`.
 9. Implement `lockbox vault identity rotate`.
-10. Implement signed and unsigned `lockbox vault contact update --share-code`.
+10. Implement signed and unsigned `lockbox vault contact update --publish-code`.
 11. Implement `--accept` and `--reject` pending replacement handling.
 12. Implement lockbox access refresh commands for retired identity generations.
 13. Track known lockboxes in the vault.
@@ -944,10 +946,10 @@ Do not use JSON for contact, history, identity, or replacement records.
 
 Implemented in the current key-server pass:
 
-- `lockbox vault share publish`
-- `lockbox vault share receive`
-- `lockbox vault share delete`
-- `share.server` and `share.topology_url` YAML-style config lookup
+- `lockbox vault identity publish`
+- `lockbox vault contact receive`
+- `lockbox vault identity publish delete`
+- `publish.server` and `publish.topology_url` YAML-style config lookup
 - `--server` and `--topology-url` command overrides
 - TLS-capable HTTP transport for `https://` key servers
 
@@ -955,7 +957,7 @@ Remaining CLI/contact work:
 
 - verification-code interaction for received contacts
 - contact replacement pending/accept/reject commands
-- binary contact history records beyond the existing trusted-recipient record
+- binary contact history records beyond the existing trusted-contact record
 15. Update `lockbox doctor` to report missing known lockboxes.
 
 ## Open Engineering Notes
@@ -965,6 +967,6 @@ records. Ed25519 is a pragmatic choice because it is small, fast, and widely
 understood, but this should be decided deliberately and exposed as a versioned
 signing-key type in the binary identity and contact records.
 
-The current `ShareClient` supports both `http://` and `https://` endpoints.
+The current `PublishClient` supports both `http://` and `https://` endpoints.
 Plain HTTP remains useful for local tests and private reverse-proxy deployments;
 the public default service uses HTTPS.

@@ -4,10 +4,11 @@ use super::context::{
 };
 use super::form::{parse_field_spec, print_form_definition_saved};
 use super::output::{output_format_from_args, print_records, OutputFormat};
-use lockbox_core::{Error, Lockbox, OwnerSigningPublicKey, RecipientKeyPair, RecipientPublicKey};
-use lockbox_share_protocol::{
-    contact_fingerprint, normalize_contact_email, ContactShare, ShareClientPool,
-    CONTACT_FINGERPRINT_LEN,
+use lockbox_core::{ContactKeyPair, ContactPublicKey, Error, Lockbox, OwnerSigningPublicKey};
+use lockbox_publish_protocol::protocol::Status;
+use lockbox_publish_protocol::{
+    contact_fingerprint, normalize_contact_email, ClientError, ContactPublish, PublishClientPool,
+    StickyPublishServer, CONTACT_FINGERPRINT_LEN,
 };
 use lockbox_vault::{
     backup_default_vault, default_vault_dir, default_vault_path, encode_hex, export_private_key,
@@ -70,7 +71,7 @@ fn change_passphrase(args: &[String]) -> CliResult<()> {
     }
 
     let old_password = read_vault_password("Current vault pass phrase: ")?;
-    match VaultDirectory::unlock_or_create_default(&old_password) {
+    match VaultDirectory::open_or_create_default(&old_password) {
         Ok(_) => {}
         Err(Error::InvalidKey) => {
             return Err(cli_error(
@@ -98,12 +99,13 @@ fn identity_command(args: &[String]) -> CliResult<()> {
         "list" | "ls" => list_identities(&args[1..]),
         "create" | "gen" | "generate" => keygen(&args[1..]),
         "email" => identity_email(&args[1..]),
+        "fingerprint" => identity_fingerprint(&args[1..]),
         "history" => identity_history(&args[1..]),
         "import" => import_key(&args[1..]),
         "export" => export_public(&args[1..]),
         "remove" | "rm" => remove_key(&args[1..]),
         "rotate" => rotate_key(&args[1..]),
-        "publish" => share_publish(&args[1..]),
+        "publish" => publish_identity(&args[1..]),
         _ => Err(Error::InvalidInput(format!("unknown vault identity command: {command}")).into()),
     }
 }
@@ -112,10 +114,10 @@ fn contact_command(args: &[String]) -> CliResult<()> {
     match args.first().map(String::as_str) {
         Some("list" | "ls") => list_contacts(&args[1..]),
         Some("import") => contact_import(&args[1..]),
-        Some("receive") => share_receive(&args[1..]),
+        Some("receive") => receive_publish(&args[1..]),
         Some("remove" | "rm") => remove_contact(&args[1..]),
         _ => Err(Error::InvalidInput(
-            "missing vault contact command; use `lockbox vault contact list`, `lockbox vault contact import <name> <public-key>`, `lockbox vault contact receive <share-code>`, or `lockbox vault contact remove <name>`"
+            "missing vault contact command; use `lockbox vault contact list`, `lockbox vault contact import <name> <public-key>`, `lockbox vault contact receive <publish-code>`, or `lockbox vault contact remove <name>`"
                 .to_string(),
         )
         .into()),
@@ -268,7 +270,7 @@ fn init(args: &[String]) -> CliResult<()> {
         }
         if verify {
             let password = read_vault_password("Vault pass phrase: ")?;
-            match VaultDirectory::unlock_or_create_default(&password) {
+            match VaultDirectory::open_or_create_default(&password) {
                 Ok(_) => {}
                 Err(Error::InvalidKey) => {
                     return Err(cli_error(
@@ -289,11 +291,11 @@ fn init(args: &[String]) -> CliResult<()> {
         println!();
         println!("Stores:");
         println!("  - identities and contacts");
-        println!("  - key-directory backups for shared lockboxes");
+        println!("  - key-directory backups for published lockboxes");
         println!();
     }
     let password = read_new_vault_password()?;
-    let vault = VaultDirectory::unlock_or_create_default(&password)?;
+    let vault = VaultDirectory::open_or_create_default(&password)?;
     let generated = ensure_default_private_key(&vault)?;
     let default_forms = vault.seed_default_form_definitions()?;
     set_auto_open_scope(AutoOpenScope::Lockboxes)?;
@@ -393,7 +395,7 @@ fn keygen(args: &[String]) -> CliResult<()> {
         return Err(Error::AlreadyExists(format!("vault identity {name}")).into());
     }
 
-    let keypair = RecipientKeyPair::generate()?;
+    let keypair = ContactKeyPair::generate()?;
     vault.store_private_key(name, &keypair)?;
     if defaulted_name {
         println!("Using default identity name: {name}");
@@ -413,7 +415,7 @@ fn contact_import(args: &[String]) -> CliResult<()> {
     if vault.contact_exists(name)? && !options.overwrite {
         return Err(Error::AlreadyExists(format!("contact {name}")).into());
     }
-    let recipient = import_public_key(&fs::read(public_path)?)?;
+    let contact = import_public_key(&fs::read(public_path)?)?;
     let expected_fingerprint = options
         .fingerprint
         .clone()
@@ -421,7 +423,7 @@ fn contact_import(args: &[String]) -> CliResult<()> {
         .unwrap_or_else(|| prompt_line("Public key fingerprint from key owner: "))?;
     let expected_fingerprint = decode_fingerprint_hex(&expected_fingerprint)?;
     let fingerprint_channel = verify_fingerprint_channel(options.fingerprint_channel.as_deref())?;
-    let computed_fingerprint = public_key_fingerprint(&recipient);
+    let computed_fingerprint = public_key_fingerprint(&contact);
     if expected_fingerprint != computed_fingerprint {
         return Err(Error::InvalidInput(format!(
             "public key fingerprint mismatch for {name}; expected {}, computed {}",
@@ -430,7 +432,7 @@ fn contact_import(args: &[String]) -> CliResult<()> {
         ))
         .into());
     }
-    vault.store_contact(name, &recipient)?;
+    vault.store_contact(name, &contact)?;
     println!("contact={name}");
     println!(
         "public_key_fingerprint={}",
@@ -480,8 +482,8 @@ impl ContactImportOptions {
     }
 }
 
-fn share_publish(args: &[String]) -> CliResult<()> {
-    let options = ShareCliOptions::parse(args)?;
+fn publish_identity(args: &[String]) -> CliResult<()> {
+    let options = PublishCliOptions::parse(args)?;
     let identity = options
         .positionals
         .first()
@@ -497,7 +499,7 @@ fn share_publish(args: &[String]) -> CliResult<()> {
     let now = unix_ms_now();
     let ttl_seconds = options.ttl_seconds.unwrap_or(900);
     let expires_at = now.saturating_add(ttl_seconds as u64 * 1000);
-    let nonce = share_nonce(identity, &public_key, now);
+    let nonce = publish_nonce(identity, &public_key, now);
     if options.email.is_some() {
         return Err(Error::InvalidInput(
             "set the identity email with `lockbox vault identity email [identity] <email>` before publishing".to_string(),
@@ -513,23 +515,25 @@ fn share_publish(args: &[String]) -> CliResult<()> {
         .map_err(|_| Error::InvalidInput("invalid identity email address".to_string()))?;
     let fingerprint = contact_fingerprint(&email, &public_key, &signing_public_key)
         .map_err(|_| Error::InvalidInput("invalid contact fingerprint fields".to_string()))?;
-    let pool = share_client_pool(&options)?;
-    let result = pool.share_contact(
-        ttl_seconds,
-        options.max_fetches.unwrap_or(1),
-        ContactShare {
-            identity,
-            public_key: &public_key,
-            signing_public_key: &signing_public_key,
-            fingerprint: &fingerprint,
-            share_nonce: &nonce,
-            created_at_unix_ms: now,
-            expires_at_unix_ms: expires_at,
-            verification_email: Some(&email),
-        },
-    )?;
+    let pool = publish_client_pool(&options)?;
+    let result = pool
+        .publish_contact(
+            ttl_seconds,
+            options.max_receives.unwrap_or(1),
+            ContactPublish {
+                identity,
+                public_key: &public_key,
+                signing_public_key: &signing_public_key,
+                fingerprint: &fingerprint,
+                publish_nonce: &nonce,
+                created_at_unix_ms: now,
+                expires_at_unix_ms: expires_at,
+                verification_email: Some(&email),
+            },
+        )
+        .map_err(clean_publish_error)?;
     println!("published=yes");
-    println!("share_code={}", result.share_code);
+    println!("publish_code={}", result.publish_code);
     println!("email={email}");
     println!("contact_fingerprint={}", format_hex_pairs(&fingerprint));
     println!(
@@ -541,20 +545,39 @@ fn share_publish(args: &[String]) -> CliResult<()> {
     }
     println!("verification_advice=check the inbox for {email} and click the verification link");
     println!(
-        "expires_at_utc={}",
+        "verification_expires_at_utc={}",
         format_unix_ms_utc(result.expires_at_unix_ms)
     );
-    println!("expires_at_unix_ms={}", result.expires_at_unix_ms);
+    println!(
+        "verification_expires_at_unix_ms={}",
+        result.expires_at_unix_ms
+    );
     Ok(())
 }
 
-fn share_receive(args: &[String]) -> CliResult<()> {
-    let options = ShareCliOptions::parse(args)?;
-    let share_code = options
+fn clean_publish_error(err: ClientError) -> Box<dyn std::error::Error> {
+    match err {
+        ClientError::Server {
+            status: Status::RateLimited,
+            ..
+        } => cli_error("Too many verification emails. Try again later."),
+        ClientError::Server {
+            status: Status::StoreUnavailable,
+            message,
+        } if message == "could not send verification email" => {
+            cli_error("Could not send verification email. Try again later.")
+        }
+        other => other.into(),
+    }
+}
+
+fn receive_publish(args: &[String]) -> CliResult<()> {
+    let options = PublishCliOptions::parse(args)?;
+    let publish_code = options
         .positionals
         .first()
         .cloned()
-        .ok_or_else(|| Error::InvalidInput("missing share code".to_string()))?;
+        .ok_or_else(|| Error::InvalidInput("missing publish code".to_string()))?;
     let expected_fingerprint = options
         .fingerprint
         .clone()
@@ -562,9 +585,9 @@ fn share_receive(args: &[String]) -> CliResult<()> {
         .unwrap_or_else(|| prompt_line("Full fingerprint from trusted second channel: "))?;
     let expected_fingerprint = decode_fingerprint_hex(&expected_fingerprint)?;
     let fingerprint_channel = verify_fingerprint_channel(options.fingerprint_channel.as_deref())?;
-    let pool = share_client_pool(&options)?;
-    let fetched = pool.fetch(&share_code)?;
-    let verification = fetched.email_verification.as_ref().ok_or_else(|| {
+    let pool = publish_client_pool(&options)?;
+    let received = pool.receive(&publish_code)?;
+    let verification = received.email_verification.as_ref().ok_or_else(|| {
         Error::InvalidInput("publisher email has not been verified by the key server".to_string())
     })?;
     if !verification.verified {
@@ -573,11 +596,11 @@ fn share_receive(args: &[String]) -> CliResult<()> {
         )
         .into());
     }
-    let contact = lockbox_share_protocol::decode_contact_share(&fetched.payload)?;
+    let published_contact = lockbox_publish_protocol::decode_contact_publish(&received.payload)?;
     let computed_fingerprint = contact_fingerprint(
         &verification.email,
-        &contact.public_key,
-        &contact.signing_public_key,
+        &published_contact.public_key,
+        &published_contact.signing_public_key,
     )
     .map_err(|_| Error::InvalidInput("invalid contact fingerprint fields".to_string()))?;
     if expected_fingerprint != computed_fingerprint {
@@ -594,17 +617,17 @@ fn share_receive(args: &[String]) -> CliResult<()> {
         .get(1)
         .cloned()
         .unwrap_or_else(|| contact_name_from_email(&verification.email));
-    let recipient = RecipientPublicKey::from_bytes(&contact.public_key)?;
-    let signing_public = OwnerSigningPublicKey::from_bytes(&contact.signing_public_key)?;
+    let contact_public_key = ContactPublicKey::from_bytes(&published_contact.public_key)?;
+    let signing_public = OwnerSigningPublicKey::from_bytes(&published_contact.signing_public_key)?;
     let vault = default_vault()?;
     if vault.contact_exists(&contact_name)? && !options.overwrite {
         return Err(Error::AlreadyExists(format!("contact {contact_name}")).into());
     }
-    vault.store_contact(&contact_name, &recipient)?;
+    vault.store_contact(&contact_name, &contact_public_key)?;
     vault.store_contact_signing_key(&contact_name, &signing_public)?;
     println!("contact={contact_name}");
-    println!("identity={}", contact.identity);
-    println!("share_code={share_code}");
+    println!("identity={}", published_contact.identity);
+    println!("publish_code={publish_code}");
     println!("email={}", verification.email);
     println!(
         "contact_fingerprint={}",
@@ -628,11 +651,11 @@ fn share_receive(args: &[String]) -> CliResult<()> {
 }
 
 #[derive(Default)]
-struct ShareCliOptions {
+struct PublishCliOptions {
     server: Option<String>,
     topology_url: Option<String>,
     ttl_seconds: Option<u32>,
-    max_fetches: Option<u16>,
+    max_receives: Option<u16>,
     email: Option<String>,
     fingerprint: Option<String>,
     fingerprint_channel: Option<String>,
@@ -640,9 +663,9 @@ struct ShareCliOptions {
     positionals: Vec<String>,
 }
 
-impl ShareCliOptions {
+impl PublishCliOptions {
     fn parse(args: &[String]) -> CliResult<Self> {
-        let mut options = ShareCliOptions::default();
+        let mut options = PublishCliOptions::default();
         let mut index = 0usize;
         while index < args.len() {
             match args[index].as_str() {
@@ -659,10 +682,10 @@ impl ShareCliOptions {
                     index += 1;
                     options.ttl_seconds = Some(require_arg(args, index, "--ttl value")?.parse()?);
                 }
-                "--max-fetches" => {
+                "--max-receives" => {
                     index += 1;
-                    options.max_fetches =
-                        Some(require_arg(args, index, "--max-fetches value")?.parse()?);
+                    options.max_receives =
+                        Some(require_arg(args, index, "--max-receives value")?.parse()?);
                 }
                 "--email" | "--verification-email" => {
                     index += 1;
@@ -687,46 +710,44 @@ impl ShareCliOptions {
     }
 }
 
-fn share_client_pool(options: &ShareCliOptions) -> CliResult<ShareClientPool> {
+fn publish_client_pool(options: &PublishCliOptions) -> CliResult<PublishClientPool> {
     if let Some(topology_url) = &options.topology_url {
-        return Ok(ShareClientPool::discover(&normalize_topology_url(
-            topology_url,
-        ))?);
+        let pool = PublishClientPool::discover(&normalize_topology_url(topology_url))?;
+        return with_persisted_publish_sticky(pool);
     }
     if let Some(server) = &options.server {
-        return Ok(ShareClientPool::new([normalize_share_url(server)])?);
+        return Ok(PublishClientPool::new([normalize_publish_url(server)])?);
     }
-    let config = read_share_config()?;
+    let config = read_publish_config()?;
     if let Some(topology_url) = config.topology_url {
-        return Ok(ShareClientPool::discover(&normalize_topology_url(
-            &topology_url,
-        ))?);
+        let pool = PublishClientPool::discover(&normalize_topology_url(&topology_url))?;
+        return with_persisted_publish_sticky(pool);
     }
-    Ok(ShareClientPool::new([normalize_share_url(
+    Ok(PublishClientPool::new([normalize_publish_url(
         config
             .server
             .as_deref()
-            .unwrap_or("https://keyshare.revault.onepub.dev/v1/share"),
+            .unwrap_or("https://keypublish.revault.onepub.dev/v1/publish"),
     )])?)
 }
 
 #[derive(Default)]
-struct ShareConfig {
+struct PublishConfig {
     server: Option<String>,
     topology_url: Option<String>,
 }
 
-fn read_share_config() -> CliResult<ShareConfig> {
+fn read_publish_config() -> CliResult<PublishConfig> {
     let path = std::env::var("LOCKBOX_SHARE_CONFIG")
         .map(PathBuf::from)
         .unwrap_or(default_vault_dir()?.join("config.yaml"));
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
-        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(ShareConfig::default()),
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(PublishConfig::default()),
         Err(err) => return Err(err.into()),
     };
-    let mut in_share = false;
-    let mut config = ShareConfig::default();
+    let mut in_publish = false;
+    let mut config = PublishConfig::default();
     for raw_line in text.lines() {
         let line = raw_line
             .split_once('#')
@@ -736,10 +757,10 @@ fn read_share_config() -> CliResult<ShareConfig> {
             continue;
         }
         if !line.starts_with(' ') && !line.starts_with('\t') {
-            in_share = line.trim() == "share:";
+            in_publish = line.trim() == "publish:";
             continue;
         }
-        if !in_share {
+        if !in_publish {
             continue;
         }
         let Some((key, value)) = line.trim().split_once(':') else {
@@ -755,12 +776,83 @@ fn read_share_config() -> CliResult<ShareConfig> {
     Ok(config)
 }
 
-fn normalize_share_url(value: &str) -> String {
+fn with_persisted_publish_sticky(pool: PublishClientPool) -> CliResult<PublishClientPool> {
+    if let Some(sticky) = read_persisted_publish_sticky()? {
+        let _ = pool.set_sticky_server(sticky.server_id, sticky.expires_at_unix_ms);
+    }
+    if let Some(sticky) = pool.ensure_sticky_server()? {
+        write_persisted_publish_sticky(sticky)?;
+    }
+    Ok(pool)
+}
+
+fn read_persisted_publish_sticky() -> CliResult<Option<StickyPublishServer>> {
+    let path = publish_sticky_path()?;
+    let text = match fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(err) => return Err(err.into()),
+    };
+    let mut server_id = None;
+    let mut expires_at_unix_ms = None;
+    for raw_line in text.lines() {
+        let line = raw_line
+            .split_once('#')
+            .map(|(value, _)| value)
+            .unwrap_or(raw_line)
+            .trim();
+        if line.is_empty() {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        match key.trim() {
+            "server_id" => server_id = value.trim().parse::<u8>().ok(),
+            "expires_at_unix_ms" => expires_at_unix_ms = value.trim().parse::<u64>().ok(),
+            _ => {}
+        }
+    }
+    let Some(server_id) = server_id else {
+        return Ok(None);
+    };
+    let Some(expires_at_unix_ms) = expires_at_unix_ms else {
+        return Ok(None);
+    };
+    if expires_at_unix_ms <= unix_ms_now() {
+        return Ok(None);
+    }
+    Ok(Some(StickyPublishServer {
+        server_id,
+        expires_at_unix_ms,
+    }))
+}
+
+fn write_persisted_publish_sticky(sticky: StickyPublishServer) -> CliResult<()> {
+    let path = publish_sticky_path()?;
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(
+        path,
+        format!(
+            "server_id = {}\nexpires_at_unix_ms = {}\n",
+            sticky.server_id, sticky.expires_at_unix_ms
+        ),
+    )?;
+    Ok(())
+}
+
+fn publish_sticky_path() -> CliResult<PathBuf> {
+    Ok(default_vault_dir()?.join(".publish-server-sticky"))
+}
+
+fn normalize_publish_url(value: &str) -> String {
     let value = value.trim();
     if value.starts_with("http://") || value.starts_with("https://") {
         value.to_string()
     } else {
-        format!("http://{value}/v1/share")
+        format!("http://{value}/v1/publish")
     }
 }
 
@@ -773,7 +865,7 @@ fn normalize_topology_url(value: &str) -> String {
     }
 }
 
-fn share_nonce(identity: &str, public_key: &[u8], now: u64) -> Vec<u8> {
+fn publish_nonce(identity: &str, public_key: &[u8], now: u64) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(identity.as_bytes());
     hasher.update(public_key);
@@ -1044,7 +1136,7 @@ fn identity_history(args: &[String]) -> CliResult<()> {
                 history.name.clone(),
                 generation.index.to_string(),
                 identity_generation_status(generation.status).to_string(),
-                encode_hex(&generation.recipient_fingerprint),
+                encode_hex(&generation.contact_fingerprint),
                 generation.created_at_unix_ms.to_string(),
                 generation
                     .retired_at_unix_ms
@@ -1068,12 +1160,50 @@ fn identity_history(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
+fn identity_fingerprint(args: &[String]) -> CliResult<()> {
+    if args.len() > 1 {
+        return Err(Error::InvalidInput(
+            "vault identity fingerprint accepts at most one identity name".to_string(),
+        )
+        .into());
+    }
+    let identity = args
+        .first()
+        .map(String::as_str)
+        .unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
+    let vault = default_vault()?;
+    let keypair = vault.load_private_key(identity)?;
+    let public_key = keypair.public_key().to_bytes();
+    let signing_public_key = vault
+        .load_owner_signing_key(identity)?
+        .public_key()
+        .to_bytes();
+    let email = vault.identity_email(identity)?.ok_or_else(|| {
+        cli_error(format!(
+            "Cannot calculate the publish fingerprint for `{identity}` because it has no email address.\nRun `lockbox vault identity email {identity} <email>`.\nThen run this command again."
+        ))
+    })?;
+    let email = normalize_contact_email(&email)
+        .map_err(|_| Error::InvalidInput("invalid identity email address".to_string()))?;
+    let fingerprint = contact_fingerprint(&email, &public_key, &signing_public_key)
+        .map_err(|_| Error::InvalidInput("invalid contact fingerprint fields".to_string()))?;
+
+    println!("identity={identity}");
+    println!("email={email}");
+    println!("contact_fingerprint={}", format_hex_pairs(&fingerprint));
+    println!(
+        "fingerprint_purpose=do not send this fingerprint; ask the receiver to call you to obtain it"
+    );
+    println!("fingerprint_security={SHARE_FINGERPRINT_SECURITY_NOTE}");
+    Ok(())
+}
+
 fn list_contacts(args: &[String]) -> CliResult<()> {
     let (_, format) = output_format_from_args(args)?;
     let vault = default_vault()?;
     let mut rows = Vec::new();
-    for recipient in vault.list_contacts()? {
-        rows.push(vec![recipient.name]);
+    for contact in vault.list_contacts()? {
+        rows.push(vec![contact.name]);
     }
     print_records(&["name"], rows, format)?;
     Ok(())
@@ -1222,7 +1352,7 @@ fn ensure_default_private_key(vault: &VaultDirectory) -> CliResult<bool> {
     }
     vault.store_private_key(
         VaultDirectory::DEFAULT_KEY_NAME,
-        &RecipientKeyPair::generate()?,
+        &ContactKeyPair::generate()?,
     )?;
     Ok(true)
 }
@@ -1448,12 +1578,14 @@ fn set_private_key_permissions(_path: &str) -> CliResult<()> {
 #[cfg(test)]
 mod tests {
     use super::{
-        contact_name_from_email, decode_fingerprint_hex, format_hex_pairs, format_unix_ms_utc,
-        verify_fingerprint_channel, SHARE_RECEIVE_VERIFICATION_ADVICE,
+        clean_publish_error, contact_name_from_email, decode_fingerprint_hex, format_hex_pairs,
+        format_unix_ms_utc, verify_fingerprint_channel, SHARE_RECEIVE_VERIFICATION_ADVICE,
     };
+    use lockbox_publish_protocol::protocol::Status;
+    use lockbox_publish_protocol::ClientError;
 
     #[test]
-    fn share_expiry_uses_human_readable_utc_time() {
+    fn publish_expiry_uses_human_readable_utc_time() {
         assert_eq!(format_unix_ms_utc(0), "1970/01/01 00:00 UTC");
         assert_eq!(
             format_unix_ms_utc(1_783_032_923_000),
@@ -1462,7 +1594,7 @@ mod tests {
     }
 
     #[test]
-    fn share_receive_advice_requires_recipient_initiated_trusted_channel() {
+    fn receive_publish_advice_requires_contact_initiated_trusted_channel() {
         assert!(SHARE_RECEIVE_VERIFICATION_ADVICE.contains("channel you already trust"));
         assert!(SHARE_RECEIVE_VERIFICATION_ADVICE.contains("You must initiate"));
         assert!(SHARE_RECEIVE_VERIFICATION_ADVICE.contains("do not accept it"));
@@ -1517,6 +1649,32 @@ mod tests {
         assert_eq!(
             contact_name_from_email("alice.publisher@example.test"),
             "alice_publisher_example_test"
+        );
+    }
+
+    #[test]
+    fn publish_rate_limit_error_is_short() {
+        let err = clean_publish_error(ClientError::Server {
+            status: Status::RateLimited,
+            message: "rate limited".to_string(),
+        });
+
+        assert_eq!(
+            err.to_string(),
+            "Too many verification emails. Try again later."
+        );
+    }
+
+    #[test]
+    fn publish_smtp_error_is_short() {
+        let err = clean_publish_error(ClientError::Server {
+            status: Status::StoreUnavailable,
+            message: "could not send verification email".to_string(),
+        });
+
+        assert_eq!(
+            err.to_string(),
+            "Could not send verification email. Try again later."
         );
     }
 }

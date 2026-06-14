@@ -3,7 +3,6 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
-use std::process::Command as ProcessCommand;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc, Mutex, MutexGuard};
 use std::thread;
@@ -11,31 +10,35 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::server_log::log_server_event;
 use getrandom::getrandom;
+use lettre::message::{Mailbox, SinglePart};
+use lettre::transport::smtp::authentication::Credentials;
+use lettre::{Message, SmtpTransport, Transport as MailTransport};
 use sha2::{Digest, Sha256};
 
-use lockbox_share_protocol::client::{HttpTransport, Transport};
-use lockbox_share_protocol::payload;
-use lockbox_share_protocol::protocol::{self, Operation, Reader, Status};
-use lockbox_share_protocol::ClientError;
-use lockbox_share_protocol::{
+use lockbox_publish_protocol::client::{HttpTransport, Transport};
+use lockbox_publish_protocol::payload;
+use lockbox_publish_protocol::protocol::{self, Operation, Reader, Status};
+use lockbox_publish_protocol::ClientError;
+use lockbox_publish_protocol::{
     build_ring_routes, decode_topology, decode_topology_registration, encode_replication_request,
-    encode_topology, encode_topology_registration, share_code_locator, share_code_server_id_char,
-    sign_replication_event, ClusterTopology, ReplicationEvent, ReplicationEventKind,
-    ReplicationRequest, ServerStatus, TopologyRegistration, TopologyRoute, TopologyServer,
+    encode_topology, encode_topology_registration, publish_code_locator,
+    publish_code_server_id_char, sign_replication_event, ClusterTopology, ReplicationEvent,
+    ReplicationEventKind, ReplicationRequest, ServerStatus, TopologyRegistration, TopologyRoute,
+    TopologyServer,
 };
 
 const RECORD_MAGIC: &[u8; 4] = b"LBSF";
 const RECORD_HEADER_LEN: usize = 20;
 const KIND_PUT: u16 = 1;
 const KIND_TOMBSTONE: u16 = 2;
-const KIND_FETCH_COUNT: u16 = 3;
+const KIND_RECEIVE_COUNT: u16 = 3;
 const DEFAULT_SECRET_LEN: usize = 32;
 const HASH_LEN: usize = 16;
 const BUCKET_COUNT: usize = 4096;
-const BUCKET_RECORD_LEN: usize = 64;
+const BUCKET_RECORD_LEN: usize = 80;
 const BUCKET_PUT: u8 = 1;
 const BUCKET_TOMBSTONE: u8 = 2;
-const BUCKET_FETCH_COUNT: u8 = 3;
+const BUCKET_RECEIVE_COUNT: u8 = 3;
 const OUTBOX_MAGIC: &[u8; 4] = b"LBSO";
 const OUTBOX_HEADER_LEN: usize = 16;
 const OUTBOX_EVENT: u16 = 1;
@@ -45,6 +48,9 @@ const REPLICATION_STATE_PERSIST_INTERVAL: usize = 1024;
 const SHARE_CODE_BODY_DIGITS: usize = 12;
 const TOPOLOGY_HEARTBEAT_INTERVAL_MS: u64 = 30_000;
 const DEFAULT_TOPOLOGY_STALE_MS: u64 = 90_000;
+const DEFAULT_SMTP_TIMEOUT_SECONDS: u64 = 30;
+const EMAIL_QUEUE_CAPACITY: usize = 256;
+const STATUS_CACHE_TTL: Duration = Duration::from_secs(1);
 
 type RecordHash = [u8; HASH_LEN];
 
@@ -76,25 +82,41 @@ pub struct ServerConfig {
     pub origin_epoch: u64,
     pub promoted_owner_ids: Vec<u8>,
     pub max_payload_bytes: usize,
-    pub default_ttl: Duration,
-    pub max_ttl: Duration,
+    pub verification_ttl: Duration,
+    pub default_receive_ttl: Duration,
+    pub max_receive_ttl: Duration,
     pub shard_count: usize,
     pub developer_mode: bool,
     pub benchmark_requests: usize,
     pub benchmark_payload_bytes: usize,
     pub benchmark_concurrency: usize,
-    pub benchmark_preload_shares: usize,
-    pub max_fetches_per_share: u16,
+    pub benchmark_preload_published_payloads: usize,
+    pub max_receives_per_publish: u16,
     pub compact_min_bytes: u64,
     pub index_cache_entries: usize,
     pub rate_limit_per_minute: u32,
     pub rate_limit_burst: u32,
-    pub verification_email_command: Option<String>,
+    pub smtp_host: Option<String>,
+    pub smtp_port: u16,
+    pub smtp_username: Option<String>,
+    pub smtp_password: Option<String>,
+    pub smtp_from: Option<String>,
+    pub smtp_tls: SmtpTlsMode,
+    pub smtp_timeout: Duration,
+    pub verification_email_subject: String,
+    pub verification_email_template: String,
     pub verification_email_rate_limit_per_hour: u32,
     pub verification_email_ip_rate_limit_per_hour: u32,
     pub topology_token: Option<String>,
     pub topology_stale_after_ms: u64,
     pub topology_heartbeat_interval_ms: u64,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SmtpTlsMode {
+    StartTls,
+    Tls,
+    None,
 }
 
 impl Default for ServerConfig {
@@ -113,20 +135,30 @@ impl Default for ServerConfig {
             origin_epoch: unix_ms(SystemTime::now()),
             promoted_owner_ids: Vec::new(),
             max_payload_bytes: 8 * 1024,
-            default_ttl: Duration::from_secs(15 * 60),
-            max_ttl: Duration::from_secs(15 * 60),
+            verification_ttl: Duration::from_secs(30 * 60),
+            default_receive_ttl: Duration::from_secs(2 * 60 * 60),
+            max_receive_ttl: Duration::from_secs(2 * 60 * 60),
             shard_count: 16,
             developer_mode: false,
             benchmark_requests: 50_000,
             benchmark_payload_bytes: 512,
             benchmark_concurrency: 0,
-            benchmark_preload_shares: 0,
-            max_fetches_per_share: 8,
+            benchmark_preload_published_payloads: 0,
+            max_receives_per_publish: 8,
             compact_min_bytes: 64 * 1024 * 1024,
             index_cache_entries: 65_536,
             rate_limit_per_minute: 120,
             rate_limit_burst: 40,
-            verification_email_command: None,
+            smtp_host: None,
+            smtp_port: 587,
+            smtp_username: None,
+            smtp_password: None,
+            smtp_from: None,
+            smtp_tls: SmtpTlsMode::StartTls,
+            smtp_timeout: Duration::from_secs(DEFAULT_SMTP_TIMEOUT_SECONDS),
+            verification_email_subject: "Verify your reVault publish".to_string(),
+            verification_email_template:
+                "Verify {email} for this reVault publish:\n\n{verification_url}\n\nThis link expires in 30 minutes.".to_string(),
             verification_email_rate_limit_per_hour: 5,
             verification_email_ip_rate_limit_per_hour: 30,
             topology_token: None,
@@ -158,9 +190,9 @@ impl std::fmt::Display for StoreError {
             Self::Io(err) => write!(f, "{err}"),
             Self::Protocol(err) => write!(f, "{err}"),
             Self::PayloadTooLarge => write!(f, "payload too large"),
-            Self::NotFound => write!(f, "share not found"),
-            Self::Expired => write!(f, "share expired"),
-            Self::Exhausted => write!(f, "share exhausted"),
+            Self::NotFound => write!(f, "publish not found"),
+            Self::Expired => write!(f, "publish expired"),
+            Self::Exhausted => write!(f, "publish exhausted"),
             Self::DeleteTokenInvalid => write!(f, "delete token invalid"),
             Self::PayloadInvalid(err) => write!(f, "payload invalid: {err}"),
             Self::Config(err) => write!(f, "{err}"),
@@ -208,25 +240,27 @@ fn store_error_from_client_error(err: ClientError) -> StoreError {
 }
 
 #[derive(Clone)]
-struct ShareEntry {
-    share_code: String,
+struct PublishEntry {
+    publish_code: String,
     delete_token_hash: RecordHash,
     contact_email: Option<String>,
     payload_offset: u64,
     payload_len: u32,
     expires_at_ms: u64,
-    max_fetches: u16,
-    fetches: u16,
+    receive_ttl_ms: u64,
+    email_verified_at_ms: u64,
+    max_receives: u16,
+    receives: u16,
 }
 
 struct Shard {
     path: PathBuf,
     file: Mutex<File>,
-    index: Mutex<HashMap<RecordHash, ShareEntry>>,
+    index: Mutex<HashMap<RecordHash, PublishEntry>>,
     expiry_buckets: Mutex<VecDeque<(u64, Vec<(RecordHash, String)>)>>,
 }
 
-pub struct ShareStore {
+pub struct PublishStore {
     config: ServerConfig,
     auto_routes: bool,
     secret: [u8; 32],
@@ -235,7 +269,10 @@ pub struct ShareStore {
     verifications: Mutex<HashMap<String, VerificationEntry>>,
     email_rate_limits: Mutex<EmailRateLimits>,
     created: AtomicU64,
-    fetched: AtomicU64,
+    received: AtomicU64,
+    email_tx: Option<mpsc::SyncSender<VerificationEmailJob>>,
+    rate_limit_blocks: Mutex<HashMap<IpAddr, u64>>,
+    status_cache: Mutex<Option<StatusCache>>,
     deleted: AtomicU64,
     expired: AtomicU64,
     misses: AtomicU64,
@@ -248,27 +285,37 @@ pub struct ShareStore {
     topology: Mutex<ClusterTopology>,
 }
 
-pub struct CreatedShare {
-    pub share_code: String,
+pub struct CreatedPublish {
+    pub publish_code: String,
     pub delete_token: Vec<u8>,
     pub expires_at_ms: u64,
-    pub max_fetches: u16,
+    pub max_receives: u16,
     pub verification_url: Option<String>,
 }
 
-pub struct FetchedShare {
+pub struct ReceivedPublish {
     pub payload: Vec<u8>,
     pub expires_at_ms: u64,
-    pub remaining_fetches: u16,
+    pub remaining_receives: u16,
     pub email_verification: Option<protocol::EmailVerification>,
 }
 
 #[derive(Clone, Debug)]
+struct VerificationEmailJob {
+    email: String,
+    subject: String,
+    body: String,
+}
+
+struct StatusCache {
+    cached_at: Instant,
+    document: lockbox_publish_protocol::KeyServerStatus,
+}
+
 struct VerificationEntry {
     email: String,
     token_hash: RecordHash,
     expires_at_ms: u64,
-    verified_at_ms: Option<u64>,
 }
 
 #[derive(Default)]
@@ -285,7 +332,32 @@ pub struct VerificationPage {
     pub email: Option<String>,
 }
 
-impl ShareStore {
+fn spawn_verification_email_worker(
+    config: &ServerConfig,
+) -> Option<mpsc::SyncSender<VerificationEmailJob>> {
+    config.smtp_host.as_ref()?;
+    let config = config.clone();
+    let (tx, rx) = mpsc::sync_channel::<VerificationEmailJob>(EMAIL_QUEUE_CAPACITY);
+    thread::Builder::new()
+        .name("publish-email".to_string())
+        .stack_size(256 * 1024)
+        .spawn(move || {
+            for job in rx {
+                if let Err(err) = PublishStore::send_verification_email_smtp(
+                    &config,
+                    &job.email,
+                    &job.subject,
+                    &job.body,
+                ) {
+                    log_server_event(format!("verification email send failed: {err}"));
+                }
+            }
+        })
+        .ok()?;
+    Some(tx)
+}
+
+impl PublishStore {
     fn encode_response_with_topology(
         &self,
         operation: Operation,
@@ -303,16 +375,16 @@ impl ShareStore {
     fn encode_store_error_with_topology(&self, operation: Operation, err: StoreError) -> Vec<u8> {
         let status = match err {
             StoreError::PayloadTooLarge => Status::PayloadTooLarge,
-            StoreError::NotFound => Status::ShareNotFound,
-            StoreError::Expired => Status::ShareExpired,
-            StoreError::Exhausted => Status::ShareExhausted,
+            StoreError::NotFound => Status::PublishNotFound,
+            StoreError::Expired => Status::PublishExpired,
+            StoreError::Exhausted => Status::PublishExhausted,
             StoreError::DeleteTokenInvalid => Status::DeleteTokenInvalid,
             StoreError::PayloadInvalid(_) => Status::MalformedRequest,
             StoreError::Protocol(_) => Status::MalformedRequest,
             StoreError::Config(_) => Status::StoreUnavailable,
             StoreError::ReplicationUnauthorized => Status::ReplicationUnauthorized,
             StoreError::RateLimited => Status::RateLimited,
-            StoreError::EmailUnverified => Status::ShareNotFound,
+            StoreError::EmailUnverified => Status::EmailUnverified,
             StoreError::Io(_) => Status::StoreUnavailable,
         };
         let mut payload = Vec::new();
@@ -323,7 +395,8 @@ impl ShareStore {
     }
     pub fn open(mut config: ServerConfig) -> Result<Self, StoreError> {
         const MAX_SERVER_ID: u8 = 35;
-        if config.developer_mode {
+        if config.developer_mode && config.state_dir == PathBuf::from("/var/lib/lockbox-key-server")
+        {
             config.state_dir = std::env::temp_dir().join("lockbox-key-server-dev");
         }
         if config.server_id > MAX_SERVER_ID {
@@ -377,7 +450,9 @@ impl ShareStore {
         let mut shards = Vec::with_capacity(shard_count);
         let mut live = 0;
         for shard_id in 0..shard_count {
-            let path = config.state_dir.join(format!("shares-{shard_id:03}.seg"));
+            let path = config
+                .state_dir
+                .join(format!("published-payloads-{shard_id:03}.seg"));
             let mut file = OpenOptions::new()
                 .create(true)
                 .read(true)
@@ -395,6 +470,7 @@ impl ShareStore {
                 expiry_buckets: Mutex::new(VecDeque::new()),
             });
         }
+        let email_tx = spawn_verification_email_worker(&config);
         let topology = Self::build_initial_topology(&config);
         Ok(Self {
             config,
@@ -405,7 +481,10 @@ impl ShareStore {
             verifications: Mutex::new(HashMap::new()),
             email_rate_limits: Mutex::new(EmailRateLimits::default()),
             created: AtomicU64::new(0),
-            fetched: AtomicU64::new(0),
+            received: AtomicU64::new(0),
+            email_tx,
+            rate_limit_blocks: Mutex::new(HashMap::new()),
+            status_cache: Mutex::new(None),
             deleted: AtomicU64::new(0),
             expired: AtomicU64::new(0),
             misses: AtomicU64::new(0),
@@ -430,8 +509,8 @@ impl ShareStore {
         peer_ip: Option<IpAddr>,
     ) -> Vec<u8> {
         match operation {
-            Operation::Share => self.handle_share(payload, peer_ip),
-            Operation::Fetch => self.handle_fetch(payload),
+            Operation::Publish => self.handle_publish(payload, peer_ip),
+            Operation::Receive => self.handle_receive(payload),
             Operation::Delete => self.handle_delete(payload),
             Operation::Replicate => self.handle_replication(payload),
         }
@@ -447,6 +526,43 @@ impl ShareStore {
 
     pub fn rate_limit_burst(&self) -> u32 {
         self.config.rate_limit_burst
+    }
+
+    pub fn is_rate_limit_blocked(&self, peer_ip: Option<IpAddr>) -> bool {
+        let Some(peer_ip) = peer_ip else {
+            return false;
+        };
+        let now_ms = unix_ms(SystemTime::now());
+        let Ok(mut blocks) = self.rate_limit_blocks.lock() else {
+            return true;
+        };
+        match blocks.get(&peer_ip).copied() {
+            Some(expires_at) if expires_at > now_ms => true,
+            Some(_) => {
+                blocks.remove(&peer_ip);
+                false
+            }
+            None => false,
+        }
+    }
+
+    pub fn block_rate_limited_client_until(
+        &self,
+        peer_ip: IpAddr,
+        expires_at_unix_ms: u64,
+    ) -> Result<bool, StoreError> {
+        let applied = self.apply_rate_limit_block(peer_ip, expires_at_unix_ms)?;
+        if applied {
+            self.enqueue_replication(ReplicationEventKind::RateLimitBlock {
+                client_ip: peer_ip.to_string(),
+                expires_at_unix_ms,
+            });
+        }
+        Ok(applied)
+    }
+
+    pub fn topology_token_matches(&self, token: &str) -> bool {
+        self.config.topology_token.as_deref() == Some(token)
     }
 
     pub fn start_topology_background(self: &Arc<Self>) {
@@ -582,7 +698,7 @@ impl ShareStore {
             server_id: self.config.server_id,
             server_url: self_server.url.clone(),
             status: self_server.status.clone(),
-            security_token: token,
+            security_token: token.clone(),
         };
         let payload = match encode_topology_registration(&registration) {
             Ok(payload) => payload,
@@ -591,7 +707,7 @@ impl ShareStore {
         let Ok(transport) = HttpTransport::new(register_url) else {
             return;
         };
-        let Ok(response) = transport.post_binary(&payload) else {
+        let Ok(response) = transport.post_binary_with_server_token(&payload, &token) else {
             return;
         };
         if let Ok(updated) = decode_topology(&response) {
@@ -629,7 +745,7 @@ impl ShareStore {
                 url: config
                     .public_url
                     .clone()
-                    .unwrap_or_else(|| format!("http://{}/v1/share", config.bind_addr)),
+                    .unwrap_or_else(|| format!("http://{}/v1/publish", config.bind_addr)),
                 status: ServerStatus::Active,
                 last_seen_ms: None,
             }]
@@ -666,7 +782,7 @@ impl ShareStore {
         Some(format!("{base}/v1/topology/register"))
     }
 
-    fn public_share_url(&self) -> String {
+    fn public_publish_url(&self) -> String {
         self.config.public_url.clone().unwrap_or_else(|| {
             let authority = self
                 .config
@@ -674,51 +790,51 @@ impl ShareStore {
                 .strip_prefix("0.0.0.0:")
                 .map(|port| format!("127.0.0.1:{port}"))
                 .unwrap_or_else(|| self.config.bind_addr.clone());
-            format!("http://{authority}/v1/share")
+            format!("http://{authority}/v1/publish")
         })
     }
 
-    fn handle_share(&self, payload: &[u8], peer_ip: Option<IpAddr>) -> Vec<u8> {
+    fn handle_publish(&self, payload: &[u8], peer_ip: Option<IpAddr>) -> Vec<u8> {
         match self.create_from_payload_with_peer(payload, peer_ip) {
             Ok(created) => {
                 let mut body = Vec::new();
                 protocol::put_u16(&mut body, protocol::MESSAGE_VERSION);
-                protocol::put_string(&mut body, &created.share_code);
+                protocol::put_string(&mut body, &created.publish_code);
                 protocol::put_bytes(&mut body, &created.delete_token);
                 protocol::put_u64(&mut body, created.expires_at_ms);
-                protocol::put_u16(&mut body, created.max_fetches);
+                protocol::put_u16(&mut body, created.max_receives);
                 if let Some(verification_url) = &created.verification_url {
                     protocol::put_string(&mut body, verification_url);
                 }
-                self.encode_response_with_topology(Operation::Share, Status::Success, &body)
+                self.encode_response_with_topology(Operation::Publish, Status::Success, &body)
             }
-            Err(err) => self.encode_store_error_with_topology(Operation::Share, err),
+            Err(err) => self.encode_store_error_with_topology(Operation::Publish, err),
         }
     }
 
-    fn handle_fetch(&self, payload: &[u8]) -> Vec<u8> {
+    fn handle_receive(&self, payload: &[u8]) -> Vec<u8> {
         let result = (|| {
             let mut reader = Reader::new(payload);
             reader.message_version()?;
-            let share_code = reader.string()?;
-            self.fetch_by_lookup(&share_code)
+            let publish_code = reader.string()?;
+            self.receive_by_lookup(&publish_code)
         })();
         match result {
-            Ok(fetched) => {
+            Ok(received) => {
                 let mut body = Vec::new();
                 protocol::put_u16(&mut body, protocol::MESSAGE_VERSION);
-                protocol::put_bytes(&mut body, &fetched.payload);
-                protocol::put_u64(&mut body, fetched.expires_at_ms);
-                protocol::put_u16(&mut body, fetched.remaining_fetches);
-                if let Some(verification) = &fetched.email_verification {
+                protocol::put_bytes(&mut body, &received.payload);
+                protocol::put_u64(&mut body, received.expires_at_ms);
+                protocol::put_u16(&mut body, received.remaining_receives);
+                if let Some(verification) = &received.email_verification {
                     protocol::put_string(&mut body, &verification.email);
                     body.push(u8::from(verification.verified));
                     protocol::put_u64(&mut body, verification.verified_at_unix_ms);
                     protocol::put_bytes(&mut body, &verification.attestation);
                 }
-                self.encode_response_with_topology(Operation::Fetch, Status::Success, &body)
+                self.encode_response_with_topology(Operation::Receive, Status::Success, &body)
             }
-            Err(err) => self.encode_store_error_with_topology(Operation::Fetch, err),
+            Err(err) => self.encode_store_error_with_topology(Operation::Receive, err),
         }
     }
 
@@ -726,9 +842,9 @@ impl ShareStore {
         let result = (|| {
             let mut reader = Reader::new(payload);
             reader.message_version()?;
-            let share_code = reader.string()?;
+            let publish_code = reader.string()?;
             let token = reader.bytes()?;
-            self.delete(&share_code, &token)
+            self.delete(&publish_code, &token)
         })();
         match result {
             Ok(deleted) => {
@@ -752,7 +868,7 @@ impl ShareStore {
         }
     }
 
-    pub fn create_from_payload(&self, payload: &[u8]) -> Result<CreatedShare, StoreError> {
+    pub fn create_from_payload(&self, payload: &[u8]) -> Result<CreatedPublish, StoreError> {
         self.create_from_payload_with_peer(payload, None)
     }
 
@@ -760,59 +876,62 @@ impl ShareStore {
         &self,
         payload: &[u8],
         peer_ip: Option<IpAddr>,
-    ) -> Result<CreatedShare, StoreError> {
+    ) -> Result<CreatedPublish, StoreError> {
         let mut reader = Reader::new(payload);
         reader.message_version()?;
         let ttl_seconds = reader.u32()?;
-        let requested_fetches = reader.u16()?;
-        let max_fetches = if requested_fetches == 0 {
+        let requested_receives = reader.u16()?;
+        let max_receives = if requested_receives == 0 {
             1
         } else {
-            requested_fetches.min(self.config.max_fetches_per_share.max(1))
+            requested_receives.min(self.config.max_receives_per_publish.max(1))
         };
-        let share_payload = reader.bytes()?;
+        let publish_payload = reader.bytes()?;
         let verification_email = if reader.is_done() {
-            None
+            return Err(StoreError::PayloadInvalid(
+                "publisher email is required".to_string(),
+            ));
         } else {
             let email = reader.string()?;
-            Some(normalize_verification_email(&email)?)
+            normalize_verification_email(&email)?
         };
-        if share_payload.len() > self.config.max_payload_bytes {
+        if publish_payload.len() > self.config.max_payload_bytes {
             return Err(StoreError::PayloadTooLarge);
         }
-        payload::validate_payload(&share_payload)
+        payload::validate_payload(&publish_payload)
             .map_err(|err| StoreError::PayloadInvalid(err.to_string()))?;
-        if let Some(email) = verification_email.as_deref() {
-            self.check_email_rate_limit(email, peer_ip)?;
-        }
-        let ttl = if ttl_seconds == 0 {
-            self.config.default_ttl
+        self.check_email_rate_limit(&verification_email, peer_ip)?;
+        let receive_ttl = if ttl_seconds == 0 {
+            self.config.default_receive_ttl
         } else {
-            Duration::from_secs(ttl_seconds as u64).min(self.config.max_ttl)
+            Duration::from_secs(ttl_seconds as u64).min(self.config.max_receive_ttl)
         };
-        let expires_at_ms = unix_ms(SystemTime::now() + ttl);
-        let share_code = self.generate_unique_code()?;
+        let verification_expires_at_ms = unix_ms(SystemTime::now() + self.config.verification_ttl);
+        let receive_ttl_ms = receive_ttl.as_millis() as u64;
+        let publish_code = self.generate_unique_code()?;
         let mut delete_token = vec![0_u8; DEFAULT_SECRET_LEN];
         getrandom(&mut delete_token)
             .map_err(|err| StoreError::Io(std::io::Error::other(err.to_string())))?;
-        let code_hash = self.code_hash(&share_code);
+        let code_hash = self.code_hash(&publish_code);
         let delete_token_hash = self.delete_token_hash(&delete_token);
-        let mut entry = ShareEntry {
-            share_code: share_code.clone(),
+        let mut entry = PublishEntry {
+            publish_code: publish_code.clone(),
             delete_token_hash,
-            contact_email: verification_email.clone(),
+            contact_email: Some(verification_email.clone()),
             payload_offset: 0,
-            payload_len: share_payload.len() as u32,
-            expires_at_ms,
-            max_fetches,
-            fetches: 0,
+            payload_len: publish_payload.len() as u32,
+            expires_at_ms: verification_expires_at_ms,
+            receive_ttl_ms,
+            email_verified_at_ms: 0,
+            max_receives,
+            receives: 0,
         };
         let shard_id = self.shard_for(&code_hash);
         let shard = &self.shards[shard_id];
         let mut index = lock_store(&shard.index, "shard index")?;
         let mut file = lock_store(&shard.file, "shard file")?;
         let (payload_offset, payload_len) =
-            append_put(&mut file, &code_hash, &entry, &share_payload)?;
+            append_put(&mut file, &code_hash, &entry, &publish_payload)?;
         entry.payload_offset = payload_offset;
         entry.payload_len = payload_len;
         self.append_bucket_put(&code_hash, &entry)?;
@@ -820,29 +939,33 @@ impl ShareStore {
         if index.len() < self.config.index_cache_entries / self.shards.len().max(1) {
             index.insert(code_hash, entry);
         }
-        lock_store(&shard.expiry_buckets, "expiry buckets")?
-            .push_back((expires_at_ms, vec![(code_hash, share_code.clone())]));
+        lock_store(&shard.expiry_buckets, "expiry buckets")?.push_back((
+            verification_expires_at_ms,
+            vec![(code_hash, publish_code.clone())],
+        ));
         self.created.fetch_add(1, Ordering::Relaxed);
         self.live.fetch_add(1, Ordering::Relaxed);
-        self.enqueue_replication(ReplicationEventKind::PutShare {
-            share_code: share_code.clone(),
+        self.enqueue_replication(ReplicationEventKind::PutPublish {
+            publish_code: publish_code.clone(),
             delete_token_hash: delete_token_hash.to_vec(),
-            payload: share_payload,
+            payload: publish_payload,
             contact_email,
-            expires_at_unix_ms: expires_at_ms,
-            max_fetches,
-            fetches: 0,
+            expires_at_unix_ms: verification_expires_at_ms,
+            receive_ttl_ms,
+            email_verified_at_unix_ms: 0,
+            max_receives,
+            receives: 0,
         });
-        let verification_url = if let Some(email) = verification_email {
-            Some(self.create_verification(&share_code, &email, expires_at_ms)?)
-        } else {
-            None
-        };
-        Ok(CreatedShare {
-            share_code,
+        let verification_url = Some(self.create_verification(
+            &publish_code,
+            &verification_email,
+            verification_expires_at_ms,
+        )?);
+        Ok(CreatedPublish {
+            publish_code,
             delete_token,
-            expires_at_ms,
-            max_fetches,
+            expires_at_ms: verification_expires_at_ms,
+            max_receives,
             verification_url,
         })
     }
@@ -894,12 +1017,12 @@ impl ShareStore {
         Ok(())
     }
 
-    fn resolve_share_lookup(&self, lookup: &str) -> Result<String, StoreError> {
+    fn resolve_publish_lookup(&self, lookup: &str) -> Result<String, StoreError> {
         if lookup.is_empty() {
             return Err(StoreError::NotFound);
         }
-        if share_code_locator(lookup).is_some() {
-            if !self.can_serve_share_code(lookup) {
+        if publish_code_locator(lookup).is_some() {
+            if !self.can_serve_publish_code(lookup) {
                 return Err(StoreError::NotFound);
             }
             return Ok(lookup.to_string());
@@ -909,7 +1032,7 @@ impl ShareStore {
 
     fn create_verification(
         &self,
-        share_code: &str,
+        publish_code: &str,
         email: &str,
         expires_at_ms: u64,
     ) -> Result<String, StoreError> {
@@ -919,75 +1042,143 @@ impl ShareStore {
         let token_hex = hex_encode(&token);
         let token_hash = stable_hash(b"email-verification-token", token_hex.as_bytes());
         lock_store(&self.verifications, "email verifications")?.insert(
-            share_code.to_string(),
+            publish_code.to_string(),
             VerificationEntry {
                 email: email.to_string(),
                 token_hash,
                 expires_at_ms,
-                verified_at_ms: None,
             },
         );
         let verification_url = format!(
-            "{}?code={share_code}&token={token_hex}",
+            "{}?code={publish_code}&token={token_hex}",
             self.public_verify_url()
         );
-        self.send_verification_email(email, &verification_url)?;
+        self.send_verification_email(email, publish_code, &verification_url)?;
         Ok(verification_url)
     }
 
     fn public_verify_url(&self) -> String {
-        let share_url = self.public_share_url();
-        if let Some(base) = share_url.strip_suffix("/v1/share") {
+        let publish_url = self.public_publish_url();
+        if let Some(base) = publish_url.strip_suffix("/v1/publish") {
             format!("{base}/v1/verify")
         } else {
-            format!("{}/v1/verify", share_url.trim_end_matches('/'))
+            format!("{}/v1/verify", publish_url.trim_end_matches('/'))
         }
     }
 
-    fn verify_email_inner(&self, share_code: &str, token: &str) -> Result<String, String> {
-        if !self.can_serve_share_code(share_code) {
-            return Err("This server does not own the supplied share code.".to_string());
+    fn verify_email_inner(&self, publish_code: &str, token: &str) -> Result<String, String> {
+        if !self.can_serve_publish_code(publish_code) {
+            return Err("This server does not own the supplied publish code.".to_string());
         }
         let token_hash = stable_hash(b"email-verification-token", token.as_bytes());
         let now = unix_ms(SystemTime::now());
-        let mut verifications = self
-            .verifications
-            .lock()
-            .map_err(|_| "The verification state is unavailable.".to_string())?;
-        let Some(entry) = verifications.get_mut(share_code) else {
-            return Err("The verification link is unknown or has expired.".to_string());
+        let email = {
+            let mut verifications = self
+                .verifications
+                .lock()
+                .map_err(|_| "The verification state is unavailable.".to_string())?;
+            let Some(entry) = verifications.get(publish_code) else {
+                return Err("The verification link is unknown or has expired.".to_string());
+            };
+            if entry.expires_at_ms <= now {
+                verifications.remove(publish_code);
+                return Err("The verification link has expired.".to_string());
+            }
+            if entry.token_hash != token_hash {
+                return Err("The verification token is invalid.".to_string());
+            }
+            let email = entry.email.clone();
+            verifications.remove(publish_code);
+            email
         };
-        if entry.expires_at_ms <= now {
-            verifications.remove(share_code);
-            return Err("The verification link has expired.".to_string());
-        }
-        if entry.token_hash != token_hash {
-            return Err("The verification token is invalid.".to_string());
-        }
-        if entry.verified_at_ms.is_none() {
-            entry.verified_at_ms = Some(now);
-        }
-        Ok(entry.email.clone())
+        self.promote_verified_publish(publish_code, &email, now)
+            .map_err(|err| err.to_string())?;
+        Ok(email)
     }
 
-    fn email_verification_for_fetch(
+    fn promote_verified_publish(
         &self,
-        share_code: &str,
-        expires_at_ms: u64,
-    ) -> Option<protocol::EmailVerification> {
-        let Ok(verifications) = self.verifications.lock() else {
-            return None;
+        publish_code: &str,
+        email: &str,
+        verified_at_ms: u64,
+    ) -> Result<(), StoreError> {
+        let code_hash = self.code_hash(publish_code);
+        let shard = &self.shards[self.shard_for(&code_hash)];
+        let mut index = lock_store(&shard.index, "shard index")?;
+        let cached = index.contains_key(&code_hash);
+        let mut entry = match index.get(&code_hash) {
+            Some(entry) => entry.clone(),
+            None => match self.lookup_bucket(&code_hash)? {
+                Some(mut entry) => {
+                    entry.publish_code = publish_code.to_string();
+                    entry
+                }
+                None => return Err(StoreError::NotFound),
+            },
         };
-        let entry = verifications.get(share_code)?.clone();
-        let verified_at = entry.verified_at_ms.unwrap_or(0);
+        if entry.expires_at_ms <= verified_at_ms {
+            index.remove(&code_hash);
+            return Err(StoreError::Expired);
+        }
+        if entry.contact_email.as_deref() != Some(email) {
+            return Err(StoreError::EmailUnverified);
+        }
+        if entry.email_verified_at_ms != 0 {
+            return Ok(());
+        }
+        let receive_ttl_ms = if entry.receive_ttl_ms == 0 {
+            self.config.default_receive_ttl.as_millis() as u64
+        } else {
+            entry.receive_ttl_ms
+        };
+        let mut file = lock_store(&shard.file, "shard file")?;
+        let payload = read_payload(&mut file, entry.payload_offset, entry.payload_len)?;
+        entry.email_verified_at_ms = verified_at_ms;
+        entry.expires_at_ms = verified_at_ms.saturating_add(receive_ttl_ms);
+        let (payload_offset, payload_len) = append_put(&mut file, &code_hash, &entry, &payload)?;
+        entry.payload_offset = payload_offset;
+        entry.payload_len = payload_len;
+        self.append_bucket_put(&code_hash, &entry)?;
+        if cached || index.len() < self.config.index_cache_entries / self.shards.len().max(1) {
+            index.insert(code_hash, entry.clone());
+        }
+        lock_store(&shard.expiry_buckets, "expiry buckets")?.push_back((
+            entry.expires_at_ms,
+            vec![(code_hash, publish_code.to_string())],
+        ));
+        self.enqueue_replication(ReplicationEventKind::PutPublish {
+            publish_code: publish_code.to_string(),
+            delete_token_hash: entry.delete_token_hash.to_vec(),
+            payload,
+            contact_email: entry.contact_email.clone(),
+            expires_at_unix_ms: entry.expires_at_ms,
+            receive_ttl_ms: entry.receive_ttl_ms,
+            email_verified_at_unix_ms: entry.email_verified_at_ms,
+            max_receives: entry.max_receives,
+            receives: entry.receives,
+        });
+        Ok(())
+    }
+
+    fn email_verification_for_receive(
+        &self,
+        entry: &PublishEntry,
+    ) -> Option<protocol::EmailVerification> {
+        let email = entry.contact_email.clone()?;
+        let verified_at = entry.email_verified_at_ms;
         let verified = verified_at != 0;
         let attestation = if verified {
-            self.email_attestation(share_code, &entry.email, verified_at, expires_at_ms)
+            self.email_attestation(
+                &entry.publish_code,
+                &email,
+                verified_at,
+                entry.expires_at_ms,
+            )
         } else {
             Vec::new()
         };
         Some(protocol::EmailVerification {
-            email: entry.email,
+            email,
             verified,
             verified_at_unix_ms: verified_at,
             attestation,
@@ -996,7 +1187,7 @@ impl ShareStore {
 
     fn email_attestation(
         &self,
-        share_code: &str,
+        publish_code: &str,
         email: &str,
         verified_at_ms: u64,
         expires_at_ms: u64,
@@ -1004,7 +1195,7 @@ impl ShareStore {
         let mut hasher = Sha256::new();
         hasher.update(self.secret);
         hasher.update(b"email-verification-attestation-v1");
-        hasher.update(share_code.as_bytes());
+        hasher.update(publish_code.as_bytes());
         hasher.update(email.as_bytes());
         hasher.update(verified_at_ms.to_be_bytes());
         hasher.update(expires_at_ms.to_be_bytes());
@@ -1014,29 +1205,103 @@ impl ShareStore {
     fn send_verification_email(
         &self,
         email: &str,
+        publish_code: &str,
         verification_url: &str,
     ) -> Result<(), StoreError> {
-        let Some(command) = &self.config.verification_email_command else {
-            return Ok(());
-        };
-        let status = ProcessCommand::new(command)
-            .arg(email)
-            .arg(verification_url)
-            .status()?;
-        if !status.success() {
-            return Err(StoreError::Config(format!(
-                "verification email command failed with status {status}"
-            )));
+        let subject = render_email_template(
+            &self.config.verification_email_subject,
+            email,
+            publish_code,
+            verification_url,
+        );
+        let body = render_email_template(
+            &self.config.verification_email_template,
+            email,
+            publish_code,
+            verification_url,
+        );
+        if let Some(tx) = &self.email_tx {
+            return tx
+                .try_send(VerificationEmailJob {
+                    email: email.to_string(),
+                    subject,
+                    body,
+                })
+                .map_err(|err| match err {
+                    mpsc::TrySendError::Full(_) => StoreError::RateLimited,
+                    mpsc::TrySendError::Disconnected(_) => {
+                        StoreError::Config("could not send verification email".to_string())
+                    }
+                });
         }
+        if self.config.developer_mode {
+            return Ok(());
+        }
+        Err(StoreError::Config(
+            "could not send verification email".to_string(),
+        ))
+    }
+
+    fn send_verification_email_smtp(
+        config: &ServerConfig,
+        email: &str,
+        subject: &str,
+        body: &str,
+    ) -> Result<(), StoreError> {
+        let host = config
+            .smtp_host
+            .as_deref()
+            .ok_or_else(|| StoreError::Config("could not send verification email".to_string()))?;
+        let from = config
+            .smtp_from
+            .as_deref()
+            .or(config.smtp_username.as_deref())
+            .ok_or_else(|| StoreError::Config("could not send verification email".to_string()))?;
+        let message = Message::builder()
+            .from(from.parse::<Mailbox>().map_err(|err| {
+                log_server_event(format!("verification email sender address failed: {err}"));
+                StoreError::Config("could not send verification email".to_string())
+            })?)
+            .to(email.parse::<Mailbox>().map_err(|err| {
+                StoreError::PayloadInvalid(format!(
+                    "verification email is not a valid email address: {err}"
+                ))
+            })?)
+            .subject(subject)
+            .singlepart(SinglePart::plain(body.to_string()))
+            .map_err(|err| {
+                log_server_event(format!("verification email build failed: {err}"));
+                StoreError::Config("could not send verification email".to_string())
+            })?;
+        let mut builder = match config.smtp_tls {
+            SmtpTlsMode::StartTls => SmtpTransport::starttls_relay(host).map_err(|err| {
+                log_server_event(format!("smtp setup failed: {err}"));
+                StoreError::Config("could not send verification email".to_string())
+            })?,
+            SmtpTlsMode::Tls => SmtpTransport::relay(host).map_err(|err| {
+                log_server_event(format!("smtp setup failed: {err}"));
+                StoreError::Config("could not send verification email".to_string())
+            })?,
+            SmtpTlsMode::None => SmtpTransport::builder_dangerous(host),
+        }
+        .port(config.smtp_port)
+        .timeout(Some(config.smtp_timeout));
+        if let (Some(username), Some(password)) = (&config.smtp_username, &config.smtp_password) {
+            builder = builder.credentials(Credentials::new(username.clone(), password.clone()));
+        }
+        builder.build().send(&message).map_err(|err| {
+            log_server_event(format!("verification email send failed: {err}"));
+            StoreError::Config("could not send verification email".to_string())
+        })?;
         Ok(())
     }
 
-    pub fn fetch(&self, share_code: &str) -> Result<FetchedShare, StoreError> {
-        if !self.can_serve_share_code(share_code) {
+    pub fn receive(&self, publish_code: &str) -> Result<ReceivedPublish, StoreError> {
+        if !self.can_serve_publish_code(publish_code) {
             self.misses.fetch_add(1, Ordering::Relaxed);
             return Err(StoreError::NotFound);
         }
-        let code_hash = self.code_hash(share_code);
+        let code_hash = self.code_hash(publish_code);
         let shard = &self.shards[self.shard_for(&code_hash)];
         let mut index = lock_store(&shard.index, "shard index")?;
         let mut cached = true;
@@ -1059,29 +1324,32 @@ impl ShareStore {
             append_tombstone(&mut file, &code_hash)?;
             self.append_bucket_tombstone(&code_hash)?;
             self.enqueue_replication(ReplicationEventKind::Tombstone {
-                share_code: share_code.to_string(),
+                publish_code: publish_code.to_string(),
             });
             self.expired.fetch_add(1, Ordering::Relaxed);
             self.live.fetch_sub(1, Ordering::Relaxed);
             return Err(StoreError::Expired);
         }
-        if entry.fetches >= entry.max_fetches {
+        if entry.receives >= entry.max_receives {
             index.remove(&code_hash);
             let mut file = lock_store(&shard.file, "shard file")?;
             append_tombstone(&mut file, &code_hash)?;
             self.append_bucket_tombstone(&code_hash)?;
             self.enqueue_replication(ReplicationEventKind::Tombstone {
-                share_code: share_code.to_string(),
+                publish_code: publish_code.to_string(),
             });
             self.live.fetch_sub(1, Ordering::Relaxed);
             return Err(StoreError::Exhausted);
         }
-        entry.fetches += 1;
-        let remaining = entry.max_fetches.saturating_sub(entry.fetches);
+        if entry.email_verified_at_ms == 0 {
+            return Err(StoreError::EmailUnverified);
+        }
+        entry.receives += 1;
+        let remaining = entry.max_receives.saturating_sub(entry.receives);
         let payload_offset = entry.payload_offset;
         let payload_len = entry.payload_len;
         let expires_at_ms = entry.expires_at_ms;
-        let fetches = entry.fetches;
+        let receives = entry.receives;
         if remaining == 0 {
             index.remove(&code_hash);
             self.live.fetch_sub(1, Ordering::Relaxed);
@@ -1093,42 +1361,42 @@ impl ShareStore {
             append_tombstone(&mut file, &code_hash)?;
             self.append_bucket_tombstone(&code_hash)?;
             self.enqueue_replication(ReplicationEventKind::Tombstone {
-                share_code: share_code.to_string(),
+                publish_code: publish_code.to_string(),
             });
         } else {
-            append_fetch_count(&mut file, &code_hash, fetches)?;
-            self.append_bucket_fetch_count(&code_hash, fetches)?;
-            self.enqueue_replication(ReplicationEventKind::FetchCount {
-                share_code: share_code.to_string(),
-                fetches,
+            append_receive_count(&mut file, &code_hash, receives)?;
+            self.append_bucket_receive_count(&code_hash, receives)?;
+            self.enqueue_replication(ReplicationEventKind::ReceiveCount {
+                publish_code: publish_code.to_string(),
+                receives,
             });
         }
         drop(index);
         let payload = read_payload(&mut file, payload_offset, payload_len)?;
-        let email_verification = self.email_verification_for_fetch(share_code, expires_at_ms);
+        let email_verification = self.email_verification_for_receive(&entry);
         if remaining == 0 {
-            lock_store(&self.verifications, "email verifications")?.remove(share_code);
+            lock_store(&self.verifications, "email verifications")?.remove(publish_code);
         }
-        self.fetched.fetch_add(1, Ordering::Relaxed);
-        Ok(FetchedShare {
+        self.received.fetch_add(1, Ordering::Relaxed);
+        Ok(ReceivedPublish {
             payload,
             expires_at_ms,
-            remaining_fetches: remaining,
+            remaining_receives: remaining,
             email_verification,
         })
     }
 
-    pub fn fetch_by_lookup(&self, lookup: &str) -> Result<FetchedShare, StoreError> {
-        let share_code = self.resolve_share_lookup(lookup)?;
-        self.fetch(&share_code)
+    pub fn receive_by_lookup(&self, lookup: &str) -> Result<ReceivedPublish, StoreError> {
+        let publish_code = self.resolve_publish_lookup(lookup)?;
+        self.receive(&publish_code)
     }
 
-    pub fn verify_email(&self, share_code: &str, token: &str) -> VerificationPage {
-        match self.verify_email_inner(share_code, token) {
+    pub fn verify_email(&self, publish_code: &str, token: &str) -> VerificationPage {
+        match self.verify_email_inner(publish_code, token) {
             Ok(email) => VerificationPage {
                 success: true,
                 title: "Email verified".to_string(),
-                message: "This email address is now attached to the pending reVault key share. The recipient still needs a second independent verification channel before fully trusting the key.".to_string(),
+                message: "This email address is now attached to the pending reVault key publish. The contact still needs a second independent verification channel before fully trusting the key.".to_string(),
                 email: Some(email),
             },
             Err(message) => VerificationPage {
@@ -1140,12 +1408,12 @@ impl ShareStore {
         }
     }
 
-    pub fn delete(&self, share_code: &str, delete_token: &[u8]) -> Result<bool, StoreError> {
-        if !self.can_serve_share_code(share_code) {
+    pub fn delete(&self, publish_code: &str, delete_token: &[u8]) -> Result<bool, StoreError> {
+        if !self.can_serve_publish_code(publish_code) {
             self.misses.fetch_add(1, Ordering::Relaxed);
             return Ok(false);
         }
-        let code_hash = self.code_hash(share_code);
+        let code_hash = self.code_hash(publish_code);
         let token_hash = self.delete_token_hash(delete_token);
         let shard = &self.shards[self.shard_for(&code_hash)];
         let mut index = lock_store(&shard.index, "shard index")?;
@@ -1166,11 +1434,11 @@ impl ShareStore {
         let mut file = lock_store(&shard.file, "shard file")?;
         append_tombstone(&mut file, &code_hash)?;
         self.append_bucket_tombstone(&code_hash)?;
-        lock_store(&self.verifications, "email verifications")?.remove(share_code);
+        lock_store(&self.verifications, "email verifications")?.remove(publish_code);
         self.deleted.fetch_add(1, Ordering::Relaxed);
         self.live.fetch_sub(1, Ordering::Relaxed);
         self.enqueue_replication(ReplicationEventKind::Tombstone {
-            share_code: share_code.to_string(),
+            publish_code: publish_code.to_string(),
         });
         Ok(true)
     }
@@ -1180,7 +1448,7 @@ impl ShareStore {
     }
 
     pub fn apply_replication_payload(&self, payload: &[u8]) -> Result<bool, StoreError> {
-        let request = lockbox_share_protocol::decode_replication_request(payload)
+        let request = lockbox_publish_protocol::decode_replication_request(payload)
             .map_err(|err| StoreError::PayloadInvalid(err.to_string()))?;
         self.authorize_replication(&request)?;
         self.apply_replication_event(request.event)
@@ -1195,31 +1463,64 @@ impl ShareStore {
             return Ok(false);
         }
         match event.kind {
-            ReplicationEventKind::PutShare {
-                share_code,
+            ReplicationEventKind::PutPublish {
+                publish_code,
                 delete_token_hash,
                 payload,
                 contact_email,
                 expires_at_unix_ms,
-                max_fetches,
-                fetches,
+                receive_ttl_ms,
+                email_verified_at_unix_ms,
+                max_receives,
+                receives,
             } => self.apply_replica_put(
-                &share_code,
+                &publish_code,
                 &delete_token_hash,
                 &payload,
                 contact_email.as_deref(),
                 expires_at_unix_ms,
-                max_fetches,
-                fetches,
+                receive_ttl_ms,
+                email_verified_at_unix_ms,
+                max_receives,
+                receives,
             )?,
-            ReplicationEventKind::FetchCount {
-                share_code,
-                fetches,
-            } => self.apply_replica_fetch_count(&share_code, fetches)?,
-            ReplicationEventKind::Tombstone { share_code } => {
-                self.apply_replica_tombstone(&share_code)?
+            ReplicationEventKind::ReceiveCount {
+                publish_code,
+                receives,
+            } => self.apply_replica_receive_count(&publish_code, receives)?,
+            ReplicationEventKind::Tombstone { publish_code } => {
+                self.apply_replica_tombstone(&publish_code)?
+            }
+            ReplicationEventKind::RateLimitBlock {
+                client_ip,
+                expires_at_unix_ms,
+            } => {
+                let peer_ip = client_ip.parse().map_err(|_| {
+                    StoreError::PayloadInvalid(format!(
+                        "invalid replicated rate limit client ip: {client_ip}"
+                    ))
+                })?;
+                self.apply_rate_limit_block(peer_ip, expires_at_unix_ms)?;
             }
         }
+        Ok(true)
+    }
+
+    fn apply_rate_limit_block(
+        &self,
+        peer_ip: IpAddr,
+        expires_at_unix_ms: u64,
+    ) -> Result<bool, StoreError> {
+        let now_ms = unix_ms(SystemTime::now());
+        if expires_at_unix_ms <= now_ms {
+            return Ok(false);
+        }
+        let mut blocks = lock_store(&self.rate_limit_blocks, "rate limit blocks")?;
+        let current = blocks.get(&peer_ip).copied().unwrap_or(0);
+        if current >= expires_at_unix_ms {
+            return Ok(false);
+        }
+        blocks.insert(peer_ip, expires_at_unix_ms);
         Ok(true)
     }
 
@@ -1285,13 +1586,15 @@ impl ShareStore {
 
     fn apply_replica_put(
         &self,
-        share_code: &str,
+        publish_code: &str,
         delete_token_hash: &[u8],
         payload: &[u8],
         contact_email: Option<&str>,
         expires_at_ms: u64,
-        max_fetches: u16,
-        fetches: u16,
+        receive_ttl_ms: u64,
+        email_verified_at_ms: u64,
+        max_receives: u16,
+        receives: u16,
     ) -> Result<(), StoreError> {
         if delete_token_hash.len() != HASH_LEN {
             return Err(StoreError::PayloadInvalid(
@@ -1306,17 +1609,19 @@ impl ShareStore {
             Some(email) => Some(normalize_verification_email(email)?),
             None => None,
         };
-        let code_hash = self.code_hash(share_code);
+        let code_hash = self.code_hash(publish_code);
         let shard = &self.shards[self.shard_for(&code_hash)];
-        let mut entry = ShareEntry {
-            share_code: share_code.to_string(),
+        let mut entry = PublishEntry {
+            publish_code: publish_code.to_string(),
             delete_token_hash: token_hash,
             contact_email,
             payload_offset: 0,
             payload_len: payload.len() as u32,
             expires_at_ms,
-            max_fetches,
-            fetches,
+            receive_ttl_ms,
+            email_verified_at_ms,
+            max_receives,
+            receives,
         };
         let mut index = lock_store(&shard.index, "shard index")?;
         let existed = index.contains_key(&code_hash) || self.lookup_bucket(&code_hash)?.is_some();
@@ -1332,26 +1637,30 @@ impl ShareStore {
             self.live.fetch_add(1, Ordering::Relaxed);
         }
         lock_store(&shard.expiry_buckets, "expiry buckets")?
-            .push_back((expires_at_ms, vec![(code_hash, share_code.to_string())]));
+            .push_back((expires_at_ms, vec![(code_hash, publish_code.to_string())]));
         Ok(())
     }
 
-    fn apply_replica_fetch_count(&self, share_code: &str, fetches: u16) -> Result<(), StoreError> {
-        let code_hash = self.code_hash(share_code);
+    fn apply_replica_receive_count(
+        &self,
+        publish_code: &str,
+        receives: u16,
+    ) -> Result<(), StoreError> {
+        let code_hash = self.code_hash(publish_code);
         let shard = &self.shards[self.shard_for(&code_hash)];
         if self.lookup_bucket(&code_hash)?.is_some() {
             if let Some(cached) = lock_store(&shard.index, "shard index")?.get_mut(&code_hash) {
-                cached.fetches = fetches;
+                cached.receives = receives;
             }
         }
         let mut file = lock_store(&shard.file, "shard file")?;
-        append_fetch_count(&mut file, &code_hash, fetches)?;
-        self.append_bucket_fetch_count(&code_hash, fetches)?;
+        append_receive_count(&mut file, &code_hash, receives)?;
+        self.append_bucket_receive_count(&code_hash, receives)?;
         Ok(())
     }
 
-    fn apply_replica_tombstone(&self, share_code: &str) -> Result<(), StoreError> {
-        let code_hash = self.code_hash(share_code);
+    fn apply_replica_tombstone(&self, publish_code: &str) -> Result<(), StoreError> {
+        let code_hash = self.code_hash(publish_code);
         let shard = &self.shards[self.shard_for(&code_hash)];
         let removed = lock_store(&shard.index, "shard index")?
             .remove(&code_hash)
@@ -1366,8 +1675,8 @@ impl ShareStore {
         Ok(())
     }
 
-    fn can_serve_share_code(&self, share_code: &str) -> bool {
-        let Some((owner_id, secondary_id)) = share_code_locator(share_code) else {
+    fn can_serve_publish_code(&self, publish_code: &str) -> bool {
+        let Some((owner_id, secondary_id)) = publish_code_locator(publish_code) else {
             return false;
         };
         owner_id == self.config.server_id
@@ -1408,11 +1717,16 @@ impl ShareStore {
             let Ok(mut file) = shard.file.lock() else {
                 continue;
             };
-            for (hash, share_code) in due {
-                if index.remove(&hash).is_some() {
+            for (hash, publish_code) in due {
+                let should_remove = index
+                    .get(&hash)
+                    .map(|entry| entry.expires_at_ms <= now_ms)
+                    .unwrap_or(false);
+                if should_remove {
+                    index.remove(&hash);
                     let _ = append_tombstone(&mut file, &hash);
                     let _ = self.append_bucket_tombstone(&hash);
-                    self.enqueue_replication(ReplicationEventKind::Tombstone { share_code });
+                    self.enqueue_replication(ReplicationEventKind::Tombstone { publish_code });
                     purged += 1;
                 }
             }
@@ -1425,13 +1739,16 @@ impl ShareStore {
         if let Ok(mut verifications) = self.verifications.lock() {
             verifications.retain(|_, entry| entry.expires_at_ms > now_ms);
         }
+        if let Ok(mut blocks) = self.rate_limit_blocks.lock() {
+            blocks.retain(|_, expires_at| *expires_at > now_ms);
+        }
         purged
     }
 
     pub fn stats(&self) -> StoreStats {
         StoreStats {
             created: self.created.load(Ordering::Relaxed),
-            fetched: self.fetched.load(Ordering::Relaxed),
+            received: self.received.load(Ordering::Relaxed),
             deleted: self.deleted.load(Ordering::Relaxed),
             expired: self.expired.load(Ordering::Relaxed),
             misses: self.misses.load(Ordering::Relaxed),
@@ -1445,11 +1762,19 @@ impl ShareStore {
         }
     }
 
-    pub fn status_document(&self) -> lockbox_share_protocol::KeyServerStatus {
+    pub fn status_document(&self) -> lockbox_publish_protocol::KeyServerStatus {
+        let now = Instant::now();
+        if let Ok(cache) = self.status_cache.lock() {
+            if let Some(cache) = cache.as_ref() {
+                if now.duration_since(cache.cached_at) < STATUS_CACHE_TTL {
+                    return cache.document.clone();
+                }
+            }
+        }
         let stats = self.stats();
-        lockbox_share_protocol::KeyServerStatus {
+        let document = lockbox_publish_protocol::KeyServerStatus {
             created: stats.created,
-            fetched: stats.fetched,
+            received: stats.received,
             deleted: stats.deleted,
             expired: stats.expired,
             misses: stats.misses,
@@ -1457,7 +1782,14 @@ impl ShareStore {
             segment_bytes: stats.segment_bytes,
             replication_pending: stats.replication_pending as u64,
             replication_last_sequence: stats.replication_last_sequence,
+        };
+        if let Ok(mut cache) = self.status_cache.lock() {
+            *cache = Some(StatusCache {
+                cached_at: now,
+                document: document.clone(),
+            });
         }
+        document
     }
 
     pub fn resync_peer(&self, peer_url: &str) -> Result<usize, StoreError> {
@@ -1486,14 +1818,16 @@ impl ShareStore {
                     origin_server_id: self.config.server_id,
                     origin_epoch: self.config.origin_epoch,
                     origin_sequence: sequence,
-                    kind: ReplicationEventKind::PutShare {
-                        share_code: entry.share_code.clone(),
+                    kind: ReplicationEventKind::PutPublish {
+                        publish_code: entry.publish_code.clone(),
                         delete_token_hash: entry.delete_token_hash.to_vec(),
                         payload,
                         contact_email: entry.contact_email.clone(),
                         expires_at_unix_ms: entry.expires_at_ms,
-                        max_fetches: entry.max_fetches,
-                        fetches: entry.fetches,
+                        receive_ttl_ms: entry.receive_ttl_ms,
+                        email_verified_at_unix_ms: entry.email_verified_at_ms,
+                        max_receives: entry.max_receives,
+                        receives: entry.receives,
                     },
                 };
                 let request = encode_replication_request(&ReplicationRequest {
@@ -1554,7 +1888,7 @@ impl ShareStore {
         Ok(report)
     }
 
-    fn share_code_locator(&self) -> (u8, u8) {
+    fn publish_code_locator(&self) -> (u8, u8) {
         let topology = self.topology();
         let primary_id = topology
             .routes
@@ -1581,7 +1915,7 @@ impl ShareStore {
 
     fn generate_unique_code(&self) -> Result<String, StoreError> {
         let space = 10_u64.pow(SHARE_CODE_BODY_DIGITS as u32);
-        let (primary_id, secondary_id) = self.share_code_locator();
+        let (primary_id, secondary_id) = self.publish_code_locator();
         for _ in 0..100 {
             let mut random = [0_u8; 8];
             getrandom(&mut random)
@@ -1592,7 +1926,7 @@ impl ShareStore {
             }
         }
         Err(StoreError::Io(std::io::Error::other(
-            "unable to allocate unique share code",
+            "unable to allocate unique publish code",
         )))
     }
 
@@ -1602,9 +1936,9 @@ impl ShareStore {
         secondary_id: u8,
         value: u64,
     ) -> Result<Option<String>, StoreError> {
-        let primary = share_code_server_id_char(primary_id)
+        let primary = publish_code_server_id_char(primary_id)
             .ok_or_else(|| StoreError::Config("invalid primary server id".to_string()))?;
-        let secondary = share_code_server_id_char(secondary_id)
+        let secondary = publish_code_server_id_char(secondary_id)
             .ok_or_else(|| StoreError::Config("invalid secondary server id".to_string()))?;
         let code = format!(
             "{}{}{:0width$}",
@@ -1625,7 +1959,7 @@ impl ShareStore {
     }
 
     fn code_hash(&self, code: &str) -> RecordHash {
-        keyed_hash(&self.secret, b"share-code", code.as_bytes())
+        keyed_hash(&self.secret, b"publish-code", code.as_bytes())
     }
 
     fn delete_token_hash(&self, token: &[u8]) -> RecordHash {
@@ -1645,7 +1979,7 @@ impl ShareStore {
     fn append_bucket_put(
         &self,
         code_hash: &RecordHash,
-        entry: &ShareEntry,
+        entry: &PublishEntry,
     ) -> Result<(), StoreError> {
         let mut record = [0_u8; BUCKET_RECORD_LEN];
         record[0] = BUCKET_PUT;
@@ -1654,8 +1988,10 @@ impl ShareStore {
         record[33..41].copy_from_slice(&entry.payload_offset.to_be_bytes());
         record[41..45].copy_from_slice(&entry.payload_len.to_be_bytes());
         record[45..53].copy_from_slice(&entry.expires_at_ms.to_be_bytes());
-        record[53..55].copy_from_slice(&entry.max_fetches.to_be_bytes());
-        record[55..57].copy_from_slice(&entry.fetches.to_be_bytes());
+        record[53..55].copy_from_slice(&entry.max_receives.to_be_bytes());
+        record[55..57].copy_from_slice(&entry.receives.to_be_bytes());
+        record[57..65].copy_from_slice(&entry.receive_ttl_ms.to_be_bytes());
+        record[65..73].copy_from_slice(&entry.email_verified_at_ms.to_be_bytes());
         self.append_bucket_record(code_hash, &record)
     }
 
@@ -1666,15 +2002,15 @@ impl ShareStore {
         self.append_bucket_record(code_hash, &record)
     }
 
-    fn append_bucket_fetch_count(
+    fn append_bucket_receive_count(
         &self,
         code_hash: &RecordHash,
-        fetches: u16,
+        receives: u16,
     ) -> Result<(), StoreError> {
         let mut record = [0_u8; BUCKET_RECORD_LEN];
-        record[0] = BUCKET_FETCH_COUNT;
+        record[0] = BUCKET_RECEIVE_COUNT;
         record[1..1 + HASH_LEN].copy_from_slice(code_hash);
-        record[55..57].copy_from_slice(&fetches.to_be_bytes());
+        record[55..57].copy_from_slice(&receives.to_be_bytes());
         self.append_bucket_record(code_hash, &record)
     }
 
@@ -1691,14 +2027,14 @@ impl ShareStore {
         Ok(())
     }
 
-    fn lookup_bucket(&self, code_hash: &RecordHash) -> Result<Option<ShareEntry>, StoreError> {
+    fn lookup_bucket(&self, code_hash: &RecordHash) -> Result<Option<PublishEntry>, StoreError> {
         let path = self.bucket_path(code_hash);
         if !path.exists() {
             return Ok(None);
         }
         let mut file = OpenOptions::new().read(true).open(path)?;
         let records = file.metadata()?.len() as usize / BUCKET_RECORD_LEN;
-        let mut latest_fetches = None;
+        let mut latest_receives = None;
         let mut record = [0_u8; BUCKET_RECORD_LEN];
         for index in (0..records).rev() {
             file.seek(SeekFrom::Start((index * BUCKET_RECORD_LEN) as u64))?;
@@ -1708,16 +2044,16 @@ impl ShareStore {
             }
             match record[0] {
                 BUCKET_TOMBSTONE => return Ok(None),
-                BUCKET_FETCH_COUNT => {
-                    latest_fetches = Some(u16::from_be_bytes([record[55], record[56]]));
+                BUCKET_RECEIVE_COUNT => {
+                    latest_receives = Some(u16::from_be_bytes([record[55], record[56]]));
                 }
                 BUCKET_PUT => {
                     let mut delete_token_hash = [0_u8; HASH_LEN];
                     delete_token_hash.copy_from_slice(&record[17..17 + HASH_LEN]);
-                    let fetches =
-                        latest_fetches.unwrap_or(u16::from_be_bytes([record[55], record[56]]));
-                    return Ok(Some(ShareEntry {
-                        share_code: String::new(),
+                    let receives =
+                        latest_receives.unwrap_or(u16::from_be_bytes([record[55], record[56]]));
+                    return Ok(Some(PublishEntry {
+                        publish_code: String::new(),
                         delete_token_hash,
                         contact_email: None,
                         payload_offset: u64::from_be_bytes([
@@ -1731,8 +2067,16 @@ impl ShareStore {
                             record[45], record[46], record[47], record[48], record[49], record[50],
                             record[51], record[52],
                         ]),
-                        max_fetches: u16::from_be_bytes([record[53], record[54]]),
-                        fetches,
+                        receive_ttl_ms: u64::from_be_bytes([
+                            record[57], record[58], record[59], record[60], record[61], record[62],
+                            record[63], record[64],
+                        ]),
+                        email_verified_at_ms: u64::from_be_bytes([
+                            record[65], record[66], record[67], record[68], record[69], record[70],
+                            record[71], record[72],
+                        ]),
+                        max_receives: u16::from_be_bytes([record[53], record[54]]),
+                        receives,
                     }));
                 }
                 _ => {}
@@ -1750,7 +2094,7 @@ fn bucket_for_hash(code_hash: &RecordHash) -> usize {
 #[derive(Debug)]
 pub struct StoreStats {
     pub created: u64,
-    pub fetched: u64,
+    pub received: u64,
     pub deleted: u64,
     pub expired: u64,
     pub misses: u64,
@@ -1961,7 +2305,7 @@ fn start_replication_worker(
     let sequence_path = sequence_path.to_path_buf();
     let (tx, rx) = mpsc::sync_channel::<ReplicationEventKind>(8192);
     thread::Builder::new()
-        .name("share-replication".to_string())
+        .name("publish-replication".to_string())
         .stack_size(256 * 1024)
         .spawn(move || {
             let mut sequence = load_replication_sequence(&sequence_path).unwrap_or(0);
@@ -2087,7 +2431,7 @@ fn send_replication_request(peer_urls: &[String], request: &[u8]) -> Result<(), 
         match HttpTransport::new(peer_url).and_then(|transport| {
             let response = transport.post_binary(request)?;
             protocol::decode_response(&response, 1024)
-                .map_err(lockbox_share_protocol::ClientError::from)
+                .map_err(lockbox_publish_protocol::ClientError::from)
         }) {
             Ok(response) if response.status == Status::Success => {}
             Ok(response) => {
@@ -2229,6 +2573,33 @@ fn normalize_verification_email(email: &str) -> Result<String, StoreError> {
         .map_err(|_| StoreError::PayloadInvalid("verification email is invalid".to_string()))
 }
 
+fn render_email_template(
+    template: &str,
+    email: &str,
+    publish_code: &str,
+    verification_url: &str,
+) -> String {
+    template
+        .replace("{email}", email)
+        .replace("{publish_code}", publish_code)
+        .replace("{verification_url}", verification_url)
+}
+
+fn verification_query_parts(url: &str) -> Option<(String, String)> {
+    let query = url.split_once('?')?.1;
+    let mut code = None;
+    let mut token = None;
+    for part in query.split('&') {
+        let (key, value) = part.split_once('=')?;
+        match key {
+            "code" => code = Some(value.to_string()),
+            "token" => token = Some(value.to_string()),
+            _ => {}
+        }
+    }
+    Some((code?, token?))
+}
+
 fn hex_encode(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);
@@ -2242,20 +2613,22 @@ fn hex_encode(bytes: &[u8]) -> String {
 fn append_put(
     file: &mut File,
     code_hash: &RecordHash,
-    entry: &ShareEntry,
+    entry: &PublishEntry,
     payload: &[u8],
 ) -> Result<(u64, u32), StoreError> {
-    if entry.share_code.len() > u8::MAX as usize {
-        return Err(StoreError::Config("share code is too long".to_string()));
+    if entry.publish_code.len() > u8::MAX as usize {
+        return Err(StoreError::Config("publish code is too long".to_string()));
     }
-    let prefix_len = put_record_payload_offset(&entry.share_code);
+    let prefix_len = put_record_payload_offset(&entry.publish_code);
     let mut body = Vec::with_capacity(prefix_len + payload.len());
     body.extend_from_slice(code_hash);
-    body.push(entry.share_code.len() as u8);
-    body.extend_from_slice(entry.share_code.as_bytes());
+    body.push(entry.publish_code.len() as u8);
+    body.extend_from_slice(entry.publish_code.as_bytes());
     body.extend_from_slice(&entry.delete_token_hash);
     body.extend_from_slice(&entry.expires_at_ms.to_be_bytes());
-    body.extend_from_slice(&entry.max_fetches.to_be_bytes());
+    body.extend_from_slice(&entry.receive_ttl_ms.to_be_bytes());
+    body.extend_from_slice(&entry.email_verified_at_ms.to_be_bytes());
+    body.extend_from_slice(&entry.max_receives.to_be_bytes());
     protocol::put_bytes(&mut body, payload);
     if let Some(email) = &entry.contact_email {
         protocol::put_string(&mut body, email);
@@ -2268,15 +2641,15 @@ fn append_tombstone(file: &mut File, code_hash: &RecordHash) -> Result<(), Store
     append_record(file, KIND_TOMBSTONE, code_hash).map(|_| ())
 }
 
-fn append_fetch_count(
+fn append_receive_count(
     file: &mut File,
     code_hash: &RecordHash,
-    fetches: u16,
+    receives: u16,
 ) -> Result<(), StoreError> {
     let mut body = Vec::with_capacity(HASH_LEN + 2);
     body.extend_from_slice(code_hash);
-    body.extend_from_slice(&fetches.to_be_bytes());
-    append_record(file, KIND_FETCH_COUNT, &body).map(|_| ())
+    body.extend_from_slice(&receives.to_be_bytes());
+    append_record(file, KIND_RECEIVE_COUNT, &body).map(|_| ())
 }
 
 fn append_record(file: &mut File, kind: u16, body: &[u8]) -> Result<u64, StoreError> {
@@ -2294,7 +2667,7 @@ fn append_record(file: &mut File, kind: u16, body: &[u8]) -> Result<u64, StoreEr
     Ok(record_start + RECORD_HEADER_LEN as u64)
 }
 
-fn replay(file: &mut File) -> Result<HashMap<RecordHash, ShareEntry>, StoreError> {
+fn replay(file: &mut File) -> Result<HashMap<RecordHash, PublishEntry>, StoreError> {
     file.seek(SeekFrom::Start(0))?;
     let mut index = HashMap::new();
     let mut header = [0_u8; RECORD_HEADER_LEN];
@@ -2329,10 +2702,10 @@ fn replay(file: &mut File) -> Result<HashMap<RecordHash, ShareEntry>, StoreError
                 let code_len = body[HASH_LEN] as usize;
                 let code_start = HASH_LEN + 1;
                 let code_end = code_start + code_len;
-                if body.len() < code_end + HASH_LEN + 8 + 2 + 4 {
+                if body.len() < code_end + HASH_LEN + 8 + 8 + 8 + 2 + 4 {
                     continue;
                 }
-                let Ok(share_code) = std::str::from_utf8(&body[code_start..code_end]) else {
+                let Ok(publish_code) = std::str::from_utf8(&body[code_start..code_end]) else {
                     continue;
                 };
                 let mut delete_token_hash = [0_u8; HASH_LEN];
@@ -2348,10 +2721,32 @@ fn replay(file: &mut File) -> Result<HashMap<RecordHash, ShareEntry>, StoreError
                     body[expires_offset + 6],
                     body[expires_offset + 7],
                 ]);
-                let max_fetches_offset = expires_offset + 8;
-                let max_fetches =
-                    u16::from_be_bytes([body[max_fetches_offset], body[max_fetches_offset + 1]]);
-                let payload_len_offset = max_fetches_offset + 2;
+                let receive_ttl_offset = expires_offset + 8;
+                let receive_ttl_ms = u64::from_be_bytes([
+                    body[receive_ttl_offset],
+                    body[receive_ttl_offset + 1],
+                    body[receive_ttl_offset + 2],
+                    body[receive_ttl_offset + 3],
+                    body[receive_ttl_offset + 4],
+                    body[receive_ttl_offset + 5],
+                    body[receive_ttl_offset + 6],
+                    body[receive_ttl_offset + 7],
+                ]);
+                let email_verified_at_offset = receive_ttl_offset + 8;
+                let email_verified_at_ms = u64::from_be_bytes([
+                    body[email_verified_at_offset],
+                    body[email_verified_at_offset + 1],
+                    body[email_verified_at_offset + 2],
+                    body[email_verified_at_offset + 3],
+                    body[email_verified_at_offset + 4],
+                    body[email_verified_at_offset + 5],
+                    body[email_verified_at_offset + 6],
+                    body[email_verified_at_offset + 7],
+                ]);
+                let max_receives_offset = email_verified_at_offset + 8;
+                let max_receives =
+                    u16::from_be_bytes([body[max_receives_offset], body[max_receives_offset + 1]]);
+                let payload_len_offset = max_receives_offset + 2;
                 let payload_len = u32::from_be_bytes([
                     body[payload_len_offset],
                     body[payload_len_offset + 1],
@@ -2379,8 +2774,8 @@ fn replay(file: &mut File) -> Result<HashMap<RecordHash, ShareEntry>, StoreError
                 if expires_at_ms > now_ms {
                     index.insert(
                         code_hash,
-                        ShareEntry {
-                            share_code: share_code.to_string(),
+                        PublishEntry {
+                            publish_code: publish_code.to_string(),
                             delete_token_hash,
                             contact_email,
                             payload_offset: record_start
@@ -2388,8 +2783,10 @@ fn replay(file: &mut File) -> Result<HashMap<RecordHash, ShareEntry>, StoreError
                                 + payload_offset as u64,
                             payload_len: payload_len as u32,
                             expires_at_ms,
-                            max_fetches,
-                            fetches: 0,
+                            receive_ttl_ms,
+                            email_verified_at_ms,
+                            max_receives,
+                            receives: 0,
                         },
                     );
                 }
@@ -2401,16 +2798,16 @@ fn replay(file: &mut File) -> Result<HashMap<RecordHash, ShareEntry>, StoreError
                     index.remove(&code_hash);
                 }
             }
-            KIND_FETCH_COUNT => {
+            KIND_RECEIVE_COUNT => {
                 if body.len() == HASH_LEN + 2 {
                     let mut code_hash = [0_u8; HASH_LEN];
                     code_hash.copy_from_slice(&body[0..HASH_LEN]);
-                    let fetches = u16::from_be_bytes([body[HASH_LEN], body[HASH_LEN + 1]]);
+                    let receives = u16::from_be_bytes([body[HASH_LEN], body[HASH_LEN + 1]]);
                     if let Some(entry) = index.get_mut(&code_hash) {
-                        if fetches >= entry.max_fetches {
+                        if receives >= entry.max_receives {
                             index.remove(&code_hash);
                         } else {
-                            entry.fetches = fetches;
+                            entry.receives = receives;
                         }
                     }
                 }
@@ -2422,19 +2819,19 @@ fn replay(file: &mut File) -> Result<HashMap<RecordHash, ShareEntry>, StoreError
     Ok(index)
 }
 
-fn compacted_bytes_for_index(index: &HashMap<RecordHash, ShareEntry>) -> u64 {
+fn compacted_bytes_for_index(index: &HashMap<RecordHash, PublishEntry>) -> u64 {
     index
         .values()
         .map(|entry| {
             RECORD_HEADER_LEN as u64
-                + put_record_payload_offset(&entry.share_code) as u64
+                + put_record_payload_offset(&entry.publish_code) as u64
                 + entry.payload_len as u64
         })
         .sum()
 }
 
-fn put_record_payload_offset(share_code: &str) -> usize {
-    HASH_LEN + 1 + share_code.len() + HASH_LEN + 8 + 2 + 4
+fn put_record_payload_offset(publish_code: &str) -> usize {
+    HASH_LEN + 1 + publish_code.len() + HASH_LEN + 8 + 8 + 8 + 2 + 4
 }
 
 fn compact_shard(shard: &Shard) -> Result<CompactionReport, StoreError> {
@@ -2522,9 +2919,10 @@ fn unix_ms(time: SystemTime) -> u64 {
 pub fn bench_store(config: ServerConfig) -> Result<(), StoreError> {
     let requests = config.benchmark_requests;
     let payload_bytes = config.benchmark_payload_bytes;
-    let store = ShareStore::open(config)?;
+    let store = PublishStore::open(config)?;
     let payload = benchmark_payload(payload_bytes);
-    let request = protocol::encode_share_request(900, 2, &payload);
+    let request =
+        protocol::encode_publish_request_with_email(900, 2, &payload, Some("bench@example.com"));
     let decoded = protocol::decode_request(&request, 16 * 1024)?;
     let start = Instant::now();
     let mut codes = Vec::with_capacity(requests);
@@ -2536,18 +2934,27 @@ pub fn bench_store(config: ServerConfig) -> Result<(), StoreError> {
         let mut reader = Reader::new(&response[14..]);
         reader.message_version()?;
         let code = reader.string()?;
+        let _delete_token = reader.bytes()?;
+        let _expires_at_ms = reader.u64()?;
+        let _max_receives = reader.u16()?;
+        let verification_url = reader.string()?;
+        let (verify_code, token) = verification_query_parts(&verification_url)
+            .ok_or_else(|| StoreError::Config("invalid verification URL".to_string()))?;
+        if verify_code == code {
+            let _ = store.verify_email(&verify_code, &token);
+        }
         codes.push(code);
     }
     let create_elapsed = start.elapsed();
     let start = Instant::now();
     for code in &codes {
-        let _ = store.fetch(code);
+        let _ = store.receive(code);
     }
-    let fetch_elapsed = start.elapsed();
+    let receive_elapsed = start.elapsed();
     println!(
-        "store_create_rps={} store_fetch_rps={} live={}",
+        "store_create_rps={} store_receive_rps={} live={}",
         (codes.len() as f64 / create_elapsed.as_secs_f64()) as u64,
-        (codes.len() as f64 / fetch_elapsed.as_secs_f64()) as u64,
+        (codes.len() as f64 / receive_elapsed.as_secs_f64()) as u64,
         store.stats().live
     );
     Ok(())
@@ -2560,7 +2967,7 @@ mod tests {
     #[test]
     fn auto_routes_are_rebuilt_when_topology_members_join() {
         let temp = std::env::temp_dir().join(format!(
-            "lockbox-share-topology-auto-routes-{}",
+            "lockbox-publish-topology-auto-routes-{}",
             unix_ms(SystemTime::now())
         ));
         fs::create_dir_all(&temp).unwrap();
@@ -2569,19 +2976,19 @@ mod tests {
             topology_token: Some("token".to_string()),
             topology_servers: vec![TopologyServer {
                 id: 0,
-                url: "http://share-0.example/v1/share".to_string(),
+                url: "http://publish-0.example/v1/publish".to_string(),
                 status: ServerStatus::Active,
                 last_seen_ms: None,
             }],
             ..ServerConfig::default()
         };
-        let store = ShareStore::open(config.clone()).unwrap();
+        let store = PublishStore::open(config.clone()).unwrap();
 
         let topology = store
             .register_topology_server(TopologyRegistration {
                 cluster_id: config.cluster_id.clone(),
                 server_id: 2,
-                server_url: "http://share-2.example/v1/share".to_string(),
+                server_url: "http://publish-2.example/v1/publish".to_string(),
                 status: ServerStatus::Active,
                 security_token: "token".to_string(),
             })
@@ -2605,7 +3012,7 @@ mod tests {
     #[test]
     fn outbox_reloads_only_unacked_events() {
         let path = std::env::temp_dir().join(format!(
-            "lockbox-share-outbox-test-{}",
+            "lockbox-publish-outbox-test-{}",
             unix_ms(SystemTime::now())
         ));
         append_outbox_event(&path, 1, b"one").unwrap();
@@ -2623,7 +3030,7 @@ mod tests {
     #[test]
     fn status_document_includes_replication_files() {
         let state_dir = std::env::temp_dir().join(format!(
-            "lockbox-share-status-test-{}",
+            "lockbox-publish-status-test-{}",
             unix_ms(SystemTime::now())
         ));
         fs::create_dir_all(&state_dir).unwrap();
@@ -2632,7 +3039,7 @@ mod tests {
             replication_peer_urls: Vec::new(),
             ..ServerConfig::default()
         };
-        let store = ShareStore::open(config).unwrap();
+        let store = PublishStore::open(config).unwrap();
         store_replication_sequence(&state_dir.join("replication-origin-sequence"), 42).unwrap();
         append_outbox_event(&state_dir.join("replication-outbox.bin"), 42, b"event").unwrap();
 
@@ -2646,10 +3053,10 @@ mod tests {
     #[test]
     fn replication_accepts_out_of_order_sequences() {
         let state_dir = std::env::temp_dir().join(format!(
-            "lockbox-share-out-of-order-test-{}",
+            "lockbox-publish-out-of-order-test-{}",
             unix_ms(SystemTime::now())
         ));
-        let store = ShareStore::open(ServerConfig {
+        let store = PublishStore::open(ServerConfig {
             state_dir: state_dir.clone(),
             promoted_owner_ids: vec![0],
             ..ServerConfig::default()
@@ -2664,8 +3071,8 @@ mod tests {
         assert!(!store.apply_replication_event(second).unwrap());
 
         assert_eq!(store.stats().live, 2);
-        assert!(store.fetch("00123456789001").is_ok());
-        assert!(store.fetch("00123456789002").is_ok());
+        assert!(store.receive("00123456789001").is_ok());
+        assert!(store.receive("00123456789002").is_ok());
 
         let _ = fs::remove_dir_all(state_dir);
     }
@@ -2673,19 +3080,19 @@ mod tests {
     #[test]
     fn delete_token_hashes_are_stable_across_replica_secrets() {
         let state_a = std::env::temp_dir().join(format!(
-            "lockbox-share-token-hash-a-{}",
+            "lockbox-publish-token-hash-a-{}",
             unix_ms(SystemTime::now())
         ));
         let state_b = std::env::temp_dir().join(format!(
-            "lockbox-share-token-hash-b-{}",
+            "lockbox-publish-token-hash-b-{}",
             unix_ms(SystemTime::now())
         ));
-        let store_a = ShareStore::open(ServerConfig {
+        let store_a = PublishStore::open(ServerConfig {
             state_dir: state_a.clone(),
             ..ServerConfig::default()
         })
         .unwrap();
-        let store_b = ShareStore::open(ServerConfig {
+        let store_b = PublishStore::open(ServerConfig {
             state_dir: state_b.clone(),
             ..ServerConfig::default()
         })
@@ -2706,9 +3113,9 @@ mod tests {
     }
 
     #[test]
-    fn share_code_generation_rejects_persisted_bucket_collision() {
+    fn publish_code_generation_rejects_persisted_bucket_collision() {
         let state_dir = temp_state_dir("persisted-collision");
-        let store = ShareStore::open(ServerConfig {
+        let store = PublishStore::open(ServerConfig {
             state_dir: state_dir.clone(),
             index_cache_entries: 0,
             ..ServerConfig::default()
@@ -2716,15 +3123,17 @@ mod tests {
         .unwrap();
         let code = store.unique_code_from_value(0, 0, 123).unwrap().unwrap();
         let code_hash = store.code_hash(&code);
-        let entry = ShareEntry {
-            share_code: code,
+        let entry = PublishEntry {
+            publish_code: code,
             delete_token_hash: [7_u8; HASH_LEN],
             contact_email: None,
             payload_offset: 0,
             payload_len: 0,
             expires_at_ms: unix_ms(SystemTime::now()) + 60_000,
-            max_fetches: 1,
-            fetches: 0,
+            receive_ttl_ms: 60_000,
+            email_verified_at_ms: unix_ms(SystemTime::now()),
+            max_receives: 1,
+            receives: 0,
         };
 
         store.append_bucket_put(&code_hash, &entry).unwrap();
@@ -2773,21 +3182,21 @@ mod tests {
 
     fn temp_state_dir(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "lockbox-share-{label}-{}-{}",
+            "lockbox-publish-{label}-{}-{}",
             std::process::id(),
             unix_ms(SystemTime::now())
         ))
     }
 
-    fn replication_put_event(sequence: u64, share_code: &str, label: &str) -> ReplicationEvent {
+    fn replication_put_event(sequence: u64, publish_code: &str, label: &str) -> ReplicationEvent {
         ReplicationEvent {
             origin_server_id: 0,
             origin_epoch: 1,
             origin_sequence: sequence,
-            kind: ReplicationEventKind::PutShare {
-                share_code: share_code.to_string(),
+            kind: ReplicationEventKind::PutPublish {
+                publish_code: publish_code.to_string(),
                 delete_token_hash: [sequence as u8; HASH_LEN].to_vec(),
-                payload: payload::encode_contact_share(
+                payload: payload::encode_contact_publish(
                     &format!("{label}@example.com"),
                     b"public-key-material",
                     b"signing-public-key-material",
@@ -2798,8 +3207,10 @@ mod tests {
                 ),
                 contact_email: Some(format!("{label}@example.com")),
                 expires_at_unix_ms: unix_ms(SystemTime::now()) + 60_000,
-                max_fetches: 2,
-                fetches: 0,
+                receive_ttl_ms: 60_000,
+                email_verified_at_unix_ms: unix_ms(SystemTime::now()),
+                max_receives: 2,
+                receives: 0,
             },
         }
     }
@@ -2808,7 +3219,7 @@ mod tests {
 fn benchmark_payload(target_bytes: usize) -> Vec<u8> {
     let key_len = target_bytes.saturating_sub(112).clamp(32, 4096);
     let public_key = vec![42_u8; key_len];
-    payload::encode_contact_share(
+    payload::encode_contact_publish(
         "bench@example.com",
         &public_key,
         b"signing-public-key-material",

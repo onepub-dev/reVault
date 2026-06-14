@@ -1,5 +1,6 @@
 use lockbox_core::{
-    ListOptions, Lockbox, LockboxPath, LockboxProtection, LockboxUnlock, SecretVec, VariableName,
+    ListOptions, Lockbox, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
+    SecretVec, VariableName,
 };
 use std::io::{Read, Result as IoResult};
 use std::path::{Path, PathBuf};
@@ -12,6 +13,10 @@ fn p(path: impl AsRef<str>) -> LockboxPath {
 
 fn variable(name: impl AsRef<str>) -> VariableName {
     VariableName::new(name).unwrap()
+}
+
+fn signing_key() -> OwnerSigningKeyPair {
+    OwnerSigningKeyPair::generate().unwrap()
 }
 
 #[test]
@@ -48,6 +53,7 @@ fn create_fixture(path: &Path) {
     let mut lockbox = Lockbox::create_file(
         path,
         LockboxProtection::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+        &signing_key(),
     )
     .unwrap();
     lockbox
@@ -83,7 +89,7 @@ fn create_fixture(path: &Path) {
 fn verify_fixture(path: &Path) {
     let lockbox = Lockbox::open_file(
         path,
-        LockboxUnlock::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
     )
     .unwrap();
 

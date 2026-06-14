@@ -1,8 +1,8 @@
-use super::context::{cli_error, Access, CliResult};
+use super::context::{cli_error, default_vault, Access, CliResult};
 use super::output::{output_format_from_args, print_records, OutputFormat};
-use lockbox_core::vault_bridge::VaultUnlock;
+use lockbox_core::vault_bridge::VaultOpen;
 use lockbox_core::{Error, RecoveryReport, RecoveryScanner, SecretVec};
-use lockbox_vault::get as get_cached_content_key;
+use lockbox_vault::{get as get_cached_content_key, VaultDirectory};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -147,11 +147,20 @@ fn salvage_bytes(
     bytes: Vec<u8>,
     access: &Access,
 ) -> CliResult<lockbox_core::Lockbox> {
+    let signing_key = default_vault()?.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
     match access {
-        Access::ContentKey(key) => Ok(RecoveryScanner::salvage_bytes_with_secret_key(bytes, key)?),
+        Access::ContentKey(key) => Ok(RecoveryScanner::salvage_bytes_with_secret_key(
+            bytes,
+            key,
+            &signing_key,
+        )?),
         Access::CacheOnly => {
             let key = cached_key(lockbox_path)?;
-            Ok(RecoveryScanner::salvage_bytes_with_secret_key(bytes, &key)?)
+            Ok(RecoveryScanner::salvage_bytes_with_secret_key(
+                bytes,
+                &key,
+                &signing_key,
+            )?)
         }
         Access::PromptPassword => {
             Err(Error::InvalidInput("recover requires --key or an open lockbox".to_string()).into())
@@ -160,7 +169,7 @@ fn salvage_bytes(
 }
 
 fn cached_key(lockbox_path: &str) -> CliResult<SecretVec> {
-    let lockbox_id = VaultUnlock::read_lockbox_id(Path::new(lockbox_path)).map_err(|_| {
+    let lockbox_id = VaultOpen::read_lockbox_id(Path::new(lockbox_path)).map_err(|_| {
         cli_error(format!(
             "cannot read lockbox id from {lockbox_path}; run recover with --key for badly damaged headers"
         ))

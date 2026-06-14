@@ -1,12 +1,12 @@
 [package]
-name = "lockbox_share_protocol"
+name = "lockbox_publish_protocol"
 version = "0.1.0-alpha.1"
 edition = "2021"
 license-file = "LICENSE"
 description = "reVault key server wire protocol and client API"
 
 [lib]
-name = "lockbox_share_protocol"
+name = "lockbox_publish_protocol"
 path = "src/lib.rs"
 
 [dependencies]

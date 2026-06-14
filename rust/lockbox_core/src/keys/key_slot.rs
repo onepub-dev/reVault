@@ -3,7 +3,7 @@ use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use zeroize::Zeroize;
 
 use crate::key_derivation::{derive_key_from_password, derive_key_from_password_bytes};
-use crate::key_wrap::{RecipientKeyPair, RecipientPublicKey, RecipientWrappedKey};
+use crate::key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
 use crate::secret_vec::SecretString;
 use crate::{Error, Result};
 use std::fmt;
@@ -17,8 +17,8 @@ pub const MAX_KEY_SLOT_NAME_BYTES: usize = 255;
 pub enum LockboxKeySlotProtection {
     /// Password-derived wrapping key.
     Password,
-    /// Public-key recipient wrapping key.
-    Recipient,
+    /// Public-key contact wrapping key.
+    Contact,
 }
 
 /// Algorithm used by a key slot to wrap the lockbox content key.
@@ -27,7 +27,7 @@ pub enum LockboxKeySlotProtection {
 pub enum LockboxKeySlotAlgorithm {
     /// Argon2id password derivation plus ChaCha20-Poly1305 key wrapping.
     Argon2idChaCha20Poly1305,
-    /// X25519 plus ML-KEM-768 recipient wrapping, then ChaCha20-Poly1305.
+    /// X25519 plus ML-KEM-768 contact wrapping, then ChaCha20-Poly1305.
     X25519MlKem768ChaCha20Poly1305,
 }
 
@@ -52,15 +52,13 @@ impl fmt::Display for LockboxKeySlotAlgorithm {
 pub struct LockboxKeySlot {
     /// Stable slot id used for deletion.
     pub id: u64,
-    /// User-facing label for this slot, when one was supplied.
-    pub name: Option<String>,
     /// User-facing protection type for this slot.
     pub protection: LockboxKeySlotProtection,
     /// Algorithm used to wrap the lockbox content key.
     ///
     /// Multiple algorithms may exist for one protection type. For example, a
-    /// future release can add another recipient algorithm while still reporting
-    /// `LockboxKeySlotProtection::Recipient`.
+    /// future release can add another contact algorithm while still reporting
+    /// `LockboxKeySlotProtection::Contact`.
     pub algorithm: LockboxKeySlotAlgorithm,
 }
 
@@ -71,16 +69,16 @@ pub(crate) enum KeySlot {
         salt: Vec<u8>,
         encrypted_key: Vec<u8>,
     },
-    HybridRecipient {
+    HybridContact {
         id: u64,
-        wrapped: Box<RecipientWrappedKey>,
+        wrapped: Box<ContactWrappedKey>,
     },
 }
 
 impl KeySlot {
     pub(crate) fn id(&self) -> u64 {
         match self {
-            KeySlot::Password { id, .. } | KeySlot::HybridRecipient { id, .. } => *id,
+            KeySlot::Password { id, .. } | KeySlot::HybridContact { id, .. } => *id,
         }
     }
 
@@ -88,14 +86,12 @@ impl KeySlot {
         match self {
             KeySlot::Password { id, .. } => LockboxKeySlot {
                 id: *id,
-                name: None,
                 protection: LockboxKeySlotProtection::Password,
                 algorithm: LockboxKeySlotAlgorithm::Argon2idChaCha20Poly1305,
             },
-            KeySlot::HybridRecipient { id, .. } => LockboxKeySlot {
+            KeySlot::HybridContact { id, .. } => LockboxKeySlot {
                 id: *id,
-                name: None,
-                protection: LockboxKeySlotProtection::Recipient,
+                protection: LockboxKeySlotProtection::Contact,
                 algorithm: LockboxKeySlotAlgorithm::X25519MlKem768ChaCha20Poly1305,
             },
         }
@@ -117,18 +113,14 @@ impl KeySlot {
         })
     }
 
-    pub(crate) fn hybrid_recipient(
+    pub(crate) fn hybrid_contact(
         id: u64,
-        name: Option<String>,
-        recipient: &RecipientPublicKey,
+        contact: &ContactPublicKey,
         content_key: &[u8],
     ) -> Result<Self> {
-        if let Some(name) = name.as_deref() {
-            validate_key_slot_name(name)?;
-        }
-        Ok(Self::HybridRecipient {
+        Ok(Self::HybridContact {
             id,
-            wrapped: Box::new(recipient.encrypt(content_key)?),
+            wrapped: Box::new(contact.encrypt(content_key)?),
         })
     }
 
@@ -148,9 +140,9 @@ impl KeySlot {
         }
     }
 
-    pub(crate) fn try_recipient(&self, recipient: &RecipientKeyPair) -> Result<Vec<u8>> {
+    pub(crate) fn try_contact(&self, contact: &ContactKeyPair) -> Result<Vec<u8>> {
         match self {
-            KeySlot::HybridRecipient { wrapped, .. } => recipient.decrypt(wrapped),
+            KeySlot::HybridContact { wrapped, .. } => contact.decrypt(wrapped),
             _ => Err(Error::InvalidKey),
         }
     }

@@ -1,7 +1,7 @@
 use lockbox_core::{
-    ExtractPolicy, ListOptions, Lockbox, LockboxId, LockboxKeySlotAlgorithm,
-    LockboxKeySlotProtection, LockboxPath, LockboxProtection, LockboxUnlock, RecipientKeyPair,
-    RecipientPublicKey, RecipientWrappedKey, RecoveryReportOptions, RecoveryScanner, SecretString,
+    ContactKeyPair, ContactPublicKey, ContactWrappedKey, ExtractPolicy, ListOptions, Lockbox,
+    LockboxId, LockboxKeySlotAlgorithm, LockboxKeySlotProtection, LockboxOpen, LockboxPath,
+    LockboxProtection, OwnerSigningKeyPair, RecoveryReportOptions, RecoveryScanner, SecretString,
     SecretVec, VariableName, VariableValueRef, WorkloadProfile,
 };
 use std::io::Cursor;
@@ -17,6 +17,10 @@ fn variable(name: impl AsRef<str>) -> VariableName {
     VariableName::new(name).unwrap()
 }
 
+fn signing_key() -> OwnerSigningKeyPair {
+    OwnerSigningKeyPair::generate().unwrap()
+}
+
 #[test]
 fn public_api_files_listing_variables_symlink_and_rename_flow() {
     let root = unique_dir("files");
@@ -27,6 +31,7 @@ fn public_api_files_listing_variables_symlink_and_rename_flow() {
     let mut lb = Lockbox::create_file(
         &lockbox_path,
         LockboxProtection::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+        &signing_key(),
     )
     .unwrap();
     lb.add_file_with_permissions(&p("/app/config.json"), br#"{"mode":"test"}"#, 0o640, false)
@@ -48,7 +53,7 @@ fn public_api_files_listing_variables_symlink_and_rename_flow() {
 
     let reopened = Lockbox::open_file(
         &lockbox_path,
-        LockboxUnlock::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
     )
     .unwrap();
     assert_eq!(
@@ -153,19 +158,24 @@ fn public_api_files_listing_variables_symlink_and_rename_flow() {
 }
 
 #[test]
-fn public_api_password_and_recipient_key_management_flow() {
+fn public_api_password_and_contact_key_management_flow() {
     let root = unique_dir("keys");
     let lockbox_path = root.join("shared.lbox");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
 
-    let recipient = RecipientKeyPair::generate().unwrap();
+    let contact = ContactKeyPair::generate().unwrap();
     let old_password = password("old-password");
     let new_password = password("new-password");
-    let mut lb =
-        Lockbox::create_file(&lockbox_path, LockboxProtection::Password(&old_password)).unwrap();
+    let signing_key = signing_key();
+    let mut lb = Lockbox::create_file(
+        &lockbox_path,
+        LockboxProtection::Password(&old_password),
+        &signing_key,
+    )
+    .unwrap();
     let password_slot = lb.list_key_slots()[0].id;
-    let recipient_slot = lb.add_recipient(&recipient.public_key()).unwrap();
+    let contact_slot = lb.add_contact(&contact.public_key()).unwrap();
     let slots = lb.list_key_slots();
     assert!(slots.iter().any(|slot| {
         slot.id == password_slot
@@ -173,8 +183,8 @@ fn public_api_password_and_recipient_key_management_flow() {
             && slot.algorithm == LockboxKeySlotAlgorithm::Argon2idChaCha20Poly1305
     }));
     assert!(slots.iter().any(|slot| {
-        slot.id == recipient_slot
-            && slot.protection == LockboxKeySlotProtection::Recipient
+        slot.id == contact_slot
+            && slot.protection == LockboxKeySlotProtection::Contact
             && slot.algorithm == LockboxKeySlotAlgorithm::X25519MlKem768ChaCha20Poly1305
     }));
 
@@ -183,22 +193,26 @@ fn public_api_password_and_recipient_key_management_flow() {
     drop(lb);
 
     assert_eq!(
-        Lockbox::open_file(&lockbox_path, LockboxUnlock::Password(&old_password))
+        Lockbox::open_file(&lockbox_path, LockboxOpen::Password(&old_password))
             .unwrap()
             .get_file(&p("/secret.txt"))
             .unwrap(),
         b"shared"
     );
     assert_eq!(
-        Lockbox::open_file(&lockbox_path, LockboxUnlock::RecipientKeyPair(recipient))
+        Lockbox::open_file(&lockbox_path, LockboxOpen::ContactKeyPair(contact))
             .unwrap()
             .get_file(&p("/secret.txt"))
             .unwrap(),
         b"shared"
     );
 
-    let mut reopened =
-        Lockbox::open_file(&lockbox_path, LockboxUnlock::Password(&old_password)).unwrap();
+    let mut reopened = Lockbox::open_file_with_owner_signing_key(
+        &lockbox_path,
+        LockboxOpen::Password(&old_password),
+        signing_key,
+    )
+    .unwrap();
     let new_slot = reopened
         .replace_password(&old_password, &new_password)
         .unwrap();
@@ -209,7 +223,7 @@ fn public_api_password_and_recipient_key_management_flow() {
         .iter()
         .any(|slot| slot.id == new_slot && slot.protection == LockboxKeySlotProtection::Password));
     assert!(slots.iter().all(|slot| slot.id != password_slot));
-    assert!(Lockbox::open_file(&lockbox_path, LockboxUnlock::Password(&new_password)).is_ok());
+    assert!(Lockbox::open_file(&lockbox_path, LockboxOpen::Password(&new_password)).is_ok());
 
     let _ = std::fs::remove_dir_all(root);
 }
@@ -224,6 +238,7 @@ fn public_api_recovery_scanner_reports_and_salvages_intact_files() {
     let mut lb = Lockbox::create_file(
         &lockbox_path,
         LockboxProtection::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+        &signing_key(),
     )
     .unwrap();
     lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
@@ -240,7 +255,7 @@ fn public_api_recovery_scanner_reports_and_salvages_intact_files() {
         .render(&RecoveryReportOptions::default())
         .contains("Intact files"));
 
-    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY).unwrap();
+    let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
     assert_eq!(salvaged.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
     assert_eq!(salvaged.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
     assert_eq!(salvaged.get_file(&p("/photos/c.jpg")).unwrap(), b"image");
@@ -283,13 +298,13 @@ fn public_api_secret_lockbox_id_and_hybrid_wrappers_flow() {
     assert_eq!(random_id.as_bytes()[6] & 0xf0, 0x40);
     assert_eq!(random_id.as_bytes()[8] & 0xc0, 0x80);
 
-    let keypair = RecipientKeyPair::generate().unwrap();
+    let keypair = ContactKeyPair::generate().unwrap();
     let from_record =
-        RecipientKeyPair::from_private_key_record(keypair.private_key_record().unwrap()).unwrap();
-    let recipient = keypair.public_key();
-    let recipient = RecipientPublicKey::from_bytes(&recipient.to_bytes()).unwrap();
-    let wrapped = recipient.encrypt(b"content-key").unwrap();
-    let wrapped = RecipientWrappedKey::from_parts(
+        ContactKeyPair::from_private_key_record(keypair.private_key_record().unwrap()).unwrap();
+    let contact = keypair.public_key();
+    let contact = ContactPublicKey::from_bytes(&contact.to_bytes()).unwrap();
+    let wrapped = contact.encrypt(b"content-key").unwrap();
+    let wrapped = ContactWrappedKey::from_parts(
         wrapped.x25519_ephemeral_public_key().to_vec(),
         wrapped.ciphertext_bytes().to_vec(),
         wrapped.encrypted_key().to_vec(),
@@ -320,6 +335,7 @@ fn public_api_path_inspector_and_file_helpers_flow() {
     let mut lb = Lockbox::create_file(
         &lockbox_path,
         LockboxProtection::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+        &signing_key(),
     )
     .unwrap();
     assert_eq!(lb.workload_profile(), WorkloadProfile::Interactive);
@@ -377,7 +393,7 @@ fn public_api_path_inspector_and_file_helpers_flow() {
 
     let reopened = Lockbox::open_file(
         &lockbox_path,
-        LockboxUnlock::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
     )
     .unwrap();
     assert_eq!(
@@ -389,48 +405,143 @@ fn public_api_path_inspector_and_file_helpers_flow() {
 }
 
 #[test]
-fn public_api_password_recipient_open_file_flow() {
-    let root = unique_dir("unlock");
+fn public_api_password_contact_open_file_flow() {
+    let root = unique_dir("open");
     let password_path = root.join("password.lbox");
-    let recipient_path = root.join("recipient.lbox");
+    let contact_path = root.join("contact.lbox");
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
 
     let password = password("shared-password");
-    let mut by_password =
-        Lockbox::create_file(&password_path, LockboxProtection::Password(&password)).unwrap();
+    let mut by_password = Lockbox::create_file(
+        &password_path,
+        LockboxProtection::Password(&password),
+        &signing_key(),
+    )
+    .unwrap();
     by_password
         .add_file(&p("/secret.txt"), b"password", false)
         .unwrap();
     by_password.commit().unwrap();
     assert_eq!(
-        Lockbox::open_file(&password_path, LockboxUnlock::Password(&password))
+        Lockbox::open_file(&password_path, LockboxOpen::Password(&password))
             .unwrap()
             .get_file(&p("/secret.txt"))
             .unwrap(),
         b"password"
     );
 
-    let recipient = RecipientKeyPair::generate().unwrap();
-    let mut by_recipient = Lockbox::create_file(
-        &recipient_path,
-        LockboxProtection::RecipientPublicKey {
-            name: Some("recipient".to_string()),
-            recipient: recipient.public_key(),
+    let contact = ContactKeyPair::generate().unwrap();
+    let mut by_contact = Lockbox::create_file(
+        &contact_path,
+        LockboxProtection::ContactPublicKey {
+            name: Some("contact".to_string()),
+            contact: contact.public_key(),
         },
+        &signing_key(),
     )
     .unwrap();
-    by_recipient
-        .add_file(&p("/secret.txt"), b"recipient", false)
+    by_contact
+        .add_file(&p("/secret.txt"), b"contact", false)
         .unwrap();
-    by_recipient.commit().unwrap();
+    by_contact.commit().unwrap();
     assert_eq!(
-        Lockbox::open_file(&recipient_path, LockboxUnlock::RecipientKeyPair(recipient))
+        Lockbox::open_file(&contact_path, LockboxOpen::ContactKeyPair(contact))
             .unwrap()
             .get_file(&p("/secret.txt"))
             .unwrap(),
-        b"recipient"
+        b"contact"
     );
+
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
+fn public_api_password_contact_open_bytes_flow() {
+    let password = password("shared-password");
+    let mut by_password =
+        Lockbox::create_in_memory(LockboxProtection::Password(&password), &signing_key())
+            .expect("create password protected in-memory lockbox");
+    by_password
+        .add_file(&p("/secret.txt"), b"password", false)
+        .unwrap();
+    by_password.commit().unwrap();
+    let password_bytes = by_password.try_to_bytes().unwrap();
+    assert_eq!(
+        Lockbox::open_bytes(password_bytes, LockboxOpen::Password(&password))
+            .unwrap()
+            .get_file(&p("/secret.txt"))
+            .unwrap(),
+        b"password"
+    );
+
+    let contact = ContactKeyPair::generate().unwrap();
+    let mut by_contact = Lockbox::create_in_memory(
+        LockboxProtection::ContactPublicKey {
+            name: Some("contact".to_string()),
+            contact: contact.public_key(),
+        },
+        &signing_key(),
+    )
+    .expect("create contact protected in-memory lockbox");
+    by_contact
+        .add_file(&p("/secret.txt"), b"contact", false)
+        .unwrap();
+    by_contact.commit().unwrap();
+    let contact_bytes = by_contact.try_to_bytes().unwrap();
+    assert_eq!(
+        Lockbox::open_bytes(contact_bytes, LockboxOpen::ContactKeyPair(contact))
+            .unwrap()
+            .get_file(&p("/secret.txt"))
+            .unwrap(),
+        b"contact"
+    );
+}
+
+#[test]
+fn public_api_commit_requires_explicit_owner_signing_key_after_open() {
+    let root = unique_dir("commit-requires-signer");
+    let lockbox_path = root.join("signed.lbox");
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(&root).unwrap();
+
+    let password = password("shared-password");
+    let signing_key = signing_key();
+    let mut created = Lockbox::create_file(
+        &lockbox_path,
+        LockboxProtection::Password(&password),
+        &signing_key,
+    )
+    .unwrap();
+    created
+        .add_file(&p("/docs/a.txt"), b"alpha", false)
+        .unwrap();
+    created.commit().unwrap();
+
+    let mut opened_without_signer =
+        Lockbox::open_file(&lockbox_path, LockboxOpen::Password(&password)).unwrap();
+    opened_without_signer
+        .add_file(&p("/docs/b.txt"), b"bravo", false)
+        .unwrap();
+    assert!(matches!(
+        opened_without_signer.commit(),
+        Err(lockbox_core::Error::InvalidOperation(message))
+            if message.contains("owner signing key is required")
+    ));
+
+    let mut opened_with_signer = Lockbox::open_file_with_owner_signing_key(
+        &lockbox_path,
+        LockboxOpen::Password(&password),
+        signing_key,
+    )
+    .unwrap();
+    opened_with_signer
+        .add_file(&p("/docs/b.txt"), b"bravo", false)
+        .unwrap();
+    opened_with_signer.commit().unwrap();
+
+    let reopened = Lockbox::open_file(&lockbox_path, LockboxOpen::Password(&password)).unwrap();
+    assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");
 
     let _ = std::fs::remove_dir_all(root);
 }

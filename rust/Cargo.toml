@@ -4,7 +4,7 @@ members = [
     "lockbox_core",
     "lockbox_vault",
     "lockbox_cli",
-    "lockbox_share_protocol",
+    "lockbox_publish_protocol",
     "lockbox_key_server",
 ]
 resolver = "2"

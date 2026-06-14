@@ -7,10 +7,10 @@ use std::time::Duration;
 
 use install::{install_systemd, print_status, uninstall_systemd};
 use lockbox_key_server::{install, server, server_log, store};
-use lockbox_share_protocol::{ServerStatus, TopologyRoute, TopologyServer};
-use server::{bench_http, bench_http_fetch, bench_http_flow, run_server};
+use lockbox_publish_protocol::{ServerStatus, TopologyRoute, TopologyServer};
+use server::{bench_http, bench_http_flow, bench_http_receive, run_server};
 use server_log::log_server_event;
-use store::{ServerConfig, ShareStore};
+use store::{PublishStore, ServerConfig, SmtpTlsMode};
 
 fn main() -> ExitCode {
     match run() {
@@ -29,7 +29,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("run") | None => {
             let config = config_from_args(args.collect())?;
             let bind = config.bind_addr.clone();
-            let store = Arc::new(ShareStore::open(config)?);
+            let store = Arc::new(PublishStore::open(config)?);
             store.start_topology_background();
             run_server(&bind, store)?;
         }
@@ -39,9 +39,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some("resync-peer") => {
             let (mut config_args, peer_url) = split_peer_url_args(args.collect())?;
             let config = config_from_args(std::mem::take(&mut config_args))?;
-            let store = ShareStore::open(config)?;
+            let store = PublishStore::open(config)?;
             let sent = store.resync_peer(&peer_url)?;
-            println!("resynced_live_shares={sent}");
+            println!("resynced_live_publishes={sent}");
         }
         Some("bench-store") => {
             let config = config_from_args(args.collect())?;
@@ -53,10 +53,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             require_dev_command(&config, "bench-http")?;
             bench_http(config)?;
         }
-        Some("bench-http-fetch") => {
+        Some("bench-http-receive") => {
             let config = config_from_args(args.collect())?;
-            require_dev_command(&config, "bench-http-fetch")?;
-            bench_http_fetch(config)?;
+            require_dev_command(&config, "bench-http-receive")?;
+            bench_http_receive(config)?;
         }
         Some("bench-http-flow") => {
             let config = config_from_args(args.collect())?;
@@ -91,7 +91,7 @@ fn print_help(dev: bool) {
     if dev {
         println!("  lockbox_key_server bench-store [--dev options]");
         println!("  lockbox_key_server bench-http [--dev options]");
-        println!("  lockbox_key_server bench-http-fetch [--dev options]");
+        println!("  lockbox_key_server bench-http-receive [--dev options]");
         println!("  lockbox_key_server bench-http-flow [--dev options]");
     }
     println!();
@@ -106,10 +106,10 @@ fn print_help(dev: bool) {
     }
     println!();
     println!("Developer/test options:");
-    println!("  --state-dir PATH      Directory used for persisted share store state");
+    println!("  --state-dir PATH      Directory used for persisted publish store state");
     println!("  --server-id N          Server routing id, 0..35 (0..9, a..z), default 0");
     println!("  --cluster-id ID        Public topology cluster id");
-    println!("  --public-url URL       Public /v1/share URL for this server");
+    println!("  --public-url URL       External URL for this server's publish API");
     println!("  --topology-version N   Public topology version");
     println!("  --topology-token TOKEN  Shared token for topology heartbeat");
     println!(
@@ -121,15 +121,28 @@ fn print_help(dev: bool) {
     println!("  --replication-token TOKEN  Shared peer replication token");
     println!("  --replication-peer-url URL  Peer /v1/replicate URL");
     println!("  --origin-epoch N      Local replication epoch");
-    println!("  --promoted-owner N    Serve replicated shares for owner id N");
+    println!("  --promoted-owner N    Serve replicated published payloads for owner id N");
     println!("  --requests N           Benchmark request count");
     println!("  --payload-bytes N      Benchmark payload size");
     println!("  --concurrency N        Benchmark concurrency");
-    println!("  --preload-shares N     Benchmark live shares to create before timing");
+    println!(
+        "  --preload-published-payloads N     Benchmark published payloads to create before timing"
+    );
     println!("  --compact-min-bytes N  Segment size before background compaction");
     println!("  --rate-limit-per-minute N  Per-IP request rate, 0 disables");
     println!("  --rate-limit-burst N       Per-IP burst capacity");
-    println!("  --verification-email-command PATH  Command called as PATH <email> <url>");
+    println!("  --verification-ttl-seconds N       Email verification link lifetime");
+    println!("  --default-receive-ttl-seconds N    Receive lifetime after email verification");
+    println!("  --max-receive-ttl-seconds N        Maximum requested receive lifetime");
+    println!("  --smtp-host HOST      SMTP server hostname");
+    println!("  --smtp-port N         SMTP server port, default 587");
+    println!("  --smtp-username USER  SMTP username");
+    println!("  --smtp-password PASS  SMTP password or app password");
+    println!("  --smtp-from EMAIL     Sender address");
+    println!("  --smtp-tls MODE       starttls, tls, or none");
+    println!("  --smtp-timeout-seconds N");
+    println!("  --verification-email-subject TEXT");
+    println!("  --verification-email-template TEXT");
     println!("  --verification-email-rate-limit-per-hour N");
     println!("  --verification-email-ip-rate-limit-per-hour N");
 }
@@ -296,11 +309,11 @@ fn config_from_args(args: Vec<String>) -> Result<ServerConfig, Box<dyn std::erro
                     .ok_or("missing value for --concurrency")?
                     .parse()?;
             }
-            "--preload-shares" => {
+            "--preload-published-payloads" => {
                 index += 1;
-                config.benchmark_preload_shares = args
+                config.benchmark_preload_published_payloads = args
                     .get(index)
-                    .ok_or("missing value for --preload-shares")?
+                    .ok_or("missing value for --preload-published-payloads")?
                     .parse()?;
             }
             "--compact-min-bytes" => {
@@ -324,13 +337,95 @@ fn config_from_args(args: Vec<String>) -> Result<ServerConfig, Box<dyn std::erro
                     .ok_or("missing value for --rate-limit-burst")?
                     .parse()?;
             }
-            "--verification-email-command" => {
+            "--verification-ttl-seconds" => {
                 index += 1;
-                config.verification_email_command = Some(
+                config.verification_ttl = Duration::from_secs(
                     args.get(index)
-                        .ok_or("missing value for --verification-email-command")?
+                        .ok_or("missing value for --verification-ttl-seconds")?
+                        .parse()?,
+                );
+            }
+            "--default-receive-ttl-seconds" => {
+                index += 1;
+                config.default_receive_ttl = Duration::from_secs(
+                    args.get(index)
+                        .ok_or("missing value for --default-receive-ttl-seconds")?
+                        .parse()?,
+                );
+            }
+            "--max-receive-ttl-seconds" => {
+                index += 1;
+                config.max_receive_ttl = Duration::from_secs(
+                    args.get(index)
+                        .ok_or("missing value for --max-receive-ttl-seconds")?
+                        .parse()?,
+                );
+            }
+            "--smtp-host" => {
+                index += 1;
+                config.smtp_host = Some(
+                    args.get(index)
+                        .ok_or("missing value for --smtp-host")?
                         .to_string(),
                 );
+            }
+            "--smtp-port" => {
+                index += 1;
+                config.smtp_port = args
+                    .get(index)
+                    .ok_or("missing value for --smtp-port")?
+                    .parse()?;
+            }
+            "--smtp-username" => {
+                index += 1;
+                config.smtp_username = Some(
+                    args.get(index)
+                        .ok_or("missing value for --smtp-username")?
+                        .to_string(),
+                );
+            }
+            "--smtp-password" => {
+                index += 1;
+                config.smtp_password = Some(
+                    args.get(index)
+                        .ok_or("missing value for --smtp-password")?
+                        .to_string(),
+                );
+            }
+            "--smtp-from" => {
+                index += 1;
+                config.smtp_from = Some(
+                    args.get(index)
+                        .ok_or("missing value for --smtp-from")?
+                        .to_string(),
+                );
+            }
+            "--smtp-tls" => {
+                index += 1;
+                config.smtp_tls =
+                    parse_smtp_tls_mode(args.get(index).ok_or("missing value for --smtp-tls")?)?;
+            }
+            "--smtp-timeout-seconds" => {
+                index += 1;
+                config.smtp_timeout = Duration::from_secs(
+                    args.get(index)
+                        .ok_or("missing value for --smtp-timeout-seconds")?
+                        .parse()?,
+                );
+            }
+            "--verification-email-subject" => {
+                index += 1;
+                config.verification_email_subject = args
+                    .get(index)
+                    .ok_or("missing value for --verification-email-subject")?
+                    .to_string();
+            }
+            "--verification-email-template" => {
+                index += 1;
+                config.verification_email_template = args
+                    .get(index)
+                    .ok_or("missing value for --verification-email-template")?
+                    .to_string();
             }
             "--verification-email-rate-limit-per-hour" => {
                 index += 1;
@@ -377,20 +472,51 @@ fn dev_only_option(option: &str) -> bool {
             | "--requests"
             | "--payload-bytes"
             | "--concurrency"
-            | "--preload-shares"
+            | "--preload-published-payloads"
             | "--compact-min-bytes"
             | "--rate-limit-per-minute"
             | "--rate-limit-burst"
-            | "--verification-email-command"
+            | "--verification-ttl-seconds"
+            | "--default-receive-ttl-seconds"
+            | "--max-receive-ttl-seconds"
+            | "--smtp-host"
+            | "--smtp-port"
+            | "--smtp-username"
+            | "--smtp-password"
+            | "--smtp-from"
+            | "--smtp-tls"
+            | "--smtp-timeout-seconds"
+            | "--verification-email-subject"
+            | "--verification-email-template"
             | "--verification-email-rate-limit-per-hour"
             | "--verification-email-ip-rate-limit-per-hour"
     )
+}
+
+#[derive(Default)]
+struct TopologyServerTable {
+    id: Option<u8>,
+    url: Option<String>,
+    status: Option<ServerStatus>,
+}
+
+#[derive(Default)]
+struct TopologyRouteTable {
+    owner: Option<u8>,
+    primary: Option<u8>,
+    failover: Vec<u8>,
+}
+
+enum ConfigTable {
+    TopologyServer(TopologyServerTable),
+    Route(TopologyRouteTable),
 }
 
 fn apply_config_file(
     config: &mut ServerConfig,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let mut table = None;
     for (line_no, raw_line) in fs::read_to_string(path)?.lines().enumerate() {
         let line = raw_line
             .split_once('#')
@@ -400,13 +526,38 @@ fn apply_config_file(
         if line.is_empty() {
             continue;
         }
+        if let Some(name) = parse_array_table_header(line) {
+            flush_config_table(config, table.take())
+                .map_err(|err| format!("{path}:{}: {err}", line_no + 1))?;
+            table = Some(match name {
+                "topology_server" => ConfigTable::TopologyServer(TopologyServerTable::default()),
+                "route" => ConfigTable::Route(TopologyRouteTable::default()),
+                other => {
+                    return Err(
+                        format!("{path}:{}: unknown config table `{other}`", line_no + 1).into(),
+                    )
+                }
+            });
+            continue;
+        }
         let (key, value) = line
             .split_once('=')
             .ok_or_else(|| format!("{path}:{}: expected key = value", line_no + 1))?;
-        apply_config_value(config, key.trim(), parse_config_value(value.trim())?)
-            .map_err(|err| format!("{path}:{}: {err}", line_no + 1))?;
+        let key = key.trim();
+        let value = value.trim();
+        if let Some(current) = table.as_mut() {
+            apply_config_table_value(current, key, value)
+        } else {
+            apply_config_value(config, key, parse_config_value(value)?)
+        }
+        .map_err(|err| format!("{path}:{}: {err}", line_no + 1))?;
     }
+    flush_config_table(config, table).map_err(|err| format!("{path}: {err}"))?;
     Ok(())
+}
+
+fn parse_array_table_header(line: &str) -> Option<&str> {
+    line.strip_prefix("[[")?.strip_suffix("]]").map(str::trim)
 }
 
 fn parse_config_value(value: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -415,7 +566,7 @@ fn parse_config_value(value: &str) -> Result<String, Box<dyn std::error::Error>>
         let value = value
             .strip_suffix('"')
             .ok_or("unterminated quoted config value")?;
-        return Ok(value.to_string());
+        return Ok(value.replace("\\n", "\n").replace("\\\"", "\""));
     }
     Ok(value.to_string())
 }
@@ -441,8 +592,6 @@ fn apply_config_value(
         "topology_heartbeat_interval_ms" => {
             config.topology_heartbeat_interval_ms = value.parse()?;
         }
-        "topology_server" => config.topology_servers.push(parse_topology_server(&value)?),
-        "route" => config.topology_routes.push(parse_topology_route(&value)?),
         "replication_token" => {
             config.replication_token = if value.is_empty() { None } else { Some(value) };
         }
@@ -452,9 +601,34 @@ fn apply_config_value(
         "compact_min_bytes" => config.compact_min_bytes = value.parse()?,
         "rate_limit_per_minute" => config.rate_limit_per_minute = value.parse()?,
         "rate_limit_burst" => config.rate_limit_burst = value.parse()?,
-        "verification_email_command" => {
-            config.verification_email_command = if value.is_empty() { None } else { Some(value) };
+        "verification_ttl_seconds" => {
+            config.verification_ttl = Duration::from_secs(value.parse()?);
         }
+        "default_receive_ttl_seconds" => {
+            config.default_receive_ttl = Duration::from_secs(value.parse()?);
+        }
+        "max_receive_ttl_seconds" => {
+            config.max_receive_ttl = Duration::from_secs(value.parse()?);
+        }
+        "smtp_host" => {
+            config.smtp_host = if value.is_empty() { None } else { Some(value) };
+        }
+        "smtp_port" => config.smtp_port = value.parse()?,
+        "smtp_username" => {
+            config.smtp_username = if value.is_empty() { None } else { Some(value) };
+        }
+        "smtp_password" => {
+            config.smtp_password = if value.is_empty() { None } else { Some(value) };
+        }
+        "smtp_from" => {
+            config.smtp_from = if value.is_empty() { None } else { Some(value) };
+        }
+        "smtp_tls" => config.smtp_tls = parse_smtp_tls_mode(&value)?,
+        "smtp_timeout_seconds" => {
+            config.smtp_timeout = Duration::from_secs(value.parse()?);
+        }
+        "verification_email_subject" => config.verification_email_subject = value,
+        "verification_email_template" => config.verification_email_template = value,
         "verification_email_rate_limit_per_hour" => {
             config.verification_email_rate_limit_per_hour = value.parse()?;
         }
@@ -462,17 +636,66 @@ fn apply_config_value(
             config.verification_email_ip_rate_limit_per_hour = value.parse()?;
         }
         "max_payload_bytes" => config.max_payload_bytes = value.parse()?,
-        "default_ttl_seconds" => {
-            config.default_ttl = Duration::from_secs(value.parse()?);
-        }
-        "max_ttl_seconds" => {
-            config.max_ttl = Duration::from_secs(value.parse()?);
+        "default_ttl_seconds" | "max_ttl_seconds" => {
+            return Err(format!(
+                "`{key}` was replaced by default_receive_ttl_seconds and max_receive_ttl_seconds"
+            )
+            .into());
         }
         "shard_count" => config.shard_count = value.parse()?,
-        "max_fetches_per_share" => config.max_fetches_per_share = value.parse()?,
+        "max_receives_per_publish" => config.max_receives_per_publish = value.parse()?,
         "index_cache_entries" => config.index_cache_entries = value.parse()?,
         "developer_mode" => config.developer_mode = value.parse()?,
         other => return Err(format!("unknown config key `{other}`").into()),
+    }
+    Ok(())
+}
+
+fn apply_config_table_value(
+    table: &mut ConfigTable,
+    key: &str,
+    value: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match table {
+        ConfigTable::TopologyServer(server) => match key {
+            "id" => server.id = Some(parse_server_id(&parse_config_value(value)?)?),
+            "url" => server.url = Some(parse_config_value(value)?),
+            "status" => server.status = Some(parse_server_status(&parse_config_value(value)?)?),
+            other => return Err(format!("unknown topology_server key `{other}`").into()),
+        },
+        ConfigTable::Route(route) => match key {
+            "owner" => route.owner = Some(parse_server_id(&parse_config_value(value)?)?),
+            "primary" => route.primary = Some(parse_server_id(&parse_config_value(value)?)?),
+            "failover" => route.failover = parse_server_id_array(value)?,
+            other => return Err(format!("unknown route key `{other}`").into()),
+        },
+    }
+    Ok(())
+}
+
+fn flush_config_table(
+    config: &mut ServerConfig,
+    table: Option<ConfigTable>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match table {
+        Some(ConfigTable::TopologyServer(server)) => {
+            let id = server.id.ok_or("topology_server.id is required")?;
+            let url = server.url.ok_or("topology_server.url is required")?;
+            config.topology_servers.push(TopologyServer {
+                id,
+                url,
+                status: server.status.unwrap_or(ServerStatus::Active),
+                last_seen_ms: None,
+            });
+        }
+        Some(ConfigTable::Route(route)) => {
+            config.topology_routes.push(TopologyRoute {
+                owner_id: route.owner.ok_or("route.owner is required")?,
+                primary_id: route.primary.ok_or("route.primary is required")?,
+                failover_ids: route.failover,
+            });
+        }
+        None => {}
     }
     Ok(())
 }
@@ -484,19 +707,48 @@ fn parse_topology_server(value: &str) -> Result<TopologyServer, Box<dyn std::err
     let id = parse_server_id(id)?;
     let mut parts = rest.splitn(2, ',');
     let url = parts.next().unwrap_or_default().to_string();
-    let status = match parts.next().unwrap_or("active") {
-        "active" => ServerStatus::Active,
-        "standby" => ServerStatus::Standby,
-        "promoted" => ServerStatus::Promoted,
-        "disabled" => ServerStatus::Disabled,
-        other => return Err(format!("unknown server status `{other}`").into()),
-    };
+    let status = parse_server_status(parts.next().unwrap_or("active"))?;
     Ok(TopologyServer {
         id,
         url,
         status,
         last_seen_ms: None,
     })
+}
+
+fn parse_server_status(value: &str) -> Result<ServerStatus, Box<dyn std::error::Error>> {
+    Ok(match value {
+        "active" => ServerStatus::Active,
+        "standby" => ServerStatus::Standby,
+        "promoted" => ServerStatus::Promoted,
+        "disabled" => ServerStatus::Disabled,
+        other => return Err(format!("unknown server status `{other}`").into()),
+    })
+}
+
+fn parse_smtp_tls_mode(value: &str) -> Result<SmtpTlsMode, Box<dyn std::error::Error>> {
+    Ok(match value {
+        "starttls" => SmtpTlsMode::StartTls,
+        "tls" | "ssl" => SmtpTlsMode::Tls,
+        "none" => SmtpTlsMode::None,
+        other => return Err(format!("unknown smtp_tls mode `{other}`").into()),
+    })
+}
+
+fn parse_server_id_array(value: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    let value = value.trim();
+    let value = value
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .ok_or("expected server id array")?
+        .trim();
+    if value.is_empty() {
+        return Ok(Vec::new());
+    }
+    value
+        .split(',')
+        .map(|part| parse_server_id(&parse_config_value(part.trim())?))
+        .collect()
 }
 
 fn parse_topology_route(value: &str) -> Result<TopologyRoute, Box<dyn std::error::Error>> {
@@ -547,8 +799,15 @@ fn parse_server_id(value: &str) -> Result<u8, Box<dyn std::error::Error>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{config_from_args, require_dev_command};
+    use super::{apply_config_file, config_from_args, require_dev_command};
+    use lockbox_key_server::store::{ServerConfig, SmtpTlsMode};
+    use lockbox_publish_protocol::ServerStatus;
+    use std::fs;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+
+    static TEST_FILE_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     #[test]
     fn config_cli_rejects_hidden_server_options_without_dev() {
@@ -590,5 +849,138 @@ mod tests {
 
         let config = config_from_args(vec!["--dev".to_string()]).unwrap();
         require_dev_command(&config, "bench-store").unwrap();
+    }
+
+    #[test]
+    fn config_file_accepts_topology_arrays_of_tables() {
+        let path = temp_config_path("topology-arrays");
+        fs::write(
+            &path,
+            r#"
+bind_addr = "127.0.0.1:8099"
+cluster_id = "production"
+max_receives_per_publish = 3
+
+[[topology_server]]
+id = 0
+url = "https://keypublish0.example.com/v1/publish"
+status = "active"
+
+[[topology_server]]
+id = 1
+url = "https://keypublish1.example.com/v1/publish"
+status = "standby"
+
+[[route]]
+owner = 0
+primary = 0
+failover = [1]
+
+[[route]]
+owner = 1
+primary = 1
+failover = [0]
+"#,
+        )
+        .unwrap();
+        let mut config = ServerConfig::default();
+
+        apply_config_file(&mut config, path.to_str().unwrap()).unwrap();
+
+        assert_eq!(config.bind_addr, "127.0.0.1:8099");
+        assert_eq!(config.cluster_id, "production");
+        assert_eq!(config.max_receives_per_publish, 3);
+        assert_eq!(config.topology_servers.len(), 2);
+        assert_eq!(config.topology_servers[0].id, 0);
+        assert_eq!(
+            config.topology_servers[0].url,
+            "https://keypublish0.example.com/v1/publish"
+        );
+        assert_eq!(config.topology_servers[0].status, ServerStatus::Active);
+        assert_eq!(config.topology_servers[1].id, 1);
+        assert_eq!(config.topology_servers[1].status, ServerStatus::Standby);
+        assert_eq!(config.topology_routes.len(), 2);
+        assert_eq!(config.topology_routes[0].owner_id, 0);
+        assert_eq!(config.topology_routes[0].primary_id, 0);
+        assert_eq!(config.topology_routes[0].failover_ids, vec![1]);
+        assert_eq!(config.topology_routes[1].owner_id, 1);
+        assert_eq!(config.topology_routes[1].primary_id, 1);
+        assert_eq!(config.topology_routes[1].failover_ids, vec![0]);
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn config_file_accepts_email_ttl_and_smtp_settings() {
+        let path = temp_config_path("email-smtp");
+        fs::write(
+            &path,
+            r#"
+verification_ttl_seconds = 1800
+default_receive_ttl_seconds = 7200
+max_receive_ttl_seconds = 7200
+smtp_host = "smtp.gmail.com"
+smtp_port = 587
+smtp_username = "publisher@example.com"
+smtp_password = "app-password"
+smtp_from = "publisher@example.com"
+smtp_tls = "starttls"
+smtp_timeout_seconds = 300
+verification_email_subject = "Verify {publish_code}"
+verification_email_template = "Line one\n{verification_url}"
+"#,
+        )
+        .unwrap();
+        let mut config = ServerConfig::default();
+
+        apply_config_file(&mut config, path.to_str().unwrap()).unwrap();
+
+        assert_eq!(config.verification_ttl, Duration::from_secs(1800));
+        assert_eq!(config.default_receive_ttl, Duration::from_secs(7200));
+        assert_eq!(config.max_receive_ttl, Duration::from_secs(7200));
+        assert_eq!(config.smtp_host.as_deref(), Some("smtp.gmail.com"));
+        assert_eq!(config.smtp_port, 587);
+        assert_eq!(
+            config.smtp_username.as_deref(),
+            Some("publisher@example.com")
+        );
+        assert_eq!(config.smtp_password.as_deref(), Some("app-password"));
+        assert_eq!(config.smtp_from.as_deref(), Some("publisher@example.com"));
+        assert_eq!(config.smtp_tls, SmtpTlsMode::StartTls);
+        assert_eq!(config.smtp_timeout, Duration::from_secs(300));
+        assert_eq!(config.verification_email_subject, "Verify {publish_code}");
+        assert_eq!(
+            config.verification_email_template,
+            "Line one\n{verification_url}"
+        );
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn config_file_rejects_incomplete_topology_tables() {
+        let path = temp_config_path("incomplete-topology-array");
+        fs::write(
+            &path,
+            r#"
+[[topology_server]]
+id = 0
+"#,
+        )
+        .unwrap();
+        let mut config = ServerConfig::default();
+
+        let err = apply_config_file(&mut config, path.to_str().unwrap())
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("topology_server.url is required"));
+        let _ = fs::remove_file(path);
+    }
+
+    fn temp_config_path(name: &str) -> PathBuf {
+        let counter = TEST_FILE_COUNTER.fetch_add(1, Ordering::SeqCst);
+        std::env::temp_dir().join(format!(
+            "lockbox-key-server-{name}-{}-{counter}.toml",
+            std::process::id()
+        ))
     }
 }

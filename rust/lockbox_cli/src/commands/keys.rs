@@ -1,14 +1,14 @@
 use super::context::{
-    cli_error, default_vault, ensure_default_vault_initialized, load_private_key_from_arg,
-    load_recipient_file, load_recipient_from_arg, mirror_key_directory, open_existing,
+    cli_error, default_vault, ensure_default_vault_initialized, load_contact_file,
+    load_contact_from_arg, load_private_key_from_arg, mirror_key_directory, open_existing,
     read_new_password, read_password, require_arg, Access, CliResult,
 };
 use super::output::{output_format_from_args, print_records};
 use super::session::deactivate_if_active;
-use lockbox_core::vault_bridge::VaultUnlock;
+use lockbox_core::vault_bridge::VaultOpen;
 use lockbox_core::{
-    Error, Lockbox, LockboxKeySlotProtection, LockboxProtection, LockboxUnlock, RecipientKeyPair,
-    RecipientPublicKey,
+    ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxKeySlotProtection, LockboxOpen,
+    LockboxProtection,
 };
 use lockbox_vault::{
     auto_open_scope, default_vault_path, encode_hex, export_private_key,
@@ -35,19 +35,19 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
         mirror_key_directory(&lb, &lockbox_path)?;
         return Ok(());
     }
-    if args.first().map(String::as_str) == Some("--recipient") {
-        let recipient_name = require_arg(args, 1, "recipient")?;
+    if args.first().map(String::as_str) == Some("--contact") {
+        let contact_name = require_arg(args, 1, "contact")?;
         let lockbox_path = create_path(require_arg(args, 2, "lockbox")?)?;
         ensure_new_lockbox_path(&lockbox_path)?;
         ensure_default_vault_initialized()?;
         let _vault = default_vault()?;
-        let recipient = load_recipient_from_arg(recipient_name)?;
+        let contact = load_contact_from_arg(contact_name)?;
         println!("Creating lockbox: {}", lockbox_path.display());
         let lb = Vault::new(NoopStore).create_lockbox(
             &lockbox_path,
-            LockboxProtection::RecipientPublicKey {
-                name: recipient.name,
-                recipient: recipient.public_key,
+            LockboxProtection::ContactPublicKey {
+                name: contact.name,
+                contact: contact.public_key,
             },
         )?;
         mirror_key_directory(&lb, &lockbox_path)?;
@@ -58,6 +58,7 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
     println!("Creating lockbox: {}", lockbox_path.display());
     match access {
         Access::ContentKey(key) => {
+            let _vault = default_vault()?;
             let lb = Vault::new(NoopStore).create_lockbox(
                 &lockbox_path,
                 LockboxProtection::ContentKey(key.try_clone()?),
@@ -66,12 +67,12 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
         }
         Access::PromptPassword => {
             ensure_default_vault_initialized()?;
-            let recipient = load_recipient_from_arg(VaultDirectory::DEFAULT_KEY_NAME)?;
+            let contact = load_contact_from_arg(VaultDirectory::DEFAULT_KEY_NAME)?;
             let lb = Vault::new(NoopStore).create_lockbox(
                 &lockbox_path,
-                LockboxProtection::RecipientPublicKey {
-                    name: recipient.name,
-                    recipient: recipient.public_key,
+                LockboxProtection::ContactPublicKey {
+                    name: contact.name,
+                    contact: contact.public_key,
                 },
             )?;
             mirror_key_directory(&lb, &lockbox_path)?;
@@ -94,16 +95,23 @@ pub(crate) fn open(args: &[String]) -> CliResult<()> {
     }
     let password = options.read_password()?;
     let lb = if let Some(ttl_seconds) = options.ttl_seconds {
-        local_vault().unlock_lockbox_with_password_for_duration(
+        local_vault().open_lockbox_with_password_for_duration(
             &options.lockbox_path,
             &password,
             ttl_seconds,
         )?
     } else {
-        local_vault().unlock_lockbox_with_password(&options.lockbox_path, &password)?
+        local_vault().open_lockbox_with_password(&options.lockbox_path, &password)?
     };
     mirror_key_directory(&lb, &options.lockbox_path)?;
     remember_lockbox_password_if_enabled(&lb, &password)?;
+    if let Some(ttl_seconds) = options.ttl_seconds {
+        local_vault().cache_lockbox_password_for_duration(
+            &options.lockbox_path,
+            &password,
+            ttl_seconds,
+        )?;
+    }
     println!("Lockbox opened: {}", options.lockbox_path);
     Ok(())
 }
@@ -124,19 +132,17 @@ fn open_with_vault_identity(options: &OpenOptions) -> CliResult<Option<Lockbox>>
         let Ok(keypair) = vault.load_private_key(&identity) else {
             continue;
         };
-        let unlocked = if let Some(ttl_seconds) = options.ttl_seconds {
-            local_vault().unlock_lockbox_for_duration(
+        let opened = if let Some(ttl_seconds) = options.ttl_seconds {
+            local_vault().open_lockbox_with_for_duration(
                 &options.lockbox_path,
-                LockboxUnlock::RecipientKeyPair(keypair),
+                LockboxOpen::ContactKeyPair(keypair),
                 ttl_seconds,
             )
         } else {
-            local_vault().unlock_lockbox(
-                &options.lockbox_path,
-                LockboxUnlock::RecipientKeyPair(keypair),
-            )
+            local_vault()
+                .open_lockbox_with(&options.lockbox_path, LockboxOpen::ContactKeyPair(keypair))
         };
-        match unlocked {
+        match opened {
             Ok(lockbox) => return Ok(Some(lockbox)),
             Err(Error::Io(message)) => return Err(Error::Io(message).into()),
             Err(_) => {}
@@ -156,7 +162,7 @@ fn default_vault_noninteractive() -> CliResult<Option<VaultDirectory>> {
     if !default_vault_path()?.exists() {
         return Ok(None);
     }
-    match VaultDirectory::unlock_or_create_default(&password) {
+    match VaultDirectory::open_or_create_default(&password) {
         Ok(vault) => Ok(Some(vault)),
         Err(_) => Ok(None),
     }
@@ -181,7 +187,7 @@ pub(crate) fn close(args: &[String]) -> CliResult<()> {
         .into());
     }
     let was_open = lockbox_is_open(lockbox_path);
-    local_vault().lock_lockbox(lockbox_path)?;
+    local_vault().close_lockbox(lockbox_path)?;
     deactivate_if_active(lockbox_path)?;
     if was_open {
         println!("Lockbox closed: {lockbox_path}");
@@ -192,7 +198,7 @@ pub(crate) fn close(args: &[String]) -> CliResult<()> {
 }
 
 fn lockbox_is_open(lockbox_path: &str) -> bool {
-    let Ok(lockbox_id) = VaultUnlock::read_lockbox_id(Path::new(lockbox_path)) else {
+    let Ok(lockbox_id) = VaultOpen::read_lockbox_id(Path::new(lockbox_path)) else {
         return false;
     };
     list_open_lockboxes()
@@ -207,7 +213,7 @@ fn lockbox_is_open(lockbox_path: &str) -> bool {
 pub(crate) fn keygen(args: &[String]) -> CliResult<()> {
     let private_path = require_arg(args, 0, "private key path")?;
     let public_path = require_arg(args, 1, "public key path")?;
-    let keypair = RecipientKeyPair::generate()?;
+    let keypair = ContactKeyPair::generate()?;
     write_private_key(
         private_path,
         &export_private_key(&keypair, KeyFormat::RawHex)?,
@@ -219,32 +225,31 @@ pub(crate) fn keygen(args: &[String]) -> CliResult<()> {
 pub(crate) fn open_key(args: &[String]) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let keypair = load_private_key_from_arg(args.get(1).map(String::as_str))?;
-    let lb =
-        local_vault().unlock_lockbox(lockbox_path, LockboxUnlock::RecipientKeyPair(keypair))?;
+    let lb = local_vault().open_lockbox_with(lockbox_path, LockboxOpen::ContactKeyPair(keypair))?;
     mirror_key_directory(&lb, lockbox_path)?;
     Ok(())
 }
 
 pub(crate) fn add_access(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let recipient_arg = require_arg(args, 1, "identity or contact")?;
-    let recipient = if let Some(public_key_path) = args.get(2) {
-        load_recipient_file(recipient_arg, public_key_path)?
+    let contact_arg = require_arg(args, 1, "identity or contact")?;
+    let contact = if let Some(public_key_path) = args.get(2) {
+        load_contact_file(contact_arg, public_key_path)?
     } else {
-        if Path::new(recipient_arg).exists() {
+        if Path::new(contact_arg).exists() {
             return Err(cli_error(
                 "public key files require a contact name: lockbox access add <lockbox> <name> <public-key>",
             ));
         }
-        load_recipient_from_arg(recipient_arg)?
+        load_contact_from_arg(contact_arg)?
     };
-    let name = recipient.name.ok_or_else(|| {
+    let name = contact.name.ok_or_else(|| {
         cli_error(
             "access entries require a name; use lockbox access add <lockbox> <name> <public-key>",
         )
     })?;
     let mut lb = open_existing(lockbox_path, access)?;
-    let slot_id = lb.add_recipient_named(name.clone(), &recipient.public_key)?;
+    let slot_id = lb.add_contact_named(name.clone(), &contact.public_key)?;
     lb.commit()?;
     mirror_key_directory(&lb, lockbox_path)?;
     default_vault()?.remember_access_slot_label(lb.lockbox_id(), slot_id, name)?;
@@ -275,7 +280,6 @@ pub(crate) fn list_keys(args: &[String], access: &Access) -> CliResult<()> {
         let name = labels
             .get(&slot.id)
             .cloned()
-            .or(slot.name)
             .unwrap_or_else(|| "-".to_string());
         rows.push(vec![
             slot.id.to_string(),
@@ -436,7 +440,7 @@ fn refresh_targets_for_lockbox(
     let lb = open_existing(lockbox_path, access)?;
     let mut targets = Vec::new();
     for identity in identities {
-        let slot_count = matching_recipient_slot_ids(&lb, identity).len();
+        let slot_count = matching_contact_slot_ids(&lb, identity).len();
         if slot_count > 0 {
             targets.push(RefreshTarget {
                 lockbox_path: lockbox_path.to_string(),
@@ -448,13 +452,13 @@ fn refresh_targets_for_lockbox(
     Ok(targets)
 }
 
-fn matching_recipient_slot_ids(lockbox: &Lockbox, identity: &str) -> Vec<u64> {
+fn matching_contact_slot_ids(lockbox: &Lockbox, identity: &str) -> Vec<u64> {
     let labels = access_slot_labels_by_slot(lockbox.lockbox_id());
     lockbox
         .list_key_slots()
         .into_iter()
         .filter(|slot| {
-            slot.protection == LockboxKeySlotProtection::Recipient
+            slot.protection == LockboxKeySlotProtection::Contact
                 && labels.get(&slot.id).is_some_and(|name| name == identity)
         })
         .map(|slot| slot.id)
@@ -585,7 +589,7 @@ fn apply_refresh_plan(
 
 fn load_refresh_public_keys(
     targets: &[RefreshTarget],
-) -> CliResult<BTreeMap<String, RecipientPublicKey>> {
+) -> CliResult<BTreeMap<String, ContactPublicKey>> {
     let vault = default_vault()?;
     let mut public_keys = BTreeMap::new();
     for target in targets {
@@ -603,15 +607,15 @@ fn load_refresh_public_keys(
 fn refresh_lockbox_identity(
     lockbox_path: &str,
     identity: &str,
-    public_key: &RecipientPublicKey,
+    public_key: &ContactPublicKey,
     access: &Access,
 ) -> CliResult<bool> {
     let mut lb = open_existing(lockbox_path, access)?;
-    let old_slot_ids = matching_recipient_slot_ids(&lb, identity);
+    let old_slot_ids = matching_contact_slot_ids(&lb, identity);
     if old_slot_ids.is_empty() {
         return Ok(false);
     }
-    let new_slot_id = lb.add_recipient_named(identity.to_string(), public_key)?;
+    let new_slot_id = lb.add_contact_named(identity.to_string(), public_key)?;
     default_vault()?.remember_access_slot_label(lb.lockbox_id(), new_slot_id, identity)?;
     for slot_id in old_slot_ids {
         if slot_id != new_slot_id {
@@ -795,7 +799,7 @@ fn default_session_duration() -> CliResult<Option<u64>> {
         let Some((key, value)) = line.split_once(':') else {
             continue;
         };
-        if matches!(key.trim(), "unlock_duration" | "session_duration") {
+        if matches!(key.trim(), "open_duration" | "session_duration") {
             let value = value.trim().trim_matches('"').trim_matches('\'');
             return Ok(Some(parse_duration(value)?));
         }

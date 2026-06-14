@@ -4,25 +4,26 @@ use std::net::{IpAddr, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::server_log::log_server_event;
-use crate::store::{ServerConfig, ShareStore};
-use lockbox_share_protocol::payload;
-use lockbox_share_protocol::protocol::{self, Operation, Status};
-use lockbox_share_protocol::status;
-use lockbox_share_protocol::topology;
+use crate::store::{PublishStore, ServerConfig};
+use lockbox_publish_protocol::payload;
+use lockbox_publish_protocol::protocol::{self, Operation, Status};
+use lockbox_publish_protocol::status;
+use lockbox_publish_protocol::topology;
 
 const MAX_HTTP_HEADER: usize = 16 * 1024;
 const MAX_WIRE_OVERHEAD: usize = 128;
 const REQUEST_IO_TIMEOUT: Duration = Duration::from_secs(10);
+const CLUSTER_RATE_LIMIT_BLOCK_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 
-pub fn run_server(bind: &str, store: Arc<ShareStore>) -> std::io::Result<()> {
+pub fn run_server(bind: &str, store: Arc<PublishStore>) -> std::io::Result<()> {
     let listener = TcpListener::bind(bind)?;
     run_listener(listener, store)
 }
 
-pub fn run_listener(listener: TcpListener, store: Arc<ShareStore>) -> std::io::Result<()> {
+pub fn run_listener(listener: TcpListener, store: Arc<PublishStore>) -> std::io::Result<()> {
     let local_addr = listener.local_addr()?;
     log_server_event(format!("lockbox_key_server listening on {local_addr}"));
     let purge_store = Arc::clone(&store);
@@ -50,7 +51,7 @@ pub fn run_listener(listener: TcpListener, store: Arc<ShareStore>) -> std::io::R
         let rx = Arc::clone(&rx);
         let limiter = Arc::clone(&limiter);
         thread::Builder::new()
-            .name(format!("share-http-{worker_id}"))
+            .name(format!("publish-http-{worker_id}"))
             .stack_size(256 * 1024)
             .spawn(move || loop {
                 let stream = {
@@ -162,7 +163,7 @@ impl RateLimiter {
 
 pub fn handle_stream(
     mut stream: TcpStream,
-    store: Arc<ShareStore>,
+    store: Arc<PublishStore>,
     limiter: Arc<RateLimiter>,
 ) -> std::io::Result<()> {
     configure_stream_deadlines(&stream)?;
@@ -182,7 +183,11 @@ pub fn handle_stream(
             if buffer.len() > MAX_HTTP_HEADER + store.max_payload_bytes() + MAX_WIRE_OVERHEAD {
                 write_response(
                     &mut stream,
-                    protocol::encode_error(Operation::Share, Status::PayloadTooLarge, "too large"),
+                    protocol::encode_error(
+                        Operation::Publish,
+                        Status::PayloadTooLarge,
+                        "too large",
+                    ),
                     true,
                 )?;
                 return Ok(());
@@ -192,7 +197,16 @@ pub fn handle_stream(
         let close = wants_close(&headers);
         let mut lines = headers.lines();
         let request_line = lines.next().unwrap_or_default();
+        let server_token_authenticated = request_has_server_token(&headers, &store);
         if request_line.starts_with("GET /v1/verify") {
+            if !server_token_authenticated && !allow_anonymous_request(&store, &limiter, peer_ip) {
+                write_response(
+                    &mut stream,
+                    protocol::encode_error(Operation::Publish, Status::RateLimited, "rate limited"),
+                    true,
+                )?;
+                return Ok(());
+            }
             let page = handle_verify_request(request_line, &store);
             write_html(
                 &mut stream,
@@ -201,21 +215,37 @@ pub fn handle_stream(
             )?;
             return Ok(());
         }
-        if request_line.starts_with("GET /v1/topology ") {
+        if topology_request_target(request_line).is_some() {
+            if !server_token_authenticated && !allow_anonymous_request(&store, &limiter, peer_ip) {
+                write_response(
+                    &mut stream,
+                    protocol::encode_error(Operation::Publish, Status::RateLimited, "rate limited"),
+                    true,
+                )?;
+                return Ok(());
+            }
             match topology::encode_topology(&store.topology()) {
                 Ok(body) => write_binary(&mut stream, 200, &body)?,
                 Err(err) => write_plain(&mut stream, 500, err.to_string().as_bytes())?,
             }
             return Ok(());
         }
-        if request_line.starts_with("GET /v1/status ") {
+        if status_request_target(request_line).is_some() {
+            if !server_token_authenticated && !allow_anonymous_request(&store, &limiter, peer_ip) {
+                write_response(
+                    &mut stream,
+                    protocol::encode_error(Operation::Publish, Status::RateLimited, "rate limited"),
+                    true,
+                )?;
+                return Ok(());
+            }
             let body = status::encode_status(&store.status_document());
             write_binary(&mut stream, 200, &body)?;
             return Ok(());
         }
         let topology_registration_endpoint =
             request_line.starts_with("POST /v1/topology/register ");
-        let replicate_endpoint = if request_line.starts_with("POST /v1/share ") {
+        let replicate_endpoint = if request_line.starts_with("POST /v1/publish ") {
             false
         } else if request_line.starts_with("POST /v1/replicate ") {
             true
@@ -225,10 +255,13 @@ pub fn handle_stream(
             write_plain(&mut stream, 404, b"not found")?;
             return Ok(());
         };
-        if !topology_registration_endpoint && !limiter.allow(peer_ip) {
+        let registration_token_authenticated =
+            topology_registration_endpoint && server_token_authenticated;
+        if !registration_token_authenticated && !allow_anonymous_request(&store, &limiter, peer_ip)
+        {
             write_response(
                 &mut stream,
-                protocol::encode_error(Operation::Share, Status::RateLimited, "rate limited"),
+                protocol::encode_error(Operation::Publish, Status::RateLimited, "rate limited"),
                 true,
             )?;
             return Ok(());
@@ -237,7 +270,7 @@ pub fn handle_stream(
         if content_len > store.max_payload_bytes() + MAX_WIRE_OVERHEAD {
             write_response(
                 &mut stream,
-                protocol::encode_error(Operation::Share, Status::PayloadTooLarge, "too large"),
+                protocol::encode_error(Operation::Publish, Status::PayloadTooLarge, "too large"),
                 true,
             )?;
             return Ok(());
@@ -256,7 +289,7 @@ pub fn handle_stream(
             match store.handle_topology_registration(&body) {
                 Ok(response) => response,
                 Err(err) => protocol::encode_error(
-                    Operation::Share,
+                    Operation::Publish,
                     Status::StoreUnavailable,
                     &err.to_string(),
                 ),
@@ -275,14 +308,14 @@ pub fn handle_stream(
                         protocol::encode_error(
                             request.operation,
                             Status::UnknownOperation,
-                            "share endpoint does not accept replication operations",
+                            "publish endpoint does not accept replication operations",
                         )
                     } else {
                         store.handle_with_peer(request.operation, &request.payload, peer_ip)
                     }
                 }
                 Err(err) => protocol::encode_error(
-                    Operation::Share,
+                    Operation::Publish,
                     Status::MalformedRequest,
                     &err.to_string(),
                 ),
@@ -296,6 +329,37 @@ pub fn handle_stream(
     }
 }
 
+fn allow_anonymous_request(
+    store: &PublishStore,
+    limiter: &RateLimiter,
+    peer_ip: Option<IpAddr>,
+) -> bool {
+    if store.is_rate_limit_blocked(peer_ip) {
+        return false;
+    }
+    if limiter.allow(peer_ip) {
+        return true;
+    }
+    if let Some(peer_ip) = peer_ip {
+        let _ = store.block_rate_limited_client_until(peer_ip, rate_limit_block_expires_at_ms());
+    }
+    false
+}
+
+fn rate_limit_block_expires_at_ms() -> u64 {
+    unix_ms(
+        SystemTime::now()
+            .checked_add(CLUSTER_RATE_LIMIT_BLOCK_TTL)
+            .unwrap_or_else(SystemTime::now),
+    )
+}
+
+fn unix_ms(time: SystemTime) -> u64 {
+    time.duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as u64
+}
+
 fn configure_stream_deadlines(stream: &TcpStream) -> std::io::Result<()> {
     stream.set_read_timeout(Some(REQUEST_IO_TIMEOUT))?;
     stream.set_write_timeout(Some(REQUEST_IO_TIMEOUT))
@@ -307,7 +371,7 @@ pub fn bench_http(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Er
     let requests = config.benchmark_requests;
     let concurrency = benchmark_concurrency(&config);
     let payload_bytes = config.benchmark_payload_bytes;
-    let store = Arc::new(ShareStore::open(config)?);
+    let store = Arc::new(PublishStore::open(config)?);
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let addr = listener.local_addr()?;
     let server_store = Arc::clone(&store);
@@ -317,7 +381,12 @@ pub fn bench_http(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Er
     thread::sleep(Duration::from_millis(50));
 
     let payload = benchmark_payload(payload_bytes);
-    let body = Arc::new(protocol::encode_share_request(900, 1, &payload));
+    let body = Arc::new(protocol::encode_publish_request_with_email(
+        900,
+        1,
+        &payload,
+        Some("bench@example.com"),
+    ));
     let next = Arc::new(AtomicUsize::new(0));
     let failures = Arc::new(AtomicUsize::new(0));
     let start = Instant::now();
@@ -348,7 +417,7 @@ pub fn bench_http(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Er
     }
     let elapsed = start.elapsed();
     println!(
-        "http_single_request_share_rps={} requests={} concurrency={} live={}",
+        "http_single_request_publish_rps={} requests={} concurrency={} live={}",
         (requests as f64 / elapsed.as_secs_f64()) as u64,
         requests,
         concurrency,
@@ -357,26 +426,37 @@ pub fn bench_http(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
-pub fn bench_http_fetch(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
+pub fn bench_http_receive(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     config.bind_addr = "127.0.0.1:0".to_string();
     config.rate_limit_per_minute = 0;
     let requests = config.benchmark_requests;
     let concurrency = benchmark_concurrency(&config);
     let payload_bytes = config.benchmark_payload_bytes;
-    let store = Arc::new(ShareStore::open(config)?);
+    let store = Arc::new(PublishStore::open(config)?);
 
     let payload = benchmark_payload(payload_bytes);
-    let share_request = protocol::encode_share_request(900, 1, &payload);
-    let decoded = protocol::decode_request(&share_request, payload_bytes + 64)?;
+    let publish_request =
+        protocol::encode_publish_request_with_email(900, 1, &payload, Some("bench@example.com"));
+    let decoded = protocol::decode_request(&publish_request, payload_bytes + 64)?;
     let mut codes = Vec::with_capacity(requests);
     for _ in 0..requests {
         let response = store.handle(decoded.operation, &decoded.payload);
         if response.len() < 14 || response[6] != 0 || response[7] != 0 {
-            return Err("unable to preload share for fetch benchmark".into());
+            return Err("unable to preload publish for receive benchmark".into());
         }
         let mut reader = protocol::Reader::new(&response[14..]);
         reader.message_version()?;
-        codes.push(reader.string()?);
+        let code = reader.string()?;
+        let _delete_token = reader.bytes()?;
+        let _expires_at_ms = reader.u64()?;
+        let _max_receives = reader.u16()?;
+        let verification_url = reader.string()?;
+        if let Some((verify_code, token)) = verification_query_parts(&verification_url) {
+            if verify_code == code {
+                let _ = store.verify_email(&verify_code, &token);
+            }
+        }
+        codes.push(code);
     }
 
     let listener = TcpListener::bind("127.0.0.1:0")?;
@@ -401,7 +481,7 @@ pub fn bench_http_fetch(mut config: ServerConfig) -> Result<(), Box<dyn std::err
             if index >= codes.len() {
                 break;
             }
-            let body = protocol::encode_fetch_request(&codes[index]);
+            let body = protocol::encode_receive_request(&codes[index]);
             match post_binary(addr, &body, true) {
                 Ok(response) if response.len() >= 14 && response[6] == 0 && response[7] == 0 => {}
                 _ => {
@@ -415,11 +495,11 @@ pub fn bench_http_fetch(mut config: ServerConfig) -> Result<(), Box<dyn std::err
     }
     let failures = failures.load(Ordering::Relaxed);
     if failures != 0 {
-        return Err(format!("{failures} fetch benchmark requests failed").into());
+        return Err(format!("{failures} receive benchmark requests failed").into());
     }
     let elapsed = start.elapsed();
     println!(
-        "http_single_request_fetch_rps={} requests={} concurrency={} live={}",
+        "http_single_request_receive_rps={} requests={} concurrency={} live={}",
         (requests as f64 / elapsed.as_secs_f64()) as u64,
         requests,
         concurrency,
@@ -434,12 +514,12 @@ pub fn bench_http_flow(mut config: ServerConfig) -> Result<(), Box<dyn std::erro
     let flows = config.benchmark_requests;
     let concurrency = benchmark_concurrency(&config);
     let payload_bytes = config.benchmark_payload_bytes;
-    let preload_shares = config.benchmark_preload_shares;
-    let store = Arc::new(ShareStore::open(config)?);
+    let preload_published_payloads = config.benchmark_preload_published_payloads;
+    let store = Arc::new(PublishStore::open(config)?);
 
     let payload = benchmark_payload(payload_bytes);
-    if preload_shares > 0 {
-        preload_live_shares(&store, preload_shares, &payload)?;
+    if preload_published_payloads > 0 {
+        preload_live_published_payloads(&store, preload_published_payloads, &payload)?;
     }
 
     let listener = TcpListener::bind("127.0.0.1:0")?;
@@ -450,13 +530,18 @@ pub fn bench_http_flow(mut config: ServerConfig) -> Result<(), Box<dyn std::erro
     });
     thread::sleep(Duration::from_millis(50));
 
-    let share_body = Arc::new(protocol::encode_share_request(900, 1, &payload));
+    let publish_body = Arc::new(protocol::encode_publish_request_with_email(
+        900,
+        1,
+        &payload,
+        Some("bench@example.com"),
+    ));
     let next = Arc::new(AtomicUsize::new(0));
     let failures = Arc::new(AtomicUsize::new(0));
     let start = Instant::now();
     let mut workers = Vec::with_capacity(concurrency);
     for _ in 0..concurrency {
-        let share_body = Arc::clone(&share_body);
+        let publish_body = Arc::clone(&publish_body);
         let next = Arc::clone(&next);
         let failures = Arc::clone(&failures);
         workers.push(thread::spawn(move || loop {
@@ -464,7 +549,7 @@ pub fn bench_http_flow(mut config: ServerConfig) -> Result<(), Box<dyn std::erro
             if index >= flows {
                 break;
             }
-            let share_response = match post_binary(addr, &share_body, true) {
+            let publish_response = match post_binary(addr, &publish_body, true) {
                 Ok(response) if response.len() >= 14 && response[6] == 0 && response[7] == 0 => {
                     response
                 }
@@ -473,20 +558,39 @@ pub fn bench_http_flow(mut config: ServerConfig) -> Result<(), Box<dyn std::erro
                     continue;
                 }
             };
-            let mut reader = protocol::Reader::new(&share_response[14..]);
+            let mut reader = protocol::Reader::new(&publish_response[14..]);
             if reader.message_version().is_err() {
                 failures.fetch_add(1, Ordering::Relaxed);
                 continue;
             }
-            let share_code = match reader.string() {
+            let publish_code = match reader.string() {
                 Ok(code) => code,
                 Err(_) => {
                     failures.fetch_add(1, Ordering::Relaxed);
                     continue;
                 }
             };
-            let fetch_body = protocol::encode_fetch_request(&share_code);
-            match post_binary(addr, &fetch_body, true) {
+            if reader.bytes().is_err() || reader.u64().is_err() || reader.u16().is_err() {
+                failures.fetch_add(1, Ordering::Relaxed);
+                continue;
+            }
+            let verification_url = match reader.string() {
+                Ok(url) => url,
+                Err(_) => {
+                    failures.fetch_add(1, Ordering::Relaxed);
+                    continue;
+                }
+            };
+            let Some((verify_code, token)) = verification_query_parts(&verification_url) else {
+                failures.fetch_add(1, Ordering::Relaxed);
+                continue;
+            };
+            if verify_code != publish_code || get_verify(addr, &verify_code, &token).is_err() {
+                failures.fetch_add(1, Ordering::Relaxed);
+                continue;
+            }
+            let receive_body = protocol::encode_receive_request(&publish_code);
+            match post_binary(addr, &receive_body, true) {
                 Ok(response) if response.len() >= 14 && response[6] == 0 && response[7] == 0 => {}
                 _ => {
                     failures.fetch_add(1, Ordering::Relaxed);
@@ -512,23 +616,36 @@ pub fn bench_http_flow(mut config: ServerConfig) -> Result<(), Box<dyn std::erro
         total_rps as u64,
         flows,
         concurrency,
-        preload_shares,
+        preload_published_payloads,
         store.stats().live
     );
     Ok(())
 }
 
-fn preload_live_shares(
-    store: &ShareStore,
+fn preload_live_published_payloads(
+    store: &PublishStore,
     count: usize,
     payload: &[u8],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let request = protocol::encode_share_request(900, 1, payload);
+    let request =
+        protocol::encode_publish_request_with_email(900, 1, payload, Some("bench@example.com"));
     let decoded = protocol::decode_request(&request, payload.len() + 64)?;
     for _ in 0..count {
         let response = store.handle(decoded.operation, &decoded.payload);
         if response.len() < 14 || response[6] != 0 || response[7] != 0 {
-            return Err("unable to preload share".into());
+            return Err("unable to preload publish".into());
+        }
+        let mut reader = protocol::Reader::new(&response[14..]);
+        reader.message_version()?;
+        let code = reader.string()?;
+        let _delete_token = reader.bytes()?;
+        let _expires_at_ms = reader.u64()?;
+        let _max_receives = reader.u16()?;
+        let verification_url = reader.string()?;
+        if let Some((verify_code, token)) = verification_query_parts(&verification_url) {
+            if verify_code == code {
+                let _ = store.verify_email(&verify_code, &token);
+            }
         }
     }
     Ok(())
@@ -537,7 +654,7 @@ fn preload_live_shares(
 fn benchmark_payload(target_bytes: usize) -> Vec<u8> {
     let key_len = target_bytes.saturating_sub(112).clamp(32, 4096);
     let public_key = vec![42_u8; key_len];
-    payload::encode_contact_share(
+    payload::encode_contact_publish(
         "bench@example.com",
         &public_key,
         b"signing-public-key-material",
@@ -565,6 +682,38 @@ fn post_binary(addr: SocketAddr, body: &[u8], close: bool) -> std::io::Result<Ve
     post_binary_on_stream(&mut stream, addr, body, close)
 }
 
+fn get_verify(addr: SocketAddr, code: &str, token: &str) -> std::io::Result<()> {
+    let mut stream = TcpStream::connect(addr)?;
+    let request = format!(
+        "GET /v1/verify?code={code}&token={token} HTTP/1.1\r\n\
+         Host: {addr}\r\n\
+         Connection: close\r\n\r\n"
+    );
+    stream.write_all(request.as_bytes())?;
+    let mut response = Vec::new();
+    stream.read_to_end(&mut response)?;
+    if response.starts_with(b"HTTP/1.1 200 ") {
+        Ok(())
+    } else {
+        Err(std::io::Error::other("verification request failed"))
+    }
+}
+
+fn verification_query_parts(url: &str) -> Option<(String, String)> {
+    let query = url.split_once('?')?.1;
+    let mut code = None;
+    let mut token = None;
+    for part in query.split('&') {
+        let (key, value) = part.split_once('=')?;
+        match key {
+            "code" => code = Some(value.to_string()),
+            "token" => token = Some(value.to_string()),
+            _ => {}
+        }
+    }
+    Some((code?, token?))
+}
+
 fn post_binary_on_stream(
     stream: &mut TcpStream,
     addr: SocketAddr,
@@ -573,7 +722,7 @@ fn post_binary_on_stream(
 ) -> std::io::Result<Vec<u8>> {
     let connection = if close { "close" } else { "keep-alive" };
     let header = format!(
-        "POST /v1/share HTTP/1.1\r\n\
+        "POST /v1/publish HTTP/1.1\r\n\
          Host: {addr}\r\n\
          Content-Type: application/octet-stream\r\n\
          Content-Length: {}\r\n\
@@ -674,7 +823,63 @@ fn content_length(headers: &str) -> Option<usize> {
     None
 }
 
-fn handle_verify_request(request_line: &str, store: &ShareStore) -> crate::store::VerificationPage {
+fn topology_request_target(request_line: &str) -> Option<&str> {
+    let mut parts = request_line.split_whitespace();
+    if parts.next()? != "GET" {
+        return None;
+    }
+    let target = parts.next()?;
+    if target.split_once('?').map_or(target, |(path, _)| path) == "/v1/topology" {
+        Some(target)
+    } else {
+        None
+    }
+}
+
+fn status_request_target(request_line: &str) -> Option<&str> {
+    let mut parts = request_line.split_whitespace();
+    if parts.next()? != "GET" {
+        return None;
+    }
+    let target = parts.next()?;
+    if target.split_once('?').map_or(target, |(path, _)| path) == "/v1/status" {
+        Some(target)
+    } else {
+        None
+    }
+}
+
+fn request_has_server_token(headers: &str, store: &PublishStore) -> bool {
+    header_value(headers, "authorization")
+        .and_then(bearer_token)
+        .or_else(|| header_value(headers, "x-lockbox-server-token"))
+        .or_else(|| header_value(headers, "x-topology-token"))
+        .as_deref()
+        .is_some_and(|token| store.topology_token_matches(token))
+}
+
+fn bearer_token(value: String) -> Option<String> {
+    value
+        .strip_prefix("Bearer ")
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+        .map(str::to_string)
+}
+
+fn header_value(headers: &str, name: &str) -> Option<String> {
+    for line in headers.lines().skip(1) {
+        let (key, value) = line.split_once(':')?;
+        if key.eq_ignore_ascii_case(name) {
+            return Some(value.trim().to_string());
+        }
+    }
+    None
+}
+
+fn handle_verify_request(
+    request_line: &str,
+    store: &PublishStore,
+) -> crate::store::VerificationPage {
     let Some(target) = request_line.split_whitespace().nth(1) else {
         return verify_error(
             "Verification failed",
@@ -804,11 +1009,20 @@ fn wants_close(headers: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use std::io::ErrorKind;
-    use std::net::{IpAddr, Ipv4Addr, TcpListener, TcpStream};
+    use std::io::{ErrorKind, Read, Write};
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
+    use std::path::PathBuf;
     use std::thread;
 
     use super::{configure_stream_deadlines, RateLimiter, REQUEST_IO_TIMEOUT};
+    use std::sync::Arc;
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    use crate::store::{PublishStore, ServerConfig};
+    use lockbox_publish_protocol::{
+        decode_status, decode_topology, encode_topology_registration, protocol, ServerStatus,
+        TopologyRegistration,
+    };
 
     #[test]
     fn rate_limiter_enforces_burst_capacity() {
@@ -831,6 +1045,181 @@ mod tests {
     }
 
     #[test]
+    fn topology_request_target_matches_only_topology_gets() {
+        assert_eq!(
+            super::topology_request_target("GET /v1/topology HTTP/1.1"),
+            Some("/v1/topology")
+        );
+        assert_eq!(
+            super::topology_request_target("GET /v1/topology?token=abc HTTP/1.1"),
+            Some("/v1/topology?token=abc")
+        );
+        assert_eq!(
+            super::topology_request_target("GET /v1/topologyx HTTP/1.1"),
+            None
+        );
+        assert_eq!(
+            super::topology_request_target("POST /v1/topology HTTP/1.1"),
+            None
+        );
+    }
+
+    #[test]
+    fn topology_get_rate_limits_clients_but_allows_token_requests() {
+        let (_guard, mut config) = temp_server_config("topology-rate-limit");
+        config.topology_token = Some("server-token".to_string());
+        let store = Arc::new(PublishStore::open(config).unwrap());
+        let limiter = Arc::new(RateLimiter::new(60, 1));
+
+        let first = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/topology");
+        decode_topology(http_body(&first)).unwrap();
+
+        let second = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/topology");
+        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::RateLimited);
+
+        let query_token = topology_get(
+            Arc::clone(&store),
+            Arc::clone(&limiter),
+            "/v1/topology?token=server-token",
+        );
+        let response = protocol::decode_response(http_body(&query_token), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::RateLimited);
+
+        let authenticated = topology_get_with_headers(
+            store,
+            limiter,
+            "/v1/topology",
+            "X-Lockbox-Server-Token: server-token\r\n",
+        );
+        decode_topology(http_body(&authenticated)).unwrap();
+    }
+
+    #[test]
+    fn status_rate_limits_clients_but_allows_token_requests() {
+        let (_guard, mut config) = temp_server_config("status-rate-limit");
+        config.topology_token = Some("server-token".to_string());
+        let store = Arc::new(PublishStore::open(config).unwrap());
+        let limiter = Arc::new(RateLimiter::new(60, 1));
+
+        let first = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/status");
+        decode_status(http_body(&first)).unwrap();
+
+        let second = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/status");
+        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::RateLimited);
+
+        let authenticated = topology_get_with_headers(
+            store,
+            limiter,
+            "/v1/status",
+            "Authorization: Bearer server-token\r\n",
+        );
+        decode_status(http_body(&authenticated)).unwrap();
+    }
+
+    #[test]
+    fn rate_limit_violation_blocks_client_across_refilled_buckets() {
+        let (_guard, mut config) = temp_server_config("cluster-rate-limit-block");
+        config.topology_token = Some("server-token".to_string());
+        let store = Arc::new(PublishStore::open(config).unwrap());
+        let limiter = Arc::new(RateLimiter::new(60, 1));
+
+        let first = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/topology");
+        decode_topology(http_body(&first)).unwrap();
+
+        let second = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/topology");
+        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::RateLimited);
+
+        let refilled_limiter = Arc::new(RateLimiter::new(60, 1));
+        let blocked = topology_get(Arc::clone(&store), refilled_limiter, "/v1/topology");
+        let response = protocol::decode_response(http_body(&blocked), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::RateLimited);
+
+        let authenticated = topology_get_with_headers(
+            store,
+            Arc::new(RateLimiter::new(60, 1)),
+            "/v1/topology",
+            "X-Lockbox-Server-Token: server-token\r\n",
+        );
+        decode_topology(http_body(&authenticated)).unwrap();
+    }
+
+    #[test]
+    fn topology_registration_rate_limits_without_header_but_allows_token_header() {
+        let (_guard, mut config) = temp_server_config("topology-registration-rate-limit");
+        config.topology_token = Some("server-token".to_string());
+        let store = Arc::new(PublishStore::open(config).unwrap());
+        let limiter = Arc::new(RateLimiter::new(60, 1));
+        let body = encode_topology_registration(&TopologyRegistration {
+            cluster_id: "default".to_string(),
+            server_id: 1,
+            server_url: "http://peer.example/v1/publish".to_string(),
+            status: ServerStatus::Active,
+            security_token: "server-token".to_string(),
+        })
+        .unwrap();
+
+        let first = post_request(
+            Arc::clone(&store),
+            Arc::clone(&limiter),
+            "/v1/topology/register",
+            "",
+            &body,
+        );
+        decode_topology(http_body(&first)).unwrap();
+
+        let second = post_request(
+            Arc::clone(&store),
+            Arc::clone(&limiter),
+            "/v1/topology/register",
+            "",
+            &body,
+        );
+        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::RateLimited);
+
+        let authenticated = post_request(
+            store,
+            limiter,
+            "/v1/topology/register",
+            "X-Lockbox-Server-Token: server-token\r\n",
+            &body,
+        );
+        decode_topology(http_body(&authenticated)).unwrap();
+    }
+
+    #[test]
+    fn server_token_header_does_not_bypass_publish_rate_limit() {
+        let (_guard, mut config) = temp_server_config("publish-token-rate-limit");
+        config.topology_token = Some("server-token".to_string());
+        let store = Arc::new(PublishStore::open(config).unwrap());
+        let limiter = Arc::new(RateLimiter::new(60, 1));
+        let body = b"not-a-protocol-request";
+
+        let first = post_request(
+            Arc::clone(&store),
+            Arc::clone(&limiter),
+            "/v1/publish",
+            "X-Lockbox-Server-Token: server-token\r\n",
+            body,
+        );
+        let response = protocol::decode_response(http_body(&first), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::MalformedRequest);
+
+        let second = post_request(
+            store,
+            limiter,
+            "/v1/publish",
+            "X-Lockbox-Server-Token: server-token\r\n",
+            body,
+        );
+        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::RateLimited);
+    }
+
+    #[test]
     fn stream_deadlines_are_configured_for_requests() {
         let listener = match TcpListener::bind("127.0.0.1:0") {
             Ok(listener) => listener,
@@ -847,5 +1236,105 @@ mod tests {
         assert_eq!(server.read_timeout().unwrap(), Some(REQUEST_IO_TIMEOUT));
         assert_eq!(server.write_timeout().unwrap(), Some(REQUEST_IO_TIMEOUT));
         drop(client);
+    }
+
+    fn topology_get(store: Arc<PublishStore>, limiter: Arc<RateLimiter>, target: &str) -> Vec<u8> {
+        topology_get_with_headers(store, limiter, target, "")
+    }
+
+    fn topology_get_with_headers(
+        store: Arc<PublishStore>,
+        limiter: Arc<RateLimiter>,
+        target: &str,
+        headers: &str,
+    ) -> Vec<u8> {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            super::handle_stream(stream, store, limiter).unwrap();
+        });
+        let response = get_request(addr, target, headers);
+        server.join().unwrap();
+        response
+    }
+
+    fn get_request(addr: SocketAddr, target: &str, headers: &str) -> Vec<u8> {
+        let mut stream = TcpStream::connect(addr).unwrap();
+        let request =
+            format!("GET {target} HTTP/1.1\r\nHost: {addr}\r\n{headers}Connection: close\r\n\r\n");
+        stream.write_all(request.as_bytes()).unwrap();
+        let mut response = Vec::new();
+        stream.read_to_end(&mut response).unwrap();
+        response
+    }
+
+    fn post_request(
+        store: Arc<PublishStore>,
+        limiter: Arc<RateLimiter>,
+        target: &str,
+        headers: &str,
+        body: &[u8],
+    ) -> Vec<u8> {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            super::handle_stream(stream, store, limiter).unwrap();
+        });
+        let mut stream = TcpStream::connect(addr).unwrap();
+        let request = format!(
+            "POST {target} HTTP/1.1\r\nHost: {addr}\r\n{headers}Content-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        );
+        let mut wire = request.into_bytes();
+        wire.extend_from_slice(body);
+        let _ = stream.write_all(&wire);
+        let mut response = Vec::new();
+        stream.read_to_end(&mut response).unwrap();
+        server.join().unwrap();
+        response
+    }
+
+    fn http_body(response: &[u8]) -> &[u8] {
+        let header_end = response
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .expect("HTTP response has headers");
+        &response[header_end + 4..]
+    }
+
+    fn temp_server_config(label: &str) -> (TempDir, ServerConfig) {
+        let guard = TempDir::new(label);
+        let config = ServerConfig {
+            state_dir: guard.path.clone(),
+            ..ServerConfig::default()
+        };
+        (guard, config)
+    }
+
+    struct TempDir {
+        path: PathBuf,
+    }
+
+    impl TempDir {
+        fn new(label: &str) -> Self {
+            let path = std::env::temp_dir().join(format!(
+                "lockbox-key-server-{label}-{}-{}",
+                std::process::id(),
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or(Duration::ZERO)
+                    .as_nanos()
+            ));
+            std::fs::create_dir_all(&path).unwrap();
+            Self { path }
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
     }
 }

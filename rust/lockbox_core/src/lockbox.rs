@@ -51,8 +51,8 @@ mod symlinks;
 mod variables;
 
 #[cfg(feature = "vault-bridge")]
-pub use key_management::UnlockedContentKey;
-pub use key_management::{LockboxProtection, LockboxUnlock};
+pub use key_management::OpenedContentKey;
+pub use key_management::{LockboxOpen, LockboxProtection};
 pub use recovery::RecoveryScanner;
 pub use variables::VariableValueRef;
 
@@ -266,7 +266,11 @@ impl Lockbox {
     ) -> Self {
         let key = SecretVec::try_from_slice(key.as_ref())
             .expect("secure allocation failed while creating lockbox");
-        Self::create_with_secret_key_and_options(key, lockbox_id, options)
+        let mut lockbox = Self::create_with_secret_key_and_options(key, lockbox_id, options);
+        lockbox.set_owner_signing_key(
+            OwnerSigningKeyPair::generate().expect("system random source failed"),
+        );
+        lockbox
     }
 
     pub(crate) fn create_with_secret_key_and_options(
@@ -293,7 +297,7 @@ impl Lockbox {
             dirty_key_directory: false,
             lockbox_id,
             read_only: false,
-            owner_signing_key: OwnerSigningKeyPair::generate().ok(),
+            owner_signing_key: None,
             key_slots: Vec::new(),
             toc_entries: BTreeMap::new(),
             toc_root: None,
@@ -336,7 +340,11 @@ impl Lockbox {
         key: impl AsRef<[u8]>,
         options: LockboxOptions,
     ) -> Result<Self> {
-        Self::open_storage(StorageBackend::memory(bytes), key, options)
+        let mut lockbox = Self::open_storage(StorageBackend::memory(bytes), key, options)?;
+        lockbox.set_owner_signing_key(
+            OwnerSigningKeyPair::generate().expect("system random source failed"),
+        );
+        Ok(lockbox)
     }
 
     #[cfg(test)]
@@ -538,8 +546,8 @@ impl Lockbox {
 
     /// Inspect public lockbox metadata without decrypting stored contents.
     ///
-    /// This reads the lockbox header and key directory only. It does not unlock
-    /// file contents and does not require a password, recipient private key, or
+    /// This reads the lockbox header and key directory only. It does not open
+    /// file contents and does not require a password, contact private key, or
     /// cached content key.
     pub fn inspect_file(path: impl AsRef<Path>) -> Result<LockboxFileInspection> {
         let storage = StorageBackend::file(path.as_ref())?;
@@ -775,12 +783,11 @@ impl Lockbox {
         })
     }
 
-    pub(crate) fn ensure_owner_signing_key(&mut self) -> Result<&OwnerSigningKeyPair> {
-        if self.owner_signing_key.is_none() {
-            self.owner_signing_key = Some(OwnerSigningKeyPair::generate()?);
-        }
+    pub(crate) fn require_owner_signing_key(&self) -> Result<&OwnerSigningKeyPair> {
         self.owner_signing_key.as_ref().ok_or_else(|| {
-            Error::InvalidOperation("lockbox owner signing key is not available".to_string())
+            Error::InvalidOperation(
+                "owner signing key is required before committing this lockbox".to_string(),
+            )
         })
     }
 

@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
 use lockbox_core::{
     ExtractPolicy, FormFieldDefinition, FormFieldKind, ListOptions, Lockbox, LockboxPath,
-    LockboxProtection, SecretString, SecretVec, VariableName,
+    LockboxProtection, OwnerSigningKeyPair, SecretString, SecretVec, VariableName,
 };
 use lockbox_secure::read_access as secure_read_access;
 use std::fs;
@@ -18,6 +18,10 @@ fn p(path: impl AsRef<str>) -> LockboxPath {
 
 fn variable(name: impl AsRef<str>) -> VariableName {
     VariableName::new(name).unwrap()
+}
+
+fn signing_key() -> OwnerSigningKeyPair {
+    OwnerSigningKeyPair::generate().unwrap()
 }
 
 fn bench_small_files(c: &mut Criterion) {
@@ -508,6 +512,7 @@ fn new_lockbox() -> Lockbox {
     Lockbox::create_file(
         &path,
         LockboxProtection::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
+        &signing_key(),
     )
     .unwrap()
 }

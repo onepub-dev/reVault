@@ -1,7 +1,7 @@
 use clap::{Arg, ArgAction, ArgGroup, Command};
 
 const ABOUT: &str =
-    "Create encrypted file archives, store secrets safely, and share access with public keys.";
+    "Create encrypted file archives, store secrets safely, and grant access with public keys.";
 const VERBOSE_HELP_TEMPLATE: &str = "\
 {about-with-newline}
 {before-help}
@@ -575,7 +575,7 @@ fn form_command(verbose: bool) -> Command {
         .after_help(verbose_help(
             verbose,
             "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox form use login secrets.lbox\n  lockbox form add secrets.lbox /work/github --type login --name GitHub --set username=bsutton\n  lockbox form show secrets.lbox /work/github",
-            "Context:\n  Forms store structured records inside a lockbox. Reusable definitions normally live in the vault and can be copied into a lockbox with form use. Definitions remain embedded in each lockbox so shared lockboxes are self-describing.",
+            "Context:\n  Forms store structured records inside a lockbox. Reusable definitions normally live in the vault and can be copied into a lockbox with form use. Definitions remain embedded in each lockbox so published lockboxes are self-describing.",
         ))
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -588,7 +588,7 @@ fn form_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox form define secrets.lbox login --field username:text --field password:secret\n  lockbox form define secrets.lbox login --name Login --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number",
-                    "Context:\n  Define creates a new form definition for a new alias. If the alias already resolves to exactly one definition, define appends a new revision. If an imported shared lockbox has conflicting aliases, pass --definition-id to revise the intended definition explicitly.",
+                    "Context:\n  Define creates a new form definition for a new alias. If the alias already resolves to exactly one definition, define appends a new revision. If an imported published lockbox has conflicting aliases, pass --definition-id to revise the intended definition explicitly.",
                 ))
                 .arg(
                     Arg::new("args")
@@ -647,7 +647,7 @@ fn form_command(verbose: bool) -> Command {
                 .about("Copy a lockbox form definition into the vault.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox form capture secrets.lbox login\n  lockbox form capture secrets.lbox login shared-login\n  lockbox form capture login",
+                    "Examples:\n  lockbox form capture secrets.lbox login\n  lockbox form capture secrets.lbox login published-login\n  lockbox form capture login",
                     "Context:\n  Capture stores a lockbox definition in the vault so it can be reused. Pass a new form name when the vault already uses the same alias for a different definition.",
                 ))
                 .arg(
@@ -978,7 +978,7 @@ fn access_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox access list secrets.lbox\n  lockbox access list --format json secrets.lbox",
-                    "Context:\n  Access list shows the access slots currently attached to a lockbox, plus verified owner-signing status and host created/updated times. Recipient names are not stored in lockbox metadata, so this output cannot identify or correlate the same contact across lockboxes. Use slot ids from this output when removing access.",
+                    "Context:\n  Access list shows the access slots currently attached to a lockbox, plus verified owner-signing status and host created/updated times. Contact names are not stored in lockbox metadata, so this output cannot identify or correlate the same contact across lockboxes. Use slot ids from this output when removing access.",
                 ))
                 .arg(output_format_arg())
                 .arg(
@@ -1012,7 +1012,7 @@ fn access_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox access refresh project.lbox alice\n  lockbox access refresh --all alice\n  lockbox access refresh --all --dry-run",
-                    "Context:\n  Access refresh checks named recipient access entries and rewrites matching entries to the current vault identity key. Use --dry-run first to see the planned changes and missing known lockboxes.",
+                    "Context:\n  Access refresh checks named contact access entries and rewrites matching entries to the current vault identity key. Use --dry-run first to see the planned changes and missing known lockboxes.",
                 ))
                 .arg(
                     Arg::new("all")
@@ -1168,7 +1168,7 @@ fn vault_command(verbose: bool) -> Command {
                 .disable_help_subcommand(true)
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault contact list\n  lockbox vault contact receive <share-code> alice\n  lockbox vault contact import alice ./alice.pub --fingerprint <hex> --fingerprint-channel phone-call-to-owner\n  lockbox vault contact remove alice",
+                    "Examples:\n  lockbox vault contact list\n  lockbox vault contact receive <publish-code> alice\n  lockbox vault contact import alice ./alice.pub --fingerprint <hex> --fingerprint-channel phone-call-to-owner\n  lockbox vault contact remove alice",
                     "Context:\n  Contacts are saved public keys for other people or systems. A contact can be added to a lockbox access list, but cannot open a lockbox by itself; opening requires the matching private identity.",
                 ))
                 .subcommand_required(true)
@@ -1219,9 +1219,9 @@ fn vault_command(verbose: bool) -> Command {
                         .about("Receive a published identity and save it as a contact.")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault contact receive <share-code>\n  lockbox vault contact receive <share-code> alice",
+                            "Examples:\n  lockbox vault contact receive <publish-code>\n  lockbox vault contact receive <publish-code> alice",
                             concat!(
-                                "Context:\n  Receive saves the shared public key and signing key as a local contact. ",
+                                "Context:\n  Receive saves the published public key and signing key as a local contact. ",
                                 "The key server must have verified the publisher email first. Enter the ",
                                 "full fingerprint by asking the publisher over a communications channel that you ",
                                 "already trust. You must initiate the communication. If the publisher sends you ",
@@ -1231,7 +1231,7 @@ fn vault_command(verbose: bool) -> Command {
                             ),
                         ))
                         .arg(key_server_arg())
-                        .arg(share_topology_arg())
+                        .arg(publish_topology_arg())
                         .arg(
                             Arg::new("fingerprint")
                                 .long("fingerprint")
@@ -1250,7 +1250,7 @@ fn vault_command(verbose: bool) -> Command {
                                 .action(ArgAction::SetTrue)
                                 .help("Replace an existing contact."),
                         )
-                        .arg(required("share-code", "Published share code."))
+                        .arg(required("publish-code", "Publish code."))
                         .arg(optional("contact-name", "Contact name to save.")),
                 )
                 .subcommand(
@@ -1304,10 +1304,10 @@ fn key_server_arg() -> Arg {
     Arg::new("server")
         .long("server")
         .value_name("URL")
-        .help("Key server /v1/share URL or host.")
+        .help("Key server /v1/publish URL or host.")
 }
 
-fn share_topology_arg() -> Arg {
+fn publish_topology_arg() -> Arg {
     Arg::new("topology-url")
         .long("topology-url")
         .value_name("URL")
@@ -1320,7 +1320,7 @@ fn vault_identity_command(verbose: bool) -> Command {
         .disable_help_subcommand(true)
         .after_help(verbose_help(
             verbose,
-            "Examples:\n  lockbox vault identity list\n  lockbox vault identity create laptop\n  lockbox vault identity publish laptop\n  lockbox vault identity export laptop --public ./laptop.pub",
+            "Examples:\n  lockbox vault identity list\n  lockbox vault identity create laptop\n  lockbox vault identity publish laptop\n  lockbox vault identity fingerprint laptop\n  lockbox vault identity export laptop --public ./laptop.pub",
             "Context:\n  An identity has a public key and a private key. Publish or export the public key so someone else can grant you access to a lockbox; keep the private key secret because it opens lockboxes granted to that identity. To save someone else's public key, use `lockbox vault contact receive` or `lockbox vault contact import`.",
         ))
         .subcommand_required(true)
@@ -1342,7 +1342,7 @@ fn vault_identity_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault identity create\n  lockbox vault identity create laptop\n  lockbox vault identity export laptop --public ./laptop.pub",
-                    "Context:\n  Identity create generates a new identity in your vault. With no name, reVault creates the `default` identity. To share the identity, create it first and then run `lockbox vault identity export --public` to write its public key.",
+                    "Context:\n  Identity create generates a new identity in your vault. With no name, reVault creates the `default` identity. To publish the identity, create it first and then run `lockbox vault identity export --public` to write its public key.",
                 ))
                 .arg(
                     Arg::new("overwrite")
@@ -1370,7 +1370,7 @@ fn vault_identity_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault identity email alice@example.com\n  lockbox vault identity email laptop alice@example.com",
-                    "Context:\n  Publish requires an identity email address. The key server sends a verification link to this address before receivers can fetch the public key by email.",
+                    "Context:\n  Publish requires an identity email address. The key server sends a verification link to this address before receivers can receive the public key by email.",
                 ))
                 .arg(
                     Arg::new("args")
@@ -1381,6 +1381,16 @@ fn vault_identity_command(verbose: bool) -> Command {
                 ),
         )
         .subcommand(
+            Command::new("fingerprint")
+                .about("Show the publish fingerprint for one identity.")
+                .after_help(verbose_help(
+                    verbose,
+                    "Examples:\n  lockbox vault identity fingerprint\n  lockbox vault identity fingerprint laptop",
+                    "Context:\n  Fingerprint prints the same contact fingerprint shown by publish. The receiver must ask you for this fingerprint through a trusted second channel before saving the contact.",
+                ))
+                .arg(optional("name", "Identity name. Defaults to default.")),
+        )
+        .subcommand(
             Command::new("publish")
                 .about("Publish one identity public key by verified email.")
                 .after_help(verbose_help(
@@ -1389,16 +1399,16 @@ fn vault_identity_command(verbose: bool) -> Command {
                     "Context:\n  Publish sends one identity public key to the key server and prints a fingerprint. The receiver must ask you for that fingerprint through a trusted second channel before saving the contact.",
                 ))
                 .arg(key_server_arg())
-                .arg(share_topology_arg())
+                .arg(publish_topology_arg())
                 .arg(
                     Arg::new("ttl")
                         .long("ttl")
                         .value_name("SECONDS")
-                        .help("Share lifetime in seconds."),
+                        .help("Publish lifetime in seconds."),
                 )
                 .arg(
-                    Arg::new("max-fetches")
-                        .long("max-fetches")
+                    Arg::new("max-receives")
+                        .long("max-receives")
                         .value_name("N")
                         .help("Maximum successful receives."),
                 )
@@ -1434,7 +1444,7 @@ fn vault_identity_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault identity export --public ./default.pub\n  lockbox vault identity export laptop --public ./laptop.pub --private ./laptop.private",
-                    "Context:\n  Identity export writes one or both key files for an identity. Share the public key with someone who needs to grant you access to a lockbox, then give them the fingerprint over a second channel. Treat private-key output as highly sensitive; anyone with the private key can open lockboxes granted to that identity.",
+                    "Context:\n  Identity export writes one or both key files for an identity. Publish the public key with someone who needs to grant you access to a lockbox, then give them the fingerprint over a second channel. Treat private-key output as highly sensitive; anyone with the private key can open lockboxes granted to that identity.",
                 ))
                 .arg(format_arg(verbose))
                 .arg(

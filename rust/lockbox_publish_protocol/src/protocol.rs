@@ -8,8 +8,8 @@ const ENVELOPE_LEN: usize = 14;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
 pub enum Operation {
-    Share = 1,
-    Fetch = 2,
+    Publish = 1,
+    Receive = 2,
     Delete = 3,
     Replicate = 4,
 }
@@ -17,8 +17,8 @@ pub enum Operation {
 impl Operation {
     pub fn from_u16(value: u16) -> Option<Self> {
         match value {
-            1 => Some(Self::Share),
-            2 => Some(Self::Fetch),
+            1 => Some(Self::Publish),
+            2 => Some(Self::Receive),
             3 => Some(Self::Delete),
             4 => Some(Self::Replicate),
             _ => None,
@@ -34,14 +34,15 @@ pub enum Status {
     UnsupportedVersion = 2,
     UnknownOperation = 3,
     PayloadTooLarge = 4,
-    ShareNotFound = 5,
-    ShareExpired = 6,
-    ShareExhausted = 7,
+    PublishNotFound = 5,
+    PublishExpired = 6,
+    PublishExhausted = 7,
     DeleteTokenInvalid = 8,
     RateLimited = 9,
     StoreUnavailable = 10,
     InternalError = 11,
     ReplicationUnauthorized = 12,
+    EmailUnverified = 13,
 }
 
 impl Status {
@@ -52,14 +53,15 @@ impl Status {
             2 => Some(Self::UnsupportedVersion),
             3 => Some(Self::UnknownOperation),
             4 => Some(Self::PayloadTooLarge),
-            5 => Some(Self::ShareNotFound),
-            6 => Some(Self::ShareExpired),
-            7 => Some(Self::ShareExhausted),
+            5 => Some(Self::PublishNotFound),
+            6 => Some(Self::PublishExpired),
+            7 => Some(Self::PublishExhausted),
             8 => Some(Self::DeleteTokenInvalid),
             9 => Some(Self::RateLimited),
             10 => Some(Self::StoreUnavailable),
             11 => Some(Self::InternalError),
             12 => Some(Self::ReplicationUnauthorized),
+            13 => Some(Self::EmailUnverified),
             _ => None,
         }
     }
@@ -80,19 +82,19 @@ pub struct ResponseEnvelope {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ShareResponse {
-    pub share_code: String,
+pub struct PublishResponse {
+    pub publish_code: String,
     pub delete_token: Vec<u8>,
     pub expires_at_unix_ms: u64,
-    pub max_fetches: u16,
+    pub max_receives: u16,
     pub verification_url: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FetchResponse {
-    pub share_payload: Vec<u8>,
+pub struct ReceiveResponse {
+    pub publish_payload: Vec<u8>,
     pub expires_at_unix_ms: u64,
-    pub remaining_fetches: u16,
+    pub remaining_receives: u16,
     pub email_verification: Option<EmailVerification>,
 }
 
@@ -207,52 +209,54 @@ pub fn decode_error_payload(payload: &[u8]) -> Result<(Status, String), Protocol
     Ok((status, message))
 }
 
-pub fn decode_share_response(payload: &[u8]) -> Result<(String, Vec<u8>, u64, u16), ProtocolError> {
-    let decoded = decode_share_response_document(payload)?;
+pub fn decode_publish_response(
+    payload: &[u8],
+) -> Result<(String, Vec<u8>, u64, u16), ProtocolError> {
+    let decoded = decode_publish_response_document(payload)?;
     Ok((
-        decoded.share_code,
+        decoded.publish_code,
         decoded.delete_token,
         decoded.expires_at_unix_ms,
-        decoded.max_fetches,
+        decoded.max_receives,
     ))
 }
 
-pub fn decode_share_response_document(payload: &[u8]) -> Result<ShareResponse, ProtocolError> {
+pub fn decode_publish_response_document(payload: &[u8]) -> Result<PublishResponse, ProtocolError> {
     let mut reader = Reader::new(payload);
     reader.message_version()?;
-    let share_code = reader.string()?;
+    let publish_code = reader.string()?;
     let delete_token = reader.bytes()?;
     let expires_at_unix_ms = reader.u64()?;
-    let max_fetches = reader.u16()?;
+    let max_receives = reader.u16()?;
     let verification_url = if reader.is_done() {
         None
     } else {
         Some(reader.string()?)
     };
-    Ok(ShareResponse {
-        share_code,
+    Ok(PublishResponse {
+        publish_code,
         delete_token,
         expires_at_unix_ms,
-        max_fetches,
+        max_receives,
         verification_url,
     })
 }
 
-pub fn decode_fetch_response(payload: &[u8]) -> Result<(Vec<u8>, u64, u16), ProtocolError> {
-    let decoded = decode_fetch_response_document(payload)?;
+pub fn decode_receive_response(payload: &[u8]) -> Result<(Vec<u8>, u64, u16), ProtocolError> {
+    let decoded = decode_receive_response_document(payload)?;
     Ok((
-        decoded.share_payload,
+        decoded.publish_payload,
         decoded.expires_at_unix_ms,
-        decoded.remaining_fetches,
+        decoded.remaining_receives,
     ))
 }
 
-pub fn decode_fetch_response_document(payload: &[u8]) -> Result<FetchResponse, ProtocolError> {
+pub fn decode_receive_response_document(payload: &[u8]) -> Result<ReceiveResponse, ProtocolError> {
     let mut reader = Reader::new(payload);
     reader.message_version()?;
-    let share_payload = reader.bytes()?;
+    let publish_payload = reader.bytes()?;
     let expires_at_unix_ms = reader.u64()?;
-    let remaining_fetches = reader.u16()?;
+    let remaining_receives = reader.u16()?;
     let email_verification = if reader.is_done() {
         None
     } else {
@@ -263,10 +267,10 @@ pub fn decode_fetch_response_document(payload: &[u8]) -> Result<FetchResponse, P
             attestation: reader.bytes()?,
         })
     };
-    Ok(FetchResponse {
-        share_payload,
+    Ok(ReceiveResponse {
+        publish_payload,
         expires_at_unix_ms,
-        remaining_fetches,
+        remaining_receives,
         email_verification,
     })
 }
@@ -307,38 +311,38 @@ pub fn encode_error(operation: Operation, status: Status, message: &str) -> Vec<
     encode_response(operation, status, &payload)
 }
 
-pub fn encode_share_request(ttl_seconds: u32, max_fetches: u16, payload: &[u8]) -> Vec<u8> {
-    encode_share_request_with_email(ttl_seconds, max_fetches, payload, None)
+pub fn encode_publish_request(ttl_seconds: u32, max_receives: u16, payload: &[u8]) -> Vec<u8> {
+    encode_publish_request_with_email(ttl_seconds, max_receives, payload, None)
 }
 
-pub fn encode_share_request_with_email(
+pub fn encode_publish_request_with_email(
     ttl_seconds: u32,
-    max_fetches: u16,
+    max_receives: u16,
     payload: &[u8],
     verification_email: Option<&str>,
 ) -> Vec<u8> {
     let mut body = Vec::with_capacity(8 + 4 + payload.len());
     put_u16(&mut body, MESSAGE_VERSION);
     put_u32(&mut body, ttl_seconds);
-    put_u16(&mut body, max_fetches);
+    put_u16(&mut body, max_receives);
     put_bytes(&mut body, payload);
     if let Some(email) = verification_email {
         put_string(&mut body, email);
     }
-    encode_request(Operation::Share, &body)
+    encode_request(Operation::Publish, &body)
 }
 
-pub fn encode_fetch_request(share_code: &str) -> Vec<u8> {
+pub fn encode_receive_request(publish_code: &str) -> Vec<u8> {
     let mut body = Vec::new();
     put_u16(&mut body, MESSAGE_VERSION);
-    put_string(&mut body, share_code);
-    encode_request(Operation::Fetch, &body)
+    put_string(&mut body, publish_code);
+    encode_request(Operation::Receive, &body)
 }
 
-pub fn encode_delete_request(share_code: &str, delete_token: &[u8]) -> Vec<u8> {
+pub fn encode_delete_request(publish_code: &str, delete_token: &[u8]) -> Vec<u8> {
     let mut body = Vec::new();
     put_u16(&mut body, MESSAGE_VERSION);
-    put_string(&mut body, share_code);
+    put_string(&mut body, publish_code);
     put_bytes(&mut body, delete_token);
     encode_request(Operation::Delete, &body)
 }

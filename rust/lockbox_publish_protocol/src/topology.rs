@@ -175,8 +175,8 @@ impl ClusterTopology {
         self.routes.iter().find(|route| route.owner_id == owner_id)
     }
 
-    pub fn urls_for_share_code(&self, share_code: &str) -> Vec<String> {
-        let Some(owner_id) = share_code_owner_id(share_code) else {
+    pub fn urls_for_publish_code(&self, publish_code: &str) -> Vec<String> {
+        let Some(owner_id) = publish_code_owner_id(publish_code) else {
             return self.active_urls();
         };
         let Some(route) = self.route(owner_id) else {
@@ -275,8 +275,8 @@ pub fn is_topology_server_stale(server: &TopologyServer, now_ms: u64, stale_afte
     }
 }
 
-pub fn parse_share_locator(value: &str) -> Option<(u8, u8)> {
-    share_code_locator(value)
+pub fn parse_publish_locator(value: &str) -> Option<(u8, u8)> {
+    publish_code_locator(value)
 }
 
 pub fn encode_topology(topology: &ClusterTopology) -> Result<Vec<u8>, ClientError> {
@@ -379,28 +379,28 @@ pub fn decode_topology(bytes: &[u8]) -> Result<ClusterTopology, ClientError> {
     Ok(topology)
 }
 
-pub fn share_code_owner_id(share_code: &str) -> Option<u8> {
-    if share_code.len() != SHARE_CODE_LEN {
+pub fn publish_code_owner_id(publish_code: &str) -> Option<u8> {
+    if publish_code.len() != SHARE_CODE_LEN {
         return None;
     }
-    parse_share_code_server_id(*share_code.as_bytes().first()?)
+    parse_publish_code_server_id(*publish_code.as_bytes().first()?)
 }
 
-pub fn share_code_locator(share_code: &str) -> Option<(u8, u8)> {
-    let bytes = share_code.as_bytes();
+pub fn publish_code_locator(publish_code: &str) -> Option<(u8, u8)> {
+    let bytes = publish_code.as_bytes();
     if bytes.len() != SHARE_CODE_LEN {
         return None;
     }
-    let owner_id = parse_share_code_server_id(*bytes.first()?)?;
-    let secondary_id = parse_share_code_server_id(*bytes.get(1)?)?;
+    let owner_id = parse_publish_code_server_id(*bytes.first()?)?;
+    let secondary_id = parse_publish_code_server_id(*bytes.get(1)?)?;
     Some((owner_id, secondary_id))
 }
 
-pub fn share_code_server_id_char(id: u8) -> Option<u8> {
+pub fn publish_code_server_id_char(id: u8) -> Option<u8> {
     SHARE_CODE_SERVER_ID_ALPHABET.get(id as usize).copied()
 }
 
-fn parse_share_code_server_id(byte: u8) -> Option<u8> {
+fn parse_publish_code_server_id(byte: u8) -> Option<u8> {
     match byte {
         b'0'..=b'9' => Some(byte - b'0'),
         b'a'..=b'z' => Some(byte - b'a' + 10),
@@ -546,19 +546,19 @@ mod tests {
             servers: vec![
                 TopologyServer {
                     id: 0,
-                    url: "http://share0/v1/share".to_string(),
+                    url: "http://publish0/v1/publish".to_string(),
                     status: ServerStatus::Active,
                     last_seen_ms: Some(now_ms),
                 },
                 TopologyServer {
                     id: 1,
-                    url: "http://share1/v1/share".to_string(),
+                    url: "http://publish1/v1/publish".to_string(),
                     status: ServerStatus::Active,
                     last_seen_ms: Some(now_ms - 200),
                 },
                 TopologyServer {
                     id: 2,
-                    url: "http://share2/v1/share".to_string(),
+                    url: "http://publish2/v1/publish".to_string(),
                     status: ServerStatus::Disabled,
                     last_seen_ms: Some(now_ms),
                 },
@@ -601,19 +601,19 @@ mod tests {
         let routes = build_ring_routes(&[
             TopologyServer {
                 id: 0,
-                url: "http://share0/v1/share".to_string(),
+                url: "http://publish0/v1/publish".to_string(),
                 status: ServerStatus::Active,
                 last_seen_ms: Some(10),
             },
             TopologyServer {
                 id: 1,
-                url: "http://share1/v1/share".to_string(),
+                url: "http://publish1/v1/publish".to_string(),
                 status: ServerStatus::Disabled,
                 last_seen_ms: Some(20),
             },
             TopologyServer {
                 id: 2,
-                url: "http://share2/v1/share".to_string(),
+                url: "http://publish2/v1/publish".to_string(),
                 status: ServerStatus::Standby,
                 last_seen_ms: Some(30),
             },

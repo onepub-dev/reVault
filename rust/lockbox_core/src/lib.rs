@@ -4,7 +4,7 @@
 //!
 //! `lockbox_core` owns the portable `.lbox` file format and the in-memory API
 //! for storing files, symlinks, variable values, and key slots. It does not
-//! know about a user's local vault or unlock-cache agent; those are implemented in
+//! know about a user's local vault or open-cache agent; those are implemented in
 //! `lockbox_vault`.
 
 mod checked;
@@ -55,11 +55,11 @@ pub use form::{
 pub use key_slot::{
     LockboxKeySlot, LockboxKeySlotAlgorithm, LockboxKeySlotProtection, MAX_KEY_SLOT_NAME_BYTES,
 };
-pub use key_wrap::{RecipientKeyPair, RecipientPublicKey, RecipientWrappedKey};
+pub use key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
 pub use list_options::ListOptions;
 pub use lockbox::{
-    ImportStats, Lockbox, LockboxFileInspection, LockboxInspector, LockboxOwnerInspection,
-    LockboxProtection, LockboxUnlock, RecoveryScanner, VariableValueRef,
+    ImportStats, Lockbox, LockboxFileInspection, LockboxInspector, LockboxOpen,
+    LockboxOwnerInspection, LockboxProtection, RecoveryScanner, VariableValueRef,
 };
 pub use lockbox_id::LockboxId;
 pub use lockbox_path::LockboxPath;

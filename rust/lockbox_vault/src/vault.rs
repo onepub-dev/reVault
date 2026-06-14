@@ -1,5 +1,5 @@
-use lockbox_core::vault_bridge::{UnlockedContentKey, VaultUnlock};
-use lockbox_core::{Error, Lockbox, LockboxProtection, LockboxUnlock, Result, SecretString};
+use lockbox_core::vault_bridge::{OpenedContentKey, VaultOpen};
+use lockbox_core::{Error, Lockbox, LockboxOpen, LockboxProtection, Result, SecretString};
 use std::path::Path;
 
 use crate::{AgentClient, ContentKeyStore, VaultDirectory};
@@ -12,12 +12,12 @@ pub fn local_vault() -> LocalVault {
     Vault::new(AgentClient)
 }
 
-/// High-level lockbox helper that integrates unlock operations with a key cache.
+/// High-level lockbox helper that integrates open operations with a key cache.
 ///
-/// `Vault` wraps a `ContentKeyStore`. Creating or unlocking a lockbox stores
+/// `Vault` wraps a `ContentKeyStore`. Creating or opening a lockbox stores
 /// the resulting content key in that store. `open_lockbox` then reopens the
 /// lockbox from the cached key without requiring the original password or
-/// recipient private key.
+/// contact private key.
 #[derive(Debug, Clone)]
 pub struct Vault<S = AgentClient> {
     store: S,
@@ -45,30 +45,48 @@ impl<S: ContentKeyStore> Vault<S> {
         self.create_lockbox(path, LockboxProtection::Password(password))
     }
 
-    /// Unlocks a password-protected lockbox and caches its content key.
-    pub fn unlock_lockbox_with_password(
+    /// Opens a password-protected lockbox and caches its content key.
+    pub fn open_lockbox_with_password(
         &self,
         path: impl AsRef<Path>,
         password: &SecretString,
     ) -> Result<Lockbox> {
-        self.unlock_lockbox(path, LockboxUnlock::Password(password))
+        self.open_lockbox_with(path, LockboxOpen::Password(password))
     }
 
-    /// Unlocks a password-protected lockbox and caches its content key for the
+    /// Opens a password-protected lockbox and caches its content key for the
     /// requested number of seconds.
-    pub fn unlock_lockbox_with_password_for_duration(
+    pub fn open_lockbox_with_password_for_duration(
         &self,
         path: impl AsRef<Path>,
         password: &SecretString,
         ttl_seconds: u64,
     ) -> Result<Lockbox> {
-        self.unlock_lockbox_for_duration(path, LockboxUnlock::Password(password), ttl_seconds)
+        self.open_lockbox_with_for_duration(path, LockboxOpen::Password(password), ttl_seconds)
+    }
+
+    /// Refreshes a password-protected lockbox's cached content key for a
+    /// requested number of seconds without reopening the lockbox payload.
+    pub fn cache_lockbox_password_for_duration(
+        &self,
+        path: impl AsRef<Path>,
+        password: &SecretString,
+        ttl_seconds: u64,
+    ) -> Result<()> {
+        let path = path.as_ref();
+        let opened = open_path_or_backup_with_password(path, password)?;
+        self.store.put_content_key_for_path_with_ttl(
+            opened.lockbox_id,
+            opened.try_clone_key()?,
+            path,
+            ttl_seconds,
+        )
     }
 
     /// Creates a lockbox with the supplied protection mode.
     ///
-    /// Content-key and password modes cache the unlocked content key after the
-    /// file is created. Recipient-public-key mode creates the file but cannot
+    /// Content-key and password modes cache the opened content key after the
+    /// file is created. Contact-public-key mode creates the file but cannot
     /// cache a content key because no private material is available.
     pub fn create_lockbox(
         &self,
@@ -86,10 +104,10 @@ impl<S: ContentKeyStore> Vault<S> {
             }
             LockboxProtection::Password(password) => {
                 let lockbox = create_lockbox_file(path, LockboxProtection::Password(password))?;
-                let unlocked = VaultUnlock::path_with_password(path, password)?;
+                let opened = VaultOpen::path_with_password(path, password)?;
                 if let Err(err) = self.store.put_content_key_for_path(
-                    unlocked.lockbox_id,
-                    unlocked.try_clone_key()?,
+                    opened.lockbox_id,
+                    opened.try_clone_key()?,
                     path,
                 ) {
                     if !matches!(err, Error::Io(_)) {
@@ -98,10 +116,9 @@ impl<S: ContentKeyStore> Vault<S> {
                 }
                 Ok(lockbox)
             }
-            LockboxProtection::RecipientPublicKey { name, recipient } => create_lockbox_file(
-                path,
-                LockboxProtection::RecipientPublicKey { name, recipient },
-            ),
+            LockboxProtection::ContactPublicKey { name, contact } => {
+                create_lockbox_file(path, LockboxProtection::ContactPublicKey { name, contact })
+            }
         }
     }
 
@@ -110,69 +127,69 @@ impl<S: ContentKeyStore> Vault<S> {
     /// This fails if the key store has no cached key for the lockbox id.
     pub fn open_lockbox(&self, path: impl AsRef<Path>) -> Result<Lockbox> {
         let path = path.as_ref();
-        let lockbox_id = VaultUnlock::read_lockbox_id(path)?;
+        let lockbox_id = VaultOpen::read_lockbox_id(path)?;
         let Some(key) = self.store.get_content_key(lockbox_id)? else {
             return Err(Error::VaultUnavailable(format!(
                 "no cached content key for lockbox {lockbox_id}"
             )));
         };
-        open_lockbox_file(path, LockboxUnlock::ContentKey(key))
+        open_lockbox_file(path, LockboxOpen::ContentKey(key))
     }
 
-    /// Unlocks a lockbox with explicit unlock material and caches its content key.
+    /// Opens a lockbox with explicit open material and caches its content key.
     ///
-    /// Password and recipient-key-pair unlocks may fall back to a key-directory
+    /// Password and contact-key-pair opens may fall back to a key-directory
     /// backup stored in the default `VaultDirectory` when the embedded key
     /// directory cannot be read. That fallback requires `LOCKBOX_VAULT_PASSWORD`
     /// to be set so the default vault directory can be opened.
-    pub fn unlock_lockbox(
+    pub fn open_lockbox_with(
         &self,
         path: impl AsRef<Path>,
-        unlock: LockboxUnlock<'_>,
+        open: LockboxOpen<'_>,
     ) -> Result<Lockbox> {
         let path = path.as_ref();
-        match unlock {
-            LockboxUnlock::ContentKey(key) => {
+        match open {
+            LockboxOpen::ContentKey(key) => {
                 let store_key = key.try_clone()?;
-                let lockbox = open_lockbox_file(path, LockboxUnlock::ContentKey(key))?;
+                let lockbox = open_lockbox_file(path, LockboxOpen::ContentKey(key))?;
                 self.store
                     .put_content_key_for_path(lockbox.lockbox_id(), store_key, path)?;
                 Ok(lockbox)
             }
-            LockboxUnlock::Password(password) => {
-                let unlocked = unlock_path_or_backup_with_password(path, password)?;
+            LockboxOpen::Password(password) => {
+                let opened = open_path_or_backup_with_password(path, password)?;
                 self.store.put_content_key_for_path(
-                    unlocked.lockbox_id,
-                    unlocked.try_clone_key()?,
+                    opened.lockbox_id,
+                    opened.try_clone_key()?,
                     path,
                 )?;
-                open_unlocked_path(unlocked, path)
+                open_opened_path(opened, path)
             }
-            LockboxUnlock::RecipientKeyPair(recipient) => {
-                let unlocked = unlock_path_or_backup_with_recipient(path, &recipient)?;
+            LockboxOpen::ContactKeyPair(contact) => {
+                let opened = open_path_or_backup_with_contact(path, &contact)?;
                 self.store.put_content_key_for_path(
-                    unlocked.lockbox_id,
-                    unlocked.try_clone_key()?,
+                    opened.lockbox_id,
+                    opened.try_clone_key()?,
                     path,
                 )?;
-                open_unlocked_path(unlocked, path)
+                open_opened_path(opened, path)
             }
         }
     }
 
-    /// Unlocks a lockbox with explicit unlock material and caches its content
+    /// Opens a lockbox with explicit open material and caches its content
     /// key for the requested number of seconds.
-    pub fn unlock_lockbox_for_duration(
+    pub fn open_lockbox_with_for_duration(
         &self,
         path: impl AsRef<Path>,
-        unlock: LockboxUnlock<'_>,
+        open: LockboxOpen<'_>,
         ttl_seconds: u64,
     ) -> Result<Lockbox> {
         let path = path.as_ref();
-        match unlock {
-            LockboxUnlock::ContentKey(key) => {
+        match open {
+            LockboxOpen::ContentKey(key) => {
                 let store_key = key.try_clone()?;
-                let lockbox = open_lockbox_file(path, LockboxUnlock::ContentKey(key))?;
+                let lockbox = open_lockbox_file(path, LockboxOpen::ContentKey(key))?;
                 self.store.put_content_key_for_path_with_ttl(
                     lockbox.lockbox_id(),
                     store_key,
@@ -181,57 +198,66 @@ impl<S: ContentKeyStore> Vault<S> {
                 )?;
                 Ok(lockbox)
             }
-            LockboxUnlock::Password(password) => {
-                let unlocked = unlock_path_or_backup_with_password(path, password)?;
+            LockboxOpen::Password(password) => {
+                let opened = open_path_or_backup_with_password(path, password)?;
+                let lockbox_id = opened.lockbox_id;
+                let store_key = opened.try_clone_key()?;
+                let lockbox = open_opened_path(opened, path)?;
                 self.store.put_content_key_for_path_with_ttl(
-                    unlocked.lockbox_id,
-                    unlocked.try_clone_key()?,
+                    lockbox_id,
+                    store_key,
                     path,
                     ttl_seconds,
                 )?;
-                open_unlocked_path(unlocked, path)
+                Ok(lockbox)
             }
-            LockboxUnlock::RecipientKeyPair(recipient) => {
-                let unlocked = unlock_path_or_backup_with_recipient(path, &recipient)?;
+            LockboxOpen::ContactKeyPair(contact) => {
+                let opened = open_path_or_backup_with_contact(path, &contact)?;
+                let lockbox_id = opened.lockbox_id;
+                let store_key = opened.try_clone_key()?;
+                let lockbox = open_opened_path(opened, path)?;
                 self.store.put_content_key_for_path_with_ttl(
-                    unlocked.lockbox_id,
-                    unlocked.try_clone_key()?,
+                    lockbox_id,
+                    store_key,
                     path,
                     ttl_seconds,
                 )?;
-                open_unlocked_path(unlocked, path)
+                Ok(lockbox)
             }
         }
     }
 
     /// Removes this lockbox's cached content key from the store.
-    pub fn lock_lockbox(&self, path: impl AsRef<Path>) -> Result<()> {
-        let lockbox_id = VaultUnlock::read_lockbox_id(path.as_ref())?;
+    pub fn close_lockbox(&self, path: impl AsRef<Path>) -> Result<()> {
+        let lockbox_id = VaultOpen::read_lockbox_id(path.as_ref())?;
         self.store.forget_content_key(lockbox_id)
     }
 
     /// Removes every cached content key from the store.
-    pub fn lock_all(&self) -> Result<()> {
+    pub fn close_all(&self) -> Result<()> {
         self.store.forget_all_content_keys()
     }
 }
 
 fn create_lockbox_file(path: &Path, protection: LockboxProtection<'_>) -> Result<Lockbox> {
-    if let Some(signing_key) = default_owner_signing_key()? {
-        return Lockbox::create_file_with_owner_signing_key(path, protection, signing_key);
-    }
-    Lockbox::create_file(path, protection)
+    let signing_key = default_owner_signing_key()?.ok_or_else(|| {
+        Error::VaultUnavailable(
+            "vault owner signing key is unavailable; open or initialize the vault first"
+                .to_string(),
+        )
+    })?;
+    Lockbox::create_file(path, protection, &signing_key)
 }
 
-fn open_lockbox_file(path: &Path, unlock: LockboxUnlock<'_>) -> Result<Lockbox> {
+fn open_lockbox_file(path: &Path, open: LockboxOpen<'_>) -> Result<Lockbox> {
     if let Some(signing_key) = default_owner_signing_key()? {
-        return Lockbox::open_file_with_owner_signing_key(path, unlock, signing_key);
+        return Lockbox::open_file_with_owner_signing_key(path, open, signing_key);
     }
-    Lockbox::open_file(path, unlock)
+    Lockbox::open_file(path, open)
 }
 
-fn open_unlocked_path(unlocked: UnlockedContentKey, path: &Path) -> Result<Lockbox> {
-    let mut lockbox = unlocked.open_path(path)?;
+fn open_opened_path(opened: OpenedContentKey, path: &Path) -> Result<Lockbox> {
+    let mut lockbox = opened.open_path(path)?;
     if let Some(signing_key) = default_owner_signing_key()? {
         lockbox.set_owner_signing_key(signing_key);
     }
@@ -249,7 +275,7 @@ fn default_owner_signing_key() -> Result<Option<lockbox_core::OwnerSigningKeyPai
     if !crate::default_vault_path()?.exists() {
         return Ok(None);
     }
-    let Ok(vault) = VaultDirectory::unlock_or_create_default(&password) else {
+    let Ok(vault) = VaultDirectory::open_or_create_default(&password) else {
         return Ok(None);
     };
     Ok(vault
@@ -257,38 +283,37 @@ fn default_owner_signing_key() -> Result<Option<lockbox_core::OwnerSigningKeyPai
         .ok())
 }
 
-fn unlock_path_or_backup_with_password(
+fn open_path_or_backup_with_password(
     path: &Path,
     password: &SecretString,
-) -> Result<UnlockedContentKey> {
-    match VaultUnlock::path_with_password(path, password) {
-        Ok(unlocked) => Ok(unlocked),
+) -> Result<OpenedContentKey> {
+    match VaultOpen::path_with_password(path, password) {
+        Ok(opened) => Ok(opened),
         Err(primary_err) => {
-            let lockbox_id = VaultUnlock::read_lockbox_id(path).map_err(|_| primary_err.clone())?;
+            let lockbox_id = VaultOpen::read_lockbox_id(path).map_err(|_| primary_err.clone())?;
             let vault_password = vault_password_from_env().map_err(|_| primary_err.clone())?;
-            let backup = VaultDirectory::unlock_or_create_default(&vault_password)
+            let backup = VaultDirectory::open_or_create_default(&vault_password)
                 .and_then(|vault| vault.load_key_directory_backup(lockbox_id))
                 .map_err(|_| primary_err.clone())?;
-            VaultUnlock::key_directory_backup_with_password(&backup, password)
+            VaultOpen::key_directory_backup_with_password(&backup, password)
                 .map_err(|_| primary_err)
         }
     }
 }
 
-fn unlock_path_or_backup_with_recipient(
+fn open_path_or_backup_with_contact(
     path: &Path,
-    recipient: &lockbox_core::RecipientKeyPair,
-) -> Result<UnlockedContentKey> {
-    match VaultUnlock::path_with_recipient(path, recipient) {
-        Ok(unlocked) => Ok(unlocked),
+    contact: &lockbox_core::ContactKeyPair,
+) -> Result<OpenedContentKey> {
+    match VaultOpen::path_with_contact(path, contact) {
+        Ok(opened) => Ok(opened),
         Err(primary_err) => {
-            let lockbox_id = VaultUnlock::read_lockbox_id(path).map_err(|_| primary_err.clone())?;
+            let lockbox_id = VaultOpen::read_lockbox_id(path).map_err(|_| primary_err.clone())?;
             let vault_password = vault_password_from_env().map_err(|_| primary_err.clone())?;
-            let backup = VaultDirectory::unlock_or_create_default(&vault_password)
+            let backup = VaultDirectory::open_or_create_default(&vault_password)
                 .and_then(|vault| vault.load_key_directory_backup(lockbox_id))
                 .map_err(|_| primary_err.clone())?;
-            VaultUnlock::key_directory_backup_with_recipient(&backup, recipient)
-                .map_err(|_| primary_err)
+            VaultOpen::key_directory_backup_with_contact(&backup, contact).map_err(|_| primary_err)
         }
     }
 }

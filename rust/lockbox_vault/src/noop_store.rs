@@ -4,7 +4,7 @@ use crate::ContentKeyStore;
 
 /// Content-key store that never retains keys.
 ///
-/// This is useful for commands or tests that want `Vault`'s create/unlock
+/// This is useful for commands or tests that want `Vault`'s create/open
 /// helpers without enabling cache-only reopening.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NoopStore;

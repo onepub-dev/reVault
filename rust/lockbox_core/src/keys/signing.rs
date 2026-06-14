@@ -59,7 +59,8 @@ impl OwnerSigningKeyPair {
         self.public_key.clone()
     }
 
-    pub(crate) fn try_clone(&self) -> Result<Self> {
+    /// Clone this signing keypair into a new secure allocation.
+    pub fn try_clone(&self) -> Result<Self> {
         Self::from_private_key_record(self.private_key_record()?)
     }
 
