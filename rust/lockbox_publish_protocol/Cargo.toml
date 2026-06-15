@@ -4,6 +4,9 @@ version = "0.1.0-alpha.1"
 edition = "2021"
 license-file = "LICENSE"
 description = "reVault key server wire protocol and client API"
+repository = "https://github.com/onepub-dev/reVault"
+documentation = "https://docs.rs/lockbox_publish_protocol"
+readme = "README.md"
 
 [lib]
 name = "lockbox_publish_protocol"

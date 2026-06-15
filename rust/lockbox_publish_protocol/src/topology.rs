@@ -1,21 +1,28 @@
 use std::collections::HashSet;
-use std::fs;
-use std::path::Path;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::client::ClientError;
 use crate::protocol::{self, ProtocolError, Reader};
 
-const TOPOLOGY_MAGIC: &[u8; 4] = b"LBST";
-const TOPOLOGY_VERSION: u16 = 2;
-const TOPOLOGY_CACHE_MAGIC: &[u8; 4] = b"LBTC";
-const TOPOLOGY_CACHE_VERSION: u16 = 1;
-const TOPOLOGY_REGISTRATION_MAGIC: &[u8; 4] = b"LBTR";
-const TOPOLOGY_REGISTRATION_VERSION: u16 = 1;
-const STATUS_ACTIVE: u8 = 1;
-const STATUS_STANDBY: u8 = 2;
-const STATUS_PROMOTED: u8 = 3;
-const STATUS_DISABLED: u8 = 4;
+mod cache;
+mod registration;
+
+#[cfg(test)]
+mod tests;
+
+pub use cache::{read_topology_cache, write_topology_cache};
+pub use registration::{decode_topology_registration, encode_topology_registration};
+
+pub(crate) const TOPOLOGY_MAGIC: &[u8; 4] = b"LBST";
+pub(crate) const TOPOLOGY_VERSION: u16 = 2;
+pub(crate) const TOPOLOGY_CACHE_MAGIC: &[u8; 4] = b"LBTC";
+pub(crate) const TOPOLOGY_CACHE_VERSION: u16 = 1;
+pub(crate) const TOPOLOGY_REGISTRATION_MAGIC: &[u8; 4] = b"LBTR";
+pub(crate) const TOPOLOGY_REGISTRATION_VERSION: u16 = 1;
+pub(crate) const STATUS_ACTIVE: u8 = 1;
+pub(crate) const STATUS_STANDBY: u8 = 2;
+pub(crate) const STATUS_PROMOTED: u8 = 3;
+pub(crate) const STATUS_DISABLED: u8 = 4;
 const SHARE_CODE_SERVER_ID_ALPHABET: &[u8; 36] = b"0123456789abcdefghijklmnopqrstuvwxyz";
 const SHARE_CODE_LEN: usize = 14;
 
@@ -408,96 +415,6 @@ fn parse_publish_code_server_id(byte: u8) -> Option<u8> {
     }
 }
 
-pub fn write_topology_cache(
-    path: impl AsRef<Path>,
-    topology: &ClusterTopology,
-) -> Result<(), ClientError> {
-    let topology = encode_topology(topology)?;
-    let mut out = Vec::new();
-    out.extend_from_slice(TOPOLOGY_CACHE_MAGIC);
-    protocol::put_u16(&mut out, TOPOLOGY_CACHE_VERSION);
-    protocol::put_u64(&mut out, unix_ms(SystemTime::now()));
-    protocol::put_bytes(&mut out, &topology);
-    fs::write(path, out).map_err(ClientError::Io)
-}
-
-pub fn encode_topology_registration(
-    registration: &TopologyRegistration,
-) -> Result<Vec<u8>, ClientError> {
-    let mut out = Vec::new();
-    out.extend_from_slice(TOPOLOGY_REGISTRATION_MAGIC);
-    protocol::put_u16(&mut out, TOPOLOGY_REGISTRATION_VERSION);
-    protocol::put_string(&mut out, &registration.cluster_id);
-    protocol::put_u64(&mut out, registration.server_id as u64);
-    protocol::put_string(&mut out, &registration.server_url);
-    out.push(server_status_to_u8(&registration.status));
-    protocol::put_string(&mut out, &registration.security_token);
-    Ok(out)
-}
-
-pub fn decode_topology_registration(bytes: &[u8]) -> Result<TopologyRegistration, ClientError> {
-    let mut reader = Reader::new(bytes);
-    let magic = reader
-        .fixed_bytes(TOPOLOGY_REGISTRATION_MAGIC.len())
-        .map_err(topology_protocol_error)?;
-    if magic != TOPOLOGY_REGISTRATION_MAGIC {
-        return Err(ClientError::Topology(
-            "topology registration document has invalid magic".to_string(),
-        ));
-    }
-    let version = reader.u16().map_err(topology_protocol_error)?;
-    if version != TOPOLOGY_REGISTRATION_VERSION {
-        return Err(ClientError::Topology(format!(
-            "topology registration version {version} is not supported"
-        )));
-    }
-    let cluster_id = reader.string().map_err(topology_protocol_error)?;
-    let server_id = reader.u64().map_err(topology_protocol_error)? as u8;
-    let server_url = reader.string().map_err(topology_protocol_error)?;
-    let status = server_status_from_u8(reader.u8().map_err(topology_protocol_error)?)?;
-    let security_token = reader.string().map_err(topology_protocol_error)?;
-    Ok(TopologyRegistration {
-        cluster_id,
-        server_id,
-        server_url,
-        status,
-        security_token,
-    })
-}
-
-pub fn read_topology_cache(
-    path: impl AsRef<Path>,
-    max_age: Duration,
-) -> Result<Option<ClusterTopology>, ClientError> {
-    let bytes = match fs::read(path) {
-        Ok(bytes) => bytes,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(err) => return Err(ClientError::Io(err)),
-    };
-    let mut reader = Reader::new(&bytes);
-    let magic = reader
-        .fixed_bytes(TOPOLOGY_CACHE_MAGIC.len())
-        .map_err(topology_protocol_error)?;
-    if magic != TOPOLOGY_CACHE_MAGIC {
-        return Err(ClientError::Topology(
-            "topology cache has invalid magic".to_string(),
-        ));
-    }
-    let version = reader.u16().map_err(topology_protocol_error)?;
-    if version != TOPOLOGY_CACHE_VERSION {
-        return Err(ClientError::Topology(format!(
-            "topology cache version {version} is not supported"
-        )));
-    }
-    let fetched_at_ms = reader.u64().map_err(topology_protocol_error)?;
-    let now_ms = unix_ms(SystemTime::now());
-    if now_ms.saturating_sub(fetched_at_ms) > max_age.as_millis() as u64 {
-        return Ok(None);
-    }
-    let topology = reader.bytes().map_err(topology_protocol_error)?;
-    decode_topology(&topology).map(Some)
-}
-
 fn validate_server_id(id: u8) -> Result<(), ClientError> {
     if id < SHARE_CODE_SERVER_ID_ALPHABET.len() as u8 {
         Ok(())
@@ -508,7 +425,7 @@ fn validate_server_id(id: u8) -> Result<(), ClientError> {
     }
 }
 
-fn server_status_to_u8(status: &ServerStatus) -> u8 {
+pub(crate) fn server_status_to_u8(status: &ServerStatus) -> u8 {
     match status {
         ServerStatus::Active => STATUS_ACTIVE,
         ServerStatus::Standby => STATUS_STANDBY,
@@ -517,7 +434,7 @@ fn server_status_to_u8(status: &ServerStatus) -> u8 {
     }
 }
 
-fn server_status_from_u8(value: u8) -> Result<ServerStatus, ClientError> {
+pub(crate) fn server_status_from_u8(value: u8) -> Result<ServerStatus, ClientError> {
     match value {
         STATUS_ACTIVE => Ok(ServerStatus::Active),
         STATUS_STANDBY => Ok(ServerStatus::Standby),
@@ -529,115 +446,11 @@ fn server_status_from_u8(value: u8) -> Result<ServerStatus, ClientError> {
     }
 }
 
-fn topology_protocol_error(err: ProtocolError) -> ClientError {
+pub(crate) fn topology_protocol_error(err: ProtocolError) -> ClientError {
     ClientError::Topology(err.to_string())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn with_filtered_stale_servers_removes_stale_servers_and_routes() {
-        let now_ms = unix_ms(SystemTime::now());
-        let topology = ClusterTopology {
-            cluster_id: "acme".to_string(),
-            version: 1,
-            servers: vec![
-                TopologyServer {
-                    id: 0,
-                    url: "http://publish0/v1/publish".to_string(),
-                    status: ServerStatus::Active,
-                    last_seen_ms: Some(now_ms),
-                },
-                TopologyServer {
-                    id: 1,
-                    url: "http://publish1/v1/publish".to_string(),
-                    status: ServerStatus::Active,
-                    last_seen_ms: Some(now_ms - 200),
-                },
-                TopologyServer {
-                    id: 2,
-                    url: "http://publish2/v1/publish".to_string(),
-                    status: ServerStatus::Disabled,
-                    last_seen_ms: Some(now_ms),
-                },
-            ],
-            routes: vec![
-                TopologyRoute {
-                    owner_id: 0,
-                    primary_id: 0,
-                    failover_ids: vec![1],
-                },
-                TopologyRoute {
-                    owner_id: 1,
-                    primary_id: 1,
-                    failover_ids: vec![0],
-                },
-                TopologyRoute {
-                    owner_id: 2,
-                    primary_id: 2,
-                    failover_ids: vec![0],
-                },
-            ],
-        };
-
-        let filtered = topology.with_filtered_stale_servers(100);
-
-        assert_eq!(filtered.servers.len(), 1);
-        assert_eq!(filtered.servers[0].id, 0);
-        assert_eq!(
-            filtered.routes,
-            vec![TopologyRoute {
-                owner_id: 0,
-                primary_id: 0,
-                failover_ids: vec![0],
-            }],
-        );
-    }
-
-    #[test]
-    fn build_ring_routes_ignores_inactive_servers() {
-        let routes = build_ring_routes(&[
-            TopologyServer {
-                id: 0,
-                url: "http://publish0/v1/publish".to_string(),
-                status: ServerStatus::Active,
-                last_seen_ms: Some(10),
-            },
-            TopologyServer {
-                id: 1,
-                url: "http://publish1/v1/publish".to_string(),
-                status: ServerStatus::Disabled,
-                last_seen_ms: Some(20),
-            },
-            TopologyServer {
-                id: 2,
-                url: "http://publish2/v1/publish".to_string(),
-                status: ServerStatus::Standby,
-                last_seen_ms: Some(30),
-            },
-        ]);
-
-        assert_eq!(
-            routes,
-            vec![
-                TopologyRoute {
-                    owner_id: 0,
-                    primary_id: 0,
-                    failover_ids: vec![2],
-                },
-                TopologyRoute {
-                    owner_id: 2,
-                    primary_id: 2,
-                    failover_ids: vec![0],
-                },
-            ]
-        );
-    }
-}
-
-fn unix_ms(time: SystemTime) -> u64 {
+pub(crate) fn unix_ms(time: SystemTime) -> u64 {
     time.duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis() as u64)
         .unwrap_or(0)

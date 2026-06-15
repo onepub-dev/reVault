@@ -21,7 +21,7 @@ lettre = { version = "0.11", default-features = false, features = [
     "smtp-transport",
     "rustls-tls",
 ] }
-lockbox_publish_protocol = { path = "../lockbox_publish_protocol" }
+lockbox_publish_protocol = { version = "0.1.0-alpha.1", path = "../lockbox_publish_protocol" }
 sha2 = "0.10"
 
 [target.'cfg(unix)'.dependencies]
