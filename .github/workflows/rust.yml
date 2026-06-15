@@ -130,7 +130,7 @@ jobs:
 
       - name: Generate compression corpus
         if: steps.compression-corpus-cache.outputs.cache-hit != 'true'
-        run: cargo run --release -p lockbox_core --example compression_corpus -- .ci-compression-corpus
+        run: cargo bench -p lockbox_core --bench compression_corpus -- .ci-compression-corpus
 
       - name: Run compression regression corpus
         env:

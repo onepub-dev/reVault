@@ -26,7 +26,7 @@ sha2 = "0.10"
 unicode-normalization = "0.1"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 zeroize = "1"
-ruzstd = { path = "../../../zstd-rs/ruzstd" }
+ruzstd = { git = "https://github.com/bsutton/zstd-rs", rev = "3f877ed916fd2a8687913f5c130f5f81c7dbcd2b" }
 sysinfo = { version = "0.38.4", default-features = false, features = [
     "system",
 ] }
@@ -49,4 +49,9 @@ harness = false
 
 [[bench]]
 name = "pgp_compare"
+harness = false
+
+[[bench]]
+name = "compression_corpus"
+path = "benches/probes/compression_corpus.rs"
 harness = false

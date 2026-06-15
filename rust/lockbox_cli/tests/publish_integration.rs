@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::ErrorKind;
 use std::net::{SocketAddr, TcpListener};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
@@ -264,7 +264,7 @@ fn run_success(bin: &str, vault_root: &PathBuf, agent_root: &PathBuf, args: &[&s
     assert_success(&output);
 }
 
-fn agent_log_path(agent_root: &PathBuf) -> PathBuf {
+fn agent_log_path(agent_root: &Path) -> PathBuf {
     agent_root.join("agent.log")
 }
 

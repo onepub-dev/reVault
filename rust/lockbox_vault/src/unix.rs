@@ -404,7 +404,7 @@ fn handle_agent_request(
     cache: &mut BTreeMap<String, CacheEntry>,
 ) -> io::Result<(bool, SecretVec)> {
     let mut stop = false;
-    let response = match parse_request(&request) {
+    let response = match parse_request(request) {
         Ok(AgentRequest::Get(lockbox_id)) => {
             let now = Instant::now();
             match cache.get_mut(&lockbox_id) {

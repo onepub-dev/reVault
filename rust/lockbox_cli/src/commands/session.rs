@@ -6,10 +6,13 @@ use lockbox_core::Error;
 use lockbox_vault::{
     get_platform_vault_password, list as list_open_lockboxes, local_vault,
     platform_secret_store_status, put_platform_vault_password, set_auto_open_scope,
-    stop as stop_agent, verify_agent_transport_security, AutoOpenScope, VaultDirectory,
+    stop as stop_agent, verify_agent_transport_security, AutoOpenScope,
 };
 
-use super::context::{ensure_lockbox_path_accessible, read_vault_password, require_arg, CliResult};
+use super::context::{
+    ensure_lockbox_path_accessible, open_default_vault_with_password, read_vault_password,
+    require_arg, CliResult,
+};
 use super::output::{output_format_from_args, print_records};
 
 pub(crate) fn run(args: &[String]) -> CliResult<()> {
@@ -154,7 +157,7 @@ fn auto_open(args: &[String]) -> CliResult<()> {
         }
         "vault" => {
             let password = read_vault_password("Vault pass phrase: ")?;
-            VaultDirectory::open_or_create_default(&password)?;
+            open_default_vault_with_password(&password)?;
             set_auto_open_scope(AutoOpenScope::Vault)?;
             let _ = put_platform_vault_password(&password);
             local_vault().close_all()?;
@@ -162,7 +165,7 @@ fn auto_open(args: &[String]) -> CliResult<()> {
         }
         "lockboxes" => {
             let password = read_vault_password("Vault pass phrase: ")?;
-            VaultDirectory::open_or_create_default(&password)?;
+            open_default_vault_with_password(&password)?;
             set_auto_open_scope(AutoOpenScope::Lockboxes)?;
             let _ = put_platform_vault_password(&password);
             local_vault().close_all()?;

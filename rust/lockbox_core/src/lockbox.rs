@@ -40,6 +40,8 @@ use crate::{
 };
 use zeroize::{Zeroize, Zeroizing};
 
+type CommitAuthChainResult = (u64, [u8; 32], CommitAuth, crate::commit_root::CommitRoot);
+
 mod commit;
 mod extraction;
 mod files;
@@ -845,7 +847,7 @@ impl<State> Lockbox<State> {
     pub(crate) fn find_valid_commit_from_auth_chain(
         &self,
         mut offset: u64,
-    ) -> Result<Option<(u64, [u8; 32], CommitAuth, crate::commit_root::CommitRoot)>> {
+    ) -> Result<Option<CommitAuthChainResult>> {
         let mut expected_digest = None;
         while offset != 0 {
             let Ok((auth, digest)) = self.read_and_verify_commit_auth_at(offset) else {

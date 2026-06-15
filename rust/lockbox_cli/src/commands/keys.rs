@@ -329,9 +329,8 @@ pub(crate) fn remove_access(args: &[String], access: &Access) -> CliResult<()> {
     lb.commit()?;
     mirror_key_directory(&lb, lockbox_path)?;
     let _ = default_vault().and_then(|vault| {
-        vault
-            .forget_access_slot_label(lb.lockbox_id(), slot_id)
-            .map(|_| ())
+        vault.forget_access_slot_label(lb.lockbox_id(), slot_id)?;
+        Ok(())
     });
     Ok(())
 }
@@ -467,7 +466,7 @@ fn matching_contact_slot_ids(lockbox: &Lockbox, identity: &str) -> Vec<u64> {
 
 fn access_slot_labels_by_slot(lockbox_id: lockbox_core::LockboxId) -> BTreeMap<u64, String> {
     default_vault()
-        .and_then(|vault| vault.list_access_slot_labels(lockbox_id))
+        .and_then(|vault| Ok(vault.list_access_slot_labels(lockbox_id)?))
         .map(|labels| {
             labels
                 .into_iter()
@@ -621,9 +620,8 @@ fn refresh_lockbox_identity(
         if slot_id != new_slot_id {
             lb.delete_key(slot_id)?;
             let _ = default_vault().and_then(|vault| {
-                vault
-                    .forget_access_slot_label(lb.lockbox_id(), slot_id)
-                    .map(|_| ())
+                vault.forget_access_slot_label(lb.lockbox_id(), slot_id)?;
+                Ok(())
             });
         }
     }

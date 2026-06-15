@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
@@ -2922,6 +2922,21 @@ fn vault_init_verify_wrong_password_reports_vault_specific_error() {
     assert!(!stderr.contains("content key"));
     assert!(!stderr.contains("contact keypair"));
     assert!(!stderr.contains("local vault open state"));
+
+    let fingerprint = Command::new(bin)
+        .args(["vault", "identity", "fingerprint"])
+        .env("LOCKBOX_PASSWORD", "test-lockbox-password")
+        .env("LOCKBOX_VAULT_PASSWORD", "wrong-vault-password")
+        .env("LOCKBOX_SESSION_AGENT_DIR", &agent_root)
+        .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
+        .env("LOCKBOX_VAULT_DIR", &vault_root)
+        .output()
+        .unwrap();
+    assert!(!fingerprint.status.success());
+    let stderr = String::from_utf8_lossy(&fingerprint.stderr);
+    assert!(stderr.contains("vault open failed: check the vault pass phrase"));
+    assert!(stderr.contains("local vault file may be damaged"));
+    assert!(!stderr.contains("corrupt lockbox header"));
 }
 
 #[test]
@@ -4767,7 +4782,7 @@ fn run_output_without_content_key_with_stdin(
     child.wait_with_output().unwrap()
 }
 
-fn agent_log_path(agent_root: &PathBuf) -> PathBuf {
+fn agent_log_path(agent_root: &Path) -> PathBuf {
     agent_root.join("agent.log")
 }
 

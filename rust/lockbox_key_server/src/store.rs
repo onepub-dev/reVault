@@ -53,6 +53,8 @@ const EMAIL_QUEUE_CAPACITY: usize = 256;
 const STATUS_CACHE_TTL: Duration = Duration::from_secs(1);
 
 type RecordHash = [u8; HASH_LEN];
+type ExpiryBucket = (u64, Vec<(RecordHash, String)>);
+type PendingOutbox = VecDeque<(u64, Vec<u8>)>;
 
 #[derive(Debug, Default)]
 struct ReplicationState {
@@ -253,11 +255,33 @@ struct PublishEntry {
     receives: u16,
 }
 
+struct ReplicaPut<'a> {
+    publish_code: &'a str,
+    delete_token_hash: &'a [u8],
+    payload: &'a [u8],
+    contact_email: Option<&'a str>,
+    expires_at_ms: u64,
+    receive_ttl_ms: u64,
+    email_verified_at_ms: u64,
+    max_receives: u16,
+    receives: u16,
+}
+
+struct ReplicationQueue<'a> {
+    sequence: &'a mut u64,
+    sequence_path: &'a Path,
+    outbox_path: &'a Path,
+    pending: &'a mut PendingOutbox,
+    origin_server_id: u8,
+    origin_epoch: u64,
+    token: &'a [u8],
+}
+
 struct Shard {
     path: PathBuf,
     file: Mutex<File>,
     index: Mutex<HashMap<RecordHash, PublishEntry>>,
-    expiry_buckets: Mutex<VecDeque<(u64, Vec<(RecordHash, String)>)>>,
+    expiry_buckets: Mutex<VecDeque<ExpiryBucket>>,
 }
 
 pub struct PublishStore {
@@ -395,7 +419,8 @@ impl PublishStore {
     }
     pub fn open(mut config: ServerConfig) -> Result<Self, StoreError> {
         const MAX_SERVER_ID: u8 = 35;
-        if config.developer_mode && config.state_dir == PathBuf::from("/var/lib/lockbox-key-server")
+        if config.developer_mode
+            && config.state_dir.as_path() == Path::new("/var/lib/lockbox-key-server")
         {
             config.state_dir = std::env::temp_dir().join("lockbox-key-server-dev");
         }
@@ -1473,17 +1498,17 @@ impl PublishStore {
                 email_verified_at_unix_ms,
                 max_receives,
                 receives,
-            } => self.apply_replica_put(
-                &publish_code,
-                &delete_token_hash,
-                &payload,
-                contact_email.as_deref(),
-                expires_at_unix_ms,
+            } => self.apply_replica_put(ReplicaPut {
+                publish_code: &publish_code,
+                delete_token_hash: &delete_token_hash,
+                payload: &payload,
+                contact_email: contact_email.as_deref(),
+                expires_at_ms: expires_at_unix_ms,
                 receive_ttl_ms,
-                email_verified_at_unix_ms,
+                email_verified_at_ms: email_verified_at_unix_ms,
                 max_receives,
                 receives,
-            )?,
+            })?,
             ReplicationEventKind::ReceiveCount {
                 publish_code,
                 receives,
@@ -1584,49 +1609,38 @@ impl PublishStore {
         Ok(true)
     }
 
-    fn apply_replica_put(
-        &self,
-        publish_code: &str,
-        delete_token_hash: &[u8],
-        payload: &[u8],
-        contact_email: Option<&str>,
-        expires_at_ms: u64,
-        receive_ttl_ms: u64,
-        email_verified_at_ms: u64,
-        max_receives: u16,
-        receives: u16,
-    ) -> Result<(), StoreError> {
-        if delete_token_hash.len() != HASH_LEN {
+    fn apply_replica_put(&self, put: ReplicaPut<'_>) -> Result<(), StoreError> {
+        if put.delete_token_hash.len() != HASH_LEN {
             return Err(StoreError::PayloadInvalid(
                 "delete token hash has invalid length".to_string(),
             ));
         }
-        payload::validate_payload(payload)
+        payload::validate_payload(put.payload)
             .map_err(|err| StoreError::PayloadInvalid(err.to_string()))?;
         let mut token_hash = [0_u8; HASH_LEN];
-        token_hash.copy_from_slice(delete_token_hash);
-        let contact_email = match contact_email {
+        token_hash.copy_from_slice(put.delete_token_hash);
+        let contact_email = match put.contact_email {
             Some(email) => Some(normalize_verification_email(email)?),
             None => None,
         };
-        let code_hash = self.code_hash(publish_code);
+        let code_hash = self.code_hash(put.publish_code);
         let shard = &self.shards[self.shard_for(&code_hash)];
         let mut entry = PublishEntry {
-            publish_code: publish_code.to_string(),
+            publish_code: put.publish_code.to_string(),
             delete_token_hash: token_hash,
             contact_email,
             payload_offset: 0,
-            payload_len: payload.len() as u32,
-            expires_at_ms,
-            receive_ttl_ms,
-            email_verified_at_ms,
-            max_receives,
-            receives,
+            payload_len: put.payload.len() as u32,
+            expires_at_ms: put.expires_at_ms,
+            receive_ttl_ms: put.receive_ttl_ms,
+            email_verified_at_ms: put.email_verified_at_ms,
+            max_receives: put.max_receives,
+            receives: put.receives,
         };
         let mut index = lock_store(&shard.index, "shard index")?;
         let existed = index.contains_key(&code_hash) || self.lookup_bucket(&code_hash)?.is_some();
         let mut file = lock_store(&shard.file, "shard file")?;
-        let (payload_offset, payload_len) = append_put(&mut file, &code_hash, &entry, payload)?;
+        let (payload_offset, payload_len) = append_put(&mut file, &code_hash, &entry, put.payload)?;
         entry.payload_offset = payload_offset;
         entry.payload_len = payload_len;
         self.append_bucket_put(&code_hash, &entry)?;
@@ -1636,8 +1650,10 @@ impl PublishStore {
         if !existed {
             self.live.fetch_add(1, Ordering::Relaxed);
         }
-        lock_store(&shard.expiry_buckets, "expiry buckets")?
-            .push_back((expires_at_ms, vec![(code_hash, publish_code.to_string())]));
+        lock_store(&shard.expiry_buckets, "expiry buckets")?.push_back((
+            put.expires_at_ms,
+            vec![(code_hash, put.publish_code.to_string())],
+        ));
         Ok(())
     }
 
@@ -2323,13 +2339,15 @@ fn start_replication_worker(
                 match rx.recv_timeout(timeout) {
                     Ok(kind) => queue_replication_event(
                         kind,
-                        &mut sequence,
-                        &sequence_path,
-                        &outbox_path,
-                        &mut pending,
-                        origin_server_id,
-                        origin_epoch,
-                        token.as_bytes(),
+                        ReplicationQueue {
+                            sequence: &mut sequence,
+                            sequence_path: &sequence_path,
+                            outbox_path: &outbox_path,
+                            pending: &mut pending,
+                            origin_server_id,
+                            origin_epoch,
+                            token: token.as_bytes(),
+                        },
                     ),
                     Err(mpsc::RecvTimeoutError::Timeout) => {}
                     Err(mpsc::RecvTimeoutError::Disconnected) => break,
@@ -2337,13 +2355,15 @@ fn start_replication_worker(
                 for kind in rx.try_iter().take(8192) {
                     queue_replication_event(
                         kind,
-                        &mut sequence,
-                        &sequence_path,
-                        &outbox_path,
-                        &mut pending,
-                        origin_server_id,
-                        origin_epoch,
-                        token.as_bytes(),
+                        ReplicationQueue {
+                            sequence: &mut sequence,
+                            sequence_path: &sequence_path,
+                            outbox_path: &outbox_path,
+                            pending: &mut pending,
+                            origin_server_id,
+                            origin_epoch,
+                            token: token.as_bytes(),
+                        },
                     );
                 }
                 retry_pending_outbox(&outbox_path, &peer_urls, &mut pending, &mut last_retry_log);
@@ -2353,36 +2373,27 @@ fn start_replication_worker(
     Some(tx)
 }
 
-fn queue_replication_event(
-    kind: ReplicationEventKind,
-    sequence: &mut u64,
-    sequence_path: &Path,
-    outbox_path: &Path,
-    pending: &mut VecDeque<(u64, Vec<u8>)>,
-    origin_server_id: u8,
-    origin_epoch: u64,
-    token: &[u8],
-) {
-    *sequence = sequence.saturating_add(1);
-    if let Err(err) = store_replication_sequence(sequence_path, *sequence) {
+fn queue_replication_event(kind: ReplicationEventKind, queue: ReplicationQueue<'_>) {
+    *queue.sequence = queue.sequence.saturating_add(1);
+    if let Err(err) = store_replication_sequence(queue.sequence_path, *queue.sequence) {
         log_server_event(format!("replication sequence persist failed: {err}"));
         return;
     }
     let event = ReplicationEvent {
-        origin_server_id,
-        origin_epoch,
-        origin_sequence: *sequence,
+        origin_server_id: queue.origin_server_id,
+        origin_epoch: queue.origin_epoch,
+        origin_sequence: *queue.sequence,
         kind,
     };
     let request = encode_replication_request(&ReplicationRequest {
-        authentication: sign_replication_event(token, &event),
+        authentication: sign_replication_event(queue.token, &event),
         event,
     });
-    if let Err(err) = append_outbox_event(outbox_path, *sequence, &request) {
+    if let Err(err) = append_outbox_event(queue.outbox_path, *queue.sequence, &request) {
         log_server_event(format!("replication outbox append failed: {err}"));
         return;
     }
-    pending.push_back((*sequence, request));
+    queue.pending.push_back((*queue.sequence, request));
 }
 
 fn retry_pending_outbox(

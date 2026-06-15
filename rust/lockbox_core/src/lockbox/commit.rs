@@ -174,7 +174,7 @@ impl Lockbox<crate::Writable> {
         let previous_commit_auth_digest = self.commit_auth_digest;
         let commit_root_payload = encode_commit_root(&CommitRoot {
             sequence: self.sequence,
-            toc_root_offset: toc_root_offset,
+            toc_root_offset,
             variable_root_offset: self.variable_root_offset,
             form_root_offset: self.form_root_offset,
             free_index_root_offset: self.free_index_offset,
@@ -278,7 +278,7 @@ impl Lockbox<crate::Writable> {
         ) {
             return Ok(slot.offset);
         }
-        Ok(self.next_append_page_offset()?)
+        self.next_append_page_offset()
     }
 
     fn zero_key_directory_page(&mut self, offset: u64) -> Result<()> {

@@ -2022,6 +2022,7 @@ checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 [[package]]
 name = "ruzstd"
 version = "0.8.4"
+source = "git+https://github.com/bsutton/zstd-rs?rev=3f877ed916fd2a8687913f5c130f5f81c7dbcd2b#3f877ed916fd2a8687913f5c130f5f81c7dbcd2b"
 dependencies = [
  "twox-hash",
 ]

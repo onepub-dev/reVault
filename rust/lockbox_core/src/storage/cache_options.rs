@@ -68,8 +68,7 @@ impl WorkerPolicy {
                     std::thread::available_parallelism()
                         .map(usize::from)
                         .unwrap_or(1)
-                        .min(DEFAULT_NATIVE_AUTO_WORKERS)
-                        .max(1)
+                        .clamp(1, DEFAULT_NATIVE_AUTO_WORKERS)
                 }
             }
         }

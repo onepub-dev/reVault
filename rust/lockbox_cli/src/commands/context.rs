@@ -79,10 +79,7 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
     }
     let password = lockbox_core::SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
         .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?
-        .or(match get_platform_vault_password() {
-            Ok(password) => password,
-            Err(_) => None,
-        })
+        .or(get_platform_vault_password().unwrap_or_default())
         .ok_or_else(|| {
             AutoOpenLockboxError::Unavailable(
                 "vault pass phrase is not stored for auto-open".to_string(),
@@ -306,15 +303,15 @@ pub(crate) fn remember_default_vault_password(password: &SecretString) -> Result
     Ok(())
 }
 
-pub(crate) fn default_vault() -> Result<VaultDirectory, Error> {
+pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
     if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
-        return VaultDirectory::open_or_create_default(&password);
+        return open_default_vault_with_password(&password);
     }
 
     let platform_enabled = !platform_secret_store_disabled()?;
     if platform_enabled {
         if let Ok(Some(password)) = get_platform_vault_password() {
-            match VaultDirectory::open_or_create_default(&password) {
+            match open_default_vault_with_password(&password) {
                 Ok(vault) => return Ok(vault),
                 Err(_) => {
                     let _ = forget_platform_vault_password();
@@ -325,11 +322,23 @@ pub(crate) fn default_vault() -> Result<VaultDirectory, Error> {
 
     let password =
         prompt_secret("Vault pass phrase: ").map_err(|err| Error::Io(err.to_string()))?;
-    let vault = VaultDirectory::open_or_create_default(&password)?;
+    let vault = open_default_vault_with_password(&password)?;
     if platform_enabled {
         let _ = put_platform_vault_password(&password);
     }
     Ok(vault)
+}
+
+pub(crate) fn open_default_vault_with_password(
+    password: &SecretString,
+) -> CliResult<VaultDirectory> {
+    match VaultDirectory::open_or_create_default(password) {
+        Ok(vault) => Ok(vault),
+        Err(Error::InvalidKey | Error::CorruptHeader) => Err(cli_error(
+            "vault open failed: check the vault pass phrase. If the pass phrase is correct, the local vault file may be damaged",
+        )),
+        Err(err) => Err(err.into()),
+    }
 }
 
 pub(crate) fn ensure_default_vault_initialized() -> Result<(), Error> {
@@ -341,7 +350,7 @@ pub(crate) fn ensure_default_vault_initialized() -> Result<(), Error> {
     ))
 }
 
-pub(crate) fn mirror_key_directory(lockbox: &Lockbox, path: impl AsRef<Path>) -> Result<(), Error> {
+pub(crate) fn mirror_key_directory(lockbox: &Lockbox, path: impl AsRef<Path>) -> CliResult<()> {
     if lockbox.list_key_slots().is_empty() {
         return Ok(());
     }

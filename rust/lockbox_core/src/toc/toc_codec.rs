@@ -520,7 +520,7 @@ fn encoded_segment_len(segment: &CompressionFrameSegment) -> usize {
 }
 
 fn path_restart(index: usize) -> bool {
-    index % PATH_RESTART_INTERVAL == 0
+    index.is_multiple_of(PATH_RESTART_INTERVAL)
 }
 
 fn common_prefix_len(previous: &str, current: &str) -> usize {

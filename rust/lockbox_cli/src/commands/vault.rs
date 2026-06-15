@@ -1,6 +1,7 @@
 use super::context::{
-    cli_error, default_vault, read_new_vault_password, read_replacement_vault_password,
-    read_vault_password, remember_default_vault_password, require_arg, CliResult,
+    cli_error, default_vault, open_default_vault_with_password, read_new_vault_password,
+    read_replacement_vault_password, read_vault_password, remember_default_vault_password,
+    require_arg, CliResult,
 };
 use super::form::{parse_field_spec, print_form_definition_saved};
 use super::output::{output_format_from_args, print_records, OutputFormat};
@@ -71,15 +72,7 @@ fn change_passphrase(args: &[String]) -> CliResult<()> {
     }
 
     let old_password = read_vault_password("Current vault pass phrase: ")?;
-    match VaultDirectory::open_or_create_default(&old_password) {
-        Ok(_) => {}
-        Err(Error::InvalidKey) => {
-            return Err(cli_error(
-                "vault open failed: check the current vault pass phrase",
-            ));
-        }
-        Err(err) => return Err(err.into()),
-    }
+    open_default_vault_with_password(&old_password)?;
 
     let backup_path = passphrase_change_backup_path()?;
     backup_default_vault(&backup_path, false)?;
@@ -270,15 +263,7 @@ fn init(args: &[String]) -> CliResult<()> {
         }
         if verify {
             let password = read_vault_password("Vault pass phrase: ")?;
-            match VaultDirectory::open_or_create_default(&password) {
-                Ok(_) => {}
-                Err(Error::InvalidKey) => {
-                    return Err(cli_error(
-                        "vault open failed: check the vault pass phrase. If the pass phrase is correct, the local vault file may be damaged",
-                    ));
-                }
-                Err(err) => return Err(err.into()),
-            };
+            open_default_vault_with_password(&password)?;
             remember_default_vault_password(&password)?;
             println!("Vault opened successfully.");
             return Ok(());
@@ -385,7 +370,7 @@ fn keygen(args: &[String]) -> CliResult<()> {
         .filter(|arg| arg.as_str() != "--overwrite")
         .cloned()
         .collect::<Vec<_>>();
-    let defaulted_name = args.first().is_none();
+    let defaulted_name = args.is_empty();
     let name = args
         .first()
         .map(String::as_str)
@@ -1008,7 +993,7 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 
 fn decode_hex(value: &str) -> CliResult<Vec<u8>> {
     let value = value.trim();
-    if value.len() % 2 != 0 {
+    if !value.len().is_multiple_of(2) {
         return Err(Error::InvalidInput("hex value has odd length".to_string()).into());
     }
     let mut out = Vec::with_capacity(value.len() / 2);

@@ -18,6 +18,13 @@ use crate::secret_vec::SecureVec;
 use crate::{crypto::derive_page_content_key, Error, LockboxPath, Result, SecretString};
 use zeroize::Zeroize;
 
+type FormTreeDecodeResult = (
+    BTreeMap<String, FormDefinition>,
+    BTreeMap<LockboxPath, FormRecord>,
+    FormTreeNode,
+    Vec<FormLeaf>,
+);
+
 impl<State> Lockbox<State> {
     pub fn define_form(
         &mut self,
@@ -652,15 +659,7 @@ impl<State> Lockbox<State> {
         Ok(())
     }
 
-    fn decode_form_btree(
-        &self,
-        root_offset: u64,
-    ) -> Result<(
-        BTreeMap<String, FormDefinition>,
-        BTreeMap<LockboxPath, FormRecord>,
-        FormTreeNode,
-        Vec<FormLeaf>,
-    )> {
+    fn decode_form_btree(&self, root_offset: u64) -> Result<FormTreeDecodeResult> {
         let mut definitions = BTreeMap::new();
         let mut records = BTreeMap::new();
         let root = self.decode_form_node_into(root_offset, &mut definitions, &mut records, 0)?;

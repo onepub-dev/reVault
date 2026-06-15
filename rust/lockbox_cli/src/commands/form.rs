@@ -780,9 +780,7 @@ fn glob_matches(pattern: &str, text: &str) -> bool {
                 }
             }
             b'?' => {
-                for index in 0..text.len() {
-                    next[index + 1] = dp[index];
-                }
+                next[1..(text.len() + 1)].copy_from_slice(&dp[..text.len()]);
             }
             byte => {
                 for index in 0..text.len() {

@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
@@ -134,7 +134,7 @@ fn open_populates_cache_and_close_clears_it() {
     assert!(session.contains("none"));
 }
 
-fn assert_agent_log_contains(agent_dir: &PathBuf, expected: &str) {
+fn assert_agent_log_contains(agent_dir: &Path, expected: &str) {
     let log_path = agent_dir.join("agent.log");
     let log = fs::read_to_string(&log_path)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", log_path.display()));

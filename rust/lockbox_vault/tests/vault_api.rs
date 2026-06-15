@@ -231,6 +231,26 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
     ] {
         assert!(form_aliases.contains(&alias.to_string()), "{alias}");
     }
+    let reopened_vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    let reopened_aliases = reopened_vault
+        .list_form_definitions()
+        .unwrap()
+        .into_iter()
+        .map(|definition| definition.alias)
+        .collect::<Vec<_>>();
+    assert!(reopened_aliases.contains(&"login".to_string()));
+    let vault_lockbox = Lockbox::open_file(
+        &root.join("local-vault.lbox"),
+        LockboxOpen::Password(&vault_password),
+    )
+    .unwrap();
+    let lockbox_aliases = vault_lockbox
+        .list_form_definitions()
+        .unwrap()
+        .into_iter()
+        .map(|definition| definition.alias)
+        .collect::<Vec<_>>();
+    assert!(lockbox_aliases.contains(&"login".to_string()));
 
     let password = SecretString::try_from_bytes(b"pw".to_vec()).unwrap();
     let lockbox_path = root.join("backup-source.lbox");

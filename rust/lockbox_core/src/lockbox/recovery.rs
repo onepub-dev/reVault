@@ -106,7 +106,7 @@ fn recover_bytes(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> RecoveryReport {
 
     if toc_entries.is_empty() {
         for record in &scan.records {
-            match decode_index_records(&record) {
+            match decode_index_records(record) {
                 Ok(entries) => {
                     for entry in entries {
                         apply_scanned_entry(&mut toc_entries, entry);
@@ -185,7 +185,7 @@ fn salvage_bytes(
     let mut latest_paths = BTreeMap::new();
 
     for record in &scan.records {
-        if let Ok(entries) = decode_index_records(&record) {
+        if let Ok(entries) = decode_index_records(record) {
             for entry in entries {
                 apply_scanned_entry(&mut latest_paths, entry);
             }
@@ -526,7 +526,7 @@ fn read_page_file_bytes(
             if end > stored.len() {
                 return Err(Error::CorruptRecord);
             }
-            stored[start..end].copy_from_slice(&decoded.data);
+            stored[start..end].copy_from_slice(decoded.data);
         }
         if strong_checksum(stored.as_slice()) != chunk.compression_frame_digest {
             return Err(Error::CorruptRecord);
