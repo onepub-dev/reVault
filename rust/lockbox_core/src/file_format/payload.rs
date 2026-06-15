@@ -1,6 +1,6 @@
 use crate::checked::read_u16_le;
 use crate::compression::{
-    decode_compression_frame, encode_compression_frame, MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES,
+    decode_compression_frame, encode_compression_frame, validate_compression_frame_lengths,
 };
 use crate::compression_frame_manifest::{
     decode_compression_frame_manifest, encode_compression_frame_manifest, CompressionFrameManifest,
@@ -13,7 +13,7 @@ use crate::security::validate_permissions;
 use crate::{Error, LockboxPath, Result};
 
 const COMPRESSION_FRAME_SEGMENT_MAGIC: &[u8; 4] = b"LBCS";
-const COMPRESSION_FRAME_SEGMENT_VERSION: u8 = 3;
+const COMPRESSION_FRAME_SEGMENT_VERSION: u8 = 1;
 
 #[cfg(test)]
 fn encode_file_payload(path: &str, permissions: u32, data: &[u8]) -> Vec<u8> {
@@ -115,12 +115,8 @@ pub(crate) fn decode_compression_frame_segment_payload_view(
     let compression =
         u8::try_from(take_varint(payload, &mut offset)?).map_err(|_| Error::CorruptRecord)?;
     let compression_frame_len = take_varint(payload, &mut offset)?;
-    if compression_frame_len > MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES {
-        return Err(Error::SecurityLimitExceeded(
-            "compression-frame segment declares oversized frame".to_string(),
-        ));
-    }
     let compressed_len = take_varint(payload, &mut offset)?;
+    validate_compression_frame_lengths(compression_frame_len, compressed_len)?;
     if offset + 32 > payload.len() {
         return Err(Error::CorruptRecord);
     }
@@ -302,5 +298,24 @@ mod tests {
             second.compression_frame_digest
         );
         assert_eq!(second.segment_offset, 6);
+    }
+
+    #[test]
+    fn compression_frame_segment_rejects_compressed_len_larger_than_frame_len() {
+        let manifest = CompressionFrameManifest {
+            compression_frame_id: 7,
+            compression: 0,
+            compression_frame_len: 4,
+            compressed_len: 5,
+            compression_frame_digest: [3; 32],
+            slices: Vec::new(),
+        };
+
+        let encoded = encode_compression_frame_segment_payload(&manifest, 0, b"abcde").unwrap();
+
+        assert!(matches!(
+            decode_compression_frame_segment_payload_view(&encoded),
+            Err(Error::CorruptRecord)
+        ));
     }
 }

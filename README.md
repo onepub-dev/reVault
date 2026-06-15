@@ -200,13 +200,13 @@ vault.lock_lockbox("secrets.lbox")?;
 ## Documentation
 
 - [CLI how-to](docs/cli_how_to.md): command examples.
-- [Key management](docs/key_management.md): vaults, keys, recipients, and
+- [Key management](docs/key_management.md): vaults, keys, contacts, and
   open caching.
 - [Lockbox Session Agent](docs/lockbox_session_agent.md): local open cache
   lifecycle, protocol, and security model.
 - [Security audit](docs/security_audit.md): security analysis and release
   blockers.
-- [File formats](docs/file_formats.md): lockbox/vault format details and page
+- [Archive format](rust/lockbox_core/ARCHIVE_FORMAT.md): lockbox archive details and page
   layout.
 - [Implementation overview](docs/implementation_overview.md): architecture,
   page cache, recovery, browser access, and development notes.

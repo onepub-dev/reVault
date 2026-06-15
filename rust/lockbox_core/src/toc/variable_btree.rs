@@ -12,7 +12,6 @@ use crate::security::{validate_variable_name, validate_variable_value_ref};
 use crate::{Error, Result, SecretString, VariableName, VariableSensitivity};
 
 const VARIABLE_NODE_VERSION: u8 = 1;
-const VARIABLE_NODE_VERSION_WITH_SENSITIVITY: u8 = 2;
 const VARIABLE_LEAF: u8 = 1;
 const VARIABLE_INTERNAL: u8 = 2;
 const VARIABLE_NODE_PREFIX_BYTES: usize = 2;
@@ -130,7 +129,7 @@ pub(crate) fn variable_entries_from_map(
 
 pub(crate) fn encode_variable_leaf(entries: &[VariableEntry]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
-    out.push(VARIABLE_NODE_VERSION_WITH_SENSITIVITY);
+    out.push(VARIABLE_NODE_VERSION);
     out.push(VARIABLE_LEAF);
     out.extend_from_slice(&(entries.len() as u32).to_le_bytes());
     for entry in entries {
@@ -152,7 +151,7 @@ pub(crate) fn encode_variable_leaf(entries: &[VariableEntry]) -> Result<Vec<u8>>
 
 pub(crate) fn encode_variable_leaf_secure(entries: &[VariableEntry]) -> Result<SecureVec> {
     let mut out = SecureVec::new();
-    out.try_extend_from_slice(&[VARIABLE_NODE_VERSION_WITH_SENSITIVITY, VARIABLE_LEAF])?;
+    out.try_extend_from_slice(&[VARIABLE_NODE_VERSION, VARIABLE_LEAF])?;
     out.try_extend_from_slice(&(entries.len() as u32).to_le_bytes())?;
     for entry in entries {
         out.try_extend_from_slice(&(entry.name.len() as u16).to_le_bytes())?;
@@ -234,23 +233,21 @@ pub(crate) fn decode_variable_node_secure(payload: &SecureVec) -> Result<Variabl
                 return Err(Error::CorruptRecord);
             }
             match payload[0] {
-                VARIABLE_NODE_VERSION | VARIABLE_NODE_VERSION_WITH_SENSITIVITY => {
-                    match payload[1] {
-                        VARIABLE_LEAF => decode_variable_leaf_secure_metadata(payload, payload[0]),
-                        VARIABLE_INTERNAL => Ok(SecureVariableNodeMetadata::Internal(
-                            decode_page_tree_children(&payload[2..], |key| {
-                                validate_internal_variable_name(key)
-                            })?
-                            .into_iter()
-                            .map(|child| VariableChild {
-                                first_name: child.first_key,
-                                offset: child.offset,
-                            })
-                            .collect(),
-                        )),
-                        _ => Err(Error::CorruptRecord),
-                    }
-                }
+                VARIABLE_NODE_VERSION => match payload[1] {
+                    VARIABLE_LEAF => decode_variable_leaf_secure_metadata(payload),
+                    VARIABLE_INTERNAL => Ok(SecureVariableNodeMetadata::Internal(
+                        decode_page_tree_children(&payload[2..], |key| {
+                            validate_internal_variable_name(key)
+                        })?
+                        .into_iter()
+                        .map(|child| VariableChild {
+                            first_name: child.first_key,
+                            offset: child.offset,
+                        })
+                        .collect(),
+                    )),
+                    _ => Err(Error::CorruptRecord),
+                },
                 _ => Err(Error::CorruptRecord),
             }
         })
@@ -292,10 +289,7 @@ enum ParsedVariableValue {
     Secret { offset: usize, len: usize },
 }
 
-fn decode_variable_leaf_secure_metadata(
-    payload: &[u8],
-    version: u8,
-) -> Result<SecureVariableNodeMetadata> {
+fn decode_variable_leaf_secure_metadata(payload: &[u8]) -> Result<SecureVariableNodeMetadata> {
     if payload.len() < VARIABLE_NODE_PREFIX_BYTES + ENTRY_COUNT_BYTES {
         return Err(Error::CorruptRecord);
     }
@@ -319,16 +313,11 @@ fn decode_variable_leaf_secure_metadata(
             .map_err(|_| Error::CorruptRecord)?;
         validate_internal_variable_name(stored_name)?;
         offset += name_len;
-        let sensitivity = if version == VARIABLE_NODE_VERSION_WITH_SENSITIVITY {
-            if offset + 1 > payload.len() {
-                return Err(Error::CorruptRecord);
-            }
-            let sensitivity = sensitivity_from_tag(payload[offset])?;
-            offset += 1;
-            sensitivity
-        } else {
-            VariableSensitivity::Normal
-        };
+        if offset + 1 > payload.len() {
+            return Err(Error::CorruptRecord);
+        }
+        let sensitivity = sensitivity_from_tag(payload[offset])?;
+        offset += 1;
         if offset + 4 > payload.len() {
             return Err(Error::CorruptRecord);
         }

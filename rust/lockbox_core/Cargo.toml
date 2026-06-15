@@ -10,7 +10,7 @@ name = "lockbox_core"
 path = "src/lib.rs"
 
 [features]
-vault-bridge = []
+vault-integration = []
 native-zstd-encoder = ["dep:zstd"]
 
 [dependencies]

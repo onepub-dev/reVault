@@ -141,6 +141,11 @@ impl PageCache {
         let read_len = header_len
             .checked_add(stored_body_len)
             .ok_or(Error::CorruptRecord)?;
+        let max_page_size = match security {
+            PageSecurity::Normal => DEFAULT_DATA_PAGE_BYTES,
+            PageSecurity::Secure => DEFAULT_METADATA_PAGE_BYTES,
+        };
+        let weight = page_size_for_stored_len(read_len, max_page_size)? as u64;
         let page = match (security, key) {
             (PageSecurity::Normal, PageReadKey::Normal(key)) => {
                 let bytes = storage.read_at(offset, read_len)?;
@@ -154,7 +159,6 @@ impl PageCache {
             }
             _ => return Err(Error::CorruptRecord),
         };
-        let weight = page_size_for_stored_len(read_len, DEFAULT_DATA_PAGE_BYTES)? as u64;
         Ok((page, weight))
     }
 
@@ -607,6 +611,29 @@ mod tests {
             b"toc"
         );
         assert_eq!(cache.stats().hits, 1);
+    }
+
+    #[test]
+    fn read_page_rejects_oversized_header_body_before_body_read() {
+        let lockbox_id = LockboxId::from_bytes([1; 16]);
+        let key = b"normal-key";
+        let mut header = vec![0u8; PAGE_HEADER_LEN];
+        header[0..8].copy_from_slice(PAGE_MAGIC);
+        header[12..16].copy_from_slice(&(PAGE_HEADER_LEN as u32).to_le_bytes());
+        header[44..48].copy_from_slice(&u32::MAX.to_le_bytes());
+        let storage = StorageBackend::memory(header);
+        let mut cache = PageCache::new(CacheLimit::Bytes(1024 * 1024));
+
+        assert!(matches!(
+            cache.read_page(
+                &storage,
+                0,
+                lockbox_id,
+                PageSecurity::Normal,
+                PageReadKey::Normal(key),
+            ),
+            Err(Error::SecurityLimitExceeded(_))
+        ));
     }
 
     #[test]

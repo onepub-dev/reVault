@@ -14,8 +14,8 @@ use crate::commit_auth::{
 use crate::secret_vec::SecretVec;
 use crate::{Error, Result};
 
-const SIGNING_PUBLIC_MAGIC: &[u8; 8] = b"LBX2SPUB";
-const SIGNING_PRIVATE_MAGIC: &[u8; 8] = b"LBX2SPRV";
+const SIGNING_PUBLIC_MAGIC: &[u8; 8] = b"LBX1SPUB";
+const SIGNING_PRIVATE_MAGIC: &[u8; 8] = b"LBX1SPRV";
 const SIGNING_KEY_VERSION: u16 = 1;
 const SIGNING_ALGORITHM_ED25519_MLDSA65: u16 = 1;
 const ED25519_SEED_LEN: usize = 32;

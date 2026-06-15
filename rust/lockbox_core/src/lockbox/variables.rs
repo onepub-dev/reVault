@@ -25,7 +25,7 @@ pub enum VariableValueRef<'a> {
     Secret(&'a SecretString),
 }
 
-impl Lockbox {
+impl<State> Lockbox<State> {
     /// Store or replace a non-secret variable.
     ///
     /// Returns `Error::InvalidInput` if the value contains unsupported
@@ -33,7 +33,10 @@ impl Lockbox {
     /// configured variable value size limit, `Error::InvalidOperation` when
     /// attempting to overwrite an existing secret variable as non-secret, and
     /// `Error::CorruptRecord` if stored variable metadata cannot be loaded.
-    pub fn set_variable(&mut self, name: &VariableName, value: &str) -> Result<()> {
+    pub fn set_variable(&mut self, name: &VariableName, value: &str) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let value = validate_variable_value(value)?;
         self.ensure_variables_loaded()?;
         let mut variables = self.variables.borrow_mut();
@@ -59,7 +62,10 @@ impl Lockbox {
     /// `Error::InvalidOperation` when attempting to overwrite an existing
     /// non-secret variable as secret, and `Error::CorruptRecord` if stored
     /// variable metadata cannot be loaded.
-    pub fn set_secret_variable(&mut self, name: &VariableName, value: &SecretString) -> Result<()> {
+    pub fn set_secret_variable(&mut self, name: &VariableName, value: &SecretString) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         value.with_str(validate_variable_value_ref)??;
         self.ensure_variables_loaded()?;
         let mut variables = self.variables.borrow_mut();
@@ -144,7 +150,10 @@ impl Lockbox {
     ///
     /// Returns `Error::CorruptRecord` if stored variable metadata cannot be
     /// loaded.
-    pub fn delete_variable(&mut self, name: &VariableName) -> Result<()> {
+    pub fn delete_variable(&mut self, name: &VariableName) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         self.ensure_variables_loaded()?;
         let removed = self
             .variables

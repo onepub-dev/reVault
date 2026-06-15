@@ -1,4 +1,4 @@
-use crate::compression::MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES;
+use crate::compression::validate_compression_frame_lengths;
 use crate::lockbox_path::{validate_stored_path, LockboxPath};
 use crate::security::validate_permissions;
 use crate::{Error, Result};
@@ -98,12 +98,8 @@ pub(crate) fn decode_compression_frame_manifest(
     let compression =
         u8::try_from(take_varint(payload, &mut cursor)?).map_err(|_| Error::CorruptRecord)?;
     let compression_frame_len = take_varint(payload, &mut cursor)?;
-    if compression_frame_len > MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES {
-        return Err(Error::SecurityLimitExceeded(
-            "compression-frame manifest declares oversized frame".to_string(),
-        ));
-    }
     let compressed_len = take_varint(payload, &mut cursor)?;
+    validate_compression_frame_lengths(compression_frame_len, compressed_len)?;
     if cursor + 32 > payload.len() {
         return Err(Error::CorruptRecord);
     }
@@ -246,6 +242,24 @@ mod tests {
         })
         .unwrap();
         encoded.push(0);
+
+        assert!(matches!(
+            decode_compression_frame_manifest(&encoded),
+            Err(Error::CorruptRecord)
+        ));
+    }
+
+    #[test]
+    fn manifest_rejects_compressed_len_larger_than_frame_len() {
+        let encoded = encode_compression_frame_manifest(&CompressionFrameManifest {
+            compression_frame_id: 1,
+            compression: 0,
+            compression_frame_len: 4,
+            compressed_len: 5,
+            compression_frame_digest: [0; 32],
+            slices: Vec::new(),
+        })
+        .unwrap();
 
         assert!(matches!(
             decode_compression_frame_manifest(&encoded),

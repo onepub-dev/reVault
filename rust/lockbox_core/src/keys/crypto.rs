@@ -90,7 +90,7 @@ pub(crate) fn derive_page_content_key(key: &[u8]) -> [u8; 32] {
 
 pub(crate) fn strong_checksum(data: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
-    hasher.update(b"lockbox-v2-public-checksum/sha256");
+    hasher.update(b"lockbox-v1-public-checksum/sha256");
     hasher.update((data.len() as u64).to_le_bytes());
     hasher.update(data);
     hasher.finalize().into()
@@ -98,7 +98,7 @@ pub(crate) fn strong_checksum(data: &[u8]) -> [u8; 32] {
 
 fn derive_content_key(key: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
-    hasher.update(b"lockbox-v2-content-key/chacha20poly1305");
+    hasher.update(b"lockbox-v1-content-key/chacha20poly1305");
     hasher.update((key.len() as u64).to_le_bytes());
     hasher.update(key);
     hasher.finalize().into()

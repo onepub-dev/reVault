@@ -3,7 +3,7 @@ use crate::lockbox_path::{glob_matches, validate_glob};
 use crate::node_kind::NodeKind;
 use crate::{ListOptions, LockboxEntry, LockboxPath, Result};
 
-impl Lockbox {
+impl<State> Lockbox<State> {
     /// Return an iterator over entries matching listing options.
     ///
     /// Returns `Error::InvalidPath` if the list root or glob pattern is unsafe.

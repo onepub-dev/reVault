@@ -13,7 +13,7 @@ use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::{Error, Result};
 use zeroize::Zeroize;
 
-pub(crate) const PAGE_MAGIC: &[u8; 8] = b"LBX2PAG\0";
+pub(crate) const PAGE_MAGIC: &[u8; 8] = b"LBX1PAG\0";
 pub(crate) const PAGE_HEADER_LEN: usize = 96;
 pub(crate) use crate::constants::{
     DEFAULT_DATA_PAGE_BYTES, DEFAULT_METADATA_PAGE_BYTES, DEFAULT_PAGE_BYTES,
@@ -1019,7 +1019,7 @@ fn page_aad(
     encrypted_len: u32,
 ) -> Vec<u8> {
     let mut aad = Vec::with_capacity(8 + 2 + 16 + 8 + 8 + 2 + 4);
-    aad.extend_from_slice(b"LBX2PAGE");
+    aad.extend_from_slice(b"LBX1PAGE");
     aad.extend_from_slice(&PAGE_VERSION.to_le_bytes());
     aad.extend_from_slice(lockbox_id.as_bytes());
     aad.extend_from_slice(&page_id.to_le_bytes());

@@ -52,6 +52,48 @@ impl FreeSpace {
         Some(FreeSlot { offset, len })
     }
 
+    pub(crate) fn allocate_away_from(
+        &mut self,
+        len: u64,
+        avoid_offset: u64,
+        min_distance: u64,
+    ) -> Option<FreeSlot> {
+        let mut selected = None;
+        for (&slot_offset, &slot_len) in &self.by_offset {
+            if slot_len < len {
+                continue;
+            }
+            let max_start = slot_offset.saturating_add(slot_len - len);
+            if slot_offset.abs_diff(avoid_offset) >= min_distance {
+                selected = Some((slot_offset, slot_len, slot_offset));
+                break;
+            }
+            let after_start = avoid_offset.saturating_add(min_distance).max(slot_offset);
+            if after_start <= max_start {
+                selected = Some((slot_offset, slot_len, after_start));
+                break;
+            }
+        }
+
+        let (slot_offset, slot_len, offset) = selected?;
+        self.remove_exact(slot_offset, slot_len);
+        if offset > slot_offset {
+            self.add(FreeSlot {
+                offset: slot_offset,
+                len: offset - slot_offset,
+            });
+        }
+        let end = offset.saturating_add(len);
+        let slot_end = slot_offset.saturating_add(slot_len);
+        if end < slot_end {
+            self.add(FreeSlot {
+                offset: end,
+                len: slot_end - end,
+            });
+        }
+        Some(FreeSlot { offset, len })
+    }
+
     pub(crate) fn clear(&mut self) {
         self.by_offset.clear();
         self.by_len.clear();
@@ -140,6 +182,40 @@ mod tests {
                 FreeSlot {
                     offset: 5_128,
                     len: 72
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn allocates_away_from_avoided_offset_when_possible() {
+        let mut free = FreeSpace::default();
+        free.add(FreeSlot {
+            offset: 100,
+            len: 50,
+        });
+        free.add(FreeSlot {
+            offset: 1_000,
+            len: 100,
+        });
+
+        assert_eq!(
+            free.allocate_away_from(20, 110, 500),
+            Some(FreeSlot {
+                offset: 1_000,
+                len: 20
+            })
+        );
+        assert_eq!(
+            free.slots_by_offset(),
+            vec![
+                FreeSlot {
+                    offset: 100,
+                    len: 50
+                },
+                FreeSlot {
+                    offset: 1_020,
+                    len: 80
                 }
             ]
         );

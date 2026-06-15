@@ -32,7 +32,7 @@ The feature is implemented in `lockbox_vault`:
 
 Requests share a compact binary frame with:
 
-- Header: 9 bytes (`LBX2` magic + message type + u32 payload length LE).
+- Header: 9 bytes (`LBX1` magic + message type + u32 payload length LE).
 - Maximum message size: 128 KiB.
 
 ### Cache operations

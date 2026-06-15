@@ -4,8 +4,10 @@ use crate::lockbox_id::LockboxId;
 use crate::{Error, Result};
 
 const COMMIT_AUTH_VERSION: u8 = 1;
-const COMMIT_AUTH_MAGIC: &[u8; 8] = b"LBX2AUTH";
+const COMMIT_AUTH_MAGIC: &[u8; 8] = b"LBX1AUTH";
 const SIGNED_CONTEXT: &[u8] = b"lockbox-v1-commit-auth";
+const MAX_COMMIT_SIGNATURES: usize = 64;
+const MAX_COMMIT_AUTH_FIELD_BYTES: usize = 16 * 1024;
 
 pub(crate) const SIGNATURE_ALGORITHM_ED25519: u16 = 1;
 pub(crate) const SIGNATURE_ALGORITHM_ML_DSA_65: u16 = 2;
@@ -69,14 +71,14 @@ pub(crate) fn decode_commit_auth(payload: &[u8]) -> Result<CommitAuth> {
     let previous_auth_offset = reader.u64()?;
     let previous_auth_digest = reader.array32()?;
     let flags = reader.u64()?;
-    let key_count = reader.u32()? as usize;
+    let key_count = reader.count(MAX_COMMIT_SIGNATURES)?;
     let mut key_headers = Vec::with_capacity(key_count);
     for _ in 0..key_count {
         let algorithm = reader.u16()?;
-        let public_key = reader.bytes()?;
+        let public_key = reader.bytes(MAX_COMMIT_AUTH_FIELD_BYTES)?;
         key_headers.push((algorithm, public_key));
     }
-    let signature_count = reader.u32()? as usize;
+    let signature_count = reader.count(MAX_COMMIT_SIGNATURES)?;
     if signature_count != key_headers.len() {
         return Err(Error::CorruptRecord);
     }
@@ -86,11 +88,11 @@ pub(crate) fn decode_commit_auth(payload: &[u8]) -> Result<CommitAuth> {
         if signature_algorithm != algorithm {
             return Err(Error::CorruptRecord);
         }
-        let signature_public_key = reader.bytes()?;
+        let signature_public_key = reader.bytes(MAX_COMMIT_AUTH_FIELD_BYTES)?;
         if signature_public_key != public_key {
             return Err(Error::CorruptRecord);
         }
-        let signature = reader.bytes()?;
+        let signature = reader.bytes(MAX_COMMIT_AUTH_FIELD_BYTES)?;
         signatures.push(CommitSignature {
             algorithm,
             public_key,
@@ -111,6 +113,11 @@ pub(crate) fn decode_commit_auth(payload: &[u8]) -> Result<CommitAuth> {
 }
 
 fn encode_signed_fields(auth: &CommitAuth, out: &mut Vec<u8>) -> Result<()> {
+    if auth.signatures.len() > MAX_COMMIT_SIGNATURES {
+        return Err(Error::SecurityLimitExceeded(
+            "commit auth contains too many signatures".to_string(),
+        ));
+    }
     out.extend_from_slice(auth.lockbox_id.as_bytes());
     out.extend_from_slice(&auth.sequence.to_le_bytes());
     out.extend_from_slice(&auth.commit_root_offset.to_le_bytes());
@@ -138,6 +145,11 @@ fn put_u32(out: &mut Vec<u8>, value: usize) -> Result<()> {
 }
 
 fn put_bytes(out: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
+    if bytes.len() > MAX_COMMIT_AUTH_FIELD_BYTES {
+        return Err(Error::SecurityLimitExceeded(
+            "commit auth field is too large".to_string(),
+        ));
+    }
     put_u32(out, bytes.len())?;
     out.extend_from_slice(bytes);
     Ok(())
@@ -191,8 +203,23 @@ impl<'a> Reader<'a> {
         array_32(self.take(32)?)
     }
 
-    fn bytes(&mut self) -> Result<Vec<u8>> {
+    fn count(&mut self, max: usize) -> Result<usize> {
+        let count = self.u32()? as usize;
+        if count > max {
+            return Err(Error::SecurityLimitExceeded(
+                "commit auth contains too many signatures".to_string(),
+            ));
+        }
+        Ok(count)
+    }
+
+    fn bytes(&mut self, max_len: usize) -> Result<Vec<u8>> {
         let len = self.u32()? as usize;
+        if len > max_len {
+            return Err(Error::SecurityLimitExceeded(
+                "commit auth field is too large".to_string(),
+            ));
+        }
         Ok(self.take(len)?.to_vec())
     }
 
@@ -243,5 +270,49 @@ mod tests {
         let decoded = decode_commit_auth(&encode_commit_auth(&auth).unwrap()).unwrap();
 
         assert_eq!(decoded, auth);
+    }
+
+    #[test]
+    fn decode_commit_auth_rejects_oversized_key_count_before_allocating() {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(COMMIT_AUTH_MAGIC);
+        payload.push(COMMIT_AUTH_VERSION);
+        payload.extend_from_slice(&[0; 7]);
+        payload.extend_from_slice(&[1; 16]);
+        payload.extend_from_slice(&7u64.to_le_bytes());
+        payload.extend_from_slice(&1024u64.to_le_bytes());
+        payload.extend_from_slice(&[2; 32]);
+        payload.extend_from_slice(&512u64.to_le_bytes());
+        payload.extend_from_slice(&[3; 32]);
+        payload.extend_from_slice(&9u64.to_le_bytes());
+        payload.extend_from_slice(&u32::MAX.to_le_bytes());
+
+        assert!(matches!(
+            decode_commit_auth(&payload),
+            Err(Error::SecurityLimitExceeded(_))
+        ));
+    }
+
+    #[test]
+    fn decode_commit_auth_rejects_oversized_key_before_allocating() {
+        let mut payload = Vec::new();
+        payload.extend_from_slice(COMMIT_AUTH_MAGIC);
+        payload.push(COMMIT_AUTH_VERSION);
+        payload.extend_from_slice(&[0; 7]);
+        payload.extend_from_slice(&[1; 16]);
+        payload.extend_from_slice(&7u64.to_le_bytes());
+        payload.extend_from_slice(&1024u64.to_le_bytes());
+        payload.extend_from_slice(&[2; 32]);
+        payload.extend_from_slice(&512u64.to_le_bytes());
+        payload.extend_from_slice(&[3; 32]);
+        payload.extend_from_slice(&9u64.to_le_bytes());
+        payload.extend_from_slice(&1u32.to_le_bytes());
+        payload.extend_from_slice(&SIGNATURE_ALGORITHM_ED25519.to_le_bytes());
+        payload.extend_from_slice(&((MAX_COMMIT_AUTH_FIELD_BYTES + 1) as u32).to_le_bytes());
+
+        assert!(matches!(
+            decode_commit_auth(&payload),
+            Err(Error::SecurityLimitExceeded(_))
+        ));
     }
 }

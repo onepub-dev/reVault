@@ -3,6 +3,7 @@ use std::path::Path;
 
 use super::Lockbox;
 use crate::commit_auth::{commit_auth_digest, commit_auth_message, decode_commit_auth, CommitAuth};
+use crate::compression::validate_compression_frame_lengths;
 use crate::constants::DEFAULT_MAX_FILE_BYTES;
 use crate::crypto::strong_checksum;
 use crate::file_format::{
@@ -480,16 +481,10 @@ fn read_page_file_bytes(
     let capacity = usize::try_from(expected_len).map_err(|_| Error::CorruptRecord)?;
     let mut out = Vec::with_capacity(capacity);
     for chunk in chunks {
+        validate_compression_frame_lengths(chunk.compression_frame_len, chunk.compressed_len)?;
         if chunk.compressed_len > crate::constants::DEFAULT_MAX_PAGE_LOGICAL_BYTES as u64 {
             return Err(Error::SecurityLimitExceeded(
                 "compressed compression-frame exceeds safety limit".to_string(),
-            ));
-        }
-        if chunk.compression_frame_len
-            > crate::compression::MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES
-        {
-            return Err(Error::SecurityLimitExceeded(
-                "compression-frame exceeds safety limit".to_string(),
             ));
         }
         if chunk.file_offset != out.len() as u64 {

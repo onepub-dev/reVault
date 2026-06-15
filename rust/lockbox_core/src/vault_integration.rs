@@ -1,4 +1,4 @@
-//! Narrow bridge used by `lockbox_vault`.
+//! Narrow integration surface used by `lockbox_vault`.
 //!
 //! Normal callers should use `Lockbox::open_file`. This module exists because
 //! the vault crate needs to cache an opened content key and recover from

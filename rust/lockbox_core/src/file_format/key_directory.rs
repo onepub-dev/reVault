@@ -10,9 +10,9 @@ use crate::page_cache::{PageCache, PageReadKey, PageSecurity};
 use crate::storage::Storage;
 use crate::{CacheLimit, Error, Result};
 
-const KEY_DIR_MAGIC: &[u8; 8] = b"LBX2KEY\0";
+const KEY_DIR_MAGIC: &[u8; 8] = b"LBX1KEY\0";
 const KEY_DIR_HEADER_LEN: usize = 64;
-const KEY_DIR_VERSION: u16 = 6;
+const KEY_DIR_VERSION: u16 = 1;
 const MAX_KEY_DIRECTORY_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone)]
@@ -59,7 +59,7 @@ pub(crate) fn read_key_directory(
     decode_key_directory_page(page_bytes, offset, expected_lockbox_id)
 }
 
-#[cfg(any(test, feature = "vault-bridge"))]
+#[cfg(any(test, feature = "vault-integration"))]
 pub(crate) fn read_key_directory_backup(bytes: &[u8]) -> Result<DecodedKeyDirectory> {
     if bytes.len() < KEY_DIR_HEADER_LEN || &bytes[0..8] != KEY_DIR_MAGIC {
         return Err(Error::CorruptHeader);
@@ -320,7 +320,7 @@ mod tests {
             encode_key_directory(&[], lockbox_id, 0x0102_0304_0506_0708, 0x1112_1314).unwrap();
 
         assert_eq!(&encoded[0..8], KEY_DIR_MAGIC);
-        assert_eq!(&encoded[8..10], &[0x06, 0x00]);
+        assert_eq!(&encoded[8..10], &[0x01, 0x00]);
         assert_eq!(&encoded[12..16], &[0x40, 0x00, 0x00, 0x00]);
         assert_eq!(
             &encoded[16..24],

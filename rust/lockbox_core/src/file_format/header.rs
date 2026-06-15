@@ -79,7 +79,7 @@ pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
 ///
 /// Returns `Error::CorruptHeader` if `bytes` do not contain a complete valid
 /// lockbox header.
-#[cfg(feature = "vault-bridge")]
+#[cfg(feature = "vault-integration")]
 pub fn read_lockbox_id(bytes: &[u8]) -> Result<LockboxId> {
     Ok(read_header(bytes)?.lockbox_id)
 }

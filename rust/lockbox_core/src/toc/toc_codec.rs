@@ -1,3 +1,4 @@
+use crate::compression::validate_compression_frame_lengths;
 use crate::constants::{DEFAULT_FILE_PERMISSIONS, DEFAULT_SYMLINK_PERMISSIONS};
 use crate::file_chunk::{CompressionFrameSegment, FileChunk};
 use crate::node_kind::NodeKind;
@@ -435,6 +436,7 @@ fn decode_frame_descriptor(payload: &[u8], offset: &mut usize) -> Result<FrameDe
         u8::try_from(take_varint(payload, offset)?).map_err(|_| Error::CorruptRecord)?;
     let compression_frame_len = take_varint(payload, offset)?;
     let compressed_len = take_varint(payload, offset)?;
+    validate_compression_frame_lengths(compression_frame_len, compressed_len)?;
     if *offset + 32 > payload.len() {
         return Err(Error::CorruptRecord);
     }
@@ -453,6 +455,12 @@ fn decode_frame_descriptor(payload: &[u8], offset: &mut usize) -> Result<FrameDe
         let object_id = take_varint(payload, offset)?;
         let segment_offset = take_varint(payload, offset)?;
         let segment_len = take_varint(payload, offset)?;
+        if segment_offset
+            .checked_add(segment_len)
+            .is_none_or(|end| end > compressed_len)
+        {
+            return Err(Error::CorruptRecord);
+        }
         segments.push(CompressionFrameSegment {
             page_offset,
             page_len,
@@ -735,6 +743,50 @@ mod tests {
 
         assert!(matches!(
             decode_toc_entries(&payload),
+            Err(Error::CorruptRecord)
+        ));
+    }
+
+    #[test]
+    fn toc_decode_rejects_compressed_len_larger_than_frame_len() {
+        let mut entry = TocEntry {
+            path: LockboxPath::new("/tree/file.bin").unwrap(),
+            len: 128,
+            record_offset: 4096,
+            record_len: 4096,
+            record_object_id: 10,
+            deleted: false,
+            node_kind: NodeKind::File,
+            permissions: DEFAULT_FILE_PERMISSIONS,
+            chunks: vec![shared_frame_chunk(0)],
+        };
+        entry.chunks[0].compression_frame_len = 4;
+        entry.chunks[0].compressed_len = 5;
+
+        assert!(matches!(
+            decode_toc_entries(&encode_toc_entries([&entry])),
+            Err(Error::CorruptRecord)
+        ));
+    }
+
+    #[test]
+    fn toc_decode_rejects_segment_outside_compressed_frame() {
+        let mut entry = TocEntry {
+            path: LockboxPath::new("/tree/file.bin").unwrap(),
+            len: 128,
+            record_offset: 4096,
+            record_len: 4096,
+            record_object_id: 10,
+            deleted: false,
+            node_kind: NodeKind::File,
+            permissions: DEFAULT_FILE_PERMISSIONS,
+            chunks: vec![shared_frame_chunk(0)],
+        };
+        entry.chunks[0].segments[0].segment_offset = 41;
+        entry.chunks[0].segments[0].segment_len = 2;
+
+        assert!(matches!(
+            decode_toc_entries(&encode_toc_entries([&entry])),
             Err(Error::CorruptRecord)
         ));
     }

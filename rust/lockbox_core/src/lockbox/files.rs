@@ -6,8 +6,9 @@ use std::time::Instant;
 
 use super::Lockbox;
 use crate::compression::{
-    decode_compression_frame, encode_compression_frame_with_level, COMPRESSION_NONE,
-    MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES, ZSTD_BULK_IMPORT_LEVEL, ZSTD_DEFAULT_LEVEL,
+    decode_compression_frame, encode_compression_frame_with_level,
+    validate_compression_frame_lengths, COMPRESSION_NONE, ZSTD_BULK_IMPORT_LEVEL,
+    ZSTD_DEFAULT_LEVEL,
 };
 use crate::compression_frame_manifest::{CompressionFrameManifest, CompressionFrameSlice};
 use crate::constants::{
@@ -34,7 +35,7 @@ const FILE_COMPRESSION_FRAME_BYTES: usize = 2 * 1024 * 1024;
 const MAX_SEGMENT_BYTES: usize = DEFAULT_MAX_PAGE_BODY_BYTES - 64 * 1024;
 const DECODED_COMPRESSION_FRAME_CACHE_BYTES: usize = 64 * 1024 * 1024;
 
-impl Lockbox {
+impl<State> Lockbox<State> {
     pub(crate) fn rewrite_shared_compression_frames_before_removal(
         &mut self,
         entry: &TocEntry,
@@ -171,7 +172,10 @@ impl Lockbox {
     /// returns `Error::NotFound` if there is no existing entry to replace. Returns
     /// `Error::InvalidPath` for directory-only or unsafe lockbox paths and
     /// propagates storage or encoding errors from the write.
-    pub fn add_file(&mut self, path: &LockboxPath, data: &[u8], replace: bool) -> Result<()> {
+    pub fn add_file(&mut self, path: &LockboxPath, data: &[u8], replace: bool) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         self.add_file_with_permissions(path, data, DEFAULT_FILE_PERMISSIONS, replace)
     }
 
@@ -194,7 +198,10 @@ impl Lockbox {
         data: &[u8],
         permissions: u32,
         replace: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         if data.len() <= SMALL_FILE_PACKING_LIMIT {
             return self.stage_small_file(path, data, permissions, replace);
         }
@@ -213,7 +220,10 @@ impl Lockbox {
         path: &LockboxPath,
         reader: impl Read,
         replace: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         self.add_file_from_reader_with_permissions(path, reader, DEFAULT_FILE_PERMISSIONS, replace)
     }
 
@@ -229,7 +239,10 @@ impl Lockbox {
         source: &Path,
         destination: &LockboxPath,
         replace: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let stat_start = Instant::now();
         let metadata = std::fs::metadata(source)
             .map_err(|err| Error::Io(format!("stat {}: {err}", source.display())))?;
@@ -265,7 +278,10 @@ impl Lockbox {
         reader: impl Read,
         permissions: u32,
         replace: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         self.write_file_from_reader_with_permissions(path, reader, permissions, replace)
     }
 
@@ -645,14 +661,10 @@ impl Lockbox {
         if let Some(cached) = self.read_cached_compression_frame_slice(expected_total_len, chunk)? {
             return Ok(cached);
         }
+        validate_compression_frame_lengths(chunk.compression_frame_len, chunk.compressed_len)?;
         if chunk.compressed_len > DEFAULT_MAX_PAGE_LOGICAL_BYTES as u64 {
             return Err(Error::SecurityLimitExceeded(
                 "compressed compression-frame exceeds safety limit".to_string(),
-            ));
-        }
-        if chunk.compression_frame_len > MAX_DECOMPRESSED_COMPRESSION_FRAME_BYTES {
-            return Err(Error::SecurityLimitExceeded(
-                "compression-frame exceeds safety limit".to_string(),
             ));
         }
         let compressed_len =
@@ -1125,9 +1137,9 @@ fn read_next_chunk(reader: &mut impl Read, buffer: &mut [u8]) -> Result<usize> {
     Ok(read_total)
 }
 
-fn drain_ready_parallel_results(
+fn drain_ready_parallel_results<State>(
     result_rx: &std::sync::mpsc::Receiver<ParallelCompressionResult>,
-    writer: &mut FilePageWriter<'_>,
+    writer: &mut FilePageWriter<'_, State>,
     chunks: &mut Vec<FileChunk>,
     pending: &mut BTreeMap<usize, PreparedCompressionFrame>,
     next_index: &mut usize,
@@ -1159,8 +1171,8 @@ struct PendingSegment {
     segment_len: u64,
 }
 
-struct FilePageWriter<'a> {
-    lockbox: &'a mut Lockbox,
+struct FilePageWriter<'a, State> {
+    lockbox: &'a mut Lockbox<State>,
     packer: PageObjectPacker<PendingSegment>,
 }
 
@@ -1217,8 +1229,8 @@ struct ParallelCompressionResult {
     frame: PreparedCompressionFrame,
 }
 
-impl<'a> FilePageWriter<'a> {
-    fn new(lockbox: &'a mut Lockbox) -> Self {
+impl<'a, State> FilePageWriter<'a, State> {
+    fn new(lockbox: &'a mut Lockbox<State>) -> Self {
         Self {
             lockbox,
             packer: PageObjectPacker::new(DEFAULT_PAGE_BYTES),

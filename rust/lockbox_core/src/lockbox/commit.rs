@@ -19,7 +19,9 @@ use crate::{Error, LockboxOptions, Result};
 use std::fs;
 use std::path::Path;
 
-impl Lockbox {
+const KEY_DIRECTORY_MIRROR_PREFERRED_MIN_DISTANCE: u64 = 1024 * 1024;
+
+impl Lockbox<crate::Writable> {
     pub fn try_to_bytes(&self) -> Result<Vec<u8>> {
         self.bytes()
     }
@@ -177,7 +179,7 @@ impl Lockbox {
             form_root_offset: self.form_root_offset,
             free_index_root_offset: self.free_index_offset,
             key_directory_offset: self.key_directory_offset,
-            key_directory_mirror_offsets: self.key_directory_mirror_offsets,
+            key_directory_mirror_offset: self.key_directory_mirror_offset,
             key_directory_generation: self.key_directory_generation,
             previous_commit_root_offset: self.commit_root_offset,
             flags: 0,
@@ -225,14 +227,10 @@ impl Lockbox {
         if !self.dirty_key_directory {
             return Ok(());
         }
-        let old_offsets = [
-            self.key_directory_offset,
-            self.key_directory_mirror_offsets[0],
-            self.key_directory_mirror_offsets[1],
-        ];
+        let old_offsets = [self.key_directory_offset, self.key_directory_mirror_offset];
         if self.key_slots.is_empty() {
             self.key_directory_offset = 0;
-            self.key_directory_mirror_offsets = [0, 0];
+            self.key_directory_mirror_offset = 0;
             self.dirty_key_directory = false;
             for offset in old_offsets {
                 self.zero_key_directory_page(offset)?;
@@ -240,8 +238,8 @@ impl Lockbox {
             return Ok(());
         }
         let key_slots = self.key_slots.clone();
-        let mut offsets = [0u64; 3];
-        for (copy_index, offset) in offsets.iter_mut().enumerate() {
+        let mut offsets = [0u64; 2];
+        for copy_index in 0..offsets.len() {
             let key_directory = encode_key_directory(
                 &key_slots,
                 self.lockbox_id,
@@ -250,19 +248,37 @@ impl Lockbox {
             )?;
             let object =
                 PageObject::new(PageObjectKind::KeyDirectory, self.sequence, key_directory);
-            let page_offset = self.allocate_page_offset(page_size_for_encoded_objects(
-                std::slice::from_ref(&object),
-            )? as u64)?;
+            let page_size = page_size_for_encoded_objects(std::slice::from_ref(&object))? as u64;
+            let page_offset = if copy_index == 0 {
+                self.allocate_page_offset(page_size)?
+            } else {
+                self.allocate_key_directory_mirror_offset(page_size, offsets[0])?
+            };
             self.write_decoded_page_at(page_offset, self.sequence, vec![object])?;
-            *offset = page_offset;
+            offsets[copy_index] = page_offset;
         }
         self.key_directory_offset = offsets[0];
-        self.key_directory_mirror_offsets = [offsets[1], offsets[2]];
+        self.key_directory_mirror_offset = offsets[1];
         self.dirty_key_directory = false;
         for offset in old_offsets {
             self.zero_key_directory_page(offset)?;
         }
         Ok(())
+    }
+
+    fn allocate_key_directory_mirror_offset(
+        &mut self,
+        page_size: u64,
+        primary_offset: u64,
+    ) -> Result<u64> {
+        if let Some(slot) = self.free_space.allocate_away_from(
+            page_size,
+            primary_offset,
+            KEY_DIRECTORY_MIRROR_PREFERRED_MIN_DISTANCE,
+        ) {
+            return Ok(slot.offset);
+        }
+        Ok(self.next_append_page_offset()?)
     }
 
     fn zero_key_directory_page(&mut self, offset: u64) -> Result<()> {
@@ -606,7 +622,7 @@ struct CommitRollback {
     form_root_offset: u64,
     free_index_offset: u64,
     key_directory_offset: u64,
-    key_directory_mirror_offsets: [u64; 2],
+    key_directory_mirror_offset: u64,
     key_directory_generation: u64,
     dirty_key_directory: bool,
     key_slots: Vec<crate::key_slot::KeySlot>,
@@ -650,7 +666,7 @@ impl CommitRollback {
             form_root_offset: lockbox.form_root_offset,
             free_index_offset: lockbox.free_index_offset,
             key_directory_offset: lockbox.key_directory_offset,
-            key_directory_mirror_offsets: lockbox.key_directory_mirror_offsets,
+            key_directory_mirror_offset: lockbox.key_directory_mirror_offset,
             key_directory_generation: lockbox.key_directory_generation,
             dirty_key_directory: lockbox.dirty_key_directory,
             key_slots: lockbox.key_slots.clone(),
@@ -689,7 +705,7 @@ impl CommitRollback {
         lockbox.form_root_offset = self.form_root_offset;
         lockbox.free_index_offset = self.free_index_offset;
         lockbox.key_directory_offset = self.key_directory_offset;
-        lockbox.key_directory_mirror_offsets = self.key_directory_mirror_offsets;
+        lockbox.key_directory_mirror_offset = self.key_directory_mirror_offset;
         lockbox.key_directory_generation = self.key_directory_generation;
         lockbox.dirty_key_directory = self.dirty_key_directory;
         lockbox.key_slots = self.key_slots;

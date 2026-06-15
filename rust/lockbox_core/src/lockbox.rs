@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
+use std::marker::PhantomData;
 use std::path::Path;
 
 use crate::checked::read_u32_le;
@@ -50,7 +51,7 @@ mod recovery;
 mod symlinks;
 mod variables;
 
-#[cfg(feature = "vault-bridge")]
+#[cfg(feature = "vault-integration")]
 pub use key_management::OpenedContentKey;
 pub use key_management::{LockboxOpen, LockboxProtection};
 pub use recovery::RecoveryScanner;
@@ -61,8 +62,8 @@ pub use variables::VariableValueRef;
 /// The inspector intentionally exposes no mutation methods. It is a separate
 /// handle so page/cache details do not sit on the main high-level `Lockbox`
 /// API.
-pub struct LockboxInspector<'a> {
-    lockbox: &'a Lockbox,
+pub struct LockboxInspector<'a, State = Writable> {
+    lockbox: &'a Lockbox<State>,
 }
 
 /// Public metadata read from a lockbox file without decrypting its contents.
@@ -129,6 +130,19 @@ impl Drop for CachedCompressionFrame {
     }
 }
 
+/// Marker for lockbox handles that can read but cannot be committed.
+#[derive(Debug)]
+pub struct ReadOnly;
+
+/// Marker for lockbox handles that can be mutated and committed.
+#[derive(Debug)]
+pub struct Writable;
+
+#[doc(hidden)]
+pub trait WritableLockboxState {}
+
+impl WritableLockboxState for Writable {}
+
 /// Open encrypted lockbox container.
 ///
 /// A `Lockbox` owns the encrypted storage backend plus the decrypted metadata
@@ -136,7 +150,7 @@ impl Drop for CachedCompressionFrame {
 /// called; reopening a lockbox after an interrupted commit returns the last
 /// published state.
 #[derive(Debug)]
-pub struct Lockbox {
+pub struct Lockbox<State = Writable> {
     storage: StorageBackend,
     key: SecretVec,
     sequence: u64,
@@ -148,7 +162,7 @@ pub struct Lockbox {
     form_root_offset: u64,
     free_index_offset: u64,
     key_directory_offset: u64,
-    key_directory_mirror_offsets: [u64; 2],
+    key_directory_mirror_offset: u64,
     key_directory_generation: u64,
     dirty_key_directory: bool,
     lockbox_id: LockboxId,
@@ -182,9 +196,10 @@ pub struct Lockbox {
     pending_small_file_bytes: usize,
     pending_symlinks: BTreeMap<LockboxPath, LockboxPath>,
     needs_packing: bool,
+    state: PhantomData<State>,
 }
 
-impl Lockbox {
+impl<State> Lockbox<State> {
     pub(crate) fn try_clone(&self) -> Result<Self> {
         Ok(Self {
             storage: self.storage.clone(),
@@ -198,7 +213,7 @@ impl Lockbox {
             form_root_offset: self.form_root_offset,
             free_index_offset: self.free_index_offset,
             key_directory_offset: self.key_directory_offset,
-            key_directory_mirror_offsets: self.key_directory_mirror_offsets,
+            key_directory_mirror_offset: self.key_directory_mirror_offset,
             key_directory_generation: self.key_directory_generation,
             dirty_key_directory: self.dirty_key_directory,
             lockbox_id: self.lockbox_id,
@@ -236,9 +251,111 @@ impl Lockbox {
             pending_small_file_bytes: self.pending_small_file_bytes,
             pending_symlinks: self.pending_symlinks.clone(),
             needs_packing: self.needs_packing,
+            state: PhantomData,
         })
     }
 
+    pub(crate) fn into_state<T>(self) -> Lockbox<T> {
+        let Lockbox {
+            storage,
+            key,
+            sequence,
+            commit_root_offset,
+            commit_auth_offset,
+            commit_auth_digest,
+            toc_root_offset,
+            variable_root_offset,
+            form_root_offset,
+            free_index_offset,
+            key_directory_offset,
+            key_directory_mirror_offset,
+            key_directory_generation,
+            dirty_key_directory,
+            lockbox_id,
+            read_only,
+            owner_signing_key,
+            key_slots,
+            toc_entries,
+            toc_root,
+            toc_leaves,
+            dirty_toc_paths,
+            variables,
+            variable_root,
+            variable_leaves,
+            dirty_variables,
+            form_definitions,
+            form_records,
+            form_root,
+            form_leaves,
+            dirty_form_keys,
+            dirty_forms,
+            page_manager,
+            compression_frame_cache,
+            import_stats,
+            workload_profile,
+            worker_policy,
+            free_space,
+            record_ref_counts,
+            pending_redactions,
+            redacted_free_slots,
+            pending_small_files,
+            pending_small_file_bytes,
+            pending_symlinks,
+            needs_packing,
+            state: _,
+        } = self;
+        Lockbox {
+            storage,
+            key,
+            sequence,
+            commit_root_offset,
+            commit_auth_offset,
+            commit_auth_digest,
+            toc_root_offset,
+            variable_root_offset,
+            form_root_offset,
+            free_index_offset,
+            key_directory_offset,
+            key_directory_mirror_offset,
+            key_directory_generation,
+            dirty_key_directory,
+            lockbox_id,
+            read_only,
+            owner_signing_key,
+            key_slots,
+            toc_entries,
+            toc_root,
+            toc_leaves,
+            dirty_toc_paths,
+            variables,
+            variable_root,
+            variable_leaves,
+            dirty_variables,
+            form_definitions,
+            form_records,
+            form_root,
+            form_leaves,
+            dirty_form_keys,
+            dirty_forms,
+            page_manager,
+            compression_frame_cache,
+            import_stats,
+            workload_profile,
+            worker_policy,
+            free_space,
+            record_ref_counts,
+            pending_redactions,
+            redacted_free_slots,
+            pending_small_files,
+            pending_small_file_bytes,
+            pending_symlinks,
+            needs_packing,
+            state: PhantomData,
+        }
+    }
+}
+
+impl Lockbox<Writable> {
     #[cfg(test)]
     pub fn create(key: impl AsRef<[u8]>) -> Self {
         Self::create_with_options(key, LockboxOptions::default())
@@ -292,7 +409,7 @@ impl Lockbox {
             form_root_offset: 0,
             free_index_offset: 0,
             key_directory_offset: 0,
-            key_directory_mirror_offsets: [0, 0],
+            key_directory_mirror_offset: 0,
             key_directory_generation: 0,
             dirty_key_directory: false,
             lockbox_id,
@@ -326,6 +443,7 @@ impl Lockbox {
             pending_small_file_bytes: 0,
             pending_symlinks: BTreeMap::new(),
             needs_packing: false,
+            state: PhantomData,
         }
     }
 
@@ -403,7 +521,7 @@ impl Lockbox {
             form_root_offset: 0,
             free_index_offset: 0,
             key_directory_offset: header_key_directory_offset,
-            key_directory_mirror_offsets: [0, 0],
+            key_directory_mirror_offset: 0,
             key_directory_generation: 0,
             dirty_key_directory: false,
             lockbox_id,
@@ -437,6 +555,7 @@ impl Lockbox {
             pending_small_file_bytes: 0,
             pending_symlinks: BTreeMap::new(),
             needs_packing: false,
+            state: PhantomData,
         };
 
         let mut toc_root_offset = header_root_offset;
@@ -451,7 +570,7 @@ impl Lockbox {
             lockbox.commit_root_offset = auth.commit_root_offset;
             lockbox.sequence = commit_root.sequence;
             lockbox.key_directory_offset = commit_root.key_directory_offset;
-            lockbox.key_directory_mirror_offsets = commit_root.key_directory_mirror_offsets;
+            lockbox.key_directory_mirror_offset = commit_root.key_directory_mirror_offset;
             lockbox.key_directory_generation = commit_root.key_directory_generation;
             lockbox.free_index_offset = commit_root.free_index_root_offset;
             lockbox.variable_root_offset = commit_root.variable_root_offset;
@@ -474,7 +593,7 @@ impl Lockbox {
             };
             lockbox.sequence = commit_root.sequence;
             lockbox.key_directory_offset = commit_root.key_directory_offset;
-            lockbox.key_directory_mirror_offsets = commit_root.key_directory_mirror_offsets;
+            lockbox.key_directory_mirror_offset = commit_root.key_directory_mirror_offset;
             lockbox.key_directory_generation = commit_root.key_directory_generation;
             lockbox.free_index_offset = commit_root.free_index_root_offset;
             lockbox.variable_root_offset = commit_root.variable_root_offset;
@@ -484,7 +603,7 @@ impl Lockbox {
             lockbox.commit_root_offset = offset;
             lockbox.sequence = commit_root.sequence;
             lockbox.key_directory_offset = commit_root.key_directory_offset;
-            lockbox.key_directory_mirror_offsets = commit_root.key_directory_mirror_offsets;
+            lockbox.key_directory_mirror_offset = commit_root.key_directory_mirror_offset;
             lockbox.key_directory_generation = commit_root.key_directory_generation;
             lockbox.free_index_offset = commit_root.free_index_root_offset;
             lockbox.variable_root_offset = commit_root.variable_root_offset;
@@ -517,33 +636,9 @@ impl Lockbox {
             Ok(lockbox)
         }
     }
+}
 
-    /// Return the stable id embedded in this lockbox.
-    pub fn lockbox_id(&self) -> LockboxId {
-        self.lockbox_id
-    }
-
-    /// Return verified owner-signing metadata for this opened lockbox.
-    pub fn owner_inspection(&self) -> Result<LockboxOwnerInspection> {
-        if self.commit_auth_offset == 0 {
-            return Ok(LockboxOwnerInspection {
-                signed: false,
-                fingerprint: None,
-            });
-        }
-        let (auth, _) = self.read_and_verify_commit_auth_at(self.commit_auth_offset)?;
-        if auth.signatures.is_empty() {
-            return Ok(LockboxOwnerInspection {
-                signed: false,
-                fingerprint: None,
-            });
-        }
-        Ok(LockboxOwnerInspection {
-            signed: true,
-            fingerprint: Some(owner_signature_fingerprint(&auth.signatures)?),
-        })
-    }
-
+impl Lockbox {
     /// Inspect public lockbox metadata without decrypting stored contents.
     ///
     /// This reads the lockbox header and key directory only. It does not open
@@ -590,12 +685,43 @@ impl Lockbox {
             owner_signed: false,
         })
     }
+}
+
+impl<State> Lockbox<State> {
+    /// Return the stable id embedded in this lockbox.
+    pub fn lockbox_id(&self) -> LockboxId {
+        self.lockbox_id
+    }
+
+    /// Return verified owner-signing metadata for this opened lockbox.
+    pub fn owner_inspection(&self) -> Result<LockboxOwnerInspection> {
+        if self.commit_auth_offset == 0 {
+            return Ok(LockboxOwnerInspection {
+                signed: false,
+                fingerprint: None,
+            });
+        }
+        let (auth, _) = self.read_and_verify_commit_auth_at(self.commit_auth_offset)?;
+        if auth.signatures.is_empty() {
+            return Ok(LockboxOwnerInspection {
+                signed: false,
+                fingerprint: None,
+            });
+        }
+        Ok(LockboxOwnerInspection {
+            signed: true,
+            fingerprint: Some(owner_signature_fingerprint(&auth.signatures)?),
+        })
+    }
 
     pub(crate) fn mark_read_only(&mut self) {
         self.read_only = true;
     }
 
-    pub fn set_owner_signing_key(&mut self, keypair: OwnerSigningKeyPair) {
+    pub fn set_owner_signing_key(&mut self, keypair: OwnerSigningKeyPair)
+    where
+        State: WritableLockboxState,
+    {
         self.owner_signing_key = Some(keypair);
     }
 
@@ -662,11 +788,7 @@ impl Lockbox {
         scanned_fallback: Option<&DecodedKeyDirectory>,
     ) -> Result<Option<DecodedKeyDirectory>> {
         let mut directories = Vec::new();
-        for offset in [
-            self.key_directory_offset,
-            self.key_directory_mirror_offsets[0],
-            self.key_directory_mirror_offsets[1],
-        ] {
+        for offset in [self.key_directory_offset, self.key_directory_mirror_offset] {
             if offset == 0 {
                 continue;
             }
@@ -934,7 +1056,7 @@ impl Lockbox {
     }
 
     /// Return a read-only diagnostics view for this lockbox.
-    pub fn inspector(&self) -> LockboxInspector<'_> {
+    pub fn inspector(&self) -> LockboxInspector<'_, State> {
         LockboxInspector { lockbox: self }
     }
 
@@ -1320,7 +1442,7 @@ impl Lockbox {
     }
 }
 
-impl LockboxInspector<'_> {
+impl<State> LockboxInspector<'_, State> {
     /// Return the current persisted storage length in bytes.
     ///
     /// Returns `Error::Io` if the backing storage cannot report its length.

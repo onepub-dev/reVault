@@ -9,8 +9,8 @@ use zeroize::Zeroize;
 
 use crate::{secret_vec::SecretVec, Error, Result};
 
-const PUBLIC_MAGIC: &[u8; 8] = b"LBX2HPUB";
-const PRIVATE_MAGIC: &[u8; 8] = b"LBX2HPRV";
+const PUBLIC_MAGIC: &[u8; 8] = b"LBX1HPUB";
+const PRIVATE_MAGIC: &[u8; 8] = b"LBX1HPRV";
 const HYBRID_KEY_VERSION: u16 = 1;
 const HYBRID_ALGORITHM_X25519_MLKEM768: u16 = 1;
 const X25519_KEY_LEN: usize = 32;
@@ -314,7 +314,7 @@ fn derive_wrapping_key(x25519_secret: &[u8], mlkem_secret: &[u8]) -> Result<[u8;
     let mut input = Vec::with_capacity(4 + x25519_secret.len() + 4 + mlkem_secret.len());
     put_bytes(&mut input, x25519_secret);
     put_bytes(&mut input, mlkem_secret);
-    let hkdf = Hkdf::<Sha256>::new(Some(b"lockbox-v2-hybrid-contact-wrap"), &input);
+    let hkdf = Hkdf::<Sha256>::new(Some(b"lockbox-v1-hybrid-contact-wrap"), &input);
     let mut out = [0_u8; 32];
     hkdf.expand(b"x25519-mlkem768-chacha20poly1305", &mut out)
         .map_err(|_| {

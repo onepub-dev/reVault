@@ -207,10 +207,10 @@ fn public_api_password_and_contact_key_management_flow() {
         b"shared"
     );
 
-    let mut reopened = Lockbox::open_file_with_owner_signing_key(
+    let mut reopened = Lockbox::open_file_for_write(
         &lockbox_path,
         LockboxOpen::Password(&old_password),
-        signing_key,
+        &signing_key,
     )
     .unwrap();
     let new_slot = reopened
@@ -499,7 +499,7 @@ fn public_api_password_contact_open_bytes_flow() {
 }
 
 #[test]
-fn public_api_commit_requires_explicit_owner_signing_key_after_open() {
+fn public_api_plain_open_returns_read_only_and_write_open_requires_signer() {
     let root = unique_dir("commit-requires-signer");
     let lockbox_path = root.join("signed.lbox");
     let _ = std::fs::remove_dir_all(&root);
@@ -518,21 +518,18 @@ fn public_api_commit_requires_explicit_owner_signing_key_after_open() {
         .unwrap();
     created.commit().unwrap();
 
-    let mut opened_without_signer =
+    let opened_without_signer =
         Lockbox::open_file(&lockbox_path, LockboxOpen::Password(&password)).unwrap();
-    opened_without_signer
-        .add_file(&p("/docs/b.txt"), b"bravo", false)
-        .unwrap();
-    assert!(matches!(
-        opened_without_signer.commit(),
-        Err(lockbox_core::Error::InvalidOperation(message))
-            if message.contains("owner signing key is required")
-    ));
+    assert_read_only_lockbox(&opened_without_signer);
+    assert_eq!(
+        opened_without_signer.get_file(&p("/docs/a.txt")).unwrap(),
+        b"alpha"
+    );
 
-    let mut opened_with_signer = Lockbox::open_file_with_owner_signing_key(
+    let mut opened_with_signer = Lockbox::open_file_for_write(
         &lockbox_path,
         LockboxOpen::Password(&password),
-        signing_key,
+        &signing_key,
     )
     .unwrap();
     opened_with_signer
@@ -545,6 +542,8 @@ fn public_api_commit_requires_explicit_owner_signing_key_after_open() {
 
     let _ = std::fs::remove_dir_all(root);
 }
+
+fn assert_read_only_lockbox(_: &Lockbox<lockbox_core::ReadOnly>) {}
 
 fn password(value: &str) -> SecretString {
     SecretString::try_from_bytes(value.as_bytes().to_vec()).unwrap()

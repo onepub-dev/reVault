@@ -659,7 +659,7 @@ fn oversized_key_directories_are_rejected() {
     let mut bytes = lb.to_bytes();
     let mut offset = 64usize;
     while offset + 24 <= bytes.len() {
-        if bytes.get(offset..offset + 8) == Some(b"LBX2KEY\0".as_slice()) {
+        if bytes.get(offset..offset + 8) == Some(b"LBX1KEY\0".as_slice()) {
             bytes[offset + 16..offset + 24].copy_from_slice(&(2 * 1024 * 1024u64).to_le_bytes());
             offset += 64;
         } else {
@@ -801,7 +801,7 @@ fn page_offsets(bytes: &[u8]) -> Vec<usize> {
     let mut offsets = Vec::new();
     let mut index = 0usize;
     while index + 8 <= bytes.len() {
-        if bytes.get(index..index + 8) == Some(b"LBX2PAG\0".as_slice()) {
+        if bytes.get(index..index + 8) == Some(b"LBX1PAG\0".as_slice()) {
             offsets.push(index);
             if let Some(page_size) = page_size_at(bytes, index) {
                 index = index.saturating_add(page_size);
@@ -2934,10 +2934,10 @@ fn path_backed_recovery_report_counts_variables_after_multiple_commits() {
     lb.commit().unwrap();
     drop(lb);
 
-    let mut lb = Lockbox::open_file_with_owner_signing_key(
+    let mut lb = Lockbox::open_file_for_write(
         &path,
         LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
-        signing_key.try_clone().unwrap(),
+        &signing_key,
     )
     .unwrap();
     lb.set_secret_variable(&variable("/product/API_KEY"), &password("secret-key"))
@@ -2945,10 +2945,10 @@ fn path_backed_recovery_report_counts_variables_after_multiple_commits() {
     lb.commit().unwrap();
     drop(lb);
 
-    let mut lb = Lockbox::open_file_with_owner_signing_key(
+    let mut lb = Lockbox::open_file_for_write(
         &path,
         LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
-        signing_key,
+        &signing_key,
     )
     .unwrap();
     lb.set_variable(&variable("/product/API_KEY1"), "normal-key-1")
@@ -2977,7 +2977,7 @@ fn sample_lockbox() -> Vec<u8> {
 
 fn update_test_header_checksum(bytes: &mut [u8]) {
     let mut hasher = Sha256::new();
-    hasher.update(b"lockbox-v2-public-checksum/sha256");
+    hasher.update(b"lockbox-v1-public-checksum/sha256");
     hasher.update((HEADER_CHECKSUM_START as u64).to_le_bytes());
     hasher.update(&bytes[0..HEADER_CHECKSUM_START]);
     let digest = hasher.finalize();

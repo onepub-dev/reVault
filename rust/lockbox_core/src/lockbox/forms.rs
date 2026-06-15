@@ -18,13 +18,16 @@ use crate::secret_vec::SecureVec;
 use crate::{crypto::derive_page_content_key, Error, LockboxPath, Result, SecretString};
 use zeroize::Zeroize;
 
-impl Lockbox {
+impl<State> Lockbox<State> {
     pub fn define_form(
         &mut self,
         alias: &str,
         name: &str,
         fields: Vec<FormFieldDefinition>,
-    ) -> Result<FormDefinition> {
+    ) -> Result<FormDefinition>
+    where
+        State: crate::WritableLockboxState,
+    {
         let alias = validate_form_alias(alias)?;
         match self.resolve_form_definition(&alias) {
             Ok(existing) => self.revise_form_definition(&existing.type_id, name, fields),
@@ -42,7 +45,10 @@ impl Lockbox {
         alias: &str,
         name: &str,
         fields: Vec<FormFieldDefinition>,
-    ) -> Result<FormDefinition> {
+    ) -> Result<FormDefinition>
+    where
+        State: crate::WritableLockboxState,
+    {
         let alias = validate_form_alias(alias)?;
         if self.latest_form_definition_by_type(&type_id)?.is_some() {
             return self.revise_form_definition(&type_id, name, fields);
@@ -68,7 +74,10 @@ impl Lockbox {
         type_id: &FormTypeId,
         name: &str,
         fields: Vec<FormFieldDefinition>,
-    ) -> Result<FormDefinition> {
+    ) -> Result<FormDefinition>
+    where
+        State: crate::WritableLockboxState,
+    {
         let previous = self
             .latest_form_definition_by_type(type_id)?
             .ok_or_else(|| Error::NotFound(format!("form type {type_id}")))?;
@@ -137,7 +146,10 @@ impl Lockbox {
         Ok(definitions)
     }
 
-    pub fn import_form_definition(&mut self, definition: FormDefinition) -> Result<FormDefinition> {
+    pub fn import_form_definition(&mut self, definition: FormDefinition) -> Result<FormDefinition>
+    where
+        State: crate::WritableLockboxState,
+    {
         if definition.revision == 0 {
             return Err(Error::InvalidInput(
                 "form definition revision must be greater than zero".to_string(),
@@ -174,7 +186,10 @@ impl Lockbox {
         path: &LockboxPath,
         type_reference: &str,
         name: &str,
-    ) -> Result<FormRecord> {
+    ) -> Result<FormRecord>
+    where
+        State: crate::WritableLockboxState,
+    {
         let path = path.file_path()?;
         let name = validate_form_record_name(name)?;
         self.ensure_forms_loaded()?;
@@ -229,7 +244,10 @@ impl Lockbox {
             .collect())
     }
 
-    pub fn delete_form_record(&mut self, path: &LockboxPath) -> Result<()> {
+    pub fn delete_form_record(&mut self, path: &LockboxPath) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let path = path.file_path()?;
         self.ensure_forms_loaded()?;
         let mut records = self.form_records.borrow_mut();
@@ -247,7 +265,10 @@ impl Lockbox {
         path: &LockboxPath,
         field_id: &str,
         value: &str,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         self.set_form_field(path, field_id, FormValue::Normal(value.to_string()))
     }
 
@@ -256,7 +277,10 @@ impl Lockbox {
         path: &LockboxPath,
         field_id: &str,
         value: &SecretString,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         self.set_form_field(
             path,
             field_id,
@@ -269,7 +293,10 @@ impl Lockbox {
         path: &LockboxPath,
         field_id: &str,
         value: FormValue,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let field_id = validate_form_field_id(field_id)?;
         self.ensure_forms_loaded()?;
         let type_id = self

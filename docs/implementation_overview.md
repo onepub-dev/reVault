@@ -2,7 +2,7 @@
 
 This document keeps implementation and format direction out of the top-level
 README. User-facing command examples are in [cli_how_to.md](cli_how_to.md).
-Exact on-disk structures are in [file_formats.md](file_formats.md).
+Exact on-disk structures are in [ARCHIVE_FORMAT.md](../rust/lockbox_core/ARCHIVE_FORMAT.md).
 
 ## Goals
 
@@ -176,7 +176,7 @@ The current Rust implementation includes:
 
 - ChaCha20-Poly1305 with 256-bit content keys for page-body encryption.
 - Argon2id password key derivation for password slots.
-- ML-KEM-1024 recipient wrapping for public-key sharing.
+- ML-KEM-768 contact wrapping for public-key sharing.
 - Zstandard page compression through a pure-Rust backend.
 - Independent compressed chunks for large files so random access and recovery
   remain practical.

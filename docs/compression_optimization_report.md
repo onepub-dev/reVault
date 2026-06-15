@@ -982,10 +982,9 @@ the current encoder path because it is already smaller there.
 Native encoder prototype outcome:
 
 The first implementation keeps the bounded compression-frame model but adds an
-opt-in `native-zstd-encoder` feature. The feature writes a distinct compression
-algorithm id because the current pure-Rust decoder does not decode libzstd
-frames. Default builds therefore fail closed with an explicit unsupported
-native-zstd message if they encounter a native-compressed frame.
+opt-in `native-zstd-encoder` feature. The feature now writes the standard zstd
+compression algorithm id; native zstd is an implementation detail, not a
+distinct archive format.
 
 | Fixture | Default bytes | Native-zstd bytes | Delta | Default add | Native add |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -1085,8 +1084,8 @@ Recommended state:
    gains are tiny or negative while read amplification grows sharply.
 10. Keep the native zstd encoder prototype as an opt-in profile. It is the
    strongest measured path toward GPG/zstd size without changing bounded frame
-   semantics, but it writes feature-gated artifacts and should not be default
-   until portability/WASM policy is settled.
+   semantics, but it should not be default until portability/WASM policy is
+   settled.
 
 Next research, if the goal remains smaller than current Lockbox while
 preserving partial access:

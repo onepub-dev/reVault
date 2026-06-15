@@ -2,13 +2,16 @@ use super::Lockbox;
 use crate::lockbox_path::LockboxPath;
 use crate::{Error, Result};
 
-impl Lockbox {
+impl<State> Lockbox<State> {
     /// Delete a file or symlink from the lockbox.
     ///
     /// Returns `Error::InvalidPath` for directory-only paths, `Error::NotFound`
     /// if `path` does not name an existing entry, and storage errors if pending data
     /// must be flushed before deletion.
-    pub fn delete(&mut self, path: &LockboxPath) -> Result<()> {
+    pub fn delete(&mut self, path: &LockboxPath) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let path = path.file_path()?;
         if self.should_discard_file_pages_after_flush()
             && self.pending_small_files.contains_key(path.as_str())
@@ -37,7 +40,10 @@ impl Lockbox {
     /// lockbox file paths. Returns `Error::NotFound` when the source file or
     /// directory prefix does not exist. Existing destination entries are
     /// replaced by the rename.
-    pub fn rename(&mut self, from: &LockboxPath, to: &LockboxPath) -> Result<()> {
+    pub fn rename(&mut self, from: &LockboxPath, to: &LockboxPath) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         if let Ok(from_path) = from.as_file_path() {
             if self
                 .toc_entries

@@ -9,7 +9,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 
-impl Lockbox {
+impl<State: Send> Lockbox<State> {
     /// Extract all permitted entries into a destination directory.
     ///
     /// Returns `Error::Io` for host filesystem failures,

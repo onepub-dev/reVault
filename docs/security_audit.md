@@ -16,11 +16,11 @@ cryptographic review.
   currently used for key directories, are page-cache managed and protected by
   page-format checksums.
 - Password slots use Argon2id with per-slot salts.
-- Recipient slots use ML-KEM-1024 wrapping.
-- Recipient aliases, email addresses, public keys, and stable public-key
+- Contact slots use ML-KEM-768 wrapping.
+- Contact aliases, email addresses, public keys, and stable public-key
   fingerprints are not serialized into shared lockbox key directories. Local
-  vault recipient names remain local vault metadata, and ML-KEM encapsulation is
-  generated per slot so recipient slots do not intentionally correlate
+  vault contact names remain local vault metadata, and ML-KEM-768 encapsulation
+  is generated per slot so contact slots do not intentionally correlate
   membership across lockboxes.
 - Key directories are capped at 1 MiB.
 - Open caching stores unwrapped content keys only in a per-user agent process,
@@ -59,7 +59,7 @@ cryptographic review.
   their own high-entropy lockbox key. Normal bindings should guide callers
   toward password or recipient open APIs.
 - The current storage path now uses fixed-size page-cache managed pages. Format
-  review should treat `docs/file_formats.md` as the current contract. Normal writes,
+  review should treat [ARCHIVE_FORMAT.md](../rust/lockbox_core/ARCHIVE_FORMAT.md) as the current contract. Normal writes,
   including compaction rewrites, pass through the page cache. Open reads of
   current key-directory pages also go through the page-cache page read/decode
   boundary because key directories are clear-text pages. Direct raw storage

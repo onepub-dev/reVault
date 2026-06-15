@@ -22,13 +22,15 @@ mod scan;
 mod security;
 mod storage;
 mod toc;
-#[cfg(feature = "vault-bridge")]
-pub mod vault_bridge;
+#[cfg(feature = "vault-integration")]
+pub mod vault_integration;
 
 #[cfg(test)]
 mod api_tests;
 #[cfg(test)]
 mod compression_regression_tests;
+#[cfg(test)]
+mod fixture_artifact_tests;
 
 pub(crate) use file_format::{
     commit_auth, commit_root, key_directory, page, page_buffer, page_inspection, page_scanner,
@@ -59,7 +61,8 @@ pub use key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
 pub use list_options::ListOptions;
 pub use lockbox::{
     ImportStats, Lockbox, LockboxFileInspection, LockboxInspector, LockboxOpen,
-    LockboxOwnerInspection, LockboxProtection, RecoveryScanner, VariableValueRef,
+    LockboxOwnerInspection, LockboxProtection, ReadOnly, RecoveryScanner, VariableValueRef,
+    Writable, WritableLockboxState,
 };
 pub use lockbox_id::LockboxId;
 pub use lockbox_path::LockboxPath;

@@ -3,7 +3,7 @@
 This note explores a clean-slate archive layout for better compression,
 single-thread write speed, range reads, partial updates, and damage recovery.
 It intentionally ignores compatibility with the current pre-1.0 physical
-format, while preserving the product goals documented in `file_formats.md`.
+format, while preserving the product goals documented in [ARCHIVE_FORMAT.md](../rust/lockbox_core/ARCHIVE_FORMAT.md).
 
 ## Goals
 

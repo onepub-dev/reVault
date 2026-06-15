@@ -10,7 +10,7 @@ use crate::page::{
 use crate::toc_entry::TocEntry;
 use crate::{Error, Result};
 
-impl Lockbox {
+impl<State> Lockbox<State> {
     /// Add or replace a symbolic link.
     ///
     /// When `replace` is `false`, returns `Error::AlreadyExists` if `path`
@@ -23,7 +23,10 @@ impl Lockbox {
         path: &LockboxPath,
         target: &LockboxPath,
         replace: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let path = path.file_path()?;
         let target = target.file_path()?;
         self.validate_replace_intent(&path, replace)?;

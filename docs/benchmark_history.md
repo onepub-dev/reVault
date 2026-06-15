@@ -311,10 +311,9 @@ Conclusion:
 
 Description: implemented the backend-gap recommendation as an opt-in
 `lockbox_core/native-zstd-encoder` feature. The feature uses the `zstd` crate's
-bulk compressor for compression frames and writes a distinct compression
-algorithm id. Native-compressed artifacts require a build with the same feature
-to decode; default builds fail closed with an explicit unsupported native-zstd
-message.
+bulk compressor for compression frames. The native encoder path writes the
+standard zstd compression algorithm id; native zstd is an implementation detail,
+not a distinct archive format.
 
 Commands:
 

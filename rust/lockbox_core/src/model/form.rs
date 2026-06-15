@@ -58,12 +58,11 @@ pub enum FormFieldKind {
     Month,
     Notes,
     Number,
-    Otp,
 }
 
 impl FormFieldKind {
     pub fn is_secret(self) -> bool {
-        matches!(self, Self::Secret | Self::Otp)
+        matches!(self, Self::Secret)
     }
 
     pub(crate) fn code(self) -> u8 {
@@ -76,7 +75,6 @@ impl FormFieldKind {
             Self::Month => 6,
             Self::Notes => 7,
             Self::Number => 8,
-            Self::Otp => 9,
         }
     }
 
@@ -90,7 +88,6 @@ impl FormFieldKind {
             6 => Ok(Self::Month),
             7 => Ok(Self::Notes),
             8 => Ok(Self::Number),
-            9 => Ok(Self::Otp),
             _ => Err(Error::CorruptRecord),
         }
     }
@@ -227,8 +224,8 @@ fn validate_kind_text(kind: FormFieldKind, value: &str) -> Result<()> {
                 ));
             }
         }
-        FormFieldKind::Date if !value.is_empty() => validate_fixed_date(value, false)?,
-        FormFieldKind::Month if !value.is_empty() => validate_fixed_date(value, true)?,
+        FormFieldKind::Date if !value.is_empty() => validate_fixed_date(value, DateField::Date)?,
+        FormFieldKind::Month if !value.is_empty() => validate_fixed_date(value, DateField::Month)?,
         FormFieldKind::Number if !value.is_empty() => {
             value.parse::<f64>().map_err(|_| {
                 Error::InvalidInput("number form field value is not numeric".to_string())
@@ -239,42 +236,127 @@ fn validate_kind_text(kind: FormFieldKind, value: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_fixed_date(value: &str, month_only: bool) -> Result<()> {
-    let expected_len = if month_only { 7 } else { 10 };
+#[derive(Clone, Copy)]
+enum DateField {
+    Date,
+    Month,
+}
+
+impl DateField {
+    fn expected_len(self) -> usize {
+        match self {
+            Self::Date => 10,
+            Self::Month => 7,
+        }
+    }
+
+    fn format_description(self) -> &'static str {
+        match self {
+            Self::Date => "date form field value must use YYYY-MM-DD",
+            Self::Month => "month form field value must use YYYY-MM",
+        }
+    }
+
+    fn field_name(self) -> &'static str {
+        match self {
+            Self::Date => "date",
+            Self::Month => "month",
+        }
+    }
+
+    fn has_day(self) -> bool {
+        matches!(self, Self::Date)
+    }
+}
+
+fn validate_fixed_date(value: &str, field: DateField) -> Result<()> {
+    let expected_len = field.expected_len();
     if value.len() != expected_len {
-        return Err(Error::InvalidInput(
-            "date form field value must use YYYY-MM or YYYY-MM-DD".to_string(),
-        ));
+        return Err(Error::InvalidInput(field.format_description().to_string()));
     }
     let bytes = value.as_bytes();
     if bytes[4] != b'-'
-        || (!month_only && bytes[7] != b'-')
+        || (field.has_day() && bytes[7] != b'-')
         || !bytes
             .iter()
             .enumerate()
-            .all(|(idx, byte)| matches!(idx, 4 | 7) || byte.is_ascii_digit())
+            .all(|(idx, byte)| idx == 4 || (field.has_day() && idx == 7) || byte.is_ascii_digit())
     {
-        return Err(Error::InvalidInput(
-            "date form field value must use YYYY-MM or YYYY-MM-DD".to_string(),
-        ));
+        return Err(Error::InvalidInput(field.format_description().to_string()));
     }
-    let month = value[5..7]
-        .parse::<u8>()
-        .map_err(|_| Error::InvalidInput("date form field value month is invalid".to_string()))?;
+    let year = value[0..4].parse::<u16>().map_err(|_| {
+        Error::InvalidInput(format!(
+            "{} form field value year is invalid",
+            field.field_name()
+        ))
+    })?;
+    let month = value[5..7].parse::<u8>().map_err(|_| {
+        Error::InvalidInput(format!(
+            "{} form field value month is invalid",
+            field.field_name()
+        ))
+    })?;
     if !(1..=12).contains(&month) {
-        return Err(Error::InvalidInput(
-            "date form field value month is invalid".to_string(),
-        ));
+        return Err(Error::InvalidInput(format!(
+            "{} form field value month is invalid",
+            field.field_name()
+        )));
     }
-    if !month_only {
+    if field.has_day() {
         let day = value[8..10]
             .parse::<u8>()
             .map_err(|_| Error::InvalidInput("date form field value day is invalid".to_string()))?;
-        if !(1..=31).contains(&day) {
+        if !(1..=days_in_month(year, month)).contains(&day) {
             return Err(Error::InvalidInput(
                 "date form field value day is invalid".to_string(),
             ));
         }
     }
     Ok(())
+}
+
+fn days_in_month(year: u16, month: u8) -> u8 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if is_leap_year(year) => 29,
+        2 => 28,
+        _ => 0,
+    }
+}
+
+fn is_leap_year(year: u16) -> bool {
+    year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{validate_form_value, FormFieldKind, FormValue};
+
+    fn invalid_message(kind: FormFieldKind, value: &str) -> String {
+        validate_form_value(kind, &FormValue::normal(value))
+            .unwrap_err()
+            .to_string()
+    }
+
+    #[test]
+    fn date_fields_require_calendar_date_format() {
+        validate_form_value(FormFieldKind::Date, &FormValue::normal("2026-06-14")).unwrap();
+
+        assert!(invalid_message(FormFieldKind::Date, "2026-06").contains("YYYY-MM-DD"));
+        assert!(invalid_message(FormFieldKind::Date, "2026/06/14").contains("YYYY-MM-DD"));
+        assert!(invalid_message(FormFieldKind::Date, "2026-13-14").contains("month is invalid"));
+        assert!(invalid_message(FormFieldKind::Date, "2026-06-00").contains("day is invalid"));
+        assert!(invalid_message(FormFieldKind::Date, "2026-02-29").contains("day is invalid"));
+        validate_form_value(FormFieldKind::Date, &FormValue::normal("2024-02-29")).unwrap();
+    }
+
+    #[test]
+    fn month_fields_require_year_month_format() {
+        validate_form_value(FormFieldKind::Month, &FormValue::normal("2026-06")).unwrap();
+
+        assert!(invalid_message(FormFieldKind::Month, "2026-06-14").contains("YYYY-MM"));
+        assert!(invalid_message(FormFieldKind::Month, "2026/06").contains("YYYY-MM"));
+        assert!(invalid_message(FormFieldKind::Month, "2026-13").contains("month is invalid"));
+    }
 }
