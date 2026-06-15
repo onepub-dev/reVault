@@ -196,3 +196,9 @@ Run one with:
 ```sh
 cargo run -p lockbox_core --example files_and_directories
 ```
+
+## Benchmarks
+
+Core archive performance benchmarks live in `benches/`. See
+`BENCHMARKS.md` for Criterion usage, the reproducible PGP comparison harness,
+sample results, and profiler notes.

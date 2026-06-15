@@ -46,3 +46,7 @@ libc = "0.2"
 [[bench]]
 name = "performance"
 harness = false
+
+[[bench]]
+name = "pgp_compare"
+harness = false
