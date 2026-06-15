@@ -1,7 +1,7 @@
 use lockbox_core::{LockboxId, SecretVec};
 use std::io;
 
-const MAGIC: &[u8; 4] = b"LBX2";
+const MAGIC: &[u8; 4] = b"LBX1";
 const HEADER_LEN: usize = 9;
 const MAX_MESSAGE_BYTES: usize = 128 * 1024;
 

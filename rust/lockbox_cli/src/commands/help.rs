@@ -587,7 +587,7 @@ fn form_command(verbose: bool) -> Command {
                 )
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox form define secrets.lbox login --field username:text --field password:secret\n  lockbox form define secrets.lbox login --name Login --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number",
+                    "Examples:\n  lockbox form define secrets.lbox login --field username:text --field password:secret\n  lockbox form define secrets.lbox login --name Login --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
                     "Context:\n  Define creates a new form definition for a new alias. If the alias already resolves to exactly one definition, define appends a new revision. If an imported published lockbox has conflicting aliases, pass --definition-id to revise the intended definition explicitly.",
                 ))
                 .arg(
@@ -1130,7 +1130,7 @@ fn vault_command(verbose: bool) -> Command {
                         )
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox vault form define login --name Login --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number",
+                            "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox vault form define login --name Login --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
                             "Context:\n  Define stores the reusable form definition in the vault. If the alias already resolves to one definition, define appends a new revision.",
                         ))
                         .arg(optional("alias", "Form alias."))

@@ -1,6 +1,6 @@
 use super::context::{cli_error, default_vault, Access, CliResult};
 use super::output::{output_format_from_args, print_records, OutputFormat};
-use lockbox_core::vault_bridge::VaultOpen;
+use lockbox_core::vault_integration::VaultOpen;
 use lockbox_core::{Error, RecoveryReport, RecoveryScanner, SecretVec};
 use lockbox_vault::{get as get_cached_content_key, VaultDirectory};
 use std::fs;

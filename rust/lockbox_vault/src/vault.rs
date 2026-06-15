@@ -1,4 +1,4 @@
-use lockbox_core::vault_bridge::{OpenedContentKey, VaultOpen};
+use lockbox_core::vault_integration::{OpenedContentKey, VaultOpen};
 use lockbox_core::{Error, Lockbox, LockboxOpen, LockboxProtection, Result, SecretString};
 use std::path::Path;
 
@@ -172,7 +172,11 @@ impl<S: ContentKeyStore> Vault<S> {
                     opened.try_clone_key()?,
                     path,
                 )?;
-                open_opened_path(opened, path)
+                match open_opened_path(opened, path) {
+                    Ok(lockbox) => Ok(lockbox),
+                    Err(Error::InvalidOperation(_)) => self.open_lockbox(path),
+                    Err(err) => Err(err),
+                }
             }
         }
     }
@@ -215,14 +219,17 @@ impl<S: ContentKeyStore> Vault<S> {
                 let opened = open_path_or_backup_with_contact(path, &contact)?;
                 let lockbox_id = opened.lockbox_id;
                 let store_key = opened.try_clone_key()?;
-                let lockbox = open_opened_path(opened, path)?;
                 self.store.put_content_key_for_path_with_ttl(
                     lockbox_id,
                     store_key,
                     path,
                     ttl_seconds,
                 )?;
-                Ok(lockbox)
+                match open_opened_path(opened, path) {
+                    Ok(lockbox) => Ok(lockbox),
+                    Err(Error::InvalidOperation(_)) => self.open_lockbox(path),
+                    Err(err) => Err(err),
+                }
             }
         }
     }
@@ -250,18 +257,22 @@ fn create_lockbox_file(path: &Path, protection: LockboxProtection<'_>) -> Result
 }
 
 fn open_lockbox_file(path: &Path, open: LockboxOpen<'_>) -> Result<Lockbox> {
-    if let Some(signing_key) = default_owner_signing_key()? {
-        return Lockbox::open_file_with_owner_signing_key(path, open, signing_key);
-    }
-    Lockbox::open_file(path, open)
+    let signing_key = default_owner_signing_key_required()?;
+    Lockbox::open_file_for_write(path, open, &signing_key)
 }
 
 fn open_opened_path(opened: OpenedContentKey, path: &Path) -> Result<Lockbox> {
-    let mut lockbox = opened.open_path(path)?;
-    if let Some(signing_key) = default_owner_signing_key()? {
-        lockbox.set_owner_signing_key(signing_key);
-    }
-    Ok(lockbox)
+    let signing_key = default_owner_signing_key_required()?;
+    opened.open_path_for_write(path, &signing_key)
+}
+
+fn default_owner_signing_key_required() -> Result<lockbox_core::OwnerSigningKeyPair> {
+    default_owner_signing_key()?.ok_or_else(|| {
+        Error::VaultUnavailable(
+            "vault owner signing key is unavailable; open or initialize the vault first"
+                .to_string(),
+        )
+    })
 }
 
 fn default_owner_signing_key() -> Result<Option<lockbox_core::OwnerSigningKeyPair>> {

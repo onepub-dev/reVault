@@ -1,5 +1,5 @@
 use crate::secret_prompt::prompt_secret;
-use lockbox_core::vault_bridge::VaultOpen;
+use lockbox_core::vault_integration::VaultOpen;
 use lockbox_core::{
     ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxOpen, LockboxProtection, SecretVec,
 };
@@ -110,10 +110,7 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
         let Ok(keypair) = vault.load_private_key(&identity) else {
             continue;
         };
-        if Vault::new(NoopStore)
-            .open_lockbox_with(path, LockboxOpen::ContactKeyPair(keypair))
-            .is_ok()
-        {
+        if Lockbox::open_file(Path::new(path), LockboxOpen::ContactKeyPair(keypair)).is_ok() {
             let cache_keypair = vault
                 .load_private_key(&identity)
                 .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;

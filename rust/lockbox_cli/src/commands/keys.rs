@@ -5,7 +5,7 @@ use super::context::{
 };
 use super::output::{output_format_from_args, print_records};
 use super::session::deactivate_if_active;
-use lockbox_core::vault_bridge::VaultOpen;
+use lockbox_core::vault_integration::VaultOpen;
 use lockbox_core::{
     ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxKeySlotProtection, LockboxOpen,
     LockboxProtection,

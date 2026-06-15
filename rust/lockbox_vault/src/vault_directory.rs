@@ -165,7 +165,7 @@ impl VaultDirectory {
             ));
         }
         let _guard = VaultFileLock::acquire(&root)?;
-        let lockbox = Lockbox::open_file(&path, LockboxOpen::Password(old_password))?;
+        let lockbox = open_vault_lockbox_for_write(&path, old_password)?;
         let vault = Self {
             root,
             path,
@@ -214,7 +214,7 @@ impl VaultDirectory {
         let path = root.join(VAULT_FILE_NAME);
         let existed = path.exists();
         let lockbox = if existed {
-            Lockbox::open_file(&path, LockboxOpen::Password(password))?
+            open_vault_lockbox_for_write(&path, password)?
         } else {
             let signing_key = OwnerSigningKeyPair::generate()?;
             let lockbox =
@@ -880,19 +880,7 @@ impl VaultDirectory {
     }
 
     fn load_owner_signing_key_existing(&self, name: &str) -> Result<OwnerSigningKeyPair> {
-        let secret = self
-            .lockbox
-            .borrow()
-            .with_secret_variable(
-                &owner_signing_key_variable_name(name)?,
-                SecretString::try_clone,
-            )?
-            .transpose()?
-            .ok_or_else(|| Error::NotFound(format!("vault owner signing key {name}")))?;
-        let mut bytes = SecretVec::new();
-        secret.append_to_secure_vec(&mut bytes)?;
-        decode_hex_secret_in_place(&mut bytes)?;
-        OwnerSigningKeyPair::from_private_key_record(bytes)
+        load_owner_signing_key_existing_from_lockbox(&self.lockbox.borrow(), name)
     }
 
     fn store_owner_signing_key_current_only(
@@ -1238,6 +1226,37 @@ fn private_key_generation_variable_name(name: &str, index: u16) -> Result<Variab
     ))
 }
 
+fn open_vault_lockbox_for_write(path: &Path, password: &SecretString) -> Result<Lockbox> {
+    Lockbox::open_file_for_write_with_signing_key(
+        path,
+        LockboxOpen::Password(password),
+        |lockbox| {
+            load_owner_signing_key_existing_from_lockbox(lockbox, VaultDirectory::DEFAULT_KEY_NAME)
+                .or_else(|err| match err {
+                    Error::NotFound(_) => OwnerSigningKeyPair::generate(),
+                    other => Err(other),
+                })
+        },
+    )
+}
+
+fn load_owner_signing_key_existing_from_lockbox<State>(
+    lockbox: &Lockbox<State>,
+    name: &str,
+) -> Result<OwnerSigningKeyPair> {
+    let secret = lockbox
+        .with_secret_variable(
+            &owner_signing_key_variable_name(name)?,
+            SecretString::try_clone,
+        )?
+        .transpose()?
+        .ok_or_else(|| Error::NotFound(format!("vault owner signing key {name}")))?;
+    let mut bytes = SecretVec::new();
+    secret.append_to_secure_vec(&mut bytes)?;
+    decode_hex_secret_in_place(&mut bytes)?;
+    OwnerSigningKeyPair::from_private_key_record(bytes)
+}
+
 fn owner_signing_key_variable_name(name: &str) -> Result<VariableName> {
     let name = validate_record_name(name)?;
     VariableName::new(format!(
@@ -1282,7 +1301,6 @@ fn default_form_templates() -> Vec<DefaultFormTemplate> {
                 form_field("username", "Username", FormFieldKind::Text, false),
                 form_field("password", "Password", FormFieldKind::Secret, true),
                 form_field("url", "Website", FormFieldKind::Url, false),
-                form_field("otp", "One-time password", FormFieldKind::Otp, false),
                 form_field("notes", "Notes", FormFieldKind::Notes, false),
             ],
         },

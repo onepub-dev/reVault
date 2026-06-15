@@ -1,4 +1,4 @@
-use lockbox_core::vault_bridge::VaultOpen;
+use lockbox_core::vault_integration::VaultOpen;
 use lockbox_core::{
     ContactKeyPair, Error, Lockbox, LockboxOpen, LockboxPath, LockboxProtection,
     OwnerSigningKeyPair, Result, SecretVec,
@@ -304,10 +304,10 @@ fn vault_directory_rejects_older_structure_versions() {
     drop(vault);
 
     let vault_path = root.join("local-vault.lbox");
-    let mut lockbox = Lockbox::open_file_with_owner_signing_key(
+    let mut lockbox = Lockbox::open_file_for_write(
         &vault_path,
         LockboxOpen::Password(&vault_password),
-        signing_key,
+        &signing_key,
     )
     .unwrap();
     lockbox
@@ -334,10 +334,10 @@ fn vault_directory_rejects_newer_structure_versions() {
     drop(vault);
 
     let vault_path = root.join("local-vault.lbox");
-    let mut lockbox = Lockbox::open_file_with_owner_signing_key(
+    let mut lockbox = Lockbox::open_file_for_write(
         &vault_path,
         LockboxOpen::Password(&vault_password),
-        signing_key,
+        &signing_key,
     )
     .unwrap();
     lockbox
@@ -703,7 +703,7 @@ impl Drop for EnvVarGuard {
 
 fn corrupt_key_directories(path: &PathBuf) {
     let mut bytes = fs::read(path).unwrap();
-    let magic = b"LBX2KEY\0";
+    let magic = b"LBX1KEY\0";
     let mut offset = 0usize;
     while offset + magic.len() <= bytes.len() {
         if &bytes[offset..offset + magic.len()] == magic {

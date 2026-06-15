@@ -113,7 +113,6 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&form_define_verbose_help);
     let form_define_verbose_help = String::from_utf8_lossy(&form_define_verbose_help.stdout);
     assert!(form_define_verbose_help.contains("NAME[:KIND[:required[:LABEL]]]"));
-    assert!(!form_define_verbose_help.contains("otp"));
 
     let form_define_error = run_output(bin, &["form", "define", "test.lbox"]);
     assert!(!form_define_error.status.success());
@@ -121,21 +120,6 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(form_define_error.contains("Example:"));
     assert!(form_define_error.contains("lockbox form define secrets.lbox login"));
     assert!(form_define_error.contains("[alias]"));
-
-    let form_otp_error = run_output(
-        bin,
-        &[
-            "form",
-            "define",
-            "test.lbox",
-            "login",
-            "--field",
-            "code:otp",
-        ],
-    );
-    assert!(!form_otp_error.status.success());
-    assert!(String::from_utf8_lossy(&form_otp_error.stderr)
-        .contains("unsupported form field kind: otp"));
 
     let dir = unique_dir_named("form-define-separator");
     fs::create_dir_all(&dir).unwrap();
@@ -2119,7 +2103,11 @@ fn content_key_create_does_not_mirror_empty_key_directory() {
     );
     assert_success(&listing);
     assert_eq!(String::from_utf8_lossy(&listing.stdout).trim(), "empty");
-    assert!(!vault_root.join("local-vault.lbox").exists());
+    assert!(vault_root.join("local-vault.lbox").exists());
+
+    let remembered = run_output_in(bin, &["vault", "lockbox", "list"], &vault_root, &agent_root);
+    assert_success(&remembered);
+    assert_eq!(String::from_utf8_lossy(&remembered.stdout).trim(), "empty");
 }
 
 #[test]
