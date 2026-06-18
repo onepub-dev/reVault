@@ -255,9 +255,10 @@ pub fn handle_stream(
             write_plain(&mut stream, 404, b"not found")?;
             return Ok(());
         };
-        let registration_token_authenticated =
-            topology_registration_endpoint && server_token_authenticated;
-        if !registration_token_authenticated && !allow_anonymous_request(&store, &limiter, peer_ip)
+        let inter_server_endpoint_authenticated =
+            (topology_registration_endpoint || replicate_endpoint) && server_token_authenticated;
+        if !inter_server_endpoint_authenticated
+            && !allow_anonymous_request(&store, &limiter, peer_ip)
         {
             write_response(
                 &mut stream,
@@ -1014,14 +1015,15 @@ mod tests {
     use std::path::PathBuf;
     use std::thread;
 
-    use super::{configure_stream_deadlines, RateLimiter, REQUEST_IO_TIMEOUT};
+    use super::{configure_stream_deadlines, unix_ms, RateLimiter, REQUEST_IO_TIMEOUT};
     use std::sync::Arc;
     use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use crate::store::{PublishStore, ServerConfig};
     use lockbox_publish_protocol::{
-        decode_status, decode_topology, encode_topology_registration, protocol, ServerStatus,
-        TopologyRegistration,
+        decode_status, decode_topology, encode_replication_request, encode_topology_registration,
+        protocol, sign_replication_event, ReplicationEvent, ReplicationEventKind,
+        ReplicationRequest, ServerStatus, TopologyRegistration,
     };
 
     #[test]
@@ -1191,6 +1193,49 @@ mod tests {
     }
 
     #[test]
+    fn replication_rate_limits_anonymous_but_allows_token_requests() {
+        let (_guard, mut config) = temp_server_config("replication-rate-limit");
+        config.server_id = 1;
+        config.topology_token = Some("server-token".to_string());
+        config.replication_token = Some("peer-secret".to_string());
+        let store = Arc::new(PublishStore::open(config).unwrap());
+        let limiter = Arc::new(RateLimiter::new(60, 1));
+        let first_body = rate_limit_block_request(1, [203, 0, 113, 21]);
+        let second_body = rate_limit_block_request(2, [203, 0, 113, 22]);
+
+        let first = post_request(
+            Arc::clone(&store),
+            Arc::clone(&limiter),
+            "/v1/replicate",
+            "",
+            &first_body,
+        );
+        let response = protocol::decode_response(http_body(&first), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::Success);
+
+        let anonymous = post_request(
+            Arc::clone(&store),
+            Arc::clone(&limiter),
+            "/v1/replicate",
+            "",
+            &second_body,
+        );
+        let response = protocol::decode_response(http_body(&anonymous), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::RateLimited);
+
+        let authenticated = post_request(
+            Arc::clone(&store),
+            limiter,
+            "/v1/replicate",
+            "X-Lockbox-Server-Token: server-token\r\n",
+            &second_body,
+        );
+        let response = protocol::decode_response(http_body(&authenticated), 1024).unwrap();
+        assert_eq!(response.status, protocol::Status::Success);
+        assert!(store.is_rate_limit_blocked(Some(IpAddr::from([203, 0, 113, 22]))));
+    }
+
+    #[test]
     fn server_token_header_does_not_bypass_publish_rate_limit() {
         let (_guard, mut config) = temp_server_config("publish-token-rate-limit");
         config.topology_token = Some("server-token".to_string());
@@ -1294,6 +1339,22 @@ mod tests {
         stream.read_to_end(&mut response).unwrap();
         server.join().unwrap();
         response
+    }
+
+    fn rate_limit_block_request(sequence: u64, ip: [u8; 4]) -> Vec<u8> {
+        let event = ReplicationEvent {
+            origin_server_id: 0,
+            origin_epoch: 2,
+            origin_sequence: sequence,
+            kind: ReplicationEventKind::RateLimitBlock {
+                client_ip: IpAddr::from(ip).to_string(),
+                expires_at_unix_ms: unix_ms(SystemTime::now() + Duration::from_secs(60)),
+            },
+        };
+        encode_replication_request(&ReplicationRequest {
+            authentication: sign_replication_event(b"peer-secret", &event),
+            event,
+        })
     }
 
     fn http_body(response: &[u8]) -> &[u8] {
