@@ -192,6 +192,22 @@ fn store_rate_limits_verification_email_by_contact() {
         store.create_from_payload(&second.payload),
         Err(StoreError::RateLimited)
     ));
+    assert!(store.is_verification_email_blocked("alice@example.test"));
+
+    let malformed = decode_request(
+        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+            900,
+            1,
+            b"not-a-contact-payload",
+            Some("alice@example.test"),
+        ),
+        2048,
+    )
+    .unwrap();
+    assert!(matches!(
+        store.create_from_payload(&malformed.payload),
+        Err(StoreError::RateLimited)
+    ));
 }
 
 #[test]
@@ -227,6 +243,20 @@ fn store_rate_limits_verification_email_by_ip_address() {
     )
     .unwrap();
     let response = store.handle_with_peer(second.operation, &second.payload, peer_ip);
+    assert_status(&response, Status::RateLimited);
+    assert!(store.is_rate_limit_blocked(peer_ip));
+
+    let malformed = decode_request(
+        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+            900,
+            1,
+            b"not-a-contact-payload",
+            Some("charlie@example.test"),
+        ),
+        2048,
+    )
+    .unwrap();
+    let response = store.handle_with_peer(malformed.operation, &malformed.payload, peer_ip);
     assert_status(&response, Status::RateLimited);
 }
 

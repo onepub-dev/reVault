@@ -51,6 +51,7 @@ const DEFAULT_TOPOLOGY_STALE_MS: u64 = 90_000;
 const DEFAULT_SMTP_TIMEOUT_SECONDS: u64 = 30;
 const EMAIL_QUEUE_CAPACITY: usize = 256;
 const STATUS_CACHE_TTL: Duration = Duration::from_secs(1);
+const VERIFICATION_ABUSE_BLOCK_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 
 type RecordHash = [u8; HASH_LEN];
 type ExpiryBucket = (u64, Vec<(RecordHash, String)>);
@@ -296,6 +297,7 @@ pub struct PublishStore {
     received: AtomicU64,
     email_tx: Option<mpsc::SyncSender<VerificationEmailJob>>,
     rate_limit_blocks: Mutex<HashMap<IpAddr, u64>>,
+    verification_email_blocks: Mutex<HashMap<String, u64>>,
     status_cache: Mutex<Option<StatusCache>>,
     deleted: AtomicU64,
     expired: AtomicU64,
@@ -509,6 +511,7 @@ impl PublishStore {
             received: AtomicU64::new(0),
             email_tx,
             rate_limit_blocks: Mutex::new(HashMap::new()),
+            verification_email_blocks: Mutex::new(HashMap::new()),
             status_cache: Mutex::new(None),
             deleted: AtomicU64::new(0),
             expired: AtomicU64::new(0),
@@ -565,6 +568,24 @@ impl PublishStore {
             Some(expires_at) if expires_at > now_ms => true,
             Some(_) => {
                 blocks.remove(&peer_ip);
+                false
+            }
+            None => false,
+        }
+    }
+
+    pub fn is_verification_email_blocked(&self, email: &str) -> bool {
+        let Ok(email) = normalize_verification_email(email) else {
+            return true;
+        };
+        let now_ms = unix_ms(SystemTime::now());
+        let Ok(mut blocks) = self.verification_email_blocks.lock() else {
+            return true;
+        };
+        match blocks.get(&email).copied() {
+            Some(expires_at) if expires_at > now_ms => true,
+            Some(_) => {
+                blocks.remove(&email);
                 false
             }
             None => false,
@@ -923,6 +944,7 @@ impl PublishStore {
         if publish_payload.len() > self.config.max_payload_bytes {
             return Err(StoreError::PayloadTooLarge);
         }
+        self.check_verification_blocks(&verification_email, peer_ip)?;
         payload::validate_payload(&publish_payload)
             .map_err(|err| StoreError::PayloadInvalid(err.to_string()))?;
         self.check_email_rate_limit(&verification_email, peer_ip)?;
@@ -1014,6 +1036,10 @@ impl PublishStore {
             let bucket = limits.by_email.entry(email.to_string()).or_default();
             prune_rate_bucket(bucket, cutoff);
             if bucket.len() >= email_limit {
+                self.block_verification_email_until(
+                    email,
+                    verification_abuse_block_expires_at_ms(),
+                )?;
                 return Err(StoreError::RateLimited);
             }
         }
@@ -1022,6 +1048,10 @@ impl PublishStore {
                 let bucket = limits.by_ip.entry(ip).or_default();
                 prune_rate_bucket(bucket, cutoff);
                 if bucket.len() >= ip_limit {
+                    self.block_rate_limited_client_until(
+                        ip,
+                        verification_abuse_block_expires_at_ms(),
+                    )?;
                     return Err(StoreError::RateLimited);
                 }
             }
@@ -1040,6 +1070,37 @@ impl PublishStore {
             }
         }
         Ok(())
+    }
+
+    fn check_verification_blocks(
+        &self,
+        email: &str,
+        peer_ip: Option<IpAddr>,
+    ) -> Result<(), StoreError> {
+        if self.is_verification_email_blocked(email) || self.is_rate_limit_blocked(peer_ip) {
+            Err(StoreError::RateLimited)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn block_verification_email_until(
+        &self,
+        email: &str,
+        expires_at_unix_ms: u64,
+    ) -> Result<bool, StoreError> {
+        let now_ms = unix_ms(SystemTime::now());
+        if expires_at_unix_ms <= now_ms {
+            return Ok(false);
+        }
+        let email = normalize_verification_email(email)?;
+        let mut blocks = lock_store(&self.verification_email_blocks, "verification email blocks")?;
+        let current = blocks.get(&email).copied().unwrap_or(0);
+        if current >= expires_at_unix_ms {
+            return Ok(false);
+        }
+        blocks.insert(email, expires_at_unix_ms);
+        Ok(true)
     }
 
     fn resolve_publish_lookup(&self, lookup: &str) -> Result<String, StoreError> {
@@ -2925,6 +2986,14 @@ fn unix_ms(time: SystemTime) -> u64 {
     time.duration_since(UNIX_EPOCH)
         .unwrap_or(Duration::ZERO)
         .as_millis() as u64
+}
+
+fn verification_abuse_block_expires_at_ms() -> u64 {
+    unix_ms(
+        SystemTime::now()
+            .checked_add(VERIFICATION_ABUSE_BLOCK_TTL)
+            .unwrap_or_else(SystemTime::now),
+    )
 }
 
 pub fn bench_store(config: ServerConfig) -> Result<(), StoreError> {
