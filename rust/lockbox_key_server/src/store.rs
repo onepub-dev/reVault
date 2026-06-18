@@ -1912,7 +1912,11 @@ impl PublishStore {
                     event,
                 });
                 append_outbox_event(&self.replication_outbox_path, sequence, &request)?;
-                if let Err(err) = send_replication_request(&[peer_url.to_string()], &request) {
+                if let Err(err) = send_replication_request(
+                    &[peer_url.to_string()],
+                    &request,
+                    self.config.topology_token.as_deref(),
+                ) {
                     return Err(StoreError::Io(std::io::Error::other(format!(
                         "replication peer {peer_url} did not accept resync event {sequence}: {err}"
                     ))));
@@ -2376,6 +2380,7 @@ fn start_replication_worker(
         return None;
     }
     let peer_urls = config.replication_peer_urls.clone();
+    let server_token = config.topology_token.clone();
     let origin_server_id = config.server_id;
     let origin_epoch = config.origin_epoch;
     let outbox_path = outbox_path.to_path_buf();
@@ -2427,7 +2432,13 @@ fn start_replication_worker(
                         },
                     );
                 }
-                retry_pending_outbox(&outbox_path, &peer_urls, &mut pending, &mut last_retry_log);
+                retry_pending_outbox(
+                    &outbox_path,
+                    &peer_urls,
+                    server_token.as_deref(),
+                    &mut pending,
+                    &mut last_retry_log,
+                );
             }
         })
         .ok()?;
@@ -2460,6 +2471,7 @@ fn queue_replication_event(kind: ReplicationEventKind, queue: ReplicationQueue<'
 fn retry_pending_outbox(
     outbox_path: &Path,
     peer_urls: &[String],
+    server_token: Option<&str>,
     pending: &mut VecDeque<(u64, Vec<u8>)>,
     last_retry_log: &mut Instant,
 ) {
@@ -2468,7 +2480,7 @@ fn retry_pending_outbox(
     let mut first_failure = None;
     let mut remaining = VecDeque::new();
     while let Some((sequence, request)) = pending.pop_front() {
-        match send_replication_request(peer_urls, &request) {
+        match send_replication_request(peer_urls, &request, server_token) {
             Ok(()) => {
                 if let Err(err) = append_outbox_ack(outbox_path, sequence) {
                     log_server_event(format!("replication outbox ack failed: {err}"));
@@ -2497,11 +2509,19 @@ fn retry_pending_outbox(
     *pending = remaining;
 }
 
-fn send_replication_request(peer_urls: &[String], request: &[u8]) -> Result<(), String> {
+fn send_replication_request(
+    peer_urls: &[String],
+    request: &[u8],
+    server_token: Option<&str>,
+) -> Result<(), String> {
     let mut first_failure = None;
     for peer_url in peer_urls {
         match HttpTransport::new(peer_url).and_then(|transport| {
-            let response = transport.post_binary(request)?;
+            let response = if let Some(server_token) = server_token {
+                transport.post_binary_with_server_token(request, server_token)?
+            } else {
+                transport.post_binary(request)?
+            };
             protocol::decode_response(&response, 1024)
                 .map_err(lockbox_publish_protocol::ClientError::from)
         }) {
@@ -3043,6 +3063,8 @@ pub fn bench_store(config: ServerConfig) -> Result<(), StoreError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::TcpListener;
+    use std::thread;
 
     #[test]
     fn auto_routes_are_rebuilt_when_topology_members_join() {
@@ -3105,6 +3127,63 @@ mod tests {
         assert_eq!(pending[0].1, b"two");
 
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn replication_sender_includes_server_token_header() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let request = read_http_request(&mut stream);
+            let body = protocol::encode_response(Operation::Replicate, Status::Success, &[]);
+            let headers = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            std::io::Write::write_all(&mut stream, headers.as_bytes()).unwrap();
+            std::io::Write::write_all(&mut stream, &body).unwrap();
+            String::from_utf8_lossy(&request).to_string()
+        });
+
+        let peer_url = format!("http://{addr}/v1/replicate");
+        send_replication_request(&[peer_url], b"replication-body", Some("server-token")).unwrap();
+        let request = server.join().unwrap();
+
+        assert!(request.contains("x-lockbox-server-token: server-token\r\n"));
+    }
+
+    fn read_http_request(stream: &mut std::net::TcpStream) -> Vec<u8> {
+        let mut request = Vec::new();
+        let mut buffer = [0_u8; 512];
+        loop {
+            let read = std::io::Read::read(stream, &mut buffer).unwrap();
+            if read == 0 {
+                break;
+            }
+            request.extend_from_slice(&buffer[..read]);
+            let Some(header_end) = request
+                .windows(4)
+                .position(|window| window == b"\r\n\r\n")
+                .map(|offset| offset + 4)
+            else {
+                continue;
+            };
+            let headers = String::from_utf8_lossy(&request[..header_end]);
+            let content_length = headers
+                .lines()
+                .find_map(|line| {
+                    let (name, value) = line.split_once(':')?;
+                    name.eq_ignore_ascii_case("content-length")
+                        .then(|| value.trim().parse::<usize>().ok())
+                        .flatten()
+                })
+                .unwrap_or(0);
+            if request.len() >= header_end + content_length {
+                break;
+            }
+        }
+        request
     }
 
     #[test]
