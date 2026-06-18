@@ -152,7 +152,7 @@ TTL settings use seconds in the config file:
 
 | Key | Default | Description |
 | --- | --- | --- |
-| `rate_limit_per_minute` | `120` | Per-IP request rate limit. Use `0` to disable. Unauthenticated `GET /v1/topology`, `GET /v1/status`, `GET /v1/verify`, and non-tokened topology registration requests use this limiter. |
+| `rate_limit_per_minute` | `120` | Per-IP request rate limit. Use `0` to disable. Unauthenticated `GET /v1/topology`, `GET /v1/status`, `GET /v1/verify`, and non-tokened topology registration or replication requests use this limiter. |
 | `rate_limit_burst` | `40` | Per-IP burst capacity. |
 
 ## Email Verification
@@ -192,7 +192,7 @@ verification_email_rate_limit_per_hour = 5
 verification_email_ip_rate_limit_per_hour = 30
 ```
 
-Publish requests queue verification email work on a bounded background worker. A full or unavailable queue causes the publish request to fail fast; SMTP delivery failures after queuing are logged.
+Publish requests queue verification email work on a bounded background worker. A full or unavailable queue causes the publish request to fail fast; SMTP delivery failures after queuing are logged. Verification email or source-IP rate-limit breaches create temporary local blocks so repeated attempts are rejected before payload validation and before SMTP queueing. Source-IP verification blocks are also replicated to configured peers.
 
 ## Topology Settings
 
@@ -205,7 +205,7 @@ server.
 | `topology_version` | `1` | Public topology version. Increase when making manual topology changes. |
 | `[[topology_server]]` | none | Adds a server to the public topology. |
 | `[[route]]` | auto-generated | Adds an owner routing rule. |
-| `topology_token` | none | Shared token used in the `X-Lockbox-Server-Token` or `Authorization: Bearer` header for topology heartbeat registration and unmetered peer topology/status requests. Do not put this token in public topology URLs. |
+| `topology_token` | none | Shared token used in the `X-Lockbox-Server-Token` or `Authorization: Bearer` header for topology heartbeat registration and unmetered peer topology/status/replication requests. Do not put this token in public topology URLs. |
 | `topology_stale_after_ms` | `90000` | Ignore topology peers that have not checked in within this age. |
 | `topology_heartbeat_interval_ms` | `30000` | Interval between topology heartbeat posts. |
 
@@ -288,7 +288,7 @@ id.
 
 | Key | Default | Description |
 | --- | --- | --- |
-| `replication_token` | none | Shared secret used to sign and verify peer replication messages. Required for replication and `resync-peer`. |
+| `replication_token` | none | Shared secret used to sign and verify peer replication messages. Required for replication and `resync-peer`. Peer replication HTTP requests should also include the `topology_token` header so they are treated as trusted inter-server traffic and bypass the public IP limiter. |
 | `replication_peer_url` | none | Peer `/v1/replicate` endpoint. May be repeated. |
 | `origin_epoch` | current time in milliseconds | Local replication epoch used for conflict/idempotency tracking. Installed bootstrap config sets this to `1`. |
 | `promoted_owner` | none | Owner id this server is allowed to serve as a promoted standby. May be repeated. |

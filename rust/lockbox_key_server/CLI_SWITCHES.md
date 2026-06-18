@@ -111,7 +111,7 @@ topology members and routes use TOML arrays of tables.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `compact_min_bytes` | integer | `67108864` | Bytes in storage before background compaction runs. |
-| `rate_limit_per_minute` | integer | `120` | Per-IP request limit. `0` disables rate limiting. Unauthenticated `GET /v1/topology`, `GET /v1/status`, `GET /v1/verify`, and non-tokened topology registration requests use this limiter. |
+| `rate_limit_per_minute` | integer | `120` | Per-IP request limit. `0` disables rate limiting. Unauthenticated `GET /v1/topology`, `GET /v1/status`, `GET /v1/verify`, and non-tokened topology registration or replication requests use this limiter. |
 | `rate_limit_burst` | integer | `40` | Per-IP rate limit burst capacity. |
 | `verification_ttl_seconds` | integer | `1800` | Email verification link lifetime. |
 | `default_receive_ttl_seconds` | integer | `7200` | Default receive lifetime after email verification. |
