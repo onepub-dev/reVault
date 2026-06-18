@@ -5,9 +5,11 @@ use lockbox_core::{
 };
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+const ADD_PROGRESS_INTERVAL: Duration = Duration::from_secs(1);
 
 pub(crate) fn add(args: &[String], access: &Access, worker_policy: WorkerPolicy) -> CliResult<()> {
     let recursive = args.iter().any(|arg| arg == "--recursive" || arg == "-r");
@@ -37,7 +39,11 @@ pub(crate) fn add(args: &[String], access: &Access, worker_policy: WorkerPolicy)
     }
     lb.reset_import_stats();
     let add_start = Instant::now();
-    add_source_path(&mut lb, source_path, &path)?;
+    let mut progress = AddProgress::for_source(source_path);
+    let add_result = add_source_path(&mut lb, source_path, &path, &mut progress);
+    let progress_result = progress.finish();
+    add_result?;
+    progress_result?;
     let add_wall = add_start.elapsed();
     let commit_start = Instant::now();
     lb.commit()?;
@@ -317,14 +323,20 @@ fn extract_policy_from_args(args: &[String]) -> ExtractPolicy {
     policy
 }
 
-fn add_source_path(lockbox: &mut Lockbox, source: &Path, lockbox_root: &str) -> CliResult<()> {
+fn add_source_path(
+    lockbox: &mut Lockbox,
+    source: &Path,
+    lockbox_root: &str,
+    progress: &mut AddProgress,
+) -> CliResult<()> {
     let lockbox_root = LockboxPath::new(lockbox_root)?;
     if source.is_file() {
+        progress.record(source)?;
         lockbox.add_file_from_path(source, &lockbox_root, false)?;
         return Ok(());
     }
     if source.is_dir() {
-        add_directory(lockbox, source, source, &lockbox_root)?;
+        add_directory(lockbox, source, source, &lockbox_root, progress)?;
         return Ok(());
     }
     Err(Error::UnsupportedHostPath(source.display().to_string()).into())
@@ -335,20 +347,99 @@ fn add_directory(
     root: &Path,
     current: &Path,
     lockbox_root: &LockboxPath,
+    progress: &mut AddProgress,
 ) -> CliResult<()> {
     for entry in fs::read_dir(current)? {
         let entry = entry?;
         let path = entry.path();
         let file_type = entry.file_type()?;
         if file_type.is_dir() {
-            add_directory(lockbox, root, &path, lockbox_root)?;
+            progress.record(&path)?;
+            add_directory(lockbox, root, &path, lockbox_root, progress)?;
         } else if file_type.is_file() {
             let relative = path.strip_prefix(root)?;
             let lockbox_path = join_lockbox_path(lockbox_root, relative)?;
+            progress.record(&path)?;
             lockbox.add_file_from_path(&path, &lockbox_path, false)?;
         }
     }
     Ok(())
+}
+
+struct AddProgress {
+    enabled: bool,
+    terminal: bool,
+    last_write: Option<Instant>,
+    pending: Option<String>,
+    wrote: bool,
+}
+
+impl AddProgress {
+    fn for_source(source: &Path) -> Self {
+        let mode = std::env::var("LOCKBOX_ADD_PROGRESS").ok();
+        let terminal = io::stderr().is_terminal();
+        let enabled = match mode.as_deref() {
+            Some("0" | "off" | "false" | "never") => false,
+            Some("1" | "on" | "true" | "always") => true,
+            _ => source.is_dir() && terminal,
+        };
+        Self {
+            enabled,
+            terminal,
+            last_write: None,
+            pending: None,
+            wrote: false,
+        }
+    }
+
+    fn record(&mut self, path: &Path) -> CliResult<()> {
+        if !self.enabled {
+            return Ok(());
+        }
+        self.pending = Some(path.display().to_string());
+        if self
+            .last_write
+            .is_none_or(|last_write| last_write.elapsed() >= ADD_PROGRESS_INTERVAL)
+        {
+            self.write_pending()?;
+        }
+        Ok(())
+    }
+
+    fn finish(&mut self) -> CliResult<()> {
+        if !self.enabled {
+            return Ok(());
+        }
+        self.write_pending()?;
+        if self.wrote {
+            if self.terminal {
+                eprint!("\r{}\r", " ".repeat(terminal_width_fallback()));
+            } else {
+                eprintln!();
+            }
+            io::stderr().flush()?;
+        }
+        Ok(())
+    }
+
+    fn write_pending(&mut self) -> CliResult<()> {
+        let Some(path) = self.pending.take() else {
+            return Ok(());
+        };
+        eprint!("\rAdding: {path}");
+        io::stderr().flush()?;
+        self.last_write = Some(Instant::now());
+        self.wrote = true;
+        Ok(())
+    }
+}
+
+fn terminal_width_fallback() -> usize {
+    std::env::var("COLUMNS")
+        .ok()
+        .and_then(|value| value.parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(120)
 }
 
 fn join_lockbox_path(lockbox_root: &LockboxPath, relative: &Path) -> CliResult<LockboxPath> {

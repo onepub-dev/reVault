@@ -2232,6 +2232,36 @@ fn add_can_default_destination_and_list_recursively() {
             "/copy",
         ],
     );
+    let progress_vault_root = unique_dir().join("vault");
+    let progress_agent_root = unique_dir().join("agent");
+    let progress = Command::new(bin)
+        .args([
+            "add",
+            "--recursive",
+            lockbox.to_str().unwrap(),
+            source_dir.to_str().unwrap(),
+            "/progress",
+        ])
+        .env("LOCKBOX_KEY", "test-key")
+        .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_SESSION_AGENT_DIR", &progress_agent_root)
+        .env(
+            "LOCKBOX_SESSION_AGENT_LOG",
+            agent_log_path(&progress_agent_root),
+        )
+        .env("LOCKBOX_VAULT_DIR", &progress_vault_root)
+        .env("LOCKBOX_ADD_PROGRESS", "always")
+        .output()
+        .unwrap();
+    assert_success(&progress);
+    let progress_stderr = String::from_utf8_lossy(&progress.stderr);
+    assert!(progress_stderr.contains("\rAdding: "));
+    assert!(progress_stderr.contains("two.txt"));
+    assert_eq!(
+        progress_stderr.matches('\n').count(),
+        1,
+        "{progress_stderr:?}"
+    );
 
     let listing = run_output(bin, &["ls", lockbox.to_str().unwrap()]);
     assert_success(&listing);
