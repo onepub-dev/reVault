@@ -1202,6 +1202,79 @@ mod tests {
         assert_eq!(reopened.get_file(&p("/docs/new.txt")).unwrap(), b"new");
     }
 
+    #[test]
+    fn failed_commit_during_delete_redaction_reopens_previous_commit() {
+        let mut lb = Lockbox::create("secret");
+        lb.add_file(&p("/docs/remove.txt"), b"remove me", false)
+            .unwrap();
+        lb.add_file(&p("/docs/keep.txt"), b"keep", false).unwrap();
+        lb.commit().unwrap();
+        let old_offset = lb
+            .toc_entries
+            .get(&p("/docs/remove.txt"))
+            .unwrap()
+            .record_offset;
+
+        lb.delete(&p("/docs/remove.txt")).unwrap();
+        lb.storage.fail_memory_next_write_at(old_offset);
+        assert!(matches!(lb.commit(), Err(Error::Io(_))));
+
+        assert!(matches!(
+            lb.get_file(&p("/docs/remove.txt")),
+            Err(Error::NotFound(_))
+        ));
+        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        assert_eq!(
+            reopened.get_file(&p("/docs/remove.txt")).unwrap(),
+            b"remove me"
+        );
+        assert_eq!(reopened.get_file(&p("/docs/keep.txt")).unwrap(), b"keep");
+
+        lb.commit().unwrap();
+        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        assert!(matches!(
+            reopened.get_file(&p("/docs/remove.txt")),
+            Err(Error::NotFound(_))
+        ));
+        assert_eq!(reopened.get_file(&p("/docs/keep.txt")).unwrap(), b"keep");
+    }
+
+    #[test]
+    fn failed_commit_during_replace_redaction_reopens_previous_commit() {
+        let mut lb = Lockbox::create("secret");
+        let old_data = deterministic_bytes(1_100_000, 0x1111_2222);
+        let new_data = deterministic_bytes(1_100_000, 0x3333_4444);
+        lb.add_file(&p("/docs/data.bin"), &old_data, false).unwrap();
+        lb.commit().unwrap();
+        let old_offset = lb
+            .toc_entries
+            .get(&p("/docs/data.bin"))
+            .unwrap()
+            .record_offset;
+
+        lb.add_file(&p("/docs/data.bin"), &new_data, true).unwrap();
+        lb.storage.fail_memory_next_write_at(old_offset);
+        assert!(matches!(lb.commit(), Err(Error::Io(_))));
+
+        assert_eq!(lb.get_file(&p("/docs/data.bin")).unwrap(), new_data);
+        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        assert_eq!(reopened.get_file(&p("/docs/data.bin")).unwrap(), old_data);
+
+        lb.commit().unwrap();
+        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        assert_eq!(reopened.get_file(&p("/docs/data.bin")).unwrap(), new_data);
+    }
+
+    fn deterministic_bytes(len: usize, seed: u64) -> Vec<u8> {
+        let mut state = seed;
+        (0..len)
+            .map(|_| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                (state >> 32) as u8
+            })
+            .collect()
+    }
+
     fn synthetic_toc_entries(count: usize) -> Vec<TocEntry> {
         (0..count)
             .map(|i| TocEntry {
