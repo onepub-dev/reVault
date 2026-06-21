@@ -587,8 +587,8 @@ fn form_command(verbose: bool) -> Command {
                 )
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox form define secrets.lbox login --field username:text --field password:secret\n  lockbox form define secrets.lbox login --name Login --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
-                    "Context:\n  Define creates a new form definition for a new alias. If the alias already resolves to exactly one definition, define appends a new revision. If an imported published lockbox has conflicting aliases, pass --definition-id to revise the intended definition explicitly.",
+                    "Examples:\n  lockbox form define secrets.lbox login --field username:text --field password:secret\n  lockbox form define secrets.lbox --name Login --field username:text:required:User --field password:secret:required:Password\n  lockbox form define secrets.lbox login --name Login --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
+                    "Context:\n  Define creates or revises a form definition. The alias is optional; when omitted, --name is required and an alias slug is derived from the display name. If the alias already resolves to exactly one definition, define appends a new revision. If an imported published lockbox has conflicting aliases, pass --definition-id to revise the intended definition explicitly.",
                 ))
                 .arg(
                     Arg::new("args")
@@ -1125,14 +1125,14 @@ fn vault_command(verbose: bool) -> Command {
                 .subcommand(
                     Command::new("define")
                         .about("Create or revise a reusable form definition.")
-                        .override_usage(
-                            "lockbox vault form define [alias] --field <NAME[:KIND[:required[:LABEL]]]>...",
-                        )
-                        .after_help(verbose_help(
-                            verbose,
-                            "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox vault form define login --name Login --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
-                            "Context:\n  Define stores the reusable form definition in the vault. If the alias already resolves to one definition, define appends a new revision.",
-                        ))
+                .override_usage(
+                    "lockbox vault form define [alias] --field <NAME[:KIND[:required[:LABEL]]]>...",
+                )
+                .after_help(verbose_help(
+                    verbose,
+                    "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox vault form define --name Login --field username:text:required:User --field password:secret:required:Password\n  lockbox vault form define login --name Login --field username:text:required:User --field password:secret:required:Password\n\nField form:\n  NAME[:KIND[:required[:LABEL]]]\n\nKinds:\n  text, secret, password, url, email, date, month, notes, number\n\nFormats:\n  date uses YYYY-MM-DD; month uses YYYY-MM",
+                    "Context:\n  Define stores the reusable form definition in the vault. The alias is optional; when omitted, --name is required and an alias slug is derived from the display name. If the alias already resolves to one definition, define appends a new revision.",
+                ))
                         .arg(optional("alias", "Form alias."))
                         .arg(
                             Arg::new("name")

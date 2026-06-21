@@ -3,7 +3,7 @@ use super::context::{
     read_replacement_vault_password, read_vault_password, remember_default_vault_password,
     require_arg, CliResult,
 };
-use super::form::{parse_field_spec, print_form_definition_saved};
+use super::form::{default_form_alias, parse_field_spec, print_form_definition_saved};
 use super::output::{output_format_from_args, print_records, OutputFormat};
 use lockbox_core::{ContactKeyPair, ContactPublicKey, Error, Lockbox, OwnerSigningPublicKey};
 use lockbox_publish_protocol::protocol::Status;
@@ -187,7 +187,7 @@ fn form_define(args: &[String]) -> CliResult<()> {
     let name = name.ok_or_else(|| {
         Error::InvalidInput("vault form define requires an alias or --name".to_string())
     })?;
-    let alias = alias.unwrap_or_else(|| name.clone());
+    let alias = alias.unwrap_or_else(|| default_form_alias(&name));
     let vault = default_vault()?;
     let definition = if let Some(type_id) = type_id {
         vault.define_form_with_type_id(type_id, &alias, &name, fields)?

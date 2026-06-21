@@ -113,6 +113,8 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&form_define_verbose_help);
     let form_define_verbose_help = String::from_utf8_lossy(&form_define_verbose_help.stdout);
     assert!(form_define_verbose_help.contains("NAME[:KIND[:required[:LABEL]]]"));
+    assert!(form_define_verbose_help.contains("The alias is optional"));
+    assert!(form_define_verbose_help.contains("lockbox form define secrets.lbox --name Login"));
 
     let form_define_error = run_output(bin, &["form", "define", "test.lbox"]);
     assert!(!form_define_error.status.success());
@@ -481,8 +483,16 @@ fn form_definitions_and_records_flow() {
     );
     assert_success(&aliasless_define);
     let aliasless_define = String::from_utf8_lossy(&aliasless_define.stdout);
-    assert!(aliasless_define.contains("alias: Token"));
+    assert!(aliasless_define.contains("alias: token"));
     assert!(aliasless_define.contains("name: Token"));
+    let aliasless_list = run_output(
+        bin,
+        &["form", "definitions", &aliasless_lockbox, "--format", "tsv"],
+    );
+    assert_success(&aliasless_list);
+    let aliasless_list = String::from_utf8_lossy(&aliasless_list.stdout);
+    assert!(aliasless_list.contains("token"));
+    assert!(aliasless_list.contains("Token"));
     run(
         bin,
         &[
@@ -1215,6 +1225,22 @@ fn vault_form_definitions_can_be_used_and_captured() {
         &vault_root,
         &agent_root,
     );
+    run_without_content_key(
+        bin,
+        &[
+            "vault",
+            "form",
+            "define",
+            "--name",
+            "Server Login",
+            "--field",
+            "host:text",
+            "--field",
+            "password:secret",
+        ],
+        &vault_root,
+        &agent_root,
+    );
     let vault_definitions = run_output_without_content_key(
         bin,
         &["vault", "form", "definitions", "--format", "tsv"],
@@ -1222,7 +1248,10 @@ fn vault_form_definitions_can_be_used_and_captured() {
         &agent_root,
     );
     assert_success(&vault_definitions);
-    assert!(String::from_utf8_lossy(&vault_definitions.stdout).contains("login"));
+    let vault_definitions = String::from_utf8_lossy(&vault_definitions.stdout);
+    assert!(vault_definitions.contains("login"));
+    assert!(vault_definitions.contains("server-login"));
+    assert!(vault_definitions.contains("Server Login"));
 
     let legacy_types =
         run_output_without_content_key(bin, &["vault", "form", "types"], &vault_root, &agent_root);

@@ -77,7 +77,7 @@ fn define(args: &[String], access: &Access) -> CliResult<()> {
     let name = name.ok_or_else(|| {
         Error::InvalidInput("form define requires an alias or --name".to_string())
     })?;
-    let alias = alias.unwrap_or_else(|| name.clone());
+    let alias = alias.unwrap_or_else(|| default_form_alias(&name));
     let mut lb = open_or_create(lockbox_path, access)?;
     let definition = if let Some(type_id) = type_id {
         lb.define_form_with_type_id(type_id, &alias, &name, fields)?
@@ -96,6 +96,43 @@ pub(crate) fn print_form_definition_saved(definition: &FormDefinition) {
     println!("  revision: {}", definition.revision);
     println!("  name: {}", definition.name);
     println!("  fields: {}", definition.fields.len());
+}
+
+pub(crate) fn default_form_alias(name: &str) -> String {
+    let mut alias = String::new();
+    let mut previous_separator = false;
+    for ch in name.trim().chars() {
+        if ch.is_ascii_alphanumeric() || ch == '_' {
+            alias.push(ch.to_ascii_lowercase());
+            previous_separator = false;
+        } else if ch == '-' || ch.is_whitespace() {
+            if !alias.is_empty() && !previous_separator {
+                alias.push('-');
+                previous_separator = true;
+            }
+        }
+        if alias.len() >= 128 {
+            break;
+        }
+    }
+    while alias.ends_with('-') {
+        alias.pop();
+    }
+    if alias.is_empty() {
+        alias.push_str("form");
+    }
+    if !alias
+        .chars()
+        .next()
+        .is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic())
+    {
+        alias.insert_str(0, "form-");
+        alias.truncate(128);
+        while alias.ends_with('-') {
+            alias.pop();
+        }
+    }
+    alias
 }
 
 fn use_vault_definition(args: &[String], access: &Access) -> CliResult<()> {
