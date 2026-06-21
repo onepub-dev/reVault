@@ -2529,9 +2529,9 @@ fn password_create_requires_explicit_vault_init() {
     assert!(init.contains("Emergency identity backup:"));
     assert!(init.contains("Public key fingerprint:"));
     assert!(init.contains("Store this private key and your vault pass phrase somewhere safe."));
-    assert!(init.contains("--- reVault identity public key backup (default) ---"));
+    assert!(init.contains("Public key:\n-----BEGIN LOCKBOX PUBLIC KEY-----"));
     assert!(init.contains("-----BEGIN LOCKBOX PUBLIC KEY-----"));
-    assert!(init.contains("--- reVault identity private key backup (default) ---"));
+    assert!(init.contains("Private key:\n-----BEGIN LOCKBOX PRIVATE KEY-----"));
     assert!(init.contains("-----BEGIN LOCKBOX PRIVATE KEY-----"));
     assert!(init.contains(
         "Pass phrase reminder:\n  Store the vault pass phrase somewhere safe.\n  If it is lost, reVault cannot recover this vault."
@@ -2544,6 +2544,8 @@ fn password_create_requires_explicit_vault_init() {
     assert!(!init.contains("Keep the vault password somewhere safe."));
     assert!(!init.contains("Record your vault password in a secure place"));
     assert!(!init.contains("Back up your vault password before storing important keys."));
+    assert!(!init.contains("--- reVault identity public key backup"));
+    assert!(!init.contains("--- reVault identity private key backup"));
     assert_contains_in_order(
         &init,
         &[
@@ -2553,7 +2555,9 @@ fn password_create_requires_explicit_vault_init() {
             "Identity: default",
             "Default forms: 7",
             "Emergency identity backup:",
+            "Public key:",
             "-----BEGIN LOCKBOX PUBLIC KEY-----",
+            "Private key:",
             "-----BEGIN LOCKBOX PRIVATE KEY-----",
             "Pass phrase reminder:",
             "If it is lost, reVault cannot recover this vault.",

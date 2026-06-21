@@ -1360,20 +1360,19 @@ fn print_default_identity_backup(vault: &VaultDirectory) -> CliResult<()> {
     println!("  Store this private key and your vault pass phrase somewhere safe.");
     println!("  Anyone with the private key can open lockboxes granted to this identity.");
     println!();
-    println!("--- reVault identity public key backup ({identity}) ---");
+    println!("Public key:");
     io::stdout().write_all(&public_bytes)?;
     if !public_bytes.ends_with(b"\n") {
         println!();
     }
-    println!("--- end reVault identity public key backup ({identity}) ---");
-    println!("--- reVault identity private key backup ({identity}) ---");
+    println!();
+    println!("Private key:");
     private_bytes.with_bytes(|bytes| io::stdout().write_all(bytes))??;
     private_bytes.with_bytes(|bytes| {
         if !bytes.ends_with(b"\n") {
             println!();
         }
     })?;
-    println!("--- end reVault identity private key backup ({identity}) ---");
     Ok(())
 }
 
