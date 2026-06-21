@@ -247,9 +247,12 @@ fn read_owner_metadata(path: &Path) -> Option<String> {
     let mut text = String::new();
     File::open(path).ok()?.read_to_string(&mut text).ok()?;
     let pid = metadata_value(&text, "pid").unwrap_or("unknown");
-    let exe = metadata_value(&text, "exe").unwrap_or("unknown");
-    let created = metadata_value(&text, "created_unix_ms").unwrap_or("unknown");
-    Some(format!(" by pid {pid} ({exe}) since {created}"))
+    let created = metadata_value(&text, "created_unix_ms")
+        .and_then(|value| value.parse::<u128>().ok())
+        .map(format_unix_millis_datetime)
+        .or_else(|| metadata_value(&text, "created_unix_ms").map(str::to_string))
+        .unwrap_or_else(|| "unknown".to_string());
+    Some(format!(" by pid {pid} since {created}"))
 }
 
 fn timeout_error(
@@ -272,6 +275,32 @@ fn metadata_value<'a>(text: &'a str, key: &str) -> Option<&'a str> {
         .find_map(|line| line.strip_prefix(key)?.strip_prefix('='))
 }
 
+fn format_unix_millis_datetime(unix_ms: u128) -> String {
+    let rounded_seconds = ((unix_ms + 500) / 1000).min(i64::MAX as u128) as i64;
+    let days = rounded_seconds.div_euclid(86_400);
+    let seconds_of_day = rounded_seconds.rem_euclid(86_400);
+    let (year, month, day) = civil_from_days(days);
+    let hour = seconds_of_day / 3_600;
+    let minute = (seconds_of_day % 3_600) / 60;
+    let second = seconds_of_day % 60;
+    format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}")
+}
+
+fn civil_from_days(days_since_unix_epoch: i64) -> (i64, u32, u32) {
+    let z = days_since_unix_epoch + 719_468;
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let day_of_era = z - era * 146_097;
+    let year_of_era =
+        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
+    let year = year_of_era + era * 400;
+    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
+    let month_prime = (5 * day_of_year + 2) / 153;
+    let day = day_of_year - (153 * month_prime + 2) / 5 + 1;
+    let month = month_prime + if month_prime < 10 { 3 } else { -9 };
+    let year = year + if month <= 2 { 1 } else { 0 };
+    (year, month as u32, day as u32)
+}
+
 #[cfg(not(unix))]
 fn lock_file_is_stale(path: &Path) -> bool {
     let Ok(text) = fs::read_to_string(path) else {
@@ -289,4 +318,22 @@ fn process_exists(pid: u32) -> bool {
     let mut system = sysinfo::System::new();
     system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
     system.process(pid).is_some()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_unix_millis_datetime;
+
+    #[test]
+    fn unix_millis_format_is_human_readable_datetime() {
+        assert_eq!(format_unix_millis_datetime(0), "1970-01-01 00:00:00");
+        assert_eq!(
+            format_unix_millis_datetime(1_704_067_201_234),
+            "2024-01-01 00:00:01"
+        );
+        assert_eq!(
+            format_unix_millis_datetime(1_704_067_201_500),
+            "2024-01-01 00:00:02"
+        );
+    }
 }
