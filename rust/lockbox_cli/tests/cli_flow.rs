@@ -6,9 +6,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
 
-use lockbox_core::{Lockbox, LockboxOpen};
+use lockbox_core::{Lockbox, LockboxOpen, OwnerSigningKeyPair, SecretVec};
 use lockbox_vault::{
-    encode_hex, import_private_key_file, import_public_key, public_key_fingerprint,
+    decode_hex, encode_hex, import_private_key, import_private_key_file, import_public_key,
+    public_key_fingerprint, SecretString, VaultDirectory,
 };
 
 static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -2555,13 +2556,21 @@ fn password_create_requires_explicit_vault_init() {
     assert!(init.contains("Directory:\n  "));
     assert!(init.contains("Identity: default"));
     assert!(init.contains("Default forms: 7"));
-    assert!(init.contains("Emergency identity backup:"));
+    assert!(
+        init.contains("Store the following private keys and your vault passphrase somewhere safe.")
+    );
+    assert!(init.contains(
+        "Anyone with the identity private key can open lockboxes granted to this identity."
+    ));
+    assert!(init.contains(
+        "Anyone with the signing private key can sign lockbox changes as this identity."
+    ));
+    assert!(init.contains("Identity backup:"));
     assert!(init.contains("Public key fingerprint:"));
-    assert!(init.contains("Store this private key and your vault pass phrase somewhere safe."));
-    assert!(init.contains("Public key:\n-----BEGIN LOCKBOX PUBLIC KEY-----"));
-    assert!(init.contains("-----BEGIN LOCKBOX PUBLIC KEY-----"));
-    assert!(init.contains("Private key:\n-----BEGIN LOCKBOX PRIVATE KEY-----"));
+    assert!(init.contains("Identity private key:"));
     assert!(init.contains("-----BEGIN LOCKBOX PRIVATE KEY-----"));
+    assert!(init.contains("Owner signing private key record (hex):"));
+    assert!(init.contains("Owner signing private key record (hex):\n4c42583153505256"));
     assert!(init.contains(
         "Pass phrase reminder:\n  Store the vault pass phrase somewhere safe.\n  If it is lost, reVault cannot recover this vault."
     ));
@@ -2583,14 +2592,44 @@ fn password_create_requires_explicit_vault_init() {
             "Directory:",
             "Identity: default",
             "Default forms: 7",
-            "Emergency identity backup:",
-            "Public key:",
-            "-----BEGIN LOCKBOX PUBLIC KEY-----",
-            "Private key:",
+            "Store the following private keys and your vault passphrase somewhere safe.",
+            "Identity backup:",
+            "Public key fingerprint:",
+            "Identity private key:",
             "-----BEGIN LOCKBOX PRIVATE KEY-----",
+            "Owner signing private key record (hex):",
+            "4c42583153505256",
             "Pass phrase reminder:",
             "If it is lost, reVault cannot recover this vault.",
         ],
+    );
+    assert!(!init.contains("-----BEGIN LOCKBOX PUBLIC KEY-----"));
+    assert!(!init.contains("Public key:"));
+    let vault_password = SecretString::try_from_bytes(b"test-vault-password".to_vec()).unwrap();
+    let vault = VaultDirectory::open_or_create(&vault_root, &vault_password).unwrap();
+    let identity_private = extract_identity_private_key_backup(&init);
+    let restored_identity =
+        import_private_key(SecretVec::try_from_slice(identity_private.as_bytes()).unwrap())
+            .unwrap();
+    let stored_identity = vault
+        .load_private_key(VaultDirectory::DEFAULT_KEY_NAME)
+        .unwrap();
+    assert_eq!(
+        restored_identity.private_key_record().unwrap(),
+        stored_identity.private_key_record().unwrap()
+    );
+
+    let signing_private_hex = extract_owner_signing_private_key_hex(&init);
+    let signing_private_record =
+        SecretVec::try_from_slice(&decode_hex(&signing_private_hex).unwrap()).unwrap();
+    let restored_signing =
+        OwnerSigningKeyPair::from_private_key_record(signing_private_record).unwrap();
+    let stored_signing = vault
+        .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
+        .unwrap();
+    assert_eq!(
+        restored_signing.private_key_record().unwrap(),
+        stored_signing.private_key_record().unwrap()
     );
     assert!(vault_root.join("local-vault.lbox").exists());
 
@@ -2658,7 +2697,7 @@ fn vault_init_rejects_blank_pass_phrase() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("vault pass phrase must be at least 15 characters"),
+        stderr.contains("vault passphrase must be at least 15 characters"),
         "{stderr}"
     );
     assert!(!vault_root.join("local-vault.lbox").exists());
@@ -2784,11 +2823,12 @@ fn vault_init_prompt_mentions_minimum_pass_phrase_length() {
     assert!(!output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stdout.contains("Vault pass phrase:"));
-    assert!(stdout.contains("1. Generate a strong pass phrase"));
-    assert!(stdout.contains("2. Enter my own pass phrase"));
-    assert!(stdout.contains("New vault pass phrase (minimum 15 characters):"));
-    assert!(stderr.contains("vault pass phrase must be at least 15 characters"));
+    assert!(stdout.contains("Vault passphrase:"));
+    assert!(stdout.contains("1. Generate a strong passphrase"));
+    assert!(stdout.contains("2. Enter my own passphrase"));
+    assert!(stdout.contains("3. Cancel vault init"));
+    assert!(stdout.contains("New vault passphrase (minimum 15 characters):"));
+    assert!(stderr.contains("vault passphrase must be at least 15 characters"));
     assert!(!vault_root.join("local-vault.lbox").exists());
 }
 
@@ -2819,10 +2859,10 @@ fn vault_init_generated_pass_phrase_requires_stored_confirmation() {
     assert!(!output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stdout.contains("Generated vault pass phrase:"));
+    assert!(stdout.contains("Generated vault passphrase:"));
     assert!(stdout.contains("Store this in your password manager before continuing."));
     assert!(stdout.contains("Continue after storing it? [y/N]:"));
-    assert!(stderr.contains("vault pass phrase was not confirmed as stored"));
+    assert!(stderr.contains("vault passphrase was not confirmed as stored"));
     assert!(!vault_root.join("local-vault.lbox").exists());
 }
 
@@ -2917,7 +2957,7 @@ fn vault_init_generated_pass_phrase_accepts_stored_confirmation() {
 
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Generated vault pass phrase:"));
+    assert!(stdout.contains("Generated vault passphrase:"));
     assert!(stdout.contains("Continue after storing it? [y/N]:"));
     assert!(stdout.contains("Vault created successfully."));
     assert!(vault_root.join("local-vault.lbox").exists());
@@ -3036,7 +3076,9 @@ fn vault_init_overwrite_replaces_existing_vault_with_warning() {
     );
     assert_success(&overwritten);
     let overwritten = String::from_utf8_lossy(&overwritten.stdout);
-    assert!(overwritten.contains("WARNING: replacing it will remove"));
+    assert!(overwritten.contains(
+        "WARNING: replacing it will remove identities, contacts and key-directory backups stored in this vault."
+    ));
     assert!(overwritten.contains("Vault replaced successfully."));
     assert!(overwritten.contains("Created default identity: default"));
 
@@ -4867,6 +4909,30 @@ fn assert_contains_in_order(text: &str, needles: &[&str]) {
         };
         start += index + needle.len();
     }
+}
+
+fn extract_identity_private_key_backup(text: &str) -> String {
+    let begin = "-----BEGIN LOCKBOX PRIVATE KEY-----";
+    let end = "-----END LOCKBOX PRIVATE KEY-----";
+    let start = text.find(begin).expect("identity private key begin block");
+    let end = text[start..]
+        .find(end)
+        .map(|index| start + index + end.len())
+        .expect("identity private key end block");
+    let mut block = text[start..end].to_string();
+    block.push('\n');
+    block
+}
+
+fn extract_owner_signing_private_key_hex(text: &str) -> String {
+    let (_, rest) = text
+        .split_once("Owner signing private key record (hex):")
+        .expect("owner signing private key block");
+    rest.lines()
+        .map(str::trim)
+        .skip_while(|line| line.is_empty())
+        .take_while(|line| !line.is_empty() && line.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .collect::<String>()
 }
 
 fn unique_dir() -> PathBuf {

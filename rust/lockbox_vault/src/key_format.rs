@@ -149,7 +149,7 @@ pub fn export_public_key(key: &ContactPublicKey, format: KeyFormat) -> Result<Ve
 pub fn import_public_key(bytes: &[u8]) -> Result<ContactPublicKey> {
     let text = std::str::from_utf8(bytes)
         .map_err(|_| Error::InvalidKeyMaterial("public key is not UTF-8 text".to_string()))?;
-    if text.trim_start().starts_with("-----BEGIN ") {
+    if text_starts_with_pem_begin(text, PUBLIC_LABEL) {
         let (label, payload) = unpem(text)?;
         if label != PUBLIC_LABEL {
             return Err(Error::InvalidKeyMaterial(format!(
@@ -227,7 +227,7 @@ fn normalize_private_key_record(bytes: &mut SecretVec) -> Result<()> {
     bytes
         .with_mut_bytes(|bytes| {
             let (start, end) = trim_ascii_range(bytes);
-            if bytes[start..end].starts_with(b"-----BEGIN ") {
+            if starts_with_pem_begin(&bytes[start..end], PRIVATE_LABEL.as_bytes()) {
                 let body_len = compact_pem_body(bytes, start, end)?;
                 let decoded_len = Base64::decode_in_place(&mut bytes[..body_len])
                     .map_err(|_| {
@@ -268,36 +268,105 @@ fn normalize_private_key_record(bytes: &mut SecretVec) -> Result<()> {
 }
 
 fn compact_pem_body(bytes: &mut [u8], start: usize, end: usize) -> Result<usize> {
-    let begin = b"-----BEGIN LOCKBOX PRIVATE KEY-----";
-    if !bytes[start..end].starts_with(begin) {
+    let mut line_start = start;
+    let first_line_end = line_end(bytes, line_start, end);
+    if !is_pem_boundary_line(
+        &bytes[line_start..first_line_end],
+        b"BEGIN",
+        PRIVATE_LABEL.as_bytes(),
+    ) {
         return Err(Error::InvalidKeyMaterial(
             "private PEM does not start with LOCKBOX PRIVATE KEY header".to_string(),
         ));
     }
-    let mut line_start = start;
-    while line_start < end && bytes[line_start] != b'\n' && bytes[line_start] != b'\r' {
-        line_start += 1;
-    }
-    if line_start == end {
+    line_start = next_line_start(bytes, first_line_end, end);
+    if line_start >= end {
         return Err(Error::InvalidKeyMaterial(
             "private PEM does not contain a body".to_string(),
         ));
     }
+
     let mut write = 0usize;
-    let mut read = line_start;
-    while read < end {
-        let byte = bytes[read];
-        if byte == b'-' && bytes[read..end].starts_with(b"-----END ") {
+    let mut saw_end = false;
+    while line_start < end {
+        let line_end = line_end(bytes, line_start, end);
+        if is_pem_boundary_line(
+            &bytes[line_start..line_end],
+            b"END",
+            PRIVATE_LABEL.as_bytes(),
+        ) {
+            saw_end = true;
             break;
         }
-        if !byte.is_ascii_whitespace() {
-            bytes[write] = byte;
-            write += 1;
+        let mut read = line_start;
+        while read < line_end {
+            let byte = bytes[read];
+            if !byte.is_ascii_whitespace() {
+                bytes[write] = byte;
+                write += 1;
+            }
+            read += 1;
         }
-        read += 1;
+        line_start = next_line_start(bytes, line_end, end);
+    }
+    if !saw_end {
+        return Err(Error::InvalidKeyMaterial(
+            "private PEM input does not contain a matching END line".to_string(),
+        ));
     }
     bytes[write..].zeroize();
     Ok(write)
+}
+
+fn starts_with_pem_begin(bytes: &[u8], label: &[u8]) -> bool {
+    let end = line_end(bytes, 0, bytes.len());
+    is_pem_boundary_line(&bytes[..end], b"BEGIN", label)
+}
+
+fn line_end(bytes: &[u8], start: usize, end: usize) -> usize {
+    let mut index = start;
+    while index < end && bytes[index] != b'\n' && bytes[index] != b'\r' {
+        index += 1;
+    }
+    index
+}
+
+fn next_line_start(bytes: &[u8], mut index: usize, end: usize) -> usize {
+    while index < end && (bytes[index] == b'\n' || bytes[index] == b'\r') {
+        index += 1;
+    }
+    index
+}
+
+fn is_pem_boundary_line(line: &[u8], keyword: &[u8], label: &[u8]) -> bool {
+    let line = trim_matching_byte(trim_ascii(line), b'-');
+    let Some(rest) = line.strip_prefix(keyword) else {
+        return false;
+    };
+    let Some(rest) = rest.strip_prefix(b" ") else {
+        return false;
+    };
+    rest == label
+}
+
+fn trim_matching_byte(mut bytes: &[u8], byte: u8) -> &[u8] {
+    while bytes.first() == Some(&byte) {
+        bytes = &bytes[1..];
+    }
+    while bytes.last() == Some(&byte) {
+        bytes = &bytes[..bytes.len() - 1];
+    }
+    trim_ascii(bytes)
+}
+
+fn trim_ascii(mut bytes: &[u8]) -> &[u8] {
+    while bytes.first().is_some_and(u8::is_ascii_whitespace) {
+        bytes = &bytes[1..];
+    }
+    while bytes.last().is_some_and(u8::is_ascii_whitespace) {
+        bytes = &bytes[..bytes.len() - 1];
+    }
+    bytes
 }
 
 fn find_json_string_value(bytes: &[u8], key: &[u8]) -> Result<(usize, usize)> {
@@ -478,15 +547,11 @@ fn unpem(text: &str) -> Result<(String, JwkKey)> {
     let begin = lines.next().ok_or_else(|| {
         Error::InvalidKeyMaterial("PEM input does not contain a BEGIN line".to_string())
     })?;
-    let label = begin
-        .strip_prefix("-----BEGIN ")
-        .and_then(|value| value.strip_suffix("-----"))
-        .ok_or_else(|| Error::InvalidKeyMaterial("PEM BEGIN line is malformed".to_string()))?
-        .to_string();
-    let end = format!("-----END {label}-----");
+    let label = parse_pem_text_boundary(begin, "BEGIN", None)
+        .ok_or_else(|| Error::InvalidKeyMaterial("PEM BEGIN line is malformed".to_string()))?;
     let mut body = String::new();
     for line in lines {
-        if line == end {
+        if parse_pem_text_boundary(line, "END", Some(&label)).is_some() {
             let json = Base64::decode_vec(&body).map_err(|_| {
                 Error::InvalidKeyMaterial("PEM body is not valid base64".to_string())
             })?;
@@ -500,6 +565,32 @@ fn unpem(text: &str) -> Result<(String, JwkKey)> {
     Err(Error::InvalidKeyMaterial(
         "PEM input does not contain a matching END line".to_string(),
     ))
+}
+
+fn text_starts_with_pem_begin(text: &str, label: &str) -> bool {
+    text.lines()
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .and_then(|line| parse_pem_text_boundary(line, "BEGIN", Some(label)))
+        .is_some()
+}
+
+fn parse_pem_text_boundary(
+    line: &str,
+    keyword: &str,
+    expected_label: Option<&str>,
+) -> Option<String> {
+    let core = line.trim().trim_matches('-').trim();
+    let label = core.strip_prefix(keyword)?.strip_prefix(' ')?;
+    if label.is_empty() {
+        return None;
+    }
+    if let Some(expected_label) = expected_label {
+        if label != expected_label {
+            return None;
+        }
+    }
+    Some(label.to_string())
 }
 
 fn fingerprint(public_key: &[u8]) -> String {
@@ -529,6 +620,44 @@ mod tests {
 
         let public = export_public_key(&keypair.public_key(), KeyFormat::LockboxPem).unwrap();
         let loaded_public = import_public_key(&public).unwrap();
+        assert_eq!(loaded_public.to_bytes(), keypair.public_key().to_bytes());
+    }
+
+    #[test]
+    fn pem_import_tolerates_shortened_boundary_dashes() {
+        let keypair = ContactKeyPair::generate().unwrap();
+
+        let private = export_private_key(&keypair, KeyFormat::LockboxPem).unwrap();
+        let private = private
+            .with_bytes(|bytes| String::from_utf8(bytes.to_vec()).unwrap())
+            .unwrap()
+            .replace(
+                "-----BEGIN LOCKBOX PRIVATE KEY-----",
+                "----BEGIN LOCKBOX PRIVATE KEY----",
+            )
+            .replace(
+                "-----END LOCKBOX PRIVATE KEY-----",
+                "----END LOCKBOX PRIVATE KEY----",
+            );
+        let loaded =
+            import_private_key(SecretVec::try_from_slice(private.as_bytes()).unwrap()).unwrap();
+        assert_eq!(
+            loaded.private_key_record().unwrap(),
+            keypair.private_key_record().unwrap()
+        );
+
+        let public = export_public_key(&keypair.public_key(), KeyFormat::LockboxPem).unwrap();
+        let public = String::from_utf8(public)
+            .unwrap()
+            .replace(
+                "-----BEGIN LOCKBOX PUBLIC KEY-----",
+                "----BEGIN LOCKBOX PUBLIC KEY----",
+            )
+            .replace(
+                "-----END LOCKBOX PUBLIC KEY-----",
+                "----END LOCKBOX PUBLIC KEY----",
+            );
+        let loaded_public = import_public_key(public.as_bytes()).unwrap();
         assert_eq!(loaded_public.to_bytes(), keypair.public_key().to_bytes());
     }
 

@@ -198,15 +198,20 @@ pub(crate) fn read_vault_password(prompt: &str) -> CliResult<SecretString> {
 }
 
 pub(crate) fn read_new_vault_password() -> CliResult<SecretString> {
+    read_new_vault_password_with_cancel("vault init")
+}
+
+fn read_new_vault_password_with_cancel(cancel_action: &str) -> CliResult<SecretString> {
     if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
         validate_new_vault_pass_phrase(&password)?;
         return Ok(password);
     }
-    match read_vault_pass_phrase_mode()?.as_str() {
+    match read_vault_passphrase_mode(cancel_action)?.as_str() {
         "" | "1" => read_generated_vault_pass_phrase(),
         "2" => read_manual_vault_pass_phrase(),
+        "3" => Err(Error::InvalidInput(format!("{cancel_action} cancelled")).into()),
         value => {
-            Err(Error::InvalidInput(format!("unknown vault pass phrase choice: {value}")).into())
+            Err(Error::InvalidInput(format!("unknown vault passphrase choice: {value}")).into())
         }
     }
 }
@@ -216,13 +221,14 @@ pub(crate) fn read_replacement_vault_password() -> CliResult<SecretString> {
         validate_new_vault_pass_phrase(&password)?;
         return Ok(password);
     }
-    read_new_vault_password()
+    read_new_vault_password_with_cancel("passphrase change")
 }
 
-fn read_vault_pass_phrase_mode() -> CliResult<String> {
-    println!("Vault pass phrase:");
-    println!("  1. Generate a strong pass phrase");
-    println!("  2. Enter my own pass phrase");
+fn read_vault_passphrase_mode(cancel_action: &str) -> CliResult<String> {
+    println!("Vault passphrase:");
+    println!("  1. Generate a strong passphrase");
+    println!("  2. Enter my own passphrase");
+    println!("  3. Cancel {cancel_action}");
     print!("Choose [1]: ");
     io::stdout().flush()?;
     let mut choice = String::new();
@@ -233,7 +239,7 @@ fn read_vault_pass_phrase_mode() -> CliResult<String> {
 fn read_generated_vault_pass_phrase() -> CliResult<SecretString> {
     let phrase = generated_vault_pass_phrase()?;
     println!();
-    println!("Generated vault pass phrase:");
+    println!("Generated vault passphrase:");
     println!();
     println!("  {phrase}");
     println!();
@@ -243,7 +249,7 @@ fn read_generated_vault_pass_phrase() -> CliResult<SecretString> {
     validate_new_vault_pass_phrase(&password)?;
     if !confirm_generated_vault_pass_phrase_stored()? {
         return Err(Error::InvalidInput(
-            "vault pass phrase was not confirmed as stored".to_string(),
+            "vault passphrase was not confirmed as stored".to_string(),
         )
         .into());
     }
@@ -259,9 +265,9 @@ fn confirm_generated_vault_pass_phrase_stored() -> CliResult<bool> {
 }
 
 fn read_manual_vault_pass_phrase() -> CliResult<SecretString> {
-    let password = prompt_secret("New vault pass phrase (minimum 15 characters): ")?;
+    let password = prompt_secret("New vault passphrase (minimum 15 characters): ")?;
     validate_new_vault_pass_phrase(&password)?;
-    let mut confirm = prompt_secret("Confirm vault pass phrase: ")?;
+    let mut confirm = prompt_secret("Confirm vault passphrase: ")?;
     if password != confirm {
         confirm.zeroize()?;
         return Err(Error::InvalidInput("pass phrases do not match".to_string()).into());
@@ -289,7 +295,7 @@ fn validate_new_vault_pass_phrase(password: &SecretString) -> CliResult<()> {
     let chars = password.with_str(|text| text.chars().count())?;
     if chars < MIN_VAULT_PASS_PHRASE_CHARS {
         return Err(Error::InvalidInput(format!(
-            "vault pass phrase must be at least {MIN_VAULT_PASS_PHRASE_CHARS} characters"
+            "vault passphrase must be at least {MIN_VAULT_PASS_PHRASE_CHARS} characters"
         ))
         .into());
     }

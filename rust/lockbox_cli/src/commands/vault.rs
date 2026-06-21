@@ -238,8 +238,10 @@ fn init(args: &[String]) -> CliResult<()> {
         println!("Local vault already exists.");
         println!("Path: {}", path.display());
         if overwrite {
-            println!("WARNING: replacing it will remove identities, contacts,");
-            println!("and key-directory backups stored only in this vault.");
+            println!(
+                "WARNING: replacing it will remove identities, contacts and \
+key-directory backups stored in this vault."
+            );
             let password = read_new_vault_password()?;
             let vault = VaultDirectory::replace_default(&password)?;
             let generated = ensure_default_private_key(&vault)?;
@@ -1346,33 +1348,44 @@ fn print_default_identity_backup(vault: &VaultDirectory) -> CliResult<()> {
     let identity = VaultDirectory::DEFAULT_KEY_NAME;
     let keypair = vault.load_private_key(identity)?;
     let public_key = keypair.public_key();
-    let public_bytes = export_public_key(&public_key, KeyFormat::LockboxPem)?;
     let private_bytes = export_private_key(&keypair, KeyFormat::LockboxPem)?;
+    let signing_key = vault.load_owner_signing_key(identity)?;
+    let signing_private_record = signing_key.private_key_record()?;
     let fingerprint = public_key_fingerprint(&public_key);
 
     println!();
-    println!("Emergency identity backup:");
+    println!("Store the following private keys and your vault passphrase somewhere safe.");
+    println!("Anyone with the identity private key can open lockboxes granted to this identity.");
+    println!("Anyone with the signing private key can sign lockbox changes as this identity.");
+    println!();
+    println!("Identity backup:");
     println!("  Identity: {identity}");
     println!(
         "  Public key fingerprint: {}",
         format_hex_pairs(&fingerprint)
     );
-    println!("  Store this private key and your vault pass phrase somewhere safe.");
-    println!("  Anyone with the private key can open lockboxes granted to this identity.");
     println!();
-    println!("Public key:");
-    io::stdout().write_all(&public_bytes)?;
-    if !public_bytes.ends_with(b"\n") {
-        println!();
-    }
-    println!();
-    println!("Private key:");
+    println!("Identity private key:");
     private_bytes.with_bytes(|bytes| io::stdout().write_all(bytes))??;
     private_bytes.with_bytes(|bytes| {
         if !bytes.ends_with(b"\n") {
             println!();
         }
     })?;
+    println!();
+    println!("Owner signing private key record (hex):");
+    signing_private_record.with_bytes(write_wrapped_hex)??;
+    Ok(())
+}
+
+fn write_wrapped_hex(bytes: &[u8]) -> io::Result<()> {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    for chunk in bytes.chunks(32) {
+        for byte in chunk {
+            io::stdout().write_all(&[HEX[(byte >> 4) as usize], HEX[(byte & 0x0f) as usize]])?;
+        }
+        println!();
+    }
     Ok(())
 }
 
