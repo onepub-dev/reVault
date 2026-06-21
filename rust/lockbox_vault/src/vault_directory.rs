@@ -1,8 +1,8 @@
 use lockbox_core::{
-    ContactKeyPair, ContactPublicKey, Error, FormDefinition, FormFieldDefinition, FormFieldKind,
-    FormTypeId, ListOptions, Lockbox, LockboxEntryKind, LockboxId, LockboxOpen, LockboxPath,
-    LockboxProtection, OwnerSigningKeyPair, OwnerSigningPublicKey, Result, SecretString, SecretVec,
-    VariableName,
+    ContactKeyPair, ContactPublicKey, Error, FileLockScope, FormDefinition, FormFieldDefinition,
+    FormFieldKind, FormTypeId, ListOptions, Lockbox, LockboxEntryKind, LockboxId, LockboxOpen,
+    LockboxPath, LockboxProtection, OwnerSigningKeyPair, OwnerSigningPublicKey, Result,
+    ScopedFileLock, SecretString, SecretVec, VariableName,
 };
 use sha2::{Digest, Sha256};
 use std::cell::{Cell, RefCell};
@@ -15,7 +15,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::key_format::{export_private_key, import_private_key, KeyFormat};
 
 const VAULT_FILE_NAME: &str = "local-vault.lbox";
-const VAULT_LOCK_FILE_NAME: &str = "local-vault.lbox.lock";
 const VAULT_BACKUP_MAGIC: &[u8; 8] = b"LBVBK001";
 const VAULT_STRUCTURE_VERSION_PATH: &str = "/vault/structure-version";
 const KNOWN_LOCKBOX_MAGIC: &[u8; 4] = b"LBKL";
@@ -190,8 +189,11 @@ impl VaultDirectory {
             fs::remove_file(&path).map_err(|err| Error::Io(err.to_string()))?;
         }
         let signing_key = OwnerSigningKeyPair::generate()?;
-        let lockbox =
-            Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
+        let lockbox = Lockbox::create_file_assuming_locked(
+            &path,
+            LockboxProtection::Password(password),
+            &signing_key,
+        )?;
         set_private_file_permissions(&path)?;
         let vault = Self {
             root,
@@ -217,8 +219,11 @@ impl VaultDirectory {
             open_vault_lockbox_for_write(&path, password)?
         } else {
             let signing_key = OwnerSigningKeyPair::generate()?;
-            let lockbox =
-                Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
+            let lockbox = Lockbox::create_file_assuming_locked(
+                &path,
+                LockboxProtection::Password(password),
+                &signing_key,
+            )?;
             set_private_file_permissions(&path)?;
             let vault = Self {
                 root,
@@ -1104,10 +1109,7 @@ fn read_vault_backup_archive(input: &Path) -> Result<(VaultBackupManifest, Vec<u
 }
 
 struct VaultFileLock {
-    #[cfg(unix)]
-    file: Option<File>,
-    #[cfg(not(unix))]
-    path: Option<PathBuf>,
+    lock: Option<ScopedFileLock>,
     active: bool,
 }
 
@@ -1120,67 +1122,19 @@ impl VaultFileLock {
         });
         if nested {
             return Ok(Self {
-                #[cfg(unix)]
-                file: None,
-                #[cfg(not(unix))]
-                path: None,
+                lock: None,
                 active: true,
             });
         }
-        #[cfg(unix)]
-        {
-            use std::os::fd::AsRawFd;
-
-            let path = root.join(VAULT_LOCK_FILE_NAME);
-            let file = OpenOptions::new()
-                .read(true)
-                .write(true)
-                .create(true)
-                .truncate(false)
-                .open(path)
-                .map_err(|err| {
-                    VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
-                    Error::Io(err.to_string())
-                })?;
-            // SAFETY: flock operates on a valid file descriptor owned by `file`.
-            // The descriptor remains open for the lifetime of the guard.
-            let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) };
-            if rc != 0 {
-                VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
-                return Err(Error::Io(std::io::Error::last_os_error().to_string()));
-            }
-            Ok(Self {
-                file: Some(file),
-                active: true,
-            })
-        }
-        #[cfg(not(unix))]
-        {
-            let path = root.join(VAULT_LOCK_FILE_NAME);
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&path)
-                .map_err(|err| {
-                    VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
-                    if err.kind() == std::io::ErrorKind::AlreadyExists {
-                        Error::VaultUnavailable(
-                            "local vault is locked by another process".to_string(),
-                        )
-                    } else {
-                        Error::Io(err.to_string())
-                    }
-                })?;
-            file.write_all(std::process::id().to_string().as_bytes())
-                .map_err(|err| {
-                    VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
-                    Error::Io(err.to_string())
-                })?;
-            Ok(Self {
-                path: Some(path),
-                active: true,
-            })
-        }
+        let path = root.join(VAULT_FILE_NAME);
+        let lock = ScopedFileLock::acquire(&path, FileLockScope::Vault).map_err(|err| {
+            VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
+            err
+        })?;
+        Ok(Self {
+            lock: Some(lock),
+            active: true,
+        })
     }
 }
 
@@ -1189,17 +1143,7 @@ impl Drop for VaultFileLock {
         if !self.active {
             return;
         }
-        #[cfg(unix)]
-        if let Some(file) = &self.file {
-            use std::os::fd::AsRawFd;
-
-            // SAFETY: this releases the same valid descriptor locked in `acquire`.
-            let _ = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_UN) };
-        }
-        #[cfg(not(unix))]
-        if let Some(path) = &self.path {
-            let _ = fs::remove_file(path);
-        }
+        self.lock.take();
         VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
     }
 }
@@ -1228,7 +1172,7 @@ fn private_key_generation_variable_name(name: &str, index: u16) -> Result<Variab
 }
 
 fn open_vault_lockbox_for_write(path: &Path, password: &SecretString) -> Result<Lockbox> {
-    Lockbox::open_file_for_write_with_signing_key(
+    Lockbox::open_file_for_write_with_signing_key_assuming_locked(
         path,
         LockboxOpen::Password(password),
         |lockbox| {

@@ -1,10 +1,12 @@
 pub(crate) mod cache_options;
+pub(crate) mod file_lock;
 pub(crate) mod free_index;
 pub(crate) mod free_slot;
 pub(crate) mod memory_pressure;
 pub(crate) mod page_cache;
 
 use crate::secret_vec::SecureVec;
+use crate::storage::file_lock::{FileLockScope, ScopedFileLock};
 use crate::{Error, Result};
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -48,11 +50,24 @@ impl StorageBackend {
     }
 
     pub(crate) fn file(path: impl AsRef<Path>) -> Result<Self> {
-        Ok(Self::File(FileStore::open(path)?))
+        Ok(Self::File(FileStore::open(path, None)?))
+    }
+
+    pub(crate) fn file_for_write(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+        let lock = ScopedFileLock::acquire(path, FileLockScope::Lockbox)?;
+        Ok(Self::File(FileStore::open(path, Some(Arc::new(lock)))?))
     }
 
     pub(crate) fn create_file(path: impl AsRef<Path>, initial_bytes: &[u8]) -> Result<Self> {
-        Ok(Self::File(FileStore::create(path, initial_bytes)?))
+        Ok(Self::File(FileStore::create(path, initial_bytes, true)?))
+    }
+
+    pub(crate) fn create_file_unlocked(
+        path: impl AsRef<Path>,
+        initial_bytes: &[u8],
+    ) -> Result<Self> {
+        Ok(Self::File(FileStore::create(path, initial_bytes, false)?))
     }
 
     pub(crate) fn path(&self) -> Option<&Path> {
@@ -231,10 +246,11 @@ impl StorageBackend {
 pub(crate) struct FileStore {
     path: PathBuf,
     file: Arc<Mutex<std::fs::File>>,
+    _write_lock: Option<Arc<ScopedFileLock>>,
 }
 
 impl FileStore {
-    fn open(path: impl AsRef<Path>) -> Result<Self> {
+    fn open(path: impl AsRef<Path>, write_lock: Option<Arc<ScopedFileLock>>) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let file = OpenOptions::new()
             .read(true)
@@ -244,14 +260,20 @@ impl FileStore {
         Ok(Self {
             path,
             file: Arc::new(Mutex::new(file)),
+            _write_lock: write_lock,
         })
     }
 
-    fn create(path: impl AsRef<Path>, initial_bytes: &[u8]) -> Result<Self> {
+    fn create(path: impl AsRef<Path>, initial_bytes: &[u8], lock: bool) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
         }
+        let write_lock = if lock {
+            Some(ScopedFileLock::acquire(&path, FileLockScope::Lockbox)?)
+        } else {
+            None
+        };
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -271,6 +293,7 @@ impl FileStore {
         Ok(Self {
             path,
             file: Arc::new(Mutex::new(file)),
+            _write_lock: write_lock.map(Arc::new),
         })
     }
 

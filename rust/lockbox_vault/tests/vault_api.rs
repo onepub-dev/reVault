@@ -1,7 +1,7 @@
 use lockbox_core::vault_integration::VaultOpen;
 use lockbox_core::{
-    ContactKeyPair, Error, Lockbox, LockboxOpen, LockboxPath, LockboxProtection,
-    OwnerSigningKeyPair, Result, SecretVec,
+    ContactKeyPair, Error, FileLockScope, Lockbox, LockboxOpen, LockboxPath, LockboxProtection,
+    OwnerSigningKeyPair, Result, ScopedFileLock, SecretVec,
 };
 use lockbox_vault::{
     export_private_key, import_private_key_file, ContentKeyStore, IdentityGenerationStatus,
@@ -11,6 +11,8 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
+use std::process::{Command, Stdio};
+use std::sync::mpsc;
 use std::sync::Mutex;
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
@@ -623,6 +625,76 @@ fn vault_directory_tracks_identity_generations_and_rotation() {
 }
 
 #[test]
+fn vault_mutation_times_out_when_locked_by_thread() {
+    let _env_guard = ENV_LOCK.lock().unwrap();
+    let _timeout_guard = EnvVarGuard::set("LOCKBOX_LOCK_TIMEOUT_MS", "150");
+    let root = unique_dir("vault-thread-lock");
+    let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    let vault_path = root.join("local-vault.lbox");
+    let (locked_tx, locked_rx) = mpsc::channel();
+    let (release_tx, release_rx) = mpsc::channel();
+    let locked_path = vault_path.clone();
+    let handle = std::thread::spawn(move || {
+        let _lock = ScopedFileLock::acquire(&locked_path, FileLockScope::Vault).unwrap();
+        locked_tx.send(()).unwrap();
+        release_rx.recv().unwrap();
+    });
+    locked_rx.recv().unwrap();
+
+    let contact = ContactKeyPair::generate().unwrap().public_key();
+    let err = vault.store_contact("blocked", &contact).unwrap_err();
+    assert!(matches!(err, Error::LockUnavailable(_)));
+
+    release_tx.send(()).unwrap();
+    handle.join().unwrap();
+    vault.store_contact("allowed", &contact).unwrap();
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn vault_mutation_times_out_when_locked_by_process() {
+    let _env_guard = ENV_LOCK.lock().unwrap();
+    let _timeout_guard = EnvVarGuard::set("LOCKBOX_LOCK_TIMEOUT_MS", "150");
+    let root = unique_dir("vault-process-lock");
+    let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    let ready_path = root.join("process-lock-ready");
+    let mut child = Command::new(std::env::current_exe().unwrap())
+        .arg("--exact")
+        .arg("vault_lock_process_helper")
+        .env("LOCKBOX_VAULT_LOCK_HELPER_ROOT", &root)
+        .env("LOCKBOX_VAULT_LOCK_HELPER_READY", &ready_path)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    wait_for_path(&ready_path);
+
+    let contact = ContactKeyPair::generate().unwrap().public_key();
+    let err = vault.store_contact("blocked", &contact).unwrap_err();
+    assert!(matches!(err, Error::LockUnavailable(_)));
+
+    let _ = child.kill();
+    let _ = child.wait();
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn vault_lock_process_helper() {
+    let Some(root) = std::env::var_os("LOCKBOX_VAULT_LOCK_HELPER_ROOT") else {
+        return;
+    };
+    let ready = std::env::var_os("LOCKBOX_VAULT_LOCK_HELPER_READY")
+        .map(PathBuf::from)
+        .unwrap();
+    let vault_path = PathBuf::from(root).join("local-vault.lbox");
+    let _lock = ScopedFileLock::acquire(&vault_path, FileLockScope::Vault).unwrap();
+    fs::write(ready, b"ready").unwrap();
+    std::thread::sleep(std::time::Duration::from_secs(30));
+}
+
+#[test]
 fn vault_directory_stores_identity_email_metadata() {
     let root = unique_dir("identity-email");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
@@ -697,6 +769,18 @@ fn monotonic_suffix() -> u128 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos()
+}
+
+fn wait_for_path(path: &PathBuf) {
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    while !path.exists() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "timed out waiting for {}",
+            path.display()
+        );
+        std::thread::sleep(std::time::Duration::from_millis(25));
+    }
 }
 
 struct EnvVarGuard {

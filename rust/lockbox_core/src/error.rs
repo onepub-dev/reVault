@@ -25,6 +25,8 @@ pub enum Error {
     InvalidOperation(String),
     /// A vault-backed operation could not use the local vault or open cache.
     VaultUnavailable(String),
+    /// A lockbox or vault write lock could not be acquired.
+    LockUnavailable(String),
     /// A required host or process configuration value is missing or invalid.
     Configuration(String),
     /// A host filesystem path cannot be imported by the requested operation.
@@ -71,6 +73,9 @@ impl Error {
             }
             Error::VaultUnavailable(_) => {
                 "Open the lockbox with a password, contact keypair, or content key, or configure the local vault before retrying."
+            }
+            Error::LockUnavailable(_) => {
+                "Wait for the other process to finish, or inspect the lock file if the owner process has exited."
             }
             Error::Configuration(_) => {
                 "Set the required variable or pass an explicit path/value."
@@ -130,6 +135,9 @@ impl fmt::Display for Error {
             }
             Error::VaultUnavailable(message) => {
                 write!(f, "vault unavailable: {message}")
+            }
+            Error::LockUnavailable(message) => {
+                write!(f, "lock unavailable: {message}")
             }
             Error::Configuration(message) => {
                 write!(f, "configuration error: {message}")
@@ -193,6 +201,9 @@ mod tests {
 
         let vault = Error::VaultUnavailable("no cached key".to_string()).to_string();
         assert_eq!(vault, "vault unavailable: no cached key");
+
+        let lock = Error::LockUnavailable("secrets.lbox is locked".to_string()).to_string();
+        assert_eq!(lock, "lock unavailable: secrets.lbox is locked");
 
         let config = Error::Configuration("HOME is not set".to_string()).to_string();
         assert_eq!(config, "configuration error: HOME is not set");

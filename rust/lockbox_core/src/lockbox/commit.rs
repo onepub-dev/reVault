@@ -58,6 +58,20 @@ impl Lockbox<crate::Writable> {
         Self::open_storage_with_secret_key(StorageBackend::file(path.as_path())?, key, options)
     }
 
+    #[cfg(feature = "vault-integration")]
+    pub(crate) fn open_path_with_secret_key_options_for_write(
+        path: impl AsRef<Path>,
+        key: crate::SecretVec,
+        options: LockboxOptions,
+    ) -> Result<Self> {
+        let path = HostPath::new(path);
+        Self::open_storage_with_secret_key(
+            StorageBackend::file_for_write(path.as_path())?,
+            key,
+            options,
+        )
+    }
+
     #[cfg(test)]
     pub(crate) fn create_path(path: impl AsRef<Path>, key: impl AsRef<[u8]>) -> Result<Self> {
         Self::create_path_with_options(path, key, LockboxOptions::default())
@@ -102,6 +116,24 @@ impl Lockbox<crate::Writable> {
         write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
         let mut lockbox = Self::open_storage_with_secret_key(
             StorageBackend::create_file(path.as_path(), &bytes)?,
+            key,
+            options,
+        )?;
+        lockbox.lockbox_id = lockbox_id;
+        Ok(lockbox)
+    }
+
+    pub(crate) fn create_path_with_secret_key_and_options_unlocked(
+        path: impl AsRef<Path>,
+        key: crate::SecretVec,
+        lockbox_id: crate::lockbox_id::LockboxId,
+        options: LockboxOptions,
+    ) -> Result<Self> {
+        let path = HostPath::new(path);
+        let mut bytes = vec![0; crate::constants::HEADER_LEN];
+        write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
+        let mut lockbox = Self::open_storage_with_secret_key(
+            StorageBackend::create_file_unlocked(path.as_path(), &bytes)?,
             key,
             options,
         )?;
@@ -775,9 +807,102 @@ mod tests {
     use crate::lockbox_path::LockboxPath;
     use crate::node_kind::NodeKind;
     use crate::toc_entry::TocEntry;
+    use crate::{Error, LockboxOpen, LockboxProtection, OwnerSigningKeyPair, SecretString};
+    use std::path::PathBuf;
 
     fn p(path: impl AsRef<str>) -> LockboxPath {
         LockboxPath::new(path).unwrap()
+    }
+
+    fn unique_path(label: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../target/test-tmp")
+            .join(format!(
+                "lockbox-core-{label}-{}-{}.lbox",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ))
+    }
+
+    struct EnvVarGuard {
+        name: &'static str,
+        previous: Option<std::ffi::OsString>,
+    }
+
+    impl EnvVarGuard {
+        fn set(name: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+            let previous = std::env::var_os(name);
+            std::env::set_var(name, value);
+            Self { name, previous }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            match &self.previous {
+                Some(value) => std::env::set_var(self.name, value),
+                None => std::env::remove_var(self.name),
+            }
+        }
+    }
+
+    #[test]
+    fn file_backed_lockbox_write_lock_blocks_other_threads() {
+        let _timeout_guard = EnvVarGuard::set("LOCKBOX_LOCK_TIMEOUT_MS", "150");
+        let path = unique_path("write-lock-thread");
+        let password = SecretString::try_from_bytes(b"password".to_vec()).unwrap();
+        let signing_key = OwnerSigningKeyPair::generate().unwrap();
+        let lockbox =
+            Lockbox::create_file(&path, LockboxProtection::Password(&password), &signing_key)
+                .unwrap();
+        let blocked_path = path.clone();
+        let blocked = std::thread::spawn(move || {
+            let password = SecretString::try_from_bytes(b"password".to_vec()).unwrap();
+            let signing_key = OwnerSigningKeyPair::generate().unwrap();
+            Lockbox::open_file_for_write(
+                &blocked_path,
+                LockboxOpen::Password(&password),
+                &signing_key,
+            )
+        })
+        .join()
+        .unwrap();
+        assert!(matches!(blocked, Err(Error::LockUnavailable(_))));
+
+        drop(lockbox);
+        let reopened =
+            Lockbox::open_file_for_write(&path, LockboxOpen::Password(&password), &signing_key)
+                .unwrap();
+        drop(reopened);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn file_backed_write_locks_are_scoped_to_each_lockbox() {
+        let path_a = unique_path("write-lock-a");
+        let path_b = unique_path("write-lock-b");
+        let password = SecretString::try_from_bytes(b"password".to_vec()).unwrap();
+        let signing_key = OwnerSigningKeyPair::generate().unwrap();
+        let lockbox_a = Lockbox::create_file(
+            &path_a,
+            LockboxProtection::Password(&password),
+            &signing_key,
+        )
+        .unwrap();
+        let lockbox_b = Lockbox::create_file(
+            &path_b,
+            LockboxProtection::Password(&password),
+            &signing_key,
+        )
+        .unwrap();
+
+        drop(lockbox_b);
+        drop(lockbox_a);
+        let _ = std::fs::remove_file(&path_a);
+        let _ = std::fs::remove_file(&path_b);
     }
 
     #[test]

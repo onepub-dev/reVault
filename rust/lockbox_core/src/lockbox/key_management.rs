@@ -144,7 +144,7 @@ impl OpenedContentKey {
         path: &Path,
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Lockbox> {
-        let mut lockbox = self.open_path_opened(path)?;
+        let mut lockbox = self.open_path_opened_for_write(path)?;
         if lockbox.read_only {
             return Err(Error::InvalidOperation(
                 "lockbox was opened read-only".to_string(),
@@ -157,6 +157,19 @@ impl OpenedContentKey {
     fn open_path_opened(self, path: &Path) -> Result<Lockbox> {
         let mut lockbox =
             Lockbox::open_path_with_secret_key_options(path, self.key, LockboxOptions::default())?;
+        if self.read_only {
+            lockbox.mark_read_only();
+        }
+        Ok(lockbox)
+    }
+
+    #[cfg(feature = "vault-integration")]
+    fn open_path_opened_for_write(self, path: &Path) -> Result<Lockbox> {
+        let mut lockbox = Lockbox::open_path_with_secret_key_options_for_write(
+            path,
+            self.key,
+            LockboxOptions::default(),
+        )?;
         if self.read_only {
             lockbox.mark_read_only();
         }
@@ -233,6 +246,18 @@ impl Lockbox {
         Ok(lockbox)
     }
 
+    #[doc(hidden)]
+    pub fn create_file_assuming_locked(
+        path: &Path,
+        protection: LockboxProtection<'_>,
+        signing_key: &OwnerSigningKeyPair,
+    ) -> Result<Self> {
+        let mut lockbox = Self::create_file_uncommitted_assuming_locked(path, protection)?;
+        lockbox.set_owner_signing_key(signing_key.try_clone()?);
+        lockbox.commit()?;
+        Ok(lockbox)
+    }
+
     fn create_file_uncommitted(path: &Path, protection: LockboxProtection<'_>) -> Result<Self> {
         Ok(match protection {
             LockboxProtection::ContentKey(key) => Self::create_path_with_secret_key_and_options(
@@ -255,6 +280,51 @@ impl Lockbox {
             LockboxProtection::ContactPublicKey { name, contact } => {
                 let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
                 let mut lockbox = Self::create_path_with_secret_key_and_options(
+                    path,
+                    content_key,
+                    LockboxId::new_random()?,
+                    LockboxOptions::default(),
+                )?;
+                match name {
+                    Some(name) => {
+                        lockbox.add_contact_named(name, &contact)?;
+                    }
+                    None => {
+                        lockbox.add_contact(&contact)?;
+                    }
+                }
+                lockbox
+            }
+        })
+    }
+
+    fn create_file_uncommitted_assuming_locked(
+        path: &Path,
+        protection: LockboxProtection<'_>,
+    ) -> Result<Self> {
+        Ok(match protection {
+            LockboxProtection::ContentKey(key) => {
+                Self::create_path_with_secret_key_and_options_unlocked(
+                    path,
+                    key,
+                    LockboxId::new_random()?,
+                    LockboxOptions::default(),
+                )?
+            }
+            LockboxProtection::Password(password) => {
+                let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
+                let mut lockbox = Self::create_path_with_secret_key_and_options_unlocked(
+                    path,
+                    content_key,
+                    LockboxId::new_random()?,
+                    LockboxOptions::default(),
+                )?;
+                lockbox.add_password(password)?;
+                lockbox
+            }
+            LockboxProtection::ContactPublicKey { name, contact } => {
+                let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
+                let mut lockbox = Self::create_path_with_secret_key_and_options_unlocked(
                     path,
                     content_key,
                     LockboxId::new_random()?,
@@ -328,7 +398,7 @@ impl Lockbox {
         open: LockboxOpen<'_>,
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Self> {
-        let mut lockbox = Self::open_file_opened(path, open)?;
+        let mut lockbox = Self::open_file_opened_for_write(path, open)?;
         lockbox.read_only = false;
         lockbox.set_owner_signing_key(signing_key.try_clone()?);
         Ok(lockbox)
@@ -340,6 +410,20 @@ impl Lockbox {
     /// the local vault. The callback receives a read-only borrow of the opened
     /// lockbox and must return the key that will sign future commits.
     pub fn open_file_for_write_with_signing_key(
+        path: &Path,
+        open: LockboxOpen<'_>,
+        load_signing_key: impl FnOnce(&Lockbox<ReadOnly>) -> Result<OwnerSigningKeyPair>,
+    ) -> Result<Self> {
+        let mut lockbox = Self::open_file_opened_for_write(path, open)?;
+        let read_view = lockbox.try_clone()?.into_state();
+        let signing_key = load_signing_key(&read_view)?;
+        lockbox.read_only = false;
+        lockbox.set_owner_signing_key(signing_key);
+        Ok(lockbox)
+    }
+
+    #[doc(hidden)]
+    pub fn open_file_for_write_with_signing_key_assuming_locked(
         path: &Path,
         open: LockboxOpen<'_>,
         load_signing_key: impl FnOnce(&Lockbox<ReadOnly>) -> Result<OwnerSigningKeyPair>,
@@ -364,6 +448,45 @@ impl Lockbox {
             LockboxOpen::ContactKeyPair(contact) => {
                 let opened = Self::open_path_with_contact(path, &contact)?;
                 opened.open_path_opened(path)
+            }
+        }
+    }
+
+    fn open_file_opened_for_write(path: &Path, open: LockboxOpen<'_>) -> Result<Self> {
+        let storage = StorageBackend::file_for_write(path)?;
+        Self::open_locked_storage(storage, open)
+    }
+
+    fn open_locked_storage(storage: StorageBackend, open: LockboxOpen<'_>) -> Result<Self> {
+        match open {
+            LockboxOpen::ContentKey(key) => {
+                Self::open_storage_with_secret_key(storage, key, LockboxOptions::default())
+            }
+            LockboxOpen::Password(password) => {
+                let bytes = storage.read_all()?;
+                let opened = Self::open_bytes_with_password(&bytes, password)?;
+                let mut lockbox = Self::open_storage_with_secret_key(
+                    storage,
+                    opened.key,
+                    LockboxOptions::default(),
+                )?;
+                if opened.read_only {
+                    lockbox.mark_read_only();
+                }
+                Ok(lockbox)
+            }
+            LockboxOpen::ContactKeyPair(contact) => {
+                let bytes = storage.read_all()?;
+                let opened = Self::open_bytes_with_contact(&bytes, &contact)?;
+                let mut lockbox = Self::open_storage_with_secret_key(
+                    storage,
+                    opened.key,
+                    LockboxOptions::default(),
+                )?;
+                if opened.read_only {
+                    lockbox.mark_read_only();
+                }
+                Ok(lockbox)
             }
         }
     }
