@@ -5,7 +5,10 @@ use super::context::{
 };
 use super::form::{default_form_alias, parse_field_spec, print_form_definition_saved};
 use super::output::{output_format_from_args, print_records, OutputFormat};
-use lockbox_core::{ContactKeyPair, ContactPublicKey, Error, Lockbox, OwnerSigningPublicKey};
+use lockbox_core::{
+    ContactKeyPair, ContactPublicKey, Error, Lockbox, OwnerSigningKeyPair, OwnerSigningPublicKey,
+    SecretVec,
+};
 use lockbox_publish_protocol::protocol::Status;
 use lockbox_publish_protocol::{
     contact_fingerprint, normalize_contact_email, ClientError, ContactPublish, PublishClientPool,
@@ -347,6 +350,30 @@ fn passphrase_change_backup_path() -> CliResult<PathBuf> {
     )))
 }
 
+fn restore_backup_path() -> CliResult<PathBuf> {
+    Ok(default_vault_dir()?.join(format!(
+        "local-vault-before-restore-{}.lockbox-backup",
+        unix_ms_now()
+    )))
+}
+
+fn identity_import_backup_path(name: &str) -> CliResult<PathBuf> {
+    let safe_name = name
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_') {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    Ok(default_vault_dir()?.join(format!(
+        "local-vault-before-identity-import-{safe_name}-{}.lockbox-backup",
+        unix_ms_now()
+    )))
+}
+
 fn restore(args: &[String]) -> CliResult<()> {
     let overwrite = args.iter().any(|arg| arg == "--overwrite");
     let args = args
@@ -355,8 +382,22 @@ fn restore(args: &[String]) -> CliResult<()> {
         .cloned()
         .collect::<Vec<_>>();
     let input = require_arg(&args, 0, "backup input")?;
+    let existing_vault = default_vault_path()?;
+    let backup_path = if overwrite && existing_vault.exists() {
+        let backup_path = restore_backup_path()?;
+        backup_default_vault(&backup_path, false)?;
+        Some(backup_path)
+    } else {
+        None
+    };
     let manifest = restore_default_vault(input, overwrite)?;
     let _ = forget_platform_vault_password();
+    if let Some(backup_path) = backup_path {
+        println!("WARNING: replacing the local vault.");
+        println!("Existing vault backed up before restore.");
+        println!("Backup:");
+        println!("  {}", backup_path.display());
+    }
     println!("restored={input}");
     println!("vault_file={}", manifest.vault_file_name);
     println!("vault_size={}", manifest.vault_size);
@@ -1022,18 +1063,68 @@ fn hex_digit(byte: u8) -> CliResult<u8> {
 fn import_key(args: &[String]) -> CliResult<()> {
     let options = parse_identity_import_args(args)?;
     let vault = default_vault()?;
-    if vault.private_key_exists(&options.name)? {
-        return Err(Error::AlreadyExists(format!("vault identity {}", options.name)).into());
-    }
     let keypair = import_private_key_file(&options.private_path)?;
-    let public_key = import_public_key(&fs::read(&options.public_path)?)?;
-    if keypair.public_key() != public_key {
-        return Err(
-            Error::InvalidInput("public key does not match private key".to_string()).into(),
-        );
+    if let Some(public_path) = options.public_path.as_deref() {
+        let public_key = import_public_key(&fs::read(public_path)?)?;
+        if keypair.public_key() != public_key {
+            return Err(
+                Error::InvalidInput("public key does not match private key".to_string()).into(),
+            );
+        }
     }
-    vault.store_private_key(&options.name, &keypair)?;
+    let signing_key = options
+        .signing_private_path
+        .as_deref()
+        .map(import_owner_signing_key_file)
+        .transpose()?;
+    let existed = vault.private_key_exists(&options.name)?;
+    let backup_path = if existed && options.overwrite {
+        let backup_path = identity_import_backup_path(&options.name)?;
+        backup_default_vault(&backup_path, false)?;
+        Some(backup_path)
+    } else {
+        None
+    };
+    vault.restore_private_key(
+        &options.name,
+        &keypair,
+        signing_key.as_ref(),
+        options.overwrite,
+    )?;
+    let public_key = keypair.public_key();
+    let fingerprint = public_key_fingerprint(&public_key);
+    if existed && options.overwrite {
+        println!("WARNING: replacing vault identity: {}", options.name);
+        println!("Existing vault backed up before identity import.");
+        if let Some(backup_path) = backup_path {
+            println!("Backup:");
+            println!("  {}", backup_path.display());
+        }
+    }
+    println!("identity={}", options.name);
+    println!("public_key_fingerprint={}", format_hex_pairs(&fingerprint));
+    if signing_key.is_some() {
+        println!("owner_signing_key=restored");
+    }
     Ok(())
+}
+
+fn import_owner_signing_key_file(path: &str) -> CliResult<OwnerSigningKeyPair> {
+    let text = fs::read_to_string(path)?;
+    let hex = text
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && line.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .collect::<String>();
+    if hex.is_empty() {
+        return Err(Error::InvalidInput(
+            "owner signing private key file does not contain hex key material".to_string(),
+        )
+        .into());
+    }
+    let bytes = decode_hex(&hex)?;
+    let record = SecretVec::try_from_slice(&bytes)?;
+    Ok(OwnerSigningKeyPair::from_private_key_record(record)?)
 }
 
 fn remove_key(args: &[String]) -> CliResult<()> {
@@ -1421,8 +1512,10 @@ fn confirm_private_key_removal(name: &str) -> CliResult<bool> {
 
 struct IdentityImportArgs {
     name: String,
-    public_path: String,
+    public_path: Option<String>,
     private_path: String,
+    signing_private_path: Option<String>,
+    overwrite: bool,
 }
 
 struct IdentityExportArgs {
@@ -1434,16 +1527,27 @@ struct IdentityExportArgs {
 fn parse_identity_import_args(args: &[String]) -> CliResult<IdentityImportArgs> {
     let mut public_path = None;
     let mut private_path = None;
+    let mut signing_private_path = None;
+    let mut overwrite = false;
     let mut positionals = Vec::new();
     let mut index = 0usize;
     while index < args.len() {
         match args[index].as_str() {
+            "--overwrite" => {
+                overwrite = true;
+                index += 1;
+            }
             "--public" => {
                 public_path = Some(require_arg(args, index + 1, "--public path")?.to_string());
                 index += 2;
             }
             "--private" => {
                 private_path = Some(require_arg(args, index + 1, "--private path")?.to_string());
+                index += 2;
+            }
+            "--signing-private" => {
+                signing_private_path =
+                    Some(require_arg(args, index + 1, "--signing-private path")?.to_string());
                 index += 2;
             }
             value => {
@@ -1461,14 +1565,14 @@ fn parse_identity_import_args(args: &[String]) -> CliResult<IdentityImportArgs> 
     let name = positionals
         .pop()
         .ok_or_else(|| Error::InvalidInput("missing identity name".to_string()))?;
-    let public_path =
-        public_path.ok_or_else(|| Error::InvalidInput("missing --public path".to_string()))?;
     let private_path =
         private_path.ok_or_else(|| Error::InvalidInput("missing --private path".to_string()))?;
     Ok(IdentityImportArgs {
         name,
         public_path,
         private_path,
+        signing_private_path,
+        overwrite,
     })
 }
 

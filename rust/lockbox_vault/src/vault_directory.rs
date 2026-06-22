@@ -309,6 +309,30 @@ impl VaultDirectory {
         Ok(())
     }
 
+    /// Restores an identity private key and optional owner signing key.
+    ///
+    /// When `overwrite` is true, any existing identity with the same name is
+    /// removed first so current keys, signing keys, and generation history stay
+    /// consistent with the restored material.
+    pub fn restore_private_key(
+        &self,
+        name: &str,
+        keypair: &ContactKeyPair,
+        signing_key: Option<&OwnerSigningKeyPair>,
+        overwrite: bool,
+    ) -> Result<()> {
+        if self.private_key_exists(name)? {
+            if !overwrite {
+                return Err(Error::AlreadyExists(format!("vault identity {name}")));
+            }
+            self.delete_private_key(name)?;
+        }
+        if let Some(signing_key) = signing_key {
+            self.store_owner_signing_key_current_only(name, signing_key)?;
+        }
+        self.store_private_key(name, keypair)
+    }
+
     /// Loads a contact private key previously stored under `name`.
     pub fn load_private_key(&self, name: &str) -> Result<ContactKeyPair> {
         let variable_name = private_key_variable_name(name)?;

@@ -1419,16 +1419,21 @@ fn vault_identity_command(verbose: bool) -> Command {
                 .about("Import a private key into the vault and create a new identity.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity import laptop --public ./laptop.pub --private ./laptop.private",
-                    "Context:\n  Identity import restores or moves private open material into this vault. Both the public and private key files are required, and reVault rejects the import if they do not match.",
+                    "Examples:\n  lockbox vault identity import laptop --private ./laptop.private\n  lockbox vault identity import default --overwrite --private ./default.private --signing-private ./default.signing",
+                    "Context:\n  Identity import restores or moves private open material into this vault. The public key is derived from the private key. If --public is provided, reVault rejects the import unless it matches. Use --signing-private when restoring an init backup. Use --overwrite to replace an existing identity; reVault backs up the current vault before replacing it.",
                 ))
                 .arg(required("name", "Identity name."))
+                .arg(
+                    Arg::new("overwrite")
+                        .long("overwrite")
+                        .action(ArgAction::SetTrue)
+                        .help("Replace an existing identity after backing up the current vault."),
+                )
                 .arg(
                     Arg::new("public")
                         .long("public")
                         .value_name("PUBLIC_KEY")
-                        .required(true)
-                        .help("Public key input path."),
+                        .help("Optional public key input path used to validate the private key."),
                 )
                 .arg(
                     Arg::new("private")
@@ -1436,6 +1441,12 @@ fn vault_identity_command(verbose: bool) -> Command {
                         .value_name("PRIVATE_KEY")
                         .required(true)
                         .help("Private key input path."),
+                )
+                .arg(
+                    Arg::new("signing-private")
+                        .long("signing-private")
+                        .value_name("SIGNING_PRIVATE_KEY")
+                        .help("Owner signing private key record path from an init backup."),
                 ),
         )
         .subcommand(

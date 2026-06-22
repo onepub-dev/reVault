@@ -3237,6 +3237,17 @@ fn vault_backup_and_restore_round_trip_encrypted_vault() {
         &agent_root,
     );
     assert_success(&overwritten);
+    let overwritten = String::from_utf8_lossy(&overwritten.stdout);
+    assert!(overwritten.contains("WARNING: replacing the local vault."));
+    assert!(overwritten.contains("Existing vault backed up before restore."));
+    assert!(overwritten.contains("Backup:\n  "));
+    assert!(fs::read_dir(&vault_root).unwrap().any(|entry| {
+        entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with("local-vault-before-restore-")
+    }));
 }
 
 #[test]
@@ -4728,6 +4739,124 @@ fn vault_identity_import_export_formats_are_accepted_by_cli() {
         assert!(identity_list.contains(&format!("imported-{name}")));
         assert!(contact_list.contains(&format!("contact-{name}")));
     }
+}
+
+#[test]
+fn vault_identity_import_restores_default_identity_and_signing_key() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("identity-import-restore");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let source_vault_root = dir.join("source-vault");
+    let source_agent_root = dir.join("source-agent");
+    let target_vault_root = dir.join("target-vault");
+    let target_agent_root = dir.join("target-agent");
+    let private_path = dir.join("default.private");
+    let signing_path = dir.join("default.signing");
+
+    let source_init = run_output_without_content_key(
+        bin,
+        &["vault", "init"],
+        &source_vault_root,
+        &source_agent_root,
+    );
+    assert_success(&source_init);
+    let source_init = String::from_utf8_lossy(&source_init.stdout);
+    fs::write(
+        &private_path,
+        extract_identity_private_key_backup(&source_init),
+    )
+    .unwrap();
+    fs::write(
+        &signing_path,
+        format!(
+            "Owner signing private key record (hex):\n{}\n",
+            extract_owner_signing_private_key_hex(&source_init)
+        ),
+    )
+    .unwrap();
+
+    run_without_content_key(
+        bin,
+        &["vault", "init"],
+        &target_vault_root,
+        &target_agent_root,
+    );
+
+    let refused = run_output_without_content_key(
+        bin,
+        &[
+            "vault",
+            "identity",
+            "import",
+            "default",
+            "--private",
+            private_path.to_str().unwrap(),
+            "--signing-private",
+            signing_path.to_str().unwrap(),
+        ],
+        &target_vault_root,
+        &target_agent_root,
+    );
+    assert!(!refused.status.success());
+    assert!(String::from_utf8_lossy(&refused.stderr).contains("vault identity default"));
+
+    let restored = run_output_without_content_key(
+        bin,
+        &[
+            "vault",
+            "identity",
+            "import",
+            "default",
+            "--overwrite",
+            "--private",
+            private_path.to_str().unwrap(),
+            "--signing-private",
+            signing_path.to_str().unwrap(),
+        ],
+        &target_vault_root,
+        &target_agent_root,
+    );
+    assert_success(&restored);
+    let restored = String::from_utf8_lossy(&restored.stdout);
+    assert!(restored.contains("WARNING: replacing vault identity: default"));
+    assert!(restored.contains("Existing vault backed up before identity import."));
+    assert!(restored.contains("Backup:\n  "));
+    assert!(restored.contains("identity=default"));
+    assert!(restored.contains("public_key_fingerprint="));
+    assert!(restored.contains("owner_signing_key=restored"));
+    assert!(fs::read_dir(&target_vault_root).unwrap().any(|entry| {
+        entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with("local-vault-before-identity-import-default-")
+    }));
+
+    let vault_password = SecretString::try_from_bytes(b"test-vault-password".to_vec()).unwrap();
+    let source_vault = VaultDirectory::open_or_create(&source_vault_root, &vault_password).unwrap();
+    let target_vault = VaultDirectory::open_or_create(&target_vault_root, &vault_password).unwrap();
+    let source_identity = source_vault
+        .load_private_key(VaultDirectory::DEFAULT_KEY_NAME)
+        .unwrap();
+    let target_identity = target_vault
+        .load_private_key(VaultDirectory::DEFAULT_KEY_NAME)
+        .unwrap();
+    assert_eq!(source_identity.public_key(), target_identity.public_key());
+    assert_eq!(
+        source_identity.private_key_record().unwrap(),
+        target_identity.private_key_record().unwrap()
+    );
+    let source_signing = source_vault
+        .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
+        .unwrap();
+    let target_signing = target_vault
+        .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
+        .unwrap();
+    assert_eq!(
+        source_signing.private_key_record().unwrap(),
+        target_signing.private_key_record().unwrap()
+    );
 }
 
 fn run(bin: &str, args: &[&str]) {

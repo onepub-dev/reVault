@@ -553,8 +553,15 @@ fn vault_args(matches: &ArgMatches) -> CliResult<Vec<String>> {
                 }
                 "fingerprint" => push_optional(&mut args, identity_sub, "name"),
                 "import" => {
+                    push_flag(&mut args, identity_sub, "overwrite", "--overwrite");
                     push_option(&mut args, identity_sub, "public", "--public");
                     push_option(&mut args, identity_sub, "private", "--private");
+                    push_option(
+                        &mut args,
+                        identity_sub,
+                        "signing-private",
+                        "--signing-private",
+                    );
                     args.push(value(identity_sub, "name"));
                 }
                 "export" => {
