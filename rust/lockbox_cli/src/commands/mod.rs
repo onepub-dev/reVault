@@ -552,23 +552,20 @@ fn vault_args(matches: &ArgMatches) -> CliResult<Vec<String>> {
                     push_many(&mut args, identity_sub, "args");
                 }
                 "fingerprint" => push_optional(&mut args, identity_sub, "name"),
-                "import" => {
+                "backup" => {
                     push_flag(&mut args, identity_sub, "overwrite", "--overwrite");
-                    push_option(&mut args, identity_sub, "public", "--public");
-                    push_option(&mut args, identity_sub, "private", "--private");
-                    push_option(
-                        &mut args,
-                        identity_sub,
-                        "signing-private",
-                        "--signing-private",
-                    );
-                    args.push(value(identity_sub, "name"));
+                    push_option(&mut args, identity_sub, "name", "--name");
+                    args.push(value(identity_sub, "output"));
+                }
+                "restore" => {
+                    push_flag(&mut args, identity_sub, "overwrite", "--overwrite");
+                    push_option(&mut args, identity_sub, "name", "--name");
+                    args.push(value(identity_sub, "input"));
                 }
                 "export" => {
                     push_option(&mut args, identity_sub, "format", "--format");
-                    push_option(&mut args, identity_sub, "public", "--public");
-                    push_option(&mut args, identity_sub, "private", "--private");
-                    push_optional(&mut args, identity_sub, "name");
+                    push_option(&mut args, identity_sub, "name", "--name");
+                    args.push(value(identity_sub, "output"));
                 }
                 "remove" | "rm" => {
                     push_flag(&mut args, identity_sub, "force", "--force");

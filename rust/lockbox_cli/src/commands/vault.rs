@@ -16,7 +16,7 @@ use lockbox_publish_protocol::{
 };
 use lockbox_vault::{
     backup_default_vault, default_vault_dir, default_vault_path, encode_hex, export_private_key,
-    export_public_key, forget_platform_vault_password, import_private_key_file, import_public_key,
+    export_public_key, forget_platform_vault_password, import_private_key, import_public_key,
     public_key_fingerprint, restore_default_vault, set_auto_open_scope, AutoOpenScope,
     IdentityGenerationStatus, KeyFormat, VaultDirectory,
 };
@@ -97,7 +97,8 @@ fn identity_command(args: &[String]) -> CliResult<()> {
         "email" => identity_email(&args[1..]),
         "fingerprint" => identity_fingerprint(&args[1..]),
         "history" => identity_history(&args[1..]),
-        "import" => import_key(&args[1..]),
+        "backup" => identity_backup(&args[1..]),
+        "restore" => identity_restore(&args[1..]),
         "export" => export_public(&args[1..]),
         "remove" | "rm" => remove_key(&args[1..]),
         "rotate" => rotate_key(&args[1..]),
@@ -357,7 +358,7 @@ fn restore_backup_path() -> CliResult<PathBuf> {
     )))
 }
 
-fn identity_import_backup_path(name: &str) -> CliResult<PathBuf> {
+fn identity_restore_backup_path(name: &str) -> CliResult<PathBuf> {
     let safe_name = name
         .chars()
         .map(|ch| {
@@ -369,7 +370,7 @@ fn identity_import_backup_path(name: &str) -> CliResult<PathBuf> {
         })
         .collect::<String>();
     Ok(default_vault_dir()?.join(format!(
-        "local-vault-before-identity-import-{safe_name}-{}.lockbox-backup",
+        "local-vault-before-identity-restore-{safe_name}-{}.lockbox-backup",
         unix_ms_now()
     )))
 }
@@ -430,7 +431,7 @@ fn keygen(args: &[String]) -> CliResult<()> {
     }
     println!("Created vault identity: {name}");
     println!(
-        "Export its public key with: lockbox vault identity export {name} --public <public-key-output>"
+        "Export its public key with: lockbox vault identity export <public-key-output> --name {name}"
     );
     Ok(())
 }
@@ -1060,57 +1061,144 @@ fn hex_digit(byte: u8) -> CliResult<u8> {
     }
 }
 
-fn import_key(args: &[String]) -> CliResult<()> {
-    let options = parse_identity_import_args(args)?;
+fn identity_restore(args: &[String]) -> CliResult<()> {
+    let options = parse_identity_restore_args(args)?;
     let vault = default_vault()?;
-    let keypair = import_private_key_file(&options.private_path)?;
-    if let Some(public_path) = options.public_path.as_deref() {
-        let public_key = import_public_key(&fs::read(public_path)?)?;
-        if keypair.public_key() != public_key {
-            return Err(
-                Error::InvalidInput("public key does not match private key".to_string()).into(),
-            );
-        }
-    }
-    let signing_key = options
-        .signing_private_path
-        .as_deref()
-        .map(import_owner_signing_key_file)
-        .transpose()?;
-    let existed = vault.private_key_exists(&options.name)?;
+    let backup = read_identity_backup(&options.input_path)?;
+    let name = options.name.unwrap_or(backup.name);
+    let keypair = import_private_key(SecretVec::try_from_slice(
+        backup.private_key_pem.as_bytes(),
+    )?)?;
+    let signing_key = owner_signing_key_from_hex_text(&backup.signing_private_hex)?;
+    let existed = vault.private_key_exists(&name)?;
     let backup_path = if existed && options.overwrite {
-        let backup_path = identity_import_backup_path(&options.name)?;
+        let backup_path = identity_restore_backup_path(&name)?;
         backup_default_vault(&backup_path, false)?;
         Some(backup_path)
     } else {
         None
     };
-    vault.restore_private_key(
-        &options.name,
-        &keypair,
-        signing_key.as_ref(),
-        options.overwrite,
-    )?;
+    vault.restore_private_key(&name, &keypair, Some(&signing_key), options.overwrite)?;
     let public_key = keypair.public_key();
     let fingerprint = public_key_fingerprint(&public_key);
     if existed && options.overwrite {
-        println!("WARNING: replacing vault identity: {}", options.name);
-        println!("Existing vault backed up before identity import.");
+        println!("WARNING: replacing vault identity: {name}");
+        println!("Existing vault backed up before identity restore.");
         if let Some(backup_path) = backup_path {
             println!("Backup:");
             println!("  {}", backup_path.display());
         }
     }
-    println!("identity={}", options.name);
+    println!("identity={name}");
     println!("public_key_fingerprint={}", format_hex_pairs(&fingerprint));
-    if signing_key.is_some() {
-        println!("owner_signing_key=restored");
-    }
+    println!("owner_signing_key=restored");
     Ok(())
 }
 
-fn import_owner_signing_key_file(path: &str) -> CliResult<OwnerSigningKeyPair> {
-    let text = fs::read_to_string(path)?;
+fn identity_backup(args: &[String]) -> CliResult<()> {
+    let options = parse_identity_backup_args(args)?;
+    let vault = default_vault()?;
+    let mut output = Vec::new();
+    write_identity_backup(&mut output, &vault, &options.name)?;
+    write_output_file(&options.output_path, &output, options.overwrite)?;
+    println!("Identity backup completed successfully.");
+    println!("identity={}", options.name);
+    println!(
+        "Backup path: {}",
+        absolute_path(&PathBuf::from(&options.output_path))?.display()
+    );
+    Ok(())
+}
+
+fn write_output_file(path: &str, bytes: &[u8], overwrite: bool) -> CliResult<()> {
+    let path = PathBuf::from(path);
+    if path.exists() && !overwrite {
+        return Err(Error::AlreadyExists(format!(
+            "{}; pass --overwrite to replace it",
+            path.display()
+        ))
+        .into());
+    }
+    fs::write(path, bytes)?;
+    Ok(())
+}
+
+struct ParsedIdentityBackup {
+    name: String,
+    private_key_pem: String,
+    signing_private_hex: String,
+}
+
+fn read_identity_backup(path: &str) -> CliResult<ParsedIdentityBackup> {
+    parse_identity_backup(&fs::read_to_string(path)?)
+}
+
+fn parse_identity_backup(text: &str) -> CliResult<ParsedIdentityBackup> {
+    let name = text
+        .lines()
+        .map(str::trim)
+        .find_map(|line| line.strip_prefix("Identity:").map(str::trim))
+        .filter(|name| !name.is_empty())
+        .ok_or_else(|| Error::InvalidInput("identity backup is missing Identity".to_string()))?
+        .to_string();
+    let private_key_pem = extract_labeled_block(
+        text,
+        "BEGIN LOCKBOX PRIVATE KEY",
+        "END LOCKBOX PRIVATE KEY",
+        "identity backup is missing identity private key",
+    )?;
+    let signing_private_hex = extract_owner_signing_hex(text)?;
+    Ok(ParsedIdentityBackup {
+        name,
+        private_key_pem,
+        signing_private_hex,
+    })
+}
+
+fn extract_labeled_block(
+    text: &str,
+    begin_label: &str,
+    end_label: &str,
+    missing_message: &str,
+) -> CliResult<String> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let start = lines
+        .iter()
+        .position(|line| line.contains(begin_label))
+        .ok_or_else(|| Error::InvalidInput(missing_message.to_string()))?;
+    let end = lines[start..]
+        .iter()
+        .position(|line| line.contains(end_label))
+        .map(|offset| start + offset)
+        .ok_or_else(|| Error::InvalidInput(missing_message.to_string()))?;
+    let mut block = lines[start..=end].join("\n");
+    block.push('\n');
+    Ok(block)
+}
+
+fn extract_owner_signing_hex(text: &str) -> CliResult<String> {
+    let Some((_, rest)) = text.split_once("Owner signing private key record (hex):") else {
+        return Err(Error::InvalidInput(
+            "identity backup is missing owner signing private key".to_string(),
+        )
+        .into());
+    };
+    let hex = rest
+        .lines()
+        .map(str::trim)
+        .skip_while(|line| line.is_empty())
+        .take_while(|line| !line.is_empty() && line.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .collect::<String>();
+    if hex.is_empty() {
+        return Err(Error::InvalidInput(
+            "identity backup is missing owner signing private key".to_string(),
+        )
+        .into());
+    }
+    Ok(hex)
+}
+
+fn owner_signing_key_from_hex_text(text: &str) -> CliResult<OwnerSigningKeyPair> {
     let hex = text
         .lines()
         .map(str::trim)
@@ -1436,7 +1524,15 @@ fn ensure_default_private_key(vault: &VaultDirectory) -> CliResult<bool> {
 }
 
 fn print_default_identity_backup(vault: &VaultDirectory) -> CliResult<()> {
-    let identity = VaultDirectory::DEFAULT_KEY_NAME;
+    println!();
+    write_identity_backup(&mut io::stdout(), vault, VaultDirectory::DEFAULT_KEY_NAME)
+}
+
+fn write_identity_backup(
+    writer: &mut impl Write,
+    vault: &VaultDirectory,
+    identity: &str,
+) -> CliResult<()> {
     let keypair = vault.load_private_key(identity)?;
     let public_key = keypair.public_key();
     let private_bytes = export_private_key(&keypair, KeyFormat::LockboxPem)?;
@@ -1444,38 +1540,48 @@ fn print_default_identity_backup(vault: &VaultDirectory) -> CliResult<()> {
     let signing_private_record = signing_key.private_key_record()?;
     let fingerprint = public_key_fingerprint(&public_key);
 
-    println!();
-    println!("Store the following private keys and your vault passphrase somewhere safe.");
-    println!("Anyone with the identity private key can open lockboxes granted to this identity.");
-    println!("Anyone with the signing private key can sign lockbox changes as this identity.");
-    println!();
-    println!("Identity backup:");
-    println!("  Identity: {identity}");
-    println!(
+    writeln!(
+        writer,
+        "Store the following private keys and your vault passphrase somewhere safe."
+    )?;
+    writeln!(
+        writer,
+        "Anyone with the identity private key can open lockboxes granted to this identity."
+    )?;
+    writeln!(
+        writer,
+        "Anyone with the signing private key can sign lockbox changes as this identity."
+    )?;
+    writeln!(writer)?;
+    writeln!(writer, "Identity backup:")?;
+    writeln!(writer, "  Identity: {identity}")?;
+    writeln!(
+        writer,
         "  Public key fingerprint: {}",
         format_hex_pairs(&fingerprint)
-    );
-    println!();
-    println!("Identity private key:");
-    private_bytes.with_bytes(|bytes| io::stdout().write_all(bytes))??;
+    )?;
+    writeln!(writer)?;
+    writeln!(writer, "Identity private key:")?;
+    private_bytes.with_bytes(|bytes| writer.write_all(bytes))??;
     private_bytes.with_bytes(|bytes| {
         if !bytes.ends_with(b"\n") {
-            println!();
+            writeln!(writer)?;
         }
-    })?;
-    println!();
-    println!("Owner signing private key record (hex):");
-    signing_private_record.with_bytes(write_wrapped_hex)??;
+        Ok::<_, io::Error>(())
+    })??;
+    writeln!(writer)?;
+    writeln!(writer, "Owner signing private key record (hex):")?;
+    signing_private_record.with_bytes(|bytes| write_wrapped_hex(writer, bytes))??;
     Ok(())
 }
 
-fn write_wrapped_hex(bytes: &[u8]) -> io::Result<()> {
+fn write_wrapped_hex(writer: &mut impl Write, bytes: &[u8]) -> io::Result<()> {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     for chunk in bytes.chunks(32) {
         for byte in chunk {
-            io::stdout().write_all(&[HEX[(byte >> 4) as usize], HEX[(byte & 0x0f) as usize]])?;
+            writer.write_all(&[HEX[(byte >> 4) as usize], HEX[(byte & 0x0f) as usize]])?;
         }
-        println!();
+        writeln!(writer)?;
     }
     Ok(())
 }
@@ -1485,16 +1591,14 @@ fn export_public(args: &[String]) -> CliResult<()> {
     let options = parse_identity_export_args(&args)?;
     let vault = default_vault()?;
     let keypair = vault.load_private_key(&options.name)?;
-    if let Some(destination) = options.private_path.as_deref() {
-        write_private_key(destination, &export_private_key(&keypair, format)?)?;
-    }
-    if let Some(destination) = options.public_path.as_deref() {
-        let public_key = keypair.public_key();
-        let fingerprint = public_key_fingerprint(&public_key);
-        fs::write(destination, export_public_key(&public_key, format)?)?;
-        println!("identity={}", options.name);
-        println!("public_key_fingerprint={}", format_hex_pairs(&fingerprint));
-    }
+    let public_key = keypair.public_key();
+    let fingerprint = public_key_fingerprint(&public_key);
+    fs::write(
+        &options.output_path,
+        export_public_key(&public_key, format)?,
+    )?;
+    println!("identity={}", options.name);
+    println!("public_key_fingerprint={}", format_hex_pairs(&fingerprint));
     Ok(())
 }
 
@@ -1510,24 +1614,25 @@ fn confirm_private_key_removal(name: &str) -> CliResult<bool> {
     Ok(answer.trim() == "yes")
 }
 
-struct IdentityImportArgs {
+struct IdentityBackupArgs {
     name: String,
-    public_path: Option<String>,
-    private_path: String,
-    signing_private_path: Option<String>,
+    output_path: String,
+    overwrite: bool,
+}
+
+struct IdentityRestoreArgs {
+    name: Option<String>,
+    input_path: String,
     overwrite: bool,
 }
 
 struct IdentityExportArgs {
     name: String,
-    public_path: Option<String>,
-    private_path: Option<String>,
+    output_path: String,
 }
 
-fn parse_identity_import_args(args: &[String]) -> CliResult<IdentityImportArgs> {
-    let mut public_path = None;
-    let mut private_path = None;
-    let mut signing_private_path = None;
+fn parse_identity_backup_args(args: &[String]) -> CliResult<IdentityBackupArgs> {
+    let mut name = None;
     let mut overwrite = false;
     let mut positionals = Vec::new();
     let mut index = 0usize;
@@ -1537,17 +1642,8 @@ fn parse_identity_import_args(args: &[String]) -> CliResult<IdentityImportArgs> 
                 overwrite = true;
                 index += 1;
             }
-            "--public" => {
-                public_path = Some(require_arg(args, index + 1, "--public path")?.to_string());
-                index += 2;
-            }
-            "--private" => {
-                private_path = Some(require_arg(args, index + 1, "--private path")?.to_string());
-                index += 2;
-            }
-            "--signing-private" => {
-                signing_private_path =
-                    Some(require_arg(args, index + 1, "--signing-private path")?.to_string());
+            "--name" => {
+                name = Some(require_arg(args, index + 1, "--name value")?.to_string());
                 index += 2;
             }
             value => {
@@ -1556,39 +1652,61 @@ fn parse_identity_import_args(args: &[String]) -> CliResult<IdentityImportArgs> 
             }
         }
     }
-    if positionals.len() > 1 {
+    if positionals.len() != 1 {
         return Err(Error::InvalidInput(
-            "identity import accepts exactly one identity name".to_string(),
+            "identity backup accepts exactly one output path".to_string(),
         )
         .into());
     }
-    let name = positionals
-        .pop()
-        .ok_or_else(|| Error::InvalidInput("missing identity name".to_string()))?;
-    let private_path =
-        private_path.ok_or_else(|| Error::InvalidInput("missing --private path".to_string()))?;
-    Ok(IdentityImportArgs {
+    Ok(IdentityBackupArgs {
+        name: name.unwrap_or_else(|| VaultDirectory::DEFAULT_KEY_NAME.to_string()),
+        output_path: positionals.remove(0),
+        overwrite,
+    })
+}
+
+fn parse_identity_restore_args(args: &[String]) -> CliResult<IdentityRestoreArgs> {
+    let mut name = None;
+    let mut overwrite = false;
+    let mut positionals = Vec::new();
+    let mut index = 0usize;
+    while index < args.len() {
+        match args[index].as_str() {
+            "--overwrite" => {
+                overwrite = true;
+                index += 1;
+            }
+            "--name" => {
+                name = Some(require_arg(args, index + 1, "--name value")?.to_string());
+                index += 2;
+            }
+            value => {
+                positionals.push(value.to_string());
+                index += 1;
+            }
+        }
+    }
+    if positionals.len() != 1 {
+        return Err(Error::InvalidInput(
+            "identity restore accepts exactly one input path".to_string(),
+        )
+        .into());
+    }
+    Ok(IdentityRestoreArgs {
         name,
-        public_path,
-        private_path,
-        signing_private_path,
+        input_path: positionals.remove(0),
         overwrite,
     })
 }
 
 fn parse_identity_export_args(args: &[String]) -> CliResult<IdentityExportArgs> {
-    let mut public_path = None;
-    let mut private_path = None;
+    let mut name = None;
     let mut positionals = Vec::new();
     let mut index = 0usize;
     while index < args.len() {
         match args[index].as_str() {
-            "--public" => {
-                public_path = Some(require_arg(args, index + 1, "--public path")?.to_string());
-                index += 2;
-            }
-            "--private" => {
-                private_path = Some(require_arg(args, index + 1, "--private path")?.to_string());
+            "--name" => {
+                name = Some(require_arg(args, index + 1, "--name value")?.to_string());
                 index += 2;
             }
             value => {
@@ -1597,25 +1715,15 @@ fn parse_identity_export_args(args: &[String]) -> CliResult<IdentityExportArgs> 
             }
         }
     }
-    if public_path.is_none() && private_path.is_none() {
+    if positionals.len() != 1 {
         return Err(Error::InvalidInput(
-            "identity export requires --public, --private, or both".to_string(),
+            "identity export accepts exactly one output path".to_string(),
         )
         .into());
     }
-    if positionals.len() > 1 {
-        return Err(Error::InvalidInput(
-            "identity export accepts at most one identity name".to_string(),
-        )
-        .into());
-    }
-    let name = positionals
-        .pop()
-        .unwrap_or_else(|| VaultDirectory::DEFAULT_KEY_NAME.to_string());
     Ok(IdentityExportArgs {
-        name,
-        public_path,
-        private_path,
+        name: name.unwrap_or_else(|| VaultDirectory::DEFAULT_KEY_NAME.to_string()),
+        output_path: positionals.remove(0),
     })
 }
 
@@ -1637,43 +1745,6 @@ fn parse_format(args: &[String]) -> CliResult<(Vec<String>, KeyFormat)> {
         }
     }
     Ok((out, format))
-}
-
-fn write_private_key(path: &str, bytes: &lockbox_vault::SecretVec) -> CliResult<()> {
-    let mut file = create_private_key_file(path)?;
-    bytes.with_bytes(|bytes| file.write_all(bytes))??;
-    Ok(())
-}
-
-#[cfg(unix)]
-fn create_private_key_file(path: &str) -> CliResult<fs::File> {
-    use std::os::unix::fs::OpenOptionsExt;
-
-    let file = fs::OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .write(true)
-        .mode(0o600)
-        .open(path)?;
-    set_private_key_permissions(path)?;
-    Ok(file)
-}
-
-#[cfg(not(unix))]
-fn create_private_key_file(path: &str) -> CliResult<fs::File> {
-    fs::File::create(path).map_err(Into::into)
-}
-
-#[cfg(unix)]
-fn set_private_key_permissions(path: &str) -> CliResult<()> {
-    use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn set_private_key_permissions(_path: &str) -> CliResult<()> {
-    Ok(())
 }
 
 #[cfg(test)]

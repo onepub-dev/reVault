@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, ArgGroup, Command};
+use clap::{Arg, ArgAction, Command};
 
 const ABOUT: &str =
     "Create encrypted file archives, store secrets safely, and grant access with public keys.";
@@ -1320,8 +1320,8 @@ fn vault_identity_command(verbose: bool) -> Command {
         .disable_help_subcommand(true)
         .after_help(verbose_help(
             verbose,
-            "Examples:\n  lockbox vault identity list\n  lockbox vault identity create laptop\n  lockbox vault identity publish laptop\n  lockbox vault identity fingerprint laptop\n  lockbox vault identity export laptop --public ./laptop.pub",
-            "Context:\n  An identity has a public key and a private key. Publish or export the public key so someone else can grant you access to a lockbox; keep the private key secret because it opens lockboxes granted to that identity. To save someone else's public key, use `lockbox vault contact receive` or `lockbox vault contact import`.",
+            "Examples:\n  lockbox vault identity list\n  lockbox vault identity create laptop\n  lockbox vault identity publish laptop\n  lockbox vault identity fingerprint laptop\n  lockbox vault identity backup ./default.identity-backup",
+            "Context:\n  An identity has a public key, private open key, and owner signing key. Publish or export the public key so someone else can grant you access to a lockbox. Use identity backup and restore for emergency recovery of one identity.",
         ))
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -1341,8 +1341,8 @@ fn vault_identity_command(verbose: bool) -> Command {
                 .about("Create one of your identities.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity create\n  lockbox vault identity create laptop\n  lockbox vault identity export laptop --public ./laptop.pub",
-                    "Context:\n  Identity create generates a new identity in your vault. With no name, reVault creates the `default` identity. To publish the identity, create it first and then run `lockbox vault identity export --public` to write its public key.",
+                    "Examples:\n  lockbox vault identity create\n  lockbox vault identity create laptop\n  lockbox vault identity export ./laptop.pub --name laptop",
+                    "Context:\n  Identity create generates a new identity in your vault. With no name, reVault creates the `default` identity. To publish the identity, create it first and then run `lockbox vault identity publish` or `lockbox vault identity export <path>`.",
                 ))
                 .arg(
                     Arg::new("overwrite")
@@ -1415,14 +1415,35 @@ fn vault_identity_command(verbose: bool) -> Command {
                 .arg(optional("name", "Identity name. Defaults to default.")),
         )
         .subcommand(
-            Command::new("import")
-                .about("Import a private key into the vault and create a new identity.")
+            Command::new("backup")
+                .about("Back up one identity to a text recovery file.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity import laptop --private ./laptop.private\n  lockbox vault identity import default --overwrite --private ./default.private --signing-private ./default.signing",
-                    "Context:\n  Identity import restores or moves private open material into this vault. The public key is derived from the private key. If --public is provided, reVault rejects the import unless it matches. Use --signing-private when restoring an init backup. Use --overwrite to replace an existing identity; reVault backs up the current vault before replacing it.",
+                    "Examples:\n  lockbox vault identity backup ./default.identity-backup\n  lockbox vault identity backup ./laptop.identity-backup --name laptop",
+                    "Context:\n  Identity backup writes the same text recovery block printed by vault init. It contains the identity name, fingerprint, identity private key, and owner signing private key.",
                 ))
-                .arg(required("name", "Identity name."))
+                .arg(
+                    Arg::new("overwrite")
+                        .long("overwrite")
+                        .action(ArgAction::SetTrue)
+                        .help("Replace an existing backup file."),
+                )
+                .arg(
+                    Arg::new("name")
+                        .long("name")
+                        .value_name("IDENTITY")
+                        .help("Identity name. Defaults to default."),
+                )
+                .arg(required("output", "Identity backup output path.")),
+        )
+        .subcommand(
+            Command::new("restore")
+                .about("Restore one identity from a text recovery file.")
+                .after_help(verbose_help(
+                    verbose,
+                    "Examples:\n  lockbox vault identity restore ./default.identity-backup\n  lockbox vault identity restore ./default.identity-backup --name laptop --overwrite",
+                    "Context:\n  Identity restore reads one identity backup text file, derives the public key from the private key, and restores the required owner signing key. If the identity already exists, use --overwrite; reVault backs up the current vault before replacing it.",
+                ))
                 .arg(
                     Arg::new("overwrite")
                         .long("overwrite")
@@ -1430,57 +1451,29 @@ fn vault_identity_command(verbose: bool) -> Command {
                         .help("Replace an existing identity after backing up the current vault."),
                 )
                 .arg(
-                    Arg::new("public")
-                        .long("public")
-                        .value_name("PUBLIC_KEY")
-                        .help("Optional public key input path used to validate the private key."),
+                    Arg::new("name")
+                        .long("name")
+                        .value_name("IDENTITY")
+                        .help("Restore to this identity name instead of the name in the backup."),
                 )
-                .arg(
-                    Arg::new("private")
-                        .long("private")
-                        .value_name("PRIVATE_KEY")
-                        .required(true)
-                        .help("Private key input path."),
-                )
-                .arg(
-                    Arg::new("signing-private")
-                        .long("signing-private")
-                        .value_name("SIGNING_PRIVATE_KEY")
-                        .help("Owner signing private key record path from an init backup."),
-                ),
+                .arg(required("input", "Identity backup input path.")),
         )
         .subcommand(
             Command::new("export")
-                .about("Export identity key files.")
+                .about("Export one identity public key.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity export --public ./default.pub\n  lockbox vault identity export laptop --public ./laptop.pub --private ./laptop.private",
-                    "Context:\n  Identity export writes one or both key files for an identity. Publish the public key with someone who needs to grant you access to a lockbox, then give them the fingerprint over a second channel. Treat private-key output as highly sensitive; anyone with the private key can open lockboxes granted to that identity.",
+                    "Examples:\n  lockbox vault identity export ./default.pub\n  lockbox vault identity export ./laptop.pub --name laptop",
+                    "Context:\n  Identity export writes the public key for sharing with someone who needs to grant you access to a lockbox. Use identity backup, not export, for private recovery material.",
                 ))
                 .arg(format_arg(verbose))
                 .arg(
-                    Arg::new("public")
-                        .long("public")
-                        .value_name("PUBLIC_KEY")
-                        .help("Public key output path."),
-                )
-                .arg(
-                    Arg::new("private")
-                        .long("private")
-                        .value_name("PRIVATE_KEY")
-                        .help("Private key output path."),
-                )
-                .group(
-                    ArgGroup::new("export-output")
-                        .args(["public", "private"])
-                        .multiple(true)
-                        .required(true),
-                )
-                .arg(
                     Arg::new("name")
-                        .required(false)
+                        .long("name")
+                        .value_name("IDENTITY")
                         .help("Identity name. Defaults to default."),
-                ),
+                )
+                .arg(required("output", "Public key output path.")),
         )
         .subcommand(
             Command::new("remove")
