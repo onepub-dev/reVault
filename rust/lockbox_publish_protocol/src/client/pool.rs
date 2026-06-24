@@ -4,7 +4,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::client::{
     ClientError, ContactPublish, HttpTransport, PublishClient, PublishClientPool, PublishResult,
     PublishTopologyState, ReceivedPublish, RetryPolicy, StickyPublishServer, TopologyAwareResponse,
-    Transport, DEFAULT_STICKY_SERVER_TTL_MS, DEFAULT_TOPOLOGY_TTL_MS,
+    TopologyStateSnapshot, Transport, DEFAULT_STICKY_SERVER_TTL_MS, DEFAULT_TOPOLOGY_TTL_MS,
 };
 use crate::payload;
 use crate::protocol::Status;
@@ -233,8 +233,19 @@ impl<T: Transport> PublishClientPool<T> {
         payload: &[u8],
         verification_email: Option<&str>,
     ) -> Result<PublishResult, ClientError> {
+        if verification_email.is_some() {
+            if let Some(result) = self.publish_payload_with_email_to_owner(
+                ttl_seconds,
+                max_receives,
+                payload,
+                verification_email,
+            )? {
+                return Ok(result);
+            }
+        }
+        let start = self.selection_offset_for_verification_email(verification_email)?;
         self.try_clients_from(
-            self.selection_offset(),
+            start.unwrap_or_else(|| self.selection_offset()),
             |client, topology_version| {
                 client.publish_payload_with_email_with_version(
                     ttl_seconds,
@@ -246,6 +257,58 @@ impl<T: Transport> PublishClientPool<T> {
             },
             retry_publish_error,
         )
+    }
+
+    fn publish_payload_with_email_to_owner(
+        &self,
+        ttl_seconds: u32,
+        max_receives: u16,
+        payload: &[u8],
+        verification_email: Option<&str>,
+    ) -> Result<Option<PublishResult>, ClientError> {
+        let Some(verification_email) = verification_email else {
+            return Ok(None);
+        };
+        let snapshot = self.snapshot()?;
+        if snapshot.clients.is_empty() {
+            return Err(ClientError::Url(
+                "at least one key server url is required".to_string(),
+            ));
+        }
+        let snapshot = self.discover_topology_if_stale(&snapshot)?;
+        let Some(owner_indices) =
+            self.verification_email_owner_indices(Some(verification_email), &snapshot)?
+        else {
+            return Ok(None);
+        };
+        let topology_version = snapshot.topology_version.if_version_for_request();
+        let mut last_error = None;
+        for (position, owner_index) in owner_indices.iter().copied().enumerate() {
+            match snapshot.clients[owner_index].publish_payload_with_email_with_version(
+                ttl_seconds,
+                max_receives,
+                payload,
+                Some(verification_email),
+                topology_version,
+            ) {
+                Ok(response) => {
+                    if let Some(topology) = response.topology {
+                        let _ = self.apply_topology_update(topology);
+                    }
+                    return Ok(Some(response.value));
+                }
+                Err(err)
+                    if position + 1 < owner_indices.len()
+                        && retry_verification_email_backup_error(&err) =>
+                {
+                    last_error = Some(err);
+                }
+                Err(err) => return Err(verification_owner_publish_error(err)),
+            }
+        }
+        Err(verification_owner_publish_error(
+            last_error.unwrap_or_else(verification_owner_unreachable),
+        ))
     }
 
     pub fn publish_contact(
@@ -400,6 +463,76 @@ impl<T: Transport> PublishClientPool<T> {
         state.sticky_until_ms = now.saturating_add(DEFAULT_STICKY_SERVER_TTL_MS);
         index
     }
+
+    fn selection_offset_for_verification_email(
+        &self,
+        verification_email: Option<&str>,
+    ) -> Result<Option<usize>, ClientError> {
+        let snapshot = self.snapshot()?;
+        Ok(self
+            .verification_email_owner_indices(verification_email, &snapshot)?
+            .and_then(|indices| indices.into_iter().next()))
+    }
+
+    fn verification_email_owner_indices(
+        &self,
+        verification_email: Option<&str>,
+        snapshot: &TopologyStateSnapshot<T>,
+    ) -> Result<Option<Vec<usize>>, ClientError> {
+        let Some(verification_email) = verification_email else {
+            return Ok(None);
+        };
+        let normalized_email = payload::normalize_contact_email(verification_email)?;
+        let Some(topology) = snapshot.topology.as_ref() else {
+            return Ok(None);
+        };
+        let indices = topology
+            .verification_email_server_ids(&normalized_email)
+            .into_iter()
+            .filter_map(|owner_id| {
+                snapshot
+                    .server_ids
+                    .iter()
+                    .position(|server_id| *server_id == owner_id)
+            })
+            .collect::<Vec<_>>();
+        if indices.is_empty() {
+            Err(verification_owner_unreachable())
+        } else {
+            Ok(Some(indices))
+        }
+    }
+}
+
+fn verification_owner_unreachable() -> ClientError {
+    ClientError::Server {
+        status: Status::StoreUnavailable,
+        message: "verification email service is temporarily unavailable. Try again shortly."
+            .to_string(),
+    }
+}
+
+fn retry_verification_email_backup_error(err: &ClientError) -> bool {
+    matches!(
+        err,
+        ClientError::Io(_)
+            | ClientError::Http(_)
+            | ClientError::Server {
+                status: Status::StoreUnavailable,
+                ..
+            }
+    )
+}
+
+fn verification_owner_publish_error(err: ClientError) -> ClientError {
+    match err {
+        ClientError::Io(_) | ClientError::Http(_) => verification_owner_unreachable(),
+        ClientError::Server {
+            status: Status::StoreUnavailable,
+            ..
+        } => verification_owner_unreachable(),
+        other => other,
+    }
 }
 
 fn dedupe_urls<T: AsRef<str>>(values: impl IntoIterator<Item = T>) -> Vec<String> {
@@ -412,4 +545,241 @@ fn dedupe_urls<T: AsRef<str>>(values: impl IntoIterator<Item = T>) -> Vec<String
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    use crate::protocol::{self, Operation, Status};
+    use crate::topology::{ServerStatus, TopologyServer};
+
+    use super::*;
+
+    #[derive(Clone)]
+    struct MockTransport {
+        response: Result<Vec<u8>, &'static str>,
+        calls: Arc<AtomicUsize>,
+    }
+
+    impl MockTransport {
+        fn success(response: Vec<u8>) -> Self {
+            Self {
+                response: Ok(response),
+                calls: Arc::new(AtomicUsize::new(0)),
+            }
+        }
+
+        fn unavailable() -> Self {
+            Self {
+                response: Err("connection refused"),
+                calls: Arc::new(AtomicUsize::new(0)),
+            }
+        }
+
+        fn calls(&self) -> usize {
+            self.calls.load(Ordering::Relaxed)
+        }
+    }
+
+    impl Transport for MockTransport {
+        fn post_binary(&self, _body: &[u8]) -> Result<Vec<u8>, ClientError> {
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            self.response
+                .clone()
+                .map_err(|err| ClientError::Http(err.to_string()))
+        }
+    }
+
+    #[test]
+    fn publish_with_email_starts_at_topology_email_owner() {
+        let response = publish_success_response("00123456789012");
+        let server_0 = MockTransport::success(response.clone());
+        let server_1 = MockTransport::success(response);
+        let topology = two_server_topology();
+        let owner_id = topology
+            .verification_email_owner_id("alice@example.test")
+            .unwrap();
+        let pool = topology_pool(
+            topology.clone(),
+            server_0.clone(),
+            server_1.clone(),
+            Some(if owner_id == 0 { 1 } else { 0 }),
+        );
+
+        pool.publish_payload_with_email(
+            900,
+            1,
+            &payload::encode_contact_publish(
+                "alice@example.test",
+                b"public-key-material",
+                b"signing-public-key-material",
+                &[1_u8; 32],
+                &[2_u8; 24],
+                1,
+                2,
+            ),
+            Some("Alice@Example.Test"),
+        )
+        .unwrap();
+
+        if owner_id == 0 {
+            assert!(server_0.calls() > 0);
+            assert_eq!(server_1.calls(), 0);
+        } else {
+            assert_eq!(server_0.calls(), 0);
+            assert!(server_1.calls() > 0);
+        }
+    }
+
+    #[test]
+    fn publish_with_email_tries_one_backup_when_owner_is_unavailable() {
+        let response = publish_success_response("00123456789012");
+        let topology = two_server_topology();
+        let owner_ids = topology.verification_email_server_ids("alice@example.test");
+        let primary_id = owner_ids[0];
+        let backup_id = owner_ids[1];
+        let server_0 = if primary_id == 0 {
+            MockTransport::unavailable()
+        } else {
+            MockTransport::success(response.clone())
+        };
+        let server_1 = if primary_id == 1 {
+            MockTransport::unavailable()
+        } else {
+            MockTransport::success(response)
+        };
+        let pool = topology_pool(
+            topology,
+            server_0.clone(),
+            server_1.clone(),
+            Some(backup_id),
+        );
+
+        pool.publish_payload_with_email(
+            900,
+            1,
+            &payload::encode_contact_publish(
+                "alice@example.test",
+                b"public-key-material",
+                b"signing-public-key-material",
+                &[1_u8; 32],
+                &[2_u8; 24],
+                1,
+                2,
+            ),
+            Some("alice@example.test"),
+        )
+        .unwrap();
+
+        assert!(server_0.calls() > 0);
+        assert!(server_1.calls() > 0);
+    }
+
+    #[test]
+    fn publish_with_email_returns_clean_error_when_owner_and_backup_are_unavailable() {
+        let topology = two_server_topology();
+        let server_0 = MockTransport::unavailable();
+        let server_1 = MockTransport::unavailable();
+        let pool = topology_pool(topology, server_0.clone(), server_1.clone(), None);
+
+        let err = pool
+            .publish_payload_with_email(
+                900,
+                1,
+                &payload::encode_contact_publish(
+                    "alice@example.test",
+                    b"public-key-material",
+                    b"signing-public-key-material",
+                    &[1_u8; 32],
+                    &[2_u8; 24],
+                    1,
+                    2,
+                ),
+                Some("alice@example.test"),
+            )
+            .unwrap_err();
+
+        match err {
+            ClientError::Server { status, message } => {
+                assert_eq!(status, Status::StoreUnavailable);
+                assert_eq!(
+                    message,
+                    "verification email service is temporarily unavailable. Try again shortly."
+                );
+            }
+            other => panic!("expected StoreUnavailable, got {other:?}"),
+        }
+        assert!(server_0.calls() > 0);
+        assert!(server_1.calls() > 0);
+    }
+
+    fn two_server_topology() -> ClusterTopology {
+        ClusterTopology {
+            cluster_id: "acme".to_string(),
+            version: 1,
+            servers: vec![
+                TopologyServer {
+                    id: 0,
+                    url: "http://publish0/v1/publish".to_string(),
+                    status: ServerStatus::Active,
+                    last_seen_ms: None,
+                },
+                TopologyServer {
+                    id: 1,
+                    url: "http://publish1/v1/publish".to_string(),
+                    status: ServerStatus::Active,
+                    last_seen_ms: None,
+                },
+            ],
+            routes: vec![
+                TopologyRoute {
+                    owner_id: 0,
+                    primary_id: 0,
+                    failover_ids: vec![1],
+                },
+                TopologyRoute {
+                    owner_id: 1,
+                    primary_id: 1,
+                    failover_ids: vec![0],
+                },
+            ],
+        }
+    }
+
+    fn topology_pool(
+        topology: ClusterTopology,
+        server_0: MockTransport,
+        server_1: MockTransport,
+        sticky_server_id: Option<u8>,
+    ) -> PublishClientPool<MockTransport> {
+        PublishClientPool {
+            state: Arc::new(Mutex::new(PublishTopologyState {
+                clients: vec![
+                    PublishClient::from_transport(server_0),
+                    PublishClient::from_transport(server_1),
+                ],
+                server_ids: vec![0, 1],
+                topology: Some(topology.clone()),
+                routes: topology.routes.clone(),
+                topology_version: topology.version,
+                topology_server_urls: Vec::new(),
+                topology_ttl_ms: DEFAULT_TOPOLOGY_TTL_MS,
+                topology_refreshed_ms: unix_ms_now(),
+                sticky_server_id,
+                sticky_until_ms: u64::MAX,
+            })),
+        }
+    }
+
+    fn publish_success_response(publish_code: &str) -> Vec<u8> {
+        let mut body = Vec::new();
+        protocol::put_u16(&mut body, protocol::MESSAGE_VERSION);
+        protocol::put_string(&mut body, publish_code);
+        protocol::put_bytes(&mut body, b"delete-token");
+        protocol::put_u64(&mut body, 2);
+        protocol::put_u16(&mut body, 1);
+        protocol::encode_response(Operation::Publish, Status::Success, &body)
+    }
 }

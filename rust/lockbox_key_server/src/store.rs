@@ -944,6 +944,7 @@ impl PublishStore {
         if publish_payload.len() > self.config.max_payload_bytes {
             return Err(StoreError::PayloadTooLarge);
         }
+        self.check_verification_email_owner(&verification_email)?;
         self.check_verification_blocks(&verification_email, peer_ip)?;
         payload::validate_payload(&publish_payload)
             .map_err(|err| StoreError::PayloadInvalid(err.to_string()))?;
@@ -1070,6 +1071,16 @@ impl PublishStore {
             }
         }
         Ok(())
+    }
+
+    fn check_verification_email_owner(&self, email: &str) -> Result<(), StoreError> {
+        let topology = self.topology();
+        let allowed_ids = topology.verification_email_server_ids(email);
+        if allowed_ids.is_empty() || allowed_ids.contains(&self.config.server_id) {
+            Ok(())
+        } else {
+            Err(StoreError::RateLimited)
+        }
     }
 
     fn check_verification_blocks(

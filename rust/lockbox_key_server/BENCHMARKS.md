@@ -182,6 +182,8 @@ max_receive_ttl=2 hours
 max_receives_per_publish=8
 rate_limit_per_ip=120 requests/minute
 rate_limit_burst=40
+verification_email_rate_limit=5/hour/email/cluster
+verification_email_ip_rate_limit=30/hour/source-ip
 ```
 
 The server validates typed, versioned reVault publish payloads before storing
@@ -195,6 +197,14 @@ therefore waits instead of retrying the same operation against another cluster
 member. Key servers also replicate 24 hour anonymous-client blocks after a
 rate-limit violation, so the limit is enforced at cluster scope rather than by
 one server process only.
+
+Verification email sending is also cluster-scoped. The topology assigns each
+normalized publisher email address to one primary server plus one backup
+server, and only those two servers queue verification email for the address.
+Requests sent directly to other servers are rejected as rate limited, so a
+publisher or attacker cannot multiply the per-email SMTP limit by trying every
+server in the topology. Clients fail over verification-email publishes only to
+the one deterministic backup server, and only when the primary is unavailable.
 
 ## CPU Profile
 

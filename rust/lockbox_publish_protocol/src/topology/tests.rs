@@ -100,3 +100,68 @@ fn build_ring_routes_ignores_inactive_servers() {
         ]
     );
 }
+
+#[test]
+fn verification_email_owner_is_stable_and_uses_route_primary() {
+    let servers = vec![
+        TopologyServer {
+            id: 0,
+            url: "http://publish0/v1/publish".to_string(),
+            status: ServerStatus::Active,
+            last_seen_ms: Some(10),
+        },
+        TopologyServer {
+            id: 1,
+            url: "http://publish1/v1/publish".to_string(),
+            status: ServerStatus::Active,
+            last_seen_ms: Some(10),
+        },
+        TopologyServer {
+            id: 2,
+            url: "http://publish2/v1/publish".to_string(),
+            status: ServerStatus::Disabled,
+            last_seen_ms: Some(10),
+        },
+    ];
+    let mut topology = ClusterTopology {
+        cluster_id: "acme".to_string(),
+        version: 1,
+        servers,
+        routes: vec![
+            TopologyRoute {
+                owner_id: 0,
+                primary_id: 1,
+                failover_ids: vec![0],
+            },
+            TopologyRoute {
+                owner_id: 1,
+                primary_id: 0,
+                failover_ids: vec![1],
+            },
+        ],
+    };
+
+    let first_owner = topology
+        .verification_email_owner_id("alice@example.test")
+        .unwrap();
+    let second_owner = topology
+        .verification_email_owner_id("alice@example.test")
+        .unwrap();
+    let email_servers = topology.verification_email_server_ids("alice@example.test");
+
+    assert_eq!(first_owner, second_owner);
+    assert!(first_owner == 0 || first_owner == 1);
+    assert_ne!(first_owner, 2);
+    assert_eq!(email_servers.len(), 2);
+    assert!(email_servers
+        .iter()
+        .all(|server_id| *server_id == 0 || *server_id == 1));
+    assert_ne!(email_servers[0], email_servers[1]);
+
+    topology.routes.clear();
+    let unrouted_owner = topology
+        .verification_email_owner_id("alice@example.test")
+        .unwrap();
+    assert!(unrouted_owner == 0 || unrouted_owner == 1);
+    assert_ne!(first_owner, unrouted_owner);
+}

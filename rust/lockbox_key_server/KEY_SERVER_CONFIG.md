@@ -173,7 +173,7 @@ receiver can tell the publisher what is blocking the receive.
 | `smtp_timeout_seconds` | `30` | SMTP send timeout used by the bounded background email worker. |
 | `verification_email_subject` | `Verify your reVault publish` | Subject template. Placeholders: `{email}`, `{publish_code}`, `{verification_url}`. |
 | `verification_email_template` | see default config | Plain text body template. Placeholders: `{email}`, `{publish_code}`, `{verification_url}`. Use `\n` for newlines. |
-| `verification_email_rate_limit_per_hour` | `5` | Maximum verification emails per email address per hour. Use `0` to disable this limit. |
+| `verification_email_rate_limit_per_hour` | `5` | Maximum verification emails per email address per hour across the cluster. Use `0` to disable this limit. |
 | `verification_email_ip_rate_limit_per_hour` | `30` | Maximum verification emails per source IP per hour. Use `0` to disable this limit. |
 
 Example:
@@ -192,7 +192,26 @@ verification_email_rate_limit_per_hour = 5
 verification_email_ip_rate_limit_per_hour = 30
 ```
 
-Publish requests queue verification email work on a bounded background worker. A full or unavailable queue causes the publish request to fail fast; SMTP delivery failures after queuing are logged. Verification email or source-IP rate-limit breaches create temporary local blocks so repeated attempts are rejected before payload validation and before SMTP queueing. Source-IP verification blocks are also replicated to configured peers.
+Publish requests queue verification email work on a bounded background worker.
+A full or unavailable queue causes the publish request to fail fast; SMTP
+delivery failures after queuing are logged.
+
+For clustered deployments, the topology deterministically assigns each
+normalized publisher email address to one primary server plus one backup server.
+Only those two servers may queue verification email for the address, and
+topology-aware clients route the publish to the primary first. Direct publish
+attempts to other servers are rejected as rate limited, which prevents an
+attacker from multiplying the per-email limit by calling every public server.
+
+Topology-aware clients fail over verification-email publishes only to that one
+backup server, and only when the primary is unavailable. If both are unavailable,
+the client reports that the verification email service is temporarily
+unavailable and asks the publisher to try again shortly.
+
+Verification email or source-IP rate-limit breaches create temporary local
+blocks so repeated attempts are rejected before payload validation and before
+SMTP queueing. Source-IP verification blocks are also replicated to configured
+peers.
 
 ## Topology Settings
 

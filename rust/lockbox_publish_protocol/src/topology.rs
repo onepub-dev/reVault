@@ -3,6 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::client::ClientError;
 use crate::protocol::{self, ProtocolError, Reader};
+use sha2::{Digest, Sha256};
 
 mod cache;
 mod registration;
@@ -206,6 +207,77 @@ impl ClusterTopology {
             }
         }
         out
+    }
+
+    pub fn verification_email_owner_id(&self, normalized_email: &str) -> Option<u8> {
+        self.verification_email_server_ids(normalized_email)
+            .into_iter()
+            .next()
+    }
+
+    pub fn verification_email_server_ids(&self, normalized_email: &str) -> Vec<u8> {
+        let mut active_ids = self
+            .servers
+            .iter()
+            .filter(|server| {
+                matches!(
+                    server.status,
+                    ServerStatus::Active | ServerStatus::Promoted | ServerStatus::Standby
+                )
+            })
+            .map(|server| server.id)
+            .collect::<Vec<_>>();
+        active_ids.sort_unstable();
+        active_ids.dedup();
+        if active_ids.is_empty() {
+            return Vec::new();
+        }
+
+        let mut hasher = Sha256::new();
+        hasher.update(b"revault-verification-email-owner-v1");
+        hasher.update((self.cluster_id.len() as u64).to_be_bytes());
+        hasher.update(self.cluster_id.as_bytes());
+        hasher.update((normalized_email.len() as u64).to_be_bytes());
+        hasher.update(normalized_email.as_bytes());
+        let digest = hasher.finalize();
+        let mut value_bytes = [0_u8; 8];
+        value_bytes.copy_from_slice(&digest[..8]);
+        let owner_index = u64::from_be_bytes(value_bytes) as usize % active_ids.len();
+        let owner_id = active_ids[owner_index];
+        let route = self.route(owner_id);
+        let primary_id = route
+            .map(|route| route.primary_id)
+            .filter(|primary_id| active_ids.contains(primary_id))
+            .unwrap_or(owner_id);
+        let mut out = vec![primary_id];
+        if let Some(failover_id) = route
+            .into_iter()
+            .flat_map(|route| route.failover_ids.iter().copied())
+            .find(|failover_id| *failover_id != primary_id && active_ids.contains(failover_id))
+        {
+            out.push(failover_id);
+            return out;
+        }
+        if active_ids.len() > 1 {
+            let primary_index = active_ids
+                .iter()
+                .position(|server_id| *server_id == primary_id)
+                .unwrap_or(owner_index);
+            out.push(active_ids[(primary_index + 1) % active_ids.len()]);
+        }
+        out
+    }
+
+    pub fn urls_for_verification_email(&self, normalized_email: &str) -> Vec<String> {
+        let owner_ids = self.verification_email_server_ids(normalized_email);
+        if owner_ids.is_empty() {
+            return self.active_urls();
+        }
+        owner_ids
+            .into_iter()
+            .filter_map(|server_id| self.server(server_id))
+            .map(|server| server.url.clone())
+            .collect()
     }
 
     pub fn active_urls(&self) -> Vec<String> {

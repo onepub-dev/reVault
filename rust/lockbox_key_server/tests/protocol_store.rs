@@ -14,8 +14,8 @@ use lockbox_publish_protocol::protocol::{
     Operation, Reader, Status,
 };
 use lockbox_publish_protocol::{
-    encode_replication_request, sign_replication_event, ReplicationEvent, ReplicationEventKind,
-    ReplicationRequest, ServerStatus, TopologyRoute, TopologyServer,
+    encode_replication_request, sign_replication_event, ClusterTopology, ReplicationEvent,
+    ReplicationEventKind, ReplicationRequest, ServerStatus, TopologyRoute, TopologyServer,
 };
 
 fn contact_payload(label: &str) -> Vec<u8> {
@@ -208,6 +208,135 @@ fn store_rate_limits_verification_email_by_contact() {
         store.create_from_payload(&malformed.payload),
         Err(StoreError::RateLimited)
     ));
+}
+
+#[test]
+fn store_rejects_verification_email_publish_on_non_owner_server() {
+    let (_guard_0, mut config_0) = temp_config("email-owner-0");
+    let (_guard_1, mut config_1) = temp_config("email-owner-1");
+    let (_guard_2, mut config_2) = temp_config("email-owner-2");
+    let servers = vec![
+        TopologyServer {
+            id: 0,
+            url: "http://publish0.example.test/v1/publish".to_string(),
+            status: ServerStatus::Active,
+            last_seen_ms: None,
+        },
+        TopologyServer {
+            id: 1,
+            url: "http://publish1.example.test/v1/publish".to_string(),
+            status: ServerStatus::Active,
+            last_seen_ms: None,
+        },
+        TopologyServer {
+            id: 2,
+            url: "http://publish2.example.test/v1/publish".to_string(),
+            status: ServerStatus::Active,
+            last_seen_ms: None,
+        },
+    ];
+    let routes = vec![
+        TopologyRoute {
+            owner_id: 0,
+            primary_id: 0,
+            failover_ids: vec![1],
+        },
+        TopologyRoute {
+            owner_id: 1,
+            primary_id: 1,
+            failover_ids: vec![2],
+        },
+        TopologyRoute {
+            owner_id: 2,
+            primary_id: 2,
+            failover_ids: vec![0],
+        },
+    ];
+
+    for config in [&mut config_0, &mut config_1, &mut config_2] {
+        config.cluster_id = "email-owner-cluster".to_string();
+        config.topology_servers = servers.clone();
+        config.topology_routes = routes.clone();
+        config.verification_email_rate_limit_per_hour = 0;
+        config.verification_email_ip_rate_limit_per_hour = 0;
+    }
+    config_0.server_id = 0;
+    config_1.server_id = 1;
+    config_2.server_id = 2;
+
+    let topology = ClusterTopology {
+        cluster_id: "email-owner-cluster".to_string(),
+        version: 1,
+        servers,
+        routes,
+    };
+    let allowed_ids = topology.verification_email_server_ids("victim@example.test");
+    assert_eq!(allowed_ids.len(), 2);
+    let disallowed_id = [0_u8, 1, 2]
+        .into_iter()
+        .find(|server_id| !allowed_ids.contains(server_id))
+        .unwrap();
+    let store_0 = PublishStore::open(config_0).unwrap();
+    let store_1 = PublishStore::open(config_1).unwrap();
+    let store_2 = PublishStore::open(config_2).unwrap();
+    let allowed_store = match allowed_ids[0] {
+        0 => &store_0,
+        1 => &store_1,
+        _ => &store_2,
+    };
+    let backup_store = match allowed_ids[1] {
+        0 => &store_0,
+        1 => &store_1,
+        _ => &store_2,
+    };
+    let disallowed_store = match disallowed_id {
+        0 => &store_0,
+        1 => &store_1,
+        _ => &store_2,
+    };
+
+    let disallowed_request = decode_request(
+        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+            900,
+            1,
+            &contact_payload("email-owner-non-owner"),
+            Some("Victim@Example.Test"),
+        ),
+        2048,
+    )
+    .unwrap();
+    assert!(matches!(
+        disallowed_store.create_from_payload(&disallowed_request.payload),
+        Err(StoreError::RateLimited)
+    ));
+
+    let allowed_request = decode_request(
+        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+            900,
+            1,
+            &contact_payload("email-owner-owner"),
+            Some("Victim@Example.Test"),
+        ),
+        2048,
+    )
+    .unwrap();
+    allowed_store
+        .create_from_payload(&allowed_request.payload)
+        .unwrap();
+
+    let backup_request = decode_request(
+        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+            900,
+            1,
+            &contact_payload("email-owner-backup"),
+            Some("Victim@Example.Test"),
+        ),
+        2048,
+    )
+    .unwrap();
+    backup_store
+        .create_from_payload(&backup_request.payload)
+        .unwrap();
 }
 
 #[test]
