@@ -105,7 +105,8 @@ fn secure_vec_uses_smallest_secure_size_class() {
     assert_secure_vec_capacity(255, 256);
     assert_secure_vec_capacity(257, 512);
     assert_secure_vec_capacity(4096, 4096);
-    assert_secure_vec_capacity(4097, page_size() * 2);
+    let page_size = page_size();
+    assert_secure_vec_capacity(4097, 4097usize.div_ceil(page_size) * page_size);
 }
 
 fn assert_secure_vec_capacity(len: usize, expected_capacity: usize) {
