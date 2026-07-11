@@ -66,8 +66,10 @@ pub(crate) use agent_protocol::{
 pub use content_key_store::ContentKeyStore;
 pub use hex::{decode_hex, encode_hex};
 pub use key_format::{
-    export_private_key, export_public_key, import_private_key, import_private_key_file,
-    import_public_key, public_key_fingerprint, KeyFormat,
+    decode_fingerprint_crockford_96, decode_fingerprint_hex, export_private_key, export_public_key,
+    format_fingerprint_crockford_96, format_fingerprint_crockford_96_reading,
+    format_fingerprint_hex_pairs, import_private_key, import_private_key_file, import_public_key,
+    public_key_fingerprint, KeyFormat, FINGERPRINT_CODE_96_LEN, PUBLIC_KEY_FINGERPRINT_LEN,
 };
 pub use noop_store::NoopStore;
 pub use platform_secret_store::{

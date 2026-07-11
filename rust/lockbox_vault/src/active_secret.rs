@@ -125,7 +125,7 @@ impl ActiveSecretRegistry {
 fn next_token(processes: &BTreeMap<u64, ActiveSecretProcess>) -> io::Result<u64> {
     loop {
         let mut bytes = [0u8; 8];
-        getrandom::getrandom(&mut bytes).map_err(|err| io::Error::other(err.to_string()))?;
+        getrandom::fill(&mut bytes).map_err(|err| io::Error::other(err.to_string()))?;
         let token = u64::from_le_bytes(bytes);
         if token != 0 && !processes.contains_key(&token) {
             return Ok(token);

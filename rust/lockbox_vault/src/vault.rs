@@ -1,5 +1,7 @@
 use lockbox_core::vault_integration::{OpenedContentKey, VaultOpen};
-use lockbox_core::{Error, Lockbox, LockboxOpen, LockboxProtection, Result, SecretString};
+use lockbox_core::{
+    Error, Lockbox, LockboxOpen, LockboxProtection, OwnerSigningKeyPair, Result, SecretString,
+};
 use std::path::Path;
 
 use crate::{AgentClient, ContentKeyStore, VaultDirectory};
@@ -93,17 +95,41 @@ impl<S: ContentKeyStore> Vault<S> {
         path: impl AsRef<Path>,
         protection: LockboxProtection<'_>,
     ) -> Result<Lockbox> {
+        let signing_key = default_owner_signing_key()?.ok_or_else(|| {
+            Error::VaultUnavailable(
+                "vault owner signing key is unavailable; open or initialize the vault first"
+                    .to_string(),
+            )
+        })?;
+        self.create_lockbox_with_signing_key(path, protection, &signing_key)
+    }
+
+    /// Creates a lockbox using an owner signing key loaded by the caller.
+    ///
+    /// This variant lets interactive callers reuse an already-open encrypted
+    /// vault instead of requiring its passphrase to also be available through
+    /// process environment or platform secret-store state. Private signing
+    /// material remains owned by [`OwnerSigningKeyPair`], whose serialized
+    /// private key is held in secure, zeroizing memory.
+    pub fn create_lockbox_with_signing_key(
+        &self,
+        path: impl AsRef<Path>,
+        protection: LockboxProtection<'_>,
+        signing_key: &OwnerSigningKeyPair,
+    ) -> Result<Lockbox> {
         let path = path.as_ref();
         match protection {
             LockboxProtection::ContentKey(key) => {
                 let store_key = key.try_clone()?;
-                let lockbox = create_lockbox_file(path, LockboxProtection::ContentKey(key))?;
+                let lockbox =
+                    Lockbox::create_file(path, LockboxProtection::ContentKey(key), signing_key)?;
                 self.store
                     .put_content_key_for_path(lockbox.lockbox_id(), store_key, path)?;
                 Ok(lockbox)
             }
             LockboxProtection::Password(password) => {
-                let lockbox = create_lockbox_file(path, LockboxProtection::Password(password))?;
+                let lockbox =
+                    Lockbox::create_file(path, LockboxProtection::Password(password), signing_key)?;
                 let opened = VaultOpen::path_with_password(path, password)?;
                 if let Err(err) = self.store.put_content_key_for_path(
                     opened.lockbox_id,
@@ -116,9 +142,11 @@ impl<S: ContentKeyStore> Vault<S> {
                 }
                 Ok(lockbox)
             }
-            LockboxProtection::ContactPublicKey { name, contact } => {
-                create_lockbox_file(path, LockboxProtection::ContactPublicKey { name, contact })
-            }
+            LockboxProtection::ContactPublicKey { name, contact } => Lockbox::create_file(
+                path,
+                LockboxProtection::ContactPublicKey { name, contact },
+                signing_key,
+            ),
         }
     }
 
@@ -133,7 +161,7 @@ impl<S: ContentKeyStore> Vault<S> {
                 "no cached content key for lockbox {lockbox_id}"
             )));
         };
-        open_lockbox_file(path, LockboxOpen::ContentKey(key))
+        open_file(path, LockboxOpen::ContentKey(key))
     }
 
     /// Opens a lockbox with explicit open material and caches its content key.
@@ -147,11 +175,24 @@ impl<S: ContentKeyStore> Vault<S> {
         path: impl AsRef<Path>,
         open: LockboxOpen<'_>,
     ) -> Result<Lockbox> {
+        let signing_key = default_owner_signing_key_required()?;
+        self.open_lockbox_with_signing_key(path, open, &signing_key)
+    }
+
+    /// Opens a lockbox using explicit open material and an owner signing key
+    /// loaded by the caller, then caches its content key.
+    pub fn open_lockbox_with_signing_key(
+        &self,
+        path: impl AsRef<Path>,
+        open: LockboxOpen<'_>,
+        signing_key: &OwnerSigningKeyPair,
+    ) -> Result<Lockbox> {
         let path = path.as_ref();
         match open {
             LockboxOpen::ContentKey(key) => {
                 let store_key = key.try_clone()?;
-                let lockbox = open_lockbox_file(path, LockboxOpen::ContentKey(key))?;
+                let lockbox =
+                    Lockbox::open_for_write(path, LockboxOpen::ContentKey(key), signing_key)?;
                 self.store
                     .put_content_key_for_path(lockbox.lockbox_id(), store_key, path)?;
                 Ok(lockbox)
@@ -163,7 +204,7 @@ impl<S: ContentKeyStore> Vault<S> {
                     opened.try_clone_key()?,
                     path,
                 )?;
-                open_opened_path(opened, path)
+                opened.open_path_for_write(path, signing_key)
             }
             LockboxOpen::ContactKeyPair(contact) => {
                 let opened = open_path_or_backup_with_contact(path, &contact)?;
@@ -172,9 +213,11 @@ impl<S: ContentKeyStore> Vault<S> {
                     opened.try_clone_key()?,
                     path,
                 )?;
-                match open_opened_path(opened, path) {
+                match opened.open_path_for_write(path, signing_key) {
                     Ok(lockbox) => Ok(lockbox),
-                    Err(Error::InvalidOperation(_)) => self.open_lockbox(path),
+                    Err(Error::InvalidOperation(_)) => {
+                        self.open_cached_with_signing_key(path, signing_key)
+                    }
                     Err(err) => Err(err),
                 }
             }
@@ -189,11 +232,25 @@ impl<S: ContentKeyStore> Vault<S> {
         open: LockboxOpen<'_>,
         ttl_seconds: u64,
     ) -> Result<Lockbox> {
+        let signing_key = default_owner_signing_key_required()?;
+        self.open_lockbox_with_for_duration_and_signing_key(path, open, ttl_seconds, &signing_key)
+    }
+
+    /// Opens a lockbox for a requested duration using an owner signing key
+    /// loaded by the caller.
+    pub fn open_lockbox_with_for_duration_and_signing_key(
+        &self,
+        path: impl AsRef<Path>,
+        open: LockboxOpen<'_>,
+        ttl_seconds: u64,
+        signing_key: &OwnerSigningKeyPair,
+    ) -> Result<Lockbox> {
         let path = path.as_ref();
         match open {
             LockboxOpen::ContentKey(key) => {
                 let store_key = key.try_clone()?;
-                let lockbox = open_lockbox_file(path, LockboxOpen::ContentKey(key))?;
+                let lockbox =
+                    Lockbox::open_for_write(path, LockboxOpen::ContentKey(key), signing_key)?;
                 self.store.put_content_key_for_path_with_ttl(
                     lockbox.lockbox_id(),
                     store_key,
@@ -206,7 +263,7 @@ impl<S: ContentKeyStore> Vault<S> {
                 let opened = open_path_or_backup_with_password(path, password)?;
                 let lockbox_id = opened.lockbox_id;
                 let store_key = opened.try_clone_key()?;
-                let lockbox = open_opened_path(opened, path)?;
+                let lockbox = opened.open_path_for_write(path, signing_key)?;
                 self.store.put_content_key_for_path_with_ttl(
                     lockbox_id,
                     store_key,
@@ -225,13 +282,29 @@ impl<S: ContentKeyStore> Vault<S> {
                     path,
                     ttl_seconds,
                 )?;
-                match open_opened_path(opened, path) {
+                match opened.open_path_for_write(path, signing_key) {
                     Ok(lockbox) => Ok(lockbox),
-                    Err(Error::InvalidOperation(_)) => self.open_lockbox(path),
+                    Err(Error::InvalidOperation(_)) => {
+                        self.open_cached_with_signing_key(path, signing_key)
+                    }
                     Err(err) => Err(err),
                 }
             }
         }
+    }
+
+    fn open_cached_with_signing_key(
+        &self,
+        path: &Path,
+        signing_key: &OwnerSigningKeyPair,
+    ) -> Result<Lockbox> {
+        let lockbox_id = VaultOpen::read_lockbox_id(path)?;
+        let Some(key) = self.store.get_content_key(lockbox_id)? else {
+            return Err(Error::VaultUnavailable(format!(
+                "no cached content key for lockbox {lockbox_id}"
+            )));
+        };
+        Lockbox::open_for_write(path, LockboxOpen::ContentKey(key), signing_key)
     }
 
     /// Removes this lockbox's cached content key from the store.
@@ -246,24 +319,9 @@ impl<S: ContentKeyStore> Vault<S> {
     }
 }
 
-fn create_lockbox_file(path: &Path, protection: LockboxProtection<'_>) -> Result<Lockbox> {
-    let signing_key = default_owner_signing_key()?.ok_or_else(|| {
-        Error::VaultUnavailable(
-            "vault owner signing key is unavailable; open or initialize the vault first"
-                .to_string(),
-        )
-    })?;
-    Lockbox::create_file(path, protection, &signing_key)
-}
-
-fn open_lockbox_file(path: &Path, open: LockboxOpen<'_>) -> Result<Lockbox> {
+fn open_file(path: &Path, open: LockboxOpen<'_>) -> Result<Lockbox> {
     let signing_key = default_owner_signing_key_required()?;
-    Lockbox::open_file_for_write(path, open, &signing_key)
-}
-
-fn open_opened_path(opened: OpenedContentKey, path: &Path) -> Result<Lockbox> {
-    let signing_key = default_owner_signing_key_required()?;
-    opened.open_path_for_write(path, &signing_key)
+    Lockbox::open_for_write(path, open, &signing_key)
 }
 
 fn default_owner_signing_key_required() -> Result<lockbox_core::OwnerSigningKeyPair> {

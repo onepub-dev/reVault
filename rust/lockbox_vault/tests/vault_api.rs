@@ -10,7 +10,7 @@ use lockbox_vault::{
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::mpsc;
 use std::sync::Mutex;
@@ -102,6 +102,7 @@ fn vault_create_open_and_lock_with_content_key() {
     let mut lockbox = vault
         .create_lockbox(&path, LockboxProtection::ContentKey(key))
         .unwrap();
+    lockbox.create_dir(&p("/docs"), false).unwrap();
     lockbox
         .add_file(&p("/docs/a.txt"), b"alpha", false)
         .unwrap();
@@ -133,6 +134,7 @@ fn vault_password_create_and_open_cache_keys_outside_secure_read_access() {
     let mut lockbox = vault
         .create_lockbox_with_password(&path, &password)
         .unwrap();
+    lockbox.create_dir(&p("/docs"), false).unwrap();
     lockbox
         .add_file(&p("/docs/a.txt"), b"alpha", false)
         .unwrap();
@@ -241,7 +243,7 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
         .map(|definition| definition.alias)
         .collect::<Vec<_>>();
     assert!(reopened_aliases.contains(&"login".to_string()));
-    let vault_lockbox = Lockbox::open_file(
+    let vault_lockbox = Lockbox::open(
         &root.join("local-vault.lbox"),
         LockboxOpen::Password(&vault_password),
     )
@@ -326,7 +328,7 @@ fn vault_directory_rejects_older_structure_versions() {
     drop(vault);
 
     let vault_path = root.join("local-vault.lbox");
-    let mut lockbox = Lockbox::open_file_for_write(
+    let mut lockbox = Lockbox::open_for_write(
         &vault_path,
         LockboxOpen::Password(&vault_password),
         &signing_key,
@@ -356,7 +358,7 @@ fn vault_directory_rejects_newer_structure_versions() {
     drop(vault);
 
     let vault_path = root.join("local-vault.lbox");
-    let mut lockbox = Lockbox::open_file_for_write(
+    let mut lockbox = Lockbox::open_for_write(
         &vault_path,
         LockboxOpen::Password(&vault_password),
         &signing_key,
@@ -771,7 +773,7 @@ fn monotonic_suffix() -> u128 {
         .as_nanos()
 }
 
-fn wait_for_path(path: &PathBuf) {
+fn wait_for_path(path: &Path) {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while !path.exists() {
         assert!(

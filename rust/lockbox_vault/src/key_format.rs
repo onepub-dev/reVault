@@ -11,6 +11,9 @@ use crate::{decode_hex, encode_hex};
 
 const PRIVATE_LABEL: &str = "LOCKBOX PRIVATE KEY";
 const PUBLIC_LABEL: &str = "LOCKBOX PUBLIC KEY";
+pub const PUBLIC_KEY_FINGERPRINT_LEN: usize = 16;
+pub const FINGERPRINT_CODE_96_LEN: usize = 12;
+const CROCKFORD_ALPHABET: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
 const KTY: &str = "AKP";
 const ALG: &str = "X25519-ML-KEM-768";
 const CRV: &str = "X25519-ML-KEM-768";
@@ -128,6 +131,219 @@ pub fn import_private_key_file(path: impl AsRef<Path>) -> Result<ContactKeyPair>
 /// Returns the stable fingerprint for a contact public key.
 pub fn public_key_fingerprint(key: &ContactPublicKey) -> Vec<u8> {
     fingerprint_bytes(&key.to_bytes())
+}
+
+/// Formats fingerprint bytes as lowercase space-separated hexadecimal pairs.
+pub fn format_fingerprint_hex_pairs(bytes: &[u8]) -> String {
+    let mut out = String::with_capacity(bytes.len().saturating_mul(3).saturating_sub(1));
+    for (index, byte) in bytes.iter().enumerate() {
+        if index != 0 {
+            out.push(' ');
+        }
+        out.push_str(&format!("{byte:02x}"));
+    }
+    out
+}
+
+/// Formats the first 96 bits of a fingerprint as lower-case Crockford Base32.
+///
+/// The result is grouped as five four-character groups for phone use. The
+/// alphabet intentionally excludes i, l, o, and u.
+pub fn format_fingerprint_crockford_96(bytes: &[u8]) -> String {
+    assert!(
+        bytes.len() >= FINGERPRINT_CODE_96_LEN,
+        "fingerprint must contain at least 96 bits"
+    );
+    let mut compact = String::with_capacity(20);
+    let mut buffer = 0u32;
+    let mut bits = 0usize;
+    for byte in &bytes[..FINGERPRINT_CODE_96_LEN] {
+        buffer = (buffer << 8) | u32::from(*byte);
+        bits += 8;
+        while bits >= 5 {
+            bits -= 5;
+            let value = ((buffer >> bits) & 0x1f) as usize;
+            compact.push(CROCKFORD_ALPHABET[value] as char);
+            buffer &= bit_mask(bits);
+        }
+    }
+    if bits > 0 {
+        let value = ((buffer << (5 - bits)) & 0x1f) as usize;
+        compact.push(CROCKFORD_ALPHABET[value] as char);
+    }
+    group_fingerprint_code(&compact)
+}
+
+/// Returns a lower-case word reading for a Crockford fingerprint code.
+pub fn format_fingerprint_crockford_96_reading(code: &str) -> String {
+    code.split('-')
+        .map(|group| {
+            group
+                .chars()
+                .filter_map(crockford_spoken_word)
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .collect::<Vec<_>>()
+        .join(" - ")
+}
+
+/// Decodes a 96-bit lower/upper-case Crockford fingerprint code.
+///
+/// Whitespace, hyphens, and underscores are ignored. The standard Crockford
+/// aliases i/l for 1 and o for 0 are accepted on input, but never printed.
+pub fn decode_fingerprint_crockford_96(value: &str) -> Result<[u8; FINGERPRINT_CODE_96_LEN]> {
+    let mut values = Vec::with_capacity(20);
+    for ch in value.chars() {
+        if ch.is_ascii_whitespace() || ch == '-' || ch == '_' {
+            continue;
+        }
+        let value = crockford_decode_value(ch).ok_or_else(|| {
+            Error::InvalidInput(format!(
+                "fingerprint code contains invalid Crockford character: {ch}"
+            ))
+        })?;
+        values.push(value);
+    }
+    if values.len() != 20 {
+        return Err(Error::InvalidInput(
+            "fingerprint code must contain 20 Crockford characters for 96 bits".to_string(),
+        ));
+    }
+
+    let mut out = [0u8; FINGERPRINT_CODE_96_LEN];
+    let mut out_index = 0usize;
+    let mut buffer = 0u32;
+    let mut bits = 0usize;
+    for value in values {
+        buffer = (buffer << 5) | u32::from(value);
+        bits += 5;
+        while bits >= 8 && out_index < out.len() {
+            bits -= 8;
+            out[out_index] = ((buffer >> bits) & 0xff) as u8;
+            out_index += 1;
+            buffer &= bit_mask(bits);
+        }
+    }
+    if out_index != out.len() || bits != 4 || buffer != 0 {
+        return Err(Error::InvalidInput(
+            "fingerprint code contains non-canonical trailing bits".to_string(),
+        ));
+    }
+    Ok(out)
+}
+
+/// Decodes a public-key fingerprint written as hex, with optional separators.
+pub fn decode_fingerprint_hex(value: &str) -> Result<Vec<u8>> {
+    let compact = value
+        .bytes()
+        .filter(|byte| !byte.is_ascii_whitespace() && *byte != b':' && *byte != b'-')
+        .collect::<Vec<_>>();
+    let compact = String::from_utf8(compact)
+        .map_err(|_| Error::InvalidInput("fingerprint is not valid UTF-8".to_string()))?;
+    let fingerprint = decode_hex(&compact)
+        .map_err(|_| Error::InvalidInput("fingerprint contains invalid hex".to_string()))?;
+    if fingerprint.len() != PUBLIC_KEY_FINGERPRINT_LEN {
+        return Err(Error::InvalidInput(format!(
+            "fingerprint must contain {PUBLIC_KEY_FINGERPRINT_LEN} two-digit hex groups; short PINs are too small to authenticate a public key"
+        )));
+    }
+    Ok(fingerprint)
+}
+
+fn group_fingerprint_code(compact: &str) -> String {
+    let mut out = String::with_capacity(compact.len() + compact.len() / 4);
+    for (index, ch) in compact.chars().enumerate() {
+        if index != 0 && index % 4 == 0 {
+            out.push('-');
+        }
+        out.push(ch);
+    }
+    out
+}
+
+fn bit_mask(bits: usize) -> u32 {
+    if bits == 0 {
+        0
+    } else {
+        (1u32 << bits) - 1
+    }
+}
+
+fn crockford_decode_value(ch: char) -> Option<u8> {
+    match ch.to_ascii_lowercase() {
+        '0' | 'o' => Some(0),
+        '1' | 'i' | 'l' => Some(1),
+        '2' => Some(2),
+        '3' => Some(3),
+        '4' => Some(4),
+        '5' => Some(5),
+        '6' => Some(6),
+        '7' => Some(7),
+        '8' => Some(8),
+        '9' => Some(9),
+        'a' => Some(10),
+        'b' => Some(11),
+        'c' => Some(12),
+        'd' => Some(13),
+        'e' => Some(14),
+        'f' => Some(15),
+        'g' => Some(16),
+        'h' => Some(17),
+        'j' => Some(18),
+        'k' => Some(19),
+        'm' => Some(20),
+        'n' => Some(21),
+        'p' => Some(22),
+        'q' => Some(23),
+        'r' => Some(24),
+        's' => Some(25),
+        't' => Some(26),
+        'v' => Some(27),
+        'w' => Some(28),
+        'x' => Some(29),
+        'y' => Some(30),
+        'z' => Some(31),
+        _ => None,
+    }
+}
+
+fn crockford_spoken_word(ch: char) -> Option<&'static str> {
+    match ch {
+        '0' => Some("zero"),
+        '1' => Some("one"),
+        '2' => Some("two"),
+        '3' => Some("three"),
+        '4' => Some("four"),
+        '5' => Some("five"),
+        '6' => Some("six"),
+        '7' => Some("seven"),
+        '8' => Some("eight"),
+        '9' => Some("nine"),
+        'a' => Some("alpha"),
+        'b' => Some("bravo"),
+        'c' => Some("charlie"),
+        'd' => Some("delta"),
+        'e' => Some("echo"),
+        'f' => Some("foxtrot"),
+        'g' => Some("golf"),
+        'h' => Some("hotel"),
+        'j' => Some("juliet"),
+        'k' => Some("kilo"),
+        'm' => Some("mike"),
+        'n' => Some("november"),
+        'p' => Some("papa"),
+        'q' => Some("quebec"),
+        'r' => Some("romeo"),
+        's' => Some("sierra"),
+        't' => Some("tango"),
+        'v' => Some("victor"),
+        'w' => Some("whiskey"),
+        'x' => Some("xray"),
+        'y' => Some("yankee"),
+        'z' => Some("zulu"),
+        _ => None,
+    }
 }
 
 /// Exports a contact public key in the requested format.
@@ -601,7 +817,7 @@ fn fingerprint_bytes(public_key: &[u8]) -> Vec<u8> {
     let mut hasher = Sha256::new();
     hasher.update(b"lockbox-key-fingerprint-v1");
     hasher.update(public_key);
-    hasher.finalize()[..16].to_vec()
+    hasher.finalize()[..PUBLIC_KEY_FINGERPRINT_LEN].to_vec()
 }
 
 #[cfg(test)]

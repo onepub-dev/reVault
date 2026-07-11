@@ -695,6 +695,22 @@ impl VaultDirectory {
         Ok(definition)
     }
 
+    /// Creates or revises a reusable form definition stored in the vault.
+    pub fn define_form_with_description(
+        &self,
+        alias: &str,
+        name: &str,
+        description: &str,
+        fields: Vec<FormFieldDefinition>,
+    ) -> Result<FormDefinition> {
+        let _guard = VaultFileLock::acquire(&self.root)?;
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.define_form_with_description(alias, name, description, fields)?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(definition)
+    }
+
     /// Creates or revises a reusable form definition with a stable definition id.
     pub fn define_form_with_type_id(
         &self,
@@ -706,6 +722,29 @@ impl VaultDirectory {
         let _guard = VaultFileLock::acquire(&self.root)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.define_form_with_type_id(type_id, alias, name, fields)?;
+        lockbox.commit()?;
+        set_private_file_permissions(&self.path)?;
+        Ok(definition)
+    }
+
+    /// Creates or revises a reusable form definition with a stable definition id.
+    pub fn define_form_with_type_id_and_description(
+        &self,
+        type_id: FormTypeId,
+        alias: &str,
+        name: &str,
+        description: &str,
+        fields: Vec<FormFieldDefinition>,
+    ) -> Result<FormDefinition> {
+        let _guard = VaultFileLock::acquire(&self.root)?;
+        let mut lockbox = self.lockbox.borrow_mut();
+        let definition = lockbox.define_form_with_type_id_and_description(
+            type_id,
+            alias,
+            name,
+            description,
+            fields,
+        )?;
         lockbox.commit()?;
         set_private_file_permissions(&self.path)?;
         Ok(definition)
@@ -795,6 +834,7 @@ impl VaultDirectory {
         let _guard = VaultFileLock::acquire(&self.root)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let replace = replace && lockbox.stat(path).is_some();
+        lockbox.create_parent_dirs_for(path)?;
         lockbox.add_file(path, bytes, replace)?;
         lockbox.commit()?;
         set_private_file_permissions(&self.path)?;
@@ -1151,9 +1191,8 @@ impl VaultFileLock {
             });
         }
         let path = root.join(VAULT_FILE_NAME);
-        let lock = ScopedFileLock::acquire(&path, FileLockScope::Vault).map_err(|err| {
+        let lock = ScopedFileLock::acquire(&path, FileLockScope::Vault).inspect_err(|_| {
             VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
-            err
         })?;
         Ok(Self {
             lock: Some(lock),
@@ -1196,7 +1235,7 @@ fn private_key_generation_variable_name(name: &str, index: u16) -> Result<Variab
 }
 
 fn open_vault_lockbox_for_write(path: &Path, password: &SecretString) -> Result<Lockbox> {
-    Lockbox::open_file_for_write_with_signing_key_assuming_locked(
+    Lockbox::open_for_write_with_signing_key_assuming_locked(
         path,
         LockboxOpen::Password(password),
         |lockbox| {
