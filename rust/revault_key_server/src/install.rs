@@ -38,12 +38,19 @@ pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Err
     install_binary()?;
     if force_config || !Path::new(CONFIG_PATH).exists() {
         fs::write(CONFIG_PATH, default_config())?;
-        set_file_permissions(CONFIG_PATH, 0o640)?;
     }
+    set_file_permissions(CONFIG_PATH, 0o640)?;
+    chown_config()?;
     fs::write(UNIT_PATH, unit_file(INSTALL_BINARY_PATH))?;
     run("systemctl", &["daemon-reload"])?;
     run("systemctl", &["enable", "revault_key_server.service"])?;
-    run("systemctl", &["restart", "revault_key_server.service"])?;
+    run("systemctl", &["reset-failed", "revault_key_server.service"])?;
+    if let Err(err) = run("systemctl", &["restart", "revault_key_server.service"]) {
+        return Err(format!(
+            "{err}\nRun `sudo {INSTALL_BINARY_PATH} doctor` for an English diagnostic, then inspect logs with:\n  sudo journalctl -u revault_key_server -n 50 --no-pager"
+        )
+        .into());
+    }
     println!("installed revault_key_server systemd service");
     Ok(())
 }
@@ -88,6 +95,7 @@ pub fn uninstall_systemd(purge_data: bool) -> Result<(), Box<dyn std::error::Err
 
 pub fn start_systemd() -> Result<(), Box<dyn std::error::Error>> {
     require_root("start")?;
+    run("systemctl", &["reset-failed", "revault_key_server.service"])?;
     run("systemctl", &["start", "revault_key_server.service"])?;
     println!("reVault key server started");
     Ok(())
@@ -122,12 +130,24 @@ pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
     println!("Configuration");
     println!("  Path: {CONFIG_PATH}");
     println!("  Present: {}", yes_no(Path::new(CONFIG_PATH).exists()));
+    println!(
+        "  Service account can read it: {}",
+        service_can_read_path(CONFIG_PATH)
+    );
     println!("  State directory: {STATE_DIR}");
     println!(
         "  State directory present: {}",
         yes_no(Path::new(STATE_DIR).exists())
     );
+    println!(
+        "  Service account can write state: {}",
+        service_can_write_path(STATE_DIR)
+    );
     println!("  Log file: {LOG_FILE}");
+    println!(
+        "  Service account can write logs: {}",
+        service_can_write_path(LOG_DIR)
+    );
     println!("  Foreground logging: {}", server_log_destination());
     if Path::new(LEGACY_CONFIG_PATH).exists() {
         println!();
@@ -195,6 +215,32 @@ fn systemctl_show(property: &str) -> String {
     .unwrap_or_else(|| "not available".to_string())
 }
 
+fn service_can_read_path(path: &str) -> &'static str {
+    service_path_access("-r", path)
+}
+
+fn service_can_write_path(path: &str) -> &'static str {
+    service_path_access("-w", path)
+}
+
+fn service_path_access(flag: &str, path: &str) -> &'static str {
+    let output = Command::new("runuser")
+        .args(["-u", USER, "--", "test", flag, path])
+        .output();
+    match output {
+        Ok(output) if output.status.success() => "YES",
+        Ok(output) => {
+            let detail = String::from_utf8_lossy(&output.stderr);
+            if detail.contains("may only be used by root") {
+                "RUN DOCTOR WITH SUDO"
+            } else {
+                "NO"
+            }
+        }
+        Err(_) => "UNAVAILABLE",
+    }
+}
+
 fn require_root(command: &str) -> Result<(), Box<dyn std::error::Error>> {
     if unsafe { libc_geteuid() } != 0 {
         let executable = std::env::current_exe()
@@ -243,6 +289,7 @@ fn ensure_user() -> Result<bool, Box<dyn std::error::Error>> {
         "useradd",
         &[
             "--system",
+            "--user-group",
             "--home-dir",
             STATE_DIR,
             "--shell",
@@ -281,7 +328,15 @@ fn systemctl_value(args: &[&str]) -> Option<String> {
 }
 
 fn chown_path(path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    run("chown", &[&format!("{USER}:{USER}"), path])
+    chown_owner_group(&format!("{USER}:{USER}"), path)
+}
+
+fn chown_config() -> Result<(), Box<dyn std::error::Error>> {
+    chown_owner_group(&format!("root:{USER}"), CONFIG_PATH)
+}
+
+fn chown_owner_group(owner_group: &str, path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    run("chown", &[owner_group, path])
 }
 
 #[cfg(unix)]
