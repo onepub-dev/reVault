@@ -690,7 +690,7 @@ group: lockbox-publish
 Default paths:
 
 ```text
-/etc/lockbox/key-server.toml
+/etc/revault/key-server.toml
 /var/lib/lockbox-key-server/
 /var/cache/lockbox-key-server/
 /var/log/lockbox-key-server/
@@ -713,7 +713,7 @@ Type=simple
 User=lockbox-publish
 Group=lockbox-publish
 ExecStart=/usr/local/bin/revault_key_server run \
-  --config /etc/lockbox/key-server.toml
+  --config /etc/revault/key-server.toml
 Restart=always
 RestartSec=2
 NoNewPrivileges=true
@@ -735,7 +735,7 @@ WantedBy=multi-user.target
 
 The install command should preserve existing configuration and secrets. It may
 replace the unit file when the generated unit changes, but it must not overwrite
-`/etc/lockbox/key-server.toml` unless an explicit `--force-config` option is
+`/etc/revault/key-server.toml` unless an explicit `--force-config` option is
 provided.
 
 `uninstall` should stop and disable the service, remove the systemd unit, and

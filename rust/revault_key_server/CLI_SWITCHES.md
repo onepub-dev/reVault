@@ -28,7 +28,7 @@ Useful one-off flags:
 Config file bootstrap:
 
 ```bash
-./target/release/revault_key_server run --config /etc/lockbox/key-server.toml
+./target/release/revault_key_server run --config /etc/revault/key-server.toml
 ```
 
 ## Command forms
@@ -133,7 +133,7 @@ topology members and routes use TOML arrays of tables.
 ### `install [--force-config]`
 
 - `--force-config`  
-  Re-write `/etc/lockbox/key-server.toml` during install even when it already exists.
+  Re-write `/etc/revault/key-server.toml` during install even when it already exists.
 
 ### `uninstall [--purge-data]`
 
@@ -142,7 +142,7 @@ topology members and routes use TOML arrays of tables.
   - `/var/lib/lockbox-key-server`
   - `/var/cache/lockbox-key-server`
   - `/var/log/lockbox-key-server`
-  - `/etc/lockbox/key-server.toml`
+  - `/etc/revault/key-server.toml`
 
 ### `status`
 

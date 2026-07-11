@@ -6,7 +6,7 @@ file.
 Default path:
 
 ```text
-/etc/lockbox/key-server.toml
+/etc/revault/key-server.toml
 ```
 
 When installed with:

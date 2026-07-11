@@ -21,7 +21,7 @@ The release binary is configured as a systemd service named
 sudo ./target/release/revault_key_server install
 ```
 
-`--force-config` rewrites `/etc/lockbox/key-server.toml` only if you want a new
+`--force-config` rewrites `/etc/revault/key-server.toml` only if you want a new
 bootstrap config.
 
 ```bash
@@ -58,7 +58,7 @@ sudo ./target/release/revault_key_server uninstall --purge-data
 
 ## Notes
 
-- Default config path: `/etc/lockbox/key-server.toml`
+- Default config path: `/etc/revault/key-server.toml`
 - Default data paths:
   - `/var/lib/lockbox-key-server`
   - `/var/cache/lockbox-key-server`
