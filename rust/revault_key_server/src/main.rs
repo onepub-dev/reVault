@@ -8,7 +8,8 @@ use std::time::Duration;
 
 use clap::{error::ErrorKind, Arg, ArgAction, ArgMatches, Command};
 use install::{
-    install_systemd, print_status, start_systemd, stop_systemd, uninstall_systemd, CONFIG_PATH,
+    install_systemd, print_status, service_can_write_path, start_systemd, stop_systemd,
+    uninstall_systemd, CONFIG_PATH,
 };
 use revault_key_server::{install, server, server_log, store};
 use revault_publish_protocol::{ServerStatus, TopologyRoute, TopologyServer};
@@ -207,6 +208,10 @@ fn print_doctor() -> Result<(), Box<dyn std::error::Error>> {
         "  State directory present: {}",
         doctor_yes_no(config.state_dir.exists())
     );
+    println!(
+        "  Service account can write it: {}",
+        service_can_write_path(&config.state_dir.display().to_string())
+    );
     println!("  Topology servers: {}", config.topology_servers.len());
     println!("  Topology routes: {}", config.topology_routes.len());
     println!("  SMTP complete: {}", doctor_yes_no(smtp_configured));
@@ -221,6 +226,10 @@ fn print_doctor() -> Result<(), Box<dyn std::error::Error>> {
     }
     if !config.state_dir.exists() {
         println!("  Warning: the state directory will be created when the service starts.");
+    }
+    if config.state_dir != PathBuf::from("/var/lib/revault-key-server") {
+        println!("  Warning: this is a legacy state directory. The current default is /var/lib/revault-key-server.");
+        println!("  Migrate its data and update state_dir before starting the renamed service.");
     }
     Ok(())
 }

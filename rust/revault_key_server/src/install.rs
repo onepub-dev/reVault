@@ -110,15 +110,13 @@ pub fn stop_systemd() -> Result<(), Box<dyn std::error::Error>> {
 
 pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
     let installed = Path::new(UNIT_PATH).exists();
-    let enabled = systemctl_value(&["is-enabled", "revault_key_server.service"])
-        .unwrap_or_else(|| "not available".to_string());
-    let active = systemctl_value(&["is-active", "revault_key_server.service"])
-        .unwrap_or_else(|| "not available".to_string());
+    let enabled = systemctl_state(&["is-enabled", "revault_key_server.service"]);
+    let active = systemctl_state(&["is-active", "revault_key_server.service"]);
     let result = systemctl_show("Result");
     let exec_status = systemctl_show("ExecMainStatus");
     let exec_start = systemctl_show("ExecStart");
 
-    println!("reVault key server doctor");
+    println!("reVault key server doctor v{}", env!("CARGO_PKG_VERSION"));
     println!();
     println!("Service");
     println!("  Installed: {}", yes_no(installed));
@@ -170,7 +168,11 @@ pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
             );
         } else if active == "failed" {
             println!("  Problem: the service failed during startup.");
-            println!("  Inspect recent details with: sudo journalctl -u revault_key_server -n 50");
+            println!("  Run the server directly as its service account to show the exact error:");
+            println!("    sudo -u {USER} {INSTALL_BINARY_PATH} run --config {CONFIG_PATH}");
+            println!("  Inspect recent details with:");
+            println!("    sudo journalctl -u revault_key_server -n 50 --no-pager");
+            print_recent_service_log();
         }
         if !exec_start.is_empty() {
             println!("  Configured start command: {exec_start}");
@@ -215,11 +217,40 @@ fn systemctl_show(property: &str) -> String {
     .unwrap_or_else(|| "not available".to_string())
 }
 
-fn service_can_read_path(path: &str) -> &'static str {
+fn systemctl_state(args: &[&str]) -> String {
+    let output = Command::new("systemctl").args(args).output();
+    match output {
+        Ok(output) => {
+            let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if text.is_empty() {
+                "not available".to_string()
+            } else {
+                text
+            }
+        }
+        Err(_) => "not available".to_string(),
+    }
+}
+
+fn print_recent_service_log() {
+    let Ok(text) = fs::read_to_string(LOG_FILE) else {
+        return;
+    };
+    let lines: Vec<_> = text.lines().rev().take(10).collect();
+    if lines.is_empty() {
+        return;
+    }
+    println!("  Recent service log:");
+    for line in lines.into_iter().rev() {
+        println!("    {line}");
+    }
+}
+
+pub fn service_can_read_path(path: &str) -> &'static str {
     service_path_access("-r", path)
 }
 
-fn service_can_write_path(path: &str) -> &'static str {
+pub fn service_can_write_path(path: &str) -> &'static str {
     service_path_access("-w", path)
 }
 
