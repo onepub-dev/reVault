@@ -18,7 +18,10 @@ const USER: &str = "lockbox-publish";
 
 pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Error>> {
     require_root()?;
-    ensure_user()?;
+    let user_created = ensure_user()?;
+    if user_created {
+        println!("created service account: {USER}");
+    }
     fs::create_dir_all(CONFIG_DIR)?;
     fs::create_dir_all(STATE_DIR)?;
     fs::create_dir_all(CACHE_DIR)?;
@@ -116,7 +119,7 @@ unsafe fn libc_geteuid() -> u32 {
     1
 }
 
-fn ensure_user() -> Result<(), Box<dyn std::error::Error>> {
+fn ensure_user() -> Result<bool, Box<dyn std::error::Error>> {
     // `id` writes "no such user" to stderr when the account is absent. That
     // is the normal first-install path, not an error, so capture the result
     // instead of leaking the diagnostic to the administrator.
@@ -127,7 +130,7 @@ fn ensure_user() -> Result<(), Box<dyn std::error::Error>> {
         .status
         .success()
     {
-        return Ok(());
+        return Ok(false);
     }
     run(
         "useradd",
@@ -139,7 +142,8 @@ fn ensure_user() -> Result<(), Box<dyn std::error::Error>> {
             "/usr/sbin/nologin",
             USER,
         ],
-    )
+    )?;
+    Ok(true)
 }
 
 fn run(command: &str, args: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
