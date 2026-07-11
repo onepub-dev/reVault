@@ -1,38 +1,61 @@
 use super::context::{
     cli_error, default_vault, ensure_default_vault_initialized, load_contact_file,
-    load_contact_from_arg, load_private_key_from_arg, mirror_key_directory, open_existing,
-    read_new_password, read_password, require_arg, Access, CliResult,
+    load_contact_from_arg, load_contact_from_vault, load_private_key_from_arg,
+    mirror_key_directory, mirror_key_directory_with_vault, open_existing, read_new_password,
+    read_password, require_arg, Access, CliResult,
 };
-use super::output::{output_format_from_args, print_records};
-use super::session::deactivate_if_active;
+use super::output::{output_format_from_matches, print_records, OutputFormat};
+use super::session::clear_default_if_matches;
+use super::{
+    default_lockbox_for_command, looks_like_lockbox_path, optional_lockbox_positionals,
+    optional_lockbox_value, positional_values,
+};
+use clap::ArgMatches;
 use lockbox_core::vault_integration::VaultOpen;
 use lockbox_core::{
     ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxKeySlotProtection, LockboxOpen,
     LockboxProtection,
 };
 use lockbox_vault::{
-    auto_open_scope, default_vault_path, encode_hex, export_private_key,
-    get_platform_vault_password, list as list_open_lockboxes, local_vault, AutoOpenScope,
-    KeyFormat, NoopStore, SecretString, SecretVec, Vault, VaultDirectory,
+    auto_open_scope, encode_hex, export_private_key, list as list_open_lockboxes, local_vault,
+    AutoOpenScope, KeyFormat, NoopStore, SecretVec, Vault, VaultDirectory,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let mut args = Vec::new();
+    if matches.get_flag("password") {
+        args.push("--password".to_string());
+    }
+    if let Some(contact) = matches.get_one::<String>("for") {
+        args.push("--contact".to_string());
+        args.push(contact.clone());
+    }
+    args.push(required_value(matches, "lockbox"));
+    create(&args, access)
+}
+
 pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
     if args.first().map(String::as_str) == Some("--password") {
         let lockbox_path = create_path(require_arg(args, 1, "lockbox")?)?;
         ensure_new_lockbox_path(&lockbox_path)?;
         ensure_default_vault_initialized()?;
-        let _vault = default_vault()?;
+        let vault = default_vault()?;
+        let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
         println!("Creating lockbox: {}", lockbox_path.display());
         let password = read_new_password()?;
-        let lb = local_vault().create_lockbox_with_password(&lockbox_path, &password)?;
-        remember_lockbox_password_if_enabled(&lb, &password)?;
-        mirror_key_directory(&lb, &lockbox_path)?;
+        let lb = local_vault().create_lockbox_with_signing_key(
+            &lockbox_path,
+            LockboxProtection::Password(&password),
+            &signing_key,
+        )?;
+        remember_lockbox_password_if_enabled_with_vault(&lb, &password, &vault)?;
+        mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
         return Ok(());
     }
     if args.first().map(String::as_str) == Some("--contact") {
@@ -40,17 +63,19 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
         let lockbox_path = create_path(require_arg(args, 2, "lockbox")?)?;
         ensure_new_lockbox_path(&lockbox_path)?;
         ensure_default_vault_initialized()?;
-        let _vault = default_vault()?;
-        let contact = load_contact_from_arg(contact_name)?;
+        let vault = default_vault()?;
+        let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
+        let contact = load_contact_from_vault(contact_name, &vault)?;
         println!("Creating lockbox: {}", lockbox_path.display());
-        let lb = Vault::new(NoopStore).create_lockbox(
+        let lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
             &lockbox_path,
             LockboxProtection::ContactPublicKey {
-                name: contact.name,
+                name: contact.name.map(|name| access_entry_name(&name)),
                 contact: contact.public_key,
             },
+            &signing_key,
         )?;
-        mirror_key_directory(&lb, &lockbox_path)?;
+        mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
         return Ok(());
     }
     let lockbox_path = create_path(require_arg(args, 0, "lockbox")?)?;
@@ -58,24 +83,29 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
     println!("Creating lockbox: {}", lockbox_path.display());
     match access {
         Access::ContentKey(key) => {
-            let _vault = default_vault()?;
-            let lb = Vault::new(NoopStore).create_lockbox(
+            let vault = default_vault()?;
+            let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
+            let lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
                 &lockbox_path,
                 LockboxProtection::ContentKey(key.try_clone()?),
+                &signing_key,
             )?;
-            mirror_key_directory(&lb, &lockbox_path)?;
+            mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
         }
         Access::PromptPassword => {
             ensure_default_vault_initialized()?;
-            let contact = load_contact_from_arg(VaultDirectory::DEFAULT_KEY_NAME)?;
-            let lb = Vault::new(NoopStore).create_lockbox(
+            let vault = default_vault()?;
+            let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
+            let contact = load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, &vault)?;
+            let lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
                 &lockbox_path,
                 LockboxProtection::ContactPublicKey {
-                    name: contact.name,
+                    name: contact.name.map(|name| access_entry_name(&name)),
                     contact: contact.public_key,
                 },
+                &signing_key,
             )?;
-            mirror_key_directory(&lb, &lockbox_path)?;
+            mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
         }
         Access::CacheOnly => {
             return Err(Error::InvalidInput("create requires an open method".to_string()).into());
@@ -84,27 +114,48 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
     Ok(())
 }
 
-pub(crate) fn open(args: &[String]) -> CliResult<()> {
-    let options = OpenOptions::parse(args)?;
+pub(crate) fn open_matches(matches: &ArgMatches) -> CliResult<()> {
+    open_options(OpenOptions::from_matches(matches)?)
+}
+
+fn open_options(options: OpenOptions) -> CliResult<()> {
+    let inspection = Lockbox::inspect_file(&options.lockbox_path)?;
+    let has_password_slot = inspection
+        .key_slots
+        .iter()
+        .any(|slot| slot.protection == LockboxKeySlotProtection::Password);
+    let vault = default_vault()?;
     if matches!(options.password_source, PasswordSource::Prompt) {
-        if let Some(lb) = open_with_vault_identity(&options)? {
-            mirror_key_directory(&lb, &options.lockbox_path)?;
+        if let Some(lb) = open_with_vault_identity(&options, &vault)? {
+            mirror_key_directory_with_vault(&lb, &options.lockbox_path, &vault)?;
             println!("Lockbox opened: {}", options.lockbox_path);
             return Ok(());
         }
+        if !has_password_slot {
+            return Err(cli_error(format!(
+                "none of the local vault identities can open {}; the lockbox has no password access",
+                options.lockbox_path
+            )));
+        }
     }
     let password = options.read_password()?;
+    let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
     let lb = if let Some(ttl_seconds) = options.ttl_seconds {
-        local_vault().open_lockbox_with_password_for_duration(
+        local_vault().open_lockbox_with_for_duration_and_signing_key(
             &options.lockbox_path,
-            &password,
+            LockboxOpen::Password(&password),
             ttl_seconds,
+            &signing_key,
         )?
     } else {
-        local_vault().open_lockbox_with_password(&options.lockbox_path, &password)?
+        local_vault().open_lockbox_with_signing_key(
+            &options.lockbox_path,
+            LockboxOpen::Password(&password),
+            &signing_key,
+        )?
     };
-    mirror_key_directory(&lb, &options.lockbox_path)?;
-    remember_lockbox_password_if_enabled(&lb, &password)?;
+    mirror_key_directory_with_vault(&lb, &options.lockbox_path, &vault)?;
+    remember_lockbox_password_if_enabled_with_vault(&lb, &password, &vault)?;
     if let Some(ttl_seconds) = options.ttl_seconds {
         local_vault().cache_lockbox_password_for_duration(
             &options.lockbox_path,
@@ -116,10 +167,10 @@ pub(crate) fn open(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn open_with_vault_identity(options: &OpenOptions) -> CliResult<Option<Lockbox>> {
-    let Some(vault) = default_vault_noninteractive()? else {
-        return Ok(None);
-    };
+fn open_with_vault_identity(
+    options: &OpenOptions,
+    vault: &VaultDirectory,
+) -> CliResult<Option<Lockbox>> {
     let mut identities = vault.list_private_keys()?;
     if let Some(index) = identities
         .iter()
@@ -129,53 +180,44 @@ fn open_with_vault_identity(options: &OpenOptions) -> CliResult<Option<Lockbox>>
         identities.insert(0, default);
     }
     for identity in identities {
-        let Ok(keypair) = vault.load_private_key(&identity) else {
-            continue;
-        };
+        let keypair = vault.load_private_key(&identity)?;
+        let signing_key = vault.load_owner_signing_key(&identity)?;
         let opened = if let Some(ttl_seconds) = options.ttl_seconds {
-            local_vault().open_lockbox_with_for_duration(
+            local_vault().open_lockbox_with_for_duration_and_signing_key(
                 &options.lockbox_path,
                 LockboxOpen::ContactKeyPair(keypair),
                 ttl_seconds,
+                &signing_key,
             )
         } else {
-            local_vault()
-                .open_lockbox_with(&options.lockbox_path, LockboxOpen::ContactKeyPair(keypair))
+            local_vault().open_lockbox_with_signing_key(
+                &options.lockbox_path,
+                LockboxOpen::ContactKeyPair(keypair),
+                &signing_key,
+            )
         };
         match opened {
             Ok(lockbox) => return Ok(Some(lockbox)),
-            Err(Error::Io(message)) => return Err(Error::Io(message).into()),
-            Err(_) => {}
+            Err(Error::InvalidKey) => {}
+            Err(err) => return Err(err.into()),
         }
     }
     Ok(None)
 }
 
-fn default_vault_noninteractive() -> CliResult<Option<VaultDirectory>> {
-    let password = match SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
-        Some(password) => Some(password),
-        None => get_platform_vault_password().ok().flatten(),
-    };
-    let Some(password) = password else {
-        return Ok(None);
-    };
-    if !default_vault_path()?.exists() {
-        return Ok(None);
-    }
-    match VaultDirectory::open_or_create_default(&password) {
-        Ok(vault) => Ok(Some(vault)),
-        Err(_) => Ok(None),
-    }
-}
-
-fn remember_lockbox_password_if_enabled(
+fn remember_lockbox_password_if_enabled_with_vault(
     lockbox: &Lockbox,
     password: &lockbox_vault::SecretString,
+    vault: &VaultDirectory,
 ) -> CliResult<()> {
     if auto_open_scope()? == AutoOpenScope::Lockboxes {
-        default_vault()?.remember_lockbox_password(lockbox.lockbox_id(), password)?;
+        vault.remember_lockbox_password(lockbox.lockbox_id(), password)?;
     }
     Ok(())
+}
+
+pub(crate) fn close_matches(matches: &ArgMatches) -> CliResult<()> {
+    close(&[optional_lockbox_value(matches, "lockbox")?])
 }
 
 pub(crate) fn close(args: &[String]) -> CliResult<()> {
@@ -188,7 +230,7 @@ pub(crate) fn close(args: &[String]) -> CliResult<()> {
     }
     let was_open = lockbox_is_open(lockbox_path);
     local_vault().close_lockbox(lockbox_path)?;
-    deactivate_if_active(lockbox_path)?;
+    clear_default_if_matches(lockbox_path)?;
     if was_open {
         println!("Lockbox closed: {lockbox_path}");
     } else {
@@ -210,6 +252,13 @@ fn lockbox_is_open(lockbox_path: &str) -> bool {
         .unwrap_or(false)
 }
 
+pub(crate) fn keygen_matches(matches: &ArgMatches) -> CliResult<()> {
+    keygen(&[
+        required_value(matches, "private-key"),
+        required_value(matches, "public-key"),
+    ])
+}
+
 pub(crate) fn keygen(args: &[String]) -> CliResult<()> {
     let private_path = require_arg(args, 0, "private key path")?;
     let public_path = require_arg(args, 1, "public key path")?;
@@ -222,6 +271,23 @@ pub(crate) fn keygen(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
+pub(crate) fn open_key_matches(matches: &ArgMatches) -> CliResult<()> {
+    let values = positional_values(matches, "args");
+    let args = match values.as_slice() {
+        [] => vec![default_lockbox_for_command()?],
+        [first] if looks_like_lockbox_path(first) => vec![first.clone()],
+        [key] => vec![default_lockbox_for_command()?, key.clone()],
+        [lockbox, key] if looks_like_lockbox_path(lockbox) => vec![lockbox.clone(), key.clone()],
+        [lockbox, _] => {
+            return Err(cli_error(format!(
+                "lockbox path must end with .lbox: {lockbox}"
+            )))
+        }
+        _ => unreachable!("clap limits open-key positional arguments"),
+    };
+    open_key(&args)
+}
+
 pub(crate) fn open_key(args: &[String]) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let keypair = load_private_key_from_arg(args.get(1).map(String::as_str))?;
@@ -230,7 +296,61 @@ pub(crate) fn open_key(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-pub(crate) fn add_access(args: &[String], access: &Access) -> CliResult<()> {
+pub(crate) fn access_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let (command, sub) = matches
+        .subcommand()
+        .ok_or_else(|| Error::InvalidInput("missing access command".to_string()))?;
+    match command {
+        "grant" => grant_access(
+            &optional_lockbox_positionals(positional_values(sub, "args"), 1)?,
+            access,
+        ),
+        "list" | "ls" => list_access_with_format(
+            &optional_lockbox_positionals(positional_values(sub, "args"), 0)?,
+            access,
+            output_format_from_matches(sub)?,
+        ),
+        "refresh" => {
+            let positionals = positional_values(sub, "args");
+            let scope = if sub.get_flag("all") {
+                if positionals.len() > 1 {
+                    return Err(cli_error(
+                        "access refresh --all accepts at most one identity argument",
+                    ));
+                }
+                RefreshScope::All {
+                    identity: positionals.first().cloned(),
+                }
+            } else {
+                let args = optional_lockbox_positionals(positionals, 1)?;
+                if args.len() > 2 {
+                    return Err(cli_error(
+                        "access refresh requires lockbox and identity arguments",
+                    ));
+                }
+                RefreshScope::One {
+                    lockbox_path: require_arg(&args, 0, "lockbox")?.to_string(),
+                    identity: require_arg(&args, 1, "identity")?.to_string(),
+                }
+            };
+            refresh_access_request(
+                RefreshAccessRequest {
+                    scope,
+                    dry_run: sub.get_flag("dry-run"),
+                    yes: sub.get_flag("yes"),
+                },
+                access,
+            )
+        }
+        "revoke" => revoke_access(
+            &optional_lockbox_positionals(positional_values(sub, "args"), 1)?,
+            access,
+        ),
+        _ => Err(Error::InvalidInput(format!("unknown access command: {command}")).into()),
+    }
+}
+
+pub(crate) fn grant_access(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let contact_arg = require_arg(args, 1, "identity or contact")?;
     let contact = if let Some(public_key_path) = args.get(2) {
@@ -238,27 +358,37 @@ pub(crate) fn add_access(args: &[String], access: &Access) -> CliResult<()> {
     } else {
         if Path::new(contact_arg).exists() {
             return Err(cli_error(
-                "public key files require a contact name: lockbox access add <lockbox> <name> <public-key>",
+                "public key files require a contact name: lockbox access grant <lockbox> <name> <public-key>",
             ));
         }
         load_contact_from_arg(contact_arg)?
     };
     let name = contact.name.ok_or_else(|| {
         cli_error(
-            "access entries require a name; use lockbox access add <lockbox> <name> <public-key>",
+            "access entries require a name; use lockbox access grant <lockbox> <name> <public-key>",
         )
     })?;
     let mut lb = open_existing(lockbox_path, access)?;
-    let slot_id = lb.add_contact_named(name.clone(), &contact.public_key)?;
+    let slot_id = lb.add_contact_named(access_entry_name(&name), &contact.public_key)?;
     lb.commit()?;
     mirror_key_directory(&lb, lockbox_path)?;
     default_vault()?.remember_access_slot_label(lb.lockbox_id(), slot_id, name)?;
     Ok(())
 }
 
-pub(crate) fn list_keys(args: &[String], access: &Access) -> CliResult<()> {
-    let (args, format) = output_format_from_args(args)?;
-    let lockbox_path = require_arg(&args, 0, "lockbox")?;
+fn required_value(matches: &ArgMatches, name: &str) -> String {
+    matches
+        .get_one::<String>(name)
+        .unwrap_or_else(|| panic!("clap did not provide required argument {name}"))
+        .clone()
+}
+
+fn list_access_with_format(
+    args: &[String],
+    access: &Access,
+    format: OutputFormat,
+) -> CliResult<()> {
+    let lockbox_path = require_arg(args, 0, "lockbox")?;
     let lb = open_existing(lockbox_path, access)?;
     let owner = lb.owner_inspection()?;
     let owner_fingerprint = owner.fingerprint.unwrap_or_else(|| "-".to_string());
@@ -309,119 +439,116 @@ pub(crate) fn list_keys(args: &[String], access: &Access) -> CliResult<()> {
     Ok(())
 }
 
-pub(crate) fn remove_access(args: &[String], access: &Access) -> CliResult<()> {
+pub(crate) fn revoke_access(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let target = require_arg(args, 1, "slot id or local access name")?;
+    let targets = args.get(1..).unwrap_or_default();
+    if targets.is_empty() {
+        return Err(cli_error("missing slot id or local access name"));
+    }
     let mut lb = open_existing(lockbox_path, access)?;
-    let slot_id = resolve_access_remove_target(&lb, target)?;
-    if let Err(err) = lb.delete_key(slot_id) {
-        if matches!(
-            &err,
-            Error::SecurityLimitExceeded(message)
-                if message == "refusing to remove the last key slot"
-        ) {
-            return Err(cli_error(
-                "cannot remove the last access entry; add another identity or contact before removing this access entry",
-            ));
-        }
-        return Err(err.into());
+    let mut revoked_slot_ids = BTreeSet::new();
+    for target in targets {
+        revoked_slot_ids.insert(resolve_access_revoke_target(&lb, target)?);
     }
-    lb.commit()?;
+    let retained_contacts = retained_contacts_after_revoke(&lb, &revoked_slot_ids)?;
+    let old_labels = access_slot_labels_by_slot(lb.lockbox_id());
+    let new_labels = lb.replace_content_key_with_contacts(&retained_contacts)?;
     mirror_key_directory(&lb, lockbox_path)?;
-    let _ = default_vault().and_then(|vault| {
-        vault.forget_access_slot_label(lb.lockbox_id(), slot_id)?;
-        Ok(())
-    });
+    let _ = local_vault().close_lockbox(lockbox_path);
+    let vault = default_vault()?;
+    for slot_id in old_labels.keys() {
+        vault.forget_access_slot_label(lb.lockbox_id(), *slot_id)?;
+    }
+    for (name, slot_id) in new_labels {
+        vault.remember_access_slot_label(lb.lockbox_id(), slot_id, name)?;
+    }
     Ok(())
 }
 
-pub(crate) fn access(args: &[String], access: &Access) -> CliResult<()> {
-    let command = require_arg(args, 0, "access command")?;
-    match command {
-        "add" => add_access(&args[1..], access),
-        "list" | "ls" => list_keys(&args[1..], access),
-        "refresh" => refresh_access(&args[1..], access),
-        "remove" | "rm" => remove_access(&args[1..], access),
-        _ => Err(Error::InvalidInput(format!("unknown access command: {command}")).into()),
-    }
+struct RefreshAccessRequest {
+    scope: RefreshScope,
+    dry_run: bool,
+    yes: bool,
 }
 
-pub(crate) fn refresh_access(args: &[String], access: &Access) -> CliResult<()> {
-    let dry_run = args.iter().any(|arg| arg == "--dry-run");
-    let yes = args.iter().any(|arg| arg == "--yes");
-    let positional = args
-        .iter()
-        .filter(|arg| !matches!(arg.as_str(), "--dry-run" | "--yes"))
-        .cloned()
-        .collect::<Vec<_>>();
-    if positional.first().map(String::as_str) == Some("--all") {
-        if positional.len() > 2 {
-            return Err(cli_error(
-                "access refresh --all accepts at most one identity argument",
-            ));
-        }
-        let identity = positional.get(1).map(String::as_str);
-        let vault = default_vault()?;
-        let identities = match identity {
-            Some(identity) => vec![identity.to_string()],
-            None => vault.list_private_keys()?,
-        };
-        if identities.is_empty() {
-            return Err(cli_error("no vault identities found to refresh"));
-        }
-        let known = vault.list_known_lockboxes()?;
-        let mut missing = Vec::new();
-        let mut inaccessible = Vec::new();
-        let mut targets = Vec::new();
-        for lockbox in &known {
-            match fs::metadata(&lockbox.path) {
-                Ok(metadata) if metadata.is_dir() => {
-                    inaccessible.push((
-                        lockbox.path.clone(),
-                        "lockbox path is a directory".to_string(),
-                    ));
-                    continue;
-                }
-                Ok(_) => {}
-                Err(err) if err.kind() == io::ErrorKind::NotFound => {
-                    missing.push(lockbox.path.clone());
-                    continue;
-                }
-                Err(err) => {
-                    inaccessible.push((lockbox.path.clone(), err.to_string()));
-                    continue;
-                }
-            }
-            match refresh_targets_for_lockbox(&lockbox.path, &identities, access) {
-                Ok(found) => targets.extend(found),
-                Err(err) => inaccessible.push((lockbox.path.clone(), err.to_string())),
-            }
-        }
-        print_refresh_plan(
-            if identity.is_some() { identity } else { None },
-            Some(known.len()),
-            &targets,
-            &missing,
-            &inaccessible,
-            dry_run,
-            yes,
-        );
-        apply_refresh_plan(&targets, access, dry_run, yes)?;
-        return Ok(());
-    }
+enum RefreshScope {
+    All {
+        identity: Option<String>,
+    },
+    One {
+        lockbox_path: String,
+        identity: String,
+    },
+}
 
-    let lockbox_path = require_arg(&positional, 0, "lockbox")?;
-    let identity = require_arg(&positional, 1, "identity")?;
-    if positional.len() > 2 {
-        return Err(cli_error(
-            "access refresh requires lockbox and identity arguments",
-        ));
+fn refresh_access_request(request: RefreshAccessRequest, access: &Access) -> CliResult<()> {
+    match request.scope {
+        RefreshScope::All { identity } => {
+            let vault = default_vault()?;
+            let identities = match identity.as_deref() {
+                Some(identity) => vec![identity.to_string()],
+                None => vault.list_private_keys()?,
+            };
+            if identities.is_empty() {
+                return Err(cli_error("no vault identities found to refresh"));
+            }
+            let known = vault.list_known_lockboxes()?;
+            let mut missing = Vec::new();
+            let mut inaccessible = Vec::new();
+            let mut targets = Vec::new();
+            for lockbox in &known {
+                match fs::metadata(&lockbox.path) {
+                    Ok(metadata) if metadata.is_dir() => {
+                        inaccessible.push((
+                            lockbox.path.clone(),
+                            "lockbox path is a directory".to_string(),
+                        ));
+                        continue;
+                    }
+                    Ok(_) => {}
+                    Err(err) if err.kind() == io::ErrorKind::NotFound => {
+                        missing.push(lockbox.path.clone());
+                        continue;
+                    }
+                    Err(err) => {
+                        inaccessible.push((lockbox.path.clone(), err.to_string()));
+                        continue;
+                    }
+                }
+                match refresh_targets_for_lockbox(&lockbox.path, &identities, access) {
+                    Ok(found) => targets.extend(found),
+                    Err(err) => inaccessible.push((lockbox.path.clone(), err.to_string())),
+                }
+            }
+            print_refresh_plan(
+                identity.as_deref(),
+                Some(known.len()),
+                &targets,
+                &missing,
+                &inaccessible,
+                request.dry_run,
+                request.yes,
+            );
+            apply_refresh_plan(&targets, access, request.dry_run, request.yes)
+        }
+        RefreshScope::One {
+            lockbox_path,
+            identity,
+        } => {
+            let identities = vec![identity.clone()];
+            let targets = refresh_targets_for_lockbox(&lockbox_path, &identities, access)?;
+            print_refresh_plan(
+                Some(&identity),
+                None,
+                &targets,
+                &[],
+                &[],
+                request.dry_run,
+                request.yes,
+            );
+            apply_refresh_plan(&targets, access, request.dry_run, request.yes)
+        }
     }
-    let identities = vec![identity.to_string()];
-    let targets = refresh_targets_for_lockbox(lockbox_path, &identities, access)?;
-    print_refresh_plan(Some(identity), None, &targets, &[], &[], dry_run, yes);
-    apply_refresh_plan(&targets, access, dry_run, yes)?;
-    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -476,20 +603,76 @@ fn access_slot_labels_by_slot(lockbox_id: lockbox_core::LockboxId) -> BTreeMap<u
         .unwrap_or_default()
 }
 
-fn resolve_access_remove_target(lockbox: &Lockbox, target: &str) -> CliResult<u64> {
+fn resolve_access_revoke_target(lockbox: &Lockbox, target: &str) -> CliResult<u64> {
     if let Ok(slot_id) = target.parse::<u64>() {
         return Ok(slot_id);
     }
-    let labels = default_vault()?.find_access_slot_labels(lockbox.lockbox_id(), target)?;
+    let vault = default_vault()?;
+    let mut labels = vault.find_access_slot_labels(lockbox.lockbox_id(), target)?;
+    if labels.is_empty() && !target.contains(':') {
+        labels.extend(
+            vault.find_access_slot_labels(lockbox.lockbox_id(), &format!("identity:{target}"))?,
+        );
+        labels.extend(
+            vault.find_access_slot_labels(lockbox.lockbox_id(), &format!("contact:{target}"))?,
+        );
+    }
     match labels.as_slice() {
         [label] => Ok(label.slot_id),
         [] => Err(cli_error(format!(
-            "no local access label named {target}; use `lockbox access list` and remove by slot id"
+            "no local access label named {target}; use `lockbox access list` and revoke by slot id"
         ))),
         _ => Err(cli_error(format!(
-            "multiple local access labels named {target}; remove by slot id"
+            "multiple local access labels named {target}; revoke by slot id"
         ))),
     }
+}
+
+fn retained_contacts_after_revoke(
+    lockbox: &Lockbox,
+    revoked_slot_ids: &BTreeSet<u64>,
+) -> CliResult<Vec<(String, ContactPublicKey)>> {
+    let slots = lockbox.list_key_slots();
+    if revoked_slot_ids.len() >= slots.len() {
+        return Err(cli_error(
+            "cannot revoke the last access entry; grant another identity or contact first",
+        ));
+    }
+    let labels = access_slot_labels_by_slot(lockbox.lockbox_id());
+    let mut retained = Vec::new();
+    for slot in slots {
+        if revoked_slot_ids.contains(&slot.id) {
+            continue;
+        }
+        if slot.protection != LockboxKeySlotProtection::Contact {
+            return Err(cli_error(format!(
+                "cannot true-revoke while retaining non-contact access slot {}; rekey requires a vault-resolvable contact or identity",
+                slot.id
+            )));
+        }
+        let Some(name) = labels.get(&slot.id) else {
+            return Err(cli_error(format!(
+                "cannot true-revoke because retained access slot {} has no local vault label; use `lockbox access list` and restore the contact label before revoking",
+                slot.id
+            )));
+        };
+        let contact = load_contact_from_arg(name)?;
+        retained.push((name.clone(), contact.public_key));
+    }
+    if retained.is_empty() {
+        return Err(cli_error(
+            "cannot true-revoke without at least one retained contact or identity",
+        ));
+    }
+    Ok(retained)
+}
+
+fn access_entry_name(label: &str) -> String {
+    label
+        .strip_prefix("identity:")
+        .or_else(|| label.strip_prefix("contact:"))
+        .unwrap_or(label)
+        .to_string()
 }
 
 fn print_refresh_plan(
@@ -674,65 +857,27 @@ enum PasswordSource {
 }
 
 impl OpenOptions {
-    fn parse(args: &[String]) -> CliResult<Self> {
-        let mut positional = Vec::new();
-        let mut ttl_seconds = None;
+    fn from_matches(matches: &ArgMatches) -> CliResult<Self> {
+        let mut ttl_seconds = matches
+            .get_one::<String>("duration")
+            .map(|value| parse_duration(value))
+            .transpose()?;
         let mut password_source = PasswordSource::Prompt;
-        let mut index = 0usize;
-        while index < args.len() {
-            match args[index].as_str() {
-                "--duration" => {
-                    index += 1;
-                    let Some(value) = args.get(index).map(String::as_str) else {
-                        return Err(
-                            Error::InvalidInput("missing --duration value".to_string()).into()
-                        );
-                    };
-                    ttl_seconds = Some(parse_duration(value)?);
-                }
-                "--password-env" => {
-                    ensure_prompt_password_source(&password_source)?;
-                    index += 1;
-                    let Some(value) = args.get(index) else {
-                        return Err(Error::InvalidInput(
-                            "missing --password-variable value".to_string(),
-                        )
-                        .into());
-                    };
-                    password_source = PasswordSource::Variables(value.clone());
-                }
-                "--password-file" => {
-                    ensure_prompt_password_source(&password_source)?;
-                    index += 1;
-                    let Some(value) = args.get(index) else {
-                        return Err(Error::InvalidInput(
-                            "missing --password-file value".to_string(),
-                        )
-                        .into());
-                    };
-                    password_source = PasswordSource::File(value.clone());
-                }
-                "--password-stdin" => {
-                    ensure_prompt_password_source(&password_source)?;
-                    password_source = PasswordSource::Stdin;
-                }
-                value => positional.push(value.to_string()),
-            }
-            index += 1;
+        if let Some(value) = matches.get_one::<String>("password-env") {
+            ensure_prompt_password_source(&password_source)?;
+            password_source = PasswordSource::Variables(value.clone());
         }
-        let lockbox_path = positional
-            .first()
-            .map(|path| create_path(path))
-            .transpose()?
-            .map(|path| path.to_string_lossy().into_owned())
-            .ok_or_else(|| Error::InvalidInput("missing lockbox".to_string()))?;
-        if positional.len() > 1 {
-            return Err(Error::InvalidInput(format!(
-                "unexpected open argument: {}",
-                positional[1]
-            ))
-            .into());
+        if let Some(value) = matches.get_one::<String>("password-file") {
+            ensure_prompt_password_source(&password_source)?;
+            password_source = PasswordSource::File(value.clone());
         }
+        if matches.get_flag("password-stdin") {
+            ensure_prompt_password_source(&password_source)?;
+            password_source = PasswordSource::Stdin;
+        }
+        let lockbox_path = create_path(&optional_lockbox_value(matches, "lockbox")?)?
+            .to_string_lossy()
+            .into_owned();
         if ttl_seconds.is_none() {
             ttl_seconds = default_session_duration()?;
         }

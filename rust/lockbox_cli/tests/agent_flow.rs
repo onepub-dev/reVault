@@ -1,19 +1,19 @@
+mod common;
+
+use common::TestTempDir;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Output, Stdio};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(20);
-static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 #[test]
 fn open_populates_cache_and_close_clears_it() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
-    let dir = unique_dir();
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
+    let temp = TestTempDir::new("lockbox-cli-agent-flow");
+    let dir = temp.path();
     let vault = dir.join("test.lbox");
     let source = dir.join("source.txt");
     let agent_dir = dir.join("agent");
@@ -68,7 +68,7 @@ fn open_populates_cache_and_close_clears_it() {
         String::from_utf8_lossy(&output.stderr)
     );
     let vault_opened = String::from_utf8_lossy(&output.stdout);
-    assert!(vault_opened.contains("Active lockbox:"));
+    assert!(vault_opened.contains("Default lockbox:"));
     assert!(vault_opened.contains("Open lockboxes:"));
     assert!(vault_opened.contains(vault.to_str().unwrap()));
 
@@ -129,7 +129,7 @@ fn open_populates_cache_and_close_clears_it() {
     let session = String::from_utf8_lossy(&output.stdout);
     assert!(session.contains("Session agent:"));
     assert!(session.contains("Auto-open:"));
-    assert!(session.contains("Active lockbox:"));
+    assert!(session.contains("Default lockbox:"));
     assert!(session.contains("Open lockboxes:"));
     assert!(session.contains("none"));
 }
@@ -202,11 +202,4 @@ fn command(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]) -
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_dir.join("agent.log"))
         .env("LOCKBOX_VAULT_DIR", vault_dir);
     command
-}
-
-fn unique_dir() -> PathBuf {
-    let counter = TEST_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../target/t")
-        .join(format!("ipc-{}-{counter}", std::process::id()))
 }

@@ -1,13 +1,19 @@
 use super::context::{cli_error, default_vault, Access, CliResult};
-use super::output::{output_format_from_args, print_records, OutputFormat};
+use super::optional_lockbox_value;
+use super::output::{output_format_from_matches, print_records, OutputFormat};
+use clap::ArgMatches;
 use lockbox_core::vault_integration::VaultOpen;
 use lockbox_core::{Error, RecoveryReport, RecoveryScanner, SecretVec};
 use lockbox_vault::{get as get_cached_content_key, VaultDirectory};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub(crate) fn run(args: &[String], access: &Access) -> CliResult<()> {
-    let options = RecoverOptions::parse(args)?;
+pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let options = RecoverOptions::from_matches(matches)?;
+    run_options(options, access)
+}
+
+fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
     if options.dry_run {
         let report = scan_report(&options.lockbox_path, access)?;
         print_report(&report, options.format)?;
@@ -57,44 +63,10 @@ struct RecoverOptions {
 }
 
 impl RecoverOptions {
-    fn parse(args: &[String]) -> CliResult<Self> {
-        let (args, format) = output_format_from_args(args)?;
-        let mut positional = Vec::new();
-        let mut output = None;
-        let mut overwrite = false;
-        let mut dry_run = false;
-        let mut index = 0usize;
-        while index < args.len() {
-            match args[index].as_str() {
-                "--output" => {
-                    index += 1;
-                    output = Some(args.get(index).cloned().ok_or_else(|| {
-                        Error::InvalidInput("missing --output value".to_string())
-                    })?);
-                }
-                "--overwrite" => overwrite = true,
-                "--dry-run" => dry_run = true,
-                "--report" => {
-                    return Err(Error::InvalidInput(
-                        "--report has been removed; use --dry-run".to_string(),
-                    )
-                    .into());
-                }
-                value => positional.push(value.to_string()),
-            }
-            index += 1;
-        }
-        let lockbox_path = positional
-            .first()
-            .cloned()
-            .ok_or_else(|| Error::InvalidInput("missing lockbox".to_string()))?;
-        if positional.len() > 1 {
-            return Err(Error::InvalidInput(format!(
-                "unexpected recover argument: {}",
-                positional[1]
-            ))
-            .into());
-        }
+    fn from_matches(matches: &ArgMatches) -> CliResult<Self> {
+        let output = matches.get_one::<String>("output").cloned();
+        let overwrite = matches.get_flag("overwrite");
+        let dry_run = matches.get_flag("dry-run");
         if dry_run && output.is_some() {
             return Err(
                 Error::InvalidInput("--dry-run cannot be used with --output".to_string()).into(),
@@ -107,11 +79,11 @@ impl RecoverOptions {
             .into());
         }
         Ok(Self {
-            lockbox_path,
+            lockbox_path: optional_lockbox_value(matches, "lockbox")?,
             output,
             overwrite,
             dry_run,
-            format,
+            format: output_format_from_matches(matches)?,
         })
     }
 }

@@ -103,14 +103,15 @@ as normal files in the vault lockbox. See
 ## Variables
 
 Variables are encrypted metadata, not files. They do not appear in
-file listings and are loaded only when variables commands or APIs request them.
+file listings and are loaded only when variable commands or APIs request them.
 
 Plain variables are for values that are useful configuration but not high-value
 secrets:
 
 ```bash
-lockbox variables set secrets.lbox DATABASE_URL --value 'postgres://localhost/app'
-lockbox variables get secrets.lbox DATABASE_URL
+lockbox variable set secrets.lbox DATABASE_URL --value 'postgres://localhost/app'
+lockbox variable set secrets.lbox DATABASE_URL='postgres://localhost/app'
+lockbox variable get secrets.lbox DATABASE_URL
 ```
 
 Secret variables are for passwords, API tokens, signing keys, and similar
@@ -118,10 +119,10 @@ material. They use secure-memory handling in the variable path and must be provi
 through an explicit source:
 
 ```bash
-lockbox variables set secrets.lbox --secret API_TOKEN --interactive
-lockbox variables set secrets.lbox --secret API_TOKEN --file ./api-token.txt
-lockbox variables set secrets.lbox --secret API_TOKEN --stdin
-lockbox variables set secrets.lbox --secret API_TOKEN --from-env API_TOKEN
+lockbox variable set secrets.lbox --secret API_TOKEN --interactive
+lockbox variable set secrets.lbox --secret API_TOKEN --file ./api-token.txt
+lockbox variable set secrets.lbox --secret API_TOKEN --stdin
+lockbox variable set secrets.lbox --secret API_TOKEN --from-env API_TOKEN
 ```
 
 Avoid passing secrets as command-line arguments. Shell history and process

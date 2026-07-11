@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
+use clap::ArgMatches;
 use lockbox_core::Error;
 use lockbox_vault::{
     get_platform_vault_password, list as list_open_lockboxes, local_vault,
@@ -11,53 +12,61 @@ use lockbox_vault::{
 
 use super::context::{
     ensure_lockbox_path_accessible, open_default_vault_with_password, read_vault_password,
-    require_arg, CliResult,
+    CliResult,
 };
-use super::output::{output_format_from_args, print_records};
+use super::output::{output_format_from_matches, print_records};
 
-pub(crate) fn run(args: &[String]) -> CliResult<()> {
-    match args.first().map(String::as_str) {
-        Some("activate") => activate(&args[1..]),
-        Some("deactivate") => {
-            clear_active_lockbox()?;
-            println!("Active lockbox cleared.");
-            Ok(())
-        }
-        Some("close-all") => {
+pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
+    match matches.subcommand() {
+        Some(("default", sub)) => default_lockbox_matches(sub),
+        Some(("close-all", _)) => {
             local_vault().close_all()?;
-            clear_active_lockbox()?;
+            clear_default_lockbox()?;
             println!("All lockbox sessions closed.");
             Ok(())
         }
-        Some("stop") => {
+        Some(("stop", _)) => {
             stop_agent()?;
-            clear_active_lockbox()?;
+            clear_default_lockbox()?;
             println!("Session agent stopped.");
             Ok(())
         }
-        Some("auto-open") => auto_open(&args[1..]),
-        _ => list_sessions(args),
+        Some(("auto-open", sub)) => auto_open_matches(sub),
+        Some((command, _)) => {
+            Err(Error::InvalidInput(format!("unknown session command: {command}")).into())
+        }
+        None => list_sessions(output_format_from_matches(matches)?),
     }
 }
 
-fn activate(args: &[String]) -> CliResult<()> {
-    let lockbox_path = require_arg(args, 0, "lockbox")?;
+fn default_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
+    if matches.get_flag("clear") {
+        clear_default_lockbox()?;
+        println!("Default lockbox cleared.");
+        return Ok(());
+    }
+    let lockbox_path = matches
+        .get_one::<String>("lockbox")
+        .ok_or_else(|| Error::InvalidInput("missing lockbox".to_string()))?;
+    set_default_lockbox(lockbox_path)
+}
+
+fn set_default_lockbox(lockbox_path: &str) -> CliResult<()> {
     ensure_lockbox_path_accessible(lockbox_path)?;
     let lockbox_path = fs::canonicalize(lockbox_path)?;
     let lockbox_path = lockbox_path.to_string_lossy().into_owned();
-    write_active_lockbox(&lockbox_path)?;
-    println!("Active lockbox: {lockbox_path}");
+    write_default_lockbox(&lockbox_path)?;
+    println!("Default lockbox: {lockbox_path}");
     Ok(())
 }
 
-fn list_sessions(args: &[String]) -> CliResult<()> {
-    let (_, format) = output_format_from_args(args)?;
+fn list_sessions(format: super::output::OutputFormat) -> CliResult<()> {
     let agent_enabled = agent_enabled();
     let agent_running = lockbox_vault::is_running();
     let auto_open = platform_secret_store_status()?;
     let vault_pass_phrase_stored = platform_vault_pass_phrase_stored();
     if !matches!(format, super::output::OutputFormat::Table) {
-        let active = active_lockbox()?;
+        let default = default_lockbox_path_value()?;
         let mut rows = Vec::new();
         rows.push(vec![
             "agent".to_string(),
@@ -89,9 +98,9 @@ fn list_sessions(args: &[String]) -> CliResult<()> {
         ]);
         rows.push(vec![
             "lockbox".to_string(),
-            "active".to_string(),
-            if active.is_some() { "yes" } else { "no" }.to_string(),
-            active.clone().unwrap_or_default(),
+            "default".to_string(),
+            if default.is_some() { "yes" } else { "no" }.to_string(),
+            default.clone().unwrap_or_default(),
             String::new(),
         ]);
         for lockbox in list_open_lockboxes()? {
@@ -99,7 +108,7 @@ fn list_sessions(args: &[String]) -> CliResult<()> {
             rows.push(vec![
                 "lockbox".to_string(),
                 "open".to_string(),
-                if active.as_deref() == Some(path.as_str()) {
+                if default.as_deref() == Some(path.as_str()) {
                     "yes".to_string()
                 } else {
                     "no".to_string()
@@ -123,8 +132,8 @@ fn list_sessions(args: &[String]) -> CliResult<()> {
         yes_no(vault_pass_phrase_stored)
     );
     println!();
-    println!("Active lockbox:");
-    match active_lockbox()? {
+    println!("Default lockbox:");
+    match default_lockbox_path_value()? {
         Some(path) => println!("  {path}"),
         None => println!("  none"),
     }
@@ -141,53 +150,43 @@ fn list_sessions(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn auto_open(args: &[String]) -> CliResult<()> {
-    let command = args.first().map(String::as_str).unwrap_or("status");
-    match command {
-        "status" => auto_open_status(&args[1..]),
-        "off" => {
-            if !confirm_auto_open_off(&args[1..])? {
+fn auto_open_matches(matches: &ArgMatches) -> CliResult<()> {
+    match matches.subcommand() {
+        Some(("status", sub)) => auto_open_status(output_format_from_matches(sub)?),
+        Some(("disable", sub)) => {
+            if !confirm_auto_open_disable(sub.get_flag("yes"))? {
                 println!("Auto-open not disabled.");
                 return Ok(());
             }
             set_auto_open_scope(AutoOpenScope::Off)?;
             local_vault().close_all()?;
-            clear_active_lockbox()?;
-            auto_open_status(&[])
+            clear_default_lockbox()?;
+            auto_open_status(super::output::OutputFormat::Table)
         }
-        "vault" => {
+        Some(("vault", _)) => {
             let password = read_vault_password("Vault pass phrase: ")?;
             open_default_vault_with_password(&password)?;
             set_auto_open_scope(AutoOpenScope::Vault)?;
-            let _ = put_platform_vault_password(&password);
+            put_platform_vault_password(&password)?;
             local_vault().close_all()?;
-            auto_open_status(&[])
+            auto_open_status(super::output::OutputFormat::Table)
         }
-        "lockboxes" => {
+        Some(("lockboxes", _)) => {
             let password = read_vault_password("Vault pass phrase: ")?;
             open_default_vault_with_password(&password)?;
             set_auto_open_scope(AutoOpenScope::Lockboxes)?;
-            let _ = put_platform_vault_password(&password);
+            put_platform_vault_password(&password)?;
             local_vault().close_all()?;
-            auto_open_status(&[])
+            auto_open_status(super::output::OutputFormat::Table)
         }
-        _ => {
+        Some((command, _)) => {
             Err(Error::InvalidInput(format!("unknown session auto-open command: {command}")).into())
         }
+        None => auto_open_status(super::output::OutputFormat::Table),
     }
 }
 
-fn confirm_auto_open_off(args: &[String]) -> CliResult<bool> {
-    let yes = args.iter().any(|arg| arg == "--yes");
-    let unexpected = args
-        .iter()
-        .find(|arg| !matches!(arg.as_str(), "--yes"))
-        .map(String::as_str);
-    if let Some(arg) = unexpected {
-        return Err(
-            Error::InvalidInput(format!("unknown session auto-open off option: {arg}")).into(),
-        );
-    }
+fn confirm_auto_open_disable(yes: bool) -> CliResult<bool> {
     if yes {
         return Ok(true);
     }
@@ -202,8 +201,7 @@ fn confirm_auto_open_off(args: &[String]) -> CliResult<bool> {
     Ok(answer.trim() == "yes")
 }
 
-fn auto_open_status(args: &[String]) -> CliResult<()> {
-    let (_, format) = output_format_from_args(args)?;
+fn auto_open_status(format: super::output::OutputFormat) -> CliResult<()> {
     let status = platform_secret_store_status()?;
     let stored = platform_vault_pass_phrase_stored();
     print_records(
@@ -236,8 +234,8 @@ fn platform_vault_pass_phrase_stored() -> bool {
         .unwrap_or(false)
 }
 
-fn active_lockbox() -> CliResult<Option<String>> {
-    let path = active_lockbox_path()?;
+fn default_lockbox_path_value() -> CliResult<Option<String>> {
+    let path = default_lockbox_path()?;
     match fs::read_to_string(path) {
         Ok(value) => Ok(Some(value.trim_end_matches('\n').to_string())),
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
@@ -245,8 +243,8 @@ fn active_lockbox() -> CliResult<Option<String>> {
     }
 }
 
-pub(crate) fn clear_active_lockbox() -> CliResult<()> {
-    match fs::remove_file(active_lockbox_path()?) {
+pub(crate) fn clear_default_lockbox() -> CliResult<()> {
+    match fs::remove_file(default_lockbox_path()?) {
         Ok(()) => {}
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
         Err(err) => return Err(err.into()),
@@ -254,8 +252,8 @@ pub(crate) fn clear_active_lockbox() -> CliResult<()> {
     Ok(())
 }
 
-fn write_active_lockbox(lockbox_path: &str) -> CliResult<()> {
-    let path = active_lockbox_path()?;
+fn write_default_lockbox(lockbox_path: &str) -> CliResult<()> {
+    let path = default_lockbox_path()?;
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -263,22 +261,32 @@ fn write_active_lockbox(lockbox_path: &str) -> CliResult<()> {
     Ok(())
 }
 
-fn active_lockbox_path() -> CliResult<PathBuf> {
-    Ok(lockbox_vault::default_vault_dir()?.join(".active-lockbox"))
+fn default_lockbox_path() -> CliResult<PathBuf> {
+    Ok(lockbox_vault::default_vault_dir()?.join(".default-lockbox"))
 }
 
-pub(crate) fn active_lockbox_or_none() -> CliResult<Option<String>> {
-    active_lockbox()
+pub(crate) fn default_lockbox_or_none() -> CliResult<Option<String>> {
+    default_lockbox_path_value()
 }
 
-pub(crate) fn deactivate_if_active(path: &str) -> CliResult<()> {
-    let Some(active) = active_lockbox()? else {
+pub(crate) fn clear_default_if_matches(path: &str) -> CliResult<()> {
+    let Some(default) = default_lockbox_path_value()? else {
         return Ok(());
     };
-    if active == path || canonical_path_matches(&active, path) {
-        clear_active_lockbox()?;
+    if default == path || canonical_path_matches(&default, path) {
+        clear_default_lockbox()?;
     }
     Ok(())
+}
+
+pub(crate) fn default_matches(path: &str) -> CliResult<bool> {
+    Ok(default_lockbox_path_value()?
+        .is_some_and(|default| default == path || canonical_path_matches(&default, path)))
+}
+
+pub(crate) fn replace_default_after_move(path: &Path) -> CliResult<()> {
+    let canonical = fs::canonicalize(path)?;
+    write_default_lockbox(&canonical.to_string_lossy())
 }
 
 fn canonical_path_matches(active: &str, path: &str) -> bool {

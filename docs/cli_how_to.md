@@ -101,34 +101,35 @@ Stored path:
 ## Variables
 
 Lockbox can store environment variables in encrypted variable pages. They are not
-file entries, do not appear in `ls`, and should only be loaded when variables commands
+file entries, do not appear in `ls`, and should only be loaded when variable commands
 or APIs request them.
 
 Set a variable:
 
 ```bash
-lockbox variables set secrets.lbox DATABASE_URL 'postgres://localhost/app'
-lockbox variables set secrets.lbox DATABASE_URL --value 'postgres://localhost/app'
+lockbox variable set secrets.lbox DATABASE_URL 'postgres://localhost/app'
+lockbox variable set secrets.lbox DATABASE_URL='postgres://localhost/app'
+lockbox variable set secrets.lbox DATABASE_URL --value 'postgres://localhost/app'
 ```
 
 Set a secret variable with an explicit value source:
 
 ```bash
-lockbox variables set secrets.lbox --secret API_TOKEN --interactive
-lockbox variables set secrets.lbox --secret API_TOKEN --file ./api-token.txt
-lockbox variables set secrets.lbox --secret API_TOKEN --stdin
-lockbox variables set secrets.lbox --secret API_TOKEN --from-env API_TOKEN
-lockbox variables set secrets.lbox --secret API_TOKEN --value "$API_TOKEN"
+lockbox variable set secrets.lbox --secret API_TOKEN --interactive
+lockbox variable set secrets.lbox --secret API_TOKEN --file ./api-token.txt
+lockbox variable set secrets.lbox --secret API_TOKEN --stdin
+lockbox variable set secrets.lbox --secret API_TOKEN --from-env API_TOKEN
+lockbox variable set secrets.lbox --secret API_TOKEN --value "$API_TOKEN"
 ```
 
 Short forms are also supported:
 
 ```bash
-lockbox variables set secrets.lbox -s API_TOKEN -i
-lockbox variables set secrets.lbox -s API_TOKEN -f ./api-token.txt
-lockbox variables set secrets.lbox -s API_TOKEN -t
-lockbox variables set secrets.lbox -s API_TOKEN -e API_TOKEN
-lockbox variables set secrets.lbox -s API_TOKEN -v "$API_TOKEN"
+lockbox variable set secrets.lbox -s API_TOKEN -i
+lockbox variable set secrets.lbox -s API_TOKEN -f ./api-token.txt
+lockbox variable set secrets.lbox -s API_TOKEN -t
+lockbox variable set secrets.lbox -s API_TOKEN -e API_TOKEN
+lockbox variable set secrets.lbox -s API_TOKEN -v "$API_TOKEN"
 ```
 
 Sensitivity is declared when a variable is created. Updating the value preserves
@@ -138,26 +139,26 @@ way around, delete it and recreate it.
 Get a variable:
 
 ```bash
-lockbox variables get secrets.lbox DATABASE_URL
-lockbox variables get secrets.lbox --secret API_TOKEN
+lockbox variable get secrets.lbox DATABASE_URL
+lockbox variable get secrets.lbox --secret API_TOKEN
 ```
 
 List variable names:
 
 ```bash
-lockbox variables list secrets.lbox
+lockbox variable list secrets.lbox
 ```
 
 Export variables for shell use:
 
 ```bash
-lockbox variables export secrets.lbox
+lockbox variable export secrets.lbox
 ```
 
 Remove a variable:
 
 ```bash
-lockbox variables rm secrets.lbox DATABASE_URL
+lockbox variable rm secrets.lbox DATABASE_URL
 ```
 
 Environment variable names should use portable shell-style names:
@@ -188,7 +189,7 @@ The command prints public lockbox identity, summary counts for files, symlinks,
 environment variables, key slots, logical file bytes, per-page metadata, page
 object kinds, and a recovery-scan summary. It does not print file paths, file
 contents, environment variable names, or environment variable values. Use
-`lockbox list` and `lockbox variables list` for those details.
+`lockbox list` and `lockbox variable list` for those details.
 
 ## List Files
 

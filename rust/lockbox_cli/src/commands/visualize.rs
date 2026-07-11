@@ -1,9 +1,11 @@
-use super::context::{open_existing, require_arg, Access, CliResult};
+use super::context::{open_existing, Access, CliResult};
+use super::optional_lockbox_value;
+use clap::ArgMatches;
 use lockbox_core::{ListOptions, Lockbox, LockboxPath};
 
-pub(crate) fn run(args: &[String], access: &Access) -> CliResult<()> {
-    let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let lb = open_existing(lockbox_path, access)?;
+pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let lockbox_path = optional_lockbox_value(matches, "lockbox")?;
+    let lb = open_existing(&lockbox_path, access)?;
     print_lockbox_visualization(&lb)
 }
 
@@ -26,6 +28,7 @@ fn print_lockbox_visualization(lb: &Lockbox) -> CliResult<()> {
         recursive: true,
         include_files: true,
         include_symlinks: true,
+        include_directories: true,
         limit: None,
     })? {
         let entry = entry?;
@@ -35,6 +38,7 @@ fn print_lockbox_visualization(lb: &Lockbox) -> CliResult<()> {
                 total_file_bytes = total_file_bytes.saturating_add(entry.len);
             }
             lockbox_core::LockboxEntryKind::Symlink => symlink_count += 1,
+            lockbox_core::LockboxEntryKind::Directory => {}
         }
     }
 

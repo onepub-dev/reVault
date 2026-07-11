@@ -1,3 +1,4 @@
+use clap::ArgMatches;
 use lockbox_core::Error;
 
 use super::context::CliResult;
@@ -23,23 +24,8 @@ impl OutputFormat {
     }
 }
 
-pub(crate) fn output_format_from_args(args: &[String]) -> CliResult<(Vec<String>, OutputFormat)> {
-    let mut out = Vec::new();
-    let mut format = OutputFormat::Table;
-    let mut index = 0;
-    while index < args.len() {
-        if args[index] == "--format" {
-            index += 1;
-            let Some(value) = args.get(index).map(String::as_str) else {
-                return Err(Error::InvalidInput("missing --format value".to_string()).into());
-            };
-            format = OutputFormat::parse(Some(value))?;
-        } else {
-            out.push(args[index].clone());
-        }
-        index += 1;
-    }
-    Ok((out, format))
+pub(crate) fn output_format_from_matches(matches: &ArgMatches) -> CliResult<OutputFormat> {
+    OutputFormat::parse(matches.get_one::<String>("format").map(String::as_str))
 }
 
 pub(crate) fn print_records(
@@ -108,25 +94,13 @@ fn print_json(headers: &[&str], rows: &[Vec<String>]) -> CliResult<()> {
         let fields = headers
             .iter()
             .zip(row.iter())
-            .map(|(name, value)| format!("\"{}\":\"{}\"", json_escape(name), json_escape(value)))
+            .map(|(name, value)| format!("{}:{}", json_string(name), json_string(value)))
             .collect::<Vec<_>>();
         println!("{{{}}}", fields.join(","));
     }
     Ok(())
 }
 
-pub(crate) fn json_escape(value: &str) -> String {
-    let mut out = String::with_capacity(value.len() + 2);
-    for ch in value.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            ch if ch.is_control() => out.push_str(&format!("\\u{:04x}", ch as u32)),
-            ch => out.push(ch),
-        }
-    }
-    out
+pub(crate) fn json_string(value: &str) -> String {
+    serde_json::to_string(value).expect("serializing a string to JSON cannot fail")
 }

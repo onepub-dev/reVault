@@ -3,34 +3,44 @@ use std::{
     io::{Read, Write},
 };
 
+use clap::ArgMatches;
 use lockbox_core::{
     Error, SecretString, VariableName, VariableNamePattern, VariableSensitivity, VariableValueRef,
 };
 
 use super::context::{open_existing, open_or_create, require_arg, Access, CliResult};
-use super::help::usage;
-use super::output::{output_format_from_args, print_records};
+use super::output::{json_string, output_format_from_matches, print_records};
+use super::{optional_lockbox_positionals, positional_values};
 use crate::secret_prompt::prompt_secret;
 
-pub(crate) fn run(args: &[String], access: &Access) -> CliResult<()> {
-    let subcommand = require_arg(args, 0, "variables command")?;
-    let lockbox_path = require_arg(args, 1, "lockbox")?;
+pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let (subcommand, sub) = matches
+        .subcommand()
+        .ok_or_else(|| Error::InvalidInput("missing variable command".to_string()))?;
     match subcommand {
-        "set" => set_variable(lockbox_path, &args[2..], access)?,
-        "get" => get_variable(lockbox_path, &args[2..], access)?,
-        "list" => {
-            let (args, format) = output_format_from_args(&args[2..])?;
-            let pattern = match args.as_slice() {
+        "set" => {
+            let args = optional_lockbox_positionals(positional_values(sub, "args"), 1)?;
+            let request = VariableSetRequest::from_matches(sub, &args[1..])?;
+            set_variable_request(&args[0], request, access)?;
+        }
+        "get" => {
+            let args = optional_lockbox_positionals(positional_values(sub, "args"), 1)?;
+            let request = VariableGetRequest::from_matches(sub, &args[1..])?;
+            get_variable_request(&args[0], request, access)?;
+        }
+        "list" | "ls" => {
+            let args = optional_lockbox_positionals(positional_values(sub, "args"), 0)?;
+            let pattern = match args[1..].as_ref() {
                 [] => None,
                 [pattern] => Some(VariableNamePattern::new(pattern)?),
                 _ => {
                     return Err(Error::InvalidInput(
-                        "variables list accepts at most one path or glob pattern".to_string(),
+                        "variable list accepts at most one path or glob pattern".to_string(),
                     )
                     .into());
                 }
             };
-            let lb = open_existing(lockbox_path, access)?;
+            let lb = open_existing(&args[0], access)?;
             let mut rows = Vec::new();
             for (name, sensitivity) in lb.list_variables()? {
                 if pattern
@@ -44,11 +54,16 @@ pub(crate) fn run(args: &[String], access: &Access) -> CliResult<()> {
                     sensitivity_name(sensitivity).to_string(),
                 ]);
             }
-            print_records(&["name", "sensitivity"], rows, format)?;
+            print_records(
+                &["name", "sensitivity"],
+                rows,
+                output_format_from_matches(sub)?,
+            )?;
         }
         "export" => {
-            let request = VariableExportRequest::parse(&args[2..])?;
-            let lb = open_existing(lockbox_path, access)?;
+            let args = optional_lockbox_positionals(positional_values(sub, "args"), 0)?;
+            let request = VariableExportRequest::from_matches(sub, &args[1..])?;
+            let lb = open_existing(&args[0], access)?;
             lb.visit_variables(|name, value| match value {
                 VariableValueRef::Normal(value) => {
                     if let Some(name) = request.export_name(name) {
@@ -59,19 +74,27 @@ pub(crate) fn run(args: &[String], access: &Access) -> CliResult<()> {
                 VariableValueRef::Secret(_) => Ok(()),
             })?;
         }
-        "remove" | "rm" => {
-            let name = VariableName::new(require_arg(args, 2, "name")?)?;
-            let mut lb = open_existing(lockbox_path, access)?;
+        "remove" => {
+            let args = optional_lockbox_positionals(positional_values(sub, "args"), 1)?;
+            let name = VariableName::new(require_arg(&args, 1, "name")?)?;
+            let mut lb = open_existing(&args[0], access)?;
             lb.delete_variable(&name)?;
             lb.commit()?;
         }
-        _ => usage(false),
+        _ => {
+            return Err(
+                Error::InvalidInput(format!("unknown variable command: {subcommand}")).into(),
+            )
+        }
     }
     Ok(())
 }
 
-fn set_variable(lockbox_path: &str, args: &[String], access: &Access) -> CliResult<()> {
-    let request = VariableSetRequest::parse(args)?;
+fn set_variable_request(
+    lockbox_path: &str,
+    request: VariableSetRequest,
+    access: &Access,
+) -> CliResult<()> {
     let mut lb = open_or_create(lockbox_path, access)?;
     let existing = lb.variable_sensitivity(&request.name)?;
     let effective_sensitivity = existing.unwrap_or(if request.secret {
@@ -119,8 +142,11 @@ fn set_variable(lockbox_path: &str, args: &[String], access: &Access) -> CliResu
     Ok(())
 }
 
-fn get_variable(lockbox_path: &str, args: &[String], access: &Access) -> CliResult<()> {
-    let request = VariableGetRequest::parse(args)?;
+fn get_variable_request(
+    lockbox_path: &str,
+    request: VariableGetRequest,
+    access: &Access,
+) -> CliResult<()> {
     let name = VariableName::new(&request.name)?;
     let lb = open_existing(lockbox_path, access)?;
     if request.secret {
@@ -147,44 +173,24 @@ struct VariableGetRequest {
 }
 
 impl VariableGetRequest {
-    fn parse(args: &[String]) -> CliResult<Self> {
-        let mut secret = false;
-        let mut name = None;
-        let mut output = None;
-        let mut overwrite = false;
-        let mut index = 0;
-        while index < args.len() {
-            match args[index].as_str() {
-                "-s" | "--secret" => secret = true,
-                "--output" => {
-                    index += 1;
-                    output = Some(
-                        args.get(index)
-                            .ok_or_else(|| {
-                                Error::InvalidInput("missing --output argument".to_string())
-                            })?
-                            .to_string(),
-                    );
-                }
-                "--overwrite" => overwrite = true,
-                value if name.is_none() => name = Some(value.to_string()),
-                _ => {
-                    return Err(Error::InvalidInput(
-                        "unexpected variables get argument".to_string(),
-                    )
-                    .into());
-                }
+    fn from_matches(matches: &ArgMatches, args: &[String]) -> CliResult<Self> {
+        let name = match args {
+            [name] => name.clone(),
+            [] => return Err(Error::InvalidInput("missing variable name".to_string()).into()),
+            _ => {
+                return Err(Error::InvalidInput(
+                    "variable get accepts exactly one variable name".to_string(),
+                )
+                .into())
             }
-            index += 1;
-        }
-        let Some(name) = name else {
-            return Err(Error::InvalidInput("missing variable name".to_string()).into());
         };
+        let output = matches.get_one::<String>("output").cloned();
+        let overwrite = matches.get_flag("overwrite");
         if overwrite && output.is_none() {
             return Err(Error::InvalidInput("--overwrite requires --output".to_string()).into());
         }
         Ok(Self {
-            secret,
+            secret: matches.get_flag("secret"),
             name,
             output,
             overwrite,
@@ -260,79 +266,54 @@ struct VariableSetRequest {
 }
 
 impl VariableSetRequest {
-    fn parse(args: &[String]) -> CliResult<Self> {
-        let mut name = None;
-        let mut positional = None;
-        let mut secret = false;
-        let mut source = None;
-        let mut index = 0;
-        while index < args.len() {
-            match args[index].as_str() {
-                "-s" | "--secret" => secret = true,
-                "-i" | "--interactive" => set_source(&mut source, ValueSource::Interactive)?,
-                "-t" | "--stdin" => set_source(&mut source, ValueSource::Stdin)?,
-                "-v" | "--value" => {
-                    index += 1;
-                    set_source(
-                        &mut source,
-                        ValueSource::Value(
-                            args.get(index)
-                                .ok_or_else(|| {
-                                    Error::InvalidInput("missing --value argument".to_string())
-                                })?
-                                .to_string(),
-                        ),
-                    )?;
+    fn from_matches(matches: &ArgMatches, args: &[String]) -> CliResult<Self> {
+        let (name, positional) = match args {
+            [assignment] => match assignment.split_once('=') {
+                Some((name, value)) => {
+                    if name.is_empty() {
+                        return Err(Error::InvalidInput(
+                            "missing variable name before '='".to_string(),
+                        )
+                        .into());
+                    }
+                    (VariableName::new(name)?, Some(value.to_string()))
                 }
-                "-f" | "--file" => {
-                    index += 1;
-                    set_source(
-                        &mut source,
-                        ValueSource::File(
-                            args.get(index)
-                                .ok_or_else(|| {
-                                    Error::InvalidInput("missing --file argument".to_string())
-                                })?
-                                .to_string(),
-                        ),
-                    )?;
-                }
-                "-e" | "--from-env" => {
-                    index += 1;
-                    set_source(
-                        &mut source,
-                        ValueSource::FromEnv(
-                            args.get(index)
-                                .ok_or_else(|| {
-                                    Error::InvalidInput("missing --from-env argument".to_string())
-                                })?
-                                .to_string(),
-                        ),
-                    )?;
-                }
-                value if name.is_none() => name = Some(VariableName::new(value)?),
-                value if positional.is_none() => positional = Some(value.to_string()),
-                _ => {
-                    return Err(Error::InvalidInput(
-                        "unexpected variables set argument".to_string(),
-                    )
-                    .into());
-                }
+                None => (VariableName::new(assignment)?, None),
+            },
+            [name, value] => (VariableName::new(name)?, Some(value.clone())),
+            [] => return Err(Error::InvalidInput("missing variable name".to_string()).into()),
+            _ => {
+                return Err(Error::InvalidInput(
+                    "variable set accepts at most one positional value".to_string(),
+                )
+                .into())
             }
-            index += 1;
-        }
-        let Some(name) = name else {
-            return Err(Error::InvalidInput("missing variable name".to_string()).into());
         };
+        let mut source = None;
+        if matches.get_flag("interactive") {
+            set_source(&mut source, ValueSource::Interactive)?;
+        }
+        if matches.get_flag("stdin") {
+            set_source(&mut source, ValueSource::Stdin)?;
+        }
+        if let Some(value) = matches.get_one::<String>("value") {
+            set_source(&mut source, ValueSource::Value(value.clone()))?;
+        }
+        if let Some(value) = matches.get_one::<String>("file") {
+            set_source(&mut source, ValueSource::File(value.clone()))?;
+        }
+        if let Some(value) = matches.get_one::<String>("from-env") {
+            set_source(&mut source, ValueSource::FromEnv(value.clone()))?;
+        }
         if source.is_some() == positional.is_some() {
             return Err(Error::InvalidInput(
-                "variables set requires exactly one value source".to_string(),
+                "variable set requires exactly one value source".to_string(),
             )
             .into());
         }
         Ok(Self {
             name,
-            secret,
+            secret: matches.get_flag("secret"),
             positional,
             source,
         })
@@ -430,31 +411,21 @@ struct VariableExportRequest {
 }
 
 impl VariableExportRequest {
-    fn parse(args: &[String]) -> CliResult<Self> {
-        let mut pattern = None;
-        let mut saw_pattern = false;
-        let mut format = VariableExportFormat::Posix;
-        let mut index = 0;
-        while index < args.len() {
-            match args[index].as_str() {
-                "--format" => {
-                    index += 1;
-                    format =
-                        VariableExportFormat::parse_value(args.get(index).map(String::as_str))?;
-                }
-                value if !saw_pattern => {
-                    pattern = Some(VariableNamePattern::new(value)?);
-                    saw_pattern = true;
-                }
-                _ => {
-                    return Err(Error::InvalidInput(
-                        "unexpected variables export argument".to_string(),
-                    )
-                    .into());
-                }
+    fn from_matches(matches: &ArgMatches, args: &[String]) -> CliResult<Self> {
+        let pattern = match args {
+            [] => None,
+            [pattern] => Some(VariableNamePattern::new(pattern)?),
+            _ => {
+                return Err(Error::InvalidInput(
+                    "variable export accepts at most one path or glob pattern".to_string(),
+                )
+                .into())
             }
-            index += 1;
-        }
+        };
+        let format = match matches.get_one::<String>("format").map(String::as_str) {
+            Some(value) => VariableExportFormat::parse_value(Some(value))?,
+            None => VariableExportFormat::Posix,
+        };
         Ok(Self { pattern, format })
     }
 
@@ -486,7 +457,7 @@ impl VariableExportFormat {
             Some("cmd") => Ok(Self::Cmd),
             Some("json") => Ok(Self::Json),
             Some(value) => Err(Error::InvalidInput(format!(
-                "unsupported variables export format: {value}"
+                "unsupported variable export format: {value}"
             ))
             .into()),
             None => Err(Error::InvalidInput("missing --format argument".to_string()).into()),
@@ -500,8 +471,8 @@ impl VariableExportFormat {
             Self::Cmd => format!("set \"{name}={}\"", cmd_quote_value(value)),
             Self::Json => format!(
                 "{{\"name\":{},\"value\":{}}}",
-                json_quote(name),
-                json_quote(value)
+                json_string(name),
+                json_string(value)
             ),
         }
     }
@@ -510,7 +481,7 @@ impl VariableExportFormat {
 fn set_source(target: &mut Option<ValueSource>, source: ValueSource) -> CliResult<()> {
     if target.is_some() {
         return Err(Error::InvalidInput(
-            "variables set accepts exactly one value source".to_string(),
+            "variable set accepts exactly one value source".to_string(),
         )
         .into());
     }
@@ -535,26 +506,4 @@ fn powershell_quote(value: &str) -> String {
 
 fn cmd_quote_value(value: &str) -> String {
     value.replace('"', "\"\"")
-}
-
-fn json_quote(value: &str) -> String {
-    let mut out = String::from("\"");
-    for ch in value.chars() {
-        match ch {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            '\u{08}' => out.push_str("\\b"),
-            '\u{0c}' => out.push_str("\\f"),
-            ch if ch < ' ' => {
-                use std::fmt::Write;
-                let _ = write!(out, "\\u{:04x}", ch as u32);
-            }
-            ch => out.push(ch),
-        }
-    }
-    out.push('"');
-    out
 }

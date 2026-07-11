@@ -66,7 +66,7 @@ The same transport also supports control messages to track command activity:
 
 - `open`
 - `open`
-- `variables`
+- `variable`
 - `form`
 - `recovery`
 - `vault`

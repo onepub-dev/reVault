@@ -1,4 +1,5 @@
-use super::context::{cli_error, require_arg, CliResult};
+use super::context::{cli_error, CliResult};
+use clap::ArgMatches;
 use lockbox_core::{Error, Lockbox, LockboxFileInspection, LockboxKeySlotProtection};
 use lockbox_vault::{
     agent_log_destination, agent_sleep_support, default_vault_path, get_platform_vault_password,
@@ -8,14 +9,11 @@ use lockbox_vault::{
 use std::fs::OpenOptions;
 use std::path::Path;
 
-pub(crate) fn run(args: &[String]) -> CliResult<()> {
-    if args.is_empty() {
-        return run_global();
+pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
+    match matches.get_one::<String>("lockbox") {
+        Some(lockbox) => run_lockbox(lockbox),
+        None => run_global(),
     }
-    if args.len() > 1 {
-        return Err(cli_error("doctor accepts at most one lockbox path"));
-    }
-    run_lockbox(require_arg(args, 0, "lockbox")?)
 }
 
 fn run_global() -> CliResult<()> {

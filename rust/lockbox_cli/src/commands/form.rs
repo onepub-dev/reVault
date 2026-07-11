@@ -3,6 +3,7 @@ use std::{
     io::{Read, Write},
 };
 
+use clap::ArgMatches;
 use lockbox_core::{
     Error, FormDefinition, FormFieldDefinition, FormFieldKind, FormValue, LockboxPath, SecretString,
 };
@@ -10,79 +11,118 @@ use lockbox_core::{
 use super::context::{
     cli_error, default_vault, open_existing, open_or_create, require_arg, Access, CliResult,
 };
-use super::output::{output_format_from_args, print_records};
+use super::output::{output_format_from_matches, print_records, OutputFormat};
+use super::{default_lockbox_for_command, optional_lockbox_positionals, positional_values};
 use crate::secret_prompt::prompt_secret;
 
-pub(crate) fn run(args: &[String], access: &Access) -> CliResult<()> {
-    let subcommand = require_arg(args, 0, "form command")?;
-    match subcommand {
-        "define" => define(&args[1..], access),
-        "definitions" => definitions(&args[1..], access),
-        "use" => use_vault_definition(&args[1..], access),
-        "capture" => capture_definition(&args[1..], access),
-        "add" => add(&args[1..], access),
-        "edit" => edit(&args[1..], access),
-        "set" => set(&args[1..], access),
-        "get" => get(&args[1..], access),
-        "show" => inspect(&args[1..], access),
-        "list" => list(&args[1..], access),
-        "remove" | "rm" => remove(&args[1..], access),
-        _ => Err(Error::InvalidInput(format!("unknown form command: {subcommand}")).into()),
+pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let (command, sub) = matches
+        .subcommand()
+        .ok_or_else(|| Error::InvalidInput("missing form command".to_string()))?;
+    match command {
+        "define" => define_matches(sub, access),
+        "definitions" => definitions_with_format(
+            &optional_lockbox_positionals(positional_values(sub, "args"), 0)?,
+            access,
+            output_format_from_matches(sub)?,
+        ),
+        "use" => use_vault_definition(
+            &[
+                required_value(sub, "form"),
+                sub.get_one::<String>("lockbox")
+                    .cloned()
+                    .map(Ok)
+                    .unwrap_or_else(default_lockbox_for_command)?,
+            ],
+            access,
+        ),
+        "capture" => capture_definition(
+            &optional_lockbox_positionals(positional_values(sub, "args"), 1)?,
+            access,
+        ),
+        "add" => add_matches(sub, access),
+        "edit" => edit_matches(sub, access),
+        "set" => set_matches(sub, access),
+        "get" => get_matches(sub, access),
+        "show" => inspect(
+            &optional_lockbox_positionals(positional_values(sub, "args"), 1)?,
+            access,
+        ),
+        "list" => list_with_format(
+            &optional_lockbox_positionals(positional_values(sub, "args"), 0)?,
+            access,
+            output_format_from_matches(sub)?,
+        ),
+        "remove" => remove(
+            &optional_lockbox_positionals(positional_values(sub, "args"), 1)?,
+            access,
+        ),
+        _ => Err(Error::InvalidInput(format!("unknown form command: {command}")).into()),
     }
 }
 
-fn define(args: &[String], access: &Access) -> CliResult<()> {
-    let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let mut alias = None;
-    let mut name = None;
-    let mut type_id = None;
-    let mut fields = Vec::new();
-    let mut index = 1;
-    if let Some(value) = args.get(index).filter(|value| !value.starts_with("--")) {
-        alias = Some(value.clone());
-        name = Some(value.clone());
-        index += 1;
-    }
-    while index < args.len() {
-        match args[index].as_str() {
-            "--name" => {
-                index += 1;
-                name = Some(require_arg(args, index, "--name value")?.to_string());
-            }
-            "--definition-id" | "--type-id" => {
-                index += 1;
-                type_id = Some(lockbox_core::FormTypeId::new(require_arg(
-                    args,
-                    index,
-                    "--definition-id value",
-                )?)?);
-            }
-            "--field" => {
-                index += 1;
-                fields.push(parse_field_spec(require_arg(
-                    args,
-                    index,
-                    "--field value",
-                )?)?);
-            }
-            value => {
-                return Err(Error::InvalidInput(format!(
-                    "unexpected form define argument: {value}"
-                ))
-                .into());
-            }
-        }
-        index += 1;
-    }
-    let name = name.ok_or_else(|| {
-        Error::InvalidInput("form define requires an alias or --name".to_string())
-    })?;
+fn required_value(matches: &ArgMatches, name: &str) -> String {
+    matches
+        .get_one::<String>(name)
+        .unwrap_or_else(|| panic!("clap did not provide required argument {name}"))
+        .clone()
+}
+
+fn optional_value<'a>(matches: &'a ArgMatches, name: &str) -> Option<&'a str> {
+    matches.get_one::<String>(name).map(String::as_str)
+}
+
+fn string_values(matches: &ArgMatches, name: &str) -> Vec<String> {
+    matches
+        .get_many::<String>(name)
+        .map(|values| values.cloned().collect())
+        .unwrap_or_default()
+}
+
+fn define_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let args = optional_lockbox_positionals(positional_values(matches, "args"), 0)?;
+    let lockbox_path = require_arg(&args, 0, "lockbox")?;
+    let alias = args.get(1).cloned();
+    let name = optional_value(matches, "name")
+        .map(str::to_string)
+        .or_else(|| alias.clone())
+        .ok_or_else(|| {
+            Error::InvalidInput("form define requires an alias or --name".to_string())
+        })?;
     let alias = alias.unwrap_or_else(|| default_form_alias(&name));
+    let description = optional_value(matches, "description").unwrap_or_default();
+    let type_id = optional_value(matches, "definition-id")
+        .map(lockbox_core::FormTypeId::new)
+        .transpose()?;
+    let fields = string_values(matches, "field")
+        .iter()
+        .map(|field| parse_field_spec(field))
+        .collect::<CliResult<Vec<_>>>()?;
+    define_options(
+        lockbox_path,
+        alias,
+        name,
+        description.to_string(),
+        type_id,
+        fields,
+        access,
+    )
+}
+
+fn define_options(
+    lockbox_path: &str,
+    alias: String,
+    name: String,
+    description: String,
+    type_id: Option<lockbox_core::FormTypeId>,
+    fields: Vec<FormFieldDefinition>,
+    access: &Access,
+) -> CliResult<()> {
     let mut lb = open_or_create(lockbox_path, access)?;
     let definition = if let Some(type_id) = type_id {
-        lb.define_form_with_type_id(type_id, &alias, &name, fields)?
+        lb.define_form_with_type_id_and_description(type_id, &alias, &name, &description, fields)?
     } else {
-        lb.define_form(&alias, &name, fields)?
+        lb.define_form_with_description(&alias, &name, &description, fields)?
     };
     lb.commit()?;
     print_form_definition_saved(&definition);
@@ -95,6 +135,9 @@ pub(crate) fn print_form_definition_saved(definition: &FormDefinition) {
     println!("  definition_id: {}", definition.type_id);
     println!("  revision: {}", definition.revision);
     println!("  name: {}", definition.name);
+    if !definition.description.is_empty() {
+        println!("  description: {}", definition.description);
+    }
     println!("  fields: {}", definition.fields.len());
 }
 
@@ -105,11 +148,9 @@ pub(crate) fn default_form_alias(name: &str) -> String {
         if ch.is_ascii_alphanumeric() || ch == '_' {
             alias.push(ch.to_ascii_lowercase());
             previous_separator = false;
-        } else if ch == '-' || ch.is_whitespace() {
-            if !alias.is_empty() && !previous_separator {
-                alias.push('-');
-                previous_separator = true;
-            }
+        } else if (ch == '-' || ch.is_whitespace()) && !alias.is_empty() && !previous_separator {
+            alias.push('-');
+            previous_separator = true;
         }
         if alias.len() >= 128 {
             break;
@@ -170,9 +211,12 @@ fn capture_definition(args: &[String], access: &Access) -> CliResult<()> {
     Ok(())
 }
 
-fn definitions(args: &[String], access: &Access) -> CliResult<()> {
-    let (args, format) = output_format_from_args(args)?;
-    let lockbox_path = require_arg(&args, 0, "lockbox")?;
+fn definitions_with_format(
+    args: &[String],
+    access: &Access,
+    format: OutputFormat,
+) -> CliResult<()> {
+    let lockbox_path = require_arg(args, 0, "lockbox")?;
     let lb = open_existing(lockbox_path, access)?;
     let rows = lb
         .list_form_definitions()?
@@ -183,73 +227,44 @@ fn definitions(args: &[String], access: &Access) -> CliResult<()> {
                 definition.type_id.to_string(),
                 definition.revision.to_string(),
                 definition.name,
+                definition.description,
                 definition.fields.len().to_string(),
             ]
         })
         .collect::<Vec<_>>();
     print_records(
-        &["alias", "definition_id", "revision", "name", "fields"],
+        &[
+            "alias",
+            "definition_id",
+            "revision",
+            "name",
+            "description",
+            "fields",
+        ],
         rows,
         format,
     )?;
     Ok(())
 }
 
-fn add(args: &[String], access: &Access) -> CliResult<()> {
-    let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let path = form_record_path(require_arg(args, 1, "form path")?)?;
-    let mut form_type = None;
-    let mut name = None;
-    let mut assignments = Vec::new();
-    let mut interactive = false;
-    let mut index = 2;
-    while index < args.len() {
-        match args[index].as_str() {
-            "--type" => {
-                index += 1;
-                form_type = Some(require_arg(args, index, "--type value")?.to_string());
-            }
-            "--name" => {
-                index += 1;
-                name = Some(require_arg(args, index, "--name value")?.to_string());
-            }
-            "--set" => {
-                index += 1;
-                assignments.push(parse_field_assignment(require_arg(
-                    args,
-                    index,
-                    "--set FIELD=VALUE",
-                )?)?);
-            }
-            "--interactive" => interactive = true,
-            value => {
-                return Err(
-                    Error::InvalidInput(format!("unexpected form add argument: {value}")).into(),
-                );
-            }
-        }
-        index += 1;
-    }
-    let form_type =
-        form_type.ok_or_else(|| Error::InvalidInput("form add requires --type".to_string()))?;
-    let name = name.unwrap_or_else(|| default_form_name(path.as_str()));
+fn add_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let args = optional_lockbox_positionals(positional_values(matches, "args"), 1)?;
+    let lockbox_path = require_arg(&args, 0, "lockbox")?;
+    let path = form_record_path(require_arg(&args, 1, "form path")?)?;
+    let form_type = required_value(matches, "type");
+    let name = optional_value(matches, "name")
+        .map(str::to_string)
+        .unwrap_or_else(|| default_form_name(path.as_str()));
+    let assignments = string_values(matches, "set")
+        .iter()
+        .map(|assignment| parse_field_assignment(assignment))
+        .collect::<CliResult<Vec<_>>>()?;
+    let interactive = matches.get_flag("interactive");
     let mut lb = open_or_create(lockbox_path, access)?;
+    lb.create_parent_dirs_for(&path)?;
     let record = lb.create_form_record(&path, &form_type, &name)?;
     let definition = lb.resolve_form_definition(record.type_id.as_str())?;
-    for (field_id, value) in assignments {
-        let field = definition
-            .fields
-            .iter()
-            .find(|field| field.id == field_id)
-            .ok_or_else(|| Error::InvalidInput(format!("unknown form field: {field_id}")))?;
-        if field.kind.is_secret() {
-            return Err(Error::InvalidInput(format!(
-                "field {field_id} is secret; use --interactive or form set --secret --stdin"
-            ))
-            .into());
-        }
-        lb.set_form_field_normal(&path, &field_id, &value)?;
-    }
+    apply_normal_field_assignments(&mut lb, &path, &definition, assignments)?;
     if interactive {
         fill_missing_fields_interactively(&mut lb, &path, &definition)?;
     }
@@ -258,31 +273,15 @@ fn add(args: &[String], access: &Access) -> CliResult<()> {
     Ok(())
 }
 
-fn edit(args: &[String], access: &Access) -> CliResult<()> {
-    let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let path = form_record_path(require_arg(args, 1, "form path")?)?;
-    let mut assignments = Vec::new();
-    let mut interactive = false;
-    let mut index = 2;
-    while index < args.len() {
-        match args[index].as_str() {
-            "--set" => {
-                index += 1;
-                assignments.push(parse_field_assignment(require_arg(
-                    args,
-                    index,
-                    "--set FIELD=VALUE",
-                )?)?);
-            }
-            "--interactive" => interactive = true,
-            value => {
-                return Err(
-                    Error::InvalidInput(format!("unexpected form edit argument: {value}")).into(),
-                );
-            }
-        }
-        index += 1;
-    }
+fn edit_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let args = optional_lockbox_positionals(positional_values(matches, "args"), 1)?;
+    let lockbox_path = require_arg(&args, 0, "lockbox")?;
+    let path = form_record_path(require_arg(&args, 1, "form path")?)?;
+    let assignments = string_values(matches, "set")
+        .iter()
+        .map(|assignment| parse_field_assignment(assignment))
+        .collect::<CliResult<Vec<_>>>()?;
+    let interactive = matches.get_flag("interactive");
     if assignments.is_empty() && !interactive {
         return Err(
             Error::InvalidInput("form edit requires --set or --interactive".to_string()).into(),
@@ -293,6 +292,20 @@ fn edit(args: &[String], access: &Access) -> CliResult<()> {
         .get_form_record(&path)?
         .ok_or_else(|| Error::NotFound(format!("form record {path}")))?;
     let definition = lb.resolve_form_definition(record.type_id.as_str())?;
+    apply_normal_field_assignments(&mut lb, &path, &definition, assignments)?;
+    if interactive {
+        edit_fields_interactively(&mut lb, &path, &definition)?;
+    }
+    lb.commit()?;
+    Ok(())
+}
+
+fn apply_normal_field_assignments(
+    lb: &mut lockbox_core::Lockbox,
+    path: &LockboxPath,
+    definition: &FormDefinition,
+    assignments: Vec<(String, String)>,
+) -> CliResult<()> {
     for (field_id, value) in assignments {
         let field = definition
             .fields
@@ -305,65 +318,41 @@ fn edit(args: &[String], access: &Access) -> CliResult<()> {
             ))
             .into());
         }
-        lb.set_form_field_normal(&path, &field_id, &value)?;
+        lb.set_form_field_normal(path, &field_id, &value)?;
     }
-    if interactive {
-        edit_fields_interactively(&mut lb, &path, &definition)?;
-    }
-    lb.commit()?;
     Ok(())
 }
 
-fn set(args: &[String], access: &Access) -> CliResult<()> {
-    let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let path = form_record_path(require_arg(args, 1, "form path")?)?;
-    let field_id = require_arg(args, 2, "field id")?;
-    let mut source = None;
-    let mut secret = false;
-    let mut index = 3;
-    while index < args.len() {
-        match args[index].as_str() {
-            "-i" | "--interactive" => set_source(&mut source, FieldValueSource::Interactive)?,
-            "-t" | "--stdin" => set_source(&mut source, FieldValueSource::Stdin)?,
-            "-v" | "--value" => {
-                index += 1;
-                set_source(
-                    &mut source,
-                    FieldValueSource::Value(require_arg(args, index, "--value value")?.to_string()),
-                )?;
-            }
-            "-f" | "--file" => {
-                index += 1;
-                set_source(
-                    &mut source,
-                    FieldValueSource::File(require_arg(args, index, "--file value")?.to_string()),
-                )?;
-            }
-            "-e" | "--from-env" => {
-                index += 1;
-                set_source(
-                    &mut source,
-                    FieldValueSource::FromEnv(
-                        require_arg(args, index, "--from-variable value")?.to_string(),
-                    ),
-                )?;
-            }
-            "--secret" => secret = true,
-            value if source.is_none() => {
-                set_source(&mut source, FieldValueSource::Literal(value.to_string()))?
-            }
-            value => {
-                return Err(
-                    Error::InvalidInput(format!("unexpected form set argument: {value}")).into(),
-                );
-            }
+fn set_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let args = optional_lockbox_positionals(positional_values(matches, "args"), 2)?;
+    let lockbox_path = require_arg(&args, 0, "lockbox")?;
+    let path = form_record_path(require_arg(&args, 1, "form path")?)?;
+    let field_id = require_arg(&args, 2, "field id")?;
+    let source = match (
+        matches.get_flag("interactive"),
+        matches.get_flag("stdin"),
+        optional_value(matches, "explicit-value"),
+        optional_value(matches, "file"),
+        optional_value(matches, "from-env"),
+        args.get(3),
+    ) {
+        (true, false, None, None, None, None) => FieldValueSource::Interactive,
+        (false, true, None, None, None, None) => FieldValueSource::Stdin,
+        (false, false, Some(value), None, None, None) => FieldValueSource::Value(value.to_string()),
+        (false, false, None, Some(value), None, None) => FieldValueSource::File(value.to_string()),
+        (false, false, None, None, Some(value), None) => {
+            FieldValueSource::FromEnv(value.to_string())
         }
-        index += 1;
-    }
-    let source =
-        source.ok_or_else(|| Error::InvalidInput("missing form field value".to_string()))?;
+        (false, false, None, None, None, Some(value)) => FieldValueSource::Literal(value.clone()),
+        _ => {
+            return Err(Error::InvalidInput(
+                "form set accepts exactly one value source".to_string(),
+            )
+            .into())
+        }
+    };
     let mut lb = open_existing(lockbox_path, access)?;
-    if secret {
+    if matches.get_flag("secret") {
         let value = read_secret_value(source)?;
         lb.set_form_field_secret(&path, field_id, &value)?;
     } else {
@@ -384,8 +373,16 @@ fn remove(args: &[String], access: &Access) -> CliResult<()> {
     Ok(())
 }
 
-fn get(args: &[String], access: &Access) -> CliResult<()> {
-    let request = FormGetRequest::parse(args)?;
+fn get_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let args = optional_lockbox_positionals(positional_values(matches, "args"), 2)?;
+    let request = FormGetRequest {
+        lockbox_path: require_arg(&args, 0, "lockbox")?.to_string(),
+        path: require_arg(&args, 1, "form path")?.to_string(),
+        field_id: require_arg(&args, 2, "field id")?.to_string(),
+        reveal_secret: matches.get_flag("secret"),
+        output: optional_value(matches, "output").map(str::to_string),
+        overwrite: matches.get_flag("overwrite"),
+    };
     let path = form_record_path(&request.path)?;
     let lb = open_existing(&request.lockbox_path, access)?;
     let value = lb
@@ -413,44 +410,6 @@ struct FormGetRequest {
 }
 
 impl FormGetRequest {
-    fn parse(args: &[String]) -> CliResult<Self> {
-        let lockbox_path = require_arg(args, 0, "lockbox")?.to_string();
-        let path = require_arg(args, 1, "form path")?.to_string();
-        let field_id = require_arg(args, 2, "field id")?.to_string();
-        let mut reveal_secret = false;
-        let mut output = None;
-        let mut overwrite = false;
-        let mut index = 3;
-        while index < args.len() {
-            match args[index].as_str() {
-                "--secret" => reveal_secret = true,
-                "--output" => {
-                    index += 1;
-                    output = Some(require_arg(args, index, "--output value")?.to_string());
-                }
-                "--overwrite" => overwrite = true,
-                value => {
-                    return Err(Error::InvalidInput(format!(
-                        "unexpected form get argument: {value}"
-                    ))
-                    .into());
-                }
-            }
-            index += 1;
-        }
-        if overwrite && output.is_none() {
-            return Err(Error::InvalidInput("--overwrite requires --output".to_string()).into());
-        }
-        Ok(Self {
-            lockbox_path,
-            path,
-            field_id,
-            reveal_secret,
-            output,
-            overwrite,
-        })
-    }
-
     fn write_value(&self, bytes: &[u8]) -> CliResult<()> {
         if let Some(path) = &self.output {
             write_output_file(path, bytes, self.overwrite)?;
@@ -548,9 +507,8 @@ fn inspect(args: &[String], access: &Access) -> CliResult<()> {
     Ok(())
 }
 
-fn list(args: &[String], access: &Access) -> CliResult<()> {
-    let (args, format) = output_format_from_args(args)?;
-    let lockbox_path = require_arg(&args, 0, "lockbox")?;
+fn list_with_format(args: &[String], access: &Access, format: OutputFormat) -> CliResult<()> {
+    let lockbox_path = require_arg(args, 0, "lockbox")?;
     let pattern = args.get(1).map(String::as_str);
     let lb = open_existing(lockbox_path, access)?;
     let rows = lb
@@ -719,16 +677,6 @@ fn parse_field_kind(value: &str) -> CliResult<FormFieldKind> {
         "number" => Ok(FormFieldKind::Number),
         _ => Err(Error::InvalidInput(format!("unsupported form field kind: {value}")).into()),
     }
-}
-
-fn set_source(target: &mut Option<FieldValueSource>, source: FieldValueSource) -> CliResult<()> {
-    if target.is_some() {
-        return Err(
-            Error::InvalidInput("form set accepts exactly one value source".to_string()).into(),
-        );
-    }
-    *target = Some(source);
-    Ok(())
 }
 
 fn read_normal_value(source: FieldValueSource) -> CliResult<String> {

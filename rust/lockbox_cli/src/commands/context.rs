@@ -107,17 +107,29 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
         let Ok(keypair) = vault.load_private_key(&identity) else {
             continue;
         };
-        if Lockbox::open_file(Path::new(path), LockboxOpen::ContactKeyPair(keypair)).is_ok() {
-            let cache_keypair = vault
-                .load_private_key(&identity)
-                .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
-            local_vault()
-                .open_lockbox_with(path, LockboxOpen::ContactKeyPair(cache_keypair))
-                .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
-            return local_vault()
-                .open_lockbox(path)
-                .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()));
+        let Ok(signing_key) = vault.load_owner_signing_key(&identity) else {
+            continue;
+        };
+        let Ok(lockbox) = Lockbox::open_for_write(
+            Path::new(path),
+            LockboxOpen::ContactKeyPair(keypair),
+            &signing_key,
+        ) else {
+            continue;
+        };
+        let Ok(cache_keypair) = vault.load_private_key(&identity) else {
+            return Ok(lockbox);
+        };
+        if local_vault()
+            .open_lockbox_with(path, LockboxOpen::ContactKeyPair(cache_keypair))
+            .is_ok()
+        {
+            return match local_vault().open_lockbox(path) {
+                Ok(cached) => Ok(cached),
+                Err(_) => Ok(lockbox),
+            };
         }
+        return Ok(lockbox);
     }
     Err(AutoOpenLockboxError::Unavailable(
         "no remembered pass phrase or vault identity could open it".to_string(),
@@ -280,7 +292,7 @@ fn generated_vault_pass_phrase() -> CliResult<String> {
     const ALPHABET: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
     let mut out = String::with_capacity(24);
     let mut bytes = [0u8; 20];
-    getrandom::getrandom(&mut bytes).map_err(|err| Error::Io(err.to_string()))?;
+    getrandom::fill(&mut bytes).map_err(|err| Error::Io(err.to_string()))?;
     for (index, byte) in bytes.iter().enumerate() {
         if index > 0 && index % 4 == 0 {
             out.push('-');
@@ -304,9 +316,18 @@ fn validate_new_vault_pass_phrase(password: &SecretString) -> CliResult<()> {
 
 pub(crate) fn remember_default_vault_password(password: &SecretString) -> Result<(), Error> {
     if !platform_secret_store_disabled()? {
-        let _ = put_platform_vault_password(password);
+        put_platform_vault_password(password)?;
     }
     Ok(())
+}
+
+pub(crate) fn remember_default_vault_password_with_warning(password: &SecretString, success: &str) {
+    if let Err(err) = remember_default_vault_password(password) {
+        eprintln!(
+            "WARNING: {success}, but its passphrase could not be stored in the platform secret store. You will be prompted again."
+        );
+        eprintln!("Platform secret-store error: {err}");
+    }
 }
 
 pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
@@ -330,7 +351,7 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
         prompt_secret("Vault pass phrase: ").map_err(|err| Error::Io(err.to_string()))?;
     let vault = open_default_vault_with_password(&password)?;
     if platform_enabled {
-        let _ = put_platform_vault_password(&password);
+        remember_default_vault_password_with_warning(&password, "the vault opened successfully");
     }
     Ok(vault)
 }
@@ -362,6 +383,17 @@ pub(crate) fn mirror_key_directory(lockbox: &Lockbox, path: impl AsRef<Path>) ->
     }
     ensure_default_vault_initialized()?;
     let vault = default_vault()?;
+    mirror_key_directory_with_vault(lockbox, path, &vault)
+}
+
+pub(crate) fn mirror_key_directory_with_vault(
+    lockbox: &Lockbox,
+    path: impl AsRef<Path>,
+    vault: &VaultDirectory,
+) -> CliResult<()> {
+    if lockbox.list_key_slots().is_empty() {
+        return Ok(());
+    }
     let backup = VaultOpen::export_key_directory_backup(lockbox)?;
     vault.store_key_directory_backup(lockbox.lockbox_id(), &backup)?;
     vault.remember_known_lockbox(lockbox.lockbox_id(), path)?;
@@ -394,12 +426,25 @@ pub(crate) fn load_contact_from_arg(arg: &str) -> CliResult<ResolvedContact> {
         });
     }
     let vault = default_vault()?;
+    load_contact_from_vault(arg, &vault)
+}
+
+pub(crate) fn load_contact_from_vault(
+    arg: &str,
+    vault: &VaultDirectory,
+) -> CliResult<ResolvedContact> {
+    if std::path::Path::new(arg).exists() {
+        return Ok(ResolvedContact {
+            name: None,
+            public_key: import_public_key(&std::fs::read(arg)?)?,
+        });
+    }
     if let Some(name) = arg.strip_prefix("identity:") {
         if name.is_empty() {
             return Err(cli_error("missing identity name after identity:"));
         }
         return Ok(ResolvedContact {
-            name: Some(name.to_string()),
+            name: Some(format!("identity:{name}")),
             public_key: vault.load_private_key(name)?.public_key(),
         });
     }
@@ -408,7 +453,7 @@ pub(crate) fn load_contact_from_arg(arg: &str) -> CliResult<ResolvedContact> {
             return Err(cli_error("missing contact name after contact:"));
         }
         return Ok(ResolvedContact {
-            name: Some(name.to_string()),
+            name: Some(format!("contact:{name}")),
             public_key: vault.load_contact(name)?,
         });
     }

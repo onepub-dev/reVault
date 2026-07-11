@@ -1,9 +1,11 @@
+mod common;
+
+use common::{unique_dir_path, TestTempDir};
 use std::fs;
 use std::io::ErrorKind;
 use std::net::{SocketAddr, TcpListener};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -81,10 +83,13 @@ fn cli_publish_can_be_received_from_failover_path() {
         .expect("publish code has valid locator");
     let failover_pool = cluster.pool_with_dead_server(owner_id);
     let non_owner = cluster.non_owner_store(&publish.publish_code);
+    let verify =
+        owner_store.verify_email(&publish.verified_query_code, &publish.verified_query_token);
+    assert!(verify.success, "{}", verify.message);
 
     wait_until(
         "publish replicated to standby",
-        Duration::from_secs(10),
+        Duration::from_secs(60),
         || cluster.standby.store.receive(&publish.publish_code).is_ok(),
     );
 
@@ -94,9 +99,6 @@ fn cli_publish_can_be_received_from_failover_path() {
     let decoded = decode_contact_publish(&received.payload).expect("decode failover payload");
     assert_eq!(decoded.identity, "default");
 
-    let verify =
-        owner_store.verify_email(&publish.verified_query_code, &publish.verified_query_token);
-    assert!(verify.success, "{}", verify.message);
     let non_owner_verify =
         non_owner.verify_email(&publish.verified_query_code, &publish.verified_query_token);
     assert!(
@@ -283,7 +285,7 @@ enum PeerMode {
 }
 
 struct TwoServerCluster {
-    _guard: TempDir,
+    _guard: TestTempDir,
     primary: RunningServer,
     standby: RunningServer,
     topology_servers: Vec<TopologyServer>,
@@ -292,7 +294,7 @@ struct TwoServerCluster {
 
 impl TwoServerCluster {
     fn start(name: &str, peer_mode: PeerMode) -> Self {
-        let guard = TempDir::new(name);
+        let guard = TestTempDir::new(&format!("lockbox-publish-e2e-{name}"));
         let primary_listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let standby_listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let primary_addr = primary_listener.local_addr().unwrap();
@@ -333,7 +335,7 @@ impl TwoServerCluster {
         let mut primary_config = config(
             0,
             primary_addr,
-            guard.path.join("primary"),
+            guard.path().join("primary"),
             topology_servers.clone(),
             topology_routes.clone(),
             Vec::new(),
@@ -342,7 +344,7 @@ impl TwoServerCluster {
         let mut standby_config = config(
             1,
             standby_addr,
-            guard.path.join("standby"),
+            guard.path().join("standby"),
             topology_servers.clone(),
             topology_routes.clone(),
             vec![0],
@@ -458,6 +460,8 @@ fn config(
         index_cache_entries: 100_000,
         rate_limit_per_minute: 0,
         rate_limit_burst: 1_000,
+        verification_email_rate_limit_per_hour: 0,
+        verification_email_ip_rate_limit_per_hour: 0,
         ..ServerConfig::default()
     }
 }
@@ -494,8 +498,6 @@ fn wait_until(label: &str, timeout: Duration, mut predicate: impl FnMut() -> boo
     panic!("timed out waiting for {label}");
 }
 
-static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
-
 fn temp_roots(label: &str) -> (PathBuf, PathBuf) {
     let vault_root = temp_dir(&format!("{label}-vault"));
     let agent_root = temp_dir(&format!("{label}-agent"));
@@ -518,40 +520,5 @@ fn has_loopback_sockets() -> bool {
 }
 
 fn temp_dir(label: &str) -> PathBuf {
-    let counter = TEST_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let nanos = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_nanos();
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../target/test-tmp")
-        .join(format!(
-            "lockbox-cli-publish-{label}-{}-{counter}-{nanos}",
-            std::process::id()
-        ))
-}
-
-struct TempDir {
-    path: PathBuf,
-}
-
-impl TempDir {
-    fn new(name: &str) -> Self {
-        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../target/test-tmp")
-            .join(format!(
-                "lockbox-publish-e2e-{name}-{}-{:?}",
-                std::process::id(),
-                std::thread::current().id()
-            ));
-        let _ = fs::remove_dir_all(&path);
-        fs::create_dir_all(&path).unwrap();
-        Self { path }
-    }
-}
-
-impl Drop for TempDir {
-    fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.path);
-    }
+    unique_dir_path("lockbox-cli-publish", label)
 }

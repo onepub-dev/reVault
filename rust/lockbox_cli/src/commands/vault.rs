@@ -1,23 +1,29 @@
 use super::context::{
     cli_error, default_vault, open_default_vault_with_password, read_new_vault_password,
-    read_replacement_vault_password, read_vault_password, remember_default_vault_password,
-    require_arg, CliResult,
+    read_replacement_vault_password, read_vault_password,
+    remember_default_vault_password_with_warning, require_arg, CliResult,
 };
 use super::form::{default_form_alias, parse_field_spec, print_form_definition_saved};
-use super::output::{output_format_from_args, print_records, OutputFormat};
+use super::output::{output_format_from_matches, print_records, OutputFormat};
+use super::session::{default_matches, replace_default_after_move};
+use clap::ArgMatches;
+use lockbox_core::vault_integration::VaultOpen;
 use lockbox_core::{
-    ContactKeyPair, ContactPublicKey, Error, Lockbox, OwnerSigningKeyPair, OwnerSigningPublicKey,
-    SecretVec,
+    lock_path_for, ContactKeyPair, ContactPublicKey, Error, FileLockScope, Lockbox,
+    OwnerSigningKeyPair, OwnerSigningPublicKey, ScopedFileLock, SecretVec,
 };
 use lockbox_publish_protocol::protocol::Status;
 use lockbox_publish_protocol::{
     contact_fingerprint, normalize_contact_email, ClientError, ContactPublish, PublishClientPool,
-    StickyPublishServer, CONTACT_FINGERPRINT_LEN,
+    StickyPublishServer,
 };
 use lockbox_vault::{
-    backup_default_vault, default_vault_dir, default_vault_path, encode_hex, export_private_key,
-    export_public_key, forget_platform_vault_password, import_private_key, import_public_key,
-    public_key_fingerprint, restore_default_vault, set_auto_open_scope, AutoOpenScope,
+    backup_default_vault, decode_fingerprint_crockford_96, decode_fingerprint_hex,
+    default_vault_dir, default_vault_path, encode_hex, export_private_key, export_public_key,
+    forget_platform_vault_password, format_fingerprint_crockford_96 as format_fingerprint_code,
+    format_fingerprint_crockford_96_reading as format_fingerprint_reading,
+    format_fingerprint_hex_pairs as format_hex_pairs, import_private_key, import_public_key,
+    local_vault, public_key_fingerprint, restore_default_vault, set_auto_open_scope, AutoOpenScope,
     IdentityGenerationStatus, KeyFormat, VaultDirectory,
 };
 use sha2::{Digest, Sha256};
@@ -26,14 +32,15 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const SHARE_RECEIVE_VERIFICATION_ADVICE: &str = concat!(
-    "public key received; verify it by asking the publisher for the full fingerprint. ",
+const PUBLISH_RECEIVE_VERIFICATION_ADVICE: &str = concat!(
+    "public key received; verify it by asking the publisher for the fingerprint code. ",
     "You must initiate the communication over a channel you already trust. ",
     "If the publisher sends you the fingerprint before you ask, do not accept it."
 );
-const SHARE_FINGERPRINT_SECURITY_NOTE: &str = concat!(
-    "use the full fingerprint; short PINs are only accidental-error checks ",
-    "and are too small to authenticate a public key against substitution"
+const PUBLISH_FINGERPRINT_SECURITY_NOTE: &str = concat!(
+    "use the 96-bit Crockford fingerprint code; short PINs are only ",
+    "accidental-error checks and are too small to authenticate a public key ",
+    "against substitution"
 );
 const FINGERPRINT_CHANNEL_PROMPT: &str = concat!(
     "How did you receive the fingerprint?\n",
@@ -45,19 +52,136 @@ const FINGERPRINT_CHANNEL_PROMPT: &str = concat!(
     "  6) in person"
 );
 
-pub(crate) fn run(args: &[String]) -> CliResult<()> {
-    let command = require_arg(args, 0, "vault command")?;
+pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
+    let (command, sub) = matches
+        .subcommand()
+        .ok_or_else(|| Error::InvalidInput("missing vault command".to_string()))?;
     match command {
-        "init" => init(&args[1..]),
-        "passphrase" => change_passphrase(&args[1..]),
-        "backup" => backup(&args[1..]),
-        "restore" => restore(&args[1..]),
-        "identity" => identity_command(&args[1..]),
-        "contact" => contact_command(&args[1..]),
-        "form" => form_command(&args[1..]),
-        "lockbox" => lockbox_command(&args[1..]),
+        "init" => init_options(sub.get_flag("overwrite"), sub.get_flag("verify")),
+        "backup" => backup_options(required_value(sub, "output"), sub.get_flag("overwrite")),
+        "restore" => restore_options(required_value(sub, "backup"), sub.get_flag("overwrite")),
+        "passphrase" => change_passphrase(&[]),
+        "form" => vault_form_matches(sub),
+        "identity" => vault_identity_matches(sub),
+        "contact" => vault_contact_matches(sub),
+        "lockbox" => vault_lockbox_matches(sub),
         _ => Err(Error::InvalidInput(format!("unknown vault command: {command}")).into()),
     }
+}
+
+fn required_value(matches: &ArgMatches, name: &str) -> String {
+    matches
+        .get_one::<String>(name)
+        .unwrap_or_else(|| panic!("clap did not provide required argument {name}"))
+        .clone()
+}
+
+fn optional_value<'a>(matches: &'a ArgMatches, name: &str) -> Option<&'a str> {
+    matches.get_one::<String>(name).map(String::as_str)
+}
+
+fn string_values(matches: &ArgMatches, name: &str) -> Vec<String> {
+    matches
+        .get_many::<String>(name)
+        .map(|values| values.cloned().collect())
+        .unwrap_or_default()
+}
+
+fn vault_form_matches(matches: &ArgMatches) -> CliResult<()> {
+    let (command, sub) = matches
+        .subcommand()
+        .ok_or_else(|| Error::InvalidInput("missing vault form command".to_string()))?;
+    match command {
+        "define" => form_define_matches(sub),
+        "definitions" => form_definitions_with_format(output_format_from_matches(sub)?),
+        _ => Err(Error::InvalidInput(format!("unknown vault form command: {command}")).into()),
+    }
+}
+
+fn vault_identity_matches(matches: &ArgMatches) -> CliResult<()> {
+    let (command, sub) = matches
+        .subcommand()
+        .ok_or_else(|| Error::InvalidInput("missing vault identity command".to_string()))?;
+    match command {
+        "list" | "ls" => list_identities_with_format(output_format_from_matches(sub)?),
+        "create" => keygen_options(optional_value(sub, "name"), sub.get_flag("overwrite")),
+        "email" => identity_email_values(&string_values(sub, "args")),
+        "fingerprint" => identity_fingerprint(&optional_string_arg(sub, "name")),
+        "history" => identity_history_with_format(
+            optional_value(sub, "name").unwrap_or(VaultDirectory::DEFAULT_KEY_NAME),
+            output_format_from_matches(sub)?,
+        ),
+        "publish" => publish_identity_options(PublishCliOptions::from_publish_matches(sub)?),
+        "backup" => identity_backup_options(IdentityBackupArgs::from_matches(sub)),
+        "restore" => identity_restore_options(IdentityRestoreArgs::from_matches(sub)),
+        "export" => export_public_options(
+            IdentityExportArgs::from_matches(sub),
+            KeyFormat::parse(optional_value(sub, "format").unwrap_or("lockbox"))?,
+        ),
+        "remove" => remove_key_options(optional_value(sub, "name"), sub.get_flag("force")),
+        "rotate" => rotate_key(&optional_string_arg(sub, "name")),
+        _ => Err(Error::InvalidInput(format!("unknown vault identity command: {command}")).into()),
+    }
+}
+
+fn vault_contact_matches(matches: &ArgMatches) -> CliResult<()> {
+    let (command, sub) = matches.subcommand().ok_or_else(|| {
+        Error::InvalidInput(
+            "missing vault contact command; use `lockbox vault contact list`, `lockbox vault contact import <name> <public-key>`, `lockbox vault contact receive <publish-code>`, or `lockbox vault contact remove <name>`"
+                .to_string(),
+        )
+    })?;
+    match command {
+        "list" | "ls" => list_contacts_with_format(output_format_from_matches(sub)?),
+        "import" => contact_import_options(ContactImportOptions::from_matches(sub)),
+        "receive" => receive_publish_options(PublishCliOptions::from_receive_matches(sub)?),
+        "remove" => remove_contact_name(&required_value(sub, "name")),
+        _ => Err(Error::InvalidInput(format!("unknown vault contact command: {command}")).into()),
+    }
+}
+
+fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
+    let (command, sub) = matches.subcommand().ok_or_else(|| {
+        Error::InvalidInput(
+            "missing vault lockbox command; use `lockbox vault lockbox list`, `lockbox vault lockbox move <source> <destination>`, or `lockbox vault lockbox forget <lockbox>`"
+                .to_string(),
+        )
+    })?;
+    match command {
+        "list" | "ls" => list_known_lockboxes_with_format(output_format_from_matches(sub)?),
+        "move" => move_known_lockbox(
+            &required_value(sub, "source"),
+            &required_value(sub, "destination"),
+        ),
+        "forget" => forget_known_lockbox_path(&required_value(sub, "lockbox")),
+        _ => Err(Error::InvalidInput(format!("unknown vault lockbox command: {command}")).into()),
+    }
+}
+
+fn optional_string_arg(matches: &ArgMatches, name: &str) -> Vec<String> {
+    optional_value(matches, name)
+        .map(|value| vec![value.to_string()])
+        .unwrap_or_default()
+}
+
+fn fingerprint_input_matches(input: &str, computed_fingerprint: &[u8]) -> CliResult<bool> {
+    match decode_fingerprint_crockford_96(input) {
+        Ok(code) => Ok(computed_fingerprint.starts_with(&code)),
+        Err(code_err) => match decode_fingerprint_hex(input) {
+            Ok(fingerprint) => Ok(fingerprint == computed_fingerprint),
+            Err(_) => Err(Error::InvalidInput(format!(
+                "{code_err}; expected a 20-character 96-bit Crockford fingerprint code or the full hex fingerprint"
+            ))
+            .into()),
+        },
+    }
+}
+
+fn print_fingerprint_lines(prefix: &str, fingerprint: &[u8]) {
+    let code = format_fingerprint_code(fingerprint);
+    println!("{prefix}={code}");
+    println!("{prefix}_reading={}", format_fingerprint_reading(&code));
+    println!("{prefix}_hex={}", format_hex_pairs(fingerprint));
 }
 
 fn change_passphrase(args: &[String]) -> CliResult<()> {
@@ -81,7 +205,10 @@ fn change_passphrase(args: &[String]) -> CliResult<()> {
     backup_default_vault(&backup_path, false)?;
     let new_password = read_replacement_vault_password()?;
     VaultDirectory::change_default_password(&old_password, &new_password)?;
-    remember_default_vault_password(&new_password)?;
+    remember_default_vault_password_with_warning(
+        &new_password,
+        "the vault passphrase changed successfully",
+    );
 
     println!("Vault pass phrase changed successfully.");
     println!("Backup:");
@@ -89,121 +216,52 @@ fn change_passphrase(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn identity_command(args: &[String]) -> CliResult<()> {
-    let command = require_arg(args, 0, "vault identity command")?;
-    match command {
-        "list" | "ls" => list_identities(&args[1..]),
-        "create" | "gen" | "generate" => keygen(&args[1..]),
-        "email" => identity_email(&args[1..]),
-        "fingerprint" => identity_fingerprint(&args[1..]),
-        "history" => identity_history(&args[1..]),
-        "backup" => identity_backup(&args[1..]),
-        "restore" => identity_restore(&args[1..]),
-        "export" => export_public(&args[1..]),
-        "remove" | "rm" => remove_key(&args[1..]),
-        "rotate" => rotate_key(&args[1..]),
-        "publish" => publish_identity(&args[1..]),
-        _ => Err(Error::InvalidInput(format!("unknown vault identity command: {command}")).into()),
-    }
-}
-
-fn contact_command(args: &[String]) -> CliResult<()> {
-    match args.first().map(String::as_str) {
-        Some("list" | "ls") => list_contacts(&args[1..]),
-        Some("import") => contact_import(&args[1..]),
-        Some("receive") => receive_publish(&args[1..]),
-        Some("remove" | "rm") => remove_contact(&args[1..]),
-        _ => Err(Error::InvalidInput(
-            "missing vault contact command; use `lockbox vault contact list`, `lockbox vault contact import <name> <public-key>`, `lockbox vault contact receive <publish-code>`, or `lockbox vault contact remove <name>`"
-                .to_string(),
-        )
-        .into()),
-    }
-}
-
-fn lockbox_command(args: &[String]) -> CliResult<()> {
-    match args.first().map(String::as_str) {
-        Some("list" | "ls") => list_known_lockboxes(&args[1..]),
-        Some("forget") => forget_known_lockbox(&args[1..]),
-        _ => Err(Error::InvalidInput(
-            "missing vault lockbox command; use `lockbox vault lockbox list` or `lockbox vault lockbox forget <lockbox>`"
-                .to_string(),
-        )
-        .into()),
-    }
-}
-
-fn form_command(args: &[String]) -> CliResult<()> {
-    match args.first().map(String::as_str) {
-        Some("define") => form_define(&args[1..]),
-        Some("definitions") => form_definitions(&args[1..]),
-        Some(command) => Err(Error::InvalidInput(format!("unknown vault form command: {command}")).into()),
-        None => Err(Error::InvalidInput(
-            "missing vault form command; use `lockbox vault form define` or `lockbox vault form definitions`"
-                .to_string(),
-        )
-        .into()),
-    }
-}
-
-fn form_define(args: &[String]) -> CliResult<()> {
-    let mut alias = None;
-    let mut name = None;
-    let mut type_id = None;
-    let mut fields = Vec::new();
-    let mut index = 0;
-    if let Some(value) = args.get(index).filter(|value| !value.starts_with("--")) {
-        alias = Some(value.clone());
-        name = Some(value.clone());
-        index += 1;
-    }
-    while index < args.len() {
-        match args[index].as_str() {
-            "--name" => {
-                index += 1;
-                name = Some(require_arg(args, index, "--name value")?.to_string());
-            }
-            "--definition-id" | "--type-id" => {
-                index += 1;
-                type_id = Some(lockbox_core::FormTypeId::new(require_arg(
-                    args,
-                    index,
-                    "--definition-id value",
-                )?)?);
-            }
-            "--field" => {
-                index += 1;
-                fields.push(parse_field_spec(require_arg(
-                    args,
-                    index,
-                    "--field value",
-                )?)?);
-            }
-            value => {
-                return Err(Error::InvalidInput(format!(
-                    "unexpected vault form define argument: {value}"
-                ))
-                .into());
-            }
-        }
-        index += 1;
-    }
-    let name = name.ok_or_else(|| {
-        Error::InvalidInput("vault form define requires an alias or --name".to_string())
-    })?;
+fn form_define_matches(matches: &ArgMatches) -> CliResult<()> {
+    let alias = optional_value(matches, "alias").map(str::to_string);
+    let name = optional_value(matches, "name")
+        .map(str::to_string)
+        .or_else(|| alias.clone())
+        .ok_or_else(|| {
+            Error::InvalidInput("vault form define requires an alias or --name".to_string())
+        })?;
     let alias = alias.unwrap_or_else(|| default_form_alias(&name));
+    let description = optional_value(matches, "description")
+        .unwrap_or_default()
+        .to_string();
+    let type_id = optional_value(matches, "definition-id")
+        .map(lockbox_core::FormTypeId::new)
+        .transpose()?;
+    let fields = string_values(matches, "field")
+        .iter()
+        .map(|field| parse_field_spec(field))
+        .collect::<CliResult<Vec<_>>>()?;
+    form_define_options(alias, name, description, type_id, fields)
+}
+
+fn form_define_options(
+    alias: String,
+    name: String,
+    description: String,
+    type_id: Option<lockbox_core::FormTypeId>,
+    fields: Vec<lockbox_core::FormFieldDefinition>,
+) -> CliResult<()> {
     let vault = default_vault()?;
     let definition = if let Some(type_id) = type_id {
-        vault.define_form_with_type_id(type_id, &alias, &name, fields)?
+        vault.define_form_with_type_id_and_description(
+            type_id,
+            &alias,
+            &name,
+            &description,
+            fields,
+        )?
     } else {
-        vault.define_form(&alias, &name, fields)?
+        vault.define_form_with_description(&alias, &name, &description, fields)?
     };
     print_form_definition_saved(&definition);
     Ok(())
 }
 
-fn form_definitions(args: &[String]) -> CliResult<()> {
-    let (_, format) = output_format_from_args(args)?;
+fn form_definitions_with_format(format: OutputFormat) -> CliResult<()> {
     let rows = default_vault()?
         .list_form_definitions()?
         .into_iter()
@@ -213,21 +271,27 @@ fn form_definitions(args: &[String]) -> CliResult<()> {
                 definition.type_id.to_string(),
                 definition.revision.to_string(),
                 definition.name,
+                definition.description,
                 definition.fields.len().to_string(),
             ]
         })
         .collect::<Vec<_>>();
     print_records(
-        &["alias", "definition_id", "revision", "name", "fields"],
+        &[
+            "alias",
+            "definition_id",
+            "revision",
+            "name",
+            "description",
+            "fields",
+        ],
         rows,
         format,
     )?;
     Ok(())
 }
 
-fn init(args: &[String]) -> CliResult<()> {
-    let overwrite = args.iter().any(|arg| arg == "--overwrite");
-    let verify = args.iter().any(|arg| arg == "--verify");
+fn init_options(overwrite: bool, verify: bool) -> CliResult<()> {
     if overwrite && verify {
         return Err(Error::InvalidInput(
             "--overwrite and --verify cannot be used together".to_string(),
@@ -251,7 +315,10 @@ key-directory backups stored in this vault."
             let generated = ensure_default_private_key(&vault)?;
             let default_forms = vault.seed_default_form_definitions()?;
             set_auto_open_scope(AutoOpenScope::Lockboxes)?;
-            remember_default_vault_password(&password)?;
+            remember_default_vault_password_with_warning(
+                &password,
+                "the vault was replaced successfully",
+            );
             println!("Vault replaced successfully.");
             if generated {
                 println!(
@@ -270,7 +337,10 @@ key-directory backups stored in this vault."
         if verify {
             let password = read_vault_password("Vault pass phrase: ")?;
             open_default_vault_with_password(&password)?;
-            remember_default_vault_password(&password)?;
+            remember_default_vault_password_with_warning(
+                &password,
+                "the vault opened successfully",
+            );
             println!("Vault opened successfully.");
             return Ok(());
         }
@@ -290,7 +360,7 @@ key-directory backups stored in this vault."
     let generated = ensure_default_private_key(&vault)?;
     let default_forms = vault.seed_default_form_definitions()?;
     set_auto_open_scope(AutoOpenScope::Lockboxes)?;
-    remember_default_vault_password(&password)?;
+    remember_default_vault_password_with_warning(&password, "the vault was created successfully");
     println!("Vault created successfully.");
     println!();
     println!("Directory:");
@@ -312,15 +382,8 @@ key-directory backups stored in this vault."
     Ok(())
 }
 
-fn backup(args: &[String]) -> CliResult<()> {
-    let overwrite = args.iter().any(|arg| arg == "--overwrite");
-    let args = args
-        .iter()
-        .filter(|arg| arg.as_str() != "--overwrite")
-        .cloned()
-        .collect::<Vec<_>>();
-    let output = require_arg(&args, 0, "backup output")?;
-    let _manifest = backup_default_vault(output, overwrite)?;
+fn backup_options(output: String, overwrite: bool) -> CliResult<()> {
+    let _manifest = backup_default_vault(&output, overwrite)?;
     println!("Backup completed successfully.");
     println!(
         "Vault path: {}",
@@ -375,14 +438,7 @@ fn identity_restore_backup_path(name: &str) -> CliResult<PathBuf> {
     )))
 }
 
-fn restore(args: &[String]) -> CliResult<()> {
-    let overwrite = args.iter().any(|arg| arg == "--overwrite");
-    let args = args
-        .iter()
-        .filter(|arg| arg.as_str() != "--overwrite")
-        .cloned()
-        .collect::<Vec<_>>();
-    let input = require_arg(&args, 0, "backup input")?;
+fn restore_options(input: String, overwrite: bool) -> CliResult<()> {
     let existing_vault = default_vault_path()?;
     let backup_path = if overwrite && existing_vault.exists() {
         let backup_path = restore_backup_path()?;
@@ -391,7 +447,7 @@ fn restore(args: &[String]) -> CliResult<()> {
     } else {
         None
     };
-    let manifest = restore_default_vault(input, overwrite)?;
+    let manifest = restore_default_vault(&input, overwrite)?;
     let _ = forget_platform_vault_password();
     if let Some(backup_path) = backup_path {
         println!("WARNING: replacing the local vault.");
@@ -407,18 +463,9 @@ fn restore(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn keygen(args: &[String]) -> CliResult<()> {
-    let overwrite = args.iter().any(|arg| arg == "--overwrite");
-    let args = args
-        .iter()
-        .filter(|arg| arg.as_str() != "--overwrite")
-        .cloned()
-        .collect::<Vec<_>>();
-    let defaulted_name = args.is_empty();
-    let name = args
-        .first()
-        .map(String::as_str)
-        .unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
+fn keygen_options(name: Option<&str>, overwrite: bool) -> CliResult<()> {
+    let defaulted_name = name.is_none();
+    let name = name.unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
     let vault = default_vault()?;
     if vault.private_key_exists(name)? && !overwrite {
         return Err(Error::AlreadyExists(format!("vault identity {name}")).into());
@@ -436,8 +483,7 @@ fn keygen(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn contact_import(args: &[String]) -> CliResult<()> {
-    let options = ContactImportOptions::parse(args)?;
+fn contact_import_options(options: ContactImportOptions) -> CliResult<()> {
     let name = require_arg(&options.positionals, 0, "contact name")?;
     let public_path = require_arg(&options.positionals, 1, "public key path")?;
     let vault = default_vault()?;
@@ -449,24 +495,20 @@ fn contact_import(args: &[String]) -> CliResult<()> {
         .fingerprint
         .clone()
         .map(Ok)
-        .unwrap_or_else(|| prompt_line("Public key fingerprint from key owner: "))?;
-    let expected_fingerprint = decode_fingerprint_hex(&expected_fingerprint)?;
+        .unwrap_or_else(|| prompt_line("Public key fingerprint code from key owner: "))?;
     let fingerprint_channel = verify_fingerprint_channel(options.fingerprint_channel.as_deref())?;
     let computed_fingerprint = public_key_fingerprint(&contact);
-    if expected_fingerprint != computed_fingerprint {
+    if !fingerprint_input_matches(&expected_fingerprint, &computed_fingerprint)? {
         return Err(Error::InvalidInput(format!(
             "public key fingerprint mismatch for {name}; expected {}, computed {}",
-            format_hex_pairs(&expected_fingerprint),
-            format_hex_pairs(&computed_fingerprint)
+            expected_fingerprint.trim(),
+            format_fingerprint_code(&computed_fingerprint)
         ))
         .into());
     }
     vault.store_contact(name, &contact)?;
     println!("contact={name}");
-    println!(
-        "public_key_fingerprint={}",
-        format_hex_pairs(&computed_fingerprint)
-    );
+    print_fingerprint_lines("public_key_fingerprint", &computed_fingerprint);
     println!("fingerprint_verified=yes");
     println!("fingerprint_channel={fingerprint_channel}");
     Ok(())
@@ -481,38 +523,20 @@ struct ContactImportOptions {
 }
 
 impl ContactImportOptions {
-    fn parse(args: &[String]) -> CliResult<Self> {
-        let mut options = ContactImportOptions::default();
-        let mut index = 0usize;
-        while index < args.len() {
-            match args[index].as_str() {
-                "--overwrite" => options.overwrite = true,
-                "--fingerprint" => {
-                    index += 1;
-                    options.fingerprint =
-                        Some(require_arg(args, index, "--fingerprint value")?.to_string());
-                }
-                "--fingerprint-channel" => {
-                    index += 1;
-                    options.fingerprint_channel =
-                        Some(require_arg(args, index, "--fingerprint-channel value")?.to_string());
-                }
-                other if other.starts_with('-') => {
-                    return Err(Error::InvalidInput(format!(
-                        "unknown contact import option: {other}"
-                    ))
-                    .into());
-                }
-                value => options.positionals.push(value.to_string()),
-            }
-            index += 1;
+    fn from_matches(matches: &ArgMatches) -> Self {
+        Self {
+            overwrite: matches.get_flag("overwrite"),
+            fingerprint: optional_value(matches, "fingerprint").map(str::to_string),
+            fingerprint_channel: optional_value(matches, "fingerprint-channel").map(str::to_string),
+            positionals: vec![
+                required_value(matches, "name"),
+                required_value(matches, "public-key"),
+            ],
         }
-        Ok(options)
     }
 }
 
-fn publish_identity(args: &[String]) -> CliResult<()> {
-    let options = PublishCliOptions::parse(args)?;
+fn publish_identity_options(options: PublishCliOptions) -> CliResult<()> {
     let identity = options
         .positionals
         .first()
@@ -564,11 +588,11 @@ fn publish_identity(args: &[String]) -> CliResult<()> {
     println!("published=yes");
     println!("publish_code={}", result.publish_code);
     println!("email={email}");
-    println!("contact_fingerprint={}", format_hex_pairs(&fingerprint));
+    print_fingerprint_lines("contact_fingerprint", &fingerprint);
     println!(
         "fingerprint_purpose=do not send this fingerprint; ask the receiver to call you to obtain it"
     );
-    println!("fingerprint_security={SHARE_FINGERPRINT_SECURITY_NOTE}");
+    println!("fingerprint_security={PUBLISH_FINGERPRINT_SECURITY_NOTE}");
     if let Some(url) = &result.verification_url {
         println!("verification_url={url}");
     }
@@ -600,8 +624,7 @@ fn clean_publish_error(err: ClientError) -> Box<dyn std::error::Error> {
     }
 }
 
-fn receive_publish(args: &[String]) -> CliResult<()> {
-    let options = PublishCliOptions::parse(args)?;
+fn receive_publish_options(options: PublishCliOptions) -> CliResult<()> {
     let publish_code = options
         .positionals
         .first()
@@ -611,8 +634,7 @@ fn receive_publish(args: &[String]) -> CliResult<()> {
         .fingerprint
         .clone()
         .map(Ok)
-        .unwrap_or_else(|| prompt_line("Full fingerprint from trusted second channel: "))?;
-    let expected_fingerprint = decode_fingerprint_hex(&expected_fingerprint)?;
+        .unwrap_or_else(|| prompt_line("Fingerprint code from trusted second channel: "))?;
     let fingerprint_channel = verify_fingerprint_channel(options.fingerprint_channel.as_deref())?;
     let pool = publish_client_pool(&options)?;
     let received = pool.receive(&publish_code)?;
@@ -632,12 +654,12 @@ fn receive_publish(args: &[String]) -> CliResult<()> {
         &published_contact.signing_public_key,
     )
     .map_err(|_| Error::InvalidInput("invalid contact fingerprint fields".to_string()))?;
-    if expected_fingerprint != computed_fingerprint {
+    if !fingerprint_input_matches(&expected_fingerprint, &computed_fingerprint)? {
         return Err(Error::InvalidInput(format!(
             "contact fingerprint mismatch for {}; expected {}, computed {}",
             verification.email,
-            format_hex_pairs(&expected_fingerprint),
-            format_hex_pairs(&computed_fingerprint)
+            expected_fingerprint.trim(),
+            format_fingerprint_code(&computed_fingerprint)
         ))
         .into());
     }
@@ -658,13 +680,10 @@ fn receive_publish(args: &[String]) -> CliResult<()> {
     println!("identity={}", published_contact.identity);
     println!("publish_code={publish_code}");
     println!("email={}", verification.email);
-    println!(
-        "contact_fingerprint={}",
-        format_hex_pairs(&computed_fingerprint)
-    );
+    print_fingerprint_lines("contact_fingerprint", &computed_fingerprint);
     println!("fingerprint_verified=yes");
     println!("fingerprint_channel={fingerprint_channel}");
-    println!("fingerprint_security={SHARE_FINGERPRINT_SECURITY_NOTE}");
+    println!("fingerprint_security={PUBLISH_FINGERPRINT_SECURITY_NOTE}");
     println!("email_verification_email={}", verification.email);
     println!("email_verification_status=verified");
     println!(
@@ -675,7 +694,7 @@ fn receive_publish(args: &[String]) -> CliResult<()> {
         "email_verification_attestation={}",
         encode_hex(&verification.attestation)
     );
-    println!("verification_advice={SHARE_RECEIVE_VERIFICATION_ADVICE}");
+    println!("verification_advice={PUBLISH_RECEIVE_VERIFICATION_ADVICE}");
     Ok(())
 }
 
@@ -693,49 +712,40 @@ struct PublishCliOptions {
 }
 
 impl PublishCliOptions {
-    fn parse(args: &[String]) -> CliResult<Self> {
-        let mut options = PublishCliOptions::default();
-        let mut index = 0usize;
-        while index < args.len() {
-            match args[index].as_str() {
-                "--server" => {
-                    index += 1;
-                    options.server = Some(require_arg(args, index, "--server value")?.to_string());
-                }
-                "--topology-url" => {
-                    index += 1;
-                    options.topology_url =
-                        Some(require_arg(args, index, "--topology-url value")?.to_string());
-                }
-                "--ttl" => {
-                    index += 1;
-                    options.ttl_seconds = Some(require_arg(args, index, "--ttl value")?.parse()?);
-                }
-                "--max-receives" => {
-                    index += 1;
-                    options.max_receives =
-                        Some(require_arg(args, index, "--max-receives value")?.parse()?);
-                }
-                "--email" | "--verification-email" => {
-                    index += 1;
-                    options.email = Some(require_arg(args, index, "--email value")?.to_string());
-                }
-                "--fingerprint" => {
-                    index += 1;
-                    options.fingerprint =
-                        Some(require_arg(args, index, "--fingerprint value")?.to_string());
-                }
-                "--fingerprint-channel" => {
-                    index += 1;
-                    options.fingerprint_channel =
-                        Some(require_arg(args, index, "--fingerprint-channel value")?.to_string());
-                }
-                "--overwrite" => options.overwrite = true,
-                other => options.positionals.push(other.to_string()),
-            }
-            index += 1;
+    fn from_publish_matches(matches: &ArgMatches) -> CliResult<Self> {
+        Ok(Self {
+            server: optional_value(matches, "server").map(str::to_string),
+            topology_url: optional_value(matches, "topology-url").map(str::to_string),
+            ttl_seconds: optional_value(matches, "ttl").map(str::parse).transpose()?,
+            max_receives: optional_value(matches, "max-receives")
+                .map(str::parse)
+                .transpose()?,
+            email: None,
+            fingerprint: None,
+            fingerprint_channel: None,
+            overwrite: false,
+            positionals: optional_value(matches, "name")
+                .map(|name| vec![name.to_string()])
+                .unwrap_or_default(),
+        })
+    }
+
+    fn from_receive_matches(matches: &ArgMatches) -> CliResult<Self> {
+        let mut positionals = vec![required_value(matches, "publish-code")];
+        if let Some(contact_name) = optional_value(matches, "contact-name") {
+            positionals.push(contact_name.to_string());
         }
-        Ok(options)
+        Ok(Self {
+            server: optional_value(matches, "server").map(str::to_string),
+            topology_url: optional_value(matches, "topology-url").map(str::to_string),
+            ttl_seconds: None,
+            max_receives: None,
+            email: None,
+            fingerprint: optional_value(matches, "fingerprint").map(str::to_string),
+            fingerprint_channel: optional_value(matches, "fingerprint-channel").map(str::to_string),
+            overwrite: matches.get_flag("overwrite"),
+            positionals,
+        })
     }
 }
 
@@ -767,7 +777,7 @@ struct PublishConfig {
 }
 
 fn read_publish_config() -> CliResult<PublishConfig> {
-    let path = std::env::var("LOCKBOX_SHARE_CONFIG")
+    let path = std::env::var("LOCKBOX_PUBLISH_CONFIG")
         .map(PathBuf::from)
         .unwrap_or(default_vault_dir()?.join("config.yaml"));
     let text = match fs::read_to_string(path) {
@@ -948,34 +958,6 @@ fn prompt_line(prompt: &str) -> CliResult<String> {
     Ok(value.trim().to_string())
 }
 
-fn format_hex_pairs(bytes: &[u8]) -> String {
-    let mut out = String::with_capacity(bytes.len().saturating_mul(3).saturating_sub(1));
-    for (index, byte) in bytes.iter().enumerate() {
-        if index != 0 {
-            out.push(' ');
-        }
-        out.push_str(&format!("{byte:02x}"));
-    }
-    out
-}
-
-fn decode_fingerprint_hex(value: &str) -> CliResult<Vec<u8>> {
-    let compact = value
-        .bytes()
-        .filter(|byte| !byte.is_ascii_whitespace() && *byte != b':' && *byte != b'-')
-        .collect::<Vec<_>>();
-    let compact = String::from_utf8(compact)
-        .map_err(|_| Error::InvalidInput("fingerprint is not valid UTF-8".to_string()))?;
-    let fingerprint = decode_hex(&compact)?;
-    if fingerprint.len() != CONTACT_FINGERPRINT_LEN {
-        return Err(Error::InvalidInput(format!(
-            "fingerprint must contain {CONTACT_FINGERPRINT_LEN} two-digit hex groups; short PINs are too small to authenticate a public key"
-        ))
-        .into());
-    }
-    Ok(fingerprint)
-}
-
 fn verify_fingerprint_channel(value: Option<&str>) -> CliResult<&'static str> {
     let selected = match value {
         Some(value) => value.to_string(),
@@ -1061,8 +1043,7 @@ fn hex_digit(byte: u8) -> CliResult<u8> {
     }
 }
 
-fn identity_restore(args: &[String]) -> CliResult<()> {
-    let options = parse_identity_restore_args(args)?;
+fn identity_restore_options(options: IdentityRestoreArgs) -> CliResult<()> {
     let vault = default_vault()?;
     let backup = read_identity_backup(&options.input_path)?;
     let name = options.name.unwrap_or(backup.name);
@@ -1095,8 +1076,7 @@ fn identity_restore(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn identity_backup(args: &[String]) -> CliResult<()> {
-    let options = parse_identity_backup_args(args)?;
+fn identity_backup_options(options: IdentityBackupArgs) -> CliResult<()> {
     let vault = default_vault()?;
     let mut output = Vec::new();
     write_identity_backup(&mut output, &vault, &options.name)?;
@@ -1215,19 +1195,8 @@ fn owner_signing_key_from_hex_text(text: &str) -> CliResult<OwnerSigningKeyPair>
     Ok(OwnerSigningKeyPair::from_private_key_record(record)?)
 }
 
-fn remove_key(args: &[String]) -> CliResult<()> {
-    let force = args
-        .iter()
-        .any(|arg| matches!(arg.as_str(), "--force" | "--noask"));
-    let args = args
-        .iter()
-        .filter(|arg| !matches!(arg.as_str(), "--force" | "--noask"))
-        .cloned()
-        .collect::<Vec<_>>();
-    let name = args
-        .first()
-        .map(String::as_str)
-        .unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
+fn remove_key_options(name: Option<&str>, force: bool) -> CliResult<()> {
+    let name = name.unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
     if !force && !confirm_private_key_removal(name)? {
         println!("Vault identity not removed: {name}");
         return Ok(());
@@ -1251,14 +1220,12 @@ fn rotate_key(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn remove_contact(args: &[String]) -> CliResult<()> {
-    let name = require_arg(args, 0, "contact name")?;
+fn remove_contact_name(name: &str) -> CliResult<()> {
     default_vault()?.delete_contact(name)?;
     Ok(())
 }
 
-fn list_identities(args: &[String]) -> CliResult<()> {
-    let (_, format) = output_format_from_args(args)?;
+fn list_identities_with_format(format: OutputFormat) -> CliResult<()> {
     let vault = default_vault()?;
     let mut rows = Vec::new();
     for name in vault.list_private_keys()? {
@@ -1271,7 +1238,7 @@ fn list_identities(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn identity_email(args: &[String]) -> CliResult<()> {
+fn identity_email_values(args: &[String]) -> CliResult<()> {
     let (name, email) = match args {
         [email] => (VaultDirectory::DEFAULT_KEY_NAME, email.as_str()),
         [name, email, ..] => (name.as_str(), email.as_str()),
@@ -1287,12 +1254,7 @@ fn identity_email(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn identity_history(args: &[String]) -> CliResult<()> {
-    let (args, format) = output_format_from_args(args)?;
-    let name = args
-        .first()
-        .map(String::as_str)
-        .unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
+fn identity_history_with_format(name: &str, format: OutputFormat) -> CliResult<()> {
     let history = default_vault()?.list_identity_generations(name)?;
     let rows = history
         .generations
@@ -1356,16 +1318,15 @@ fn identity_fingerprint(args: &[String]) -> CliResult<()> {
 
     println!("identity={identity}");
     println!("email={email}");
-    println!("contact_fingerprint={}", format_hex_pairs(&fingerprint));
+    print_fingerprint_lines("contact_fingerprint", &fingerprint);
     println!(
         "fingerprint_purpose=do not send this fingerprint; ask the receiver to call you to obtain it"
     );
-    println!("fingerprint_security={SHARE_FINGERPRINT_SECURITY_NOTE}");
+    println!("fingerprint_security={PUBLISH_FINGERPRINT_SECURITY_NOTE}");
     Ok(())
 }
 
-fn list_contacts(args: &[String]) -> CliResult<()> {
-    let (_, format) = output_format_from_args(args)?;
+fn list_contacts_with_format(format: OutputFormat) -> CliResult<()> {
     let vault = default_vault()?;
     let mut rows = Vec::new();
     for contact in vault.list_contacts()? {
@@ -1375,8 +1336,7 @@ fn list_contacts(args: &[String]) -> CliResult<()> {
     Ok(())
 }
 
-fn list_known_lockboxes(args: &[String]) -> CliResult<()> {
-    let (_, format) = output_format_from_args(args)?;
+fn list_known_lockboxes_with_format(format: OutputFormat) -> CliResult<()> {
     let vault = default_vault()?;
     let mut rows = Vec::<KnownLockboxListRow>::new();
     for lockbox in vault.list_known_lockboxes()? {
@@ -1497,10 +1457,83 @@ fn human_size(bytes: u64) -> String {
     }
 }
 
-fn forget_known_lockbox(args: &[String]) -> CliResult<()> {
-    let path = require_arg(args, 0, "lockbox")?;
+fn forget_known_lockbox_path(path: &str) -> CliResult<()> {
     default_vault()?.forget_known_lockbox(path)?;
     println!("Forgot known lockbox: {path}");
+    Ok(())
+}
+
+fn move_known_lockbox(source: &str, destination: &str) -> CliResult<()> {
+    let source_path = Path::new(source);
+    let requested_destination = Path::new(destination);
+    if !source_path.exists() {
+        return Err(cli_error(format!("lockbox not found: {source}")));
+    }
+    if !source_path.is_file() {
+        return Err(cli_error(format!("lockbox path is not a file: {source}")));
+    }
+    let destination_path = if requested_destination.is_dir() {
+        let file_name = source_path
+            .file_name()
+            .ok_or_else(|| cli_error(format!("source lockbox has no file name: {source}")))?;
+        requested_destination.join(file_name)
+    } else {
+        requested_destination.to_path_buf()
+    };
+    if destination_path.exists() {
+        return Err(cli_error(format!(
+            "destination already exists: {}; no files or vault records were changed",
+            destination_path.display()
+        )));
+    }
+    let parent = destination_path.parent().unwrap_or_else(|| Path::new("."));
+    if !parent.is_dir() {
+        return Err(cli_error(format!(
+            "destination directory does not exist: {}; no files or vault records were changed",
+            parent.display()
+        )));
+    }
+
+    let lockbox_id = VaultOpen::read_lockbox_id(source_path)?;
+    let was_default = default_matches(source)?;
+    let vault = default_vault()?;
+    local_vault().close_lockbox(source_path)?;
+    let _lock = ScopedFileLock::acquire(source_path, FileLockScope::Lockbox)?;
+    fs::rename(source_path, &destination_path).map_err(|err| {
+        cli_error(format!(
+            "could not move {source} to {}: {err}; no vault records were changed",
+            destination_path.display()
+        ))
+    })?;
+
+    let old_lock = lock_path_for(source_path);
+    let new_lock = lock_path_for(&destination_path);
+    if let Err(err) = fs::rename(&old_lock, &new_lock) {
+        let _ = fs::rename(&destination_path, source_path);
+        return Err(cli_error(format!(
+            "could not move lock sidecar {} to {}: {err}; the lockbox move was rolled back",
+            old_lock.display(),
+            new_lock.display()
+        )));
+    }
+
+    if let Err(err) = vault
+        .forget_known_lockbox(source_path)
+        .and_then(|()| vault.remember_known_lockbox(lockbox_id, &destination_path))
+    {
+        return Err(cli_error(format!(
+            "lockbox moved to {}, but the vault path update failed: {err}. Run `lockbox vault lockbox forget {}` and reopen the destination.",
+            destination_path.display(),
+            source_path.display()
+        )));
+    }
+    if was_default {
+        replace_default_after_move(&destination_path)?;
+    }
+    println!("Lockbox moved: {source} -> {}", destination_path.display());
+    if was_default {
+        println!("Session default updated: {}", destination_path.display());
+    }
     Ok(())
 }
 
@@ -1586,9 +1619,7 @@ fn write_wrapped_hex(writer: &mut impl Write, bytes: &[u8]) -> io::Result<()> {
     Ok(())
 }
 
-fn export_public(args: &[String]) -> CliResult<()> {
-    let (args, format) = parse_format(args)?;
-    let options = parse_identity_export_args(&args)?;
+fn export_public_options(options: IdentityExportArgs, format: KeyFormat) -> CliResult<()> {
     let vault = default_vault()?;
     let keypair = vault.load_private_key(&options.name)?;
     let public_key = keypair.public_key();
@@ -1598,7 +1629,7 @@ fn export_public(args: &[String]) -> CliResult<()> {
         export_public_key(&public_key, format)?,
     )?;
     println!("identity={}", options.name);
-    println!("public_key_fingerprint={}", format_hex_pairs(&fingerprint));
+    print_fingerprint_lines("public_key_fingerprint", &fingerprint);
     Ok(())
 }
 
@@ -1631,127 +1662,48 @@ struct IdentityExportArgs {
     output_path: String,
 }
 
-fn parse_identity_backup_args(args: &[String]) -> CliResult<IdentityBackupArgs> {
-    let mut name = None;
-    let mut overwrite = false;
-    let mut positionals = Vec::new();
-    let mut index = 0usize;
-    while index < args.len() {
-        match args[index].as_str() {
-            "--overwrite" => {
-                overwrite = true;
-                index += 1;
-            }
-            "--name" => {
-                name = Some(require_arg(args, index + 1, "--name value")?.to_string());
-                index += 2;
-            }
-            value => {
-                positionals.push(value.to_string());
-                index += 1;
-            }
+impl IdentityBackupArgs {
+    fn from_matches(matches: &ArgMatches) -> Self {
+        Self {
+            name: matches
+                .get_one::<String>("name")
+                .cloned()
+                .unwrap_or_else(|| VaultDirectory::DEFAULT_KEY_NAME.to_string()),
+            output_path: required_value(matches, "output"),
+            overwrite: matches.get_flag("overwrite"),
         }
     }
-    if positionals.len() != 1 {
-        return Err(Error::InvalidInput(
-            "identity backup accepts exactly one output path".to_string(),
-        )
-        .into());
-    }
-    Ok(IdentityBackupArgs {
-        name: name.unwrap_or_else(|| VaultDirectory::DEFAULT_KEY_NAME.to_string()),
-        output_path: positionals.remove(0),
-        overwrite,
-    })
 }
 
-fn parse_identity_restore_args(args: &[String]) -> CliResult<IdentityRestoreArgs> {
-    let mut name = None;
-    let mut overwrite = false;
-    let mut positionals = Vec::new();
-    let mut index = 0usize;
-    while index < args.len() {
-        match args[index].as_str() {
-            "--overwrite" => {
-                overwrite = true;
-                index += 1;
-            }
-            "--name" => {
-                name = Some(require_arg(args, index + 1, "--name value")?.to_string());
-                index += 2;
-            }
-            value => {
-                positionals.push(value.to_string());
-                index += 1;
-            }
+impl IdentityRestoreArgs {
+    fn from_matches(matches: &ArgMatches) -> Self {
+        Self {
+            name: matches.get_one::<String>("name").cloned(),
+            input_path: required_value(matches, "input"),
+            overwrite: matches.get_flag("overwrite"),
         }
     }
-    if positionals.len() != 1 {
-        return Err(Error::InvalidInput(
-            "identity restore accepts exactly one input path".to_string(),
-        )
-        .into());
-    }
-    Ok(IdentityRestoreArgs {
-        name,
-        input_path: positionals.remove(0),
-        overwrite,
-    })
 }
 
-fn parse_identity_export_args(args: &[String]) -> CliResult<IdentityExportArgs> {
-    let mut name = None;
-    let mut positionals = Vec::new();
-    let mut index = 0usize;
-    while index < args.len() {
-        match args[index].as_str() {
-            "--name" => {
-                name = Some(require_arg(args, index + 1, "--name value")?.to_string());
-                index += 2;
-            }
-            value => {
-                positionals.push(value.to_string());
-                index += 1;
-            }
+impl IdentityExportArgs {
+    fn from_matches(matches: &ArgMatches) -> Self {
+        Self {
+            name: matches
+                .get_one::<String>("name")
+                .cloned()
+                .unwrap_or_else(|| VaultDirectory::DEFAULT_KEY_NAME.to_string()),
+            output_path: required_value(matches, "output"),
         }
     }
-    if positionals.len() != 1 {
-        return Err(Error::InvalidInput(
-            "identity export accepts exactly one output path".to_string(),
-        )
-        .into());
-    }
-    Ok(IdentityExportArgs {
-        name: name.unwrap_or_else(|| VaultDirectory::DEFAULT_KEY_NAME.to_string()),
-        output_path: positionals.remove(0),
-    })
-}
-
-fn parse_format(args: &[String]) -> CliResult<(Vec<String>, KeyFormat)> {
-    let mut format = KeyFormat::LockboxPem;
-    let mut out = Vec::new();
-    let mut index = 0usize;
-    while index < args.len() {
-        if args[index] == "--format" {
-            let value = args
-                .get(index + 1)
-                .ok_or_else(|| Error::InvalidInput("missing --format value".to_string()))?
-                .as_str();
-            format = KeyFormat::parse(value)?;
-            index += 2;
-        } else {
-            out.push(args[index].clone());
-            index += 1;
-        }
-    }
-    Ok((out, format))
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        clean_publish_error, contact_name_from_email, decode_fingerprint_hex, format_hex_pairs,
-        format_unix_ms_utc, verify_fingerprint_channel, SHARE_RECEIVE_VERIFICATION_ADVICE,
+        clean_publish_error, contact_name_from_email, decode_fingerprint_crockford_96,
+        decode_fingerprint_hex, fingerprint_input_matches, format_fingerprint_code,
+        format_fingerprint_reading, format_hex_pairs, format_unix_ms_utc,
+        verify_fingerprint_channel, PUBLISH_RECEIVE_VERIFICATION_ADVICE,
     };
     use lockbox_publish_protocol::protocol::Status;
     use lockbox_publish_protocol::ClientError;
@@ -1767,9 +1719,9 @@ mod tests {
 
     #[test]
     fn receive_publish_advice_requires_contact_initiated_trusted_channel() {
-        assert!(SHARE_RECEIVE_VERIFICATION_ADVICE.contains("channel you already trust"));
-        assert!(SHARE_RECEIVE_VERIFICATION_ADVICE.contains("You must initiate"));
-        assert!(SHARE_RECEIVE_VERIFICATION_ADVICE.contains("do not accept it"));
+        assert!(PUBLISH_RECEIVE_VERIFICATION_ADVICE.contains("channel you already trust"));
+        assert!(PUBLISH_RECEIVE_VERIFICATION_ADVICE.contains("You must initiate"));
+        assert!(PUBLISH_RECEIVE_VERIFICATION_ADVICE.contains("do not accept it"));
     }
 
     #[test]
@@ -1788,6 +1740,35 @@ mod tests {
         let short = decode_fingerprint_hex("123456").unwrap_err().to_string();
         assert!(short.contains("short PINs"));
         assert!(short.contains("authenticate a public key"));
+    }
+
+    #[test]
+    fn fingerprint_code_uses_lowercase_crockford_and_accepts_uppercase() {
+        let bytes = [
+            0x00, 0x01, 0x0a, 0x0b, 0x10, 0x11, 0x7f, 0x80, 0xab, 0xbc, 0xcd, 0xde, 0xef, 0xf0,
+            0xfe, 0xff,
+        ];
+        let code = format_fingerprint_code(&bytes);
+        let groups = code.split('-').collect::<Vec<_>>();
+        assert_eq!(groups.len(), 5);
+        assert!(groups.iter().all(|group| group.len() == 4));
+        assert_eq!(code, code.to_ascii_lowercase());
+        for ambiguous in ['i', 'l', 'o', 'u'] {
+            assert!(!code.contains(ambiguous));
+        }
+
+        let decoded = decode_fingerprint_crockford_96(&code).unwrap();
+        assert_eq!(&decoded, &bytes[..12]);
+        assert_eq!(
+            decode_fingerprint_crockford_96(&code.to_ascii_uppercase()).unwrap(),
+            decoded
+        );
+        assert!(fingerprint_input_matches(&code.to_ascii_uppercase(), &bytes).unwrap());
+        assert!(fingerprint_input_matches(&format_hex_pairs(&bytes), &bytes).unwrap());
+        let reading = format_fingerprint_reading(&code);
+        assert_eq!(reading, reading.to_ascii_lowercase());
+        assert!(reading.contains(" - "));
+        assert!(reading.contains("zero"));
     }
 
     #[test]

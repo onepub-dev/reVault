@@ -1,5 +1,10 @@
 use super::context::{cli_error, open_existing, open_or_create, require_arg, Access, CliResult};
-use super::output::{output_format_from_args, print_records};
+use super::output::{output_format_from_matches, print_records, OutputFormat};
+use super::{
+    default_lockbox_for_add, default_lockbox_for_command, looks_like_lockbox_path,
+    optional_lockbox_positionals, positional_values,
+};
+use clap::ArgMatches;
 use lockbox_core::{
     Error, ExtractPolicy, ListOptions, Lockbox, LockboxPath, WorkerPolicy, WorkloadProfile,
 };
@@ -10,6 +15,104 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 const ADD_PROGRESS_INTERVAL: Duration = Duration::from_secs(1);
+
+pub(crate) fn add_matches(
+    matches: &ArgMatches,
+    access: &Access,
+    worker_policy: WorkerPolicy,
+) -> CliResult<()> {
+    add(&add_args_from_matches(matches)?, access, worker_policy)
+}
+
+pub(crate) fn extract_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    extract(&extract_args_from_matches(matches)?, access)
+}
+
+pub(crate) fn cat_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    cat(
+        &optional_lockbox_positionals(positional_values(matches, "args"), 1)?,
+        access,
+    )
+}
+
+pub(crate) fn list_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let mut args = optional_lockbox_positionals(positional_values(matches, "args"), 0)?;
+    if matches.get_flag("recursive") {
+        args.push("--recursive".to_string());
+    }
+    list_with_format(&args, access, output_format_from_matches(matches)?)
+}
+
+pub(crate) fn remove_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let mut args = optional_lockbox_positionals(positional_values(matches, "args"), 1)?;
+    if matches.get_flag("force") {
+        args.push("--force".to_string());
+    }
+    remove(&args, access)
+}
+
+pub(crate) fn rename_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    rename(
+        &optional_lockbox_positionals(positional_values(matches, "args"), 2)?,
+        access,
+    )
+}
+
+fn add_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
+    let first = matches
+        .get_one::<String>("lockbox-or-source")
+        .ok_or_else(|| Error::InvalidInput("missing source".to_string()))?
+        .clone();
+    let second = matches.get_one::<String>("source-or-lockbox-path").cloned();
+    let third = matches.get_one::<String>("lockbox-path").cloned();
+    let mut args = match (second, third) {
+        (None, None) => vec![default_lockbox_for_add()?, first],
+        (Some(second), None) => {
+            if looks_like_lockbox_path(&first) {
+                vec![first, second]
+            } else {
+                vec![default_lockbox_for_add()?, first, second]
+            }
+        }
+        (Some(second), Some(third)) => vec![first, second, third],
+        (None, Some(_)) => unreachable!("clap does not provide third positional without second"),
+    };
+    if matches.get_flag("recursive") {
+        args.push("--recursive".to_string());
+    }
+    Ok(args)
+}
+
+fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
+    if let Some(destination) = matches.get_one::<String>("to") {
+        let values = positional_values(matches, "args");
+        if values.len() > 1 {
+            return Err(cli_error("extract --to accepts at most one lockbox path"));
+        }
+        let mut args = if let Some(lockbox) = values.first() {
+            vec![lockbox.clone()]
+        } else {
+            vec![default_lockbox_for_command()?]
+        };
+        args.push("--to".to_string());
+        args.push(destination.clone());
+        for (name, flag) in [
+            ("overwrite", "--overwrite"),
+            ("restore-symlinks", "--restore-symlinks"),
+            ("restore-permissions", "--restore-permissions"),
+        ] {
+            if matches.get_flag(name) {
+                args.push(flag.to_string());
+            }
+        }
+        return Ok(args);
+    }
+    let mut args = optional_lockbox_positionals(positional_values(matches, "args"), 2)?;
+    if matches.get_flag("overwrite") {
+        args.push("--overwrite".to_string());
+    }
+    Ok(args)
+}
 
 pub(crate) fn add(args: &[String], access: &Access, worker_policy: WorkerPolicy) -> CliResult<()> {
     let recursive = args.iter().any(|arg| arg == "--recursive" || arg == "-r");
@@ -105,8 +208,7 @@ pub(crate) fn cat(args: &[String], access: &Access) -> CliResult<()> {
     Ok(())
 }
 
-pub(crate) fn list(args: &[String], access: &Access) -> CliResult<()> {
-    let (args, format) = output_format_from_args(args)?;
+fn list_with_format(args: &[String], access: &Access, format: OutputFormat) -> CliResult<()> {
     let recursive = args.iter().any(|arg| arg == "--recursive" || arg == "-R");
     let args = args
         .iter()
@@ -151,11 +253,13 @@ fn contains_glob(value: &str) -> bool {
 
 fn direct_listing_rows(lb: &Lockbox, path: &LockboxPath) -> CliResult<Vec<Vec<String>>> {
     if let Some(entry) = lb.stat(path) {
-        return Ok(vec![vec![
-            kind_name(&entry.kind).to_string(),
-            entry.len.to_string(),
-            leaf_name(entry.path.as_str()).to_string(),
-        ]]);
+        if entry.kind != lockbox_core::LockboxEntryKind::Directory {
+            return Ok(vec![vec![
+                kind_name(&entry.kind).to_string(),
+                entry.len.to_string(),
+                leaf_name(entry.path.as_str()).to_string(),
+            ]]);
+        }
     }
 
     let mut options = ListOptions::new(path);
@@ -172,7 +276,7 @@ fn direct_listing_rows(lb: &Lockbox, path: &LockboxPath) -> CliResult<Vec<Vec<St
         let Some((name, is_directory)) = direct_child(rest) else {
             continue;
         };
-        let row = if is_directory {
+        let row = if is_directory || entry.kind == lockbox_core::LockboxEntryKind::Directory {
             vec!["directory".to_string(), "-".to_string(), format!("{name}/")]
         } else {
             vec![
@@ -255,10 +359,10 @@ fn source_file_name(source: &Path) -> CliResult<&str> {
 }
 
 pub(crate) fn remove(args: &[String], access: &Access) -> CliResult<()> {
-    let force = args.iter().any(|arg| arg == "--force" || arg == "--noask");
+    let force = args.iter().any(|arg| arg == "--force");
     let args = args
         .iter()
-        .filter(|arg| !matches!(arg.as_str(), "--force" | "--noask"))
+        .filter(|arg| !matches!(arg.as_str(), "--force"))
         .cloned()
         .collect::<Vec<_>>();
     let lockbox_path = require_arg(&args, 0, "lockbox")?;
@@ -294,6 +398,7 @@ pub(crate) fn rename(args: &[String], access: &Access) -> CliResult<()> {
     let from = LockboxPath::new(require_arg(args, 1, "from")?)?;
     let to = LockboxPath::new(require_arg(args, 2, "to")?)?;
     let mut lb = open_existing(lockbox_path, access)?;
+    lb.create_parent_dirs_for(&to)?;
     lb.rename(&from, &to)?;
     lb.commit()?;
     Ok(())
@@ -303,6 +408,7 @@ fn kind_name(kind: &lockbox_core::LockboxEntryKind) -> &'static str {
     match kind {
         lockbox_core::LockboxEntryKind::File => "file",
         lockbox_core::LockboxEntryKind::Symlink => "symlink",
+        lockbox_core::LockboxEntryKind::Directory => "directory",
     }
 }
 
@@ -332,10 +438,14 @@ fn add_source_path(
     let lockbox_root = LockboxPath::new(lockbox_root)?;
     if source.is_file() {
         progress.record(source)?;
+        lockbox.create_parent_dirs_for(&lockbox_root)?;
         lockbox.add_file_from_path(source, &lockbox_root, false)?;
         return Ok(());
     }
     if source.is_dir() {
+        if lockbox_root.as_str() != "/" {
+            create_lockbox_dir_if_missing(lockbox, &lockbox_root, true)?;
+        }
         add_directory(lockbox, source, source, &lockbox_root, progress)?;
         return Ok(());
     }
@@ -355,15 +465,33 @@ fn add_directory(
         let file_type = entry.file_type()?;
         if file_type.is_dir() {
             progress.record(&path)?;
+            let relative = path.strip_prefix(root)?;
+            let lockbox_path = join_lockbox_path(lockbox_root, relative)?;
+            create_lockbox_dir_if_missing(lockbox, &lockbox_path, true)?;
             add_directory(lockbox, root, &path, lockbox_root, progress)?;
         } else if file_type.is_file() {
             let relative = path.strip_prefix(root)?;
             let lockbox_path = join_lockbox_path(lockbox_root, relative)?;
             progress.record(&path)?;
+            lockbox.create_parent_dirs_for(&lockbox_path)?;
             lockbox.add_file_from_path(&path, &lockbox_path, false)?;
         }
     }
     Ok(())
+}
+
+fn create_lockbox_dir_if_missing(
+    lockbox: &mut Lockbox,
+    path: &LockboxPath,
+    create_parents: bool,
+) -> CliResult<()> {
+    if lockbox.is_dir(path) {
+        return Ok(());
+    }
+    match lockbox.create_dir(path, create_parents) {
+        Ok(()) | Err(Error::AlreadyExists(_)) => Ok(()),
+        Err(err) => Err(err.into()),
+    }
 }
 
 struct AddProgress {
