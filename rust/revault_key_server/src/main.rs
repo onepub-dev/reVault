@@ -185,7 +185,7 @@ fn print_doctor() -> Result<(), Box<dyn std::error::Error>> {
     if !config_path.exists() {
         println!();
         println!("Configuration details unavailable: the configuration file is missing.");
-        println!("Next step: run `sudo lockbox_key_server install` to create it.");
+        println!("Next step: run `sudo revault_key_server install` to create it.");
         return Ok(());
     }
 
