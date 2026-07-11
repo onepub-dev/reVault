@@ -21,6 +21,11 @@ The release binary is configured as a systemd service named
 sudo ./target/release/revault_key_server install
 ```
 
+The install command copies the executable to `/usr/local/bin/revault_key_server`
+before creating the service. This keeps it accessible with the service's
+`ProtectHome=true` hardening even when the installer was run from a user's home
+directory.
+
 `--force-config` rewrites `/etc/revault/key-server.toml` only if you want a new
 bootstrap config.
 

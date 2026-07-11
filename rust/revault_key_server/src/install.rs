@@ -8,6 +8,7 @@ use std::process::Command;
 use crate::server_log::server_log_destination;
 
 const UNIT_PATH: &str = "/etc/systemd/system/revault_key_server.service";
+const INSTALL_BINARY_PATH: &str = "/usr/local/bin/revault_key_server";
 const CONFIG_DIR: &str = "/etc/revault";
 pub const CONFIG_PATH: &str = "/etc/revault/key-server.toml";
 const LEGACY_CONFIG_PATH: &str = "/etc/lockbox/key-server.toml";
@@ -34,18 +35,31 @@ pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Err
     chown_path(STATE_DIR)?;
     chown_path(CACHE_DIR)?;
     chown_path(LOG_DIR)?;
+    install_binary()?;
     if force_config || !Path::new(CONFIG_PATH).exists() {
         fs::write(CONFIG_PATH, default_config())?;
         set_file_permissions(CONFIG_PATH, 0o640)?;
     }
-    fs::write(
-        UNIT_PATH,
-        unit_file(&std::env::current_exe()?.display().to_string()),
-    )?;
+    fs::write(UNIT_PATH, unit_file(INSTALL_BINARY_PATH))?;
     run("systemctl", &["daemon-reload"])?;
     run("systemctl", &["enable", "revault_key_server.service"])?;
     run("systemctl", &["restart", "revault_key_server.service"])?;
     println!("installed revault_key_server systemd service");
+    Ok(())
+}
+
+fn install_binary() -> Result<(), Box<dyn std::error::Error>> {
+    let current = std::env::current_exe()?;
+    let target = Path::new(INSTALL_BINARY_PATH);
+    if current != target {
+        fs::copy(&current, target).map_err(|err| {
+            format!(
+                "could not install server executable at {}: {err}",
+                target.display()
+            )
+        })?;
+    }
+    set_file_permissions(INSTALL_BINARY_PATH, 0o755)?;
     Ok(())
 }
 
