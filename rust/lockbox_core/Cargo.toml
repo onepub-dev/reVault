@@ -2,6 +2,7 @@
 name = "lockbox_core"
 version = "0.1.0-alpha.1"
 edition = "2021"
+rust-version = "1.88"
 license-file = "LICENSE"
 description = "reVault lockbox format core with TOC, reuse, and recovery APIs"
 
@@ -15,17 +16,17 @@ native-zstd-encoder = ["dep:zstd"]
 
 [dependencies]
 argon2 = "0.5"
-chacha20poly1305 = "0.10"
+chacha20poly1305 = "0.11"
 ed25519-dalek = "2"
-getrandom = "0.2"
-hkdf = "0.12"
+getrandom = "0.4"
+hkdf = "0.13"
 lockbox_secure = { path = "../lockbox_secure" }
 ml-dsa = { version = "0.1", features = ["getrandom"] }
-ml-kem = { version = "0.3", features = ["getrandom"] }
-sha2 = "0.10"
+ml-kem = { version = "0.3.2", features = ["getrandom"] }
+sha2 = "0.11"
 unicode-normalization = "0.1"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
-zeroize = "1"
+zeroize = "1.9"
 ruzstd = { git = "https://github.com/bsutton/zstd-rs", rev = "3f877ed916fd2a8687913f5c130f5f81c7dbcd2b" }
 sysinfo = { version = "0.38.4", default-features = false, features = [
     "system",
@@ -33,11 +34,10 @@ sysinfo = { version = "0.38.4", default-features = false, features = [
 zstd = { version = "0.13.3", default-features = false, optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
-getrandom04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = "0.8.2"
 oxiarc-zstd = "0.2"
 
 [target.'cfg(unix)'.dependencies]

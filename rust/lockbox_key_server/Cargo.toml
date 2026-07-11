@@ -2,6 +2,7 @@
 name = "lockbox_key_server"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.88"
 license-file = "LICENSE"
 description = "High-throughput reVault key rendezvous server"
 
@@ -14,7 +15,19 @@ name = "lockbox_key_server"
 path = "src/main.rs"
 
 [dependencies]
-getrandom = "0.2"
+axum = { version = "0.8.9", default-features = false, features = [
+    "http1",
+    "query",
+    "tokio",
+] }
+bytes = "1"
+clap = { version = "4.6.1", default-features = false, features = [
+    "error-context",
+    "help",
+    "std",
+    "usage",
+] }
+getrandom = "0.4"
 lettre = { version = "0.11", default-features = false, features = [
     "builder",
     "hostname",
@@ -22,7 +35,10 @@ lettre = { version = "0.11", default-features = false, features = [
     "rustls-tls",
 ] }
 lockbox_publish_protocol = { version = "0.1.0-alpha.1", path = "../lockbox_publish_protocol" }
-sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+sha2 = "0.11"
+tokio = { version = "1", features = ["net", "rt-multi-thread", "time"] }
+toml = "0.9"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

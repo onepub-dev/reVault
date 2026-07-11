@@ -2,6 +2,7 @@
 name = "lockbox_publish_protocol"
 version = "0.1.0-alpha.1"
 edition = "2021"
+rust-version = "1.88"
 license-file = "LICENSE"
 description = "reVault key server wire protocol and client API"
 repository = "https://github.com/onepub-dev/reVault"
@@ -13,5 +14,7 @@ name = "lockbox_publish_protocol"
 path = "src/lib.rs"
 
 [dependencies]
-sha2 = "0.10"
-ureq = { version = "2", default-features = false, features = ["tls"] }
+httparse = "1"
+sha2 = "0.11"
+ureq = { version = "3.3.0", default-features = false, features = ["rustls"] }
+url = "2"

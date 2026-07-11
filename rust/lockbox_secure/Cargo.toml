@@ -2,6 +2,7 @@
 name = "lockbox_secure"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.88"
 license-file = "../../LICENSE"
 description = "Page-pooled secure byte and string storage for reVault"
 
@@ -10,11 +11,11 @@ name = "lockbox_secure"
 path = "src/lib.rs"
 
 [dependencies]
-getrandom = "0.2"
-zeroize = "1"
+getrandom = "0.4"
+zeroize = "1.9"
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
