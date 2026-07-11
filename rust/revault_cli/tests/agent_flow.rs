@@ -2,6 +2,7 @@ mod common;
 
 use common::TestTempDir;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Output, Stdio};
 use std::thread;
@@ -178,16 +179,34 @@ fn run_output(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]
     command.stdout(Stdio::piped()).stderr(Stdio::piped());
     let command_line = format!("{bin} {}", args.join(" "));
     let mut child = command.spawn().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+    let mut stderr = child.stderr.take().unwrap();
+    let stdout_reader = thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stdout.read_to_end(&mut bytes).unwrap();
+        bytes
+    });
+    let stderr_reader = thread::spawn(move || {
+        let mut bytes = Vec::new();
+        stderr.read_to_end(&mut bytes).unwrap();
+        bytes
+    });
     let deadline = Instant::now() + COMMAND_TIMEOUT;
-    loop {
-        if child.try_wait().unwrap().is_some() {
-            return child.wait_with_output().unwrap();
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
         }
         if Instant::now() >= deadline {
             let _ = child.kill();
+            let _ = child.wait();
             panic!("command timed out after {COMMAND_TIMEOUT:?}: {command_line}");
         }
         thread::sleep(Duration::from_millis(25));
+    };
+    Output {
+        status,
+        stdout: stdout_reader.join().unwrap(),
+        stderr: stderr_reader.join().unwrap(),
     }
 }
 

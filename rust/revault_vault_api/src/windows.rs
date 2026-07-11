@@ -86,10 +86,7 @@ pub(crate) fn serve_agent() -> io::Result<()> {
         }
 
         let pipe = create_pipe()?;
-        let connected = connect_pipe(pipe.as_raw());
-        if let Err(err) = connected {
-            return Err(err);
-        }
+        connect_pipe(pipe.as_raw())?;
         log_agent_event("agent client connected");
 
         last_activity = Instant::now();

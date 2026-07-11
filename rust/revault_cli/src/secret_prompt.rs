@@ -115,7 +115,7 @@ struct ConsoleEchoGuard {
 #[cfg(windows)]
 impl ConsoleEchoGuard {
     fn disable() -> io::Result<Option<Self>> {
-        use windows_sys::Win32::System::Console::{ENABLE_ECHO_INPUT, STD_INPUT_HANDLE};
+        use windows_sys::Win32::System::Console::ENABLE_ECHO_INPUT;
 
         let handle = std_input_handle();
         if handle.is_null() {

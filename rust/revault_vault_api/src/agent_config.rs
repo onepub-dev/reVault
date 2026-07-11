@@ -121,6 +121,7 @@ fn default_config_path() -> Option<PathBuf> {
     home_dir().map(|home| home.join(".config").join("lockbox").join("config.toml"))
 }
 
+#[cfg(not(windows))]
 fn home_dir() -> Option<PathBuf> {
     env::var("HOME").ok().map(PathBuf::from)
 }

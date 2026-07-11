@@ -151,14 +151,13 @@ fn terminate_process(pid: u32) -> io::Result<()> {
 
 #[cfg(windows)]
 fn terminate_process(pid: u32) -> io::Result<()> {
-    use std::ptr::null_mut;
     use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
     use windows_sys::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
 
     // SAFETY: `OpenProcess` receives a PID supplied by the same-user agent
     // transport and returns an owned process handle on success.
     let handle = unsafe { OpenProcess(PROCESS_TERMINATE, 0, pid) };
-    if handle == INVALID_HANDLE_VALUE || handle == null_mut() {
+    if handle == INVALID_HANDLE_VALUE || handle.is_null() {
         return Err(io::Error::last_os_error());
     }
     // SAFETY: `handle` is a valid process handle opened for termination.

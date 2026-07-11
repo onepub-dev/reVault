@@ -1059,8 +1059,3 @@ fn set_private_key_permissions(path: &str) -> CliResult<()> {
     fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
     Ok(())
 }
-
-#[cfg(not(unix))]
-fn set_private_key_permissions(_path: &str) -> CliResult<()> {
-    Ok(())
-}

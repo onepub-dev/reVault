@@ -145,15 +145,15 @@ fn try_acquire(
     let mut file = match OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(&lock_path)
+        .open(lock_path)
     {
         Ok(file) => file,
         Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-            if lock_file_is_stale(&lock_path) {
-                let _ = fs::remove_file(&lock_path);
+            if lock_file_is_stale(lock_path) {
+                let _ = fs::remove_file(lock_path);
                 return Err(AcquireFailure::Busy(None));
             }
-            return Err(AcquireFailure::Busy(read_owner_metadata(&lock_path)));
+            return Err(AcquireFailure::Busy(read_owner_metadata(lock_path)));
         }
         Err(err) => {
             return Err(AcquireFailure::Io(format!(

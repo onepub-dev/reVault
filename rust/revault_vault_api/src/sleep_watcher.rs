@@ -66,7 +66,7 @@ impl SleepWatcher {
         platform::spawn_handler(Box::new(handler))
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     pub(crate) fn drain(&self) -> Vec<SleepEvent> {
         let mut events = Vec::new();
         while let Ok(event) = self.receiver.try_recv() {
@@ -80,7 +80,7 @@ impl SleepWatcher {
         self.receiver.recv()
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, unix))]
     pub(crate) fn from_events(events: impl IntoIterator<Item = SleepEvent>) -> Self {
         let (sender, receiver) = mpsc::channel();
         for event in events {
@@ -473,6 +473,10 @@ mod platform {
         loop {
             thread::park();
         }
+        // SAFETY: This cleanup is unreachable while the callback registration
+        // is active. If the loop gains an exit path, `registration` and
+        // `context` are still the owned values created above and must each be
+        // released exactly once here.
         #[allow(unreachable_code)]
         unsafe {
             UnregisterSuspendResumeNotification(registration);
@@ -488,6 +492,9 @@ mod platform {
         if context.is_null() {
             return 0;
         }
+        // SAFETY: `context` is the boxed `Sender<SleepEvent>` registered with
+        // `RegisterSuspendResumeNotification` and remains allocated for the
+        // lifetime of the notification callback.
         let sender = unsafe { &*(context.cast::<Sender<SleepEvent>>()) };
         match event_type {
             PBT_APMSUSPEND => {
