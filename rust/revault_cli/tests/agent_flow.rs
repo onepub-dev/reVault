@@ -38,6 +38,7 @@ fn open_populates_cache_and_close_clears_it() {
     );
     if String::from_utf8_lossy(&open.stderr).contains("lockbox session agent did not start") {
         eprintln!("skipping session agent cache assertions: lockbox session agent did not start");
+        stop_agent(bin, &agent_dir, &vault_dir);
         return;
     }
     assert!(
@@ -133,6 +134,18 @@ fn open_populates_cache_and_close_clears_it() {
     assert!(session.contains("Default lockbox:"));
     assert!(session.contains("Open lockboxes:"));
     assert!(session.contains("none"));
+    stop_agent(bin, &agent_dir, &vault_dir);
+}
+
+fn stop_agent(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf) {
+    let output = run_output(bin, agent_dir, vault_dir, &["session", "stop"]);
+    assert!(
+        output.status.success(),
+        "command failed: {bin} session stop\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 fn assert_agent_log_contains(agent_dir: &Path, expected: &str) {
