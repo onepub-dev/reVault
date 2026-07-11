@@ -148,6 +148,7 @@ pub fn stop_systemd() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
+    require_root("doctor")?;
     let installed = Path::new(UNIT_PATH).exists();
     let enabled = systemctl_state(&["is-enabled", "revault_key_server.service"]);
     let active = systemctl_state(&["is-active", "revault_key_server.service"]);
@@ -156,7 +157,7 @@ pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
     let exec_start = systemctl_show("ExecStart");
     let (service_log, log_source) = configured_service_log_file();
 
-    println!("reVault key server doctor v{}", env!("CARGO_PKG_VERSION"));
+    println!("reVault key server v{}", env!("CARGO_PKG_VERSION"));
     println!();
     println!("Service");
     println!("  Installed: {}", yes_no(installed));
@@ -386,7 +387,11 @@ fn require_root(command: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn sudo_command(executable: &str, command: &str) -> String {
-    format!("sudo {executable} {command}")
+    if command == "install" {
+        "sudo revault_key_server install".to_string()
+    } else {
+        format!("sudo {executable} {command}")
+    }
 }
 
 #[cfg(unix)]
@@ -579,10 +584,18 @@ mod tests {
     };
 
     #[test]
-    fn privileged_command_uses_the_actual_binary_path() {
+    fn install_command_uses_the_system_path() {
         assert_eq!(
             sudo_command("/home/alice/.cargo/bin/revault_key_server", "install"),
-            "sudo /home/alice/.cargo/bin/revault_key_server install"
+            "sudo revault_key_server install"
+        );
+    }
+
+    #[test]
+    fn other_privileged_commands_keep_the_actual_binary_path() {
+        assert_eq!(
+            sudo_command("/usr/local/bin/revault_key_server", "doctor"),
+            "sudo /usr/local/bin/revault_key_server doctor"
         );
     }
 
