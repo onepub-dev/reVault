@@ -923,7 +923,7 @@ mod tests {
     }
 
     fn unique_test_dir(label: &str) -> PathBuf {
-        env::temp_dir().join(format!(
+        PathBuf::from("/tmp").join(format!(
             "lockbox-agent-{label}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
