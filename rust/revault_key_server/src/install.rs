@@ -143,9 +143,15 @@ fn ensure_user() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn run(command: &str, args: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
-    let status = Command::new(command).args(args).status()?;
-    if !status.success() {
-        return Err(format!("{command} failed with {status}").into());
+    let output = Command::new(command).args(args).output()?;
+    if !output.status.success() {
+        let detail = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let detail = if detail.is_empty() {
+            format!("exit status {}", output.status)
+        } else {
+            detail
+        };
+        return Err(format!("{command} failed: {detail}").into());
     }
     Ok(())
 }
