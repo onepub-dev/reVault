@@ -19,7 +19,7 @@ const LOG_FILE: &str = "/var/log/revault-key-server/server.log";
 const USER: &str = "revault-publish";
 
 pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Error>> {
-    require_root()?;
+    require_root("install")?;
     let user_created = ensure_user()?;
     if user_created {
         println!("created service account: {USER}");
@@ -64,7 +64,12 @@ fn install_binary() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn uninstall_systemd(purge_data: bool) -> Result<(), Box<dyn std::error::Error>> {
-    require_root()?;
+    let command = if purge_data {
+        "uninstall --purge-data"
+    } else {
+        "uninstall"
+    };
+    require_root(command)?;
     let _ = run("systemctl", &["stop", "revault_key_server.service"]);
     let _ = run("systemctl", &["disable", "revault_key_server.service"]);
     if Path::new(UNIT_PATH).exists() {
@@ -82,12 +87,14 @@ pub fn uninstall_systemd(purge_data: bool) -> Result<(), Box<dyn std::error::Err
 }
 
 pub fn start_systemd() -> Result<(), Box<dyn std::error::Error>> {
+    require_root("start")?;
     run("systemctl", &["start", "revault_key_server.service"])?;
     println!("reVault key server started");
     Ok(())
 }
 
 pub fn stop_systemd() -> Result<(), Box<dyn std::error::Error>> {
+    require_root("stop")?;
     run("systemctl", &["stop", "revault_key_server.service"])?;
     println!("reVault key server stopped");
     Ok(())
@@ -188,11 +195,22 @@ fn systemctl_show(property: &str) -> String {
     .unwrap_or_else(|| "not available".to_string())
 }
 
-fn require_root() -> Result<(), Box<dyn std::error::Error>> {
+fn require_root(command: &str) -> Result<(), Box<dyn std::error::Error>> {
     if unsafe { libc_geteuid() } != 0 {
-        return Err("install/uninstall must be run as root".into());
+        let executable = std::env::current_exe()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|_| "revault_key_server".to_string());
+        return Err(format!(
+            "`{command}` requires administrator privileges. Run:\n  {}",
+            sudo_command(&executable, command)
+        )
+        .into());
     }
     Ok(())
+}
+
+fn sudo_command(executable: &str, command: &str) -> String {
+    format!("sudo {executable} {command}")
 }
 
 #[cfg(unix)]
@@ -362,7 +380,15 @@ WantedBy=multi-user.target
 
 #[cfg(test)]
 mod tests {
-    use super::{default_config, unit_file, CONFIG_PATH, LOG_FILE};
+    use super::{default_config, sudo_command, unit_file, CONFIG_PATH, LOG_FILE};
+
+    #[test]
+    fn privileged_command_uses_the_actual_binary_path() {
+        assert_eq!(
+            sudo_command("/home/alice/.cargo/bin/revault_key_server", "install"),
+            "sudo /home/alice/.cargo/bin/revault_key_server install"
+        );
+    }
 
     #[test]
     fn unit_runs_from_config_and_restarts_on_boot_failures() {
