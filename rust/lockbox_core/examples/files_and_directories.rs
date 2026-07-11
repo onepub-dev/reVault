@@ -22,7 +22,7 @@ fn main() -> lockbox_core::Result<()> {
     lockbox.add_file_from_path(&host_file, &path("/docs/host-note.txt")?, false)?;
     lockbox.commit()?;
 
-    let opened = Lockbox::open_file(&lockbox_file, LockboxOpen::Password(&pass_phrase))?;
+    let opened = Lockbox::open(&lockbox_file, LockboxOpen::Password(&pass_phrase))?;
     for entry in opened.list(ListOptions {
         recursive: true,
         ..ListOptions::new(&path("/docs")?)

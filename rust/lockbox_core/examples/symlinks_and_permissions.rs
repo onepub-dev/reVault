@@ -22,7 +22,7 @@ fn main() -> lockbox_core::Result<()> {
     lockbox.add_symlink(&path("/bin/current")?, &path("/bin/tool.sh")?, false)?;
     lockbox.commit()?;
 
-    let opened = Lockbox::open_file(&lockbox_file, LockboxOpen::Password(&pass_phrase))?;
+    let opened = Lockbox::open(&lockbox_file, LockboxOpen::Password(&pass_phrase))?;
     println!(
         "/bin/tool.sh permissions: {:o}",
         opened

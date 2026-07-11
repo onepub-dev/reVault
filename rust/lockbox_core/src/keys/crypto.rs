@@ -1,7 +1,7 @@
-use chacha20poly1305::aead::{Aead, AeadInPlace, KeyInit, Payload};
+use chacha20poly1305::aead::{Aead, AeadInOut, KeyInit, Payload};
 use chacha20poly1305::Tag;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
-use getrandom::getrandom;
+use getrandom::fill as getrandom;
 use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
 
@@ -14,12 +14,12 @@ pub(crate) fn seal_with_random_nonce(
     aad: &[u8],
 ) -> Result<([u8; 12], Vec<u8>)> {
     let mut content_key = derive_content_key(key);
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(&content_key));
+    let cipher = ChaCha20Poly1305::new(&Key::from(content_key));
     content_key.zeroize();
     let mut nonce = [0u8; 12];
     getrandom(&mut nonce).map_err(|err| Error::Io(err.to_string()))?;
     let ciphertext = cipher
-        .encrypt(Nonce::from_slice(&nonce), Payload { msg: payload, aad })
+        .encrypt(&Nonce::from(nonce), Payload { msg: payload, aad })
         .map_err(|_| Error::SecurityLimitExceeded("encryption failed".to_string()))?;
     Ok((nonce, ciphertext))
 }
@@ -34,10 +34,11 @@ pub(crate) fn open_with_nonce(
         return Err(Error::CorruptRecord);
     }
     let mut content_key = derive_content_key(key);
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(&content_key));
+    let cipher = ChaCha20Poly1305::new(&Key::from(content_key));
     content_key.zeroize();
+    let nonce = Nonce::try_from(nonce).map_err(|_| Error::CorruptRecord)?;
     cipher
-        .decrypt(Nonce::from_slice(nonce), Payload { msg: payload, aad })
+        .decrypt(&nonce, Payload { msg: payload, aad })
         .map_err(|_| Error::InvalidKey)
 }
 
@@ -53,13 +54,14 @@ pub(crate) fn open_with_content_key_secure(
     if payload.len() < 16 {
         return Err(Error::CorruptRecord);
     }
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(content_key));
+    let cipher = ChaCha20Poly1305::new(&Key::from(*content_key));
+    let nonce = Nonce::try_from(nonce).map_err(|_| Error::CorruptRecord)?;
     payload.with_mut_bytes(|bytes| {
         let tag_offset = bytes.len() - 16;
         let (message, tag_bytes) = bytes.split_at_mut(tag_offset);
-        let tag = Tag::clone_from_slice(tag_bytes);
+        let tag = Tag::try_from(&*tag_bytes).map_err(|_| Error::CorruptRecord)?;
         cipher
-            .decrypt_in_place_detached(Nonce::from_slice(nonce), aad, message, &tag)
+            .decrypt_inout_detached(&nonce, aad, message.into(), &tag)
             .map_err(|_| Error::InvalidKey)
     })??;
     payload.truncate(payload.len() - 16)?;
@@ -71,12 +73,12 @@ pub(crate) fn seal_with_content_key_secure(
     content_key: &[u8; 32],
     aad: &[u8],
 ) -> Result<[u8; 12]> {
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(content_key));
+    let cipher = ChaCha20Poly1305::new(&Key::from(*content_key));
     let mut nonce = [0u8; 12];
     getrandom(&mut nonce).map_err(|err| Error::Io(err.to_string()))?;
     let tag = payload.with_mut_bytes(|bytes| {
         cipher
-            .encrypt_in_place_detached(Nonce::from_slice(&nonce), aad, bytes)
+            .encrypt_inout_detached(&Nonce::from(nonce), aad, bytes.into())
             .map_err(|_| Error::SecurityLimitExceeded("encryption failed".to_string()))
     })?;
     let tag = tag?;

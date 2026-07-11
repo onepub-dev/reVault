@@ -52,7 +52,7 @@ impl ContactKeyPair {
     /// stored in secure memory.
     pub fn generate() -> Result<Self> {
         let mut x25519_secret_bytes = [0_u8; X25519_KEY_LEN];
-        getrandom::getrandom(&mut x25519_secret_bytes).map_err(|err| Error::Io(err.to_string()))?;
+        getrandom::fill(&mut x25519_secret_bytes).map_err(|err| Error::Io(err.to_string()))?;
         let x25519_secret_key = X25519SecretKey::from(x25519_secret_bytes);
         let x25519_public_key = X25519PublicKey::from(&x25519_secret_key).to_bytes();
         x25519_secret_bytes.zeroize();
@@ -97,12 +97,9 @@ impl ContactKeyPair {
 
             let mut wrapping_key =
                 derive_wrapping_key(x25519_secret.as_bytes(), mlkem_secret.as_ref())?;
-            let cipher = ChaCha20Poly1305::new(Key::from_slice(&wrapping_key));
+            let cipher = ChaCha20Poly1305::new(&Key::from(wrapping_key));
             let key = cipher
-                .decrypt(
-                    Nonce::from_slice(&[0_u8; 12]),
-                    wrapped.encrypted_key.as_ref(),
-                )
+                .decrypt(&Nonce::from([0_u8; 12]), wrapped.encrypted_key.as_ref())
                 .map_err(|_| Error::InvalidKey);
             wrapping_key.zeroize();
             key
@@ -175,8 +172,7 @@ impl ContactPublicKey {
     /// Returns `Error::InvalidKey` if authenticated wrapping fails.
     pub fn encrypt(&self, content_key: &[u8]) -> Result<ContactWrappedKey> {
         let mut ephemeral_secret_bytes = [0_u8; X25519_KEY_LEN];
-        getrandom::getrandom(&mut ephemeral_secret_bytes)
-            .map_err(|err| Error::Io(err.to_string()))?;
+        getrandom::fill(&mut ephemeral_secret_bytes).map_err(|err| Error::Io(err.to_string()))?;
         let ephemeral_secret = X25519SecretKey::from(ephemeral_secret_bytes);
         ephemeral_secret_bytes.zeroize();
         let x25519_ephemeral_public_key = X25519PublicKey::from(&ephemeral_secret).to_bytes();
@@ -187,9 +183,9 @@ impl ContactPublicKey {
 
         let mut wrapping_key =
             derive_wrapping_key(x25519_secret.as_bytes(), mlkem_secret.as_ref())?;
-        let cipher = ChaCha20Poly1305::new(Key::from_slice(&wrapping_key));
+        let cipher = ChaCha20Poly1305::new(&Key::from(wrapping_key));
         let encrypted_key = cipher
-            .encrypt(Nonce::from_slice(&[0_u8; 12]), content_key)
+            .encrypt(&Nonce::from([0_u8; 12]), content_key)
             .map_err(|_| Error::InvalidKey)?;
         wrapping_key.zeroize();
         Ok(ContactWrappedKey {

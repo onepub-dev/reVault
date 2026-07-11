@@ -12,7 +12,7 @@ impl LockboxId {
     /// Returns `Error::Io` if the system random source fails.
     pub fn new_random() -> Result<Self> {
         let mut bytes = [0u8; 16];
-        getrandom::getrandom(&mut bytes).map_err(|err| Error::Io(err.to_string()))?;
+        getrandom::fill(&mut bytes).map_err(|err| Error::Io(err.to_string()))?;
         bytes[6] = (bytes[6] & 0x0f) | 0x40;
         bytes[8] = (bytes[8] & 0x3f) | 0x80;
         Ok(Self(bytes))

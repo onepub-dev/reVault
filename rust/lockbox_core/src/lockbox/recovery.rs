@@ -129,6 +129,7 @@ fn recover_bytes(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> RecoveryReport {
         let complete = match entry.node_kind {
             NodeKind::File => read_page_file_bytes(&scanner, entry).is_ok(),
             NodeKind::Symlink => recover_symlink_target(&scanner, entry).is_ok(),
+            NodeKind::Directory => true,
         };
         if complete {
             intact_file_count += 1;
@@ -193,8 +194,19 @@ fn salvage_bytes(
     }
     attach_scanned_file_segments(&mut latest_paths, &scanned_segments);
 
+    for entry in latest_paths
+        .values()
+        .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::Directory)
+    {
+        recovered.create_dir(&entry.path, true)?;
+        recovered.set_permissions(&entry.path, entry.permissions)?;
+    }
+
     for entry in latest_paths.values() {
         if entry.deleted {
+            continue;
+        }
+        if entry.node_kind == NodeKind::Directory {
             continue;
         }
         let record = if entry.record_object_id == 0 {
@@ -206,6 +218,7 @@ fn salvage_bytes(
             match record.header.kind {
                 RecordKind::FilePage => {
                     if let Ok(file_bytes) = read_page_file_bytes(&scanner, entry) {
+                        recovered.create_parent_dirs_for(&entry.path)?;
                         recovered.add_file_with_permissions(
                             &entry.path,
                             &file_bytes,
@@ -216,6 +229,7 @@ fn salvage_bytes(
                 }
                 RecordKind::Symlink => {
                     if let Ok((path, target)) = decode_symlink_payload(&record.payload) {
+                        recovered.create_parent_dirs_for(&path)?;
                         recovered.add_symlink(&path, &target, false)?;
                     }
                 }
@@ -233,6 +247,7 @@ fn salvage_bytes(
             recovered.set_form_definition_value(key, definition)?;
         }
         for (path, record) in forms.records {
+            recovered.create_parent_dirs_for(&path)?;
             recovered.set_form_record_value(path, record)?;
         }
     }

@@ -37,6 +37,7 @@ pub struct FormDefinition {
     pub alias: String,
     pub revision: u32,
     pub name: String,
+    pub description: String,
     pub fields: Vec<FormFieldDefinition>,
 }
 
@@ -141,6 +142,11 @@ pub(crate) fn validate_form_field_id(value: &str) -> Result<String> {
 
 pub(crate) fn validate_form_label(value: &str, description: &str) -> Result<String> {
     validate_text(value, description)?;
+    Ok(value.to_string())
+}
+
+pub(crate) fn validate_form_description(value: &str) -> Result<String> {
+    validate_text(value, "form description")?;
     Ok(value.to_string())
 }
 

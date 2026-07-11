@@ -38,8 +38,8 @@ impl OwnerSigningKeyPair {
     pub fn generate() -> Result<Self> {
         let mut ed25519_seed = [0_u8; ED25519_SEED_LEN];
         let mut ml_dsa65_seed = [0_u8; ML_DSA_SEED_LEN];
-        getrandom::getrandom(&mut ed25519_seed).map_err(|err| Error::Io(err.to_string()))?;
-        getrandom::getrandom(&mut ml_dsa65_seed).map_err(|err| Error::Io(err.to_string()))?;
+        getrandom::fill(&mut ed25519_seed).map_err(|err| Error::Io(err.to_string()))?;
+        getrandom::fill(&mut ml_dsa65_seed).map_err(|err| Error::Io(err.to_string()))?;
         Self::from_seeds(ed25519_seed, ml_dsa65_seed)
     }
 

@@ -19,7 +19,7 @@ fn main() -> lockbox_core::Result<()> {
     lockbox.set_secret_variable(&variable("API_TOKEN")?, &api_token)?;
     lockbox.commit()?;
 
-    let opened = Lockbox::open_file(&lockbox_file, LockboxOpen::Password(&pass_phrase))?;
+    let opened = Lockbox::open(&lockbox_file, LockboxOpen::Password(&pass_phrase))?;
     opened.visit_variables(|name, value| {
         match value {
             VariableValueRef::Normal(value) => println!("{name}={value}"),

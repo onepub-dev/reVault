@@ -1,11 +1,15 @@
-use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion};
+use std::hint::black_box;
+
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use lockbox_core::{
-    ExtractPolicy, FormFieldDefinition, FormFieldKind, ListOptions, Lockbox, LockboxPath,
-    LockboxProtection, OwnerSigningKeyPair, SecretString, SecretVec, VariableName,
+    ContentStreamOptions, ContentStreamOrder, ExtractPolicy, FormFieldDefinition, FormFieldKind,
+    ListOptions, Lockbox, LockboxPath, LockboxProtection, OpenFileOptions, OwnerSigningKeyPair,
+    SecretString, SecretVec, VariableName,
 };
 use lockbox_secure::read_access as secure_read_access;
 use std::fs;
-use std::io::{sink, Read, Result as IoResult};
+use std::io::{copy, sink, Read, Result as IoResult, Seek, SeekFrom, Write};
+use std::ops::{Deref, DerefMut};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -170,6 +174,122 @@ fn bench_large_file(c: &mut Criterion) {
                 .unwrap();
             black_box(data.len());
         });
+    });
+
+    group.finish();
+}
+
+fn bench_file_handle_api(c: &mut Criterion) {
+    let mut group = c.benchmark_group("file_handle_api");
+    group.sample_size(10);
+
+    let mut lockbox = new_lockbox();
+    lockbox
+        .add_file_from_reader(
+            &p("/large/blob.bin"),
+            PatternReader::new(16 * 1024 * 1024, Pattern::Randomish),
+            false,
+        )
+        .unwrap();
+    lockbox.commit().unwrap();
+
+    group.bench_function("reader_sequential_16m", |b| {
+        b.iter(|| {
+            let mut file = lockbox.open_file(&p("/large/blob.bin")).unwrap();
+            let copied = copy(&mut file, &mut sink()).unwrap();
+            black_box(copied);
+        });
+    });
+
+    group.bench_function("reader_seek_read_1m_middle", |b| {
+        b.iter_batched(
+            || vec![0u8; 1024 * 1024],
+            |mut buffer| {
+                let mut file = lockbox.open_file(&p("/large/blob.bin")).unwrap();
+                file.seek(SeekFrom::Start(8 * 1024 * 1024)).unwrap();
+                file.read_exact(&mut buffer).unwrap();
+                black_box(buffer[0]);
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
+    group.bench_function("stream_content_logical_16m", |b| {
+        b.iter(|| {
+            let mut copied = 0u64;
+            lockbox
+                .stream_content(ContentStreamOptions::default(), |_, reader| {
+                    copied += copy(reader, &mut sink()).unwrap();
+                    Ok(())
+                })
+                .unwrap();
+            black_box(copied);
+        });
+    });
+
+    group.bench_function("stream_content_physical_16m", |b| {
+        b.iter(|| {
+            let mut copied = 0u64;
+            lockbox
+                .stream_content(
+                    ContentStreamOptions {
+                        order: ContentStreamOrder::Physical,
+                    },
+                    |_, reader| {
+                        copied += copy(reader, &mut sink()).unwrap();
+                        Ok(())
+                    },
+                )
+                .unwrap();
+            black_box(copied);
+        });
+    });
+
+    group.bench_function("partial_write_flush_16m", |b| {
+        b.iter_batched(
+            || {
+                let mut lockbox = new_lockbox();
+                lockbox
+                    .add_file_from_reader(
+                        &p("/large/blob.bin"),
+                        PatternReader::new(16 * 1024 * 1024, Pattern::Randomish),
+                        false,
+                    )
+                    .unwrap();
+                lockbox.commit().unwrap();
+                lockbox
+            },
+            |mut lockbox| {
+                let mut file = lockbox
+                    .open_file_for_write(&p("/large/blob.bin"), OpenFileOptions::existing())
+                    .unwrap();
+                file.seek(SeekFrom::Start(8 * 1024 * 1024 + 31)).unwrap();
+                file.write_all(black_box(b"patched-range")).unwrap();
+                file.flush().unwrap();
+                drop(file);
+                lockbox.commit().unwrap();
+                black_box(lockbox.inspector().storage_len().unwrap() as usize);
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
+    group.bench_function("sparse_write_flush_16m_gap", |b| {
+        b.iter_batched(
+            new_lockbox,
+            |mut lockbox| {
+                let mut file = lockbox
+                    .open_file_for_write(&p("/sparse.bin"), OpenFileOptions::create())
+                    .unwrap();
+                file.write_all(black_box(b"head")).unwrap();
+                file.seek(SeekFrom::Start(16 * 1024 * 1024)).unwrap();
+                file.write_all(black_box(b"tail")).unwrap();
+                file.close().unwrap();
+                lockbox.commit().unwrap();
+                black_box(lockbox.inspector().storage_len().unwrap() as usize);
+            },
+            BatchSize::SmallInput,
+        );
     });
 
     group.finish();
@@ -379,7 +499,7 @@ fn bench_metadata_operations(c: &mut Criterion) {
     group.finish();
 }
 
-fn prepared_forms_lockbox(items: usize) -> Lockbox {
+fn prepared_forms_lockbox(items: usize) -> BenchLockbox {
     let mut lockbox = new_lockbox();
     lockbox
         .define_form(
@@ -492,7 +612,7 @@ fn bench_secure_string_store(c: &mut Criterion) {
     group.finish();
 }
 
-fn prepared_small_lockbox(files: usize, file_size: usize) -> Lockbox {
+fn prepared_small_lockbox(files: usize, file_size: usize) -> BenchLockbox {
     let payload = vec![b'x'; file_size];
     let mut lockbox = new_lockbox();
     for i in 0..files {
@@ -504,17 +624,47 @@ fn prepared_small_lockbox(files: usize, file_size: usize) -> Lockbox {
     lockbox
 }
 
-fn new_lockbox() -> Lockbox {
+fn new_lockbox() -> BenchLockbox {
     let index = LOCKBOX_COUNTER.fetch_add(1, Ordering::Relaxed);
     let path =
         std::env::temp_dir().join(format!("lockbox-bench-{}-{index}.lbx", std::process::id()));
     let _ = fs::remove_file(&path);
-    Lockbox::create_file(
+    let lockbox = Lockbox::create_file(
         &path,
         LockboxProtection::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
         &signing_key(),
     )
-    .unwrap()
+    .unwrap();
+    BenchLockbox {
+        lockbox: Some(lockbox),
+        path,
+    }
+}
+
+struct BenchLockbox {
+    lockbox: Option<Lockbox>,
+    path: PathBuf,
+}
+
+impl Deref for BenchLockbox {
+    type Target = Lockbox;
+
+    fn deref(&self) -> &Self::Target {
+        self.lockbox.as_ref().unwrap()
+    }
+}
+
+impl DerefMut for BenchLockbox {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.lockbox.as_mut().unwrap()
+    }
+}
+
+impl Drop for BenchLockbox {
+    fn drop(&mut self) {
+        drop(self.lockbox.take());
+        let _ = fs::remove_file(&self.path);
+    }
 }
 
 fn add_mixed_tree(lockbox: &mut Lockbox) {
@@ -627,6 +777,7 @@ criterion_group!(
     bench_small_files,
     bench_mixed_tree,
     bench_large_file,
+    bench_file_handle_api,
     bench_append_delete,
     bench_toc_structure,
     bench_metadata_operations,

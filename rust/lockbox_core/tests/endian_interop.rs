@@ -1,23 +1,11 @@
-use lockbox_core::{
-    ListOptions, Lockbox, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
-    SecretVec, VariableName,
-};
+mod common;
+
+use common::{p, signing_key, variable};
+use lockbox_core::{ListOptions, Lockbox, LockboxOpen, LockboxProtection, SecretVec};
 use std::io::{Read, Result as IoResult};
 use std::path::{Path, PathBuf};
 
 const KEY: &[u8] = b"lockbox endian interoperability key";
-
-fn p(path: impl AsRef<str>) -> LockboxPath {
-    LockboxPath::new(path).unwrap()
-}
-
-fn variable(name: impl AsRef<str>) -> VariableName {
-    VariableName::new(name).unwrap()
-}
-
-fn signing_key() -> OwnerSigningKeyPair {
-    OwnerSigningKeyPair::generate().unwrap()
-}
 
 #[test]
 #[ignore = "CI-only architecture/endian artifact transfer test"]
@@ -87,7 +75,7 @@ fn create_fixture(path: &Path) {
 }
 
 fn verify_fixture(path: &Path) {
-    let lockbox = Lockbox::open_file(
+    let lockbox = Lockbox::open(
         path,
         LockboxOpen::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
     )

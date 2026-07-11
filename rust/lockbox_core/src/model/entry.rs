@@ -5,6 +5,8 @@ pub enum LockboxEntryKind {
     File,
     /// Symbolic link record.
     Symlink,
+    /// Directory record.
+    Directory,
 }
 
 /// Metadata returned by lockbox listing and stat APIs.
@@ -18,7 +20,7 @@ pub struct LockboxEntry {
     pub path: LockboxPath,
     /// Node kind.
     pub kind: LockboxEntryKind,
-    /// File length in bytes. Symlink entries report zero.
+    /// File length in bytes. Symlink and directory entries report zero.
     pub len: u64,
     /// Stored Unix-style permission bits.
     pub permissions: u32,

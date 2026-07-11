@@ -896,9 +896,14 @@ offset  size  field
 n       m     alias as 16-bit unsigned little-endian length-prefixed UTF-8 string
 ...     4     revision
 ...     n     display name as 16-bit unsigned little-endian length-prefixed UTF-8 string
+...     2     optional description marker: 0xffff when a description follows
+...     n     description as 16-bit unsigned little-endian length-prefixed UTF-8 string
 ...     4     field count
 ...     n     field definitions
 ```
+
+Form definitions written before descriptions omit the marker and description; in
+that case the field count follows the display name directly.
 
 Each field definition is:
 

@@ -4,9 +4,9 @@ use std::sync::Arc;
 use crate::checked::{read_u16_le, read_u32_le};
 use crate::constants::DEFAULT_METADATA_MAX_PAGE_BODY_BYTES;
 use crate::form::{
-    validate_form_alias, validate_form_field_id, validate_form_label, validate_form_record_name,
-    validate_form_value, FormDefinition, FormFieldDefinition, FormFieldKind, FormFieldValue,
-    FormRecord, FormTypeId, FormValue,
+    validate_form_alias, validate_form_description, validate_form_field_id, validate_form_label,
+    validate_form_record_name, validate_form_value, FormDefinition, FormFieldDefinition,
+    FormFieldKind, FormFieldValue, FormRecord, FormTypeId, FormValue,
 };
 use crate::page_tree::{
     decode_page_tree_children, encode_page_tree_children, group_by_encoded_size,
@@ -23,6 +23,7 @@ const ENTRY_COUNT_BYTES: usize = 4;
 const CHILD_COUNT_BYTES: usize = 4;
 const ENTRY_DEFINITION: u8 = 1;
 const ENTRY_RECORD: u8 = 2;
+const FORM_DEFINITION_DESCRIPTION_MARKER: u16 = u16::MAX;
 const VALUE_NORMAL: u8 = 0;
 const VALUE_SECRET: u8 = 1;
 
@@ -334,6 +335,8 @@ fn encode_definition_secure(out: &mut SecureVec, definition: &FormDefinition) ->
     put_string_secure(out, &definition.alias)?;
     out.try_extend_from_slice(&definition.revision.to_le_bytes())?;
     put_string_secure(out, &definition.name)?;
+    out.try_extend_from_slice(&FORM_DEFINITION_DESCRIPTION_MARKER.to_le_bytes())?;
+    put_string_secure(out, &definition.description)?;
     out.try_extend_from_slice(&(definition.fields.len() as u32).to_le_bytes())?;
     for field in &definition.fields {
         put_string_secure(out, &field.id)?;
@@ -351,6 +354,12 @@ fn decode_definition(reader: &mut Reader<'_>) -> Result<FormDefinition> {
         return Err(Error::CorruptRecord);
     }
     let name = validate_form_label(&reader.string()?, "form name")?;
+    let description = if reader.peek_u16()? == FORM_DEFINITION_DESCRIPTION_MARKER {
+        reader.skip_u16()?;
+        validate_form_description(&reader.string()?)?
+    } else {
+        String::new()
+    };
     let count = reader.u32()? as usize;
     let mut fields = Vec::with_capacity(count);
     for _ in 0..count {
@@ -370,6 +379,7 @@ fn decode_definition(reader: &mut Reader<'_>) -> Result<FormDefinition> {
         alias,
         revision,
         name,
+        description,
         fields,
     })
 }
@@ -481,6 +491,9 @@ fn definition_encoded_len(definition: &FormDefinition) -> usize {
         + 4
         + 2
         + definition.name.len()
+        + 2
+        + 2
+        + definition.description.len()
         + 4
         + definition
             .fields
@@ -553,6 +566,19 @@ impl<'a> Reader<'a> {
         let value = read_u32_le(&self.bytes[self.offset..self.offset + 4])?;
         self.offset += 4;
         Ok(value)
+    }
+
+    fn peek_u16(&self) -> Result<u16> {
+        if self.offset + 2 > self.bytes.len() {
+            return Err(Error::CorruptRecord);
+        }
+        read_u16_le(&self.bytes[self.offset..self.offset + 2])
+    }
+
+    fn skip_u16(&mut self) -> Result<()> {
+        self.peek_u16()?;
+        self.offset += 2;
+        Ok(())
     }
 
     fn string(&mut self) -> Result<String> {

@@ -1,10 +1,10 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::{Cursor, Read, Write};
+use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use super::Lockbox;
+use super::{Lockbox, Writable};
 use crate::compression::{
     decode_compression_frame, encode_compression_frame_with_level,
     validate_compression_frame_lengths, COMPRESSION_NONE, ZSTD_BULK_IMPORT_LEVEL,
@@ -34,6 +34,101 @@ const BULK_IMPORT_SMALL_FILE_COMPRESSION_FRAME_BYTES: usize = 2 * 1024 * 1024;
 const FILE_COMPRESSION_FRAME_BYTES: usize = 2 * 1024 * 1024;
 const MAX_SEGMENT_BYTES: usize = DEFAULT_MAX_PAGE_BODY_BYTES - 64 * 1024;
 const DECODED_COMPRESSION_FRAME_CACHE_BYTES: usize = 64 * 1024 * 1024;
+
+/// Options used when opening a writable file handle inside a lockbox.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OpenFileOptions {
+    /// Create the file if it does not already exist.
+    pub create: bool,
+    /// Truncate the file to zero bytes when it is opened.
+    pub truncate: bool,
+    /// Unix-style permission bits to use for newly-created files.
+    pub permissions: Option<u32>,
+}
+
+impl OpenFileOptions {
+    /// Open an existing file without creating or truncating it.
+    pub const fn existing() -> Self {
+        Self {
+            create: false,
+            truncate: false,
+            permissions: None,
+        }
+    }
+
+    /// Open a file, creating it when it does not already exist.
+    pub const fn create() -> Self {
+        Self {
+            create: true,
+            truncate: false,
+            permissions: None,
+        }
+    }
+
+    /// Open a file, creating it when needed and truncating it to zero bytes.
+    pub const fn create_truncate() -> Self {
+        Self {
+            create: true,
+            truncate: true,
+            permissions: None,
+        }
+    }
+}
+
+impl Default for OpenFileOptions {
+    fn default() -> Self {
+        Self::existing()
+    }
+}
+
+/// Ordering used by `Lockbox::stream_content`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ContentStreamOrder {
+    /// Stream by lockbox path and logical file offset.
+    #[default]
+    Logical,
+    /// Stream stored content chunks by physical page offset where possible.
+    Physical,
+}
+
+/// Options for streaming lockbox file content without extracting to disk.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ContentStreamOptions {
+    pub order: ContentStreamOrder,
+}
+
+/// Metadata for one streamed content range.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContentChunk {
+    pub path: LockboxPath,
+    pub file_offset: u64,
+    pub len: u64,
+    pub physical_offset: Option<u64>,
+    pub sparse: bool,
+}
+
+/// Seekable read handle over a file inside a lockbox.
+pub struct LockboxFileReader<'a, State = Writable> {
+    lockbox: &'a Lockbox<State>,
+    path: LockboxPath,
+    position: u64,
+    len: u64,
+    cache_page_index: Option<u64>,
+    cache_page: Zeroizing<Vec<u8>>,
+}
+
+/// Seekable read/write handle over a file inside a writable lockbox.
+pub struct LockboxFileMut<'a> {
+    lockbox: &'a mut Lockbox<Writable>,
+    path: LockboxPath,
+    position: u64,
+    len: u64,
+    permissions: u32,
+    exists_on_open: bool,
+    truncate_existing: bool,
+    dirty_pages: BTreeMap<u64, Zeroizing<Vec<u8>>>,
+    closed: bool,
+}
 
 impl<State> Lockbox<State> {
     pub(crate) fn rewrite_shared_compression_frames_before_removal(
@@ -165,6 +260,24 @@ impl<State> Lockbox<State> {
         }
     }
 
+    /// Open a seekable read handle over a file inside the lockbox.
+    pub fn open_file(&self, path: &LockboxPath) -> Result<LockboxFileReader<'_, State>> {
+        let path = path.as_file_path()?;
+        let entry = self
+            .toc_entries
+            .get(path)
+            .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
+            .ok_or_else(|| Error::NotFound(path.to_string()))?;
+        Ok(LockboxFileReader {
+            lockbox: self,
+            path: entry.path.clone(),
+            position: 0,
+            len: entry.len,
+            cache_page_index: None,
+            cache_page: Zeroizing::new(Vec::new()),
+        })
+    }
+
     /// Add or replace a file from an in-memory byte slice.
     ///
     /// When `replace` is `false`, returns `Error::AlreadyExists` if `path`
@@ -294,6 +407,7 @@ impl<State> Lockbox<State> {
     ) -> Result<()> {
         let path = path.file_path()?;
         let permissions = validate_permissions(permissions)?;
+        self.ensure_parent_directory(&path)?;
         self.validate_replace_intent(&path, replace)?;
         if self.should_discard_file_pages_after_flush()
             && self.pending_small_files.contains_key(path.as_str())
@@ -538,14 +652,22 @@ impl<State> Lockbox<State> {
         }
 
         if entry.chunks.is_empty() {
-            return Err(Error::CorruptRecord);
+            write_zeroes(&mut writer, entry.len)?;
+            return Ok(());
         }
 
         let mut chunks = entry.chunks.clone();
         chunks.sort_by_key(|chunk| chunk.file_offset);
         let mut written = 0u64;
         for chunk in chunks {
-            if chunk.file_offset != written {
+            if chunk.file_offset < written || chunk.file_offset > entry.len {
+                return Err(Error::CorruptRecord);
+            }
+            if chunk.file_offset > written {
+                write_zeroes(&mut writer, chunk.file_offset - written)?;
+                written = chunk.file_offset;
+            }
+            if chunk.file_offset.saturating_add(chunk.len) > entry.len {
                 return Err(Error::CorruptRecord);
             }
             let decoded_chunk = self.read_file_chunk_compression_frame(entry.len, &chunk)?;
@@ -557,7 +679,9 @@ impl<State> Lockbox<State> {
                 return Err(Error::CorruptRecord);
             }
         }
-        if written != entry.len {
+        if written < entry.len {
+            write_zeroes(&mut writer, entry.len - written)?;
+        } else if written != entry.len {
             return Err(Error::CorruptRecord);
         }
         Ok(())
@@ -576,19 +700,35 @@ impl<State> Lockbox<State> {
         destination: &Path,
         replace: bool,
     ) -> Result<()> {
-        let destination_exists = destination.exists();
-        match (replace, destination_exists) {
-            (false, true) => {
-                return Err(Error::AlreadyExists(destination.display().to_string()));
-            }
-            (true, false) => {
-                return Err(Error::NotFound(destination.display().to_string()));
-            }
-            _ => {}
+        if !replace {
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(destination)
+                .map_err(|err| {
+                    if err.kind() == std::io::ErrorKind::AlreadyExists {
+                        Error::AlreadyExists(destination.display().to_string())
+                    } else {
+                        Error::Io(format!("create {}: {err}", destination.display()))
+                    }
+                })?;
+            return self.extract_file_to_writer(source, &mut file);
         }
-        let mut file = std::fs::File::create(destination)
-            .map_err(|err| Error::Io(format!("create {}: {err}", destination.display())))?;
-        self.extract_file_to_writer(source, &mut file)
+
+        if !destination.exists() {
+            return Err(Error::NotFound(destination.display().to_string()));
+        }
+        let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+        let (temp_path, mut temp_file) = create_single_file_extract_temp(parent)?;
+        let result = self.extract_file_to_writer(source, &mut temp_file);
+        if let Err(err) = result {
+            let _ = std::fs::remove_file(&temp_path);
+            return Err(err);
+        }
+        drop(temp_file);
+        replace_single_file_extract_temp(&temp_path, destination)?;
+        sync_parent_dir(destination)?;
+        Ok(())
     }
 
     /// Return stored Unix-style permissions for a file or symlink.
@@ -627,28 +767,40 @@ impl<State> Lockbox<State> {
             return Ok(pending.data[start..end].to_vec());
         }
 
-        if entry.chunks.is_empty() {
-            return Err(Error::CorruptRecord);
-        }
-
         let capacity = usize::try_from(wanted_end - offset).map_err(|_| {
             Error::SecurityLimitExceeded("requested range exceeds addressable memory".to_string())
         })?;
         let mut out = Vec::with_capacity(capacity);
         let mut chunks = entry.chunks.clone();
         chunks.sort_by_key(|chunk| chunk.file_offset);
+        let mut cursor = offset;
         for chunk in chunks {
             let chunk_start = chunk.file_offset;
             let chunk_end = chunk.file_offset.saturating_add(chunk.len);
+            if chunk_start > chunk_end || chunk_end > entry.len {
+                return Err(Error::CorruptRecord);
+            }
             if chunk_end <= offset || chunk_start >= wanted_end {
                 continue;
+            }
+            if chunk_start > cursor {
+                let zeroes = chunk_start.min(wanted_end) - cursor;
+                out.resize(out.len() + zeroes as usize, 0);
+                cursor = chunk_start.min(wanted_end);
             }
 
             let decoded_chunk = self.read_file_chunk_compression_frame(entry.len, &chunk)?;
 
-            let copy_start = offset.max(chunk_start) - chunk_start;
+            let copy_start = cursor.max(chunk_start) - chunk_start;
             let copy_end = wanted_end.min(chunk_end) - chunk_start;
             out.extend_from_slice(&decoded_chunk[copy_start as usize..copy_end as usize]);
+            cursor = chunk_start + copy_end;
+            if cursor >= wanted_end {
+                break;
+            }
+        }
+        if cursor < wanted_end {
+            out.resize(out.len() + (wanted_end - cursor) as usize, 0);
         }
         Ok(out)
     }
@@ -761,6 +913,7 @@ impl<State> Lockbox<State> {
     ) -> Result<()> {
         let path = path.file_path()?;
         let permissions = validate_permissions(permissions)?;
+        self.ensure_parent_directory(&path)?;
         self.validate_replace_intent(&path, replace)?;
         if let Some(old) = self.toc_entries.get(path.as_str()).cloned() {
             self.free_entry_slots(old)?;
@@ -909,7 +1062,11 @@ impl<State> Lockbox<State> {
     pub(crate) fn pack_small_file_pages(&mut self) -> Result<()> {
         let mut candidates = Vec::new();
         for entry in self.toc_entries.values() {
-            if entry.deleted || entry.node_kind != NodeKind::File || entry.len > 1024 * 1024 {
+            if entry.deleted
+                || entry.node_kind != NodeKind::File
+                || entry.len > 1024 * 1024
+                || entry_has_sparse_ranges(entry)
+            {
                 continue;
             }
             let data = self.get_file(&entry.path)?;
@@ -1121,6 +1278,705 @@ impl<State> Lockbox<State> {
     pub(crate) fn decoded_compression_frame_cache_entries_for_tests(&self) -> usize {
         self.compression_frame_cache.borrow().entries.len()
     }
+
+    /// Stream file content ranges without extracting files to the host filesystem.
+    pub fn stream_content<F>(&self, options: ContentStreamOptions, mut visitor: F) -> Result<()>
+    where
+        F: FnMut(ContentChunk, &mut dyn Read) -> Result<()>,
+    {
+        match options.order {
+            ContentStreamOrder::Logical => {
+                for entry in self.toc_entries.values() {
+                    if entry.deleted || entry.node_kind != NodeKind::File {
+                        continue;
+                    }
+                    if self.pending_small_files.contains_key(&entry.path) {
+                        if entry.len > 0 {
+                            self.visit_content_stream_item(
+                                ContentStreamItem {
+                                    path: entry.path.clone(),
+                                    file_offset: 0,
+                                    len: entry.len,
+                                    total_len: entry.len,
+                                    physical_offset: None,
+                                    sparse: false,
+                                    chunk: None,
+                                },
+                                &mut visitor,
+                            )?;
+                        }
+                        continue;
+                    }
+                    let mut items = Vec::new();
+                    collect_content_stream_items(entry, &mut items)?;
+                    for item in items {
+                        self.visit_content_stream_item(item, &mut visitor)?;
+                    }
+                }
+            }
+            ContentStreamOrder::Physical => {
+                let mut items = Vec::new();
+                for entry in self.toc_entries.values() {
+                    if entry.deleted || entry.node_kind != NodeKind::File {
+                        continue;
+                    }
+                    if self.pending_small_files.contains_key(&entry.path) {
+                        if entry.len > 0 {
+                            items.push(ContentStreamItem {
+                                path: entry.path.clone(),
+                                file_offset: 0,
+                                len: entry.len,
+                                total_len: entry.len,
+                                physical_offset: None,
+                                sparse: false,
+                                chunk: None,
+                            });
+                        }
+                        continue;
+                    }
+                    collect_content_stream_items(entry, &mut items)?;
+                }
+                items.sort_by(|left, right| {
+                    left.physical_offset
+                        .unwrap_or(u64::MAX)
+                        .cmp(&right.physical_offset.unwrap_or(u64::MAX))
+                        .then_with(|| left.path.cmp(&right.path))
+                        .then_with(|| left.file_offset.cmp(&right.file_offset))
+                });
+                for item in items {
+                    self.visit_content_stream_item(item, &mut visitor)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn visit_content_stream_item<F>(&self, item: ContentStreamItem, visitor: &mut F) -> Result<()>
+    where
+        F: FnMut(ContentChunk, &mut dyn Read) -> Result<()>,
+    {
+        let chunk = ContentChunk {
+            path: item.path.clone(),
+            file_offset: item.file_offset,
+            len: item.len,
+            physical_offset: item.physical_offset,
+            sparse: item.sparse,
+        };
+        if item.sparse {
+            let mut reader = ZeroReader {
+                remaining: item.len,
+            };
+            visitor(chunk, &mut reader)?;
+        } else {
+            let data = match item.chunk.as_ref() {
+                Some(chunk) => self.read_file_chunk_compression_frame(item.total_len, chunk)?,
+                None => self.read_file_range(&item.path, item.file_offset, item.len)?,
+            };
+            let mut reader = Cursor::new(data);
+            visitor(chunk, &mut reader)?;
+        }
+        Ok(())
+    }
+}
+
+impl Lockbox<Writable> {
+    /// Open a seekable read/write handle over a file inside the lockbox.
+    pub fn open_file_for_write(
+        &mut self,
+        path: &LockboxPath,
+        options: OpenFileOptions,
+    ) -> Result<LockboxFileMut<'_>> {
+        let path = path.file_path()?;
+        let permissions = validate_permissions(
+            options.permissions.unwrap_or(
+                self.toc_entries
+                    .get(path.as_str())
+                    .filter(|entry| !entry.deleted)
+                    .map(|entry| entry.permissions)
+                    .unwrap_or(DEFAULT_FILE_PERMISSIONS),
+            ),
+        )?;
+        let existing = self
+            .toc_entries
+            .get(path.as_str())
+            .filter(|entry| !entry.deleted)
+            .cloned();
+        if let Some(entry) = existing.as_ref() {
+            if entry.node_kind != NodeKind::File {
+                return Err(Error::InvalidOperation(format!(
+                    "{} is not a file",
+                    entry.path.as_str()
+                )));
+            }
+        } else if !options.create {
+            return Err(Error::NotFound(path.to_string()));
+        } else {
+            self.ensure_parent_directory(&path)?;
+        }
+        let len = if options.truncate {
+            0
+        } else {
+            existing.as_ref().map(|entry| entry.len).unwrap_or(0)
+        };
+        Ok(LockboxFileMut {
+            lockbox: self,
+            path,
+            position: 0,
+            len,
+            permissions,
+            exists_on_open: existing.is_some(),
+            truncate_existing: options.truncate,
+            dirty_pages: BTreeMap::new(),
+            closed: false,
+        })
+    }
+}
+
+impl<'a, State> LockboxFileReader<'a, State> {
+    /// Current logical file length.
+    pub fn len(&self) -> u64 {
+        self.len
+    }
+
+    /// Whether this file is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    fn read_internal(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if buf.is_empty() || self.position >= self.len {
+            return Ok(0);
+        }
+        let mut total = 0usize;
+        while total < buf.len() && self.position < self.len {
+            let page_index = self.position / FILE_COMPRESSION_FRAME_BYTES as u64;
+            let page_start = page_index * FILE_COMPRESSION_FRAME_BYTES as u64;
+            if self.cache_page_index != Some(page_index) {
+                let page_len = (FILE_COMPRESSION_FRAME_BYTES as u64).min(self.len - page_start);
+                self.cache_page = Zeroizing::new(
+                    self.lockbox
+                        .read_file_range(&self.path, page_start, page_len)?,
+                );
+                self.cache_page_index = Some(page_index);
+            }
+            let page_offset = (self.position - page_start) as usize;
+            let available = self.cache_page.len().saturating_sub(page_offset);
+            if available == 0 {
+                break;
+            }
+            let take = (buf.len() - total)
+                .min(available)
+                .min((self.len - self.position) as usize);
+            buf[total..total + take]
+                .copy_from_slice(&self.cache_page[page_offset..page_offset + take]);
+            self.position += take as u64;
+            total += take;
+        }
+        Ok(total)
+    }
+}
+
+impl<'a, State> Read for LockboxFileReader<'a, State> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.read_internal(buf).map_err(to_io_error)
+    }
+}
+
+impl<'a, State> Seek for LockboxFileReader<'a, State> {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.position = seek_position(self.position, self.len, pos)?;
+        Ok(self.position)
+    }
+}
+
+impl<'a> LockboxFileMut<'a> {
+    /// Current logical file length.
+    pub fn len(&self) -> u64 {
+        self.len
+    }
+
+    /// Whether this file is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Flush dirty logical pages into the lockbox state.
+    ///
+    /// This does not call `Lockbox::commit`; callers retain the existing
+    /// lockbox-level transaction boundary.
+    pub fn flush(&mut self) -> Result<()> {
+        let rollback = crate::lockbox::commit::CommitRollback::capture(self.lockbox);
+        match self.flush_inner() {
+            Ok(()) => Ok(()),
+            Err(err) => {
+                rollback.restore(self.lockbox);
+                Err(err)
+            }
+        }
+    }
+
+    fn flush_inner(&mut self) -> Result<()> {
+        if self.dirty_pages.is_empty() && !self.truncate_existing && self.exists_on_open {
+            return Ok(());
+        }
+
+        let old = self
+            .lockbox
+            .toc_entries
+            .get(self.path.as_str())
+            .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
+            .cloned();
+        let mut kept_chunks = Vec::new();
+        let mut removed_chunks = Vec::new();
+        let dirty_ranges = self
+            .dirty_pages
+            .keys()
+            .map(|page_index| {
+                let start = page_index.saturating_mul(FILE_COMPRESSION_FRAME_BYTES as u64);
+                (
+                    start,
+                    start.saturating_add(FILE_COMPRESSION_FRAME_BYTES as u64),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        if let Some(entry) = old.as_ref() {
+            for chunk in &entry.chunks {
+                let chunk_end = chunk.file_offset.saturating_add(chunk.len);
+                let dirty = dirty_ranges
+                    .iter()
+                    .any(|(start, end)| ranges_overlap(chunk.file_offset, chunk_end, *start, *end));
+                if self.truncate_existing || chunk_end > self.len || dirty {
+                    removed_chunks.push(chunk.clone());
+                } else {
+                    kept_chunks.push(chunk.clone());
+                }
+            }
+        }
+
+        if !removed_chunks.is_empty() {
+            let kept_frame_ids = kept_chunks
+                .iter()
+                .map(|chunk| chunk.compression_frame_id)
+                .collect::<BTreeSet<_>>();
+            let removed_entry = TocEntry {
+                path: self.path.clone(),
+                len: old.as_ref().map(|entry| entry.len).unwrap_or(0),
+                record_offset: old.as_ref().map(|entry| entry.record_offset).unwrap_or(0),
+                record_len: old.as_ref().map(|entry| entry.record_len).unwrap_or(0),
+                record_object_id: old
+                    .as_ref()
+                    .map(|entry| entry.record_object_id)
+                    .unwrap_or(0),
+                deleted: false,
+                node_kind: NodeKind::File,
+                permissions: self.permissions,
+                chunks: removed_chunks.clone(),
+            };
+            self.lockbox
+                .rewrite_shared_compression_frames_before_removal(&removed_entry)?;
+            for chunk in &removed_chunks {
+                if kept_frame_ids.contains(&chunk.compression_frame_id) {
+                    continue;
+                }
+                for segment in &chunk.segments {
+                    self.lockbox.schedule_page_object_redaction(
+                        segment.page_offset,
+                        segment.page_len,
+                        segment.object_id,
+                    );
+                }
+            }
+        }
+
+        self.lockbox.remove_pending_small_file(&self.path);
+
+        let mut new_chunks = Vec::new();
+        let mut dirty_writes = Vec::new();
+        for (page_index, page) in &self.dirty_pages {
+            let page_start = page_index.saturating_mul(FILE_COMPRESSION_FRAME_BYTES as u64);
+            if page_start >= self.len {
+                continue;
+            }
+            let actual_len =
+                (FILE_COMPRESSION_FRAME_BYTES as u64).min(self.len - page_start) as usize;
+            if let Some((start, end)) = trim_zeroes(&page[..actual_len]) {
+                dirty_writes.push((
+                    page_start + start as u64,
+                    Zeroizing::new(page[start..end].to_vec()),
+                ));
+            }
+        }
+        {
+            let mut writer = FilePageWriter::new(&mut *self.lockbox);
+            for (file_offset, data) in &dirty_writes {
+                writer.write_compression_frame(
+                    CompressionFrameWrite {
+                        path: &self.path,
+                        permissions: self.permissions,
+                        total_len: self.len,
+                        file_offset: *file_offset,
+                        data,
+                    },
+                    &mut new_chunks,
+                )?;
+            }
+            writer.finish(&mut new_chunks)?;
+        }
+
+        kept_chunks.extend(new_chunks.clone());
+        kept_chunks.sort_by_key(|chunk| chunk.file_offset);
+        let record_offset = kept_chunks
+            .first()
+            .and_then(|chunk| chunk.segments.first())
+            .map(|segment| segment.page_offset)
+            .unwrap_or(0);
+        let record_len = kept_chunks
+            .first()
+            .and_then(|chunk| chunk.segments.first())
+            .map(|segment| segment.page_len)
+            .unwrap_or(0);
+        let record_object_id = kept_chunks
+            .first()
+            .and_then(|chunk| chunk.segments.first())
+            .map(|segment| segment.object_id)
+            .unwrap_or(0);
+
+        let entry = TocEntry {
+            path: self.path.clone(),
+            len: self.len,
+            record_offset,
+            record_len,
+            record_object_id,
+            deleted: false,
+            node_kind: NodeKind::File,
+            permissions: self.permissions,
+            chunks: kept_chunks,
+        };
+        if !new_chunks.is_empty() {
+            let new_ref_entry = TocEntry {
+                chunks: new_chunks,
+                ..entry.clone()
+            };
+            self.lockbox.add_entry_record_refs(&new_ref_entry);
+        }
+        self.lockbox.toc_entries.insert(self.path.clone(), entry);
+        self.lockbox.mark_toc_dirty(&self.path);
+        self.lockbox.needs_packing = true;
+        self.dirty_pages.clear();
+        self.exists_on_open = true;
+        self.truncate_existing = false;
+        Ok(())
+    }
+
+    /// Flush and close the handle.
+    pub fn close(mut self) -> Result<()> {
+        self.flush()?;
+        self.closed = true;
+        Ok(())
+    }
+
+    fn read_internal(&mut self, buf: &mut [u8]) -> Result<usize> {
+        if buf.is_empty() || self.position >= self.len {
+            return Ok(0);
+        }
+        let mut total = 0usize;
+        while total < buf.len() && self.position < self.len {
+            let page_index = self.position / FILE_COMPRESSION_FRAME_BYTES as u64;
+            let page_start = page_index * FILE_COMPRESSION_FRAME_BYTES as u64;
+            let page_offset = (self.position - page_start) as usize;
+            let take = (buf.len() - total)
+                .min(FILE_COMPRESSION_FRAME_BYTES - page_offset)
+                .min((self.len - self.position) as usize);
+            if let Some(page) = self.dirty_pages.get(&page_index) {
+                buf[total..total + take].copy_from_slice(&page[page_offset..page_offset + take]);
+            } else if self.exists_on_open && !self.truncate_existing {
+                let data = self
+                    .lockbox
+                    .read_file_range(&self.path, self.position, take as u64)?;
+                let read = data.len().min(take);
+                buf[total..total + read].copy_from_slice(&data[..read]);
+                if read < take {
+                    buf[total + read..total + take].fill(0);
+                }
+            } else {
+                buf[total..total + take].fill(0);
+            }
+            self.position += take as u64;
+            total += take;
+        }
+        Ok(total)
+    }
+
+    fn write_internal(&mut self, buf: &[u8]) -> Result<usize> {
+        let mut total = 0usize;
+        while total < buf.len() {
+            let page_index = self.position / FILE_COMPRESSION_FRAME_BYTES as u64;
+            let page_start = page_index * FILE_COMPRESSION_FRAME_BYTES as u64;
+            let page_offset = (self.position - page_start) as usize;
+            let take = (buf.len() - total).min(FILE_COMPRESSION_FRAME_BYTES - page_offset);
+            if !self.dirty_pages.contains_key(&page_index) {
+                let mut page = if self.exists_on_open && !self.truncate_existing {
+                    self.lockbox.read_file_range(
+                        &self.path,
+                        page_start,
+                        FILE_COMPRESSION_FRAME_BYTES as u64,
+                    )?
+                } else {
+                    Vec::new()
+                };
+                page.resize(FILE_COMPRESSION_FRAME_BYTES, 0);
+                self.dirty_pages.insert(page_index, Zeroizing::new(page));
+            }
+            let page = self
+                .dirty_pages
+                .get_mut(&page_index)
+                .ok_or_else(|| Error::InvalidOperation("dirty page missing".to_string()))?;
+            page[page_offset..page_offset + take].copy_from_slice(&buf[total..total + take]);
+            self.position = self.position.saturating_add(take as u64);
+            self.len = self.len.max(self.position);
+            total += take;
+        }
+        Ok(total)
+    }
+}
+
+impl<'a> Read for LockboxFileMut<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.read_internal(buf).map_err(to_io_error)
+    }
+}
+
+impl<'a> Write for LockboxFileMut<'a> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.write_internal(buf).map_err(to_io_error)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        LockboxFileMut::flush(self).map_err(to_io_error)
+    }
+}
+
+impl<'a> Seek for LockboxFileMut<'a> {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.position = seek_position(self.position, self.len, pos)?;
+        Ok(self.position)
+    }
+}
+
+impl<'a> Drop for LockboxFileMut<'a> {
+    fn drop(&mut self) {
+        if !self.closed {
+            if let Err(err) = self.flush() {
+                self.lockbox.poisoned = Some(err.to_string());
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+struct ContentStreamItem {
+    path: LockboxPath,
+    file_offset: u64,
+    len: u64,
+    total_len: u64,
+    physical_offset: Option<u64>,
+    sparse: bool,
+    chunk: Option<FileChunk>,
+}
+
+struct ZeroReader {
+    remaining: u64,
+}
+
+impl Read for ZeroReader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        if self.remaining == 0 || buf.is_empty() {
+            return Ok(0);
+        }
+        let len = buf.len().min(self.remaining as usize);
+        buf[..len].fill(0);
+        self.remaining -= len as u64;
+        Ok(len)
+    }
+}
+
+fn collect_content_stream_items(
+    entry: &TocEntry,
+    items: &mut Vec<ContentStreamItem>,
+) -> Result<()> {
+    if entry.len == 0 {
+        return Ok(());
+    }
+    let mut chunks = entry.chunks.clone();
+    chunks.sort_by_key(|chunk| chunk.file_offset);
+    let mut cursor = 0u64;
+    for chunk in chunks {
+        let chunk_end = chunk.file_offset.saturating_add(chunk.len);
+        if chunk.file_offset < cursor || chunk_end > entry.len {
+            return Err(Error::CorruptRecord);
+        }
+        if chunk.file_offset > cursor {
+            items.push(ContentStreamItem {
+                path: entry.path.clone(),
+                file_offset: cursor,
+                len: chunk.file_offset - cursor,
+                total_len: entry.len,
+                physical_offset: None,
+                sparse: true,
+                chunk: None,
+            });
+        }
+        if chunk.len > 0 {
+            items.push(ContentStreamItem {
+                path: entry.path.clone(),
+                file_offset: chunk.file_offset,
+                len: chunk.len,
+                total_len: entry.len,
+                physical_offset: first_physical_offset(&chunk),
+                sparse: false,
+                chunk: Some(chunk.clone()),
+            });
+        }
+        cursor = chunk_end;
+    }
+    if cursor < entry.len {
+        items.push(ContentStreamItem {
+            path: entry.path.clone(),
+            file_offset: cursor,
+            len: entry.len - cursor,
+            total_len: entry.len,
+            physical_offset: None,
+            sparse: true,
+            chunk: None,
+        });
+    }
+    Ok(())
+}
+
+fn first_physical_offset(chunk: &FileChunk) -> Option<u64> {
+    chunk
+        .segments
+        .iter()
+        .map(|segment| segment.page_offset)
+        .min()
+}
+
+fn entry_has_sparse_ranges(entry: &TocEntry) -> bool {
+    if entry.len == 0 {
+        return false;
+    }
+    let mut chunks = entry.chunks.clone();
+    chunks.sort_by_key(|chunk| chunk.file_offset);
+    let mut cursor = 0u64;
+    for chunk in chunks {
+        if chunk.file_offset != cursor {
+            return true;
+        }
+        cursor = cursor.saturating_add(chunk.len);
+    }
+    cursor != entry.len
+}
+
+fn ranges_overlap(left_start: u64, left_end: u64, right_start: u64, right_end: u64) -> bool {
+    left_start < right_end && right_start < left_end
+}
+
+fn trim_zeroes(bytes: &[u8]) -> Option<(usize, usize)> {
+    let start = bytes.iter().position(|byte| *byte != 0)?;
+    let end = bytes
+        .iter()
+        .rposition(|byte| *byte != 0)
+        .map(|index| index + 1)?;
+    Some((start, end))
+}
+
+fn write_zeroes(writer: &mut impl Write, mut len: u64) -> Result<()> {
+    const ZERO_BUF: [u8; 8192] = [0; 8192];
+    while len > 0 {
+        let write_len = ZERO_BUF.len().min(len as usize);
+        writer
+            .write_all(&ZERO_BUF[..write_len])
+            .map_err(|err| Error::Io(err.to_string()))?;
+        len -= write_len as u64;
+    }
+    Ok(())
+}
+
+fn seek_position(current: u64, len: u64, pos: SeekFrom) -> io::Result<u64> {
+    let absolute = match pos {
+        SeekFrom::Start(offset) => offset as i128,
+        SeekFrom::End(offset) => len as i128 + offset as i128,
+        SeekFrom::Current(offset) => current as i128 + offset as i128,
+    };
+    if absolute < 0 || absolute > u64::MAX as i128 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid seek before start of file",
+        ));
+    }
+    Ok(absolute as u64)
+}
+
+fn create_single_file_extract_temp(parent: &Path) -> Result<(std::path::PathBuf, std::fs::File)> {
+    let process_id = std::process::id();
+    for attempt in 0..1000u64 {
+        let temp_path = parent.join(format!(".lockbox-extract-file-{process_id}-{attempt}.tmp"));
+        match std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+        {
+            Ok(file) => return Ok((temp_path, file)),
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(err) => return Err(Error::Io(format!("create {}: {err}", temp_path.display()))),
+        }
+    }
+    Err(Error::Io(
+        "unable to create unique extraction temporary file".to_string(),
+    ))
+}
+
+fn replace_single_file_extract_temp(temp_path: &Path, destination: &Path) -> Result<()> {
+    match std::fs::rename(temp_path, destination) {
+        Ok(()) => Ok(()),
+        #[cfg(windows)]
+        Err(err) if destination.exists() => {
+            std::fs::remove_file(destination).map_err(|remove_err| {
+                Error::Io(format!(
+                    "replace {}: remove existing failed after rename error {err}: {remove_err}",
+                    destination.display()
+                ))
+            })?;
+            std::fs::rename(temp_path, destination).map_err(|rename_err| {
+                Error::Io(format!("replace {}: {rename_err}", destination.display()))
+            })
+        }
+        Err(err) => Err(Error::Io(format!(
+            "replace {}: {err}",
+            destination.display()
+        ))),
+    }
+}
+
+fn sync_parent_dir(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        let parent = path.parent().unwrap_or_else(|| Path::new("."));
+        let dir = std::fs::File::open(parent)
+            .map_err(|err| Error::Io(format!("open {}: {err}", parent.display())))?;
+        dir.sync_data()
+            .map_err(|err| Error::Io(format!("sync {}: {err}", parent.display())))?;
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+    Ok(())
+}
+
+fn to_io_error(err: Error) -> io::Error {
+    io::Error::other(err)
 }
 
 fn read_next_chunk(reader: &mut impl Read, buffer: &mut [u8]) -> Result<usize> {

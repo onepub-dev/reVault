@@ -29,6 +29,7 @@ impl<State> Lockbox<State> {
     {
         let path = path.file_path()?;
         let target = target.file_path()?;
+        self.ensure_parent_directory(&path)?;
         self.validate_replace_intent(&path, replace)?;
         if self.should_discard_file_pages_after_flush()
             && self.pending_small_files.contains_key(path.as_str())

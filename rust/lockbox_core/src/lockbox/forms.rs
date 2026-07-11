@@ -2,9 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use super::Lockbox;
 use crate::form::{
-    validate_form_alias, validate_form_field_id, validate_form_label, validate_form_record_name,
-    validate_form_value, FormDefinition, FormFieldDefinition, FormFieldValue, FormRecord,
-    FormTypeId, FormValue,
+    validate_form_alias, validate_form_description, validate_form_field_id, validate_form_label,
+    validate_form_record_name, validate_form_value, FormDefinition, FormFieldDefinition,
+    FormFieldValue, FormRecord, FormTypeId, FormValue,
 };
 use crate::form_btree::{
     decode_form_node_secure, definition_key, encode_form_internal, encode_form_leaf_secure,
@@ -35,12 +35,33 @@ impl<State> Lockbox<State> {
     where
         State: crate::WritableLockboxState,
     {
+        self.define_form_with_description(alias, name, "", fields)
+    }
+
+    pub fn define_form_with_description(
+        &mut self,
+        alias: &str,
+        name: &str,
+        description: &str,
+        fields: Vec<FormFieldDefinition>,
+    ) -> Result<FormDefinition>
+    where
+        State: crate::WritableLockboxState,
+    {
         let alias = validate_form_alias(alias)?;
         match self.resolve_form_definition(&alias) {
-            Ok(existing) => self.revise_form_definition(&existing.type_id, name, fields),
+            Ok(existing) => {
+                self.revise_form_definition(&existing.type_id, name, description, fields)
+            }
             Err(Error::NotFound(_)) => {
                 let type_id = FormTypeId::new_random()?;
-                self.define_form_with_type_id(type_id, &alias, name, fields)
+                self.define_form_with_type_id_and_description(
+                    type_id,
+                    &alias,
+                    name,
+                    description,
+                    fields,
+                )
             }
             Err(err) => Err(err),
         }
@@ -56,11 +77,25 @@ impl<State> Lockbox<State> {
     where
         State: crate::WritableLockboxState,
     {
+        self.define_form_with_type_id_and_description(type_id, alias, name, "", fields)
+    }
+
+    pub fn define_form_with_type_id_and_description(
+        &mut self,
+        type_id: FormTypeId,
+        alias: &str,
+        name: &str,
+        description: &str,
+        fields: Vec<FormFieldDefinition>,
+    ) -> Result<FormDefinition>
+    where
+        State: crate::WritableLockboxState,
+    {
         let alias = validate_form_alias(alias)?;
         if self.latest_form_definition_by_type(&type_id)?.is_some() {
-            return self.revise_form_definition(&type_id, name, fields);
+            return self.revise_form_definition(&type_id, name, description, fields);
         }
-        let definition = validated_definition(type_id, alias, 1, name, fields)?;
+        let definition = validated_definition(type_id, alias, 1, name, description, fields)?;
         self.ensure_forms_loaded()?;
         self.form_definitions
             .borrow_mut()
@@ -80,6 +115,7 @@ impl<State> Lockbox<State> {
         &mut self,
         type_id: &FormTypeId,
         name: &str,
+        description: &str,
         fields: Vec<FormFieldDefinition>,
     ) -> Result<FormDefinition>
     where
@@ -93,6 +129,7 @@ impl<State> Lockbox<State> {
             previous.alias.clone(),
             previous.revision + 1,
             name,
+            description,
             fields,
         )?;
         self.form_definitions
@@ -167,6 +204,7 @@ impl<State> Lockbox<State> {
             definition.alias,
             definition.revision,
             &definition.name,
+            &definition.description,
             definition.fields,
         )?;
         self.ensure_forms_loaded()?;
@@ -198,6 +236,7 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         let path = path.file_path()?;
+        self.ensure_parent_directory(&path)?;
         let name = validate_form_record_name(name)?;
         self.ensure_forms_loaded()?;
         if self
@@ -415,6 +454,7 @@ impl<State> Lockbox<State> {
         path: LockboxPath,
         record: FormRecord,
     ) -> Result<()> {
+        self.ensure_parent_directory(&path)?;
         self.ensure_forms_loaded()?;
         let dirty_key = record_key(&path);
         self.form_records
@@ -924,6 +964,7 @@ fn validated_definition(
     alias: String,
     revision: u32,
     name: &str,
+    description: &str,
     fields: Vec<FormFieldDefinition>,
 ) -> Result<FormDefinition> {
     if fields.is_empty() {
@@ -952,6 +993,7 @@ fn validated_definition(
         alias,
         revision,
         name: validate_form_label(name, "form name")?,
+        description: validate_form_description(description)?,
         fields: validated_fields,
     })
 }

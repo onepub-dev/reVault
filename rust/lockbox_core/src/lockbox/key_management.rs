@@ -388,12 +388,12 @@ impl Lockbox {
     /// Returns `Error::Io` if the host file cannot be read, `Error::InvalidKey`
     /// when the supplied open material cannot authenticate the content key, or
     /// corrupt/truncated errors if the lockbox structure cannot be parsed.
-    pub fn open_file(path: &Path, open: LockboxOpen<'_>) -> Result<Lockbox<ReadOnly>> {
+    pub fn open(path: &Path, open: LockboxOpen<'_>) -> Result<Lockbox<ReadOnly>> {
         Ok(Self::open_file_opened(path, open)?.into_state())
     }
 
     /// Open a lockbox file for mutation and attach `signing_key` for commits.
-    pub fn open_file_for_write(
+    pub fn open_for_write(
         path: &Path,
         open: LockboxOpen<'_>,
         signing_key: &OwnerSigningKeyPair,
@@ -409,7 +409,7 @@ impl Lockbox {
     /// This is for lockboxes that store their own owner signing key, such as
     /// the local vault. The callback receives a read-only borrow of the opened
     /// lockbox and must return the key that will sign future commits.
-    pub fn open_file_for_write_with_signing_key(
+    pub fn open_for_write_with_signing_key(
         path: &Path,
         open: LockboxOpen<'_>,
         load_signing_key: impl FnOnce(&Lockbox<ReadOnly>) -> Result<OwnerSigningKeyPair>,
@@ -423,7 +423,7 @@ impl Lockbox {
     }
 
     #[doc(hidden)]
-    pub fn open_file_for_write_with_signing_key_assuming_locked(
+    pub fn open_for_write_with_signing_key_assuming_locked(
         path: &Path,
         open: LockboxOpen<'_>,
         load_signing_key: impl FnOnce(&Lockbox<ReadOnly>) -> Result<OwnerSigningKeyPair>,
@@ -650,7 +650,7 @@ impl Lockbox {
     ///
     /// A password does not encrypt file content directly. The lockbox content
     /// key is random; each password wraps that same content key in an embedded
-    /// key-directory entry. `Lockbox::open_file` with `LockboxOpen::Password`
+    /// key-directory entry. `Lockbox::open` with `LockboxOpen::Password`
     /// tries each embedded password entry until one unwraps the content key.
     ///
     /// Returns `Error::Io` if random salt generation fails,
@@ -819,6 +819,93 @@ impl Lockbox {
         Ok(())
     }
 
+    /// Replace the lockbox content key and grant access to the supplied contacts.
+    ///
+    /// This is the low-level primitive for true revocation. It rewrites the
+    /// archive with a fresh content key and creates a new key directory
+    /// containing only `retained_contacts`. Password slots and contacts not
+    /// supplied by the caller are intentionally not preserved.
+    pub fn replace_content_key_with_contacts(
+        &mut self,
+        retained_contacts: &[(String, ContactPublicKey)],
+    ) -> Result<Vec<(String, u64)>> {
+        if retained_contacts.is_empty() {
+            return Err(Error::SecurityLimitExceeded(
+                "refusing to rekey without retained access".to_string(),
+            ));
+        }
+        let entries = self
+            .toc_entries
+            .values()
+            .filter(|entry| !entry.deleted)
+            .cloned()
+            .collect::<Vec<_>>();
+        let variables = self.clone_all_variable_values()?;
+        let forms = self.clone_all_form_state()?;
+        if let Some(path) = self.storage.path().map(Path::to_path_buf) {
+            return self.rekey_file_backed(path, entries, variables, forms, retained_contacts);
+        }
+
+        let key = SecretVec::try_from_slice(&random_content_key()?)?;
+        let signing_key = self.require_owner_signing_key()?.try_clone()?;
+        let mut rekeyed = Lockbox::create_with_secret_key_and_options(
+            key,
+            self.lockbox_id,
+            self.compaction_options(),
+        );
+        rekeyed.set_owner_signing_key(signing_key);
+        let slot_ids = add_retained_contacts(&mut rekeyed, retained_contacts)?;
+        self.populate_compacted_content(&mut rekeyed, entries, variables, forms)?;
+        rekeyed.commit()?;
+        *self = rekeyed;
+        Ok(slot_ids)
+    }
+
+    fn rekey_file_backed(
+        &mut self,
+        path: PathBuf,
+        entries: Vec<crate::toc_entry::TocEntry>,
+        variables: std::collections::BTreeMap<
+            crate::VariableName,
+            crate::variable_btree::VariableValue,
+        >,
+        forms: (
+            std::collections::BTreeMap<String, crate::form::FormDefinition>,
+            std::collections::BTreeMap<crate::LockboxPath, crate::form::FormRecord>,
+        ),
+        retained_contacts: &[(String, ContactPublicKey)],
+    ) -> Result<Vec<(String, u64)>> {
+        let temp_path = compact_temp_path(&path);
+        let _ = fs::remove_file(&temp_path);
+        let options = self.compaction_options();
+        let signing_key = self.require_owner_signing_key()?.try_clone()?;
+        let result = (|| {
+            let key = SecretVec::try_from_slice(&random_content_key()?)?;
+            let reopen_key = key.try_clone()?;
+            let mut rekeyed = Lockbox::create_path_with_secret_key_and_options(
+                &temp_path,
+                key,
+                self.lockbox_id,
+                options,
+            )?;
+            rekeyed.set_owner_signing_key(signing_key.try_clone()?);
+            let slot_ids = add_retained_contacts(&mut rekeyed, retained_contacts)?;
+            self.populate_compacted_content(&mut rekeyed, entries, variables, forms)?;
+            rekeyed.commit()?;
+            drop(rekeyed);
+            replace_file_with_compacted(&temp_path, &path)?;
+            let mut reopened =
+                Lockbox::open_path_with_secret_key_options(&path, reopen_key, options)?;
+            reopened.set_owner_signing_key(signing_key);
+            *self = reopened;
+            Ok(slot_ids)
+        })();
+        if result.is_err() {
+            let _ = fs::remove_file(&temp_path);
+        }
+        result
+    }
+
     fn compact_file_backed(
         &mut self,
         path: PathBuf,
@@ -879,13 +966,37 @@ impl Lockbox {
         compacted.key_directory_generation = self.key_directory_generation;
         compacted.dirty_key_directory = !compacted.key_slots.is_empty();
 
+        self.populate_compacted_content(compacted, entries, variables, forms)
+    }
+
+    fn populate_compacted_content(
+        &self,
+        compacted: &mut Lockbox,
+        entries: Vec<crate::toc_entry::TocEntry>,
+        variables: std::collections::BTreeMap<
+            crate::VariableName,
+            crate::variable_btree::VariableValue,
+        >,
+        forms: (
+            std::collections::BTreeMap<String, crate::form::FormDefinition>,
+            std::collections::BTreeMap<crate::LockboxPath, crate::form::FormRecord>,
+        ),
+    ) -> Result<()> {
         for (name, value) in variables {
             compacted.set_variable_value(name, value)?;
         }
         for (key, definition) in forms.0 {
             compacted.set_form_definition_value(key, definition)?;
         }
+        for entry in entries
+            .iter()
+            .filter(|entry| entry.entry_kind() == LockboxEntryKind::Directory)
+        {
+            compacted.create_dir(&entry.path, true)?;
+            compacted.set_permissions(&entry.path, entry.permissions)?;
+        }
         for (path, record) in forms.1 {
+            compacted.create_parent_dirs_for(&path)?;
             compacted.set_form_record_value(path, record)?;
         }
 
@@ -893,6 +1004,7 @@ impl Lockbox {
             match entry.entry_kind() {
                 LockboxEntryKind::File => {
                     let reader = FileEntryReader::new(self, &entry)?;
+                    compacted.create_parent_dirs_for(&entry.path)?;
                     compacted.add_file_from_reader_with_permissions(
                         &entry.path,
                         reader,
@@ -902,8 +1014,10 @@ impl Lockbox {
                 }
                 LockboxEntryKind::Symlink => {
                     let target = self.get_symlink_target(&entry.path)?;
+                    compacted.create_parent_dirs_for(&entry.path)?;
                     compacted.add_symlink(&entry.path, &target, false)?;
                 }
+                LockboxEntryKind::Directory => {}
             }
         }
         Ok(())
@@ -931,7 +1045,44 @@ fn replace_file_with_compacted(temp_path: &Path, path: &Path) -> Result<()> {
             "replace compacted lockbox {}: {err}",
             path.display()
         ))
-    })
+    })?;
+    sync_parent_dir(path)
+}
+
+fn sync_parent_dir(path: &Path) -> Result<()> {
+    #[cfg(unix)]
+    {
+        let parent = path.parent().unwrap_or_else(|| Path::new("."));
+        let dir = fs::File::open(parent)
+            .map_err(|err| Error::Io(format!("open {}: {err}", parent.display())))?;
+        dir.sync_data()
+            .map_err(|err| Error::Io(format!("sync {}: {err}", parent.display())))?;
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+    Ok(())
+}
+
+fn add_retained_contacts(
+    lockbox: &mut Lockbox,
+    retained_contacts: &[(String, ContactPublicKey)],
+) -> Result<Vec<(String, u64)>> {
+    let mut slot_ids = Vec::with_capacity(retained_contacts.len());
+    for (name, contact) in retained_contacts {
+        let slot_id = lockbox.add_contact_named(access_entry_name(name), contact)?;
+        slot_ids.push((name.clone(), slot_id));
+    }
+    Ok(slot_ids)
+}
+
+fn access_entry_name(label: &str) -> String {
+    label
+        .strip_prefix("identity:")
+        .or_else(|| label.strip_prefix("contact:"))
+        .unwrap_or(label)
+        .to_string()
 }
 
 impl<State> Lockbox<State> {

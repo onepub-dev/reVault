@@ -53,6 +53,10 @@ mod recovery;
 mod symlinks;
 mod variables;
 
+pub use files::{
+    ContentChunk, ContentStreamOptions, ContentStreamOrder, LockboxFileMut, LockboxFileReader,
+    OpenFileOptions,
+};
 #[cfg(feature = "vault-integration")]
 pub use key_management::OpenedContentKey;
 pub use key_management::{LockboxOpen, LockboxProtection};
@@ -169,6 +173,7 @@ pub struct Lockbox<State = Writable> {
     dirty_key_directory: bool,
     lockbox_id: LockboxId,
     read_only: bool,
+    poisoned: Option<String>,
     owner_signing_key: Option<OwnerSigningKeyPair>,
     key_slots: Vec<KeySlot>,
     toc_entries: BTreeMap<LockboxPath, TocEntry>,
@@ -220,6 +225,7 @@ impl<State> Lockbox<State> {
             dirty_key_directory: self.dirty_key_directory,
             lockbox_id: self.lockbox_id,
             read_only: self.read_only,
+            poisoned: self.poisoned.clone(),
             owner_signing_key: self
                 .owner_signing_key
                 .as_ref()
@@ -275,6 +281,7 @@ impl<State> Lockbox<State> {
             dirty_key_directory,
             lockbox_id,
             read_only,
+            poisoned,
             owner_signing_key,
             key_slots,
             toc_entries,
@@ -323,6 +330,7 @@ impl<State> Lockbox<State> {
             dirty_key_directory,
             lockbox_id,
             read_only,
+            poisoned,
             owner_signing_key,
             key_slots,
             toc_entries,
@@ -417,6 +425,7 @@ impl Lockbox<Writable> {
             lockbox_id,
             read_only: false,
             owner_signing_key: None,
+            poisoned: None,
             key_slots: Vec::new(),
             toc_entries: BTreeMap::new(),
             toc_root: None,
@@ -450,12 +459,12 @@ impl Lockbox<Writable> {
     }
 
     #[cfg(test)]
-    pub fn open(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> Result<Self> {
-        Self::open_with_options(bytes, key, LockboxOptions::default())
+    pub fn open_bytes_with_key(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> Result<Self> {
+        Self::open_bytes_with_key_options(bytes, key, LockboxOptions::default())
     }
 
     #[cfg(test)]
-    pub fn open_with_options(
+    pub fn open_bytes_with_key_options(
         bytes: Vec<u8>,
         key: impl AsRef<[u8]>,
         options: LockboxOptions,
@@ -529,6 +538,7 @@ impl Lockbox<Writable> {
             lockbox_id,
             read_only: false,
             owner_signing_key: None,
+            poisoned: None,
             key_slots: Vec::new(),
             toc_entries: BTreeMap::new(),
             toc_root: None,
@@ -1588,10 +1598,23 @@ mod tests {
         crate::LockboxPath::new(path).unwrap()
     }
 
+    fn add_file<State>(
+        lb: &mut Lockbox<State>,
+        path: &crate::LockboxPath,
+        data: &[u8],
+        replace: bool,
+    ) -> crate::Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
+        lb.create_parent_dirs_for(path)?;
+        Lockbox::add_file(lb, path, data, replace)
+    }
+
     #[test]
     fn path_is_not_visible_in_cleartext() {
         let mut lb = Lockbox::create("secret");
-        lb.add_file(&p("/private/tax.pdf"), b"1234", false).unwrap();
+        add_file(&mut lb, &p("/private/tax.pdf"), b"1234", false).unwrap();
         lb.commit().unwrap();
 
         let bytes = lb.to_bytes();

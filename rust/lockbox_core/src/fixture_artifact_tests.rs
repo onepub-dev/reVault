@@ -23,7 +23,7 @@ const FIXTURE_KEY: &[u8] = b"lockbox fixture content key";
 fn golden_content_key_basic_lockbox_opens() {
     let bytes = read_fixture("golden/v1/content_key_basic.lbox.hex");
 
-    let reopened = Lockbox::open(bytes, FIXTURE_KEY).unwrap();
+    let reopened = Lockbox::open_bytes_with_key(bytes, FIXTURE_KEY).unwrap();
 
     assert_eq!(
         reopened
@@ -58,6 +58,7 @@ fn golden_content_key_basic_lockbox_opens() {
             recursive: true,
             include_files: true,
             include_symlinks: true,
+            include_directories: true,
             limit: None,
         })
         .unwrap()

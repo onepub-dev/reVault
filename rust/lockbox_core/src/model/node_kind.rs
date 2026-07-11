@@ -4,6 +4,7 @@ use crate::{Error, Result};
 pub(crate) enum NodeKind {
     File = 1,
     Symlink = 2,
+    Directory = 3,
 }
 
 impl NodeKind {
@@ -11,6 +12,7 @@ impl NodeKind {
         match value {
             1 => Ok(Self::File),
             2 => Ok(Self::Symlink),
+            3 => Ok(Self::Directory),
             _ => Err(Error::CorruptRecord),
         }
     }

@@ -21,6 +21,7 @@ impl TocEntry {
         match self.node_kind {
             NodeKind::File => LockboxEntryKind::File,
             NodeKind::Symlink => LockboxEntryKind::Symlink,
+            NodeKind::Directory => LockboxEntryKind::Directory,
         }
     }
 

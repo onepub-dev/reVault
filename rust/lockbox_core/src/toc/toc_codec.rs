@@ -1,5 +1,7 @@
 use crate::compression::validate_compression_frame_lengths;
-use crate::constants::{DEFAULT_FILE_PERMISSIONS, DEFAULT_SYMLINK_PERMISSIONS};
+use crate::constants::{
+    DEFAULT_DIRECTORY_PERMISSIONS, DEFAULT_FILE_PERMISSIONS, DEFAULT_SYMLINK_PERMISSIONS,
+};
 use crate::file_chunk::{CompressionFrameSegment, FileChunk};
 use crate::node_kind::NodeKind;
 use crate::security::validate_permissions;
@@ -10,6 +12,7 @@ const PATH_RESTART_INTERVAL: usize = 128;
 const ENTRY_FLAG_DELETED: u8 = 0x01;
 const ENTRY_FLAG_SYMLINK: u8 = 0x02;
 const ENTRY_FLAG_CUSTOM_PERMISSIONS: u8 = 0x04;
+const ENTRY_FLAG_DIRECTORY: u8 = 0x08;
 
 #[cfg(test)]
 pub(crate) fn encode_toc(
@@ -36,6 +39,9 @@ pub(crate) fn encode_toc_entries<'a>(entries: impl IntoIterator<Item = &'a TocEn
         }
         if entry.node_kind == NodeKind::Symlink {
             flags |= ENTRY_FLAG_SYMLINK;
+        }
+        if entry.node_kind == NodeKind::Directory {
+            flags |= ENTRY_FLAG_DIRECTORY;
         }
         if entry.permissions != default_permissions {
             flags |= ENTRY_FLAG_CUSTOM_PERMISSIONS;
@@ -215,7 +221,16 @@ pub(crate) fn decode_toc_entries(payload: &[u8]) -> Result<Vec<TocEntry>> {
         }
         let flags = payload[offset];
         offset += 1;
-        if flags & !(ENTRY_FLAG_DELETED | ENTRY_FLAG_SYMLINK | ENTRY_FLAG_CUSTOM_PERMISSIONS) != 0 {
+        if flags
+            & !(ENTRY_FLAG_DELETED
+                | ENTRY_FLAG_SYMLINK
+                | ENTRY_FLAG_CUSTOM_PERMISSIONS
+                | ENTRY_FLAG_DIRECTORY)
+            != 0
+        {
+            return Err(Error::CorruptRecord);
+        }
+        if flags & ENTRY_FLAG_SYMLINK != 0 && flags & ENTRY_FLAG_DIRECTORY != 0 {
             return Err(Error::CorruptRecord);
         }
 
@@ -227,10 +242,12 @@ pub(crate) fn decode_toc_entries(payload: &[u8]) -> Result<Vec<TocEntry>> {
         let record_len = take_varint(payload, &mut offset)?;
         let record_object_id = take_varint(payload, &mut offset)?;
         let deleted = flags & ENTRY_FLAG_DELETED != 0;
-        let node_kind = NodeKind::from_u8(if flags & ENTRY_FLAG_SYMLINK == 0 {
-            1
-        } else {
+        let node_kind = NodeKind::from_u8(if flags & ENTRY_FLAG_DIRECTORY != 0 {
+            3
+        } else if flags & ENTRY_FLAG_SYMLINK != 0 {
             2
+        } else {
+            1
         })?;
         let permissions = if flags & ENTRY_FLAG_CUSTOM_PERMISSIONS == 0 {
             default_permissions(node_kind)
@@ -285,6 +302,15 @@ pub(crate) fn decode_toc_entries(payload: &[u8]) -> Result<Vec<TocEntry>> {
                 return Err(Error::CorruptRecord);
             }
             NodeKind::Symlink if !chunks.is_empty() => return Err(Error::CorruptRecord),
+            NodeKind::Directory
+                if len != 0
+                    || record_offset != 0
+                    || record_len != 0
+                    || record_object_id != 0
+                    || !chunks.is_empty() =>
+            {
+                return Err(Error::CorruptRecord);
+            }
             _ => {}
         }
         entries.push(TocEntry {
@@ -540,6 +566,7 @@ fn default_permissions(node_kind: NodeKind) -> u32 {
     match node_kind {
         NodeKind::File => DEFAULT_FILE_PERMISSIONS,
         NodeKind::Symlink => DEFAULT_SYMLINK_PERMISSIONS,
+        NodeKind::Directory => DEFAULT_DIRECTORY_PERMISSIONS,
     }
 }
 

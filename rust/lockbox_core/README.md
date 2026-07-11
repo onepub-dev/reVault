@@ -61,8 +61,8 @@ open or wrap the content key.
   ChaCha20-Poly1305 encrypts the content key.
 - **Commit authentication**: owner commits are signed with both Ed25519 and
   ML-DSA-65. Verification requires both signatures to be present and valid.
-- **Explicit write authority**: `Lockbox::open_file` returns a read-only handle;
-  mutating an existing lockbox requires `Lockbox::open_file_for_write` and an
+- **Explicit write authority**: `Lockbox::open` returns a read-only handle;
+  mutating an existing lockbox requires `Lockbox::open_for_write` and an
   owner signing key.
 
 The hybrid design keeps a mature pre-quantum primitive in the path while adding
@@ -130,7 +130,7 @@ fn main() -> lockbox_core::Result<()> {
     )?;
     lockbox.commit()?;
 
-    let opened = Lockbox::open_file(path, LockboxOpen::Password(&pass_phrase))?;
+    let opened = Lockbox::open(path, LockboxOpen::Password(&pass_phrase))?;
     let bytes = opened.get_file(&LockboxPath::new("/notes/hello.txt")?)?;
 
     assert_eq!(bytes, b"hello from reVault");
@@ -140,7 +140,7 @@ fn main() -> lockbox_core::Result<()> {
 
 ## Reopen For Mutation
 
-Opening a lockbox with `Lockbox::open_file` is intentionally read-only. To
+Opening a lockbox with `Lockbox::open` is intentionally read-only. To
 modify an existing lockbox, reopen it for write and provide the owner signing
 key that should sign the next commit.
 
@@ -161,7 +161,7 @@ fn main() -> lockbox_core::Result<()> {
         &signing_key,
     )?;
 
-    let mut lockbox = Lockbox::open_file_for_write(
+    let mut lockbox = Lockbox::open_for_write(
         path,
         LockboxOpen::Password(&pass_phrase),
         &signing_key,

@@ -72,6 +72,17 @@ impl<State: Send> Lockbox<State> {
         }
         for (index, entry) in current_entries.into_iter().enumerate() {
             match entry.node_kind {
+                NodeKind::Directory => {
+                    let out_path = checked_destination(destination, &entry.path)?;
+                    if out_path.exists() && !out_path.is_dir() && !policy.overwrite {
+                        return Err(Error::SecurityLimitExceeded(format!(
+                            "destination exists: {}",
+                            out_path.display()
+                        )));
+                    }
+                    fs::create_dir_all(&out_path).map_err(|err| Error::Io(err.to_string()))?;
+                    restore_permissions(&out_path, entry.permissions, policy)?;
+                }
                 NodeKind::File => {
                     let out_path = checked_destination(destination, &entry.path)?;
                     self.extract_file_entry_to_path(entry, &out_path, policy, index as u64)?;
@@ -118,6 +129,16 @@ impl<State: Send> Lockbox<State> {
         policy: &ExtractPolicy,
         current_entries: &[&TocEntry],
     ) -> Result<()> {
+        for entry in current_entries
+            .iter()
+            .copied()
+            .filter(|entry| entry.node_kind == NodeKind::Directory)
+        {
+            let out_path = checked_destination(destination, &entry.path)?;
+            fs::create_dir_all(&out_path).map_err(|err| Error::Io(err.to_string()))?;
+            restore_permissions(&out_path, entry.permissions, policy)?;
+        }
+
         let file_entries: Vec<_> = current_entries
             .iter()
             .copied()
@@ -229,6 +250,7 @@ impl<State: Send> Lockbox<State> {
                         validate_symlink(entry.path.as_str(), target.as_str())?;
                     }
                 }
+                NodeKind::Directory => {}
             }
         }
 
@@ -320,14 +342,22 @@ impl<State: Send> Lockbox<State> {
         }
 
         if entry.chunks.is_empty() {
-            return Err(Error::CorruptRecord);
+            write_zeroes(writer, entry.len)?;
+            return Ok(());
         }
 
         let mut written = 0u64;
         let mut chunks = entry.chunks.clone();
         chunks.sort_by_key(|chunk| chunk.file_offset);
         for chunk in chunks {
-            if chunk.file_offset != written {
+            if chunk.file_offset < written || chunk.file_offset > entry.len {
+                return Err(Error::CorruptRecord);
+            }
+            if chunk.file_offset > written {
+                write_zeroes(writer, chunk.file_offset - written)?;
+                written = chunk.file_offset;
+            }
+            if chunk.file_offset.saturating_add(chunk.len) > entry.len {
                 return Err(Error::CorruptRecord);
             }
             let decoded = self.read_file_chunk_compression_frame(entry.len, &chunk)?;
@@ -337,11 +367,25 @@ impl<State: Send> Lockbox<State> {
             written += decoded.len() as u64;
         }
 
-        if written != entry.len {
+        if written < entry.len {
+            write_zeroes(writer, entry.len - written)?;
+        } else if written != entry.len {
             return Err(Error::CorruptRecord);
         }
         Ok(())
     }
+}
+
+fn write_zeroes(writer: &mut impl Write, mut len: u64) -> Result<()> {
+    const ZERO_BUF: [u8; 8192] = [0; 8192];
+    while len > 0 {
+        let write_len = ZERO_BUF.len().min(len as usize);
+        writer
+            .write_all(&ZERO_BUF[..write_len])
+            .map_err(|err| Error::Io(err.to_string()))?;
+        len -= write_len as u64;
+    }
+    Ok(())
 }
 
 fn group_parallel_extraction_jobs<'a>(

@@ -53,7 +53,7 @@ pub use entry::{LockboxEntry, LockboxEntryKind};
 pub use error::{Error, Result};
 pub use extract_policy::ExtractPolicy;
 #[doc(hidden)]
-pub use file_lock::{FileLockScope, ScopedFileLock};
+pub use file_lock::{lock_path_for, FileLockScope, ScopedFileLock};
 pub use form::{
     FormDefinition, FormFieldDefinition, FormFieldKind, FormFieldValue, FormRecord, FormTypeId,
     FormValue,
@@ -64,9 +64,10 @@ pub use key_slot::{
 pub use key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
 pub use list_options::ListOptions;
 pub use lockbox::{
-    ImportStats, Lockbox, LockboxFileInspection, LockboxInspector, LockboxOpen,
-    LockboxOwnerInspection, LockboxProtection, ReadOnly, RecoveryScanner, VariableValueRef,
-    Writable, WritableLockboxState,
+    ContentChunk, ContentStreamOptions, ContentStreamOrder, ImportStats, Lockbox,
+    LockboxFileInspection, LockboxFileMut, LockboxFileReader, LockboxInspector, LockboxOpen,
+    LockboxOwnerInspection, LockboxProtection, OpenFileOptions, ReadOnly, RecoveryScanner,
+    VariableValueRef, Writable, WritableLockboxState,
 };
 pub use lockbox_id::LockboxId;
 pub use lockbox_path::LockboxPath;

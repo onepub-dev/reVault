@@ -30,7 +30,7 @@ fn main() -> lockbox_core::Result<()> {
     lockbox.set_form_field_secret(&path("/accounts/example")?, "password", &password)?;
     lockbox.commit()?;
 
-    let opened = Lockbox::open_file(&lockbox_file, LockboxOpen::Password(&pass_phrase))?;
+    let opened = Lockbox::open(&lockbox_file, LockboxOpen::Password(&pass_phrase))?;
     let record = opened
         .get_form_record(&path("/accounts/example")?)?
         .expect("record exists");

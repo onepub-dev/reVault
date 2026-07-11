@@ -13,19 +13,15 @@ impl<State> Lockbox<State> {
         &self,
         options: ListOptions,
     ) -> Result<impl Iterator<Item = Result<LockboxEntry>> + '_> {
-        let path = options.path.as_str().to_string();
+        let root = options.path.clone();
         let glob = match &options.glob {
             Some(pattern) => Some(validate_glob(pattern)?),
             None => None,
         };
-        let prefix = if path == "/" {
-            "/".to_string()
-        } else {
-            format!("{}/", path.trim_end_matches('/'))
-        };
+        let prefix = root.descendant_prefix();
         let mut yielded = 0usize;
         let iter = self.toc_entries.values().filter_map(move |entry| {
-            if entry.deleted || !entry.path.starts_with(&prefix) {
+            if entry.deleted || !entry.path.is_descendant_of(&root) {
                 return None;
             }
             if entry.node_kind == NodeKind::File && !options.include_files {
@@ -34,11 +30,14 @@ impl<State> Lockbox<State> {
             if entry.node_kind == NodeKind::Symlink && !options.include_symlinks {
                 return None;
             }
+            if entry.node_kind == NodeKind::Directory && !options.include_directories {
+                return None;
+            }
             let rest = &entry.path[prefix.len()..];
             if rest.is_empty() {
                 return None;
             }
-            if !options.recursive && rest.contains('/') {
+            if !options.recursive && !entry.path.is_direct_child_of(&root) {
                 return None;
             }
             if let Some(pattern) = &glob {
@@ -57,7 +56,7 @@ impl<State> Lockbox<State> {
         Ok(iter)
     }
 
-    /// Return metadata for one file or symlink.
+    /// Return metadata for one file, symlink, or directory.
     pub fn stat(&self, path: &LockboxPath) -> Option<LockboxEntry> {
         let path = path.as_file_path().ok()?;
         self.toc_entries
@@ -66,11 +65,7 @@ impl<State> Lockbox<State> {
             .map(|entry| entry.to_public_entry())
     }
 
-    /// Return true when `path` names an existing file or symlink entry.
-    ///
-    /// Directory-only paths such as `/` and `/docs/` return `false` because
-    /// directories are inferred from entry prefixes rather than stored as
-    /// entries. Invalid file paths also return `false`.
+    /// Return true when `path` names an existing file, symlink, or directory entry.
     pub fn exists(&self, path: &LockboxPath) -> bool {
         let Ok(path) = path.as_file_path() else {
             return false;
@@ -79,5 +74,16 @@ impl<State> Lockbox<State> {
             .get(path)
             .filter(|entry| !entry.deleted)
             .is_some()
+    }
+
+    /// Return true when `path` names an existing directory entry.
+    pub fn is_dir(&self, path: &LockboxPath) -> bool {
+        let Ok(path) = path.as_file_path() else {
+            return false;
+        };
+        self.toc_entries
+            .get(path)
+            .filter(|entry| !entry.deleted)
+            .is_some_and(|entry| entry.node_kind == NodeKind::Directory)
     }
 }

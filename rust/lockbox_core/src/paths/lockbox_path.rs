@@ -32,6 +32,36 @@ impl LockboxPath {
         &self.0
     }
 
+    /// Return the parent lockbox path, or `None` for the lockbox root.
+    pub fn parent(&self) -> Result<Option<Self>> {
+        let Some(index) = self.0.rfind('/') else {
+            return Err(Error::InvalidPath(self.0.clone()));
+        };
+        if index == 0 {
+            return Ok(None);
+        }
+        Ok(Some(Self::from_api(&self.0[..index], false)?))
+    }
+
+    /// Return true when this path is below `directory`.
+    pub fn is_descendant_of(&self, directory: &Self) -> bool {
+        self != directory && self.0.starts_with(&directory.descendant_prefix())
+    }
+
+    /// Return true when this path is an immediate child of `directory`.
+    pub fn is_direct_child_of(&self, directory: &Self) -> bool {
+        if !self.is_descendant_of(directory) {
+            return false;
+        }
+        let prefix = directory.descendant_prefix();
+        let remainder = &self.0[prefix.len()..];
+        !remainder.is_empty() && !remainder.contains('/')
+    }
+
+    pub(crate) fn descendant_prefix(&self) -> String {
+        format!("{}/", self.0.trim_end_matches('/'))
+    }
+
     pub(crate) fn from_api(path: &str, allow_dir: bool) -> Result<Self> {
         Ok(Self(canonicalize_api_path(path, allow_dir)?))
     }

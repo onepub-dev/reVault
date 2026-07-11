@@ -171,9 +171,9 @@ pub(crate) fn validate_key_slot_name(name: &str) -> Result<()> {
 }
 
 pub(crate) fn encrypt_wrapped_key(wrapping_key: &[u8; 32], content_key: &[u8]) -> Result<Vec<u8>> {
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(wrapping_key));
+    let cipher = ChaCha20Poly1305::new(&Key::from(*wrapping_key));
     cipher
-        .encrypt(Nonce::from_slice(&[0u8; 12]), content_key)
+        .encrypt(&Nonce::from([0u8; 12]), content_key)
         .map_err(|_| Error::InvalidKey)
 }
 
@@ -181,9 +181,9 @@ pub(crate) fn decrypt_wrapped_key(
     wrapping_key: &[u8; 32],
     encrypted_key: &[u8],
 ) -> Result<Vec<u8>> {
-    let cipher = ChaCha20Poly1305::new(Key::from_slice(wrapping_key));
+    let cipher = ChaCha20Poly1305::new(&Key::from(*wrapping_key));
     cipher
-        .decrypt(Nonce::from_slice(&[0u8; 12]), encrypted_key)
+        .decrypt(&Nonce::from([0u8; 12]), encrypted_key)
         .map_err(|_| Error::InvalidKey)
 }
 
@@ -193,12 +193,12 @@ pub(crate) fn next_key_slot_id(slots: &[KeySlot]) -> u64 {
 
 pub(crate) fn random_content_key() -> Result<[u8; 32]> {
     let mut key = [0u8; 32];
-    getrandom::getrandom(&mut key).map_err(|err| Error::Io(err.to_string()))?;
+    getrandom::fill(&mut key).map_err(|err| Error::Io(err.to_string()))?;
     Ok(key)
 }
 
 pub(crate) fn random_salt() -> Result<Vec<u8>> {
     let mut salt = vec![0u8; 16];
-    getrandom::getrandom(&mut salt).map_err(|err| Error::Io(err.to_string()))?;
+    getrandom::fill(&mut salt).map_err(|err| Error::Io(err.to_string()))?;
     Ok(salt)
 }

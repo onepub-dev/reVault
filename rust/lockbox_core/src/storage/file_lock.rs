@@ -114,7 +114,7 @@ fn try_acquire(
         .write(true)
         .create(true)
         .truncate(false)
-        .open(&lock_path)
+        .open(lock_path)
         .map_err(|err| AcquireFailure::Io(format!("open {}: {err}", lock_path.display())))?;
     // SAFETY: flock operates on a valid file descriptor owned by `file`.
     let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
@@ -128,7 +128,7 @@ fn try_acquire(
     }
     let err = std::io::Error::last_os_error();
     if err.raw_os_error() == Some(libc::EWOULDBLOCK) || err.raw_os_error() == Some(libc::EAGAIN) {
-        return Err(AcquireFailure::Busy(read_owner_metadata(&lock_path)));
+        return Err(AcquireFailure::Busy(read_owner_metadata(lock_path)));
     }
     Err(AcquireFailure::Io(err.to_string()))
 }
@@ -202,10 +202,17 @@ fn leave_thread_lock(lock_path: &Path) -> bool {
     })
 }
 
-fn lock_path_for(target: &Path) -> PathBuf {
-    let mut path = OsString::from(target.as_os_str());
-    path.push(".lock");
-    PathBuf::from(path)
+/// Returns the hidden sidecar path used to coordinate writes to `target`.
+pub fn lock_path_for(target: &Path) -> PathBuf {
+    let Some(file_name) = target.file_name() else {
+        let mut path = OsString::from(target.as_os_str());
+        path.push(".lock");
+        return PathBuf::from(path);
+    };
+    let mut lock_name = OsString::from(".");
+    lock_name.push(file_name);
+    lock_name.push(".lock");
+    target.with_file_name(lock_name)
 }
 
 fn lock_timeout() -> Duration {
@@ -322,7 +329,20 @@ fn process_exists(pid: u32) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::format_unix_millis_datetime;
+    use super::{format_unix_millis_datetime, lock_path_for};
+    use std::path::Path;
+
+    #[test]
+    fn lock_file_is_hidden_beside_target() {
+        assert_eq!(
+            lock_path_for(Path::new("/tmp/secrets.lbox")),
+            Path::new("/tmp/.secrets.lbox.lock")
+        );
+        assert_eq!(
+            lock_path_for(Path::new("relative.lbox")),
+            Path::new(".relative.lbox.lock")
+        );
+    }
 
     #[test]
     fn unix_millis_format_is_human_readable_datetime() {

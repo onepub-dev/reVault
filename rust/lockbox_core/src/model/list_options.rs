@@ -13,6 +13,8 @@ pub struct ListOptions {
     pub include_files: bool,
     /// Whether symlink entries should be included.
     pub include_symlinks: bool,
+    /// Whether directory entries should be included.
+    pub include_directories: bool,
     /// Optional maximum number of entries to return.
     pub limit: Option<usize>,
 }
@@ -26,6 +28,7 @@ impl ListOptions {
             recursive: false,
             include_files: true,
             include_symlinks: true,
+            include_directories: true,
             limit: None,
         }
     }

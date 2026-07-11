@@ -19,6 +19,7 @@ pub(crate) trait Storage: Clone + std::fmt::Debug {
     fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()>;
     fn append(&mut self, bytes: &[u8]) -> Result<u64>;
     fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()>;
+    fn sync(&self) -> Result<()>;
 
     fn read_at_secure(&self, offset: u64, len: usize) -> Result<SecureVec> {
         let mut out = SecureVec::new();
@@ -111,6 +112,13 @@ impl Storage for StorageBackend {
         match self {
             Self::Memory(store) => store.write_at(offset, bytes),
             Self::File(store) => store.write_at(offset, bytes),
+        }
+    }
+
+    fn sync(&self) -> Result<()> {
+        match self {
+            Self::Memory(store) => store.sync(),
+            Self::File(store) => store.sync(),
         }
     }
 }
@@ -221,6 +229,10 @@ impl Storage for MemoryStore {
             return Err(Error::Io("storage write beyond end".to_string()));
         }
         self.bytes[start..end].copy_from_slice(bytes);
+        Ok(())
+    }
+
+    fn sync(&self) -> Result<()> {
         Ok(())
     }
 }
@@ -350,5 +362,11 @@ impl Storage for FileStore {
             .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
         file.write_all(bytes)
             .map_err(|err| Error::Io(format!("write {}: {err}", self.path.display())))
+    }
+
+    fn sync(&self) -> Result<()> {
+        self.lock_file()?
+            .sync_data()
+            .map_err(|err| Error::Io(format!("sync {}: {err}", self.path.display())))
     }
 }

@@ -163,6 +163,11 @@ impl Lockbox<crate::Writable> {
                     .to_string(),
             ));
         }
+        if let Some(reason) = &self.poisoned {
+            return Err(Error::InvalidOperation(format!(
+                "lockbox has an unresolved failed write: {reason}"
+            )));
+        }
         let rollback = CommitRollback::capture(self);
         match self.commit_inner() {
             Ok(()) => Ok(()),
@@ -238,6 +243,7 @@ impl Lockbox<crate::Writable> {
         self.commit_auth_digest = commit_auth_digest(&commit_auth_payload);
         self.commit_auth_offset = self.append_commit_auth_page(commit_auth_payload)?;
         self.flush_dirty_pages()?;
+        self.storage.sync()?;
         let sequence = self.sequence;
         let key_directory_offset = self.key_directory_offset;
         let lockbox_id = self.lockbox_id;
@@ -251,6 +257,7 @@ impl Lockbox<crate::Writable> {
             self.commit_auth_offset,
         );
         self.storage.write_at(0, &header)?;
+        self.storage.sync()?;
         self.publish_redacted_free_slots();
         Ok(())
     }
@@ -644,7 +651,7 @@ impl Lockbox<crate::Writable> {
     }
 }
 
-struct CommitRollback {
+pub(crate) struct CommitRollback {
     sequence: u64,
     commit_root_offset: u64,
     commit_auth_offset: u64,
@@ -657,6 +664,7 @@ struct CommitRollback {
     key_directory_mirror_offset: u64,
     key_directory_generation: u64,
     dirty_key_directory: bool,
+    poisoned: Option<String>,
     key_slots: Vec<crate::key_slot::KeySlot>,
     toc_entries:
         std::collections::BTreeMap<crate::lockbox_path::LockboxPath, crate::toc_entry::TocEntry>,
@@ -687,7 +695,7 @@ struct CommitRollback {
 }
 
 impl CommitRollback {
-    fn capture(lockbox: &Lockbox) -> Self {
+    pub(crate) fn capture(lockbox: &Lockbox) -> Self {
         Self {
             sequence: lockbox.sequence,
             commit_root_offset: lockbox.commit_root_offset,
@@ -701,6 +709,7 @@ impl CommitRollback {
             key_directory_mirror_offset: lockbox.key_directory_mirror_offset,
             key_directory_generation: lockbox.key_directory_generation,
             dirty_key_directory: lockbox.dirty_key_directory,
+            poisoned: lockbox.poisoned.clone(),
             key_slots: lockbox.key_slots.clone(),
             toc_entries: lockbox.toc_entries.clone(),
             toc_root: lockbox.toc_root.clone(),
@@ -727,7 +736,7 @@ impl CommitRollback {
         }
     }
 
-    fn restore(self, lockbox: &mut Lockbox) {
+    pub(crate) fn restore(self, lockbox: &mut Lockbox) {
         lockbox.sequence = self.sequence;
         lockbox.commit_root_offset = self.commit_root_offset;
         lockbox.commit_auth_offset = self.commit_auth_offset;
@@ -740,6 +749,7 @@ impl CommitRollback {
         lockbox.key_directory_mirror_offset = self.key_directory_mirror_offset;
         lockbox.key_directory_generation = self.key_directory_generation;
         lockbox.dirty_key_directory = self.dirty_key_directory;
+        lockbox.poisoned = self.poisoned;
         lockbox.key_slots = self.key_slots;
         lockbox.toc_entries = self.toc_entries;
         lockbox.toc_root = self.toc_root;
@@ -814,6 +824,19 @@ mod tests {
         LockboxPath::new(path).unwrap()
     }
 
+    fn add_file<State>(
+        lb: &mut Lockbox<State>,
+        path: &LockboxPath,
+        data: &[u8],
+        replace: bool,
+    ) -> crate::Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
+        lb.create_parent_dirs_for(path)?;
+        Lockbox::add_file(lb, path, data, replace)
+    }
+
     fn unique_path(label: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../target/test-tmp")
@@ -862,7 +885,7 @@ mod tests {
         let blocked = std::thread::spawn(move || {
             let password = SecretString::try_from_bytes(b"password".to_vec()).unwrap();
             let signing_key = OwnerSigningKeyPair::generate().unwrap();
-            Lockbox::open_file_for_write(
+            Lockbox::open_for_write(
                 &blocked_path,
                 LockboxOpen::Password(&password),
                 &signing_key,
@@ -874,8 +897,7 @@ mod tests {
 
         drop(lockbox);
         let reopened =
-            Lockbox::open_file_for_write(&path, LockboxOpen::Password(&password), &signing_key)
-                .unwrap();
+            Lockbox::open_for_write(&path, LockboxOpen::Password(&password), &signing_key).unwrap();
         drop(reopened);
         let _ = std::fs::remove_file(&path);
     }
@@ -964,7 +986,7 @@ mod tests {
     #[test]
     fn header_points_to_commit_root_that_points_to_toc_root() {
         let mut lb = Lockbox::create("secret");
-        lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
+        add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
         lb.commit().unwrap();
 
         let bytes = lb.to_bytes();
@@ -996,14 +1018,12 @@ mod tests {
     #[test]
     fn signed_commit_round_trips_after_reopen() {
         let mut lb = Lockbox::create("secret");
-        lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
+        add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
         lb.commit().unwrap();
         let first_auth = lb.commit_auth_offset;
 
-        let mut reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
-        reopened
-            .add_file(&p("/docs/b.txt"), b"bravo", false)
-            .unwrap();
+        let mut reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
+        add_file(&mut reopened, &p("/docs/b.txt"), b"bravo", false).unwrap();
         reopened.commit().unwrap();
 
         assert_ne!(reopened.commit_auth_offset, first_auth);
@@ -1020,7 +1040,7 @@ mod tests {
     #[test]
     fn open_rejects_tampered_signed_commit_auth_page() {
         let mut lb = Lockbox::create("secret");
-        lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
+        add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
         lb.commit().unwrap();
 
         let mut bytes = lb.to_bytes();
@@ -1029,13 +1049,13 @@ mod tests {
             .commit_auth_offset as usize;
         bytes[auth_offset + crate::page::PAGE_HEADER_LEN + 4] ^= 0x01;
 
-        assert!(Lockbox::open(bytes, "secret").is_err());
+        assert!(Lockbox::open_bytes_with_key(bytes, "secret").is_err());
     }
 
     #[test]
     fn open_rejects_tampered_signed_commit_root_page() {
         let mut lb = Lockbox::create("secret");
-        lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
+        add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
         lb.commit().unwrap();
 
         let mut bytes = lb.to_bytes();
@@ -1044,18 +1064,18 @@ mod tests {
             .commit_root_offset as usize;
         bytes[root_offset + crate::page::PAGE_HEADER_LEN + 4] ^= 0x01;
 
-        assert!(Lockbox::open(bytes, "secret").is_err());
+        assert!(Lockbox::open_bytes_with_key(bytes, "secret").is_err());
     }
 
     #[test]
     fn contact_opened_lockbox_cannot_commit_changes() {
         let contact = crate::ContactKeyPair::generate().unwrap();
         let mut lb = Lockbox::create_with_contact(&contact.public_key()).unwrap();
-        lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
+        add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
         lb.commit().unwrap();
 
         let mut opened = Lockbox::open_with_contact(lb.to_bytes(), &contact).unwrap();
-        opened.add_file(&p("/docs/b.txt"), b"bravo", false).unwrap();
+        add_file(&mut opened, &p("/docs/b.txt"), b"bravo", false).unwrap();
 
         assert!(matches!(
             opened.commit(),
@@ -1067,14 +1087,14 @@ mod tests {
     #[test]
     fn committed_toc_is_live_only_after_delete() {
         let mut lb = Lockbox::create("secret");
-        lb.add_file(&p("/docs/a.txt"), b"alpha", false).unwrap();
-        lb.add_file(&p("/docs/b.txt"), b"bravo", false).unwrap();
+        add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+        add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
         lb.commit().unwrap();
 
         lb.delete(&p("/docs/a.txt")).unwrap();
         lb.commit().unwrap();
 
-        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert!(!reopened.toc_entries.contains_key("/docs/a.txt"));
         assert!(reopened.toc_entries.contains_key("/docs/b.txt"));
         assert!(reopened
@@ -1095,8 +1115,13 @@ mod tests {
             })
             .collect::<Vec<_>>();
         for index in 0..6 {
-            lb.add_file(&p(format!("/docs/remove-{index}.bin")), &data, false)
-                .unwrap();
+            add_file(
+                &mut lb,
+                &p(format!("/docs/remove-{index}.bin")),
+                &data,
+                false,
+            )
+            .unwrap();
         }
         lb.commit().unwrap();
         for index in 0..6 {
@@ -1111,7 +1136,7 @@ mod tests {
             &bytes[lb.free_index_offset as usize..lb.free_index_offset as usize + 8],
             crate::page::PAGE_MAGIC
         );
-        let reopened = Lockbox::open(bytes, "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(bytes, "secret").unwrap();
         assert!(!reopened.free_space.slots_by_offset().is_empty());
     }
 
@@ -1126,8 +1151,13 @@ mod tests {
             })
             .collect::<Vec<_>>();
         for index in 0..((crate::free_index::FREE_INDEX_LEAF_SLOT_CAPACITY + 3) * 2) {
-            lb.add_file(&p(format!("/docs/free-index-{index}.bin")), &data, false)
-                .unwrap();
+            add_file(
+                &mut lb,
+                &p(format!("/docs/free-index-{index}.bin")),
+                &data,
+                false,
+            )
+            .unwrap();
         }
         lb.commit().unwrap();
         for index in (0..((crate::free_index::FREE_INDEX_LEAF_SLOT_CAPACITY + 3) * 2)).step_by(2) {
@@ -1149,7 +1179,7 @@ mod tests {
             .iter()
             .any(|object| object.kind == PageObjectKind::FreeIndexInternal));
 
-        let reopened = Lockbox::open(bytes, "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(bytes, "secret").unwrap();
         assert!(
             reopened.free_space.slots_by_offset().len()
                 > crate::free_index::FREE_INDEX_LEAF_SLOT_CAPACITY
@@ -1159,15 +1189,15 @@ mod tests {
     #[test]
     fn failed_commit_after_partial_appends_reopens_previous_commit() {
         let mut lb = Lockbox::create("secret");
-        lb.add_file(&p("/docs/old.txt"), b"old", false).unwrap();
+        add_file(&mut lb, &p("/docs/old.txt"), b"old", false).unwrap();
         lb.commit().unwrap();
 
-        lb.add_file(&p("/docs/new.txt"), b"new", false).unwrap();
+        add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
         lb.storage.fail_memory_append_after_successes(1);
         assert!(matches!(lb.commit(), Err(Error::Io(_))));
 
         assert_eq!(lb.get_file(&p("/docs/new.txt")).unwrap(), b"new");
-        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&p("/docs/old.txt")).unwrap(), b"old");
         assert!(matches!(
             reopened.get_file(&p("/docs/new.txt")),
@@ -1175,22 +1205,22 @@ mod tests {
         ));
 
         lb.commit().unwrap();
-        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&p("/docs/new.txt")).unwrap(), b"new");
     }
 
     #[test]
     fn failed_commit_header_publish_reopens_previous_commit() {
         let mut lb = Lockbox::create("secret");
-        lb.add_file(&p("/docs/old.txt"), b"old", false).unwrap();
+        add_file(&mut lb, &p("/docs/old.txt"), b"old", false).unwrap();
         lb.commit().unwrap();
 
-        lb.add_file(&p("/docs/new.txt"), b"new", false).unwrap();
+        add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
         lb.storage.fail_memory_next_write_at(0);
         assert!(matches!(lb.commit(), Err(Error::Io(_))));
 
         assert_eq!(lb.get_file(&p("/docs/new.txt")).unwrap(), b"new");
-        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&p("/docs/old.txt")).unwrap(), b"old");
         assert!(matches!(
             reopened.get_file(&p("/docs/new.txt")),
@@ -1198,16 +1228,15 @@ mod tests {
         ));
 
         lb.commit().unwrap();
-        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&p("/docs/new.txt")).unwrap(), b"new");
     }
 
     #[test]
     fn failed_commit_during_delete_redaction_reopens_previous_commit() {
         let mut lb = Lockbox::create("secret");
-        lb.add_file(&p("/docs/remove.txt"), b"remove me", false)
-            .unwrap();
-        lb.add_file(&p("/docs/keep.txt"), b"keep", false).unwrap();
+        add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
+        add_file(&mut lb, &p("/docs/keep.txt"), b"keep", false).unwrap();
         lb.commit().unwrap();
         let old_offset = lb
             .toc_entries
@@ -1223,7 +1252,7 @@ mod tests {
             lb.get_file(&p("/docs/remove.txt")),
             Err(Error::NotFound(_))
         ));
-        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(
             reopened.get_file(&p("/docs/remove.txt")).unwrap(),
             b"remove me"
@@ -1231,7 +1260,7 @@ mod tests {
         assert_eq!(reopened.get_file(&p("/docs/keep.txt")).unwrap(), b"keep");
 
         lb.commit().unwrap();
-        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert!(matches!(
             reopened.get_file(&p("/docs/remove.txt")),
             Err(Error::NotFound(_))
@@ -1244,7 +1273,7 @@ mod tests {
         let mut lb = Lockbox::create("secret");
         let old_data = deterministic_bytes(1_100_000, 0x1111_2222);
         let new_data = deterministic_bytes(1_100_000, 0x3333_4444);
-        lb.add_file(&p("/docs/data.bin"), &old_data, false).unwrap();
+        add_file(&mut lb, &p("/docs/data.bin"), &old_data, false).unwrap();
         lb.commit().unwrap();
         let old_offset = lb
             .toc_entries
@@ -1252,16 +1281,16 @@ mod tests {
             .unwrap()
             .record_offset;
 
-        lb.add_file(&p("/docs/data.bin"), &new_data, true).unwrap();
+        add_file(&mut lb, &p("/docs/data.bin"), &new_data, true).unwrap();
         lb.storage.fail_memory_next_write_at(old_offset);
         assert!(matches!(lb.commit(), Err(Error::Io(_))));
 
         assert_eq!(lb.get_file(&p("/docs/data.bin")).unwrap(), new_data);
-        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&p("/docs/data.bin")).unwrap(), old_data);
 
         lb.commit().unwrap();
-        let reopened = Lockbox::open(lb.to_bytes(), "secret").unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&p("/docs/data.bin")).unwrap(), new_data);
     }
 

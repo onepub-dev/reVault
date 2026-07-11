@@ -258,7 +258,7 @@ fn run_scenario(
 
         let pass_phrase = pass_phrase()?;
         let started = Instant::now();
-        let mut lockbox = Lockbox::open_file(&archive, LockboxOpen::Password(&pass_phrase))?;
+        let mut lockbox = Lockbox::open(&archive, LockboxOpen::Password(&pass_phrase))?;
         lockbox.set_workload_profile(WorkloadProfile::ExtractMany);
         lockbox.extract_to_directory(&extract_dir, &bench_extract_policy())?;
         lockbox_extract.push(started.elapsed());
