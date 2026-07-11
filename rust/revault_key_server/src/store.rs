@@ -2895,24 +2895,20 @@ fn replay(file: &mut File) -> Result<HashMap<RecordHash, PublishEntry>, StoreErr
                     );
                 }
             }
-            KIND_TOMBSTONE => {
-                if body.len() == HASH_LEN {
-                    let mut code_hash = [0_u8; HASH_LEN];
-                    code_hash.copy_from_slice(&body);
-                    index.remove(&code_hash);
-                }
+            KIND_TOMBSTONE if body.len() == HASH_LEN => {
+                let mut code_hash = [0_u8; HASH_LEN];
+                code_hash.copy_from_slice(&body);
+                index.remove(&code_hash);
             }
-            KIND_RECEIVE_COUNT => {
-                if body.len() == HASH_LEN + 2 {
-                    let mut code_hash = [0_u8; HASH_LEN];
-                    code_hash.copy_from_slice(&body[0..HASH_LEN]);
-                    let receives = u16::from_be_bytes([body[HASH_LEN], body[HASH_LEN + 1]]);
-                    if let Some(entry) = index.get_mut(&code_hash) {
-                        if receives >= entry.max_receives {
-                            index.remove(&code_hash);
-                        } else {
-                            entry.receives = receives;
-                        }
+            KIND_RECEIVE_COUNT if body.len() == HASH_LEN + 2 => {
+                let mut code_hash = [0_u8; HASH_LEN];
+                code_hash.copy_from_slice(&body[0..HASH_LEN]);
+                let receives = u16::from_be_bytes([body[HASH_LEN], body[HASH_LEN + 1]]);
+                if let Some(entry) = index.get_mut(&code_hash) {
+                    if receives >= entry.max_receives {
+                        index.remove(&code_hash);
+                    } else {
+                        entry.receives = receives;
                     }
                 }
             }
