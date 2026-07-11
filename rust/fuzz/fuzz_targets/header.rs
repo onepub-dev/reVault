@@ -14,7 +14,7 @@ fuzz_target!(|data: &[u8]| {
     ));
     if std::fs::write(&path, data).is_ok() {
         let open = LockboxOpen::ContentKey(SecretVec::try_from_slice(b"fuzz key").unwrap());
-        let _ = Lockbox::open_file(&path, open);
+        let _ = Lockbox::open(&path, open);
         let _ = std::fs::remove_file(path);
     }
 });

@@ -14,7 +14,7 @@ fuzz_target!(|data: &[u8]| {
         std::process::id()
     ));
     if std::fs::write(&path, data).is_ok() {
-        let _ = Lockbox::open_file(&path, LockboxOpen::Password(&password));
+        let _ = Lockbox::open(&path, LockboxOpen::Password(&password));
         let _ = std::fs::remove_file(path);
     }
 });
