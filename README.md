@@ -240,12 +240,56 @@ Use these defaults unless you have a specific reason not to:
 - Keep private key exports offline, short-lived, and permission-restricted.
 - Prefer recipient keys over shared passwords for team access.
 - Run `lockbox close secrets.lbox` when an open should no longer be cached.
-- Use `lockbox visualize secrets.lbox` for diagnostics; it intentionally avoids
-  printing file paths, file contents, variable names, or variable values.
+
 
 Lockbox protects data inside the container. It cannot protect a secret after you
 write it to a normal terminal, shell history, clipboard, exported file, build
 log, or process environment controlled by other tooling.
+
+## Key Server, Topology, and Replication
+
+`revault_key_server` is a short-lived rendezvous service for sharing candidate
+contact public keys. A publisher uploads a payload, verifies their email, and
+shares the resulting publish code with the recipient. The recipient uses that
+code to receive the candidate key, then verifies its fingerprint independently
+before trusting it. The server does not establish identity trust and is not a
+store for private keys.
+
+### Single server
+
+A first deployment uses one server with `server_id = 0`. Publish codes include
+that server id as their first digit, followed by a random code body. Using a
+self-routing code from the start keeps pending publishes compatible if the
+deployment later gains standby servers.
+
+### Topology servers
+
+Servers publish a topology document containing the known server URLs and the
+primary/failover route for each publish-code owner id. Clients use it as follows:
+
+- For a publish, select a topology server and keep that choice sticky locally.
+- For receive and delete, read the publish code's first digit, contact that
+  owner id's primary server, then use only its configured failovers.
+- Do not fail over after a rate-limit response; hopping servers must not bypass
+  abuse controls.
+
+DNS can provide normal host resolution, but it is not the routing mechanism.
+Round-robin DNS alone can send a receive request to a server that does not own
+the corresponding publish code.
+
+### Replication and failover
+
+Each server is authoritative for the codes carrying its own server id. It sends
+signed state events—published payloads, receive counts, payload lifecycle
+tombstones, and rate-limit blocks—to configured standby peers through the separate
+`/v1/replicate` endpoint. Events carry an origin server id, epoch, and sequence
+number, so standbys apply duplicates idempotently and never replicate received
+peer events again.
+
+Replication does not make the cluster hot/hot. A standby keeps replica state
+but serves an owner's payloads only after an operator explicitly promotes it for
+that owner id. This avoids two servers consuming a single-use publish at the
+same time during a network partition. See the [key-server installation guide](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/INSTALL.md), [configuration reference](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/KEY_SERVER_CONFIG.md), and [redundancy design](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/REDUNDANCY.md) for the deployment and recovery procedures.
 
 ## Rust Library
 
@@ -313,6 +357,9 @@ cargo check --workspace --all-targets --all-features
 cargo test --workspace
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```
+
+Use `lockbox visualize secrets.lbox` for diagnostics; it intentionally voids
+  printing file paths, file contents, variable names, or variable values.
 
 Generate Rust API docs:
 
