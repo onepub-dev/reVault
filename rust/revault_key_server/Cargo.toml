@@ -7,6 +7,7 @@ license-file = "LICENSE"
 description = "High-throughput reVault key rendezvous server"
 repository = "https://github.com/onepub-dev/reVault"
 documentation = "https://docs.rs/revault_key_server"
+readme = "README.md"
 
 [lib]
 name = "revault_key_server"
@@ -36,7 +37,7 @@ lettre = { version = "0.11", default-features = false, features = [
     "smtp-transport",
     "rustls-tls",
 ] }
-revault_publish_protocol = { version = "0.0.1", path = "../revault_publish_protocol" }
+revault_publish_protocol = { version = "0.0.2", path = "../revault_publish_protocol" }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"
 tokio = { version = "1", features = ["net", "rt-multi-thread", "time"] }

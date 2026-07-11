@@ -1927,7 +1927,7 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "revault_cli"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "clap",
  "getrandom 0.4.3",
@@ -1962,7 +1962,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -1986,7 +1986,7 @@ dependencies = [
 
 [[package]]
 name = "revault_page_api"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
@@ -1996,7 +1996,7 @@ dependencies = [
 
 [[package]]
 name = "revault_publish_protocol"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "httparse",
  "sha2 0.11.0",
@@ -2006,7 +2006,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "base64ct",
  "chacha20poly1305",

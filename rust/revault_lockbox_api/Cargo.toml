@@ -1,12 +1,13 @@
 [package]
 name = "revault_lockbox_api"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
 description = "reVault lockbox API to create and manage lockboxes"
 repository = "https://github.com/onepub-dev/reVault"
 documentation = "https://docs.rs/revault_lockbox_api"
+readme = "README.md"
 
 [lib]
 name = "revault_lockbox_api"
@@ -22,7 +23,7 @@ chacha20poly1305 = "0.11"
 ed25519-dalek = "2"
 getrandom = "0.4"
 hkdf = "0.13"
-revault_page_api = { version = "0.0.1", path = "../revault_page_api" }
+revault_page_api = { version = "0.0.2", path = "../revault_page_api" }
 ml-dsa = { version = "0.1", features = ["getrandom"] }
 ml-kem = { version = "0.3.2", features = ["getrandom"] }
 sha2 = "0.11"
