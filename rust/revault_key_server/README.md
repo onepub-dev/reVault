@@ -1,10 +1,8 @@
 # revault_key_server
 
-The revault key server is used by the reVault cli tooling to exchange keys and
-establish trust in those keys.
-
-The reVault key rendezvous server is designed for High-throughput 
- short-lived contact publish and receive operations.
+The reVault key rendezvous server handles high-throughput, short-lived contact
+publish and receive operations for the reVault CLI. It relays candidate keys;
+it does not establish trust in them.
 
 It relays candidate contact public keys; clients must still verify a received
 key's fingerprint independently before trusting it. Publish codes are
@@ -14,9 +12,7 @@ each owner id. Standby peers receive signed, idempotent replication events, but
 serve replica payloads only after explicit operator promotion. This avoids
 hot/hot single-use receive races during a network partition.
 
-Read the full [key-server topology and replication overview](https://github.com/onepub-dev/reVault#key-server-topology-and-replication), [installation guide](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/INSTALL.md), [configuration reference](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/KEY_SERVER_CONFIG.md), and [redundancy design](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/REDUNDANCY.md).
-
- 
+Read the full [key-server topology and replication overview](https://github.com/onepub-dev/reVault#key-server-topology-and-replication), [configuration reference](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/KEY_SERVER_CONFIG.md), and [redundancy design](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/REDUNDANCY.md).
 
 Install and manage the Linux system service with:
 

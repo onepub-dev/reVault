@@ -240,6 +240,8 @@ Use these defaults unless you have a specific reason not to:
 - Keep private key exports offline, short-lived, and permission-restricted.
 - Prefer recipient keys over shared passwords for team access.
 - Run `lockbox close secrets.lbox` when an open should no longer be cached.
+- Use `lockbox visualize secrets.lbox` for diagnostics; it intentionally avoids
+  printing file paths, file contents, variable names, or variable values.
 
 
 Lockbox protects data inside the container. It cannot protect a secret after you
@@ -289,7 +291,7 @@ peer events again.
 Replication does not make the cluster hot/hot. A standby keeps replica state
 but serves an owner's payloads only after an operator explicitly promotes it for
 that owner id. This avoids two servers consuming a single-use publish at the
-same time during a network partition. See the [key-server installation guide](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/INSTALL.md), [configuration reference](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/KEY_SERVER_CONFIG.md), and [redundancy design](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/REDUNDANCY.md) for the deployment and recovery procedures.
+same time during a network partition. See the [key-server deployment guide](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/README.md), [configuration reference](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/KEY_SERVER_CONFIG.md), and [redundancy design](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/REDUNDANCY.md) for the deployment and recovery procedures.
 
 ## Rust Library
 
@@ -357,9 +359,6 @@ cargo check --workspace --all-targets --all-features
 cargo test --workspace
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 ```
-
-Use `lockbox visualize secrets.lbox` for diagnostics; it intentionally voids
-  printing file paths, file contents, variable names, or variable values.
 
 Generate Rust API docs:
 

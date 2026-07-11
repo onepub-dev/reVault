@@ -96,13 +96,13 @@ Normal callers should use the standard `Lockbox` open/create APIs.
 ## Archive Format
 
 The on-disk `.lbox` format is described in
-[ARCHIVE_FORMAT.md](ARCHIVE_FORMAT.md). That document covers the fixed header,
+[archive format reference](https://github.com/onepub-dev/reVault/blob/master/rust/revault_lockbox_api/ARCHIVE_FORMAT.md). That document covers the fixed header,
 pages, page objects, commit roots, commit authentication, TOC, variables, forms,
 key directories, and recovery rules.
 
 Implementation notes such as page-cache boundaries, compaction flow, key
 removal maintenance, and recovery scan behavior are in
-[IMPLEMENTATION_GUIDE.md](IMPLEMENTATION_GUIDE.md).
+[implementation guide](https://github.com/onepub-dev/reVault/blob/master/rust/revault_lockbox_api/IMPLEMENTATION_GUIDE.md).
 
 ## Create And Read A Lockbox
 
