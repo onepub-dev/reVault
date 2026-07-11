@@ -4,6 +4,7 @@ use std::{
     process::{Command, Stdio},
 };
 
+use crate::memory_region::page_size;
 use crate::{
     allocation_chunk_bytes, read_access, secure_memory_capabilities,
     set_weakened_allocation_allowed, weakened_allocation_allowed, AllocationSecurity, Error,
@@ -11,7 +12,7 @@ use crate::{
 };
 
 #[cfg(any(unix, windows))]
-use crate::memory_region::{page_size, MemoryRegion};
+use crate::memory_region::MemoryRegion;
 
 #[test]
 fn secure_string_round_trips_utf8() {

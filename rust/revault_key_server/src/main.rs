@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
@@ -246,7 +246,7 @@ fn print_doctor() -> Result<(), Box<dyn std::error::Error>> {
     if !config.state_dir.exists() {
         println!("  Warning: the state directory will be created when the service starts.");
     }
-    if config.state_dir != PathBuf::from("/var/lib/revault-key-server") {
+    if config.state_dir != Path::new("/var/lib/revault-key-server") {
         println!("  Warning: this is a legacy state directory. The current default is /var/lib/revault-key-server.");
         println!("  Migrate its data and update state_dir before starting the renamed service.");
     }

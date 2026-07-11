@@ -2,7 +2,7 @@ name: Endian Interop
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  LOCKBOX_INTEROP_FIXTURE_VERSION: v3
+  LOCKBOX_INTEROP_FIXTURE_VERSION: v4
 
 on:
   push:
@@ -50,7 +50,7 @@ jobs:
         if: steps.x64-fixture-cache.outputs.cache-hit != 'true'
         env:
           LOCKBOX_INTEROP_CREATE_PATH: ${{ github.workspace }}/interop-cache/lockbox-x64.lbx
-        run: cargo test --release -p lockbox_core --test endian_interop -- --ignored --nocapture
+        run: cargo test --release -p revault_lockbox_api --test endian_interop -- --ignored --nocapture
 
       - name: Upload x64 fixture
         uses: actions/upload-artifact@v4
@@ -91,7 +91,7 @@ jobs:
         env:
           LOCKBOX_INTEROP_VERIFY_PATH: ${{ github.workspace }}/interop/lockbox-x64.lbx
           LOCKBOX_INTEROP_CREATE_PATH: ${{ runner.temp }}/lockbox-linux-arm64.lbx
-        run: cargo test --release -p lockbox_core --test endian_interop -- --ignored --nocapture
+        run: cargo test --release -p revault_lockbox_api --test endian_interop -- --ignored --nocapture
 
       - name: Upload Linux arm64 fixture
         uses: actions/upload-artifact@v4
@@ -131,7 +131,7 @@ jobs:
       - name: Verify Linux arm64 fixture
         env:
           LOCKBOX_INTEROP_VERIFY_PATH: ${{ github.workspace }}/interop/lockbox-linux-arm64.lbx
-        run: cargo test --release -p lockbox_core --test endian_interop -- --ignored --nocapture
+        run: cargo test --release -p revault_lockbox_api --test endian_interop -- --ignored --nocapture
 
   verify-x64-on-macos-arm:
     name: verify x64 fixture on macOS arm64
@@ -164,7 +164,7 @@ jobs:
       - name: Verify x64 fixture
         env:
           LOCKBOX_INTEROP_VERIFY_PATH: ${{ github.workspace }}/interop/lockbox-x64.lbx
-        run: cargo test --release -p lockbox_core --test endian_interop -- --ignored --nocapture
+        run: cargo test --release -p revault_lockbox_api --test endian_interop -- --ignored --nocapture
 
   big-endian-s390x:
     name: verify x64 fixture on s390x and create s390x fixture
@@ -212,7 +212,7 @@ jobs:
           key: endian-s390x
 
       - name: Build s390x endian test
-        run: cargo test --release -p lockbox_core --test endian_interop --target s390x-unknown-linux-gnu --no-run
+        run: cargo test --release -p revault_lockbox_api --test endian_interop --target s390x-unknown-linux-gnu --no-run
 
       - name: Verify x64 fixture and create s390x fixture
         if: steps.s390x-fixture-cache.outputs.cache-hit != 'true'
@@ -269,4 +269,4 @@ jobs:
       - name: Verify s390x fixture
         env:
           LOCKBOX_INTEROP_VERIFY_PATH: ${{ github.workspace }}/interop/lockbox-s390x.lbx
-        run: cargo test --release -p lockbox_core --test endian_interop -- --ignored --nocapture
+        run: cargo test --release -p revault_lockbox_api --test endian_interop -- --ignored --nocapture

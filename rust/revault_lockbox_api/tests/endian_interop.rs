@@ -45,11 +45,17 @@ fn create_fixture(path: &Path) {
     )
     .unwrap();
     lockbox
+        .create_parent_dirs_for(&p("/docs/readme.txt"))
+        .unwrap();
+    lockbox
         .add_file(
             &p("/docs/readme.txt"),
             b"lockbox endian interoperability fixture\n",
             false,
         )
+        .unwrap();
+    lockbox
+        .create_parent_dirs_for(&p("/unicode/cafe\u{301}.txt"))
         .unwrap();
     lockbox
         .add_file(
@@ -59,11 +65,17 @@ fn create_fixture(path: &Path) {
         )
         .unwrap();
     lockbox
+        .create_parent_dirs_for(&p("/data/randomish.bin"))
+        .unwrap();
+    lockbox
         .add_file_from_reader(
             &p("/data/randomish.bin"),
             PatternReader::new(2 * 1024 * 1024),
             false,
         )
+        .unwrap();
+    lockbox
+        .create_parent_dirs_for(&p("/small/repeated.bin"))
         .unwrap();
     lockbox
         .add_file(&p("/small/repeated.bin"), &vec![b'x'; 128 * 1024], false)

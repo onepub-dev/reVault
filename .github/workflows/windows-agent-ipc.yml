@@ -8,17 +8,17 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "rust/lockbox_vault/**"
-      - "rust/lockbox_cli/src/main.rs"
-      - "rust/lockbox_cli/src/commands/**"
-      - "rust/lockbox_cli/tests/agent_flow.rs"
+      - "rust/revault_vault_api/**"
+      - "rust/revault_cli/src/main.rs"
+      - "rust/revault_cli/src/commands/**"
+      - "rust/revault_cli/tests/agent_flow.rs"
       - ".github/workflows/windows-agent-ipc.yml"
   pull_request:
     paths:
-      - "rust/lockbox_vault/**"
-      - "rust/lockbox_cli/src/main.rs"
-      - "rust/lockbox_cli/src/commands/**"
-      - "rust/lockbox_cli/tests/agent_flow.rs"
+      - "rust/revault_vault_api/**"
+      - "rust/revault_cli/src/main.rs"
+      - "rust/revault_cli/src/commands/**"
+      - "rust/revault_cli/tests/agent_flow.rs"
       - ".github/workflows/windows-agent-ipc.yml"
 
 jobs:
@@ -50,8 +50,12 @@ jobs:
         with:
           workspaces: rust
 
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Run agent IPC smoke
-        run: cargo test -p lockbox_cli --test agent_flow -- --ignored --nocapture
+        run: cargo test -p revault_cli --test agent_flow
 
       - name: Verify agent transport security
-        run: cargo run -p lockbox_cli -- __agent_security_check
+        run: cargo run -p revault_cli --bin lockbox -- __agent_security_check

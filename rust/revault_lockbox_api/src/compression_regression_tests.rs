@@ -17,6 +17,9 @@ fn repeated_small_files_keep_meaningful_compression() {
     let file_size = 1024usize;
     let mut lockbox = Lockbox::create(KEY);
     let payload = repeated_small_payload(file_size);
+    lockbox
+        .create_parent_dirs_for(&p("/small/file.bin"))
+        .unwrap();
 
     for index in 0..file_count {
         lockbox
@@ -39,6 +42,9 @@ fn repeated_small_files_keep_meaningful_compression() {
 fn moderately_large_zero_file_uses_few_fixed_pages() {
     let logical = 256 * MIB;
     let mut lockbox = Lockbox::create(KEY);
+    lockbox
+        .create_parent_dirs_for(&p("/large/zero.bin"))
+        .unwrap();
 
     lockbox
         .add_file_from_reader(
@@ -61,6 +67,9 @@ fn moderately_large_zero_file_uses_few_fixed_pages() {
 fn one_gib_zero_file_compression_does_not_regress() {
     let logical = 1024 * MIB;
     let mut lockbox = Lockbox::create(KEY);
+    lockbox
+        .create_parent_dirs_for(&p("/large/zero.bin"))
+        .unwrap();
 
     lockbox
         .add_file_from_reader(
@@ -83,6 +92,9 @@ fn one_gib_zero_file_compression_does_not_regress() {
 fn one_gib_high_entropy_file_avoids_excessive_expansion() {
     let logical = 1024 * MIB;
     let mut lockbox = Lockbox::create(KEY);
+    lockbox
+        .create_parent_dirs_for(&p("/large/randomish.bin"))
+        .unwrap();
 
     lockbox
         .add_file_from_reader(

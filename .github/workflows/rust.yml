@@ -44,11 +44,15 @@ jobs:
         with:
           workspaces: rust
 
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+
       - name: Required checks
         run: bash tools/check_required.sh
 
       - name: Agent IPC smoke test
-        run: cargo test -p lockbox_cli --test agent_flow -- --ignored
+        run: cargo test -p revault_cli --test agent_flow -- --nocapture
 
       - name: Check fuzz targets
         run: cargo check --manifest-path fuzz/Cargo.toml
@@ -89,15 +93,15 @@ jobs:
           key: portable-core-${{ matrix.target }}
 
       - name: Check core
-        run: cargo check -p lockbox_core --target ${{ matrix.target }}
+        run: cargo check -p revault_lockbox_api --target ${{ matrix.target }}
 
       - name: Check secure tests
         if: matrix.target != 'wasm32-unknown-unknown'
-        run: cargo check -p lockbox_secure --target ${{ matrix.target }} --tests
+        run: cargo check -p revault_page_api --target ${{ matrix.target }} --tests
 
       - name: Check secure web library
         if: matrix.target == 'wasm32-unknown-unknown'
-        run: cargo check -p lockbox_secure --target ${{ matrix.target }} --lib
+        run: cargo check -p revault_page_api --target ${{ matrix.target }} --lib
 
   compression-regression:
     name: compression regression corpus
@@ -130,12 +134,12 @@ jobs:
 
       - name: Generate compression corpus
         if: steps.compression-corpus-cache.outputs.cache-hit != 'true'
-        run: cargo bench -p lockbox_core --bench compression_corpus -- .ci-compression-corpus
+        run: cargo bench -p revault_lockbox_api --bench compression_corpus -- .ci-compression-corpus
 
       - name: Run compression regression corpus
         env:
           LOCKBOX_COMPRESSION_CORPUS_DIR: ${{ github.workspace }}/rust/.ci-compression-corpus
-        run: cargo test --release -p lockbox_core --test compression_regression -- --ignored --nocapture
+        run: cargo test --release -p revault_lockbox_api compression_regression_tests -- --ignored --nocapture
 
   network-integration:
     name: network integration
@@ -158,6 +162,9 @@ jobs:
         with:
           workspaces: rust
           key: network-integration
+
+      - name: Install Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
       - name: Run ignored network tests
         run: bash tools/run_network_tests.sh
