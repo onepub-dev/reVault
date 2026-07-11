@@ -18,6 +18,9 @@ deployment and configuration details.
 Production operation requires the separate commercial license described in the
 package license.
 
+See the [reVault repository README](https://github.com/onepub-dev/reVault#readme)
+for the complete project overview.
+
 ## License
 
 See the repository license for licensing terms.

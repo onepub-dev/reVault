@@ -202,3 +202,6 @@ cargo run -p revault_lockbox_api --example files_and_directories
 Core archive performance benchmarks live in `benches/`. See
 `BENCHMARKS.md` for Criterion usage, the reproducible PGP comparison harness,
 sample results, and profiler notes.
+
+See the [reVault repository README](https://github.com/onepub-dev/reVault#readme)
+for the complete project overview.

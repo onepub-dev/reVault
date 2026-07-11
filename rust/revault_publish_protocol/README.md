@@ -56,6 +56,9 @@ fn server_urls(bytes: &[u8], publish_code: &str) -> Vec<String> {
 }
 ```
 
+See the [reVault repository README](https://github.com/onepub-dev/reVault#readme)
+for the complete project overview.
+
 ## License
 
 This crate is distributed under the reVault Source Available License 1.0. See

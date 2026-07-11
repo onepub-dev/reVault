@@ -6,6 +6,9 @@ The vault API stores identities, contacts, signing keys, lockbox key-directory
 backups, and content-key integrations. It also provides platform secret-store
 integration and the local open-cache/session service.
 
+See the [reVault repository README](https://github.com/onepub-dev/reVault#readme)
+for the complete project overview.
+
 ## License
 
 See the repository license for licensing terms.

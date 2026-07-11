@@ -9,7 +9,8 @@ cargo install revault_cli
 lbx vault init
 ```
 
-See the repository README for the complete command guide.
+See the [reVault repository README](https://github.com/onepub-dev/reVault#readme)
+for the complete command guide.
 
 ## License
 
