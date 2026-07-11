@@ -4416,12 +4416,7 @@ fn auto_open_lockboxes_uses_remembered_password() {
     let agent_root = dir.join("agent");
     let lockbox = dir.join("remembered.lbox");
 
-    let init = run_output_without_content_key(
-        bin,
-        &["vault", "init"],
-        &vault_root,
-        &agent_root,
-    );
+    let init = run_output_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     if is_platform_secret_store_unavailable(&init) {
         eprintln!("skipping auto-open lockbox assertions: platform secret store unavailable");
         return;
@@ -4479,12 +4474,7 @@ fn auto_open_lockboxes_with_vault_identity_allows_first_add() {
     let source = dir.join("test.md");
     fs::write(&source, "hello issue\n").unwrap();
 
-    let init = run_output_without_content_key(
-        bin,
-        &["vault", "init"],
-        &vault_root,
-        &agent_root,
-    );
+    let init = run_output_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     if is_platform_secret_store_unavailable(&init) {
         eprintln!("skipping auto-open identity assertions: platform secret store unavailable");
         return;
