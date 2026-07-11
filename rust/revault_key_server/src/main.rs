@@ -14,15 +14,15 @@ use install::{
 use revault_key_server::{install, server, server_log, store};
 use revault_publish_protocol::{ServerStatus, TopologyRoute, TopologyServer};
 use server::{bench_http, bench_http_flow, bench_http_receive, run_server};
-use server_log::log_server_event;
+use server_log::{log_server_event, log_timestamp};
 use store::{PublishStore, ServerConfig, SmtpTlsMode};
 
 fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
-            eprintln!("error: {err}");
-            log_server_event(format!("command failed: {err}"));
+            eprintln!("{} ERROR {err}", log_timestamp());
+            log_server_event(format!("ERROR command failed: {err}"));
             ExitCode::FAILURE
         }
     }
@@ -65,7 +65,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 "  public URL: {}",
                 config.public_url.as_deref().unwrap_or("not configured")
             );
-            let store = Arc::new(PublishStore::open(config)?);
+            let state_dir = config.state_dir.clone();
+            let store = Arc::new(PublishStore::open(config).map_err(|err| {
+                format!(
+                    "could not open server state at {}: {err}",
+                    state_dir.display()
+                )
+            })?);
             store.start_topology_background();
             run_server(&bind, store)?;
         }

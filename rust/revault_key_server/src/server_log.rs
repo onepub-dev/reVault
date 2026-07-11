@@ -3,6 +3,8 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
 const LOG_ENV: &str = "REVAULT_KEY_SERVER_LOG";
 
@@ -32,6 +34,12 @@ pub fn log_server_event(message: impl AsRef<str>) {
     write_file_log(fallback_log_path(), message);
 }
 
+pub fn log_timestamp() -> String {
+    OffsetDateTime::now_utc()
+        .format(&Rfc3339)
+        .unwrap_or_else(|_| format!("unix-ms-{}", unix_time_millis()))
+}
+
 fn write_file_log(path: PathBuf, message: &str) {
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
@@ -39,7 +47,7 @@ fn write_file_log(path: PathBuf, message: &str) {
     let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) else {
         return;
     };
-    let _ = writeln!(file, "{}\t{}", unix_time_millis(), message);
+    let _ = writeln!(file, "{} INFO {}", log_timestamp(), message);
 }
 
 fn unix_time_millis() -> u128 {
