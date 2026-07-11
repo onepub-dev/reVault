@@ -30,6 +30,20 @@ fn open_populates_cache_and_close_clears_it() {
         &vault_dir,
         &["create", vault.to_str().unwrap()],
     );
+    // The first open launches the Windows agent. Inheriting the test's capture
+    // pipes into that process tree prevents their readers from observing EOF.
+    #[cfg(windows)]
+    let open = Output {
+        status: run_status(
+            bin,
+            &agent_dir,
+            &vault_dir,
+            &["open", vault.to_str().unwrap()],
+        ),
+        stdout: Vec::new(),
+        stderr: Vec::new(),
+    };
+    #[cfg(not(windows))]
     let open = run_output(
         bin,
         &agent_dir,
