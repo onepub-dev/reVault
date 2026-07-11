@@ -117,7 +117,16 @@ unsafe fn libc_geteuid() -> u32 {
 }
 
 fn ensure_user() -> Result<(), Box<dyn std::error::Error>> {
-    if Command::new("id").arg("-u").arg(USER).status()?.success() {
+    // `id` writes "no such user" to stderr when the account is absent. That
+    // is the normal first-install path, not an error, so capture the result
+    // instead of leaking the diagnostic to the administrator.
+    if Command::new("id")
+        .arg("-u")
+        .arg(USER)
+        .output()?
+        .status
+        .success()
+    {
         return Ok(());
     }
     run(
