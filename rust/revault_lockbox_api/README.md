@@ -1,12 +1,35 @@
 # revault_lockbox_api
 
-`revault_lockbox_api` is the portable storage engine for reVault `.lbox` files.
+reVault lets people keep files and structured secrets in portable, encrypted
+archives called **lockboxes**. A lockbox is a `.lbox` file that can be stored,
+moved, backed up, or shared. Its contents are encrypted, and every change is
+signed by its owner.
 
-It owns the encrypted lockbox file format and the Rust API for creating,
-opening, reading, mutating, and recovering lockboxes. It deliberately does not
-manage the local vault, active sessions, auto-open behavior, command-line
-prompts, or agent caching. Those concerns live in higher-level crates such as
-`revault_vault_api` and `revault_cli`.
+`revault_lockbox_api` is the Rust storage engine behind those lockboxes. Use it
+when you are building an application, service, or language wrapper that needs
+to create or read `.lbox` files directly. If you simply want to use reVault at
+the terminal, start with
+[revault_cli](https://crates.io/crates/revault_cli) instead.
+
+Before the API details, these terms establish the model:
+
+- A **lockbox** is the encrypted archive and its associated access rules.
+- A **content key** is the random secret that encrypts a lockbox's contents.
+- A **key slot** is a protected copy of the content key. A password or a
+  recipient's public key can unlock a slot without directly encrypting every
+  archive record.
+- An **owner signing key** proves that a change was authorised by the lockbox
+  owner.
+- A **vault** is a higher-level, local private store for identities, contacts,
+  and lockbox keys. Vault management is provided by `revault_vault_api` and the
+  CLI, not by this crate.
+
+This crate deliberately does not manage a local vault, active sessions,
+command-line prompts, or agent caching. Those user-facing concerns live in
+higher-level crates such as `revault_vault_api` and `revault_cli`.
+
+For the complete ecosystem overview, see the
+[reVault project README](https://github.com/onepub-dev/reVault#readme).
 
 ## Purpose
 

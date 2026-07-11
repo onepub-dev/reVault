@@ -1,18 +1,60 @@
 # revault_key_server
 
-The reVault key rendezvous server handles high-throughput, short-lived contact
-publish and receive operations for the reVault CLI. It relays candidate keys;
-it does not establish trust in them.
+`revault_key_server` helps two reVault users begin sharing lockboxes without
+having to send public keys manually through email or chat.
 
-It relays candidate contact public keys; clients must still verify a received
-key's fingerprint independently before trusting it. Publish codes are
-self-routing: their first digit identifies the owning server. Servers expose a
-topology document that tells clients which primary and failover endpoint serves
-each owner id. Standby peers receive signed, idempotent replication events, but
-serve replica payloads only after explicit operator promotion. This avoids
-hot/hot single-use receive races during a network partition.
+## Where it fits
+
+In reVault:
+
+- A **lockbox** is an encrypted `.lbox` archive containing files, variables,
+  or form records.
+- A **vault** is a user's local private store for identities, contacts, and
+  the keys needed to open lockboxes.
+- An **identity** is the user's public/private key pair.
+- A **contact** is another person's verified public identity key.
+- This **key server** is a temporary meeting point that lets one user offer a
+  candidate public key to another user.
+
+The key server is not a vault and does not hold private keys. It cannot decide
+who somebody is or make a candidate key trusted. Those decisions stay on the
+users' devices.
+
+## What happens when users connect
+
+1. Alice asks the reVault CLI to publish her identity's public key.
+2. The server sends Alice an email verification link, so it does not make an
+   unverified address immediately available.
+3. Once verified, the server returns a short-lived **publish code**.
+4. Alice gives that code to Bob through a separate channel—for example a phone
+   call, chat, or in person.
+5. Bob receives Alice's candidate public key with the code, then compares its
+   **fingerprint** with Alice over an independent channel before saving her as a
+   trusted contact.
+
+The code is for finding a candidate key; the fingerprint check is what creates
+trust. A publish expires and can be consumed only a limited number of times.
+
+## One server or several
+
+Start with one server. If you later need redundancy, each server has a stable
+numeric id. That id is the first digit of a publish code, so clients can route
+receive and delete requests to the server that owns the code.
+
+Servers share a **topology** document: a small map of server ids, URLs, and
+primary/failover routes. A client publishes through one selected server; for a
+receive it reads the code's first digit, contacts the owning primary server,
+and then tries only that server's configured failovers.
+
+Standby servers receive signed replication events for pending publishes,
+deletions, receive counts, and abuse blocks. A standby stores the copy but does
+not serve it until an operator explicitly promotes that standby for the failed
+server id. This design prevents two servers from consuming the same one-time
+publish during a network partition.
 
 Read the full [key-server topology and replication overview](https://github.com/onepub-dev/reVault#key-server-topology-and-replication), [configuration reference](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/KEY_SERVER_CONFIG.md), and [redundancy design](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/REDUNDANCY.md).
+
+## Install and operate
 
 Install and manage the Linux system service with:
 
@@ -32,7 +74,7 @@ See the [reVault repository README](https://github.com/onepub-dev/reVault#readme
 for the complete project overview.
 
 
-# Install the reVault key server
+## Build from the repository
 
 This package builds one system binary: `revault_key_server`.
 
