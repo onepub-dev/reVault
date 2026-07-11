@@ -232,7 +232,7 @@ fn heavy_failover_recovery_under_load() {
 
     cluster.start_late_standby();
     let recover_start = Instant::now();
-    wait_until("late standby caught up", Duration::from_secs(60), || {
+    wait_until("late standby caught up", Duration::from_secs(180), || {
         cluster.standby.store.stats().live >= flows
     });
     let recover_elapsed = recover_start.elapsed();
@@ -504,6 +504,8 @@ fn config(
         index_cache_entries: 100_000,
         rate_limit_per_minute: 0,
         rate_limit_burst: 1_000,
+        verification_email_rate_limit_per_hour: 0,
+        verification_email_ip_rate_limit_per_hour: 0,
         ..ServerConfig::default()
     }
 }

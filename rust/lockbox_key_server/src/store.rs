@@ -9,7 +9,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::server_log::log_server_event;
-use getrandom::getrandom;
+use getrandom::fill as getrandom;
 use lettre::message::{Mailbox, SinglePart};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport as MailTransport};
@@ -3072,6 +3072,7 @@ pub fn bench_store(config: ServerConfig) -> Result<(), StoreError> {
 }
 
 #[cfg(test)]
+#[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
     use std::net::TcpListener;

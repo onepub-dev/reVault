@@ -7,6 +7,7 @@ use crate::client::{
 };
 use crate::protocol::ProtocolError;
 use crate::topology::TopologyServer;
+use url::Url;
 
 use super::helpers::parse_http_response;
 
@@ -116,39 +117,35 @@ impl Transport for HttpTransport {
 
 impl Endpoint {
     pub(crate) fn parse(server_url: &str) -> Result<Self, ClientError> {
-        let (scheme, rest) = if let Some(rest) = server_url.strip_prefix("http://") {
-            (Scheme::Http, rest)
-        } else if let Some(rest) = server_url.strip_prefix("https://") {
-            (Scheme::Https, rest)
-        } else {
-            return Err(ClientError::Url(
-                "only http:// and https:// urls are supported".to_string(),
-            ));
-        };
-        let (authority, path) = match rest.split_once('/') {
-            Some((authority, path)) => (authority, format!("/{path}")),
-            None => (rest, "/v1/publish".to_string()),
-        };
-        if authority.is_empty() {
-            return Err(ClientError::Url("missing host".to_string()));
-        }
-        let (host, port) = match authority.rsplit_once(':') {
-            Some((host, port)) => {
-                let port = port
-                    .parse::<u16>()
-                    .map_err(|_| ClientError::Url("invalid port".to_string()))?;
-                (host.to_string(), port)
+        let url = Url::parse(server_url).map_err(|err| ClientError::Url(err.to_string()))?;
+        let scheme = match url.scheme() {
+            "http" => Scheme::Http,
+            "https" => Scheme::Https,
+            _ => {
+                return Err(ClientError::Url(
+                    "only http:// and https:// urls are supported".to_string(),
+                ))
             }
-            None => (
-                authority.to_string(),
-                match scheme {
-                    Scheme::Http => 80,
-                    Scheme::Https => 443,
-                },
-            ),
         };
-        if host.is_empty() {
-            return Err(ClientError::Url("missing host".to_string()));
+        let host = url
+            .host_str()
+            .filter(|host| !host.is_empty())
+            .ok_or_else(|| ClientError::Url("missing host".to_string()))?
+            .to_string();
+        let port = url.port_or_known_default().ok_or_else(|| {
+            ClientError::Url("missing port for unsupported URL scheme".to_string())
+        })?;
+        let has_explicit_path = server_url
+            .split_once("://")
+            .and_then(|(_, rest)| rest.find('/'))
+            .is_some();
+        let mut path = if has_explicit_path {
+            url[url::Position::BeforePath..].to_string()
+        } else {
+            "/v1/publish".to_string()
+        };
+        if path.is_empty() {
+            path = "/".to_string();
         }
         Ok(Self {
             scheme,
@@ -219,50 +216,52 @@ fn tls_request(
     topology_version: Option<u64>,
     server_token: Option<&str>,
 ) -> Result<Vec<u8>, ClientError> {
-    let agent = ureq::AgentBuilder::new().timeout(timeout).build();
-    let request = match method {
+    let agent = ureq::Agent::config_builder()
+        .timeout_global(Some(timeout))
+        .build()
+        .new_agent();
+    let response = match method {
         "GET" => agent
             .get(url)
-            .set("Accept", "application/octet-stream")
-            .set("Connection", "close"),
+            .header("Accept", "application/octet-stream")
+            .header("Connection", "close")
+            .call(),
         "POST" => {
             let mut request = agent
                 .post(url)
-                .set("Content-Type", "application/octet-stream")
-                .set("Accept", "application/octet-stream")
-                .set("Connection", "close");
+                .header("Content-Type", "application/octet-stream")
+                .header("Accept", "application/octet-stream")
+                .header("Connection", "close");
             if let Some(version) = topology_version {
-                request = request.set(REQUEST_TOPOLOGY_HEADER, &version.to_string());
+                request = request.header(REQUEST_TOPOLOGY_HEADER, version.to_string());
             }
             if let Some(token) = server_token {
-                request = request.set(SERVER_TOKEN_HEADER, token);
+                request = request.header(SERVER_TOKEN_HEADER, token);
             }
-            request
+            request.send(body.unwrap_or_default())
         }
         other => return Err(ClientError::Http(format!("unsupported method {other}"))),
-    };
-    let response = match body {
-        Some(body) => request.send_bytes(body),
-        None => request.call(),
     }
     .map_err(ureq_error)?;
-    if response.status() != 200 {
+    if response.status().as_u16() != 200 {
         return Err(ClientError::Http(format!(
-            "HTTP/1.1 {} {}",
-            response.status(),
-            response.status_text()
+            "HTTP/1.1 {}",
+            response.status().as_u16(),
         )));
     }
     read_ureq_body(response, max_response_bytes)
 }
 
 fn read_ureq_body(
-    response: ureq::Response,
+    mut response: ureq::http::Response<ureq::Body>,
     max_response_bytes: usize,
 ) -> Result<Vec<u8>, ClientError> {
-    let mut reader = response.into_reader().take(max_response_bytes as u64 + 1);
-    let mut out = Vec::new();
-    reader.read_to_end(&mut out)?;
+    let out = response
+        .body_mut()
+        .with_config()
+        .limit(max_response_bytes as u64 + 1)
+        .read_to_vec()
+        .map_err(|err| ClientError::Http(err.to_string()))?;
     if out.len() > max_response_bytes {
         return Err(ClientError::Protocol(ProtocolError::PayloadTooLarge));
     }
@@ -270,12 +269,7 @@ fn read_ureq_body(
 }
 
 fn ureq_error(err: ureq::Error) -> ClientError {
-    match err {
-        ureq::Error::Status(status, response) => {
-            ClientError::Http(format!("HTTP/1.1 {status} {}", response.status_text()))
-        }
-        ureq::Error::Transport(transport) => ClientError::Http(transport.to_string()),
-    }
+    ClientError::Http(err.to_string())
 }
 
 pub(crate) fn topology_urls_from_servers(servers: &[TopologyServer]) -> Vec<String> {

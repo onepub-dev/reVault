@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
@@ -5,6 +6,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
+use clap::{error::ErrorKind, Arg, ArgAction, ArgMatches, Command};
 use install::{install_systemd, print_status, uninstall_systemd};
 use lockbox_key_server::{install, server, server_log, store};
 use lockbox_publish_protocol::{ServerStatus, TopologyRoute, TopologyServer};
@@ -24,52 +26,442 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let mut args = env::args().skip(1);
-    match args.next().as_deref() {
-        Some("run") | None => {
-            let config = config_from_args(args.collect())?;
+    let mut args: Vec<String> = env::args().skip(1).collect();
+    if args.first().is_none_or(|arg| arg.starts_with('-')) {
+        args.insert(0, "run".to_string());
+    }
+    if args.first().is_some_and(|arg| arg == "help") {
+        print_help(args.iter().any(|arg| arg == "--dev"));
+        return Ok(());
+    }
+    let mut argv = vec!["lockbox_key_server".to_string()];
+    argv.extend(args.iter().cloned());
+    let matches = match key_server_command(args.iter().any(|arg| arg == "--dev"))
+        .try_get_matches_from(argv)
+    {
+        Ok(matches) => matches,
+        Err(err) if err.kind() == ErrorKind::DisplayHelp => {
+            err.print()?;
+            return Ok(());
+        }
+        Err(err) => return Err(err.into()),
+    };
+    match matches.subcommand() {
+        Some(("run", _)) => {
+            let config = config_from_args(args[1..].to_vec())?;
             let bind = config.bind_addr.clone();
             let store = Arc::new(PublishStore::open(config)?);
             store.start_topology_background();
             run_server(&bind, store)?;
         }
-        Some("install") => install_systemd(args.any(|arg| arg == "--force-config"))?,
-        Some("uninstall") => uninstall_systemd(args.any(|arg| arg == "--purge-data"))?,
-        Some("status") => print_status()?,
-        Some("resync-peer") => {
-            let (mut config_args, peer_url) = split_peer_url_args(args.collect())?;
+        Some(("install", command)) => install_systemd(command.get_flag("force-config"))?,
+        Some(("uninstall", command)) => uninstall_systemd(command.get_flag("purge-data"))?,
+        Some(("status", _)) => print_status()?,
+        Some(("resync-peer", _)) => {
+            let (mut config_args, peer_url) = split_peer_url_args(args[1..].to_vec())?;
             let config = config_from_args(std::mem::take(&mut config_args))?;
             let store = PublishStore::open(config)?;
             let sent = store.resync_peer(&peer_url)?;
             println!("resynced_live_publishes={sent}");
         }
-        Some("bench-store") => {
-            let config = config_from_args(args.collect())?;
+        Some(("bench-store", _)) => {
+            let config = config_from_args(args[1..].to_vec())?;
             require_dev_command(&config, "bench-store")?;
             store::bench_store(config)?;
         }
-        Some("bench-http") => {
-            let config = config_from_args(args.collect())?;
+        Some(("bench-http", _)) => {
+            let config = config_from_args(args[1..].to_vec())?;
             require_dev_command(&config, "bench-http")?;
             bench_http(config)?;
         }
-        Some("bench-http-receive") => {
-            let config = config_from_args(args.collect())?;
+        Some(("bench-http-receive", _)) => {
+            let config = config_from_args(args[1..].to_vec())?;
             require_dev_command(&config, "bench-http-receive")?;
             bench_http_receive(config)?;
         }
-        Some("bench-http-flow") => {
-            let config = config_from_args(args.collect())?;
+        Some(("bench-http-flow", _)) => {
+            let config = config_from_args(args[1..].to_vec())?;
             require_dev_command(&config, "bench-http-flow")?;
             bench_http_flow(config)?;
         }
-        Some("--help") | Some("-h") | Some("help") => print_help(args.any(|arg| arg == "--dev")),
-        Some(other) => {
-            return Err(format!("unknown command `{other}`").into());
+        _ => {
+            key_server_command(false).print_help()?;
+            println!();
         }
     }
     Ok(())
 }
+
+fn key_server_command(dev_help: bool) -> Command {
+    Command::new("lockbox_key_server")
+        .about("High-throughput reVault key rendezvous server")
+        .subcommand(add_config_args(
+            Command::new("run").about("Run the key server"),
+            dev_help,
+        ))
+        .subcommand(
+            Command::new("install")
+                .about("Install the system service")
+                .arg(
+                    Arg::new("force-config")
+                        .long("force-config")
+                        .action(ArgAction::SetTrue)
+                        .help("Rewrite the default config during install"),
+                ),
+        )
+        .subcommand(
+            Command::new("uninstall")
+                .about("Uninstall the system service")
+                .arg(
+                    Arg::new("purge-data")
+                        .long("purge-data")
+                        .action(ArgAction::SetTrue)
+                        .help("Remove persisted service data"),
+                ),
+        )
+        .subcommand(Command::new("status").about("Print service status"))
+        .subcommand(add_config_args(
+            Command::new("resync-peer")
+                .about("Resync live publishes to a peer")
+                .arg(
+                    Arg::new("peer-url")
+                        .long("peer-url")
+                        .value_name("URL")
+                        .num_args(1)
+                        .required(true)
+                        .help("Peer /v1/replicate URL"),
+                ),
+            dev_help,
+        ))
+        .subcommand(add_config_args(
+            Command::new("bench-store")
+                .about("Benchmark the store")
+                .hide(!dev_help),
+            dev_help,
+        ))
+        .subcommand(add_config_args(
+            Command::new("bench-http")
+                .about("Benchmark publish over HTTP")
+                .hide(!dev_help),
+            dev_help,
+        ))
+        .subcommand(add_config_args(
+            Command::new("bench-http-receive")
+                .about("Benchmark receive over HTTP")
+                .hide(!dev_help),
+            dev_help,
+        ))
+        .subcommand(add_config_args(
+            Command::new("bench-http-flow")
+                .about("Benchmark publish/receive flow over HTTP")
+                .hide(!dev_help),
+            dev_help,
+        ))
+}
+
+fn config_command(dev_help: bool) -> Command {
+    add_config_args(Command::new("config"), dev_help)
+}
+
+fn add_config_args(command: Command, dev_help: bool) -> Command {
+    command
+        .arg(config_arg("config", "config", "PATH", false, dev_help))
+        .arg(config_arg("bind", "bind", "ADDR", false, dev_help))
+        .arg(
+            Arg::new("dev")
+                .long("dev")
+                .action(ArgAction::SetTrue)
+                .help("Enable developer/test command-line overrides"),
+        )
+        .arg(config_arg("state-dir", "state-dir", "PATH", true, dev_help))
+        .arg(config_arg("server-id", "server-id", "N", true, dev_help))
+        .arg(config_arg("cluster-id", "cluster-id", "ID", true, dev_help))
+        .arg(config_arg(
+            "public-url",
+            "public-url",
+            "URL",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "topology-version",
+            "topology-version",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "topology-token",
+            "topology-token",
+            "TOKEN",
+            true,
+            dev_help,
+        ))
+        .arg(repeated_config_arg(
+            "topology-server",
+            "topology-server",
+            "ID=URL[,STATUS]",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "topology-stale-after-ms",
+            "topology-stale-after-ms",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "topology-heartbeat-interval-ms",
+            "topology-heartbeat-interval-ms",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(repeated_config_arg(
+            "route",
+            "route",
+            "OWNER=PRIMARY[,FAILOVER...]",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "replication-token",
+            "replication-token",
+            "TOKEN",
+            true,
+            dev_help,
+        ))
+        .arg(repeated_config_arg(
+            "replication-peer-url",
+            "replication-peer-url",
+            "URL",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "origin-epoch",
+            "origin-epoch",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(repeated_config_arg(
+            "promoted-owner",
+            "promoted-owner",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg("requests", "requests", "N", true, dev_help))
+        .arg(config_arg(
+            "payload-bytes",
+            "payload-bytes",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "concurrency",
+            "concurrency",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "preload-published-payloads",
+            "preload-published-payloads",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "compact-min-bytes",
+            "compact-min-bytes",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "rate-limit-per-minute",
+            "rate-limit-per-minute",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "rate-limit-burst",
+            "rate-limit-burst",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "verification-ttl-seconds",
+            "verification-ttl-seconds",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "default-receive-ttl-seconds",
+            "default-receive-ttl-seconds",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "max-receive-ttl-seconds",
+            "max-receive-ttl-seconds",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg("smtp-host", "smtp-host", "HOST", true, dev_help))
+        .arg(config_arg("smtp-port", "smtp-port", "N", true, dev_help))
+        .arg(config_arg(
+            "smtp-username",
+            "smtp-username",
+            "USER",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "smtp-password",
+            "smtp-password",
+            "PASS",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "smtp-from",
+            "smtp-from",
+            "EMAIL",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg("smtp-tls", "smtp-tls", "MODE", true, dev_help))
+        .arg(config_arg(
+            "smtp-timeout-seconds",
+            "smtp-timeout-seconds",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "verification-email-subject",
+            "verification-email-subject",
+            "TEXT",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "verification-email-template",
+            "verification-email-template",
+            "TEXT",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "verification-email-rate-limit-per-hour",
+            "verification-email-rate-limit-per-hour",
+            "N",
+            true,
+            dev_help,
+        ))
+        .arg(config_arg(
+            "verification-email-ip-rate-limit-per-hour",
+            "verification-email-ip-rate-limit-per-hour",
+            "N",
+            true,
+            dev_help,
+        ))
+}
+
+fn config_arg(
+    id: &'static str,
+    long: &'static str,
+    value_name: &'static str,
+    dev_only: bool,
+    dev_help: bool,
+) -> Arg {
+    let mut arg = Arg::new(id).long(long).value_name(value_name).num_args(1);
+    if dev_only && !dev_help {
+        arg = arg.hide(true);
+    }
+    arg
+}
+
+fn repeated_config_arg(
+    id: &'static str,
+    long: &'static str,
+    value_name: &'static str,
+    dev_only: bool,
+    dev_help: bool,
+) -> Arg {
+    config_arg(id, long, value_name, dev_only, dev_help).action(ArgAction::Append)
+}
+
+fn validate_config_args_with_clap(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let mut argv = vec!["config".to_string()];
+    argv.extend(args.iter().cloned());
+    let matches =
+        config_command(args.iter().any(|arg| arg == "--dev")).try_get_matches_from(argv)?;
+    validate_config_matches(&matches)
+}
+
+fn validate_config_matches(matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
+    if matches.get_flag("dev") {
+        return Ok(());
+    }
+    for id in DEV_OPTION_IDS {
+        if matches.contains_id(id) {
+            return Err(format!(
+                "option `--{id}` requires --dev; put server configuration in --config PATH"
+            )
+            .into());
+        }
+    }
+    Ok(())
+}
+
+const DEV_OPTION_IDS: &[&str] = &[
+    "state-dir",
+    "server-id",
+    "cluster-id",
+    "public-url",
+    "topology-version",
+    "topology-token",
+    "topology-server",
+    "topology-stale-after-ms",
+    "topology-heartbeat-interval-ms",
+    "route",
+    "replication-token",
+    "replication-peer-url",
+    "origin-epoch",
+    "promoted-owner",
+    "requests",
+    "payload-bytes",
+    "concurrency",
+    "preload-published-payloads",
+    "compact-min-bytes",
+    "rate-limit-per-minute",
+    "rate-limit-burst",
+    "verification-ttl-seconds",
+    "default-receive-ttl-seconds",
+    "max-receive-ttl-seconds",
+    "smtp-host",
+    "smtp-port",
+    "smtp-username",
+    "smtp-password",
+    "smtp-from",
+    "smtp-tls",
+    "smtp-timeout-seconds",
+    "verification-email-subject",
+    "verification-email-template",
+    "verification-email-rate-limit-per-hour",
+    "verification-email-ip-rate-limit-per-hour",
+];
 
 fn require_dev_command(
     config: &ServerConfig,
@@ -170,6 +562,7 @@ fn split_peer_url_args(
 }
 
 fn config_from_args(args: Vec<String>) -> Result<ServerConfig, Box<dyn std::error::Error>> {
+    validate_config_args_with_clap(&args)?;
     let mut config = ServerConfig::default();
     let dev_options = args.iter().any(|arg| arg == "--dev");
     let mut index = 0;
@@ -493,82 +886,129 @@ fn dev_only_option(option: &str) -> bool {
     )
 }
 
-#[derive(Default)]
-struct TopologyServerTable {
-    id: Option<u8>,
+#[derive(Default, serde::Deserialize)]
+struct TomlConfigFile {
+    #[serde(default)]
+    topology_server: Vec<TomlTopologyServerTable>,
+    #[serde(default)]
+    route: Vec<TomlTopologyRouteTable>,
+    #[serde(flatten)]
+    values: BTreeMap<String, toml::Value>,
+}
+
+#[derive(serde::Deserialize)]
+struct TomlTopologyServerTable {
+    id: Option<toml::Value>,
     url: Option<String>,
-    status: Option<ServerStatus>,
+    status: Option<String>,
 }
 
-#[derive(Default)]
-struct TopologyRouteTable {
-    owner: Option<u8>,
-    primary: Option<u8>,
-    failover: Vec<u8>,
-}
-
-enum ConfigTable {
-    TopologyServer(TopologyServerTable),
-    Route(TopologyRouteTable),
+#[derive(serde::Deserialize)]
+struct TomlTopologyRouteTable {
+    owner: Option<toml::Value>,
+    primary: Option<toml::Value>,
+    #[serde(default)]
+    failover: Vec<toml::Value>,
 }
 
 fn apply_config_file(
     config: &mut ServerConfig,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut table = None;
-    for (line_no, raw_line) in fs::read_to_string(path)?.lines().enumerate() {
-        let line = raw_line
-            .split_once('#')
-            .map(|(value, _)| value)
-            .unwrap_or(raw_line)
-            .trim();
-        if line.is_empty() {
-            continue;
-        }
-        if let Some(name) = parse_array_table_header(line) {
-            flush_config_table(config, table.take())
-                .map_err(|err| format!("{path}:{}: {err}", line_no + 1))?;
-            table = Some(match name {
-                "topology_server" => ConfigTable::TopologyServer(TopologyServerTable::default()),
-                "route" => ConfigTable::Route(TopologyRouteTable::default()),
-                other => {
-                    return Err(
-                        format!("{path}:{}: unknown config table `{other}`", line_no + 1).into(),
-                    )
-                }
-            });
-            continue;
-        }
-        let (key, value) = line
-            .split_once('=')
-            .ok_or_else(|| format!("{path}:{}: expected key = value", line_no + 1))?;
-        let key = key.trim();
-        let value = value.trim();
-        if let Some(current) = table.as_mut() {
-            apply_config_table_value(current, key, value)
-        } else {
-            apply_config_value(config, key, parse_config_value(value)?)
-        }
-        .map_err(|err| format!("{path}:{}: {err}", line_no + 1))?;
+    let text = fs::read_to_string(path)?;
+    let parsed: TomlConfigFile = toml::from_str(&text).map_err(|err| format!("{path}: {err}"))?;
+    for (key, value) in parsed.values {
+        apply_toml_config_value(config, &key, value).map_err(|err| format!("{path}: {err}"))?;
     }
-    flush_config_table(config, table).map_err(|err| format!("{path}: {err}"))?;
+    for server in parsed.topology_server {
+        let id = server.id.ok_or("topology_server.id is required")?;
+        let url = server.url.ok_or("topology_server.url is required")?;
+        config.topology_servers.push(TopologyServer {
+            id: parse_server_id_from_toml(&id)
+                .map_err(|err| format!("{path}: topology_server.id: {err}"))?,
+            url,
+            status: match server.status {
+                Some(status) => parse_server_status(&status)
+                    .map_err(|err| format!("{path}: topology_server.status: {err}"))?,
+                None => ServerStatus::Active,
+            },
+            last_seen_ms: None,
+        });
+    }
+    for route in parsed.route {
+        let owner = route.owner.ok_or("route.owner is required")?;
+        let primary = route.primary.ok_or("route.primary is required")?;
+        let mut failover_ids = Vec::with_capacity(route.failover.len());
+        for value in &route.failover {
+            failover_ids.push(
+                parse_server_id_from_toml(value)
+                    .map_err(|err| format!("{path}: route.failover: {err}"))?,
+            );
+        }
+        config.topology_routes.push(TopologyRoute {
+            owner_id: parse_server_id_from_toml(&owner)
+                .map_err(|err| format!("{path}: route.owner: {err}"))?,
+            primary_id: parse_server_id_from_toml(&primary)
+                .map_err(|err| format!("{path}: route.primary: {err}"))?,
+            failover_ids,
+        });
+    }
     Ok(())
 }
 
-fn parse_array_table_header(line: &str) -> Option<&str> {
-    line.strip_prefix("[[")?.strip_suffix("]]").map(str::trim)
+fn apply_toml_config_value(
+    config: &mut ServerConfig,
+    key: &str,
+    value: toml::Value,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match key {
+        "replication_peer_url" => {
+            for value in toml_string_values(value)? {
+                config.replication_peer_urls.push(value);
+            }
+            Ok(())
+        }
+        "promoted_owner" => {
+            for value in toml_values(value) {
+                config
+                    .promoted_owner_ids
+                    .push(parse_server_id_from_toml(&value)?);
+            }
+            Ok(())
+        }
+        other => apply_config_value(config, other, toml_scalar_to_string(&value)?),
+    }
 }
 
-fn parse_config_value(value: &str) -> Result<String, Box<dyn std::error::Error>> {
-    let value = value.trim();
-    if let Some(value) = value.strip_prefix('"') {
-        let value = value
-            .strip_suffix('"')
-            .ok_or("unterminated quoted config value")?;
-        return Ok(value.replace("\\n", "\n").replace("\\\"", "\""));
+fn toml_values(value: toml::Value) -> Vec<toml::Value> {
+    match value {
+        toml::Value::Array(values) => values,
+        value => vec![value],
     }
-    Ok(value.to_string())
+}
+
+fn toml_string_values(value: toml::Value) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    toml_values(value)
+        .iter()
+        .map(toml_scalar_to_string)
+        .collect()
+}
+
+fn toml_scalar_to_string(value: &toml::Value) -> Result<String, Box<dyn std::error::Error>> {
+    Ok(match value {
+        toml::Value::String(value) => value.clone(),
+        toml::Value::Integer(value) => value.to_string(),
+        toml::Value::Float(value) => value.to_string(),
+        toml::Value::Boolean(value) => value.to_string(),
+        toml::Value::Datetime(value) => value.to_string(),
+        toml::Value::Array(_) | toml::Value::Table(_) => {
+            return Err("expected scalar config value".into());
+        }
+    })
+}
+
+fn parse_server_id_from_toml(value: &toml::Value) -> Result<u8, Box<dyn std::error::Error>> {
+    parse_server_id(&toml_scalar_to_string(value)?)
 }
 
 fn apply_config_value(
@@ -651,55 +1091,6 @@ fn apply_config_value(
     Ok(())
 }
 
-fn apply_config_table_value(
-    table: &mut ConfigTable,
-    key: &str,
-    value: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    match table {
-        ConfigTable::TopologyServer(server) => match key {
-            "id" => server.id = Some(parse_server_id(&parse_config_value(value)?)?),
-            "url" => server.url = Some(parse_config_value(value)?),
-            "status" => server.status = Some(parse_server_status(&parse_config_value(value)?)?),
-            other => return Err(format!("unknown topology_server key `{other}`").into()),
-        },
-        ConfigTable::Route(route) => match key {
-            "owner" => route.owner = Some(parse_server_id(&parse_config_value(value)?)?),
-            "primary" => route.primary = Some(parse_server_id(&parse_config_value(value)?)?),
-            "failover" => route.failover = parse_server_id_array(value)?,
-            other => return Err(format!("unknown route key `{other}`").into()),
-        },
-    }
-    Ok(())
-}
-
-fn flush_config_table(
-    config: &mut ServerConfig,
-    table: Option<ConfigTable>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    match table {
-        Some(ConfigTable::TopologyServer(server)) => {
-            let id = server.id.ok_or("topology_server.id is required")?;
-            let url = server.url.ok_or("topology_server.url is required")?;
-            config.topology_servers.push(TopologyServer {
-                id,
-                url,
-                status: server.status.unwrap_or(ServerStatus::Active),
-                last_seen_ms: None,
-            });
-        }
-        Some(ConfigTable::Route(route)) => {
-            config.topology_routes.push(TopologyRoute {
-                owner_id: route.owner.ok_or("route.owner is required")?,
-                primary_id: route.primary.ok_or("route.primary is required")?,
-                failover_ids: route.failover,
-            });
-        }
-        None => {}
-    }
-    Ok(())
-}
-
 fn parse_topology_server(value: &str) -> Result<TopologyServer, Box<dyn std::error::Error>> {
     let (id, rest) = value
         .split_once('=')
@@ -733,22 +1124,6 @@ fn parse_smtp_tls_mode(value: &str) -> Result<SmtpTlsMode, Box<dyn std::error::E
         "none" => SmtpTlsMode::None,
         other => return Err(format!("unknown smtp_tls mode `{other}`").into()),
     })
-}
-
-fn parse_server_id_array(value: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let value = value.trim();
-    let value = value
-        .strip_prefix('[')
-        .and_then(|value| value.strip_suffix(']'))
-        .ok_or("expected server id array")?
-        .trim();
-    if value.is_empty() {
-        return Ok(Vec::new());
-    }
-    value
-        .split(',')
-        .map(|part| parse_server_id(&parse_config_value(part.trim())?))
-        .collect()
 }
 
 fn parse_topology_route(value: &str) -> Result<TopologyRoute, Box<dyn std::error::Error>> {

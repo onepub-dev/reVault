@@ -126,20 +126,31 @@ pub(crate) fn fallback_routes(server_ids: &[u8]) -> Vec<TopologyRoute> {
 }
 
 pub(crate) fn parse_http_response(bytes: &[u8], max_body: usize) -> Result<Vec<u8>, ClientError> {
-    let header_end = bytes
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(|| ClientError::Http("missing response headers".to_string()))?;
-    let headers = std::str::from_utf8(&bytes[..header_end])
-        .map_err(|_| ClientError::Http("response headers are not utf-8".to_string()))?;
-    let mut lines = headers.lines();
-    let status_line = lines
-        .next()
-        .ok_or_else(|| ClientError::Http("missing status line".to_string()))?;
-    if !status_line.starts_with("HTTP/1.1 200 ") && !status_line.starts_with("HTTP/1.0 200 ") {
-        return Err(ClientError::Http(status_line.to_string()));
+    let mut headers = [httparse::EMPTY_HEADER; 64];
+    let mut response = httparse::Response::new(&mut headers);
+    let body_start = match response
+        .parse(bytes)
+        .map_err(|err| ClientError::Http(format!("invalid response headers: {err}")))?
+    {
+        httparse::Status::Complete(body_start) => body_start,
+        httparse::Status::Partial => {
+            return Err(ClientError::Http("missing response headers".to_string()));
+        }
+    };
+    if response.code != Some(200) {
+        let version = match response.version {
+            Some(0) => "HTTP/1.0",
+            Some(1) => "HTTP/1.1",
+            _ => "HTTP/?",
+        };
+        let code = response
+            .code
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "???".to_string());
+        let reason = response.reason.unwrap_or("");
+        return Err(ClientError::Http(format!("{version} {code} {reason}")));
     }
-    let body = &bytes[header_end + 4..];
+    let body = &bytes[body_start..];
     if body.len() > max_body {
         return Err(ClientError::Protocol(ProtocolError::PayloadTooLarge));
     }

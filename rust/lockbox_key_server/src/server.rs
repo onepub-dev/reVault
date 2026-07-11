@@ -1,21 +1,26 @@
 use std::collections::HashMap;
-use std::io::{ErrorKind, Read, Write};
+use std::io::{Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::server_log::log_server_event;
 use crate::store::{PublishStore, ServerConfig};
+use axum::body::Bytes;
+use axum::extract::{ConnectInfo, DefaultBodyLimit, Query, State};
+use axum::http::{header, HeaderMap, StatusCode};
+use axum::response::{Html, IntoResponse, Response};
+use axum::routing::{get, post};
+use axum::Router;
 use lockbox_publish_protocol::payload;
 use lockbox_publish_protocol::protocol::{self, Operation, Status};
 use lockbox_publish_protocol::status;
 use lockbox_publish_protocol::topology;
+use serde::Deserialize;
 
-const MAX_HTTP_HEADER: usize = 16 * 1024;
 const MAX_WIRE_OVERHEAD: usize = 128;
-const REQUEST_IO_TIMEOUT: Duration = Duration::from_secs(10);
 const CLUSTER_RATE_LIMIT_BLOCK_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 
 pub fn run_server(bind: &str, store: Arc<PublishStore>) -> std::io::Result<()> {
@@ -26,91 +31,305 @@ pub fn run_server(bind: &str, store: Arc<PublishStore>) -> std::io::Result<()> {
 pub fn run_listener(listener: TcpListener, store: Arc<PublishStore>) -> std::io::Result<()> {
     let local_addr = listener.local_addr()?;
     log_server_event(format!("lockbox_key_server listening on {local_addr}"));
-    let purge_store = Arc::clone(&store);
-    thread::spawn(move || loop {
-        thread::sleep(Duration::from_secs(1));
-        purge_store.purge_expired();
-    });
-    let compact_store = Arc::clone(&store);
-    thread::spawn(move || loop {
-        thread::sleep(Duration::from_secs(30));
-        if let Err(err) = compact_store.compact_if_needed() {
-            log_server_event(format!("compaction failed: {err}"));
-        }
-    });
-
-    let worker_count = worker_count();
-    let (tx, rx) = mpsc::sync_channel::<TcpStream>(accepted_stream_queue_bound(worker_count));
-    let rx = Arc::new(Mutex::new(rx));
-    let limiter = Arc::new(RateLimiter::new(
-        store.rate_limit_per_minute(),
-        store.rate_limit_burst(),
-    ));
-    for worker_id in 0..worker_count {
-        let store = Arc::clone(&store);
-        let rx = Arc::clone(&rx);
-        let limiter = Arc::clone(&limiter);
-        thread::Builder::new()
-            .name(format!("publish-http-{worker_id}"))
-            .stack_size(256 * 1024)
-            .spawn(move || loop {
-                let stream = {
-                    let Ok(guard) = rx.lock() else {
-                        break;
-                    };
-                    guard.recv()
-                };
-                match stream {
-                    Ok(stream) => {
-                        let _ = handle_stream(stream, Arc::clone(&store), Arc::clone(&limiter));
-                    }
-                    Err(_) => break,
-                }
-            })?;
-    }
-
-    let mut last_accept_error_log = Instant::now() - Duration::from_secs(30);
-    for stream in listener.incoming() {
-        match stream {
-            Ok(stream) => {
-                if tx.send(stream).is_err() {
-                    break;
-                }
-            }
-            Err(err) => {
-                if is_accept_resource_pressure(&err) {
-                    if last_accept_error_log.elapsed() >= Duration::from_secs(10) {
-                        log_server_event(format!("accept deferred under resource pressure: {err}"));
-                        last_accept_error_log = Instant::now();
-                    }
-                    thread::sleep(Duration::from_millis(50));
-                } else {
-                    log_server_event(format!("accept failed: {err}"));
-                }
-            }
-        }
-    }
-    Ok(())
+    start_background_maintenance(&store);
+    listener.set_nonblocking(true)?;
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(std::io::Error::other)?;
+    runtime.block_on(async move {
+        let listener = tokio::net::TcpListener::from_std(listener)?;
+        axum::serve(
+            listener,
+            make_app(store).into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        .map_err(std::io::Error::other)
+    })
 }
 
 pub fn local_addr(listener: &TcpListener) -> std::io::Result<SocketAddr> {
     listener.local_addr()
 }
 
-fn worker_count() -> usize {
-    std::thread::available_parallelism()
-        .map(usize::from)
-        .unwrap_or(4)
-        .saturating_mul(4)
-        .clamp(4, 64)
+fn start_background_maintenance(store: &Arc<PublishStore>) {
+    let purge_store = Arc::clone(store);
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(1));
+        purge_store.purge_expired();
+    });
+    let compact_store = Arc::clone(store);
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(30));
+        if let Err(err) = compact_store.compact_if_needed() {
+            log_server_event(format!("compaction failed: {err}"));
+        }
+    });
 }
 
-fn accepted_stream_queue_bound(worker_count: usize) -> usize {
-    worker_count.saturating_mul(4).clamp(16, 256)
+#[derive(Clone)]
+struct AppState {
+    store: Arc<PublishStore>,
+    limiter: Arc<RateLimiter>,
 }
 
-fn is_accept_resource_pressure(err: &std::io::Error) -> bool {
-    matches!(err.kind(), ErrorKind::WouldBlock) || matches!(err.raw_os_error(), Some(11 | 23 | 24))
+fn make_app(store: Arc<PublishStore>) -> Router {
+    let body_limit = store.max_payload_bytes() + MAX_WIRE_OVERHEAD;
+    let limiter = Arc::new(RateLimiter::new(
+        store.rate_limit_per_minute(),
+        store.rate_limit_burst(),
+    ));
+    Router::new()
+        .route("/v1/publish", post(publish_handler))
+        .route("/v1/replicate", post(replicate_handler))
+        .route("/v1/topology/register", post(topology_register_handler))
+        .route("/v1/topology", get(topology_handler))
+        .route("/v1/status", get(status_handler))
+        .route("/v1/verify", get(verify_handler))
+        .layer(DefaultBodyLimit::max(body_limit))
+        .with_state(AppState { store, limiter })
+}
+
+async fn publish_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    binary_post_handler(
+        state,
+        headers,
+        Some(peer.ip()),
+        BinaryEndpoint::Publish,
+        body,
+    )
+    .await
+}
+
+async fn replicate_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    binary_post_handler(
+        state,
+        headers,
+        Some(peer.ip()),
+        BinaryEndpoint::Replicate,
+        body,
+    )
+    .await
+}
+
+async fn topology_register_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    binary_post_handler(
+        state,
+        headers,
+        Some(peer.ip()),
+        BinaryEndpoint::TopologyRegister,
+        body,
+    )
+    .await
+}
+
+async fn topology_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+) -> Response {
+    if !request_has_server_token_headers(&headers, &state.store)
+        && !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip()))
+    {
+        return rate_limited_response();
+    }
+    match topology::encode_topology(&state.store.topology()) {
+        Ok(body) => binary_response(StatusCode::OK, body),
+        Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
+    }
+}
+
+async fn status_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+) -> Response {
+    if !request_has_server_token_headers(&headers, &state.store)
+        && !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip()))
+    {
+        return rate_limited_response();
+    }
+    binary_response(
+        StatusCode::OK,
+        status::encode_status(&state.store.status_document()),
+    )
+}
+
+#[derive(Deserialize)]
+struct VerifyQuery {
+    code: Option<String>,
+    token: Option<String>,
+}
+
+async fn verify_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    Query(query): Query<VerifyQuery>,
+    headers: HeaderMap,
+) -> Response {
+    if !request_has_server_token_headers(&headers, &state.store)
+        && !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip()))
+    {
+        return rate_limited_response();
+    }
+    let page = match (query.code, query.token) {
+        (Some(code), Some(token)) => state.store.verify_email(&code, &token),
+        _ => verify_error(
+            "Verification failed",
+            "The verification link is missing its token.",
+        ),
+    };
+    let status = if page.success {
+        StatusCode::OK
+    } else {
+        StatusCode::BAD_REQUEST
+    };
+    (status, Html(render_verify_page(&page))).into_response()
+}
+
+#[derive(Clone, Copy)]
+enum BinaryEndpoint {
+    Publish,
+    Replicate,
+    TopologyRegister,
+}
+
+async fn binary_post_handler(
+    state: AppState,
+    headers: HeaderMap,
+    peer_ip: Option<IpAddr>,
+    endpoint: BinaryEndpoint,
+    body: Bytes,
+) -> Response {
+    let inter_server_authenticated = matches!(
+        endpoint,
+        BinaryEndpoint::Replicate | BinaryEndpoint::TopologyRegister
+    ) && request_has_server_token_headers(&headers, &state.store);
+    if !inter_server_authenticated
+        && !allow_anonymous_request(&state.store, &state.limiter, peer_ip)
+    {
+        return rate_limited_response();
+    }
+    if body.len() > state.store.max_payload_bytes() + MAX_WIRE_OVERHEAD {
+        return protocol_response(protocol::encode_error(
+            Operation::Publish,
+            Status::PayloadTooLarge,
+            "too large",
+        ));
+    }
+    let store = Arc::clone(&state.store);
+    let body = body.to_vec();
+    let response = tokio::task::spawn_blocking(move || match endpoint {
+        BinaryEndpoint::TopologyRegister => match store.handle_topology_registration(&body) {
+            Ok(response) => response,
+            Err(err) => protocol::encode_error(
+                Operation::Publish,
+                Status::StoreUnavailable,
+                &err.to_string(),
+            ),
+        },
+        BinaryEndpoint::Publish | BinaryEndpoint::Replicate => {
+            match protocol::decode_request(&body, store.max_payload_bytes() + MAX_WIRE_OVERHEAD) {
+                Ok(request) => {
+                    let _ = request.flags;
+                    let replicate_endpoint = matches!(endpoint, BinaryEndpoint::Replicate);
+                    if replicate_endpoint && request.operation != Operation::Replicate {
+                        protocol::encode_error(
+                            request.operation,
+                            Status::UnknownOperation,
+                            "replication endpoint accepts only replication operations",
+                        )
+                    } else if !replicate_endpoint && request.operation == Operation::Replicate {
+                        protocol::encode_error(
+                            request.operation,
+                            Status::UnknownOperation,
+                            "publish endpoint does not accept replication operations",
+                        )
+                    } else {
+                        store.handle_with_peer(request.operation, &request.payload, peer_ip)
+                    }
+                }
+                Err(err) => protocol::encode_error(
+                    Operation::Publish,
+                    Status::MalformedRequest,
+                    &err.to_string(),
+                ),
+            }
+        }
+    })
+    .await
+    .unwrap_or_else(|err| {
+        protocol::encode_error(
+            Operation::Publish,
+            Status::StoreUnavailable,
+            &err.to_string(),
+        )
+    });
+    protocol_response(response)
+}
+
+fn protocol_response(body: Vec<u8>) -> Response {
+    binary_response(StatusCode::OK, body)
+}
+
+fn rate_limited_response() -> Response {
+    protocol_response(protocol::encode_error(
+        Operation::Publish,
+        Status::RateLimited,
+        "rate limited",
+    ))
+}
+
+fn binary_response(status: StatusCode, body: Vec<u8>) -> Response {
+    (
+        status,
+        [(header::CONTENT_TYPE, "application/octet-stream")],
+        body,
+    )
+        .into_response()
+}
+
+fn request_has_server_token_headers(headers: &HeaderMap, store: &PublishStore) -> bool {
+    headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(bearer_token_header)
+        .or_else(|| header_string(headers, "x-lockbox-server-token"))
+        .or_else(|| header_string(headers, "x-topology-token"))
+        .as_deref()
+        .is_some_and(|token| store.topology_token_matches(token))
+}
+
+fn header_string(headers: &HeaderMap, name: &str) -> Option<String> {
+    headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn bearer_token_header(value: &str) -> Option<String> {
+    value
+        .strip_prefix("Bearer ")
+        .map(str::trim)
+        .filter(|token| !token.is_empty())
+        .map(str::to_string)
 }
 
 pub struct RateLimiter {
@@ -161,175 +380,6 @@ impl RateLimiter {
     }
 }
 
-pub fn handle_stream(
-    mut stream: TcpStream,
-    store: Arc<PublishStore>,
-    limiter: Arc<RateLimiter>,
-) -> std::io::Result<()> {
-    configure_stream_deadlines(&stream)?;
-    let mut buffer = Vec::with_capacity(MAX_HTTP_HEADER);
-    let mut chunk = [0_u8; 1024];
-    let peer_ip = stream.peer_addr().ok().map(|addr| addr.ip());
-    loop {
-        let header_end = loop {
-            if let Some(pos) = find_header_end(&buffer) {
-                break pos;
-            }
-            let read = stream.read(&mut chunk)?;
-            if read == 0 {
-                return Ok(());
-            }
-            buffer.extend_from_slice(&chunk[..read]);
-            if buffer.len() > MAX_HTTP_HEADER + store.max_payload_bytes() + MAX_WIRE_OVERHEAD {
-                write_response(
-                    &mut stream,
-                    protocol::encode_error(
-                        Operation::Publish,
-                        Status::PayloadTooLarge,
-                        "too large",
-                    ),
-                    true,
-                )?;
-                return Ok(());
-            }
-        };
-        let headers = String::from_utf8_lossy(&buffer[..header_end]);
-        let close = wants_close(&headers);
-        let mut lines = headers.lines();
-        let request_line = lines.next().unwrap_or_default();
-        let server_token_authenticated = request_has_server_token(&headers, &store);
-        if request_line.starts_with("GET /v1/verify") {
-            if !server_token_authenticated && !allow_anonymous_request(&store, &limiter, peer_ip) {
-                write_response(
-                    &mut stream,
-                    protocol::encode_error(Operation::Publish, Status::RateLimited, "rate limited"),
-                    true,
-                )?;
-                return Ok(());
-            }
-            let page = handle_verify_request(request_line, &store);
-            write_html(
-                &mut stream,
-                if page.success { 200 } else { 400 },
-                &render_verify_page(&page),
-            )?;
-            return Ok(());
-        }
-        if topology_request_target(request_line).is_some() {
-            if !server_token_authenticated && !allow_anonymous_request(&store, &limiter, peer_ip) {
-                write_response(
-                    &mut stream,
-                    protocol::encode_error(Operation::Publish, Status::RateLimited, "rate limited"),
-                    true,
-                )?;
-                return Ok(());
-            }
-            match topology::encode_topology(&store.topology()) {
-                Ok(body) => write_binary(&mut stream, 200, &body)?,
-                Err(err) => write_plain(&mut stream, 500, err.to_string().as_bytes())?,
-            }
-            return Ok(());
-        }
-        if status_request_target(request_line).is_some() {
-            if !server_token_authenticated && !allow_anonymous_request(&store, &limiter, peer_ip) {
-                write_response(
-                    &mut stream,
-                    protocol::encode_error(Operation::Publish, Status::RateLimited, "rate limited"),
-                    true,
-                )?;
-                return Ok(());
-            }
-            let body = status::encode_status(&store.status_document());
-            write_binary(&mut stream, 200, &body)?;
-            return Ok(());
-        }
-        let topology_registration_endpoint =
-            request_line.starts_with("POST /v1/topology/register ");
-        let replicate_endpoint = if request_line.starts_with("POST /v1/publish ") {
-            false
-        } else if request_line.starts_with("POST /v1/replicate ") {
-            true
-        } else if topology_registration_endpoint {
-            false
-        } else {
-            write_plain(&mut stream, 404, b"not found")?;
-            return Ok(());
-        };
-        let inter_server_endpoint_authenticated =
-            (topology_registration_endpoint || replicate_endpoint) && server_token_authenticated;
-        if !inter_server_endpoint_authenticated
-            && !allow_anonymous_request(&store, &limiter, peer_ip)
-        {
-            write_response(
-                &mut stream,
-                protocol::encode_error(Operation::Publish, Status::RateLimited, "rate limited"),
-                true,
-            )?;
-            return Ok(());
-        }
-        let content_len = content_length(&headers).unwrap_or(0);
-        if content_len > store.max_payload_bytes() + MAX_WIRE_OVERHEAD {
-            write_response(
-                &mut stream,
-                protocol::encode_error(Operation::Publish, Status::PayloadTooLarge, "too large"),
-                true,
-            )?;
-            return Ok(());
-        }
-        let body_start = header_end + 4;
-        while buffer.len() < body_start + content_len {
-            let read = stream.read(&mut chunk)?;
-            if read == 0 {
-                return Ok(());
-            }
-            buffer.extend_from_slice(&chunk[..read]);
-        }
-        let body_end = body_start + content_len;
-        let body = buffer[body_start..body_end].to_vec();
-        let response = if topology_registration_endpoint {
-            match store.handle_topology_registration(&body) {
-                Ok(response) => response,
-                Err(err) => protocol::encode_error(
-                    Operation::Publish,
-                    Status::StoreUnavailable,
-                    &err.to_string(),
-                ),
-            }
-        } else {
-            match protocol::decode_request(&body, store.max_payload_bytes() + MAX_WIRE_OVERHEAD) {
-                Ok(request) => {
-                    let _ = request.flags;
-                    if replicate_endpoint && request.operation != Operation::Replicate {
-                        protocol::encode_error(
-                            request.operation,
-                            Status::UnknownOperation,
-                            "replication endpoint accepts only replication operations",
-                        )
-                    } else if !replicate_endpoint && request.operation == Operation::Replicate {
-                        protocol::encode_error(
-                            request.operation,
-                            Status::UnknownOperation,
-                            "publish endpoint does not accept replication operations",
-                        )
-                    } else {
-                        store.handle_with_peer(request.operation, &request.payload, peer_ip)
-                    }
-                }
-                Err(err) => protocol::encode_error(
-                    Operation::Publish,
-                    Status::MalformedRequest,
-                    &err.to_string(),
-                ),
-            }
-        };
-        write_response(&mut stream, response, close)?;
-        buffer.drain(..body_end);
-        if close {
-            return Ok(());
-        }
-    }
-}
-
 fn allow_anonymous_request(
     store: &PublishStore,
     limiter: &RateLimiter,
@@ -359,11 +409,6 @@ fn unix_ms(time: SystemTime) -> u64 {
     time.duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
-}
-
-fn configure_stream_deadlines(stream: &TcpStream) -> std::io::Result<()> {
-    stream.set_read_timeout(Some(REQUEST_IO_TIMEOUT))?;
-    stream.set_write_timeout(Some(REQUEST_IO_TIMEOUT))
 }
 
 pub fn bench_http(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
@@ -757,58 +802,6 @@ fn post_binary_on_stream(
     Ok(response[body_start..body_start + content_len].to_vec())
 }
 
-fn write_response(stream: &mut TcpStream, body: Vec<u8>, close: bool) -> std::io::Result<()> {
-    let connection = if close { "close" } else { "keep-alive" };
-    let header = format!(
-        "HTTP/1.1 200 OK\r\n\
-         Content-Type: application/octet-stream\r\n\
-         Content-Length: {}\r\n\
-         Connection: {connection}\r\n\r\n",
-        body.len()
-    );
-    stream.write_all(header.as_bytes())?;
-    stream.write_all(&body)?;
-    Ok(())
-}
-
-fn write_plain(stream: &mut TcpStream, status: u16, body: &[u8]) -> std::io::Result<()> {
-    let header = format!(
-        "HTTP/1.1 {status} Error\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        body.len()
-    );
-    stream.write_all(header.as_bytes())?;
-    stream.write_all(body)?;
-    Ok(())
-}
-
-fn write_html(stream: &mut TcpStream, status: u16, body: &str) -> std::io::Result<()> {
-    let reason = if status == 200 { "OK" } else { "Error" };
-    let header = format!(
-        "HTTP/1.1 {status} {reason}\r\n\
-         Content-Type: text/html; charset=utf-8\r\n\
-         Content-Length: {}\r\n\
-         Connection: close\r\n\r\n",
-        body.len()
-    );
-    stream.write_all(header.as_bytes())?;
-    stream.write_all(body.as_bytes())?;
-    Ok(())
-}
-
-fn write_binary(stream: &mut TcpStream, status: u16, body: &[u8]) -> std::io::Result<()> {
-    let reason = if status == 200 { "OK" } else { "Error" };
-    let header = format!(
-        "HTTP/1.1 {status} {reason}\r\n\
-         Content-Type: application/octet-stream\r\n\
-         Content-Length: {}\r\n\
-         Connection: close\r\n\r\n",
-        body.len()
-    );
-    stream.write_all(header.as_bytes())?;
-    stream.write_all(body)?;
-    Ok(())
-}
-
 fn find_header_end(bytes: &[u8]) -> Option<usize> {
     bytes.windows(4).position(|window| window == b"\r\n\r\n")
 }
@@ -824,135 +817,12 @@ fn content_length(headers: &str) -> Option<usize> {
     None
 }
 
-fn topology_request_target(request_line: &str) -> Option<&str> {
-    let mut parts = request_line.split_whitespace();
-    if parts.next()? != "GET" {
-        return None;
-    }
-    let target = parts.next()?;
-    if target.split_once('?').map_or(target, |(path, _)| path) == "/v1/topology" {
-        Some(target)
-    } else {
-        None
-    }
-}
-
-fn status_request_target(request_line: &str) -> Option<&str> {
-    let mut parts = request_line.split_whitespace();
-    if parts.next()? != "GET" {
-        return None;
-    }
-    let target = parts.next()?;
-    if target.split_once('?').map_or(target, |(path, _)| path) == "/v1/status" {
-        Some(target)
-    } else {
-        None
-    }
-}
-
-fn request_has_server_token(headers: &str, store: &PublishStore) -> bool {
-    header_value(headers, "authorization")
-        .and_then(bearer_token)
-        .or_else(|| header_value(headers, "x-lockbox-server-token"))
-        .or_else(|| header_value(headers, "x-topology-token"))
-        .as_deref()
-        .is_some_and(|token| store.topology_token_matches(token))
-}
-
-fn bearer_token(value: String) -> Option<String> {
-    value
-        .strip_prefix("Bearer ")
-        .map(str::trim)
-        .filter(|token| !token.is_empty())
-        .map(str::to_string)
-}
-
-fn header_value(headers: &str, name: &str) -> Option<String> {
-    for line in headers.lines().skip(1) {
-        let (key, value) = line.split_once(':')?;
-        if key.eq_ignore_ascii_case(name) {
-            return Some(value.trim().to_string());
-        }
-    }
-    None
-}
-
-fn handle_verify_request(
-    request_line: &str,
-    store: &PublishStore,
-) -> crate::store::VerificationPage {
-    let Some(target) = request_line.split_whitespace().nth(1) else {
-        return verify_error(
-            "Verification failed",
-            "The verification request is malformed.",
-        );
-    };
-    let Some((_, query)) = target.split_once('?') else {
-        return verify_error(
-            "Verification failed",
-            "The verification link is missing its token.",
-        );
-    };
-    let code = query_param(query, "code");
-    let token = query_param(query, "token");
-    match (code, token) {
-        (Some(code), Some(token)) => store.verify_email(&code, &token),
-        _ => verify_error(
-            "Verification failed",
-            "The verification link is missing its token.",
-        ),
-    }
-}
-
 fn verify_error(title: &str, message: &str) -> crate::store::VerificationPage {
     crate::store::VerificationPage {
         success: false,
         title: title.to_string(),
         message: message.to_string(),
         email: None,
-    }
-}
-
-fn query_param(query: &str, name: &str) -> Option<String> {
-    for part in query.split('&') {
-        let (key, value) = part.split_once('=').unwrap_or((part, ""));
-        if key == name {
-            return Some(percent_decode(value));
-        }
-    }
-    None
-}
-
-fn percent_decode(value: &str) -> String {
-    let bytes = value.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if bytes[index] == b'%' && index + 2 < bytes.len() {
-            if let (Some(high), Some(low)) =
-                (hex_digit(bytes[index + 1]), hex_digit(bytes[index + 2]))
-            {
-                out.push((high << 4) | low);
-                index += 3;
-                continue;
-            }
-        }
-        out.push(if bytes[index] == b'+' {
-            b' '
-        } else {
-            bytes[index]
-        });
-        index += 1;
-    }
-    String::from_utf8_lossy(&out).into_owned()
-}
-
-fn hex_digit(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
     }
 }
 
@@ -998,33 +868,11 @@ fn escape_html(value: &str) -> String {
         .replace('"', "&quot;")
 }
 
-fn wants_close(headers: &str) -> bool {
-    headers.lines().any(|line| {
-        line.split_once(':')
-            .map(|(key, value)| {
-                key.eq_ignore_ascii_case("connection") && value.trim().eq_ignore_ascii_case("close")
-            })
-            .unwrap_or(false)
-    })
-}
-
 #[cfg(test)]
 mod tests {
-    use std::io::{ErrorKind, Read, Write};
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, TcpStream};
-    use std::path::PathBuf;
-    use std::thread;
+    use std::net::{IpAddr, Ipv4Addr};
 
-    use super::{configure_stream_deadlines, unix_ms, RateLimiter, REQUEST_IO_TIMEOUT};
-    use std::sync::Arc;
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-    use crate::store::{PublishStore, ServerConfig};
-    use lockbox_publish_protocol::{
-        decode_status, decode_topology, encode_replication_request, encode_topology_registration,
-        protocol, sign_replication_event, ReplicationEvent, ReplicationEventKind,
-        ReplicationRequest, ServerStatus, TopologyRegistration,
-    };
+    use super::RateLimiter;
 
     #[test]
     fn rate_limiter_enforces_burst_capacity() {
@@ -1044,358 +892,5 @@ mod tests {
         assert!(limiter.allow(ip));
         assert!(limiter.allow(ip));
         assert!(limiter.allow(None));
-    }
-
-    #[test]
-    fn topology_request_target_matches_only_topology_gets() {
-        assert_eq!(
-            super::topology_request_target("GET /v1/topology HTTP/1.1"),
-            Some("/v1/topology")
-        );
-        assert_eq!(
-            super::topology_request_target("GET /v1/topology?token=abc HTTP/1.1"),
-            Some("/v1/topology?token=abc")
-        );
-        assert_eq!(
-            super::topology_request_target("GET /v1/topologyx HTTP/1.1"),
-            None
-        );
-        assert_eq!(
-            super::topology_request_target("POST /v1/topology HTTP/1.1"),
-            None
-        );
-    }
-
-    #[test]
-    fn topology_get_rate_limits_clients_but_allows_token_requests() {
-        let (_guard, mut config) = temp_server_config("topology-rate-limit");
-        config.topology_token = Some("server-token".to_string());
-        let store = Arc::new(PublishStore::open(config).unwrap());
-        let limiter = Arc::new(RateLimiter::new(60, 1));
-
-        let first = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/topology");
-        decode_topology(http_body(&first)).unwrap();
-
-        let second = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/topology");
-        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::RateLimited);
-
-        let query_token = topology_get(
-            Arc::clone(&store),
-            Arc::clone(&limiter),
-            "/v1/topology?token=server-token",
-        );
-        let response = protocol::decode_response(http_body(&query_token), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::RateLimited);
-
-        let authenticated = topology_get_with_headers(
-            store,
-            limiter,
-            "/v1/topology",
-            "X-Lockbox-Server-Token: server-token\r\n",
-        );
-        decode_topology(http_body(&authenticated)).unwrap();
-    }
-
-    #[test]
-    fn status_rate_limits_clients_but_allows_token_requests() {
-        let (_guard, mut config) = temp_server_config("status-rate-limit");
-        config.topology_token = Some("server-token".to_string());
-        let store = Arc::new(PublishStore::open(config).unwrap());
-        let limiter = Arc::new(RateLimiter::new(60, 1));
-
-        let first = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/status");
-        decode_status(http_body(&first)).unwrap();
-
-        let second = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/status");
-        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::RateLimited);
-
-        let authenticated = topology_get_with_headers(
-            store,
-            limiter,
-            "/v1/status",
-            "Authorization: Bearer server-token\r\n",
-        );
-        decode_status(http_body(&authenticated)).unwrap();
-    }
-
-    #[test]
-    fn rate_limit_violation_blocks_client_across_refilled_buckets() {
-        let (_guard, mut config) = temp_server_config("cluster-rate-limit-block");
-        config.topology_token = Some("server-token".to_string());
-        let store = Arc::new(PublishStore::open(config).unwrap());
-        let limiter = Arc::new(RateLimiter::new(60, 1));
-
-        let first = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/topology");
-        decode_topology(http_body(&first)).unwrap();
-
-        let second = topology_get(Arc::clone(&store), Arc::clone(&limiter), "/v1/topology");
-        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::RateLimited);
-
-        let refilled_limiter = Arc::new(RateLimiter::new(60, 1));
-        let blocked = topology_get(Arc::clone(&store), refilled_limiter, "/v1/topology");
-        let response = protocol::decode_response(http_body(&blocked), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::RateLimited);
-
-        let authenticated = topology_get_with_headers(
-            store,
-            Arc::new(RateLimiter::new(60, 1)),
-            "/v1/topology",
-            "X-Lockbox-Server-Token: server-token\r\n",
-        );
-        decode_topology(http_body(&authenticated)).unwrap();
-    }
-
-    #[test]
-    fn topology_registration_rate_limits_without_header_but_allows_token_header() {
-        let (_guard, mut config) = temp_server_config("topology-registration-rate-limit");
-        config.topology_token = Some("server-token".to_string());
-        let store = Arc::new(PublishStore::open(config).unwrap());
-        let limiter = Arc::new(RateLimiter::new(60, 1));
-        let body = encode_topology_registration(&TopologyRegistration {
-            cluster_id: "default".to_string(),
-            server_id: 1,
-            server_url: "http://peer.example/v1/publish".to_string(),
-            status: ServerStatus::Active,
-            security_token: "server-token".to_string(),
-        })
-        .unwrap();
-
-        let first = post_request(
-            Arc::clone(&store),
-            Arc::clone(&limiter),
-            "/v1/topology/register",
-            "",
-            &body,
-        );
-        decode_topology(http_body(&first)).unwrap();
-
-        let second = post_request(
-            Arc::clone(&store),
-            Arc::clone(&limiter),
-            "/v1/topology/register",
-            "",
-            &body,
-        );
-        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::RateLimited);
-
-        let authenticated = post_request(
-            store,
-            limiter,
-            "/v1/topology/register",
-            "X-Lockbox-Server-Token: server-token\r\n",
-            &body,
-        );
-        decode_topology(http_body(&authenticated)).unwrap();
-    }
-
-    #[test]
-    fn replication_rate_limits_anonymous_but_allows_token_requests() {
-        let (_guard, mut config) = temp_server_config("replication-rate-limit");
-        config.server_id = 1;
-        config.topology_token = Some("server-token".to_string());
-        config.replication_token = Some("peer-secret".to_string());
-        let store = Arc::new(PublishStore::open(config).unwrap());
-        let limiter = Arc::new(RateLimiter::new(60, 1));
-        let first_body = rate_limit_block_request(1, [203, 0, 113, 21]);
-        let second_body = rate_limit_block_request(2, [203, 0, 113, 22]);
-
-        let first = post_request(
-            Arc::clone(&store),
-            Arc::clone(&limiter),
-            "/v1/replicate",
-            "",
-            &first_body,
-        );
-        let response = protocol::decode_response(http_body(&first), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::Success);
-
-        let anonymous = post_request(
-            Arc::clone(&store),
-            Arc::clone(&limiter),
-            "/v1/replicate",
-            "",
-            &second_body,
-        );
-        let response = protocol::decode_response(http_body(&anonymous), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::RateLimited);
-
-        let authenticated = post_request(
-            Arc::clone(&store),
-            limiter,
-            "/v1/replicate",
-            "X-Lockbox-Server-Token: server-token\r\n",
-            &second_body,
-        );
-        let response = protocol::decode_response(http_body(&authenticated), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::Success);
-        assert!(store.is_rate_limit_blocked(Some(IpAddr::from([203, 0, 113, 22]))));
-    }
-
-    #[test]
-    fn server_token_header_does_not_bypass_publish_rate_limit() {
-        let (_guard, mut config) = temp_server_config("publish-token-rate-limit");
-        config.topology_token = Some("server-token".to_string());
-        let store = Arc::new(PublishStore::open(config).unwrap());
-        let limiter = Arc::new(RateLimiter::new(60, 1));
-        let body = b"not-a-protocol-request";
-
-        let first = post_request(
-            Arc::clone(&store),
-            Arc::clone(&limiter),
-            "/v1/publish",
-            "X-Lockbox-Server-Token: server-token\r\n",
-            body,
-        );
-        let response = protocol::decode_response(http_body(&first), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::MalformedRequest);
-
-        let second = post_request(
-            store,
-            limiter,
-            "/v1/publish",
-            "X-Lockbox-Server-Token: server-token\r\n",
-            body,
-        );
-        let response = protocol::decode_response(http_body(&second), 1024).unwrap();
-        assert_eq!(response.status, protocol::Status::RateLimited);
-    }
-
-    #[test]
-    fn stream_deadlines_are_configured_for_requests() {
-        let listener = match TcpListener::bind("127.0.0.1:0") {
-            Ok(listener) => listener,
-            Err(err) if err.kind() == ErrorKind::PermissionDenied => return,
-            Err(err) => panic!("unable to bind local test listener: {err}"),
-        };
-        let addr = listener.local_addr().unwrap();
-        let client = thread::spawn(move || TcpStream::connect(addr).unwrap());
-        let (server, _) = listener.accept().unwrap();
-        let client = client.join().unwrap();
-
-        configure_stream_deadlines(&server).unwrap();
-
-        assert_eq!(server.read_timeout().unwrap(), Some(REQUEST_IO_TIMEOUT));
-        assert_eq!(server.write_timeout().unwrap(), Some(REQUEST_IO_TIMEOUT));
-        drop(client);
-    }
-
-    fn topology_get(store: Arc<PublishStore>, limiter: Arc<RateLimiter>, target: &str) -> Vec<u8> {
-        topology_get_with_headers(store, limiter, target, "")
-    }
-
-    fn topology_get_with_headers(
-        store: Arc<PublishStore>,
-        limiter: Arc<RateLimiter>,
-        target: &str,
-        headers: &str,
-    ) -> Vec<u8> {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let server = thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            super::handle_stream(stream, store, limiter).unwrap();
-        });
-        let response = get_request(addr, target, headers);
-        server.join().unwrap();
-        response
-    }
-
-    fn get_request(addr: SocketAddr, target: &str, headers: &str) -> Vec<u8> {
-        let mut stream = TcpStream::connect(addr).unwrap();
-        let request =
-            format!("GET {target} HTTP/1.1\r\nHost: {addr}\r\n{headers}Connection: close\r\n\r\n");
-        stream.write_all(request.as_bytes()).unwrap();
-        let mut response = Vec::new();
-        stream.read_to_end(&mut response).unwrap();
-        response
-    }
-
-    fn post_request(
-        store: Arc<PublishStore>,
-        limiter: Arc<RateLimiter>,
-        target: &str,
-        headers: &str,
-        body: &[u8],
-    ) -> Vec<u8> {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let addr = listener.local_addr().unwrap();
-        let server = thread::spawn(move || {
-            let (stream, _) = listener.accept().unwrap();
-            super::handle_stream(stream, store, limiter).unwrap();
-        });
-        let mut stream = TcpStream::connect(addr).unwrap();
-        let request = format!(
-            "POST {target} HTTP/1.1\r\nHost: {addr}\r\n{headers}Content-Length: {}\r\nConnection: close\r\n\r\n",
-            body.len()
-        );
-        let mut wire = request.into_bytes();
-        wire.extend_from_slice(body);
-        let _ = stream.write_all(&wire);
-        let mut response = Vec::new();
-        stream.read_to_end(&mut response).unwrap();
-        server.join().unwrap();
-        response
-    }
-
-    fn rate_limit_block_request(sequence: u64, ip: [u8; 4]) -> Vec<u8> {
-        let event = ReplicationEvent {
-            origin_server_id: 0,
-            origin_epoch: 2,
-            origin_sequence: sequence,
-            kind: ReplicationEventKind::RateLimitBlock {
-                client_ip: IpAddr::from(ip).to_string(),
-                expires_at_unix_ms: unix_ms(SystemTime::now() + Duration::from_secs(60)),
-            },
-        };
-        encode_replication_request(&ReplicationRequest {
-            authentication: sign_replication_event(b"peer-secret", &event),
-            event,
-        })
-    }
-
-    fn http_body(response: &[u8]) -> &[u8] {
-        let header_end = response
-            .windows(4)
-            .position(|window| window == b"\r\n\r\n")
-            .expect("HTTP response has headers");
-        &response[header_end + 4..]
-    }
-
-    fn temp_server_config(label: &str) -> (TempDir, ServerConfig) {
-        let guard = TempDir::new(label);
-        let config = ServerConfig {
-            state_dir: guard.path.clone(),
-            ..ServerConfig::default()
-        };
-        (guard, config)
-    }
-
-    struct TempDir {
-        path: PathBuf,
-    }
-
-    impl TempDir {
-        fn new(label: &str) -> Self {
-            let path = std::env::temp_dir().join(format!(
-                "lockbox-key-server-{label}-{}-{}",
-                std::process::id(),
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap_or(Duration::ZERO)
-                    .as_nanos()
-            ));
-            std::fs::create_dir_all(&path).unwrap();
-            Self { path }
-        }
-    }
-
-    impl Drop for TempDir {
-        fn drop(&mut self) {
-            let _ = std::fs::remove_dir_all(&self.path);
-        }
     }
 }
