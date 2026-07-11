@@ -4,6 +4,8 @@ use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
 
 use crate::server_log::server_log_destination;
 
@@ -51,7 +53,41 @@ pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Err
         )
         .into());
     }
+    verify_installation()?;
     println!("installed revault_key_server systemd service");
+    Ok(())
+}
+
+/// Run the same diagnostic report an administrator can request with `doctor`,
+/// then make the install fail if systemd did not keep the process running.
+/// `systemctl restart` can succeed merely because systemd launched the process;
+/// it does not prove the server stayed alive long enough to initialise.
+fn verify_installation() -> Result<(), Box<dyn std::error::Error>> {
+    // Give a fast startup failure (for example, unreadable config or state
+    // directory) a chance to be reported by systemd before checking it.
+    thread::sleep(Duration::from_millis(250));
+
+    println!("Verifying installation:");
+    let output = Command::new(INSTALL_BINARY_PATH).arg("doctor").output()?;
+    print!("{}", String::from_utf8_lossy(&output.stdout));
+    eprint!("{}", String::from_utf8_lossy(&output.stderr));
+    if !output.status.success() {
+        return Err(format!(
+            "installation checks could not run (doctor exited with {status}). Resolve the diagnostic above, then run:\n  sudo {INSTALL_BINARY_PATH} doctor",
+            status = output.status
+        )
+        .into());
+    }
+
+    let active = systemctl_state(&["is-active", "revault_key_server.service"]);
+    if active != "active" {
+        return Err(format!(
+            "the service was installed but did not start successfully (current state: {state}). The diagnostic above explains the configuration checks. For the server error, run:\n  sudo journalctl -u revault_key_server -n 50 --no-pager",
+            state = human_active(&active)
+        )
+        .into());
+    }
+    println!("Installation checks passed: service is running.");
     Ok(())
 }
 
