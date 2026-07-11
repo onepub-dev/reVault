@@ -149,10 +149,8 @@ fn os_string_to_secure(value: OsString) -> Result<SecureString> {
     use std::os::windows::ffi::OsStrExt;
 
     let mut secret = SecureString::new();
-    for decoded in char::decode_utf16(value.encode_wide()) {
-        if let Ok(ch) = decoded {
-            secret.try_push_utf8_char(ch)?;
-        }
+    for ch in char::decode_utf16(value.encode_wide()).flatten() {
+        secret.try_push_utf8_char(ch)?;
     }
     Ok(secret)
 }

@@ -371,6 +371,9 @@ mod platform {
         message_type: u32,
         message_argument: *mut c_void,
     ) {
+        // SAFETY: `refcon` is the `CallbackContext` pointer registered with
+        // `IORegisterForSystemPower`; it remains allocated while this callback
+        // can be invoked by the watcher run loop.
         let context = unsafe { &*(refcon.cast::<CallbackContext>()) };
         match message_type {
             event if event == kIOMessageCanSystemSleep => {
