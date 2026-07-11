@@ -4416,7 +4416,17 @@ fn auto_open_lockboxes_uses_remembered_password() {
     let agent_root = dir.join("agent");
     let lockbox = dir.join("remembered.lbox");
 
-    run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
+    let init = run_output_without_content_key(
+        bin,
+        &["vault", "init"],
+        &vault_root,
+        &agent_root,
+    );
+    if is_platform_secret_store_unavailable(&init) {
+        eprintln!("skipping auto-open lockbox assertions: platform secret store unavailable");
+        return;
+    }
+    assert_success(&init);
     let auto = run_output_without_content_key(
         bin,
         &["session", "auto-open", "lockboxes"],
@@ -4469,7 +4479,17 @@ fn auto_open_lockboxes_with_vault_identity_allows_first_add() {
     let source = dir.join("test.md");
     fs::write(&source, "hello issue\n").unwrap();
 
-    run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
+    let init = run_output_without_content_key(
+        bin,
+        &["vault", "init"],
+        &vault_root,
+        &agent_root,
+    );
+    if is_platform_secret_store_unavailable(&init) {
+        eprintln!("skipping auto-open identity assertions: platform secret store unavailable");
+        return;
+    }
+    assert_success(&init);
     run_without_content_key(
         bin,
         &["session", "auto-open", "lockboxes"],
@@ -4643,6 +4663,10 @@ fn is_session_agent_unavailable(output: &Output) -> bool {
         || stderr.contains("lockbox session agent did not start")
         || stdout.contains("lockbox session agent is not supported on this platform")
         || stderr.contains("lockbox session agent is not supported on this platform")
+}
+
+fn is_platform_secret_store_unavailable(output: &Output) -> bool {
+    String::from_utf8_lossy(&output.stderr).contains("platform secret store is unavailable")
 }
 
 #[test]
