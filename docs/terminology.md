@@ -21,11 +21,11 @@ The CLI may use the vault for convenience features such as:
 
 The vault must not be required to read a lockbox shared by password only.
 
-In the Rust workspace, `lockbox_vault` owns the local vault API and reusable
-agent transport. `lockbox_core` does not know about vaults; it only implements
+In the Rust workspace, `revault_vault_api` owns the local vault API and reusable
+agent transport. `revault_lockbox_api` does not know about vaults; it only implements
 the lockbox file format and operations on an opened lockbox.
 
-`lockbox_vault::VaultDirectory` is the native single-file vault store. It keeps
+`revault_vault_api::VaultDirectory` is the native single-file vault store. It keeps
 user-local private keys, trusted recipient public keys, and local key-directory
 backups inside `local-vault.lbox`, protected by the normal password-based
 lockbox mechanism. The open agent remains in-memory and separate from this

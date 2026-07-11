@@ -149,9 +149,9 @@ audit any FFI boundary.
 
 Current unsafe code exists, but it is constrained:
 
-- `lockbox_core`: `mlock`/`munlock` and `VirtualLock`/`VirtualUnlock`.
-- `lockbox_cli`: Unix terminal echo control and Windows console input.
-- `lockbox_vault`: Windows named-pipe, token, SID, and handle APIs.
+- `revault_lockbox_api`: `mlock`/`munlock` and `VirtualLock`/`VirtualUnlock`.
+- `revault_cli`: Unix terminal echo control and Windows console input.
+- `revault_vault_api`: Windows named-pipe, token, SID, and handle APIs.
 
 The crates now deny unsafe operations inside unsafe functions and deny unsafe
 blocks without safety comments. Further reduction options:

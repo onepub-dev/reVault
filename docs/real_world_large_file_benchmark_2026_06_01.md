@@ -12,7 +12,7 @@ Host:              local Linux workstation
 Kernel:            Linux 7.0.0-15-generic x86_64 GNU/Linux
 CPU:               AMD Ryzen 7 3700X, 8 cores / 16 threads
 Rust:              rustc 1.94.1 (e408947bf 2026-03-25)
-Lockbox build:     cargo build --release -p lockbox_cli --manifest-path rust/Cargo.toml
+Lockbox build:     cargo build --release -p revault_cli --manifest-path rust/Cargo.toml
 Compression:       local ../zstd-rs/ruzstd backend
 Raw output:        rust/target/real-world-large-files-20260601/results/summary.tsv
 ```

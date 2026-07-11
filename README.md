@@ -1,21 +1,47 @@
 # reVault / Lockbox
 
-reVault is a local-first encrypted storage toolkit. Its portable Lockbox format
-stores files, symlinks, and variable values in an encrypted `.lbox` container.
-The Rust workspace provides:
+reVault creates portable archives that are secure and compressed.
 
-- `lockbox`, a CLI for everyday use.
-- `lockbox_core`, the portable storage library.
-- `lockbox_vault`, the native vault and open-cache layer for desktop/server
-  tools.
+The reVault archives are called 'Lockboxes'.
+
+You can think of a Lockbox as a zip file on steriods. 
+
+A Lockbox can be used to store:
+* files
+* directories
+* symlinks
+* file/directory permissions
+* variables
+* forms (collection of variables)
+
+
+A lockbox is encrypted, compressed and signed using modern encryption and compress
+techniques.
+
+reVault is designed to be simple and safe to use, avoiding overly complex 
+terminology.
+
+reVault works on Linux, Windows and MacOS.
+
+reVault ships as a:
+  * cli
+  * apis
+  * libraries for multiple languages
+
+
+
+- `revault_cli`, a CLI for everyday use.
+- `revault_lockbox_api`, for creating lockboxes.
+- `revault_vault_api`, for creating and managing vaults.
 
 Terminology is explicit:
 
-- A **lockbox** is the portable `.lbox` container.
-- A **vault** is the user's local private store. It may contain private keys,
-  trusted recipient keys, key-directory backups, and local open-cache state.
-
-These terms are used consistently throughout the CLI and library APIs.
+- A **lockbox** is a portable archive and uses the `.lbox` extension.
+- A **key** is used to lock and unlock lockboxes. Keys are more secure than passwords.
+- A **vault** is where we store information about lockboxes such as the keys
+used to open and close a lockbox. The vault also holds a contact list which helps us share 
+lockboxes with other people.
+  
 
 > **Pre-release:** the Rust implementation is currently alpha software. The
 > archive format and public APIs may change between releases. Do not use it as
@@ -24,33 +50,47 @@ These terms are used consistently throughout the CLI and library APIs.
 
 ## Installation
 
-The current pre-release CLI is installed from the repository with Cargo:
+The best way to start with reVault is to install the CLI tooling.
+
+
+### crates.io
+The easist way to install the reVault CLI is from crates.io
+
+```
+cargo install revault_cli
+```
+
+
+### repo
+
+You can also install the CLI by cloning the github repo.
 
 ```bash
 git clone https://github.com/onepub-dev/reVault.git
 cd reVault/rust
-cargo install --path lockbox_cli
+cargo install --path revault_cli
 ```
 
-Cargo installs both `lockbox` and its short alias `lbx` into `~/.cargo/bin`.
+# Initialise your vault
+
+In order to create a lockbox you must first initialise your Vault.
+
+When you install the reVault CLI, Cargo installs both `lockbox` app and its alias `lbx` into `~/.cargo/bin`.
 Ensure that directory is on your `PATH`.
 
-Initialize the local vault before creating identity-protected lockboxes:
+To initialise your vault run:
 
 ```bash
 lbx vault init
 ```
+The init command will create the keys need to create/open and close lockboxes.
+The keys are stored in your reVault vault.
 
-The vault stores local private identities, contacts, key-directory backups, and
-the metadata needed for the session agent. On Linux, macOS, and Windows,
-reVault can store the vault passphrase in the platform credential store when
-that store is available. If it is unavailable, the CLI continues securely but
-prompts for the vault passphrase when needed.
+The init command will also dump those keys to the terminal. You need to backup those
+keys safely.
+* If you loose the keys you will not be able to access any lockbox - there is no way to recover from this!!!
+* If some else gets access to those keys then they have access to all of your lockboxes.
 
-> Status: the Rust implementation under `rust/` is the production direction for
-> the first Lockbox format release. The format is still pre-1.0, so breaking
-> changes are allowed while the design is finalized. Third-party cryptographic
-> review is still a release blocker.
 
 ## CLI Quick Start
 
@@ -207,14 +247,14 @@ log, or process environment controlled by other tooling.
 
 ## Rust Library
 
-Use `lockbox_core` when you need the portable storage engine:
+Use `revault_lockbox_api` when you need the portable storage engine:
 
 ```rust
-use lockbox_core::{Lockbox, LockboxOpen, LockboxPath, LockboxProtection, SecretVec};
+use revault_lockbox_api::{Lockbox, LockboxOpen, LockboxPath, LockboxProtection, SecretVec};
 use std::path::Path;
 
 let key = SecretVec::try_from_slice(b"correct horse battery staple")?;
-let signing_key = lockbox_core::OwnerSigningKeyPair::generate()?;
+let signing_key = revault_lockbox_api::OwnerSigningKeyPair::generate()?;
 let mut lockbox = Lockbox::create_file(
     Path::new("secrets.lbox"),
     LockboxProtection::ContentKey(key.try_clone()?),
@@ -232,11 +272,11 @@ let reopened = Lockbox::open(
 let file = reopened.get_file(&LockboxPath::new("/docs/a.txt")?)?;
 ```
 
-Use `lockbox_vault` for native applications that want the local vault and
+Use `revault_vault_api` for native applications that want the local vault and
 open-cache behavior:
 
 ```rust
-use lockbox_vault::{local_vault, SecretString};
+use revault_vault_api::{local_vault, SecretString};
 
 let vault = local_vault();
 let password = SecretString::try_from_bytes(b"pw".to_vec())?;
@@ -245,7 +285,7 @@ vault.create_lockbox_with_password("secrets.lbox", &password)?;
 
 let lockbox = vault.open_lockbox_with_password("secrets.lbox", &password)?;
 let mut lockbox = lockbox;
-lockbox.add_file_from_path("notes.txt", &lockbox_core::LockboxPath::new("/notes.txt")?)?;
+lockbox.add_file_from_path("notes.txt", &revault_lockbox_api::LockboxPath::new("/notes.txt")?)?;
 lockbox.commit()?;
 ```
 
@@ -254,7 +294,7 @@ lockbox.commit()?;
 - [CLI how-to](docs/cli_how_to.md): command examples.
 - [Lockbox Session Agent](docs/lockbox_session_agent.md): local open cache
   lifecycle, protocol, and security model.
-- [Archive format](rust/lockbox_core/ARCHIVE_FORMAT.md): lockbox archive details and page
+- [Archive format](rust/revault_lockbox_api/ARCHIVE_FORMAT.md): lockbox archive details and page
   layout.
 - [Rust development](docs/rust_development.md): build, test, and API docs.
 - [Dependency review](rust/docs/dependency_review.md): dependency and security

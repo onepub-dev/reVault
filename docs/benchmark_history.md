@@ -16,7 +16,7 @@ Commands:
 
 ```bash
 cd /home/bsutton/git/dvault
-cargo build --release -p lockbox_cli --manifest-path rust/Cargo.toml
+cargo build --release -p revault_cli --manifest-path rust/Cargo.toml
 # Swept --jobs 1,2,4,6,auto,8,12,16.
 # Each row creates a fresh lockbox and times `lockbox add`.
 ```
@@ -57,7 +57,7 @@ Commands:
 
 ```bash
 cd /home/bsutton/git/dvault
-cargo build --release -p lockbox_cli --manifest-path rust/Cargo.toml
+cargo build --release -p revault_cli --manifest-path rust/Cargo.toml
 # Reused fixtures from rust/target/archive-comparison-profile-20260531/fixtures.
 # Swept --jobs 1 through $(nproc); each row creates a fresh lockbox and times
 # only `lockbox add`.
@@ -173,9 +173,9 @@ Commands:
 
 ```bash
 cd /home/bsutton/git/dvault/rust
-cargo run --release -p lockbox_core --example dict_probe -- \
+cargo run --release -p revault_lockbox_api --example dict_probe -- \
   target/archive-comparison/fixtures/{fixture}
-cargo run --release -p lockbox_core --example dedupe_probe -- \
+cargo run --release -p revault_lockbox_api --example dedupe_probe -- \
   target/archive-comparison/fixtures/{fixture}
 ```
 
@@ -223,7 +223,7 @@ Commands:
 
 ```bash
 cd /home/bsutton/git/dvault/rust
-cargo run --release -p lockbox_core --example semisolid_probe -- \
+cargo run --release -p revault_lockbox_api --example semisolid_probe -- \
   target/archive-comparison/fixtures/{fixture}
 ```
 
@@ -270,7 +270,7 @@ Commands:
 
 ```bash
 cd /home/bsutton/git/dvault/rust
-cargo run --release -p lockbox_core --example zstd_gap_probe -- \
+cargo run --release -p revault_lockbox_api --example zstd_gap_probe -- \
   target/archive-comparison/fixtures/{fixture}
 ```
 
@@ -310,7 +310,7 @@ Conclusion:
 ## 2026-05-21 - Native zstd Encoder Prototype
 
 Description: implemented the backend-gap recommendation as an opt-in
-`lockbox_core/native-zstd-encoder` feature. The feature uses the `zstd` crate's
+`revault_lockbox_api/native-zstd-encoder` feature. The feature uses the `zstd` crate's
 bulk compressor for compression frames. The native encoder path writes the
 standard zstd compression algorithm id; native zstd is an implementation detail,
 not a distinct archive format.
@@ -319,9 +319,9 @@ Commands:
 
 ```bash
 cd /home/bsutton/git/dvault/rust
-cargo build --offline --release -p lockbox_cli
-cargo build --offline --release -p lockbox_cli \
-  --features lockbox_core/native-zstd-encoder
+cargo build --offline --release -p revault_cli
+cargo build --offline --release -p revault_cli \
+  --features revault_lockbox_api/native-zstd-encoder
 ```
 
 Fixture measurement:
@@ -337,9 +337,9 @@ Fixture measurement:
 Compatibility checks:
 
 ```bash
-cargo test --offline -p lockbox_core \
+cargo test --offline -p revault_lockbox_api \
   native_zstd_compression_frame_requires_feature -- --nocapture
-cargo test --offline -p lockbox_core --features native-zstd-encoder \
+cargo test --offline -p revault_lockbox_api --features native-zstd-encoder \
   native_zstd_compression_frame_round_trips_with_feature -- --nocapture
 ```
 
@@ -365,9 +365,9 @@ Commands:
 
 ```bash
 cd rust
-cargo test -p lockbox_core toc_codec -- --nocapture
-cargo test -p lockbox_core extract_many_caches_decoded_compression_frames -- --nocapture
-cargo test -p lockbox_core range_reads_only_return_requested_large_file_slice -- --nocapture
+cargo test -p revault_lockbox_api toc_codec -- --nocapture
+cargo test -p revault_lockbox_api extract_many_caches_decoded_compression_frames -- --nocapture
+cargo test -p revault_lockbox_api range_reads_only_return_requested_large_file_slice -- --nocapture
 
 # Lockbox-only fixture loops using:
 # rust/target/archive-comparison/fixtures/{repeated-small,text-tree,...}
@@ -376,7 +376,7 @@ cargo test -p lockbox_core range_reads_only_return_requested_large_file_slice --
 # Large-file perf:
 # LOCKBOX_PERF_SCENARIO=large LOCKBOX_PERF_LARGE_BYTES=104857600 \
 # LOCKBOX_PERF_PATTERN={zero,randomish} cargo run --release \
-# -p lockbox_core --example perf
+# -p revault_lockbox_api --example perf
 ```
 
 Outcome summary:
@@ -662,7 +662,7 @@ Commands:
 
 ```bash
 cd rust
-cargo build --release -p lockbox_cli
+cargo build --release -p revault_cli
 
 /usr/bin/time -f 'lockbox-cli-create %e %M' \
   target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
@@ -684,11 +684,11 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=104857600 \
 LOCKBOX_PERF_PATTERN=randomish \
 LOCKBOX_PERF_EXTRACT=stream \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 cargo test --workspace
-cargo test -p lockbox_core --lib repeated_small_files_keep_meaningful_compression -- --ignored --nocapture
-cargo test -p lockbox_core --lib moderately_large_zero_file_uses_few_fixed_pages -- --ignored --nocapture
+cargo test -p revault_lockbox_api --lib repeated_small_files_keep_meaningful_compression -- --ignored --nocapture
+cargo test -p revault_lockbox_api --lib moderately_large_zero_file_uses_few_fixed_pages -- --ignored --nocapture
 ```
 
 Environment:
@@ -746,7 +746,7 @@ Commands:
 
 ```bash
 cd rust
-cargo build --release -p lockbox_cli
+cargo build --release -p revault_cli
 
 /usr/bin/time -f 'lockbox-cli-create %e %M' \
   target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
@@ -768,11 +768,11 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=104857600 \
 LOCKBOX_PERF_PATTERN=randomish \
 LOCKBOX_PERF_EXTRACT=stream \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 cargo test --workspace
-cargo test -p lockbox_core --lib repeated_small_files_keep_meaningful_compression -- --ignored --nocapture
-cargo test -p lockbox_core --lib moderately_large_zero_file_uses_few_fixed_pages -- --ignored --nocapture
+cargo test -p revault_lockbox_api --lib repeated_small_files_keep_meaningful_compression -- --ignored --nocapture
+cargo test -p revault_lockbox_api --lib moderately_large_zero_file_uses_few_fixed_pages -- --ignored --nocapture
 ```
 
 Environment:
@@ -832,7 +832,7 @@ Commands:
 
 ```bash
 cd rust
-cargo build --release -p lockbox_cli
+cargo build --release -p revault_cli
 mkdir -p target/bench-tmp/gpg-compare-2/src
 perl -e 'print "x" x 25600' > target/bench-tmp/gpg-compare-2/template.bin
 for i in $(seq -w 0 4095); do
@@ -868,7 +868,7 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_FILES=4096 \
 LOCKBOX_PERF_FILE_BYTES=25600 \
 LOCKBOX_PERF_EXTRACT=stream \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_DIR="$PWD/target/bench-tmp" \
 LOCKBOX_PERF_SCENARIO=large \
@@ -876,7 +876,7 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=104857600 \
 LOCKBOX_PERF_PATTERN=randomish \
 LOCKBOX_PERF_EXTRACT=stream \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 ```
 
 Environment:
@@ -928,11 +928,11 @@ Commands:
 
 ```bash
 cd rust
-TMPDIR="$PWD/target/bench-tmp" cargo bench -p lockbox_core --bench performance small_files
-TMPDIR="$PWD/target/bench-tmp" cargo bench -p lockbox_core --bench performance large_file
-TMPDIR="$PWD/target/bench-tmp" cargo bench -p lockbox_core --bench performance append_delete
-cargo test -p lockbox_core --lib repeated_small_files_keep_meaningful_compression -- --ignored --nocapture
-cargo test -p lockbox_core --lib moderately_large_zero_file_uses_few_fixed_pages -- --ignored --nocapture
+TMPDIR="$PWD/target/bench-tmp" cargo bench -p revault_lockbox_api --bench performance small_files
+TMPDIR="$PWD/target/bench-tmp" cargo bench -p revault_lockbox_api --bench performance large_file
+TMPDIR="$PWD/target/bench-tmp" cargo bench -p revault_lockbox_api --bench performance append_delete
+cargo test -p revault_lockbox_api --lib repeated_small_files_keep_meaningful_compression -- --ignored --nocapture
+cargo test -p revault_lockbox_api --lib moderately_large_zero_file_uses_few_fixed_pages -- --ignored --nocapture
 ```
 
 Environment:
@@ -973,7 +973,7 @@ Conclusion:
 
 ## 2026-05-09 - Pure-Rust zstd Backend
 
-Description: switched `lockbox_core` compression from the native `zstd` C
+Description: switched `revault_lockbox_api` compression from the native `zstd` C
 backend to pure-Rust `oxiarc-zstd` so desktop, mobile, and WASM builds avoid a
 C zstd dependency. The first run exposed a fixed-page accounting bug in the
 large-file benchmark; the page size stayed 8 MiB, and max object payload was
@@ -983,7 +983,7 @@ Command:
 
 ```bash
 cd rust
-cargo bench -p lockbox_core --bench performance
+cargo bench -p revault_lockbox_api --bench performance
 ```
 
 Environment:
@@ -1043,7 +1043,7 @@ Command:
 
 ```bash
 cd rust
-cargo bench -p lockbox_core --bench performance
+cargo bench -p revault_lockbox_api --bench performance
 ```
 
 Environment:
@@ -1098,7 +1098,7 @@ Command:
 
 ```bash
 cd rust
-cargo bench -p lockbox_core --bench performance
+cargo bench -p revault_lockbox_api --bench performance
 ```
 
 Environment:
@@ -1151,7 +1151,7 @@ Command:
 
 ```bash
 cd rust
-cargo bench -p lockbox_core --bench performance
+cargo bench -p revault_lockbox_api --bench performance
 ```
 
 Environment:
@@ -1202,7 +1202,7 @@ Command:
 
 ```bash
 cd rust
-cargo bench -p lockbox_core --bench performance
+cargo bench -p revault_lockbox_api --bench performance
 ```
 
 Environment:
@@ -1262,14 +1262,14 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=1073741824 \
 LOCKBOX_PERF_PATTERN=zero \
 LOCKBOX_PERF_EXTRACT=memory \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_SCENARIO=large \
 LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=1073741824 \
 LOCKBOX_PERF_PATTERN=randomish \
 LOCKBOX_PERF_EXTRACT=memory \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_SCENARIO=small \
 LOCKBOX_PERF_BACKEND=file \
@@ -1277,14 +1277,14 @@ LOCKBOX_PERF_FILES=100000 \
 LOCKBOX_PERF_FILE_BYTES=1024 \
 LOCKBOX_PERF_EXTRACT=memory \
 LOCKBOX_PERF_EXTRACT_REPEAT=5 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_SCENARIO=append-delete \
 LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_INITIAL_FILES=50000 \
 LOCKBOX_PERF_APPEND_FILES=10000 \
 LOCKBOX_PERF_FILE_BYTES=2048 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 ```
 
 Environment:
@@ -1362,14 +1362,14 @@ LOCKBOX_PERF_SCENARIO=large \
 LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=1073741824 \
 LOCKBOX_PERF_PATTERN=zero \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
 LOCKBOX_PERF_SCENARIO=large \
 LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=1073741824 \
 LOCKBOX_PERF_PATTERN=randomish \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
 LOCKBOX_PERF_SCENARIO=small \
@@ -1378,7 +1378,7 @@ LOCKBOX_PERF_FILES=100000 \
 LOCKBOX_PERF_FILE_BYTES=1024 \
 LOCKBOX_PERF_EXTRACT=memory \
 LOCKBOX_PERF_EXTRACT_REPEAT=5 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
 LOCKBOX_PERF_SCENARIO=append-delete \
@@ -1386,7 +1386,7 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_INITIAL_FILES=50000 \
 LOCKBOX_PERF_APPEND_FILES=10000 \
 LOCKBOX_PERF_FILE_BYTES=2048 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 ```
 
 Environment:
@@ -1397,7 +1397,7 @@ Environment:
 - Backend: file-backed lockbox storage
 - Scratch directory: `rust/.tmp-bench`
 - Verification: `cargo test --workspace` before this optimization, and
-  `cargo test -p lockbox_core` after the optimization
+  `cargo test -p revault_lockbox_api` after the optimization
 
 Pre-fix observations from this run:
 
@@ -1514,13 +1514,13 @@ Conclusion:
   compressors win the ratio test by exploiting repetition across file and
   metadata boundaries.
 - Compression regression coverage now lives in
-  `rust/lockbox_core/tests/compression_regression.rs`. The tests are ignored by
+  `rust/revault_lockbox_api/tests/compression_regression.rs`. The tests are ignored by
   default to keep local CI fast, and GitHub Actions runs them explicitly in the
   `compression regression corpus` job.
 - The GitHub job stores deterministic source corpus files in `actions/cache`
   under `rust/.ci-compression-corpus`, keyed by
   `LOCKBOX_COMPRESSION_CORPUS_VERSION`. On a cache miss it rebuilds the corpus
-  with `cargo run --release -p lockbox_core --example compression_corpus --
+  with `cargo run --release -p revault_lockbox_api --example compression_corpus --
   .ci-compression-corpus`, then runs the ignored regression tests against that
   cached corpus.
 
@@ -1554,7 +1554,7 @@ LOCKBOX_PERF_FILES=50000 \
 LOCKBOX_PERF_FILE_BYTES=1024 \
 LOCKBOX_PERF_EXTRACT=memory \
 LOCKBOX_PERF_EXTRACT_REPEAT=5 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
 LOCKBOX_PERF_SCENARIO=append-delete \
@@ -1562,7 +1562,7 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_INITIAL_FILES=50000 \
 LOCKBOX_PERF_APPEND_FILES=10000 \
 LOCKBOX_PERF_FILE_BYTES=2048 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
 LOCKBOX_PERF_SCENARIO=large \
@@ -1570,7 +1570,7 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=134217728 \
 LOCKBOX_PERF_PATTERN=randomish \
 LOCKBOX_PERF_EXTRACT=memory \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 ```
 
 Results:
@@ -1592,7 +1592,7 @@ LOCKBOX_PERF_EXTRACT=memory \
 LOCKBOX_PERF_EXTRACT_REPEAT=5 \
 LOCKBOX_PERF_FILES=20000 \
 LOCKBOX_PERF_FILE_BYTES=1024 \
-cargo flamegraph -p lockbox_core --example perf --release \
+cargo flamegraph -p revault_lockbox_api --example perf --release \
   -o target/flamegraph-file-small-20k-dirty-pages.svg
 ```
 
@@ -1659,7 +1659,7 @@ LOCKBOX_PERF_FILES=50000 \
 LOCKBOX_PERF_FILE_BYTES=1024 \
 LOCKBOX_PERF_EXTRACT=memory \
 LOCKBOX_PERF_EXTRACT_REPEAT=5 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
 LOCKBOX_PERF_SCENARIO=append-delete \
@@ -1667,7 +1667,7 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_INITIAL_FILES=50000 \
 LOCKBOX_PERF_APPEND_FILES=10000 \
 LOCKBOX_PERF_FILE_BYTES=2048 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
 LOCKBOX_PERF_SCENARIO=large \
@@ -1675,7 +1675,7 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=134217728 \
 LOCKBOX_PERF_PATTERN=randomish \
 LOCKBOX_PERF_EXTRACT=memory \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 ```
 
 Final run results:
@@ -1709,7 +1709,7 @@ LOCKBOX_PERF_EXTRACT=memory \
 LOCKBOX_PERF_EXTRACT_REPEAT=5 \
 LOCKBOX_PERF_FILES=20000 \
 LOCKBOX_PERF_FILE_BYTES=1024 \
-cargo flamegraph -p lockbox_core --example perf --release \
+cargo flamegraph -p revault_lockbox_api --example perf --release \
   -o target/flamegraph-file-small-20k-perf-pass.svg
 ```
 
@@ -1742,10 +1742,10 @@ normal commit-time cache policy.
 
 Verification:
 
-- `cargo test -p lockbox_core`
-- `cargo clippy -p lockbox_core --all-targets -- -D warnings`
-- `cargo build --release -p lockbox_cli`
-- `cargo bench -p lockbox_core --bench performance`
+- `cargo test -p revault_lockbox_api`
+- `cargo clippy -p revault_lockbox_api --all-targets -- -D warnings`
+- `cargo build --release -p revault_cli`
+- `cargo bench -p revault_lockbox_api --bench performance`
 
 Criterion results:
 
@@ -1797,7 +1797,7 @@ Command:
 
 ```bash
 cd rust
-cargo bench -p lockbox_core --bench performance secure_string_store
+cargo bench -p revault_lockbox_api --bench performance secure_string_store
 ```
 
 An attempted local flamegraph run was blocked by the host kernel's
@@ -1835,7 +1835,7 @@ Conclusion:
   `SecretString::try_extend_from_slice`.
 - A shared read-access scope is roughly two orders of magnitude faster than
   creating a scope per string for repeated reads in this workload. Code that
-  reads many secrets should use `lockbox_secure::read_access()`.
+  reads many secrets should use `revault_page_api::read_access()`.
 - Construction still has fixed overhead from secure heap locking and page
   permission changes. The optimized flamegraph still shows `mprotect` as the
   remaining significant secure-store cost, which is expected for protected
@@ -1853,7 +1853,7 @@ Command:
 
 ```bash
 cd rust
-cargo run --offline -q -p lockbox_core --example archive_v2_probe -- \
+cargo run --offline -q -p revault_lockbox_api --example archive_v2_probe -- \
   target/archive-comparison/fixtures/<fixture>
 ```
 

@@ -18,7 +18,7 @@ This review covers the current Rust implementation shape.
   pressure on tests and internal tools to use file-backed high-level helpers
   where practical.
 - CLI command behavior now lives under command-family modules in
-  `lockbox_cli/src/commands/`, with `main.rs` kept as the binary entrypoint.
+  `revault_cli/src/commands/`, with `main.rs` kept as the binary entrypoint.
 - Agent request handling is duplicated between Unix and Windows. The shared
   parser is now factored out, but response handling can be shared further.
 - `to_bytes()` remains available only as a hidden test/developer convenience.
@@ -40,7 +40,7 @@ This review covers the current Rust implementation shape.
 - Keep `lockbox/` as the public operation facade, but consider grouping its
   modules as `lockbox/io.rs`, `lockbox/mutate.rs`, `lockbox/extract.rs`,
   `lockbox/recover.rs`, and `lockbox/keys.rs` once the API names settle.
-- Keep `lockbox_cli/src/commands/mod.rs` as dispatch-only and continue moving
+- Keep `revault_cli/src/commands/mod.rs` as dispatch-only and continue moving
   shared code from command-family modules into focused helpers as repeated
   patterns emerge.
 - Move agent cache state and request execution into shared code used by both

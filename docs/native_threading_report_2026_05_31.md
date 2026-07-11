@@ -6,7 +6,7 @@ Implemented native worker support for `lockbox add` through:
 
 - `lockbox --jobs auto|1|N add ...`
 - `WorkerPolicy::Auto`, `WorkerPolicy::Single`, and
-  `WorkerPolicy::Threads(N)` in `lockbox_core`
+  `WorkerPolicy::Threads(N)` in `revault_lockbox_api`
 - threaded preparation of large-file compression frames
 - threaded preparation of bulk small-file compression-frame batches
 - ordered page writing and commit publication
@@ -45,7 +45,7 @@ Host reports 16 cores via `nproc`.
 Command shape:
 
 ```bash
-cargo build --release -p lockbox_cli --manifest-path rust/Cargo.toml
+cargo build --release -p revault_cli --manifest-path rust/Cargo.toml
 lockbox --key <bench-key> --jobs <N> add <fresh-lockbox> <fixture> /
 ```
 

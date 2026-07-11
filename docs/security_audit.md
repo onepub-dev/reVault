@@ -59,7 +59,7 @@ cryptographic review.
   their own high-entropy lockbox key. Normal bindings should guide callers
   toward password or recipient open APIs.
 - The current storage path now uses fixed-size page-cache managed pages. Format
-  review should treat [ARCHIVE_FORMAT.md](../rust/lockbox_core/ARCHIVE_FORMAT.md) as the current contract. Normal writes,
+  review should treat [ARCHIVE_FORMAT.md](../rust/revault_lockbox_api/ARCHIVE_FORMAT.md) as the current contract. Normal writes,
   including compaction rewrites, pass through the page cache. Open reads of
   current key-directory pages also go through the page-cache page read/decode
   boundary because key directories are clear-text pages. Direct raw storage

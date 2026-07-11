@@ -54,7 +54,7 @@ secret.with_bytes(|bytes| {
     use_secret(bytes);
 })?;
 
-lockbox_secure::read_access(|access| {
+revault_page_api::read_access(|access| {
     access.with_bytes(&secret_a, |a| {
         access.with_bytes(&secret_b, |b| {
             use_two_secrets(a, b);

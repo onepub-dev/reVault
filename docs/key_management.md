@@ -203,8 +203,8 @@ session token or bearer key written to disk; a stored token would just become a
 different secret that releases the content key.
 
 The native vault API uses `SecretString`/secret byte wrappers for passwords and
-cached content keys. These wrappers are implemented once in `lockbox_core` and
-re-exported by `lockbox_vault`. They zeroize memory on drop, redact debug
+cached content keys. These wrappers are implemented once in `revault_lockbox_api` and
+re-exported by `revault_vault_api`. They zeroize memory on drop, redact debug
 output, and try to pin the backing allocation with `mlock` on Unix or
 `VirtualLock` on Windows. Secure construction and mutation are fallible because
 pinning, page protection, and corruption checks can fail.
@@ -243,12 +243,12 @@ Transport requirements:
 - The agent should validate the caller's OS identity where the platform exposes
   peer credentials.
 
-The reusable Rust implementation lives in the `lockbox_vault` crate. It exposes
+The reusable Rust implementation lives in the `revault_vault_api` crate. It exposes
 a high-level `LocalVault` API for native CLIs and bindings, plus the lower-level
 agent protocol helpers needed by alternate front ends. The Rust CLI uses that
 crate rather than owning agent transport code itself.
 
-`lockbox_vault` currently has Unix-domain-socket and Windows named-pipe
+`revault_vault_api` currently has Unix-domain-socket and Windows named-pipe
 transport implementations. The Windows pipe is created with an owner-only DACL
 and the server still validates the connecting client's SID against the agent
 process user SID after connection. The dedicated Agent IPC GitHub Action runs
@@ -287,7 +287,7 @@ platform vault directory
             `-- encrypted key-directory backup
 ```
 
-The vault is itself an ordinary lockbox, but `lockbox_vault::VaultDirectory`
+The vault is itself an ordinary lockbox, but `revault_vault_api::VaultDirectory`
 uses a fixed internal record layout:
 
 ```text

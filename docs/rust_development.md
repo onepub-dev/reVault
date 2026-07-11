@@ -29,7 +29,7 @@ bash tools/check_required.sh
 ```
 
 This script runs formatting, hard Clippy, and tests for the active Rust crates:
-`lockbox_core`, `lockbox_cli`, and `lockbox_vault`.
+`revault_lockbox_api`, `revault_cli`, and `revault_vault_api`.
 
 When a new Rust crate becomes part of the supported build, add it to
 `tools/check_required.sh`, `tools/clippy_advisory.sh`, and the CI workflow.
@@ -37,7 +37,7 @@ When a new Rust crate becomes part of the supported build, add it to
 Hard Clippy means:
 
 ```text
-cargo clippy -p lockbox_core -p lockbox_cli -p lockbox_vault --all-targets -- -D warnings
+cargo clippy -p revault_lockbox_api -p revault_cli -p revault_vault_api --all-targets -- -D warnings
 ```
 
 That treats Clippy's default lint groups as errors. It is required, but it is
@@ -45,13 +45,13 @@ not the strongest possible Clippy policy.
 
 ## API Docs
 
-Generate the public `lockbox_core` API docs from `rust/`:
+Generate the public `revault_lockbox_api` API docs from `rust/`:
 
 ```text
 bash tools/generate_api_docs.sh
 ```
 
-The generated entry point is `rust/target/doc/lockbox_core/index.html`. The
+The generated entry point is `rust/target/doc/revault_lockbox_api/index.html`. The
 generated HTML is build output and is not committed.
 
 ## Advisory Clippy

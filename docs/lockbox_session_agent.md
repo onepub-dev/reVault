@@ -16,9 +16,9 @@ Product name: **Lockbox Session Agent**.
 
 ## Design
 
-The feature is implemented in `lockbox_vault`:
+The feature is implemented in `revault_vault_api`:
 
-- `lockbox_vault::get` / `put` / `forget` / `forget_all` / `list` / `stop`
+- `revault_vault_api::get` / `put` / `forget` / `forget_all` / `list` / `stop`
   call into a platform client module.
 - Client calls are made through local IPC transport:
   - Unix: Unix-domain socket.

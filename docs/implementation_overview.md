@@ -2,7 +2,7 @@
 
 This document keeps implementation and format direction out of the top-level
 README. User-facing command examples are in [cli_how_to.md](cli_how_to.md).
-Exact on-disk structures are in [ARCHIVE_FORMAT.md](../rust/lockbox_core/ARCHIVE_FORMAT.md).
+Exact on-disk structures are in [ARCHIVE_FORMAT.md](../rust/revault_lockbox_api/ARCHIVE_FORMAT.md).
 
 ## Goals
 
@@ -17,11 +17,11 @@ Exact on-disk structures are in [ARCHIVE_FORMAT.md](../rust/lockbox_core/ARCHIVE
 
 ## Crate Roles
 
-`lockbox_core` owns the portable `.lbox` format and storage API. It is checked
+`revault_lockbox_api` owns the portable `.lbox` format and storage API. It is checked
 for Linux, macOS, Windows, Android, iOS, WASI, and browser-style
 `wasm32-unknown-unknown` builds.
 
-`lockbox_vault` owns native local-vault behavior, open-cache agent transport,
+`revault_vault_api` owns native local-vault behavior, open-cache agent transport,
 private key storage, trusted recipient storage, and key-directory backups.
 Mobile and WASM applications should use platform-specific vault integration
 instead of embedding the native agent.
@@ -131,7 +131,7 @@ The default cache limit is `Auto`:
 Embedders can choose a fixed budget or disable caching:
 
 ```rust
-use lockbox_core::{CacheLimit, Lockbox, LockboxOptions, WorkloadProfile};
+use revault_lockbox_api::{CacheLimit, Lockbox, LockboxOptions, WorkloadProfile};
 
 let options = LockboxOptions {
     cache_limit: CacheLimit::Bytes(256 * 1024 * 1024),

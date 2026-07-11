@@ -106,11 +106,11 @@ logical TOC grouping rules.
 ## Current Benchmark Harness
 
 A lightweight benchmark-style example exists at
-`rust/lockbox_core/examples/perf.rs`:
+`rust/revault_lockbox_api/examples/perf.rs`:
 
 ```bash
 cd rust
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 ```
 
 Scenarios:
@@ -123,14 +123,14 @@ LOCKBOX_PERF_EXTRACT=memory \
 LOCKBOX_PERF_EXTRACT_REPEAT=20 \
 LOCKBOX_PERF_FILES=100000 \
 LOCKBOX_PERF_FILE_BYTES=1024 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 # A GB-class large file without keeping the source payload in memory.
 LOCKBOX_PERF_SCENARIO=large \
 LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_LARGE_BYTES=1073741824 \
 LOCKBOX_PERF_PATTERN=randomish \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 # Append/delete/replacement workload.
 LOCKBOX_PERF_SCENARIO=append-delete \
@@ -138,10 +138,10 @@ LOCKBOX_PERF_BACKEND=file \
 LOCKBOX_PERF_INITIAL_FILES=50000 \
 LOCKBOX_PERF_APPEND_FILES=10000 \
 LOCKBOX_PERF_FILE_BYTES=2048 \
-cargo run -p lockbox_core --example perf --release
+cargo run -p revault_lockbox_api --example perf --release
 
 # Run all scenarios with their configured sizes.
-LOCKBOX_PERF_SCENARIO=all cargo run -p lockbox_core --example perf --release
+LOCKBOX_PERF_SCENARIO=all cargo run -p revault_lockbox_api --example perf --release
 ```
 
 This is not a replacement for Criterion or production profiling, but it gives a
@@ -151,11 +151,11 @@ delete/replace time, large-file range-read latency, and lockbox/logical size
 ratio.
 
 Repeatable microbenchmarks are in
-`rust/lockbox_core/benches/performance.rs` and run with:
+`rust/revault_lockbox_api/benches/performance.rs` and run with:
 
 ```bash
 cd rust
-cargo bench -p lockbox_core --bench performance
+cargo bench -p revault_lockbox_api --bench performance
 ```
 
 The Criterion suite includes storage workflows, metadata operations, TOC
@@ -224,7 +224,7 @@ LOCKBOX_PERF_EXTRACT=memory \
 LOCKBOX_PERF_EXTRACT_REPEAT=20 \
 LOCKBOX_PERF_FILES=50000 \
 LOCKBOX_PERF_FILE_BYTES=1024 \
-cargo flamegraph -p lockbox_core --example perf --release \
+cargo flamegraph -p revault_lockbox_api --example perf --release \
   -o target/flamegraph-small-memory-debug-hash-cache.svg
 ```
 

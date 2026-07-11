@@ -72,7 +72,7 @@ Recommendation:
 Added:
 
 - `docs/archive_v2_restructure_proposal.md`
-- `rust/lockbox_core/examples/archive_v2_probe.rs`
+- `rust/revault_lockbox_api/examples/archive_v2_probe.rs`
 
 The v2 proposal is an append-only framed object store:
 
@@ -95,7 +95,7 @@ The probe estimates:
 Command used:
 
 ```text
-cargo run --offline -q -p lockbox_core --example archive_v2_probe -- <fixture>
+cargo run --offline -q -p revault_lockbox_api --example archive_v2_probe -- <fixture>
 ```
 
 Results were written to:
