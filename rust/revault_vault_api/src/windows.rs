@@ -302,12 +302,18 @@ fn request_control_with_handle(handle: OwnedHandle, message: &[u8]) -> io::Resul
 }
 
 fn start_agent() -> io::Result<()> {
+    use std::os::windows::process::CommandExt;
+
+    const DETACHED_PROCESS: u32 = 0x0000_0008;
+    const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+
     let exe = env::current_exe()?;
     Command::new(exe)
         .arg("__agent")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
+        .creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP)
         .spawn()?;
 
     Ok(())
