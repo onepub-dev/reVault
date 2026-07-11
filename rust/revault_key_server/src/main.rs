@@ -7,7 +7,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::{error::ErrorKind, Arg, ArgAction, ArgMatches, Command};
-use install::{install_systemd, print_status, uninstall_systemd, CONFIG_PATH};
+use install::{
+    install_systemd, print_status, start_systemd, stop_systemd, uninstall_systemd, CONFIG_PATH,
+};
 use revault_key_server::{install, server, server_log, store};
 use revault_publish_protocol::{ServerStatus, TopologyRoute, TopologyServer};
 use server::{bench_http, bench_http_flow, bench_http_receive, run_server};
@@ -68,7 +70,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         Some(("install", command)) => install_systemd(command.get_flag("force-config"))?,
         Some(("uninstall", command)) => uninstall_systemd(command.get_flag("purge-data"))?,
-        Some(("status", _)) => print_status()?,
+        Some(("start", _)) => start_systemd()?,
+        Some(("stop", _)) => stop_systemd()?,
         Some(("doctor", _)) => print_doctor()?,
         Some(("resync-peer", _)) => {
             let (mut config_args, peer_url) = split_peer_url_args(args[1..].to_vec())?;
@@ -133,7 +136,8 @@ fn key_server_command(dev_help: bool) -> Command {
                         .help("Remove persisted service data"),
                 ),
         )
-        .subcommand(Command::new("status").about("Print service status"))
+        .subcommand(Command::new("start").about("Start the system service"))
+        .subcommand(Command::new("stop").about("Stop the system service"))
         .subcommand(Command::new("doctor").about("Check the installed service and configuration"))
         .subcommand(add_config_args(
             Command::new("resync-peer")
@@ -175,13 +179,13 @@ fn key_server_command(dev_help: bool) -> Command {
 }
 
 fn print_doctor() -> Result<(), Box<dyn std::error::Error>> {
-    println!("reVault key server doctor");
     print_status()?;
 
     let config_path = PathBuf::from(CONFIG_PATH);
     if !config_path.exists() {
-        println!("config_valid=false");
-        println!("action=run `sudo lockbox_key_server install` to create the configuration");
+        println!();
+        println!("Configuration details unavailable: the configuration file is missing.");
+        println!("Next step: run `sudo lockbox_key_server install` to create it.");
         return Ok(());
     }
 
@@ -190,28 +194,43 @@ fn print_doctor() -> Result<(), Box<dyn std::error::Error>> {
         && config.smtp_username.is_some()
         && config.smtp_password.is_some();
 
-    println!("config_valid=true");
-    println!("bind_addr={}", config.bind_addr);
+    println!();
+    println!("Application configuration");
+    println!("  Configuration is valid: YES");
+    println!("  Bind address: {}", config.bind_addr);
     println!(
-        "public_url={}",
+        "  Public URL: {}",
         config.public_url.as_deref().unwrap_or("not configured")
     );
-    println!("state_dir={}", config.state_dir.display());
-    println!("state_dir_exists={}", config.state_dir.exists());
-    println!("topology_servers={}", config.topology_servers.len());
-    println!("topology_routes={}", config.topology_routes.len());
-    println!("smtp_configured={smtp_configured}");
+    println!("  State directory: {}", config.state_dir.display());
+    println!(
+        "  State directory present: {}",
+        doctor_yes_no(config.state_dir.exists())
+    );
+    println!("  Topology servers: {}", config.topology_servers.len());
+    println!("  Topology routes: {}", config.topology_routes.len());
+    println!("  SMTP complete: {}", doctor_yes_no(smtp_configured));
 
     if config.public_url.is_none() {
-        println!("warning=public_url is not configured; external clients cannot route reliably");
+        println!(
+            "  Warning: public URL is not configured; external clients cannot route reliably."
+        );
     }
     if !smtp_configured {
-        println!("warning=SMTP is incomplete; email verification will not work");
+        println!("  Warning: SMTP is incomplete; email verification will not work.");
     }
     if !config.state_dir.exists() {
-        println!("warning=state directory does not exist yet; it will be created when the service starts");
+        println!("  Warning: the state directory will be created when the service starts.");
     }
     Ok(())
+}
+
+fn doctor_yes_no(value: bool) -> &'static str {
+    if value {
+        "YES"
+    } else {
+        "NO"
+    }
 }
 
 fn config_command(dev_help: bool) -> Command {
@@ -533,7 +552,9 @@ fn print_help(dev: bool) {
     println!("  revault_key_server run [--config PATH] [--bind ADDR] [--dev]");
     println!("  revault_key_server install [--force-config]");
     println!("  revault_key_server uninstall [--purge-data]");
-    println!("  revault_key_server status");
+    println!("  revault_key_server start");
+    println!("  revault_key_server stop");
+    println!("  revault_key_server doctor");
     println!("  revault_key_server resync-peer [--config PATH] --peer-url URL");
     if dev {
         println!("  revault_key_server bench-store [--dev options]");
@@ -1243,7 +1264,7 @@ mod tests {
     fn config_cli_rejects_hidden_server_options_without_dev() {
         let err = config_from_args(vec![
             "--state-dir".to_string(),
-            "/tmp/lockbox-key-server-test".to_string(),
+            "/tmp/revault-key-server-test".to_string(),
         ])
         .unwrap_err()
         .to_string();
@@ -1256,7 +1277,7 @@ mod tests {
         let config = config_from_args(vec![
             "--dev".to_string(),
             "--state-dir".to_string(),
-            "/tmp/lockbox-key-server-test".to_string(),
+            "/tmp/revault-key-server-test".to_string(),
             "--server-id".to_string(),
             "a".to_string(),
         ])
@@ -1264,7 +1285,7 @@ mod tests {
         assert!(config.developer_mode);
         assert_eq!(
             config.state_dir,
-            PathBuf::from("/tmp/lockbox-key-server-test")
+            PathBuf::from("/tmp/revault-key-server-test")
         );
         assert_eq!(config.server_id, 10);
     }
@@ -1409,7 +1430,7 @@ id = 0
     fn temp_config_path(name: &str) -> PathBuf {
         let counter = TEST_FILE_COUNTER.fetch_add(1, Ordering::SeqCst);
         std::env::temp_dir().join(format!(
-            "lockbox-key-server-{name}-{}-{counter}.toml",
+            "revault-key-server-{name}-{}-{counter}.toml",
             std::process::id()
         ))
     }

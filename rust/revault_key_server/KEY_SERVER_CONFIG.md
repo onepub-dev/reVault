@@ -26,7 +26,7 @@ license.
 
 ```toml
 bind_addr = "0.0.0.0:8089"
-state_dir = "/var/lib/lockbox-key-server"
+state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
 cluster_id = "default"
@@ -126,7 +126,7 @@ Unknown keys are rejected.
 | Key | Default | Description |
 | --- | --- | --- |
 | `bind_addr` | `127.0.0.1:8089` | Local address and port the HTTP server binds to. The installed config uses `0.0.0.0:8089`. |
-| `state_dir` | `/var/lib/lockbox-key-server` | Directory used for persisted publish records, indexes, replication state, and server secret material. |
+| `state_dir` | `/var/lib/revault-key-server` | Directory used for persisted publish records, indexes, replication state, and server secret material. |
 | `server_id` | `0` | Stable routing id for this server. Valid ids are `0..35`, written as `0..9`, `a..z`, or numeric values. |
 | `cluster_id` | `default` | Public cluster identifier returned in topology documents. All cooperating servers should use the same cluster id. |
 | `public_url` | derived from `bind_addr` | External URL for this server's publish API. Clients and peer servers use this URL for publish, receive, delete, and replication routing, so set it to the reachable HTTPS URL in production. |
@@ -370,7 +370,7 @@ id.
 
 ```toml
 bind_addr = "0.0.0.0:8089"
-state_dir = "/var/lib/lockbox-key-server"
+state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
 cluster_id = "production"
@@ -415,7 +415,7 @@ Server 0:
 
 ```toml
 bind_addr = "0.0.0.0:8089"
-state_dir = "/var/lib/lockbox-key-server"
+state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
 cluster_id = "production"
@@ -457,7 +457,7 @@ Server 1:
 
 ```toml
 bind_addr = "0.0.0.0:8089"
-state_dir = "/var/lib/lockbox-key-server"
+state_dir = "/var/lib/revault-key-server"
 
 server_id = 1
 cluster_id = "production"

@@ -126,7 +126,7 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             bind_addr: "127.0.0.1:8089".to_string(),
-            state_dir: PathBuf::from("/var/lib/lockbox-key-server"),
+            state_dir: PathBuf::from("/var/lib/revault-key-server"),
             server_id: 0,
             cluster_id: "default".to_string(),
             public_url: None,
@@ -422,9 +422,9 @@ impl PublishStore {
     pub fn open(mut config: ServerConfig) -> Result<Self, StoreError> {
         const MAX_SERVER_ID: u8 = 35;
         if config.developer_mode
-            && config.state_dir.as_path() == Path::new("/var/lib/lockbox-key-server")
+            && config.state_dir.as_path() == Path::new("/var/lib/revault-key-server")
         {
-            config.state_dir = std::env::temp_dir().join("lockbox-key-server-dev");
+            config.state_dir = std::env::temp_dir().join("revault-key-server-dev");
         }
         if config.server_id > MAX_SERVER_ID {
             return Err(StoreError::Config(
@@ -2662,6 +2662,7 @@ fn keyed_hash(secret: &[u8; 32], domain: &[u8], value: &[u8]) -> RecordHash {
 
 fn stable_hash(domain: &[u8], value: &[u8]) -> RecordHash {
     let mut hasher = Sha256::new();
+    // Keep this domain stable for compatibility with existing persisted data.
     hasher.update(b"lockbox-key-server-stable-hash-v1");
     hasher.update(domain);
     hasher.update(value);
@@ -3081,7 +3082,7 @@ mod tests {
     #[test]
     fn auto_routes_are_rebuilt_when_topology_members_join() {
         let temp = std::env::temp_dir().join(format!(
-            "lockbox-publish-topology-auto-routes-{}",
+            "revault-publish-topology-auto-routes-{}",
             unix_ms(SystemTime::now())
         ));
         fs::create_dir_all(&temp).unwrap();
@@ -3126,7 +3127,7 @@ mod tests {
     #[test]
     fn outbox_reloads_only_unacked_events() {
         let path = std::env::temp_dir().join(format!(
-            "lockbox-publish-outbox-test-{}",
+            "revault-publish-outbox-test-{}",
             unix_ms(SystemTime::now())
         ));
         append_outbox_event(&path, 1, b"one").unwrap();
@@ -3201,7 +3202,7 @@ mod tests {
     #[test]
     fn status_document_includes_replication_files() {
         let state_dir = std::env::temp_dir().join(format!(
-            "lockbox-publish-status-test-{}",
+            "revault-publish-status-test-{}",
             unix_ms(SystemTime::now())
         ));
         fs::create_dir_all(&state_dir).unwrap();
@@ -3224,7 +3225,7 @@ mod tests {
     #[test]
     fn replication_accepts_out_of_order_sequences() {
         let state_dir = std::env::temp_dir().join(format!(
-            "lockbox-publish-out-of-order-test-{}",
+            "revault-publish-out-of-order-test-{}",
             unix_ms(SystemTime::now())
         ));
         let store = PublishStore::open(ServerConfig {
@@ -3251,11 +3252,11 @@ mod tests {
     #[test]
     fn delete_token_hashes_are_stable_across_replica_secrets() {
         let state_a = std::env::temp_dir().join(format!(
-            "lockbox-publish-token-hash-a-{}",
+            "revault-publish-token-hash-a-{}",
             unix_ms(SystemTime::now())
         ));
         let state_b = std::env::temp_dir().join(format!(
-            "lockbox-publish-token-hash-b-{}",
+            "revault-publish-token-hash-b-{}",
             unix_ms(SystemTime::now())
         ));
         let store_a = PublishStore::open(ServerConfig {
@@ -3353,7 +3354,7 @@ mod tests {
 
     fn temp_state_dir(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
-            "lockbox-publish-{label}-{}-{}",
+            "revault-publish-{label}-{}-{}",
             std::process::id(),
             unix_ms(SystemTime::now())
         ))

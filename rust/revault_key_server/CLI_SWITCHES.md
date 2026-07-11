@@ -13,7 +13,7 @@ Run as a system service:
 
 ```bash
 sudo ./target/release/revault_key_server install
-sudo ./target/release/revault_key_server status
+sudo ./target/release/revault_key_server doctor
 ```
 
 Useful one-off flags:
@@ -38,7 +38,7 @@ Config file bootstrap:
 - `revault_key_server run [options]`
 - `revault_key_server install [--force-config]`
 - `revault_key_server uninstall [--purge-data]`
-- `revault_key_server status`
+- `revault_key_server doctor`
 - `revault_key_server resync-peer --peer-url URL [options]`
 - `revault_key_server bench-store --dev [options]`
 - `revault_key_server bench-http --dev [options]`
@@ -74,7 +74,7 @@ topology members and routes use TOML arrays of tables.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `bind_addr` | string | `127.0.0.1:8089` | Bind address for the HTTP server. |
-| `state_dir` | path | `/var/lib/lockbox-key-server` | Directory used for persisted publish store state. |
+| `state_dir` | path | `/var/lib/revault-key-server` | Directory used for persisted publish store state. |
 | `developer_mode` | bool | false | Enables developer mode and switches state dir to a temp directory. |
 | `server_id` | integer | `0` | Routing server id. Must be 0..35 (0..9, a..z). |
 | `cluster_id` | string | `"default"` | Public topology cluster id. |
@@ -128,7 +128,7 @@ topology members and routes use TOML arrays of tables.
 | `verification_email_rate_limit_per_hour` | integer | `5` | Per-email verification email rate limit per hour on the deterministic primary and backup servers. |
 | `verification_email_ip_rate_limit_per_hour` | integer | `30` | Per-source-IP verification email rate limit (per hour). |
 
-## `install`, `uninstall`, `status`
+## `install`, `uninstall`, `start`, `stop`, `doctor`
 
 ### `install [--force-config]`
 
@@ -139,14 +139,14 @@ topology members and routes use TOML arrays of tables.
 
 - `--purge-data`  
   Remove persisted data/cache/config paths on uninstall:
-  - `/var/lib/lockbox-key-server`
-  - `/var/cache/lockbox-key-server`
-  - `/var/log/lockbox-key-server`
+  - `/var/lib/revault-key-server`
+  - `/var/cache/revault-key-server`
+  - `/var/log/revault-key-server`
   - `/etc/revault/key-server.toml`
 
-### `status`
+### `start`, `stop`, and `doctor`
 
-- No switches. Prints unit/config/state/log status.
+- `start` and `stop` control the system service. `doctor` prints a human-readable service, configuration, storage, topology, SMTP, and startup diagnostic report.
 
 ## `resync-peer`
 
@@ -161,7 +161,8 @@ topology members and routes use TOML arrays of tables.
 - Developer/test overrides cause an error unless `--dev` is present.
 - `topology_server` and `route` are TOML arrays of tables in config files.
 - `replication_peer_url` and `promoted_owner` can be provided multiple times.
-- The parser is not using `clap`; flags are manually processed.
+- Top-level commands and help are provided by `clap`; configuration overrides
+  are validated and applied by the server configuration parser.
 
 Topology example:
 

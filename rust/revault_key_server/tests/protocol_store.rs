@@ -1011,7 +1011,7 @@ fn assert_status(response: &[u8], status: Status) {
 fn temp_config(name: &str) -> (TempGuard, ServerConfig) {
     let mut path = std::env::temp_dir();
     path.push(format!(
-        "lockbox-key-server-{name}-{}",
+        "revault-key-server-{name}-{}",
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()

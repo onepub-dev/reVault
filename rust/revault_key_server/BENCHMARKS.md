@@ -12,7 +12,7 @@ Command:
 ```bash
 /usr/bin/time -v target/release/revault_key_server \
   bench-store \
-  --state-dir /tmp/lockbox-publish-store-bench-200k-compact-001 \
+  --state-dir /tmp/revault-publish-store-bench-200k-compact-001 \
   --requests 200000 \
   --payload-bytes 512
 ```
@@ -37,7 +37,7 @@ Command:
 ```bash
 /usr/bin/time -v target/release/revault_key_server \
   bench-http \
-  --state-dir /tmp/lockbox-publish-http-bench-compact-001 \
+  --state-dir /tmp/revault-publish-http-bench-compact-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -63,7 +63,7 @@ Command:
 ```bash
 /usr/bin/time -v target/release/revault_key_server \
   bench-http-receive \
-  --state-dir /tmp/lockbox-publish-http-receive-bench-001 \
+  --state-dir /tmp/revault-publish-http-receive-bench-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -90,7 +90,7 @@ Command:
 ```bash
 /usr/bin/time -v target/release/revault_key_server \
   bench-http-flow \
-  --state-dir /tmp/lockbox-publish-http-flow-bench-001 \
+  --state-dir /tmp/revault-publish-http-flow-bench-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -119,7 +119,7 @@ Command:
 ```bash
 /usr/bin/time -v target/release/revault_key_server \
   bench-http-flow \
-  --state-dir target/lockbox-publish-http-flow-preload-1m-bucket-002 \
+  --state-dir target/revault-publish-http-flow-preload-1m-bucket-002 \
   --preload-published-payloads 1000000 \
   --requests 50000 \
   --payload-bytes 512 \
@@ -215,7 +215,7 @@ perf stat \
   -e cycles,instructions,context-switches,cpu-migrations,page-faults \
   target/release/revault_key_server \
   bench-http \
-  --state-dir /tmp/lockbox-publish-http-perf-002 \
+  --state-dir /tmp/revault-publish-http-perf-002 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -242,7 +242,7 @@ perf stat \
   -e cycles,instructions,context-switches,cpu-migrations,page-faults \
   target/release/revault_key_server \
   bench-http-receive \
-  --state-dir /tmp/lockbox-publish-http-receive-perf-001 \
+  --state-dir /tmp/revault-publish-http-receive-perf-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128
@@ -269,7 +269,7 @@ perf stat \
   -e cycles,instructions,context-switches,cpu-migrations,page-faults \
   target/release/revault_key_server \
   bench-http-flow \
-  --state-dir /tmp/lockbox-publish-http-flow-perf-001 \
+  --state-dir /tmp/revault-publish-http-flow-perf-001 \
   --requests 50000 \
   --payload-bytes 512 \
   --concurrency 128

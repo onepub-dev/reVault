@@ -10,11 +10,12 @@ use crate::server_log::server_log_destination;
 const UNIT_PATH: &str = "/etc/systemd/system/revault_key_server.service";
 const CONFIG_DIR: &str = "/etc/revault";
 pub const CONFIG_PATH: &str = "/etc/revault/key-server.toml";
-const STATE_DIR: &str = "/var/lib/lockbox-key-server";
-const CACHE_DIR: &str = "/var/cache/lockbox-key-server";
-const LOG_DIR: &str = "/var/log/lockbox-key-server";
-const LOG_FILE: &str = "/var/log/lockbox-key-server/server.log";
-const USER: &str = "lockbox-publish";
+const LEGACY_CONFIG_PATH: &str = "/etc/lockbox/key-server.toml";
+const STATE_DIR: &str = "/var/lib/revault-key-server";
+const CACHE_DIR: &str = "/var/cache/revault-key-server";
+const LOG_DIR: &str = "/var/log/revault-key-server";
+const LOG_FILE: &str = "/var/log/revault-key-server/server.log";
+const USER: &str = "revault-publish";
 
 pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Error>> {
     require_root()?;
@@ -66,37 +67,111 @@ pub fn uninstall_systemd(purge_data: bool) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
+pub fn start_systemd() -> Result<(), Box<dyn std::error::Error>> {
+    run("systemctl", &["start", "revault_key_server.service"])?;
+    println!("reVault key server started");
+    Ok(())
+}
+
+pub fn stop_systemd() -> Result<(), Box<dyn std::error::Error>> {
+    run("systemctl", &["stop", "revault_key_server.service"])?;
+    println!("reVault key server stopped");
+    Ok(())
+}
+
 pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
-    println!("unit_path={UNIT_PATH}");
-    println!("unit_installed={}", Path::new(UNIT_PATH).exists());
+    let installed = Path::new(UNIT_PATH).exists();
+    let enabled = systemctl_value(&["is-enabled", "revault_key_server.service"])
+        .unwrap_or_else(|| "not available".to_string());
+    let active = systemctl_value(&["is-active", "revault_key_server.service"])
+        .unwrap_or_else(|| "not available".to_string());
+    let result = systemctl_show("Result");
+    let exec_status = systemctl_show("ExecMainStatus");
+    let exec_start = systemctl_show("ExecStart");
+
+    println!("reVault key server doctor");
+    println!();
+    println!("Service");
+    println!("  Installed: {}", yes_no(installed));
+    println!("  Enabled at boot: {}", human_enabled(&enabled));
+    println!("  Current state: {}", human_active(&active));
+    println!("  Unit: {UNIT_PATH}");
+
+    println!();
+    println!("Configuration");
+    println!("  Path: {CONFIG_PATH}");
+    println!("  Present: {}", yes_no(Path::new(CONFIG_PATH).exists()));
+    println!("  State directory: {STATE_DIR}");
     println!(
-        "unit_enabled={}",
-        systemctl_value(&["is-enabled", "revault_key_server.service"])
-            .unwrap_or_else(|| "unknown".to_string())
+        "  State directory present: {}",
+        yes_no(Path::new(STATE_DIR).exists())
     );
-    println!(
-        "unit_active={}",
-        systemctl_value(&["is-active", "revault_key_server.service"])
-            .unwrap_or_else(|| "unknown".to_string())
-    );
-    println!("config_path={CONFIG_PATH}");
-    println!("config_exists={}", Path::new(CONFIG_PATH).exists());
-    println!("state_path={STATE_DIR}");
-    println!("state_exists={}", Path::new(STATE_DIR).exists());
-    println!("service_log={LOG_FILE}");
-    println!("foreground_log={}", server_log_destination());
-    println!(
-        "unit_exec_start={}",
-        systemctl_value(&[
-            "show",
-            "revault_key_server.service",
-            "--property=ExecStart",
-            "--value"
-        ])
-        .unwrap_or_else(|| "unknown".to_string())
-    );
+    println!("  Log file: {LOG_FILE}");
+    println!("  Foreground logging: {}", server_log_destination());
+    if Path::new(LEGACY_CONFIG_PATH).exists() {
+        println!();
+        println!("Migration warning");
+        println!("  Legacy configuration found at {LEGACY_CONFIG_PATH}.");
+        println!("  The current installer uses {CONFIG_PATH}; migrate settings before restarting.");
+    }
+
+    if installed {
+        println!();
+        println!("Startup diagnostics");
+        println!("  Systemd result: {result}");
+        println!("  Process exit status: {exec_status}");
+        if result == "exit-code" && exec_status == "203" {
+            println!(
+                "  Problem: systemd could not execute the configured server binary (203/EXEC)."
+            );
+            println!(
+                "  Check that the executable exists and is executable by the service account."
+            );
+        } else if active == "failed" {
+            println!("  Problem: the service failed during startup.");
+            println!("  Inspect recent details with: sudo journalctl -u revault_key_server -n 50");
+        }
+        if !exec_start.is_empty() {
+            println!("  Configured start command: {exec_start}");
+        }
+    }
     std::io::stdout().flush()?;
     Ok(())
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value {
+        "YES"
+    } else {
+        "NO"
+    }
+}
+
+fn human_enabled(value: &str) -> &str {
+    match value {
+        "enabled" => "YES",
+        "disabled" => "NO",
+        other => other,
+    }
+}
+
+fn human_active(value: &str) -> &str {
+    match value {
+        "active" => "RUNNING",
+        "inactive" => "STOPPED",
+        "failed" => "FAILED",
+        other => other,
+    }
+}
+
+fn systemctl_show(property: &str) -> String {
+    systemctl_value(&[
+        "show",
+        "revault_key_server.service",
+        &format!("--property={property}"),
+        "--value",
+    ])
+    .unwrap_or_else(|| "not available".to_string())
 }
 
 fn require_root() -> Result<(), Box<dyn std::error::Error>> {
@@ -201,7 +276,7 @@ fn set_file_permissions(_path: &str, _mode: u32) -> Result<(), Box<dyn std::erro
 
 fn default_config() -> &'static str {
     "bind_addr = \"0.0.0.0:8089\"\n\
-state_dir = \"/var/lib/lockbox-key-server\"\n\
+state_dir = \"/var/lib/revault-key-server\"\n\
 server_id = 0\n\
 cluster_id = \"default\"\n\
 public_url = \"https://keypublish.revault.onepub.dev/v1/publish\"\n\
@@ -251,7 +326,7 @@ Group={USER}
 ExecStart={binary} run --config {CONFIG_PATH}
 Restart=always
 RestartSec=2
-Environment=LOCKBOX_KEY_SERVER_LOG={LOG_FILE}
+Environment=REVAULT_KEY_SERVER_LOG={LOG_FILE}
 StandardOutput=append:{LOG_FILE}
 StandardError=append:{LOG_FILE}
 NoNewPrivileges=true
@@ -281,7 +356,7 @@ mod tests {
         assert!(unit.contains("ExecStart=/usr/local/bin/revault_key_server run --config "));
         assert!(unit.contains(CONFIG_PATH));
         assert!(unit.contains("Restart=always"));
-        assert!(unit.contains(&format!("Environment=LOCKBOX_KEY_SERVER_LOG={LOG_FILE}")));
+        assert!(unit.contains(&format!("Environment=REVAULT_KEY_SERVER_LOG={LOG_FILE}")));
         assert!(unit.contains(&format!("StandardOutput=append:{LOG_FILE}")));
         assert!(unit.contains(&format!("StandardError=append:{LOG_FILE}")));
         assert!(unit.contains("WantedBy=multi-user.target"));

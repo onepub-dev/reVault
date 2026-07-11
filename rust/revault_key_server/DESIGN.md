@@ -662,7 +662,7 @@ Recommended commands:
 ```text
 revault_key_server install
 revault_key_server uninstall
-revault_key_server status
+revault_key_server doctor
 revault_key_server run
 ```
 
@@ -683,17 +683,17 @@ start or restart the service
 The service should run as an unprivileged user:
 
 ```text
-user: lockbox-publish
-group: lockbox-publish
+user: revault-publish
+group: revault-publish
 ```
 
 Default paths:
 
 ```text
 /etc/revault/key-server.toml
-/var/lib/lockbox-key-server/
-/var/cache/lockbox-key-server/
-/var/log/lockbox-key-server/
+/var/lib/revault-key-server/
+/var/cache/revault-key-server/
+/var/log/revault-key-server/
 ```
 
 The binary should not require a separate package manager script to be usable.
@@ -710,8 +710,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=lockbox-publish
-Group=lockbox-publish
+User=revault-publish
+Group=revault-publish
 ExecStart=/usr/local/bin/revault_key_server run \
   --config /etc/revault/key-server.toml
 Restart=always
@@ -724,9 +724,9 @@ PrivateDevices=true
 RestrictSUIDSGID=true
 LockPersonality=true
 MemoryDenyWriteExecute=true
-ReadWritePaths=/var/lib/lockbox-key-server \
-  /var/cache/lockbox-key-server \
-  /var/log/lockbox-key-server
+ReadWritePaths=/var/lib/revault-key-server \
+  /var/cache/revault-key-server \
+  /var/log/revault-key-server
 LimitNOFILE=1048576
 
 [Install]
@@ -743,16 +743,18 @@ run `systemctl daemon-reload`. It should not delete persisted publish data,
 server secrets, logs, or config unless passed an explicit destructive option
 such as `--purge-data`.
 
-`status` should report:
+`doctor` should report in human-readable language:
 
 ```text
-unit installed
-unit enabled
-unit active
-config path
-state path
+service installed, enabled, and running state
+configuration validity and path
+state, cache, and log paths
 binary path used by the unit
+startup failure details and suggested actions
+SMTP and topology readiness
 ```
+
+`start` and `stop` should control the installed service directly.
 
 Developer mode may support a user-level systemd install later, but the first
 production target is a system service that starts on boot.

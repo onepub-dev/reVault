@@ -31,7 +31,7 @@ sudo ./target/release/revault_key_server install --force-config
 ## 3) Verify service status
 
 ```bash
-sudo ./target/release/revault_key_server status
+sudo ./target/release/revault_key_server doctor
 ```
 
 ## 4) Start/stop service manually (if needed)
@@ -60,6 +60,11 @@ sudo ./target/release/revault_key_server uninstall --purge-data
 
 - Default config path: `/etc/revault/key-server.toml`
 - Default data paths:
-  - `/var/lib/lockbox-key-server`
-  - `/var/cache/lockbox-key-server`
-  - `/var/log/lockbox-key-server`
+  - `/var/lib/revault-key-server`
+  - `/var/cache/revault-key-server`
+  - `/var/log/revault-key-server`
+
+Existing installations from `0.0.1` used `/etc/lockbox` and
+`/var/*/lockbox-key-server`. Review and migrate the old configuration and
+state before starting the renamed service; the installer does not silently
+move persisted publish data.

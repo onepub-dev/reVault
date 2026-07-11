@@ -226,7 +226,7 @@ struct TempDir {
 impl TempDir {
     fn new(label: &str) -> Self {
         let path = std::env::temp_dir().join(format!(
-            "lockbox-key-server-{label}-{}-{}",
+            "revault-key-server-{label}-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)

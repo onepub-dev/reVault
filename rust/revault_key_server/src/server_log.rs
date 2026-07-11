@@ -4,7 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const LOG_ENV: &str = "LOCKBOX_KEY_SERVER_LOG";
+const LOG_ENV: &str = "REVAULT_KEY_SERVER_LOG";
 
 pub fn server_log_path() -> PathBuf {
     if let Ok(path) = env::var(LOG_ENV) {

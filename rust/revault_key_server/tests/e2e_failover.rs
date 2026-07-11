@@ -691,7 +691,7 @@ struct TempDir {
 impl TempDir {
     fn new(name: &str) -> Self {
         let path = std::env::temp_dir().join(format!(
-            "lockbox-publish-e2e-{name}-{}-{:?}",
+            "revault-publish-e2e-{name}-{}-{:?}",
             std::process::id(),
             thread::current().id()
         ));
