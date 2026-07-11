@@ -94,7 +94,7 @@ keys safely.
 
 ## CLI Quick Start
 
-Create a lockbox for the default vault identity:
+Create a lockbox for the default vault identity: (recommended)
 
 ```bash
 lockbox create secrets.lbox
@@ -102,8 +102,10 @@ lockbox create secrets.lbox
 
 For a lockbox protected by a passphrase instead of a vault identity:
 
+This form is less secure than using an identity.
+
 ```bash
-lockbox create --password passwords.lbox
+lockbox create --password secrets.lbox
 ```
 
 Open it for normal commands:
@@ -112,8 +114,8 @@ Open it for normal commands:
 lockbox open secrets.lbox
 ```
 
-The open is cached in a per-user in-memory agent for a short sliding TTL. Lock
-it when you are done:
+The open is cached in a per-user in-memory agent which will automatically close
+it after about 30mins.  Lock it when you are done:
 
 ```bash
 lockbox close secrets.lbox
@@ -122,15 +124,15 @@ lockbox close secrets.lbox
 Add files:
 
 ```bash
-lockbox add secrets.lbox ./project
-lockbox add-file secrets.lbox ./generated.env /secrets/prod.env
+lockbox add --recursive secrets.lbox ./project /project
+lockbox add secrets.lbox ./generated.env /secrets/prod.env
 ```
 
 List and extract:
 
 ```bash
-lockbox ls secrets.lbox /
-lockbox ls secrets.lbox /project --glob '**/*.rs'
+lockbox list secrets.lbox /
+lockbox list secrets.lbox '/project/**/*.rs'
 lockbox extract secrets.lbox /project/README.md ./out/README.md
 ```
 
@@ -148,7 +150,7 @@ List identities and export a public key:
 
 ```bash
 lockbox vault identity list
-lockbox vault identity export laptop ./laptop.pub
+lockbox vault identity export ./laptop.pub --name laptop
 ```
 
 Import a contact public key after independently verifying its fingerprint:
