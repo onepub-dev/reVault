@@ -34,9 +34,12 @@ pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Err
     set_dir_permissions(STATE_DIR, 0o750)?;
     set_dir_permissions(CACHE_DIR, 0o750)?;
     set_dir_permissions(LOG_DIR, 0o750)?;
-    chown_path(STATE_DIR)?;
-    chown_path(CACHE_DIR)?;
-    chown_path(LOG_DIR)?;
+    // Reinstalling must also repair files created by an earlier direct `sudo`
+    // run. In particular, a root-owned `server.secret` prevents the service
+    // account from opening an otherwise writable state directory.
+    chown_tree(STATE_DIR)?;
+    chown_tree(CACHE_DIR)?;
+    chown_tree(LOG_DIR)?;
     install_binary()?;
     if force_config || !Path::new(CONFIG_PATH).exists() {
         fs::write(CONFIG_PATH, default_config())?;
@@ -151,6 +154,7 @@ pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
     let result = systemctl_show("Result");
     let exec_status = systemctl_show("ExecMainStatus");
     let exec_start = systemctl_show("ExecStart");
+    let (service_log, log_source) = configured_service_log_file();
 
     println!("reVault key server doctor v{}", env!("CARGO_PKG_VERSION"));
     println!();
@@ -177,12 +181,28 @@ pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
         "  Service account can write state: {}",
         service_can_write_path(STATE_DIR)
     );
-    println!("  Log file: {LOG_FILE}");
+    println!("  Service log file: {service_log}");
+    println!("  Log location source: {log_source}");
     println!(
-        "  Service account can write logs: {}",
-        service_can_write_path(LOG_DIR)
+        "  Log file present: {}",
+        yes_no(Path::new(&service_log).is_file())
     );
-    println!("  Foreground logging: {}", server_log_destination());
+    println!(
+        "  Service account can write its log directory: {}",
+        service_can_write_path(
+            Path::new(&service_log)
+                .parent()
+                .unwrap_or_else(|| Path::new(LOG_DIR))
+                .to_string_lossy()
+                .as_ref()
+        )
+    );
+    if !Path::new(&service_log).exists() {
+        println!(
+            "  Warning: the service log file does not exist yet. It is created when the service writes its first log entry."
+        );
+    }
+    println!("  Direct foreground logging: {}", server_log_destination());
     if Path::new(LEGACY_CONFIG_PATH).exists() {
         println!();
         println!("Migration warning");
@@ -208,7 +228,7 @@ pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
             println!("    sudo -u {USER} {INSTALL_BINARY_PATH} run --config {CONFIG_PATH}");
             println!("  Inspect recent details with:");
             println!("    sudo journalctl -u revault_key_server -n 50 --no-pager");
-            print_recent_service_log();
+            print_recent_service_log(&service_log);
         }
         if !exec_start.is_empty() {
             println!("  Configured start command: {exec_start}");
@@ -268,8 +288,8 @@ fn systemctl_state(args: &[&str]) -> String {
     }
 }
 
-fn print_recent_service_log() {
-    let Ok(text) = fs::read_to_string(LOG_FILE) else {
+fn print_recent_service_log(path: &str) {
+    let Ok(text) = fs::read_to_string(path) else {
         return;
     };
     let lines: Vec<_> = text.lines().rev().take(10).collect();
@@ -280,6 +300,49 @@ fn print_recent_service_log() {
     for line in lines.into_iter().rev() {
         println!("    {line}");
     }
+}
+
+fn configured_service_log_file() -> (String, &'static str) {
+    if let Some(environment) = systemctl_value(&[
+        "show",
+        "revault_key_server.service",
+        "--property=Environment",
+        "--value",
+    ]) {
+        if let Some(path) = log_path_from_environment(&environment) {
+            return (path, "systemd Environment");
+        }
+    }
+    if let Some(output) = systemctl_value(&[
+        "show",
+        "revault_key_server.service",
+        "--property=StandardOutput",
+        "--value",
+    ]) {
+        if let Some(path) = log_path_from_standard_output(&output) {
+            return (path, "systemd StandardOutput");
+        }
+    }
+    (
+        LOG_FILE.to_string(),
+        "installer default (unit setting unavailable)",
+    )
+}
+
+fn log_path_from_environment(environment: &str) -> Option<String> {
+    environment
+        .split_whitespace()
+        .find_map(|entry| entry.strip_prefix("REVAULT_KEY_SERVER_LOG="))
+        .filter(|path| !path.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn log_path_from_standard_output(output: &str) -> Option<String> {
+    output
+        .strip_prefix("append:")
+        .or_else(|| output.strip_prefix("file:"))
+        .filter(|path| !path.is_empty())
+        .map(ToOwned::to_owned)
 }
 
 pub fn service_can_read_path(path: &str) -> &'static str {
@@ -394,8 +457,16 @@ fn systemctl_value(args: &[&str]) -> Option<String> {
     }
 }
 
-fn chown_path(path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    chown_owner_group(&format!("{USER}:{USER}"), path)
+fn chown_tree(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    run(
+        "chown",
+        &[
+            "--recursive",
+            "--no-dereference",
+            &format!("{USER}:{USER}"),
+            path,
+        ],
+    )
 }
 
 fn chown_config() -> Result<(), Box<dyn std::error::Error>> {
@@ -502,7 +573,10 @@ WantedBy=multi-user.target
 
 #[cfg(test)]
 mod tests {
-    use super::{default_config, sudo_command, unit_file, CONFIG_PATH, LOG_FILE};
+    use super::{
+        default_config, log_path_from_environment, log_path_from_standard_output, sudo_command,
+        unit_file, CONFIG_PATH, LOG_FILE,
+    };
 
     #[test]
     fn privileged_command_uses_the_actual_binary_path() {
@@ -536,5 +610,18 @@ mod tests {
         assert!(config.contains("url = \"https://keypublish.revault.onepub.dev/v1/publish\""));
         assert!(config.contains("[[route]]"));
         assert!(config.contains("primary = 0"));
+    }
+
+    #[test]
+    fn service_log_path_parsers_use_systemd_settings() {
+        assert_eq!(
+            log_path_from_environment("OTHER=value REVAULT_KEY_SERVER_LOG=/srv/revault/server.log",),
+            Some("/srv/revault/server.log".to_string())
+        );
+        assert_eq!(
+            log_path_from_standard_output("append:/srv/revault/server.log"),
+            Some("/srv/revault/server.log".to_string())
+        );
+        assert_eq!(log_path_from_standard_output("journal"), None);
     }
 }

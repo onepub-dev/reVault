@@ -3,7 +3,6 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
-use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
 const LOG_ENV: &str = "REVAULT_KEY_SERVER_LOG";
@@ -36,8 +35,13 @@ pub fn log_server_event(message: impl AsRef<str>) {
 
 pub fn log_timestamp() -> String {
     OffsetDateTime::now_utc()
-        .format(&Rfc3339)
-        .unwrap_or_else(|_| format!("unix-ms-{}", unix_time_millis()))
+        .format(
+            &time::format_description::parse_borrowed::<2>(
+                "[year]-[month]-[day] [hour]:[minute]:[second] UTC",
+            )
+            .expect("valid fixed log timestamp format"),
+        )
+        .unwrap_or_else(|_| format!("unix-{}", unix_time_seconds()))
 }
 
 fn write_file_log(path: PathBuf, message: &str) {
@@ -50,10 +54,10 @@ fn write_file_log(path: PathBuf, message: &str) {
     let _ = writeln!(file, "{} INFO {}", log_timestamp(), message);
 }
 
-fn unix_time_millis() -> u128 {
+fn unix_time_seconds() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis())
+        .map(|duration| duration.as_secs())
         .unwrap_or_default()
 }
 
@@ -217,7 +221,7 @@ mod tests {
     fn env_override_writes_file_log() {
         let path = env::temp_dir().join(format!(
             "revault_key_server-log-test-{}.log",
-            unix_time_millis()
+            unix_time_seconds()
         ));
         env::set_var(LOG_ENV, &path);
         log_server_event("test message");
@@ -225,6 +229,12 @@ mod tests {
 
         let log = fs::read_to_string(&path).unwrap();
         assert!(log.contains("test message"));
+        assert!(log.starts_with("20"));
+        assert!(log.contains(" UTC INFO test message"));
+        let timestamp = log.split(" UTC ").next().unwrap();
+        assert!(!timestamp.contains('T'));
+        assert!(!timestamp.contains('.'));
+        assert!(!log.contains('Z'));
         let _ = fs::remove_file(path);
     }
 }

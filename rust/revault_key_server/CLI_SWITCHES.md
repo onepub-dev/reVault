@@ -49,8 +49,10 @@ Config file bootstrap:
 
 ## Global flags
 
-- `--help`, `-h`  
+- `--help`, `-h`
   Print help and exit immediately.
+- `--verbose`, `-v`
+  Include developer and benchmark commands in help output. This does not enable developer mode.
 
 ## Public `run` options
 
@@ -62,7 +64,9 @@ line surface is intentionally small:
 - `--dev`
 - `--peer-url URL` for `resync-peer`
 
-Use `revault_key_server --help --dev` to show test and benchmark overrides.
+Use `revault_key_server --help --verbose` to show developer and benchmark
+commands. `--dev` is still required when running benchmarks or using
+developer-only configuration overrides.
 
 ## Config file keys
 

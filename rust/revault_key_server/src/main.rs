@@ -32,19 +32,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args: Vec<String> = env::args().skip(1).collect();
     let wants_help = args.iter().any(|arg| arg == "--help" || arg == "-h");
     let wants_version = args.iter().any(|arg| arg == "--version" || arg == "-V");
+    let wants_verbose = args.iter().any(|arg| arg == "--verbose" || arg == "-v");
     let root_help = args.first().is_some_and(|arg| arg == "help")
         || (args.first().is_some_and(|arg| arg.starts_with('-')) && wants_help);
     if root_help {
-        key_server_command(true).print_help()?;
+        key_server_command(wants_verbose || args.iter().any(|arg| arg == "--dev")).print_help()?;
         println!();
         return Ok(());
     }
+    // `--verbose` changes the help surface only. Remove it before passing
+    // arguments to the selected command or the server configuration parser.
+    args.retain(|arg| arg != "--verbose" && arg != "-v");
     if args.is_empty() || (!wants_version && args.first().is_some_and(|arg| arg.starts_with('-'))) {
         args.insert(0, "run".to_string());
     }
     let mut argv = vec!["revault_key_server".to_string()];
     argv.extend(args.iter().cloned());
-    let matches = match key_server_command(args.iter().any(|arg| arg == "--dev"))
+    let matches = match key_server_command(wants_verbose || args.iter().any(|arg| arg == "--dev"))
         .try_get_matches_from(argv)
     {
         Ok(matches) => matches,
@@ -115,13 +119,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn key_server_command(dev_help: bool) -> Command {
+fn key_server_command(show_developer_help: bool) -> Command {
     Command::new("revault_key_server")
         .version(env!("CARGO_PKG_VERSION"))
         .about("High-throughput reVault key rendezvous server")
+        .after_help(format!("Version: {}", env!("CARGO_PKG_VERSION")))
+        .arg(
+            Arg::new("verbose")
+                .long("verbose")
+                .short('v')
+                .global(true)
+                .action(ArgAction::SetTrue)
+                .help("Show developer and benchmark commands in help output"),
+        )
         .subcommand(add_config_args(
             Command::new("run").about("Run the key server"),
-            dev_help,
+            show_developer_help,
         ))
         .subcommand(
             Command::new("install")
@@ -157,31 +170,31 @@ fn key_server_command(dev_help: bool) -> Command {
                         .required(true)
                         .help("Peer /v1/replicate URL"),
                 ),
-            dev_help,
+            show_developer_help,
         ))
         .subcommand(add_config_args(
             Command::new("bench-store")
                 .about("Benchmark the store")
-                .hide(!dev_help),
-            dev_help,
+                .hide(!show_developer_help),
+            show_developer_help,
         ))
         .subcommand(add_config_args(
             Command::new("bench-http")
                 .about("Benchmark publish over HTTP")
-                .hide(!dev_help),
-            dev_help,
+                .hide(!show_developer_help),
+            show_developer_help,
         ))
         .subcommand(add_config_args(
             Command::new("bench-http-receive")
                 .about("Benchmark receive over HTTP")
-                .hide(!dev_help),
-            dev_help,
+                .hide(!show_developer_help),
+            show_developer_help,
         ))
         .subcommand(add_config_args(
             Command::new("bench-http-flow")
                 .about("Benchmark publish/receive flow over HTTP")
-                .hide(!dev_help),
-            dev_help,
+                .hide(!show_developer_help),
+            show_developer_help,
         ))
 }
 
@@ -1265,7 +1278,7 @@ fn parse_server_id(value: &str) -> Result<u8, Box<dyn std::error::Error>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{apply_config_file, config_from_args, require_dev_command};
+    use super::{apply_config_file, config_from_args, key_server_command, require_dev_command};
     use revault_key_server::store::{ServerConfig, SmtpTlsMode};
     use revault_publish_protocol::ServerStatus;
     use std::fs;
@@ -1274,6 +1287,32 @@ mod tests {
     use std::time::Duration;
 
     static TEST_FILE_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    #[test]
+    fn ordinary_help_hides_benchmarks_and_shows_version() {
+        let mut command = key_server_command(false);
+        let help = command.render_help().to_string();
+        assert!(help.contains(&format!("Version: {}", env!("CARGO_PKG_VERSION"))));
+        assert!(help.contains("--verbose"));
+        assert!(!help.contains("bench-store"));
+    }
+
+    #[test]
+    fn verbose_help_includes_benchmarks() {
+        let mut command = key_server_command(true);
+        let help = command.render_help().to_string();
+        for benchmark in [
+            "bench-store",
+            "bench-http",
+            "bench-http-receive",
+            "bench-http-flow",
+        ] {
+            assert!(
+                help.contains(benchmark),
+                "missing {benchmark} from verbose help"
+            );
+        }
+    }
 
     #[test]
     fn config_cli_rejects_hidden_server_options_without_dev() {
