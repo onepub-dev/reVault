@@ -12,7 +12,7 @@ LOCKBOX_JOBS="${LOCKBOX_JOBS:-auto}"
 mkdir -p "$OUT/fixtures" "$OUT/results" "$GNUPGHOME"
 chmod 700 "$GNUPGHOME"
 
-cargo build --release -p lockbox_cli --manifest-path "$RUST_DIR/Cargo.toml" >/dev/null
+cargo build --release -p revault_cli --manifest-path "$RUST_DIR/Cargo.toml" >/dev/null
 LOCKBOX="$RUST_DIR/target/release/lockbox"
 
 bytes_of() {
@@ -129,14 +129,14 @@ generate_source_tree() {
     docs \
     rust/Cargo.toml \
     rust/Cargo.lock \
-    rust/lockbox_cli/src \
-    rust/lockbox_cli/tests \
-    rust/lockbox_core/src \
-    rust/lockbox_core/tests \
-    rust/lockbox_core/examples \
-    rust/lockbox_secure/src \
-    rust/lockbox_vault/src \
-    rust/lockbox_vault/tests \
+    rust/revault_cli/src \
+    rust/revault_cli/tests \
+    rust/revault_lockbox_api/src \
+    rust/revault_lockbox_api/tests \
+    rust/revault_lockbox_api/examples \
+    rust/revault_page_api/src \
+    rust/revault_vault_api/src \
+    rust/revault_vault_api/tests \
     rust/tools | tar -C "$dir" -xf -
 }
 

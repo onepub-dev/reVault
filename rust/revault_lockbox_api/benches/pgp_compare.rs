@@ -1,4 +1,4 @@
-use lockbox_core::{
+use revault_lockbox_api::{
     ExtractPolicy, Lockbox, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
     SecretString, WorkloadProfile,
 };
@@ -16,7 +16,7 @@ const LARGE_BYTES: usize = 16 * 1024 * 1024;
 const SMALL_FILE_COUNT: usize = 2_000;
 const SMALL_FILE_BYTES: usize = 1024;
 
-fn main() -> lockbox_core::Result<()> {
+fn main() -> revault_lockbox_api::Result<()> {
     let config = Config::parse()?;
     let root = config.root;
     reset_dir(&root)?;
@@ -48,7 +48,7 @@ fn main() -> lockbox_core::Result<()> {
     }
 
     if results.is_empty() {
-        return Err(lockbox_core::Error::InvalidInput(
+        return Err(revault_lockbox_api::Error::InvalidInput(
             "no benchmark scenarios matched".to_string(),
         ));
     }
@@ -76,7 +76,7 @@ struct Config {
 }
 
 impl Config {
-    fn parse() -> lockbox_core::Result<Self> {
+    fn parse() -> revault_lockbox_api::Result<Self> {
         let mut root = PathBuf::from("target/lockbox-gpg-bench");
         let mut output = Some(root.join("results.md"));
         let mut output_set = false;
@@ -105,12 +105,12 @@ impl Config {
                 "--iterations" => {
                     let value = required_value(&mut args, "--iterations")?;
                     iterations = value.parse::<usize>().map_err(|err| {
-                        lockbox_core::Error::InvalidInput(format!(
+                        revault_lockbox_api::Error::InvalidInput(format!(
                             "invalid --iterations value {value}: {err}"
                         ))
                     })?;
                     if iterations == 0 {
-                        return Err(lockbox_core::Error::InvalidInput(
+                        return Err(revault_lockbox_api::Error::InvalidInput(
                             "--iterations must be greater than zero".to_string(),
                         ));
                     }
@@ -127,7 +127,7 @@ impl Config {
                     std::process::exit(0);
                 }
                 other => {
-                    return Err(lockbox_core::Error::InvalidInput(format!(
+                    return Err(revault_lockbox_api::Error::InvalidInput(format!(
                         "unknown argument: {other}"
                     )));
                 }
@@ -147,14 +147,14 @@ impl Config {
 fn required_value(
     args: &mut impl Iterator<Item = String>,
     name: &str,
-) -> lockbox_core::Result<String> {
+) -> revault_lockbox_api::Result<String> {
     args.next()
-        .ok_or_else(|| lockbox_core::Error::InvalidInput(format!("{name} requires a value")))
+        .ok_or_else(|| revault_lockbox_api::Error::InvalidInput(format!("{name} requires a value")))
 }
 
 fn print_help() {
     println!(
-        "Usage: cargo bench -p lockbox_core --bench pgp_compare -- [options]\n\
+        "Usage: cargo bench -p revault_lockbox_api --bench pgp_compare -- [options]\n\
 \n\
 Options:\n\
   --root <path>        Working directory (default: target/lockbox-gpg-bench)\n\
@@ -191,7 +191,7 @@ struct ScenarioResult {
     pgp_extract: Option<Duration>,
 }
 
-fn build_corpora(root: &Path) -> lockbox_core::Result<Vec<Scenario>> {
+fn build_corpora(root: &Path) -> revault_lockbox_api::Result<Vec<Scenario>> {
     let large_text = root.join("large-text.txt");
     write_repeated_text(&large_text, LARGE_BYTES)?;
 
@@ -235,7 +235,7 @@ fn run_scenario(
     scenario: &Scenario,
     iterations: usize,
     lockbox_only: bool,
-) -> lockbox_core::Result<ScenarioResult> {
+) -> revault_lockbox_api::Result<ScenarioResult> {
     let scenario_root = root.join("runs").join(scenario.name);
     reset_dir(&scenario_root)?;
 
@@ -313,7 +313,7 @@ fn run_scenario(
     })
 }
 
-fn create_lockbox_archive(scenario: &Scenario, archive: &Path) -> lockbox_core::Result<()> {
+fn create_lockbox_archive(scenario: &Scenario, archive: &Path) -> revault_lockbox_api::Result<()> {
     let pass_phrase = pass_phrase()?;
     let signing_key = OwnerSigningKeyPair::generate()?;
     let mut lockbox = Lockbox::create_file(
@@ -329,7 +329,7 @@ fn create_lockbox_archive(scenario: &Scenario, archive: &Path) -> lockbox_core::
         ScenarioKind::Directory => {
             for file in list_regular_files(&scenario.input)? {
                 let relative = file.strip_prefix(&scenario.input).map_err(|err| {
-                    lockbox_core::Error::InvalidPath(format!(
+                    revault_lockbox_api::Error::InvalidPath(format!(
                         "cannot relativize {}: {err}",
                         file.display()
                     ))
@@ -347,7 +347,7 @@ fn create_pgp_archive(
     scenario: &Scenario,
     iter_root: &Path,
     encrypted: &Path,
-) -> lockbox_core::Result<()> {
+) -> revault_lockbox_api::Result<()> {
     match scenario.kind {
         ScenarioKind::SingleFile => gpg_symmetric(gpg_home, &scenario.input, encrypted),
         ScenarioKind::Directory => {
@@ -373,7 +373,7 @@ fn extract_pgp_archive(
     iter_root: &Path,
     encrypted: &Path,
     extract_dir: &Path,
-) -> lockbox_core::Result<()> {
+) -> revault_lockbox_api::Result<()> {
     match scenario.kind {
         ScenarioKind::SingleFile => {
             let out = extract_dir.join("payload");
@@ -395,7 +395,7 @@ fn extract_pgp_archive(
     }
 }
 
-fn gpg_symmetric(gpg_home: &Path, input: &Path, output: &Path) -> lockbox_core::Result<()> {
+fn gpg_symmetric(gpg_home: &Path, input: &Path, output: &Path) -> revault_lockbox_api::Result<()> {
     let mut args = gpg_args(gpg_home);
     args.extend([
         OsString::from("--batch"),
@@ -419,7 +419,7 @@ fn gpg_symmetric(gpg_home: &Path, input: &Path, output: &Path) -> lockbox_core::
     run_command("gpg", args)
 }
 
-fn gpg_decrypt(gpg_home: &Path, input: &Path, output: &Path) -> lockbox_core::Result<()> {
+fn gpg_decrypt(gpg_home: &Path, input: &Path, output: &Path) -> revault_lockbox_api::Result<()> {
     let mut args = gpg_args(gpg_home);
     args.extend([
         OsString::from("--batch"),
@@ -447,33 +447,33 @@ fn gpg_args(gpg_home: &Path) -> Vec<OsString> {
 fn run_command(
     program: &str,
     args: impl IntoIterator<Item = OsString>,
-) -> lockbox_core::Result<()> {
+) -> revault_lockbox_api::Result<()> {
     let args = args.into_iter().collect::<Vec<_>>();
     let output = Command::new(program)
         .args(&args)
         .output()
-        .map_err(|err| lockbox_core::Error::Io(format!("run {program}: {err}")))?;
+        .map_err(|err| revault_lockbox_api::Error::Io(format!("run {program}: {err}")))?;
     if output.status.success() {
         return Ok(());
     }
     let stderr = String::from_utf8_lossy(&output.stderr);
-    Err(lockbox_core::Error::Io(format!(
+    Err(revault_lockbox_api::Error::Io(format!(
         "{program} failed with status {}: {}",
         output.status,
         stderr.trim()
     )))
 }
 
-fn list_regular_files(root: &Path) -> lockbox_core::Result<Vec<PathBuf>> {
+fn list_regular_files(root: &Path) -> revault_lockbox_api::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     collect_regular_files(root, &mut files)?;
     files.sort();
     Ok(files)
 }
 
-fn collect_regular_files(root: &Path, files: &mut Vec<PathBuf>) -> lockbox_core::Result<()> {
+fn collect_regular_files(root: &Path, files: &mut Vec<PathBuf>) -> revault_lockbox_api::Result<()> {
     let mut entries = fs::read_dir(root)
-        .map_err(|err| lockbox_core::Error::Io(format!("read {}: {err}", root.display())))?
+        .map_err(|err| revault_lockbox_api::Error::Io(format!("read {}: {err}", root.display())))?
         .collect::<std::io::Result<Vec<_>>>()
         .map_err(io_err)?;
     entries.sort_by_key(|entry| entry.path());
@@ -489,21 +489,24 @@ fn collect_regular_files(root: &Path, files: &mut Vec<PathBuf>) -> lockbox_core:
     Ok(())
 }
 
-fn slash_path(path: &Path) -> lockbox_core::Result<String> {
+fn slash_path(path: &Path) -> revault_lockbox_api::Result<String> {
     let mut out = String::new();
     for component in path.components() {
         if !out.is_empty() {
             out.push('/');
         }
         let value = component.as_os_str().to_str().ok_or_else(|| {
-            lockbox_core::Error::InvalidPath(format!("non UTF-8 corpus path: {}", path.display()))
+            revault_lockbox_api::Error::InvalidPath(format!(
+                "non UTF-8 corpus path: {}",
+                path.display()
+            ))
         })?;
         out.push_str(value);
     }
     Ok(out)
 }
 
-fn write_repeated_text(path: &Path, bytes: usize) -> lockbox_core::Result<()> {
+fn write_repeated_text(path: &Path, bytes: usize) -> revault_lockbox_api::Result<()> {
     let mut file = fs::File::create(path).map_err(io_err)?;
     let line = b"The quick brown fox stores a deterministic reVault benchmark line.\n";
     let mut written = 0usize;
@@ -515,7 +518,7 @@ fn write_repeated_text(path: &Path, bytes: usize) -> lockbox_core::Result<()> {
     Ok(())
 }
 
-fn write_randomish(path: &Path, bytes: usize, seed: u64) -> lockbox_core::Result<()> {
+fn write_randomish(path: &Path, bytes: usize, seed: u64) -> revault_lockbox_api::Result<()> {
     let mut file = fs::File::create(path).map_err(io_err)?;
     let mut state = seed;
     let mut buffer = [0u8; 8192];
@@ -536,7 +539,7 @@ fn write_randomish(path: &Path, bytes: usize, seed: u64) -> lockbox_core::Result
     Ok(())
 }
 
-fn write_small_file(path: &Path, index: usize, bytes: usize) -> lockbox_core::Result<()> {
+fn write_small_file(path: &Path, index: usize, bytes: usize) -> revault_lockbox_api::Result<()> {
     let mut file = fs::File::create(path).map_err(io_err)?;
     let header = format!("file={index:06}\n");
     file.write_all(header.as_bytes()).map_err(io_err)?;
@@ -551,7 +554,7 @@ fn write_small_file(path: &Path, index: usize, bytes: usize) -> lockbox_core::Re
     Ok(())
 }
 
-fn pass_phrase() -> lockbox_core::Result<SecretString> {
+fn pass_phrase() -> revault_lockbox_api::Result<SecretString> {
     Ok(SecretString::try_from_slice(PASSPHRASE)?)
 }
 
@@ -566,7 +569,7 @@ fn bench_extract_policy() -> ExtractPolicy {
     }
 }
 
-fn reset_dir(path: &Path) -> lockbox_core::Result<()> {
+fn reset_dir(path: &Path) -> revault_lockbox_api::Result<()> {
     match fs::remove_dir_all(path) {
         Ok(()) => {}
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
@@ -576,13 +579,13 @@ fn reset_dir(path: &Path) -> lockbox_core::Result<()> {
 }
 
 #[cfg(unix)]
-fn make_private_dir(path: &Path) -> lockbox_core::Result<()> {
+fn make_private_dir(path: &Path) -> revault_lockbox_api::Result<()> {
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(path, fs::Permissions::from_mode(0o700)).map_err(io_err)
 }
 
 #[cfg(not(unix))]
-fn make_private_dir(_path: &Path) -> lockbox_core::Result<()> {
+fn make_private_dir(_path: &Path) -> revault_lockbox_api::Result<()> {
     Ok(())
 }
 
@@ -674,6 +677,6 @@ fn format_ratio(left: f64, right: f64) -> String {
     }
 }
 
-fn io_err(err: std::io::Error) -> lockbox_core::Error {
-    lockbox_core::Error::Io(err.to_string())
+fn io_err(err: std::io::Error) -> revault_lockbox_api::Error {
+    revault_lockbox_api::Error::Io(err.to_string())
 }

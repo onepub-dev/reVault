@@ -1,16 +1,16 @@
-# lockbox_core
+# revault_lockbox_api
 
-`lockbox_core` is the portable storage engine for reVault `.lbox` files.
+`revault_lockbox_api` is the portable storage engine for reVault `.lbox` files.
 
 It owns the encrypted lockbox file format and the Rust API for creating,
 opening, reading, mutating, and recovering lockboxes. It deliberately does not
 manage the local vault, active sessions, auto-open behavior, command-line
 prompts, or agent caching. Those concerns live in higher-level crates such as
-`lockbox_vault` and `lockbox_cli`.
+`revault_vault_api` and `revault_cli`.
 
 ## Purpose
 
-Use `lockbox_core` when an application needs direct access to the lockbox file
+Use `revault_lockbox_api` when an application needs direct access to the lockbox file
 format:
 
 - create password, content-key, or contact-protected lockboxes
@@ -90,7 +90,7 @@ The archive layout is optimized for both small and large records:
 ## Integration Surface
 
 The optional `vault-integration` feature exposes a narrow API used by
-`lockbox_vault` for content-key caching and key-directory backup recovery.
+`revault_vault_api` for content-key caching and key-directory backup recovery.
 Normal callers should use the standard `Lockbox` open/create APIs.
 
 ## Archive Format
@@ -107,12 +107,12 @@ removal maintenance, and recovery scan behavior are in
 ## Create And Read A Lockbox
 
 ```rust
-use lockbox_core::{
+use revault_lockbox_api::{
     Lockbox, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
     SecretString,
 };
 
-fn main() -> lockbox_core::Result<()> {
+fn main() -> revault_lockbox_api::Result<()> {
     let path = std::path::Path::new("example.lbox");
     let pass_phrase = SecretString::try_from_bytes(b"correct horse battery staple".to_vec())?;
     let signing_key = OwnerSigningKeyPair::generate()?;
@@ -145,12 +145,12 @@ modify an existing lockbox, reopen it for write and provide the owner signing
 key that should sign the next commit.
 
 ```rust
-use lockbox_core::{
+use revault_lockbox_api::{
     Lockbox, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
     SecretString,
 };
 
-fn main() -> lockbox_core::Result<()> {
+fn main() -> revault_lockbox_api::Result<()> {
     let path = std::path::Path::new("mutable.lbox");
     let pass_phrase = SecretString::try_from_bytes(b"correct horse battery staple".to_vec())?;
     let signing_key = OwnerSigningKeyPair::generate()?;
@@ -194,7 +194,7 @@ features:
 Run one with:
 
 ```sh
-cargo run -p lockbox_core --example files_and_directories
+cargo run -p revault_lockbox_api --example files_and_directories
 ```
 
 ## Benchmarks

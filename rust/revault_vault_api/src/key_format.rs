@@ -1,5 +1,5 @@
 use base64ct::{Base64, Base64UrlUnpadded, Encoding};
-use lockbox_core::{ContactKeyPair, ContactPublicKey, Error, Result, SecretVec};
+use revault_lockbox_api::{ContactKeyPair, ContactPublicKey, Error, Result, SecretVec};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs;

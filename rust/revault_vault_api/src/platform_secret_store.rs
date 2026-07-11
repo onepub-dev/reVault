@@ -1,4 +1,4 @@
-use lockbox_core::{Error, Result, SecretString};
+use revault_lockbox_api::{Error, Result, SecretString};
 #[cfg(test)]
 use std::collections::HashMap;
 use std::env;
@@ -396,7 +396,7 @@ mod tests {
         put_platform_vault_password, set_auto_open_scope, test_platform_store, AutoOpenScope,
         MODE_ENV,
     };
-    use lockbox_core::{Result, SecretString};
+    use revault_lockbox_api::{Result, SecretString};
     use std::env;
     use std::fs;
     use std::path::PathBuf;

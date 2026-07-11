@@ -1,9 +1,9 @@
 use crate::secret_prompt::prompt_secret;
-use lockbox_core::vault_integration::VaultOpen;
-use lockbox_core::{
+use revault_lockbox_api::vault_integration::VaultOpen;
+use revault_lockbox_api::{
     ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxOpen, LockboxProtection, SecretVec,
 };
-use lockbox_vault::{
+use revault_vault_api::{
     auto_open_scope, default_vault_path, forget_platform_vault_password,
     get_platform_vault_password, import_public_key, local_vault, platform_secret_store_disabled,
     put_platform_vault_password, AutoOpenScope, NoopStore, SecretString, Vault, VaultDirectory,
@@ -77,7 +77,7 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
     if scope != AutoOpenScope::Lockboxes {
         return Err(AutoOpenLockboxError::Disabled);
     }
-    let password = lockbox_core::SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
+    let password = revault_lockbox_api::SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
         .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?
         .or(get_platform_vault_password().unwrap_or_default())
         .ok_or_else(|| {

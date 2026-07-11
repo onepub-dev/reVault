@@ -1,51 +1,51 @@
-# lockbox_key_server command line switches
+# revault_key_server command line switches
 
 ## Quick usage
 
 Build and run with defaults:
 
 ```bash
-cargo build -p lockbox_key_server --release
-./target/release/lockbox_key_server run
+cargo build -p revault_key_server --release
+./target/release/revault_key_server run
 ```
 
 Run as a system service:
 
 ```bash
-sudo ./target/release/lockbox_key_server install
-sudo ./target/release/lockbox_key_server status
+sudo ./target/release/revault_key_server install
+sudo ./target/release/revault_key_server status
 ```
 
 Useful one-off flags:
 
 ```bash
-./target/release/lockbox_key_server run --bind 0.0.0.0:8089
-./target/release/lockbox_key_server install --force-config
-./target/release/lockbox_key_server uninstall --purge-data
-./target/release/lockbox_key_server resync-peer --peer-url https://peer.example/v1/replicate
+./target/release/revault_key_server run --bind 0.0.0.0:8089
+./target/release/revault_key_server install --force-config
+./target/release/revault_key_server uninstall --purge-data
+./target/release/revault_key_server resync-peer --peer-url https://peer.example/v1/replicate
 ```
 
 Config file bootstrap:
 
 ```bash
-./target/release/lockbox_key_server run --config /etc/lockbox/key-server.toml
+./target/release/revault_key_server run --config /etc/lockbox/key-server.toml
 ```
 
 ## Command forms
 
-- `lockbox_key_server`  
-  Equivalent to `lockbox_key_server run`.
-- `lockbox_key_server run [options]`
-- `lockbox_key_server install [--force-config]`
-- `lockbox_key_server uninstall [--purge-data]`
-- `lockbox_key_server status`
-- `lockbox_key_server resync-peer --peer-url URL [options]`
-- `lockbox_key_server bench-store --dev [options]`
-- `lockbox_key_server bench-http --dev [options]`
-- `lockbox_key_server bench-http-receive --dev [options]`
-- `lockbox_key_server bench-http-flow --dev [options]`
-- `lockbox_key_server help`
-- `lockbox_key_server --help` / `-h`
+- `revault_key_server`
+  Equivalent to `revault_key_server run`.
+- `revault_key_server run [options]`
+- `revault_key_server install [--force-config]`
+- `revault_key_server uninstall [--purge-data]`
+- `revault_key_server status`
+- `revault_key_server resync-peer --peer-url URL [options]`
+- `revault_key_server bench-store --dev [options]`
+- `revault_key_server bench-http --dev [options]`
+- `revault_key_server bench-http-receive --dev [options]`
+- `revault_key_server bench-http-flow --dev [options]`
+- `revault_key_server help`
+- `revault_key_server --help` / `-h`
 
 ## Global flags
 
@@ -62,7 +62,7 @@ line surface is intentionally small:
 - `--dev`
 - `--peer-url URL` for `resync-peer`
 
-Use `lockbox_key_server --help --dev` to show test and benchmark overrides.
+Use `revault_key_server --help --dev` to show test and benchmark overrides.
 
 ## Config file keys
 

@@ -5,7 +5,7 @@ use super::{
     optional_lockbox_positionals, positional_values,
 };
 use clap::ArgMatches;
-use lockbox_core::{
+use revault_lockbox_api::{
     Error, ExtractPolicy, ListOptions, Lockbox, LockboxPath, WorkerPolicy, WorkloadProfile,
 };
 use std::collections::BTreeMap;
@@ -253,7 +253,7 @@ fn contains_glob(value: &str) -> bool {
 
 fn direct_listing_rows(lb: &Lockbox, path: &LockboxPath) -> CliResult<Vec<Vec<String>>> {
     if let Some(entry) = lb.stat(path) {
-        if entry.kind != lockbox_core::LockboxEntryKind::Directory {
+        if entry.kind != revault_lockbox_api::LockboxEntryKind::Directory {
             return Ok(vec![vec![
                 kind_name(&entry.kind).to_string(),
                 entry.len.to_string(),
@@ -276,7 +276,8 @@ fn direct_listing_rows(lb: &Lockbox, path: &LockboxPath) -> CliResult<Vec<Vec<St
         let Some((name, is_directory)) = direct_child(rest) else {
             continue;
         };
-        let row = if is_directory || entry.kind == lockbox_core::LockboxEntryKind::Directory {
+        let row = if is_directory || entry.kind == revault_lockbox_api::LockboxEntryKind::Directory
+        {
             vec!["directory".to_string(), "-".to_string(), format!("{name}/")]
         } else {
             vec![
@@ -404,11 +405,11 @@ pub(crate) fn rename(args: &[String], access: &Access) -> CliResult<()> {
     Ok(())
 }
 
-fn kind_name(kind: &lockbox_core::LockboxEntryKind) -> &'static str {
+fn kind_name(kind: &revault_lockbox_api::LockboxEntryKind) -> &'static str {
     match kind {
-        lockbox_core::LockboxEntryKind::File => "file",
-        lockbox_core::LockboxEntryKind::Symlink => "symlink",
-        lockbox_core::LockboxEntryKind::Directory => "directory",
+        revault_lockbox_api::LockboxEntryKind::File => "file",
+        revault_lockbox_api::LockboxEntryKind::Symlink => "symlink",
+        revault_lockbox_api::LockboxEntryKind::Directory => "directory",
     }
 }
 

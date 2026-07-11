@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::ArgMatches;
-use lockbox_core::{
+use revault_lockbox_api::{
     Error, FormDefinition, FormFieldDefinition, FormFieldKind, FormValue, LockboxPath, SecretString,
 };
 
@@ -92,7 +92,7 @@ fn define_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     let alias = alias.unwrap_or_else(|| default_form_alias(&name));
     let description = optional_value(matches, "description").unwrap_or_default();
     let type_id = optional_value(matches, "definition-id")
-        .map(lockbox_core::FormTypeId::new)
+        .map(revault_lockbox_api::FormTypeId::new)
         .transpose()?;
     let fields = string_values(matches, "field")
         .iter()
@@ -114,7 +114,7 @@ fn define_options(
     alias: String,
     name: String,
     description: String,
-    type_id: Option<lockbox_core::FormTypeId>,
+    type_id: Option<revault_lockbox_api::FormTypeId>,
     fields: Vec<FormFieldDefinition>,
     access: &Access,
 ) -> CliResult<()> {
@@ -301,7 +301,7 @@ fn edit_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
 }
 
 fn apply_normal_field_assignments(
-    lb: &mut lockbox_core::Lockbox,
+    lb: &mut revault_lockbox_api::Lockbox,
     path: &LockboxPath,
     definition: &FormDefinition,
     assignments: Vec<(String, String)>,
@@ -586,9 +586,9 @@ fn default_form_name(path: &str) -> String {
 }
 
 fn fill_missing_fields_interactively(
-    lb: &mut lockbox_core::Lockbox,
+    lb: &mut revault_lockbox_api::Lockbox,
     path: &LockboxPath,
-    definition: &lockbox_core::FormDefinition,
+    definition: &revault_lockbox_api::FormDefinition,
 ) -> CliResult<()> {
     let record = lb
         .get_form_record(path)?
@@ -615,9 +615,9 @@ fn fill_missing_fields_interactively(
 }
 
 fn edit_fields_interactively(
-    lb: &mut lockbox_core::Lockbox,
+    lb: &mut revault_lockbox_api::Lockbox,
     path: &LockboxPath,
-    definition: &lockbox_core::FormDefinition,
+    definition: &revault_lockbox_api::FormDefinition,
 ) -> CliResult<()> {
     let record = lb
         .get_form_record(path)?

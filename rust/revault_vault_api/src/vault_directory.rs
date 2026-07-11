@@ -1,4 +1,4 @@
-use lockbox_core::{
+use revault_lockbox_api::{
     ContactKeyPair, ContactPublicKey, Error, FileLockScope, FormDefinition, FormFieldDefinition,
     FormFieldKind, FormTypeId, ListOptions, Lockbox, LockboxEntryKind, LockboxId, LockboxOpen,
     LockboxPath, LockboxProtection, OwnerSigningKeyPair, OwnerSigningPublicKey, Result,

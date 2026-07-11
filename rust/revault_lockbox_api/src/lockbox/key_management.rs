@@ -382,7 +382,7 @@ impl Lockbox {
     ///
     /// Password and contact opens use only key slots embedded in the
     /// lockbox file. This method does not read the local vault, cached content
-    /// keys, or vault-stored key-directory backups. Use `lockbox_vault::Vault`
+    /// keys, or vault-stored key-directory backups. Use `revault_vault_api::Vault`
     /// when that behavior is required.
     ///
     /// Returns `Error::Io` if the host file cannot be read, `Error::InvalidKey`
@@ -660,7 +660,7 @@ impl Lockbox {
     pub fn add_password(&mut self, password: &SecretString) -> Result<u64> {
         let id = next_key_slot_id(&self.key_slots);
         let salt = random_salt()?;
-        let slot = lockbox_secure::read_access(|access| {
+        let slot = revault_page_api::read_access(|access| {
             access.with_bytes(&self.key, |content_key| {
                 password.with_bytes_in(access, |password| {
                     KeySlot::password_bytes(id, password, salt, content_key)

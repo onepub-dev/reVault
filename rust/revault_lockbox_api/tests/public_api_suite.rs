@@ -4,7 +4,7 @@ use common::{
     add_file, add_file_from_path, add_file_from_reader, add_file_with_permissions, add_symlink, p,
     password, public_api_unique_dir as unique_dir, signing_key, variable,
 };
-use lockbox_core::{
+use revault_lockbox_api::{
     ContactKeyPair, ContactPublicKey, ContactWrappedKey, ExtractPolicy, ListOptions, Lockbox,
     LockboxId, LockboxKeySlotAlgorithm, LockboxKeySlotProtection, LockboxOpen, LockboxProtection,
     RecoveryReportOptions, RecoveryScanner, SecretString, SecretVec, VariableValueRef,
@@ -108,7 +108,10 @@ fn public_api_files_listing_variables_symlink_and_rename_flow() {
             };
             variables.insert(
                 name.to_string(),
-                (value.to_string(), lockbox_core::VariableSensitivity::Normal),
+                (
+                    value.to_string(),
+                    revault_lockbox_api::VariableSensitivity::Normal,
+                ),
             );
             Ok(())
         })
@@ -119,14 +122,17 @@ fn public_api_files_listing_variables_symlink_and_rename_flow() {
             .map(|(value, sensitivity)| (value.as_str(), *sensitivity)),
         Some((
             "postgres://localhost/app",
-            lockbox_core::VariableSensitivity::Normal
+            revault_lockbox_api::VariableSensitivity::Normal
         ))
     );
     assert_eq!(
         variables
             .get("/API_TOKEN")
             .map(|(value, sensitivity)| (value.as_str(), *sensitivity)),
-        Some(("secret-token", lockbox_core::VariableSensitivity::Normal))
+        Some((
+            "secret-token",
+            revault_lockbox_api::VariableSensitivity::Normal
+        ))
     );
     assert!(reopened
         .list(ListOptions::new(&p("/srv")))
@@ -377,7 +383,7 @@ fn public_api_path_inspector_and_file_helpers_flow() {
     assert_eq!(std::fs::read(&extract_path).unwrap(), b"from disk");
     assert!(matches!(
         lb.extract_file_to(&p("/docs/source.txt"), &extract_path, false),
-        Err(lockbox_core::Error::AlreadyExists(_))
+        Err(revault_lockbox_api::Error::AlreadyExists(_))
     ));
     lb.extract_file_to(&p("/docs/reader.txt"), &extract_path, true)
         .unwrap();
@@ -385,7 +391,7 @@ fn public_api_path_inspector_and_file_helpers_flow() {
     let missing_extract_path = root.join("missing-extract.txt");
     assert!(matches!(
         lb.extract_file_to(&p("/docs/source.txt"), &missing_extract_path, true),
-        Err(lockbox_core::Error::NotFound(_))
+        Err(revault_lockbox_api::Error::NotFound(_))
     ));
     lb.extract_to_directory(&extract_dir, &ExtractPolicy::default())
         .unwrap();
@@ -551,4 +557,4 @@ fn public_api_plain_open_returns_read_only_and_write_open_requires_signer() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-fn assert_read_only_lockbox(_: &Lockbox<lockbox_core::ReadOnly>) {}
+fn assert_read_only_lockbox(_: &Lockbox<revault_lockbox_api::ReadOnly>) {}

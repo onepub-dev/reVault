@@ -493,9 +493,9 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "cmov"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3f88a43d011fc4a6876cb7344703e297c71dda42494fee094d5f7c76bf13f746"
+checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
 name = "concurrent-queue"
@@ -1426,105 +1426,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
 
 [[package]]
-name = "lockbox_cli"
-version = "0.1.0-alpha.1"
-dependencies = [
- "clap",
- "getrandom 0.4.3",
- "libc",
- "lockbox_core",
- "lockbox_key_server",
- "lockbox_publish_protocol",
- "lockbox_vault",
- "serde_json",
- "sha2 0.11.0",
- "tempfile",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "lockbox_core"
-version = "0.1.0-alpha.1"
-dependencies = [
- "argon2",
- "chacha20poly1305",
- "criterion",
- "ed25519-dalek",
- "getrandom 0.4.3",
- "hkdf 0.13.0",
- "libc",
- "lockbox_secure",
- "ml-dsa",
- "ml-kem",
- "oxiarc-zstd",
- "ruzstd",
- "sha2 0.11.0",
- "sysinfo",
- "unicode-normalization",
- "x25519-dalek",
- "zeroize",
- "zstd",
-]
-
-[[package]]
-name = "lockbox_key_server"
-version = "0.1.0"
-dependencies = [
- "axum",
- "bytes",
- "clap",
- "getrandom 0.4.3",
- "lettre",
- "libc",
- "lockbox_publish_protocol",
- "serde",
- "sha2 0.11.0",
- "tokio",
- "toml",
- "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "lockbox_publish_protocol"
-version = "0.1.0-alpha.1"
-dependencies = [
- "httparse",
- "sha2 0.11.0",
- "ureq",
- "url",
-]
-
-[[package]]
-name = "lockbox_secure"
-version = "0.1.0"
-dependencies = [
- "getrandom 0.4.3",
- "libc",
- "windows-sys 0.59.0",
- "zeroize",
-]
-
-[[package]]
-name = "lockbox_vault"
-version = "0.1.0-alpha.1"
-dependencies = [
- "base64ct",
- "chacha20poly1305",
- "dbus",
- "getrandom 0.4.3",
- "keyring",
- "libc",
- "lockbox_core",
- "objc2-core-foundation",
- "objc2-io-kit",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "windows-sys 0.59.0",
- "zeroize",
-]
-
-[[package]]
 name = "log"
 version = "0.4.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2023,6 +1924,105 @@ name = "regex-syntax"
 version = "0.8.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
+
+[[package]]
+name = "revault_cli"
+version = "0.0.1"
+dependencies = [
+ "clap",
+ "getrandom 0.4.3",
+ "libc",
+ "revault_key_server",
+ "revault_lockbox_api",
+ "revault_publish_protocol",
+ "revault_vault_api",
+ "serde_json",
+ "sha2 0.11.0",
+ "tempfile",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "revault_key_server"
+version = "0.0.1"
+dependencies = [
+ "axum",
+ "bytes",
+ "clap",
+ "getrandom 0.4.3",
+ "lettre",
+ "libc",
+ "revault_publish_protocol",
+ "serde",
+ "sha2 0.11.0",
+ "tokio",
+ "toml",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "revault_lockbox_api"
+version = "0.0.1"
+dependencies = [
+ "argon2",
+ "chacha20poly1305",
+ "criterion",
+ "ed25519-dalek",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "libc",
+ "ml-dsa",
+ "ml-kem",
+ "oxiarc-zstd",
+ "revault_page_api",
+ "ruzstd",
+ "sha2 0.11.0",
+ "sysinfo",
+ "unicode-normalization",
+ "x25519-dalek",
+ "zeroize",
+ "zstd",
+]
+
+[[package]]
+name = "revault_page_api"
+version = "0.0.1"
+dependencies = [
+ "getrandom 0.4.3",
+ "libc",
+ "windows-sys 0.59.0",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_publish_protocol"
+version = "0.0.1"
+dependencies = [
+ "httparse",
+ "sha2 0.11.0",
+ "ureq",
+ "url",
+]
+
+[[package]]
+name = "revault_vault_api"
+version = "0.0.1"
+dependencies = [
+ "base64ct",
+ "chacha20poly1305",
+ "dbus",
+ "getrandom 0.4.3",
+ "keyring",
+ "libc",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "revault_lockbox_api",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "windows-sys 0.59.0",
+ "zeroize",
+]
 
 [[package]]
 name = "ring"

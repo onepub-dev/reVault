@@ -6,10 +6,10 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use lockbox_key_server::server::run_listener;
-use lockbox_key_server::store::{PublishStore, ServerConfig};
-use lockbox_publish_protocol::protocol::{self, Operation, Status};
-use lockbox_publish_protocol::{
+use revault_key_server::server::run_listener;
+use revault_key_server::store::{PublishStore, ServerConfig};
+use revault_publish_protocol::protocol::{self, Operation, Status};
+use revault_publish_protocol::{
     decode_contact_publish, encode_contact_publish, encode_replication_request, ClientError,
     HttpTransport, PublishClient, PublishClientPool, ReplicationEvent, ReplicationEventKind,
     ReplicationRequest, ServerStatus, TopologyRoute, TopologyServer, Transport,
@@ -377,7 +377,7 @@ impl TwoServerCluster {
     fn pool_with_dead_primary(&self) -> PublishClientPool {
         let mut servers = self.topology_servers.clone();
         servers[0].url = unused_publish_url();
-        let topology = lockbox_publish_protocol::ClusterTopology {
+        let topology = revault_publish_protocol::ClusterTopology {
             cluster_id: "e2e".to_string(),
             version: 1,
             servers,
@@ -389,7 +389,7 @@ impl TwoServerCluster {
             .with_retry_policy(100, Duration::from_millis(5), Duration::from_millis(250))
     }
 
-    fn verify_publish(&self, published: &lockbox_publish_protocol::PublishResult) {
+    fn verify_publish(&self, published: &revault_publish_protocol::PublishResult) {
         let owner = if published.publish_code.starts_with('0') {
             self.primary.store.as_ref()
         } else {
@@ -401,7 +401,7 @@ impl TwoServerCluster {
 
 fn verify_publish_on_store(
     store: &PublishStore,
-    published: &lockbox_publish_protocol::PublishResult,
+    published: &revault_publish_protocol::PublishResult,
 ) {
     let verification_url = published
         .verification_url

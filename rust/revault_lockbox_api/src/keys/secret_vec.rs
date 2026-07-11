@@ -1,3 +1,3 @@
-pub use lockbox_secure::{SecureString as SecretString, SecureVec as SecretVec};
+pub use revault_page_api::{SecureString as SecretString, SecureVec as SecretVec};
 
-pub(crate) use lockbox_secure::{read_access as secure_read_access, SecureVec};
+pub(crate) use revault_page_api::{read_access as secure_read_access, SecureVec};

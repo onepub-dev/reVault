@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use lockbox_publish_protocol::protocol::{self, Operation};
-use lockbox_publish_protocol::{
+use revault_publish_protocol::protocol::{self, Operation};
+use revault_publish_protocol::{
     decode_replication_request, encode_replication_request, sign_replication_event,
     ClusterTopology, KeyServerStatus, ReplicationEvent, ReplicationEventKind, ReplicationRequest,
     ServerStatus, TopologyRoute, TopologyServer,
@@ -33,8 +33,8 @@ fn topology_binary_round_trips_and_validates_routes() {
         }],
     };
 
-    let bytes = lockbox_publish_protocol::encode_topology(&topology).unwrap();
-    let decoded = lockbox_publish_protocol::decode_topology(&bytes).unwrap();
+    let bytes = revault_publish_protocol::encode_topology(&topology).unwrap();
+    let decoded = revault_publish_protocol::decode_topology(&bytes).unwrap();
     assert_eq!(decoded, topology);
     assert_eq!(
         decoded.urls_for_publish_code("00123456789012"),
@@ -55,14 +55,14 @@ fn topology_cache_round_trips_binary_documents() {
             .unwrap()
             .as_nanos()
     ));
-    lockbox_publish_protocol::write_topology_cache(&path, &topology).unwrap();
+    revault_publish_protocol::write_topology_cache(&path, &topology).unwrap();
 
-    let cached = lockbox_publish_protocol::read_topology_cache(&path, Duration::from_secs(60))
+    let cached = revault_publish_protocol::read_topology_cache(&path, Duration::from_secs(60))
         .unwrap()
         .unwrap();
     assert_eq!(cached, topology);
     assert!(
-        lockbox_publish_protocol::read_topology_cache(&path, Duration::from_millis(1))
+        revault_publish_protocol::read_topology_cache(&path, Duration::from_millis(1))
             .unwrap()
             .is_some()
     );
@@ -79,7 +79,7 @@ fn replication_request_round_trips_binary_events() {
         kind: ReplicationEventKind::PutPublish {
             publish_code: "21123456789012".to_string(),
             delete_token_hash: vec![9_u8; 16],
-            payload: lockbox_publish_protocol::encode_contact_publish(
+            payload: revault_publish_protocol::encode_contact_publish(
                 "replica@example.com",
                 b"public-key-material",
                 b"signing-public-key-material",
@@ -122,9 +122,9 @@ fn server_status_round_trips_binary_documents() {
         replication_pending: 8,
         replication_last_sequence: 9,
     };
-    let bytes = lockbox_publish_protocol::encode_status(&status);
+    let bytes = revault_publish_protocol::encode_status(&status);
     assert_eq!(
-        lockbox_publish_protocol::decode_status(&bytes).unwrap(),
+        revault_publish_protocol::decode_status(&bytes).unwrap(),
         status
     );
 }

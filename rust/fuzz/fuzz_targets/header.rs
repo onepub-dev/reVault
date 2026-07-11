@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use lockbox_core::{Lockbox, LockboxOpen, SecretVec};
+use revault_lockbox_api::{Lockbox, LockboxOpen, SecretVec};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static LOCKBOX_COUNTER: AtomicU64 = AtomicU64::new(0);

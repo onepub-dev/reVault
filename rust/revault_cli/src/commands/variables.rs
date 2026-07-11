@@ -4,7 +4,7 @@ use std::{
 };
 
 use clap::ArgMatches;
-use lockbox_core::{
+use revault_lockbox_api::{
     Error, SecretString, VariableName, VariableNamePattern, VariableSensitivity, VariableValueRef,
 };
 

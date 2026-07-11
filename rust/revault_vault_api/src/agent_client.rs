@@ -1,4 +1,4 @@
-use lockbox_core::{Error, LockboxId, Result, SecretVec};
+use revault_lockbox_api::{Error, LockboxId, Result, SecretVec};
 use std::io;
 use std::path::Path;
 
@@ -13,7 +13,7 @@ use crate::windows as platform;
 #[cfg(not(any(unix, windows)))]
 mod platform {
     use super::{CachedLockbox, SecretActivityKind, SecretVec};
-    use lockbox_core::LockboxId;
+    use revault_lockbox_api::LockboxId;
     use std::io;
 
     pub(crate) fn serve_agent() -> io::Result<()> {

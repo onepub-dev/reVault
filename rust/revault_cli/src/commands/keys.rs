@@ -11,12 +11,12 @@ use super::{
     optional_lockbox_value, positional_values,
 };
 use clap::ArgMatches;
-use lockbox_core::vault_integration::VaultOpen;
-use lockbox_core::{
+use revault_lockbox_api::vault_integration::VaultOpen;
+use revault_lockbox_api::{
     ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxKeySlotProtection, LockboxOpen,
     LockboxProtection,
 };
-use lockbox_vault::{
+use revault_vault_api::{
     auto_open_scope, encode_hex, export_private_key, list as list_open_lockboxes, local_vault,
     AutoOpenScope, KeyFormat, NoopStore, SecretVec, Vault, VaultDirectory,
 };
@@ -207,7 +207,7 @@ fn open_with_vault_identity(
 
 fn remember_lockbox_password_if_enabled_with_vault(
     lockbox: &Lockbox,
-    password: &lockbox_vault::SecretString,
+    password: &revault_vault_api::SecretString,
     vault: &VaultDirectory,
 ) -> CliResult<()> {
     if auto_open_scope()? == AutoOpenScope::Lockboxes {
@@ -591,7 +591,7 @@ fn matching_contact_slot_ids(lockbox: &Lockbox, identity: &str) -> Vec<u64> {
         .collect()
 }
 
-fn access_slot_labels_by_slot(lockbox_id: lockbox_core::LockboxId) -> BTreeMap<u64, String> {
+fn access_slot_labels_by_slot(lockbox_id: revault_lockbox_api::LockboxId) -> BTreeMap<u64, String> {
     default_vault()
         .and_then(|vault| Ok(vault.list_access_slot_labels(lockbox_id)?))
         .map(|labels| {
@@ -888,13 +888,14 @@ impl OpenOptions {
         })
     }
 
-    fn read_password(&self) -> CliResult<lockbox_vault::SecretString> {
+    fn read_password(&self) -> CliResult<revault_vault_api::SecretString> {
         match &self.password_source {
             PasswordSource::Prompt => read_password("Password: "),
             PasswordSource::Variables(name) => {
                 let value = env::var(name)
                     .map_err(|_| Error::InvalidInput(format!("variable is not set: {name}")))?;
-                lockbox_vault::SecretString::try_from_bytes(value.into_bytes()).map_err(Into::into)
+                revault_vault_api::SecretString::try_from_bytes(value.into_bytes())
+                    .map_err(Into::into)
             }
             PasswordSource::File(path) => secret_from_bytes(
                 fs::read(path)
@@ -920,11 +921,11 @@ fn ensure_prompt_password_source(source: &PasswordSource) -> CliResult<()> {
     }
 }
 
-fn secret_from_bytes(mut bytes: Vec<u8>) -> CliResult<lockbox_vault::SecretString> {
+fn secret_from_bytes(mut bytes: Vec<u8>) -> CliResult<revault_vault_api::SecretString> {
     while matches!(bytes.last(), Some(b'\n' | b'\r')) {
         bytes.pop();
     }
-    lockbox_vault::SecretString::try_from_bytes(bytes).map_err(Into::into)
+    revault_vault_api::SecretString::try_from_bytes(bytes).map_err(Into::into)
 }
 
 fn default_session_duration() -> CliResult<Option<u64>> {

@@ -1,8 +1,8 @@
 use std::cell::RefCell;
 use std::time::Duration;
 
-use lockbox_publish_protocol::client::{PublishClient, Transport};
-use lockbox_publish_protocol::protocol::{self, Operation, Status};
+use revault_publish_protocol::client::{PublishClient, Transport};
+use revault_publish_protocol::protocol::{self, Operation, Status};
 
 #[derive(Clone)]
 pub struct MockTransport {
@@ -30,11 +30,11 @@ impl FlakyTransport {
 }
 
 impl Transport for FlakyTransport {
-    fn post_binary(&self, _body: &[u8]) -> Result<Vec<u8>, lockbox_publish_protocol::ClientError> {
+    fn post_binary(&self, _body: &[u8]) -> Result<Vec<u8>, revault_publish_protocol::ClientError> {
         let mut calls = self.calls.borrow_mut();
         *calls += 1;
         if *calls == 1 {
-            return Err(lockbox_publish_protocol::ClientError::Io(
+            return Err(revault_publish_protocol::ClientError::Io(
                 std::io::ErrorKind::WouldBlock.into(),
             ));
         }
@@ -56,14 +56,14 @@ impl MockTransport {
 }
 
 impl Transport for MockTransport {
-    fn post_binary(&self, _body: &[u8]) -> Result<Vec<u8>, lockbox_publish_protocol::ClientError> {
+    fn post_binary(&self, _body: &[u8]) -> Result<Vec<u8>, revault_publish_protocol::ClientError> {
         *self.calls.borrow_mut() += 1;
         Ok(self.responses.borrow_mut().remove(0))
     }
 }
 
 pub fn contact_publish_payload() -> Vec<u8> {
-    lockbox_publish_protocol::encode_contact_publish(
+    revault_publish_protocol::encode_contact_publish(
         "client@example.com",
         b"public-key-material",
         b"signing-public-key-material",

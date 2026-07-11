@@ -10,7 +10,7 @@ keep-alive session.
 Command:
 
 ```bash
-/usr/bin/time -v target/release/lockbox_key_server \
+/usr/bin/time -v target/release/revault_key_server \
   bench-store \
   --state-dir /tmp/lockbox-publish-store-bench-200k-compact-001 \
   --requests 200000 \
@@ -35,7 +35,7 @@ index stores hashes, offsets, lengths, expiry, and receive state.
 Command:
 
 ```bash
-/usr/bin/time -v target/release/lockbox_key_server \
+/usr/bin/time -v target/release/revault_key_server \
   bench-http \
   --state-dir /tmp/lockbox-publish-http-bench-compact-001 \
   --requests 50000 \
@@ -61,7 +61,7 @@ while staying well under the 100 MB target.
 Command:
 
 ```bash
-/usr/bin/time -v target/release/lockbox_key_server \
+/usr/bin/time -v target/release/revault_key_server \
   bench-http-receive \
   --state-dir /tmp/lockbox-publish-http-receive-bench-001 \
   --requests 50000 \
@@ -88,7 +88,7 @@ consume and tombstone the pending published payloads.
 Command:
 
 ```bash
-/usr/bin/time -v target/release/lockbox_key_server \
+/usr/bin/time -v target/release/revault_key_server \
   bench-http-flow \
   --state-dir /tmp/lockbox-publish-http-flow-bench-001 \
   --requests 50000 \
@@ -117,7 +117,7 @@ usage pattern. `live=0` confirms single-use published payloads are consumed afte
 Command:
 
 ```bash
-/usr/bin/time -v target/release/lockbox_key_server \
+/usr/bin/time -v target/release/revault_key_server \
   bench-http-flow \
   --state-dir target/lockbox-publish-http-flow-preload-1m-bucket-002 \
   --preload-published-payloads 1000000 \
@@ -213,7 +213,7 @@ Command:
 ```bash
 perf stat \
   -e cycles,instructions,context-switches,cpu-migrations,page-faults \
-  target/release/lockbox_key_server \
+  target/release/revault_key_server \
   bench-http \
   --state-dir /tmp/lockbox-publish-http-perf-002 \
   --requests 50000 \
@@ -240,7 +240,7 @@ Receive-path counter command:
 ```bash
 perf stat \
   -e cycles,instructions,context-switches,cpu-migrations,page-faults \
-  target/release/lockbox_key_server \
+  target/release/revault_key_server \
   bench-http-receive \
   --state-dir /tmp/lockbox-publish-http-receive-perf-001 \
   --requests 50000 \
@@ -267,7 +267,7 @@ End-to-end flow counter command:
 ```bash
 perf stat \
   -e cycles,instructions,context-switches,cpu-migrations,page-faults \
-  target/release/lockbox_key_server \
+  target/release/revault_key_server \
   bench-http-flow \
   --state-dir /tmp/lockbox-publish-http-flow-perf-001 \
   --requests 50000 \
@@ -312,7 +312,7 @@ compaction preserves live records
 Run:
 
 ```bash
-cargo test -p lockbox_key_server
+cargo test -p revault_key_server
 ```
 
 Current result:

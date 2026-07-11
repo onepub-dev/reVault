@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Keep this list in sync with production crates. New Rust crates should be
 # added here once they are intended to be part of the supported build.
-cargo clippy -p lockbox_core -p lockbox_cli -p lockbox_vault --all-targets -- \
+cargo clippy -p revault_lockbox_api -p revault_cli -p revault_vault_api --all-targets -- \
   -W clippy::pedantic \
   -W clippy::nursery \
   -W clippy::cargo \

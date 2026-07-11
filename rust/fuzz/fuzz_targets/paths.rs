@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use lockbox_core::{
+use revault_lockbox_api::{
     ListOptions, Lockbox, LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretVec,
 };
 use std::sync::atomic::{AtomicU64, Ordering};

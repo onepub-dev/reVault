@@ -1,7 +1,7 @@
 use std::time::Duration;
 
-use lockbox_publish_protocol::client::{ContactPublish, PublishClient};
-use lockbox_publish_protocol::protocol::{self, Operation, Status};
+use revault_publish_protocol::client::{ContactPublish, PublishClient};
+use revault_publish_protocol::protocol::{self, Operation, Status};
 
 use super::support::{
     contact_publish_payload, publish_success_response, FlakyTransport, MockTransport,
@@ -55,7 +55,7 @@ fn client_decodes_receive_publish_and_delete_responses() {
     let received = client.receive(&published.publish_code).unwrap();
     assert_eq!(
         received.payload_type,
-        lockbox_publish_protocol::PayloadType::ContactPublish
+        revault_publish_protocol::PayloadType::ContactPublish
     );
     assert_eq!(received.remaining_receives, 0);
 
@@ -115,16 +115,16 @@ fn client_surfaces_versioned_server_errors() {
 
 #[test]
 fn http_transport_accepts_https_urls() {
-    assert!(lockbox_publish_protocol::HttpTransport::new(
+    assert!(revault_publish_protocol::HttpTransport::new(
         "https://keypublish.revault.onepub.dev/v1/publish"
     )
     .is_ok());
     assert!(
-        lockbox_publish_protocol::HttpTransport::new("https://keypublish.revault.onepub.dev")
+        revault_publish_protocol::HttpTransport::new("https://keypublish.revault.onepub.dev")
             .is_ok()
     );
     assert!(
-        lockbox_publish_protocol::HttpTransport::new("ftp://keypublish.revault.onepub.dev")
+        revault_publish_protocol::HttpTransport::new("ftp://keypublish.revault.onepub.dev")
             .is_err()
     );
 }

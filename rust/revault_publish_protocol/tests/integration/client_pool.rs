@@ -1,6 +1,6 @@
-use lockbox_publish_protocol::client::{PublishClient, PublishClientPool};
-use lockbox_publish_protocol::protocol::{self, Operation, Status};
-use lockbox_publish_protocol::TopologyRoute;
+use revault_publish_protocol::client::{PublishClient, PublishClientPool};
+use revault_publish_protocol::protocol::{self, Operation, Status};
+use revault_publish_protocol::TopologyRoute;
 
 use super::support::{
     contact_publish_payload, delete_success_response, one_attempt_client, publish_success_response,
@@ -128,7 +128,7 @@ fn client_pool_receives_from_later_server_when_first_misses() {
     let received = client.receive("123456789012").unwrap();
     assert_eq!(
         received.payload_type,
-        lockbox_publish_protocol::PayloadType::ContactPublish
+        revault_publish_protocol::PayloadType::ContactPublish
     );
 }
 
@@ -144,7 +144,7 @@ fn client_pool_prefers_server_id_from_publish_code_prefix() {
     let received = client.receive("11123456789012").unwrap();
     assert_eq!(
         received.payload_type,
-        lockbox_publish_protocol::PayloadType::ContactPublish
+        revault_publish_protocol::PayloadType::ContactPublish
     );
     assert_eq!(server_0.calls(), 0);
     assert_eq!(server_1.calls(), 1);

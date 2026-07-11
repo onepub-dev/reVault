@@ -1,7 +1,7 @@
 mod common;
 
 use common::{p, signing_key, variable};
-use lockbox_core::{ListOptions, Lockbox, LockboxOpen, LockboxProtection, SecretVec};
+use revault_lockbox_api::{ListOptions, Lockbox, LockboxOpen, LockboxProtection, SecretVec};
 use std::io::{Read, Result as IoResult};
 use std::path::{Path, PathBuf};
 

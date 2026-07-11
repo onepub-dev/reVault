@@ -1,4 +1,4 @@
-use lockbox_core::{
+use revault_lockbox_api::{
     ExtractPolicy, ListOptions, Lockbox, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
     SecretVec, VariableName,
 };
@@ -303,7 +303,7 @@ fn run_extract(
                     ..ListOptions::new(&p("/"))
                 })? {
                     let entry = entry?;
-                    if entry.kind == lockbox_core::LockboxEntryKind::File
+                    if entry.kind == revault_lockbox_api::LockboxEntryKind::File
                         && entry.len <= policy.max_file_bytes
                     {
                         lockbox.extract_file_to_writer(&entry.path, std::io::sink())?;

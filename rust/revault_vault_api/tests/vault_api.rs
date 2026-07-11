@@ -1,9 +1,9 @@
-use lockbox_core::vault_integration::VaultOpen;
-use lockbox_core::{
+use revault_lockbox_api::vault_integration::VaultOpen;
+use revault_lockbox_api::{
     ContactKeyPair, Error, FileLockScope, Lockbox, LockboxOpen, LockboxPath, LockboxProtection,
     OwnerSigningKeyPair, Result, ScopedFileLock, SecretVec,
 };
-use lockbox_vault::{
+use revault_vault_api::{
     export_private_key, import_private_key_file, ContentKeyStore, IdentityGenerationStatus,
     KeyFormat, SecretString, Vault, VaultDirectory, CURRENT_VAULT_STRUCTURE_VERSION,
 };
@@ -31,7 +31,10 @@ struct MemoryStore {
 }
 
 impl ContentKeyStore for MemoryStore {
-    fn get_content_key(&self, lockbox_id: lockbox_core::LockboxId) -> Result<Option<SecretVec>> {
+    fn get_content_key(
+        &self,
+        lockbox_id: revault_lockbox_api::LockboxId,
+    ) -> Result<Option<SecretVec>> {
         self.keys
             .borrow()
             .get(&lockbox_id.to_string())
@@ -40,13 +43,17 @@ impl ContentKeyStore for MemoryStore {
             .map_err(Into::into)
     }
 
-    fn put_content_key(&self, lockbox_id: lockbox_core::LockboxId, key: SecretVec) -> Result<()> {
+    fn put_content_key(
+        &self,
+        lockbox_id: revault_lockbox_api::LockboxId,
+        key: SecretVec,
+    ) -> Result<()> {
         let key = key.with_bytes(|key| key.to_vec())?;
         self.keys.borrow_mut().insert(lockbox_id.to_string(), key);
         Ok(())
     }
 
-    fn forget_content_key(&self, lockbox_id: lockbox_core::LockboxId) -> Result<()> {
+    fn forget_content_key(&self, lockbox_id: revault_lockbox_api::LockboxId) -> Result<()> {
         self.keys.borrow_mut().remove(&lockbox_id.to_string());
         Ok(())
     }
@@ -63,7 +70,10 @@ struct SecureCloneStore {
 }
 
 impl ContentKeyStore for SecureCloneStore {
-    fn get_content_key(&self, lockbox_id: lockbox_core::LockboxId) -> Result<Option<SecretVec>> {
+    fn get_content_key(
+        &self,
+        lockbox_id: revault_lockbox_api::LockboxId,
+    ) -> Result<Option<SecretVec>> {
         self.keys
             .borrow()
             .get(&lockbox_id.to_string())
@@ -72,13 +82,17 @@ impl ContentKeyStore for SecureCloneStore {
             .map_err(Into::into)
     }
 
-    fn put_content_key(&self, lockbox_id: lockbox_core::LockboxId, key: SecretVec) -> Result<()> {
+    fn put_content_key(
+        &self,
+        lockbox_id: revault_lockbox_api::LockboxId,
+        key: SecretVec,
+    ) -> Result<()> {
         let key = key.try_clone()?;
         self.keys.borrow_mut().insert(lockbox_id.to_string(), key);
         Ok(())
     }
 
-    fn forget_content_key(&self, lockbox_id: lockbox_core::LockboxId) -> Result<()> {
+    fn forget_content_key(&self, lockbox_id: revault_lockbox_api::LockboxId) -> Result<()> {
         self.keys.borrow_mut().remove(&lockbox_id.to_string());
         Ok(())
     }

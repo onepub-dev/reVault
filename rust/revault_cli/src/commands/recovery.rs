@@ -2,9 +2,9 @@ use super::context::{cli_error, default_vault, Access, CliResult};
 use super::optional_lockbox_value;
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use clap::ArgMatches;
-use lockbox_core::vault_integration::VaultOpen;
-use lockbox_core::{Error, RecoveryReport, RecoveryScanner, SecretVec};
-use lockbox_vault::{get as get_cached_content_key, VaultDirectory};
+use revault_lockbox_api::vault_integration::VaultOpen;
+use revault_lockbox_api::{Error, RecoveryReport, RecoveryScanner, SecretVec};
+use revault_vault_api::{get as get_cached_content_key, VaultDirectory};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -118,7 +118,7 @@ fn salvage_bytes(
     lockbox_path: &str,
     bytes: Vec<u8>,
     access: &Access,
-) -> CliResult<lockbox_core::Lockbox> {
+) -> CliResult<revault_lockbox_api::Lockbox> {
     let signing_key = default_vault()?.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
     match access {
         Access::ContentKey(key) => Ok(RecoveryScanner::salvage_bytes_with_secret_key(

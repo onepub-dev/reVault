@@ -1,4 +1,4 @@
-use lockbox_core::{LockboxId, SecretVec};
+use revault_lockbox_api::{LockboxId, SecretVec};
 use std::io;
 
 const MAGIC: &[u8; 4] = b"LBX1";

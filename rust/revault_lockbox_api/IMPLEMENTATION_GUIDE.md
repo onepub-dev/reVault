@@ -1,6 +1,6 @@
 # Lockbox Core Implementation Guide
 
-This guide records implementation rules for `lockbox_core`. The normative
+This guide records implementation rules for `revault_lockbox_api`. The normative
 on-disk format is documented in [ARCHIVE_FORMAT.md](ARCHIVE_FORMAT.md).
 
 ## API Boundary
@@ -11,7 +11,7 @@ management, raw object bytes, or internal allocation details as normal caller
 contracts.
 
 Language bindings should preserve the same boundary. Bindings can wrap
-`lockbox_core`, but they should not reimplement archive serialization.
+`revault_lockbox_api`, but they should not reimplement archive serialization.
 
 The endian interop tests are part of the release gate. They verify that every
 on-disk numeric field is encoded with an explicit byte order and does not depend

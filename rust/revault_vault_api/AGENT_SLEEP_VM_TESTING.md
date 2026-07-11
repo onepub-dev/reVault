@@ -27,10 +27,10 @@ reported S3 as available when the VM had no virtual video adapter attached.
 Run these before VM work:
 
 ```sh
-cargo check -p lockbox_vault
-cargo check -p lockbox_cli
-cargo test -p lockbox_cli --test agent_flow
-cargo check -p lockbox_cli --target x86_64-pc-windows-gnu
+cargo check -p revault_vault_api
+cargo check -p revault_cli
+cargo test -p revault_cli --test agent_flow
+cargo check -p revault_cli --target x86_64-pc-windows-gnu
 ```
 
 The Windows target check requires the GNU Windows target and linker toolchain.
@@ -51,7 +51,7 @@ Guest requirements:
 Build the CLI on the host or guest:
 
 ```sh
-cargo build -p lockbox_cli
+cargo build -p revault_cli
 ```
 
 Run the no-sleep readiness test in the guest:
@@ -173,7 +173,7 @@ tar -xzf "$SCRIPT_DIR/lockbox-src.tgz" -C "$WORK" --strip-components=1
 mkdir -p "$WORK/zstd-rs"
 tar -xzf "$SCRIPT_DIR/zstd-rs.tgz" -C "$WORK/zstd-rs" --strip-components=1
 perl -0pi -e 's#\.\./\.\./\.\./zstd-rs/ruzstd#../zstd-rs/ruzstd#g' \
-  "$WORK/lockbox_core/Cargo.toml"
+  "$WORK/revault_lockbox_api/Cargo.toml"
 
 if ! xcode-select -p >/dev/null 2>&1; then
   echo "Command Line Tools are not installed."
@@ -191,7 +191,7 @@ if [[ -f "$HOME/.cargo/env" ]]; then
 fi
 
 cd "$WORK"
-cargo build -p lockbox_cli
+cargo build -p revault_cli
 
 tools/agent_sleep_unix_vm_test.sh --bin target/debug/lockbox --no-sleep
 tools/agent_sleep_unix_vm_test.sh \
@@ -265,7 +265,7 @@ The following sleep states are available on this system:
 ### Build the Windows CLI
 
 ```sh
-cargo build -p lockbox_cli --target x86_64-pc-windows-gnu
+cargo build -p revault_cli --target x86_64-pc-windows-gnu
 ```
 
 Stage the executable and script:

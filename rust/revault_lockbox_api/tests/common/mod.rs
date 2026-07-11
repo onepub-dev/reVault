@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use lockbox_core::{
+use revault_lockbox_api::{
     Lockbox, LockboxPath, OwnerSigningKeyPair, SecretString, VariableName, WritableLockboxState,
 };
 use std::io::Read;
@@ -27,7 +27,7 @@ pub fn add_file<State>(
     path: &LockboxPath,
     data: &[u8],
     replace: bool,
-) -> lockbox_core::Result<()>
+) -> revault_lockbox_api::Result<()>
 where
     State: WritableLockboxState,
 {
@@ -41,7 +41,7 @@ pub fn add_file_with_permissions<State>(
     data: &[u8],
     permissions: u32,
     replace: bool,
-) -> lockbox_core::Result<()>
+) -> revault_lockbox_api::Result<()>
 where
     State: WritableLockboxState,
 {
@@ -54,7 +54,7 @@ pub fn add_file_from_reader<State>(
     path: &LockboxPath,
     reader: impl Read,
     replace: bool,
-) -> lockbox_core::Result<()>
+) -> revault_lockbox_api::Result<()>
 where
     State: WritableLockboxState,
 {
@@ -67,7 +67,7 @@ pub fn add_file_from_path<State>(
     source: &Path,
     destination: &LockboxPath,
     replace: bool,
-) -> lockbox_core::Result<()>
+) -> revault_lockbox_api::Result<()>
 where
     State: WritableLockboxState,
 {
@@ -80,7 +80,7 @@ pub fn add_symlink<State>(
     path: &LockboxPath,
     target: &LockboxPath,
     replace: bool,
-) -> lockbox_core::Result<()>
+) -> revault_lockbox_api::Result<()>
 where
     State: WritableLockboxState,
 {

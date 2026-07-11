@@ -12,14 +12,14 @@ This package keeps two benchmark entry points:
 Run from the workspace root:
 
 ```sh
-cargo bench -p lockbox_core --bench pgp_compare -- \
+cargo bench -p revault_lockbox_api --bench pgp_compare -- \
   --iterations 3 \
   --root target/lockbox-gpg-bench \
   --output target/lockbox-gpg-bench/results.md
 ```
 
 Cargo runs bench binaries from the package directory, so relative `--root` and
-`--output` paths are relative to `lockbox_core/`.
+`--output` paths are relative to `revault_lockbox_api/`.
 
 The benchmark generates deterministic corpora and compares:
 
@@ -33,8 +33,8 @@ The benchmark generates deterministic corpora and compares:
 Use `--lockbox-only` when profiling lockbox code without running GPG:
 
 ```sh
-perf record -g -o lockbox_core/target/lockbox-gpg-bench/perf-large-randomish.data -- \
-  cargo bench -p lockbox_core --bench pgp_compare -- \
+perf record -g -o revault_lockbox_api/target/lockbox-gpg-bench/perf-large-randomish.data -- \
+  cargo bench -p revault_lockbox_api --bench pgp_compare -- \
   --iterations 5 \
   --scenario large-randomish \
   --lockbox-only \
@@ -54,7 +54,7 @@ Tooling:
 Command:
 
 ```sh
-cargo bench -p lockbox_core --bench pgp_compare -- \
+cargo bench -p revault_lockbox_api --bench pgp_compare -- \
   --iterations 3 \
   --root target/lockbox-gpg-bench-final \
   --output target/lockbox-gpg-bench-final/results.md

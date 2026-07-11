@@ -1,17 +1,19 @@
 [package]
-name = "lockbox_key_server"
-version = "0.1.0"
+name = "revault_key_server"
+version = "0.0.1"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
 description = "High-throughput reVault key rendezvous server"
+repository = "https://github.com/onepub-dev/reVault"
+documentation = "https://docs.rs/revault_key_server"
 
 [lib]
-name = "lockbox_key_server"
+name = "revault_key_server"
 path = "src/lib.rs"
 
 [[bin]]
-name = "lockbox_key_server"
+name = "revault_key_server"
 path = "src/main.rs"
 
 [dependencies]
@@ -34,7 +36,7 @@ lettre = { version = "0.11", default-features = false, features = [
     "smtp-transport",
     "rustls-tls",
 ] }
-lockbox_publish_protocol = { version = "0.1.0-alpha.1", path = "../lockbox_publish_protocol" }
+revault_publish_protocol = { version = "0.0.1", path = "../revault_publish_protocol" }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"
 tokio = { version = "1", features = ["net", "rt-multi-thread", "time"] }

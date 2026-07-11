@@ -1,5 +1,5 @@
-use lockbox_core::vault_integration::{OpenedContentKey, VaultOpen};
-use lockbox_core::{
+use revault_lockbox_api::vault_integration::{OpenedContentKey, VaultOpen};
+use revault_lockbox_api::{
     Error, Lockbox, LockboxOpen, LockboxProtection, OwnerSigningKeyPair, Result, SecretString,
 };
 use std::path::Path;
@@ -324,7 +324,7 @@ fn open_file(path: &Path, open: LockboxOpen<'_>) -> Result<Lockbox> {
     Lockbox::open_for_write(path, open, &signing_key)
 }
 
-fn default_owner_signing_key_required() -> Result<lockbox_core::OwnerSigningKeyPair> {
+fn default_owner_signing_key_required() -> Result<revault_lockbox_api::OwnerSigningKeyPair> {
     default_owner_signing_key()?.ok_or_else(|| {
         Error::VaultUnavailable(
             "vault owner signing key is unavailable; open or initialize the vault first"
@@ -333,7 +333,7 @@ fn default_owner_signing_key_required() -> Result<lockbox_core::OwnerSigningKeyP
     })
 }
 
-fn default_owner_signing_key() -> Result<Option<lockbox_core::OwnerSigningKeyPair>> {
+fn default_owner_signing_key() -> Result<Option<revault_lockbox_api::OwnerSigningKeyPair>> {
     let password = match SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
         Some(password) => Some(password),
         None => crate::get_platform_vault_password().ok().flatten(),
@@ -372,7 +372,7 @@ fn open_path_or_backup_with_password(
 
 fn open_path_or_backup_with_contact(
     path: &Path,
-    contact: &lockbox_core::ContactKeyPair,
+    contact: &revault_lockbox_api::ContactKeyPair,
 ) -> Result<OpenedContentKey> {
     match VaultOpen::path_with_contact(path, contact) {
         Ok(opened) => Ok(opened),

@@ -1,7 +1,7 @@
 use super::context::{open_existing, Access, CliResult};
 use super::optional_lockbox_value;
 use clap::ArgMatches;
-use lockbox_core::{ListOptions, Lockbox, LockboxPath};
+use revault_lockbox_api::{ListOptions, Lockbox, LockboxPath};
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     let lockbox_path = optional_lockbox_value(matches, "lockbox")?;
@@ -33,12 +33,12 @@ fn print_lockbox_visualization(lb: &Lockbox) -> CliResult<()> {
     })? {
         let entry = entry?;
         match entry.kind {
-            lockbox_core::LockboxEntryKind::File => {
+            revault_lockbox_api::LockboxEntryKind::File => {
                 file_count += 1;
                 total_file_bytes = total_file_bytes.saturating_add(entry.len);
             }
-            lockbox_core::LockboxEntryKind::Symlink => symlink_count += 1,
-            lockbox_core::LockboxEntryKind::Directory => {}
+            revault_lockbox_api::LockboxEntryKind::Symlink => symlink_count += 1,
+            revault_lockbox_api::LockboxEntryKind::Directory => {}
         }
     }
 

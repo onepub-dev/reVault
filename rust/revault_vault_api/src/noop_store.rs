@@ -1,4 +1,4 @@
-use lockbox_core::{LockboxId, Result, SecretVec};
+use revault_lockbox_api::{LockboxId, Result, SecretVec};
 
 use crate::ContentKeyStore;
 

@@ -186,7 +186,7 @@ preflight() {
 stage_iso() {
   if [[ "$SKIP_BUILD" -eq 0 ]]; then
     log "build Windows lockbox.exe"
-    cargo build -p lockbox_cli --target x86_64-pc-windows-gnu
+    cargo build -p revault_cli --target x86_64-pc-windows-gnu
   fi
 
   require_file "$ROOT/target/x86_64-pc-windows-gnu/debug/lockbox.exe"

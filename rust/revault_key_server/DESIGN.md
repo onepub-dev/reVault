@@ -26,17 +26,17 @@ key change -> pending changed key requiring verification
 The server lives in its own workspace crate:
 
 ```text
-lockbox_key_server/
+revault_key_server/
 ```
 
 This keeps HTTP, async runtime, rate limiting, deployment, and purge logic out
-of `lockbox_core` and `lockbox_vault`. Those crates should stay focused on
+of `revault_lockbox_api` and `revault_vault_api`. Those crates should stay focused on
 archive, key, and local vault behavior.
 
 If the CLI and server need published wire types, move those types into:
 
 ```text
-lockbox_publish_protocol/
+revault_publish_protocol/
 ```
 
 That protocol crate should avoid HTTP dependencies so the CLI can use it
@@ -44,7 +44,7 @@ without pulling in server runtime code.
 
 ## Published Protocol Crate
 
-`lockbox_publish_protocol` owns everything a client and server must agree on:
+`revault_publish_protocol` owns everything a client and server must agree on:
 
 ```text
 request/response binary envelopes
@@ -55,9 +55,9 @@ response decoders
 blocking client API
 ```
 
-The server crate depends on `lockbox_publish_protocol`; it must not carry a
+The server crate depends on `revault_publish_protocol`; it must not carry a
 private duplicate of the wire format. The CLI should also depend on
-`lockbox_publish_protocol` when it grows `lockbox vault identity publish`, `lockbox contact add
+`revault_publish_protocol` when it grows `lockbox vault identity publish`, `lockbox contact add
 --publish-code`, and `lockbox contact update --publish-code`.
 
 The client API should make the normal call flow explicit:
@@ -660,10 +660,10 @@ daemon on Linux hosts.
 Recommended commands:
 
 ```text
-lockbox_key_server install
-lockbox_key_server uninstall
-lockbox_key_server status
-lockbox_key_server run
+revault_key_server install
+revault_key_server uninstall
+revault_key_server status
+revault_key_server run
 ```
 
 `install` should:
@@ -712,7 +712,7 @@ Wants=network-online.target
 Type=simple
 User=lockbox-publish
 Group=lockbox-publish
-ExecStart=/usr/local/bin/lockbox_key_server run \
+ExecStart=/usr/local/bin/revault_key_server run \
   --config /etc/lockbox/key-server.toml
 Restart=always
 RestartSec=2

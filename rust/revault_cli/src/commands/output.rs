@@ -1,5 +1,5 @@
 use clap::ArgMatches;
-use lockbox_core::Error;
+use revault_lockbox_api::Error;
 
 use super::context::CliResult;
 

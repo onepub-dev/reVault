@@ -1,9 +1,9 @@
-use lockbox_core::{
+use revault_lockbox_api::{
     Lockbox, LockboxOpen, LockboxProtection, OwnerSigningKeyPair, SecretString, VariableName,
     VariableValueRef,
 };
 
-fn main() -> lockbox_core::Result<()> {
+fn main() -> revault_lockbox_api::Result<()> {
     let root = example_root("variables")?;
     let lockbox_file = root.join("variables.lbox");
     let pass_phrase = pass_phrase()?;
@@ -34,25 +34,26 @@ fn main() -> lockbox_core::Result<()> {
     Ok(())
 }
 
-fn variable(value: &str) -> lockbox_core::Result<VariableName> {
+fn variable(value: &str) -> revault_lockbox_api::Result<VariableName> {
     VariableName::new(value)
 }
 
-fn pass_phrase() -> lockbox_core::Result<SecretString> {
+fn pass_phrase() -> revault_lockbox_api::Result<SecretString> {
     Ok(SecretString::try_from_bytes(
         b"correct horse battery staple".to_vec(),
     )?)
 }
 
-fn example_root(name: &str) -> lockbox_core::Result<std::path::PathBuf> {
+fn example_root(name: &str) -> revault_lockbox_api::Result<std::path::PathBuf> {
     let root = std::env::temp_dir()
         .join("lockbox-core-examples")
         .join(name);
     match std::fs::remove_dir_all(&root) {
         Ok(()) => {}
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-        Err(err) => return Err(lockbox_core::Error::Io(err.to_string())),
+        Err(err) => return Err(revault_lockbox_api::Error::Io(err.to_string())),
     }
-    std::fs::create_dir_all(&root).map_err(|err| lockbox_core::Error::Io(err.to_string()))?;
+    std::fs::create_dir_all(&root)
+        .map_err(|err| revault_lockbox_api::Error::Io(err.to_string()))?;
     Ok(root)
 }

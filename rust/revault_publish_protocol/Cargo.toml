@@ -1,16 +1,16 @@
 [package]
-name = "lockbox_publish_protocol"
-version = "0.1.0-alpha.1"
+name = "revault_publish_protocol"
+version = "0.0.1"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
 description = "reVault key server wire protocol and client API"
 repository = "https://github.com/onepub-dev/reVault"
-documentation = "https://docs.rs/lockbox_publish_protocol"
+documentation = "https://docs.rs/revault_publish_protocol"
 readme = "README.md"
 
 [lib]
-name = "lockbox_publish_protocol"
+name = "revault_publish_protocol"
 path = "src/lib.rs"
 
 [dependencies]

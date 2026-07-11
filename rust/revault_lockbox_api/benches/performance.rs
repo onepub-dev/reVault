@@ -1,12 +1,12 @@
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use lockbox_core::{
+use revault_lockbox_api::{
     ContentStreamOptions, ContentStreamOrder, ExtractPolicy, FormFieldDefinition, FormFieldKind,
     ListOptions, Lockbox, LockboxPath, LockboxProtection, OpenFileOptions, OwnerSigningKeyPair,
     SecretString, SecretVec, VariableName,
 };
-use lockbox_secure::read_access as secure_read_access;
+use revault_page_api::read_access as secure_read_access;
 use std::fs;
 use std::io::{copy, sink, Read, Result as IoResult, Seek, SeekFrom, Write};
 use std::ops::{Deref, DerefMut};

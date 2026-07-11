@@ -12,7 +12,7 @@ use crate::active_secret::ActiveSecretRegistry;
 use crate::agent_config::AgentConfig;
 use crate::agent_log::log_agent_event;
 use crate::sleep_watcher::{SleepEvent, SleepWatcher};
-use lockbox_core::LockboxId;
+use revault_lockbox_api::LockboxId;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::BTreeMap;
 use std::env;

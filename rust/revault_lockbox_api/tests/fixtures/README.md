@@ -13,7 +13,7 @@ without adding binary churn. The normal test suite reads these files. To
 rewrite them after an intentional format change, run:
 
 ```sh
-LOCKBOX_UPDATE_FIXTURES=1 cargo test -p lockbox_core \
+LOCKBOX_UPDATE_FIXTURES=1 cargo test -p revault_lockbox_api \
   fixture_artifact_tests::write_fixture_artifacts -- --ignored
 ```
 

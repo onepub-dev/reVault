@@ -15,11 +15,11 @@ use lettre::transport::smtp::authentication::Credentials;
 use lettre::{Message, SmtpTransport, Transport as MailTransport};
 use sha2::{Digest, Sha256};
 
-use lockbox_publish_protocol::client::{HttpTransport, Transport};
-use lockbox_publish_protocol::payload;
-use lockbox_publish_protocol::protocol::{self, Operation, Reader, Status};
-use lockbox_publish_protocol::ClientError;
-use lockbox_publish_protocol::{
+use revault_publish_protocol::client::{HttpTransport, Transport};
+use revault_publish_protocol::payload;
+use revault_publish_protocol::protocol::{self, Operation, Reader, Status};
+use revault_publish_protocol::ClientError;
+use revault_publish_protocol::{
     build_ring_routes, decode_topology, decode_topology_registration, encode_replication_request,
     encode_topology, encode_topology_registration, publish_code_locator,
     publish_code_server_id_char, sign_replication_event, ClusterTopology, ReplicationEvent,
@@ -335,7 +335,7 @@ struct VerificationEmailJob {
 
 struct StatusCache {
     cached_at: Instant,
-    document: lockbox_publish_protocol::KeyServerStatus,
+    document: revault_publish_protocol::KeyServerStatus,
 }
 
 struct VerificationEntry {
@@ -1545,7 +1545,7 @@ impl PublishStore {
     }
 
     pub fn apply_replication_payload(&self, payload: &[u8]) -> Result<bool, StoreError> {
-        let request = lockbox_publish_protocol::decode_replication_request(payload)
+        let request = revault_publish_protocol::decode_replication_request(payload)
             .map_err(|err| StoreError::PayloadInvalid(err.to_string()))?;
         self.authorize_replication(&request)?;
         self.apply_replication_event(request.event)
@@ -1850,7 +1850,7 @@ impl PublishStore {
         }
     }
 
-    pub fn status_document(&self) -> lockbox_publish_protocol::KeyServerStatus {
+    pub fn status_document(&self) -> revault_publish_protocol::KeyServerStatus {
         let now = Instant::now();
         if let Ok(cache) = self.status_cache.lock() {
             if let Some(cache) = cache.as_ref() {
@@ -1860,7 +1860,7 @@ impl PublishStore {
             }
         }
         let stats = self.stats();
-        let document = lockbox_publish_protocol::KeyServerStatus {
+        let document = revault_publish_protocol::KeyServerStatus {
             created: stats.created,
             received: stats.received,
             deleted: stats.deleted,
@@ -2534,7 +2534,7 @@ fn send_replication_request(
                 transport.post_binary(request)?
             };
             protocol::decode_response(&response, 1024)
-                .map_err(lockbox_publish_protocol::ClientError::from)
+                .map_err(revault_publish_protocol::ClientError::from)
         }) {
             Ok(response) if response.status == Status::Success => {}
             Ok(response) => {

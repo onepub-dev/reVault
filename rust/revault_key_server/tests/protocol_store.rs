@@ -7,19 +7,19 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use lockbox_key_server::store::{PublishStore, ServerConfig, SmtpTlsMode, StoreError};
-use lockbox_publish_protocol::client::{ContactPublish, PublishClient};
-use lockbox_publish_protocol::protocol::{
+use revault_key_server::store::{PublishStore, ServerConfig, SmtpTlsMode, StoreError};
+use revault_publish_protocol::client::{ContactPublish, PublishClient};
+use revault_publish_protocol::protocol::{
     decode_request, encode_delete_request, encode_publish_request, encode_receive_request,
     Operation, Reader, Status,
 };
-use lockbox_publish_protocol::{
+use revault_publish_protocol::{
     encode_replication_request, sign_replication_event, ClusterTopology, ReplicationEvent,
     ReplicationEventKind, ReplicationRequest, ServerStatus, TopologyRoute, TopologyServer,
 };
 
 fn contact_payload(label: &str) -> Vec<u8> {
-    lockbox_publish_protocol::payload::encode_contact_publish(
+    revault_publish_protocol::payload::encode_contact_publish(
         &format!("{label}@example.com"),
         b"public-key-material",
         b"signing-public-key-material",
@@ -31,8 +31,8 @@ fn contact_payload(label: &str) -> Vec<u8> {
 }
 
 fn key_replacement_payload(label: &str) -> Vec<u8> {
-    lockbox_publish_protocol::payload::encode_key_replacement(
-        lockbox_publish_protocol::payload::KeyReplacement {
+    revault_publish_protocol::payload::encode_key_replacement(
+        revault_publish_protocol::payload::KeyReplacement {
             identity: &format!("{label}@example.com"),
             old_fingerprint: &[3_u8; 32],
             new_public_key: b"replacement-public-key-material",
@@ -87,7 +87,7 @@ fn store_attaches_email_verification_to_pending_publish() {
     let create = store
         .create_from_payload(
             &decode_request(
-                &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+                &revault_publish_protocol::protocol::encode_publish_request_with_email(
                     0,
                     2,
                     &payload,
@@ -128,7 +128,7 @@ fn store_does_not_receive_verified_publish_by_publisher_email_without_publish_co
     let store = PublishStore::open(config).unwrap();
     let payload = contact_payload("email-receive");
     let request = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &payload,
@@ -167,7 +167,7 @@ fn store_rate_limits_verification_email_by_contact() {
     let store = PublishStore::open(config).unwrap();
 
     let first = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &contact_payload("email-rate-contact-a"),
@@ -179,7 +179,7 @@ fn store_rate_limits_verification_email_by_contact() {
     store.create_from_payload(&first.payload).unwrap();
 
     let second = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &contact_payload("email-rate-contact-b"),
@@ -195,7 +195,7 @@ fn store_rate_limits_verification_email_by_contact() {
     assert!(store.is_verification_email_blocked("alice@example.test"));
 
     let malformed = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             b"not-a-contact-payload",
@@ -296,7 +296,7 @@ fn store_rejects_verification_email_publish_on_non_owner_server() {
     };
 
     let disallowed_request = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &contact_payload("email-owner-non-owner"),
@@ -311,7 +311,7 @@ fn store_rejects_verification_email_publish_on_non_owner_server() {
     ));
 
     let allowed_request = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &contact_payload("email-owner-owner"),
@@ -325,7 +325,7 @@ fn store_rejects_verification_email_publish_on_non_owner_server() {
         .unwrap();
 
     let backup_request = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &contact_payload("email-owner-backup"),
@@ -348,7 +348,7 @@ fn store_rate_limits_verification_email_by_ip_address() {
     let peer_ip = Some(IpAddr::from([127, 0, 0, 1]));
 
     let first = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &contact_payload("email-rate-ip-a"),
@@ -362,7 +362,7 @@ fn store_rate_limits_verification_email_by_ip_address() {
         .unwrap();
 
     let second = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &contact_payload("email-rate-ip-b"),
@@ -376,7 +376,7 @@ fn store_rate_limits_verification_email_by_ip_address() {
     assert!(store.is_rate_limit_blocked(peer_ip));
 
     let malformed = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             b"not-a-contact-payload",
@@ -396,7 +396,7 @@ fn store_reports_clean_email_send_failure_when_smtp_is_not_configured() {
     config.smtp_host = None;
     let store = PublishStore::open(config).unwrap();
     let request = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &contact_payload("email-send-not-configured"),
@@ -408,7 +408,7 @@ fn store_reports_clean_email_send_failure_when_smtp_is_not_configured() {
 
     let response = store.handle(request.operation, &request.payload);
     assert_status(&response, Status::StoreUnavailable);
-    let (_, message) = lockbox_publish_protocol::protocol::decode_error_payload(&response[14..])
+    let (_, message) = revault_publish_protocol::protocol::decode_error_payload(&response[14..])
         .expect("error payload");
     assert_eq!(message, "could not send verification email");
 }
@@ -446,11 +446,11 @@ fn create_publish(
     max_receives: u16,
     payload: &[u8],
     email: &str,
-) -> lockbox_key_server::store::CreatedPublish {
+) -> revault_key_server::store::CreatedPublish {
     store
         .create_from_payload(
             &decode_request(
-                &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+                &revault_publish_protocol::protocol::encode_publish_request_with_email(
                     ttl_seconds,
                     max_receives,
                     payload,
@@ -464,7 +464,7 @@ fn create_publish(
         .unwrap()
 }
 
-fn verify_publish(store: &PublishStore, create: &lockbox_key_server::store::CreatedPublish) {
+fn verify_publish(store: &PublishStore, create: &revault_key_server::store::CreatedPublish) {
     let (code, token) = verification_query_parts(create.verification_url.as_deref().unwrap());
     assert_eq!(code, create.publish_code);
     assert!(store.verify_email(&code, &token).success);
@@ -528,7 +528,7 @@ fn store_publishes_configured_topology() {
     assert_eq!(topology.version, 7);
     assert_eq!(topology.servers.len(), 2);
     assert_eq!(topology.routes[0].failover_ids, vec![1]);
-    lockbox_publish_protocol::encode_topology(&topology).unwrap();
+    revault_publish_protocol::encode_topology(&topology).unwrap();
 }
 
 #[test]
@@ -663,7 +663,7 @@ fn store_rejects_untyped_payload_bytes() {
     let (_guard, config) = temp_config("reject-untyped");
     let store = PublishStore::open(config).unwrap();
     let request = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             b"random crap",
@@ -698,7 +698,7 @@ fn payload_validator_rejects_bad_message_version() {
     let mut payload = contact_payload("bad-version");
     payload[4..6].copy_from_slice(&2_u16.to_be_bytes());
 
-    assert!(lockbox_publish_protocol::payload::validate_payload(&payload).is_err());
+    assert!(revault_publish_protocol::payload::validate_payload(&payload).is_err());
 }
 
 #[test]
@@ -902,7 +902,7 @@ fn encoded_requests_are_accepted_by_store_handler() {
     let payload = contact_payload("handler");
 
     let request = decode_request(
-        &lockbox_publish_protocol::protocol::encode_publish_request_with_email(
+        &revault_publish_protocol::protocol::encode_publish_request_with_email(
             900,
             1,
             &payload,
@@ -947,7 +947,7 @@ fn client_api_can_receive_publish_and_delete() {
     let addr = listener.local_addr().unwrap();
     let server_store = Arc::clone(&store);
     thread::spawn(move || {
-        let _ = lockbox_key_server::server::run_listener(listener, server_store);
+        let _ = revault_key_server::server::run_listener(listener, server_store);
     });
     thread::sleep(Duration::from_millis(50));
 
@@ -976,7 +976,7 @@ fn client_api_can_receive_publish_and_delete() {
     let received = client.receive(&published.publish_code).unwrap();
     assert_eq!(
         received.payload_type,
-        lockbox_publish_protocol::payload::PayloadType::ContactPublish
+        revault_publish_protocol::payload::PayloadType::ContactPublish
     );
     assert_eq!(received.remaining_receives, 1);
 

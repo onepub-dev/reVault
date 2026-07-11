@@ -1,4 +1,4 @@
-use lockbox_core::{LockboxId, Result, SecretVec};
+use revault_lockbox_api::{LockboxId, Result, SecretVec};
 use std::path::Path;
 
 /// Storage backend for opened Lockbox content keys.

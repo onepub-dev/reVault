@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "lockbox_core"
+name = "revault_lockbox_api"
 version = "0.1.0"
 dependencies = [
  "unicode-normalization",

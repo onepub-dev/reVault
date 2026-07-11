@@ -13,18 +13,18 @@ mod visualize;
 
 use clap::ArgMatches;
 use context::{cli_error, ensure_lockbox_path_accessible, Access, CliResult};
-use lockbox_core::{Error, SecretVec, WorkerPolicy};
-use lockbox_vault::SecretActivityKind;
+use revault_lockbox_api::{Error, SecretVec, WorkerPolicy};
+use revault_vault_api::SecretActivityKind;
 use std::env as std_env;
 use std::path::Path;
 
 pub(crate) fn run() -> CliResult<()> {
     let args: Vec<String> = normalize_form_define_separator(std::env::args().skip(1).collect());
     if args.first().map(String::as_str) == Some("__agent") {
-        return Ok(lockbox_vault::serve_agent()?);
+        return Ok(revault_vault_api::serve_agent()?);
     }
     if args.first().map(String::as_str) == Some("__agent_security_check") {
-        return Ok(lockbox_vault::verify_agent_transport_security()?);
+        return Ok(revault_vault_api::verify_agent_transport_security()?);
     }
     reject_variables_set_single_dash_secret(&args)?;
 
@@ -48,7 +48,7 @@ pub(crate) fn run() -> CliResult<()> {
         .subcommand()
         .ok_or_else(|| Error::InvalidInput("missing command".to_string()))?;
     let _secret_activity = command_secret_activity(command)
-        .map(lockbox_vault::begin_secret_activity)
+        .map(revault_vault_api::begin_secret_activity)
         .transpose()?;
     let access = read_access(&matches, command)?;
 

@@ -7,7 +7,7 @@ use std::process::Command;
 
 use crate::server_log::server_log_destination;
 
-const UNIT_PATH: &str = "/etc/systemd/system/lockbox_key_server.service";
+const UNIT_PATH: &str = "/etc/systemd/system/revault_key_server.service";
 const CONFIG_DIR: &str = "/etc/lockbox";
 const CONFIG_PATH: &str = "/etc/lockbox/key-server.toml";
 const STATE_DIR: &str = "/var/lib/lockbox-key-server";
@@ -39,16 +39,16 @@ pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Err
         unit_file(&std::env::current_exe()?.display().to_string()),
     )?;
     run("systemctl", &["daemon-reload"])?;
-    run("systemctl", &["enable", "lockbox_key_server.service"])?;
-    run("systemctl", &["restart", "lockbox_key_server.service"])?;
-    println!("installed lockbox_key_server systemd service");
+    run("systemctl", &["enable", "revault_key_server.service"])?;
+    run("systemctl", &["restart", "revault_key_server.service"])?;
+    println!("installed revault_key_server systemd service");
     Ok(())
 }
 
 pub fn uninstall_systemd(purge_data: bool) -> Result<(), Box<dyn std::error::Error>> {
     require_root()?;
-    let _ = run("systemctl", &["stop", "lockbox_key_server.service"]);
-    let _ = run("systemctl", &["disable", "lockbox_key_server.service"]);
+    let _ = run("systemctl", &["stop", "revault_key_server.service"]);
+    let _ = run("systemctl", &["disable", "revault_key_server.service"]);
     if Path::new(UNIT_PATH).exists() {
         fs::remove_file(UNIT_PATH)?;
     }
@@ -59,7 +59,7 @@ pub fn uninstall_systemd(purge_data: bool) -> Result<(), Box<dyn std::error::Err
         let _ = fs::remove_dir_all(LOG_DIR);
         let _ = fs::remove_file(CONFIG_PATH);
     }
-    println!("uninstalled lockbox_key_server systemd service");
+    println!("uninstalled revault_key_server systemd service");
     Ok(())
 }
 
@@ -68,12 +68,12 @@ pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
     println!("unit_installed={}", Path::new(UNIT_PATH).exists());
     println!(
         "unit_enabled={}",
-        systemctl_value(&["is-enabled", "lockbox_key_server.service"])
+        systemctl_value(&["is-enabled", "revault_key_server.service"])
             .unwrap_or_else(|| "unknown".to_string())
     );
     println!(
         "unit_active={}",
-        systemctl_value(&["is-active", "lockbox_key_server.service"])
+        systemctl_value(&["is-active", "revault_key_server.service"])
             .unwrap_or_else(|| "unknown".to_string())
     );
     println!("config_path={CONFIG_PATH}");
@@ -86,7 +86,7 @@ pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
         "unit_exec_start={}",
         systemctl_value(&[
             "show",
-            "lockbox_key_server.service",
+            "revault_key_server.service",
             "--property=ExecStart",
             "--value"
         ])
@@ -258,8 +258,8 @@ mod tests {
 
     #[test]
     fn unit_runs_from_config_and_restarts_on_boot_failures() {
-        let unit = unit_file("/usr/local/bin/lockbox_key_server");
-        assert!(unit.contains("ExecStart=/usr/local/bin/lockbox_key_server run --config "));
+        let unit = unit_file("/usr/local/bin/revault_key_server");
+        assert!(unit.contains("ExecStart=/usr/local/bin/revault_key_server run --config "));
         assert!(unit.contains(CONFIG_PATH));
         assert!(unit.contains("Restart=always"));
         assert!(unit.contains(&format!("Environment=LOCKBOX_KEY_SERVER_LOG={LOG_FILE}")));

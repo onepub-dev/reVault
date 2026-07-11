@@ -12,7 +12,7 @@ Default path:
 When installed with:
 
 ```bash
-sudo lockbox_key_server install
+sudo revault_key_server install
 ```
 
 the installer creates the config file if it does not already exist. Use

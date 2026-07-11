@@ -3,8 +3,8 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use clap::ArgMatches;
-use lockbox_core::Error;
-use lockbox_vault::{
+use revault_lockbox_api::Error;
+use revault_vault_api::{
     get_platform_vault_password, list as list_open_lockboxes, local_vault,
     platform_secret_store_status, put_platform_vault_password, set_auto_open_scope,
     stop as stop_agent, verify_agent_transport_security, AutoOpenScope,
@@ -62,7 +62,7 @@ fn set_default_lockbox(lockbox_path: &str) -> CliResult<()> {
 
 fn list_sessions(format: super::output::OutputFormat) -> CliResult<()> {
     let agent_enabled = agent_enabled();
-    let agent_running = lockbox_vault::is_running();
+    let agent_running = revault_vault_api::is_running();
     let auto_open = platform_secret_store_status()?;
     let vault_pass_phrase_stored = platform_vault_pass_phrase_stored();
     if !matches!(format, super::output::OutputFormat::Table) {
@@ -262,7 +262,7 @@ fn write_default_lockbox(lockbox_path: &str) -> CliResult<()> {
 }
 
 fn default_lockbox_path() -> CliResult<PathBuf> {
-    Ok(lockbox_vault::default_vault_dir()?.join(".default-lockbox"))
+    Ok(revault_vault_api::default_vault_dir()?.join(".default-lockbox"))
 }
 
 pub(crate) fn default_lockbox_or_none() -> CliResult<Option<String>> {

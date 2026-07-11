@@ -5,9 +5,9 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use lockbox_key_server::server::run_listener;
-use lockbox_key_server::store::{PublishStore, ServerConfig};
-use lockbox_publish_protocol::{
+use revault_key_server::server::run_listener;
+use revault_key_server::store::{PublishStore, ServerConfig};
+use revault_publish_protocol::{
     decode_topology, encode_replication_request, encode_topology_registration, protocol,
     sign_replication_event, ReplicationEvent, ReplicationEventKind, ReplicationRequest,
     ServerStatus, TopologyRegistration,

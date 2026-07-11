@@ -98,8 +98,8 @@ impl Error {
 
 impl std::error::Error for Error {}
 
-impl From<lockbox_secure::Error> for Error {
-    fn from(err: lockbox_secure::Error) -> Self {
+impl From<revault_page_api::Error> for Error {
+    fn from(err: revault_page_api::Error) -> Self {
         Error::SecurityLimitExceeded(err.to_string())
     }
 }

@@ -1,10 +1,10 @@
 [workspace]
 members = [
-    "lockbox_secure",
-    "lockbox_core",
-    "lockbox_vault",
-    "lockbox_cli",
-    "lockbox_publish_protocol",
-    "lockbox_key_server",
+    "revault_page_api",
+    "revault_lockbox_api",
+    "revault_vault_api",
+    "revault_cli",
+    "revault_publish_protocol",
+    "revault_key_server",
 ]
 resolver = "2"

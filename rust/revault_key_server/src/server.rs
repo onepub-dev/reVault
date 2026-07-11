@@ -14,10 +14,10 @@ use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
-use lockbox_publish_protocol::payload;
-use lockbox_publish_protocol::protocol::{self, Operation, Status};
-use lockbox_publish_protocol::status;
-use lockbox_publish_protocol::topology;
+use revault_publish_protocol::payload;
+use revault_publish_protocol::protocol::{self, Operation, Status};
+use revault_publish_protocol::status;
+use revault_publish_protocol::topology;
 use serde::Deserialize;
 
 const MAX_WIRE_OVERHEAD: usize = 128;
@@ -30,7 +30,7 @@ pub fn run_server(bind: &str, store: Arc<PublishStore>) -> std::io::Result<()> {
 
 pub fn run_listener(listener: TcpListener, store: Arc<PublishStore>) -> std::io::Result<()> {
     let local_addr = listener.local_addr()?;
-    log_server_event(format!("lockbox_key_server listening on {local_addr}"));
+    log_server_event(format!("revault_key_server listening on {local_addr}"));
     start_background_maintenance(&store);
     listener.set_nonblocking(true)?;
     let runtime = tokio::runtime::Builder::new_multi_thread()

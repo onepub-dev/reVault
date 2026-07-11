@@ -24,8 +24,8 @@
 //! For the runtime behavior, command integration, and security settings, see the
 //! project documentation in `docs/lockbox_session_agent.md`.
 
-/// Secure string type re-exported from `lockbox_core`.
-pub use lockbox_core::{SecretString, SecretVec};
+/// Secure string type re-exported from `revault_lockbox_api`.
+pub use revault_lockbox_api::{SecretString, SecretVec};
 
 mod active_secret;
 mod agent_client;

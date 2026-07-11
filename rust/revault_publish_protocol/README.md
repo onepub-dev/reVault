@@ -1,4 +1,4 @@
-# lockbox_publish_protocol
+# revault_publish_protocol
 
 Wire protocol types, binary encoders/decoders, and client helpers for the
 reVault publish/key rendezvous service.
@@ -19,7 +19,7 @@ surface only; it does not run a server or manage vault storage.
 ## Example
 
 ```rust
-use lockbox_publish_protocol::{PublishClient, encode_contact_publish};
+use revault_publish_protocol::{PublishClient, encode_contact_publish};
 
 fn publish_contact() -> Result<(), Box<dyn std::error::Error>> {
     let client = PublishClient::new("https://keypublish.example/v1/publish")?;
@@ -48,7 +48,7 @@ Use `ClusterTopology` and the topology helpers when a client needs deterministic
 routing across multiple publish servers:
 
 ```rust
-use lockbox_publish_protocol::{ClusterTopology, decode_topology};
+use revault_publish_protocol::{ClusterTopology, decode_topology};
 
 fn server_urls(bytes: &[u8], publish_code: &str) -> Vec<String> {
     let topology: ClusterTopology = decode_topology(bytes).unwrap();

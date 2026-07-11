@@ -1,7 +1,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use lockbox_core::{OwnerSigningKeyPair, RecoveryScanner};
+use revault_lockbox_api::{OwnerSigningKeyPair, RecoveryScanner};
 
 fuzz_target!(|data: &[u8]| {
     let _ = RecoveryScanner::scan_bytes(data.to_vec(), b"fuzz key");

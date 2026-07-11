@@ -60,12 +60,12 @@ fn platform_log_destination() -> &'static str {
 
 #[cfg(target_os = "macos")]
 fn platform_log_destination() -> &'static str {
-    "macOS system log source lockbox_key_server"
+    "macOS system log source revault_key_server"
 }
 
 #[cfg(all(unix, not(target_os = "macos")))]
 fn platform_log_destination() -> &'static str {
-    "system log source lockbox_key_server"
+    "system log source revault_key_server"
 }
 
 #[cfg(not(any(unix, windows)))]
@@ -79,7 +79,7 @@ fn write_platform_log(message: &str) -> std::io::Result<()> {
     use std::sync::Once;
 
     static INIT: Once = Once::new();
-    static IDENT: &[u8] = b"lockbox_key_server\0";
+    static IDENT: &[u8] = b"revault_key_server\0";
     static FORMAT: &[u8] = b"%s\0";
 
     let message = CString::new(message.replace('\0', "\\0")).map_err(std::io::Error::other)?;
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn env_override_writes_file_log() {
         let path = env::temp_dir().join(format!(
-            "lockbox_key_server-log-test-{}.log",
+            "revault_key_server-log-test-{}.log",
             unix_time_millis()
         ));
         env::set_var(LOG_ENV, &path);

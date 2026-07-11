@@ -8,14 +8,14 @@ use std::process::{Command, Output, Stdio};
 use std::thread;
 use std::time::Duration;
 
-use lockbox_core::{Lockbox, LockboxOpen, OwnerSigningKeyPair, SecretVec};
-use lockbox_vault::{
+use revault_lockbox_api::{Lockbox, LockboxOpen, OwnerSigningKeyPair, SecretVec};
+use revault_vault_api::{
     decode_hex, encode_hex, import_private_key, import_private_key_file, import_public_key,
     public_key_fingerprint, SecretString, VaultDirectory,
 };
 
 #[test]
-fn lbx_binary_is_alias_for_lockbox_cli() {
+fn lbx_binary_is_alias_for_revault_cli() {
     let bin = env!("CARGO_BIN_EXE_lbx");
 
     let help = run_output(bin, &["--help"]);

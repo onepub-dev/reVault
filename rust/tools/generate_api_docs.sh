@@ -3,9 +3,9 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-cargo doc -p lockbox_core --no-deps
+cargo doc -p revault_lockbox_api --no-deps
 
 cat <<'MSG'
-Generated lockbox_core API docs:
-  target/doc/lockbox_core/index.html
+Generated revault_lockbox_api API docs:
+  target/doc/revault_lockbox_api/index.html
 MSG

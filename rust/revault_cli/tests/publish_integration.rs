@@ -9,8 +9,8 @@ use std::process::{Command, Output};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use lockbox_key_server::{server::run_listener, store::PublishStore, store::ServerConfig};
-use lockbox_publish_protocol::{
+use revault_key_server::{server::run_listener, store::PublishStore, store::ServerConfig};
+use revault_publish_protocol::{
     decode_contact_publish, publish_code_locator, PublishClientPool, ServerStatus, TopologyRoute,
     TopologyServer,
 };
@@ -378,7 +378,7 @@ impl TwoServerCluster {
         {
             server.url = unused_publish_url();
         }
-        let topology = lockbox_publish_protocol::ClusterTopology {
+        let topology = revault_publish_protocol::ClusterTopology {
             cluster_id: "cli-integration".to_string(),
             version: 1,
             servers,

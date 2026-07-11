@@ -7,17 +7,17 @@ use super::form::{default_form_alias, parse_field_spec, print_form_definition_sa
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use super::session::{default_matches, replace_default_after_move};
 use clap::ArgMatches;
-use lockbox_core::vault_integration::VaultOpen;
-use lockbox_core::{
+use revault_lockbox_api::vault_integration::VaultOpen;
+use revault_lockbox_api::{
     lock_path_for, ContactKeyPair, ContactPublicKey, Error, FileLockScope, Lockbox,
     OwnerSigningKeyPair, OwnerSigningPublicKey, ScopedFileLock, SecretVec,
 };
-use lockbox_publish_protocol::protocol::Status;
-use lockbox_publish_protocol::{
+use revault_publish_protocol::protocol::Status;
+use revault_publish_protocol::{
     contact_fingerprint, normalize_contact_email, ClientError, ContactPublish, PublishClientPool,
     StickyPublishServer,
 };
-use lockbox_vault::{
+use revault_vault_api::{
     backup_default_vault, decode_fingerprint_crockford_96, decode_fingerprint_hex,
     default_vault_dir, default_vault_path, encode_hex, export_private_key, export_public_key,
     forget_platform_vault_password, format_fingerprint_crockford_96 as format_fingerprint_code,
@@ -229,7 +229,7 @@ fn form_define_matches(matches: &ArgMatches) -> CliResult<()> {
         .unwrap_or_default()
         .to_string();
     let type_id = optional_value(matches, "definition-id")
-        .map(lockbox_core::FormTypeId::new)
+        .map(revault_lockbox_api::FormTypeId::new)
         .transpose()?;
     let fields = string_values(matches, "field")
         .iter()
@@ -242,8 +242,8 @@ fn form_define_options(
     alias: String,
     name: String,
     description: String,
-    type_id: Option<lockbox_core::FormTypeId>,
-    fields: Vec<lockbox_core::FormFieldDefinition>,
+    type_id: Option<revault_lockbox_api::FormTypeId>,
+    fields: Vec<revault_lockbox_api::FormFieldDefinition>,
 ) -> CliResult<()> {
     let vault = default_vault()?;
     let definition = if let Some(type_id) = type_id {
@@ -647,7 +647,7 @@ fn receive_publish_options(options: PublishCliOptions) -> CliResult<()> {
         )
         .into());
     }
-    let published_contact = lockbox_publish_protocol::decode_contact_publish(&received.payload)?;
+    let published_contact = revault_publish_protocol::decode_contact_publish(&received.payload)?;
     let computed_fingerprint = contact_fingerprint(
         &verification.email,
         &published_contact.public_key,
@@ -1377,7 +1377,7 @@ struct KnownLockboxListRow {
     path: String,
 }
 
-fn known_lockbox_list_row(lockbox: &lockbox_vault::KnownLockbox) -> KnownLockboxListRow {
+fn known_lockbox_list_row(lockbox: &revault_vault_api::KnownLockbox) -> KnownLockboxListRow {
     let path = Path::new(&lockbox.path);
     let mut owner = "-".to_string();
     let mut size = "-".to_string();
@@ -1705,8 +1705,8 @@ mod tests {
         format_fingerprint_reading, format_hex_pairs, format_unix_ms_utc,
         verify_fingerprint_channel, PUBLISH_RECEIVE_VERIFICATION_ADVICE,
     };
-    use lockbox_publish_protocol::protocol::Status;
-    use lockbox_publish_protocol::ClientError;
+    use revault_publish_protocol::protocol::Status;
+    use revault_publish_protocol::ClientError;
 
     #[test]
     fn publish_expiry_uses_human_readable_utc_time() {

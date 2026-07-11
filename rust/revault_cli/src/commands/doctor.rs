@@ -1,7 +1,7 @@
 use super::context::{cli_error, CliResult};
 use clap::ArgMatches;
-use lockbox_core::{Error, Lockbox, LockboxFileInspection, LockboxKeySlotProtection};
-use lockbox_vault::{
+use revault_lockbox_api::{Error, Lockbox, LockboxFileInspection, LockboxKeySlotProtection};
+use revault_vault_api::{
     agent_log_destination, agent_sleep_support, default_vault_path, get_platform_vault_password,
     is_running, list, local_vault, platform_secret_store_disabled, platform_secret_store_status,
     verify_agent_transport_security, SecretString, VaultDirectory,
@@ -142,7 +142,7 @@ fn run_lockbox(lockbox_path: &str) -> CliResult<()> {
     println!();
     print_lockbox_session(&inspection);
     println!();
-    print_lockbox_vault(&inspection);
+    print_revault_vault_api(&inspection);
     println!();
     print_open_checks(path, lockbox_path);
     Ok(())
@@ -200,7 +200,7 @@ fn print_lockbox_session(inspection: &LockboxFileInspection) {
     }
 }
 
-fn print_lockbox_vault(inspection: &LockboxFileInspection) {
+fn print_revault_vault_api(inspection: &LockboxFileInspection) {
     println!("Local vault");
     match default_vault_noninteractive() {
         Ok(Some(vault)) => {

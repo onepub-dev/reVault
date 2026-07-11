@@ -1,4 +1,4 @@
-use lockbox_vault::SecretString;
+use revault_vault_api::SecretString;
 use std::io::{self, Read, Write};
 
 pub(crate) fn prompt_secret(prompt: &str) -> io::Result<SecretString> {

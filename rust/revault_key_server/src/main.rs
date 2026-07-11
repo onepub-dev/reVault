@@ -8,8 +8,8 @@ use std::time::Duration;
 
 use clap::{error::ErrorKind, Arg, ArgAction, ArgMatches, Command};
 use install::{install_systemd, print_status, uninstall_systemd};
-use lockbox_key_server::{install, server, server_log, store};
-use lockbox_publish_protocol::{ServerStatus, TopologyRoute, TopologyServer};
+use revault_key_server::{install, server, server_log, store};
+use revault_publish_protocol::{ServerStatus, TopologyRoute, TopologyServer};
 use server::{bench_http, bench_http_flow, bench_http_receive, run_server};
 use server_log::log_server_event;
 use store::{PublishStore, ServerConfig, SmtpTlsMode};
@@ -34,7 +34,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         print_help(args.iter().any(|arg| arg == "--dev"));
         return Ok(());
     }
-    let mut argv = vec!["lockbox_key_server".to_string()];
+    let mut argv = vec!["revault_key_server".to_string()];
     argv.extend(args.iter().cloned());
     let matches = match key_server_command(args.iter().any(|arg| arg == "--dev"))
         .try_get_matches_from(argv)
@@ -93,7 +93,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn key_server_command(dev_help: bool) -> Command {
-    Command::new("lockbox_key_server")
+    Command::new("revault_key_server")
         .about("High-throughput reVault key rendezvous server")
         .subcommand(add_config_args(
             Command::new("run").about("Run the key server"),
@@ -475,16 +475,16 @@ fn require_dev_command(
 
 fn print_help(dev: bool) {
     println!("Usage:");
-    println!("  lockbox_key_server run [--config PATH] [--bind ADDR] [--dev]");
-    println!("  lockbox_key_server install [--force-config]");
-    println!("  lockbox_key_server uninstall [--purge-data]");
-    println!("  lockbox_key_server status");
-    println!("  lockbox_key_server resync-peer [--config PATH] --peer-url URL");
+    println!("  revault_key_server run [--config PATH] [--bind ADDR] [--dev]");
+    println!("  revault_key_server install [--force-config]");
+    println!("  revault_key_server uninstall [--purge-data]");
+    println!("  revault_key_server status");
+    println!("  revault_key_server resync-peer [--config PATH] --peer-url URL");
     if dev {
-        println!("  lockbox_key_server bench-store [--dev options]");
-        println!("  lockbox_key_server bench-http [--dev options]");
-        println!("  lockbox_key_server bench-http-receive [--dev options]");
-        println!("  lockbox_key_server bench-http-flow [--dev options]");
+        println!("  revault_key_server bench-store [--dev options]");
+        println!("  revault_key_server bench-http [--dev options]");
+        println!("  revault_key_server bench-http-receive [--dev options]");
+        println!("  revault_key_server bench-http-flow [--dev options]");
     }
     println!();
     println!("Options:");
@@ -1175,8 +1175,8 @@ fn parse_server_id(value: &str) -> Result<u8, Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::{apply_config_file, config_from_args, require_dev_command};
-    use lockbox_key_server::store::{ServerConfig, SmtpTlsMode};
-    use lockbox_publish_protocol::ServerStatus;
+    use revault_key_server::store::{ServerConfig, SmtpTlsMode};
+    use revault_publish_protocol::ServerStatus;
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};

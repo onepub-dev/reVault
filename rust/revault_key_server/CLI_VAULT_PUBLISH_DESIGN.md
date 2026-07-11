@@ -281,7 +281,7 @@ configuration error.
 
 ## Published Protocol Crate
 
-`lockbox_publish_protocol` is the only crate that owns the published payload wire protocol
+`revault_publish_protocol` is the only crate that owns the published payload wire protocol
 and typed publish payload encoding.
 
 It provides:
@@ -297,7 +297,7 @@ blocking PublishClient
 transport trait for tests and future TLS support
 ```
 
-The CLI must depend on `lockbox_publish_protocol`; it must not duplicate protocol
+The CLI must depend on `revault_publish_protocol`; it must not duplicate protocol
 parsing or manually build key server request bytes.
 
 ## Verification Code
@@ -928,7 +928,7 @@ Do not use JSON for contact, history, identity, or replacement records.
 
 1. Add CLI config module with `publish.server` YAML support and default
    `keypublish.revault.onepub.dev`.
-2. Add binary contact record codec to `lockbox_vault`.
+2. Add binary contact record codec to `revault_vault_api`.
 3. Replace trusted-contact vault APIs with contact-record APIs.
 4. Update access resolution to load only verified contact current keys and warn
    on pending replacement.

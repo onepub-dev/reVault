@@ -1,6 +1,6 @@
 [package]
 name = "lockbox-fuzz"
-version = "0.0.0"
+version = "0.0.1"
 edition = "2021"
 publish = false
 
@@ -11,7 +11,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-lockbox_core = { path = "../lockbox_core" }
+revault_lockbox_api = { path = "../revault_lockbox_api" }
 
 [[bin]]
 name = "header"

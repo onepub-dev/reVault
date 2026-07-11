@@ -16,7 +16,7 @@ export LOCKBOX_SHARE_E2E_WORKERS="${LOCKBOX_SHARE_E2E_WORKERS:-128}"
     echo "workers=${LOCKBOX_SHARE_E2E_WORKERS}"
     rustc --version
     cargo --version
-    cargo test -p lockbox_key_server --test e2e_failover heavy_failover_recovery_under_load -- --ignored --nocapture
+    cargo test -p revault_key_server --test e2e_failover heavy_failover_recovery_under_load -- --ignored --nocapture
 } 2>&1 | tee "${log}"
 
 echo "performance_log=${log}"
