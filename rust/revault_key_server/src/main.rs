@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::{error::ErrorKind, Arg, ArgAction, ArgMatches, Command};
-use install::{install_systemd, print_status, uninstall_systemd};
+use install::{install_systemd, print_status, uninstall_systemd, CONFIG_PATH};
 use revault_key_server::{install, server, server_log, store};
 use revault_publish_protocol::{ServerStatus, TopologyRoute, TopologyServer};
 use server::{bench_http, bench_http_flow, bench_http_receive, run_server};
@@ -27,12 +27,17 @@ fn main() -> ExitCode {
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args: Vec<String> = env::args().skip(1).collect();
-    if args.first().is_none_or(|arg| arg.starts_with('-')) {
-        args.insert(0, "run".to_string());
-    }
-    if args.first().is_some_and(|arg| arg == "help") {
-        print_help(args.iter().any(|arg| arg == "--dev"));
+    let wants_help = args.iter().any(|arg| arg == "--help" || arg == "-h");
+    let wants_version = args.iter().any(|arg| arg == "--version" || arg == "-V");
+    let root_help = args.first().is_some_and(|arg| arg == "help")
+        || (args.first().is_some_and(|arg| arg.starts_with('-')) && wants_help);
+    if root_help {
+        key_server_command(true).print_help()?;
+        println!();
         return Ok(());
+    }
+    if args.is_empty() || (!wants_version && args.first().is_some_and(|arg| arg.starts_with('-'))) {
+        args.insert(0, "run".to_string());
     }
     let mut argv = vec!["revault_key_server".to_string()];
     argv.extend(args.iter().cloned());
@@ -50,6 +55,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(("run", _)) => {
             let config = config_from_args(args[1..].to_vec())?;
             let bind = config.bind_addr.clone();
+            println!("reVault key server starting");
+            println!("  bind address: {bind}");
+            println!("  state directory: {}", config.state_dir.display());
+            println!(
+                "  public URL: {}",
+                config.public_url.as_deref().unwrap_or("not configured")
+            );
             let store = Arc::new(PublishStore::open(config)?);
             store.start_topology_background();
             run_server(&bind, store)?;
@@ -57,6 +69,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Some(("install", command)) => install_systemd(command.get_flag("force-config"))?,
         Some(("uninstall", command)) => uninstall_systemd(command.get_flag("purge-data"))?,
         Some(("status", _)) => print_status()?,
+        Some(("doctor", _)) => print_doctor()?,
         Some(("resync-peer", _)) => {
             let (mut config_args, peer_url) = split_peer_url_args(args[1..].to_vec())?;
             let config = config_from_args(std::mem::take(&mut config_args))?;
@@ -94,6 +107,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
 fn key_server_command(dev_help: bool) -> Command {
     Command::new("revault_key_server")
+        .version(env!("CARGO_PKG_VERSION"))
         .about("High-throughput reVault key rendezvous server")
         .subcommand(add_config_args(
             Command::new("run").about("Run the key server"),
@@ -120,6 +134,7 @@ fn key_server_command(dev_help: bool) -> Command {
                 ),
         )
         .subcommand(Command::new("status").about("Print service status"))
+        .subcommand(Command::new("doctor").about("Check the installed service and configuration"))
         .subcommand(add_config_args(
             Command::new("resync-peer")
                 .about("Resync live publishes to a peer")
@@ -157,6 +172,46 @@ fn key_server_command(dev_help: bool) -> Command {
                 .hide(!dev_help),
             dev_help,
         ))
+}
+
+fn print_doctor() -> Result<(), Box<dyn std::error::Error>> {
+    println!("reVault key server doctor");
+    print_status()?;
+
+    let config_path = PathBuf::from(CONFIG_PATH);
+    if !config_path.exists() {
+        println!("config_valid=false");
+        println!("action=run `sudo lockbox_key_server install` to create the configuration");
+        return Ok(());
+    }
+
+    let config = config_from_args(vec!["--config".to_string(), CONFIG_PATH.to_string()])?;
+    let smtp_configured = config.smtp_host.is_some()
+        && config.smtp_username.is_some()
+        && config.smtp_password.is_some();
+
+    println!("config_valid=true");
+    println!("bind_addr={}", config.bind_addr);
+    println!(
+        "public_url={}",
+        config.public_url.as_deref().unwrap_or("not configured")
+    );
+    println!("state_dir={}", config.state_dir.display());
+    println!("state_dir_exists={}", config.state_dir.exists());
+    println!("topology_servers={}", config.topology_servers.len());
+    println!("topology_routes={}", config.topology_routes.len());
+    println!("smtp_configured={smtp_configured}");
+
+    if config.public_url.is_none() {
+        println!("warning=public_url is not configured; external clients cannot route reliably");
+    }
+    if !smtp_configured {
+        println!("warning=SMTP is incomplete; email verification will not work");
+    }
+    if !config.state_dir.exists() {
+        println!("warning=state directory does not exist yet; it will be created when the service starts");
+    }
+    Ok(())
 }
 
 fn config_command(dev_help: bool) -> Command {

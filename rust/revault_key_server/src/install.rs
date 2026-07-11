@@ -9,7 +9,7 @@ use crate::server_log::server_log_destination;
 
 const UNIT_PATH: &str = "/etc/systemd/system/revault_key_server.service";
 const CONFIG_DIR: &str = "/etc/revault";
-const CONFIG_PATH: &str = "/etc/revault/key-server.toml";
+pub const CONFIG_PATH: &str = "/etc/revault/key-server.toml";
 const STATE_DIR: &str = "/var/lib/lockbox-key-server";
 const CACHE_DIR: &str = "/var/cache/lockbox-key-server";
 const LOG_DIR: &str = "/var/log/lockbox-key-server";
