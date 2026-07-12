@@ -386,12 +386,8 @@ fn require_root(command: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn sudo_command(executable: &str, command: &str) -> String {
-    if command == "install" {
-        "sudo revault_key_server install".to_string()
-    } else {
-        format!("sudo {executable} {command}")
-    }
+fn sudo_command(_executable: &str, command: &str) -> String {
+    format!("sudo revault_key_server {command}")
 }
 
 #[cfg(unix)]
@@ -592,10 +588,10 @@ mod tests {
     }
 
     #[test]
-    fn other_privileged_commands_keep_the_actual_binary_path() {
+    fn other_privileged_commands_use_the_system_path() {
         assert_eq!(
             sudo_command("/usr/local/bin/revault_key_server", "doctor"),
-            "sudo /usr/local/bin/revault_key_server doctor"
+            "sudo revault_key_server doctor"
         );
     }
 
