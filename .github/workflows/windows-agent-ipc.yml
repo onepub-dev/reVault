@@ -21,6 +21,9 @@ on:
       - "rust/revault_cli/tests/agent_flow.rs"
       - ".github/workflows/windows-agent-ipc.yml"
 
+permissions:
+  contents: read
+
 jobs:
   agent-ipc:
     name: ${{ matrix.os }} agent IPC smoke
