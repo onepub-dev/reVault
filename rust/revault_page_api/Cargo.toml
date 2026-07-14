@@ -24,7 +24,7 @@ getrandom = { version = "0.4", features = ["wasm_js"] }
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = [
+windows-sys = { version = "0.61", features = [
     "Win32_System_Memory",
     "Win32_System_SystemInformation",
 ] }
