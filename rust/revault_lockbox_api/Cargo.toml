@@ -31,7 +31,7 @@ unicode-normalization = "0.1"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 zeroize = "1.9"
 ruzstd = { version = "0.8.3", git = "https://github.com/bsutton/zstd-rs", rev = "3f877ed916fd2a8687913f5c130f5f81c7dbcd2b" }
-sysinfo = { version = "0.38.4", default-features = false, features = [
+sysinfo = { version = "0.39.6", default-features = false, features = [
     "system",
 ] }
 zstd = { version = "0.13.3", default-features = false, optional = true }
