@@ -1,8 +1,8 @@
 [package]
 name = "revault_lockbox_api"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.95"
 license-file = "LICENSE"
 description = "reVault lockbox API to create and manage lockboxes"
 repository = "https://github.com/onepub-dev/reVault"
@@ -15,6 +15,8 @@ path = "src/lib.rs"
 
 [features]
 vault-integration = []
+bindings = []
+migration = []
 native-zstd-encoder = ["dep:zstd"]
 
 [dependencies]
@@ -31,9 +33,6 @@ unicode-normalization = "0.1"
 x25519-dalek = { version = "2", features = ["static_secrets"] }
 zeroize = "1.9"
 ruzstd = { version = "0.8.3", git = "https://github.com/bsutton/zstd-rs", rev = "3f877ed916fd2a8687913f5c130f5f81c7dbcd2b" }
-sysinfo = { version = "0.38.4", default-features = false, features = [
-    "system",
-] }
 zstd = { version = "0.13.3", default-features = false, optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
@@ -46,15 +45,24 @@ oxiarc-zstd = "0.2"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+] }
+
 [[bench]]
 name = "performance"
 harness = false
+test = false
 
 [[bench]]
 name = "pgp_compare"
 harness = false
+test = false
 
 [[bench]]
 name = "compression_corpus"
 path = "benches/probes/compression_corpus.rs"
 harness = false
+test = false

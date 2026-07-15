@@ -1,0 +1,10 @@
+{
+  "name": "revault-api-workspace",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "javascript",
+    "typescript",
+    "wasm"
+  ]
+}

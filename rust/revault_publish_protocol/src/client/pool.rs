@@ -83,16 +83,41 @@ impl PublishClientPool<HttpTransport> {
     }
 
     pub fn discover(topology_url: &str) -> Result<Self, ClientError> {
-        let bytes = HttpTransport::get_topology(topology_url).ok_or_else(|| {
-            ClientError::Topology(format!("topology discovery failed for {topology_url}"))
-        })?;
+        Self::discover_from_urls([topology_url])
+    }
+
+    pub fn discover_from_urls<I, S>(topology_urls: I) -> Result<Self, ClientError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let topology_urls = topology_urls
+            .into_iter()
+            .map(|url| url.as_ref().to_string())
+            .collect::<Vec<_>>();
+        if topology_urls.is_empty() {
+            return Err(ClientError::Topology(
+                "at least one topology discovery url is required".to_string(),
+            ));
+        }
+        let bytes = topology_urls
+            .iter()
+            .find_map(|url| HttpTransport::get_topology(url))
+            .ok_or_else(|| {
+                ClientError::Topology(format!(
+                    "topology discovery failed for {}",
+                    topology_urls.join(", ")
+                ))
+            })?;
         let topology = topology::decode_topology(&bytes)?;
         let pool = Self::from_topology(&topology)?;
         {
             let mut state = pool.state.lock().map_err(publish_state_poisoned)?;
             let mut topology_server_urls = topology_urls_from_servers(&topology.servers);
-            if let Some(topology_url) = topology_url_from_publish_url(topology_url) {
-                topology_server_urls.push(topology_url);
+            for bootstrap_url in &topology_urls {
+                if let Some(topology_url) = topology_url_from_publish_url(bootstrap_url) {
+                    topology_server_urls.push(topology_url);
+                }
             }
             state.topology_server_urls = dedupe_urls(topology_server_urls);
             state.topology_refreshed_ms = unix_ms_now();
@@ -318,7 +343,7 @@ impl<T: Transport> PublishClientPool<T> {
         contact: ContactPublish<'_>,
     ) -> Result<PublishResult, ClientError> {
         let payload = payload::encode_contact_publish(
-            contact.identity,
+            contact.profile,
             contact.public_key,
             contact.signing_public_key,
             contact.fingerprint,

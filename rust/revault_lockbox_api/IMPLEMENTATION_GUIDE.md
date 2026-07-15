@@ -71,8 +71,8 @@ The cache should support different memory profiles without changing behavior:
 - `Interactive`: keep recently used metadata and data pages decoded.
 - `BulkImport`: keep hot metadata pages and flush file-data pages promptly.
 - `Recovery`: keep minimal state and tolerate corrupt pages.
-- `CacheLimit::Auto`: choose a conservative memory budget from available system
-  memory.
+- `CacheLimit::Auto`: use a conservative fixed platform default. Callers that
+  know their memory budget should select `CacheLimit::Bytes` explicitly.
 
 Disabling or limiting the cache must not change archive correctness. It should
 only affect performance.

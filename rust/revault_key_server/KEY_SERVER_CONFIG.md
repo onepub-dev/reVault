@@ -1,7 +1,9 @@
 # Key Server Configuration
 
 The reVault key server reads its server configuration from a TOML-style config
-file.
+file. Each process is simultaneously a publish/receive service, a topology
+endpoint, and (when configured) a replication peer. There is no separate
+topology-server process.
 
 Default path:
 
@@ -19,8 +21,12 @@ the installer creates the config file if it does not already exist. Use
 `--force-config` only when you intentionally want to replace the existing
 bootstrap config.
 
-Production operation of the key/topology server requires a separate commercial
+Production operation of the key server requires a separate commercial
 license.
+
+For architecture and operational context, start with the [server
+introduction](README.md), then use this reference while preparing the config.
+See [Troubleshooting](TROUBLESHOOTING.md) for runtime diagnosis.
 
 ## Default Config
 
@@ -30,7 +36,7 @@ state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
 cluster_id = "default"
-public_url = "https://keypublish.onepub.dev/v1/publish"
+public_url = "https://keyshare0.revault.onepub.dev/v1/publish"
 
 topology_version = 1
 
@@ -59,7 +65,7 @@ verification_email_ip_rate_limit_per_hour = 30
 
 [[topology_server]]
 id = 0
-url = "https://keypublish.onepub.dev/v1/publish"
+url = "https://keyshare0.revault.onepub.dev/v1/publish"
 status = "active"
 
 [[route]]
@@ -96,8 +102,8 @@ developer_mode = false
 Some scalar keys may be repeated to create lists:
 
 ```toml
-replication_peer_url = "https://keypublish1.example.com/v1/replicate"
-replication_peer_url = "https://keypublish2.example.com/v1/replicate"
+replication_peer_url = "https://keyshare1.example.com/v1/replicate"
+replication_peer_url = "https://keyshare2.example.com/v1/replicate"
 ```
 
 Topology members and routes use TOML arrays of tables:
@@ -105,12 +111,12 @@ Topology members and routes use TOML arrays of tables:
 ```toml
 [[topology_server]]
 id = 0
-url = "https://keypublish0.example.com/v1/publish"
+url = "https://keyshare0.example.com/v1/publish"
 status = "active"
 
 [[topology_server]]
 id = 1
-url = "https://keypublish1.example.com/v1/publish"
+url = "https://keyshare1.example.com/v1/publish"
 status = "standby"
 
 [[route]]
@@ -222,7 +228,7 @@ server.
 | Key | Default | Description |
 | --- | --- | --- |
 | `topology_version` | `1` | Public topology version. Increase when making manual topology changes. |
-| `[[topology_server]]` | none | Adds a server to the public topology. |
+| `[[topology_server]]` | none | Adds a key-server member to the public topology. Its URL is the member's `/v1/publish` URL. |
 | `[[route]]` | auto-generated | Adds an owner routing rule. |
 | `topology_token` | none | Shared token used in the `X-Lockbox-Server-Token` or `Authorization: Bearer` header for topology heartbeat registration and unmetered peer topology/status/replication requests. Do not put this token in public topology URLs. |
 | `topology_stale_after_ms` | `90000` | Ignore topology peers that have not checked in within this age. |
@@ -230,12 +236,17 @@ server.
 
 ### `topology_server`
 
+Despite the historical setting name, this is not a topology-only server. It is
+a key-server cluster member advertised by every member's `/v1/topology`
+endpoint. Always configure its public `/v1/publish` URL; peers derive
+`/v1/topology/register` and clients derive `/v1/topology` from the same origin.
+
 Format:
 
 ```toml
 [[topology_server]]
 id = 0
-url = "https://keypublish0.example.com/v1/publish"
+url = "https://keyshare0.example.com/v1/publish"
 status = "active"
 ```
 
@@ -255,12 +266,12 @@ Example:
 ```toml
 [[topology_server]]
 id = 0
-url = "https://keypublish0.example.com/v1/publish"
+url = "https://keyshare0.example.com/v1/publish"
 status = "active"
 
 [[topology_server]]
 id = 1
-url = "https://keypublish1.example.com/v1/publish"
+url = "https://keyshare1.example.com/v1/publish"
 status = "standby"
 ```
 
@@ -297,7 +308,8 @@ This means:
   failover
 
 If no explicit routes are configured, the server builds ring routes from the
-configured topology servers.
+configured key-server members. Explicit routes are recommended in production
+because they make authority and promotion intent reviewable.
 
 ## Replication Settings
 
@@ -318,7 +330,7 @@ Example two-server replication pair:
 # server 0
 server_id = 0
 replication_token = "replace-with-a-long-random-secret"
-replication_peer_url = "https://keypublish1.example.com/v1/replicate"
+replication_peer_url = "https://keyshare1.example.com/v1/replicate"
 
 [[route]]
 owner = 0
@@ -335,7 +347,7 @@ failover = [0]
 # server 1
 server_id = 1
 replication_token = "replace-with-a-long-random-secret"
-replication_peer_url = "https://keypublish0.example.com/v1/replicate"
+replication_peer_url = "https://keyshare0.example.com/v1/replicate"
 
 [[route]]
 owner = 0
@@ -374,7 +386,7 @@ state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
 cluster_id = "production"
-public_url = "https://keypublish.example.com/v1/publish"
+public_url = "https://keyshare.example.com/v1/publish"
 
 topology_version = 1
 
@@ -400,7 +412,7 @@ verification_email_ip_rate_limit_per_hour = 30
 
 [[topology_server]]
 id = 0
-url = "https://keypublish.example.com/v1/publish"
+url = "https://keyshare.example.com/v1/publish"
 status = "active"
 
 [[route]]
@@ -411,6 +423,12 @@ failover = []
 
 ## Two Server Example
 
+Both nodes use the same `cluster_id`, member list, routes,
+`topology_token`, and `replication_token`. Each node has its own `server_id`,
+`public_url`, state directory, and peer replication URL. The examples use
+placeholders; store long random tokens in the root-readable configuration and
+never place them in public URLs.
+
 Server 0:
 
 ```toml
@@ -419,18 +437,19 @@ state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
 cluster_id = "production"
-public_url = "https://keypublish0.example.com/v1/publish"
+public_url = "https://keyshare0.example.com/v1/publish"
 
 topology_version = 1
+topology_token = "replace-with-a-long-random-topology-secret"
 
 [[topology_server]]
 id = 0
-url = "https://keypublish0.example.com/v1/publish"
+url = "https://keyshare0.example.com/v1/publish"
 status = "active"
 
 [[topology_server]]
 id = 1
-url = "https://keypublish1.example.com/v1/publish"
+url = "https://keyshare1.example.com/v1/publish"
 status = "active"
 
 [[route]]
@@ -444,7 +463,7 @@ primary = 1
 failover = [0]
 
 replication_token = "replace-with-a-long-random-secret"
-replication_peer_url = "https://keypublish1.example.com/v1/replicate"
+replication_peer_url = "https://keyshare1.example.com/v1/replicate"
 
 verification_ttl_seconds = 1800
 default_receive_ttl_seconds = 7200
@@ -461,18 +480,19 @@ state_dir = "/var/lib/revault-key-server"
 
 server_id = 1
 cluster_id = "production"
-public_url = "https://keypublish1.example.com/v1/publish"
+public_url = "https://keyshare1.example.com/v1/publish"
 
 topology_version = 1
+topology_token = "replace-with-a-long-random-topology-secret"
 
 [[topology_server]]
 id = 0
-url = "https://keypublish0.example.com/v1/publish"
+url = "https://keyshare0.example.com/v1/publish"
 status = "active"
 
 [[topology_server]]
 id = 1
-url = "https://keypublish1.example.com/v1/publish"
+url = "https://keyshare1.example.com/v1/publish"
 status = "active"
 
 [[route]]
@@ -486,7 +506,7 @@ primary = 1
 failover = [0]
 
 replication_token = "replace-with-a-long-random-secret"
-replication_peer_url = "https://keypublish0.example.com/v1/replicate"
+replication_peer_url = "https://keyshare0.example.com/v1/replicate"
 
 verification_ttl_seconds = 1800
 default_receive_ttl_seconds = 7200

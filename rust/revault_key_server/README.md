@@ -1,156 +1,154 @@
-# revault_key_server
+# reVault key server
 
-`revault_key_server` helps two reVault users begin sharing lockboxes without
-having to send public keys manually through email or chat.
+`revault_key_server` is the temporary rendezvous service used by reVault users
+to exchange candidate public profile keys. It stores short-lived published
+payloads, sends email-verification links, and returns self-routing publish
+codes. It never stores private profile keys and does not decide whether a
+candidate key is trusted; recipients establish trust by checking its
+fingerprint over an independent channel.
 
-## Where it fits
+## How the service fits together
 
-In reVault:
+A production node performs three related jobs:
 
-- A **lockbox** is an encrypted `.lbox` archive containing files, variables,
-  or form records.
-- A **vault** is a user's local private store for identities, contacts, and
-  the keys needed to open lockboxes.
-- An **identity** is the user's public/private key pair.
-- A **contact** is another person's verified public identity key.
-- This **key server** is a temporary meeting point that lets one user offer a
-  candidate public key to another user.
+1. **Key service:** accepts publish, receive, and delete requests.
+2. **Topology service:** exposes `GET /v1/topology`, describing every key-server
+   member and the primary/failover route for each publish-code owner id.
+3. **Replication peer:** sends signed state events to a standby so that an
+   operator can promote it when an owner server fails.
 
-The key server is not a vault and does not hold private keys. It cannot decide
-who somebody is or make a candidate key trusted. Those decisions stay on the
-users' devices.
+There is no separate topology-server binary. Every configured key server serves
+the topology endpoint. The `[[topology_server]]` configuration name means “a
+key-server member advertised in topology,” not a topology-only machine.
 
-## What happens when users connect
+Publish codes begin with the stable owner server id. Clients discover the
+cluster through one of the public topology endpoints, publish through the
+server selected for the verified email, and route receive/delete operations by
+the code's owner id. The CLI's production bootstrap endpoints are:
 
-1. Alice asks the reVault CLI to publish her identity's public key.
-2. The server sends Alice an email verification link, so it does not make an
-   unverified address immediately available.
-3. Once verified, the server returns a short-lived **publish code**.
-4. Alice gives that code to Bob through a separate channel—for example a phone
-   call, chat, or in person.
-5. Bob receives Alice's candidate public key with the code, then compares its
-   **fingerprint** with Alice over an independent channel before saving her as a
-   trusted contact.
+```text
+https://keyshare0.revault.onepub.dev/v1/topology
+https://keyshare1.revault.onepub.dev/v1/topology
+```
 
-The code is for finding a candidate key; the fingerprint check is what creates
-trust. A publish expires and can be consumed only a limited number of times.
+It tries them in order for initial discovery. Once discovery succeeds, the
+topology document supplies the complete current server and failover list.
 
-## One server or several
+## Documentation map
 
-Start with one server. If you later need redundancy, each server has a stable
-numeric id. That id is the first digit of a publish code, so clients can route
-receive and delete requests to the server that owns the code.
+- [Design](DESIGN.md): protocol, security, storage, and service architecture.
+- [Redundancy design](REDUNDANCY.md): ownership, topology, replication,
+  promotion, and recovery semantics.
+- [Configuration guide](KEY_SERVER_CONFIG.md): complete settings reference and
+  single-node/two-node examples.
+- [Troubleshooting](TROUBLESHOOTING.md): DNS, TLS, topology, SMTP, replication,
+  routing, and service diagnostics.
+- [Command reference](CLI_SWITCHES.md): server commands and developer options.
+- [Client publish design](CLI_VAULT_PUBLISH_DESIGN.md): profile/contact CLI
+  protocol and historical implementation decisions.
+- [Benchmarks](BENCHMARKS.md): load model, measurements, and performance notes.
 
-Servers share a **topology** document: a small map of server ids, URLs, and
-primary/failover routes. A client publishes through one selected server; for a
-receive it reads the code's first digit, contacts the owning primary server,
-and then tries only that server's configured failovers.
+## Install
 
-Standby servers receive signed replication events for pending publishes,
-deletions, receive counts, and abuse blocks. A standby stores the copy but does
-not serve it until an operator explicitly promotes that standby for the failed
-server id. This design prevents two servers from consuming the same one-time
-publish during a network partition.
+Production operation requires the separate commercial license described in
+[LICENSE](LICENSE).
 
-Read the full [key-server topology and replication overview](https://github.com/onepub-dev/reVault#key-server-topology-and-replication), [configuration reference](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/KEY_SERVER_CONFIG.md), and [redundancy design](https://github.com/onepub-dev/reVault/blob/master/rust/revault_key_server/REDUNDANCY.md).
-
-## Install and operate
-
-Install and manage the Linux system service with:
+Install from crates.io:
 
 ```bash
 cargo install revault_key_server
 sudo revault_key_server install
-sudo revault_key_server doctor
 ```
 
-The service uses `/etc/revault/key-server.toml` and stores runtime state under
-`/var/lib/revault-key-server`.
-
-Production operation requires the separate commercial license described in the
-package license.
-
-See the [reVault repository README](https://github.com/onepub-dev/reVault#readme)
-for the complete project overview.
-
-
-## Build from the repository
-
-This package builds one system binary: `revault_key_server`.
-
-Production operation of this binary requires a separate commercial license from
-OnePub IP Pty Ltd. See `LICENSE`.
-
-## 1) Build the binary
+Or build and install from this repository:
 
 ```bash
-cd /home/bsutton/git/revault/rust
+cd rust
 cargo build -p revault_key_server --release
-```
-
-## 2) Install as a system service
-
-The release binary is configured as a systemd service named
-`revault_key_server.service`.
-
-```bash
 sudo ./target/release/revault_key_server install
 ```
 
-The install command copies the executable to `/usr/local/bin/revault_key_server`
-before creating the service. This keeps it accessible with the service's
-`ProtectHome=true` hardening even when the installer was run from a user's home
-directory.
+Installation creates:
 
-`--force-config` rewrites `/etc/revault/key-server.toml` only if you want a new
-bootstrap config.
+- service: `revault_key_server.service`
+- executable: `/usr/local/bin/revault_key_server`
+- configuration: `/etc/revault/key-server.toml`
+- state: `/var/lib/revault-key-server`
+- cache: `/var/cache/revault-key-server`
+- logs: `/var/log/revault-key-server`
 
-```bash
-sudo ./target/release/revault_key_server install --force-config
+The installer preserves an existing configuration. Use `--force-config` only
+when you deliberately want to replace it with the bootstrap template.
+
+## Configure
+
+For a production node, at minimum set:
+
+- a unique, stable `server_id`;
+- the same `cluster_id` on all members;
+- this node's public `https://.../v1/publish` URL;
+- every cluster member in `[[topology_server]]`;
+- owner routes in `[[route]]`;
+- the same `topology_token` on all members for authenticated heartbeats;
+- replication peer URLs and a shared `replication_token`;
+- complete SMTP credentials.
+
+The public OnePub deployment uses `keyshare<n>.revault.onepub.dev`. A two-node
+member list begins as follows:
+
+```toml
+server_id = 0
+cluster_id = "revault-production"
+public_url = "https://keyshare0.revault.onepub.dev/v1/publish"
+
+[[topology_server]]
+id = 0
+url = "https://keyshare0.revault.onepub.dev/v1/publish"
+status = "active"
+
+[[topology_server]]
+id = 1
+url = "https://keyshare1.revault.onepub.dev/v1/publish"
+status = "active"
+
+[[route]]
+owner = 0
+primary = 0
+failover = [1]
+
+[[route]]
+owner = 1
+primary = 1
+failover = [0]
 ```
 
-## 3) Verify service status
+See the [configuration guide](KEY_SERVER_CONFIG.md) before starting the service;
+the example above intentionally omits secrets, SMTP, storage, and replication
+settings.
+
+## Verify and operate
 
 ```bash
-sudo ./target/release/revault_key_server doctor
-```
-
-## 4) Start/stop service manually (if needed)
-
-```bash
-sudo systemctl start revault_key_server
-sudo systemctl stop revault_key_server
+sudo revault_key_server doctor
 sudo systemctl restart revault_key_server
 sudo systemctl status revault_key_server
+sudo journalctl -u revault_key_server -n 100 --no-pager
 ```
 
-## 5) Remove service
+Run `doctor` after every configuration or deployment change. It validates the
+configuration and reports service, state-directory, topology, and SMTP
+readiness. Then verify `/v1/topology` on every public member as described in
+[Troubleshooting](TROUBLESHOOTING.md).
+
+To remove only the service and installed binary:
 
 ```bash
-sudo ./target/release/revault_key_server uninstall
+sudo revault_key_server uninstall
 ```
 
-Use `--purge-data` only if you also want to remove persisted state, cache,
-and config:
+`uninstall --purge-data` also removes persisted state, cache, and configuration
+and should be used only when that destruction is intended.
 
-```bash
-sudo ./target/release/revault_key_server uninstall --purge-data
-```
-
-## Notes
-
-- Default config path: `/etc/revault/key-server.toml`
-- Default data paths:
-  - `/var/lib/revault-key-server`
-  - `/var/cache/revault-key-server`
-  - `/var/log/revault-key-server`
-
-Existing installations from `0.0.1` used `/etc/lockbox` and
-`/var/*/lockbox-key-server`. Review and migrate the old configuration and
-state before starting the renamed service; the installer does not silently
-move persisted publish data.
-
-
-## License
-
-See the repository license for licensing terms.
+Existing `0.0.1` installations used `/etc/lockbox` and
+`/var/*/lockbox-key-server`. Migrate that configuration and state explicitly;
+the installer does not silently move pending publishes.

@@ -2263,6 +2263,51 @@ fn variables_can_be_removed_and_replaced() {
 }
 
 #[test]
+fn variables_can_be_moved_atomically_without_exposing_secrets() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("TMP"), "tmp-value").unwrap();
+    lb.set_secret_variable(&variable("MODE"), &password("dev"))
+        .unwrap();
+    lb.set_variable(&variable("/dev/TMP"), "occupied").unwrap();
+    assert!(matches!(
+        lb.move_variables(&[(variable("TMP"), variable("/dev/TMP"))]),
+        Err(Error::AlreadyExists(_))
+    ));
+    assert_eq!(
+        lb.get_variable(&variable("TMP")).unwrap().as_deref(),
+        Some("tmp-value")
+    );
+    lb.delete_variable(&variable("/dev/TMP")).unwrap();
+    lb.move_variables(&[
+        (variable("TMP"), variable("/dev/TMP")),
+        (variable("MODE"), variable("/dev/MODE")),
+    ])
+    .unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(reopened.get_variable(&variable("TMP")).unwrap(), None);
+    assert_eq!(
+        reopened
+            .get_variable(&variable("/dev/TMP"))
+            .unwrap()
+            .as_deref(),
+        Some("tmp-value")
+    );
+    assert_eq!(
+        reopened
+            .with_secret_variable(&variable("/dev/MODE"), |value| {
+                value.with_str(str::to_string)
+            })
+            .unwrap()
+            .transpose()
+            .unwrap()
+            .as_deref(),
+        Some("dev")
+    );
+}
+
+#[test]
 fn secret_variables_preserve_sensitivity_until_delete() {
     let mut lb = Lockbox::create(KEY);
     let first = password("first-secret");
@@ -3116,6 +3161,40 @@ fn forms_persist_revisions_and_secret_values() {
         }
         FormValue::Normal(_) => panic!("password field was not secret"),
     }
+}
+
+#[test]
+fn form_records_can_be_moved_with_their_secret_values() {
+    let mut lb = Lockbox::create(KEY);
+    lb.define_form(
+        "login",
+        "Login",
+        vec![form_field(
+            "password",
+            "Password",
+            FormFieldKind::Secret,
+            true,
+        )],
+    )
+    .unwrap();
+    create_form_record(&mut lb, &p("/MODE"), "login", "Mode").unwrap();
+    lb.set_form_field_secret(&p("/MODE"), "password", &password("secret-value"))
+        .unwrap();
+    lb.move_form_records(&[(p("/MODE"), p("/dev/MODE"))])
+        .unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert!(reopened.get_form_record(&p("/MODE")).unwrap().is_none());
+    assert!(reopened.get_form_record(&p("/dev/MODE")).unwrap().is_some());
+    assert!(matches!(
+        reopened
+            .get_form_field(&p("/dev/MODE"), "password")
+            .unwrap()
+            .unwrap()
+            .value,
+        FormValue::Secret(_)
+    ));
 }
 
 #[test]

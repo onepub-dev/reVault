@@ -129,7 +129,7 @@ fn open_populates_cache_and_close_clears_it() {
         &["list", vault.to_str().unwrap(), "/docs"],
     );
     assert!(!output.status.success());
-    assert!(String::from_utf8_lossy(&output.stderr).contains("lockbox is closed"));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("Lockbox is closed"));
     assert_agent_log_contains(&agent_dir, "forgot lockbox");
 
     let output = run_output(bin, &agent_dir, &vault_dir, &["session"]);

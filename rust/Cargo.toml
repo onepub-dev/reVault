@@ -3,8 +3,17 @@ members = [
     "revault_page_api",
     "revault_lockbox_api",
     "revault_vault_api",
+    "revault_migration_format",
+    "revault_migrate_vault_v1",
+    "revault_migrate_archive_v1",
+    "revault_migration",
     "revault_cli",
     "revault_publish_protocol",
+    "revault_wire",
     "revault_key_server",
+    "revault_bindings",
+    "revault_wasm_bindings",
+    "revault_tooling",
+    "xtask",
 ]
 resolver = "2"

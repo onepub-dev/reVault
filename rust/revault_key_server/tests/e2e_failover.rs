@@ -42,7 +42,7 @@ fn two_server_failover_receive_delete_and_edge_cases() {
     let received = failover_pool.receive(&published.publish_code).unwrap();
     assert_eq!(received.payload, payload);
     assert_eq!(
-        decode_contact_publish(&received.payload).unwrap().identity,
+        decode_contact_publish(&received.payload).unwrap().profile,
         "route-failover@example.com"
     );
 

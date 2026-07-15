@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use super::Lockbox;
@@ -163,6 +164,57 @@ impl<State> Lockbox<State> {
             .remove(name)
             .is_some();
         if removed {
+            self.dirty_variables = true;
+        }
+        Ok(())
+    }
+
+    /// Move one or more variables without exposing or copying their plaintext.
+    ///
+    /// The operation is validated in full before any variable is changed.
+    /// Sources must exist, destinations must be unique, and a destination may
+    /// not replace a variable that is not itself being moved.
+    pub fn move_variables(&mut self, moves: &[(VariableName, VariableName)]) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
+        self.ensure_variables_loaded()?;
+        let mut variables = self.variables.borrow_mut();
+        let variables = variables.as_mut().ok_or(Error::CorruptRecord)?;
+        let sources = moves
+            .iter()
+            .map(|(source, _)| source.clone())
+            .collect::<BTreeSet<_>>();
+        if sources.len() != moves.len() {
+            return Err(Error::InvalidInput(
+                "a variable cannot be moved more than once".to_string(),
+            ));
+        }
+        let mut destinations = BTreeSet::new();
+        for (source, destination) in moves {
+            if !variables.contains_key(source) {
+                return Err(Error::NotFound(format!("variable {source}")));
+            }
+            if !destinations.insert(destination.clone()) {
+                return Err(Error::AlreadyExists(destination.to_string()));
+            }
+            if source != destination
+                && variables.contains_key(destination)
+                && !sources.contains(destination)
+            {
+                return Err(Error::AlreadyExists(destination.to_string()));
+            }
+        }
+        let moved = moves
+            .iter()
+            .filter(|(source, destination)| source != destination)
+            .map(|(source, destination)| {
+                let value = variables.remove(source).ok_or(Error::CorruptRecord)?;
+                Ok((destination.clone(), value))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if !moved.is_empty() {
+            variables.extend(moved);
             self.dirty_variables = true;
         }
         Ok(())

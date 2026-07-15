@@ -39,7 +39,7 @@ fn client_decodes_receive_publish_and_delete_responses() {
             900,
             1,
             ContactPublish {
-                identity: "client@example.com",
+                profile: "client@example.com",
                 public_key: b"public-key-material",
                 signing_public_key: b"signing-public-key-material",
                 fingerprint: &[1_u8; 32],
@@ -78,7 +78,7 @@ fn client_retries_transient_transport_errors() {
             900,
             1,
             ContactPublish {
-                identity: "client@example.com",
+                profile: "client@example.com",
                 public_key: b"public-key-material",
                 signing_public_key: b"signing-public-key-material",
                 fingerprint: &[1_u8; 32],

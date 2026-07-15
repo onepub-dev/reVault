@@ -25,19 +25,28 @@ rules around page-cache ownership, secret ownership, COW redaction, and recovery
 Run from `rust/`:
 
 ```text
-bash tools/check_required.sh
+cargo xtask check-required
 ```
 
-This script runs formatting, hard Clippy, and tests for the active Rust crates:
+This task runs formatting, hard Clippy, and tests for the active Rust crates:
 `revault_lockbox_api`, `revault_cli`, and `revault_vault_api`.
 
 When a new Rust crate becomes part of the supported build, add it to
-`tools/check_required.sh`, `tools/clippy_advisory.sh`, and the CI workflow.
+the `check-required` and `clippy-advisory` xtasks, and the CI workflow.
+
+`revault_migration_format`, both historical v1 exporters, and
+`revault_migration` are supported release crates and must be included in those
+checks alongside the lockbox, vault, and CLI crates.
 
 Hard Clippy means:
 
 ```text
-cargo clippy -p revault_lockbox_api -p revault_cli -p revault_vault_api --all-targets -- -D warnings
+cargo clippy --workspace \
+  --exclude revault_bindings \
+  --exclude revault_wasm_bindings \
+  --exclude revault_wire \
+  --exclude revault_tooling \
+  --all-targets -- -D warnings
 ```
 
 That treats Clippy's default lint groups as errors. It is required, but it is
@@ -48,7 +57,7 @@ not the strongest possible Clippy policy.
 Generate the public `revault_lockbox_api` API docs from `rust/`:
 
 ```text
-bash tools/generate_api_docs.sh
+cargo xtask generate-api-docs
 ```
 
 The generated entry point is `rust/target/doc/revault_lockbox_api/index.html`. The
@@ -59,7 +68,7 @@ generated HTML is build output and is not committed.
 Run from `rust/`:
 
 ```text
-bash tools/clippy_advisory.sh
+cargo xtask clippy-advisory
 ```
 
 This enables `clippy::pedantic`, `clippy::nursery`, and `clippy::cargo` as
@@ -86,3 +95,7 @@ they encode an actual project rule.
 - Avoid `unwrap()`/`expect()` in production code unless the invariant is local
   and explicit.
 - Public API changes need direct API tests, not only CLI coverage.
+- Persisted-format changes must follow
+  [Format versioning and migrations](format_versioning_and_migrations.md).
+  Current APIs read only their current native format; historical readers belong
+  in exact-version migration exporters published through crates.io.

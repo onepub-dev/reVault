@@ -22,6 +22,69 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  api-msrv:
+    name: Public APIs / Rust 1.95
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust 1.95
+        uses: dtolnay/rust-toolchain@1.95.0
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: api-msrv-1.95
+
+      - name: Install Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Check public APIs at MSRV
+        run: >-
+          cargo check
+          -p revault_page_api@0.0.2
+          -p revault_lockbox_api@0.0.3
+          -p revault_vault_api@0.0.3
+          --all-targets
+          --locked
+
+      - name: Check published Rust binding at MSRV
+        run: cargo check --manifest-path ../bindings/rust/Cargo.toml
+
+  tooling-msrv:
+    name: Tooling / Rust 1.95
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust 1.95
+        uses: dtolnay/rust-toolchain@1.95.0
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: msrv-1.95
+
+      - name: Install Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Check workspace at MSRV
+        run: cargo check --workspace --all-targets --locked
+
   test:
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -56,7 +119,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
       - name: Required checks
-        run: bash tools/check_required.sh
+        run: cargo xtask check-required
 
       - name: Agent IPC smoke test
         run: cargo test -p revault_cli --test agent_flow -- --nocapture
@@ -174,4 +237,4 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
       - name: Run ignored network tests
-        run: bash tools/run_network_tests.sh
+        run: cargo xtask run-network-tests
