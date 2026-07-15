@@ -34,12 +34,24 @@ fn two_server_failover_receive_delete_and_edge_cases() {
         .unwrap();
     cluster.verify_publish(&published);
     assert!(published.publish_code.starts_with('0'));
-    wait_until("replication to standby", Duration::from_secs(10), || {
-        cluster.standby.store.stats().live >= 1
-    });
-
     let failover_pool = cluster.pool_with_dead_primary();
-    let received = failover_pool.receive(&published.publish_code).unwrap();
+    let mut received = None;
+    wait_until(
+        "verified publish to become receivable from standby",
+        Duration::from_secs(10),
+        || match failover_pool.receive(&published.publish_code) {
+            Ok(value) => {
+                received = Some(value);
+                true
+            }
+            Err(ClientError::Server {
+                status: Status::PublishNotFound | Status::EmailUnverified,
+                ..
+            }) => false,
+            Err(error) => panic!("unexpected failover receive error: {error}"),
+        },
+    );
+    let received = received.expect("wait completed without a receive");
     assert_eq!(received.payload, payload);
     assert_eq!(
         decode_contact_publish(&received.payload).unwrap().profile,
