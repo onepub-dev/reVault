@@ -15,6 +15,9 @@ on:
       - ".github/workflows/endian-interop.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   create-x64:
     name: prepare Linux x64 fixture
