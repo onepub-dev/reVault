@@ -483,7 +483,8 @@ impl PublishStore {
             let mut file = OpenOptions::new()
                 .create(true)
                 .read(true)
-                .append(true)
+                .write(true)
+                .truncate(false)
                 .open(&path)?;
             let mut index = replay(&mut file)?;
             live += index.len();
@@ -2976,11 +2977,14 @@ fn compact_shard(shard: &Shard) -> Result<CompactionReport, StoreError> {
     compacted.flush()?;
     compacted.sync_data()?;
     fs::rename(&tmp_path, &shard.path)?;
-    *file = OpenOptions::new()
+    let mut reopened = OpenOptions::new()
         .create(true)
         .read(true)
-        .append(true)
+        .write(true)
+        .truncate(false)
         .open(&shard.path)?;
+    reopened.seek(SeekFrom::End(0))?;
+    *file = reopened;
     let bytes_after = shard.path.metadata().map(|m| m.len()).unwrap_or(0);
     Ok(CompactionReport {
         shards_compacted: 1,
