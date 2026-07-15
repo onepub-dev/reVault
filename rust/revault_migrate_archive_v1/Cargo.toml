@@ -15,8 +15,8 @@ path = "src/bin/revault-migrate-archive-v1.rs"
 [dependencies]
 getrandom = "0.4"
 revault_migration_format = { version = "0.0.1", path = "../revault_migration_format" }
-revault_lockbox_api = { version = "=0.0.3", path = "../revault_lockbox_api", features = ["migration"] }
-revault_vault_api = { version = "=0.0.3", path = "../revault_vault_api" }
+revault_lockbox_api = { version = "=0.0.4", path = "../revault_lockbox_api", features = ["migration"] }
+revault_vault_api = { version = "=0.0.4", path = "../revault_vault_api" }
 sha2 = "0.11"
 zeroize = "1.9"
 

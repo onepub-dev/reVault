@@ -150,3 +150,70 @@ Registry setup references: [npm](https://docs.npmjs.com/creating-and-publishing-
 [Go modules](https://go.dev/doc/modules/publishing),
 [crates.io](https://doc.rust-lang.org/cargo/reference/publishing.html), and
 [ConanCenter](https://docs.conan.io/2/devops/using_conancenter.html).
+
+### Registry authorization and first release
+
+The public name is `revault-api`, adapted only where a registry requires a
+different spelling or namespace (`revault_api`, `OnePub.Revault.Api`,
+`dev.onepub:revault-api`, or `@onepub/revault-api`). Publication runs only for
+an accepted `revault-api-vX.Y.Z` tag, after the native release, all 94 installed
+package checks, and the 480-path interoperability suite have succeeded. The
+release workflow uses the protected GitHub environment `release`.
+
+Create these public companion repositories before tagging a release:
+
+| Repository | Registry discovery |
+| --- | --- |
+| `onepub-dev/revault-api-go` | Go module proxy |
+| `onepub-dev/revault-api-swift` | Swift Package Manager |
+| `onepub-dev/revault-api-php` | Packagist |
+| `onepub-dev/homebrew-revault` | Homebrew tap |
+
+Install a GitHub App with contents write access to those four repositories and
+store its narrowly scoped installation token as the `release` environment
+secret `PACKAGE_REPOSITORY_TOKEN`. Register the Composer repository with
+Packagist and enable its GitHub hook. The Rust release tool replaces each
+repository tree, validates it, commits it, and creates the immutable `vX.Y.Z`
+tag. It generates the Swift binary target and Homebrew formula from the actual
+GitHub release asset SHA-256 values; no mutable download URL is used.
+
+Configure trusted publishers with owner `onepub-dev`, repository `reVault`,
+workflow file `bindings-native-release.yml`, and environment `release`:
+
+| Registry | Authorization |
+| --- | --- |
+| npm | Trusted publisher for all eight `@onepub` packages; `NPM_TOKEN` is needed only to bootstrap packages npm requires to exist first |
+| PyPI | Pending trusted publisher for `revault-api` |
+| NuGet | Trusted publishing policy for `OnePub.Revault.Api`; set `NUGET_USER` to the nuget.org profile name |
+| pub.dev | Automated publishing for `revault_api` after its required first manual release |
+| RubyGems | Trusted publisher for `revault_api` (new gems are supported) |
+| crates.io | Trusted publishers for the existing `revault_page_api`, `revault_lockbox_api`, and `revault_vault_api` crates, plus `revault-api` after its required first manual release |
+
+Maven Central currently requires a verified `dev.onepub` namespace, a Central
+Portal user token, and an in-memory OpenPGP signing key. Store these `release`
+environment secrets: `MAVEN_CENTRAL_USERNAME`, `MAVEN_CENTRAL_PASSWORD`,
+`MAVEN_SIGNING_KEY`, and `MAVEN_SIGNING_PASSWORD`. Store a least-privilege
+LuaRocks key as `LUAROCKS_API_KEY`. The workflow exchanges OIDC for temporary
+PyPI, NuGet, npm, pub.dev, RubyGems, and crates.io credentials wherever the
+registry supports the package's current lifecycle stage; long-lived bootstrap
+credentials should be removed after trusted publishing is active.
+
+ConanCenter and the public vcpkg registry accept recipe changes through their
+upstream review processes rather than package-owner uploads. The checked
+Conan/vcpkg recipes are generated and acceptance-tested with the same native
+archives; after each release their version and archive hashes are submitted to
+those upstream indexes. Debian and RPM files are release assets until an APT or
+RPM repository is selected. These contribution/repository decisions do not
+block the language-native npm, PyPI, Maven, NuGet, pub.dev, RubyGems, Packagist,
+LuaRocks, Go, crates.io, SwiftPM, or Homebrew publications.
+
+To release, create and push one tag after all authorizations above exist:
+
+```text
+git tag -s revault-api-v0.1.0 -m "Release revault-api 0.1.0"
+git push origin revault-api-v0.1.0
+```
+
+Do not rerun publication by changing an existing tag. Registry versions and
+package-repository tags are immutable; correct a failed release with the same
+workflow run where safe, or publish a new patch version.

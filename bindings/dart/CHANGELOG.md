@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.0.1
+## 0.1.0
 
 - Initial complete lockbox and vault API binding.
 - Binary LBWF/Protobuf transport and concrete result models.

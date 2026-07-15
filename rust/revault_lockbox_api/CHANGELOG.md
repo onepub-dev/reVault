@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.0.4
 
 - Raised the minimum supported Rust version from 1.88 to 1.95.
 - Removed the `sysinfo` dependency. Automatic page-cache sizing now uses a

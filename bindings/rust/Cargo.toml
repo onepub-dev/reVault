@@ -9,5 +9,5 @@ repository = "https://github.com/onepub-dev/reVault"
 readme = "README.md"
 
 [dependencies]
-revault_lockbox_api = { version = "0.0.3", path = "../../rust/revault_lockbox_api", features = ["bindings"] }
-revault_vault_api = { version = "0.0.3", path = "../../rust/revault_vault_api" }
+revault_lockbox_api = { version = "0.0.4", path = "../../rust/revault_lockbox_api", features = ["bindings"] }
+revault_vault_api = { version = "0.0.4", path = "../../rust/revault_vault_api" }

@@ -24,6 +24,10 @@ pub enum ReleaseCommand {
     StageEcosystems(StageEcosystems),
     /// Assemble publishable language package trees from a staged layout.
     AssemblePackages(AssemblePackages),
+    /// Build, validate, or publish one registry-native package set.
+    Publish(crate::publication::PublishPackages),
+    /// Promote a package tree to a Git-native distribution repository.
+    PromoteGit(crate::publication::PromoteGitPackage),
     /// Verify one canonical native archive without installing it.
     VerifyArchive(VerifyArchive),
     /// Verify and install one canonical native SDK under a clean prefix.
@@ -159,6 +163,8 @@ pub fn run(command: ReleaseCommand) -> Result {
         ReleaseCommand::PackageNative(args) => package_native(args),
         ReleaseCommand::StageEcosystems(args) => stage_ecosystems(args),
         ReleaseCommand::AssemblePackages(args) => assemble_packages(args),
+        ReleaseCommand::Publish(args) => crate::publication::publish(args),
+        ReleaseCommand::PromoteGit(args) => crate::publication::promote_git(args),
         ReleaseCommand::VerifyArchive(args) => {
             let temporary = TempDir::new()?;
             let (_, metadata) = extract_verified(&args.archive, temporary.path())?;
@@ -610,12 +616,22 @@ fn assemble_packages(args: AssemblePackages) -> Result {
         );
     }
     let output = &args.output;
+    if output.exists() {
+        fs::remove_dir_all(output)?;
+    }
+    fs::create_dir_all(output)?;
+    copy_file(&source.join("LICENSE"), &output.join("LICENSE"))?;
     copy_tree(
         &bindings.join("javascript"),
         &output.join("npm/revault-api"),
     )?;
     copy_tree(&bindings.join("wasm"), &output.join("npm/revault-api-wasm"))?;
     copy_tree(&layout.join("npm"), &output.join("npm"))?;
+    replace_release_version(&output.join("npm/revault-api/package.json"), &args.version)?;
+    replace_release_version(
+        &output.join("npm/revault-api-wasm/package.json"),
+        &args.version,
+    )?;
     require_version(&output.join("npm/revault-api/package.json"), &args.version)?;
     require_version(
         &output.join("npm/revault-api-wasm/package.json"),
@@ -629,6 +645,7 @@ fn assemble_packages(args: AssemblePackages) -> Result {
             &layout.join("python").join(target).join("_native"),
             &python.join("revault_api/_native"),
         )?;
+        replace_release_version(&python.join("pyproject.toml"), &args.version)?;
         require_version(&python.join("pyproject.toml"), &args.version)?;
         for ecosystem in ["ruby", "lua"] {
             let destination = output.join(ecosystem).join(target);
@@ -638,15 +655,21 @@ fn assemble_packages(args: AssemblePackages) -> Result {
                 &destination.join("native"),
             )?;
             if ecosystem == "lua" {
-                let rockspec = destination.join("revault_api-0.1.0-1.rockspec");
-                let source = fs::read_to_string(&rockspec)?
+                let template = destination.join("revault_api-0.1.0-1.rockspec");
+                let rockspec = destination.join(format!("revault_api-{}-1.rockspec", args.version));
+                let source = fs::read_to_string(&template)?
+                    .replace("0.1.0", &args.version)
                     .replace("@NATIVE_TARGET@", target)
                     .replace("@NATIVE_LIBRARY@", &entry.library);
-                fs::write(rockspec, source)?;
+                fs::write(&rockspec, source)?;
+                if template != rockspec {
+                    fs::remove_file(template)?;
+                }
             } else {
                 let gemspec = destination.join("revault_api.gemspec");
-                let source =
-                    fs::read_to_string(&gemspec)?.replace("@GEM_PLATFORM@", gem_platform(target)?);
+                let source = fs::read_to_string(&gemspec)?
+                    .replace("0.1.0", &args.version)
+                    .replace("@GEM_PLATFORM@", gem_platform(target)?);
                 fs::write(gemspec, source)?;
             }
         }
@@ -654,19 +677,24 @@ fn assemble_packages(args: AssemblePackages) -> Result {
     let java = output.join("maven/java");
     copy_tree(&bindings.join("java"), &java)?;
     copy_tree(&layout.join("maven"), &java.join("resources"))?;
+    replace_release_version(&java.join("build.gradle"), &args.version)?;
     require_version(&java.join("build.gradle"), &args.version)?;
     copy_tree(&bindings.join("kotlin"), &output.join("maven/kotlin"))?;
+    replace_release_version(&output.join("maven/kotlin/build.gradle.kts"), &args.version)?;
     copy_tree(&bindings.join("csharp"), &output.join("nuget"))?;
     copy_tree(
         &layout.join("nuget/runtimes"),
         &output.join("nuget/runtimes"),
     )?;
+    replace_release_version(&output.join("nuget/RevaultBindings.csproj"), &args.version)?;
     require_version(&output.join("nuget/RevaultBindings.csproj"), &args.version)?;
     copy_tree(&bindings.join("dart"), &output.join("dart"))?;
     copy_tree(&layout.join("dart/lib"), &output.join("dart/lib"))?;
+    replace_release_version(&output.join("dart/pubspec.yaml"), &args.version)?;
     require_version(&output.join("dart/pubspec.yaml"), &args.version)?;
     copy_tree(&bindings.join("php"), &output.join("composer"))?;
     copy_tree(&layout.join("php/native"), &output.join("composer/native"))?;
+    replace_release_version(&output.join("composer/composer.json"), &args.version)?;
     assemble_go(&source, &layout, output, &manifest)?;
     for (name, destination) in [
         ("rust", "cargo/revault-api"),
@@ -675,6 +703,23 @@ fn assemble_packages(args: AssemblePackages) -> Result {
         ("cpp", "native-sdk/cpp"),
     ] {
         copy_tree(&bindings.join(name), &output.join(destination))?;
+    }
+    let cargo_manifest = output.join("cargo/revault-api/Cargo.toml");
+    replace_release_version(&cargo_manifest, &args.version)?;
+    replace_cargo_lock_package_version(
+        &output.join("cargo/revault-api/Cargo.lock"),
+        "revault-api",
+        &args.version,
+    )?;
+    for dependency in [
+        "revault_lockbox_api",
+        "revault_page_api",
+        "revault_vault_api",
+    ] {
+        copy_tree(
+            &source.join("rust").join(dependency),
+            &output.join("rust").join(dependency),
+        )?;
     }
     copy_file(
         &layout.join("swift/include/revault_api.h"),
@@ -693,6 +738,27 @@ fn assemble_packages(args: AssemblePackages) -> Result {
         &output.join("native-manifest.json"),
     )?;
     println!("assembled complete revault-api publication trees for all sixteen language APIs");
+    Ok(())
+}
+
+fn replace_release_version(path: &Path, version: &str) -> Result {
+    let source = fs::read_to_string(path)?;
+    fs::write(path, source.replace("0.1.0", version))?;
+    Ok(())
+}
+
+fn replace_cargo_lock_package_version(path: &Path, package: &str, version: &str) -> Result {
+    let source = fs::read_to_string(path)?;
+    let marker = format!("name = \"{package}\"\nversion = \"0.1.0\"");
+    let replacement = format!("name = \"{package}\"\nversion = \"{version}\"");
+    if !source.contains(&marker) {
+        return Err(format!(
+            "{} does not contain lock entry for {package}",
+            path.display()
+        )
+        .into());
+    }
+    fs::write(path, source.replacen(&marker, &replacement, 1))?;
     Ok(())
 }
 

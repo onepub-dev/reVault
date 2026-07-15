@@ -1,5 +1,6 @@
 mod e2e;
 mod package_conformance;
+mod publication;
 mod release;
 mod repository;
 

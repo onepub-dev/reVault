@@ -2223,8 +2223,8 @@ version = "0.1.0"
 dependencies = [
  "prost",
  "prost-build",
- "revault_lockbox_api 0.0.3",
- "revault_vault_api 0.0.3",
+ "revault_lockbox_api 0.0.4",
+ "revault_vault_api 0.0.4",
  "revault_wire",
 ]
 
@@ -2238,11 +2238,11 @@ dependencies = [
  "libc",
  "revault_key_server",
  "revault_lockbox_api 0.0.2",
- "revault_lockbox_api 0.0.3",
+ "revault_lockbox_api 0.0.4",
  "revault_migration",
  "revault_publish_protocol",
  "revault_vault_api 0.0.2",
- "revault_vault_api 0.0.3",
+ "revault_vault_api 0.0.4",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
@@ -2282,7 +2282,7 @@ dependencies = [
  "libc",
  "ml-dsa",
  "ml-kem",
- "revault_page_api 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "revault_page_api 0.0.2",
  "ruzstd 0.8.3",
  "sha2 0.11.0",
  "sysinfo",
@@ -2293,7 +2293,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -2305,7 +2305,7 @@ dependencies = [
  "ml-dsa",
  "ml-kem",
  "oxiarc-zstd",
- "revault_page_api 0.0.2",
+ "revault_page_api 0.0.3",
  "ruzstd 0.8.4",
  "sha2 0.11.0",
  "unicode-normalization",
@@ -2320,9 +2320,9 @@ name = "revault_migrate_archive_v1"
 version = "0.0.2"
 dependencies = [
  "getrandom 0.4.3",
- "revault_lockbox_api 0.0.3",
+ "revault_lockbox_api 0.0.4",
  "revault_migration_format",
- "revault_vault_api 0.0.3",
+ "revault_vault_api 0.0.4",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
@@ -2349,12 +2349,12 @@ version = "0.0.1"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.2",
- "revault_lockbox_api 0.0.3",
+ "revault_lockbox_api 0.0.4",
  "revault_migrate_archive_v1",
  "revault_migrate_vault_v1",
  "revault_migration_format",
  "revault_vault_api 0.0.2",
- "revault_vault_api 0.0.3",
+ "revault_vault_api 0.0.4",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2369,21 +2369,11 @@ dependencies = [
  "argon2",
  "chacha20poly1305",
  "getrandom 0.4.3",
- "revault_page_api 0.0.2",
+ "revault_page_api 0.0.3",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
- "zeroize",
-]
-
-[[package]]
-name = "revault_page_api"
-version = "0.0.2"
-dependencies = [
- "getrandom 0.4.3",
- "libc",
- "windows-sys 0.61.2",
  "zeroize",
 ]
 
@@ -2396,6 +2386,16 @@ dependencies = [
  "getrandom 0.4.3",
  "libc",
  "windows-sys 0.59.0",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_page_api"
+version = "0.0.3"
+dependencies = [
+ "getrandom 0.4.3",
+ "libc",
+ "windows-sys 0.61.2",
  "zeroize",
 ]
 
@@ -2448,7 +2448,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "base64ct",
  "chacha20poly1305",
@@ -2458,7 +2458,7 @@ dependencies = [
  "libc",
  "objc2-core-foundation",
  "objc2-io-kit",
- "revault_lockbox_api 0.0.3",
+ "revault_lockbox_api 0.0.4",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2471,8 +2471,8 @@ name = "revault_wasm_bindings"
 version = "0.0.1"
 dependencies = [
  "js-sys",
- "revault_lockbox_api 0.0.3",
- "revault_vault_api 0.0.3",
+ "revault_lockbox_api 0.0.4",
+ "revault_vault_api 0.0.4",
  "wasm-bindgen",
 ]
 

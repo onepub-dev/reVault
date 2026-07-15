@@ -1,6 +1,6 @@
 [package]
 name = "revault_vault_api"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 rust-version = "1.95"
 license-file = "LICENSE"
@@ -18,7 +18,7 @@ path = "src/lib.rs"
 base64ct = { version = "1", features = ["alloc"] }
 chacha20poly1305 = "0.11"
 getrandom = "0.4"
-revault_lockbox_api = { version = "0.0.3", path = "../revault_lockbox_api", features = ["vault-integration"] }
+revault_lockbox_api = { version = "0.0.4", path = "../revault_lockbox_api", features = ["vault-integration"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"

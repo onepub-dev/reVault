@@ -35,9 +35,9 @@ clap = { version = "4.6.1", default-features = false, features = [
 clap_complete = { version = "4.6.7", default-features = false, features = [
     "unstable-dynamic",
 ] }
-revault_lockbox_api = { version = "0.0.3", path = "../revault_lockbox_api" }
+revault_lockbox_api = { version = "0.0.4", path = "../revault_lockbox_api" }
 revault_publish_protocol = { version = "0.0.3", path = "../revault_publish_protocol" }
-revault_vault_api = { version = "0.0.3", path = "../revault_vault_api" }
+revault_vault_api = { version = "0.0.4", path = "../revault_vault_api" }
 revault_migration = { version = "0.0.1", path = "../revault_migration" }
 
 getrandom = "0.4"
