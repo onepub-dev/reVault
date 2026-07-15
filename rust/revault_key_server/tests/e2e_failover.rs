@@ -78,7 +78,10 @@ fn two_server_failover_receive_delete_and_edge_cases() {
     wait_until(
         "single-use replicated to standby",
         Duration::from_secs(10),
-        || cluster.standby.store.stats().live >= 1,
+        || {
+            cluster.standby.store.stats().live >= 1
+                && cluster.primary.store.stats().replication_pending == 0
+        },
     );
     assert!(failover_pool.receive(&single.publish_code).is_ok());
     assert_server_error(

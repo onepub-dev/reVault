@@ -57,8 +57,16 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
+      - name: Build agent security checker
+        run: cargo build -p revault_cli --bin lockbox
+
       - name: Run agent IPC smoke
         run: cargo test -p revault_cli --test agent_flow
 
       - name: Verify agent transport security
-        run: cargo run -p revault_cli --bin lockbox -- __agent_security_check
+        if: runner.os != 'Windows'
+        run: ./target/debug/lockbox __agent_security_check
+
+      - name: Verify Windows agent transport security
+        if: runner.os == 'Windows'
+        run: .\target\debug\lockbox.exe __agent_security_check
