@@ -49,9 +49,9 @@ jobs:
       - name: Check public APIs at MSRV
         run: >-
           cargo check
-          -p revault_page_api@0.0.2
-          -p revault_lockbox_api@0.0.3
-          -p revault_vault_api@0.0.3
+          -p revault_page_api@0.0.3
+          -p revault_lockbox_api@0.0.4
+          -p revault_vault_api@0.0.4
           --all-targets
           --locked
 
