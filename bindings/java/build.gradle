@@ -1,0 +1,46 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+}
+
+group = 'dev.onepub'
+version = '0.1.0'
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(22) }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+sourceSets.main.java.srcDirs = ['src', 'generated']
+sourceSets.main.resources.srcDir 'resources'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    api 'com.google.protobuf:protobuf-java:3.21.12'
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            artifactId = 'revault-api'
+            pom {
+                name = 'reVault Java bindings'
+                description = 'Complete class-based reVault lockbox and vault API'
+                url = 'https://github.com/onepub-dev/reVault'
+                licenses {
+                    license {
+                        name = 'reVault Source Available License 1.0'
+                        url = 'https://github.com/onepub-dev/reVault/blob/master/rust/revault_lockbox_api/LICENSE'
+                    }
+                }
+                scm { url = 'https://github.com/onepub-dev/reVault' }
+                developers { developer { id = 'onepub'; name = 'OnePub' } }
+            }
+        }
+    }
+}

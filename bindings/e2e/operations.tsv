@@ -1,0 +1,211 @@
+symbol	domain	return_type	arguments
+buffer_last_error	support.memory	const char *	void
+buffer_last_error_details	support.memory	RevaultBuffer	void
+buffer_free	support.memory	void	RevaultBuffer value
+lockbox_format_version	archive.forms	uint16_t	void
+lockbox_probe_format_version	archive.forms	uint16_t	const uint8_t *bytes, size_t len
+lockbox_create	archive.lifecycle	void *	const uint8_t *key, size_t key_len
+lockbox_create_with_options	archive.lifecycle	void *	const uint8_t *key, size_t key_len, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs
+lockbox_create_password	archive.keys	void *	const uint8_t *password, size_t len
+lockbox_create_contact	archive.keys	void *	const void *contact
+lockbox_create_with_signing_key	archive.lifecycle	void *	const uint8_t *content_key, size_t key_len, const void *signing_key
+lockbox_open	archive.lifecycle	void *	const uint8_t *archive, size_t archive_len, const uint8_t *key, size_t key_len
+lockbox_open_with_options	archive.lifecycle	void *	const uint8_t *archive, size_t archive_len, const uint8_t *key, size_t key_len, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs
+lockbox_open_password	archive.keys	void *	const uint8_t *archive, size_t archive_len, const uint8_t *password, size_t password_len
+lockbox_open_contact	archive.keys	void *	const uint8_t *archive, size_t archive_len, const void *contact
+lockbox_add_file	archive.lifecycle	bool	void *handle, const char *path, size_t path_len, const uint8_t *data, size_t data_len, bool replace
+lockbox_add_file_with_permissions	archive.lifecycle	bool	void *handle, const char *path, size_t path_len, const uint8_t *data, size_t data_len, uint32_t permissions, bool replace
+lockbox_get_file	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len
+lockbox_extract_file	archive.lifecycle	bool	const void *handle, const char *source, size_t source_len, const char *destination, size_t destination_len, bool replace
+lockbox_extract_directory	archive.lifecycle	bool	const void *handle, const char *destination, size_t destination_len, uint64_t max_file_bytes, uint64_t max_total_bytes, size_t max_files, bool restore_symlinks, bool restore_permissions, bool overwrite
+lockbox_stream_content	archive.diagnostics	RevaultBuffer	const void *handle, bool physical
+lockbox_cache_stats	archive.diagnostics	RevaultBuffer	const void *handle
+lockbox_import_stats	archive.diagnostics	RevaultBuffer	const void *handle
+lockbox_reset_import_stats	archive.diagnostics	bool	const void *handle
+lockbox_inspect_file	archive.lifecycle	RevaultBuffer	const char *path, size_t path_len
+lockbox_page_inspection	archive.diagnostics	RevaultBuffer	const void *handle
+lockbox_recovery_report	archive.recovery	RevaultBuffer	const void *handle
+lockbox_recovery_report_render	archive.recovery	RevaultBuffer	const void *handle, bool verbose, size_t max_entries
+lockbox_recovery_scan_path	archive.recovery	RevaultBuffer	const char *path, size_t path_len, const uint8_t *key, size_t key_len
+lockbox_storage_len	archive.lifecycle	uint64_t	const void *handle
+lockbox_set_workload_profile	archive.lifecycle	bool	void *handle, const char *profile, size_t profile_len
+lockbox_set_worker_policy	archive.lifecycle	bool	void *handle, const char *mode, size_t mode_len, size_t jobs
+lockbox_runtime_options	archive.diagnostics	RevaultBuffer	const void *handle
+lockbox_commit	archive.lifecycle	bool	void *handle
+lockbox_create_dir	archive.lifecycle	bool	void *handle, const char *path, size_t path_len, bool create_parents
+lockbox_delete	archive.lifecycle	bool	void *handle, const char *path, size_t path_len
+lockbox_remove_dir	archive.lifecycle	bool	void *handle, const char *path, size_t path_len, bool recursive
+lockbox_create_parent_dirs	archive.lifecycle	bool	void *handle, const char *path, size_t path_len
+lockbox_rename	archive.lifecycle	bool	void *handle, const char *from, size_t from_len, const char *to, size_t to_len
+lockbox_list	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len, bool recursive
+lockbox_list_with_options	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len, const char *glob, size_t glob_len, bool recursive, bool include_files, bool include_symlinks, bool include_directories, size_t limit
+lockbox_stat	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len
+lockbox_set_variable	archive.lifecycle	bool	void *handle, const char *name, size_t name_len, const char *value, size_t value_len, bool secret
+lockbox_get_variable	archive.lifecycle	RevaultBuffer	const void *handle, const char *name, size_t name_len
+lockbox_delete_variable	archive.lifecycle	bool	void *handle, const char *name, size_t name_len
+lockbox_move_variables	archive.lifecycle	bool	void *handle, const uint8_t *moves_proto, size_t moves_len
+lockbox_list_variables	archive.lifecycle	RevaultBuffer	const void *handle
+lockbox_variable_sensitivity	archive.lifecycle	RevaultBuffer	const void *handle, const char *name, size_t name_len
+lockbox_add_symlink	archive.lifecycle	bool	void *handle, const char *path, size_t path_len, const char *target, size_t target_len, bool replace
+lockbox_get_symlink_target	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len
+lockbox_id	archive.lifecycle	RevaultBuffer	const void *handle
+lockbox_exists	archive.lifecycle	bool	const void *handle, const char *path, size_t path_len
+lockbox_is_dir	archive.lifecycle	bool	const void *handle, const char *path, size_t path_len
+lockbox_permissions	archive.lifecycle	uint32_t	const void *handle, const char *path, size_t path_len
+lockbox_set_permissions	archive.lifecycle	bool	void *handle, const char *path, size_t path_len, uint32_t permissions
+lockbox_read_range	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len, uint64_t offset, uint64_t len
+lockbox_recovery_scan	archive.recovery	RevaultBuffer	const uint8_t *bytes, size_t len, const uint8_t *key, size_t key_len
+lockbox_recovery_salvage	archive.recovery	void *	const uint8_t *bytes, size_t len, const uint8_t *key, size_t key_len, const void *signing_key
+lockbox_add_password	archive.keys	uint64_t	void *handle, const uint8_t *password, size_t len
+lockbox_add_contact	archive.keys	uint64_t	void *handle, const void *contact, const char *name, size_t name_len
+lockbox_delete_key	archive.lifecycle	bool	void *handle, uint64_t id
+lockbox_list_key_slots	archive.keys	RevaultBuffer	const void *handle
+lockbox_set_owner_signing_key	archive.keys	bool	void *handle, const void *key
+lockbox_owner_inspection	archive.keys	RevaultBuffer	const void *handle
+lockbox_define_form	archive.forms	RevaultBuffer	void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_proto, size_t fields_len
+lockbox_list_form_definitions	archive.forms	RevaultBuffer	const void *handle
+lockbox_resolve_form	archive.forms	RevaultBuffer	const void *handle, const char *reference, size_t reference_len
+lockbox_list_form_revisions	archive.forms	RevaultBuffer	const void *handle, const char *type_id, size_t type_id_len
+lockbox_create_form_record	archive.forms	RevaultBuffer	void *handle, const char *path, size_t path_len, const char *type_reference, size_t type_len, const char *name, size_t name_len
+lockbox_set_form_field	archive.forms	bool	void *handle, const char *path, size_t path_len, const char *field, size_t field_len, const char *value, size_t value_len, bool secret
+lockbox_list_form_records	archive.forms	RevaultBuffer	const void *handle
+lockbox_get_form_record	archive.forms	RevaultBuffer	const void *handle, const char *path, size_t path_len
+lockbox_delete_form_record	archive.forms	bool	void *handle, const char *path, size_t path_len
+lockbox_move_form_records	archive.forms	bool	void *handle, const uint8_t *moves_proto, size_t moves_len
+lockbox_get_form_field	archive.forms	RevaultBuffer	const void *handle, const char *path, size_t path_len, const char *field, size_t field_len
+lockbox_to_bytes	archive.lifecycle	RevaultBuffer	const void *handle
+lockbox_free	archive.lifecycle	void	void *handle
+vault_is_running	vault.agent	bool	void
+vault_forget_all	vault.agent	bool	void
+key_contact_generate	keys.contact	void *	void
+key_contact_from_private	keys.contact	void *	const uint8_t *bytes, size_t len
+key_contact_public	keys.contact	RevaultBuffer	const void *handle
+key_contact_private	keys.contact	RevaultBuffer	const void *handle
+key_contact_public_from_bytes	keys.contact	void *	const uint8_t *bytes, size_t len
+key_contact_public_free	keys.contact	void	void *handle
+key_contact_free	keys.contact	void	void *handle
+key_contact_encrypt	keys.contact	void *	const void *contact, const uint8_t *content_key, size_t key_len
+key_contact_decrypt	keys.contact	RevaultBuffer	const void *contact, const void *wrapped
+key_contact_wrapped_public	keys.contact	RevaultBuffer	const void *wrapped
+key_contact_wrapped_ciphertext	keys.contact	RevaultBuffer	const void *wrapped
+key_contact_wrapped_encrypted	keys.contact	RevaultBuffer	const void *wrapped
+key_contact_wrapped_free	keys.contact	void	void *handle
+key_signing_generate	keys.signing	void *	void
+key_signing_from_private	keys.signing	void *	const uint8_t *bytes, size_t len
+key_signing_public	keys.signing	RevaultBuffer	const void *handle
+key_signing_private	keys.signing	RevaultBuffer	const void *handle
+key_signing_public_from_bytes	keys.signing	void *	const uint8_t *bytes, size_t len
+key_signing_public_free	keys.signing	void	void *handle
+key_signing_free	keys.signing	void	void *handle
+vault_key_export_private	keys.signing	RevaultBuffer	const void *key, const char *format, size_t format_len
+vault_key_export_public	keys.signing	RevaultBuffer	const void *key, const char *format, size_t format_len
+vault_key_import_private	keys.signing	void *	const uint8_t *bytes, size_t len
+vault_key_import_public	keys.signing	void *	const uint8_t *bytes, size_t len
+vault_key_fingerprint	keys.signing	RevaultBuffer	const void *key
+vault_key_format_hex	keys.signing	RevaultBuffer	const uint8_t *bytes, size_t len
+vault_key_decode_hex	keys.signing	RevaultBuffer	const char *text, size_t len
+vault_key_format_crockford	keys.signing	RevaultBuffer	const uint8_t *bytes, size_t len
+vault_key_format_crockford_reading	keys.signing	RevaultBuffer	const char *code, size_t len
+vault_key_decode_crockford	keys.signing	RevaultBuffer	const char *code, size_t len
+vault_key_hex_encode	keys.signing	RevaultBuffer	const uint8_t *bytes, size_t len
+vault_key_hex_decode	keys.signing	RevaultBuffer	const char *text, size_t len
+vault_directory_open	vault.directory	void *	const char *root, size_t root_len, const uint8_t *password, size_t password_len
+vault_structure_version_current	vault.local	uint32_t	void
+vault_directory_probe_structure_version	vault.directory	uint32_t	const char *root, size_t root_len, const uint8_t *password, size_t password_len
+vault_directory_open_or_create_default	vault.directory	void *	const uint8_t *password, size_t password_len
+vault_directory_replace_default	vault.directory	void *	const uint8_t *password, size_t password_len
+vault_directory_change_password	vault.directory	bool	const char *root, size_t root_len, const uint8_t *old_password, size_t old_len, const uint8_t *new_password, size_t new_len
+vault_directory_change_default_password	vault.directory	bool	const uint8_t *old_password, size_t old_len, const uint8_t *new_password, size_t new_len
+vault_directory_replace	vault.directory	void *	const char *root, size_t root_len, const uint8_t *password, size_t password_len
+vault_directory_open_or_create	vault.directory	void *	const char *root, size_t root_len, const uint8_t *password, size_t password_len
+vault_directory_root	vault.directory	RevaultBuffer	const void *handle
+vault_directory_structure_version	vault.directory	uint32_t	const void *handle
+vault_directory_list_private_keys	vault.directory	RevaultBuffer	const void *handle
+vault_directory_list_private_key_names	vault.directory	RevaultBuffer	const void *handle
+vault_directory_list_contact_names	vault.directory	RevaultBuffer	const void *handle
+vault_directory_list_form_aliases	vault.directory	RevaultBuffer	const void *handle
+vault_directory_private_key_exists	vault.directory	bool	const void *handle, const char *name, size_t name_len
+vault_directory_delete_private_key	vault.directory	bool	const void *handle, const char *name, size_t name_len
+vault_directory_store_private_key	vault.directory	bool	const void *handle, const char *name, size_t name_len, const void *key
+vault_directory_load_private_key	vault.directory	void *	const void *handle, const char *name, size_t name_len
+vault_directory_load_private_key_generation	vault.directory	void *	const void *handle, const char *name, size_t name_len, uint16_t index
+vault_directory_store_contact	vault.directory	bool	const void *handle, const char *name, size_t name_len, const void *key
+vault_directory_load_contact	vault.directory	void *	const void *handle, const char *name, size_t name_len
+vault_directory_contact_exists	vault.directory	bool	const void *handle, const char *name, size_t name_len
+vault_directory_delete_contact	vault.directory	bool	const void *handle, const char *name, size_t name_len
+vault_directory_list_contacts	vault.directory	RevaultBuffer	const void *handle
+vault_directory_store_profile_email	vault.directory	bool	const void *handle, const char *name, size_t name_len, const char *email, size_t email_len
+vault_directory_profile_email	vault.directory	RevaultBuffer	const void *handle, const char *name, size_t name_len
+vault_directory_store_backup	vault.directory	bool	const void *handle, const uint8_t *id, size_t id_len, const uint8_t *bytes, size_t len
+vault_directory_load_backup	vault.directory	RevaultBuffer	const void *handle, const uint8_t *id, size_t id_len
+vault_directory_backup_count	vault.directory	uint64_t	const void *handle
+vault_directory_restore_private_key	vault.directory	bool	const void *handle, const char *name, size_t name_len, const void *key, const void *signing_key, bool overwrite
+vault_directory_load_owner_signing_key	vault.directory	void *	const void *handle, const char *name, size_t name_len
+vault_directory_load_owner_signing_key_generation	vault.directory	void *	const void *handle, const char *name, size_t name_len, uint16_t index
+vault_directory_store_contact_signing_key	vault.directory	bool	const void *handle, const char *name, size_t name_len, const void *key
+vault_directory_load_contact_signing_key	vault.directory	void *	const void *handle, const char *name, size_t name_len
+vault_directory_list_profile_generations	vault.directory	RevaultBuffer	const void *handle, const char *name, size_t name_len
+vault_directory_rotate_private_key	vault.directory	RevaultBuffer	const void *handle, const char *name, size_t name_len
+vault_directory_remember_lockbox	vault.directory	bool	const void *handle, const uint8_t *id, size_t id_len, const char *path, size_t path_len
+vault_directory_list_known_lockboxes	vault.directory	RevaultBuffer	const void *handle
+vault_directory_forget_lockbox	vault.directory	bool	const void *handle, const char *path, size_t path_len
+vault_directory_remember_access_slot_label	vault.directory	bool	const void *handle, const uint8_t *id, size_t id_len, uint64_t slot_id, const char *name, size_t name_len
+vault_directory_list_access_slot_labels	vault.directory	RevaultBuffer	const void *handle, const uint8_t *id, size_t id_len
+vault_directory_find_access_slot_labels	vault.directory	RevaultBuffer	const void *handle, const uint8_t *id, size_t id_len, const char *name, size_t name_len
+vault_directory_forget_access_slot_label	vault.directory	bool	const void *handle, const uint8_t *id, size_t id_len, uint64_t slot_id
+vault_directory_define_form	vault.directory	RevaultBuffer	const void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_proto, size_t fields_len
+vault_directory_resolve_form	vault.directory	RevaultBuffer	const void *handle, const char *reference, size_t reference_len
+vault_directory_list_forms	vault.directory	RevaultBuffer	const void *handle
+vault_directory_list_form_revisions	vault.directory	RevaultBuffer	const void *handle, const char *type_id, size_t type_id_len
+vault_directory_seed_forms	vault.directory	size_t	const void *handle
+vault_directory_remember_password	vault.directory	bool	const void *handle, const uint8_t *id, size_t id_len, const uint8_t *password, size_t password_len
+vault_directory_remembered_password	vault.directory	RevaultBuffer	const void *handle, const uint8_t *id, size_t id_len
+vault_backup_default	vault.local	RevaultBuffer	const char *path, size_t path_len, bool overwrite
+vault_restore_default	vault.local	RevaultBuffer	const char *path, size_t path_len, bool overwrite
+vault_directory_free	vault.directory	void	void *handle
+vault_read_only_open	vault.local	void *	const char *root, size_t root_len, const uint8_t *password, size_t password_len
+vault_read_only_open_default	vault.local	void *	const uint8_t *password, size_t password_len
+vault_read_only_list_profile_names	vault.local	RevaultBuffer	const void *handle
+vault_read_only_list_contact_names	vault.local	RevaultBuffer	const void *handle
+vault_read_only_list_form_aliases	vault.local	RevaultBuffer	const void *handle
+vault_read_only_list_known_lockboxes	vault.local	RevaultBuffer	const void *handle
+vault_read_only_free	vault.local	void	void *handle
+vault_agent_serve	vault.agent	bool	void
+vault_agent_verify_transport	vault.agent	bool	void
+vault_agent_get	vault.agent	RevaultBuffer	const uint8_t *id, size_t id_len
+vault_agent_put	vault.agent	bool	const uint8_t *id, size_t id_len, const uint8_t *key, size_t key_len
+vault_agent_forget	vault.agent	bool	const uint8_t *id, size_t id_len
+vault_agent_stop	vault.agent	bool	void
+vault_agent_start	vault.agent	bool	void
+vault_agent_list	vault.agent	RevaultBuffer	void
+vault_agent_sleep_support	vault.agent	RevaultBuffer	void
+vault_platform_status	vault.platform	RevaultBuffer	void
+vault_platform_set_scope	vault.platform	bool	const char *scope, size_t len
+vault_platform_forget_password	vault.platform	bool	void
+vault_platform_put_password	vault.platform	bool	const uint8_t *password, size_t len
+vault_platform_enable	vault.platform	bool	void
+vault_platform_disable	vault.platform	bool	void
+vault_platform_disabled	vault.platform	bool	void
+vault_platform_get_password	vault.platform	RevaultBuffer	void
+vault_default_directory	vault.local	RevaultBuffer	void
+vault_default_path	vault.local	RevaultBuffer	void
+vault_agent_log_path	vault.agent	RevaultBuffer	void
+vault_agent_log_destination	vault.agent	RevaultBuffer	void
+vault_agent_get_vault_unlock_key	vault.agent	RevaultBuffer	const char *vault_id, size_t vault_id_len
+vault_agent_put_vault_unlock_key	vault.agent	bool	const char *vault_id, size_t vault_id_len, const uint8_t *key, size_t key_len, uint64_t ttl_seconds
+vault_agent_forget_vault_unlock_key	vault.agent	bool	const char *vault_id, size_t vault_id_len
+vault_agent_get_owner_signing_key	vault.agent	void *	const char *vault_id, size_t vault_len, const char *profile, size_t profile_len
+vault_agent_put_owner_signing_key	vault.agent	bool	const char *vault_id, size_t vault_len, const char *profile, size_t profile_len, const void *key, uint64_t ttl_seconds
+vault_agent_forget_owner_signing_key	vault.agent	bool	const char *vault_id, size_t vault_len, const char *profile, size_t profile_len
+vault_agent_begin_activity	vault.agent	void *	const char *kind, size_t len
+vault_agent_end_activity	vault.agent	void	void *handle
+vault_local	vault.local	void *	void
+vault_create_lockbox_password	vault.local	void *	const void *vault, const char *path, size_t path_len, const uint8_t *password, size_t password_len
+vault_open_lockbox_password	vault.local	void *	const void *vault, const char *path, size_t path_len, const uint8_t *password, size_t password_len
+vault_create_lockbox_content_key	vault.local	void *	const void *vault, const char *path, size_t path_len, const uint8_t *content_key, size_t key_len, const void *signing_key
+vault_create_lockbox_contact	vault.local	void *	const void *vault, const char *path, size_t path_len, const void *contact, const char *name, size_t name_len, const void *signing_key
+vault_open_lockbox_content_key	vault.local	void *	const void *vault, const char *path, size_t path_len, const uint8_t *content_key, size_t key_len, const void *signing_key
+vault_cache_lockbox_password	vault.local	bool	const void *vault, const char *path, size_t path_len, const uint8_t *password, size_t password_len, uint64_t ttl_seconds
+vault_close_lockbox	vault.local	bool	const void *vault, const char *path, size_t path_len
+vault_close_all	vault.local	bool	const void *vault
+vault_free	vault.local	void	void *vault

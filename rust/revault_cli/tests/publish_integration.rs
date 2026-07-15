@@ -97,7 +97,7 @@ fn cli_publish_can_be_received_from_failover_path() {
         .receive(&publish.publish_code)
         .expect("failover receive");
     let decoded = decode_contact_publish(&received.payload).expect("decode failover payload");
-    assert_eq!(decoded.identity, "default");
+    assert_eq!(decoded.profile, "default");
 
     let non_owner_verify =
         non_owner.verify_email(&publish.verified_query_code, &publish.verified_query_token);
@@ -135,7 +135,7 @@ impl TwoServerCluster {
     }
 }
 
-struct PublishedIdentity {
+struct PublishedProfile {
     publish_code: String,
     contact_fingerprint: String,
     verified_query_code: String,
@@ -147,12 +147,12 @@ fn publish_contact(
     vault_root: &PathBuf,
     agent_root: &PathBuf,
     topology_url: &str,
-) -> PublishedIdentity {
+) -> PublishedProfile {
     let publish = run_output_in(
         bin,
         &[
             "vault",
-            "identity",
+            "profile",
             "publish",
             "--topology-url",
             topology_url,
@@ -174,11 +174,11 @@ fn init_vault_with_email(bin: &str, vault_root: &PathBuf, agent_root: &PathBuf, 
         bin,
         vault_root,
         agent_root,
-        &["vault", "identity", "email", "default", email],
+        &["vault", "profile", "email", "default", email],
     );
 }
 
-fn parse_publish_output(text: &str) -> PublishedIdentity {
+fn parse_publish_output(text: &str) -> PublishedProfile {
     let mut publish_code = None;
     let mut contact_fingerprint = None;
     let mut verification_url = None;
@@ -204,7 +204,7 @@ fn parse_publish_output(text: &str) -> PublishedIdentity {
         verification_url.expect("publish output did not include verification_url");
     let (verified_query_code, verified_query_token) = verification_query_parts(&verification_url);
 
-    PublishedIdentity {
+    PublishedProfile {
         publish_code,
         contact_fingerprint,
         verified_query_code,

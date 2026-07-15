@@ -1,8 +1,8 @@
 use revault_lockbox_api::{
-    ContactKeyPair, ContactPublicKey, Error, FileLockScope, FormDefinition, FormFieldDefinition,
-    FormFieldKind, FormTypeId, ListOptions, Lockbox, LockboxEntryKind, LockboxId, LockboxOpen,
-    LockboxPath, LockboxProtection, OwnerSigningKeyPair, OwnerSigningPublicKey, Result,
-    ScopedFileLock, SecretString, SecretVec, VariableName,
+    ArtifactKind, ContactKeyPair, ContactPublicKey, Error, FileLockScope, FormDefinition,
+    FormFieldDefinition, FormFieldKind, FormTypeId, ListOptions, Lockbox, LockboxEntryKind,
+    LockboxId, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
+    OwnerSigningPublicKey, ReadOnly, Result, ScopedFileLock, SecretString, SecretVec, VariableName,
 };
 use sha2::{Digest, Sha256};
 use std::cell::{Cell, RefCell};
@@ -19,10 +19,10 @@ const VAULT_BACKUP_MAGIC: &[u8; 8] = b"LBVBK001";
 const VAULT_STRUCTURE_VERSION_PATH: &str = "/vault/structure-version";
 const KNOWN_LOCKBOX_MAGIC: &[u8; 4] = b"LBKL";
 const KNOWN_LOCKBOX_VERSION: u16 = 1;
-const IDENTITY_HISTORY_MAGIC: &[u8; 4] = b"LBIH";
-const IDENTITY_HISTORY_VERSION: u16 = 1;
-const IDENTITY_EMAIL_MAGIC: &[u8; 4] = b"LBIE";
-const IDENTITY_EMAIL_VERSION: u16 = 1;
+const PROFILE_HISTORY_MAGIC: &[u8; 4] = b"LBPH";
+const PROFILE_HISTORY_VERSION: u16 = 1;
+const PROFILE_EMAIL_MAGIC: &[u8; 4] = b"LBPE";
+const PROFILE_EMAIL_VERSION: u16 = 1;
 const GENERATION_ACTIVE: u16 = 1;
 const GENERATION_RETIRED: u16 = 2;
 const GENERATION_COMPROMISED: u16 = 3;
@@ -32,7 +32,7 @@ thread_local! {
 }
 
 /// Current on-disk structure version for records stored inside the local vault.
-pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 1;
+pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 2;
 
 /// Contact entry stored in a `VaultDirectory`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,29 +67,29 @@ pub struct AccessSlotLabel {
     pub updated_at_unix_ms: u64,
 }
 
-/// One generation of a vault identity.
+/// One generation of a vault profile.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IdentityGeneration {
+pub struct ProfileGeneration {
     pub index: u16,
-    pub status: IdentityGenerationStatus,
+    pub status: ProfileGenerationStatus,
     pub contact_fingerprint: Vec<u8>,
     pub created_at_unix_ms: u64,
     pub retired_at_unix_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IdentityGenerationStatus {
+pub enum ProfileGenerationStatus {
     Active,
     Retired,
     Compromised,
 }
 
-/// Versioned identity history for one vault identity.
+/// Versioned profile history for one vault profile.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct IdentityHistory {
+pub struct ProfileHistory {
     pub name: String,
     pub active_generation: u16,
-    pub generations: Vec<IdentityGeneration>,
+    pub generations: Vec<ProfileGeneration>,
 }
 
 /// Metadata stored in an encrypted vault backup archive.
@@ -123,9 +123,96 @@ pub struct VaultDirectory {
     lockbox: RefCell<Lockbox>,
 }
 
+/// Read-only view of encrypted vault metadata.
+///
+/// This type deliberately opens the vault with [`Lockbox::open`] and never
+/// attaches or loads an owner-signing key. It is intended for completion,
+/// diagnostics, and other metadata-only consumers.
+#[derive(Debug)]
+pub struct ReadOnlyVaultDirectory {
+    lockbox: RefCell<Lockbox<ReadOnly>>,
+}
+
+impl ReadOnlyVaultDirectory {
+    /// Opens the default vault without loading owner-signing material.
+    pub fn open_default(password: &SecretString) -> Result<Self> {
+        Self::open(default_vault_dir()?, password)
+    }
+
+    /// Opens a vault at `root` without loading owner-signing material.
+    pub fn open(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let path = root.as_ref().join(VAULT_FILE_NAME);
+        if !path.exists() {
+            return Err(Error::VaultUnavailable(
+                "local vault is not initialized; run `lockbox vault init` first".to_string(),
+            ));
+        }
+        Ok(Self {
+            lockbox: RefCell::new(Lockbox::open(&path, LockboxOpen::Password(password))?),
+        })
+    }
+
+    /// Lists profile names without reading their private key records.
+    pub fn list_private_key_names(&self) -> Result<Vec<String>> {
+        let mut names = Vec::new();
+        for (variable_name, _) in self.lockbox.borrow().list_variables()? {
+            let Some(name) = private_key_name_from_variable(&variable_name) else {
+                continue;
+            };
+            names.push(name?);
+        }
+        names.sort();
+        names.dedup();
+        Ok(names)
+    }
+
+    /// Lists saved contact names without loading contact key material.
+    pub fn list_contact_names(&self) -> Result<Vec<String>> {
+        list_read_only_record_names(&self.lockbox, "/contacts", ".pub")
+    }
+
+    /// Lists reusable form aliases. Form definitions contain no private key
+    /// material and are read directly from the encrypted metadata view.
+    pub fn list_form_aliases(&self) -> Result<Vec<String>> {
+        let mut aliases = self
+            .lockbox
+            .borrow()
+            .list_form_definitions()?
+            .into_iter()
+            .map(|definition| definition.alias)
+            .collect::<Vec<_>>();
+        aliases.sort();
+        aliases.dedup();
+        Ok(aliases)
+    }
+
+    /// Lists remembered lockbox paths without opening any lockbox or key.
+    pub fn list_known_lockboxes(&self) -> Result<Vec<KnownLockbox>> {
+        let mut out = Vec::new();
+        for name in list_read_only_record_names(&self.lockbox, "/known_lockboxes", ".lkl")? {
+            let path = LockboxPath::new(format!("/known_lockboxes/{name}.lkl"))?;
+            out.push(decode_known_lockbox(
+                &self.lockbox.borrow().get_file(&path)?,
+            )?);
+        }
+        out.sort_by(|left, right| left.path.cmp(&right.path));
+        Ok(out)
+    }
+}
+
 impl VaultDirectory {
     /// Default name used for the primary local contact key.
     pub const DEFAULT_KEY_NAME: &'static str = "default";
+
+    /// Reads the stable vault structure discriminator without interpreting
+    /// version-specific records. Migration orchestration uses this to choose a
+    /// historical exporter before opening the source through `VaultDirectory`.
+    pub fn probe_structure_version(root: impl AsRef<Path>, password: &SecretString) -> Result<u32> {
+        let path = root.as_ref().join(VAULT_FILE_NAME);
+        let lockbox = Lockbox::open(&path, LockboxOpen::Password(password))?;
+        let record = lockbox.get_file(&vault_structure_version_record_path()?)?;
+        decode_structure_version(&record)
+    }
 
     /// Opens or creates the default vault directory using `password`.
     ///
@@ -176,6 +263,9 @@ impl VaultDirectory {
             .borrow_mut()
             .replace_password(old_password, new_password)?;
         set_private_file_permissions(&vault.path)?;
+        let vault_id = vault.path.to_string_lossy().into_owned();
+        let _ = crate::forget_vault_unlock_key(&vault_id);
+        let _ = crate::forget_owner_signing_key(&vault_id, Self::DEFAULT_KEY_NAME);
         Ok(())
     }
 
@@ -185,6 +275,9 @@ impl VaultDirectory {
         create_private_dir(&root)?;
         let _guard = VaultFileLock::acquire(&root)?;
         let path = root.join(VAULT_FILE_NAME);
+        let vault_id = path.to_string_lossy().into_owned();
+        let _ = crate::forget_vault_unlock_key(&vault_id);
+        let _ = crate::forget_owner_signing_key(&vault_id, Self::DEFAULT_KEY_NAME);
         if path.exists() {
             fs::remove_file(&path).map_err(|err| Error::Io(err.to_string()))?;
         }
@@ -201,6 +294,35 @@ impl VaultDirectory {
             lockbox: RefCell::new(lockbox),
         };
         vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
+        vault.ensure_structure_version(true)?;
+        Ok(vault)
+    }
+
+    /// Creates an empty current-format vault for migration import.
+    ///
+    /// The container still has an ephemeral owner signer, but unlike `replace`
+    /// this does not seed that signer as a user-visible `default` vault key.
+    #[doc(hidden)]
+    pub fn replace_for_migration(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let root = root.as_ref().to_path_buf();
+        create_private_dir(&root)?;
+        let _guard = VaultFileLock::acquire(&root)?;
+        let path = root.join(VAULT_FILE_NAME);
+        if path.exists() {
+            return Err(Error::AlreadyExists(path.display().to_string()));
+        }
+        let signing_key = OwnerSigningKeyPair::generate()?;
+        let lockbox = Lockbox::create_file_assuming_locked(
+            &path,
+            LockboxProtection::Password(password),
+            &signing_key,
+        )?;
+        set_private_file_permissions(&path)?;
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+        };
         vault.ensure_structure_version(true)?;
         Ok(vault)
     }
@@ -289,17 +411,17 @@ impl VaultDirectory {
         if !self.owner_signing_key_exists(name)? {
             self.store_owner_signing_key_current_only(name, &OwnerSigningKeyPair::generate()?)?;
         }
-        if self.read_identity_history(name)?.is_none() {
+        if self.read_profile_history(name)?.is_none() {
             self.store_private_key_generation(name, 1, keypair)?;
             let signing_key = self.load_owner_signing_key(name)?;
             self.store_owner_signing_key_generation(name, 1, &signing_key)?;
             let now = unix_ms(SystemTime::now());
-            self.write_identity_history(&IdentityHistory {
+            self.write_profile_history(&ProfileHistory {
                 name: name.to_string(),
                 active_generation: 1,
-                generations: vec![IdentityGeneration {
+                generations: vec![ProfileGeneration {
                     index: 1,
-                    status: IdentityGenerationStatus::Active,
+                    status: ProfileGenerationStatus::Active,
                     contact_fingerprint: contact_fingerprint(&keypair.public_key()),
                     created_at_unix_ms: now,
                     retired_at_unix_ms: None,
@@ -309,9 +431,9 @@ impl VaultDirectory {
         Ok(())
     }
 
-    /// Restores an identity private key and optional owner signing key.
+    /// Restores a profile private key and optional owner signing key.
     ///
-    /// When `overwrite` is true, any existing identity with the same name is
+    /// When `overwrite` is true, any existing profile with the same name is
     /// removed first so current keys, signing keys, and generation history stay
     /// consistent with the restored material.
     pub fn restore_private_key(
@@ -323,7 +445,7 @@ impl VaultDirectory {
     ) -> Result<()> {
         if self.private_key_exists(name)? {
             if !overwrite {
-                return Err(Error::AlreadyExists(format!("vault identity {name}")));
+                return Err(Error::AlreadyExists(format!("vault profile {name}")));
             }
             self.delete_private_key(name)?;
         }
@@ -331,6 +453,63 @@ impl VaultDirectory {
             self.store_owner_signing_key_current_only(name, signing_key)?;
         }
         self.store_private_key(name, keypair)
+    }
+
+    /// Restores an exact profile generation history during a format migration.
+    ///
+    /// This is intentionally a logical import operation: native vault pages
+    /// and record offsets are never copied from the source vault.
+    #[doc(hidden)]
+    pub fn restore_profile_generations(
+        &self,
+        history: ProfileHistory,
+        generations: Vec<(u16, ContactKeyPair, OwnerSigningKeyPair)>,
+        email: Option<&str>,
+        overwrite: bool,
+    ) -> Result<()> {
+        if generations.is_empty() {
+            return Err(Error::InvalidInput(
+                "a migrated profile must contain at least one generation".to_string(),
+            ));
+        }
+        if history.generations.len() != generations.len()
+            || !history
+                .generations
+                .iter()
+                .all(|item| generations.iter().any(|(index, _, _)| *index == item.index))
+        {
+            return Err(Error::InvalidInput(
+                "migrated profile generation keys do not match its history".to_string(),
+            ));
+        }
+        let Some((_, active_key, active_signing)) = generations
+            .iter()
+            .find(|(index, _, _)| *index == history.active_generation)
+        else {
+            return Err(Error::InvalidInput(
+                "migrated profile active generation is missing".to_string(),
+            ));
+        };
+        if self.private_key_exists(&history.name)? {
+            if !overwrite {
+                return Err(Error::AlreadyExists(format!(
+                    "vault profile {}",
+                    history.name
+                )));
+            }
+            self.delete_private_key(&history.name)?;
+        }
+        self.store_private_key_current_only(&history.name, active_key)?;
+        self.store_owner_signing_key_current_only(&history.name, active_signing)?;
+        for (index, key, signing) in generations {
+            self.store_private_key_generation(&history.name, index, &key)?;
+            self.store_owner_signing_key_generation(&history.name, index, &signing)?;
+        }
+        self.write_profile_history(&history)?;
+        if let Some(email) = email {
+            self.store_profile_email(&history.name, email)?;
+        }
+        Ok(())
     }
 
     /// Loads a contact private key previously stored under `name`.
@@ -347,16 +526,28 @@ impl VaultDirectory {
         import_private_key(bytes)
     }
 
-    /// Loads the owner signing key associated with a vault identity.
+    /// Loads the owner signing key associated with a vault profile.
     ///
-    /// Older vault identities did not have a separate signing key. The first
+    /// Older vault profiles did not have a separate signing key. The first
     /// load lazily creates one so future lockbox commits can be signed without
     /// deriving signing material from the lockbox content key.
     pub fn load_owner_signing_key(&self, name: &str) -> Result<OwnerSigningKeyPair> {
+        let vault_id = self.path.to_string_lossy().into_owned();
+        if let Ok(Some(key)) = crate::get_owner_signing_key(&vault_id, name) {
+            return Ok(key);
+        }
         if !self.owner_signing_key_exists(name)? {
             self.store_owner_signing_key_current_only(name, &OwnerSigningKeyPair::generate()?)?;
         }
-        self.load_owner_signing_key_existing(name)
+        let key = self.load_owner_signing_key_existing(name)?;
+        let _ = crate::put_owner_signing_key(&vault_id, name, key.try_clone()?, None);
+        Ok(key)
+    }
+
+    /// Loads one owner-signing key using the enabled session-agent cache when
+    /// available, then refreshes that cache after the normal vault load.
+    pub fn load_owner_signing_key_cached(&self, name: &str) -> Result<OwnerSigningKeyPair> {
+        self.load_owner_signing_key(name)
     }
 
     /// Returns whether a private key exists under `name`.
@@ -384,7 +575,7 @@ impl VaultDirectory {
 
     /// Deletes the private key stored under `name`, if present.
     pub fn delete_private_key(&self, name: &str) -> Result<()> {
-        if let Some(history) = self.read_identity_history(name)? {
+        if let Some(history) = self.read_profile_history(name)? {
             for generation in history.generations {
                 self.delete_secret_variable_record_if_exists(
                     &private_key_generation_variable_name(name, generation.index)?,
@@ -393,49 +584,52 @@ impl VaultDirectory {
                     &owner_signing_key_generation_variable_name(name, generation.index)?,
                 )?;
             }
-            self.delete_record_if_exists(&identity_history_record_path(name)?)?;
+            self.delete_record_if_exists(&profile_history_record_path(name)?)?;
         }
-        self.delete_record_if_exists(&identity_email_record_path(name)?)?;
+        self.delete_record_if_exists(&profile_email_record_path(name)?)?;
         self.delete_secret_variable_record_if_exists(&owner_signing_key_variable_name(name)?)?;
-        self.delete_secret_variable_record_if_exists(&private_key_variable_name(name)?)
+        self.delete_secret_variable_record_if_exists(&private_key_variable_name(name)?)?;
+        let vault_id = self.path.to_string_lossy().into_owned();
+        let _ = crate::forget_owner_signing_key(&vault_id, name);
+        Ok(())
     }
 
-    /// Stores the public email address associated with a vault identity.
-    pub fn store_identity_email(&self, name: &str, email: &str) -> Result<()> {
+    /// Stores the public email address associated with a vault profile.
+    pub fn store_profile_email(&self, name: &str, email: &str) -> Result<()> {
         if !self.private_key_exists(name)? {
             return Err(Error::NotFound(format!("vault private key {name}")));
         }
         self.put_record_replace(
-            &identity_email_record_path(name)?,
-            &encode_identity_email(email),
+            &profile_email_record_path(name)?,
+            &encode_profile_email(email),
         )
     }
 
-    /// Loads the public email address associated with a vault identity.
-    pub fn identity_email(&self, name: &str) -> Result<Option<String>> {
-        let path = identity_email_record_path(name)?;
+    /// Loads the public email address associated with a vault profile.
+    pub fn profile_email(&self, name: &str) -> Result<Option<String>> {
+        let path = profile_email_record_path(name)?;
         {
             let lockbox = self.lockbox.borrow();
             if lockbox.stat(&path).is_none() {
                 return Ok(None);
             }
         }
-        decode_identity_email(&self.get_record(&path)?).map(Some)
+        decode_profile_email(&self.get_record(&path)?).map(Some)
     }
 
-    /// Lists identity generations for a private key, creating generation one
-    /// for existing pre-history identities.
-    pub fn list_identity_generations(&self, name: &str) -> Result<IdentityHistory> {
-        self.ensure_identity_history(name)
+    /// Lists profile generations for a private key, creating generation one
+    /// for existing pre-history profiles.
+    pub fn list_profile_generations(&self, name: &str) -> Result<ProfileHistory> {
+        self.ensure_profile_history(name)
     }
 
-    /// Rotates a vault identity to a new active key generation.
-    pub fn rotate_private_key(&self, name: &str) -> Result<IdentityHistory> {
-        let mut history = self.ensure_identity_history(name)?;
+    /// Rotates a vault profile to a new active key generation.
+    pub fn rotate_private_key(&self, name: &str) -> Result<ProfileHistory> {
+        let mut history = self.ensure_profile_history(name)?;
         let now = unix_ms(SystemTime::now());
         for generation in &mut history.generations {
-            if generation.status == IdentityGenerationStatus::Active {
-                generation.status = IdentityGenerationStatus::Retired;
+            if generation.status == ProfileGenerationStatus::Active {
+                generation.status = ProfileGenerationStatus::Retired;
                 generation.retired_at_unix_ms = Some(now);
             }
         }
@@ -453,18 +647,20 @@ impl VaultDirectory {
         self.store_private_key_generation(name, new_index, &keypair)?;
         self.store_owner_signing_key_generation(name, new_index, &signing_key)?;
         history.active_generation = new_index;
-        history.generations.push(IdentityGeneration {
+        history.generations.push(ProfileGeneration {
             index: new_index,
-            status: IdentityGenerationStatus::Active,
+            status: ProfileGenerationStatus::Active,
             contact_fingerprint: contact_fingerprint(&keypair.public_key()),
             created_at_unix_ms: now,
             retired_at_unix_ms: None,
         });
-        self.write_identity_history(&history)?;
+        self.write_profile_history(&history)?;
+        let vault_id = self.path.to_string_lossy().into_owned();
+        let _ = crate::forget_owner_signing_key(&vault_id, name);
         Ok(history)
     }
 
-    /// Loads one identity generation by index.
+    /// Loads one profile generation by index.
     pub fn load_private_key_generation(&self, name: &str, index: u16) -> Result<ContactKeyPair> {
         let variable_name = private_key_generation_variable_name(name, index)?;
         let secret = self
@@ -602,6 +798,15 @@ impl VaultDirectory {
         )
     }
 
+    /// Restores a known-lockbox record without replacing its source timestamp.
+    #[doc(hidden)]
+    pub fn restore_known_lockbox(&self, record: KnownLockbox) -> Result<()> {
+        self.put_record_replace(
+            &known_lockbox_record_path(record.path.as_str())?,
+            &encode_known_lockbox(&record),
+        )
+    }
+
     /// Lists lockboxes remembered by the local vault.
     pub fn list_known_lockboxes(&self) -> Result<Vec<KnownLockbox>> {
         let mut out = Vec::new();
@@ -638,6 +843,15 @@ impl VaultDirectory {
         };
         self.put_record_replace(
             &access_slot_label_record_path(lockbox_id, slot_id)?,
+            &encode_access_slot_label(&label),
+        )
+    }
+
+    /// Restores an access-slot label without replacing its source timestamp.
+    #[doc(hidden)]
+    pub fn restore_access_slot_label(&self, label: AccessSlotLabel) -> Result<()> {
+        self.put_record_replace(
+            &access_slot_label_record_path(label.lockbox_id, label.slot_id)?,
             &encode_access_slot_label(&label),
         )
     }
@@ -768,6 +982,16 @@ impl VaultDirectory {
     /// Lists reusable form definitions stored in the vault.
     pub fn list_form_definitions(&self) -> Result<Vec<FormDefinition>> {
         self.lockbox.borrow().list_form_definitions()
+    }
+
+    /// Lists every stored revision of one reusable form definition.
+    pub fn list_form_definition_revisions(
+        &self,
+        type_id: &FormTypeId,
+    ) -> Result<Vec<FormDefinition>> {
+        self.lockbox
+            .borrow()
+            .list_form_definition_revisions(type_id)
     }
 
     /// Adds built-in form definitions that are not already present.
@@ -903,14 +1127,11 @@ impl VaultDirectory {
     fn ensure_structure_version(&self, initialize_missing: bool) -> Result<()> {
         match self.read_structure_version()? {
             Some(CURRENT_VAULT_STRUCTURE_VERSION) => Ok(()),
-            Some(version) if version > CURRENT_VAULT_STRUCTURE_VERSION => {
-                Err(Error::Configuration(format!(
-                    "local vault structure version {version} is newer than this reVault build supports ({CURRENT_VAULT_STRUCTURE_VERSION}); upgrade reVault before using this vault"
-                )))
-            }
-            Some(version) => Err(Error::Configuration(format!(
-                "local vault structure version {version} cannot be migrated by this reVault build"
-            ))),
+            Some(version) => Err(Error::UnsupportedFormatVersion {
+                artifact: ArtifactKind::Vault,
+                found: version,
+                supported: CURRENT_VAULT_STRUCTURE_VERSION,
+            }),
             None if initialize_missing => self.write_structure_version(CURRENT_VAULT_STRUCTURE_VERSION),
             None => Err(Error::Configuration(
                 "local vault structure version is missing; recreate the vault with this reVault build"
@@ -987,44 +1208,44 @@ impl VaultDirectory {
         )
     }
 
-    fn ensure_identity_history(&self, name: &str) -> Result<IdentityHistory> {
-        if let Some(history) = self.read_identity_history(name)? {
+    fn ensure_profile_history(&self, name: &str) -> Result<ProfileHistory> {
+        if let Some(history) = self.read_profile_history(name)? {
             return Ok(history);
         }
         let keypair = self.load_private_key(name)?;
         self.store_private_key_generation(name, 1, &keypair)?;
         let signing_key = self.load_owner_signing_key(name)?;
         self.store_owner_signing_key_generation(name, 1, &signing_key)?;
-        let history = IdentityHistory {
+        let history = ProfileHistory {
             name: name.to_string(),
             active_generation: 1,
-            generations: vec![IdentityGeneration {
+            generations: vec![ProfileGeneration {
                 index: 1,
-                status: IdentityGenerationStatus::Active,
+                status: ProfileGenerationStatus::Active,
                 contact_fingerprint: contact_fingerprint(&keypair.public_key()),
                 created_at_unix_ms: unix_ms(SystemTime::now()),
                 retired_at_unix_ms: None,
             }],
         };
-        self.write_identity_history(&history)?;
+        self.write_profile_history(&history)?;
         Ok(history)
     }
 
-    fn read_identity_history(&self, name: &str) -> Result<Option<IdentityHistory>> {
-        let path = identity_history_record_path(name)?;
+    fn read_profile_history(&self, name: &str) -> Result<Option<ProfileHistory>> {
+        let path = profile_history_record_path(name)?;
         {
             let lockbox = self.lockbox.borrow();
             if lockbox.stat(&path).is_none() {
                 return Ok(None);
             }
         }
-        decode_identity_history(name, &self.get_record(&path)?).map(Some)
+        decode_profile_history(name, &self.get_record(&path)?).map(Some)
     }
 
-    fn write_identity_history(&self, history: &IdentityHistory) -> Result<()> {
+    fn write_profile_history(&self, history: &ProfileHistory) -> Result<()> {
         self.put_record_replace(
-            &identity_history_record_path(&history.name)?,
-            &encode_identity_history(history),
+            &profile_history_record_path(&history.name)?,
+            &encode_profile_history(history),
         )
     }
 }
@@ -1218,6 +1439,34 @@ fn recursive_list(path: &str) -> Result<ListOptions> {
     Ok(options)
 }
 
+fn list_read_only_record_names(
+    lockbox: &RefCell<Lockbox<ReadOnly>>,
+    root: &str,
+    extension: &str,
+) -> Result<Vec<String>> {
+    let mut out = Vec::new();
+    for entry in lockbox.borrow().list(recursive_list(root)?)? {
+        let entry = entry?;
+        if entry.kind != LockboxEntryKind::File || !entry.path.ends_with(extension) {
+            continue;
+        }
+        let name = entry
+            .path
+            .rsplit('/')
+            .next()
+            .and_then(|file| file.strip_suffix(extension))
+            .ok_or_else(|| {
+                Error::CorruptVaultRecord(format!(
+                    "record path {} does not end with expected extension {extension}",
+                    entry.path
+                ))
+            })?;
+        out.push(name.to_string());
+    }
+    out.sort();
+    Ok(out)
+}
+
 fn private_key_variable_name(name: &str) -> Result<VariableName> {
     let name = validate_record_name(name)?;
     VariableName::new(format!(
@@ -1346,8 +1595,8 @@ fn default_form_templates() -> Vec<DefaultFormTemplate> {
         },
         DefaultFormTemplate {
             type_id: "00000000-0000-4000-8000-000000000004",
-            alias: "identity",
-            name: "Identity Document",
+            alias: "profile",
+            name: "Profile Document",
             fields: vec![
                 form_field("full_name", "Full name", FormFieldKind::Text, true),
                 form_field("date_of_birth", "Date of birth", FormFieldKind::Date, false),
@@ -1426,16 +1675,16 @@ fn contact_signing_record_path(name: &str) -> Result<LockboxPath> {
     ))
 }
 
-fn identity_history_record_path(name: &str) -> Result<LockboxPath> {
+fn profile_history_record_path(name: &str) -> Result<LockboxPath> {
     LockboxPath::new(format!(
-        "/identity_histories/{}.lbih",
+        "/profile_histories/{}.lbih",
         validate_record_name(name)?
     ))
 }
 
-fn identity_email_record_path(name: &str) -> Result<LockboxPath> {
+fn profile_email_record_path(name: &str) -> Result<LockboxPath> {
     LockboxPath::new(format!(
-        "/identity_emails/{}.lbie",
+        "/profile_emails/{}.lbie",
         validate_record_name(name)?
     ))
 }
@@ -1619,25 +1868,25 @@ fn decode_access_slot_label(bytes: &[u8]) -> Result<AccessSlotLabel> {
     })
 }
 
-fn encode_identity_email(email: &str) -> Vec<u8> {
+fn encode_profile_email(email: &str) -> Vec<u8> {
     let mut out = Vec::new();
-    out.extend_from_slice(IDENTITY_EMAIL_MAGIC);
-    put_u16(&mut out, IDENTITY_EMAIL_VERSION);
+    out.extend_from_slice(PROFILE_EMAIL_MAGIC);
+    put_u16(&mut out, PROFILE_EMAIL_VERSION);
     put_string(&mut out, email);
     out
 }
 
-fn decode_identity_email(bytes: &[u8]) -> Result<String> {
+fn decode_profile_email(bytes: &[u8]) -> Result<String> {
     let mut reader = BinaryReader::new(bytes);
-    if reader.bytes(4)? != IDENTITY_EMAIL_MAGIC {
+    if reader.bytes(4)? != PROFILE_EMAIL_MAGIC {
         return Err(Error::CorruptVaultRecord(
-            "identity email record has invalid magic".to_string(),
+            "profile email record has invalid magic".to_string(),
         ));
     }
     let version = reader.u16()?;
-    if version != IDENTITY_EMAIL_VERSION {
+    if version != PROFILE_EMAIL_VERSION {
         return Err(Error::CorruptVaultRecord(format!(
-            "identity email record version {version} is not supported"
+            "profile email record version {version} is not supported"
         )));
     }
     let email = reader.string()?;
@@ -1645,10 +1894,10 @@ fn decode_identity_email(bytes: &[u8]) -> Result<String> {
     Ok(email)
 }
 
-fn encode_identity_history(history: &IdentityHistory) -> Vec<u8> {
+fn encode_profile_history(history: &ProfileHistory) -> Vec<u8> {
     let mut out = Vec::new();
-    out.extend_from_slice(IDENTITY_HISTORY_MAGIC);
-    put_u16(&mut out, IDENTITY_HISTORY_VERSION);
+    out.extend_from_slice(PROFILE_HISTORY_MAGIC);
+    put_u16(&mut out, PROFILE_HISTORY_VERSION);
     put_u16(&mut out, history.active_generation);
     put_u16(&mut out, history.generations.len() as u16);
     for generation in &history.generations {
@@ -1670,17 +1919,17 @@ fn encode_identity_history(history: &IdentityHistory) -> Vec<u8> {
     out
 }
 
-fn decode_identity_history(name: &str, bytes: &[u8]) -> Result<IdentityHistory> {
+fn decode_profile_history(name: &str, bytes: &[u8]) -> Result<ProfileHistory> {
     let mut reader = BinaryReader::new(bytes);
-    if reader.bytes(4)? != IDENTITY_HISTORY_MAGIC {
+    if reader.bytes(4)? != PROFILE_HISTORY_MAGIC {
         return Err(Error::CorruptVaultRecord(
-            "identity history record has invalid magic".to_string(),
+            "profile history record has invalid magic".to_string(),
         ));
     }
     let version = reader.u16()?;
-    if version != IDENTITY_HISTORY_VERSION {
+    if version != PROFILE_HISTORY_VERSION {
         return Err(Error::CorruptVaultRecord(format!(
-            "identity history version {version} is not supported"
+            "profile history version {version} is not supported"
         )));
     }
     let active_generation = reader.u16()?;
@@ -1693,7 +1942,7 @@ fn decode_identity_history(name: &str, bytes: &[u8]) -> Result<IdentityHistory> 
         let retired_present = reader.u8()? != 0;
         let retired_at = reader.u64()?;
         let contact_fingerprint = reader.length_prefixed_bytes()?.to_vec();
-        generations.push(IdentityGeneration {
+        generations.push(ProfileGeneration {
             index,
             status,
             contact_fingerprint,
@@ -1702,7 +1951,7 @@ fn decode_identity_history(name: &str, bytes: &[u8]) -> Result<IdentityHistory> 
         });
     }
     reader.finish()?;
-    Ok(IdentityHistory {
+    Ok(ProfileHistory {
         name: name.to_string(),
         active_generation,
         generations,
@@ -1796,21 +2045,21 @@ fn put_bytes(out: &mut Vec<u8>, value: &[u8]) {
     out.extend_from_slice(value);
 }
 
-fn generation_status_to_u16(status: IdentityGenerationStatus) -> u16 {
+fn generation_status_to_u16(status: ProfileGenerationStatus) -> u16 {
     match status {
-        IdentityGenerationStatus::Active => GENERATION_ACTIVE,
-        IdentityGenerationStatus::Retired => GENERATION_RETIRED,
-        IdentityGenerationStatus::Compromised => GENERATION_COMPROMISED,
+        ProfileGenerationStatus::Active => GENERATION_ACTIVE,
+        ProfileGenerationStatus::Retired => GENERATION_RETIRED,
+        ProfileGenerationStatus::Compromised => GENERATION_COMPROMISED,
     }
 }
 
-fn generation_status_from_u16(value: u16) -> Result<IdentityGenerationStatus> {
+fn generation_status_from_u16(value: u16) -> Result<ProfileGenerationStatus> {
     match value {
-        GENERATION_ACTIVE => Ok(IdentityGenerationStatus::Active),
-        GENERATION_RETIRED => Ok(IdentityGenerationStatus::Retired),
-        GENERATION_COMPROMISED => Ok(IdentityGenerationStatus::Compromised),
+        GENERATION_ACTIVE => Ok(ProfileGenerationStatus::Active),
+        GENERATION_RETIRED => Ok(ProfileGenerationStatus::Retired),
+        GENERATION_COMPROMISED => Ok(ProfileGenerationStatus::Compromised),
         _ => Err(Error::CorruptVaultRecord(format!(
-            "unknown identity generation status {value}"
+            "unknown profile generation status {value}"
         ))),
     }
 }

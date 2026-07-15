@@ -40,7 +40,7 @@ jobs:
 
       - name: Install Rust
         if: steps.x64-fixture-cache.outputs.cache-hit != 'true'
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.95.0
 
       - name: Cache Cargo
         if: steps.x64-fixture-cache.outputs.cache-hit != 'true'
@@ -82,7 +82,7 @@ jobs:
           path: interop
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.95.0
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -123,7 +123,7 @@ jobs:
           path: interop
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.95.0
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -156,7 +156,7 @@ jobs:
           path: interop
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.95.0
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -201,7 +201,7 @@ jobs:
           key: lockbox-endian-s390x-${{ env.LOCKBOX_INTEROP_FIXTURE_VERSION }}
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.95.0
         with:
           targets: s390x-unknown-linux-gnu
 
@@ -261,7 +261,7 @@ jobs:
           path: interop
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.95.0
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2

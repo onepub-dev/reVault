@@ -148,6 +148,7 @@ pub fn stop_systemd() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
+    require_root("doctor")?;
     let installed = Path::new(UNIT_PATH).exists();
     let enabled = systemctl_state(&["is-enabled", "revault_key_server.service"]);
     let active = systemctl_state(&["is-active", "revault_key_server.service"]);
@@ -156,7 +157,7 @@ pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
     let exec_start = systemctl_show("ExecStart");
     let (service_log, log_source) = configured_service_log_file();
 
-    println!("reVault key server doctor v{}", env!("CARGO_PKG_VERSION"));
+    println!("reVault key server v{}", env!("CARGO_PKG_VERSION"));
     println!();
     println!("Service");
     println!("  Installed: {}", yes_no(installed));
@@ -385,8 +386,8 @@ fn require_root(command: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn sudo_command(executable: &str, command: &str) -> String {
-    format!("sudo {executable} {command}")
+fn sudo_command(_executable: &str, command: &str) -> String {
+    format!("sudo revault_key_server {command}")
 }
 
 #[cfg(unix)]
@@ -504,7 +505,7 @@ fn default_config() -> &'static str {
 state_dir = \"/var/lib/revault-key-server\"\n\
 server_id = 0\n\
 cluster_id = \"default\"\n\
-public_url = \"https://keypublish.revault.onepub.dev/v1/publish\"\n\
+public_url = \"https://keyshare0.revault.onepub.dev/v1/publish\"\n\
 topology_version = 1\n\
 origin_epoch = 1\n\
 verification_ttl_seconds = 1800\n\
@@ -528,7 +529,7 @@ verification_email_ip_rate_limit_per_hour = 30\n\
 \n\
 [[topology_server]]\n\
 id = 0\n\
-url = \"https://keypublish.revault.onepub.dev/v1/publish\"\n\
+url = \"https://keyshare0.revault.onepub.dev/v1/publish\"\n\
 status = \"active\"\n\
 \n\
 [[route]]\n\
@@ -579,10 +580,18 @@ mod tests {
     };
 
     #[test]
-    fn privileged_command_uses_the_actual_binary_path() {
+    fn install_command_uses_the_system_path() {
         assert_eq!(
             sudo_command("/home/alice/.cargo/bin/revault_key_server", "install"),
-            "sudo /home/alice/.cargo/bin/revault_key_server install"
+            "sudo revault_key_server install"
+        );
+    }
+
+    #[test]
+    fn other_privileged_commands_use_the_system_path() {
+        assert_eq!(
+            sudo_command("/usr/local/bin/revault_key_server", "doctor"),
+            "sudo revault_key_server doctor"
         );
     }
 
@@ -603,11 +612,9 @@ mod tests {
     fn default_config_includes_public_single_server_topology() {
         let config = default_config();
         assert!(config.contains("server_id = 0"));
-        assert!(
-            config.contains("public_url = \"https://keypublish.revault.onepub.dev/v1/publish\"")
-        );
+        assert!(config.contains("public_url = \"https://keyshare0.revault.onepub.dev/v1/publish\""));
         assert!(config.contains("[[topology_server]]"));
-        assert!(config.contains("url = \"https://keypublish.revault.onepub.dev/v1/publish\""));
+        assert!(config.contains("url = \"https://keyshare0.revault.onepub.dev/v1/publish\""));
         assert!(config.contains("[[route]]"));
         assert!(config.contains("primary = 0"));
     }

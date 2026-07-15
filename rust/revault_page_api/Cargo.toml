@@ -2,7 +2,7 @@
 name = "revault_page_api"
 version = "0.0.2"
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.95"
 license-file = "../../LICENSE"
 description = "Page-pooled secure byte and string storage for reVault"
 repository = "https://github.com/onepub-dev/reVault"

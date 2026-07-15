@@ -4,8 +4,8 @@ use revault_lockbox_api::{
     OwnerSigningKeyPair, Result, ScopedFileLock, SecretVec,
 };
 use revault_vault_api::{
-    export_private_key, import_private_key_file, ContentKeyStore, IdentityGenerationStatus,
-    KeyFormat, SecretString, Vault, VaultDirectory, CURRENT_VAULT_STRUCTURE_VERSION,
+    export_private_key, import_private_key_file, ContentKeyStore, KeyFormat,
+    ProfileGenerationStatus, SecretString, Vault, VaultDirectory, CURRENT_VAULT_STRUCTURE_VERSION,
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -240,7 +240,7 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
         .collect::<Vec<_>>();
     for alias in [
         "bank-account",
-        "identity",
+        "profile",
         "login",
         "payment-card",
         "secure-note",
@@ -355,7 +355,11 @@ fn vault_directory_rejects_older_structure_versions() {
 
     assert!(matches!(
         VaultDirectory::open_or_create(&root, &vault_password),
-        Err(Error::Configuration(message)) if message.contains("cannot be migrated")
+        Err(Error::UnsupportedFormatVersion {
+            artifact: revault_lockbox_api::ArtifactKind::Vault,
+            found: 0,
+            supported: CURRENT_VAULT_STRUCTURE_VERSION,
+        })
     ));
 
     let _ = fs::remove_dir_all(root);
@@ -385,8 +389,11 @@ fn vault_directory_rejects_newer_structure_versions() {
 
     assert!(matches!(
         VaultDirectory::open_or_create(&root, &vault_password),
-        Err(Error::Configuration(message))
-            if message.contains("newer than this reVault build supports")
+        Err(Error::UnsupportedFormatVersion {
+            artifact: revault_lockbox_api::ArtifactKind::Vault,
+            found: 999,
+            supported: CURRENT_VAULT_STRUCTURE_VERSION,
+        })
     ));
 
     let _ = fs::remove_dir_all(root);
@@ -551,8 +558,8 @@ fn vault_directory_public_crud_helpers_flow() {
 }
 
 #[test]
-fn vault_directory_tracks_identity_generations_and_rotation() {
-    let root = unique_dir("identity-generations");
+fn vault_directory_tracks_profile_generations_and_rotation() {
+    let root = unique_dir("profile-generations");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
     let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
 
@@ -564,13 +571,13 @@ fn vault_directory_tracks_identity_generations_and_rotation() {
         .public_key()
         .to_bytes();
 
-    let history = vault.list_identity_generations("default").unwrap();
+    let history = vault.list_profile_generations("default").unwrap();
     assert_eq!(history.active_generation, 1);
     assert_eq!(history.generations.len(), 1);
     assert_eq!(history.generations[0].index, 1);
     assert_eq!(
         history.generations[0].status,
-        IdentityGenerationStatus::Active
+        ProfileGenerationStatus::Active
     );
     assert_eq!(
         vault
@@ -590,12 +597,12 @@ fn vault_directory_tracks_identity_generations_and_rotation() {
     assert_eq!(rotated.generations.len(), 2);
     assert_eq!(
         rotated.generations[0].status,
-        IdentityGenerationStatus::Retired
+        ProfileGenerationStatus::Retired
     );
     assert!(rotated.generations[0].retired_at_unix_ms.is_some());
     assert_eq!(
         rotated.generations[1].status,
-        IdentityGenerationStatus::Active
+        ProfileGenerationStatus::Active
     );
     assert_eq!(
         vault
@@ -711,26 +718,26 @@ fn vault_lock_process_helper() {
 }
 
 #[test]
-fn vault_directory_stores_identity_email_metadata() {
-    let root = unique_dir("identity-email");
+fn vault_directory_stores_profile_email_metadata() {
+    let root = unique_dir("profile-email");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
     let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
 
     vault
         .store_private_key("default", &ContactKeyPair::generate().unwrap())
         .unwrap();
-    assert_eq!(vault.identity_email("default").unwrap(), None);
+    assert_eq!(vault.profile_email("default").unwrap(), None);
 
     vault
-        .store_identity_email("default", "alice@example.test")
+        .store_profile_email("default", "alice@example.test")
         .unwrap();
     assert_eq!(
-        vault.identity_email("default").unwrap(),
+        vault.profile_email("default").unwrap(),
         Some("alice@example.test".to_string())
     );
 
     vault.delete_private_key("default").unwrap();
-    assert_eq!(vault.identity_email("default").unwrap(), None);
+    assert_eq!(vault.profile_email("default").unwrap(), None);
 
     let _ = fs::remove_dir_all(root);
 }

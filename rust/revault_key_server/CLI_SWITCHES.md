@@ -1,5 +1,9 @@
 # revault_key_server command line switches
 
+This is the command reference. Start with the [server introduction](README.md),
+use [KEY_SERVER_CONFIG](KEY_SERVER_CONFIG.md) for production configuration, and
+see [TROUBLESHOOTING](TROUBLESHOOTING.md) when a command or service check fails.
+
 ## Quick usage
 
 Build and run with defaults:
@@ -173,12 +177,12 @@ Topology example:
 ```toml
 [[topology_server]]
 id = 0
-url = "https://keypublish0.example.com/v1/publish"
+url = "https://keyshare0.example.com/v1/publish"
 status = "active"
 
 [[topology_server]]
 id = 1
-url = "https://keypublish1.example.com/v1/publish"
+url = "https://keyshare1.example.com/v1/publish"
 status = "standby"
 
 [[route]]

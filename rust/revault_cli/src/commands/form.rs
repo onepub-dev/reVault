@@ -57,8 +57,62 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
             &optional_lockbox_positionals(positional_values(sub, "args"), 1)?,
             access,
         ),
+        "move" | "mv" => move_records(
+            &optional_lockbox_positionals(positional_values(sub, "args"), 2)?,
+            access,
+        ),
         _ => Err(Error::InvalidInput(format!("unknown form command: {command}")).into()),
     }
+}
+
+fn move_records(args: &[String], access: &Access) -> CliResult<()> {
+    let lockbox_path = require_arg(args, 0, "lockbox")?;
+    let source_pattern = require_arg(args, 1, "source path or glob")?;
+    let destination = LockboxPath::new(require_arg(args, 2, "destination path")?)?;
+    let mut lb = open_existing(lockbox_path, access)?;
+    let moves = lb
+        .list_form_records()?
+        .into_iter()
+        .filter(|record| form_path_matches(source_pattern, record.path.as_str()))
+        .map(|record| {
+            let target =
+                moved_form_path(source_pattern, record.path.as_str(), destination.as_str());
+            Ok((record.path, LockboxPath::new(target)?))
+        })
+        .collect::<CliResult<Vec<_>>>()?;
+    if moves.is_empty() {
+        return Err(Error::NotFound(format!("no form records match {source_pattern}")).into());
+    }
+    lb.move_form_records(&moves)?;
+    lb.commit()?;
+    for (source, destination) in moves {
+        println!("{source}\t{destination}\tmoved");
+    }
+    Ok(())
+}
+
+fn moved_form_path(pattern: &str, source: &str, destination: &str) -> String {
+    let components = pattern
+        .trim_start_matches('/')
+        .split('/')
+        .collect::<Vec<_>>();
+    let wildcard = components
+        .iter()
+        .position(|component| component.contains('*') || component.contains('?'));
+    let anchor_components = match wildcard {
+        Some(index) => &components[..index],
+        None => &components[..components.len().saturating_sub(1)],
+    };
+    let anchor = if anchor_components.is_empty() {
+        "/".to_string()
+    } else {
+        format!("/{}", anchor_components.join("/"))
+    };
+    let relative = source
+        .strip_prefix(&anchor)
+        .unwrap_or(source)
+        .trim_start_matches('/');
+    format!("{}/{}", destination.trim_end_matches('/'), relative)
 }
 
 fn required_value(matches: &ArgMatches, name: &str) -> String {
@@ -751,29 +805,67 @@ fn form_path_matches(pattern: &str, path: &str) -> bool {
 }
 
 fn glob_matches(pattern: &str, text: &str) -> bool {
+    glob_match_parts(
+        &pattern.split('/').collect::<Vec<_>>(),
+        &text.split('/').collect::<Vec<_>>(),
+    )
+}
+
+fn glob_match_parts(pattern: &[&str], text: &[&str]) -> bool {
+    if pattern.is_empty() {
+        return text.is_empty();
+    }
+    if pattern[0] == "**" {
+        return glob_match_parts(&pattern[1..], text)
+            || (!text.is_empty() && glob_match_parts(pattern, &text[1..]));
+    }
+    !text.is_empty()
+        && glob_match_component(pattern[0], text[0])
+        && glob_match_parts(&pattern[1..], &text[1..])
+}
+
+fn glob_match_component(pattern: &str, text: &str) -> bool {
     let pattern = pattern.as_bytes();
     let text = text.as_bytes();
-    let mut dp = vec![false; text.len() + 1];
-    dp[0] = true;
-    for &p in pattern {
-        let mut next = vec![false; text.len() + 1];
-        match p {
-            b'*' => {
-                next[0] = dp[0];
-                for index in 0..text.len() {
-                    next[index + 1] = dp[index + 1] || next[index] || dp[index];
-                }
-            }
-            b'?' => {
-                next[1..(text.len() + 1)].copy_from_slice(&dp[..text.len()]);
-            }
-            byte => {
-                for index in 0..text.len() {
-                    next[index + 1] = dp[index] && text[index] == byte;
-                }
-            }
+    let (mut pattern_index, mut text_index, mut star, mut checkpoint) = (0, 0, None, 0);
+    while text_index < text.len() {
+        if pattern_index < pattern.len()
+            && (pattern[pattern_index] == b'?' || pattern[pattern_index] == text[text_index])
+        {
+            pattern_index += 1;
+            text_index += 1;
+        } else if pattern_index < pattern.len() && pattern[pattern_index] == b'*' {
+            star = Some(pattern_index);
+            pattern_index += 1;
+            checkpoint = text_index;
+        } else if let Some(star_index) = star {
+            pattern_index = star_index + 1;
+            checkpoint += 1;
+            text_index = checkpoint;
+        } else {
+            return false;
         }
-        dp = next;
     }
-    dp[text.len()]
+    while pattern_index < pattern.len() && pattern[pattern_index] == b'*' {
+        pattern_index += 1;
+    }
+    pattern_index == pattern.len()
+}
+
+#[cfg(test)]
+mod move_tests {
+    use super::{form_path_matches, moved_form_path};
+
+    #[test]
+    fn root_glob_only_matches_root_records() {
+        assert!(form_path_matches("/*", "/TMP"));
+        assert!(!form_path_matches("/*", "/work/github"));
+        assert!(form_path_matches("/**", "/work/github"));
+    }
+
+    #[test]
+    fn root_glob_preserves_form_record_names() {
+        assert_eq!(moved_form_path("/*", "/TMP", "/dev"), "/dev/TMP");
+        assert_eq!(moved_form_path("/*", "/MODE", "/dev"), "/dev/MODE");
+    }
 }

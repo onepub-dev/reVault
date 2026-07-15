@@ -9,6 +9,9 @@ Product name: **Lockbox Session Agent**.
 ## What it does
 
 - Stores temporary cache entries for lockbox content keys.
+- May also cache a vault unlock secret and an owner-signing key after the
+  normal vault flow has legitimately obtained them. These entries are typed,
+  scoped to one vault/profile, and are never included in the session listing.
 - Returns cached keys to subsequent commands.
 - Evicts entries automatically by TTL or on inactivity.
 - Clears all cached entries when the machine is suspending.
@@ -44,6 +47,7 @@ Cache messages:
 - `forget` / `forget-all` → remove one or all cached entries.
 - `stop` → clear all cached entries and terminate agent.
 - `list` → list cached lockboxes for diagnostics.
+- `info` → report the agent protocol and implementation versions.
 
 The key payload stores:
 
@@ -78,12 +82,19 @@ those processes if suspend is requested.
 ## Lifecycle
 
 - On first cache operation, client code ensures an agent is running.
+- If an agent from an incompatible CLI installation is already running, the
+  client stops it, clears its cached secrets, and starts the agent from the
+  current CLI automatically.
 - If absent, the client starts the current binary with `__agent` and waits briefly
   for the endpoint to become available.
 - Server loop runs until:
   - an explicit `stop` request arrives, or
   - 10 minutes of inactivity are observed with no cached secrets and no active
     secret operations.
+
+Installing a new CLI does not replace an agent process that is already
+running. The compatibility check above handles this automatically on the next
+agent operation. Users do not normally need to restart the agent manually.
 
 ## TTL and inactivity behavior
 
@@ -153,6 +164,20 @@ The user-facing session controls live under `lockbox vault sessions`:
 - `lockbox vault sessions close-all` — close everything.
 - `lockbox vault sessions stop` — stop the agent process.
 
+## Shell completion
+
+`lockbox completion generate --shell <bash|zsh|fish|powershell|elvish>` writes
+the clap dynamic-completion registration script to stdout. `completion install`
+and `completion uninstall` use per-user standard completion directories; pass
+`--path` for an explicit location. PowerShell has no equivalent auto-loaded
+completion directory, so install adds a marked, idempotent block to the user's
+PowerShell profile and uninstall removes only that managed block.
+
+Completion reads only public command metadata, an explicitly supplied vault
+pass phrase, or an already-cached vault unlock secret. It never prompts, opens
+the owner-signing key, or requests signing material. If the vault or session
+agent is unavailable it returns static clap suggestions.
+
 Session-related metadata is also exposed under `lockbox vault sessions auto-open`
 for password-helper integration (`status`, `enable`, `disable`, `forget`).
 
@@ -163,7 +188,7 @@ or transport behavior looks wrong.
 
 - Secrets are stored in-memory in process memory and never intentionally written
   to disk by the agent cache.
-- The transport is local-only and process-user scoped (`agent` process identity
+- The transport is local-only and process-user scoped (`agent` process profile
   checks are used on Windows).
 - Control requests are plain binary frames; cache requests use secure frame
   encoding to reduce secret lifetime in transit.

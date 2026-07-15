@@ -75,7 +75,7 @@ pub fn validate_payload(bytes: &[u8]) -> Result<PayloadType, PayloadError> {
 }
 
 pub fn encode_contact_publish(
-    identity: &str,
+    profile: &str,
     public_key: &[u8],
     signing_public_key: &[u8],
     fingerprint: &[u8],
@@ -84,7 +84,7 @@ pub fn encode_contact_publish(
     expires_at_unix_ms: u64,
 ) -> Vec<u8> {
     let mut body = Vec::new();
-    put_string(&mut body, identity);
+    put_string(&mut body, profile);
     put_bytes(&mut body, public_key);
     put_bytes(&mut body, signing_public_key);
     put_bytes(&mut body, fingerprint);
@@ -131,7 +131,7 @@ fn update_fingerprint_field(hasher: &mut Sha256, value: &[u8]) {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DecodedContactPublish {
-    pub identity: String,
+    pub profile: String,
     pub public_key: Vec<u8>,
     pub signing_public_key: Vec<u8>,
     pub fingerprint: Vec<u8>,
@@ -147,7 +147,7 @@ pub fn decode_contact_publish(bytes: &[u8]) -> Result<DecodedContactPublish, Pay
     let body_len = read_u32(bytes, 8) as usize;
     let mut reader = PayloadReader::new(&bytes[HEADER_LEN..HEADER_LEN + body_len]);
     Ok(DecodedContactPublish {
-        identity: reader.string(254)?,
+        profile: reader.string(254)?,
         public_key: reader.bytes(4096)?,
         signing_public_key: reader.bytes(4096)?,
         fingerprint: reader.bytes(128)?,
@@ -158,7 +158,7 @@ pub fn decode_contact_publish(bytes: &[u8]) -> Result<DecodedContactPublish, Pay
 }
 
 pub struct SignedKeyReplacement<'a> {
-    pub identity: &'a str,
+    pub profile: &'a str,
     pub old_fingerprint: &'a [u8],
     pub new_public_key: &'a [u8],
     pub new_signing_public_key: &'a [u8],
@@ -177,7 +177,7 @@ pub fn encode_key_replacement(replacement: KeyReplacement<'_>) -> Vec<u8> {
 
 pub fn encode_signed_key_replacement(replacement: SignedKeyReplacement<'_>) -> Vec<u8> {
     let mut body = Vec::new();
-    put_string(&mut body, replacement.identity);
+    put_string(&mut body, replacement.profile);
     put_bytes(&mut body, replacement.old_fingerprint);
     put_bytes(&mut body, replacement.new_public_key);
     put_bytes(&mut body, replacement.new_signing_public_key);
@@ -190,7 +190,7 @@ pub fn encode_signed_key_replacement(replacement: SignedKeyReplacement<'_>) -> V
 }
 
 pub struct UnsignedKeyReplacement<'a> {
-    pub identity: &'a str,
+    pub profile: &'a str,
     pub old_fingerprint: &'a [u8],
     pub new_public_key: &'a [u8],
     pub new_signing_public_key: &'a [u8],
@@ -202,7 +202,7 @@ pub struct UnsignedKeyReplacement<'a> {
 
 pub fn encode_unsigned_key_replacement(replacement: UnsignedKeyReplacement<'_>) -> Vec<u8> {
     let mut body = Vec::new();
-    put_string(&mut body, replacement.identity);
+    put_string(&mut body, replacement.profile);
     put_bytes(&mut body, replacement.old_fingerprint);
     put_bytes(&mut body, replacement.new_public_key);
     put_bytes(&mut body, replacement.new_signing_public_key);
@@ -214,8 +214,8 @@ pub fn encode_unsigned_key_replacement(replacement: UnsignedKeyReplacement<'_>) 
 }
 
 fn validate_contact_publish(reader: &mut PayloadReader<'_>) -> Result<(), PayloadError> {
-    let identity = reader.string(254)?;
-    validate_identity(&identity)?;
+    let profile = reader.string(254)?;
+    validate_profile(&profile)?;
     let public_key = reader.bytes(4096)?;
     validate_non_empty(&public_key)?;
     let signing_public_key = reader.bytes(4096)?;
@@ -230,8 +230,8 @@ fn validate_contact_publish(reader: &mut PayloadReader<'_>) -> Result<(), Payloa
 }
 
 fn validate_signed_key_replacement(reader: &mut PayloadReader<'_>) -> Result<(), PayloadError> {
-    let identity = reader.string(254)?;
-    validate_identity(&identity)?;
+    let profile = reader.string(254)?;
+    validate_profile(&profile)?;
     let old_fingerprint = reader.bytes(128)?;
     validate_fingerprint(&old_fingerprint)?;
     let new_public_key = reader.bytes(4096)?;
@@ -250,8 +250,8 @@ fn validate_signed_key_replacement(reader: &mut PayloadReader<'_>) -> Result<(),
 }
 
 fn validate_unsigned_key_replacement(reader: &mut PayloadReader<'_>) -> Result<(), PayloadError> {
-    let identity = reader.string(254)?;
-    validate_identity(&identity)?;
+    let profile = reader.string(254)?;
+    validate_profile(&profile)?;
     let old_fingerprint = reader.bytes(128)?;
     validate_fingerprint(&old_fingerprint)?;
     let new_public_key = reader.bytes(4096)?;
@@ -267,10 +267,10 @@ fn validate_unsigned_key_replacement(reader: &mut PayloadReader<'_>) -> Result<(
     validate_times(created_at, expires_at)
 }
 
-fn validate_identity(identity: &str) -> Result<(), PayloadError> {
-    if identity.is_empty()
-        || identity.len() > 254
-        || identity
+fn validate_profile(profile: &str) -> Result<(), PayloadError> {
+    if profile.is_empty()
+        || profile.len() > 254
+        || profile
             .bytes()
             .any(|byte| byte.is_ascii_control() || byte == b' ')
     {

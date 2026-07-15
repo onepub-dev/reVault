@@ -82,7 +82,7 @@ Controls:
 
 Common measurements:
 
-- `bash rust/tools/compare_archive_compression.sh`
+- `(cd rust && cargo xtask compare-archive-compression)`
 - `cargo test --workspace`
 - Focused recovery tests for TOC loss and damaged records.
 - Large-file perf runs for add, extract, and range-read latency.

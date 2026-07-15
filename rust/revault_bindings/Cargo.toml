@@ -1,0 +1,25 @@
+[package]
+name = "revault_bindings"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.95"
+license-file = "../revault_lockbox_api/LICENSE"
+description = "C ABI and WebAssembly bindings for the reVault APIs"
+repository = "https://github.com/onepub-dev/reVault"
+
+[lib]
+name = "revault_api"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[features]
+default = ["native"]
+native = []
+
+[dependencies]
+revault_lockbox_api = { path = "../revault_lockbox_api", features = ["bindings"] }
+revault_vault_api = { path = "../revault_vault_api" }
+revault_wire = { path = "../revault_wire" }
+prost = "0.14"
+
+[build-dependencies]
+prost-build = "0.14"

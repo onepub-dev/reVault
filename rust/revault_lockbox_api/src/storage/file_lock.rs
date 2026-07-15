@@ -319,12 +319,34 @@ fn lock_file_is_stale(path: &Path) -> bool {
     !process_exists(pid)
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
 fn process_exists(pid: u32) -> bool {
-    let pid = sysinfo::Pid::from_u32(pid);
-    let mut system = sysinfo::System::new();
-    system.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
-    system.process(pid).is_some()
+    use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_INVALID_PARAMETER};
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+
+    // SAFETY: `OpenProcess` receives a numeric PID and returns an owned handle
+    // that is closed below when successful.
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if !handle.is_null() {
+        // SAFETY: `handle` was returned successfully by `OpenProcess` and is
+        // closed exactly once here.
+        unsafe { CloseHandle(handle) };
+        return true;
+    }
+
+    // Access can be denied for protected processes that still exist. Treat
+    // every failure except the documented invalid-PID case conservatively as
+    // evidence that the process may still be alive.
+    // SAFETY: `GetLastError` reads the calling thread's last-error value and
+    // does not dereference pointers or require additional invariants.
+    (unsafe { GetLastError() }) != ERROR_INVALID_PARAMETER
+}
+
+#[cfg(not(any(unix, windows)))]
+fn process_exists(_pid: u32) -> bool {
+    // Avoid deleting another process's lock on platforms where no reliable
+    // native process query is implemented.
+    true
 }
 
 #[cfg(test)]
@@ -355,5 +377,11 @@ mod tests {
             format_unix_millis_datetime(1_704_067_201_500),
             "2024-01-01 00:00:02"
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn current_process_exists() {
+        assert!(super::process_exists(std::process::id()));
     }
 }

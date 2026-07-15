@@ -59,7 +59,7 @@ pub(crate) fn read_key_directory(
     decode_key_directory_page(page_bytes, offset, expected_lockbox_id)
 }
 
-#[cfg(any(test, feature = "vault-integration"))]
+#[cfg(any(test, feature = "vault-integration", feature = "migration"))]
 pub(crate) fn read_key_directory_backup(bytes: &[u8]) -> Result<DecodedKeyDirectory> {
     if bytes.len() < KEY_DIR_HEADER_LEN || &bytes[0..8] != KEY_DIR_MAGIC {
         return Err(Error::CorruptHeader);

@@ -1,6 +1,7 @@
 use revault_lockbox_api::vault_integration::{OpenedContentKey, VaultOpen};
 use revault_lockbox_api::{
-    Error, Lockbox, LockboxOpen, LockboxProtection, OwnerSigningKeyPair, Result, SecretString,
+    Error, Lockbox, LockboxOpen, LockboxProtection, OwnerSigningKeyPair, ReadOnly, Result,
+    SecretString,
 };
 use std::path::Path;
 
@@ -162,6 +163,19 @@ impl<S: ContentKeyStore> Vault<S> {
             )));
         };
         open_file(path, LockboxOpen::ContentKey(key))
+    }
+
+    /// Opens a cached lockbox for read-only metadata access without loading
+    /// or requesting an owner-signing key.
+    pub fn open_lockbox_read_only(&self, path: impl AsRef<Path>) -> Result<Lockbox<ReadOnly>> {
+        let path = path.as_ref();
+        let lockbox_id = VaultOpen::read_lockbox_id(path)?;
+        let Some(key) = self.store.get_content_key(lockbox_id)? else {
+            return Err(Error::VaultUnavailable(format!(
+                "no cached content key for lockbox {lockbox_id}"
+            )));
+        };
+        Lockbox::open(path, LockboxOpen::ContentKey(key))
     }
 
     /// Opens a lockbox with explicit open material and caches its content key.
@@ -334,22 +348,61 @@ fn default_owner_signing_key_required() -> Result<revault_lockbox_api::OwnerSign
 }
 
 fn default_owner_signing_key() -> Result<Option<revault_lockbox_api::OwnerSigningKeyPair>> {
-    let password = match SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
-        Some(password) => Some(password),
-        None => crate::get_platform_vault_password().ok().flatten(),
-    };
-    let Some(password) = password else {
-        return Ok(None);
-    };
+    let vault_id = crate::default_vault_path()?.to_string_lossy().into_owned();
+    if let Ok(Some(signing_key)) =
+        crate::get_owner_signing_key(&vault_id, VaultDirectory::DEFAULT_KEY_NAME)
+    {
+        return Ok(Some(signing_key));
+    }
+
     if !crate::default_vault_path()?.exists() {
         return Ok(None);
     }
-    let Ok(vault) = VaultDirectory::open_or_create_default(&password) else {
+    if let Some(password) = crate::get_platform_vault_password().ok().flatten() {
+        if let Some(key) = load_owner_signing_key_with_password(&password, &vault_id, false)? {
+            return Ok(Some(key));
+        }
+    }
+    if let Some(password) = crate::get_vault_unlock_key(&vault_id).ok().flatten() {
+        if let Some(key) = load_owner_signing_key_with_password(&password, &vault_id, true)? {
+            return Ok(Some(key));
+        }
+    }
+    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
+        if let Some(key) = load_owner_signing_key_with_password(&password, &vault_id, false)? {
+            return Ok(Some(key));
+        }
+    }
+    Ok(None)
+}
+
+fn load_owner_signing_key_with_password(
+    password: &SecretString,
+    vault_id: &str,
+    invalidate_on_failure: bool,
+) -> Result<Option<revault_lockbox_api::OwnerSigningKeyPair>> {
+    let Ok(vault) = VaultDirectory::open_or_create_default(password) else {
+        if invalidate_on_failure {
+            let _ = crate::forget_vault_unlock_key(vault_id);
+            let _ = crate::forget_owner_signing_key(vault_id, VaultDirectory::DEFAULT_KEY_NAME);
+        }
         return Ok(None);
     };
-    Ok(vault
-        .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
-        .ok())
+    let Ok(signing_key) = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME) else {
+        if invalidate_on_failure {
+            let _ = crate::forget_vault_unlock_key(vault_id);
+            let _ = crate::forget_owner_signing_key(vault_id, VaultDirectory::DEFAULT_KEY_NAME);
+        }
+        return Ok(None);
+    };
+    let _ = crate::put_vault_unlock_key(vault_id, password.try_clone()?, None);
+    let _ = crate::put_owner_signing_key(
+        vault_id,
+        VaultDirectory::DEFAULT_KEY_NAME,
+        signing_key.try_clone()?,
+        None,
+    );
+    Ok(Some(signing_key))
 }
 
 fn open_path_or_backup_with_password(

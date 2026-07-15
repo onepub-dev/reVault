@@ -110,7 +110,7 @@ Commands:
 
 ```bash
 cd /home/bsutton/git/dvault
-bash rust/tools/compare_archive_compression.sh
+(cd rust && cargo xtask compare-archive-compression)
 ```
 
 Environment:
@@ -514,7 +514,7 @@ Commands:
 
 ```bash
 cd rust/..
-bash rust/tools/compare_archive_compression.sh
+(cd rust && cargo xtask compare-archive-compression)
 ```
 
 Environment:
@@ -573,7 +573,7 @@ Conclusion:
 
 ## 2026-05-19 - Expanded Archive Compression Comparison
 
-Description: added `rust/tools/compare_archive_compression.sh` to generate a
+Description: added the `compare-archive-compression` xtask to generate a
 broader fixture set and compare Lockbox against default GPG, high-level GPG
 zlib, and external zstd piped into uncompressed GPG. This run is a caution
 against over-reading the repeated-small-file result: Lockbox removes its
@@ -584,7 +584,7 @@ Commands:
 
 ```bash
 cd rust/..
-bash rust/tools/compare_archive_compression.sh
+(cd rust && cargo xtask compare-archive-compression)
 ```
 
 Environment:
@@ -1993,7 +1993,7 @@ a merge-ready dependency layout.
 Command:
 
 ```bash
-bash rust/tools/compare_archive_compression.sh
+(cd rust && cargo xtask compare-archive-compression)
 ```
 
 Raw local TSV output:

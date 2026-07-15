@@ -498,7 +498,7 @@ impl Lockbox {
         crate::file_format::header::read_lockbox_id(&header)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings"))]
     pub fn create_with_password(password: &SecretString) -> Result<Self> {
         let content_key = random_content_key()?;
         let mut lockbox = Self::create(content_key);
@@ -566,7 +566,7 @@ impl Lockbox {
         Err(Error::InvalidKey)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings"))]
     pub fn create_with_contact(contact: &ContactPublicKey) -> Result<Self> {
         let content_key = random_content_key()?;
         let mut lockbox = Self::create(content_key);
@@ -574,13 +574,13 @@ impl Lockbox {
         Ok(lockbox)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings"))]
     pub fn open_with_password(bytes: Vec<u8>, password: &SecretString) -> Result<Self> {
         let opened = Self::open_bytes_with_password(&bytes, password)?;
         opened.open_bytes_opened(bytes)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings"))]
     pub fn open_with_contact(bytes: Vec<u8>, contact: &ContactKeyPair) -> Result<Self> {
         let opened = Self::open_bytes_with_contact(&bytes, contact)?;
         opened.open_bytes_opened(bytes)
@@ -749,7 +749,7 @@ impl Lockbox {
     /// Export a backup copy of the key directory.
     ///
     /// Returns storage/encoding errors if the key directory cannot be encoded.
-    #[cfg(feature = "vault-integration")]
+    #[cfg(any(feature = "vault-integration", feature = "migration"))]
     pub(crate) fn export_key_directory_backup(&self) -> Result<Vec<u8>> {
         encode_key_directory(
             &self.key_slots,
@@ -757,6 +757,21 @@ impl Lockbox {
             self.key_directory_generation,
             0,
         )
+    }
+
+    /// Restores access slots exported with the same content key while creating
+    /// a new native archive representation.
+    #[cfg(feature = "migration")]
+    #[doc(hidden)]
+    pub fn import_migration_key_directory(&mut self, bytes: &[u8]) -> Result<()> {
+        let decoded = crate::key_directory::read_key_directory_backup(bytes)?;
+        if decoded.lockbox_id != self.lockbox_id {
+            return Err(Error::CorruptHeader);
+        }
+        self.key_slots = decoded.slots;
+        self.key_directory_generation = decoded.generation;
+        self.mark_key_directory_dirty();
+        Ok(())
     }
 
     /// List the keys that can open this lockbox.
@@ -1079,13 +1094,30 @@ fn add_retained_contacts(
 
 fn access_entry_name(label: &str) -> String {
     label
-        .strip_prefix("identity:")
+        .strip_prefix("profile:")
         .or_else(|| label.strip_prefix("contact:"))
         .unwrap_or(label)
         .to_string()
 }
 
 impl<State> Lockbox<State> {
+    /// Exports the content key and encoded access directory for a migration
+    /// artifact. Both values must remain inside zeroizing/encrypted migration
+    /// handling and must never be displayed.
+    #[cfg(feature = "migration")]
+    #[doc(hidden)]
+    pub fn export_migration_key_material(&self) -> Result<(SecretVec, Vec<u8>)> {
+        Ok((
+            self.key.try_clone()?,
+            encode_key_directory(
+                &self.key_slots,
+                self.lockbox_id,
+                self.key_directory_generation,
+                0,
+            )?,
+        ))
+    }
+
     pub(crate) fn mark_key_directory_dirty(&mut self) {
         self.key_directory_generation = self.key_directory_generation.saturating_add(1);
         self.dirty_key_directory = true;

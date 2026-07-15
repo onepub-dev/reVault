@@ -43,15 +43,14 @@ pub(crate) use model::{
     variable_sensitivity,
 };
 pub(crate) use paths::{host_path, lockbox_path};
-pub(crate) use storage::{
-    cache_options, file_lock, free_index, free_slot, memory_pressure, page_cache,
-};
+pub(crate) use storage::{cache_options, file_lock, free_index, free_slot, page_cache};
 pub(crate) use toc::{form_btree, page_tree, toc_btree, toc_codec, toc_entry, variable_btree};
 
 pub use cache_options::{CacheLimit, CacheStats, LockboxOptions, WorkerPolicy, WorkloadProfile};
 pub use entry::{LockboxEntry, LockboxEntryKind};
-pub use error::{Error, Result};
+pub use error::{ArtifactKind, Error, Result};
 pub use extract_policy::ExtractPolicy;
+pub use file_format::header::{probe_lockbox_format_version, LOCKBOX_FORMAT_VERSION};
 #[doc(hidden)]
 pub use file_lock::{lock_path_for, FileLockScope, ScopedFileLock};
 pub use form::{
