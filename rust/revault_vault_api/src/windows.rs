@@ -278,34 +278,46 @@ pub(crate) fn start() -> io::Result<()> {
 }
 
 fn request(message: &SecretVec) -> io::Result<AgentResponse> {
-    ensure_agent()?;
-    let handle = open_pipe(&wide_pipe_name())?;
+    // A Windows pipe instance serves exactly one request. Do not consume an
+    // instance with a compatibility probe immediately before the real
+    // request: the server needs a short interval to create its next instance,
+    // and clients can otherwise observe ERROR_FILE_NOT_FOUND in that gap.
+    let pipe_name = wide_pipe_name();
+    let handle = match open_pipe(&pipe_name) {
+        Ok(handle) => handle,
+        Err(_) => {
+            start_agent()?;
+            open_pipe(&pipe_name)?
+        }
+    };
     request_with_handle(handle, message)
 }
 
 fn request_existing(message: &SecretVec) -> io::Result<Option<AgentResponse>> {
     let pipe_name = wide_pipe_name();
-    if open_pipe(&pipe_name).is_err() {
+    let Ok(handle) = open_pipe(&pipe_name) else {
         return Ok(None);
-    }
-    ensure_agent()?;
-    let handle = open_pipe(&pipe_name)?;
+    };
     request_with_handle(handle, message).map(Some)
 }
 
 fn request_control(message: &[u8]) -> io::Result<ControlResponse> {
-    ensure_agent()?;
-    let handle = open_pipe(&wide_pipe_name())?;
+    let pipe_name = wide_pipe_name();
+    let handle = match open_pipe(&pipe_name) {
+        Ok(handle) => handle,
+        Err(_) => {
+            start_agent()?;
+            open_pipe(&pipe_name)?
+        }
+    };
     request_control_with_handle(handle, message)
 }
 
 fn request_control_existing(message: &[u8]) -> io::Result<Option<ControlResponse>> {
     let pipe_name = wide_pipe_name();
-    if open_pipe(&pipe_name).is_err() {
+    let Ok(handle) = open_pipe(&pipe_name) else {
         return Ok(None);
-    }
-    ensure_agent()?;
-    let handle = open_pipe(&pipe_name)?;
+    };
     request_control_with_handle(handle, message).map(Some)
 }
 
