@@ -10,7 +10,23 @@ const IPC_MAGIC: &[u8; 8] = b"LBXMIPC1";
 const MAX_SECRET_BYTES: usize = 1024 * 1024;
 
 fn main() {
-    if let Err(err) = run() {
+    // Windows executables start with a smaller main-thread stack than Rust
+    // worker threads. Historical key decoding includes stack-heavy
+    // cryptographic validation, so perform the export on an explicitly sized
+    // stack on every platform for consistent behaviour.
+    let worker = std::thread::Builder::new()
+        .name("vault-v1-export".to_string())
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| run().map_err(|err| err.to_string()));
+    let result = match worker {
+        Ok(worker) => worker
+            .join()
+            .unwrap_or_else(|_| Err("historical migration worker panicked".to_string())),
+        Err(err) => Err(format!(
+            "failed to start historical migration worker: {err}"
+        )),
+    };
+    if let Err(err) = result {
         eprintln!("error: {err}");
         std::process::exit(1);
     }
