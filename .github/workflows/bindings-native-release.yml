@@ -7,12 +7,25 @@ on:
         description: Release version without a leading v
         required: true
         type: string
+      targets:
+        description: Comma-separated publication targets to retry
+        required: true
+        default: python,ruby,git
+        type: string
+      run_conformance:
+        description: Run the exhaustive and per-package conformance suites
+        required: true
+        default: false
+        type: boolean
   push:
     tags:
       - revault-api-v*
 
 permissions:
   contents: read
+
+env:
+  RELEASE_VERSION: ${{ inputs.version }}
 
 jobs:
   package-matrix:
@@ -28,6 +41,7 @@ jobs:
         run: echo "value=$(cargo run --locked --quiet --manifest-path rust/Cargo.toml -p revault_tooling -- e2e matrix-json)" >> "$GITHUB_OUTPUT"
 
   conformance:
+    if: github.event_name != 'workflow_dispatch' || inputs.run_conformance
     name: 16 installed Linux APIs and 480 interoperability paths
     runs-on: ubuntu-24.04
     steps:
@@ -172,6 +186,7 @@ jobs:
           if-no-files-found: error
 
   package-conformance:
+    if: github.event_name != 'workflow_dispatch' || inputs.run_conformance
     name: ${{ matrix.language }} installed package on ${{ matrix.target }}
     needs: [package-matrix, native, ecosystem-layouts]
     strategy:
@@ -276,26 +291,34 @@ jobs:
           --work "package-conformance-${{ matrix.language }}-${{ matrix.target }}"
 
   github-release:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     needs: [native, macos-xcframework, ecosystem-layouts]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
+        if: github.ref_type == 'tag'
         with:
           pattern: native-*
           path: dist
           merge-multiple: true
       - uses: actions/download-artifact@v4
+        if: github.ref_type == 'tag'
         with:
           name: swift-macos-xcframework
           path: dist
       - name: Publish immutable native archives
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: dist/*
+      - name: Verify immutable release for publication retry
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "revault-api-v${RELEASE_VERSION}"
 
   ecosystem-layouts:
     needs: native
@@ -345,7 +368,7 @@ jobs:
           if-no-files-found: error
 
   publish-npm-native:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'npm'))
     needs: [github-release, ecosystem-layouts]
     runs-on: ubuntu-24.04
     environment: release
@@ -369,11 +392,11 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem npm-native --publish
 
   publish-npm:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'npm'))
     needs: [publish-npm-native]
     runs-on: ubuntu-24.04
     environment: release
@@ -397,18 +420,18 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem npm --publish
       - name: Publish hosted WebAssembly package last
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem wasm --publish
 
   build-python-wheels:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'python'))
     needs: [github-release, ecosystem-layouts]
     strategy:
       fail-fast: false
@@ -421,6 +444,8 @@ jobs:
           - { target: windows-x86_64-msvc, runner: windows-2025, architecture: x64 }
           - { target: windows-aarch64-msvc, runner: windows-11-arm, architecture: arm64 }
     runs-on: ${{ matrix.runner }}
+    env:
+      RUSTUP_TOOLCHAIN: 1.95.0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -446,7 +471,7 @@ jobs:
         shell: bash
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem python --target "${{ matrix.target }}" --output dist
       - uses: actions/upload-artifact@v4
         with:
@@ -455,7 +480,7 @@ jobs:
           if-no-files-found: error
 
   publish-python:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'python'))
     needs: [build-python-wheels]
     runs-on: ubuntu-24.04
     environment: release
@@ -471,7 +496,7 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
 
   publish-maven:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'maven'))
     needs: [github-release, ecosystem-layouts]
     runs-on: ubuntu-24.04
     environment: release
@@ -497,18 +522,18 @@ jobs:
       - name: Publish Java
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem maven-java --publish
       - name: Make Java immediately available to the Kotlin build
         run: gradle -p packages/maven/java --no-daemon publishToMavenLocal
       - name: Publish Kotlin
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem maven-kotlin --publish
 
   publish-nuget:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'nuget'))
     needs: [github-release, ecosystem-layouts]
     runs-on: ubuntu-24.04
     environment: release
@@ -534,11 +559,11 @@ jobs:
           NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem nuget --output dist --publish
 
   publish-dart:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'dart'))
     needs: [github-release, ecosystem-layouts]
     runs-on: ubuntu-24.04
     environment: release
@@ -556,11 +581,11 @@ jobs:
       - name: Publish pub.dev package
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem dart --publish
 
   publish-ruby:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'ruby'))
     needs: [github-release, ecosystem-layouts]
     runs-on: ubuntu-24.04
     environment: release
@@ -581,11 +606,11 @@ jobs:
       - name: Publish all platform gems
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem ruby --output dist --publish
 
   publish-lua:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'lua'))
     needs: [github-release, ecosystem-layouts]
     strategy:
       fail-fast: false
@@ -616,11 +641,11 @@ jobs:
         shell: bash
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem lua --target "${{ matrix.target }}" --output dist --publish
 
   publish-rust:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'rust'))
     needs: [github-release, ecosystem-layouts]
     runs-on: ubuntu-24.04
     environment: release
@@ -641,18 +666,18 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem rust-foundation --publish
       - name: Publish crates.io facade
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${GITHUB_REF_NAME#revault-api-v}"
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem rust --publish
 
   promote-api-repository:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'git'))
     needs: [github-release, ecosystem-layouts]
     runs-on: ubuntu-24.04
     environment: release
@@ -680,12 +705,12 @@ jobs:
       - name: Promote combined Go, Swift, and PHP package tag
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release promote-git --version "${GITHUB_REF_NAME#revault-api-v}"
+          release promote-git --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --destination destination --package api
           --release-assets release-assets --publish
 
   promote-homebrew:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'git'))
     needs: [github-release, ecosystem-layouts]
     runs-on: ubuntu-24.04
     environment: release
@@ -713,6 +738,6 @@ jobs:
       - name: Generate checksummed package metadata and promote tag
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release promote-git --version "${GITHUB_REF_NAME#revault-api-v}"
+          release promote-git --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --destination destination --package homebrew
           --release-assets release-assets --publish

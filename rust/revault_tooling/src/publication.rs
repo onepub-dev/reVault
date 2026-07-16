@@ -319,18 +319,34 @@ fn ruby(
     let gems = files_with_extension(&destination, "gem")?;
     if publish {
         for gem in gems {
-            let output = Command::new("gem")
-                .args(["list", "--remote", "--exact", "revault_api", "--all"])
-                .output()?;
-            if output.status.success()
-                && String::from_utf8_lossy(&output.stdout).contains(&format!("({version}"))
-            {
-                println!("RubyGems already contains revault_api {version}; checking next platform");
-            }
-            run(Command::new("gem").arg("push").arg(gem))?;
+            push_gem(&gem)?;
         }
     }
     Ok(())
+}
+
+fn push_gem(gem: &Path) -> Result {
+    let output = Command::new("gem").arg("push").arg(gem).output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    print!("{stdout}");
+    eprint!("{stderr}");
+    if output.status.success() {
+        return Ok(());
+    }
+    let message = format!("{stdout}\n{stderr}").to_ascii_lowercase();
+    if message.contains("repushing of gem versions is not allowed")
+        || message.contains("already been pushed")
+    {
+        println!("already published: {}", gem.display());
+        return Ok(());
+    }
+    Err(format!(
+        "command failed ({}): gem push {}",
+        output.status,
+        gem.display()
+    )
+    .into())
 }
 
 fn lua(
@@ -489,9 +505,9 @@ pub fn promote_git(args: PromoteGitPackage) -> Result {
         run(Command::new("git")
             .args([
                 "-c",
-                "user.name=reVault release automation",
+                "user.name=Brett Sutton",
                 "-c",
-                "user.email=release@onepub.dev",
+                "user.email=bsutton@onepub.dev",
                 "commit",
                 "-m",
                 &format!("Release {}", args.version),
@@ -506,7 +522,17 @@ pub fn promote_git(args: PromoteGitPackage) -> Result {
         .is_ok_and(|output| output.status.success());
     if !tag_exists {
         run(Command::new("git")
-            .args(["tag", "-a", &tag, "-m", &format!("Release {tag}")])
+            .args([
+                "-c",
+                "user.name=Brett Sutton",
+                "-c",
+                "user.email=bsutton@onepub.dev",
+                "tag",
+                "-a",
+                &tag,
+                "-m",
+                &format!("Release {tag}"),
+            ])
             .current_dir(&destination))?;
     }
     run(Command::new("git")
