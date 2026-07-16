@@ -1082,7 +1082,7 @@ fn verify_sidecar_if_present(archive: &Path) -> Result {
 fn sha256(path: &Path) -> Result<String> {
     let mut source = File::open(path)?;
     let mut hash = Sha256::new();
-    let mut buffer = [0_u8; 1024 * 1024];
+    let mut buffer = vec![0_u8; 1024 * 1024];
     loop {
         let read = source.read(&mut buffer)?;
         if read == 0 {
