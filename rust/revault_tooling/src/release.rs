@@ -208,17 +208,22 @@ fn package_xcframework(args: PackageXcframework) -> Result {
         return Err("XCFramework inputs must be macos-x86_64 and macos-aarch64 archives".into());
     }
     fs::create_dir_all(&args.output)?;
+    let universal_library = temporary.path().join("librevault_api.a");
+    run_status(
+        Command::new("lipo")
+            .arg("-create")
+            .arg(x86.prefix.join("lib/librevault_api.a"))
+            .arg(arm.prefix.join("lib/librevault_api.a"))
+            .arg("-output")
+            .arg(&universal_library),
+    )?;
     let framework = args.output.join("RevaultC.xcframework");
     run_status(
         Command::new("xcodebuild")
             .args(["-create-xcframework", "-library"])
-            .arg(x86.prefix.join("lib/librevault_api.a"))
+            .arg(&universal_library)
             .arg("-headers")
             .arg(x86.prefix.join("include"))
-            .arg("-library")
-            .arg(arm.prefix.join("lib/librevault_api.a"))
-            .arg("-headers")
-            .arg(arm.prefix.join("include"))
             .arg("-output")
             .arg(&framework),
     )?;
