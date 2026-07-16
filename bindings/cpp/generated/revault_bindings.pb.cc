@@ -1386,13 +1386,13 @@ const char descriptor_table_protodef_revault_5fbindings_2eproto[] PROTOBUF_SECTI
   "t_sha256\030\005 \001(\t\"\214\001\n\014ErrorDetails\022\020\n\010categ"
   "ory\030\001 \001(\t\022\025\n\rartifact_kind\030\002 \001(\t\022\025\n\rfoun"
   "d_version\030\003 \001(\r\022\031\n\021supported_version\030\004 \001"
-  "(\r\022\017\n\007message\030\005 \001(\t\022\020\n\010guidance\030\006 \001(\tB/Z"
-  "-github.com/onepub-dev/revault-api-go/me"
-  "ssagesb\006proto3"
+  "(\r\022\017\n\007message\030\005 \001(\t\022\020\n\010guidance\030\006 \001(\tB,Z"
+  "*github.com/onepub-dev/revault-api/messa"
+  "gesb\006proto3"
   ;
 static ::_pbi::once_flag descriptor_table_revault_5fbindings_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_revault_5fbindings_2eproto = {
-    false, false, 4454, descriptor_table_protodef_revault_5fbindings_2eproto,
+    false, false, 4451, descriptor_table_protodef_revault_5fbindings_2eproto,
     "revault_bindings.proto",
     &descriptor_table_revault_5fbindings_2eproto_once, nullptr, 0, 48,
     schemas, file_default_instances, TableStruct_revault_5fbindings_2eproto::offsets,

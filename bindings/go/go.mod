@@ -1,4 +1,4 @@
-module github.com/onepub-dev/revault-api-go
+module github.com/onepub-dev/revault-api
 
 go 1.22
 

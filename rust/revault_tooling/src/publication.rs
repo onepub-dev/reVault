@@ -48,9 +48,7 @@ pub struct PublishPackages {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum GitPackage {
-    Go,
-    Swift,
-    Composer,
+    Api,
     Homebrew,
 }
 
@@ -433,15 +431,6 @@ fn crate_version_exists(name: &str, version: &str) -> bool {
 pub fn promote_git(args: PromoteGitPackage) -> Result {
     validate_version(&args.version)?;
     let packages = args.packages.canonicalize()?;
-    let source = match args.package {
-        GitPackage::Go => packages.join("go"),
-        GitPackage::Swift => packages.join("swift"),
-        GitPackage::Composer => packages.join("composer"),
-        GitPackage::Homebrew => packages.join("native-sdk/package-managers/homebrew"),
-    };
-    if !source.is_dir() {
-        return Err(format!("publication source is missing: {}", source.display()).into());
-    }
     let destination = args.destination.canonicalize()?;
     if !destination.join(".git").is_dir() {
         return Err(format!(
@@ -450,15 +439,31 @@ pub fn promote_git(args: PromoteGitPackage) -> Result {
         )
         .into());
     }
-    replace_checkout_tree(&source, &destination)?;
+    clear_checkout_tree(&destination)?;
     match args.package {
-        GitPackage::Swift => {
+        GitPackage::Api => {
+            for source in [
+                packages.join("go"),
+                packages.join("swift"),
+                packages.join("composer"),
+            ] {
+                if !source.is_dir() {
+                    return Err(
+                        format!("publication source is missing: {}", source.display()).into(),
+                    );
+                }
+                copy_tree(&source, &destination)?;
+            }
             prepare_swift(&destination, &args.version, args.release_assets.as_deref())?
         }
         GitPackage::Homebrew => {
+            let source = packages.join("native-sdk/package-managers/homebrew");
+            if !source.is_dir() {
+                return Err(format!("publication source is missing: {}", source.display()).into());
+            }
+            copy_tree(&source, &destination)?;
             prepare_homebrew(&destination, &args.version, args.release_assets.as_deref())?
         }
-        GitPackage::Go | GitPackage::Composer => {}
     }
     run(Command::new("git")
         .args(["diff", "--check"])
@@ -587,7 +592,7 @@ fn sha256(path: &Path) -> Result<String> {
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
-fn replace_checkout_tree(source: &Path, destination: &Path) -> Result {
+fn clear_checkout_tree(destination: &Path) -> Result {
     for entry in fs::read_dir(destination)? {
         let entry = entry?;
         if entry.file_name() == ".git" {
@@ -600,7 +605,7 @@ fn replace_checkout_tree(source: &Path, destination: &Path) -> Result {
             fs::remove_file(path)?;
         }
     }
-    copy_tree(source, destination)
+    Ok(())
 }
 
 fn copy_tree(source: &Path, destination: &Path) -> Result {

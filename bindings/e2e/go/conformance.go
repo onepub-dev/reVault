@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	revault "github.com/onepub-dev/revault-api-go"
-	"github.com/onepub-dev/revault-api-go/messages"
+	revault "github.com/onepub-dev/revault-api"
+	"github.com/onepub-dev/revault-api/messages"
 )
 
 func pass(symbol string, assertions ...int) {

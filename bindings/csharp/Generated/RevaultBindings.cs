@@ -121,8 +121,8 @@ namespace Revault.Bindings {
             "KAQSFAoMdmF1bHRfc2hhMjU2GAUgASgJIowBCgxFcnJvckRldGFpbHMSEAoI",
             "Y2F0ZWdvcnkYASABKAkSFQoNYXJ0aWZhY3Rfa2luZBgCIAEoCRIVCg1mb3Vu",
             "ZF92ZXJzaW9uGAMgASgNEhkKEXN1cHBvcnRlZF92ZXJzaW9uGAQgASgNEg8K",
-            "B21lc3NhZ2UYBSABKAkSEAoIZ3VpZGFuY2UYBiABKAlCL1otZ2l0aHViLmNv",
-            "bS9vbmVwdWItZGV2L3JldmF1bHQtYXBpLWdvL21lc3NhZ2VzYgZwcm90bzM="));
+            "B21lc3NhZ2UYBSABKAkSEAoIZ3VpZGFuY2UYBiABKAlCLFoqZ2l0aHViLmNv",
+            "bS9vbmVwdWItZGV2L3JldmF1bHQtYXBpL21lc3NhZ2VzYgZwcm90bzM="));
       descriptor = pbr::FileDescriptor.FromGeneratedCode(descriptorData,
           new pbr::FileDescriptor[] { },
           new pbr::GeneratedClrTypeInfo(null, null, new pbr::GeneratedClrTypeInfo[] {

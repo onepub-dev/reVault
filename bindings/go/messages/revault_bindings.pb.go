@@ -3134,7 +3134,7 @@ const file_revault_bindings_proto_rawDesc = "" +
 	"\rfound_version\x18\x03 \x01(\rR\ffoundVersion\x12+\n" +
 	"\x11supported_version\x18\x04 \x01(\rR\x10supportedVersion\x12\x18\n" +
 	"\amessage\x18\x05 \x01(\tR\amessage\x12\x1a\n" +
-	"\bguidance\x18\x06 \x01(\tR\bguidanceB/Z-github.com/onepub-dev/revault-api-go/messagesb\x06proto3"
+	"\bguidance\x18\x06 \x01(\tR\bguidanceB,Z*github.com/onepub-dev/revault-api/messagesb\x06proto3"
 
 var (
 	file_revault_bindings_proto_rawDescOnce sync.Once

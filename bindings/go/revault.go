@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/onepub-dev/revault-api-go/messages"
+	"github.com/onepub-dev/revault-api/messages"
 	"google.golang.org/protobuf/proto"
 )
 

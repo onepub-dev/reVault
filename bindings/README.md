@@ -92,7 +92,7 @@ override and is deliberately unset during package acceptance tests.
 | Ruby | RubyGems `revault_api` | platform-specific gems |
 | PHP | Packagist `onepub/revault-api` | Composer package containing checked native assets |
 | Lua | LuaRocks `revault_api` | platform rocks containing checked native assets |
-| Go | `github.com/onepub-dev/revault-api-go` | statically linked packaged native libraries |
+| Go | `github.com/onepub-dev/revault-api` | statically linked packaged native libraries |
 | Rust | crates.io `revault-api` | native Rust source; no C ABI dependency |
 | Swift | Swift Package Manager product `RevaultAPI` | macOS XCFramework or Linux native package |
 | C | GitHub Releases, vcpkg, Homebrew, Debian and RPM | canonical SDK archive and `revault_api.h` |
@@ -164,14 +164,12 @@ Create these public companion repositories before tagging a release:
 
 | Repository | Registry discovery |
 | --- | --- |
-| `onepub-dev/revault-api-go` | Go module proxy |
-| `onepub-dev/revault-api-swift` | Swift Package Manager |
-| `onepub-dev/revault-api-php` | Packagist |
-| `onepub-dev/homebrew-revault` | Homebrew tap |
+| `onepub-dev/revault-api` | Go module proxy, Swift Package Manager, and Packagist |
+| `onepub-dev/revault-homebrew` | Homebrew tap |
 
-Install a GitHub App with contents write access to those four repositories and
+Install a GitHub App with contents write access to those two repositories and
 store its narrowly scoped installation token as the `release` environment
-secret `PACKAGE_REPOSITORY_TOKEN`. Register the Composer repository with
+secret `PACKAGE_REPOSITORY_TOKEN`. Register `onepub-dev/revault-api` with
 Packagist and enable its GitHub hook. The Rust release tool replaces each
 repository tree, validates it, commits it, and creates the immutable `vX.Y.Z`
 tag. It generates the Swift binary target and Homebrew formula from the actual

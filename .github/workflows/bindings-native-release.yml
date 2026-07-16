@@ -645,21 +645,16 @@ jobs:
           release publish --version "${GITHUB_REF_NAME#revault-api-v}"
           --packages packages --ecosystem rust --publish
 
-  promote-package-repositories:
+  promote-api-repository:
     if: github.ref_type == 'tag'
     needs: [github-release, ecosystem-layouts]
-    strategy:
-      matrix:
-        include:
-          - { package: go, repository: onepub-dev/revault-api-go }
-          - { package: composer, repository: onepub-dev/revault-api-php }
     runs-on: ubuntu-24.04
     environment: release
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: ${{ matrix.repository }}
+          repository: onepub-dev/revault-api
           token: ${{ secrets.PACKAGE_REPOSITORY_TOKEN }}
           path: destination
       - uses: actions/download-artifact@v4
@@ -667,27 +662,32 @@ jobs:
           name: revault-api-publication-trees
           path: packages
       - uses: dtolnay/rust-toolchain@1.95.0
-      - name: Promote immutable package tag
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: swift-macos-xcframework
+          path: release-assets
+      - name: Promote combined Go, Swift, and PHP package tag
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
           release promote-git --version "${GITHUB_REF_NAME#revault-api-v}"
-          --packages packages --destination destination --package "${{ matrix.package }}" --publish
+          --packages packages --destination destination --package api
+          --release-assets release-assets --publish
 
-  promote-swift-and-homebrew:
+  promote-homebrew:
     if: github.ref_type == 'tag'
     needs: [github-release, ecosystem-layouts]
-    strategy:
-      matrix:
-        include:
-          - { package: swift, repository: onepub-dev/revault-api-swift }
-          - { package: homebrew, repository: onepub-dev/homebrew-revault }
     runs-on: ubuntu-24.04
     environment: release
     steps:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: ${{ matrix.repository }}
+          repository: onepub-dev/revault-homebrew
           token: ${{ secrets.PACKAGE_REPOSITORY_TOKEN }}
           path: destination
       - uses: actions/download-artifact@v4
@@ -708,5 +708,5 @@ jobs:
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
           release promote-git --version "${GITHUB_REF_NAME#revault-api-v}"
-          --packages packages --destination destination --package "${{ matrix.package }}"
+          --packages packages --destination destination --package homebrew
           --release-assets release-assets --publish

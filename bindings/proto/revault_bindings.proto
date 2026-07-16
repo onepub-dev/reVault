@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package revault.bindings;
-option go_package = "github.com/onepub-dev/revault-api-go/messages";
+option go_package = "github.com/onepub-dev/revault-api/messages";
 
 message LockboxEntry {
   string path = 1;

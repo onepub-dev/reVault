@@ -40657,9 +40657,9 @@ public final class RevaultBindings {
       "t_sha256\030\005 \001(\t\"\214\001\n\014ErrorDetails\022\020\n\010categ" +
       "ory\030\001 \001(\t\022\025\n\rartifact_kind\030\002 \001(\t\022\025\n\rfoun" +
       "d_version\030\003 \001(\r\022\031\n\021supported_version\030\004 \001" +
-      "(\r\022\017\n\007message\030\005 \001(\t\022\020\n\010guidance\030\006 \001(\tB/Z" +
-      "-github.com/onepub-dev/revault-api-go/me" +
-      "ssagesb\006proto3"
+      "(\r\022\017\n\007message\030\005 \001(\t\022\020\n\010guidance\030\006 \001(\tB,Z" +
+      "*github.com/onepub-dev/revault-api/messa" +
+      "gesb\006proto3"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
