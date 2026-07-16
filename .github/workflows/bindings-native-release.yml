@@ -149,11 +149,11 @@ jobs:
       id-token: write
       attestations: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           pattern: native-macos-*
           path: native
-      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.95.0
       - name: Build universal Swift binary target
         run: >-
