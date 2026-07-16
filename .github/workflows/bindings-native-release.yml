@@ -659,9 +659,27 @@ jobs:
           name: revault-api-publication-trees
           path: packages
       - uses: dtolnay/rust-toolchain@1.95.0
+      - name: Check crates.io publication state
+        id: crates-state
+        shell: bash
+        run: |
+          needs_publish=false
+          for package in \
+            revault_page_api@0.0.3 \
+            revault_lockbox_api@0.0.4 \
+            revault_vault_api@0.0.4 \
+            "revault-api@${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          do
+            if ! cargo info --registry crates-io "$package" >/dev/null 2>&1; then
+              needs_publish=true
+            fi
+          done
+          echo "needs-publish=$needs_publish" >> "$GITHUB_OUTPUT"
       - id: crates
+        if: steps.crates-state.outputs.needs-publish == 'true'
         uses: rust-lang/crates-io-auth-action@v1
       - name: Publish the final page, lockbox, and vault APIs in dependency order
+        if: steps.crates-state.outputs.needs-publish == 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-
@@ -669,6 +687,7 @@ jobs:
           release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
           --packages packages --ecosystem rust-foundation --publish
       - name: Publish crates.io facade
+        if: steps.crates-state.outputs.needs-publish == 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-
