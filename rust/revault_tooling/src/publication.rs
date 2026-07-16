@@ -405,7 +405,7 @@ fn lua(
             .arg(&rockspec)
             .current_dir(&root))?;
         run(Command::new("luarocks")
-            .args(["make", "--pack-binary-rock"])
+            .args(["make", "--pack-binary-rock", "--deps-mode=none"])
             .arg(&rockspec)
             .current_dir(&root))?;
         let rocks = files_with_extension(&root, "rock")?;

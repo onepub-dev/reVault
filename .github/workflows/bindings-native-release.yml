@@ -252,7 +252,24 @@ jobs:
         with:
           luaVersion: luajit-2.1
       - uses: leafo/gh-actions-luarocks@v5
-        if: matrix.language == 'lua'
+        if: matrix.language == 'lua' && runner.os != 'Windows'
+      - name: Install Windows LuaRocks
+        if: matrix.language == 'lua' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'luarocks-3.11.1-windows-64.zip'
+          $root = Join-Path $env:RUNNER_TEMP 'luarocks'
+          Invoke-WebRequest `
+            -Uri 'https://luarocks.github.io/luarocks/releases/luarocks-3.11.1-windows-64.zip' `
+            -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          $expected = 'c71dba3d03e12305e9ccd022c621c8869aba3d124d9249e214aed5c16f3682a3'
+          if ($actual -ne $expected) {
+            throw "LuaRocks archive checksum mismatch: $actual"
+          }
+          Expand-Archive -Path $archive -DestinationPath $root
+          Join-Path $root 'luarocks-3.11.1-windows-64' |
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - uses: swift-actions/setup-swift@v2
         if: matrix.language == 'swift' && runner.os == 'Linux'
         with:
@@ -637,6 +654,24 @@ jobs:
         with:
           luaVersion: luajit-2.1
       - uses: leafo/gh-actions-luarocks@v5
+        if: runner.os != 'Windows'
+      - name: Install Windows LuaRocks
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'luarocks-3.11.1-windows-64.zip'
+          $root = Join-Path $env:RUNNER_TEMP 'luarocks'
+          Invoke-WebRequest `
+            -Uri 'https://luarocks.github.io/luarocks/releases/luarocks-3.11.1-windows-64.zip' `
+            -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          $expected = 'c71dba3d03e12305e9ccd022c621c8869aba3d124d9249e214aed5c16f3682a3'
+          if ($actual -ne $expected) {
+            throw "LuaRocks archive checksum mismatch: $actual"
+          }
+          Expand-Archive -Path $archive -DestinationPath $root
+          Join-Path $root 'luarocks-3.11.1-windows-64' |
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - name: Publish platform binary rock
         env:
           LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
