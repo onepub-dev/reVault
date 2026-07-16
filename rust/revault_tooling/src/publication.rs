@@ -263,6 +263,10 @@ fn nuget(package: &Path, version: &str, output: &Path, publish: bool) -> Result 
         return Err("dotnet pack produced no NuGet package".into());
     }
     if publish {
+        if nuget_version_is_public(version)? {
+            println!("OnePub.Revault.Api {version} is already publicly available on NuGet");
+            return Ok(());
+        }
         let api_key = std::env::var("NUGET_API_KEY")
             .map_err(|_| "NUGET_API_KEY is required for NuGet publication")?;
         for file in packages {
@@ -275,13 +279,47 @@ fn nuget(package: &Path, version: &str, output: &Path, publish: bool) -> Result 
                         &api_key,
                         "--source",
                         "https://api.nuget.org/v3/index.json",
-                        "--skip-duplicate",
                     ]),
                 "dotnet nuget push <package> --api-key <redacted> --source nuget.org",
             )?;
         }
     }
     Ok(())
+}
+
+fn nuget_version_is_public(version: &str) -> Result<bool> {
+    let url = nuget_package_url(version);
+    let null_device = if cfg!(windows) { "NUL" } else { "/dev/null" };
+    let output = Command::new("curl")
+        .args([
+            "--silent",
+            "--output",
+            null_device,
+            "--write-out",
+            "%{http_code}",
+            "--head",
+            &url,
+        ])
+        .output()
+        .map_err(|error| format!("failed to check NuGet package availability: {error}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "NuGet package availability check failed with {}",
+            output.status
+        )
+        .into());
+    }
+    match String::from_utf8_lossy(&output.stdout).trim() {
+        "200" => Ok(true),
+        "404" => Ok(false),
+        status => Err(format!("NuGet package availability check returned HTTP {status}").into()),
+    }
+}
+
+fn nuget_package_url(version: &str) -> String {
+    format!(
+        "https://api.nuget.org/v3-flatcontainer/onepub.revault.api/{version}/onepub.revault.api.{version}.nupkg"
+    )
 }
 
 fn dart(package: &Path, version: &str, publish: bool) -> Result {
@@ -759,6 +797,14 @@ mod tests {
         for value in ["v0.1.0", "0.1", "0.1.0-alpha", "0..1"] {
             assert!(validate_version(value).is_err(), "{value}");
         }
+    }
+
+    #[test]
+    fn nuget_publication_url_uses_the_flat_container_identity() {
+        assert_eq!(
+            nuget_package_url("0.1.0"),
+            "https://api.nuget.org/v3-flatcontainer/onepub.revault.api/0.1.0/onepub.revault.api.0.1.0.nupkg"
+        );
     }
 
     #[test]
