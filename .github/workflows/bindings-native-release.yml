@@ -318,7 +318,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release view "revault-api-v${RELEASE_VERSION}"
+        run: gh release view "revault-api-v${RELEASE_VERSION}" --repo onepub-dev/reVault
 
   ecosystem-layouts:
     needs: native
