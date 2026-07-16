@@ -156,9 +156,11 @@ Registry setup references: [npm](https://docs.npmjs.com/creating-and-publishing-
 The public name is `revault-api`, adapted only where a registry requires a
 different spelling or namespace (`revault_api`, `OnePub.Revault.Api`,
 `dev.onepub:revault-api`, or `@onepub/revault-api`). Publication runs only for
-an accepted `revault-api-vX.Y.Z` tag, after the native release, all 94 installed
-package checks, and the 480-path interoperability suite have succeeded. The
-release workflow uses the protected GitHub environment `release`.
+an accepted `revault-api-vX.Y.Z` tag after the native archives and registry
+package layouts have been built. The 94 installed package checks and 480-path
+interoperability suite run alongside the bootstrap release without blocking
+publication; they become release gates after the initial test-and-refinement
+cycle. The release workflow uses the protected GitHub environment `release`.
 
 Create these public companion repositories before tagging a release:
 

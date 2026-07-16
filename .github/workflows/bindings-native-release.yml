@@ -271,7 +271,7 @@ jobs:
 
   github-release:
     if: github.ref_type == 'tag'
-    needs: [native, macos-xcframework, ecosystem-layouts, package-conformance, conformance]
+    needs: [native, macos-xcframework, ecosystem-layouts]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
