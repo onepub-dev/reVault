@@ -26,7 +26,7 @@ function nativeTarget() {
 export function nativeLibraryPath() {
   if (process.env.REVAULT_LIBRARY) return process.env.REVAULT_LIBRARY;
   const [target, library] = nativeTarget();
-  const packageName = `@onepub/revault-api-native-${target}`;
+  const packageName = `@onepub-dev/revault-api-native-${target}`;
   try {
     const manifest = require.resolve(`${packageName}/package.json`);
     const candidate = path.join(path.dirname(manifest), 'lib', library);

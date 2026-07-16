@@ -31,9 +31,9 @@ RUN mkdir -p /opt/revault-js-consumer \
     && npm init -y \
     && npm install --omit=optional /tmp/onepub-revault-api-0.1.0.tgz \
       /tmp/onepub-revault-api-native-linux-x86_64-gnu-0.1.0.tgz
-ENV REVAULT_E2E_MODULE=/opt/revault-js-consumer/node_modules/@onepub/revault-api/index.js
+ENV REVAULT_E2E_MODULE=/opt/revault-js-consumer/node_modules/@onepub-dev/revault-api/index.js
 ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
-ENV REVAULT_E2E_NATIVE_ROOT=/opt/revault-js-consumer/node_modules/@onepub/revault-api-native-linux-x86_64-gnu/lib
+ENV REVAULT_E2E_NATIVE_ROOT=/opt/revault-js-consumer/node_modules/@onepub-dev/revault-api-native-linux-x86_64-gnu/lib
 ENV REVAULT_E2E_NATIVE_FILE=librevault_api.so
 ENV REVAULT_E2E_NATIVE_KIND=dynamic
 CMD ["revault-tool", "e2e", "container", "--language", "javascript"]

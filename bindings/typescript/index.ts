@@ -1,1 +1,1 @@
-export * from '@onepub/revault-api';
+export * from '@onepub-dev/revault-api';

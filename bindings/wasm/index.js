@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import * as host from '@onepub/revault-api';
+import * as host from '@onepub-dev/revault-api';
 
 const require = createRequire(import.meta.url);
 const { Runtime } = require('./generated/revault_wasm_bindings.cjs');

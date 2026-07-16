@@ -1,5 +1,5 @@
 {
-  "name": "@onepub/revault-api",
+  "name": "@onepub-dev/revault-api",
   "version": "0.1.0",
   "description": "Complete class-based reVault lockbox and vault API",
   "license": "SEE LICENSE IN LICENSE",
@@ -13,11 +13,11 @@
     "protobufjs": "^7.5.3"
   },
   "optionalDependencies": {
-    "@onepub/revault-api-native-linux-x86_64-gnu": "0.1.0",
-    "@onepub/revault-api-native-linux-aarch64-gnu": "0.1.0",
-    "@onepub/revault-api-native-macos-x86_64": "0.1.0",
-    "@onepub/revault-api-native-macos-aarch64": "0.1.0",
-    "@onepub/revault-api-native-windows-x86_64-msvc": "0.1.0",
-    "@onepub/revault-api-native-windows-aarch64-msvc": "0.1.0"
+    "@onepub-dev/revault-api-native-linux-x86_64-gnu": "0.1.0",
+    "@onepub-dev/revault-api-native-linux-aarch64-gnu": "0.1.0",
+    "@onepub-dev/revault-api-native-macos-x86_64": "0.1.0",
+    "@onepub-dev/revault-api-native-macos-aarch64": "0.1.0",
+    "@onepub-dev/revault-api-native-windows-x86_64-msvc": "0.1.0",
+    "@onepub-dev/revault-api-native-windows-aarch64-msvc": "0.1.0"
   }
 }

@@ -1,6 +1,6 @@
 language	registry	package	publish_command	native_delivery
-javascript-typescript	npm	@onepub/revault-api	npm publish --access public	optional @onepub/revault-api-native-<target> packages
-wasm	npm	@onepub/revault-api-wasm	npm publish --access public	bundled wasm and transitive Node host
+javascript-typescript	npm	@onepub-dev/revault-api	npm publish --access public	optional @onepub-dev/revault-api-native-<target> packages
+wasm	npm	@onepub-dev/revault-api-wasm	npm publish --access public	bundled wasm and transitive Node host
 python	PyPI	revault-api	python -m twine upload dist/*	platform wheels
 java	Maven Central	dev.onepub:revault-api	./gradlew publish	JAR resources
 kotlin	Maven Central	dev.onepub:revault-api-kotlin	./gradlew publish	Java runtime dependency

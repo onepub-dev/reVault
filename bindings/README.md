@@ -82,8 +82,8 @@ override and is deliberately unset during package acceptance tests.
 
 | API | Public endpoint | Native delivery |
 | --- | --- | --- |
-| JavaScript and TypeScript | npm `@onepub/revault-api` | optional `@onepub/revault-api-native-<target>` carrier |
-| WebAssembly | npm `@onepub/revault-api-wasm` | bundled WASM and installed native host carrier |
+| JavaScript and TypeScript | npm `@onepub-dev/revault-api` | optional `@onepub-dev/revault-api-native-<target>` carrier |
+| WebAssembly | npm `@onepub-dev/revault-api-wasm` | bundled WASM and installed native host carrier |
 | Python | PyPI `revault-api` | one wheel per platform tag |
 | Java | Maven Central `dev.onepub:revault-api` | native resources extracted by the loader |
 | Kotlin | Maven Central `dev.onepub:revault-api-kotlin` | Java runtime artifact dependency |
@@ -155,7 +155,7 @@ Registry setup references: [npm](https://docs.npmjs.com/creating-and-publishing-
 
 The public name is `revault-api`, adapted only where a registry requires a
 different spelling or namespace (`revault_api`, `OnePub.Revault.Api`,
-`dev.onepub:revault-api`, or `@onepub/revault-api`). Publication runs only for
+`dev.onepub:revault-api`, or `@onepub-dev/revault-api`). Publication runs only for
 an accepted `revault-api-vX.Y.Z` tag after the native archives and registry
 package layouts have been built. The 94 installed package checks and 480-path
 interoperability suite run alongside the bootstrap release without blocking
@@ -183,7 +183,7 @@ workflow file `bindings-native-release.yml`, and environment `release`:
 
 | Registry | Authorization |
 | --- | --- |
-| npm | Trusted publisher for all eight `@onepub` packages; `NPM_TOKEN` is needed only to bootstrap packages npm requires to exist first |
+| npm | Trusted publisher for all eight `@onepub-dev` packages; `NPM_TOKEN` is needed only to bootstrap packages npm requires to exist first |
 | PyPI | Pending trusted publisher for `revault-api` |
 | NuGet | Trusted publishing policy for `OnePub.Revault.Api`; set `NUGET_USER` to the nuget.org profile name |
 | pub.dev | Automated publishing for `revault_api` after its required first manual release |

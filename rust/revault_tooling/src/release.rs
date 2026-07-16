@@ -501,7 +501,7 @@ fn stage_ecosystems(args: StageEcosystems) -> Result {
         write_json(
             &npm_root.join("package.json"),
             &serde_json::json!({
-                "name": format!("@onepub/revault-api-native-{target}"), "version": args.version,
+                "name": format!("@onepub-dev/revault-api-native-{target}"), "version": args.version,
                 "description": format!("reVault native runtime for {target}"),
                 "license": "SEE LICENSE IN LICENSE", "repository": "github:onepub-dev/reVault",
                 "os": [npm_os], "cpu": [npm_cpu], "files": ["lib", "LICENSE"]

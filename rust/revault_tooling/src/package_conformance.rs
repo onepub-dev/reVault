@@ -354,9 +354,9 @@ fn prepare_npm(
     }
     run_status(&mut install)?;
     let module = if language == "wasm" {
-        "@onepub/revault-api-wasm"
+        "@onepub-dev/revault-api-wasm"
     } else {
-        "@onepub/revault-api"
+        "@onepub-dev/revault-api"
     };
     let mut environment = vec![(
         "REVAULT_E2E_MODULE".into(),
@@ -394,7 +394,7 @@ fn prepare_npm(
     };
     let (native_root, native_file, kind) = if language == "wasm" {
         (
-            consumer.join("node_modules/@onepub/revault-api-wasm/generated"),
+            consumer.join("node_modules/@onepub-dev/revault-api-wasm/generated"),
             "revault_wasm_bindings_bg.wasm".into(),
             "wasm",
         )
@@ -402,7 +402,7 @@ fn prepare_npm(
         (
             consumer
                 .join("node_modules")
-                .join(format!("@onepub/revault-api-native-{target}/lib")),
+                .join(format!("@onepub-dev/revault-api-native-{target}/lib")),
             dynamic_library(target),
             "dynamic",
         )

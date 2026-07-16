@@ -38,7 +38,7 @@ RUN mkdir -p /opt/revault-ts-consumer \
 ENV REVAULT_TYPESCRIPT_RUNNER=/opt/revault-ts-consumer/node_modules/.bin/tsx
 ENV NODE_PATH=/opt/revault-ts-consumer/node_modules
 ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
-ENV REVAULT_E2E_NATIVE_ROOT=/opt/revault-ts-consumer/node_modules/@onepub/revault-api-native-linux-x86_64-gnu/lib
+ENV REVAULT_E2E_NATIVE_ROOT=/opt/revault-ts-consumer/node_modules/@onepub-dev/revault-api-native-linux-x86_64-gnu/lib
 ENV REVAULT_E2E_NATIVE_FILE=librevault_api.so
 ENV REVAULT_E2E_NATIVE_KIND=dynamic
 CMD ["revault-tool", "e2e", "container", "--language", "typescript"]

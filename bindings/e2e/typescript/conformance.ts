@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Vault, createMessage, encodeMessage } from '@onepub/revault-api';
+import { Vault, createMessage, encodeMessage } from '@onepub-dev/revault-api';
 
 const api = new Vault();
 const language = 'typescript';
