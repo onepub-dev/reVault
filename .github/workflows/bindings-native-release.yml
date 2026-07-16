@@ -655,7 +655,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: onepub-dev/revault-api
-          token: ${{ secrets.PACKAGE_REPOSITORY_TOKEN }}
+          token: ${{ secrets.REVAULT_BINDING_APIS_RELEASE_TOKEN }}
           path: destination
       - uses: actions/download-artifact@v4
         with:
@@ -688,7 +688,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: onepub-dev/revault-homebrew
-          token: ${{ secrets.PACKAGE_REPOSITORY_TOKEN }}
+          token: ${{ secrets.REVAULT_BINDING_APIS_RELEASE_TOKEN }}
           path: destination
       - uses: actions/download-artifact@v4
         with:

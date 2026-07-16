@@ -169,8 +169,9 @@ Create these public companion repositories before tagging a release:
 
 Install a GitHub App with contents write access to those two repositories and
 store its narrowly scoped installation token as the `release` environment
-secret `PACKAGE_REPOSITORY_TOKEN`. Register `onepub-dev/revault-api` with
-Packagist and enable its GitHub hook. The Rust release tool replaces each
+secret `REVAULT_BINDING_APIS_RELEASE_TOKEN`. Register
+`onepub-dev/revault-api` with Packagist and enable its GitHub hook. The Rust
+release tool replaces each
 repository tree, validates it, commits it, and creates the immutable `vX.Y.Z`
 tag. It generates the Swift binary target and Homebrew formula from the actual
 GitHub release asset SHA-256 values; no mutable download URL is used.
