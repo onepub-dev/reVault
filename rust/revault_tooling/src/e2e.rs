@@ -334,8 +334,7 @@ fn invocations(language: &str) -> Vec<Invocation> {
         .transpose()
         .expect("REVAULT_E2E_ARGS_JSON must be a JSON string array")
         .unwrap_or_else(|| base.iter().map(|value| value.to_string()).collect());
-    let language_env =
-        (language == "wasm").then(|| ("REVAULT_E2E_LANGUAGE".to_string(), "wasm".to_string()));
+    let language_env = reported_language_env(language);
     let make = |mode: Option<&str>, root: &str| {
         let mut args = base.clone();
         if let Some(mode) = mode {
@@ -396,6 +395,11 @@ fn invocations(language: &str) -> Vec<Invocation> {
         make(Some("--agent"), "agent"),
         make(Some("--platform"), "platform"),
     ]
+}
+
+fn reported_language_env(language: &str) -> Option<(String, String)> {
+    matches!(language, "kotlin" | "wasm")
+        .then(|| ("REVAULT_E2E_LANGUAGE".to_string(), language.to_string()))
 }
 
 fn verify_rust_artifacts(output: &[u8]) -> Result {
@@ -1180,5 +1184,18 @@ mod tests {
     fn domains_remain_descriptive() {
         assert_eq!(domain("lockbox_form_list"), "archive.forms");
         assert_eq!(domain("vault_agent_start"), "vault.agent");
+    }
+    #[test]
+    fn shared_conformance_runners_report_the_selected_language() {
+        assert_eq!(
+            reported_language_env("kotlin"),
+            Some(("REVAULT_E2E_LANGUAGE".into(), "kotlin".into()))
+        );
+        assert_eq!(
+            reported_language_env("wasm"),
+            Some(("REVAULT_E2E_LANGUAGE".into(), "wasm".into()))
+        );
+        assert_eq!(reported_language_env("java"), None);
+        assert_eq!(reported_language_env("javascript"), None);
     }
 }
