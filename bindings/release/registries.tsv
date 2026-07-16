@@ -4,7 +4,7 @@ wasm	npm	@onepub-dev/revault-api-wasm	npm publish --access public	bundled wasm a
 python	PyPI	revault-api	python -m twine upload dist/*	platform wheels
 java	Maven Central	dev.onepub:revault-api	./gradlew publish	JAR resources
 kotlin	Maven Central	dev.onepub:revault-api-kotlin	./gradlew publish	Java runtime dependency
-csharp	NuGet	OnePub.Revault.Api	dotnet nuget push dist/*.nupkg	runtimes RID assets
+csharp	NuGet	Revault.Api	dotnet nuget push dist/*.nupkg	runtimes RID assets
 dart	pub.dev	revault_api	dart pub publish	bundled checked native assets
 ruby	RubyGems	revault_api	gem push *.gem	platform gems
 php	Packagist	onepub/revault-api	git tag and Packagist webhook	bundled checked native assets

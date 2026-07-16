@@ -6,6 +6,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="OnePub.Revault.Api" Version="0.1.0" />
+    <PackageReference Include="Revault.Api" Version="0.1.0" />
   </ItemGroup>
 </Project>

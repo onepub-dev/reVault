@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <PackageId>OnePub.Revault.Api</PackageId>
+    <PackageId>Revault.Api</PackageId>
     <Version>0.1.0</Version>
     <Authors>OnePub</Authors>
     <Description>Complete class-based reVault lockbox and vault API.</Description>

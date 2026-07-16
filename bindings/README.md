@@ -87,7 +87,7 @@ override and is deliberately unset during package acceptance tests.
 | Python | PyPI `revault-api` | one wheel per platform tag |
 | Java | Maven Central `dev.onepub:revault-api` | native resources extracted by the loader |
 | Kotlin | Maven Central `dev.onepub:revault-api-kotlin` | Java runtime artifact dependency |
-| C# | NuGet `OnePub.Revault.Api` | `runtimes/<rid>/native` assets |
+| C# | NuGet `Revault.Api` | `runtimes/<rid>/native` assets |
 | Dart | pub.dev `revault_api` | checked native assets selected by `Vault.load()` |
 | Ruby | RubyGems `revault_api` | platform-specific gems |
 | PHP | Packagist `onepub/revault-api` | Composer package containing checked native assets |
@@ -154,7 +154,7 @@ Registry setup references: [npm](https://docs.npmjs.com/creating-and-publishing-
 ### Registry authorization and first release
 
 The public name is `revault-api`, adapted only where a registry requires a
-different spelling or namespace (`revault_api`, `OnePub.Revault.Api`,
+different spelling or namespace (`revault_api`, `Revault.Api`,
 `dev.onepub:revault-api`, or `@onepub-dev/revault-api`). Publication runs only for
 an accepted `revault-api-vX.Y.Z` tag after the native archives and registry
 package layouts have been built. The 94 installed package checks and 480-path
@@ -185,7 +185,7 @@ workflow file `bindings-native-release.yml`, and environment `release`:
 | --- | --- |
 | npm | Trusted publisher for all eight `@onepub-dev` packages; `NPM_TOKEN` is needed only to bootstrap packages npm requires to exist first |
 | PyPI | Pending trusted publisher for `revault-api` |
-| NuGet | Trusted publishing policy for `OnePub.Revault.Api`; set `NUGET_USER` to the nuget.org profile name |
+| NuGet | Trusted publishing policy for `Revault.Api`; set `NUGET_USER` to the nuget.org profile name |
 | pub.dev | Automated publishing for `revault_api` after its required first manual release |
 | RubyGems | Trusted publisher for `revault_api` (new gems are supported) |
 | crates.io | Trusted publishers for the existing `revault_page_api`, `revault_lockbox_api`, and `revault_vault_api` crates, plus `revault-api` after its required first manual release |

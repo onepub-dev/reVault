@@ -264,7 +264,7 @@ fn nuget(package: &Path, version: &str, output: &Path, publish: bool) -> Result 
     }
     if publish {
         if nuget_version_is_public(version)? {
-            println!("OnePub.Revault.Api {version} is already publicly available on NuGet");
+            println!("Revault.Api {version} is already publicly available on NuGet");
             return Ok(());
         }
         let api_key = std::env::var("NUGET_API_KEY")
@@ -318,7 +318,7 @@ fn nuget_version_is_public(version: &str) -> Result<bool> {
 
 fn nuget_package_url(version: &str) -> String {
     format!(
-        "https://api.nuget.org/v3-flatcontainer/onepub.revault.api/{version}/onepub.revault.api.{version}.nupkg"
+        "https://api.nuget.org/v3-flatcontainer/revault.api/{version}/revault.api.{version}.nupkg"
     )
 }
 
@@ -803,7 +803,7 @@ mod tests {
     fn nuget_publication_url_uses_the_flat_container_identity() {
         assert_eq!(
             nuget_package_url("0.1.0"),
-            "https://api.nuget.org/v3-flatcontainer/onepub.revault.api/0.1.0/onepub.revault.api.0.1.0.nupkg"
+            "https://api.nuget.org/v3-flatcontainer/revault.api/0.1.0/revault.api.0.1.0.nupkg"
         );
     }
 
