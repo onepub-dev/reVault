@@ -236,6 +236,15 @@ fn install_native(args: InstallNative) -> Result {
     install_archive(&args.archive, &args.prefix).map(|_| ())
 }
 
+fn msvc_path(path: &Path) -> String {
+    let value = path.to_string_lossy();
+    if let Some(tail) = value.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{tail}")
+    } else {
+        value.strip_prefix(r"\\?\").unwrap_or(&value).to_owned()
+    }
+}
+
 fn build_ruby_shim(
     repository: &Path,
     row: &TargetRow,
@@ -260,11 +269,11 @@ fn build_ruby_shim(
         command
             .arg("/nologo")
             .arg("/LD")
-            .arg(format!("/I{}", include.display()))
-            .arg(&source)
-            .arg(import_library)
+            .arg(format!("/I{}", msvc_path(&include)))
+            .arg(msvc_path(&source))
+            .arg(msvc_path(import_library))
             .arg("/link")
-            .arg(format!("/OUT:{}", destination.display()));
+            .arg(format!("/OUT:{}", msvc_path(&destination)));
         for symbol in ruby_shim_symbols(&source)? {
             command.arg(format!("/EXPORT:{symbol}"));
         }
@@ -1278,6 +1287,18 @@ mod tests {
             assert!(rid(target).is_ok());
             assert!(go_platform(target).is_ok());
         }
+    }
+
+    #[test]
+    fn converts_verbatim_paths_for_msvc() {
+        assert_eq!(
+            msvc_path(Path::new(r"\\?\C:\work\revault_api.dll")),
+            r"C:\work\revault_api.dll"
+        );
+        assert_eq!(
+            msvc_path(Path::new(r"\\?\UNC\server\share\revault_api.dll")),
+            r"\\server\share\revault_api.dll"
+        );
     }
 
     #[test]
