@@ -29,8 +29,8 @@ RUN mkdir -p /opt/revault-js-consumer \
     && npm pack /tmp/packages/npm/revault-api-native-linux-x86_64-gnu --pack-destination /tmp \
     && cd /opt/revault-js-consumer \
     && npm init -y \
-    && npm install --omit=optional /tmp/onepub-revault-api-0.1.0.tgz \
-      /tmp/onepub-revault-api-native-linux-x86_64-gnu-0.1.0.tgz
+    && npm install --omit=optional /tmp/onepub-dev-revault-api-0.1.0.tgz \
+      /tmp/onepub-dev-revault-api-native-linux-x86_64-gnu-0.1.0.tgz
 ENV REVAULT_E2E_MODULE=/opt/revault-js-consumer/node_modules/@onepub-dev/revault-api/index.js
 ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
 ENV REVAULT_E2E_NATIVE_ROOT=/opt/revault-js-consumer/node_modules/@onepub-dev/revault-api-native-linux-x86_64-gnu/lib

@@ -29,8 +29,8 @@ RUN mkdir -p /opt/revault-ts-consumer \
     && npm pack /tmp/packages/npm/revault-api-native-linux-x86_64-gnu --pack-destination /tmp \
     && cd /opt/revault-ts-consumer \
     && npm init -y \
-    && npm install --omit=optional /tmp/onepub-revault-api-0.1.0.tgz \
-      /tmp/onepub-revault-api-native-linux-x86_64-gnu-0.1.0.tgz \
+    && npm install --omit=optional /tmp/onepub-dev-revault-api-0.1.0.tgz \
+      /tmp/onepub-dev-revault-api-native-linux-x86_64-gnu-0.1.0.tgz \
       typescript@5.8.3 tsx@4.20.0 @types/node@22 \
     && ln -s /opt/revault-ts-consumer/node_modules /workspace/bindings/e2e/typescript/node_modules \
     && cd /workspace \

@@ -44,9 +44,9 @@ RUN revault-tool bindings check --repository . \
     && npm pack /tmp/packages/npm/revault-api-wasm --pack-destination /tmp \
     && cd /opt/revault-wasm-consumer \
     && npm init -y \
-    && npm install --omit=optional /tmp/onepub-revault-api-0.1.0.tgz \
-      /tmp/onepub-revault-api-native-linux-x86_64-gnu-0.1.0.tgz \
-    && npm install --omit=optional /tmp/onepub-revault-api-wasm-0.1.0.tgz
+    && npm install --omit=optional /tmp/onepub-dev-revault-api-0.1.0.tgz \
+      /tmp/onepub-dev-revault-api-native-linux-x86_64-gnu-0.1.0.tgz \
+    && npm install --omit=optional /tmp/onepub-dev-revault-api-wasm-0.1.0.tgz
 ENV REVAULT_E2E_MODULE=/opt/revault-wasm-consumer/node_modules/@onepub-dev/revault-api-wasm/index.js
 ENV REVAULT_E2E_LANGUAGE=wasm
 ENV XDG_RUNTIME_DIR=/tmp/revault-runtime

@@ -205,32 +205,7 @@ pub(crate) fn container(args: Container) -> Result {
         }
         return Ok(());
     }
-    let mut service_env = BTreeMap::new();
-    if cfg!(target_os = "linux") {
-        let mut daemon = Command::new("gnome-keyring-daemon")
-            .args(["--daemonize", "--login", "--components=secrets"])
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .spawn()?;
-        daemon
-            .stdin
-            .take()
-            .ok_or("gnome-keyring-daemon did not expose stdin")?
-            .write_all(b"\n")?;
-        let output = daemon.wait_with_output()?;
-        if !output.status.success() {
-            return Err(format!("gnome-keyring-daemon failed with {}", output.status).into());
-        }
-        for raw in String::from_utf8_lossy(&output.stdout).lines() {
-            let line = raw
-                .trim()
-                .trim_start_matches("export ")
-                .trim_end_matches(';');
-            if let Some((key, value)) = line.split_once('=') {
-                service_env.insert(key.to_string(), value.trim_matches(['\'', '"']).to_string());
-            }
-        }
-    }
+    let service_env = linux_secret_service_env()?;
     let results = std::env::temp_dir().join(format!("{}-results.tsv", args.language));
     let native = std::env::temp_dir().join(format!("{}-native.tsv", args.language));
     let root = PathBuf::from(std::env::var("REVAULT_E2E_NATIVE_ROOT")?);
@@ -493,6 +468,31 @@ fn rust_source_conformance(args: RustSourceConformance) -> Result {
 }
 
 fn native_conformance(args: NativeConformance) -> Result {
+    let runtime = args.work.join("runtime");
+    fs::create_dir_all(&runtime)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&runtime, fs::Permissions::from_mode(0o700))?;
+    }
+    if cfg!(target_os = "linux") && std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_none() {
+        let status = Command::new("dbus-run-session")
+            .env("XDG_RUNTIME_DIR", &runtime)
+            .arg("--")
+            .arg(std::env::current_exe()?)
+            .args(["e2e", "native-conformance", "--archive"])
+            .arg(&args.archive)
+            .args(["--repository"])
+            .arg(&args.repository)
+            .args(["--work"])
+            .arg(&args.work)
+            .status()?;
+        if !status.success() {
+            return Err(format!("native conformance service session failed with {status}").into());
+        }
+        return Ok(());
+    }
+    let service_env = linux_secret_service_env()?;
     fs::create_dir_all(&args.work)?;
     let work = args.work.canonicalize()?;
     let repository = args.repository.canonicalize()?;
@@ -535,6 +535,7 @@ fn native_conformance(args: NativeConformance) -> Result {
         command.env("PATH", std::env::join_paths(paths)?);
     }
     command.env_remove("REVAULT_LIBRARY");
+    command.envs(service_env);
     command.env("REVAULT_E2E_LANGUAGE", "c");
     command.env("REVAULT_E2E_ARTIFACT_DIR", work.join("artifacts"));
     let output = command.output()?;
@@ -579,6 +580,37 @@ fn native_conformance(args: NativeConformance) -> Result {
         operations: repository.join("bindings/e2e/operations.tsv"),
         results: vec![results, native],
     })
+}
+
+fn linux_secret_service_env() -> Result<BTreeMap<String, String>> {
+    let mut service_env = BTreeMap::new();
+    if !cfg!(target_os = "linux") {
+        return Ok(service_env);
+    }
+    let mut daemon = Command::new("gnome-keyring-daemon")
+        .args(["--daemonize", "--login", "--components=secrets"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .spawn()?;
+    daemon
+        .stdin
+        .take()
+        .ok_or("gnome-keyring-daemon did not expose stdin")?
+        .write_all(b"\n")?;
+    let output = daemon.wait_with_output()?;
+    if !output.status.success() {
+        return Err(format!("gnome-keyring-daemon failed with {}", output.status).into());
+    }
+    for raw in String::from_utf8_lossy(&output.stdout).lines() {
+        let line = raw
+            .trim()
+            .trim_start_matches("export ")
+            .trim_end_matches(';');
+        if let Some((key, value)) = line.split_once('=') {
+            service_env.insert(key.to_string(), value.trim_matches(['\'', '"']).to_string());
+        }
+    }
+    Ok(service_env)
 }
 
 fn evidence(args: Evidence) -> Result {

@@ -742,7 +742,8 @@ mod tests {
         fs::create_dir(destination.path().join(".git")).unwrap();
         fs::write(destination.path().join("old"), b"old").unwrap();
         fs::write(source.path().join("new"), b"new").unwrap();
-        replace_checkout_tree(source.path(), destination.path()).unwrap();
+        clear_checkout_tree(destination.path()).unwrap();
+        copy_tree(source.path(), destination.path()).unwrap();
         assert!(destination.path().join(".git").is_dir());
         assert!(!destination.path().join("old").exists());
         assert_eq!(fs::read(destination.path().join("new")).unwrap(), b"new");
