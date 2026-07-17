@@ -18,12 +18,14 @@ public final class BindingOperations {
   public BindingOperations(RevaultNativeApi api) {
     this.api = api;
     try {
-      if ((int) api.api_abi_version.invokeExact() != 1) throw new IllegalStateException("revault-api native ABI mismatch; expected 1");
+      if ((int) api.api_abi_version.invokeExact() != 2) throw new IllegalStateException("revault-api native ABI mismatch; expected 2");
     } catch (RuntimeException error) { throw error; }
       catch (Throwable error) { throw new IllegalStateException(error); }
   }
 
   @FunctionalInterface private interface Parser<T extends MessageLite> { T parse(byte[] value) throws InvalidProtocolBufferException; }
+  @FunctionalInterface public interface SecretCallback<T> { T use(byte[] secret); }
+  @FunctionalInterface private interface SecretGetter { boolean get(MemorySegment output); }
 
   private static Object call(java.lang.invoke.MethodHandle method, Object... args) {
     try { return method.invokeWithArguments(args); }
@@ -51,6 +53,27 @@ public final class BindingOperations {
     call(api.buffer_free, value); return result;
   }
   private String takeString(MemorySegment value) { return new String(take(value), StandardCharsets.UTF_8); }
+  private <T> T withSecret(SecretGetter getter, SecretCallback<T> callback) {
+    try (var arena = Arena.ofConfined()) {
+      var output = arena.allocate(ValueLayout.ADDRESS);
+      require(getter.get(output));
+      var handle = output.get(ValueLayout.ADDRESS, 0);
+      if (handle.address() == 0) return null;
+      try {
+        var length = arena.allocate(ValueLayout.JAVA_LONG);
+        require((boolean) call(api.secret_len, handle, length));
+        long size = length.get(ValueLayout.JAVA_LONG, 0);
+        var nativeBytes = arena.allocate(size);
+        require((boolean) call(api.secret_copy, handle, nativeBytes, size));
+        var secret = nativeBytes.toArray(ValueLayout.JAVA_BYTE);
+        try { return callback.use(secret); }
+        finally {
+          java.util.Arrays.fill(secret, (byte) 0);
+          nativeBytes.fill((byte) 0);
+        }
+      } finally { call(api.secret_free, handle); }
+    }
+  }
   private <T extends MessageLite> T frame(MemorySegment value, Parser<T> parser) {
     var bytes = take(value);
     if (bytes.length < 12 || bytes[0] != 'L' || bytes[1] != 'B' || bytes[2] != 'W' || bytes[3] != 'F')
@@ -287,15 +310,28 @@ public final class BindingOperations {
     }
   }
 
-  public boolean lockboxSetVariable(MemorySegment handle, String name, String value, boolean secret) {
+  public boolean lockboxSetVariable(MemorySegment handle, String name, String value) {
     try (var arena = Arena.ofConfined()) {
-      return require((boolean) call(api.lockbox_set_variable, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length, text(arena, value), (long) value.getBytes(StandardCharsets.UTF_8).length, secret));
+      return require((boolean) call(api.lockbox_set_variable, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length, text(arena, value), (long) value.getBytes(StandardCharsets.UTF_8).length));
     }
   }
 
-  public String lockboxGetVariable(MemorySegment handle, String name) {
+  public boolean lockboxSetSecretVariable(MemorySegment handle, String name, byte[] value) {
     try (var arena = Arena.ofConfined()) {
-      return takeString((MemorySegment) call(api.lockbox_get_variable, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length));
+      return require((boolean) call(api.lockbox_set_secret_variable, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length, bytes(arena, value), (long) value.length));
+    }
+  }
+
+  public revault.bindings.RevaultBindings.OptionalString lockboxGetVariable(MemorySegment handle, String name) {
+    try (var arena = Arena.ofConfined()) {
+      return frame((MemorySegment) call(api.lockbox_get_variable, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.OptionalString::parseFrom);
+    }
+  }
+
+  public <T> T lockboxWithSecretVariable(MemorySegment handle, String name, SecretCallback<T> callback) {
+    try (var arena = Arena.ofConfined()) {
+      var nameBytes = text(arena, name);
+      return withSecret(output -> (boolean) call(api.lockbox_get_secret_variable, handle, nameBytes, (long) name.getBytes(StandardCharsets.UTF_8).length, output), callback);
     }
   }
 
@@ -445,9 +481,15 @@ public final class BindingOperations {
     }
   }
 
-  public boolean lockboxSetFormField(MemorySegment handle, String path, String field, String value, boolean secret) {
+  public boolean lockboxSetFormField(MemorySegment handle, String path, String field, String value) {
     try (var arena = Arena.ofConfined()) {
-      return require((boolean) call(api.lockbox_set_form_field, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, field), (long) field.getBytes(StandardCharsets.UTF_8).length, text(arena, value), (long) value.getBytes(StandardCharsets.UTF_8).length, secret));
+      return require((boolean) call(api.lockbox_set_form_field, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, field), (long) field.getBytes(StandardCharsets.UTF_8).length, text(arena, value), (long) value.getBytes(StandardCharsets.UTF_8).length));
+    }
+  }
+
+  public boolean lockboxSetSecretFormField(MemorySegment handle, String path, String field, byte[] value) {
+    try (var arena = Arena.ofConfined()) {
+      return require((boolean) call(api.lockbox_set_secret_form_field, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, field), (long) field.getBytes(StandardCharsets.UTF_8).length, bytes(arena, value), (long) value.length));
     }
   }
 
@@ -457,9 +499,9 @@ public final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.FormRecord lockboxGetFormRecord(MemorySegment handle, String path) {
+  public revault.bindings.RevaultBindings.OptionalFormRecord lockboxGetFormRecord(MemorySegment handle, String path) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_get_form_record, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.FormRecord::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_get_form_record, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.OptionalFormRecord::parseFrom);
     }
   }
 
@@ -475,9 +517,17 @@ public final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.FormValue lockboxGetFormField(MemorySegment handle, String path, String field) {
+  public revault.bindings.RevaultBindings.OptionalFormValue lockboxGetFormField(MemorySegment handle, String path, String field) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_get_form_field, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, field), (long) field.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.FormValue::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_get_form_field, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, field), (long) field.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.OptionalFormValue::parseFrom);
+    }
+  }
+
+  public <T> T lockboxWithSecretFormField(MemorySegment handle, String path, String field, SecretCallback<T> callback) {
+    try (var arena = Arena.ofConfined()) {
+      var pathBytes = text(arena, path);
+      var fieldBytes = text(arena, field);
+      return withSecret(output -> (boolean) call(api.lockbox_get_secret_form_field, handle, pathBytes, (long) path.getBytes(StandardCharsets.UTF_8).length, fieldBytes, (long) field.getBytes(StandardCharsets.UTF_8).length, output), callback);
     }
   }
 

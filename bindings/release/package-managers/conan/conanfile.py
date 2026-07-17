@@ -5,7 +5,7 @@ import os
 
 class RevaultApiConan(ConanFile):
     name = "revault-api"
-    version = "0.1.0"
+    version = "0.2.0"
     package_type = "shared-library"
     settings = "os", "arch", "compiler", "build_type"
     license = "reVault Source Available License 1.0"

@@ -648,6 +648,7 @@ pub fn promote_git(args: PromoteGitPackage) -> Result {
                 }
                 copy_tree(&source, &destination)?;
             }
+            write_api_repository_readme(&destination, &args.version)?;
             prepare_swift(&destination, &args.version, args.release_assets.as_deref())?
         }
         GitPackage::Homebrew => {
@@ -719,6 +720,21 @@ pub fn promote_git(args: PromoteGitPackage) -> Result {
     run(Command::new("git")
         .args(["push", "origin", &tag])
         .current_dir(&destination))
+}
+
+fn write_api_repository_readme(destination: &Path, version: &str) -> Result {
+    fs::write(
+        destination.join("README.md"),
+        format!(
+            "# reVault API bindings\n\n\
+reVault is an encrypted archive and local-vault library for files, credentials, keys, and typed records. This companion repository publishes the Go module, Swift package, and PHP Composer package from the same versioned native ABI. See the [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).\n\n\
+## Go\n\n```sh\ngo get github.com/onepub-dev/revault-api@v{version}\n```\n\n\
+## Swift\n\n```swift\n.package(url: \"https://github.com/onepub-dev/revault-api\", exact: \"{version}\")\n```\n\n\
+## PHP\n\n```sh\ncomposer require onepub/revault-api:{version}\n```\n\n\
+All three packages use the same ABI-v2 native artifacts. Secret variable and form-field reads are callback-scoped and their temporary native storage is wiped after use.\n"
+        ),
+    )?;
+    Ok(())
 }
 
 fn prepare_swift(destination: &Path, version: &str, assets: Option<&Path>) -> Result {

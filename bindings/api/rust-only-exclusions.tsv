@@ -1,0 +1,45 @@
+rust_api	rationale
+acquire	Rust-only scoped file-lock RAII; foreign facades use atomic native operations and never own internal lock files.
+as_bytes	Language-native value accessor; byte-valued facade types expose their own byte conversion without a native call.
+as_str	Language-native value accessor; UTF-8 facade values expose their own string conversion without a native call.
+create_with_lockbox_id	Bindings-only deterministic constructor used by migrations and fixtures; public foreign creation always generates a cryptographically random identifier.
+create_with_lockbox_id_and_options	Bindings-only deterministic constructor used by migrations and fixtures; public foreign creation always generates a cryptographically random identifier.
+define_form_with_type_id	Exact-identity import primitive; foreign callers define or revise forms by alias while migrations preserve historical identifiers in Rust.
+define_form_with_type_id_and_description	Exact-identity import primitive; foreign callers define or revise forms by alias while migrations preserve historical identifiers in Rust.
+export_key_directory_backup	Vault-integration implementation hook; the public foreign vault API owns backup persistence through vault_directory_store_backup.
+export_migration_key_material	Hidden migration-only API carrying raw secret material; migration executables remain Rust-only by design.
+guidance	Error presentation helper; structured native errors already carry the same guidance field.
+import_migration_form_record	Hidden migration-only exact-revision import; foreign bindings operate on supported current-format archives.
+import_migration_key_directory	Hidden migration-only key-directory import; foreign bindings operate on supported current-format archives.
+import_form_definition	Exact-revision migration/import primitive; current-format foreign callers use define_form, which validates and assigns revisions.
+inspector	Rust borrowing/typestate inspection view; foreign bindings expose its serializable inspection results directly.
+is_descendant_of	Language-native path relationship helper with no encrypted state or I/O.
+is_direct_child_of	Language-native path relationship helper with no encrypted state or I/O.
+is_secret	Language-native enum/value predicate; field and variable sensitivity is already present in facade models.
+key_directory_backup_with_contact	Vault-integration implementation hook used internally by the native local-vault operations.
+key_directory_backup_with_password	Vault-integration implementation hook used internally by the native local-vault operations.
+lock_path_for	Hidden file-lock path implementation detail; lock filenames are not part of the stable binding contract.
+matches	Language-native validated variable-name pattern predicate.
+matches_pattern	Language-native validated variable-name pattern predicate.
+new	Language-native value/config constructor; validation occurs when the value enters its mapped native operation.
+new_random	Language-native random identifier constructor; native create operations generate secure identifiers.
+normal	Language-native FormValue constructor represented by the normal form-field setter.
+parent	Language-native normalized path helper with no encrypted state or I/O.
+path	Rust Path reference accessor; foreign vault objects retain the root supplied at construction.
+path_with_contact	Vault-integration implementation hook used by mapped native local-vault open operations.
+path_with_password	Vault-integration implementation hook used by mapped native local-vault open operations.
+read_lockbox_id	Vault-integration implementation hook used internally before mapped local-vault open operations.
+replace_content_key_with_contacts	Advanced true-revocation primitive retained in Rust until a stable cross-language retained-contact transaction schema is versioned.
+replace_password	Atomic password-slot replacement retained in Rust; foreign callers can add and remove slots explicitly without passing an old password back across the ABI.
+replace_for_migration	Hidden migration-only destructive replacement; migration executables remain Rust-only by design.
+restore_access_slot_label	Migration restore primitive preserving internal revision metadata; current-format foreign APIs use remember_access_slot_label.
+restore_known_lockbox	Migration restore primitive preserving internal revision metadata; current-format foreign APIs use remember_known_lockbox.
+restore_private_key	Migration restore primitive preserving historical metadata; current-format foreign APIs use store_private_key.
+restore_profile_generations	Migration restore primitive preserving historical revisions; current-format foreign APIs rotate and load generations.
+secret	Language-native FormValue constructor represented by the scoped secret form-field setter.
+set_glob	Language-native ListOptions builder represented by lockbox_list_with_options arguments.
+store	Rust generic dependency-injection accessor; foreign bindings deliberately expose the concrete local-vault service.
+try_clone	Rust ownership helper; foreign handles have explicit ownership and do not expose clone semantics.
+try_clone_key	Raw content-key extraction is intentionally not exposed to foreign facades; local-vault and agent operations consume it inside native secure storage.
+with_key	Raw content-key callback is intentionally not exposed to foreign facades; local-vault and agent operations consume it inside native secure storage.
+from_parts	Low-level wrapped-key reconstruction helper; foreign APIs create wrapped keys through authenticated encryption and keep the handle opaque.

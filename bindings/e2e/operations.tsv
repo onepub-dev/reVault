@@ -2,6 +2,9 @@ symbol	domain	return_type	arguments
 buffer_last_error	support.memory	const char *	void
 buffer_last_error_details	support.memory	RevaultBuffer	void
 buffer_free	support.memory	void	RevaultBuffer value
+secret_len	secrets.scoped	bool	const void *handle, size_t *out_len
+secret_copy	secrets.scoped	bool	const void *handle, uint8_t *destination, size_t destination_len
+secret_free	secrets.scoped	void	void *handle
 lockbox_format_version	archive.forms	uint16_t	void
 lockbox_probe_format_version	archive.forms	uint16_t	const uint8_t *bytes, size_t len
 lockbox_create	archive.lifecycle	void *	const uint8_t *key, size_t key_len
@@ -40,8 +43,10 @@ lockbox_rename	archive.lifecycle	bool	void *handle, const char *from, size_t fro
 lockbox_list	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len, bool recursive
 lockbox_list_with_options	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len, const char *glob, size_t glob_len, bool recursive, bool include_files, bool include_symlinks, bool include_directories, size_t limit
 lockbox_stat	archive.lifecycle	RevaultBuffer	const void *handle, const char *path, size_t path_len
-lockbox_set_variable	archive.lifecycle	bool	void *handle, const char *name, size_t name_len, const char *value, size_t value_len, bool secret
+lockbox_set_variable	archive.lifecycle	bool	void *handle, const char *name, size_t name_len, const char *value, size_t value_len
+lockbox_set_secret_variable	archive.lifecycle	bool	void *handle, const char *name, size_t name_len, const uint8_t *value, size_t value_len
 lockbox_get_variable	archive.lifecycle	RevaultBuffer	const void *handle, const char *name, size_t name_len
+lockbox_get_secret_variable	archive.lifecycle	bool	const void *handle, const char *name, size_t name_len, void **output
 lockbox_delete_variable	archive.lifecycle	bool	void *handle, const char *name, size_t name_len
 lockbox_move_variables	archive.lifecycle	bool	void *handle, const uint8_t *moves_proto, size_t moves_len
 lockbox_list_variables	archive.lifecycle	RevaultBuffer	const void *handle
@@ -67,12 +72,14 @@ lockbox_list_form_definitions	archive.forms	RevaultBuffer	const void *handle
 lockbox_resolve_form	archive.forms	RevaultBuffer	const void *handle, const char *reference, size_t reference_len
 lockbox_list_form_revisions	archive.forms	RevaultBuffer	const void *handle, const char *type_id, size_t type_id_len
 lockbox_create_form_record	archive.forms	RevaultBuffer	void *handle, const char *path, size_t path_len, const char *type_reference, size_t type_len, const char *name, size_t name_len
-lockbox_set_form_field	archive.forms	bool	void *handle, const char *path, size_t path_len, const char *field, size_t field_len, const char *value, size_t value_len, bool secret
+lockbox_set_form_field	archive.forms	bool	void *handle, const char *path, size_t path_len, const char *field, size_t field_len, const char *value, size_t value_len
+lockbox_set_secret_form_field	archive.forms	bool	void *handle, const char *path, size_t path_len, const char *field, size_t field_len, const uint8_t *value, size_t value_len
 lockbox_list_form_records	archive.forms	RevaultBuffer	const void *handle
 lockbox_get_form_record	archive.forms	RevaultBuffer	const void *handle, const char *path, size_t path_len
 lockbox_delete_form_record	archive.forms	bool	void *handle, const char *path, size_t path_len
 lockbox_move_form_records	archive.forms	bool	void *handle, const uint8_t *moves_proto, size_t moves_len
 lockbox_get_form_field	archive.forms	RevaultBuffer	const void *handle, const char *path, size_t path_len, const char *field, size_t field_len
+lockbox_get_secret_form_field	archive.forms	bool	const void *handle, const char *path, size_t path_len, const char *field, size_t field_len, void **output
 lockbox_to_bytes	archive.lifecycle	RevaultBuffer	const void *handle
 lockbox_free	archive.lifecycle	void	void *handle
 vault_is_running	vault.agent	bool	void

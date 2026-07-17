@@ -5,7 +5,6 @@ from __future__ import annotations
 import ctypes
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,7 +13,7 @@ import time
 ROOT = Path(__file__).resolve().parents[3]
 if os.environ.get("REVAULT_E2E_INSTALLED") != "1":
     sys.path.insert(0, str(ROOT / "bindings/python"))
-import revault_api as binding
+import revault_api as binding  # noqa: E402
 
 LANGUAGE = "python"
 
@@ -108,8 +107,8 @@ def archive_lifecycle(runtime: Runtime) -> None:
     passed("lockbox_read_range", 3)
 
     normal, value = data(b"normal"), data(b"value")
-    runtime.bool(lib.lockbox_set_variable(box, normal, 6, value, 5, False), "set variable")
-    runtime.raw(lib.lockbox_get_variable(box, normal, 6), b"value")
+    runtime.bool(lib.lockbox_set_variable(box, normal, 6, value, 5), "set variable")
+    check(b"value" in runtime.frame(lib.lockbox_get_variable(box, normal, 6)), "variable value")
     passed("lockbox_set_variable", 1)
     passed("lockbox_get_variable", 3)
     moves = binding.messages.PathMoveList(values=[
@@ -118,7 +117,7 @@ def archive_lifecycle(runtime: Runtime) -> None:
     moves_data = data(moves)
     runtime.bool(lib.lockbox_move_variables(box, moves_data, len(moves)), "move variable")
     moved = data(b"moved")
-    runtime.raw(lib.lockbox_get_variable(box, moved, 5), b"value")
+    check(b"value" in runtime.frame(lib.lockbox_get_variable(box, moved, 5)), "moved variable")
     moves = binding.messages.PathMoveList(values=[
         binding.messages.PathMove(source="moved", destination="normal")
     ]).SerializeToString()
@@ -126,7 +125,21 @@ def archive_lifecycle(runtime: Runtime) -> None:
     runtime.bool(lib.lockbox_move_variables(box, moves_data, len(moves)), "move variable back")
     passed("lockbox_move_variables", 3)
     secret, hidden = data(b"secret"), data(b"hidden")
-    runtime.bool(lib.lockbox_set_variable(box, secret, 6, hidden, 6, True), "set secret")
+    runtime.bool(lib.lockbox_set_secret_variable(box, secret, 6, hidden, 6), "set secret")
+    passed("lockbox_set_secret_variable", 1)
+    secret_handle = ctypes.c_void_p()
+    runtime.bool(lib.lockbox_get_secret_variable(box, secret, 6, ctypes.byref(secret_handle)), "get secret")
+    secret_length = ctypes.c_size_t()
+    runtime.bool(lib.secret_len(secret_handle, ctypes.byref(secret_length)), "secret length")
+    secret_bytes = (ctypes.c_ubyte * secret_length.value)()
+    runtime.bool(lib.secret_copy(secret_handle, secret_bytes, secret_length.value), "secret copy")
+    check(bytes(secret_bytes) == b"hidden", "secret value")
+    ctypes.memset(secret_bytes, 0, secret_length.value)
+    lib.secret_free(secret_handle)
+    passed("lockbox_get_secret_variable", 1)
+    passed("secret_len", 1)
+    passed("secret_copy", 1)
+    passed("secret_free", 1)
     sensitivity = runtime.frame(lib.lockbox_variable_sensitivity(box, secret, 6))
     check(b"secret" in sensitivity, "secret sensitivity")
     passed("lockbox_variable_sensitivity", 2)
@@ -142,7 +155,15 @@ def archive_lifecycle(runtime: Runtime) -> None:
     passed("lockbox_get_symlink_target", 3)
     root = data(b"/")
     check(runtime.frame(lib.lockbox_list(box, root, 1, True)), "listing")
-    check(runtime.frame(lib.lockbox_stat(box, renamed, 12)), "stat")
+    stat = binding.messages.OptionalLockboxEntry.FromString(
+        runtime.frame(lib.lockbox_stat(box, renamed, 12))
+    )
+    check(stat.HasField("value"), "present stat value")
+    missing = data(b"/missing")
+    missing_stat = binding.messages.OptionalLockboxEntry.FromString(
+        runtime.frame(lib.lockbox_stat(box, missing, 8))
+    )
+    check(not missing_stat.HasField("value"), "missing stat value")
     passed("lockbox_list", 2)
     passed("lockbox_stat", 2)
 
@@ -322,6 +343,8 @@ def advanced_archive(runtime: Runtime) -> None:
     fields = bytes([
         0x0A, 0x1C, 0x0A, 0x08, *b"username", 0x12, 0x08, *b"Username",
         0x1A, 0x04, *b"text", 0x20, 0x01,
+        0x0A, 0x1E, 0x0A, 0x08, *b"password", 0x12, 0x08, *b"Password",
+        0x1A, 0x06, *b"secret", 0x20, 0x01,
     ])
     fields_data = data(fields)
     alias, name, description = data(b"account"), data(b"Account"), data(b"Account form")
@@ -343,10 +366,38 @@ def advanced_archive(runtime: Runtime) -> None:
     check(runtime.frame(lib.lockbox_create_form_record(box, record_path, 13, alias, 7, record_name, 15)), "form record")
     passed("lockbox_create_form_record", 1)
     field, field_value = data(b"username"), data(b"alice")
-    runtime.bool(lib.lockbox_set_form_field(box, record_path, 13, field, 8, field_value, 5, False), "set form field")
+    runtime.bool(lib.lockbox_set_form_field(box, record_path, 13, field, 8, field_value, 5), "set form field")
     passed("lockbox_set_form_field", 1)
-    check(runtime.frame(lib.lockbox_get_form_record(box, record_path, 13)), "get form record")
-    check(runtime.frame(lib.lockbox_get_form_field(box, record_path, 13, field, 8)), "get form field")
+    password_field, password_value = data(b"password"), data(b"hidden")
+    runtime.bool(lib.lockbox_set_secret_form_field(box, record_path, 13, password_field, 8, password_value, 6), "set secret form field")
+    passed("lockbox_set_secret_form_field", 1)
+    secret_handle = ctypes.c_void_p()
+    runtime.bool(lib.lockbox_get_secret_form_field(box, record_path, 13, password_field, 8, ctypes.byref(secret_handle)), "get secret form field")
+    secret_length = ctypes.c_size_t()
+    runtime.bool(lib.secret_len(secret_handle, ctypes.byref(secret_length)), "secret form length")
+    secret_bytes = (ctypes.c_ubyte * secret_length.value)()
+    runtime.bool(lib.secret_copy(secret_handle, secret_bytes, secret_length.value), "secret form copy")
+    check(bytes(secret_bytes) == b"hidden", "secret form value")
+    ctypes.memset(secret_bytes, 0, secret_length.value)
+    lib.secret_free(secret_handle)
+    passed("lockbox_get_secret_form_field", 1)
+    record = binding.messages.OptionalFormRecord.FromString(
+        runtime.frame(lib.lockbox_get_form_record(box, record_path, 13))
+    )
+    form_value = binding.messages.OptionalFormValue.FromString(
+        runtime.frame(lib.lockbox_get_form_field(box, record_path, 13, field, 8))
+    )
+    check(record.HasField("value"), "present form record")
+    check(form_value.HasField("value"), "present form field")
+    missing_record = data(b"/missing.form")
+    absent_record = binding.messages.OptionalFormRecord.FromString(
+        runtime.frame(lib.lockbox_get_form_record(box, missing_record, 13))
+    )
+    absent_field = binding.messages.OptionalFormValue.FromString(
+        runtime.frame(lib.lockbox_get_form_field(box, missing_record, 13, field, 8))
+    )
+    check(not absent_record.HasField("value"), "missing form record")
+    check(not absent_field.HasField("value"), "missing form field")
     check(runtime.frame(lib.lockbox_list_form_records(box)), "list form records")
     passed("lockbox_get_form_record", 1)
     passed("lockbox_get_form_field", 1)
@@ -477,7 +528,8 @@ def advanced_archive(runtime: Runtime) -> None:
     extract_root = artifact_dir / "extract"
     extract_root.mkdir(exist_ok=True)
     extracted_file = extract_root / "file.txt"
-    if extracted_file.exists(): extracted_file.unlink()
+    if extracted_file.exists():
+        extracted_file.unlink()
     extracted_file_data = data(str(extracted_file).encode())
     runtime.bool(lib.lockbox_extract_file(box, advanced_path, 13, extracted_file_data, len(str(extracted_file)), False), "extract file")
     check(extracted_file.read_bytes() == payload_bytes, "extracted bytes")
@@ -714,7 +766,8 @@ def default_vault_lifecycle(runtime: Runtime) -> None:
     runtime.bool(lib.vault_directory_change_default_password(password, len(password_bytes), changed, len(changed_bytes)), "change default password")
     passed("vault_directory_change_default_password", 1)
     backup = base / "default-vault.backup"
-    if backup.exists(): backup.unlink()
+    if backup.exists():
+        backup.unlink()
     backup_data = data(str(backup).encode())
     check(runtime.frame(lib.vault_backup_default(backup_data, len(str(backup)), False)), "default backup")
     passed("vault_backup_default", 1)

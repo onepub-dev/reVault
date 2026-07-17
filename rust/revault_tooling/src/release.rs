@@ -16,6 +16,8 @@ use tempfile::TempDir;
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 
+const NATIVE_ABI_VERSION: u32 = 2;
+
 #[derive(Subcommand)]
 pub enum ReleaseCommand {
     /// Create a deterministic native SDK archive and SHA-256 sidecar.
@@ -394,7 +396,7 @@ fn package_native(args: PackageNative) -> Result {
         arch: row.arch.clone(),
         rust_target: row.rust_target.clone(),
         library: row.library.clone(),
-        abi: 1,
+        abi: NATIVE_ABI_VERSION,
         wire: "LBWF/protobuf".into(),
         library_sha256: sha256(&library)?,
         static_library: row.static_library.clone(),
@@ -606,7 +608,7 @@ fn stage_ecosystems(args: StageEcosystems) -> Result {
         &args.output.join("native-manifest.json"),
         &NativeManifest {
             version: args.version,
-            abi: 1,
+            abi: NATIVE_ABI_VERSION,
             targets: manifest,
         },
     )?;
@@ -621,12 +623,12 @@ fn assemble_packages(args: AssemblePackages) -> Result {
     let manifest: NativeManifest =
         serde_json::from_slice(&fs::read(layout.join("native-manifest.json"))?)?;
     if manifest.version != args.version
-        || manifest.abi != 1
+        || manifest.abi != NATIVE_ABI_VERSION
         || (!args.allow_partial && manifest.targets.len() != 6)
         || manifest.targets.is_empty()
     {
         return Err(
-            "layout must contain the requested version, ABI 1, and required native targets".into(),
+            "layout must contain the requested version, ABI 2, and required native targets".into(),
         );
     }
     let output = &args.output;
@@ -669,20 +671,21 @@ fn assemble_packages(args: AssemblePackages) -> Result {
                 &destination.join("native"),
             )?;
             if ecosystem == "lua" {
-                let template = destination.join("revault_api-0.1.0-1.rockspec");
+                let template = find_single_file(&destination, "revault_api-", "-1.rockspec")?;
                 let rockspec = destination.join(format!("revault_api-{}-1.rockspec", args.version));
-                let source = fs::read_to_string(&template)?
-                    .replace("0.1.0", &args.version)
-                    .replace("@NATIVE_TARGET@", target)
-                    .replace("@NATIVE_LIBRARY@", &entry.library);
+                let source = replace_version_text(
+                    &fs::read_to_string(&template)?,
+                    &format!("{}-1", args.version),
+                )?
+                .replace("@NATIVE_TARGET@", target)
+                .replace("@NATIVE_LIBRARY@", &entry.library);
                 fs::write(&rockspec, source)?;
                 if template != rockspec {
                     fs::remove_file(template)?;
                 }
             } else {
                 let gemspec = destination.join("revault_api.gemspec");
-                let source = fs::read_to_string(&gemspec)?
-                    .replace("0.1.0", &args.version)
+                let source = replace_version_text(&fs::read_to_string(&gemspec)?, &args.version)?
                     .replace("@GEM_PLATFORM@", gem_platform(target)?);
                 fs::write(gemspec, source)?;
             }
@@ -757,13 +760,56 @@ fn assemble_packages(args: AssemblePackages) -> Result {
 
 fn replace_release_version(path: &Path, version: &str) -> Result {
     let source = fs::read_to_string(path)?;
-    fs::write(path, source.replace("0.1.0", version))?;
+    fs::write(path, replace_version_text(&source, version)?)?;
     Ok(())
+}
+
+fn replace_version_text(source: &str, version: &str) -> Result<String> {
+    const MARKERS: &[(&str, &str)] = &[
+        ("\"version\": \"", "\""),
+        ("version = \"", "\""),
+        ("version = '", "'"),
+        ("spec.version = \"", "\""),
+        ("<Version>", "</Version>"),
+        ("version: ", "\n"),
+    ];
+    let current = MARKERS.iter().find_map(|(prefix, suffix)| {
+        let start = source.find(prefix)? + prefix.len();
+        let end = source[start..].find(suffix)? + start;
+        Some(&source[start..end])
+    });
+    let Some(current) = current else {
+        return Err("release manifest does not contain a recognizable version".into());
+    };
+    Ok(source.replace(current, version))
 }
 
 fn replace_cargo_lock_package_version(path: &Path, package: &str, version: &str) -> Result {
     let source = fs::read_to_string(path)?;
-    let marker = format!("name = \"{package}\"\nversion = \"0.1.0\"");
+    let name = format!("name = \"{package}\"");
+    let start = source.find(&name).ok_or_else(|| {
+        format!(
+            "{} does not contain lock entry for {package}",
+            path.display()
+        )
+    })?;
+    let block_end = source[start..]
+        .find("\n\n")
+        .map_or(source.len(), |end| start + end);
+    let block = &source[start..block_end];
+    let prefix = "version = \"";
+    let version_start = block
+        .find(prefix)
+        .ok_or_else(|| format!("lock entry for {package} has no version"))?
+        + prefix.len();
+    let version_end = block[version_start..]
+        .find('"')
+        .ok_or_else(|| format!("lock entry for {package} has an invalid version"))?
+        + version_start;
+    let marker = format!(
+        "name = \"{package}\"\nversion = \"{}\"",
+        &block[version_start..version_end]
+    );
     let replacement = format!("name = \"{package}\"\nversion = \"{version}\"");
     if !source.contains(&marker) {
         return Err(format!(
@@ -774,6 +820,27 @@ fn replace_cargo_lock_package_version(path: &Path, package: &str, version: &str)
     }
     fs::write(path, source.replacen(&marker, &replacement, 1))?;
     Ok(())
+}
+
+fn find_single_file(directory: &Path, prefix: &str, suffix: &str) -> Result<PathBuf> {
+    let mut matches = fs::read_dir(directory)?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with(prefix) && name.ends_with(suffix))
+        });
+    let file = matches
+        .next()
+        .ok_or_else(|| format!("{} has no {prefix}*{suffix} file", directory.display()))?;
+    if matches.next().is_some() {
+        return Err(format!(
+            "{} has multiple {prefix}*{suffix} files",
+            directory.display()
+        )
+        .into());
+    }
+    Ok(file)
 }
 
 fn assemble_go(source: &Path, layout: &Path, output: &Path, manifest: &NativeManifest) -> Result {
@@ -846,7 +913,7 @@ fn extract_verified(archive: &Path, destination: &Path) -> Result<(PathBuf, Nati
     }
     let root = roots[0].path();
     let metadata: NativeMetadata = serde_json::from_slice(&fs::read(root.join("metadata.json"))?)?;
-    if metadata.abi != 1 || metadata.wire != "LBWF/protobuf" {
+    if metadata.abi != NATIVE_ABI_VERSION || metadata.wire != "LBWF/protobuf" {
         return Err("unsupported native archive ABI or wire protocol".into());
     }
     let library = root.join("lib").join(&metadata.library);
@@ -1315,5 +1382,21 @@ mod tests {
         fs::write(source.join("artifact"), b"accepted").unwrap();
         copy_tree(&source, &destination).unwrap();
         assert_eq!(fs::read(destination.join("artifact")).unwrap(), b"accepted");
+    }
+
+    #[test]
+    fn replaces_detected_manifest_versions_without_a_baseline_constant() {
+        for source in [
+            "{\"version\": \"1.2.3\", \"dependency\": \"1.2.3\"}",
+            "version = \"1.2.3\"\n",
+            "version = '1.2.3'\n",
+            "spec.version = \"1.2.3\"\n",
+            "<Version>1.2.3</Version>",
+            "version: 1.2.3\n",
+        ] {
+            let replaced = replace_version_text(source, "9.8.7").unwrap();
+            assert!(replaced.contains("9.8.7"));
+            assert!(!replaced.contains("1.2.3"));
+        }
     }
 }

@@ -10,7 +10,7 @@ use RuntimeException;
 /** Complete binary operation layer generated from revault_api.h. */
 final class BindingOperations
 {
-    public function __construct(private readonly FFI $ffi) { if ($ffi->api_abi_version() !== 1) { throw new RuntimeException('revault-api native ABI mismatch; expected 1'); } }
+    public function __construct(private readonly FFI $ffi) { if ($ffi->api_abi_version() !== 2) { throw new RuntimeException('revault-api native ABI mismatch; expected 2'); } }
 
     public static function load(string $library): self
     {
@@ -67,6 +67,31 @@ final class BindingOperations
         $length = strlen($value); $bytes = $this->ffi->new('char[' . max(1, $length) . ']');
         if ($length > 0) { FFI::memcpy($bytes, $value, $length); }
         return $callback($bytes, $length);
+    }
+
+    private function withSecretInput(string $value, callable $callback): mixed
+    {
+        return $this->withBytes($value, function (CData $bytes, int $length) use ($callback): mixed {
+            try { return $callback($bytes, $length); }
+            finally { FFI::memset($bytes, 0, max(1, $length)); }
+        });
+    }
+
+    /** The callback receives mutable C bytes valid only for the duration of the call. */
+    private function withSecret(callable $getter, callable $callback): mixed
+    {
+        $output = $this->ffi->new('void *');
+        $this->requireBool((bool) $getter(FFI::addr($output)));
+        if (FFI::isNull($output)) { return null; }
+        try {
+            $length = $this->ffi->new('size_t');
+            $this->requireBool((bool) $this->ffi->secret_len($output, FFI::addr($length)));
+            $bytes = $this->ffi->new('uint8_t[' . max(1, (int) $length->cdata) . ']');
+            try {
+                $this->requireBool((bool) $this->ffi->secret_copy($output, $bytes, $length->cdata));
+                return $callback($bytes, (int) $length->cdata);
+            } finally { FFI::memset($bytes, 0, max(1, (int) $length->cdata)); }
+        } finally { $this->ffi->secret_free($output); }
     }
 
     public function freeBuffer(CData $value): void { $this->ffi->buffer_free($value); }
@@ -266,14 +291,24 @@ final class BindingOperations
         return $this->decode(\Revault\Bindings\OptionalLockboxEntry::class, $this->ffi->lockbox_stat($handle, $path, strlen($path)));
     }
 
-    public function lockboxSetVariable(CData $handle, string $name, string $value, bool $secret): bool
+    public function lockboxSetVariable(CData $handle, string $name, string $value): bool
     {
-        return $this->requireBool((bool) ($this->ffi->lockbox_set_variable($handle, $name, strlen($name), $value, strlen($value), $secret)));
+        return $this->requireBool((bool) ($this->ffi->lockbox_set_variable($handle, $name, strlen($name), $value, strlen($value))));
     }
 
-    public function lockboxGetVariable(CData $handle, string $name): string
+    public function lockboxSetSecretVariable(CData $handle, string $name, string $value): bool
     {
-        return $this->take($this->ffi->lockbox_get_variable($handle, $name, strlen($name)));
+        return $this->withSecretInput($value, fn(CData $bytes, int $length): bool => $this->requireBool((bool) $this->ffi->lockbox_set_secret_variable($handle, $name, strlen($name), $bytes, $length)));
+    }
+
+    public function lockboxGetVariable(CData $handle, string $name): RevaultBindingsOptionalString
+    {
+        return $this->decode(RevaultBindingsOptionalString::class, $this->ffi->lockbox_get_variable($handle, $name, strlen($name)));
+    }
+
+    public function lockboxWithSecretVariable(CData $handle, string $name, callable $callback): mixed
+    {
+        return $this->withSecret(fn(CData $output): bool => (bool) $this->ffi->lockbox_get_secret_variable($handle, $name, strlen($name), $output), $callback);
     }
 
     public function lockboxDeleteVariable(CData $handle, string $name): bool
@@ -401,9 +436,14 @@ final class BindingOperations
         return $this->decode(\Revault\Bindings\FormRecord::class, $this->ffi->lockbox_create_form_record($handle, $path, strlen($path), $typeReference, strlen($typeReference), $name, strlen($name)));
     }
 
-    public function lockboxSetFormField(CData $handle, string $path, string $field, string $value, bool $secret): bool
+    public function lockboxSetFormField(CData $handle, string $path, string $field, string $value): bool
     {
-        return $this->requireBool((bool) ($this->ffi->lockbox_set_form_field($handle, $path, strlen($path), $field, strlen($field), $value, strlen($value), $secret)));
+        return $this->requireBool((bool) ($this->ffi->lockbox_set_form_field($handle, $path, strlen($path), $field, strlen($field), $value, strlen($value))));
+    }
+
+    public function lockboxSetSecretFormField(CData $handle, string $path, string $field, string $value): bool
+    {
+        return $this->withSecretInput($value, fn(CData $bytes, int $length): bool => $this->requireBool((bool) $this->ffi->lockbox_set_secret_form_field($handle, $path, strlen($path), $field, strlen($field), $bytes, $length)));
     }
 
     public function lockboxListFormRecords(CData $handle): \Revault\Bindings\FormRecordList
@@ -411,9 +451,9 @@ final class BindingOperations
         return $this->decode(\Revault\Bindings\FormRecordList::class, $this->ffi->lockbox_list_form_records($handle));
     }
 
-    public function lockboxGetFormRecord(CData $handle, string $path): \Revault\Bindings\FormRecord
+    public function lockboxGetFormRecord(CData $handle, string $path): \Revault\Bindings\OptionalFormRecord
     {
-        return $this->decode(\Revault\Bindings\FormRecord::class, $this->ffi->lockbox_get_form_record($handle, $path, strlen($path)));
+        return $this->decode(\Revault\Bindings\OptionalFormRecord::class, $this->ffi->lockbox_get_form_record($handle, $path, strlen($path)));
     }
 
     public function lockboxDeleteFormRecord(CData $handle, string $path): bool
@@ -426,9 +466,14 @@ final class BindingOperations
         return $this->withBytes($movesProto, fn(CData $movesProtoPointer, int $movesProtoLength) => $this->requireBool((bool) ($this->ffi->lockbox_move_form_records($handle, $movesProtoPointer, $movesProtoLength))));
     }
 
-    public function lockboxGetFormField(CData $handle, string $path, string $field): \Revault\Bindings\FormValue
+    public function lockboxGetFormField(CData $handle, string $path, string $field): \Revault\Bindings\OptionalFormValue
     {
-        return $this->decode(\Revault\Bindings\FormValue::class, $this->ffi->lockbox_get_form_field($handle, $path, strlen($path), $field, strlen($field)));
+        return $this->decode(\Revault\Bindings\OptionalFormValue::class, $this->ffi->lockbox_get_form_field($handle, $path, strlen($path), $field, strlen($field)));
+    }
+
+    public function lockboxWithSecretFormField(CData $handle, string $path, string $field, callable $callback): mixed
+    {
+        return $this->withSecret(fn(CData $output): bool => (bool) $this->ffi->lockbox_get_secret_form_field($handle, $path, strlen($path), $field, strlen($field), $output), $callback);
     }
 
     public function lockboxToBytes(CData $handle): string

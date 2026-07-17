@@ -1,14 +1,17 @@
 using Google.Protobuf;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using Revault.Bindings;
 
 namespace Revault;
 
+public delegate T SecretCallback<T>(ReadOnlySpan<byte> secret);
+
 /// <summary>Generated complete, typed C# surface for every exported operation.</summary>
 public sealed class BindingOperations
 {
-    public BindingOperations() { if (RevaultNative.api_abi_version() != 1) throw new DllNotFoundException("revault-api native ABI mismatch; expected 1"); }
+    public BindingOperations() { if (RevaultNative.api_abi_version() != 2) throw new DllNotFoundException("revault-api native ABI mismatch; expected 2"); }
     private static string LastError() => Marshal.PtrToStringUTF8(RevaultNative.buffer_last_error()) ?? "native operation failed";
     private static bool Require(bool value) { if (!value) throw new InvalidOperationException(LastError()); return true; }
     private static IntPtr Require(IntPtr value) { if (value == IntPtr.Zero) throw new InvalidOperationException(LastError()); return value; }
@@ -21,6 +24,28 @@ public sealed class BindingOperations
         return result;
     }
     private static string TakeString(RevaultBuffer value) => Encoding.UTF8.GetString(Take(value));
+    private delegate bool SecretGetter(out IntPtr handle);
+    private static T? WithSecret<T>(SecretGetter getter, SecretCallback<T> callback)
+    {
+        Require(getter(out var handle));
+        if (handle == IntPtr.Zero) return default;
+        try
+        {
+            Require(RevaultNative.secret_len(handle, out var length));
+            var bytes = new byte[checked((int)length)];
+            try
+            {
+                unsafe
+                {
+                    fixed (byte* pointer = bytes)
+                        Require(RevaultNative.secret_copy(handle, (IntPtr)pointer, length));
+                }
+                return callback(bytes);
+            }
+            finally { CryptographicOperations.ZeroMemory(bytes); }
+        }
+        finally { RevaultNative.secret_free(handle); }
+    }
     private static T Frame<T>(RevaultBuffer value, MessageParser<T> parser) where T : IMessage<T>
     {
         var frame = Take(value);
@@ -295,20 +320,35 @@ public sealed class BindingOperations
             { return Frame(RevaultNative.lockbox_stat(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length), Revault.Bindings.OptionalLockboxEntry.Parser); }
     }
 
-    public unsafe bool LockboxSetVariable(IntPtr handle, string name, string value, bool secret)
+    public unsafe bool LockboxSetVariable(IntPtr handle, string name, string value)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
         var valueBytes = Encoding.UTF8.GetBytes(value);
         fixed (byte* nameBytesPointer = nameBytes)
             fixed (byte* valueBytesPointer = valueBytes)
-                { return Require(RevaultNative.lockbox_set_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, (IntPtr)valueBytesPointer, (nuint)valueBytes.Length, secret)); }
+                { return Require(RevaultNative.lockbox_set_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, (IntPtr)valueBytesPointer, (nuint)valueBytes.Length)); }
     }
 
-    public unsafe string LockboxGetVariable(IntPtr handle, string name)
+    public unsafe bool LockboxSetSecretVariable(IntPtr handle, string name, byte[] value)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
         fixed (byte* nameBytesPointer = nameBytes)
-            { return TakeString(RevaultNative.lockbox_get_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length)); }
+            fixed (byte* valuePointer = value)
+                { return Require(RevaultNative.lockbox_set_secret_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, (IntPtr)valuePointer, (nuint)value.Length)); }
+    }
+
+    public unsafe Revault.Bindings.OptionalString LockboxGetVariable(IntPtr handle, string name)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* nameBytesPointer = nameBytes)
+            { return Frame(RevaultNative.lockbox_get_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), Revault.Bindings.OptionalString.Parser); }
+    }
+
+    public unsafe T? LockboxWithSecretVariable<T>(IntPtr handle, string name, SecretCallback<T> callback)
+    {
+        var nameBytes = Encoding.UTF8.GetBytes(name);
+        fixed (byte* nameBytesPointer = nameBytes)
+            return WithSecret((out IntPtr output) => RevaultNative.lockbox_get_secret_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, out output), callback);
     }
 
     public unsafe bool LockboxDeleteVariable(IntPtr handle, string name)
@@ -481,7 +521,7 @@ public sealed class BindingOperations
                     { return Frame(RevaultNative.lockbox_create_form_record(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)typeReferenceBytesPointer, (nuint)typeReferenceBytes.Length, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), Revault.Bindings.FormRecord.Parser); }
     }
 
-    public unsafe bool LockboxSetFormField(IntPtr handle, string path, string field, string value, bool secret)
+    public unsafe bool LockboxSetFormField(IntPtr handle, string path, string field, string value)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         var fieldBytes = Encoding.UTF8.GetBytes(field);
@@ -489,7 +529,17 @@ public sealed class BindingOperations
         fixed (byte* pathBytesPointer = pathBytes)
             fixed (byte* fieldBytesPointer = fieldBytes)
                 fixed (byte* valueBytesPointer = valueBytes)
-                    { return Require(RevaultNative.lockbox_set_form_field(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)fieldBytesPointer, (nuint)fieldBytes.Length, (IntPtr)valueBytesPointer, (nuint)valueBytes.Length, secret)); }
+                    { return Require(RevaultNative.lockbox_set_form_field(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)fieldBytesPointer, (nuint)fieldBytes.Length, (IntPtr)valueBytesPointer, (nuint)valueBytes.Length)); }
+    }
+
+    public unsafe bool LockboxSetSecretFormField(IntPtr handle, string path, string field, byte[] value)
+    {
+        var pathBytes = Encoding.UTF8.GetBytes(path);
+        var fieldBytes = Encoding.UTF8.GetBytes(field);
+        fixed (byte* pathBytesPointer = pathBytes)
+            fixed (byte* fieldBytesPointer = fieldBytes)
+                fixed (byte* valuePointer = value)
+                    { return Require(RevaultNative.lockbox_set_secret_form_field(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)fieldBytesPointer, (nuint)fieldBytes.Length, (IntPtr)valuePointer, (nuint)value.Length)); }
     }
 
     public unsafe Revault.Bindings.FormRecordList LockboxListFormRecords(IntPtr handle)
@@ -497,11 +547,11 @@ public sealed class BindingOperations
         return Frame(RevaultNative.lockbox_list_form_records(handle), Revault.Bindings.FormRecordList.Parser);
     }
 
-    public unsafe Revault.Bindings.FormRecord LockboxGetFormRecord(IntPtr handle, string path)
+    public unsafe Revault.Bindings.OptionalFormRecord LockboxGetFormRecord(IntPtr handle, string path)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         fixed (byte* pathBytesPointer = pathBytes)
-            { return Frame(RevaultNative.lockbox_get_form_record(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length), Revault.Bindings.FormRecord.Parser); }
+            { return Frame(RevaultNative.lockbox_get_form_record(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length), Revault.Bindings.OptionalFormRecord.Parser); }
     }
 
     public unsafe bool LockboxDeleteFormRecord(IntPtr handle, string path)
@@ -517,13 +567,22 @@ public sealed class BindingOperations
             { return Require(RevaultNative.lockbox_move_form_records(handle, (IntPtr)movesProtoPointer, (nuint)movesProto.Length)); }
     }
 
-    public unsafe Revault.Bindings.FormValue LockboxGetFormField(IntPtr handle, string path, string field)
+    public unsafe Revault.Bindings.OptionalFormValue LockboxGetFormField(IntPtr handle, string path, string field)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         var fieldBytes = Encoding.UTF8.GetBytes(field);
         fixed (byte* pathBytesPointer = pathBytes)
             fixed (byte* fieldBytesPointer = fieldBytes)
-                { return Frame(RevaultNative.lockbox_get_form_field(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)fieldBytesPointer, (nuint)fieldBytes.Length), Revault.Bindings.FormValue.Parser); }
+                { return Frame(RevaultNative.lockbox_get_form_field(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)fieldBytesPointer, (nuint)fieldBytes.Length), Revault.Bindings.OptionalFormValue.Parser); }
+    }
+
+    public unsafe T? LockboxWithSecretFormField<T>(IntPtr handle, string path, string field, SecretCallback<T> callback)
+    {
+        var pathBytes = Encoding.UTF8.GetBytes(path);
+        var fieldBytes = Encoding.UTF8.GetBytes(field);
+        fixed (byte* pathBytesPointer = pathBytes)
+            fixed (byte* fieldBytesPointer = fieldBytes)
+                return WithSecret((out IntPtr output) => RevaultNative.lockbox_get_secret_form_field(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)fieldBytesPointer, (nuint)fieldBytes.Length, out output), callback);
     }
 
     public unsafe byte[] LockboxToBytes(IntPtr handle)

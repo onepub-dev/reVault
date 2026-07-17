@@ -92,8 +92,10 @@ export class Lockbox {
   list(path: string, recursive: boolean): import('./generated/messages.js').revault.bindings.LockboxEntryList;
   listWithOptions(path: string, glob: string, recursive: boolean, includeFiles: boolean, includeSymlinks: boolean, includeDirectories: boolean, limit: number): import('./generated/messages.js').revault.bindings.LockboxEntryList;
   stat(path: string): import('./generated/messages.js').revault.bindings.OptionalLockboxEntry;
-  setVariable(name: string, value: string, secret: boolean): boolean;
-  getVariable(name: string): string;
+  setVariable(name: string, value: string): boolean;
+  setSecretVariable(name: string, value: BinaryInput): boolean;
+  getVariable(name: string): string | undefined;
+  withSecretVariable<T>(name: string, callback: (value: Uint8Array) => T): T | undefined;
   deleteVariable(name: string): boolean;
   moveVariables(movesProto: BinaryInput): boolean;
   listVariables(): import('./generated/messages.js').revault.bindings.VariableList;
@@ -117,12 +119,14 @@ export class Lockbox {
   resolveForm(reference: string): import('./generated/messages.js').revault.bindings.FormDefinition;
   listFormRevisions(typeId: string): import('./generated/messages.js').revault.bindings.FormDefinitionList;
   createFormRecord(path: string, typeReference: string, name: string): import('./generated/messages.js').revault.bindings.FormRecord;
-  setFormField(path: string, field: string, value: string, secret: boolean): boolean;
+  setFormField(path: string, field: string, value: string): boolean;
+  setSecretFormField(path: string, field: string, value: BinaryInput): boolean;
   listFormRecords(): import('./generated/messages.js').revault.bindings.FormRecordList;
-  getFormRecord(path: string): import('./generated/messages.js').revault.bindings.FormRecord;
+  getFormRecord(path: string): import('./generated/messages.js').revault.bindings.OptionalFormRecord;
   deleteFormRecord(path: string): boolean;
   moveFormRecords(movesProto: BinaryInput): boolean;
-  getFormField(path: string, field: string): import('./generated/messages.js').revault.bindings.FormValue;
+  getFormField(path: string, field: string): import('./generated/messages.js').revault.bindings.OptionalFormValue;
+  withSecretFormField<T>(path: string, field: string, callback: (value: Uint8Array) => T): T | undefined;
   toBytes(): Binary;
   free(): void;
 }

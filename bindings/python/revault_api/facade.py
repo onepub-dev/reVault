@@ -11,6 +11,24 @@ def _take(lib, result):
     try: return ctypes.string_at(result.ptr, result.len)
     finally: lib.buffer_free(result)
 
+def _with_secret(owner, getter, callback):
+    handle = ctypes.c_void_p()
+    if not getter(ctypes.byref(handle)): raise RuntimeError(_error(owner._lib))
+    if not handle.value: return None
+    try:
+        length = ctypes.c_size_t()
+        if not owner._lib.secret_len(handle, ctypes.byref(length)):
+            raise RuntimeError(_error(owner._lib))
+        native = (ctypes.c_uint8 * max(1, length.value))()
+        if not owner._lib.secret_copy(handle, native, length.value):
+            raise RuntimeError(_error(owner._lib))
+        secret = bytearray(native[:length.value])
+        try: return callback(secret)
+        finally:
+            secret[:] = b'\0' * len(secret)
+            ctypes.memset(native, 0, max(1, length.value))
+    finally: owner._lib.secret_free(handle)
+
 def _call(owner, symbol, values):
     lib = owner._lib
     route = _ROUTES[symbol]
@@ -396,13 +414,28 @@ def _Lockbox_stat(self, path):
     return _call(self, 'lockbox_stat', (path,))
 Lockbox.stat = _Lockbox_stat
 
-def _Lockbox_set_variable(self, name, value, secret):
-    return _call(self, 'lockbox_set_variable', (name, value, secret))
+def _Lockbox_set_variable(self, name, value):
+    return _call(self, 'lockbox_set_variable', (name, value))
 Lockbox.set_variable = _Lockbox_set_variable
 
+def _Lockbox_set_secret_variable(self, name, value):
+    raw, secret = name.encode(), bytearray(value)
+    native = (ctypes.c_uint8 * len(secret)).from_buffer(secret) if secret else None
+    try:
+        if not self._lib.lockbox_set_secret_variable(self._handle, raw, len(raw), native, len(secret)):
+            raise RuntimeError(_error(self._lib))
+    finally: secret[:] = b'\0' * len(secret)
+Lockbox.set_secret_variable = _Lockbox_set_secret_variable
+
 def _Lockbox_get_variable(self, name):
-    return _call(self, 'lockbox_get_variable', (name,))
+    value = _call(self, 'lockbox_get_variable', (name,))
+    return value.value if value.present else None
 Lockbox.get_variable = _Lockbox_get_variable
+
+def _Lockbox_with_secret_variable(self, name, callback):
+    raw = name.encode()
+    return _with_secret(self, lambda output: self._lib.lockbox_get_secret_variable(self._handle, raw, len(raw), output), callback)
+Lockbox.with_secret_variable = _Lockbox_with_secret_variable
 
 def _Lockbox_delete_variable(self, name):
     return _call(self, 'lockbox_delete_variable', (name,))
@@ -496,9 +529,18 @@ def _Lockbox_create_form_record(self, path, type_reference, name):
     return _call(self, 'lockbox_create_form_record', (path, type_reference, name))
 Lockbox.create_form_record = _Lockbox_create_form_record
 
-def _Lockbox_set_form_field(self, path, field, value, secret):
-    return _call(self, 'lockbox_set_form_field', (path, field, value, secret))
+def _Lockbox_set_form_field(self, path, field, value):
+    return _call(self, 'lockbox_set_form_field', (path, field, value))
 Lockbox.set_form_field = _Lockbox_set_form_field
+
+def _Lockbox_set_secret_form_field(self, path, field, value):
+    path_raw, field_raw, secret = path.encode(), field.encode(), bytearray(value)
+    native = (ctypes.c_uint8 * len(secret)).from_buffer(secret) if secret else None
+    try:
+        if not self._lib.lockbox_set_secret_form_field(self._handle, path_raw, len(path_raw), field_raw, len(field_raw), native, len(secret)):
+            raise RuntimeError(_error(self._lib))
+    finally: secret[:] = b'\0' * len(secret)
+Lockbox.set_secret_form_field = _Lockbox_set_secret_form_field
 
 def _Lockbox_list_form_records(self):
     return _call(self, 'lockbox_list_form_records', ())
@@ -519,6 +561,11 @@ Lockbox.move_form_records = _Lockbox_move_form_records
 def _Lockbox_get_form_field(self, path, field):
     return _call(self, 'lockbox_get_form_field', (path, field))
 Lockbox.get_form_field = _Lockbox_get_form_field
+
+def _Lockbox_with_secret_form_field(self, path, field, callback):
+    path_raw, field_raw = path.encode(), field.encode()
+    return _with_secret(self, lambda output: self._lib.lockbox_get_secret_form_field(self._handle, path_raw, len(path_raw), field_raw, len(field_raw), output), callback)
+Lockbox.with_secret_form_field = _Lockbox_with_secret_form_field
 
 def _Lockbox_to_bytes(self):
     return _call(self, 'lockbox_to_bytes', ())
@@ -962,8 +1009,10 @@ _ROUTES = {
     'lockbox_list': (('handle', 'text', 'value'), 'message:LockboxEntryList', False),
     'lockbox_list_with_options': (('handle', 'text', 'text', 'value', 'value', 'value', 'value', 'value'), 'message:LockboxEntryList', False),
     'lockbox_stat': (('handle', 'text'), 'message:OptionalLockboxEntry', False),
-    'lockbox_set_variable': (('handle', 'text', 'text', 'value'), 'bool', False),
-    'lockbox_get_variable': (('handle', 'text'), 'utf8', False),
+    'lockbox_set_variable': (('handle', 'text', 'text'), 'bool', False),
+    'lockbox_set_secret_variable': (('handle', 'text', 'bytes'), 'bool', False),
+    'lockbox_get_variable': (('handle', 'text'), 'message:OptionalString', False),
+    'lockbox_get_secret_variable': (('handle', 'text'), 'secret', False),
     'lockbox_delete_variable': (('handle', 'text'), 'bool', False),
     'lockbox_move_variables': (('handle', 'bytes'), 'bool', False),
     'lockbox_list_variables': (('handle',), 'message:VariableList', False),
@@ -989,12 +1038,17 @@ _ROUTES = {
     'lockbox_resolve_form': (('handle', 'text'), 'message:FormDefinition', False),
     'lockbox_list_form_revisions': (('handle', 'text'), 'message:FormDefinitionList', False),
     'lockbox_create_form_record': (('handle', 'text', 'text', 'text'), 'message:FormRecord', False),
-    'lockbox_set_form_field': (('handle', 'text', 'text', 'text', 'value'), 'bool', False),
+    'lockbox_set_form_field': (('handle', 'text', 'text', 'text'), 'bool', False),
+    'lockbox_set_secret_form_field': (('handle', 'text', 'text', 'bytes'), 'bool', False),
     'lockbox_list_form_records': (('handle',), 'message:FormRecordList', False),
-    'lockbox_get_form_record': (('handle', 'text'), 'message:FormRecord', False),
+    'lockbox_get_form_record': (('handle', 'text'), 'message:OptionalFormRecord', False),
     'lockbox_delete_form_record': (('handle', 'text'), 'bool', False),
     'lockbox_move_form_records': (('handle', 'bytes'), 'bool', False),
-    'lockbox_get_form_field': (('handle', 'text', 'text'), 'message:FormValue', False),
+    'lockbox_get_form_field': (('handle', 'text', 'text'), 'message:OptionalFormValue', False),
+    'lockbox_get_secret_form_field': (('handle', 'text', 'text'), 'secret', False),
+    'secret_len': (('handle', 'value'), 'bool', False),
+    'secret_copy': (('handle', 'bytes'), 'bool', False),
+    'secret_free': (('handle',), 'void', False),
     'lockbox_to_bytes': (('handle',), 'bytes', False),
     'lockbox_free': (('handle',), 'void', True),
     'vault_is_running': ((), 'predicate', False),

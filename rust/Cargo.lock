@@ -2273,13 +2273,14 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "revault_bindings"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "prost",
  "prost-build",
  "revault_lockbox_api 0.0.4",
  "revault_vault_api 0.0.4",
  "revault_wire",
+ "zeroize",
 ]
 
 [[package]]
@@ -2527,6 +2528,7 @@ version = "0.0.1"
 dependencies = [
  "js-sys",
  "revault_lockbox_api 0.0.4",
+ "revault_page_api 0.0.3",
  "revault_vault_api 0.0.4",
  "wasm-bindgen",
 ]

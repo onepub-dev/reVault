@@ -1,6 +1,6 @@
 name: revault_api
 description: Dart FFI bindings for the reVault native API.
-version: 0.1.0
+version: 0.2.0
 repository: https://github.com/onepub-dev/reVault
 issue_tracker: https://github.com/onepub-dev/reVault/issues
 environment:

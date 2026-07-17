@@ -8,8 +8,9 @@ import 'generated/revault_bindings.pb.dart' as pb;
 
 final class BindingOperations {
   BindingOperations(this.native) {
-    if (native.api_abi_version() != 1)
-      throw StateError('revault-api native ABI mismatch; expected 1');
+    if (native.api_abi_version() != 2) {
+      throw StateError('revault-api native ABI mismatch; expected 2');
+    }
   }
   final RevaultNative native;
   String get lastError =>
@@ -51,6 +52,7 @@ final class BindingOperations {
     try {
       return callback(pointer, value.length);
     } finally {
+      pointer.asTypedList(value.length).fillRange(0, value.length, 0);
       calloc.free(pointer);
     }
   }
@@ -59,6 +61,41 @@ final class BindingOperations {
     String value,
     T Function(ffi.Pointer<ffi.Uint8>, int) callback,
   ) => _withBytes(Uint8List.fromList(utf8.encode(value)), callback);
+
+  T? _withSecret<T>(
+    bool Function(ffi.Pointer<ffi.Pointer<ffi.Void>>) getSecret,
+    T Function(Uint8List) callback,
+  ) {
+    final output = calloc<ffi.Pointer<ffi.Void>>();
+    try {
+      _requireBool(getSecret(output));
+      final handle = output.value;
+      if (handle == ffi.nullptr) return null;
+      final length = calloc<ffi.Size>();
+      try {
+        _requireBool(native.secret_len(handle, length));
+        final bytes = calloc<ffi.Uint8>(length.value);
+        try {
+          _requireBool(native.secret_copy(handle, bytes, length.value));
+          final value = Uint8List.fromList(bytes.asTypedList(length.value));
+          try {
+            return callback(value);
+          } finally {
+            value.fillRange(0, value.length, 0);
+            bytes.asTypedList(length.value).fillRange(0, length.value, 0);
+          }
+        } finally {
+          calloc.free(bytes);
+        }
+      } finally {
+        calloc.free(length);
+        native.secret_free(handle);
+      }
+    } finally {
+      calloc.free(output);
+    }
+  }
+
   String lastErrorMessage() => lastError;
 
   pb.ErrorDetails bufferLastErrorDetails() =>
@@ -526,7 +563,6 @@ final class BindingOperations {
     ffi.Pointer<ffi.Void> handle,
     String name,
     String value,
-    bool secret,
   ) => _withText(
     name,
     (namePointer, nameLength) => _withText(
@@ -538,19 +574,57 @@ final class BindingOperations {
           nameLength,
           valuePointer,
           valueLength,
-          secret,
         ),
       ),
     ),
   );
 
-  String lockboxGetVariable(ffi.Pointer<ffi.Void> handle, String name) =>
-      _withText(
-        name,
-        (namePointer, nameLength) => _takeString(
-          native.lockbox_get_variable(handle, namePointer, nameLength),
+  bool lockboxSetSecretVariable(
+    ffi.Pointer<ffi.Void> handle,
+    String name,
+    Uint8List value,
+  ) => _withText(
+    name,
+    (namePointer, nameLength) => _withBytes(
+      value,
+      (valuePointer, valueLength) => _requireBool(
+        native.lockbox_set_secret_variable(
+          handle,
+          namePointer,
+          nameLength,
+          valuePointer,
+          valueLength,
         ),
-      );
+      ),
+    ),
+  );
+
+  pb.OptionalString lockboxGetVariable(
+    ffi.Pointer<ffi.Void> handle,
+    String name,
+  ) => _withText(
+    name,
+    (namePointer, nameLength) => pb.OptionalString.fromBuffer(
+      _payload(native.lockbox_get_variable(handle, namePointer, nameLength)),
+    ),
+  );
+
+  T? lockboxWithSecretVariable<T>(
+    ffi.Pointer<ffi.Void> handle,
+    String name,
+    T Function(Uint8List) callback,
+  ) => _withText(
+    name,
+    (namePointer, nameLength) => _withSecret(
+      (output) => native.lockbox_get_secret_variable(
+        handle,
+        namePointer,
+        nameLength,
+        output,
+      ),
+      callback,
+    ),
+  );
 
   bool lockboxDeleteVariable(ffi.Pointer<ffi.Void> handle, String name) =>
       _withText(
@@ -574,10 +648,8 @@ final class BindingOperations {
     ),
   );
 
-  pb.VariableList lockboxListVariables(ffi.Pointer<ffi.Void> handle) =>
-      pb.VariableList.fromBuffer(
-        _payload(native.lockbox_list_variables(handle)),
-      );
+  pb.VariableList lockboxListVariables(ffi.Pointer<ffi.Void> handle) => pb
+      .VariableList.fromBuffer(_payload(native.lockbox_list_variables(handle)));
 
   pb.OptionalString lockboxVariableSensitivity(
     ffi.Pointer<ffi.Void> handle,
@@ -732,10 +804,8 @@ final class BindingOperations {
   bool lockboxDeleteKey(ffi.Pointer<ffi.Void> handle, int id) =>
       _requireBool(native.lockbox_delete_key(handle, id));
 
-  pb.KeySlotList lockboxListKeySlots(ffi.Pointer<ffi.Void> handle) =>
-      pb.KeySlotList.fromBuffer(
-        _payload(native.lockbox_list_key_slots(handle)),
-      );
+  pb.KeySlotList lockboxListKeySlots(ffi.Pointer<ffi.Void> handle) => pb
+      .KeySlotList.fromBuffer(_payload(native.lockbox_list_key_slots(handle)));
 
   bool lockboxSetOwnerSigningKey(
     ffi.Pointer<ffi.Void> handle,
@@ -845,7 +915,6 @@ final class BindingOperations {
     String path,
     String field,
     String value,
-    bool secret,
   ) => _withText(
     path,
     (pathPointer, pathLength) => _withText(
@@ -861,7 +930,32 @@ final class BindingOperations {
             fieldLength,
             valuePointer,
             valueLength,
-            secret,
+          ),
+        ),
+      ),
+    ),
+  );
+
+  bool lockboxSetSecretFormField(
+    ffi.Pointer<ffi.Void> handle,
+    String path,
+    String field,
+    Uint8List value,
+  ) => _withText(
+    path,
+    (pathPointer, pathLength) => _withText(
+      field,
+      (fieldPointer, fieldLength) => _withBytes(
+        value,
+        (valuePointer, valueLength) => _requireBool(
+          native.lockbox_set_secret_form_field(
+            handle,
+            pathPointer,
+            pathLength,
+            fieldPointer,
+            fieldLength,
+            valuePointer,
+            valueLength,
           ),
         ),
       ),
@@ -873,12 +967,12 @@ final class BindingOperations {
         _payload(native.lockbox_list_form_records(handle)),
       );
 
-  pb.FormRecord lockboxGetFormRecord(
+  pb.OptionalFormRecord lockboxGetFormRecord(
     ffi.Pointer<ffi.Void> handle,
     String path,
   ) => _withText(
     path,
-    (pathPointer, pathLength) => pb.FormRecord.fromBuffer(
+    (pathPointer, pathLength) => pb.OptionalFormRecord.fromBuffer(
       _payload(native.lockbox_get_form_record(handle, pathPointer, pathLength)),
     ),
   );
@@ -905,7 +999,7 @@ final class BindingOperations {
     ),
   );
 
-  pb.FormValue lockboxGetFormField(
+  pb.OptionalFormValue lockboxGetFormField(
     ffi.Pointer<ffi.Void> handle,
     String path,
     String field,
@@ -913,7 +1007,7 @@ final class BindingOperations {
     path,
     (pathPointer, pathLength) => _withText(
       field,
-      (fieldPointer, fieldLength) => pb.FormValue.fromBuffer(
+      (fieldPointer, fieldLength) => pb.OptionalFormValue.fromBuffer(
         _payload(
           native.lockbox_get_form_field(
             handle,
@@ -923,6 +1017,29 @@ final class BindingOperations {
             fieldLength,
           ),
         ),
+      ),
+    ),
+  );
+
+  T? lockboxWithSecretFormField<T>(
+    ffi.Pointer<ffi.Void> handle,
+    String path,
+    String field,
+    T Function(Uint8List) callback,
+  ) => _withText(
+    path,
+    (pathPointer, pathLength) => _withText(
+      field,
+      (fieldPointer, fieldLength) => _withSecret(
+        (output) => native.lockbox_get_secret_form_field(
+          handle,
+          pathPointer,
+          pathLength,
+          fieldPointer,
+          fieldLength,
+          output,
+        ),
+        callback,
       ),
     ),
   );

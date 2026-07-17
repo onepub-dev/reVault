@@ -53,16 +53,17 @@ final class Vault {
   Uint8List hexDecode(String value) => operations.vaultKeyHexDecode(value);
 
   Lockbox createLockbox(Uint8List key, [LockboxOptions? options]) {
-    final handle = options == null
-        ? operations.lockboxCreate(key)
-        : operations.lockboxCreateWithOptions(
-            key,
-            options.cacheMode,
-            options.cacheBytes,
-            options.workload,
-            options.worker,
-            options.jobs,
-          );
+    final handle =
+        options == null
+            ? operations.lockboxCreate(key)
+            : operations.lockboxCreateWithOptions(
+              key,
+              options.cacheMode,
+              options.cacheBytes,
+              options.workload,
+              options.worker,
+              options.jobs,
+            );
     return Lockbox._(this, handle);
   }
 
@@ -80,17 +81,18 @@ final class Vault {
     Uint8List key, [
     LockboxOptions? options,
   ]) {
-    final handle = options == null
-        ? operations.lockboxOpen(archive, key)
-        : operations.lockboxOpenWithOptions(
-            archive,
-            key,
-            options.cacheMode,
-            options.cacheBytes,
-            options.workload,
-            options.worker,
-            options.jobs,
-          );
+    final handle =
+        options == null
+            ? operations.lockboxOpen(archive, key)
+            : operations.lockboxOpenWithOptions(
+              archive,
+              key,
+              options.cacheMode,
+              options.cacheBytes,
+              options.workload,
+              options.worker,
+              options.jobs,
+            );
     return Lockbox._(this, handle);
   }
 
@@ -415,10 +417,19 @@ final class Lockbox extends _Owned {
   );
   pb.OptionalLockboxEntry stat(String path) =>
       vault.operations.lockboxStat(_handle, path);
-  void setVariable(String name, String value, {bool secret = false}) =>
-      vault.operations.lockboxSetVariable(_handle, name, value, secret);
-  String getVariable(String name) =>
-      vault.operations.lockboxGetVariable(_handle, name);
+  void setVariable(String name, String value) =>
+      vault.operations.lockboxSetVariable(_handle, name, value);
+  void setSecretVariable(String name, Uint8List value) =>
+      vault.operations.lockboxSetSecretVariable(_handle, name, value);
+  String? getVariable(String name) {
+    final value = vault.operations.lockboxGetVariable(_handle, name);
+    return value.present ? value.value : null;
+  }
+
+  T? withSecretVariable<T>(
+    String name,
+    T Function(Uint8List secret) callback,
+  ) => vault.operations.lockboxWithSecretVariable(_handle, name, callback);
   void deleteVariable(String name) =>
       vault.operations.lockboxDeleteVariable(_handle, name);
   void moveVariables(pb.PathMoveList moves) => vault.operations
@@ -479,16 +490,13 @@ final class Lockbox extends _Owned {
     typeReference,
     name,
   );
-  void setFormField(
-    String path,
-    String field,
-    String value, {
-    bool secret = false,
-  }) =>
-      vault.operations.lockboxSetFormField(_handle, path, field, value, secret);
+  void setFormField(String path, String field, String value) =>
+      vault.operations.lockboxSetFormField(_handle, path, field, value);
+  void setSecretFormField(String path, String field, Uint8List value) =>
+      vault.operations.lockboxSetSecretFormField(_handle, path, field, value);
   pb.FormRecordList listFormRecords() =>
       vault.operations.lockboxListFormRecords(_handle);
-  pb.FormRecord getFormRecord(String path) =>
+  pb.OptionalFormRecord getFormRecord(String path) =>
       vault.operations.lockboxGetFormRecord(_handle, path);
   void deleteFormRecord(String path) =>
       vault.operations.lockboxDeleteFormRecord(_handle, path);
@@ -497,8 +505,18 @@ final class Lockbox extends _Owned {
         _handle,
         Uint8List.fromList(moves.writeToBuffer()),
       );
-  pb.FormValue getFormField(String path, String field) =>
+  pb.OptionalFormValue getFormField(String path, String field) =>
       vault.operations.lockboxGetFormField(_handle, path, field);
+  T? withSecretFormField<T>(
+    String path,
+    String field,
+    T Function(Uint8List secret) callback,
+  ) => vault.operations.lockboxWithSecretFormField(
+    _handle,
+    path,
+    field,
+    callback,
+  );
   Uint8List get bytes => vault.operations.lockboxToBytes(_handle);
   void dispose() {
     if (!disposed) {

@@ -17,6 +17,13 @@ func (Native) BufferLastErrorDetails() C.RevaultBuffer {
 func (Native) BufferFree(value C.RevaultBuffer) {
     C.buffer_free(value)
 }
+func (Native) SecretLen(handle unsafe.Pointer, length *C.size_t) C.bool {
+    return C.secret_len(handle, length)
+}
+func (Native) SecretCopy(handle unsafe.Pointer, destination unsafe.Pointer, length C.size_t) C.bool {
+    return C.secret_copy(handle, (*C.uint8_t)(destination), length)
+}
+func (Native) SecretFree(handle unsafe.Pointer) { C.secret_free(handle) }
 func (Native) LockboxFormatVersion() C.uint16_t {
     return C.lockbox_format_version()
 }
@@ -131,11 +138,17 @@ func (Native) LockboxListWithOptions(handle unsafe.Pointer, path unsafe.Pointer,
 func (Native) LockboxStat(handle unsafe.Pointer, path unsafe.Pointer, path_len C.size_t) C.RevaultBuffer {
     return C.lockbox_stat(handle, (*C.char)(path), path_len)
 }
-func (Native) LockboxSetVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t, value unsafe.Pointer, value_len C.size_t, secret C.bool) C.bool {
-    return C.lockbox_set_variable(handle, (*C.char)(name), name_len, (*C.char)(value), value_len, secret)
+func (Native) LockboxSetVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t, value unsafe.Pointer, value_len C.size_t) C.bool {
+    return C.lockbox_set_variable(handle, (*C.char)(name), name_len, (*C.char)(value), value_len)
+}
+func (Native) LockboxSetSecretVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t, value unsafe.Pointer, value_len C.size_t) C.bool {
+    return C.lockbox_set_secret_variable(handle, (*C.char)(name), name_len, (*C.uint8_t)(value), value_len)
 }
 func (Native) LockboxGetVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t) C.RevaultBuffer {
     return C.lockbox_get_variable(handle, (*C.char)(name), name_len)
+}
+func (Native) LockboxGetSecretVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t, output *unsafe.Pointer) C.bool {
+    return C.lockbox_get_secret_variable(handle, (*C.char)(name), name_len, output)
 }
 func (Native) LockboxDeleteVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t) C.bool {
     return C.lockbox_delete_variable(handle, (*C.char)(name), name_len)
@@ -212,8 +225,11 @@ func (Native) LockboxListFormRevisions(handle unsafe.Pointer, type_id unsafe.Poi
 func (Native) LockboxCreateFormRecord(handle unsafe.Pointer, path unsafe.Pointer, path_len C.size_t, type_reference unsafe.Pointer, type_len C.size_t, name unsafe.Pointer, name_len C.size_t) C.RevaultBuffer {
     return C.lockbox_create_form_record(handle, (*C.char)(path), path_len, (*C.char)(type_reference), type_len, (*C.char)(name), name_len)
 }
-func (Native) LockboxSetFormField(handle unsafe.Pointer, path unsafe.Pointer, path_len C.size_t, field unsafe.Pointer, field_len C.size_t, value unsafe.Pointer, value_len C.size_t, secret C.bool) C.bool {
-    return C.lockbox_set_form_field(handle, (*C.char)(path), path_len, (*C.char)(field), field_len, (*C.char)(value), value_len, secret)
+func (Native) LockboxSetFormField(handle unsafe.Pointer, path unsafe.Pointer, path_len C.size_t, field unsafe.Pointer, field_len C.size_t, value unsafe.Pointer, value_len C.size_t) C.bool {
+    return C.lockbox_set_form_field(handle, (*C.char)(path), path_len, (*C.char)(field), field_len, (*C.char)(value), value_len)
+}
+func (Native) LockboxSetSecretFormField(handle unsafe.Pointer, path unsafe.Pointer, path_len C.size_t, field unsafe.Pointer, field_len C.size_t, value unsafe.Pointer, value_len C.size_t) C.bool {
+    return C.lockbox_set_secret_form_field(handle, (*C.char)(path), path_len, (*C.char)(field), field_len, (*C.uint8_t)(value), value_len)
 }
 func (Native) LockboxListFormRecords(handle unsafe.Pointer) C.RevaultBuffer {
     return C.lockbox_list_form_records(handle)
@@ -229,6 +245,9 @@ func (Native) LockboxMoveFormRecords(handle unsafe.Pointer, moves_proto unsafe.P
 }
 func (Native) LockboxGetFormField(handle unsafe.Pointer, path unsafe.Pointer, path_len C.size_t, field unsafe.Pointer, field_len C.size_t) C.RevaultBuffer {
     return C.lockbox_get_form_field(handle, (*C.char)(path), path_len, (*C.char)(field), field_len)
+}
+func (Native) LockboxGetSecretFormField(handle unsafe.Pointer, path unsafe.Pointer, path_len C.size_t, field unsafe.Pointer, field_len C.size_t, output *unsafe.Pointer) C.bool {
+    return C.lockbox_get_secret_form_field(handle, (*C.char)(path), path_len, (*C.char)(field), field_len, output)
 }
 func (Native) LockboxToBytes(handle unsafe.Pointer) C.RevaultBuffer {
     return C.lockbox_to_bytes(handle)

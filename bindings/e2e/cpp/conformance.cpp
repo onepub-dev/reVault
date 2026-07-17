@@ -74,14 +74,19 @@ static void archive_lifecycle() {
   check(copy(box.read_range("/renamed.txt", 0, 11)) == bytes("replacement"), "range");
   pass("lockbox_read_range", 3);
   box.set_variable("normal", "value");
-  check(copy(box.get_variable("normal")) == bytes("value"), "variable");
+  check(box.get_variable("normal") == "value", "variable");
   pass("lockbox_set_variable");
   pass("lockbox_get_variable", 3);
   box.move_variables({{"normal", "moved"}});
-  check(copy(box.get_variable("moved")) == bytes("value"), "moved variable");
+  check(box.get_variable("moved") == "value", "moved variable");
   box.move_variables({{"moved", "normal"}});
   pass("lockbox_move_variables", 3);
-  box.set_variable("secret", "hidden", true);
+  box.set_secret_variable("secret", bytes("hidden"));
+  pass("lockbox_set_secret_variable");
+  check(box.with_secret_variable("secret", [](std::span<const std::uint8_t> value) {
+    check(std::string(value.begin(), value.end()) == "hidden", "secret variable");
+  }), "secret variable present");
+  pass("lockbox_get_secret_variable"); pass("secret_len"); pass("secret_copy"); pass("secret_free");
   check(box.variable_sensitivity("secret").present(), "variable sensitivity");
   pass("lockbox_variable_sensitivity", 2);
   check(box.list_variables().values_size() == 2, "variable list");
@@ -230,6 +235,11 @@ static void advanced_archive() {
   field->set_label("Username");
   field->set_kind("text");
   field->set_required(true);
+  field = fields.add_values();
+  field->set_id("password");
+  field->set_label("Password");
+  field->set_kind("secret");
+  field->set_required(true);
   const auto definition = box.define_form("account", "Account", "Account form", fields);
   check(!definition.type_id().empty(), "form type identifier");
   pass("lockbox_define_form", 2);
@@ -244,14 +254,20 @@ static void advanced_archive() {
   pass("lockbox_create_form_record");
   box.set_form_field("/account.form", "username", "alice");
   pass("lockbox_set_form_field");
-  check(box.get_form_record("/account.form").values_size() == 1, "form record value");
-  check(box.get_form_field("/account.form", "username").value() == "alice", "form field");
+  box.set_secret_form_field("/account.form", "password", bytes("hidden"));
+  pass("lockbox_set_secret_form_field");
+  check(box.with_secret_form_field("/account.form", "password", [](std::span<const std::uint8_t> value) {
+    check(std::string(value.begin(), value.end()) == "hidden", "secret form field");
+  }), "secret form field present");
+  pass("lockbox_get_secret_form_field");
+  check(box.get_form_record("/account.form").value().values_size() == 2, "form record values");
+  check(box.get_form_field("/account.form", "username").value().value() == "alice", "form field");
   check(box.list_form_records().values_size() == 1, "form records");
   pass("lockbox_get_form_record");
   pass("lockbox_get_form_field");
   pass("lockbox_list_form_records");
   box.move_form_records({{"/account.form", "/moved.form"}});
-  check(box.get_form_record("/moved.form").values_size() == 1,
+  check(box.get_form_record("/moved.form").value().values_size() == 2,
         "moved form record");
   box.move_form_records({{"/moved.form", "/account.form"}});
   pass("lockbox_move_form_records", 3);

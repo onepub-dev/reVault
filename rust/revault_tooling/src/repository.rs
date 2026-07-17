@@ -41,14 +41,18 @@ fn check(repository: &Path) -> Result {
         .filter(|name| name.as_str() != "api_abi_version")
         .cloned()
         .collect();
-    if declarations.len() != 211 || operations.len() != 210 {
+    let inventory = operation_inventory(&repository)?;
+    if operations != inventory {
+        let missing: Vec<_> = operations.difference(&inventory).cloned().collect();
+        let extra: Vec<_> = inventory.difference(&operations).cloned().collect();
         return Err(format!(
-            "expected 211 ABI declarations and 210 domain operations, found {} and {}",
-            declarations.len(),
-            operations.len()
+            "ABI inventory mismatch; missing [{}], extra [{}]",
+            missing.join(", "),
+            extra.join(", ")
         )
         .into());
     }
+    check_rust_api_coverage(&repository, &operations)?;
     let complete_abi = [
         "bindings/csharp/RevaultNative.cs",
         "bindings/dart/lib/revault_native.dart",
@@ -122,9 +126,133 @@ fn check(repository: &Path) -> Result {
     )?;
     check_results(&repository, &operations)?;
     println!(
-        "verified 211 ABI declarations and 210 operations across all generated binding surfaces"
+        "verified {} ABI declarations and {} operations across all generated binding surfaces",
+        declarations.len(),
+        operations.len()
     );
     Ok(())
+}
+
+fn check_rust_api_coverage(repository: &Path, operations: &BTreeSet<String>) -> Result {
+    let mappings = read_tsv(
+        &repository.join("bindings/api/rust-to-abi.tsv"),
+        "Rust-to-ABI mapping",
+    )?;
+    let exclusions = read_tsv(
+        &repository.join("bindings/api/rust-only-exclusions.tsv"),
+        "Rust-only exclusion",
+    )?;
+    let mut reviewed = BTreeSet::new();
+    for fields in &mappings {
+        if fields.len() != 3 || fields[2].trim().is_empty() {
+            return Err(format!("invalid Rust-to-ABI mapping row: {}", fields.join("\t")).into());
+        }
+        if !reviewed.insert(rust_item_name(&fields[0]).to_string()) {
+            return Err(format!("duplicate reviewed Rust API name: {}", fields[0]).into());
+        }
+        for symbol in fields[1].split(',').map(str::trim) {
+            if !operations.contains(symbol) {
+                return Err(format!("{} maps to unknown ABI operation {symbol}", fields[0]).into());
+            }
+        }
+    }
+    for fields in &exclusions {
+        if fields.len() != 2 || fields[1].trim().is_empty() {
+            return Err(format!("invalid Rust-only exclusion row: {}", fields.join("\t")).into());
+        }
+        if !reviewed.insert(rust_item_name(&fields[0]).to_string()) {
+            return Err(format!("duplicate reviewed Rust API name: {}", fields[0]).into());
+        }
+    }
+
+    let public_functions = public_rust_function_names(repository)?;
+    let missing: Vec<_> = public_functions.difference(&reviewed).cloned().collect();
+    let stale: Vec<_> = reviewed.difference(&public_functions).cloned().collect();
+    if !missing.is_empty() || !stale.is_empty() {
+        return Err(format!(
+            "Rust public API review mismatch; unreviewed [{}], stale [{}]",
+            missing.join(", "),
+            stale.join(", ")
+        )
+        .into());
+    }
+    println!(
+        "verified {} unique public Rust function names have ABI mappings or reviewed Rust-only exclusions",
+        public_functions.len()
+    );
+    Ok(())
+}
+
+fn read_tsv(path: &Path, label: &str) -> Result<Vec<Vec<String>>> {
+    let source = fs::read_to_string(path)?;
+    let mut rows = Vec::new();
+    for line in source
+        .lines()
+        .skip(1)
+        .filter(|line| !line.trim().is_empty())
+    {
+        let fields: Vec<_> = line.split('\t').map(str::to_string).collect();
+        if fields.iter().any(|field| field.trim().is_empty()) {
+            return Err(format!("{label} contains an empty field: {line}").into());
+        }
+        rows.push(fields);
+    }
+    Ok(rows)
+}
+
+fn rust_item_name(item: &str) -> &str {
+    item.rsplit("::").next().unwrap_or(item)
+}
+
+fn public_rust_function_names(repository: &Path) -> Result<BTreeSet<String>> {
+    let mut names = BTreeSet::new();
+    for crate_path in ["rust/revault_lockbox_api/src", "rust/revault_vault_api/src"] {
+        for entry in walkdir::WalkDir::new(repository.join(crate_path)) {
+            let entry = entry?;
+            let path = entry.path();
+            if !entry.file_type().is_file()
+                || path.extension().and_then(|value| value.to_str()) != Some("rs")
+                || path
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .is_some_and(|name| name.contains("test"))
+            {
+                continue;
+            }
+            for line in fs::read_to_string(path)?.lines() {
+                let Some(rest) = line.trim_start().strip_prefix("pub fn ") else {
+                    continue;
+                };
+                let name: String = rest
+                    .chars()
+                    .take_while(|character| character.is_ascii_alphanumeric() || *character == '_')
+                    .collect();
+                if !name.is_empty() {
+                    names.insert(name);
+                }
+            }
+        }
+    }
+    Ok(names)
+}
+
+fn operation_inventory(repository: &Path) -> Result<BTreeSet<String>> {
+    let source = fs::read_to_string(repository.join("bindings/e2e/operations.tsv"))?;
+    let mut operations = BTreeSet::new();
+    for line in source
+        .lines()
+        .skip(1)
+        .filter(|line| !line.trim().is_empty())
+    {
+        let fields: Vec<_> = line.split('\t').collect();
+        if fields.len() != 4 {
+            return Err(format!("invalid operation manifest row: {line}").into());
+        }
+        if !operations.insert(fields[0].to_string()) {
+            return Err(format!("duplicate operation manifest symbol: {}", fields[0]).into());
+        }
+    }
+    Ok(operations)
 }
 
 fn require_features(path: &Path, features: &[&str], label: &str) -> Result {

@@ -1,9 +1,26 @@
-use js_sys::Array;
+use js_sys::{Array, Function, Uint8Array};
 use revault_lockbox_api::{
     ListOptions, Lockbox, LockboxEntry, LockboxEntryKind, LockboxPath, SecretString,
     VariableSensitivity,
 };
 use wasm_bindgen::prelude::*;
+
+/// Explicitly permits or rejects the weakened secure-memory implementation
+/// required by WebAssembly runtimes.
+///
+/// The default is `false`, so callers must acknowledge that browsers cannot
+/// provide locked pages, guard pages, or dump/fork exclusion before creating
+/// keys or lockboxes.
+#[wasm_bindgen]
+pub fn set_weakened_allocation_allowed(allowed: bool) {
+    revault_page_api::set_weakened_allocation_allowed(allowed);
+}
+
+/// Returns whether the caller has explicitly enabled weakened secure memory.
+#[wasm_bindgen]
+pub fn weakened_allocation_allowed() -> bool {
+    revault_page_api::weakened_allocation_allowed()
+}
 
 /// WebAssembly-side dispatcher used by the full hosted API. Browser-only
 /// lockbox methods can remain self-contained, while OS-backed vault, agent and
@@ -11,6 +28,12 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct Runtime {
     calls: u32,
+}
+
+impl Default for Runtime {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[wasm_bindgen]
@@ -317,11 +340,38 @@ impl WasmLockbox {
         self.0.set_variable(&name, value).map_err(error)
     }
 
-    pub fn set_secret_variable(&mut self, name: &str, value: &str) -> Result<(), JsValue> {
+    pub fn set_secret_variable(&mut self, name: &str, value: &[u8]) -> Result<(), JsValue> {
         let name = revault_lockbox_api::VariableName::new(name).map_err(error)?;
-        let value = SecretString::try_from_slice(value.as_bytes())
+        let value = SecretString::try_from_slice(value)
             .map_err(|value| JsValue::from_str(&value.to_string()))?;
         self.0.set_secret_variable(&name, &value).map_err(error)
+    }
+
+    pub fn with_secret_variable(
+        &self,
+        name: &str,
+        callback: &Function,
+    ) -> Result<JsValue, JsValue> {
+        let name = revault_lockbox_api::VariableName::new(name).map_err(error)?;
+        let result = self
+            .0
+            .with_secret_variable(&name, |value| {
+                value
+                    .with_bytes(|bytes| {
+                        let secret = Uint8Array::from(bytes);
+                        let result = callback.call1(&JsValue::UNDEFINED, &secret);
+                        for index in 0..secret.length() {
+                            secret.set_index(index, 0);
+                        }
+                        result
+                    })
+                    .map_err(|value| JsValue::from_str(&value.to_string()))?
+            })
+            .map_err(error)?;
+        match result {
+            Some(result) => result,
+            None => Ok(JsValue::UNDEFINED),
+        }
     }
 
     pub fn get_variable(&self, name: &str) -> Result<Option<String>, JsValue> {

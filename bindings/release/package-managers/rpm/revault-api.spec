@@ -1,5 +1,5 @@
 Name:           revault-api
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Stable native API for reVault lockboxes and vaults
 License:        LicenseRef-reVault-Source-Available-1.0

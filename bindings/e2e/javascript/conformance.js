@@ -20,6 +20,7 @@ const artifactRoot = () => {
 };
 const fields = () => encodeMessage(createMessage('FormFieldList', { values: [
   createMessage('FormField', { id: 'username', label: 'Username', kind: 'text', required: true }),
+  createMessage('FormField', { id: 'password', label: 'Password', kind: 'secret', required: true }),
 ] }));
 const sleep = milliseconds => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 
@@ -37,7 +38,7 @@ function archiveLifecycle() {
   check(box.exists('/renamed.txt') && !box.exists('/hello.txt'), 'exists'); pass('lockbox_exists', 2);
   box.setPermissions('/renamed.txt', 0o600); pass('lockbox_set_permissions', 2);
   check(equal(box.readRange('/renamed.txt', 0, 11), 'replacement'), 'range'); pass('lockbox_read_range', 3);
-  box.setVariable('normal', 'value', false); pass('lockbox_set_variable');
+  box.setVariable('normal', 'value'); pass('lockbox_set_variable');
   check(box.getVariable('normal') === 'value', 'variable'); pass('lockbox_get_variable', 3);
   let moves = encodeMessage(createMessage('PathMoveList', { values: [
     createMessage('PathMove', { source: 'normal', destination: 'moved' }),
@@ -47,7 +48,10 @@ function archiveLifecycle() {
     createMessage('PathMove', { source: 'moved', destination: 'normal' }),
   ] }));
   box.moveVariables(moves); pass('lockbox_move_variables', 3);
-  box.setVariable('secret', 'hidden', true); box.variableSensitivity('secret'); pass('lockbox_variable_sensitivity', 2);
+  box.setSecretVariable('secret', Buffer.from('hidden')); pass('lockbox_set_secret_variable');
+  check(box.withSecretVariable('secret', value => value.toString()) === 'hidden', 'secret variable');
+  pass('lockbox_get_secret_variable'); pass('secret_len'); pass('secret_copy'); pass('secret_free');
+  box.variableSensitivity('secret'); pass('lockbox_variable_sensitivity', 2);
   check(box.listVariables().values.length === 2, 'variables'); pass('lockbox_list_variables');
   box.deleteVariable('normal'); pass('lockbox_delete_variable');
   box.addSymlink('/link', '/renamed.txt', false); pass('lockbox_add_symlink');
@@ -116,7 +120,10 @@ function advancedArchive() {
   box.listFormDefinitions(); box.resolveForm('account'); box.listFormRevisions(definition.typeId);
   pass('lockbox_list_form_definitions'); pass('lockbox_resolve_form'); pass('lockbox_list_form_revisions');
   box.createFormRecord('/account.form', 'account', 'Primary'); pass('lockbox_create_form_record');
-  box.setFormField('/account.form', 'username', 'alice', false); pass('lockbox_set_form_field');
+  box.setFormField('/account.form', 'username', 'alice'); pass('lockbox_set_form_field');
+  box.setSecretFormField('/account.form', 'password', Buffer.from('hidden')); pass('lockbox_set_secret_form_field');
+  check(box.withSecretFormField('/account.form', 'password', value => value.toString()) === 'hidden', 'secret form field');
+  pass('lockbox_get_secret_form_field');
   box.getFormRecord('/account.form'); box.getFormField('/account.form', 'username'); box.listFormRecords();
   pass('lockbox_get_form_record'); pass('lockbox_get_form_field'); pass('lockbox_list_form_records');
   let moves = encodeMessage(createMessage('PathMoveList', { values: [

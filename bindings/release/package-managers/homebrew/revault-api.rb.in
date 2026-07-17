@@ -33,7 +33,7 @@ class RevaultApi < Formula
   test do
     (testpath/"abi.c").write <<~EOS
       #include <revault_api.h>
-      int main(void) { return api_abi_version() == 1 ? 0 : 1; }
+      int main(void) { return api_abi_version() == 2 ? 0 : 1; }
     EOS
     system ENV.cc, "abi.c", "-I#{include}", "-L#{lib}", "-lrevault_api", "-o", "abi"
     system "./abi"

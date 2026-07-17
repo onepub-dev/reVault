@@ -1,6 +1,6 @@
 {
   "name": "@onepub-dev/revault-api-typescript-tests",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "TypeScript conformance project for @onepub-dev/revault-api",
   "license": "SEE LICENSE IN LICENSE",
@@ -15,7 +15,7 @@
     }
   },
   "dependencies": {
-    "@onepub-dev/revault-api": "0.1.0"
+    "@onepub-dev/revault-api": "0.2.0"
   },
   "files": ["dist", "generated", "LICENSE"],
   "devDependencies": {

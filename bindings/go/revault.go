@@ -17,8 +17,8 @@ import (
 )
 
 func init() {
-	if C.api_abi_version() != 1 {
-		panic("revault-api native ABI mismatch; expected 1")
+	if C.api_abi_version() != 2 {
+		panic("revault-api native ABI mismatch; expected 2")
 	}
 }
 
@@ -80,6 +80,28 @@ func require(ok bool) error {
 		return lastError()
 	}
 	return nil
+}
+
+// withSecret limits plaintext lifetime to callback and clears the Go copy on return.
+func withSecret(get func(*unsafe.Pointer) bool, callback func([]byte) error) error {
+	var handle unsafe.Pointer
+	if !get(&handle) {
+		return lastError()
+	}
+	if handle == nil {
+		return nil
+	}
+	defer C.secret_free(handle)
+	var length C.size_t
+	if !bool(C.secret_len(handle, &length)) {
+		return lastError()
+	}
+	secret := make([]byte, int(length))
+	defer clear(secret)
+	if !bool(C.secret_copy(handle, bytePointer(secret), length)) {
+		return lastError()
+	}
+	return callback(secret)
 }
 
 type ContactPublicKey struct{ handle unsafe.Pointer }
@@ -405,11 +427,26 @@ func (box *Lockbox) Stat(path string) (*messages.OptionalLockboxEntry, error) {
 	result := &messages.OptionalLockboxEntry{}
 	return result, decodeFrame(C.lockbox_stat(box.handle, charPointer(path), C.size_t(len(path))), result)
 }
-func (box *Lockbox) SetVariable(name, value string, secret bool) error {
-	return require(bool(C.lockbox_set_variable(box.handle, charPointer(name), C.size_t(len(name)), charPointer(value), C.size_t(len(value)), C.bool(secret))))
+func (box *Lockbox) SetVariable(name, value string) error {
+	return require(bool(C.lockbox_set_variable(box.handle, charPointer(name), C.size_t(len(name)), charPointer(value), C.size_t(len(value)))))
 }
-func (box *Lockbox) GetVariable(name string) (string, error) {
-	return takeString(C.lockbox_get_variable(box.handle, charPointer(name), C.size_t(len(name))))
+func (box *Lockbox) SetSecretVariable(name string, value []byte) error {
+	return require(bool(C.lockbox_set_secret_variable(box.handle, charPointer(name), C.size_t(len(name)), bytePointer(value), C.size_t(len(value)))))
+}
+func (box *Lockbox) GetVariable(name string) (*string, error) {
+	result := &messages.OptionalString{}
+	if err := decodeFrame(C.lockbox_get_variable(box.handle, charPointer(name), C.size_t(len(name))), result); err != nil {
+		return nil, err
+	}
+	if !result.Present {
+		return nil, nil
+	}
+	return &result.Value, nil
+}
+func (box *Lockbox) WithSecretVariable(name string, callback func([]byte) error) error {
+	return withSecret(func(output *unsafe.Pointer) bool {
+		return bool(C.lockbox_get_secret_variable(box.handle, charPointer(name), C.size_t(len(name)), output))
+	}, callback)
 }
 func (box *Lockbox) DeleteVariable(name string) error {
 	return require(bool(C.lockbox_delete_variable(box.handle, charPointer(name), C.size_t(len(name)))))
@@ -485,15 +522,18 @@ func (box *Lockbox) CreateFormRecord(path, typeReference, name string) (*message
 	result := &messages.FormRecord{}
 	return result, decodeFrame(C.lockbox_create_form_record(box.handle, charPointer(path), C.size_t(len(path)), charPointer(typeReference), C.size_t(len(typeReference)), charPointer(name), C.size_t(len(name))), result)
 }
-func (box *Lockbox) SetFormField(path, field, value string, secret bool) error {
-	return require(bool(C.lockbox_set_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field)), charPointer(value), C.size_t(len(value)), C.bool(secret))))
+func (box *Lockbox) SetFormField(path, field, value string) error {
+	return require(bool(C.lockbox_set_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field)), charPointer(value), C.size_t(len(value)))))
+}
+func (box *Lockbox) SetSecretFormField(path, field string, value []byte) error {
+	return require(bool(C.lockbox_set_secret_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field)), bytePointer(value), C.size_t(len(value)))))
 }
 func (box *Lockbox) ListFormRecords() (*messages.FormRecordList, error) {
 	result := &messages.FormRecordList{}
 	return result, decodeFrame(C.lockbox_list_form_records(box.handle), result)
 }
-func (box *Lockbox) GetFormRecord(path string) (*messages.FormRecord, error) {
-	result := &messages.FormRecord{}
+func (box *Lockbox) GetFormRecord(path string) (*messages.OptionalFormRecord, error) {
+	result := &messages.OptionalFormRecord{}
 	return result, decodeFrame(C.lockbox_get_form_record(box.handle, charPointer(path), C.size_t(len(path))), result)
 }
 func (box *Lockbox) DeleteFormRecord(path string) error {
@@ -503,9 +543,14 @@ func (box *Lockbox) MoveFormRecords(moves *messages.PathMoveList) error {
 	encoded, err := proto.Marshal(moves); if err != nil { return err }
 	return require(bool(C.lockbox_move_form_records(box.handle, bytePointer(encoded), C.size_t(len(encoded)))))
 }
-func (box *Lockbox) GetFormField(path, field string) (*messages.FormValue, error) {
-	result := &messages.FormValue{}
+func (box *Lockbox) GetFormField(path, field string) (*messages.OptionalFormValue, error) {
+	result := &messages.OptionalFormValue{}
 	return result, decodeFrame(C.lockbox_get_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field))), result)
+}
+func (box *Lockbox) WithSecretFormField(path, field string, callback func([]byte) error) error {
+	return withSecret(func(output *unsafe.Pointer) bool {
+		return bool(C.lockbox_get_secret_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field)), output))
+	}, callback)
 }
 
 func FormatKeyHex(value []byte) (string, error) {

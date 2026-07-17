@@ -1,12 +1,22 @@
 #![deny(unsafe_op_in_unsafe_fn)]
-#![deny(clippy::undocumented_unsafe_blocks)]
+// This crate is a generated-style C boundary: exported functions accept
+// caller-owned pointers and mirror the flat declarations in revault_api.h.
+#![allow(
+    clippy::missing_safety_doc,
+    clippy::not_unsafe_ptr_arg_deref,
+    clippy::too_many_arguments,
+    clippy::undocumented_unsafe_blocks,
+    clippy::unnecessary_cast
+)]
 
 //! Small, deliberately boring ABI shared by the Dart, Java and Python clients.
 //!
 //! The ABI owns Rust objects behind opaque pointers. Byte buffers returned by
 //! this module must be released with [`buffer_free`]. Secrets supplied
 //! to the API are copied into the core's zeroizing secure allocations before
-//! the call returns.
+//! the call returns. Every returned buffer is wiped by [`buffer_free`]; secret
+//! getters additionally use opaque handles so language facades can constrain
+//! plaintext copies to a callback scope.
 
 use prost::Message;
 use revault_lockbox_api::Result as LockboxResult;
@@ -19,11 +29,12 @@ use revault_lockbox_api::{
     ExtractPolicy, FormDefinition, FormFieldDefinition, FormFieldKind, FormRecord, FormTypeId,
     FormValue, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind, LockboxKeySlot,
     LockboxKeySlotAlgorithm, LockboxKeySlotProtection, LockboxOpen, LockboxPath, LockboxProtection,
-    OwnerSigningKeyPair, OwnerSigningPublicKey, VariableName,
+    OwnerSigningKeyPair, OwnerSigningPublicKey, SecretString, VariableName,
 };
 use std::cell::RefCell;
 use std::ffi::{c_char, c_void, CString};
 use std::ptr;
+use zeroize::Zeroize;
 
 #[repr(C)]
 pub struct RevaultBuffer {
@@ -31,10 +42,23 @@ pub struct RevaultBuffer {
     pub len: usize,
 }
 
+/// Opaque owner for secret bytes returned across the native boundary.
+enum SecretHandle {
+    String(SecretString),
+}
+
+impl SecretHandle {
+    fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> revault_lockbox_api::Result<R> {
+        match self {
+            Self::String(value) => value.with_bytes(f).map_err(Into::into),
+        }
+    }
+}
+
 /// Major version of the stable native ABI exposed by this library.
 #[no_mangle]
 pub extern "C" fn api_abi_version() -> u32 {
-    1
+    2
 }
 
 type LockboxHandle = Lockbox;
@@ -120,7 +144,7 @@ fn form_definition_proto(definition: &FormDefinition) -> bindings_proto::FormDef
 fn form_value_proto(value: &revault_lockbox_api::FormFieldValue) -> bindings_proto::FormValue {
     let text = match &value.value {
         FormValue::Normal(text) => text.clone(),
-        FormValue::Secret(text) => text.with_str(|value| value.to_string()).unwrap_or_default(),
+        FormValue::Secret(_) => String::new(),
     };
     bindings_proto::FormValue {
         field_id: value.field_id.clone(),
@@ -459,10 +483,116 @@ pub extern "C" fn buffer_free(value: RevaultBuffer) {
     if !value.ptr.is_null() {
         // SAFETY: buffers are only constructed by `buffer` and are freed once.
         unsafe {
-            drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(
-                value.ptr, value.len,
-            )))
+            let mut bytes = Box::from_raw(std::ptr::slice_from_raw_parts_mut(value.ptr, value.len));
+            bytes.as_mut().zeroize();
+            drop(bytes);
         };
+    }
+}
+
+/// Return the byte length of an opaque secret.
+#[no_mangle]
+pub unsafe extern "C" fn secret_len(handle: *const c_void, out_len: *mut usize) -> bool {
+    // SAFETY: a non-null handle returned by this library points to SecretHandle.
+    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<SecretHandle>()) })
+    else {
+        set_error("secret handle is null");
+        return false;
+    };
+    // SAFETY: the caller provides writable storage for one size value.
+    let Some(out_len) = (!out_len.is_null()).then(|| unsafe { &mut *out_len }) else {
+        set_error("secret length output is null");
+        return false;
+    };
+    match handle.with_bytes(|bytes| bytes.len()) {
+        Ok(len) => {
+            *out_len = len;
+            clear_error();
+            true
+        }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+/// Copy an opaque secret into a caller-owned mutable buffer.
+#[no_mangle]
+pub unsafe extern "C" fn secret_copy(
+    handle: *const c_void,
+    destination: *mut u8,
+    destination_len: usize,
+) -> bool {
+    // SAFETY: a non-null handle returned by this library points to SecretHandle.
+    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<SecretHandle>()) })
+    else {
+        set_error("secret handle is null");
+        return false;
+    };
+    if destination_len != 0 && destination.is_null() {
+        set_error("secret destination is null");
+        return false;
+    }
+    match handle.with_bytes(|bytes| {
+        if bytes.len() != destination_len {
+            return false;
+        }
+        if !bytes.is_empty() {
+            // SAFETY: the destination spans exactly destination_len writable bytes.
+            unsafe { std::ptr::copy_nonoverlapping(bytes.as_ptr(), destination, bytes.len()) };
+        }
+        true
+    }) {
+        Ok(true) => {
+            clear_error();
+            true
+        }
+        Ok(false) => {
+            set_error("secret destination length does not match");
+            false
+        }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+/// Release an opaque secret and zeroize its secure allocation.
+#[no_mangle]
+pub unsafe extern "C" fn secret_free(handle: *mut c_void) {
+    if !handle.is_null() {
+        // SAFETY: ownership of a handle returned by this library transfers once.
+        unsafe { drop(Box::from_raw(handle.cast::<SecretHandle>())) };
+    }
+}
+
+fn optional_secret_output(
+    result: revault_lockbox_api::Result<Option<SecretHandle>>,
+    output: *mut *mut c_void,
+) -> bool {
+    // SAFETY: the caller provides storage for one opaque handle pointer.
+    let Some(output) = (!output.is_null()).then(|| unsafe { &mut *output }) else {
+        set_error("secret output is null");
+        return false;
+    };
+    *output = ptr::null_mut();
+    match result {
+        Ok(Some(secret)) => {
+            *output = Box::into_raw(Box::new(secret)).cast();
+            clear_error();
+            true
+        }
+        Ok(None) => {
+            clear_error();
+            true
+        }
+        Err(error) => {
+            *output = ptr::null_mut();
+            set_error(error);
+            false
+        }
     }
 }
 
@@ -1625,10 +1755,7 @@ pub unsafe extern "C" fn lockbox_stat(
         }
         None => {
             clear_error();
-            RevaultBuffer {
-                ptr: ptr::null_mut(),
-                len: 0,
-            }
+            protobuf_buffer(&bindings_proto::OptionalLockboxEntry { value: None })
         }
     }
 }
@@ -1640,7 +1767,6 @@ pub unsafe extern "C" fn lockbox_set_variable(
     name_len: usize,
     value: *const c_char,
     value_len: usize,
-    secret: bool,
 ) -> bool {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
@@ -1654,14 +1780,43 @@ pub unsafe extern "C" fn lockbox_set_variable(
         set_error("invalid variable input");
         return false;
     };
-    let result = VariableName::new(name).and_then(|name| {
-        if secret {
-            revault_lockbox_api::SecretString::try_from_slice(value.as_bytes())
-                .map_err(Into::into)
-                .and_then(|value| handle.set_secret_variable(&name, &value))
-        } else {
-            handle.set_variable(&name, value)
+    let result = VariableName::new(name).and_then(|name| handle.set_variable(&name, value));
+    match result {
+        Ok(()) => {
+            clear_error();
+            true
         }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lockbox_set_secret_variable(
+    handle: *mut c_void,
+    name: *const c_char,
+    name_len: usize,
+    value: *const u8,
+    value_len: usize,
+) -> bool {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
+    else {
+        set_error("lockbox handle is null");
+        return false;
+    };
+    let (Some(name), Some(value)) = (unsafe { input_str(name, name_len) }, unsafe {
+        input(value, value_len)
+    }) else {
+        set_error("invalid secret variable input");
+        return false;
+    };
+    let result = VariableName::new(name).and_then(|name| {
+        SecretString::try_from_slice(value)
+            .map_err(Into::into)
+            .and_then(|value| handle.set_secret_variable(&name, &value))
     });
     match result {
         Ok(()) => {
@@ -1697,17 +1852,10 @@ pub unsafe extern "C" fn lockbox_get_variable(
         };
     };
     match VariableName::new(name).and_then(|name| handle.get_variable(&name)) {
-        Ok(Some(value)) => {
-            clear_error();
-            buffer(value.into_bytes())
-        }
-        Ok(None) => {
-            clear_error();
-            RevaultBuffer {
-                ptr: ptr::null_mut(),
-                len: 0,
-            }
-        }
+        Ok(value) => protobuf_buffer(&bindings_proto::OptionalString {
+            present: value.is_some(),
+            value: value.unwrap_or_default(),
+        }),
         Err(error) => {
             set_error(error);
             RevaultBuffer {
@@ -1716,6 +1864,33 @@ pub unsafe extern "C" fn lockbox_get_variable(
             }
         }
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lockbox_get_secret_variable(
+    handle: *const c_void,
+    name: *const c_char,
+    name_len: usize,
+    output: *mut *mut c_void,
+) -> bool {
+    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
+    else {
+        set_error("lockbox handle is null");
+        return false;
+    };
+    let Some(name) = (unsafe { input_str(name, name_len) }) else {
+        set_error("invalid variable name");
+        return false;
+    };
+    let result = VariableName::new(name).and_then(|name| {
+        handle.with_secret_variable(&name, |value| {
+            value
+                .try_clone()
+                .map(SecretHandle::String)
+                .map_err(Into::into)
+        })
+    });
+    optional_secret_output(result.and_then(|value| value.transpose()), output)
 }
 
 #[no_mangle]
@@ -2542,7 +2717,6 @@ pub unsafe extern "C" fn lockbox_set_form_field(
     field_len: usize,
     value: *const c_char,
     value_len: usize,
-    secret: bool,
 ) -> bool {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
@@ -2558,14 +2732,48 @@ pub unsafe extern "C" fn lockbox_set_form_field(
         set_error("invalid form field input");
         return false;
     };
-    let result = LockboxPath::new(path).and_then(|path| {
-        if secret {
-            revault_lockbox_api::SecretString::try_from_slice(value.as_bytes())
-                .map_err(revault_lockbox_api::Error::from)
-                .and_then(|value| handle.set_form_field_secret(&path, field, &value))
-        } else {
-            handle.set_form_field_normal(&path, field, value)
+    let result =
+        LockboxPath::new(path).and_then(|path| handle.set_form_field_normal(&path, field, value));
+    match result {
+        Ok(()) => {
+            clear_error();
+            true
         }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lockbox_set_secret_form_field(
+    handle: *mut c_void,
+    path: *const c_char,
+    path_len: usize,
+    field: *const c_char,
+    field_len: usize,
+    value: *const u8,
+    value_len: usize,
+) -> bool {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
+    else {
+        set_error("lockbox handle is null");
+        return false;
+    };
+    let (Some(path), Some(field), Some(value)) = (
+        unsafe { input_str(path, path_len) },
+        unsafe { input_str(field, field_len) },
+        unsafe { input(value, value_len) },
+    ) else {
+        set_error("invalid secret form field input");
+        return false;
+    };
+    let result = LockboxPath::new(path).and_then(|path| {
+        SecretString::try_from_slice(value)
+            .map_err(Into::into)
+            .and_then(|value| handle.set_form_field_secret(&path, field, &value))
     });
     match result {
         Ok(()) => {
@@ -2626,16 +2834,11 @@ pub unsafe extern "C" fn lockbox_get_form_record(
         };
     };
     match LockboxPath::new(path).and_then(|path| handle.get_form_record(&path)) {
-        Ok(Some(value)) => {
+        Ok(value) => {
             clear_error();
-            protobuf_buffer(&form_record_proto(&value))
-        }
-        Ok(None) => {
-            clear_error();
-            RevaultBuffer {
-                ptr: ptr::null_mut(),
-                len: 0,
-            }
+            protobuf_buffer(&bindings_proto::OptionalFormRecord {
+                value: value.as_ref().map(form_record_proto),
+            })
         }
         Err(error) => {
             set_error(error);
@@ -2736,16 +2939,11 @@ pub unsafe extern "C" fn lockbox_get_form_field(
         };
     };
     match LockboxPath::new(path).and_then(|path| handle.get_form_field(&path, field)) {
-        Ok(Some(value)) => {
+        Ok(value) => {
             clear_error();
-            protobuf_buffer(&form_value_proto(&value))
-        }
-        Ok(None) => {
-            clear_error();
-            RevaultBuffer {
-                ptr: ptr::null_mut(),
-                len: 0,
-            }
+            protobuf_buffer(&bindings_proto::OptionalFormValue {
+                value: value.as_ref().map(form_value_proto),
+            })
         }
         Err(error) => {
             set_error(error);
@@ -2755,6 +2953,45 @@ pub unsafe extern "C" fn lockbox_get_form_field(
             }
         }
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lockbox_get_secret_form_field(
+    handle: *const c_void,
+    path: *const c_char,
+    path_len: usize,
+    field: *const c_char,
+    field_len: usize,
+    output: *mut *mut c_void,
+) -> bool {
+    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
+    else {
+        set_error("lockbox handle is null");
+        return false;
+    };
+    let (Some(path), Some(field)) = (unsafe { input_str(path, path_len) }, unsafe {
+        input_str(field, field_len)
+    }) else {
+        set_error("invalid secret form field input");
+        return false;
+    };
+    let result = LockboxPath::new(path)
+        .and_then(|path| handle.get_form_field(&path, field))
+        .and_then(|value| match value {
+            Some(value) => match value.value {
+                FormValue::Secret(secret) => secret
+                    .as_ref()
+                    .try_clone()
+                    .map(SecretHandle::String)
+                    .map(Some)
+                    .map_err(Into::into),
+                FormValue::Normal(_) => Err(revault_lockbox_api::Error::InvalidOperation(
+                    "form field is not secret".to_string(),
+                )),
+            },
+            None => Ok(None),
+        });
+    optional_secret_output(result, output)
 }
 
 #[no_mangle]
@@ -6181,15 +6418,45 @@ mod tests {
         let variable = b"API_KEY";
         let value = b"secret";
         assert!(unsafe {
-            lockbox_set_variable(
+            lockbox_set_secret_variable(
                 handle,
                 variable.as_ptr().cast(),
                 variable.len(),
-                value.as_ptr().cast(),
+                value.as_ptr(),
                 value.len(),
-                true,
             )
         });
+        let mut secret = ptr::null_mut();
+        assert!(unsafe {
+            lockbox_get_secret_variable(
+                handle,
+                variable.as_ptr().cast(),
+                variable.len(),
+                &mut secret,
+            )
+        });
+        assert!(!secret.is_null());
+        let mut secret_length = 0;
+        assert!(unsafe { secret_len(secret, &mut secret_length) });
+        assert_eq!(secret_length, value.len());
+        let mut secret_copy_bytes = vec![0; secret_length];
+        assert!(unsafe {
+            secret_copy(
+                secret,
+                secret_copy_bytes.as_mut_ptr(),
+                secret_copy_bytes.len(),
+            )
+        });
+        assert_eq!(secret_copy_bytes, value);
+        secret_copy_bytes.fill(0);
+        unsafe { secret_free(secret) };
+
+        let missing = b"MISSING";
+        secret = usize::MAX as *mut c_void;
+        assert!(unsafe {
+            lockbox_get_secret_variable(handle, missing.as_ptr().cast(), missing.len(), &mut secret)
+        });
+        assert!(secret.is_null());
         assert!(unsafe { lockbox_commit(handle) });
         let result = unsafe { lockbox_get_file(handle, file.as_ptr().cast(), file.len()) };
         assert_eq!(
@@ -6211,6 +6478,46 @@ mod tests {
         let stats_payload = revault_wire::decode(stats_bytes, 16 * 1024).unwrap();
         bindings_proto::CacheStats::decode(stats_payload).unwrap();
         buffer_free(stats);
+
+        let missing_path = b"/missing";
+        let stat =
+            unsafe { lockbox_stat(handle, missing_path.as_ptr().cast(), missing_path.len()) };
+        let stat_bytes = unsafe { std::slice::from_raw_parts(stat.ptr, stat.len) };
+        let stat_payload = revault_wire::decode(stat_bytes, 1024).unwrap();
+        assert!(bindings_proto::OptionalLockboxEntry::decode(stat_payload)
+            .unwrap()
+            .value
+            .is_none());
+        buffer_free(stat);
+
+        let record = unsafe {
+            lockbox_get_form_record(handle, missing_path.as_ptr().cast(), missing_path.len())
+        };
+        let record_bytes = unsafe { std::slice::from_raw_parts(record.ptr, record.len) };
+        let record_payload = revault_wire::decode(record_bytes, 1024).unwrap();
+        assert!(bindings_proto::OptionalFormRecord::decode(record_payload)
+            .unwrap()
+            .value
+            .is_none());
+        buffer_free(record);
+
+        let field = b"username";
+        let value = unsafe {
+            lockbox_get_form_field(
+                handle,
+                missing_path.as_ptr().cast(),
+                missing_path.len(),
+                field.as_ptr().cast(),
+                field.len(),
+            )
+        };
+        let value_bytes = unsafe { std::slice::from_raw_parts(value.ptr, value.len) };
+        let value_payload = revault_wire::decode(value_bytes, 1024).unwrap();
+        assert!(bindings_proto::OptionalFormValue::decode(value_payload)
+            .unwrap()
+            .value
+            .is_none());
+        buffer_free(value);
         unsafe { lockbox_free(handle) };
     }
 }

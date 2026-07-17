@@ -435,14 +435,25 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxStat($this->handle, $path);
     }
 
-    public function setVariable(string $name, string $value, bool $secret): bool
+    public function setVariable(string $name, string $value): bool
     {
-        return $this->operations->lockboxSetVariable($this->handle, $name, $value, $secret);
+        return $this->operations->lockboxSetVariable($this->handle, $name, $value);
     }
 
-    public function getVariable(string $name): string
+    public function setSecretVariable(string $name, string $value): bool
     {
-        return $this->operations->lockboxGetVariable($this->handle, $name);
+        return $this->operations->lockboxSetSecretVariable($this->handle, $name, $value);
+    }
+
+    public function getVariable(string $name): ?string
+    {
+        $value = $this->operations->lockboxGetVariable($this->handle, $name);
+        return $value->getPresent() ? $value->getValue() : null;
+    }
+
+    public function withSecretVariable(string $name, callable $callback): mixed
+    {
+        return $this->operations->lockboxWithSecretVariable($this->handle, $name, $callback);
     }
 
     public function deleteVariable(string $name): bool
@@ -560,9 +571,14 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxCreateFormRecord($this->handle, $path, $typeReference, $name);
     }
 
-    public function setFormField(string $path, string $field, string $value, bool $secret): bool
+    public function setFormField(string $path, string $field, string $value): bool
     {
-        return $this->operations->lockboxSetFormField($this->handle, $path, $field, $value, $secret);
+        return $this->operations->lockboxSetFormField($this->handle, $path, $field, $value);
+    }
+
+    public function setSecretFormField(string $path, string $field, string $value): bool
+    {
+        return $this->operations->lockboxSetSecretFormField($this->handle, $path, $field, $value);
     }
 
     public function listFormRecords(): \Revault\Bindings\FormRecordList
@@ -570,7 +586,7 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxListFormRecords($this->handle);
     }
 
-    public function getFormRecord(string $path): \Revault\Bindings\FormRecord
+    public function getFormRecord(string $path): \Revault\Bindings\OptionalFormRecord
     {
         return $this->operations->lockboxGetFormRecord($this->handle, $path);
     }
@@ -585,9 +601,14 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxMoveFormRecords($this->handle, $movesProto);
     }
 
-    public function getFormField(string $path, string $field): \Revault\Bindings\FormValue
+    public function getFormField(string $path, string $field): \Revault\Bindings\OptionalFormValue
     {
         return $this->operations->lockboxGetFormField($this->handle, $path, $field);
+    }
+
+    public function withSecretFormField(string $path, string $field, callable $callback): mixed
+    {
+        return $this->operations->lockboxWithSecretFormField($this->handle, $path, $field, $callback);
     }
 
     public function toBytes(): string

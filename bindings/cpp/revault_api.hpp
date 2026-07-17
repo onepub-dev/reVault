@@ -1,10 +1,13 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <stdexcept>
 #include <optional>
+#include <functional>
+#include <span>
 #include <vector>
 
 #include <revault_api.h>
@@ -13,8 +16,8 @@
 namespace revault {
 
 inline void require_compatible_abi() {
-  if (api_abi_version() != 1)
-    throw std::runtime_error("revault-api native ABI mismatch; expected 1");
+  if (api_abi_version() != 2)
+    throw std::runtime_error("revault-api native ABI mismatch; expected 2");
 }
 
 class VaultDirectory;
@@ -53,6 +56,30 @@ inline std::vector<std::uint8_t> take_bytes(RevaultBuffer result) {
 inline std::string take_string(RevaultBuffer result) {
   const auto bytes = take_bytes(result);
   return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
+}
+
+inline bool with_secret_handle(
+    void* handle,
+    const std::function<void(std::span<const std::uint8_t>)>& callback) {
+  if (!handle) return false;
+  try {
+    std::size_t length{};
+    if (!secret_len(handle, &length)) throw std::runtime_error(buffer_last_error());
+    std::vector<std::uint8_t> bytes(length);
+    if (!secret_copy(handle, bytes.data(), bytes.size()))
+      throw std::runtime_error(buffer_last_error());
+    try { callback(bytes); }
+    catch (...) {
+      std::fill(bytes.begin(), bytes.end(), 0);
+      throw;
+    }
+    std::fill(bytes.begin(), bytes.end(), 0);
+    secret_free(handle);
+    return true;
+  } catch (...) {
+    secret_free(handle);
+    throw;
+  }
 }
 
 template <typename Message>
@@ -400,10 +427,23 @@ class Lockbox {
   void set_permissions(const std::string& path, std::uint32_t value) {
     if (!lockbox_set_permissions(handle_, path.data(), path.size(), value)) throw std::runtime_error(buffer_last_error());
   }
-  void set_variable(const std::string& name, const std::string& value, bool secret = false) {
-    if (!lockbox_set_variable(handle_, name.data(), name.size(), value.data(), value.size(), secret)) throw std::runtime_error(buffer_last_error());
+  void set_variable(const std::string& name, const std::string& value) {
+    if (!lockbox_set_variable(handle_, name.data(), name.size(), value.data(), value.size())) throw std::runtime_error(buffer_last_error());
   }
-  Buffer get_variable(const std::string& name) const { return checked(lockbox_get_variable(handle_, name.data(), name.size())); }
+  void set_secret_variable(const std::string& name, std::span<const std::uint8_t> value) {
+    if (!lockbox_set_secret_variable(handle_, name.data(), name.size(), value.data(), value.size())) throw std::runtime_error(buffer_last_error());
+  }
+  std::optional<std::string> get_variable(const std::string& name) const {
+    auto value = decoded<bindings::OptionalString>(lockbox_get_variable(handle_, name.data(), name.size()));
+    return value.present() ? std::optional<std::string>(value.value()) : std::nullopt;
+  }
+  bool with_secret_variable(const std::string& name,
+      const std::function<void(std::span<const std::uint8_t>)>& callback) const {
+    void* secret{};
+    if (!lockbox_get_secret_variable(handle_, name.data(), name.size(), &secret))
+      throw std::runtime_error(buffer_last_error());
+    return with_secret_handle(secret, callback);
+  }
   void delete_variable(const std::string& name) {
     if (!lockbox_delete_variable(handle_, name.data(), name.size())) throw std::runtime_error(buffer_last_error());
   }
@@ -476,16 +516,22 @@ class Lockbox {
         name.data(), name.size()));
   }
   void set_form_field(const std::string& path, const std::string& field,
-                      const std::string& value, bool secret = false) {
+                      const std::string& value) {
     if (!lockbox_set_form_field(handle_, path.data(), path.size(), field.data(), field.size(),
-                                value.data(), value.size(), secret))
+                                value.data(), value.size()))
+      throw std::runtime_error(buffer_last_error());
+  }
+  void set_secret_form_field(const std::string& path, const std::string& field,
+                             std::span<const std::uint8_t> value) {
+    if (!lockbox_set_secret_form_field(handle_, path.data(), path.size(), field.data(), field.size(),
+                                       value.data(), value.size()))
       throw std::runtime_error(buffer_last_error());
   }
   bindings::FormRecordList list_form_records() const {
     return decoded<bindings::FormRecordList>(lockbox_list_form_records(handle_));
   }
-  bindings::FormRecord get_form_record(const std::string& path) const {
-    return decoded<bindings::FormRecord>(
+  bindings::OptionalFormRecord get_form_record(const std::string& path) const {
+    return decoded<bindings::OptionalFormRecord>(
         lockbox_get_form_record(handle_, path.data(), path.size()));
   }
   void delete_form_record(const std::string& path) {
@@ -497,10 +543,17 @@ class Lockbox {
     if (!lockbox_move_form_records(handle_, reinterpret_cast<const std::uint8_t*>(encoded.data()), encoded.size()))
       throw std::runtime_error(buffer_last_error());
   }
-  bindings::FormValue get_form_field(const std::string& path,
-                                     const std::string& field) const {
-    return decoded<bindings::FormValue>(lockbox_get_form_field(
+  bindings::OptionalFormValue get_form_field(const std::string& path,
+                                             const std::string& field) const {
+    return decoded<bindings::OptionalFormValue>(lockbox_get_form_field(
         handle_, path.data(), path.size(), field.data(), field.size()));
+  }
+  bool with_secret_form_field(const std::string& path, const std::string& field,
+      const std::function<void(std::span<const std::uint8_t>)>& callback) const {
+    void* secret{};
+    if (!lockbox_get_secret_form_field(handle_, path.data(), path.size(), field.data(), field.size(), &secret))
+      throw std::runtime_error(buffer_last_error());
+    return with_secret_handle(secret, callback);
   }
   void set_workload_profile(const std::string& profile) {
     if (!lockbox_set_workload_profile(handle_, profile.data(), profile.size()))

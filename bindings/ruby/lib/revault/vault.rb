@@ -328,12 +328,20 @@ module Revault
       @operations.lockbox_stat(@native_handle, path)
     end
 
-    def set_variable(name, value, secret)
-      @operations.lockbox_set_variable(@native_handle, name, value, secret)
+    def set_variable(name, value)
+      @operations.lockbox_set_variable(@native_handle, name, value)
+    end
+
+    def set_secret_variable(name, value)
+      @operations.lockbox_set_secret_variable(@native_handle, name, value)
     end
 
     def get_variable(name)
       @operations.lockbox_get_variable(@native_handle, name)
+    end
+
+    def with_secret_variable(name, &callback)
+      @operations.lockbox_get_secret_variable(@native_handle, name, &callback)
     end
 
     def delete_variable(name)
@@ -428,8 +436,12 @@ module Revault
       @operations.lockbox_create_form_record(@native_handle, path, type_reference, name)
     end
 
-    def set_form_field(path, field, value, secret)
-      @operations.lockbox_set_form_field(@native_handle, path, field, value, secret)
+    def set_form_field(path, field, value)
+      @operations.lockbox_set_form_field(@native_handle, path, field, value)
+    end
+
+    def set_secret_form_field(path, field, value)
+      @operations.lockbox_set_secret_form_field(@native_handle, path, field, value)
     end
 
     def list_form_records()
@@ -450,6 +462,10 @@ module Revault
 
     def get_form_field(path, field)
       @operations.lockbox_get_form_field(@native_handle, path, field)
+    end
+
+    def with_secret_form_field(path, field, &callback)
+      @operations.lockbox_get_secret_form_field(@native_handle, path, field, &callback)
     end
 
     def to_bytes()

@@ -13,7 +13,7 @@ lockbox_runtime_options	lbwf	RuntimeOptions
 lockbox_list	lbwf	LockboxEntryList
 lockbox_list_with_options	lbwf	LockboxEntryList
 lockbox_stat	lbwf	OptionalLockboxEntry
-lockbox_get_variable	raw	utf8
+lockbox_get_variable	lbwf	OptionalString
 lockbox_list_variables	lbwf	VariableList
 lockbox_variable_sensitivity	lbwf	OptionalString
 lockbox_get_symlink_target	raw	utf8
@@ -28,8 +28,8 @@ lockbox_resolve_form	lbwf	FormDefinition
 lockbox_list_form_revisions	lbwf	FormDefinitionList
 lockbox_create_form_record	lbwf	FormRecord
 lockbox_list_form_records	lbwf	FormRecordList
-lockbox_get_form_record	lbwf	FormRecord
-lockbox_get_form_field	lbwf	FormValue
+lockbox_get_form_record	lbwf	OptionalFormRecord
+lockbox_get_form_field	lbwf	OptionalFormValue
 lockbox_to_bytes	raw	bytes
 key_contact_public	raw	bytes
 key_contact_private	raw	bytes

@@ -143,8 +143,10 @@ public sealed class Vault
             bool includeSymlinks, bool includeDirectories, nuint limit) => owner.operations.LockboxListWithOptions(
                 Handle, path, glob, recursive, includeFiles, includeSymlinks, includeDirectories, limit);
         public OptionalLockboxEntry Stat(string path) => owner.operations.LockboxStat(Handle, path);
-        public void SetVariable(string name, string value, bool secret = false) => owner.operations.LockboxSetVariable(Handle, name, value, secret);
-        public string GetVariable(string name) => owner.operations.LockboxGetVariable(Handle, name);
+        public void SetVariable(string name, string value) => owner.operations.LockboxSetVariable(Handle, name, value);
+        public void SetSecretVariable(string name, byte[] value) => owner.operations.LockboxSetSecretVariable(Handle, name, value);
+        public string? GetVariable(string name) { var value = owner.operations.LockboxGetVariable(Handle, name); return value.Present ? value.Value : null; }
+        public T? WithSecretVariable<T>(string name, SecretCallback<T> callback) => owner.operations.LockboxWithSecretVariable(Handle, name, callback);
         public void DeleteVariable(string name) => owner.operations.LockboxDeleteVariable(Handle, name);
         public void MoveVariables(PathMoveList moves) => owner.operations.LockboxMoveVariables(Handle, moves.ToByteArray());
         public VariableList ListVariables() => owner.operations.LockboxListVariables(Handle);
@@ -169,12 +171,14 @@ public sealed class Vault
         public FormDefinition ResolveForm(string reference) => owner.operations.LockboxResolveForm(Handle, reference);
         public FormDefinitionList ListFormRevisions(string typeId) => owner.operations.LockboxListFormRevisions(Handle, typeId);
         public FormRecord CreateFormRecord(string path, string typeReference, string name) => owner.operations.LockboxCreateFormRecord(Handle, path, typeReference, name);
-        public void SetFormField(string path, string field, string value, bool secret = false) => owner.operations.LockboxSetFormField(Handle, path, field, value, secret);
+        public void SetFormField(string path, string field, string value) => owner.operations.LockboxSetFormField(Handle, path, field, value);
+        public void SetSecretFormField(string path, string field, byte[] value) => owner.operations.LockboxSetSecretFormField(Handle, path, field, value);
         public FormRecordList ListFormRecords() => owner.operations.LockboxListFormRecords(Handle);
-        public FormRecord GetFormRecord(string path) => owner.operations.LockboxGetFormRecord(Handle, path);
+        public OptionalFormRecord GetFormRecord(string path) => owner.operations.LockboxGetFormRecord(Handle, path);
         public void DeleteFormRecord(string path) => owner.operations.LockboxDeleteFormRecord(Handle, path);
         public void MoveFormRecords(PathMoveList moves) => owner.operations.LockboxMoveFormRecords(Handle, moves.ToByteArray());
-        public FormValue GetFormField(string path, string field) => owner.operations.LockboxGetFormField(Handle, path, field);
+        public OptionalFormValue GetFormField(string path, string field) => owner.operations.LockboxGetFormField(Handle, path, field);
+        public T? WithSecretFormField<T>(string path, string field, SecretCallback<T> callback) => owner.operations.LockboxWithSecretFormField(Handle, path, field, callback);
         public byte[] Bytes => owner.operations.LockboxToBytes(Handle);
         public void Dispose() { if (Handle != IntPtr.Zero) { owner.operations.LockboxFree(Handle); Handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         ~Lockbox() => Dispose();

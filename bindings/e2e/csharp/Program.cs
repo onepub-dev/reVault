@@ -15,7 +15,10 @@ static class Conformance
         var path = Path.Combine(Environment.GetEnvironmentVariable("REVAULT_E2E_ARTIFACT_DIR") ?? "/tmp/revault-e2e-artifacts", "csharp");
         Directory.CreateDirectory(path); return path;
     }
-    static FormFieldList Fields() => new() { Values = { new FormField { Id = "username", Label = "Username", Kind = "text", Required = true } } };
+    static FormFieldList Fields() => new() { Values = {
+        new FormField { Id = "username", Label = "Username", Kind = "text", Required = true },
+        new FormField { Id = "password", Label = "Password", Kind = "secret", Required = true }
+    } };
 
     static void ArchiveLifecycle()
     {
@@ -36,7 +39,10 @@ static class Conformance
             box.SetVariable("normal", "value"); Check(box.GetVariable("normal") == "value", "variable"); Pass("lockbox_set_variable"); Pass("lockbox_get_variable", 3);
             box.MoveVariables(new PathMoveList { Values = { new PathMove { Source = "normal", Destination = "moved" } } }); Check(box.GetVariable("moved") == "value", "moved variable");
             box.MoveVariables(new PathMoveList { Values = { new PathMove { Source = "moved", Destination = "normal" } } }); Pass("lockbox_move_variables", 3);
-            box.SetVariable("secret", "hidden", true); Check(box.VariableSensitivity("secret").Present, "secret"); Pass("lockbox_variable_sensitivity", 2);
+            box.SetSecretVariable("secret", Bytes("hidden")); Pass("lockbox_set_secret_variable");
+            Check(box.WithSecretVariable("secret", value => Encoding.UTF8.GetString(value)) == "hidden", "secret variable");
+            Pass("lockbox_get_secret_variable"); Pass("secret_len"); Pass("secret_copy"); Pass("secret_free");
+            Check(box.VariableSensitivity("secret").Present, "secret"); Pass("lockbox_variable_sensitivity", 2);
             Check(box.ListVariables().Values.Count == 2, "variables"); Pass("lockbox_list_variables"); box.DeleteVariable("normal"); Pass("lockbox_delete_variable");
             box.AddSymlink("/link", "/renamed.txt"); Check(box.SymlinkTarget("/link") == "/renamed.txt", "link"); Pass("lockbox_add_symlink"); Pass("lockbox_get_symlink_target", 3);
             Check(box.List("/", true).Entries.Count > 0, "list"); Check(box.Stat("/renamed.txt").Value != null, "stat"); Pass("lockbox_list", 2); Pass("lockbox_stat", 2);
@@ -104,10 +110,13 @@ static class Conformance
         Check(box.ListFormDefinitions().Values.Count == 1, "defs"); Check(box.ResolveForm("account").TypeId == definition.TypeId, "resolve"); Check(box.ListFormRevisions(definition.TypeId).Values.Count == 1, "revs");
         Pass("lockbox_list_form_definitions"); Pass("lockbox_resolve_form"); Pass("lockbox_list_form_revisions");
         Check(box.CreateFormRecord("/account.form", "account", "Primary").Path == "/account.form", "record"); Pass("lockbox_create_form_record");
-        box.SetFormField("/account.form", "username", "alice"); Pass("lockbox_set_form_field"); Check(box.GetFormRecord("/account.form").Values.Count == 1, "values");
-        Check(box.GetFormField("/account.form", "username").Value == "alice", "field"); Check(box.ListFormRecords().Values.Count == 1, "records");
+        box.SetFormField("/account.form", "username", "alice"); Pass("lockbox_set_form_field");
+        box.SetSecretFormField("/account.form", "password", Bytes("hidden")); Pass("lockbox_set_secret_form_field");
+        Check(box.WithSecretFormField("/account.form", "password", value => Encoding.UTF8.GetString(value)) == "hidden", "secret form field"); Pass("lockbox_get_secret_form_field");
+        Check(box.GetFormRecord("/account.form").Value.Values.Count == 2, "values");
+        Check(box.GetFormField("/account.form", "username").Value.Value == "alice", "field"); Check(box.ListFormRecords().Values.Count == 1, "records");
         Pass("lockbox_get_form_record"); Pass("lockbox_get_form_field"); Pass("lockbox_list_form_records");
-        box.MoveFormRecords(new PathMoveList { Values = { new PathMove { Source = "/account.form", Destination = "/moved.form" } } }); Check(box.GetFormRecord("/moved.form").Values.Count == 1, "moved record");
+        box.MoveFormRecords(new PathMoveList { Values = { new PathMove { Source = "/account.form", Destination = "/moved.form" } } }); Check(box.GetFormRecord("/moved.form").Value.Values.Count == 1, "moved record");
         box.MoveFormRecords(new PathMoveList { Values = { new PathMove { Source = "/moved.form", Destination = "/account.form" } } }); Pass("lockbox_move_form_records", 3);
         using var signing = Api.GenerateSigningKeyPair(); using var contact = Api.GenerateContactKeyPair(); using var publicKey = contact.PublicKey();
         box.SetOwnerSigningKey(signing); Pass("lockbox_set_owner_signing_key"); var passwordSlot = box.AddPassword(Bytes("archive password")); Pass("lockbox_add_password");

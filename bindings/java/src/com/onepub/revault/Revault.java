@@ -15,12 +15,13 @@ import revault.bindings.RevaultBindings.FormDefinitionList;
 import revault.bindings.RevaultBindings.FormFieldList;
 import revault.bindings.RevaultBindings.FormRecord;
 import revault.bindings.RevaultBindings.FormRecordList;
-import revault.bindings.RevaultBindings.FormValue;
 import revault.bindings.RevaultBindings.ImportStats;
 import revault.bindings.RevaultBindings.KeySlotList;
 import revault.bindings.RevaultBindings.KnownLockboxList;
 import revault.bindings.RevaultBindings.LockboxEntryList;
 import revault.bindings.RevaultBindings.OptionalLockboxEntry;
+import revault.bindings.RevaultBindings.OptionalFormRecord;
+import revault.bindings.RevaultBindings.OptionalFormValue;
 import revault.bindings.RevaultBindings.OptionalString;
 import revault.bindings.RevaultBindings.OwnerInspection;
 import revault.bindings.RevaultBindings.PageInspectionList;
@@ -207,8 +208,10 @@ public final class Revault {
           includeSymlinks, includeDirectories, limit);
     }
     public OptionalLockboxEntry stat(String path) { return operations.lockboxStat(handle, path); }
-    public void setVariable(String name, String value, boolean secret) { operations.lockboxSetVariable(handle, name, value, secret); }
-    public String getVariable(String name) { return operations.lockboxGetVariable(handle, name); }
+    public void setVariable(String name, String value) { operations.lockboxSetVariable(handle, name, value); }
+    public void setSecretVariable(String name, byte[] value) { operations.lockboxSetSecretVariable(handle, name, value); }
+    public String getVariable(String name) { var value = operations.lockboxGetVariable(handle, name); return value.getPresent() ? value.getValue() : null; }
+    public <T> T withSecretVariable(String name, BindingOperations.SecretCallback<T> callback) { return operations.lockboxWithSecretVariable(handle, name, callback); }
     public void deleteVariable(String name) { operations.lockboxDeleteVariable(handle, name); }
     public void moveVariables(PathMoveList moves) { operations.lockboxMoveVariables(handle, moves.toByteArray()); }
     public VariableList listVariables() { return operations.lockboxListVariables(handle); }
@@ -244,14 +247,16 @@ public final class Revault {
     public FormRecord createFormRecord(String path, String typeReference, String name) {
       return operations.lockboxCreateFormRecord(handle, path, typeReference, name);
     }
-    public void setFormField(String path, String field, String value, boolean secret) {
-      operations.lockboxSetFormField(handle, path, field, value, secret);
+    public void setFormField(String path, String field, String value) {
+      operations.lockboxSetFormField(handle, path, field, value);
     }
+    public void setSecretFormField(String path, String field, byte[] value) { operations.lockboxSetSecretFormField(handle, path, field, value); }
     public FormRecordList listFormRecords() { return operations.lockboxListFormRecords(handle); }
-    public FormRecord getFormRecord(String path) { return operations.lockboxGetFormRecord(handle, path); }
+    public OptionalFormRecord getFormRecord(String path) { return operations.lockboxGetFormRecord(handle, path); }
     public void deleteFormRecord(String path) { operations.lockboxDeleteFormRecord(handle, path); }
     public void moveFormRecords(PathMoveList moves) { operations.lockboxMoveFormRecords(handle, moves.toByteArray()); }
-    public FormValue getFormField(String path, String field) { return operations.lockboxGetFormField(handle, path, field); }
+    public OptionalFormValue getFormField(String path, String field) { return operations.lockboxGetFormField(handle, path, field); }
+    public <T> T withSecretFormField(String path, String field, BindingOperations.SecretCallback<T> callback) { return operations.lockboxWithSecretFormField(handle, path, field, callback); }
     public byte[] bytes() { return operations.lockboxToBytes(handle); }
     @Override public void close() { if (handle != null) { operations.lockboxFree(handle); handle = null; } }
   }

@@ -4,8 +4,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PackageId>Revault.Api</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>OnePub</Authors>
     <Description>Complete class-based reVault lockbox and vault API.</Description>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>

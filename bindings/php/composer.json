@@ -3,7 +3,7 @@
   "description": "Complete class-based reVault lockbox and vault API",
   "license": "proprietary",
   "homepage": "https://github.com/onepub-dev/reVault",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "autoload": { "classmap": ["src/"], "psr-4": {
     "Revault\\Bindings\\": "generated/Revault/Bindings/",
     "GPBMetadata\\": "generated/GPBMetadata/",

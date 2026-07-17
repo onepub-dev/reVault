@@ -368,21 +368,39 @@ static void archive_lifecycle(void) {
   buffer_free(range);
   PASS(lockbox_read_range, 3);
 
-  CHECK(lockbox_set_variable(box, "normal", 6, "value", 5, false),
+  CHECK(lockbox_set_variable(box, "normal", 6, "value", 5),
         "normal variable");
-  expect_raw(lockbox_get_variable(box, "normal", 6),
-             (const uint8_t *)"value", 5);
+  expect_optional_string(lockbox_get_variable(box, "normal", 6), "value");
   PASS(lockbox_set_variable, 1);
   PASS(lockbox_get_variable, 3);
   static const uint8_t move_normal[] = {0x0a, 0x0f, 0x0a, 0x06, 'n','o','r','m','a','l', 0x12, 0x05, 'm','o','v','e','d'};
   static const uint8_t move_back[] = {0x0a, 0x0f, 0x0a, 0x05, 'm','o','v','e','d', 0x12, 0x06, 'n','o','r','m','a','l'};
   CHECK(lockbox_move_variables(box, move_normal, sizeof(move_normal)), "move variable");
-  expect_raw(lockbox_get_variable(box, "moved", 5), (const uint8_t *)"value", 5);
+  expect_optional_string(lockbox_get_variable(box, "moved", 5), "value");
   CHECK(lockbox_move_variables(box, move_back, sizeof(move_back)), "move variable back");
   PASS(lockbox_move_variables, 3);
 
-  CHECK(lockbox_set_variable(box, "secret", 6, "hidden", 6, true),
+  CHECK(lockbox_set_secret_variable(box, "secret", 6,
+                                    (const uint8_t *)"hidden", 6),
         "secret variable");
+  PASS(lockbox_set_secret_variable, 1);
+  void *secret_handle = NULL;
+  CHECK(lockbox_get_secret_variable(box, "secret", 6, &secret_handle) &&
+            secret_handle != NULL,
+        "get secret variable");
+  size_t secret_length = 0;
+  CHECK(secret_len(secret_handle, &secret_length) && secret_length == 6,
+        "secret length");
+  uint8_t secret_bytes[6] = {0};
+  CHECK(secret_copy(secret_handle, secret_bytes, sizeof(secret_bytes)) &&
+            memcmp(secret_bytes, "hidden", sizeof(secret_bytes)) == 0,
+        "secret copy");
+  memset(secret_bytes, 0, sizeof(secret_bytes));
+  secret_free(secret_handle);
+  PASS(lockbox_get_secret_variable, 1);
+  PASS(secret_len, 1);
+  PASS(secret_copy, 1);
+  PASS(secret_free, 1);
   RevaultBuffer sensitivity = lockbox_variable_sensitivity(box, "secret", 6);
   Bytes sensitivity_payload = framed_payload(sensitivity);
   Bytes sensitivity_text = protobuf_bytes(sensitivity_payload, 2);
@@ -799,7 +817,10 @@ static void vault_lifecycle(void) {
   static const uint8_t form_fields[] = {
       0x0a, 0x1c, 0x0a, 0x08, 'u', 's', 'e', 'r', 'n', 'a', 'm', 'e',
       0x12, 0x08, 'U',  's',  'e',  'r', 'n', 'a', 'm', 'e', 0x1a, 0x04,
-      't',  'e',  'x',  't',  0x20, 0x01};
+      't',  'e',  'x',  't',  0x20, 0x01,
+      0x0a, 0x1e, 0x0a, 0x08, 'p', 'a', 's', 's', 'w', 'o', 'r', 'd',
+      0x12, 0x08, 'P', 'a', 's', 's', 'w', 'o', 'r', 'd', 0x1a, 0x06,
+      's', 'e', 'c', 'r', 'e', 't', 0x20, 0x01};
   RevaultBuffer form = vault_directory_define_form(
       vault, "login", 5, "Login", 5, "Login form", 10, form_fields,
       sizeof(form_fields));
@@ -1040,9 +1061,9 @@ static void agent_and_local_vault(void) {
   PASS(vault_local, 1);
   char local_root[512];
   make_temp_dir(local_root, sizeof(local_root), "revault-c-local");
-  char password_path[256];
-  char content_path[256];
-  char contact_path[256];
+  char password_path[1024];
+  char content_path[1024];
+  char contact_path[1024];
   snprintf(password_path, sizeof(password_path), "%s/password.lbox", local_root);
   snprintf(content_path, sizeof(content_path), "%s/content.lbox", local_root);
   snprintf(contact_path, sizeof(contact_path), "%s/contact.lbox", local_root);
@@ -1179,7 +1200,10 @@ static void archive_advanced(void) {
   static const uint8_t form_fields[] = {
       0x0a, 0x1c, 0x0a, 0x08, 'u', 's', 'e', 'r', 'n', 'a', 'm', 'e',
       0x12, 0x08, 'U',  's',  'e',  'r', 'n', 'a', 'm', 'e', 0x1a, 0x04,
-      't',  'e',  'x',  't',  0x20, 0x01};
+      't',  'e',  'x',  't',  0x20, 0x01,
+      0x0a, 0x1e, 0x0a, 0x08, 'p', 'a', 's', 's', 'w', 'o', 'r', 'd',
+      0x12, 0x08, 'P', 'a', 's', 's', 'w', 'o', 'r', 'd', 0x1a, 0x06,
+      's', 'e', 'c', 'r', 'e', 't', 0x20, 0x01};
 
   void *box = lockbox_create_with_options(
       key, sizeof(key), "bytes", 5, 1024 * 1024, "bulk-import", 11,
@@ -1227,9 +1251,30 @@ static void archive_advanced(void) {
                          "create form record");
   PASS(lockbox_create_form_record, 1);
   CHECK(lockbox_set_form_field(box, "/account.form", 13, "username", 8,
-                               "alice", 5, false),
+                               "alice", 5),
         "set form field");
   PASS(lockbox_set_form_field, 1);
+  CHECK(lockbox_set_secret_form_field(box, "/account.form", 13, "password", 8,
+                                      (const uint8_t *)"hidden", 6),
+        "set secret form field");
+  PASS(lockbox_set_secret_form_field, 1);
+  void *form_secret_handle = NULL;
+  CHECK(lockbox_get_secret_form_field(box, "/account.form", 13, "password", 8,
+                                      &form_secret_handle) &&
+            form_secret_handle != NULL,
+        "get secret form field");
+  size_t form_secret_length = 0;
+  CHECK(secret_len(form_secret_handle, &form_secret_length) &&
+            form_secret_length == 6,
+        "secret form field length");
+  uint8_t form_secret_bytes[6] = {0};
+  CHECK(secret_copy(form_secret_handle, form_secret_bytes,
+                    sizeof(form_secret_bytes)) &&
+            memcmp(form_secret_bytes, "hidden", sizeof(form_secret_bytes)) == 0,
+        "secret form field value");
+  memset(form_secret_bytes, 0, sizeof(form_secret_bytes));
+  secret_free(form_secret_handle);
+  PASS(lockbox_get_secret_form_field, 1);
   static const uint8_t move_form[] = {0x0a,0x1c,0x0a,0x0d,'/','a','c','c','o','u','n','t','.','f','o','r','m',0x12,0x0b,'/','m','o','v','e','d','.','f','o','r','m'};
   static const uint8_t move_form_back[] = {0x0a,0x1c,0x0a,0x0b,'/','m','o','v','e','d','.','f','o','r','m',0x12,0x0d,'/','a','c','c','o','u','n','t','.','f','o','r','m'};
   CHECK(lockbox_move_form_records(box, move_form, sizeof(move_form)), "move form record");
@@ -1416,7 +1461,7 @@ static void archive_advanced(void) {
 }
 
 int main(int argc, char **argv) {
-  CHECK(api_abi_version() == 1, "revault-api ABI version");
+  CHECK(api_abi_version() == 2, "revault-api ABI version");
   executable_path = argv[0];
   if (argc == 2 && strcmp(argv[1], "--serve-agent") == 0) {
     if (vault_agent_serve()) return 0;

@@ -8,6 +8,9 @@ uint32_t api_abi_version(void);
 const char * buffer_last_error(void);
 RevaultBuffer buffer_last_error_details(void);
 void buffer_free(RevaultBuffer value);
+bool secret_len(const void * handle, size_t * out_len);
+bool secret_copy(const void * handle, uint8_t * destination, size_t destination_len);
+void secret_free(void * handle);
 uint16_t lockbox_format_version(void);
 uint16_t lockbox_probe_format_version(const uint8_t * bytes, size_t len);
 void * lockbox_create(const uint8_t * key, size_t key_len);
@@ -46,8 +49,10 @@ bool lockbox_rename(void * handle, const char * from, size_t from_len, const cha
 RevaultBuffer lockbox_list(const void * handle, const char * path, size_t path_len, bool recursive);
 RevaultBuffer lockbox_list_with_options(const void * handle, const char * path, size_t path_len, const char * glob, size_t glob_len, bool recursive, bool include_files, bool include_symlinks, bool include_directories, size_t limit);
 RevaultBuffer lockbox_stat(const void * handle, const char * path, size_t path_len);
-bool lockbox_set_variable(void * handle, const char * name, size_t name_len, const char * value, size_t value_len, bool secret);
+bool lockbox_set_variable(void * handle, const char * name, size_t name_len, const char * value, size_t value_len);
+bool lockbox_set_secret_variable(void * handle, const char * name, size_t name_len, const uint8_t * value, size_t value_len);
 RevaultBuffer lockbox_get_variable(const void * handle, const char * name, size_t name_len);
+bool lockbox_get_secret_variable(const void * handle, const char * name, size_t name_len, void ** output);
 bool lockbox_delete_variable(void * handle, const char * name, size_t name_len);
 bool lockbox_move_variables(void * handle, const uint8_t * moves_proto, size_t moves_len);
 RevaultBuffer lockbox_list_variables(const void * handle);
@@ -73,12 +78,14 @@ RevaultBuffer lockbox_list_form_definitions(const void * handle);
 RevaultBuffer lockbox_resolve_form(const void * handle, const char * reference, size_t reference_len);
 RevaultBuffer lockbox_list_form_revisions(const void * handle, const char * type_id, size_t type_id_len);
 RevaultBuffer lockbox_create_form_record(void * handle, const char * path, size_t path_len, const char * type_reference, size_t type_len, const char * name, size_t name_len);
-bool lockbox_set_form_field(void * handle, const char * path, size_t path_len, const char * field, size_t field_len, const char * value, size_t value_len, bool secret);
+bool lockbox_set_form_field(void * handle, const char * path, size_t path_len, const char * field, size_t field_len, const char * value, size_t value_len);
+bool lockbox_set_secret_form_field(void * handle, const char * path, size_t path_len, const char * field, size_t field_len, const uint8_t * value, size_t value_len);
 RevaultBuffer lockbox_list_form_records(const void * handle);
 RevaultBuffer lockbox_get_form_record(const void * handle, const char * path, size_t path_len);
 bool lockbox_delete_form_record(void * handle, const char * path, size_t path_len);
 bool lockbox_move_form_records(void * handle, const uint8_t * moves_proto, size_t moves_len);
 RevaultBuffer lockbox_get_form_field(const void * handle, const char * path, size_t path_len, const char * field, size_t field_len);
+bool lockbox_get_secret_form_field(const void * handle, const char * path, size_t path_len, const char * field, size_t field_len, void ** output);
 RevaultBuffer lockbox_to_bytes(const void * handle);
 void lockbox_free(void * handle);
 bool vault_is_running(void);
@@ -245,7 +252,7 @@ local function native_library()
   error('revault-api native carrier is missing for ' .. target .. '; set REVAULT_LIBRARY for development')
 end
 local native = ffi.load(native_library())
-if tonumber(native.api_abi_version()) ~= 1 then error('revault-api native ABI mismatch; expected 1') end
+if tonumber(native.api_abi_version()) ~= 2 then error('revault-api native ABI mismatch; expected 2') end
 local descriptor = os.getenv('REVAULT_PROTO_DESCRIPTOR')
 if not descriptor then
   for pattern in package.path:gmatch('[^;]+') do
@@ -373,6 +380,26 @@ local function payload(buffer)
   local length = ((a * 256 + b) * 256 + c) * 256 + d
   if length ~= #frame - 12 then error('invalid reVault binding frame length', 3) end
   return frame:sub(13)
+end
+
+local function with_secret(getter, callback)
+  local output = ffi.new('void *[1]')
+  if not getter(output) then error(last_error(), 3) end
+  if output[0] == nil then return nil end
+  local length = ffi.new('size_t[1]')
+  local ok, result
+  if not native.secret_len(output[0], length) then
+    native.secret_free(output[0]); error(last_error(), 3)
+  end
+  local bytes = ffi.new('uint8_t[?]', math.max(1, tonumber(length[0])))
+  if not native.secret_copy(output[0], bytes, length[0]) then
+    native.secret_free(output[0]); error(last_error(), 3)
+  end
+  ok, result = pcall(callback, bytes, tonumber(length[0]))
+  ffi.fill(bytes, math.max(1, tonumber(length[0])), 0)
+  native.secret_free(output[0])
+  if not ok then error(result, 3) end
+  return result
 end
 
 local Operations = {}
@@ -567,13 +594,26 @@ function Operations:lockbox_stat(handle, path)
   return Models.OptionalLockboxEntry.decode(payload(native.lockbox_stat(handle, path, #path)))
 end
 
-function Operations:lockbox_set_variable(handle, name, value, secret)
-  if not native.lockbox_set_variable(handle, name, #name, value, #value, secret) then error(last_error(), 2) end
+function Operations:lockbox_set_variable(handle, name, value)
+  if not native.lockbox_set_variable(handle, name, #name, value, #value) then error(last_error(), 2) end
+  return true
+end
+
+function Operations:lockbox_set_secret_variable(handle, name, value)
+  local bytes = ffi.new('uint8_t[?]', math.max(1, #value)); ffi.copy(bytes, value, #value)
+  local ok = native.lockbox_set_secret_variable(handle, name, #name, bytes, #value)
+  ffi.fill(bytes, math.max(1, #value), 0)
+  if not ok then error(last_error(), 2) end
   return true
 end
 
 function Operations:lockbox_get_variable(handle, name)
-  return take(native.lockbox_get_variable(handle, name, #name))
+  local value = Models.OptionalString.decode(payload(native.lockbox_get_variable(handle, name, #name)))
+  return value.present and value.value or nil
+end
+
+function Operations:lockbox_get_secret_variable(handle, name, callback)
+  return with_secret(function(output) return native.lockbox_get_secret_variable(handle, name, #name, output) end, callback)
 end
 
 function Operations:lockbox_delete_variable(handle, name)
@@ -684,8 +724,16 @@ function Operations:lockbox_create_form_record(handle, path, type_reference, nam
   return Models.FormRecord.decode(payload(native.lockbox_create_form_record(handle, path, #path, type_reference, #type_reference, name, #name)))
 end
 
-function Operations:lockbox_set_form_field(handle, path, field, value, secret)
-  if not native.lockbox_set_form_field(handle, path, #path, field, #field, value, #value, secret) then error(last_error(), 2) end
+function Operations:lockbox_set_form_field(handle, path, field, value)
+  if not native.lockbox_set_form_field(handle, path, #path, field, #field, value, #value) then error(last_error(), 2) end
+  return true
+end
+
+function Operations:lockbox_set_secret_form_field(handle, path, field, value)
+  local bytes = ffi.new('uint8_t[?]', math.max(1, #value)); ffi.copy(bytes, value, #value)
+  local ok = native.lockbox_set_secret_form_field(handle, path, #path, field, #field, bytes, #value)
+  ffi.fill(bytes, math.max(1, #value), 0)
+  if not ok then error(last_error(), 2) end
   return true
 end
 
@@ -694,7 +742,7 @@ function Operations:lockbox_list_form_records(handle)
 end
 
 function Operations:lockbox_get_form_record(handle, path)
-  return Models.FormRecord.decode(payload(native.lockbox_get_form_record(handle, path, #path)))
+  return Models.OptionalFormRecord.decode(payload(native.lockbox_get_form_record(handle, path, #path)))
 end
 
 function Operations:lockbox_delete_form_record(handle, path)
@@ -708,7 +756,11 @@ function Operations:lockbox_move_form_records(handle, moves_proto)
 end
 
 function Operations:lockbox_get_form_field(handle, path, field)
-  return Models.FormValue.decode(payload(native.lockbox_get_form_field(handle, path, #path, field, #field)))
+  return Models.OptionalFormValue.decode(payload(native.lockbox_get_form_field(handle, path, #path, field, #field)))
+end
+
+function Operations:lockbox_get_secret_form_field(handle, path, field, callback)
+  return with_secret(function(output) return native.lockbox_get_secret_form_field(handle, path, #path, field, #field, output) end, callback)
 end
 
 function Operations:lockbox_to_bytes(handle)
@@ -1684,12 +1736,20 @@ function Lockbox:stat(path)
   return self.operations:lockbox_stat(self.handle, path)
 end
 
-function Lockbox:set_variable(name, value, secret)
-  return self.operations:lockbox_set_variable(self.handle, name, value, secret)
+function Lockbox:set_variable(name, value)
+  return self.operations:lockbox_set_variable(self.handle, name, value)
+end
+
+function Lockbox:set_secret_variable(name, value)
+  return self.operations:lockbox_set_secret_variable(self.handle, name, value)
 end
 
 function Lockbox:get_variable(name)
   return self.operations:lockbox_get_variable(self.handle, name)
+end
+
+function Lockbox:with_secret_variable(name, callback)
+  return self.operations:lockbox_get_secret_variable(self.handle, name, callback)
 end
 
 function Lockbox:delete_variable(name)
@@ -1784,8 +1844,12 @@ function Lockbox:create_form_record(path, type_reference, name)
   return self.operations:lockbox_create_form_record(self.handle, path, type_reference, name)
 end
 
-function Lockbox:set_form_field(path, field, value, secret)
-  return self.operations:lockbox_set_form_field(self.handle, path, field, value, secret)
+function Lockbox:set_form_field(path, field, value)
+  return self.operations:lockbox_set_form_field(self.handle, path, field, value)
+end
+
+function Lockbox:set_secret_form_field(path, field, value)
+  return self.operations:lockbox_set_secret_form_field(self.handle, path, field, value)
 end
 
 function Lockbox:list_form_records()
@@ -1806,6 +1870,10 @@ end
 
 function Lockbox:get_form_field(path, field)
   return self.operations:lockbox_get_form_field(self.handle, path, field)
+end
+
+function Lockbox:with_secret_form_field(path, field, callback)
+  return self.operations:lockbox_get_secret_form_field(self.handle, path, field, callback)
 end
 
 function Lockbox:to_bytes()
