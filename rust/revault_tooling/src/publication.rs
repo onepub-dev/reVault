@@ -6,6 +6,9 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::thread;
+use std::time::Duration;
+use ureq::unversioned::multipart::Form;
 use walkdir::WalkDir;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -74,6 +77,16 @@ pub struct PromoteGitPackage {
 struct NpmPackage {
     name: String,
     version: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct LuaRocksVersion {
+    id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+struct LuaRocksVersionResponse {
+    version: Option<LuaRocksVersion>,
 }
 
 pub fn publish(args: PublishPackages) -> Result {
@@ -397,15 +410,28 @@ fn lua(
     let roots = platform_roots(&packages.join("lua"), target)?;
     let destination = output.join("lua");
     fs::create_dir_all(&destination)?;
+    let api_key = if publish {
+        Some(
+            std::env::var("LUAROCKS_API_KEY")
+                .map_err(|_| "LUAROCKS_API_KEY is required for LuaRocks publication")?,
+        )
+    } else {
+        None
+    };
     for root in roots {
         let rockspec = root.join(format!("revault_api-{version}-1.rockspec"));
         require_text_version(&rockspec, version)?;
         run(Command::new("luarocks")
-            .args(["lint"])
+            .args(["--lua-version=5.1", "lint"])
             .arg(&rockspec)
             .current_dir(&root))?;
         run(Command::new("luarocks")
-            .args(["make", "--pack-binary-rock", "--deps-mode=none"])
+            .args([
+                "--lua-version=5.1",
+                "make",
+                "--pack-binary-rock",
+                "--deps-mode=none",
+            ])
             .arg(&rockspec)
             .current_dir(&root))?;
         let rocks = files_with_extension(&root, "rock")?;
@@ -417,19 +443,68 @@ fn lua(
         for rock in rocks {
             let staged = destination.join(rock.file_name().ok_or("binary rock has no filename")?);
             fs::copy(&rock, &staged)?;
-            if publish {
-                let api_key = std::env::var("LUAROCKS_API_KEY")
-                    .map_err(|_| "LUAROCKS_API_KEY is required for LuaRocks publication")?;
-                run_redacted(
-                    Command::new("luarocks")
-                        .args(["upload", "--api-key", &api_key])
-                        .arg(&staged),
-                    "luarocks upload --api-key <redacted> <binary-rock>",
-                )?;
+            if let Some(api_key) = api_key.as_deref() {
+                let version_id = ensure_luarocks_version(api_key, &rockspec, version)?;
+                upload_binary_rock(api_key, version_id, &staged)?;
             }
         }
     }
     Ok(())
+}
+
+fn ensure_luarocks_version(api_key: &str, rockspec: &Path, version: &str) -> Result<u64> {
+    if let Some(id) = check_luarocks_version(api_key, version)? {
+        return Ok(id);
+    }
+
+    let form = Form::new().file("rockspec_file", rockspec)?;
+    let upload = ureq::post("https://luarocks.org/api/1/bearer/upload")
+        .header("Authorization", &format!("Bearer {api_key}"))
+        .send(form);
+    match upload {
+        Ok(mut response) => {
+            let uploaded: LuaRocksVersionResponse = response.body_mut().read_json()?;
+            uploaded
+                .version
+                .map(|version| version.id)
+                .ok_or_else(|| "LuaRocks rockspec upload returned no version".into())
+        }
+        Err(upload_error) => {
+            // Parallel platform jobs can all observe the version as absent. One
+            // creates it and the others resolve the resulting version below.
+            for _ in 0..10 {
+                if let Some(id) = check_luarocks_version(api_key, version)? {
+                    return Ok(id);
+                }
+                thread::sleep(Duration::from_millis(500));
+            }
+            Err(format!("LuaRocks rockspec upload failed: {upload_error}").into())
+        }
+    }
+}
+
+fn check_luarocks_version(api_key: &str, version: &str) -> Result<Option<u64>> {
+    let mut response = ureq::get("https://luarocks.org/api/1/bearer/check_rockspec")
+        .header("Authorization", &format!("Bearer {api_key}"))
+        .query("package", "revault_api")
+        .query("version", luarocks_version(version))
+        .call()?;
+    let checked: LuaRocksVersionResponse = response.body_mut().read_json()?;
+    Ok(checked.version.map(|version| version.id))
+}
+
+fn upload_binary_rock(api_key: &str, version_id: u64, rock: &Path) -> Result {
+    let form = Form::new().file("rock_file", rock)?;
+    let url = format!("https://luarocks.org/api/1/bearer/upload_rock/{version_id}");
+    ureq::post(&url)
+        .header("Authorization", &format!("Bearer {api_key}"))
+        .send(form)?;
+    println!("published binary rock: {}", rock.display());
+    Ok(())
+}
+
+fn luarocks_version(version: &str) -> String {
+    format!("{version}-1")
 }
 
 fn rust_foundation(packages: &Path, publish: bool) -> Result {
@@ -805,6 +880,11 @@ mod tests {
             nuget_package_url("0.1.0"),
             "https://api.nuget.org/v3-flatcontainer/revault.api/0.1.0/revault.api.0.1.0.nupkg"
         );
+    }
+
+    #[test]
+    fn luarocks_version_includes_the_rockspec_revision() {
+        assert_eq!(luarocks_version("0.1.0"), "0.1.0-1");
     }
 
     #[test]
