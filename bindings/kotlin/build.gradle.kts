@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm") version "2.0.21"
-    id("com.vanniktech.maven.publish") version "0.34.0"
+    id("com.vanniktech.maven.publish") version "0.35.0"
 }
 
 group = "dev.onepub"
@@ -11,7 +11,7 @@ dependencies { api("dev.onepub:revault-api:0.1.0") }
 java { toolchain { languageVersion.set(JavaLanguageVersion.of(22)) } }
 
 mavenPublishing {
-    publishToMavenCentral(automaticRelease = true)
+    publishToMavenCentral(automaticRelease = true, validateDeployment = true)
     if (providers.gradleProperty("signingInMemoryKey").isPresent) {
         signAllPublications()
     }

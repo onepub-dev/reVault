@@ -222,7 +222,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         if: contains(fromJSON('["java","kotlin"]'), matrix.language)
         with:
-          gradle-version: '8.10'
+          gradle-version: '8.13'
       - uses: actions/setup-dotnet@v4
         if: matrix.language == 'csharp'
         with:
@@ -537,7 +537,7 @@ jobs:
           java-version: '22'
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10'
+          gradle-version: '8.13'
       - name: Publish Java
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
