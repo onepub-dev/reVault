@@ -454,7 +454,14 @@ fn lua(
             );
         }
         for rock in rocks {
-            let staged = destination.join(rock.file_name().ok_or("binary rock has no filename")?);
+            let target = root
+                .file_name()
+                .and_then(OsStr::to_str)
+                .ok_or("Lua package root has no target name")?;
+            let staged = destination.join(format!(
+                "revault_api-{version}-1.{}.rock",
+                luarocks_arch(target)?
+            ));
             fs::copy(&rock, &staged)?;
             if let Some(api_key) = api_key.as_deref() {
                 let version_id = ensure_luarocks_version(api_key, &rockspec, version)?;
@@ -551,6 +558,18 @@ fn decode_luarocks_response<T: DeserializeOwned>(
 
 fn luarocks_version(version: &str) -> String {
     format!("{version}-1")
+}
+
+fn luarocks_arch(target: &str) -> Result<&'static str> {
+    match target {
+        "linux-x86_64-gnu" => Ok("linux-x86_64"),
+        "linux-aarch64-gnu" => Ok("linux-aarch64"),
+        "macos-x86_64" => Ok("macosx-x86_64"),
+        "macos-aarch64" => Ok("macosx-aarch64"),
+        "windows-x86_64-msvc" => Ok("win32-x86_64"),
+        "windows-aarch64-msvc" => Ok("win32-aarch64"),
+        _ => Err(format!("unsupported LuaRocks native target: {target}").into()),
+    }
 }
 
 fn rust_foundation(packages: &Path, publish: bool) -> Result {
@@ -931,6 +950,15 @@ mod tests {
     #[test]
     fn luarocks_version_includes_the_rockspec_revision() {
         assert_eq!(luarocks_version("0.1.0"), "0.1.0-1");
+    }
+
+    #[test]
+    fn luarocks_arch_is_derived_from_the_native_target() {
+        assert_eq!(
+            luarocks_arch("windows-aarch64-msvc").unwrap(),
+            "win32-aarch64"
+        );
+        assert_eq!(luarocks_arch("macos-x86_64").unwrap(), "macosx-x86_64");
     }
 
     #[test]
