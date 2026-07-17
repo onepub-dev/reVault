@@ -411,10 +411,13 @@ fn lua(
     let destination = output.join("lua");
     fs::create_dir_all(&destination)?;
     let api_key = if publish {
-        Some(
-            std::env::var("LUAROCKS_API_KEY")
-                .map_err(|_| "LUAROCKS_API_KEY is required for LuaRocks publication")?,
-        )
+        let key = std::env::var("LUAROCKS_API_KEY")
+            .map_err(|_| "LUAROCKS_API_KEY is required for LuaRocks publication")?;
+        let key = key.trim().to_owned();
+        if key.is_empty() {
+            return Err("LUAROCKS_API_KEY must not be empty".into());
+        }
+        Some(key)
     } else {
         None
     };
