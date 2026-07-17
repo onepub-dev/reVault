@@ -1,5 +1,6 @@
 use crate::Result;
 use clap::{Args, ValueEnum};
+use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::ffi::OsStr;
@@ -87,6 +88,12 @@ struct LuaRocksVersion {
 #[derive(Debug, Deserialize)]
 struct LuaRocksVersionResponse {
     version: Option<LuaRocksVersion>,
+}
+
+#[derive(Debug, Deserialize)]
+struct LuaRocksErrorResponse {
+    #[serde(default)]
+    errors: Vec<String>,
 }
 
 pub fn publish(args: PublishPackages) -> Result {
@@ -423,10 +430,13 @@ fn lua(
     };
     for root in roots {
         let rockspec = root.join(format!("revault_api-{version}-1.rockspec"));
+        let rockspec_name = rockspec
+            .file_name()
+            .ok_or("LuaRocks rockspec path has no filename")?;
         require_text_version(&rockspec, version)?;
         run(Command::new("luarocks")
             .args(["--lua-version=5.1", "lint"])
-            .arg(&rockspec)
+            .arg(rockspec_name)
             .current_dir(&root))?;
         run(Command::new("luarocks")
             .args([
@@ -435,7 +445,7 @@ fn lua(
                 "--pack-binary-rock",
                 "--deps-mode=none",
             ])
-            .arg(&rockspec)
+            .arg(rockspec_name)
             .current_dir(&root))?;
         let rocks = files_with_extension(&root, "rock")?;
         if rocks.is_empty() {
@@ -461,12 +471,18 @@ fn ensure_luarocks_version(api_key: &str, rockspec: &Path, version: &str) -> Res
     }
 
     let form = Form::new().file("rockspec_file", rockspec)?;
-    let upload = ureq::post("https://luarocks.org/api/1/bearer/upload")
-        .header("Authorization", &format!("Bearer {api_key}"))
-        .send(form);
+    let upload = (|| -> Result<LuaRocksVersionResponse> {
+        let response = ureq::post("https://luarocks.org/api/1/bearer/upload")
+            .config()
+            .http_status_as_error(false)
+            .build()
+            .header("Authorization", &format!("Bearer {api_key}"))
+            .send(form)?;
+        decode_luarocks_response(response, "rockspec upload")
+    })();
     match upload {
-        Ok(mut response) => {
-            let uploaded: LuaRocksVersionResponse = response.body_mut().read_json()?;
+        Ok(uploaded) => {
+            let uploaded: LuaRocksVersionResponse = uploaded;
             uploaded
                 .version
                 .map(|version| version.id)
@@ -487,23 +503,48 @@ fn ensure_luarocks_version(api_key: &str, rockspec: &Path, version: &str) -> Res
 }
 
 fn check_luarocks_version(api_key: &str, version: &str) -> Result<Option<u64>> {
-    let mut response = ureq::get("https://luarocks.org/api/1/bearer/check_rockspec")
+    let response = ureq::get("https://luarocks.org/api/1/bearer/check_rockspec")
+        .config()
+        .http_status_as_error(false)
+        .build()
         .header("Authorization", &format!("Bearer {api_key}"))
         .query("package", "revault_api")
         .query("version", luarocks_version(version))
         .call()?;
-    let checked: LuaRocksVersionResponse = response.body_mut().read_json()?;
+    let checked: LuaRocksVersionResponse = decode_luarocks_response(response, "version check")?;
     Ok(checked.version.map(|version| version.id))
 }
 
 fn upload_binary_rock(api_key: &str, version_id: u64, rock: &Path) -> Result {
     let form = Form::new().file("rock_file", rock)?;
     let url = format!("https://luarocks.org/api/1/bearer/upload_rock/{version_id}");
-    ureq::post(&url)
+    let response = ureq::post(&url)
+        .config()
+        .http_status_as_error(false)
+        .build()
         .header("Authorization", &format!("Bearer {api_key}"))
         .send(form)?;
+    let _: serde_json::Value = decode_luarocks_response(response, "binary rock upload")?;
     println!("published binary rock: {}", rock.display());
     Ok(())
+}
+
+fn decode_luarocks_response<T: DeserializeOwned>(
+    mut response: ureq::http::Response<ureq::Body>,
+    operation: &str,
+) -> Result<T> {
+    let status = response.status();
+    let body = response.body_mut().read_to_string()?;
+    if !status.is_success() {
+        let details = serde_json::from_str::<LuaRocksErrorResponse>(&body)
+            .ok()
+            .filter(|error| !error.errors.is_empty())
+            .map(|error| error.errors.join("; "))
+            .unwrap_or_else(|| body.trim().to_owned());
+        return Err(format!("LuaRocks {operation} failed with HTTP {status}: {details}").into());
+    }
+    serde_json::from_str(&body)
+        .map_err(|error| format!("invalid LuaRocks {operation} response: {error}").into())
 }
 
 fn luarocks_version(version: &str) -> String {
@@ -888,6 +929,13 @@ mod tests {
     #[test]
     fn luarocks_version_includes_the_rockspec_revision() {
         assert_eq!(luarocks_version("0.1.0"), "0.1.0-1");
+    }
+
+    #[test]
+    fn luarocks_error_response_decodes_error_messages() {
+        let response: LuaRocksErrorResponse =
+            serde_json::from_str(r#"{"errors":["first", "second"]}"#).unwrap();
+        assert_eq!(response.errors, ["first", "second"]);
     }
 
     #[test]
