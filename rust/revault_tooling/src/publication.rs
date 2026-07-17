@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::thread;
 use std::time::Duration;
-use ureq::unversioned::multipart::Form;
+use ureq::unversioned::multipart::{Form, Part};
 use walkdir::WalkDir;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -470,7 +470,8 @@ fn ensure_luarocks_version(api_key: &str, rockspec: &Path, version: &str) -> Res
         return Ok(id);
     }
 
-    let form = Form::new().file("rockspec_file", rockspec)?;
+    let rockspec_part = Part::file(rockspec)?.mime_str("application/octet-stream")?;
+    let form = Form::new().part("rockspec_file", rockspec_part);
     let upload = (|| -> Result<LuaRocksVersionResponse> {
         let response = ureq::post("https://luarocks.org/api/1/bearer/upload")
             .config()
@@ -516,7 +517,8 @@ fn check_luarocks_version(api_key: &str, version: &str) -> Result<Option<u64>> {
 }
 
 fn upload_binary_rock(api_key: &str, version_id: u64, rock: &Path) -> Result {
-    let form = Form::new().file("rock_file", rock)?;
+    let rock_part = Part::file(rock)?.mime_str("application/octet-stream")?;
+    let form = Form::new().part("rock_file", rock_part);
     let url = format!("https://luarocks.org/api/1/bearer/upload_rock/{version_id}");
     let response = ureq::post(&url)
         .config()
