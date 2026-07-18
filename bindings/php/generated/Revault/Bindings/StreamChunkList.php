@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of streamed content chunks.
+ *
  * Generated from protobuf message <code>revault.bindings.StreamChunkList</code>
  */
 class StreamChunkList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Chunks in logical or physical order as requested.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class StreamChunkList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\StreamChunk>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Chunks in logical or physical order as requested.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class StreamChunkList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Chunks in logical or physical order as requested.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class StreamChunkList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Chunks in logical or physical order as requested.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      * @param array<\Revault\Bindings\StreamChunk>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

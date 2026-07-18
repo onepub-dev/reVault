@@ -9,27 +9,39 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * One value captured in a typed form record.
+ *
  * Generated from protobuf message <code>revault.bindings.FormValue</code>
  */
 class FormValue extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Stable field identifier from the definition revision.
+     *
      * Generated from protobuf field <code>string field_id = 1;</code>
      */
     protected $field_id = '';
     /**
+     * Field label captured when the value was written.
+     *
      * Generated from protobuf field <code>string label = 2;</code>
      */
     protected $label = '';
     /**
+     * Captured field kind.
+     *
      * Generated from protobuf field <code>string kind = 3;</code>
      */
     protected $kind = '';
     /**
+     * Non-secret text; intentionally empty for secret fields.
+     *
      * Generated from protobuf field <code>string value = 4;</code>
      */
     protected $value = '';
     /**
+     * Whether the value must be read through a callback-scoped secret API.
+     *
      * Generated from protobuf field <code>bool secret = 5;</code>
      */
     protected $secret = false;
@@ -41,10 +53,15 @@ class FormValue extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $field_id
+     *           Stable field identifier from the definition revision.
      *     @type string $label
+     *           Field label captured when the value was written.
      *     @type string $kind
+     *           Captured field kind.
      *     @type string $value
+     *           Non-secret text; intentionally empty for secret fields.
      *     @type bool $secret
+     *           Whether the value must be read through a callback-scoped secret API.
      * }
      */
     public function __construct($data = NULL) {
@@ -53,6 +70,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable field identifier from the definition revision.
+     *
      * Generated from protobuf field <code>string field_id = 1;</code>
      * @return string
      */
@@ -62,6 +81,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable field identifier from the definition revision.
+     *
      * Generated from protobuf field <code>string field_id = 1;</code>
      * @param string $var
      * @return $this
@@ -75,6 +96,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Field label captured when the value was written.
+     *
      * Generated from protobuf field <code>string label = 2;</code>
      * @return string
      */
@@ -84,6 +107,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Field label captured when the value was written.
+     *
      * Generated from protobuf field <code>string label = 2;</code>
      * @param string $var
      * @return $this
@@ -97,6 +122,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Captured field kind.
+     *
      * Generated from protobuf field <code>string kind = 3;</code>
      * @return string
      */
@@ -106,6 +133,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Captured field kind.
+     *
      * Generated from protobuf field <code>string kind = 3;</code>
      * @param string $var
      * @return $this
@@ -119,6 +148,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Non-secret text; intentionally empty for secret fields.
+     *
      * Generated from protobuf field <code>string value = 4;</code>
      * @return string
      */
@@ -128,6 +159,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Non-secret text; intentionally empty for secret fields.
+     *
      * Generated from protobuf field <code>string value = 4;</code>
      * @param string $var
      * @return $this
@@ -141,6 +174,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the value must be read through a callback-scoped secret API.
+     *
      * Generated from protobuf field <code>bool secret = 5;</code>
      * @return bool
      */
@@ -150,6 +185,8 @@ class FormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the value must be read through a callback-scoped secret API.
+     *
      * Generated from protobuf field <code>bool secret = 5;</code>
      * @param bool $var
      * @return $this

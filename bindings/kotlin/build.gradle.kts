@@ -4,11 +4,14 @@ plugins {
 }
 
 group = "dev.onepub"
-version = "0.1.0"
+version = "0.2.0"
 
 repositories { mavenLocal(); mavenCentral() }
-dependencies { api("dev.onepub:revault-api:0.1.0") }
+dependencies { api("dev.onepub:revault-api:0.2.0") }
 java { toolchain { languageVersion.set(JavaLanguageVersion.of(22)) } }
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions.allWarningsAsErrors.set(true)
+}
 
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true, validateDeployment = true)

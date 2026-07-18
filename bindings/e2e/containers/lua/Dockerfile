@@ -8,7 +8,7 @@ COPY bindings/release bindings/release
 COPY bindings/ruby/native/revault_ruby_shim.c bindings/ruby/native/revault_ruby_shim.c
 RUN cd rust && cargo build --locked --release -p revault_bindings -p revault_tooling
 RUN rust/target/release/revault-tool release package-native --repository . \
-      --version 0.1.0 --target linux-x86_64-gnu \
+      --version 0.2.0 --target linux-x86_64-gnu \
       --library rust/target/release/librevault_api.so \
       --static-library rust/target/release/librevault_api.a --output /tmp/native
 
@@ -23,14 +23,14 @@ COPY . .
 COPY --from=native /tmp/native /tmp/native
 COPY --from=native /workspace/rust/target/release/revault-tool /usr/local/bin/revault-tool
 RUN revault-tool release stage-ecosystems --allow-partial --repository . \
-      --version 0.1.0 --output /tmp/ecosystem /tmp/native/*.tar.gz \
-    && revault-tool release assemble-packages --allow-partial --version 0.1.0 \
+      --version 0.2.0 --output /tmp/ecosystem /tmp/native/*.tar.gz \
+    && revault-tool release assemble-packages --allow-partial --version 0.2.0 \
       --layout /tmp/ecosystem --source . --output /tmp/packages
 RUN protoc -I bindings/proto \
       --descriptor_set_out=/tmp/packages/lua/linux-x86_64-gnu/revault_bindings.pb \
       bindings/proto/revault_bindings.proto \
     && cd /tmp/packages/lua/linux-x86_64-gnu \
-    && luarocks --lua-version=5.1 make revault_api-0.1.0-1.rockspec \
+    && luarocks --lua-version=5.1 make revault_api-0.2.0-1.rockspec \
     && cd /workspace \
     && revault-tool bindings check --repository .
 ENV XDG_RUNTIME_DIR=/tmp/revault-runtime

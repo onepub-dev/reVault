@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Optional form value; `value` is absent when the field does not exist.
+ *
  * Generated from protobuf message <code>revault.bindings.OptionalFormValue</code>
  */
 class OptionalFormValue extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Present field value; secret payloads remain omitted.
+     *
      * Generated from protobuf field <code>.revault.bindings.FormValue value = 1;</code>
      */
     protected $value = null;
@@ -25,6 +29,7 @@ class OptionalFormValue extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type \Revault\Bindings\FormValue $value
+     *           Present field value; secret payloads remain omitted.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class OptionalFormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Present field value; secret payloads remain omitted.
+     *
      * Generated from protobuf field <code>.revault.bindings.FormValue value = 1;</code>
      * @return \Revault\Bindings\FormValue|null
      */
@@ -52,6 +59,8 @@ class OptionalFormValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Present field value; secret payloads remain omitted.
+     *
      * Generated from protobuf field <code>.revault.bindings.FormValue value = 1;</code>
      * @param \Revault\Bindings\FormValue $var
      * @return $this

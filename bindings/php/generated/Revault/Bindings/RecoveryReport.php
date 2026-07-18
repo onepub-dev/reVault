@@ -9,47 +9,69 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Results from scanning or salvaging a damaged lockbox.
+ *
  * Generated from protobuf message <code>revault.bindings.RecoveryReport</code>
  */
 class RecoveryReport extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Metadata for files recovered in full.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     private $intact_files;
     /**
+     * Total number of fully recovered files.
+     *
      * Generated from protobuf field <code>uint64 intact_file_count = 2;</code>
      */
     protected $intact_file_count = 0;
     /**
+     * Number of files for which only partial content was recovered.
+     *
      * Generated from protobuf field <code>uint64 partial_files = 3;</code>
      */
     protected $partial_files = 0;
     /**
+     * Number of corrupt records skipped by the scanner.
+     *
      * Generated from protobuf field <code>uint64 corrupt_records = 4;</code>
      */
     protected $corrupt_records = 0;
     /**
+     * Whether the table of contents was recovered.
+     *
      * Generated from protobuf field <code>bool toc_recovered = 5;</code>
      */
     protected $toc_recovered = false;
     /**
+     * Whether variable metadata was recovered.
+     *
      * Generated from protobuf field <code>bool variables_recovered = 6;</code>
      */
     protected $variables_recovered = false;
     /**
+     * Number of recovered variables.
+     *
      * Generated from protobuf field <code>uint64 variable_count = 7;</code>
      */
     protected $variable_count = 0;
     /**
+     * Whether typed form metadata was recovered.
+     *
      * Generated from protobuf field <code>bool forms_recovered = 8;</code>
      */
     protected $forms_recovered = false;
     /**
+     * Number of recovered form definitions.
+     *
      * Generated from protobuf field <code>uint64 form_definition_count = 9;</code>
      */
     protected $form_definition_count = 0;
     /**
+     * Number of recovered form records.
+     *
      * Generated from protobuf field <code>uint64 form_record_count = 10;</code>
      */
     protected $form_record_count = 0;
@@ -61,15 +83,25 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\LockboxEntry>|\Google\Protobuf\Internal\RepeatedField $intact_files
+     *           Metadata for files recovered in full.
      *     @type int|string $intact_file_count
+     *           Total number of fully recovered files.
      *     @type int|string $partial_files
+     *           Number of files for which only partial content was recovered.
      *     @type int|string $corrupt_records
+     *           Number of corrupt records skipped by the scanner.
      *     @type bool $toc_recovered
+     *           Whether the table of contents was recovered.
      *     @type bool $variables_recovered
+     *           Whether variable metadata was recovered.
      *     @type int|string $variable_count
+     *           Number of recovered variables.
      *     @type bool $forms_recovered
+     *           Whether typed form metadata was recovered.
      *     @type int|string $form_definition_count
+     *           Number of recovered form definitions.
      *     @type int|string $form_record_count
+     *           Number of recovered form records.
      * }
      */
     public function __construct($data = NULL) {
@@ -78,6 +110,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Metadata for files recovered in full.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -87,6 +121,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Metadata for files recovered in full.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      * @param array<\Revault\Bindings\LockboxEntry>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this
@@ -100,6 +136,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Total number of fully recovered files.
+     *
      * Generated from protobuf field <code>uint64 intact_file_count = 2;</code>
      * @return int|string
      */
@@ -109,6 +147,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Total number of fully recovered files.
+     *
      * Generated from protobuf field <code>uint64 intact_file_count = 2;</code>
      * @param int|string $var
      * @return $this
@@ -122,6 +162,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of files for which only partial content was recovered.
+     *
      * Generated from protobuf field <code>uint64 partial_files = 3;</code>
      * @return int|string
      */
@@ -131,6 +173,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of files for which only partial content was recovered.
+     *
      * Generated from protobuf field <code>uint64 partial_files = 3;</code>
      * @param int|string $var
      * @return $this
@@ -144,6 +188,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of corrupt records skipped by the scanner.
+     *
      * Generated from protobuf field <code>uint64 corrupt_records = 4;</code>
      * @return int|string
      */
@@ -153,6 +199,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of corrupt records skipped by the scanner.
+     *
      * Generated from protobuf field <code>uint64 corrupt_records = 4;</code>
      * @param int|string $var
      * @return $this
@@ -166,6 +214,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the table of contents was recovered.
+     *
      * Generated from protobuf field <code>bool toc_recovered = 5;</code>
      * @return bool
      */
@@ -175,6 +225,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the table of contents was recovered.
+     *
      * Generated from protobuf field <code>bool toc_recovered = 5;</code>
      * @param bool $var
      * @return $this
@@ -188,6 +240,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether variable metadata was recovered.
+     *
      * Generated from protobuf field <code>bool variables_recovered = 6;</code>
      * @return bool
      */
@@ -197,6 +251,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether variable metadata was recovered.
+     *
      * Generated from protobuf field <code>bool variables_recovered = 6;</code>
      * @param bool $var
      * @return $this
@@ -210,6 +266,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of recovered variables.
+     *
      * Generated from protobuf field <code>uint64 variable_count = 7;</code>
      * @return int|string
      */
@@ -219,6 +277,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of recovered variables.
+     *
      * Generated from protobuf field <code>uint64 variable_count = 7;</code>
      * @param int|string $var
      * @return $this
@@ -232,6 +292,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether typed form metadata was recovered.
+     *
      * Generated from protobuf field <code>bool forms_recovered = 8;</code>
      * @return bool
      */
@@ -241,6 +303,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether typed form metadata was recovered.
+     *
      * Generated from protobuf field <code>bool forms_recovered = 8;</code>
      * @param bool $var
      * @return $this
@@ -254,6 +318,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of recovered form definitions.
+     *
      * Generated from protobuf field <code>uint64 form_definition_count = 9;</code>
      * @return int|string
      */
@@ -263,6 +329,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of recovered form definitions.
+     *
      * Generated from protobuf field <code>uint64 form_definition_count = 9;</code>
      * @param int|string $var
      * @return $this
@@ -276,6 +344,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of recovered form records.
+     *
      * Generated from protobuf field <code>uint64 form_record_count = 10;</code>
      * @return int|string
      */
@@ -285,6 +355,8 @@ class RecoveryReport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of recovered form records.
+     *
      * Generated from protobuf field <code>uint64 form_record_count = 10;</code>
      * @param int|string $var
      * @return $this

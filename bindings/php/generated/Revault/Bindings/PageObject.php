@@ -9,19 +9,27 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * One logical object stored inside an encrypted page.
+ *
  * Generated from protobuf message <code>revault.bindings.PageObject</code>
  */
 class PageObject extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Object identifier within the page.
+     *
      * Generated from protobuf field <code>uint64 id = 1;</code>
      */
     protected $id = 0;
     /**
+     * Object type name.
+     *
      * Generated from protobuf field <code>string kind = 2;</code>
      */
     protected $kind = '';
     /**
+     * Encoded payload length in bytes.
+     *
      * Generated from protobuf field <code>uint64 payload_len = 3;</code>
      */
     protected $payload_len = 0;
@@ -33,8 +41,11 @@ class PageObject extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type int|string $id
+     *           Object identifier within the page.
      *     @type string $kind
+     *           Object type name.
      *     @type int|string $payload_len
+     *           Encoded payload length in bytes.
      * }
      */
     public function __construct($data = NULL) {
@@ -43,6 +54,8 @@ class PageObject extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Object identifier within the page.
+     *
      * Generated from protobuf field <code>uint64 id = 1;</code>
      * @return int|string
      */
@@ -52,6 +65,8 @@ class PageObject extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Object identifier within the page.
+     *
      * Generated from protobuf field <code>uint64 id = 1;</code>
      * @param int|string $var
      * @return $this
@@ -65,6 +80,8 @@ class PageObject extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Object type name.
+     *
      * Generated from protobuf field <code>string kind = 2;</code>
      * @return string
      */
@@ -74,6 +91,8 @@ class PageObject extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Object type name.
+     *
      * Generated from protobuf field <code>string kind = 2;</code>
      * @param string $var
      * @return $this
@@ -87,6 +106,8 @@ class PageObject extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Encoded payload length in bytes.
+     *
      * Generated from protobuf field <code>uint64 payload_len = 3;</code>
      * @return int|string
      */
@@ -96,6 +117,8 @@ class PageObject extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Encoded payload length in bytes.
+     *
      * Generated from protobuf field <code>uint64 payload_len = 3;</code>
      * @param int|string $var
      * @return $this

@@ -1,4 +1,9 @@
-// Generated complete class-oriented JavaScript API. Do not edit.
+/**
+ * Owned JavaScript API for encrypted reVault lockboxes and local vaults.
+ * See https://github.com/onepub-dev/reVault#readme for installation, security
+ * guidance, and complete examples.
+ * @module @onepub-dev/revault-api
+ */
 import { BindingOperations } from './native.js';
 export { createMessage, encodeMessage } from './native.js';
 export { revault } from './generated/messages.js';
@@ -319,12 +324,20 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxStat(this.nativeHandle, path);
   }
 
-  setVariable(name, value, secret) {
-    return this.operations.lockboxSetVariable(this.nativeHandle, name, value, secret);
+  setVariable(name, value) {
+    return this.operations.lockboxSetVariable(this.nativeHandle, name, value);
+  }
+
+  setSecretVariable(name, value) {
+    return this.operations.lockboxSetSecretVariable(this.nativeHandle, name, value);
   }
 
   getVariable(name) {
     return this.operations.lockboxGetVariable(this.nativeHandle, name);
+  }
+
+  withSecretVariable(name, callback) {
+    return this.operations.lockboxWithSecretVariable(this.nativeHandle, name, callback);
   }
 
   deleteVariable(name) {
@@ -419,8 +432,12 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxCreateFormRecord(this.nativeHandle, path, typeReference, name);
   }
 
-  setFormField(path, field, value, secret) {
-    return this.operations.lockboxSetFormField(this.nativeHandle, path, field, value, secret);
+  setFormField(path, field, value) {
+    return this.operations.lockboxSetFormField(this.nativeHandle, path, field, value);
+  }
+
+  setSecretFormField(path, field, value) {
+    return this.operations.lockboxSetSecretFormField(this.nativeHandle, path, field, value);
   }
 
   listFormRecords() {
@@ -441,6 +458,10 @@ export class Lockbox extends OwnedHandle {
 
   getFormField(path, field) {
     return this.operations.lockboxGetFormField(this.nativeHandle, path, field);
+  }
+
+  withSecretFormField(path, field, callback) {
+    return this.operations.lockboxWithSecretFormField(this.nativeHandle, path, field, callback);
   }
 
   toBytes() {

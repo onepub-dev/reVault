@@ -9,27 +9,39 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Metadata describing an encrypted local-vault backup archive.
+ *
  * Generated from protobuf message <code>revault.bindings.VaultBackupManifest</code>
  */
 class VaultBackupManifest extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Backup container format version.
+     *
      * Generated from protobuf field <code>uint32 format_version = 1;</code>
      */
     protected $format_version = 0;
     /**
+     * Backup creation time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 created_at_unix_ms = 2;</code>
      */
     protected $created_at_unix_ms = 0;
     /**
+     * Name of the encrypted vault file inside the archive.
+     *
      * Generated from protobuf field <code>string vault_file_name = 3;</code>
      */
     protected $vault_file_name = '';
     /**
+     * Encrypted vault file length in bytes.
+     *
      * Generated from protobuf field <code>uint64 vault_size = 4;</code>
      */
     protected $vault_size = 0;
     /**
+     * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+     *
      * Generated from protobuf field <code>string vault_sha256 = 5;</code>
      */
     protected $vault_sha256 = '';
@@ -41,10 +53,15 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type int $format_version
+     *           Backup container format version.
      *     @type int|string $created_at_unix_ms
+     *           Backup creation time in Unix milliseconds.
      *     @type string $vault_file_name
+     *           Name of the encrypted vault file inside the archive.
      *     @type int|string $vault_size
+     *           Encrypted vault file length in bytes.
      *     @type string $vault_sha256
+     *           Lowercase hexadecimal SHA-256 of the encrypted vault file.
      * }
      */
     public function __construct($data = NULL) {
@@ -53,6 +70,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Backup container format version.
+     *
      * Generated from protobuf field <code>uint32 format_version = 1;</code>
      * @return int
      */
@@ -62,6 +81,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Backup container format version.
+     *
      * Generated from protobuf field <code>uint32 format_version = 1;</code>
      * @param int $var
      * @return $this
@@ -75,6 +96,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Backup creation time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 created_at_unix_ms = 2;</code>
      * @return int|string
      */
@@ -84,6 +107,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Backup creation time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 created_at_unix_ms = 2;</code>
      * @param int|string $var
      * @return $this
@@ -97,6 +122,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Name of the encrypted vault file inside the archive.
+     *
      * Generated from protobuf field <code>string vault_file_name = 3;</code>
      * @return string
      */
@@ -106,6 +133,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Name of the encrypted vault file inside the archive.
+     *
      * Generated from protobuf field <code>string vault_file_name = 3;</code>
      * @param string $var
      * @return $this
@@ -119,6 +148,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Encrypted vault file length in bytes.
+     *
      * Generated from protobuf field <code>uint64 vault_size = 4;</code>
      * @return int|string
      */
@@ -128,6 +159,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Encrypted vault file length in bytes.
+     *
      * Generated from protobuf field <code>uint64 vault_size = 4;</code>
      * @param int|string $var
      * @return $this
@@ -141,6 +174,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+     *
      * Generated from protobuf field <code>string vault_sha256 = 5;</code>
      * @return string
      */
@@ -150,6 +185,8 @@ class VaultBackupManifest extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+     *
      * Generated from protobuf field <code>string vault_sha256 = 5;</code>
      * @param string $var
      * @return $this

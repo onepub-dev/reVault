@@ -9,39 +9,57 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Diagnostic metadata for one encrypted lockbox page.
+ *
  * Generated from protobuf message <code>revault.bindings.PageInspection</code>
  */
 class PageInspection extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Physical page offset in the archive.
+     *
      * Generated from protobuf field <code>uint64 offset = 1;</code>
      */
     protected $offset = 0;
     /**
+     * Stable page identifier.
+     *
      * Generated from protobuf field <code>uint64 page_id = 2;</code>
      */
     protected $page_id = 0;
     /**
+     * Commit sequence that last wrote the page.
+     *
      * Generated from protobuf field <code>uint64 sequence = 3;</code>
      */
     protected $sequence = 0;
     /**
+     * Total encoded page length.
+     *
      * Generated from protobuf field <code>uint64 page_size = 4;</code>
      */
     protected $page_size = 0;
     /**
+     * Length of the authenticated encrypted body.
+     *
      * Generated from protobuf field <code>uint64 encrypted_body_len = 5;</code>
      */
     protected $encrypted_body_len = 0;
     /**
+     * Unused capacity remaining in the page.
+     *
      * Generated from protobuf field <code>uint64 unused_bytes = 6;</code>
      */
     protected $unused_bytes = 0;
     /**
+     * Number of logical objects in the page.
+     *
      * Generated from protobuf field <code>uint64 object_count = 7;</code>
      */
     protected $object_count = 0;
     /**
+     * Objects discoverable without exposing plaintext payloads.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     private $objects;
@@ -53,13 +71,21 @@ class PageInspection extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type int|string $offset
+     *           Physical page offset in the archive.
      *     @type int|string $page_id
+     *           Stable page identifier.
      *     @type int|string $sequence
+     *           Commit sequence that last wrote the page.
      *     @type int|string $page_size
+     *           Total encoded page length.
      *     @type int|string $encrypted_body_len
+     *           Length of the authenticated encrypted body.
      *     @type int|string $unused_bytes
+     *           Unused capacity remaining in the page.
      *     @type int|string $object_count
+     *           Number of logical objects in the page.
      *     @type array<\Revault\Bindings\PageObject>|\Google\Protobuf\Internal\RepeatedField $objects
+     *           Objects discoverable without exposing plaintext payloads.
      * }
      */
     public function __construct($data = NULL) {
@@ -68,6 +94,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Physical page offset in the archive.
+     *
      * Generated from protobuf field <code>uint64 offset = 1;</code>
      * @return int|string
      */
@@ -77,6 +105,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Physical page offset in the archive.
+     *
      * Generated from protobuf field <code>uint64 offset = 1;</code>
      * @param int|string $var
      * @return $this
@@ -90,6 +120,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable page identifier.
+     *
      * Generated from protobuf field <code>uint64 page_id = 2;</code>
      * @return int|string
      */
@@ -99,6 +131,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable page identifier.
+     *
      * Generated from protobuf field <code>uint64 page_id = 2;</code>
      * @param int|string $var
      * @return $this
@@ -112,6 +146,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Commit sequence that last wrote the page.
+     *
      * Generated from protobuf field <code>uint64 sequence = 3;</code>
      * @return int|string
      */
@@ -121,6 +157,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Commit sequence that last wrote the page.
+     *
      * Generated from protobuf field <code>uint64 sequence = 3;</code>
      * @param int|string $var
      * @return $this
@@ -134,6 +172,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Total encoded page length.
+     *
      * Generated from protobuf field <code>uint64 page_size = 4;</code>
      * @return int|string
      */
@@ -143,6 +183,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Total encoded page length.
+     *
      * Generated from protobuf field <code>uint64 page_size = 4;</code>
      * @param int|string $var
      * @return $this
@@ -156,6 +198,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Length of the authenticated encrypted body.
+     *
      * Generated from protobuf field <code>uint64 encrypted_body_len = 5;</code>
      * @return int|string
      */
@@ -165,6 +209,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Length of the authenticated encrypted body.
+     *
      * Generated from protobuf field <code>uint64 encrypted_body_len = 5;</code>
      * @param int|string $var
      * @return $this
@@ -178,6 +224,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Unused capacity remaining in the page.
+     *
      * Generated from protobuf field <code>uint64 unused_bytes = 6;</code>
      * @return int|string
      */
@@ -187,6 +235,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Unused capacity remaining in the page.
+     *
      * Generated from protobuf field <code>uint64 unused_bytes = 6;</code>
      * @param int|string $var
      * @return $this
@@ -200,6 +250,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of logical objects in the page.
+     *
      * Generated from protobuf field <code>uint64 object_count = 7;</code>
      * @return int|string
      */
@@ -209,6 +261,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of logical objects in the page.
+     *
      * Generated from protobuf field <code>uint64 object_count = 7;</code>
      * @param int|string $var
      * @return $this
@@ -222,6 +276,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Objects discoverable without exposing plaintext payloads.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.PageObject objects = 8;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -231,6 +287,8 @@ class PageInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Objects discoverable without exposing plaintext payloads.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.PageObject objects = 8;</code>
      * @param array<\Revault\Bindings\PageObject>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

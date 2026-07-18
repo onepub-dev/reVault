@@ -23,15 +23,21 @@ String artifactRoot() {
 }
 
 pb.FormFieldList fields() => pb.FormFieldList(
-      values: [
-        pb.FormField(
-          id: 'username',
-          label: 'Username',
-          kind: 'text',
-          required: true,
-        ),
-      ],
-    );
+  values: [
+    pb.FormField(
+      id: 'username',
+      label: 'Username',
+      kind: 'text',
+      required: true,
+    ),
+    pb.FormField(
+      id: 'password',
+      label: 'Password',
+      kind: 'secret',
+      required: true,
+    ),
+  ],
+);
 
 void archiveLifecycle() {
   final key = repeat('K'.codeUnitAt(0), 32);
@@ -90,7 +96,17 @@ void archiveLifecycle() {
     ),
   );
   pass('lockbox_move_variables', 3);
-  box.setVariable('secret', 'hidden', secret: true);
+  box.setSecretVariable('secret', text('hidden'));
+  pass('lockbox_set_secret_variable');
+  check(
+    box.withSecretVariable('secret', (value) => String.fromCharCodes(value)) ==
+        'hidden',
+    'secret variable',
+  );
+  pass('lockbox_get_secret_variable');
+  pass('secret_len');
+  pass('secret_copy');
+  pass('secret_free');
   check(box.variableSensitivity('secret').present, 'secret');
   pass('lockbox_variable_sensitivity', 2);
   check(box.listVariables().values.length == 2, 'variables');
@@ -127,8 +143,10 @@ void archiveLifecycle() {
   );
   pass('lockbox_format_version', 2);
   pass('lockbox_probe_format_version', 2);
-  check(api.probeLockboxFormatVersion(Uint8List.fromList([1, 2, 3])) == 0,
-      'invalid format probe');
+  check(
+    api.probeLockboxFormatVersion(Uint8List.fromList([1, 2, 3])) == 0,
+    'invalid format probe',
+  );
   check(api.lastErrorDetails.message.isNotEmpty, 'structured error details');
   pass('buffer_last_error_details', 2);
   final path = '${artifactRoot()}/archive.lbox';
@@ -295,9 +313,21 @@ void advancedArchive() {
   pass('lockbox_create_form_record');
   box.setFormField('/account.form', 'username', 'alice');
   pass('lockbox_set_form_field');
-  check(box.getFormRecord('/account.form').values.length == 1, 'values');
+  box.setSecretFormField('/account.form', 'password', text('hidden'));
+  pass('lockbox_set_secret_form_field');
   check(
-    box.getFormField('/account.form', 'username').value == 'alice',
+    box.withSecretFormField(
+          '/account.form',
+          'password',
+          (value) => String.fromCharCodes(value),
+        ) ==
+        'hidden',
+    'secret form field',
+  );
+  pass('lockbox_get_secret_form_field');
+  check(box.getFormRecord('/account.form').value.values.length == 2, 'values');
+  check(
+    box.getFormField('/account.form', 'username').value.value == 'alice',
     'field',
   );
   check(box.listFormRecords().values.length == 1, 'records');
@@ -311,7 +341,10 @@ void advancedArchive() {
       ],
     ),
   );
-  check(box.getFormRecord('/moved.form').values.length == 1, 'moved record');
+  check(
+    box.getFormRecord('/moved.form').value.values.length == 1,
+    'moved record',
+  );
   box.moveFormRecords(
     pb.PathMoveList(
       values: [
@@ -674,12 +707,9 @@ Future<void> agentAndLocal() async {
   directory.dispose();
   api.forgetAllAgentSecrets();
   pass('vault_forget_all');
-  final child = await Process.start(
-      Platform.resolvedExecutable,
-      [
-        '--serve-agent',
-      ],
-      mode: ProcessStartMode.inheritStdio);
+  final child = await Process.start(Platform.resolvedExecutable, [
+    '--serve-agent',
+  ], mode: ProcessStartMode.inheritStdio);
   var running = false;
   for (var attempt = 0; attempt < 200; attempt++) {
     if (api.agentIsRunning) {
@@ -792,7 +822,8 @@ Future<void> agentAndLocal() async {
 }
 
 void interop(String producer) {
-  final root = Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
+  final root =
+      Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
       '/tmp/revault-e2e-artifacts';
   final box = api.openLockbox(
     Uint8List.fromList(File('$root/$producer/archive.lbox').readAsBytesSync()),

@@ -9,19 +9,27 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Platform capabilities used to protect secrets across system sleep.
+ *
  * Generated from protobuf message <code>revault.bindings.SleepSupport</code>
  */
 class SleepSupport extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Whether the platform reports suspend and resume transitions.
+     *
      * Generated from protobuf field <code>bool suspend_notifications = 1;</code>
      */
     protected $suspend_notifications = false;
     /**
+     * Whether the agent can temporarily inhibit system sleep.
+     *
      * Generated from protobuf field <code>bool sleep_inhibition = 2;</code>
      */
     protected $sleep_inhibition = false;
     /**
+     * Whether the configured protection policy is supported.
+     *
      * Generated from protobuf field <code>bool supported = 3;</code>
      */
     protected $supported = false;
@@ -33,8 +41,11 @@ class SleepSupport extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type bool $suspend_notifications
+     *           Whether the platform reports suspend and resume transitions.
      *     @type bool $sleep_inhibition
+     *           Whether the agent can temporarily inhibit system sleep.
      *     @type bool $supported
+     *           Whether the configured protection policy is supported.
      * }
      */
     public function __construct($data = NULL) {
@@ -43,6 +54,8 @@ class SleepSupport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the platform reports suspend and resume transitions.
+     *
      * Generated from protobuf field <code>bool suspend_notifications = 1;</code>
      * @return bool
      */
@@ -52,6 +65,8 @@ class SleepSupport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the platform reports suspend and resume transitions.
+     *
      * Generated from protobuf field <code>bool suspend_notifications = 1;</code>
      * @param bool $var
      * @return $this
@@ -65,6 +80,8 @@ class SleepSupport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the agent can temporarily inhibit system sleep.
+     *
      * Generated from protobuf field <code>bool sleep_inhibition = 2;</code>
      * @return bool
      */
@@ -74,6 +91,8 @@ class SleepSupport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the agent can temporarily inhibit system sleep.
+     *
      * Generated from protobuf field <code>bool sleep_inhibition = 2;</code>
      * @param bool $var
      * @return $this
@@ -87,6 +106,8 @@ class SleepSupport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the configured protection policy is supported.
+     *
      * Generated from protobuf field <code>bool supported = 3;</code>
      * @return bool
      */
@@ -96,6 +117,8 @@ class SleepSupport extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the configured protection policy is supported.
+     *
      * Generated from protobuf field <code>bool supported = 3;</code>
      * @param bool $var
      * @return $this

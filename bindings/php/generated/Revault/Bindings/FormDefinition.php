@@ -9,31 +9,45 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * One immutable revision of a typed form definition.
+ *
  * Generated from protobuf message <code>revault.bindings.FormDefinition</code>
  */
 class FormDefinition extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Stable type identifier shared by all revisions.
+     *
      * Generated from protobuf field <code>string type_id = 1;</code>
      */
     protected $type_id = '';
     /**
+     * Human-readable reference used to resolve the current revision.
+     *
      * Generated from protobuf field <code>string alias = 2;</code>
      */
     protected $alias = '';
     /**
+     * Monotonically increasing definition revision.
+     *
      * Generated from protobuf field <code>uint32 revision = 3;</code>
      */
     protected $revision = 0;
     /**
+     * Display name.
+     *
      * Generated from protobuf field <code>string name = 4;</code>
      */
     protected $name = '';
     /**
+     * Optional user-facing description.
+     *
      * Generated from protobuf field <code>string description = 5;</code>
      */
     protected $description = '';
     /**
+     * Ordered fields belonging to the definition.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     private $fields;
@@ -45,11 +59,17 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $type_id
+     *           Stable type identifier shared by all revisions.
      *     @type string $alias
+     *           Human-readable reference used to resolve the current revision.
      *     @type int $revision
+     *           Monotonically increasing definition revision.
      *     @type string $name
+     *           Display name.
      *     @type string $description
+     *           Optional user-facing description.
      *     @type array<\Revault\Bindings\FormField>|\Google\Protobuf\Internal\RepeatedField $fields
+     *           Ordered fields belonging to the definition.
      * }
      */
     public function __construct($data = NULL) {
@@ -58,6 +78,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable type identifier shared by all revisions.
+     *
      * Generated from protobuf field <code>string type_id = 1;</code>
      * @return string
      */
@@ -67,6 +89,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable type identifier shared by all revisions.
+     *
      * Generated from protobuf field <code>string type_id = 1;</code>
      * @param string $var
      * @return $this
@@ -80,6 +104,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Human-readable reference used to resolve the current revision.
+     *
      * Generated from protobuf field <code>string alias = 2;</code>
      * @return string
      */
@@ -89,6 +115,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Human-readable reference used to resolve the current revision.
+     *
      * Generated from protobuf field <code>string alias = 2;</code>
      * @param string $var
      * @return $this
@@ -102,6 +130,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Monotonically increasing definition revision.
+     *
      * Generated from protobuf field <code>uint32 revision = 3;</code>
      * @return int
      */
@@ -111,6 +141,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Monotonically increasing definition revision.
+     *
      * Generated from protobuf field <code>uint32 revision = 3;</code>
      * @param int $var
      * @return $this
@@ -124,6 +156,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Display name.
+     *
      * Generated from protobuf field <code>string name = 4;</code>
      * @return string
      */
@@ -133,6 +167,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Display name.
+     *
      * Generated from protobuf field <code>string name = 4;</code>
      * @param string $var
      * @return $this
@@ -146,6 +182,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Optional user-facing description.
+     *
      * Generated from protobuf field <code>string description = 5;</code>
      * @return string
      */
@@ -155,6 +193,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Optional user-facing description.
+     *
      * Generated from protobuf field <code>string description = 5;</code>
      * @param string $var
      * @return $this
@@ -168,6 +208,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Ordered fields belonging to the definition.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormField fields = 6;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -177,6 +219,8 @@ class FormDefinition extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Ordered fields belonging to the definition.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormField fields = 6;</code>
      * @param array<\Revault\Bindings\FormField>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

@@ -8,10 +8,10 @@ import { Vault, createMessage, encodeMessage } from '@onepub-dev/revault-api';
 const api = new Vault();
 const language = 'typescript';
 const script = fileURLToPath(import.meta.url);
-const pass = (symbol, assertions = 1) => console.log(`PASS\t${language}\t${symbol}\t${assertions}`);
-const check = (value, message) => { if (!value) throw new Error(message); };
-const bytes = value => Buffer.isBuffer(value) ? value : Buffer.from(value);
-const equal = (left, right) => bytes(left).equals(bytes(right));
+const pass = (symbol: string, assertions = 1) => console.log(`PASS\t${language}\t${symbol}\t${assertions}`);
+const check = (value: boolean, message: string) => { if (!value) throw new Error(message); };
+const bytes = (value: Uint8Array | string) => Buffer.isBuffer(value) ? value : Buffer.from(value);
+const equal = (left: Uint8Array | string, right: Uint8Array | string) => bytes(left).equals(bytes(right));
 const artifactRoot = () => {
   const root = path.join(process.env.REVAULT_E2E_ARTIFACT_DIR ?? '/tmp/revault-e2e-artifacts', language);
   fs.mkdirSync(root, { recursive: true, mode: 0o700 });
@@ -19,8 +19,9 @@ const artifactRoot = () => {
 };
 const fields = () => encodeMessage(createMessage('FormFieldList', { values: [
   createMessage('FormField', { id: 'username', label: 'Username', kind: 'text', required: true }),
+  createMessage('FormField', { id: 'password', label: 'Password', kind: 'secret', required: true }),
 ] }));
-const sleep = milliseconds => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
+const sleep = (milliseconds: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 
 function archiveLifecycle() {
   const key = Buffer.alloc(32, 'K');
@@ -36,13 +37,16 @@ function archiveLifecycle() {
   check(box.exists('/renamed.txt') && !box.exists('/hello.txt'), 'exists'); pass('lockbox_exists', 2);
   box.setPermissions('/renamed.txt', 0o600); pass('lockbox_set_permissions', 2);
   check(equal(box.readRange('/renamed.txt', 0, 11), 'replacement'), 'range'); pass('lockbox_read_range', 3);
-  box.setVariable('normal', 'value', false); pass('lockbox_set_variable');
+  box.setVariable('normal', 'value'); pass('lockbox_set_variable');
   check(box.getVariable('normal') === 'value', 'variable'); pass('lockbox_get_variable', 3);
   let moves = encodeMessage(createMessage('PathMoveList', { values: [createMessage('PathMove', { source: 'normal', destination: 'moved' })] }));
   box.moveVariables(moves); check(box.getVariable('moved') === 'value', 'moved variable');
   moves = encodeMessage(createMessage('PathMoveList', { values: [createMessage('PathMove', { source: 'moved', destination: 'normal' })] }));
   box.moveVariables(moves); pass('lockbox_move_variables', 3);
-  box.setVariable('secret', 'hidden', true); box.variableSensitivity('secret'); pass('lockbox_variable_sensitivity', 2);
+  box.setSecretVariable('secret', Buffer.from('hidden')); pass('lockbox_set_secret_variable');
+  check(box.withSecretVariable('secret', value => value.toString()) === 'hidden', 'secret variable');
+  pass('lockbox_get_secret_variable'); pass('secret_len'); pass('secret_copy'); pass('secret_free');
+  box.variableSensitivity('secret'); pass('lockbox_variable_sensitivity', 2);
   check(box.listVariables().values.length === 2, 'variables'); pass('lockbox_list_variables');
   box.deleteVariable('normal'); pass('lockbox_delete_variable');
   box.addSymlink('/link', '/renamed.txt', false); pass('lockbox_add_symlink');
@@ -111,7 +115,10 @@ function advancedArchive() {
   box.listFormDefinitions(); box.resolveForm('account'); box.listFormRevisions(definition.typeId);
   pass('lockbox_list_form_definitions'); pass('lockbox_resolve_form'); pass('lockbox_list_form_revisions');
   box.createFormRecord('/account.form', 'account', 'Primary'); pass('lockbox_create_form_record');
-  box.setFormField('/account.form', 'username', 'alice', false); pass('lockbox_set_form_field');
+  box.setFormField('/account.form', 'username', 'alice'); pass('lockbox_set_form_field');
+  box.setSecretFormField('/account.form', 'password', Buffer.from('hidden')); pass('lockbox_set_secret_form_field');
+  check(box.withSecretFormField('/account.form', 'password', value => value.toString()) === 'hidden', 'secret form field');
+  pass('lockbox_get_secret_form_field');
   box.getFormRecord('/account.form'); box.getFormField('/account.form', 'username'); box.listFormRecords();
   pass('lockbox_get_form_record'); pass('lockbox_get_form_field'); pass('lockbox_list_form_records');
   let moves = encodeMessage(createMessage('PathMoveList', { values: [createMessage('PathMove', { source: '/account.form', destination: '/moved.form' })] }));
@@ -206,7 +213,7 @@ function vaultLifecycle() {
 }
 
 function defaultVault() {
-  fs.mkdirSync(process.env.LOCKBOX_VAULT_DIR, { recursive: true, mode: 0o700 });
+  fs.mkdirSync(process.env.LOCKBOX_VAULT_DIR!, { recursive: true, mode: 0o700 });
   api.vaultDirectoryReplaceDefault('default password').free(); pass('vault_directory_replace_default');
   api.vaultReadOnlyOpenDefault('default password').free(); pass('vault_read_only_open_default');
   api.vaultDefaultDirectory(); api.vaultDefaultPath(); pass('vault_default_directory', 3); pass('vault_default_path', 2);
@@ -228,7 +235,7 @@ function platformStore() {
 }
 
 async function agentAndLocal() {
-  for (const directory of [process.env.LOCKBOX_SESSION_AGENT_DIR, process.env.LOCKBOX_VAULT_DIR]) fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+  for (const directory of [process.env.LOCKBOX_SESSION_AGENT_DIR!, process.env.LOCKBOX_VAULT_DIR!]) fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
   const directory = api.vaultDirectoryReplaceDefault('agent vault password'); const profile = api.keyContactGenerate();
   directory.storePrivateKey('default', profile); profile.free(); directory.free();
   const agent = api.agent; agent.forgetAll(); pass('vault_forget_all');
@@ -265,11 +272,11 @@ async function agentAndLocal() {
   agent.forgetOwnerSigningKey('vault-id', 'alice'); agent.forgetVaultUnlockKey('vault-id'); agent.forget(id);
   pass('vault_agent_forget_owner_signing_key'); pass('vault_agent_forget_vault_unlock_key'); pass('vault_agent_forget');
   agent.stop(); pass('vault_agent_stop');
-  const exitCode = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', resolve); });
+  const exitCode = await new Promise<number | null>((resolve, reject) => { child.once('error', reject); child.once('exit', resolve); });
   check(exitCode === 0, 'agent child');
 }
 
-function interop(producer) {
+function interop(producer: string) {
   const root = process.env.REVAULT_E2E_ARTIFACT_DIR ?? '/tmp/revault-e2e-artifacts';
   const box = api.lockboxOpen(fs.readFileSync(path.join(root, producer, 'archive.lbox')), Buffer.alloc(32, 'K'));
   check(equal(box.getFile('/renamed.txt'), 'replacement payload'), 'foreign archive'); box.free();

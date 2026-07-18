@@ -1,6 +1,9 @@
-# Generated complete class-oriented Ruby API. Do not edit.
+# The owned, class-oriented reVault API. See the
+# {repository README}[https://github.com/onepub-dev/reVault#readme] for the
+# security model and complete examples.
 require_relative 'binding_operations'
 
+# Encrypts lockbox content and manages local vault metadata.
 module Revault
 
   class OwnedHandle
@@ -11,6 +14,7 @@ module Revault
     end
   end
 
+  # Main entry point for lockboxes, keys, the local vault, agent, and platform store.
   class Vault
     attr_reader :agent, :platform
     def initialize
@@ -227,6 +231,7 @@ module Revault
 
   end
 
+  # Owned, mutable view of one encrypted lockbox archive.
   class Lockbox < OwnedHandle
     def add_file(path, data, replace)
       @operations.lockbox_add_file(@native_handle, path, data, replace)
@@ -328,12 +333,22 @@ module Revault
       @operations.lockbox_stat(@native_handle, path)
     end
 
-    def set_variable(name, value, secret)
-      @operations.lockbox_set_variable(@native_handle, name, value, secret)
+    def set_variable(name, value)
+      @operations.lockbox_set_variable(@native_handle, name, value)
+    end
+
+    # Stores a secret variable from mutable bytes.
+    def set_secret_variable(name, value)
+      @operations.lockbox_set_secret_variable(@native_handle, name, value)
     end
 
     def get_variable(name)
       @operations.lockbox_get_variable(@native_handle, name)
+    end
+
+    # Yields temporary secret bytes and wipes the native transfer afterwards.
+    def with_secret_variable(name, &callback)
+      @operations.lockbox_get_secret_variable(@native_handle, name, &callback)
     end
 
     def delete_variable(name)
@@ -428,8 +443,13 @@ module Revault
       @operations.lockbox_create_form_record(@native_handle, path, type_reference, name)
     end
 
-    def set_form_field(path, field, value, secret)
-      @operations.lockbox_set_form_field(@native_handle, path, field, value, secret)
+    def set_form_field(path, field, value)
+      @operations.lockbox_set_form_field(@native_handle, path, field, value)
+    end
+
+    # Stores a secret form field from mutable bytes.
+    def set_secret_form_field(path, field, value)
+      @operations.lockbox_set_secret_form_field(@native_handle, path, field, value)
     end
 
     def list_form_records()
@@ -452,6 +472,11 @@ module Revault
       @operations.lockbox_get_form_field(@native_handle, path, field)
     end
 
+    # Yields temporary field bytes and wipes the native transfer afterwards.
+    def with_secret_form_field(path, field, &callback)
+      @operations.lockbox_get_secret_form_field(@native_handle, path, field, &callback)
+    end
+
     def to_bytes()
       @operations.lockbox_to_bytes(@native_handle)
     end
@@ -463,6 +488,7 @@ module Revault
 
   end
 
+  # Owned contact key pair used to decrypt received content keys.
   class ContactKeyPair < OwnedHandle
     def public()
       @operations.key_contact_public(@native_handle)
@@ -483,6 +509,7 @@ module Revault
 
   end
 
+  # Shareable contact public key used to encrypt a recipient content key.
   class ContactPublicKey < OwnedHandle
     def public_free()
       @operations.key_contact_public_free(@native_handle)
@@ -495,6 +522,7 @@ module Revault
 
   end
 
+  # Owned encrypted content-key envelope for one contact recipient.
   class WrappedContactKey < OwnedHandle
     def public()
       @operations.key_contact_wrapped_public(@native_handle)
@@ -515,6 +543,7 @@ module Revault
 
   end
 
+  # Owned signing key pair used to authorize mutable lockbox commits.
   class SigningKeyPair < OwnedHandle
     def public()
       @operations.key_signing_public(@native_handle)
@@ -531,6 +560,7 @@ module Revault
 
   end
 
+  # Public key used to verify owner-authorized lockbox commits.
   class SigningPublicKey < OwnedHandle
     def public_free()
       @operations.key_signing_public_free(@native_handle)
@@ -539,6 +569,7 @@ module Revault
 
   end
 
+  # Writable, password-protected local metadata vault.
   class VaultDirectory < OwnedHandle
     def root()
       @operations.vault_directory_root(@native_handle)
@@ -715,6 +746,7 @@ module Revault
 
   end
 
+  # Read-only metadata view that never loads an owner signing key.
   class ReadOnlyVaultDirectory < OwnedHandle
     def list_profile_names()
       @operations.vault_read_only_list_profile_names(@native_handle)
@@ -738,6 +770,7 @@ module Revault
 
   end
 
+  # Client for the local session agent's time-limited secret cache.
   class Agent
     def initialize(operations)
       @operations = operations
@@ -821,9 +854,11 @@ module Revault
 
   end
 
+  # Owned registration for an operation that requires secret access.
   class AgentActivity < OwnedHandle
   end
 
+  # Controls integration with the operating system's secret store.
   class Platform
     def initialize(operations)
       @operations = operations
@@ -863,6 +898,7 @@ module Revault
 
   end
 
+  # High-level workflow for local metadata and remembered lockboxes.
   class LocalVault < OwnedHandle
     def create_lockbox_password(path, password)
       Lockbox.new(@operations, @operations.vault_create_lockbox_password(@native_handle, path, password))

@@ -9,19 +9,27 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Metadata for one password or contact access slot.
+ *
  * Generated from protobuf message <code>revault.bindings.KeySlot</code>
  */
 class KeySlot extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Stable slot identifier used for deletion and local labels.
+     *
      * Generated from protobuf field <code>uint64 id = 1;</code>
      */
     protected $id = 0;
     /**
+     * Protection type, such as `password` or `contact`.
+     *
      * Generated from protobuf field <code>string protection = 2;</code>
      */
     protected $protection = '';
     /**
+     * Cryptographic algorithm identifier stored by the slot.
+     *
      * Generated from protobuf field <code>string algorithm = 3;</code>
      */
     protected $algorithm = '';
@@ -33,8 +41,11 @@ class KeySlot extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type int|string $id
+     *           Stable slot identifier used for deletion and local labels.
      *     @type string $protection
+     *           Protection type, such as `password` or `contact`.
      *     @type string $algorithm
+     *           Cryptographic algorithm identifier stored by the slot.
      * }
      */
     public function __construct($data = NULL) {
@@ -43,6 +54,8 @@ class KeySlot extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable slot identifier used for deletion and local labels.
+     *
      * Generated from protobuf field <code>uint64 id = 1;</code>
      * @return int|string
      */
@@ -52,6 +65,8 @@ class KeySlot extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable slot identifier used for deletion and local labels.
+     *
      * Generated from protobuf field <code>uint64 id = 1;</code>
      * @param int|string $var
      * @return $this
@@ -65,6 +80,8 @@ class KeySlot extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Protection type, such as `password` or `contact`.
+     *
      * Generated from protobuf field <code>string protection = 2;</code>
      * @return string
      */
@@ -74,6 +91,8 @@ class KeySlot extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Protection type, such as `password` or `contact`.
+     *
      * Generated from protobuf field <code>string protection = 2;</code>
      * @param string $var
      * @return $this
@@ -87,6 +106,8 @@ class KeySlot extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Cryptographic algorithm identifier stored by the slot.
+     *
      * Generated from protobuf field <code>string algorithm = 3;</code>
      * @return string
      */
@@ -96,6 +117,8 @@ class KeySlot extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Cryptographic algorithm identifier stored by the slot.
+     *
      * Generated from protobuf field <code>string algorithm = 3;</code>
      * @param string $var
      * @return $this

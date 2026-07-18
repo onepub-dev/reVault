@@ -9,23 +9,33 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A local-only label for one lockbox access slot.
+ *
  * Generated from protobuf message <code>revault.bindings.AccessSlotLabel</code>
  */
 class AccessSlotLabel extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Lockbox containing the access slot.
+     *
      * Generated from protobuf field <code>bytes lockbox_id = 1;</code>
      */
     protected $lockbox_id = '';
     /**
+     * Stable slot identifier within that lockbox.
+     *
      * Generated from protobuf field <code>uint64 slot_id = 2;</code>
      */
     protected $slot_id = 0;
     /**
+     * User-assigned local label.
+     *
      * Generated from protobuf field <code>string name = 3;</code>
      */
     protected $name = '';
     /**
+     * Last update time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 updated_at_unix_ms = 4;</code>
      */
     protected $updated_at_unix_ms = 0;
@@ -37,9 +47,13 @@ class AccessSlotLabel extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $lockbox_id
+     *           Lockbox containing the access slot.
      *     @type int|string $slot_id
+     *           Stable slot identifier within that lockbox.
      *     @type string $name
+     *           User-assigned local label.
      *     @type int|string $updated_at_unix_ms
+     *           Last update time in Unix milliseconds.
      * }
      */
     public function __construct($data = NULL) {
@@ -48,6 +62,8 @@ class AccessSlotLabel extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Lockbox containing the access slot.
+     *
      * Generated from protobuf field <code>bytes lockbox_id = 1;</code>
      * @return string
      */
@@ -57,6 +73,8 @@ class AccessSlotLabel extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Lockbox containing the access slot.
+     *
      * Generated from protobuf field <code>bytes lockbox_id = 1;</code>
      * @param string $var
      * @return $this
@@ -70,6 +88,8 @@ class AccessSlotLabel extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable slot identifier within that lockbox.
+     *
      * Generated from protobuf field <code>uint64 slot_id = 2;</code>
      * @return int|string
      */
@@ -79,6 +99,8 @@ class AccessSlotLabel extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable slot identifier within that lockbox.
+     *
      * Generated from protobuf field <code>uint64 slot_id = 2;</code>
      * @param int|string $var
      * @return $this
@@ -92,6 +114,8 @@ class AccessSlotLabel extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * User-assigned local label.
+     *
      * Generated from protobuf field <code>string name = 3;</code>
      * @return string
      */
@@ -101,6 +125,8 @@ class AccessSlotLabel extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * User-assigned local label.
+     *
      * Generated from protobuf field <code>string name = 3;</code>
      * @param string $var
      * @return $this
@@ -114,6 +140,8 @@ class AccessSlotLabel extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Last update time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 updated_at_unix_ms = 4;</code>
      * @return int|string
      */
@@ -123,6 +151,8 @@ class AccessSlotLabel extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Last update time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 updated_at_unix_ms = 4;</code>
      * @param int|string $var
      * @return $this

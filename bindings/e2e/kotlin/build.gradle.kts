@@ -4,8 +4,8 @@ plugins {
 }
 repositories { mavenLocal(); mavenCentral() }
 dependencies {
-    implementation("dev.onepub:revault-api:0.1.0")
-    implementation("dev.onepub:revault-api-kotlin:0.1.0")
+    implementation("dev.onepub:revault-api:0.2.0")
+    implementation("dev.onepub:revault-api-kotlin:0.2.0")
 }
 sourceSets {
     main {

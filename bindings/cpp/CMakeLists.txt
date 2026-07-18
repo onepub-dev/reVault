@@ -12,7 +12,12 @@ find_path(REVAULT_NATIVE_INCLUDE_DIR revault_api.h
   HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../../rust/revault_bindings
   REQUIRED)
 add_library(revault_api_cpp STATIC revault_api.cpp generated/revault_bindings.pb.cc)
-target_compile_features(revault_api_cpp PUBLIC cxx_std_17)
+target_compile_features(revault_api_cpp PUBLIC cxx_std_20)
+if(MSVC)
+  target_compile_options(revault_api_cpp PRIVATE /W4 /WX)
+else()
+  target_compile_options(revault_api_cpp PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()
 target_include_directories(revault_api_cpp PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/generated>

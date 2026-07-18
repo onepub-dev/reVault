@@ -1,61 +1,456 @@
 syntax = "proto3";
 
+// Structured, language-neutral results returned by the reVault native ABI.
+//
+// See https://github.com/onepub-dev/reVault#readme for the lockbox security
+// model, binding installation, and complete examples.
 package revault.bindings;
 option go_package = "github.com/onepub-dev/revault-api/messages";
 
+// Metadata for one entry in a lockbox filesystem.
 message LockboxEntry {
+  // Normalized absolute path within the lockbox.
   string path = 1;
-  enum Kind { KIND_UNSPECIFIED = 0; FILE = 1; SYMLINK = 2; DIRECTORY = 3; }
+  // Filesystem object type.
+  enum Kind {
+    // No object type was supplied.
+    KIND_UNSPECIFIED = 0;
+    // A regular file.
+    FILE = 1;
+    // A symbolic link whose target is stored in the lockbox.
+    SYMLINK = 2;
+    // A directory.
+    DIRECTORY = 3;
+  }
+  // Type of the entry.
   Kind kind = 2;
+  // Logical file length in bytes; zero for directories.
   uint64 length = 3;
+  // Stored Unix permission bits.
   uint32 permissions = 4;
 }
 
-message LockboxEntryList { repeated LockboxEntry entries = 1; }
-message OptionalLockboxEntry { LockboxEntry value = 1; }
+// A collection of lockbox entries.
+message LockboxEntryList {
+  // Entries in the order returned by the requested listing operation.
+  repeated LockboxEntry entries = 1;
+}
+// Optional entry; `value` is absent when a path does not exist.
+message OptionalLockboxEntry {
+  // Present entry value.
+  LockboxEntry value = 1;
+}
 
-message StringList { repeated string values = 1; }
-message PathMove { string source = 1; string destination = 2; }
-message PathMoveList { repeated PathMove values = 1; }
-message ByteList { repeated bytes values = 1; }
-message FormField { string id = 1; string label = 2; string kind = 3; bool required = 4; }
-message FormFieldList { repeated FormField values = 1; }
-message FormDefinition { string type_id = 1; string alias = 2; uint32 revision = 3; string name = 4; string description = 5; repeated FormField fields = 6; }
-message FormDefinitionList { repeated FormDefinition values = 1; }
-message FormValue { string field_id = 1; string label = 2; string kind = 3; string value = 4; bool secret = 5; }
-message FormRecord { string path = 1; string name = 2; string type_id = 3; string definition_alias = 4; uint32 definition_revision = 5; repeated FormValue values = 6; }
-message FormRecordList { repeated FormRecord values = 1; }
-message OptionalFormRecord { FormRecord value = 1; }
-message OptionalFormValue { FormValue value = 1; }
-message RecoveryReport { repeated LockboxEntry intact_files = 1; uint64 intact_file_count = 2; uint64 partial_files = 3; uint64 corrupt_records = 4; bool toc_recovered = 5; bool variables_recovered = 6; uint64 variable_count = 7; bool forms_recovered = 8; uint64 form_definition_count = 9; uint64 form_record_count = 10; }
-message KeySlot { uint64 id = 1; string protection = 2; string algorithm = 3; }
-message KeySlotList { repeated KeySlot values = 1; }
-message CacheStats { uint64 limit_bytes = 1; uint64 used_bytes = 2; uint64 entries = 3; uint64 hits = 4; uint64 misses = 5; }
-message ImportStats { string host_stat_nanos = 1; string host_read_nanos = 2; string frame_prepare_nanos = 3; string page_write_nanos = 4; }
-message PageObject { uint64 id = 1; string kind = 2; uint64 payload_len = 3; }
-message PageInspection { uint64 offset = 1; uint64 page_id = 2; uint64 sequence = 3; uint64 page_size = 4; uint64 encrypted_body_len = 5; uint64 unused_bytes = 6; uint64 object_count = 7; repeated PageObject objects = 8; }
-message PageInspectionList { repeated PageInspection values = 1; }
-message FileInspection { bytes lockbox_id = 1; bool header_readable = 2; uint64 key_directory_generation = 3; uint64 key_directory_copy_count = 4; bool owner_signed = 5; repeated KeySlot key_slots = 6; }
-message ProfileGeneration { uint32 index = 1; string status = 2; bytes contact_fingerprint = 3; uint64 created_at_unix_ms = 4; uint64 retired_at_unix_ms = 5; bool has_retired_at = 6; }
-message ProfileHistory { string name = 1; uint32 active_generation = 2; repeated ProfileGeneration generations = 3; }
-message KnownLockbox { bytes lockbox_id = 1; string path = 2; uint64 last_seen_unix_ms = 3; }
-message KnownLockboxList { repeated KnownLockbox values = 1; }
-message AccessSlotLabel { bytes lockbox_id = 1; uint64 slot_id = 2; string name = 3; uint64 updated_at_unix_ms = 4; }
-message AccessSlotLabelList { repeated AccessSlotLabel values = 1; }
-message StreamChunk { string path = 1; uint64 file_offset = 2; uint64 length = 3; uint64 physical_offset = 4; bool sparse = 5; bytes data = 6; }
-message StreamChunkList { repeated StreamChunk values = 1; }
-message RuntimeOptions { string workload_profile = 1; string worker_policy = 2; }
-message Variable { string name = 1; string sensitivity = 2; }
-message VariableList { repeated Variable values = 1; }
-message OptionalString { bool present = 1; string value = 2; }
-message OwnerInspection { bool signed = 1; string fingerprint = 2; bool has_fingerprint = 3; }
-message Contact { string name = 1; bytes key = 2; }
-message ContactList { repeated Contact values = 1; }
-message ProfileHistoryList { repeated ProfileHistory values = 1; }
-message AgentEntry { string id = 1; string path = 2; }
-message AgentEntryList { repeated AgentEntry values = 1; }
-message SleepSupport { bool suspend_notifications = 1; bool sleep_inhibition = 2; bool supported = 3; }
-message PlatformStatus { bool supported = 1; bool disabled = 2; string scope = 3; string backend = 4; string item = 5; }
-message StringValue { string value = 1; }
-message VaultBackupManifest { uint32 format_version = 1; uint64 created_at_unix_ms = 2; string vault_file_name = 3; uint64 vault_size = 4; string vault_sha256 = 5; }
-message ErrorDetails { string category = 1; string artifact_kind = 2; uint32 found_version = 3; uint32 supported_version = 4; string message = 5; string guidance = 6; }
+// A collection of UTF-8 strings.
+message StringList {
+  // String values in API-defined order.
+  repeated string values = 1;
+}
+// One atomic source-to-destination rename.
+message PathMove {
+  // Existing variable name or form-record path.
+  string source = 1;
+  // New variable name or form-record path.
+  string destination = 2;
+}
+// Renames applied as one operation.
+message PathMoveList {
+  // Requested source-to-destination moves.
+  repeated PathMove values = 1;
+}
+// A collection of arbitrary byte strings.
+message ByteList {
+  // Binary values in API-defined order.
+  repeated bytes values = 1;
+}
+
+// One field in a typed form definition.
+message FormField {
+  // Stable field identifier used by records.
+  string id = 1;
+  // User-facing label captured in records.
+  string label = 2;
+  // Field kind, such as `text`, `password`, or `secret`.
+  string kind = 3;
+  // Whether records must provide a value.
+  bool required = 4;
+}
+// A collection of form fields.
+message FormFieldList {
+  // Ordered form fields.
+  repeated FormField values = 1;
+}
+
+// One immutable revision of a typed form definition.
+message FormDefinition {
+  // Stable type identifier shared by all revisions.
+  string type_id = 1;
+  // Human-readable reference used to resolve the current revision.
+  string alias = 2;
+  // Monotonically increasing definition revision.
+  uint32 revision = 3;
+  // Display name.
+  string name = 4;
+  // Optional user-facing description.
+  string description = 5;
+  // Ordered fields belonging to the definition.
+  repeated FormField fields = 6;
+}
+// A collection of form definitions.
+message FormDefinitionList {
+  // Definitions in revision or alias order, as specified by the operation.
+  repeated FormDefinition values = 1;
+}
+
+// One value captured in a typed form record.
+message FormValue {
+  // Stable field identifier from the definition revision.
+  string field_id = 1;
+  // Field label captured when the value was written.
+  string label = 2;
+  // Captured field kind.
+  string kind = 3;
+  // Non-secret text; intentionally empty for secret fields.
+  string value = 4;
+  // Whether the value must be read through a callback-scoped secret API.
+  bool secret = 5;
+}
+// One typed record stored at a lockbox path.
+message FormRecord {
+  // Record path within the lockbox.
+  string path = 1;
+  // User-facing record name.
+  string name = 2;
+  // Stable form type identifier.
+  string type_id = 3;
+  // Alias captured from the definition.
+  string definition_alias = 4;
+  // Definition revision used to create the record.
+  uint32 definition_revision = 5;
+  // Field values in definition order.
+  repeated FormValue values = 6;
+}
+// A collection of form records.
+message FormRecordList {
+  // Records in normalized path order.
+  repeated FormRecord values = 1;
+}
+// Optional form record; `value` is absent when the record does not exist.
+message OptionalFormRecord {
+  // Present record value.
+  FormRecord value = 1;
+}
+// Optional form value; `value` is absent when the field does not exist.
+message OptionalFormValue {
+  // Present field value; secret payloads remain omitted.
+  FormValue value = 1;
+}
+
+// Results from scanning or salvaging a damaged lockbox.
+message RecoveryReport {
+  // Metadata for files recovered in full.
+  repeated LockboxEntry intact_files = 1;
+  // Total number of fully recovered files.
+  uint64 intact_file_count = 2;
+  // Number of files for which only partial content was recovered.
+  uint64 partial_files = 3;
+  // Number of corrupt records skipped by the scanner.
+  uint64 corrupt_records = 4;
+  // Whether the table of contents was recovered.
+  bool toc_recovered = 5;
+  // Whether variable metadata was recovered.
+  bool variables_recovered = 6;
+  // Number of recovered variables.
+  uint64 variable_count = 7;
+  // Whether typed form metadata was recovered.
+  bool forms_recovered = 8;
+  // Number of recovered form definitions.
+  uint64 form_definition_count = 9;
+  // Number of recovered form records.
+  uint64 form_record_count = 10;
+}
+
+// Metadata for one password or contact access slot.
+message KeySlot {
+  // Stable slot identifier used for deletion and local labels.
+  uint64 id = 1;
+  // Protection type, such as `password` or `contact`.
+  string protection = 2;
+  // Cryptographic algorithm identifier stored by the slot.
+  string algorithm = 3;
+}
+// A collection of access slots.
+message KeySlotList {
+  // Access slots in stable id order.
+  repeated KeySlot values = 1;
+}
+
+// Current decrypted-page cache counters.
+message CacheStats {
+  // Configured cache limit in bytes.
+  uint64 limit_bytes = 1;
+  // Bytes currently held by the cache.
+  uint64 used_bytes = 2;
+  // Number of cached entries.
+  uint64 entries = 3;
+  // Successful cache lookup count.
+  uint64 hits = 4;
+  // Failed cache lookup count.
+  uint64 misses = 5;
+}
+// Cumulative timing counters for bulk imports, represented as decimal nanoseconds.
+message ImportStats {
+  // Time spent querying host file metadata.
+  string host_stat_nanos = 1;
+  // Time spent reading host file content.
+  string host_read_nanos = 2;
+  // Time spent preparing compression/encryption frames.
+  string frame_prepare_nanos = 3;
+  // Time spent writing encrypted pages.
+  string page_write_nanos = 4;
+}
+
+// One logical object stored inside an encrypted page.
+message PageObject {
+  // Object identifier within the page.
+  uint64 id = 1;
+  // Object type name.
+  string kind = 2;
+  // Encoded payload length in bytes.
+  uint64 payload_len = 3;
+}
+// Diagnostic metadata for one encrypted lockbox page.
+message PageInspection {
+  // Physical page offset in the archive.
+  uint64 offset = 1;
+  // Stable page identifier.
+  uint64 page_id = 2;
+  // Commit sequence that last wrote the page.
+  uint64 sequence = 3;
+  // Total encoded page length.
+  uint64 page_size = 4;
+  // Length of the authenticated encrypted body.
+  uint64 encrypted_body_len = 5;
+  // Unused capacity remaining in the page.
+  uint64 unused_bytes = 6;
+  // Number of logical objects in the page.
+  uint64 object_count = 7;
+  // Objects discoverable without exposing plaintext payloads.
+  repeated PageObject objects = 8;
+}
+// A collection of page diagnostics.
+message PageInspectionList {
+  // Pages in physical archive order.
+  repeated PageInspection values = 1;
+}
+
+// Metadata that can be inspected from a lockbox file without opening content.
+message FileInspection {
+  // Stable lockbox identifier.
+  bytes lockbox_id = 1;
+  // Whether the file header passed structural validation.
+  bool header_readable = 2;
+  // Latest readable key-directory generation.
+  uint64 key_directory_generation = 3;
+  // Number of valid redundant key-directory copies.
+  uint64 key_directory_copy_count = 4;
+  // Whether commits are authorized by an owner signing key.
+  bool owner_signed = 5;
+  // Access slots visible in the key directory.
+  repeated KeySlot key_slots = 6;
+}
+
+// One historical generation of a vault profile's contact keys.
+message ProfileGeneration {
+  // Monotonically increasing generation number.
+  uint32 index = 1;
+  // Lifecycle status: `active`, `retired`, or `compromised`.
+  string status = 2;
+  // Fingerprint of the generation's contact public key.
+  bytes contact_fingerprint = 3;
+  // Creation time in Unix milliseconds.
+  uint64 created_at_unix_ms = 4;
+  // Retirement time in Unix milliseconds when present.
+  uint64 retired_at_unix_ms = 5;
+  // Whether `retired_at_unix_ms` is present.
+  bool has_retired_at = 6;
+}
+// Versioned key-generation history for one named profile.
+message ProfileHistory {
+  // Profile name.
+  string name = 1;
+  // Index of the active generation.
+  uint32 active_generation = 2;
+  // All active, retired, and compromised generations.
+  repeated ProfileGeneration generations = 3;
+}
+// Local metadata for a remembered lockbox path.
+message KnownLockbox {
+  // Stable identifier embedded in the lockbox.
+  bytes lockbox_id = 1;
+  // Filesystem path at which the lockbox was last seen.
+  string path = 2;
+  // Last observation time in Unix milliseconds.
+  uint64 last_seen_unix_ms = 3;
+}
+// A collection of remembered lockboxes.
+message KnownLockboxList {
+  // Remembered lockbox records.
+  repeated KnownLockbox values = 1;
+}
+// A local-only label for one lockbox access slot.
+message AccessSlotLabel {
+  // Lockbox containing the access slot.
+  bytes lockbox_id = 1;
+  // Stable slot identifier within that lockbox.
+  uint64 slot_id = 2;
+  // User-assigned local label.
+  string name = 3;
+  // Last update time in Unix milliseconds.
+  uint64 updated_at_unix_ms = 4;
+}
+// A collection of local access-slot labels.
+message AccessSlotLabelList {
+  // Matching access-slot labels.
+  repeated AccessSlotLabel values = 1;
+}
+
+// One logical or physical chunk in a streamed lockbox file.
+message StreamChunk {
+  // Lockbox path of the streamed file.
+  string path = 1;
+  // Logical offset within the reconstructed file.
+  uint64 file_offset = 2;
+  // Logical chunk length in bytes.
+  uint64 length = 3;
+  // Physical archive offset, when physical ordering was requested.
+  uint64 physical_offset = 4;
+  // Whether the chunk represents a sparse zero-filled range.
+  bool sparse = 5;
+  // Decrypted bytes; empty for sparse ranges.
+  bytes data = 6;
+}
+// A collection of streamed content chunks.
+message StreamChunkList {
+  // Chunks in logical or physical order as requested.
+  repeated StreamChunk values = 1;
+}
+// Effective runtime tuning for one open lockbox.
+message RuntimeOptions {
+  // Selected workload profile.
+  string workload_profile = 1;
+  // Selected worker policy and concurrency.
+  string worker_policy = 2;
+}
+// Name and sensitivity metadata for one variable; no secret value is included.
+message Variable {
+  // Variable name.
+  string name = 1;
+  // `normal` or `secret`.
+  string sensitivity = 2;
+}
+// A collection of variable metadata.
+message VariableList {
+  // Variables in normalized name order.
+  repeated Variable values = 1;
+}
+// Optional string that distinguishes absence from an empty value.
+message OptionalString {
+  // Whether a value is present.
+  bool present = 1;
+  // Present UTF-8 value, which may itself be empty.
+  string value = 2;
+}
+// Owner-signature status for an open lockbox.
+message OwnerInspection {
+  // Whether the lockbox has owner-signed commits.
+  bool signed = 1;
+  // Human-readable owner signing-key fingerprint.
+  string fingerprint = 2;
+  // Whether `fingerprint` is present.
+  bool has_fingerprint = 3;
+}
+// Named contact public key stored in the local vault.
+message Contact {
+  // User-assigned contact name.
+  string name = 1;
+  // Encoded contact public key.
+  bytes key = 2;
+}
+// A collection of contacts.
+message ContactList {
+  // Contacts in normalized name order.
+  repeated Contact values = 1;
+}
+// A collection of profile histories.
+message ProfileHistoryList {
+  // Profile histories in normalized name order.
+  repeated ProfileHistory values = 1;
+}
+// Metadata for one secret cached by the session agent.
+message AgentEntry {
+  // Cache key or lockbox identifier.
+  string id = 1;
+  // Associated lockbox path when supplied by the client.
+  string path = 2;
+}
+// A collection of session-agent cache entries.
+message AgentEntryList {
+  // Current cache entries without their secret values.
+  repeated AgentEntry values = 1;
+}
+// Platform capabilities used to protect secrets across system sleep.
+message SleepSupport {
+  // Whether the platform reports suspend and resume transitions.
+  bool suspend_notifications = 1;
+  // Whether the agent can temporarily inhibit system sleep.
+  bool sleep_inhibition = 2;
+  // Whether the configured protection policy is supported.
+  bool supported = 3;
+}
+// Effective operating-system secret-store configuration.
+message PlatformStatus {
+  // Whether this build has a backend for the current operating system.
+  bool supported = 1;
+  // Whether secret-store integration is currently disabled.
+  bool disabled = 2;
+  // Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+  string scope = 3;
+  // Human-readable platform backend name.
+  string backend = 4;
+  // Key used for the default local-vault item.
+  string item = 5;
+}
+// Required UTF-8 string result.
+message StringValue {
+  // Returned UTF-8 value.
+  string value = 1;
+}
+// Metadata describing an encrypted local-vault backup archive.
+message VaultBackupManifest {
+  // Backup container format version.
+  uint32 format_version = 1;
+  // Backup creation time in Unix milliseconds.
+  uint64 created_at_unix_ms = 2;
+  // Name of the encrypted vault file inside the archive.
+  string vault_file_name = 3;
+  // Encrypted vault file length in bytes.
+  uint64 vault_size = 4;
+  // Lowercase hexadecimal SHA-256 of the encrypted vault file.
+  string vault_sha256 = 5;
+}
+// Structured diagnostic for the most recent failed binding operation.
+message ErrorDetails {
+  // Stable error category suitable for programmatic handling.
+  string category = 1;
+  // Artifact type involved in a format-version error, when applicable.
+  string artifact_kind = 2;
+  // Version found in the input artifact.
+  uint32 found_version = 3;
+  // Highest version supported by this binding.
+  uint32 supported_version = 4;
+  // Human-readable failure message.
+  string message = 5;
+  // Suggested corrective action for the user.
+  string guidance = 6;
+}

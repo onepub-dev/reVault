@@ -11,6 +11,9 @@ module Revault
     BufferStruct = struct ['void *ptr', 'size_t len']
     extern 'uint32_t api_abi_version(void)'
     extern 'const char * buffer_last_error(void)'
+    extern 'bool secret_len(void *, size_t *)'
+    extern 'bool secret_copy(void *, void *, size_t)'
+    extern 'void secret_free(void *)'
     extern 'uint16_t lockbox_format_version(void)'
     extern 'uint16_t lockbox_probe_format_version(void *, size_t)'
     extern 'void * lockbox_create(void *, size_t)'
@@ -36,7 +39,9 @@ module Revault
     extern 'bool lockbox_remove_dir(void *, void *, size_t, bool)'
     extern 'bool lockbox_create_parent_dirs(void *, void *, size_t)'
     extern 'bool lockbox_rename(void *, void *, size_t, void *, size_t)'
-    extern 'bool lockbox_set_variable(void *, void *, size_t, void *, size_t, bool)'
+    extern 'bool lockbox_set_variable(void *, void *, size_t, void *, size_t)'
+    extern 'bool lockbox_set_secret_variable(void *, void *, size_t, void *, size_t)'
+    extern 'bool lockbox_get_secret_variable(void *, void *, size_t, void *)'
     extern 'bool lockbox_delete_variable(void *, void *, size_t)'
     extern 'bool lockbox_move_variables(void *, void *, size_t)'
     extern 'bool lockbox_add_symlink(void *, void *, size_t, void *, size_t, bool)'
@@ -49,7 +54,9 @@ module Revault
     extern 'uint64_t lockbox_add_contact(void *, void *, void *, size_t)'
     extern 'bool lockbox_delete_key(void *, uint64_t)'
     extern 'bool lockbox_set_owner_signing_key(void *, void *)'
-    extern 'bool lockbox_set_form_field(void *, void *, size_t, void *, size_t, void *, size_t, bool)'
+    extern 'bool lockbox_set_form_field(void *, void *, size_t, void *, size_t, void *, size_t)'
+    extern 'bool lockbox_set_secret_form_field(void *, void *, size_t, void *, size_t, void *, size_t)'
+    extern 'bool lockbox_get_secret_form_field(void *, void *, size_t, void *, size_t, void *)'
     extern 'bool lockbox_delete_form_record(void *, void *, size_t)'
     extern 'bool lockbox_move_form_records(void *, void *, size_t)'
     extern 'void lockbox_free(void *)'
@@ -228,7 +235,7 @@ module Revault
   end
 
   class BindingOperations
-    def initialize = raise('revault-api native ABI mismatch; expected 1') unless Native.api_abi_version == 1
+    def initialize = raise('revault-api native ABI mismatch; expected 2') unless Native.api_abi_version == 2
     def last_error_message = Native.buffer_last_error.to_s
     def require_value(value)
       raise last_error_message unless value
@@ -254,6 +261,29 @@ module Revault
       raise 'invalid reVault binding frame' unless frame.bytesize >= 12 && frame[0, 4] == 'LBWF'
       raise 'invalid reVault binding frame length' unless frame[8, 4].unpack1('N') == frame.bytesize - 12
       frame[12..]
+    end
+    def with_secret(getter)
+      output = Fiddle::Pointer.malloc(Fiddle::SIZEOF_VOIDP)
+      raise last_error_message unless getter.call(output)
+      address = output[0, Fiddle::SIZEOF_VOIDP].unpack1('J')
+      return nil if address.zero?
+      handle = Fiddle::Pointer.new(address)
+      begin
+        length_out = Fiddle::Pointer.malloc(Fiddle::SIZEOF_SIZE_T)
+        raise last_error_message unless Native.secret_len(handle, length_out)
+        length = length_out[0, Fiddle::SIZEOF_SIZE_T].unpack1('J')
+        native = Fiddle::Pointer.malloc([length, 1].max)
+        raise last_error_message unless Native.secret_copy(handle, native, length)
+        secret = native.to_s(length)
+        begin
+          yield secret
+        ensure
+          secret.replace("\0" * secret.bytesize)
+          native[0, [length, 1].max] = "\0" * [length, 1].max
+        end
+      ensure
+        Native.secret_free(handle)
+      end
     end
 
     def buffer_last_error_details()
@@ -412,12 +442,24 @@ module Revault
       Revault::Bindings::OptionalLockboxEntry.decode(payload(buffer_call(:lockbox_stat, handle, Fiddle::Pointer[path], path.bytesize)))
     end
 
-    def lockbox_set_variable(handle, name, value, secret)
-      require_value(Native.lockbox_set_variable(handle, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[value], value.bytesize, secret))
+    def lockbox_set_variable(handle, name, value)
+      require_value(Native.lockbox_set_variable(handle, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[value], value.bytesize))
+    end
+
+    def lockbox_set_secret_variable(handle, name, value)
+      secret = value.dup
+      require_value(Native.lockbox_set_secret_variable(handle, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[secret], secret.bytesize))
+    ensure
+      secret&.replace("\0" * secret.bytesize)
     end
 
     def lockbox_get_variable(handle, name)
-      take(buffer_call(:lockbox_get_variable, handle, Fiddle::Pointer[name], name.bytesize))
+      value = Revault::Bindings::OptionalString.decode(payload(buffer_call(:lockbox_get_variable, handle, Fiddle::Pointer[name], name.bytesize)))
+      value.present ? value.value : nil
+    end
+
+    def lockbox_get_secret_variable(handle, name, &callback)
+      with_secret(->(output) { Native.lockbox_get_secret_variable(handle, Fiddle::Pointer[name], name.bytesize, output) }, &callback)
     end
 
     def lockbox_delete_variable(handle, name)
@@ -520,8 +562,15 @@ module Revault
       Revault::Bindings::FormRecord.decode(payload(buffer_call(:lockbox_create_form_record, handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[type_reference], type_reference.bytesize, Fiddle::Pointer[name], name.bytesize)))
     end
 
-    def lockbox_set_form_field(handle, path, field, value, secret)
-      require_value(Native.lockbox_set_form_field(handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize, Fiddle::Pointer[value], value.bytesize, secret))
+    def lockbox_set_form_field(handle, path, field, value)
+      require_value(Native.lockbox_set_form_field(handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize, Fiddle::Pointer[value], value.bytesize))
+    end
+
+    def lockbox_set_secret_form_field(handle, path, field, value)
+      secret = value.dup
+      require_value(Native.lockbox_set_secret_form_field(handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize, Fiddle::Pointer[secret], secret.bytesize))
+    ensure
+      secret&.replace("\0" * secret.bytesize)
     end
 
     def lockbox_list_form_records(handle)
@@ -529,7 +578,7 @@ module Revault
     end
 
     def lockbox_get_form_record(handle, path)
-      Revault::Bindings::FormRecord.decode(payload(buffer_call(:lockbox_get_form_record, handle, Fiddle::Pointer[path], path.bytesize)))
+      Revault::Bindings::OptionalFormRecord.decode(payload(buffer_call(:lockbox_get_form_record, handle, Fiddle::Pointer[path], path.bytesize)))
     end
 
     def lockbox_delete_form_record(handle, path)
@@ -541,7 +590,11 @@ module Revault
     end
 
     def lockbox_get_form_field(handle, path, field)
-      Revault::Bindings::FormValue.decode(payload(buffer_call(:lockbox_get_form_field, handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize)))
+      Revault::Bindings::OptionalFormValue.decode(payload(buffer_call(:lockbox_get_form_field, handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize)))
+    end
+
+    def lockbox_get_secret_form_field(handle, path, field, &callback)
+      with_secret(->(output) { Native.lockbox_get_secret_form_field(handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize, output) }, &callback)
     end
 
     def lockbox_to_bytes(handle)

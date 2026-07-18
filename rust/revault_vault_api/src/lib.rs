@@ -1,5 +1,6 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
+#![deny(missing_docs)]
 //! Native vault and open-cache support for reVault.
 //!
 //! This crate includes the **Lockbox Session Agent**, a local open-cache service
@@ -23,6 +24,21 @@
 //!
 //! For the runtime behavior, command integration, and security settings, see the
 //! project documentation in `docs/lockbox_session_agent.md`.
+//!
+//! # Example
+//!
+//! ```no_run
+//! use revault_vault_api::{SecretString, VaultDirectory};
+//!
+//! let password = SecretString::try_from_slice(b"correct horse")?;
+//! let root = std::env::temp_dir().join("my-revault-profile");
+//! let vault = VaultDirectory::open_or_create(root, &password)?;
+//! println!("vault structure version: {}", vault.structure_version()?);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//!
+//! See the [reVault repository README](https://github.com/onepub-dev/reVault#readme)
+//! for the project overview, installation instructions, and complete examples.
 
 /// Secure string type re-exported from `revault_lockbox_api`.
 pub use revault_lockbox_api::{SecretString, SecretVec};

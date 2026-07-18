@@ -9,15 +9,21 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * One atomic source-to-destination rename.
+ *
  * Generated from protobuf message <code>revault.bindings.PathMove</code>
  */
 class PathMove extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Existing variable name or form-record path.
+     *
      * Generated from protobuf field <code>string source = 1;</code>
      */
     protected $source = '';
     /**
+     * New variable name or form-record path.
+     *
      * Generated from protobuf field <code>string destination = 2;</code>
      */
     protected $destination = '';
@@ -29,7 +35,9 @@ class PathMove extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $source
+     *           Existing variable name or form-record path.
      *     @type string $destination
+     *           New variable name or form-record path.
      * }
      */
     public function __construct($data = NULL) {
@@ -38,6 +46,8 @@ class PathMove extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Existing variable name or form-record path.
+     *
      * Generated from protobuf field <code>string source = 1;</code>
      * @return string
      */
@@ -47,6 +57,8 @@ class PathMove extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Existing variable name or form-record path.
+     *
      * Generated from protobuf field <code>string source = 1;</code>
      * @param string $var
      * @return $this
@@ -60,6 +72,8 @@ class PathMove extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * New variable name or form-record path.
+     *
      * Generated from protobuf field <code>string destination = 2;</code>
      * @return string
      */
@@ -69,6 +83,8 @@ class PathMove extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * New variable name or form-record path.
+     *
      * Generated from protobuf field <code>string destination = 2;</code>
      * @param string $var
      * @return $this

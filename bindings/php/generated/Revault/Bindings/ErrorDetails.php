@@ -9,31 +9,45 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Structured diagnostic for the most recent failed binding operation.
+ *
  * Generated from protobuf message <code>revault.bindings.ErrorDetails</code>
  */
 class ErrorDetails extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Stable error category suitable for programmatic handling.
+     *
      * Generated from protobuf field <code>string category = 1;</code>
      */
     protected $category = '';
     /**
+     * Artifact type involved in a format-version error, when applicable.
+     *
      * Generated from protobuf field <code>string artifact_kind = 2;</code>
      */
     protected $artifact_kind = '';
     /**
+     * Version found in the input artifact.
+     *
      * Generated from protobuf field <code>uint32 found_version = 3;</code>
      */
     protected $found_version = 0;
     /**
+     * Highest version supported by this binding.
+     *
      * Generated from protobuf field <code>uint32 supported_version = 4;</code>
      */
     protected $supported_version = 0;
     /**
+     * Human-readable failure message.
+     *
      * Generated from protobuf field <code>string message = 5;</code>
      */
     protected $message = '';
     /**
+     * Suggested corrective action for the user.
+     *
      * Generated from protobuf field <code>string guidance = 6;</code>
      */
     protected $guidance = '';
@@ -45,11 +59,17 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $category
+     *           Stable error category suitable for programmatic handling.
      *     @type string $artifact_kind
+     *           Artifact type involved in a format-version error, when applicable.
      *     @type int $found_version
+     *           Version found in the input artifact.
      *     @type int $supported_version
+     *           Highest version supported by this binding.
      *     @type string $message
+     *           Human-readable failure message.
      *     @type string $guidance
+     *           Suggested corrective action for the user.
      * }
      */
     public function __construct($data = NULL) {
@@ -58,6 +78,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable error category suitable for programmatic handling.
+     *
      * Generated from protobuf field <code>string category = 1;</code>
      * @return string
      */
@@ -67,6 +89,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable error category suitable for programmatic handling.
+     *
      * Generated from protobuf field <code>string category = 1;</code>
      * @param string $var
      * @return $this
@@ -80,6 +104,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Artifact type involved in a format-version error, when applicable.
+     *
      * Generated from protobuf field <code>string artifact_kind = 2;</code>
      * @return string
      */
@@ -89,6 +115,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Artifact type involved in a format-version error, when applicable.
+     *
      * Generated from protobuf field <code>string artifact_kind = 2;</code>
      * @param string $var
      * @return $this
@@ -102,6 +130,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Version found in the input artifact.
+     *
      * Generated from protobuf field <code>uint32 found_version = 3;</code>
      * @return int
      */
@@ -111,6 +141,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Version found in the input artifact.
+     *
      * Generated from protobuf field <code>uint32 found_version = 3;</code>
      * @param int $var
      * @return $this
@@ -124,6 +156,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Highest version supported by this binding.
+     *
      * Generated from protobuf field <code>uint32 supported_version = 4;</code>
      * @return int
      */
@@ -133,6 +167,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Highest version supported by this binding.
+     *
      * Generated from protobuf field <code>uint32 supported_version = 4;</code>
      * @param int $var
      * @return $this
@@ -146,6 +182,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Human-readable failure message.
+     *
      * Generated from protobuf field <code>string message = 5;</code>
      * @return string
      */
@@ -155,6 +193,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Human-readable failure message.
+     *
      * Generated from protobuf field <code>string message = 5;</code>
      * @param string $var
      * @return $this
@@ -168,6 +208,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Suggested corrective action for the user.
+     *
      * Generated from protobuf field <code>string guidance = 6;</code>
      * @return string
      */
@@ -177,6 +219,8 @@ class ErrorDetails extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Suggested corrective action for the user.
+     *
      * Generated from protobuf field <code>string guidance = 6;</code>
      * @param string $var
      * @return $this

@@ -70,15 +70,24 @@ func archiveLifecycle() {
 	pass("lockbox_set_permissions", 2)
 	check(bytes.Equal(mustValue(box.ReadRange("/renamed.txt", 0, 11)), []byte("replacement")), "range")
 	pass("lockbox_read_range", 3)
-	must(box.SetVariable("normal", "value", false))
-	check(mustValue(box.GetVariable("normal")) == "value", "variable")
+	must(box.SetVariable("normal", "value"))
+	check(*mustValue(box.GetVariable("normal")) == "value", "variable")
 	pass("lockbox_set_variable")
 	pass("lockbox_get_variable", 3)
 	must(box.MoveVariables(&messages.PathMoveList{Values: []*messages.PathMove{{Source: "normal", Destination: "moved"}}}))
-	check(mustValue(box.GetVariable("moved")) == "value", "moved variable")
+	check(*mustValue(box.GetVariable("moved")) == "value", "moved variable")
 	must(box.MoveVariables(&messages.PathMoveList{Values: []*messages.PathMove{{Source: "moved", Destination: "normal"}}}))
 	pass("lockbox_move_variables", 3)
-	must(box.SetVariable("secret", "hidden", true))
+	must(box.SetSecretVariable("secret", []byte("hidden")))
+	pass("lockbox_set_secret_variable")
+	must(box.WithSecretVariable("secret", func(value []byte) error {
+		check(string(value) == "hidden", "secret variable")
+		return nil
+	}))
+	pass("lockbox_get_secret_variable")
+	pass("secret_len")
+	pass("secret_copy")
+	pass("secret_free")
 	check(mustValue(box.VariableSensitivity("secret")).Present, "sensitivity")
 	pass("lockbox_variable_sensitivity", 2)
 	check(len(mustValue(box.ListVariables()).Values) == 2, "variables")
@@ -213,7 +222,10 @@ func keyLifecycle() {
 }
 
 func formFields() *messages.FormFieldList {
-	return &messages.FormFieldList{Values: []*messages.FormField{{Id: "username", Label: "Username", Kind: "text", Required: true}}}
+	return &messages.FormFieldList{Values: []*messages.FormField{
+		{Id: "username", Label: "Username", Kind: "text", Required: true},
+		{Id: "password", Label: "Password", Kind: "secret", Required: true},
+	}}
 }
 
 func advancedArchive() {
@@ -241,16 +253,23 @@ func advancedArchive() {
 	record := mustValue(box.CreateFormRecord("/account.form", "account", "Primary"))
 	check(record.Path == "/account.form", "record")
 	pass("lockbox_create_form_record")
-	must(box.SetFormField("/account.form", "username", "alice", false))
+	must(box.SetFormField("/account.form", "username", "alice"))
 	pass("lockbox_set_form_field")
-	check(len(mustValue(box.GetFormRecord("/account.form")).Values) == 1, "record values")
-	check(mustValue(box.GetFormField("/account.form", "username")).Value == "alice", "field")
+	must(box.SetSecretFormField("/account.form", "password", []byte("hidden")))
+	pass("lockbox_set_secret_form_field")
+	must(box.WithSecretFormField("/account.form", "password", func(value []byte) error {
+		check(string(value) == "hidden", "secret form field")
+		return nil
+	}))
+	pass("lockbox_get_secret_form_field")
+	check(len(mustValue(box.GetFormRecord("/account.form")).Value.Values) == 2, "record values")
+	check(mustValue(box.GetFormField("/account.form", "username")).Value.Value == "alice", "field")
 	check(len(mustValue(box.ListFormRecords()).Values) == 1, "records")
 	pass("lockbox_get_form_record")
 	pass("lockbox_get_form_field")
 	pass("lockbox_list_form_records")
 	must(box.MoveFormRecords(&messages.PathMoveList{Values: []*messages.PathMove{{Source: "/account.form", Destination: "/moved.form"}}}))
-	check(len(mustValue(box.GetFormRecord("/moved.form")).Values) == 1, "moved form record")
+	check(len(mustValue(box.GetFormRecord("/moved.form")).Value.Values) == 1, "moved form record")
 	must(box.MoveFormRecords(&messages.PathMoveList{Values: []*messages.PathMove{{Source: "/moved.form", Destination: "/account.form"}}}))
 	pass("lockbox_move_form_records", 3)
 	signing := mustValue(revault.GenerateSigningKeyPair())

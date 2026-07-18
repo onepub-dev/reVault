@@ -56,12 +56,24 @@ Full model regeneration requires `protoc` plus the pinned Go, Dart, and Swift
 Protobuf generator plugins on `PATH`; release containers install and run those
 same generators before compiling their package consumers.
 
-The generated declaration surface covers all 211 exported C ABI functions:
-the ABI-version query plus 210 domain functions. C++, C, PHP, Swift, Lua, and Ruby
+The generated declaration surface covers all 218 exported C ABI functions:
+the ABI-version query plus 217 domain functions. C++, C, PHP, Swift, Lua, and Ruby
 consume the header or the complete native symbol table directly; Java/Kotlin
 use the generated Java FFM method-handle surface and typed facade.
 The generated low-level surfaces are intentionally separate from the typed
 facades so new ABI additions cannot silently disappear from a target.
+
+Semantic parity is checked separately from symbol parity. The review in
+`api/rust-to-abi.tsv` maps public Rust operations to one or more ABI operations;
+`api/rust-only-exclusions.tsv` records the small set of Rust ownership,
+migration, raw-key security, and language-native value helpers that do not cross an FFI boundary,
+with a rationale for each. The binding check scans both public Rust crates and
+fails when a newly public function has not been reviewed.
+
+Secret variable and form-field reads use opaque native secret handles and are
+exposed by each facade only through a scoped callback. All native result buffers
+are wiped by `buffer_free`; callers that request exportable private-key or agent
+bytes still own and must clear the resulting language-managed byte array.
 
 The acceptance contract for language-level archive/vault interoperability is
 defined in [`e2e/CONFORMANCE.md`](e2e/CONFORMANCE.md). Language runners must
@@ -124,7 +136,7 @@ inputs consumed by the Rust tool rather than release scripts.
    ecosystem package exclusively from them.
 3. Install every claimed language/target package in a clean GitHub Actions
    consumer with no build tree or native-library override. The test must record
-   the installed native path and archive hash before exercising all 210 calls.
+   the installed native path and archive hash before exercising all 217 calls.
    Rust is the explicit source-native exception: its consumer runs the complete
    `public_api_suite` and `vault_api` suites after `cargo package`, securely
    unpacks the `.crate` into a clean consumer, and records that archive's hash;
@@ -157,10 +169,11 @@ The public name is `revault-api`, adapted only where a registry requires a
 different spelling or namespace (`revault_api`, `Revault.Api`,
 `dev.onepub:revault-api`, or `@onepub-dev/revault-api`). Publication runs only for
 an accepted `revault-api-vX.Y.Z` tag after the native archives and registry
-package layouts have been built. The 94 installed package checks and 480-path
-interoperability suite run alongside the bootstrap release without blocking
-publication; they become release gates after the initial test-and-refinement
-cycle. The release workflow uses the protected GitHub environment `release`.
+package layouts have been built. The 94 installed-package checks and the
+480-path interoperability suite are hard release gates. Native archives,
+registry packages, and promotion jobs are not published until both suites
+pass. The release workflow also uses the protected GitHub environment
+`release`.
 
 Create these public companion repositories before tagging a release:
 
@@ -211,8 +224,8 @@ LuaRocks, Go, crates.io, SwiftPM, or Homebrew publications.
 To release, create and push one tag after all authorizations above exist:
 
 ```text
-git tag -s revault-api-v0.1.0 -m "Release revault-api 0.1.0"
-git push origin revault-api-v0.1.0
+git tag -s revault-api-v0.2.0 -m "Release revault-api 0.2.0"
+git push origin revault-api-v0.2.0
 ```
 
 Do not rerun publication by changing an existing tag. Registry versions and

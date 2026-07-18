@@ -94,16 +94,22 @@ pub enum ContentStreamOrder {
 /// Options for streaming lockbox file content without extracting to disk.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ContentStreamOptions {
+    /// Logical or physical order in which chunks are yielded.
     pub order: ContentStreamOrder,
 }
 
 /// Metadata for one streamed content range.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContentChunk {
+    /// Logical lockbox path containing this range.
     pub path: LockboxPath,
+    /// Byte offset within the logical file.
     pub file_offset: u64,
+    /// Number of logical bytes in the range.
     pub len: u64,
+    /// Backing file offset when the chunk has physical storage.
     pub physical_offset: Option<u64>,
+    /// Whether the range is a sparse zero-filled hole.
     pub sparse: bool,
 }
 

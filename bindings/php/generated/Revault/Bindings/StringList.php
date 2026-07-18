@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of UTF-8 strings.
+ *
  * Generated from protobuf message <code>revault.bindings.StringList</code>
  */
 class StringList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * String values in API-defined order.
+     *
      * Generated from protobuf field <code>repeated string values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class StringList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<string>|\Google\Protobuf\Internal\RepeatedField $values
+     *           String values in API-defined order.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class StringList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * String values in API-defined order.
+     *
      * Generated from protobuf field <code>repeated string values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class StringList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * String values in API-defined order.
+     *
      * Generated from protobuf field <code>repeated string values = 1;</code>
      * @param array<string>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

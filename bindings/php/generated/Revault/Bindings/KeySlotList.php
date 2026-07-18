@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of access slots.
+ *
  * Generated from protobuf message <code>revault.bindings.KeySlotList</code>
  */
 class KeySlotList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Access slots in stable id order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class KeySlotList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\KeySlot>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Access slots in stable id order.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class KeySlotList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Access slots in stable id order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.KeySlot values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class KeySlotList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Access slots in stable id order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.KeySlot values = 1;</code>
      * @param array<\Revault\Bindings\KeySlot>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

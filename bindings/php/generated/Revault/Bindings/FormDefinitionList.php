@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of form definitions.
+ *
  * Generated from protobuf message <code>revault.bindings.FormDefinitionList</code>
  */
 class FormDefinitionList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Definitions in revision or alias order, as specified by the operation.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class FormDefinitionList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\FormDefinition>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Definitions in revision or alias order, as specified by the operation.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class FormDefinitionList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Definitions in revision or alias order, as specified by the operation.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class FormDefinitionList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Definitions in revision or alias order, as specified by the operation.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      * @param array<\Revault\Bindings\FormDefinition>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

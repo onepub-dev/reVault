@@ -30,8 +30,12 @@ public final class Conformance {
     var result = base.resolve(LANGUAGE); Files.createDirectories(result); return result;
   }
   private static FormFieldList formFields() {
-    return FormFieldList.newBuilder().addValues(FormField.newBuilder()
-        .setId("username").setLabel("Username").setKind("text").setRequired(true)).build();
+    return FormFieldList.newBuilder()
+        .addValues(FormField.newBuilder()
+            .setId("username").setLabel("Username").setKind("text").setRequired(true))
+        .addValues(FormField.newBuilder()
+            .setId("password").setLabel("Password").setKind("secret").setRequired(true))
+        .build();
   }
   private static void deleteTree(Path root) throws IOException {
     if (!Files.exists(root)) return;
@@ -63,7 +67,7 @@ public final class Conformance {
       pass("lockbox_set_permissions", 2);
       check(Arrays.equals(box.readRange("/renamed.txt", 0, 11), "replacement".getBytes()), "range");
       pass("lockbox_read_range", 3);
-      box.setVariable("normal", "value", false); check(box.getVariable("normal").equals("value"), "variable");
+      box.setVariable("normal", "value"); check(box.getVariable("normal").equals("value"), "variable");
       pass("lockbox_set_variable"); pass("lockbox_get_variable", 3);
       box.moveVariables(PathMoveList.newBuilder().addValues(PathMove.newBuilder()
           .setSource("normal").setDestination("moved")).build());
@@ -71,7 +75,9 @@ public final class Conformance {
       box.moveVariables(PathMoveList.newBuilder().addValues(PathMove.newBuilder()
           .setSource("moved").setDestination("normal")).build());
       pass("lockbox_move_variables", 3);
-      box.setVariable("secret", "hidden", true);
+      box.setSecretVariable("secret", "hidden".getBytes()); pass("lockbox_set_secret_variable");
+      check(box.withSecretVariable("secret", value -> new String(value)).equals("hidden"), "secret variable");
+      pass("lockbox_get_secret_variable"); pass("secret_len"); pass("secret_copy"); pass("secret_free");
       check(box.variableSensitivity("secret").getPresent(), "sensitivity");
       pass("lockbox_variable_sensitivity", 2);
       check(box.listVariables().getValuesCount() == 2, "variables"); pass("lockbox_list_variables");
@@ -180,14 +186,16 @@ public final class Conformance {
       pass("lockbox_list_form_definitions"); pass("lockbox_resolve_form"); pass("lockbox_list_form_revisions");
       var record = box.createFormRecord("/account.form", "account", "Primary");
       check(record.getPath().equals("/account.form"), "record"); pass("lockbox_create_form_record");
-      box.setFormField("/account.form", "username", "alice", false); pass("lockbox_set_form_field");
-      check(box.getFormRecord("/account.form").getValuesCount() == 1, "record values");
-      check(box.getFormField("/account.form", "username").getValue().equals("alice"), "field");
+      box.setFormField("/account.form", "username", "alice"); pass("lockbox_set_form_field");
+      box.setSecretFormField("/account.form", "password", "hidden".getBytes()); pass("lockbox_set_secret_form_field");
+      check(box.withSecretFormField("/account.form", "password", value -> new String(value)).equals("hidden"), "secret form field"); pass("lockbox_get_secret_form_field");
+      check(box.getFormRecord("/account.form").getValue().getValuesCount() == 2, "record values");
+      check(box.getFormField("/account.form", "username").getValue().getValue().equals("alice"), "field");
       check(box.listFormRecords().getValuesCount() == 1, "records");
       pass("lockbox_get_form_record"); pass("lockbox_get_form_field"); pass("lockbox_list_form_records");
       box.moveFormRecords(PathMoveList.newBuilder().addValues(PathMove.newBuilder()
           .setSource("/account.form").setDestination("/moved.form")).build());
-      check(box.getFormRecord("/moved.form").getValuesCount() == 1, "moved record");
+      check(box.getFormRecord("/moved.form").getValue().getValuesCount() == 1, "moved record");
       box.moveFormRecords(PathMoveList.newBuilder().addValues(PathMove.newBuilder()
           .setSource("/moved.form").setDestination("/account.form")).build());
       pass("lockbox_move_form_records", 3);
@@ -356,14 +364,20 @@ public final class Conformance {
 
   private static void defaultVaultLifecycle() throws Exception {
     var expectedRoot = Path.of(System.getenv("LOCKBOX_VAULT_DIR")); Files.createDirectories(expectedRoot);
-    try (var vault = API.replaceDefaultVaultDirectory("default password".getBytes())) {}
+    try (var vault = API.replaceDefaultVaultDirectory("default password".getBytes())) {
+      check(vault != null, "replace default vault");
+    }
     pass("vault_directory_replace_default");
-    try (var vault = API.openDefaultReadOnlyVaultDirectory("default password".getBytes())) {}
+    try (var vault = API.openDefaultReadOnlyVaultDirectory("default password".getBytes())) {
+      check(vault != null, "open default read-only vault");
+    }
     pass("vault_read_only_open_default");
     check(API.defaultVaultDirectory().equals(expectedRoot.toString()), "default dir");
     check(Path.of(API.defaultVaultPath()).getParent().equals(expectedRoot), "default path");
     pass("vault_default_directory", 3); pass("vault_default_path", 2);
-    try (var vault = API.openOrCreateDefaultVaultDirectory("default password".getBytes())) {}
+    try (var vault = API.openOrCreateDefaultVaultDirectory("default password".getBytes())) {
+      check(vault != null, "open default vault");
+    }
     pass("vault_directory_open_or_create_default");
     API.changeDefaultVaultDirectoryPassword("default password".getBytes(), "changed default password".getBytes());
     pass("vault_directory_change_default_password");
@@ -411,7 +425,10 @@ public final class Conformance {
         check(loaded.publicBytes().length > 0, "owner key");
       }
       pass("vault_agent_put_owner_signing_key"); pass("vault_agent_get_owner_signing_key");
-      try (var activity = API.beginAgentActivity("open")) { pass("vault_agent_begin_activity"); }
+      try (var activity = API.beginAgentActivity("open")) {
+        check(activity != null, "agent activity");
+        pass("vault_agent_begin_activity");
+      }
       pass("vault_agent_end_activity");
       check(API.agentSleepSupport() != null, "sleep"); pass("vault_agent_sleep_support");
       check(!API.agentLogPath().isEmpty(), "log path"); check(!API.agentLogDestination().isEmpty(), "log destination");

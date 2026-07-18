@@ -15,6 +15,16 @@ typedef _BufferLastErrorDetailsNative = RevaultBuffer Function();
 typedef _BufferLastErrorDetailsDart = RevaultBuffer Function();
 typedef _BufferFreeNative = ffi.Void Function(RevaultBuffer);
 typedef _BufferFreeDart = void Function(RevaultBuffer);
+typedef _SecretLenNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Size>);
+typedef _SecretLenDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Size>);
+typedef _SecretCopyNative =
+    ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
+typedef _SecretCopyDart =
+    bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _SecretFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
+typedef _SecretFreeDart = void Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxFormatVersionNative = ffi.Uint16 Function();
 typedef _LockboxFormatVersionDart = int Function();
 typedef _LockboxProbeFormatVersionNative =
@@ -390,7 +400,6 @@ typedef _LockboxSetVariableNative =
       ffi.Size,
       ffi.Pointer<ffi.Uint8>,
       ffi.Size,
-      ffi.Bool,
     );
 typedef _LockboxSetVariableDart =
     bool Function(
@@ -399,8 +408,9 @@ typedef _LockboxSetVariableDart =
       int,
       ffi.Pointer<ffi.Uint8>,
       int,
-      bool,
     );
+typedef _LockboxSetSecretVariableNative = _LockboxSetVariableNative;
+typedef _LockboxSetSecretVariableDart = _LockboxSetVariableDart;
 typedef _LockboxGetVariableNative =
     RevaultBuffer Function(
       ffi.Pointer<ffi.Void>,
@@ -409,6 +419,20 @@ typedef _LockboxGetVariableNative =
     );
 typedef _LockboxGetVariableDart =
     RevaultBuffer Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxGetSecretVariableNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+    );
+typedef _LockboxGetSecretVariableDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+    );
 typedef _LockboxDeleteVariableNative =
     ffi.Bool Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Uint8>, ffi.Size);
 typedef _LockboxDeleteVariableDart =
@@ -638,7 +662,6 @@ typedef _LockboxSetFormFieldNative =
       ffi.Size,
       ffi.Pointer<ffi.Uint8>,
       ffi.Size,
-      ffi.Bool,
     );
 typedef _LockboxSetFormFieldDart =
     bool Function(
@@ -649,8 +672,9 @@ typedef _LockboxSetFormFieldDart =
       int,
       ffi.Pointer<ffi.Uint8>,
       int,
-      bool,
     );
+typedef _LockboxSetSecretFormFieldNative = _LockboxSetFormFieldNative;
+typedef _LockboxSetSecretFormFieldDart = _LockboxSetFormFieldDart;
 typedef _LockboxListFormRecordsNative =
     RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxListFormRecordsDart =
@@ -686,6 +710,24 @@ typedef _LockboxGetFormFieldDart =
       int,
       ffi.Pointer<ffi.Uint8>,
       int,
+    );
+typedef _LockboxGetSecretFormFieldNative =
+    ffi.Bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+    );
+typedef _LockboxGetSecretFormFieldDart =
+    bool Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
     );
 typedef _LockboxToBytesNative = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxToBytesDart = RevaultBuffer Function(ffi.Pointer<ffi.Void>);
@@ -1598,55 +1640,56 @@ final class RevaultNative {
           .lookupFunction<_BufferLastErrorNative, _BufferLastErrorDart>(
             'buffer_last_error',
           ),
-      _buffer_last_error_details = library
-          .lookupFunction<
-            _BufferLastErrorDetailsNative,
-            _BufferLastErrorDetailsDart
-          >('buffer_last_error_details'),
+      _buffer_last_error_details = library.lookupFunction<
+        _BufferLastErrorDetailsNative,
+        _BufferLastErrorDetailsDart
+      >('buffer_last_error_details'),
       _buffer_free = library.lookupFunction<_BufferFreeNative, _BufferFreeDart>(
         'buffer_free',
       ),
-      _lockbox_format_version = library
-          .lookupFunction<
-            _LockboxFormatVersionNative,
-            _LockboxFormatVersionDart
-          >('lockbox_format_version'),
-      _lockbox_probe_format_version = library
-          .lookupFunction<
-            _LockboxProbeFormatVersionNative,
-            _LockboxProbeFormatVersionDart
-          >('lockbox_probe_format_version'),
+      _secret_len = library.lookupFunction<_SecretLenNative, _SecretLenDart>(
+        'secret_len',
+      ),
+      _secret_copy = library.lookupFunction<_SecretCopyNative, _SecretCopyDart>(
+        'secret_copy',
+      ),
+      _secret_free = library.lookupFunction<_SecretFreeNative, _SecretFreeDart>(
+        'secret_free',
+      ),
+      _lockbox_format_version = library.lookupFunction<
+        _LockboxFormatVersionNative,
+        _LockboxFormatVersionDart
+      >('lockbox_format_version'),
+      _lockbox_probe_format_version = library.lookupFunction<
+        _LockboxProbeFormatVersionNative,
+        _LockboxProbeFormatVersionDart
+      >('lockbox_probe_format_version'),
       _lockbox_create = library
           .lookupFunction<_LockboxCreateNative, _LockboxCreateDart>(
             'lockbox_create',
           ),
-      _lockbox_create_with_options = library
-          .lookupFunction<
-            _LockboxCreateWithOptionsNative,
-            _LockboxCreateWithOptionsDart
-          >('lockbox_create_with_options'),
-      _lockbox_create_password = library
-          .lookupFunction<
-            _LockboxCreatePasswordNative,
-            _LockboxCreatePasswordDart
-          >('lockbox_create_password'),
-      _lockbox_create_contact = library
-          .lookupFunction<
-            _LockboxCreateContactNative,
-            _LockboxCreateContactDart
-          >('lockbox_create_contact'),
-      _lockbox_create_with_signing_key = library
-          .lookupFunction<
-            _LockboxCreateWithSigningKeyNative,
-            _LockboxCreateWithSigningKeyDart
-          >('lockbox_create_with_signing_key'),
+      _lockbox_create_with_options = library.lookupFunction<
+        _LockboxCreateWithOptionsNative,
+        _LockboxCreateWithOptionsDart
+      >('lockbox_create_with_options'),
+      _lockbox_create_password = library.lookupFunction<
+        _LockboxCreatePasswordNative,
+        _LockboxCreatePasswordDart
+      >('lockbox_create_password'),
+      _lockbox_create_contact = library.lookupFunction<
+        _LockboxCreateContactNative,
+        _LockboxCreateContactDart
+      >('lockbox_create_contact'),
+      _lockbox_create_with_signing_key = library.lookupFunction<
+        _LockboxCreateWithSigningKeyNative,
+        _LockboxCreateWithSigningKeyDart
+      >('lockbox_create_with_signing_key'),
       _lockbox_open = library
           .lookupFunction<_LockboxOpenNative, _LockboxOpenDart>('lockbox_open'),
-      _lockbox_open_with_options = library
-          .lookupFunction<
-            _LockboxOpenWithOptionsNative,
-            _LockboxOpenWithOptionsDart
-          >('lockbox_open_with_options'),
+      _lockbox_open_with_options = library.lookupFunction<
+        _LockboxOpenWithOptionsNative,
+        _LockboxOpenWithOptionsDart
+      >('lockbox_open_with_options'),
       _lockbox_open_password = library
           .lookupFunction<_LockboxOpenPasswordNative, _LockboxOpenPasswordDart>(
             'lockbox_open_password',
@@ -1659,11 +1702,10 @@ final class RevaultNative {
           .lookupFunction<_LockboxAddFileNative, _LockboxAddFileDart>(
             'lockbox_add_file',
           ),
-      _lockbox_add_file_with_permissions = library
-          .lookupFunction<
-            _LockboxAddFileWithPermissionsNative,
-            _LockboxAddFileWithPermissionsDart
-          >('lockbox_add_file_with_permissions'),
+      _lockbox_add_file_with_permissions = library.lookupFunction<
+        _LockboxAddFileWithPermissionsNative,
+        _LockboxAddFileWithPermissionsDart
+      >('lockbox_add_file_with_permissions'),
       _lockbox_get_file = library
           .lookupFunction<_LockboxGetFileNative, _LockboxGetFileDart>(
             'lockbox_get_file',
@@ -1672,16 +1714,14 @@ final class RevaultNative {
           .lookupFunction<_LockboxExtractFileNative, _LockboxExtractFileDart>(
             'lockbox_extract_file',
           ),
-      _lockbox_extract_directory = library
-          .lookupFunction<
-            _LockboxExtractDirectoryNative,
-            _LockboxExtractDirectoryDart
-          >('lockbox_extract_directory'),
-      _lockbox_stream_content = library
-          .lookupFunction<
-            _LockboxStreamContentNative,
-            _LockboxStreamContentDart
-          >('lockbox_stream_content'),
+      _lockbox_extract_directory = library.lookupFunction<
+        _LockboxExtractDirectoryNative,
+        _LockboxExtractDirectoryDart
+      >('lockbox_extract_directory'),
+      _lockbox_stream_content = library.lookupFunction<
+        _LockboxStreamContentNative,
+        _LockboxStreamContentDart
+      >('lockbox_stream_content'),
       _lockbox_cache_stats = library
           .lookupFunction<_LockboxCacheStatsNative, _LockboxCacheStatsDart>(
             'lockbox_cache_stats',
@@ -1690,54 +1730,46 @@ final class RevaultNative {
           .lookupFunction<_LockboxImportStatsNative, _LockboxImportStatsDart>(
             'lockbox_import_stats',
           ),
-      _lockbox_reset_import_stats = library
-          .lookupFunction<
-            _LockboxResetImportStatsNative,
-            _LockboxResetImportStatsDart
-          >('lockbox_reset_import_stats'),
+      _lockbox_reset_import_stats = library.lookupFunction<
+        _LockboxResetImportStatsNative,
+        _LockboxResetImportStatsDart
+      >('lockbox_reset_import_stats'),
       _lockbox_inspect_file = library
           .lookupFunction<_LockboxInspectFileNative, _LockboxInspectFileDart>(
             'lockbox_inspect_file',
           ),
-      _lockbox_page_inspection = library
-          .lookupFunction<
-            _LockboxPageInspectionNative,
-            _LockboxPageInspectionDart
-          >('lockbox_page_inspection'),
-      _lockbox_recovery_report = library
-          .lookupFunction<
-            _LockboxRecoveryReportNative,
-            _LockboxRecoveryReportDart
-          >('lockbox_recovery_report'),
-      _lockbox_recovery_report_render = library
-          .lookupFunction<
-            _LockboxRecoveryReportRenderNative,
-            _LockboxRecoveryReportRenderDart
-          >('lockbox_recovery_report_render'),
-      _lockbox_recovery_scan_path = library
-          .lookupFunction<
-            _LockboxRecoveryScanPathNative,
-            _LockboxRecoveryScanPathDart
-          >('lockbox_recovery_scan_path'),
+      _lockbox_page_inspection = library.lookupFunction<
+        _LockboxPageInspectionNative,
+        _LockboxPageInspectionDart
+      >('lockbox_page_inspection'),
+      _lockbox_recovery_report = library.lookupFunction<
+        _LockboxRecoveryReportNative,
+        _LockboxRecoveryReportDart
+      >('lockbox_recovery_report'),
+      _lockbox_recovery_report_render = library.lookupFunction<
+        _LockboxRecoveryReportRenderNative,
+        _LockboxRecoveryReportRenderDart
+      >('lockbox_recovery_report_render'),
+      _lockbox_recovery_scan_path = library.lookupFunction<
+        _LockboxRecoveryScanPathNative,
+        _LockboxRecoveryScanPathDart
+      >('lockbox_recovery_scan_path'),
       _lockbox_storage_len = library
           .lookupFunction<_LockboxStorageLenNative, _LockboxStorageLenDart>(
             'lockbox_storage_len',
           ),
-      _lockbox_set_workload_profile = library
-          .lookupFunction<
-            _LockboxSetWorkloadProfileNative,
-            _LockboxSetWorkloadProfileDart
-          >('lockbox_set_workload_profile'),
-      _lockbox_set_worker_policy = library
-          .lookupFunction<
-            _LockboxSetWorkerPolicyNative,
-            _LockboxSetWorkerPolicyDart
-          >('lockbox_set_worker_policy'),
-      _lockbox_runtime_options = library
-          .lookupFunction<
-            _LockboxRuntimeOptionsNative,
-            _LockboxRuntimeOptionsDart
-          >('lockbox_runtime_options'),
+      _lockbox_set_workload_profile = library.lookupFunction<
+        _LockboxSetWorkloadProfileNative,
+        _LockboxSetWorkloadProfileDart
+      >('lockbox_set_workload_profile'),
+      _lockbox_set_worker_policy = library.lookupFunction<
+        _LockboxSetWorkerPolicyNative,
+        _LockboxSetWorkerPolicyDart
+      >('lockbox_set_worker_policy'),
+      _lockbox_runtime_options = library.lookupFunction<
+        _LockboxRuntimeOptionsNative,
+        _LockboxRuntimeOptionsDart
+      >('lockbox_runtime_options'),
       _lockbox_commit = library
           .lookupFunction<_LockboxCommitNative, _LockboxCommitDart>(
             'lockbox_commit',
@@ -1754,61 +1786,62 @@ final class RevaultNative {
           .lookupFunction<_LockboxRemoveDirNative, _LockboxRemoveDirDart>(
             'lockbox_remove_dir',
           ),
-      _lockbox_create_parent_dirs = library
-          .lookupFunction<
-            _LockboxCreateParentDirsNative,
-            _LockboxCreateParentDirsDart
-          >('lockbox_create_parent_dirs'),
+      _lockbox_create_parent_dirs = library.lookupFunction<
+        _LockboxCreateParentDirsNative,
+        _LockboxCreateParentDirsDart
+      >('lockbox_create_parent_dirs'),
       _lockbox_rename = library
           .lookupFunction<_LockboxRenameNative, _LockboxRenameDart>(
             'lockbox_rename',
           ),
       _lockbox_list = library
           .lookupFunction<_LockboxListNative, _LockboxListDart>('lockbox_list'),
-      _lockbox_list_with_options = library
-          .lookupFunction<
-            _LockboxListWithOptionsNative,
-            _LockboxListWithOptionsDart
-          >('lockbox_list_with_options'),
+      _lockbox_list_with_options = library.lookupFunction<
+        _LockboxListWithOptionsNative,
+        _LockboxListWithOptionsDart
+      >('lockbox_list_with_options'),
       _lockbox_stat = library
           .lookupFunction<_LockboxStatNative, _LockboxStatDart>('lockbox_stat'),
       _lockbox_set_variable = library
           .lookupFunction<_LockboxSetVariableNative, _LockboxSetVariableDart>(
             'lockbox_set_variable',
           ),
+      _lockbox_set_secret_variable = library.lookupFunction<
+        _LockboxSetSecretVariableNative,
+        _LockboxSetSecretVariableDart
+      >('lockbox_set_secret_variable'),
       _lockbox_get_variable = library
           .lookupFunction<_LockboxGetVariableNative, _LockboxGetVariableDart>(
             'lockbox_get_variable',
           ),
-      _lockbox_delete_variable = library
-          .lookupFunction<
-            _LockboxDeleteVariableNative,
-            _LockboxDeleteVariableDart
-          >('lockbox_delete_variable'),
-      _lockbox_move_variables = library
-          .lookupFunction<
-            _LockboxMoveVariablesNative,
-            _LockboxMoveVariablesDart
-          >('lockbox_move_variables'),
-      _lockbox_list_variables = library
-          .lookupFunction<
-            _LockboxListVariablesNative,
-            _LockboxListVariablesDart
-          >('lockbox_list_variables'),
-      _lockbox_variable_sensitivity = library
-          .lookupFunction<
-            _LockboxVariableSensitivityNative,
-            _LockboxVariableSensitivityDart
-          >('lockbox_variable_sensitivity'),
+      _lockbox_get_secret_variable = library.lookupFunction<
+        _LockboxGetSecretVariableNative,
+        _LockboxGetSecretVariableDart
+      >('lockbox_get_secret_variable'),
+      _lockbox_delete_variable = library.lookupFunction<
+        _LockboxDeleteVariableNative,
+        _LockboxDeleteVariableDart
+      >('lockbox_delete_variable'),
+      _lockbox_move_variables = library.lookupFunction<
+        _LockboxMoveVariablesNative,
+        _LockboxMoveVariablesDart
+      >('lockbox_move_variables'),
+      _lockbox_list_variables = library.lookupFunction<
+        _LockboxListVariablesNative,
+        _LockboxListVariablesDart
+      >('lockbox_list_variables'),
+      _lockbox_variable_sensitivity = library.lookupFunction<
+        _LockboxVariableSensitivityNative,
+        _LockboxVariableSensitivityDart
+      >('lockbox_variable_sensitivity'),
       _lockbox_add_symlink = library
           .lookupFunction<_LockboxAddSymlinkNative, _LockboxAddSymlinkDart>(
             'lockbox_add_symlink',
           ),
-      _lockbox_get_symlink_target = library
-          .lookupFunction<
-            _LockboxGetSymlinkTargetNative,
-            _LockboxGetSymlinkTargetDart
-          >('lockbox_get_symlink_target'),
+      _lockbox_get_symlink_target = library.lookupFunction<
+        _LockboxGetSymlinkTargetNative,
+        _LockboxGetSymlinkTargetDart
+      >('lockbox_get_symlink_target'),
       _lockbox_id = library.lookupFunction<_LockboxIdNative, _LockboxIdDart>(
         'lockbox_id',
       ),
@@ -1824,11 +1857,10 @@ final class RevaultNative {
           .lookupFunction<_LockboxPermissionsNative, _LockboxPermissionsDart>(
             'lockbox_permissions',
           ),
-      _lockbox_set_permissions = library
-          .lookupFunction<
-            _LockboxSetPermissionsNative,
-            _LockboxSetPermissionsDart
-          >('lockbox_set_permissions'),
+      _lockbox_set_permissions = library.lookupFunction<
+        _LockboxSetPermissionsNative,
+        _LockboxSetPermissionsDart
+      >('lockbox_set_permissions'),
       _lockbox_read_range = library
           .lookupFunction<_LockboxReadRangeNative, _LockboxReadRangeDart>(
             'lockbox_read_range',
@@ -1837,11 +1869,10 @@ final class RevaultNative {
           .lookupFunction<_LockboxRecoveryScanNative, _LockboxRecoveryScanDart>(
             'lockbox_recovery_scan',
           ),
-      _lockbox_recovery_salvage = library
-          .lookupFunction<
-            _LockboxRecoverySalvageNative,
-            _LockboxRecoverySalvageDart
-          >('lockbox_recovery_salvage'),
+      _lockbox_recovery_salvage = library.lookupFunction<
+        _LockboxRecoverySalvageNative,
+        _LockboxRecoverySalvageDart
+      >('lockbox_recovery_salvage'),
       _lockbox_add_password = library
           .lookupFunction<_LockboxAddPasswordNative, _LockboxAddPasswordDart>(
             'lockbox_add_password',
@@ -1858,67 +1889,66 @@ final class RevaultNative {
           .lookupFunction<_LockboxListKeySlotsNative, _LockboxListKeySlotsDart>(
             'lockbox_list_key_slots',
           ),
-      _lockbox_set_owner_signing_key = library
-          .lookupFunction<
-            _LockboxSetOwnerSigningKeyNative,
-            _LockboxSetOwnerSigningKeyDart
-          >('lockbox_set_owner_signing_key'),
-      _lockbox_owner_inspection = library
-          .lookupFunction<
-            _LockboxOwnerInspectionNative,
-            _LockboxOwnerInspectionDart
-          >('lockbox_owner_inspection'),
+      _lockbox_set_owner_signing_key = library.lookupFunction<
+        _LockboxSetOwnerSigningKeyNative,
+        _LockboxSetOwnerSigningKeyDart
+      >('lockbox_set_owner_signing_key'),
+      _lockbox_owner_inspection = library.lookupFunction<
+        _LockboxOwnerInspectionNative,
+        _LockboxOwnerInspectionDart
+      >('lockbox_owner_inspection'),
       _lockbox_define_form = library
           .lookupFunction<_LockboxDefineFormNative, _LockboxDefineFormDart>(
             'lockbox_define_form',
           ),
-      _lockbox_list_form_definitions = library
-          .lookupFunction<
-            _LockboxListFormDefinitionsNative,
-            _LockboxListFormDefinitionsDart
-          >('lockbox_list_form_definitions'),
+      _lockbox_list_form_definitions = library.lookupFunction<
+        _LockboxListFormDefinitionsNative,
+        _LockboxListFormDefinitionsDart
+      >('lockbox_list_form_definitions'),
       _lockbox_resolve_form = library
           .lookupFunction<_LockboxResolveFormNative, _LockboxResolveFormDart>(
             'lockbox_resolve_form',
           ),
-      _lockbox_list_form_revisions = library
-          .lookupFunction<
-            _LockboxListFormRevisionsNative,
-            _LockboxListFormRevisionsDart
-          >('lockbox_list_form_revisions'),
-      _lockbox_create_form_record = library
-          .lookupFunction<
-            _LockboxCreateFormRecordNative,
-            _LockboxCreateFormRecordDart
-          >('lockbox_create_form_record'),
+      _lockbox_list_form_revisions = library.lookupFunction<
+        _LockboxListFormRevisionsNative,
+        _LockboxListFormRevisionsDart
+      >('lockbox_list_form_revisions'),
+      _lockbox_create_form_record = library.lookupFunction<
+        _LockboxCreateFormRecordNative,
+        _LockboxCreateFormRecordDart
+      >('lockbox_create_form_record'),
       _lockbox_set_form_field = library
           .lookupFunction<_LockboxSetFormFieldNative, _LockboxSetFormFieldDart>(
             'lockbox_set_form_field',
           ),
-      _lockbox_list_form_records = library
-          .lookupFunction<
-            _LockboxListFormRecordsNative,
-            _LockboxListFormRecordsDart
-          >('lockbox_list_form_records'),
-      _lockbox_get_form_record = library
-          .lookupFunction<
-            _LockboxGetFormRecordNative,
-            _LockboxGetFormRecordDart
-          >('lockbox_get_form_record'),
-      _lockbox_delete_form_record = library
-          .lookupFunction<
-            _LockboxDeleteFormRecordNative,
-            _LockboxDeleteFormRecordDart
-          >('lockbox_delete_form_record'),
-      _lockbox_move_form_records = library
-          .lookupFunction<
-            _LockboxMoveFormRecordsNative,
-            _LockboxMoveFormRecordsDart
-          >('lockbox_move_form_records'),
+      _lockbox_set_secret_form_field = library.lookupFunction<
+        _LockboxSetSecretFormFieldNative,
+        _LockboxSetSecretFormFieldDart
+      >('lockbox_set_secret_form_field'),
+      _lockbox_list_form_records = library.lookupFunction<
+        _LockboxListFormRecordsNative,
+        _LockboxListFormRecordsDart
+      >('lockbox_list_form_records'),
+      _lockbox_get_form_record = library.lookupFunction<
+        _LockboxGetFormRecordNative,
+        _LockboxGetFormRecordDart
+      >('lockbox_get_form_record'),
+      _lockbox_delete_form_record = library.lookupFunction<
+        _LockboxDeleteFormRecordNative,
+        _LockboxDeleteFormRecordDart
+      >('lockbox_delete_form_record'),
+      _lockbox_move_form_records = library.lookupFunction<
+        _LockboxMoveFormRecordsNative,
+        _LockboxMoveFormRecordsDart
+      >('lockbox_move_form_records'),
       _lockbox_get_form_field = library
           .lookupFunction<_LockboxGetFormFieldNative, _LockboxGetFormFieldDart>(
             'lockbox_get_form_field',
           ),
+      _lockbox_get_secret_form_field = library.lookupFunction<
+        _LockboxGetSecretFormFieldNative,
+        _LockboxGetSecretFormFieldDart
+      >('lockbox_get_secret_form_field'),
       _lockbox_to_bytes = library
           .lookupFunction<_LockboxToBytesNative, _LockboxToBytesDart>(
             'lockbox_to_bytes',
@@ -1937,11 +1967,10 @@ final class RevaultNative {
           .lookupFunction<_KeyContactGenerateNative, _KeyContactGenerateDart>(
             'key_contact_generate',
           ),
-      _key_contact_from_private = library
-          .lookupFunction<
-            _KeyContactFromPrivateNative,
-            _KeyContactFromPrivateDart
-          >('key_contact_from_private'),
+      _key_contact_from_private = library.lookupFunction<
+        _KeyContactFromPrivateNative,
+        _KeyContactFromPrivateDart
+      >('key_contact_from_private'),
       _key_contact_public = library
           .lookupFunction<_KeyContactPublicNative, _KeyContactPublicDart>(
             'key_contact_public',
@@ -1950,16 +1979,14 @@ final class RevaultNative {
           .lookupFunction<_KeyContactPrivateNative, _KeyContactPrivateDart>(
             'key_contact_private',
           ),
-      _key_contact_public_from_bytes = library
-          .lookupFunction<
-            _KeyContactPublicFromBytesNative,
-            _KeyContactPublicFromBytesDart
-          >('key_contact_public_from_bytes'),
-      _key_contact_public_free = library
-          .lookupFunction<
-            _KeyContactPublicFreeNative,
-            _KeyContactPublicFreeDart
-          >('key_contact_public_free'),
+      _key_contact_public_from_bytes = library.lookupFunction<
+        _KeyContactPublicFromBytesNative,
+        _KeyContactPublicFromBytesDart
+      >('key_contact_public_from_bytes'),
+      _key_contact_public_free = library.lookupFunction<
+        _KeyContactPublicFreeNative,
+        _KeyContactPublicFreeDart
+      >('key_contact_public_free'),
       _key_contact_free = library
           .lookupFunction<_KeyContactFreeNative, _KeyContactFreeDart>(
             'key_contact_free',
@@ -1972,35 +1999,30 @@ final class RevaultNative {
           .lookupFunction<_KeyContactDecryptNative, _KeyContactDecryptDart>(
             'key_contact_decrypt',
           ),
-      _key_contact_wrapped_public = library
-          .lookupFunction<
-            _KeyContactWrappedPublicNative,
-            _KeyContactWrappedPublicDart
-          >('key_contact_wrapped_public'),
-      _key_contact_wrapped_ciphertext = library
-          .lookupFunction<
-            _KeyContactWrappedCiphertextNative,
-            _KeyContactWrappedCiphertextDart
-          >('key_contact_wrapped_ciphertext'),
-      _key_contact_wrapped_encrypted = library
-          .lookupFunction<
-            _KeyContactWrappedEncryptedNative,
-            _KeyContactWrappedEncryptedDart
-          >('key_contact_wrapped_encrypted'),
-      _key_contact_wrapped_free = library
-          .lookupFunction<
-            _KeyContactWrappedFreeNative,
-            _KeyContactWrappedFreeDart
-          >('key_contact_wrapped_free'),
+      _key_contact_wrapped_public = library.lookupFunction<
+        _KeyContactWrappedPublicNative,
+        _KeyContactWrappedPublicDart
+      >('key_contact_wrapped_public'),
+      _key_contact_wrapped_ciphertext = library.lookupFunction<
+        _KeyContactWrappedCiphertextNative,
+        _KeyContactWrappedCiphertextDart
+      >('key_contact_wrapped_ciphertext'),
+      _key_contact_wrapped_encrypted = library.lookupFunction<
+        _KeyContactWrappedEncryptedNative,
+        _KeyContactWrappedEncryptedDart
+      >('key_contact_wrapped_encrypted'),
+      _key_contact_wrapped_free = library.lookupFunction<
+        _KeyContactWrappedFreeNative,
+        _KeyContactWrappedFreeDart
+      >('key_contact_wrapped_free'),
       _key_signing_generate = library
           .lookupFunction<_KeySigningGenerateNative, _KeySigningGenerateDart>(
             'key_signing_generate',
           ),
-      _key_signing_from_private = library
-          .lookupFunction<
-            _KeySigningFromPrivateNative,
-            _KeySigningFromPrivateDart
-          >('key_signing_from_private'),
+      _key_signing_from_private = library.lookupFunction<
+        _KeySigningFromPrivateNative,
+        _KeySigningFromPrivateDart
+      >('key_signing_from_private'),
       _key_signing_public = library
           .lookupFunction<_KeySigningPublicNative, _KeySigningPublicDart>(
             'key_signing_public',
@@ -2009,40 +2031,34 @@ final class RevaultNative {
           .lookupFunction<_KeySigningPrivateNative, _KeySigningPrivateDart>(
             'key_signing_private',
           ),
-      _key_signing_public_from_bytes = library
-          .lookupFunction<
-            _KeySigningPublicFromBytesNative,
-            _KeySigningPublicFromBytesDart
-          >('key_signing_public_from_bytes'),
-      _key_signing_public_free = library
-          .lookupFunction<
-            _KeySigningPublicFreeNative,
-            _KeySigningPublicFreeDart
-          >('key_signing_public_free'),
+      _key_signing_public_from_bytes = library.lookupFunction<
+        _KeySigningPublicFromBytesNative,
+        _KeySigningPublicFromBytesDart
+      >('key_signing_public_from_bytes'),
+      _key_signing_public_free = library.lookupFunction<
+        _KeySigningPublicFreeNative,
+        _KeySigningPublicFreeDart
+      >('key_signing_public_free'),
       _key_signing_free = library
           .lookupFunction<_KeySigningFreeNative, _KeySigningFreeDart>(
             'key_signing_free',
           ),
-      _vault_key_export_private = library
-          .lookupFunction<
-            _VaultKeyExportPrivateNative,
-            _VaultKeyExportPrivateDart
-          >('vault_key_export_private'),
-      _vault_key_export_public = library
-          .lookupFunction<
-            _VaultKeyExportPublicNative,
-            _VaultKeyExportPublicDart
-          >('vault_key_export_public'),
-      _vault_key_import_private = library
-          .lookupFunction<
-            _VaultKeyImportPrivateNative,
-            _VaultKeyImportPrivateDart
-          >('vault_key_import_private'),
-      _vault_key_import_public = library
-          .lookupFunction<
-            _VaultKeyImportPublicNative,
-            _VaultKeyImportPublicDart
-          >('vault_key_import_public'),
+      _vault_key_export_private = library.lookupFunction<
+        _VaultKeyExportPrivateNative,
+        _VaultKeyExportPrivateDart
+      >('vault_key_export_private'),
+      _vault_key_export_public = library.lookupFunction<
+        _VaultKeyExportPublicNative,
+        _VaultKeyExportPublicDart
+      >('vault_key_export_public'),
+      _vault_key_import_private = library.lookupFunction<
+        _VaultKeyImportPrivateNative,
+        _VaultKeyImportPrivateDart
+      >('vault_key_import_private'),
+      _vault_key_import_public = library.lookupFunction<
+        _VaultKeyImportPublicNative,
+        _VaultKeyImportPublicDart
+      >('vault_key_import_public'),
       _vault_key_fingerprint = library
           .lookupFunction<_VaultKeyFingerprintNative, _VaultKeyFingerprintDart>(
             'vault_key_fingerprint',
@@ -2055,21 +2071,18 @@ final class RevaultNative {
           .lookupFunction<_VaultKeyDecodeHexNative, _VaultKeyDecodeHexDart>(
             'vault_key_decode_hex',
           ),
-      _vault_key_format_crockford = library
-          .lookupFunction<
-            _VaultKeyFormatCrockfordNative,
-            _VaultKeyFormatCrockfordDart
-          >('vault_key_format_crockford'),
-      _vault_key_format_crockford_reading = library
-          .lookupFunction<
-            _VaultKeyFormatCrockfordReadingNative,
-            _VaultKeyFormatCrockfordReadingDart
-          >('vault_key_format_crockford_reading'),
-      _vault_key_decode_crockford = library
-          .lookupFunction<
-            _VaultKeyDecodeCrockfordNative,
-            _VaultKeyDecodeCrockfordDart
-          >('vault_key_decode_crockford'),
+      _vault_key_format_crockford = library.lookupFunction<
+        _VaultKeyFormatCrockfordNative,
+        _VaultKeyFormatCrockfordDart
+      >('vault_key_format_crockford'),
+      _vault_key_format_crockford_reading = library.lookupFunction<
+        _VaultKeyFormatCrockfordReadingNative,
+        _VaultKeyFormatCrockfordReadingDart
+      >('vault_key_format_crockford_reading'),
+      _vault_key_decode_crockford = library.lookupFunction<
+        _VaultKeyDecodeCrockfordNative,
+        _VaultKeyDecodeCrockfordDart
+      >('vault_key_decode_crockford'),
       _vault_key_hex_encode = library
           .lookupFunction<_VaultKeyHexEncodeNative, _VaultKeyHexEncodeDart>(
             'vault_key_hex_encode',
@@ -2082,255 +2095,207 @@ final class RevaultNative {
           .lookupFunction<_VaultDirectoryOpenNative, _VaultDirectoryOpenDart>(
             'vault_directory_open',
           ),
-      _vault_structure_version_current = library
-          .lookupFunction<
-            _VaultStructureVersionCurrentNative,
-            _VaultStructureVersionCurrentDart
-          >('vault_structure_version_current'),
-      _vault_directory_probe_structure_version = library
-          .lookupFunction<
-            _VaultDirectoryProbeStructureVersionNative,
-            _VaultDirectoryProbeStructureVersionDart
-          >('vault_directory_probe_structure_version'),
-      _vault_directory_open_or_create_default = library
-          .lookupFunction<
-            _VaultDirectoryOpenOrCreateDefaultNative,
-            _VaultDirectoryOpenOrCreateDefaultDart
-          >('vault_directory_open_or_create_default'),
-      _vault_directory_replace_default = library
-          .lookupFunction<
-            _VaultDirectoryReplaceDefaultNative,
-            _VaultDirectoryReplaceDefaultDart
-          >('vault_directory_replace_default'),
-      _vault_directory_change_password = library
-          .lookupFunction<
-            _VaultDirectoryChangePasswordNative,
-            _VaultDirectoryChangePasswordDart
-          >('vault_directory_change_password'),
-      _vault_directory_change_default_password = library
-          .lookupFunction<
-            _VaultDirectoryChangeDefaultPasswordNative,
-            _VaultDirectoryChangeDefaultPasswordDart
-          >('vault_directory_change_default_password'),
-      _vault_directory_replace = library
-          .lookupFunction<
-            _VaultDirectoryReplaceNative,
-            _VaultDirectoryReplaceDart
-          >('vault_directory_replace'),
-      _vault_directory_open_or_create = library
-          .lookupFunction<
-            _VaultDirectoryOpenOrCreateNative,
-            _VaultDirectoryOpenOrCreateDart
-          >('vault_directory_open_or_create'),
+      _vault_structure_version_current = library.lookupFunction<
+        _VaultStructureVersionCurrentNative,
+        _VaultStructureVersionCurrentDart
+      >('vault_structure_version_current'),
+      _vault_directory_probe_structure_version = library.lookupFunction<
+        _VaultDirectoryProbeStructureVersionNative,
+        _VaultDirectoryProbeStructureVersionDart
+      >('vault_directory_probe_structure_version'),
+      _vault_directory_open_or_create_default = library.lookupFunction<
+        _VaultDirectoryOpenOrCreateDefaultNative,
+        _VaultDirectoryOpenOrCreateDefaultDart
+      >('vault_directory_open_or_create_default'),
+      _vault_directory_replace_default = library.lookupFunction<
+        _VaultDirectoryReplaceDefaultNative,
+        _VaultDirectoryReplaceDefaultDart
+      >('vault_directory_replace_default'),
+      _vault_directory_change_password = library.lookupFunction<
+        _VaultDirectoryChangePasswordNative,
+        _VaultDirectoryChangePasswordDart
+      >('vault_directory_change_password'),
+      _vault_directory_change_default_password = library.lookupFunction<
+        _VaultDirectoryChangeDefaultPasswordNative,
+        _VaultDirectoryChangeDefaultPasswordDart
+      >('vault_directory_change_default_password'),
+      _vault_directory_replace = library.lookupFunction<
+        _VaultDirectoryReplaceNative,
+        _VaultDirectoryReplaceDart
+      >('vault_directory_replace'),
+      _vault_directory_open_or_create = library.lookupFunction<
+        _VaultDirectoryOpenOrCreateNative,
+        _VaultDirectoryOpenOrCreateDart
+      >('vault_directory_open_or_create'),
       _vault_directory_root = library
           .lookupFunction<_VaultDirectoryRootNative, _VaultDirectoryRootDart>(
             'vault_directory_root',
           ),
-      _vault_directory_structure_version = library
-          .lookupFunction<
-            _VaultDirectoryStructureVersionNative,
-            _VaultDirectoryStructureVersionDart
-          >('vault_directory_structure_version'),
-      _vault_directory_list_private_keys = library
-          .lookupFunction<
-            _VaultDirectoryListPrivateKeysNative,
-            _VaultDirectoryListPrivateKeysDart
-          >('vault_directory_list_private_keys'),
-      _vault_directory_list_private_key_names = library
-          .lookupFunction<
-            _VaultDirectoryListPrivateKeyNamesNative,
-            _VaultDirectoryListPrivateKeyNamesDart
-          >('vault_directory_list_private_key_names'),
-      _vault_directory_list_contact_names = library
-          .lookupFunction<
-            _VaultDirectoryListContactNamesNative,
-            _VaultDirectoryListContactNamesDart
-          >('vault_directory_list_contact_names'),
-      _vault_directory_list_form_aliases = library
-          .lookupFunction<
-            _VaultDirectoryListFormAliasesNative,
-            _VaultDirectoryListFormAliasesDart
-          >('vault_directory_list_form_aliases'),
-      _vault_directory_private_key_exists = library
-          .lookupFunction<
-            _VaultDirectoryPrivateKeyExistsNative,
-            _VaultDirectoryPrivateKeyExistsDart
-          >('vault_directory_private_key_exists'),
-      _vault_directory_delete_private_key = library
-          .lookupFunction<
-            _VaultDirectoryDeletePrivateKeyNative,
-            _VaultDirectoryDeletePrivateKeyDart
-          >('vault_directory_delete_private_key'),
-      _vault_directory_store_private_key = library
-          .lookupFunction<
-            _VaultDirectoryStorePrivateKeyNative,
-            _VaultDirectoryStorePrivateKeyDart
-          >('vault_directory_store_private_key'),
-      _vault_directory_load_private_key = library
-          .lookupFunction<
-            _VaultDirectoryLoadPrivateKeyNative,
-            _VaultDirectoryLoadPrivateKeyDart
-          >('vault_directory_load_private_key'),
-      _vault_directory_load_private_key_generation = library
-          .lookupFunction<
-            _VaultDirectoryLoadPrivateKeyGenerationNative,
-            _VaultDirectoryLoadPrivateKeyGenerationDart
-          >('vault_directory_load_private_key_generation'),
-      _vault_directory_store_contact = library
-          .lookupFunction<
-            _VaultDirectoryStoreContactNative,
-            _VaultDirectoryStoreContactDart
-          >('vault_directory_store_contact'),
-      _vault_directory_load_contact = library
-          .lookupFunction<
-            _VaultDirectoryLoadContactNative,
-            _VaultDirectoryLoadContactDart
-          >('vault_directory_load_contact'),
-      _vault_directory_contact_exists = library
-          .lookupFunction<
-            _VaultDirectoryContactExistsNative,
-            _VaultDirectoryContactExistsDart
-          >('vault_directory_contact_exists'),
-      _vault_directory_delete_contact = library
-          .lookupFunction<
-            _VaultDirectoryDeleteContactNative,
-            _VaultDirectoryDeleteContactDart
-          >('vault_directory_delete_contact'),
-      _vault_directory_list_contacts = library
-          .lookupFunction<
-            _VaultDirectoryListContactsNative,
-            _VaultDirectoryListContactsDart
-          >('vault_directory_list_contacts'),
-      _vault_directory_store_profile_email = library
-          .lookupFunction<
-            _VaultDirectoryStoreProfileEmailNative,
-            _VaultDirectoryStoreProfileEmailDart
-          >('vault_directory_store_profile_email'),
-      _vault_directory_profile_email = library
-          .lookupFunction<
-            _VaultDirectoryProfileEmailNative,
-            _VaultDirectoryProfileEmailDart
-          >('vault_directory_profile_email'),
-      _vault_directory_store_backup = library
-          .lookupFunction<
-            _VaultDirectoryStoreBackupNative,
-            _VaultDirectoryStoreBackupDart
-          >('vault_directory_store_backup'),
-      _vault_directory_load_backup = library
-          .lookupFunction<
-            _VaultDirectoryLoadBackupNative,
-            _VaultDirectoryLoadBackupDart
-          >('vault_directory_load_backup'),
-      _vault_directory_backup_count = library
-          .lookupFunction<
-            _VaultDirectoryBackupCountNative,
-            _VaultDirectoryBackupCountDart
-          >('vault_directory_backup_count'),
-      _vault_directory_restore_private_key = library
-          .lookupFunction<
-            _VaultDirectoryRestorePrivateKeyNative,
-            _VaultDirectoryRestorePrivateKeyDart
-          >('vault_directory_restore_private_key'),
-      _vault_directory_load_owner_signing_key = library
-          .lookupFunction<
-            _VaultDirectoryLoadOwnerSigningKeyNative,
-            _VaultDirectoryLoadOwnerSigningKeyDart
-          >('vault_directory_load_owner_signing_key'),
+      _vault_directory_structure_version = library.lookupFunction<
+        _VaultDirectoryStructureVersionNative,
+        _VaultDirectoryStructureVersionDart
+      >('vault_directory_structure_version'),
+      _vault_directory_list_private_keys = library.lookupFunction<
+        _VaultDirectoryListPrivateKeysNative,
+        _VaultDirectoryListPrivateKeysDart
+      >('vault_directory_list_private_keys'),
+      _vault_directory_list_private_key_names = library.lookupFunction<
+        _VaultDirectoryListPrivateKeyNamesNative,
+        _VaultDirectoryListPrivateKeyNamesDart
+      >('vault_directory_list_private_key_names'),
+      _vault_directory_list_contact_names = library.lookupFunction<
+        _VaultDirectoryListContactNamesNative,
+        _VaultDirectoryListContactNamesDart
+      >('vault_directory_list_contact_names'),
+      _vault_directory_list_form_aliases = library.lookupFunction<
+        _VaultDirectoryListFormAliasesNative,
+        _VaultDirectoryListFormAliasesDart
+      >('vault_directory_list_form_aliases'),
+      _vault_directory_private_key_exists = library.lookupFunction<
+        _VaultDirectoryPrivateKeyExistsNative,
+        _VaultDirectoryPrivateKeyExistsDart
+      >('vault_directory_private_key_exists'),
+      _vault_directory_delete_private_key = library.lookupFunction<
+        _VaultDirectoryDeletePrivateKeyNative,
+        _VaultDirectoryDeletePrivateKeyDart
+      >('vault_directory_delete_private_key'),
+      _vault_directory_store_private_key = library.lookupFunction<
+        _VaultDirectoryStorePrivateKeyNative,
+        _VaultDirectoryStorePrivateKeyDart
+      >('vault_directory_store_private_key'),
+      _vault_directory_load_private_key = library.lookupFunction<
+        _VaultDirectoryLoadPrivateKeyNative,
+        _VaultDirectoryLoadPrivateKeyDart
+      >('vault_directory_load_private_key'),
+      _vault_directory_load_private_key_generation = library.lookupFunction<
+        _VaultDirectoryLoadPrivateKeyGenerationNative,
+        _VaultDirectoryLoadPrivateKeyGenerationDart
+      >('vault_directory_load_private_key_generation'),
+      _vault_directory_store_contact = library.lookupFunction<
+        _VaultDirectoryStoreContactNative,
+        _VaultDirectoryStoreContactDart
+      >('vault_directory_store_contact'),
+      _vault_directory_load_contact = library.lookupFunction<
+        _VaultDirectoryLoadContactNative,
+        _VaultDirectoryLoadContactDart
+      >('vault_directory_load_contact'),
+      _vault_directory_contact_exists = library.lookupFunction<
+        _VaultDirectoryContactExistsNative,
+        _VaultDirectoryContactExistsDart
+      >('vault_directory_contact_exists'),
+      _vault_directory_delete_contact = library.lookupFunction<
+        _VaultDirectoryDeleteContactNative,
+        _VaultDirectoryDeleteContactDart
+      >('vault_directory_delete_contact'),
+      _vault_directory_list_contacts = library.lookupFunction<
+        _VaultDirectoryListContactsNative,
+        _VaultDirectoryListContactsDart
+      >('vault_directory_list_contacts'),
+      _vault_directory_store_profile_email = library.lookupFunction<
+        _VaultDirectoryStoreProfileEmailNative,
+        _VaultDirectoryStoreProfileEmailDart
+      >('vault_directory_store_profile_email'),
+      _vault_directory_profile_email = library.lookupFunction<
+        _VaultDirectoryProfileEmailNative,
+        _VaultDirectoryProfileEmailDart
+      >('vault_directory_profile_email'),
+      _vault_directory_store_backup = library.lookupFunction<
+        _VaultDirectoryStoreBackupNative,
+        _VaultDirectoryStoreBackupDart
+      >('vault_directory_store_backup'),
+      _vault_directory_load_backup = library.lookupFunction<
+        _VaultDirectoryLoadBackupNative,
+        _VaultDirectoryLoadBackupDart
+      >('vault_directory_load_backup'),
+      _vault_directory_backup_count = library.lookupFunction<
+        _VaultDirectoryBackupCountNative,
+        _VaultDirectoryBackupCountDart
+      >('vault_directory_backup_count'),
+      _vault_directory_restore_private_key = library.lookupFunction<
+        _VaultDirectoryRestorePrivateKeyNative,
+        _VaultDirectoryRestorePrivateKeyDart
+      >('vault_directory_restore_private_key'),
+      _vault_directory_load_owner_signing_key = library.lookupFunction<
+        _VaultDirectoryLoadOwnerSigningKeyNative,
+        _VaultDirectoryLoadOwnerSigningKeyDart
+      >('vault_directory_load_owner_signing_key'),
       _vault_directory_load_owner_signing_key_generation = library
           .lookupFunction<
             _VaultDirectoryLoadOwnerSigningKeyGenerationNative,
             _VaultDirectoryLoadOwnerSigningKeyGenerationDart
           >('vault_directory_load_owner_signing_key_generation'),
-      _vault_directory_store_contact_signing_key = library
-          .lookupFunction<
-            _VaultDirectoryStoreContactSigningKeyNative,
-            _VaultDirectoryStoreContactSigningKeyDart
-          >('vault_directory_store_contact_signing_key'),
-      _vault_directory_load_contact_signing_key = library
-          .lookupFunction<
-            _VaultDirectoryLoadContactSigningKeyNative,
-            _VaultDirectoryLoadContactSigningKeyDart
-          >('vault_directory_load_contact_signing_key'),
-      _vault_directory_list_profile_generations = library
-          .lookupFunction<
-            _VaultDirectoryListProfileGenerationsNative,
-            _VaultDirectoryListProfileGenerationsDart
-          >('vault_directory_list_profile_generations'),
-      _vault_directory_rotate_private_key = library
-          .lookupFunction<
-            _VaultDirectoryRotatePrivateKeyNative,
-            _VaultDirectoryRotatePrivateKeyDart
-          >('vault_directory_rotate_private_key'),
-      _vault_directory_remember_lockbox = library
-          .lookupFunction<
-            _VaultDirectoryRememberLockboxNative,
-            _VaultDirectoryRememberLockboxDart
-          >('vault_directory_remember_lockbox'),
-      _vault_directory_list_known_lockboxes = library
-          .lookupFunction<
-            _VaultDirectoryListKnownLockboxesNative,
-            _VaultDirectoryListKnownLockboxesDart
-          >('vault_directory_list_known_lockboxes'),
-      _vault_directory_forget_lockbox = library
-          .lookupFunction<
-            _VaultDirectoryForgetLockboxNative,
-            _VaultDirectoryForgetLockboxDart
-          >('vault_directory_forget_lockbox'),
-      _vault_directory_remember_access_slot_label = library
-          .lookupFunction<
-            _VaultDirectoryRememberAccessSlotLabelNative,
-            _VaultDirectoryRememberAccessSlotLabelDart
-          >('vault_directory_remember_access_slot_label'),
-      _vault_directory_list_access_slot_labels = library
-          .lookupFunction<
-            _VaultDirectoryListAccessSlotLabelsNative,
-            _VaultDirectoryListAccessSlotLabelsDart
-          >('vault_directory_list_access_slot_labels'),
-      _vault_directory_find_access_slot_labels = library
-          .lookupFunction<
-            _VaultDirectoryFindAccessSlotLabelsNative,
-            _VaultDirectoryFindAccessSlotLabelsDart
-          >('vault_directory_find_access_slot_labels'),
-      _vault_directory_forget_access_slot_label = library
-          .lookupFunction<
-            _VaultDirectoryForgetAccessSlotLabelNative,
-            _VaultDirectoryForgetAccessSlotLabelDart
-          >('vault_directory_forget_access_slot_label'),
-      _vault_directory_define_form = library
-          .lookupFunction<
-            _VaultDirectoryDefineFormNative,
-            _VaultDirectoryDefineFormDart
-          >('vault_directory_define_form'),
-      _vault_directory_resolve_form = library
-          .lookupFunction<
-            _VaultDirectoryResolveFormNative,
-            _VaultDirectoryResolveFormDart
-          >('vault_directory_resolve_form'),
-      _vault_directory_list_forms = library
-          .lookupFunction<
-            _VaultDirectoryListFormsNative,
-            _VaultDirectoryListFormsDart
-          >('vault_directory_list_forms'),
-      _vault_directory_list_form_revisions = library
-          .lookupFunction<
-            _VaultDirectoryListFormRevisionsNative,
-            _VaultDirectoryListFormRevisionsDart
-          >('vault_directory_list_form_revisions'),
-      _vault_directory_seed_forms = library
-          .lookupFunction<
-            _VaultDirectorySeedFormsNative,
-            _VaultDirectorySeedFormsDart
-          >('vault_directory_seed_forms'),
-      _vault_directory_remember_password = library
-          .lookupFunction<
-            _VaultDirectoryRememberPasswordNative,
-            _VaultDirectoryRememberPasswordDart
-          >('vault_directory_remember_password'),
-      _vault_directory_remembered_password = library
-          .lookupFunction<
-            _VaultDirectoryRememberedPasswordNative,
-            _VaultDirectoryRememberedPasswordDart
-          >('vault_directory_remembered_password'),
+      _vault_directory_store_contact_signing_key = library.lookupFunction<
+        _VaultDirectoryStoreContactSigningKeyNative,
+        _VaultDirectoryStoreContactSigningKeyDart
+      >('vault_directory_store_contact_signing_key'),
+      _vault_directory_load_contact_signing_key = library.lookupFunction<
+        _VaultDirectoryLoadContactSigningKeyNative,
+        _VaultDirectoryLoadContactSigningKeyDart
+      >('vault_directory_load_contact_signing_key'),
+      _vault_directory_list_profile_generations = library.lookupFunction<
+        _VaultDirectoryListProfileGenerationsNative,
+        _VaultDirectoryListProfileGenerationsDart
+      >('vault_directory_list_profile_generations'),
+      _vault_directory_rotate_private_key = library.lookupFunction<
+        _VaultDirectoryRotatePrivateKeyNative,
+        _VaultDirectoryRotatePrivateKeyDart
+      >('vault_directory_rotate_private_key'),
+      _vault_directory_remember_lockbox = library.lookupFunction<
+        _VaultDirectoryRememberLockboxNative,
+        _VaultDirectoryRememberLockboxDart
+      >('vault_directory_remember_lockbox'),
+      _vault_directory_list_known_lockboxes = library.lookupFunction<
+        _VaultDirectoryListKnownLockboxesNative,
+        _VaultDirectoryListKnownLockboxesDart
+      >('vault_directory_list_known_lockboxes'),
+      _vault_directory_forget_lockbox = library.lookupFunction<
+        _VaultDirectoryForgetLockboxNative,
+        _VaultDirectoryForgetLockboxDart
+      >('vault_directory_forget_lockbox'),
+      _vault_directory_remember_access_slot_label = library.lookupFunction<
+        _VaultDirectoryRememberAccessSlotLabelNative,
+        _VaultDirectoryRememberAccessSlotLabelDart
+      >('vault_directory_remember_access_slot_label'),
+      _vault_directory_list_access_slot_labels = library.lookupFunction<
+        _VaultDirectoryListAccessSlotLabelsNative,
+        _VaultDirectoryListAccessSlotLabelsDart
+      >('vault_directory_list_access_slot_labels'),
+      _vault_directory_find_access_slot_labels = library.lookupFunction<
+        _VaultDirectoryFindAccessSlotLabelsNative,
+        _VaultDirectoryFindAccessSlotLabelsDart
+      >('vault_directory_find_access_slot_labels'),
+      _vault_directory_forget_access_slot_label = library.lookupFunction<
+        _VaultDirectoryForgetAccessSlotLabelNative,
+        _VaultDirectoryForgetAccessSlotLabelDart
+      >('vault_directory_forget_access_slot_label'),
+      _vault_directory_define_form = library.lookupFunction<
+        _VaultDirectoryDefineFormNative,
+        _VaultDirectoryDefineFormDart
+      >('vault_directory_define_form'),
+      _vault_directory_resolve_form = library.lookupFunction<
+        _VaultDirectoryResolveFormNative,
+        _VaultDirectoryResolveFormDart
+      >('vault_directory_resolve_form'),
+      _vault_directory_list_forms = library.lookupFunction<
+        _VaultDirectoryListFormsNative,
+        _VaultDirectoryListFormsDart
+      >('vault_directory_list_forms'),
+      _vault_directory_list_form_revisions = library.lookupFunction<
+        _VaultDirectoryListFormRevisionsNative,
+        _VaultDirectoryListFormRevisionsDart
+      >('vault_directory_list_form_revisions'),
+      _vault_directory_seed_forms = library.lookupFunction<
+        _VaultDirectorySeedFormsNative,
+        _VaultDirectorySeedFormsDart
+      >('vault_directory_seed_forms'),
+      _vault_directory_remember_password = library.lookupFunction<
+        _VaultDirectoryRememberPasswordNative,
+        _VaultDirectoryRememberPasswordDart
+      >('vault_directory_remember_password'),
+      _vault_directory_remembered_password = library.lookupFunction<
+        _VaultDirectoryRememberedPasswordNative,
+        _VaultDirectoryRememberedPasswordDart
+      >('vault_directory_remembered_password'),
       _vault_backup_default = library
           .lookupFunction<_VaultBackupDefaultNative, _VaultBackupDefaultDart>(
             'vault_backup_default',
@@ -2347,31 +2312,26 @@ final class RevaultNative {
           .lookupFunction<_VaultReadOnlyOpenNative, _VaultReadOnlyOpenDart>(
             'vault_read_only_open',
           ),
-      _vault_read_only_open_default = library
-          .lookupFunction<
-            _VaultReadOnlyOpenDefaultNative,
-            _VaultReadOnlyOpenDefaultDart
-          >('vault_read_only_open_default'),
-      _vault_read_only_list_profile_names = library
-          .lookupFunction<
-            _VaultReadOnlyListProfileNamesNative,
-            _VaultReadOnlyListProfileNamesDart
-          >('vault_read_only_list_profile_names'),
-      _vault_read_only_list_contact_names = library
-          .lookupFunction<
-            _VaultReadOnlyListContactNamesNative,
-            _VaultReadOnlyListContactNamesDart
-          >('vault_read_only_list_contact_names'),
-      _vault_read_only_list_form_aliases = library
-          .lookupFunction<
-            _VaultReadOnlyListFormAliasesNative,
-            _VaultReadOnlyListFormAliasesDart
-          >('vault_read_only_list_form_aliases'),
-      _vault_read_only_list_known_lockboxes = library
-          .lookupFunction<
-            _VaultReadOnlyListKnownLockboxesNative,
-            _VaultReadOnlyListKnownLockboxesDart
-          >('vault_read_only_list_known_lockboxes'),
+      _vault_read_only_open_default = library.lookupFunction<
+        _VaultReadOnlyOpenDefaultNative,
+        _VaultReadOnlyOpenDefaultDart
+      >('vault_read_only_open_default'),
+      _vault_read_only_list_profile_names = library.lookupFunction<
+        _VaultReadOnlyListProfileNamesNative,
+        _VaultReadOnlyListProfileNamesDart
+      >('vault_read_only_list_profile_names'),
+      _vault_read_only_list_contact_names = library.lookupFunction<
+        _VaultReadOnlyListContactNamesNative,
+        _VaultReadOnlyListContactNamesDart
+      >('vault_read_only_list_contact_names'),
+      _vault_read_only_list_form_aliases = library.lookupFunction<
+        _VaultReadOnlyListFormAliasesNative,
+        _VaultReadOnlyListFormAliasesDart
+      >('vault_read_only_list_form_aliases'),
+      _vault_read_only_list_known_lockboxes = library.lookupFunction<
+        _VaultReadOnlyListKnownLockboxesNative,
+        _VaultReadOnlyListKnownLockboxesDart
+      >('vault_read_only_list_known_lockboxes'),
       _vault_read_only_free = library
           .lookupFunction<_VaultReadOnlyFreeNative, _VaultReadOnlyFreeDart>(
             'vault_read_only_free',
@@ -2380,11 +2340,10 @@ final class RevaultNative {
           .lookupFunction<_VaultAgentServeNative, _VaultAgentServeDart>(
             'vault_agent_serve',
           ),
-      _vault_agent_verify_transport = library
-          .lookupFunction<
-            _VaultAgentVerifyTransportNative,
-            _VaultAgentVerifyTransportDart
-          >('vault_agent_verify_transport'),
+      _vault_agent_verify_transport = library.lookupFunction<
+        _VaultAgentVerifyTransportNative,
+        _VaultAgentVerifyTransportDart
+      >('vault_agent_verify_transport'),
       _vault_agent_get = library
           .lookupFunction<_VaultAgentGetNative, _VaultAgentGetDart>(
             'vault_agent_get',
@@ -2409,54 +2368,46 @@ final class RevaultNative {
           .lookupFunction<_VaultAgentListNative, _VaultAgentListDart>(
             'vault_agent_list',
           ),
-      _vault_agent_sleep_support = library
-          .lookupFunction<
-            _VaultAgentSleepSupportNative,
-            _VaultAgentSleepSupportDart
-          >('vault_agent_sleep_support'),
+      _vault_agent_sleep_support = library.lookupFunction<
+        _VaultAgentSleepSupportNative,
+        _VaultAgentSleepSupportDart
+      >('vault_agent_sleep_support'),
       _vault_platform_status = library
           .lookupFunction<_VaultPlatformStatusNative, _VaultPlatformStatusDart>(
             'vault_platform_status',
           ),
-      _vault_platform_set_scope = library
-          .lookupFunction<
-            _VaultPlatformSetScopeNative,
-            _VaultPlatformSetScopeDart
-          >('vault_platform_set_scope'),
-      _vault_platform_forget_password = library
-          .lookupFunction<
-            _VaultPlatformForgetPasswordNative,
-            _VaultPlatformForgetPasswordDart
-          >('vault_platform_forget_password'),
-      _vault_platform_put_password = library
-          .lookupFunction<
-            _VaultPlatformPutPasswordNative,
-            _VaultPlatformPutPasswordDart
-          >('vault_platform_put_password'),
+      _vault_platform_set_scope = library.lookupFunction<
+        _VaultPlatformSetScopeNative,
+        _VaultPlatformSetScopeDart
+      >('vault_platform_set_scope'),
+      _vault_platform_forget_password = library.lookupFunction<
+        _VaultPlatformForgetPasswordNative,
+        _VaultPlatformForgetPasswordDart
+      >('vault_platform_forget_password'),
+      _vault_platform_put_password = library.lookupFunction<
+        _VaultPlatformPutPasswordNative,
+        _VaultPlatformPutPasswordDart
+      >('vault_platform_put_password'),
       _vault_platform_enable = library
           .lookupFunction<_VaultPlatformEnableNative, _VaultPlatformEnableDart>(
             'vault_platform_enable',
           ),
-      _vault_platform_disable = library
-          .lookupFunction<
-            _VaultPlatformDisableNative,
-            _VaultPlatformDisableDart
-          >('vault_platform_disable'),
-      _vault_platform_disabled = library
-          .lookupFunction<
-            _VaultPlatformDisabledNative,
-            _VaultPlatformDisabledDart
-          >('vault_platform_disabled'),
-      _vault_platform_get_password = library
-          .lookupFunction<
-            _VaultPlatformGetPasswordNative,
-            _VaultPlatformGetPasswordDart
-          >('vault_platform_get_password'),
-      _vault_default_directory = library
-          .lookupFunction<
-            _VaultDefaultDirectoryNative,
-            _VaultDefaultDirectoryDart
-          >('vault_default_directory'),
+      _vault_platform_disable = library.lookupFunction<
+        _VaultPlatformDisableNative,
+        _VaultPlatformDisableDart
+      >('vault_platform_disable'),
+      _vault_platform_disabled = library.lookupFunction<
+        _VaultPlatformDisabledNative,
+        _VaultPlatformDisabledDart
+      >('vault_platform_disabled'),
+      _vault_platform_get_password = library.lookupFunction<
+        _VaultPlatformGetPasswordNative,
+        _VaultPlatformGetPasswordDart
+      >('vault_platform_get_password'),
+      _vault_default_directory = library.lookupFunction<
+        _VaultDefaultDirectoryNative,
+        _VaultDefaultDirectoryDart
+      >('vault_default_directory'),
       _vault_default_path = library
           .lookupFunction<_VaultDefaultPathNative, _VaultDefaultPathDart>(
             'vault_default_path',
@@ -2465,84 +2416,69 @@ final class RevaultNative {
           .lookupFunction<_VaultAgentLogPathNative, _VaultAgentLogPathDart>(
             'vault_agent_log_path',
           ),
-      _vault_agent_log_destination = library
-          .lookupFunction<
-            _VaultAgentLogDestinationNative,
-            _VaultAgentLogDestinationDart
-          >('vault_agent_log_destination'),
-      _vault_agent_get_vault_unlock_key = library
-          .lookupFunction<
-            _VaultAgentGetVaultUnlockKeyNative,
-            _VaultAgentGetVaultUnlockKeyDart
-          >('vault_agent_get_vault_unlock_key'),
-      _vault_agent_put_vault_unlock_key = library
-          .lookupFunction<
-            _VaultAgentPutVaultUnlockKeyNative,
-            _VaultAgentPutVaultUnlockKeyDart
-          >('vault_agent_put_vault_unlock_key'),
-      _vault_agent_forget_vault_unlock_key = library
-          .lookupFunction<
-            _VaultAgentForgetVaultUnlockKeyNative,
-            _VaultAgentForgetVaultUnlockKeyDart
-          >('vault_agent_forget_vault_unlock_key'),
-      _vault_agent_get_owner_signing_key = library
-          .lookupFunction<
-            _VaultAgentGetOwnerSigningKeyNative,
-            _VaultAgentGetOwnerSigningKeyDart
-          >('vault_agent_get_owner_signing_key'),
-      _vault_agent_put_owner_signing_key = library
-          .lookupFunction<
-            _VaultAgentPutOwnerSigningKeyNative,
-            _VaultAgentPutOwnerSigningKeyDart
-          >('vault_agent_put_owner_signing_key'),
-      _vault_agent_forget_owner_signing_key = library
-          .lookupFunction<
-            _VaultAgentForgetOwnerSigningKeyNative,
-            _VaultAgentForgetOwnerSigningKeyDart
-          >('vault_agent_forget_owner_signing_key'),
-      _vault_agent_begin_activity = library
-          .lookupFunction<
-            _VaultAgentBeginActivityNative,
-            _VaultAgentBeginActivityDart
-          >('vault_agent_begin_activity'),
-      _vault_agent_end_activity = library
-          .lookupFunction<
-            _VaultAgentEndActivityNative,
-            _VaultAgentEndActivityDart
-          >('vault_agent_end_activity'),
+      _vault_agent_log_destination = library.lookupFunction<
+        _VaultAgentLogDestinationNative,
+        _VaultAgentLogDestinationDart
+      >('vault_agent_log_destination'),
+      _vault_agent_get_vault_unlock_key = library.lookupFunction<
+        _VaultAgentGetVaultUnlockKeyNative,
+        _VaultAgentGetVaultUnlockKeyDart
+      >('vault_agent_get_vault_unlock_key'),
+      _vault_agent_put_vault_unlock_key = library.lookupFunction<
+        _VaultAgentPutVaultUnlockKeyNative,
+        _VaultAgentPutVaultUnlockKeyDart
+      >('vault_agent_put_vault_unlock_key'),
+      _vault_agent_forget_vault_unlock_key = library.lookupFunction<
+        _VaultAgentForgetVaultUnlockKeyNative,
+        _VaultAgentForgetVaultUnlockKeyDart
+      >('vault_agent_forget_vault_unlock_key'),
+      _vault_agent_get_owner_signing_key = library.lookupFunction<
+        _VaultAgentGetOwnerSigningKeyNative,
+        _VaultAgentGetOwnerSigningKeyDart
+      >('vault_agent_get_owner_signing_key'),
+      _vault_agent_put_owner_signing_key = library.lookupFunction<
+        _VaultAgentPutOwnerSigningKeyNative,
+        _VaultAgentPutOwnerSigningKeyDart
+      >('vault_agent_put_owner_signing_key'),
+      _vault_agent_forget_owner_signing_key = library.lookupFunction<
+        _VaultAgentForgetOwnerSigningKeyNative,
+        _VaultAgentForgetOwnerSigningKeyDart
+      >('vault_agent_forget_owner_signing_key'),
+      _vault_agent_begin_activity = library.lookupFunction<
+        _VaultAgentBeginActivityNative,
+        _VaultAgentBeginActivityDart
+      >('vault_agent_begin_activity'),
+      _vault_agent_end_activity = library.lookupFunction<
+        _VaultAgentEndActivityNative,
+        _VaultAgentEndActivityDart
+      >('vault_agent_end_activity'),
       _vault_local = library.lookupFunction<_VaultLocalNative, _VaultLocalDart>(
         'vault_local',
       ),
-      _vault_create_lockbox_password = library
-          .lookupFunction<
-            _VaultCreateLockboxPasswordNative,
-            _VaultCreateLockboxPasswordDart
-          >('vault_create_lockbox_password'),
-      _vault_open_lockbox_password = library
-          .lookupFunction<
-            _VaultOpenLockboxPasswordNative,
-            _VaultOpenLockboxPasswordDart
-          >('vault_open_lockbox_password'),
-      _vault_create_lockbox_content_key = library
-          .lookupFunction<
-            _VaultCreateLockboxContentKeyNative,
-            _VaultCreateLockboxContentKeyDart
-          >('vault_create_lockbox_content_key'),
-      _vault_create_lockbox_contact = library
-          .lookupFunction<
-            _VaultCreateLockboxContactNative,
-            _VaultCreateLockboxContactDart
-          >('vault_create_lockbox_contact'),
-      _vault_open_lockbox_content_key = library
-          .lookupFunction<
-            _VaultOpenLockboxContentKeyNative,
-            _VaultOpenLockboxContentKeyDart
-          >('vault_open_lockbox_content_key'),
-      _vault_cache_lockbox_password = library
-          .lookupFunction<
-            _VaultCacheLockboxPasswordNative,
-            _VaultCacheLockboxPasswordDart
-          >('vault_cache_lockbox_password'),
+      _vault_create_lockbox_password = library.lookupFunction<
+        _VaultCreateLockboxPasswordNative,
+        _VaultCreateLockboxPasswordDart
+      >('vault_create_lockbox_password'),
+      _vault_open_lockbox_password = library.lookupFunction<
+        _VaultOpenLockboxPasswordNative,
+        _VaultOpenLockboxPasswordDart
+      >('vault_open_lockbox_password'),
+      _vault_create_lockbox_content_key = library.lookupFunction<
+        _VaultCreateLockboxContentKeyNative,
+        _VaultCreateLockboxContentKeyDart
+      >('vault_create_lockbox_content_key'),
+      _vault_create_lockbox_contact = library.lookupFunction<
+        _VaultCreateLockboxContactNative,
+        _VaultCreateLockboxContactDart
+      >('vault_create_lockbox_contact'),
+      _vault_open_lockbox_content_key = library.lookupFunction<
+        _VaultOpenLockboxContentKeyNative,
+        _VaultOpenLockboxContentKeyDart
+      >('vault_open_lockbox_content_key'),
+      _vault_cache_lockbox_password = library.lookupFunction<
+        _VaultCacheLockboxPasswordNative,
+        _VaultCacheLockboxPasswordDart
+      >('vault_cache_lockbox_password'),
       _vault_close_lockbox = library
           .lookupFunction<_VaultCloseLockboxNative, _VaultCloseLockboxDart>(
             'vault_close_lockbox',
@@ -2562,6 +2498,17 @@ final class RevaultNative {
   RevaultBuffer buffer_last_error_details() => _buffer_last_error_details();
   final _BufferFreeDart _buffer_free;
   void buffer_free(RevaultBuffer value) => _buffer_free(value);
+  final _SecretLenDart _secret_len;
+  bool secret_len(ffi.Pointer<ffi.Void> handle, ffi.Pointer<ffi.Size> outLen) =>
+      _secret_len(handle, outLen);
+  final _SecretCopyDart _secret_copy;
+  bool secret_copy(
+    ffi.Pointer<ffi.Void> handle,
+    ffi.Pointer<ffi.Uint8> destination,
+    int destinationLen,
+  ) => _secret_copy(handle, destination, destinationLen);
+  final _SecretFreeDart _secret_free;
+  void secret_free(ffi.Pointer<ffi.Void> handle) => _secret_free(handle);
   final _LockboxFormatVersionDart _lockbox_format_version;
   int lockbox_format_version() => _lockbox_format_version();
   final _LockboxProbeFormatVersionDart _lockbox_probe_format_version;
@@ -2866,14 +2813,28 @@ final class RevaultNative {
     int name_len,
     ffi.Pointer<ffi.Uint8> value,
     int value_len,
-    bool secret,
-  ) => _lockbox_set_variable(handle, name, name_len, value, value_len, secret);
+  ) => _lockbox_set_variable(handle, name, name_len, value, value_len);
+  final _LockboxSetSecretVariableDart _lockbox_set_secret_variable;
+  bool lockbox_set_secret_variable(
+    ffi.Pointer<ffi.Void> handle,
+    ffi.Pointer<ffi.Uint8> name,
+    int nameLen,
+    ffi.Pointer<ffi.Uint8> value,
+    int valueLen,
+  ) => _lockbox_set_secret_variable(handle, name, nameLen, value, valueLen);
   final _LockboxGetVariableDart _lockbox_get_variable;
   RevaultBuffer lockbox_get_variable(
     ffi.Pointer<ffi.Void> handle,
     ffi.Pointer<ffi.Uint8> name,
     int name_len,
   ) => _lockbox_get_variable(handle, name, name_len);
+  final _LockboxGetSecretVariableDart _lockbox_get_secret_variable;
+  bool lockbox_get_secret_variable(
+    ffi.Pointer<ffi.Void> handle,
+    ffi.Pointer<ffi.Uint8> name,
+    int nameLen,
+    ffi.Pointer<ffi.Pointer<ffi.Void>> output,
+  ) => _lockbox_get_secret_variable(handle, name, nameLen, output);
   final _LockboxDeleteVariableDart _lockbox_delete_variable;
   bool lockbox_delete_variable(
     ffi.Pointer<ffi.Void> handle,
@@ -3052,7 +3013,6 @@ final class RevaultNative {
     int field_len,
     ffi.Pointer<ffi.Uint8> value,
     int value_len,
-    bool secret,
   ) => _lockbox_set_form_field(
     handle,
     path,
@@ -3061,7 +3021,24 @@ final class RevaultNative {
     field_len,
     value,
     value_len,
-    secret,
+  );
+  final _LockboxSetSecretFormFieldDart _lockbox_set_secret_form_field;
+  bool lockbox_set_secret_form_field(
+    ffi.Pointer<ffi.Void> handle,
+    ffi.Pointer<ffi.Uint8> path,
+    int pathLen,
+    ffi.Pointer<ffi.Uint8> field,
+    int fieldLen,
+    ffi.Pointer<ffi.Uint8> value,
+    int valueLen,
+  ) => _lockbox_set_secret_form_field(
+    handle,
+    path,
+    pathLen,
+    field,
+    fieldLen,
+    value,
+    valueLen,
   );
   final _LockboxListFormRecordsDart _lockbox_list_form_records;
   RevaultBuffer lockbox_list_form_records(ffi.Pointer<ffi.Void> handle) =>
@@ -3092,6 +3069,22 @@ final class RevaultNative {
     ffi.Pointer<ffi.Uint8> field,
     int field_len,
   ) => _lockbox_get_form_field(handle, path, path_len, field, field_len);
+  final _LockboxGetSecretFormFieldDart _lockbox_get_secret_form_field;
+  bool lockbox_get_secret_form_field(
+    ffi.Pointer<ffi.Void> handle,
+    ffi.Pointer<ffi.Uint8> path,
+    int pathLen,
+    ffi.Pointer<ffi.Uint8> field,
+    int fieldLen,
+    ffi.Pointer<ffi.Pointer<ffi.Void>> output,
+  ) => _lockbox_get_secret_form_field(
+    handle,
+    path,
+    pathLen,
+    field,
+    fieldLen,
+    output,
+  );
   final _LockboxToBytesDart _lockbox_to_bytes;
   RevaultBuffer lockbox_to_bytes(ffi.Pointer<ffi.Void> handle) =>
       _lockbox_to_bytes(handle);

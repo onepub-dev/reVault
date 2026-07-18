@@ -1,9 +1,17 @@
-// Generated complete class-oriented Swift API. Do not edit.
+// Swift API for encrypted reVault lockboxes and local vault metadata.
+// See https://github.com/onepub-dev/reVault#readme for installation, security
+// guidance, and complete examples.
 import Foundation
 import RevaultC
 import SwiftProtobuf
 
-public enum RevaultError: Error { case native(String); case invalidFrame }
+/// Errors raised while validating or invoking the native reVault API.
+public enum RevaultError: Error {
+    /// The native operation failed with the associated diagnostic message.
+    case native(String)
+    /// A structured native response was not a valid reVault wire frame.
+    case invalidFrame
+}
 
 private func lastError() -> String {
     guard let value = buffer_last_error() else { return "native reVault operation failed" }
@@ -25,8 +33,32 @@ private func payload(_ buffer: RevaultBuffer) throws -> Data {
     return Data(frame.dropFirst(12))
 }
 
+private func withSecret<T>(
+    _ getter: (UnsafeMutablePointer<UnsafeMutableRawPointer?>) -> Bool,
+    _ callback: (UnsafeRawBufferPointer) throws -> T
+) throws -> T? {
+    var handle: UnsafeMutableRawPointer?
+    guard getter(&handle) else { throw RevaultError.native(lastError()) }
+    guard let handle else { return nil }
+    defer { secret_free(handle) }
+    var length = 0
+    guard secret_len(handle, &length) else { throw RevaultError.native(lastError()) }
+    var bytes = [UInt8](repeating: 0, count: length)
+    defer {
+        bytes.withUnsafeMutableBytes { raw in
+            _ = raw.initializeMemory(as: UInt8.self, repeating: 0)
+        }
+    }
+    guard bytes.withUnsafeMutableBytes({ raw in
+        secret_copy(handle, raw.bindMemory(to: UInt8.self).baseAddress, length)
+    }) else {
+        throw RevaultError.native(lastError())
+    }
+    return try bytes.withUnsafeBytes(callback)
+}
+
 final class BindingOperations {
-    init() { precondition(api_abi_version() == 1, "revault-api native ABI mismatch; expected 1") }
+    init() { precondition(api_abi_version() == 2, "revault-api native ABI mismatch; expected 2") }
     func lastErrorMessage() -> String { lastError() }
 
     func bufferLastErrorDetails() throws -> Revault_Bindings_ErrorDetails {
@@ -289,18 +321,36 @@ final class BindingOperations {
         }
     }
 
-    func lockboxSetVariable(_ handle: UnsafeMutableRawPointer, _ name: String, _ value: String, _ secret: Bool) throws -> Bool {
+    func lockboxSetVariable(_ handle: UnsafeMutableRawPointer, _ name: String, _ value: String) throws -> Bool {
         return try name.withCString { namePointer in
             return try value.withCString { valuePointer in
-                guard lockbox_set_variable(handle, namePointer, name.utf8.count, valuePointer, value.utf8.count, secret) else { throw RevaultError.native(lastError()) }
+                guard lockbox_set_variable(handle, namePointer, name.utf8.count, valuePointer, value.utf8.count) else { throw RevaultError.native(lastError()) }
                 return true
             }
         }
     }
 
-    func lockboxGetVariable(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> String {
+    func lockboxSetSecretVariable(_ handle: UnsafeMutableRawPointer, _ name: String, _ value: Data) throws -> Bool {
+        var secret = [UInt8](value)
+        defer { secret.withUnsafeMutableBytes { $0.initializeMemory(as: UInt8.self, repeating: 0) } }
         return try name.withCString { namePointer in
-            return String(decoding: try take(lockbox_get_variable(handle, namePointer, name.utf8.count)), as: UTF8.self)
+            try secret.withUnsafeBytes { bytes in
+                guard lockbox_set_secret_variable(handle, namePointer, name.utf8.count, bytes.bindMemory(to: UInt8.self).baseAddress, bytes.count) else { throw RevaultError.native(lastError()) }
+                return true
+            }
+        }
+    }
+
+    func lockboxGetVariable(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> String? {
+        return try name.withCString { namePointer in
+            let value = try Revault_Bindings_OptionalString(serializedBytes: payload(lockbox_get_variable(handle, namePointer, name.utf8.count)))
+            return value.present ? value.value : nil
+        }
+    }
+
+    func lockboxWithSecretVariable<T>(_ handle: UnsafeMutableRawPointer, _ name: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        try name.withCString { namePointer in
+            try withSecret({ lockbox_get_secret_variable(handle, namePointer, name.utf8.count, $0) }, callback)
         }
     }
 
@@ -463,11 +513,24 @@ final class BindingOperations {
         }
     }
 
-    func lockboxSetFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String, _ value: String, _ secret: Bool) throws -> Bool {
+    func lockboxSetFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String, _ value: String) throws -> Bool {
         return try path.withCString { pathPointer in
             return try field.withCString { fieldPointer in
                 return try value.withCString { valuePointer in
-                    guard lockbox_set_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count, valuePointer, value.utf8.count, secret) else { throw RevaultError.native(lastError()) }
+                    guard lockbox_set_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count, valuePointer, value.utf8.count) else { throw RevaultError.native(lastError()) }
+                    return true
+                }
+            }
+        }
+    }
+
+    func lockboxSetSecretFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String, _ value: Data) throws -> Bool {
+        var secret = [UInt8](value)
+        defer { secret.withUnsafeMutableBytes { $0.initializeMemory(as: UInt8.self, repeating: 0) } }
+        return try path.withCString { pathPointer in
+            try field.withCString { fieldPointer in
+                try secret.withUnsafeBytes { bytes in
+                    guard lockbox_set_secret_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count, bytes.bindMemory(to: UInt8.self).baseAddress, bytes.count) else { throw RevaultError.native(lastError()) }
                     return true
                 }
             }
@@ -478,9 +541,9 @@ final class BindingOperations {
         return try Revault_Bindings_FormRecordList(serializedBytes: payload(lockbox_list_form_records(handle)))
     }
 
-    func lockboxGetFormRecord(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> Revault_Bindings_FormRecord {
+    func lockboxGetFormRecord(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> Revault_Bindings_OptionalFormRecord {
         return try path.withCString { pathPointer in
-            return try Revault_Bindings_FormRecord(serializedBytes: payload(lockbox_get_form_record(handle, pathPointer, path.utf8.count)))
+            return try Revault_Bindings_OptionalFormRecord(serializedBytes: payload(lockbox_get_form_record(handle, pathPointer, path.utf8.count)))
         }
     }
 
@@ -498,10 +561,18 @@ final class BindingOperations {
         }
     }
 
-    func lockboxGetFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String) throws -> Revault_Bindings_FormValue {
+    func lockboxGetFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String) throws -> Revault_Bindings_OptionalFormValue {
         return try path.withCString { pathPointer in
             return try field.withCString { fieldPointer in
-                return try Revault_Bindings_FormValue(serializedBytes: payload(lockbox_get_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count)))
+                return try Revault_Bindings_OptionalFormValue(serializedBytes: payload(lockbox_get_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count)))
+            }
+        }
+    }
+
+    func lockboxWithSecretFormField<T>(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        try path.withCString { pathPointer in
+            try field.withCString { fieldPointer in
+                try withSecret({ lockbox_get_secret_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count, $0) }, callback)
             }
         }
     }
@@ -1328,36 +1399,53 @@ final class BindingOperations {
 
 }
 
+/// Base class for objects that own a native reVault handle.
+///
+/// Concrete subclasses expose the matching close operation. Do not share a
+/// handle across concurrent operations unless the specific API documents it.
 public class OwnedHandle {
     fileprivate let operations: BindingOperations
     fileprivate var handle: UnsafeMutableRawPointer?
     fileprivate init(_ operations: BindingOperations, _ handle: UnsafeMutableRawPointer?) { self.operations = operations; self.handle = handle }
 }
 
+/// Owned, mutable view of one encrypted lockbox archive.
 public final class Lockbox: OwnedHandle {}
 
+/// Owned contact key pair used to decrypt content keys sent by contacts.
 public final class ContactKeyPair: OwnedHandle {}
 
+/// Shareable contact public key used to encrypt a recipient content key.
 public final class ContactPublicKey: OwnedHandle {}
 
+/// Owned encrypted content-key envelope for one contact recipient.
 public final class WrappedContactKey: OwnedHandle {}
 
+/// Owned signing key pair used to authorize mutable lockbox commits.
 public final class SigningKeyPair: OwnedHandle {}
 
+/// Public key used to verify owner-authorized lockbox commits.
 public final class SigningPublicKey: OwnedHandle {}
 
+/// Writable, password-protected local metadata vault.
 public final class VaultDirectory: OwnedHandle {}
 
+/// Read-only metadata view that never loads an owner signing key.
 public final class ReadOnlyVaultDirectory: OwnedHandle {}
 
+/// Client for the local session agent's time-limited secret cache.
 public final class Agent: OwnedHandle {}
 
+/// Owned registration for an operation that currently requires secret access.
 public final class AgentActivity: OwnedHandle {}
 
+/// Controls integration with the operating system's secret store.
 public final class Platform: OwnedHandle {}
 
+/// High-level workflow for local metadata and remembered lockboxes.
 public final class LocalVault: OwnedHandle {}
 
+/// Entry point for lockboxes, keys, local metadata, agent, and platform services.
 public final class Vault {
     fileprivate let operations = BindingOperations()
     public lazy var agent = Agent(operations, nil)
@@ -1673,12 +1761,20 @@ public extension Lockbox {
         return try operations.lockboxStat(handle!, path)
     }
 
-    public func setVariable(_ name: String, _ value: String, _ secret: Bool) throws -> Bool {
-        return try operations.lockboxSetVariable(handle!, name, value, secret)
+    public func setVariable(_ name: String, _ value: String) throws -> Bool {
+        return try operations.lockboxSetVariable(handle!, name, value)
     }
 
-    public func getVariable(_ name: String) throws -> String {
+    public func setSecretVariable(_ name: String, _ value: Data) throws -> Bool {
+        return try operations.lockboxSetSecretVariable(handle!, name, value)
+    }
+
+    public func getVariable(_ name: String) throws -> String? {
         return try operations.lockboxGetVariable(handle!, name)
+    }
+
+    public func withSecretVariable<T>(_ name: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        return try operations.lockboxWithSecretVariable(handle!, name, callback)
     }
 
     public func deleteVariable(_ name: String) throws -> Bool {
@@ -1773,15 +1869,19 @@ public extension Lockbox {
         return try operations.lockboxCreateFormRecord(handle!, path, typeReference, name)
     }
 
-    public func setFormField(_ path: String, _ field: String, _ value: String, _ secret: Bool) throws -> Bool {
-        return try operations.lockboxSetFormField(handle!, path, field, value, secret)
+    public func setFormField(_ path: String, _ field: String, _ value: String) throws -> Bool {
+        return try operations.lockboxSetFormField(handle!, path, field, value)
+    }
+
+    public func setSecretFormField(_ path: String, _ field: String, _ value: Data) throws -> Bool {
+        return try operations.lockboxSetSecretFormField(handle!, path, field, value)
     }
 
     public func listFormRecords() throws -> Revault_Bindings_FormRecordList {
         return try operations.lockboxListFormRecords(handle!)
     }
 
-    public func getFormRecord(_ path: String) throws -> Revault_Bindings_FormRecord {
+    public func getFormRecord(_ path: String) throws -> Revault_Bindings_OptionalFormRecord {
         return try operations.lockboxGetFormRecord(handle!, path)
     }
 
@@ -1793,8 +1893,12 @@ public extension Lockbox {
         return try operations.lockboxMoveFormRecords(handle!, movesProto)
     }
 
-    public func getFormField(_ path: String, _ field: String) throws -> Revault_Bindings_FormValue {
+    public func getFormField(_ path: String, _ field: String) throws -> Revault_Bindings_OptionalFormValue {
         return try operations.lockboxGetFormField(handle!, path, field)
+    }
+
+    public func withSecretFormField<T>(_ path: String, _ field: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        return try operations.lockboxWithSecretFormField(handle!, path, field, callback)
     }
 
     public func toBytes() throws -> Data {

@@ -28,22 +28,33 @@ pub(crate) const AGENT_PROTOCOL_VERSION: u32 = 1;
 pub(crate) const AGENT_IMPLEMENTATION_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// Metadata describing a lockbox whose content key is cached by the agent.
 pub struct CachedLockbox {
+    /// Canonical lockbox identifier used as the cache key.
     pub id: String,
+    /// Last known filesystem path, when the client supplied one.
     pub path: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Category of an operation that temporarily requires secret access.
 pub enum SecretActivityKind {
+    /// Opening or unlocking a lockbox.
     Open,
+    /// Closing or locking a lockbox.
     Close,
+    /// Reading or changing variables.
     Variables,
+    /// Reading or changing form records.
     Form,
+    /// Performing a recovery operation.
     Recovery,
+    /// Accessing the local vault.
     Vault,
 }
 
 impl SecretActivityKind {
+    /// Returns the stable lowercase name used in logs and diagnostics.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Open => "open",

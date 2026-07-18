@@ -17,7 +17,8 @@ func artifactRoot() throws -> String {
 }
 func fields() throws -> Data {
     var field = Revault_Bindings_FormField(); field.id = "username"; field.label = "Username"; field.kind = "text"; field.required = true
-    var list = Revault_Bindings_FormFieldList(); list.values = [field]; return try list.serializedData()
+    var password = Revault_Bindings_FormField(); password.id = "password"; password.label = "Password"; password.kind = "secret"; password.required = true
+    var list = Revault_Bindings_FormFieldList(); list.values = [field, password]; return try list.serializedData()
 }
 func moves(_ source: String, _ destination: String) throws -> Data {
     var move = Revault_Bindings_PathMove(); move.source = source; move.destination = destination
@@ -38,11 +39,14 @@ func archiveLifecycle() throws {
     try check(try box.exists("/renamed.txt") && !(try box.exists("/hello.txt")), "exists"); pass("lockbox_exists", 2)
     try box.setPermissions("/renamed.txt", 0o600); pass("lockbox_set_permissions", 2)
     try check(try box.readRange("/renamed.txt", 0, 11) == data("replacement"), "range"); pass("lockbox_read_range", 3)
-    try box.setVariable("normal", "value", false); pass("lockbox_set_variable")
+    try box.setVariable("normal", "value"); pass("lockbox_set_variable")
     try check(try box.getVariable("normal") == "value", "variable"); pass("lockbox_get_variable", 3)
     try box.moveVariables(moves("normal", "moved")); try check(try box.getVariable("moved") == "value", "moved variable")
     try box.moveVariables(moves("moved", "normal")); pass("lockbox_move_variables", 3)
-    try box.setVariable("secret", "hidden", true); _ = try box.variableSensitivity("secret"); pass("lockbox_variable_sensitivity", 2)
+    try box.setSecretVariable("secret", data("hidden")); pass("lockbox_set_secret_variable")
+    try check(try box.withSecretVariable("secret") { Data($0) } == data("hidden"), "secret variable")
+    pass("lockbox_get_secret_variable"); pass("secret_len"); pass("secret_copy"); pass("secret_free")
+    _ = try box.variableSensitivity("secret"); pass("lockbox_variable_sensitivity", 2)
     try check(try box.listVariables().values.count == 2, "variables"); pass("lockbox_list_variables")
     try box.deleteVariable("normal"); pass("lockbox_delete_variable")
     try box.addSymlink("/link", "/renamed.txt", false); pass("lockbox_add_symlink")
@@ -100,7 +104,9 @@ func advancedArchive() throws {
     _ = try box.listFormDefinitions(); _ = try box.resolveForm("account"); _ = try box.listFormRevisions(definition.typeID)
     pass("lockbox_list_form_definitions"); pass("lockbox_resolve_form"); pass("lockbox_list_form_revisions")
     _ = try box.createFormRecord("/account.form", "account", "Primary"); pass("lockbox_create_form_record")
-    try box.setFormField("/account.form", "username", "alice", false); pass("lockbox_set_form_field")
+    try box.setFormField("/account.form", "username", "alice"); pass("lockbox_set_form_field")
+    try box.setSecretFormField("/account.form", "password", data("hidden")); pass("lockbox_set_secret_form_field")
+    try check(try box.withSecretFormField("/account.form", "password") { Data($0) } == data("hidden"), "secret form field"); pass("lockbox_get_secret_form_field")
     _ = try box.getFormRecord("/account.form"); _ = try box.getFormField("/account.form", "username"); _ = try box.listFormRecords()
     pass("lockbox_get_form_record"); pass("lockbox_get_form_field"); pass("lockbox_list_form_records")
     try box.moveFormRecords(moves("/account.form", "/moved.form")); _ = try box.getFormRecord("/moved.form")

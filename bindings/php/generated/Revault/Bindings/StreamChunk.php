@@ -9,31 +9,45 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * One logical or physical chunk in a streamed lockbox file.
+ *
  * Generated from protobuf message <code>revault.bindings.StreamChunk</code>
  */
 class StreamChunk extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Lockbox path of the streamed file.
+     *
      * Generated from protobuf field <code>string path = 1;</code>
      */
     protected $path = '';
     /**
+     * Logical offset within the reconstructed file.
+     *
      * Generated from protobuf field <code>uint64 file_offset = 2;</code>
      */
     protected $file_offset = 0;
     /**
+     * Logical chunk length in bytes.
+     *
      * Generated from protobuf field <code>uint64 length = 3;</code>
      */
     protected $length = 0;
     /**
+     * Physical archive offset, when physical ordering was requested.
+     *
      * Generated from protobuf field <code>uint64 physical_offset = 4;</code>
      */
     protected $physical_offset = 0;
     /**
+     * Whether the chunk represents a sparse zero-filled range.
+     *
      * Generated from protobuf field <code>bool sparse = 5;</code>
      */
     protected $sparse = false;
     /**
+     * Decrypted bytes; empty for sparse ranges.
+     *
      * Generated from protobuf field <code>bytes data = 6;</code>
      */
     protected $data = '';
@@ -45,11 +59,17 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $path
+     *           Lockbox path of the streamed file.
      *     @type int|string $file_offset
+     *           Logical offset within the reconstructed file.
      *     @type int|string $length
+     *           Logical chunk length in bytes.
      *     @type int|string $physical_offset
+     *           Physical archive offset, when physical ordering was requested.
      *     @type bool $sparse
+     *           Whether the chunk represents a sparse zero-filled range.
      *     @type string $data
+     *           Decrypted bytes; empty for sparse ranges.
      * }
      */
     public function __construct($data = NULL) {
@@ -58,6 +78,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Lockbox path of the streamed file.
+     *
      * Generated from protobuf field <code>string path = 1;</code>
      * @return string
      */
@@ -67,6 +89,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Lockbox path of the streamed file.
+     *
      * Generated from protobuf field <code>string path = 1;</code>
      * @param string $var
      * @return $this
@@ -80,6 +104,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Logical offset within the reconstructed file.
+     *
      * Generated from protobuf field <code>uint64 file_offset = 2;</code>
      * @return int|string
      */
@@ -89,6 +115,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Logical offset within the reconstructed file.
+     *
      * Generated from protobuf field <code>uint64 file_offset = 2;</code>
      * @param int|string $var
      * @return $this
@@ -102,6 +130,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Logical chunk length in bytes.
+     *
      * Generated from protobuf field <code>uint64 length = 3;</code>
      * @return int|string
      */
@@ -111,6 +141,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Logical chunk length in bytes.
+     *
      * Generated from protobuf field <code>uint64 length = 3;</code>
      * @param int|string $var
      * @return $this
@@ -124,6 +156,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Physical archive offset, when physical ordering was requested.
+     *
      * Generated from protobuf field <code>uint64 physical_offset = 4;</code>
      * @return int|string
      */
@@ -133,6 +167,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Physical archive offset, when physical ordering was requested.
+     *
      * Generated from protobuf field <code>uint64 physical_offset = 4;</code>
      * @param int|string $var
      * @return $this
@@ -146,6 +182,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the chunk represents a sparse zero-filled range.
+     *
      * Generated from protobuf field <code>bool sparse = 5;</code>
      * @return bool
      */
@@ -155,6 +193,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the chunk represents a sparse zero-filled range.
+     *
      * Generated from protobuf field <code>bool sparse = 5;</code>
      * @param bool $var
      * @return $this
@@ -168,6 +208,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Decrypted bytes; empty for sparse ranges.
+     *
      * Generated from protobuf field <code>bytes data = 6;</code>
      * @return string
      */
@@ -177,6 +219,8 @@ class StreamChunk extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Decrypted bytes; empty for sparse ranges.
+     *
      * Generated from protobuf field <code>bytes data = 6;</code>
      * @param string $var
      * @return $this

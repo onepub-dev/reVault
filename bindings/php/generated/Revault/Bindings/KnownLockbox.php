@@ -9,19 +9,27 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Local metadata for a remembered lockbox path.
+ *
  * Generated from protobuf message <code>revault.bindings.KnownLockbox</code>
  */
 class KnownLockbox extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Stable identifier embedded in the lockbox.
+     *
      * Generated from protobuf field <code>bytes lockbox_id = 1;</code>
      */
     protected $lockbox_id = '';
     /**
+     * Filesystem path at which the lockbox was last seen.
+     *
      * Generated from protobuf field <code>string path = 2;</code>
      */
     protected $path = '';
     /**
+     * Last observation time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 last_seen_unix_ms = 3;</code>
      */
     protected $last_seen_unix_ms = 0;
@@ -33,8 +41,11 @@ class KnownLockbox extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $lockbox_id
+     *           Stable identifier embedded in the lockbox.
      *     @type string $path
+     *           Filesystem path at which the lockbox was last seen.
      *     @type int|string $last_seen_unix_ms
+     *           Last observation time in Unix milliseconds.
      * }
      */
     public function __construct($data = NULL) {
@@ -43,6 +54,8 @@ class KnownLockbox extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable identifier embedded in the lockbox.
+     *
      * Generated from protobuf field <code>bytes lockbox_id = 1;</code>
      * @return string
      */
@@ -52,6 +65,8 @@ class KnownLockbox extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable identifier embedded in the lockbox.
+     *
      * Generated from protobuf field <code>bytes lockbox_id = 1;</code>
      * @param string $var
      * @return $this
@@ -65,6 +80,8 @@ class KnownLockbox extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Filesystem path at which the lockbox was last seen.
+     *
      * Generated from protobuf field <code>string path = 2;</code>
      * @return string
      */
@@ -74,6 +91,8 @@ class KnownLockbox extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Filesystem path at which the lockbox was last seen.
+     *
      * Generated from protobuf field <code>string path = 2;</code>
      * @param string $var
      * @return $this
@@ -87,6 +106,8 @@ class KnownLockbox extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Last observation time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 last_seen_unix_ms = 3;</code>
      * @return int|string
      */
@@ -96,6 +117,8 @@ class KnownLockbox extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Last observation time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 last_seen_unix_ms = 3;</code>
      * @param int|string $var
      * @return $this

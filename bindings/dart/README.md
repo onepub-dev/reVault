@@ -1,10 +1,25 @@
-# reVault Dart bindings
+# reVault for Dart
 
-Class-based Dart bindings for the complete reVault lockbox and vault API.
-Structured values use generated Protobuf classes and all calls use the binary
-LBWF ABI.
+reVault is an encrypted archive and local-vault library for files, credentials,
+keys, and typed records. The Dart package provides an owned, class-based API and
+generated Protobuf result types. See the
+[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
 
-Release packages include the native library for Linux, macOS, and Windows on
-x86-64 and ARM64. Use `await Vault.load()` for the packaged runtime, or pass an
-explicit `DynamicLibrary` to `Vault(...)`. `REVAULT_LIBRARY` overrides native
-discovery for development and controlled deployments.
+```yaml
+dependencies:
+  revault_api: ^0.2.0
+```
+
+```dart
+final vault = await Vault.load();
+final box = vault.createLockbox(Uint8List(32)); // load a real key securely
+box.addFile('/hello.txt', Uint8List.fromList('hello\n'.codeUnits), false);
+box.setVariable('owner', 'alice');
+box.setSecretVariable('token', Uint8List.fromList('secret'.codeUnits));
+box.withSecretVariable('token', (token) => token.length);
+box.commit();
+box.dispose();
+```
+
+Packaged runtimes support Linux, macOS, and Windows on x86-64 and ARM64.
+`REVAULT_LIBRARY` is a development-only override for native discovery.

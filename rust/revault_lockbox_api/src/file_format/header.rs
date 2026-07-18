@@ -4,6 +4,7 @@ use crate::crypto::strong_checksum;
 use crate::lockbox_id::LockboxId;
 use crate::{ArtifactKind, Error, Result};
 
+/// Current on-disk `.lbox` format version written by this crate.
 pub const LOCKBOX_FORMAT_VERSION: u16 = 1;
 const HEADER_CHECKSUM_START: usize = 64;
 

@@ -21,6 +21,9 @@ const SIGNING_ALGORITHM_ED25519_MLDSA65: u16 = 1;
 const ED25519_SEED_LEN: usize = 32;
 const ML_DSA_SEED_LEN: usize = 32;
 
+/// Hybrid owner signing keypair used to authenticate writable commits.
+///
+/// Private material is retained in secure memory and is omitted from `Debug`.
 pub struct OwnerSigningKeyPair {
     private_key_bytes: SecretVec,
     public_key: OwnerSigningPublicKey,
@@ -29,12 +32,14 @@ pub struct OwnerSigningKeyPair {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// Public verification key for owner-signed lockbox commits.
 pub struct OwnerSigningPublicKey {
     ed25519_public_key: [u8; 32],
     ml_dsa65_public_key: Vec<u8>,
 }
 
 impl OwnerSigningKeyPair {
+    /// Generates a fresh Ed25519 and ML-DSA-65 hybrid signing keypair.
     pub fn generate() -> Result<Self> {
         let mut ed25519_seed = [0_u8; ED25519_SEED_LEN];
         let mut ml_dsa65_seed = [0_u8; ML_DSA_SEED_LEN];
@@ -43,6 +48,7 @@ impl OwnerSigningKeyPair {
         Self::from_seeds(ed25519_seed, ml_dsa65_seed)
     }
 
+    /// Restores a keypair from its secure private-key record.
     pub fn from_private_key_record(private_key_bytes: SecretVec) -> Result<Self> {
         let (ed25519_seed, ml_dsa65_seed) =
             private_key_bytes.with_bytes(decode_private_key_record)??;
@@ -51,10 +57,12 @@ impl OwnerSigningKeyPair {
         Ok(keypair)
     }
 
+    /// Exports an independent secure copy of the private-key record.
     pub fn private_key_record(&self) -> Result<SecretVec> {
         self.private_key_bytes.try_clone().map_err(Into::into)
     }
 
+    /// Returns the public verification half of this keypair.
     pub fn public_key(&self) -> OwnerSigningPublicKey {
         self.public_key.clone()
     }
@@ -126,10 +134,12 @@ impl fmt::Debug for OwnerSigningKeyPair {
 }
 
 impl OwnerSigningPublicKey {
+    /// Decodes a versioned owner signing public-key record.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
         decode_public_key(bytes)
     }
 
+    /// Encodes this key as a versioned public-key record.
     pub fn to_bytes(&self) -> Vec<u8> {
         encode_public_key(self)
     }

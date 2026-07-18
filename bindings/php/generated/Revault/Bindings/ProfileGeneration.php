@@ -9,31 +9,45 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * One historical generation of a vault profile's contact keys.
+ *
  * Generated from protobuf message <code>revault.bindings.ProfileGeneration</code>
  */
 class ProfileGeneration extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Monotonically increasing generation number.
+     *
      * Generated from protobuf field <code>uint32 index = 1;</code>
      */
     protected $index = 0;
     /**
+     * Lifecycle status: `active`, `retired`, or `compromised`.
+     *
      * Generated from protobuf field <code>string status = 2;</code>
      */
     protected $status = '';
     /**
+     * Fingerprint of the generation's contact public key.
+     *
      * Generated from protobuf field <code>bytes contact_fingerprint = 3;</code>
      */
     protected $contact_fingerprint = '';
     /**
+     * Creation time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 created_at_unix_ms = 4;</code>
      */
     protected $created_at_unix_ms = 0;
     /**
+     * Retirement time in Unix milliseconds when present.
+     *
      * Generated from protobuf field <code>uint64 retired_at_unix_ms = 5;</code>
      */
     protected $retired_at_unix_ms = 0;
     /**
+     * Whether `retired_at_unix_ms` is present.
+     *
      * Generated from protobuf field <code>bool has_retired_at = 6;</code>
      */
     protected $has_retired_at = false;
@@ -45,11 +59,17 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type int $index
+     *           Monotonically increasing generation number.
      *     @type string $status
+     *           Lifecycle status: `active`, `retired`, or `compromised`.
      *     @type string $contact_fingerprint
+     *           Fingerprint of the generation's contact public key.
      *     @type int|string $created_at_unix_ms
+     *           Creation time in Unix milliseconds.
      *     @type int|string $retired_at_unix_ms
+     *           Retirement time in Unix milliseconds when present.
      *     @type bool $has_retired_at
+     *           Whether `retired_at_unix_ms` is present.
      * }
      */
     public function __construct($data = NULL) {
@@ -58,6 +78,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Monotonically increasing generation number.
+     *
      * Generated from protobuf field <code>uint32 index = 1;</code>
      * @return int
      */
@@ -67,6 +89,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Monotonically increasing generation number.
+     *
      * Generated from protobuf field <code>uint32 index = 1;</code>
      * @param int $var
      * @return $this
@@ -80,6 +104,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Lifecycle status: `active`, `retired`, or `compromised`.
+     *
      * Generated from protobuf field <code>string status = 2;</code>
      * @return string
      */
@@ -89,6 +115,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Lifecycle status: `active`, `retired`, or `compromised`.
+     *
      * Generated from protobuf field <code>string status = 2;</code>
      * @param string $var
      * @return $this
@@ -102,6 +130,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Fingerprint of the generation's contact public key.
+     *
      * Generated from protobuf field <code>bytes contact_fingerprint = 3;</code>
      * @return string
      */
@@ -111,6 +141,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Fingerprint of the generation's contact public key.
+     *
      * Generated from protobuf field <code>bytes contact_fingerprint = 3;</code>
      * @param string $var
      * @return $this
@@ -124,6 +156,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Creation time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 created_at_unix_ms = 4;</code>
      * @return int|string
      */
@@ -133,6 +167,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Creation time in Unix milliseconds.
+     *
      * Generated from protobuf field <code>uint64 created_at_unix_ms = 4;</code>
      * @param int|string $var
      * @return $this
@@ -146,6 +182,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Retirement time in Unix milliseconds when present.
+     *
      * Generated from protobuf field <code>uint64 retired_at_unix_ms = 5;</code>
      * @return int|string
      */
@@ -155,6 +193,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Retirement time in Unix milliseconds when present.
+     *
      * Generated from protobuf field <code>uint64 retired_at_unix_ms = 5;</code>
      * @param int|string $var
      * @return $this
@@ -168,6 +208,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether `retired_at_unix_ms` is present.
+     *
      * Generated from protobuf field <code>bool has_retired_at = 6;</code>
      * @return bool
      */
@@ -177,6 +219,8 @@ class ProfileGeneration extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether `retired_at_unix_ms` is present.
+     *
      * Generated from protobuf field <code>bool has_retired_at = 6;</code>
      * @param bool $var
      * @return $this

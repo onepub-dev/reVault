@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of remembered lockboxes.
+ *
  * Generated from protobuf message <code>revault.bindings.KnownLockboxList</code>
  */
 class KnownLockboxList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Remembered lockbox records.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class KnownLockboxList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\KnownLockbox>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Remembered lockbox records.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class KnownLockboxList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Remembered lockbox records.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class KnownLockboxList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Remembered lockbox records.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      * @param array<\Revault\Bindings\KnownLockbox>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

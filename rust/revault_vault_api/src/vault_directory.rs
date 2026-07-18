@@ -61,34 +61,50 @@ pub struct KnownLockbox {
 /// Local-only label for one access slot in a remembered lockbox.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccessSlotLabel {
+    /// Lockbox containing the labelled access slot.
     pub lockbox_id: LockboxId,
+    /// Stable identifier of the access slot within the lockbox.
     pub slot_id: u64,
+    /// User-assigned, local-only label.
     pub name: String,
+    /// Time at which the label was last changed, in Unix milliseconds.
     pub updated_at_unix_ms: u64,
 }
 
 /// One generation of a vault profile.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProfileGeneration {
+    /// Monotonically increasing generation number within the profile.
     pub index: u16,
+    /// Current lifecycle state of this generation.
     pub status: ProfileGenerationStatus,
+    /// Fingerprint of the contact key belonging to this generation.
     pub contact_fingerprint: Vec<u8>,
+    /// Creation time in Unix milliseconds.
     pub created_at_unix_ms: u64,
+    /// Retirement time in Unix milliseconds, when the generation was retired.
     pub retired_at_unix_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Lifecycle state of one profile key generation.
 pub enum ProfileGenerationStatus {
+    /// The generation currently used for new operations.
     Active,
+    /// The generation was replaced normally and remains part of history.
     Retired,
+    /// The generation must no longer be trusted because its key was exposed.
     Compromised,
 }
 
 /// Versioned profile history for one vault profile.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProfileHistory {
+    /// User-assigned profile name.
     pub name: String,
+    /// Index of the generation currently used by the profile.
     pub active_generation: u16,
+    /// All known generations, including retired or compromised entries.
     pub generations: Vec<ProfileGeneration>,
 }
 

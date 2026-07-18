@@ -9,23 +9,33 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Cumulative timing counters for bulk imports, represented as decimal nanoseconds.
+ *
  * Generated from protobuf message <code>revault.bindings.ImportStats</code>
  */
 class ImportStats extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Time spent querying host file metadata.
+     *
      * Generated from protobuf field <code>string host_stat_nanos = 1;</code>
      */
     protected $host_stat_nanos = '';
     /**
+     * Time spent reading host file content.
+     *
      * Generated from protobuf field <code>string host_read_nanos = 2;</code>
      */
     protected $host_read_nanos = '';
     /**
+     * Time spent preparing compression/encryption frames.
+     *
      * Generated from protobuf field <code>string frame_prepare_nanos = 3;</code>
      */
     protected $frame_prepare_nanos = '';
     /**
+     * Time spent writing encrypted pages.
+     *
      * Generated from protobuf field <code>string page_write_nanos = 4;</code>
      */
     protected $page_write_nanos = '';
@@ -37,9 +47,13 @@ class ImportStats extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $host_stat_nanos
+     *           Time spent querying host file metadata.
      *     @type string $host_read_nanos
+     *           Time spent reading host file content.
      *     @type string $frame_prepare_nanos
+     *           Time spent preparing compression/encryption frames.
      *     @type string $page_write_nanos
+     *           Time spent writing encrypted pages.
      * }
      */
     public function __construct($data = NULL) {
@@ -48,6 +62,8 @@ class ImportStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Time spent querying host file metadata.
+     *
      * Generated from protobuf field <code>string host_stat_nanos = 1;</code>
      * @return string
      */
@@ -57,6 +73,8 @@ class ImportStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Time spent querying host file metadata.
+     *
      * Generated from protobuf field <code>string host_stat_nanos = 1;</code>
      * @param string $var
      * @return $this
@@ -70,6 +88,8 @@ class ImportStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Time spent reading host file content.
+     *
      * Generated from protobuf field <code>string host_read_nanos = 2;</code>
      * @return string
      */
@@ -79,6 +99,8 @@ class ImportStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Time spent reading host file content.
+     *
      * Generated from protobuf field <code>string host_read_nanos = 2;</code>
      * @param string $var
      * @return $this
@@ -92,6 +114,8 @@ class ImportStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Time spent preparing compression/encryption frames.
+     *
      * Generated from protobuf field <code>string frame_prepare_nanos = 3;</code>
      * @return string
      */
@@ -101,6 +125,8 @@ class ImportStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Time spent preparing compression/encryption frames.
+     *
      * Generated from protobuf field <code>string frame_prepare_nanos = 3;</code>
      * @param string $var
      * @return $this
@@ -114,6 +140,8 @@ class ImportStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Time spent writing encrypted pages.
+     *
      * Generated from protobuf field <code>string page_write_nanos = 4;</code>
      * @return string
      */
@@ -123,6 +151,8 @@ class ImportStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Time spent writing encrypted pages.
+     *
      * Generated from protobuf field <code>string page_write_nanos = 4;</code>
      * @param string $var
      * @return $this

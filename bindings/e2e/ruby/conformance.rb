@@ -13,8 +13,12 @@ def artifact_root
   FileUtils.mkdir_p(path, mode: 0o700); path
 end
 def fields
-  Revault::Bindings::FormFieldList.new(values: [Revault::Bindings::FormField.new(
-    id: 'username', label: 'Username', kind: 'text', required: true)]).to_proto
+  Revault::Bindings::FormFieldList.new(values: [
+    Revault::Bindings::FormField.new(
+      id: 'username', label: 'Username', kind: 'text', required: true),
+    Revault::Bindings::FormField.new(
+      id: 'password', label: 'Password', kind: 'secret', required: true)
+  ]).to_proto
 end
 def moves(source, destination)
   Revault::Bindings::PathMoveList.new(values: [
@@ -36,11 +40,14 @@ def archive_lifecycle
   check(box.exists('/renamed.txt') && !box.exists('/hello.txt'), 'exists'); pass('lockbox_exists', 2)
   box.set_permissions('/renamed.txt', 0o600); pass('lockbox_set_permissions', 2)
   check(box.read_range('/renamed.txt', 0, 11) == 'replacement', 'range'); pass('lockbox_read_range', 3)
-  box.set_variable('normal', 'value', false); pass('lockbox_set_variable')
+  box.set_variable('normal', 'value'); pass('lockbox_set_variable')
   check(box.get_variable('normal') == 'value', 'variable'); pass('lockbox_get_variable', 3)
   box.move_variables(moves('normal', 'moved')); check(box.get_variable('moved') == 'value', 'moved variable')
   box.move_variables(moves('moved', 'normal')); pass('lockbox_move_variables', 3)
-  box.set_variable('secret', 'hidden', true); box.variable_sensitivity('secret'); pass('lockbox_variable_sensitivity', 2)
+  box.set_secret_variable('secret', 'hidden'); pass('lockbox_set_secret_variable')
+  box.with_secret_variable('secret') { |_value, length| check(length == 6, 'secret variable') }
+  pass('lockbox_get_secret_variable'); pass('secret_len'); pass('secret_copy'); pass('secret_free')
+  box.variable_sensitivity('secret'); pass('lockbox_variable_sensitivity', 2)
   check(box.list_variables.values.length == 2, 'variables'); pass('lockbox_list_variables')
   box.delete_variable('normal'); pass('lockbox_delete_variable')
   box.add_symlink('/link', '/renamed.txt', false); pass('lockbox_add_symlink')
@@ -106,7 +113,10 @@ def advanced_archive
   box.list_form_definitions; box.resolve_form('account'); box.list_form_revisions(definition.type_id)
   pass('lockbox_list_form_definitions'); pass('lockbox_resolve_form'); pass('lockbox_list_form_revisions')
   box.create_form_record('/account.form', 'account', 'Primary'); pass('lockbox_create_form_record')
-  box.set_form_field('/account.form', 'username', 'alice', false); pass('lockbox_set_form_field')
+  box.set_form_field('/account.form', 'username', 'alice'); pass('lockbox_set_form_field')
+  box.set_secret_form_field('/account.form', 'password', 'hidden'); pass('lockbox_set_secret_form_field')
+  box.with_secret_form_field('/account.form', 'password') { |_value, length| check(length == 6, 'secret form field') }
+  pass('lockbox_get_secret_form_field')
   box.get_form_record('/account.form'); box.get_form_field('/account.form', 'username'); box.list_form_records
   pass('lockbox_get_form_record'); pass('lockbox_get_form_field'); pass('lockbox_list_form_records')
   box.move_form_records(moves('/account.form', '/moved.form')); box.get_form_record('/moved.form')

@@ -14,13 +14,21 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
+/// Filesystem object type.
 class LockboxEntry_Kind extends $pb.ProtobufEnum {
+  /// No object type was supplied.
   static const LockboxEntry_Kind KIND_UNSPECIFIED =
       LockboxEntry_Kind._(0, _omitEnumNames ? '' : 'KIND_UNSPECIFIED');
+
+  /// A regular file.
   static const LockboxEntry_Kind FILE =
       LockboxEntry_Kind._(1, _omitEnumNames ? '' : 'FILE');
+
+  /// A symbolic link whose target is stored in the lockbox.
   static const LockboxEntry_Kind SYMLINK =
       LockboxEntry_Kind._(2, _omitEnumNames ? '' : 'SYMLINK');
+
+  /// A directory.
   static const LockboxEntry_Kind DIRECTORY =
       LockboxEntry_Kind._(3, _omitEnumNames ? '' : 'DIRECTORY');
 

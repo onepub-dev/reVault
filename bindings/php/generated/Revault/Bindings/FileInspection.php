@@ -9,31 +9,45 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Metadata that can be inspected from a lockbox file without opening content.
+ *
  * Generated from protobuf message <code>revault.bindings.FileInspection</code>
  */
 class FileInspection extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Stable lockbox identifier.
+     *
      * Generated from protobuf field <code>bytes lockbox_id = 1;</code>
      */
     protected $lockbox_id = '';
     /**
+     * Whether the file header passed structural validation.
+     *
      * Generated from protobuf field <code>bool header_readable = 2;</code>
      */
     protected $header_readable = false;
     /**
+     * Latest readable key-directory generation.
+     *
      * Generated from protobuf field <code>uint64 key_directory_generation = 3;</code>
      */
     protected $key_directory_generation = 0;
     /**
+     * Number of valid redundant key-directory copies.
+     *
      * Generated from protobuf field <code>uint64 key_directory_copy_count = 4;</code>
      */
     protected $key_directory_copy_count = 0;
     /**
+     * Whether commits are authorized by an owner signing key.
+     *
      * Generated from protobuf field <code>bool owner_signed = 5;</code>
      */
     protected $owner_signed = false;
     /**
+     * Access slots visible in the key directory.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     private $key_slots;
@@ -45,11 +59,17 @@ class FileInspection extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $lockbox_id
+     *           Stable lockbox identifier.
      *     @type bool $header_readable
+     *           Whether the file header passed structural validation.
      *     @type int|string $key_directory_generation
+     *           Latest readable key-directory generation.
      *     @type int|string $key_directory_copy_count
+     *           Number of valid redundant key-directory copies.
      *     @type bool $owner_signed
+     *           Whether commits are authorized by an owner signing key.
      *     @type array<\Revault\Bindings\KeySlot>|\Google\Protobuf\Internal\RepeatedField $key_slots
+     *           Access slots visible in the key directory.
      * }
      */
     public function __construct($data = NULL) {
@@ -58,6 +78,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable lockbox identifier.
+     *
      * Generated from protobuf field <code>bytes lockbox_id = 1;</code>
      * @return string
      */
@@ -67,6 +89,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable lockbox identifier.
+     *
      * Generated from protobuf field <code>bytes lockbox_id = 1;</code>
      * @param string $var
      * @return $this
@@ -80,6 +104,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the file header passed structural validation.
+     *
      * Generated from protobuf field <code>bool header_readable = 2;</code>
      * @return bool
      */
@@ -89,6 +115,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the file header passed structural validation.
+     *
      * Generated from protobuf field <code>bool header_readable = 2;</code>
      * @param bool $var
      * @return $this
@@ -102,6 +130,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Latest readable key-directory generation.
+     *
      * Generated from protobuf field <code>uint64 key_directory_generation = 3;</code>
      * @return int|string
      */
@@ -111,6 +141,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Latest readable key-directory generation.
+     *
      * Generated from protobuf field <code>uint64 key_directory_generation = 3;</code>
      * @param int|string $var
      * @return $this
@@ -124,6 +156,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of valid redundant key-directory copies.
+     *
      * Generated from protobuf field <code>uint64 key_directory_copy_count = 4;</code>
      * @return int|string
      */
@@ -133,6 +167,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of valid redundant key-directory copies.
+     *
      * Generated from protobuf field <code>uint64 key_directory_copy_count = 4;</code>
      * @param int|string $var
      * @return $this
@@ -146,6 +182,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether commits are authorized by an owner signing key.
+     *
      * Generated from protobuf field <code>bool owner_signed = 5;</code>
      * @return bool
      */
@@ -155,6 +193,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether commits are authorized by an owner signing key.
+     *
      * Generated from protobuf field <code>bool owner_signed = 5;</code>
      * @param bool $var
      * @return $this
@@ -168,6 +208,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Access slots visible in the key directory.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -177,6 +219,8 @@ class FileInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Access slots visible in the key directory.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      * @param array<\Revault\Bindings\KeySlot>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

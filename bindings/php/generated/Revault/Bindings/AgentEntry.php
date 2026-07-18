@@ -9,15 +9,21 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Metadata for one secret cached by the session agent.
+ *
  * Generated from protobuf message <code>revault.bindings.AgentEntry</code>
  */
 class AgentEntry extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Cache key or lockbox identifier.
+     *
      * Generated from protobuf field <code>string id = 1;</code>
      */
     protected $id = '';
     /**
+     * Associated lockbox path when supplied by the client.
+     *
      * Generated from protobuf field <code>string path = 2;</code>
      */
     protected $path = '';
@@ -29,7 +35,9 @@ class AgentEntry extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $id
+     *           Cache key or lockbox identifier.
      *     @type string $path
+     *           Associated lockbox path when supplied by the client.
      * }
      */
     public function __construct($data = NULL) {
@@ -38,6 +46,8 @@ class AgentEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Cache key or lockbox identifier.
+     *
      * Generated from protobuf field <code>string id = 1;</code>
      * @return string
      */
@@ -47,6 +57,8 @@ class AgentEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Cache key or lockbox identifier.
+     *
      * Generated from protobuf field <code>string id = 1;</code>
      * @param string $var
      * @return $this
@@ -60,6 +72,8 @@ class AgentEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Associated lockbox path when supplied by the client.
+     *
      * Generated from protobuf field <code>string path = 2;</code>
      * @return string
      */
@@ -69,6 +83,8 @@ class AgentEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Associated lockbox path when supplied by the client.
+     *
      * Generated from protobuf field <code>string path = 2;</code>
      * @param string $var
      * @return $this

@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Required UTF-8 string result.
+ *
  * Generated from protobuf message <code>revault.bindings.StringValue</code>
  */
 class StringValue extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Returned UTF-8 value.
+     *
      * Generated from protobuf field <code>string value = 1;</code>
      */
     protected $value = '';
@@ -25,6 +29,7 @@ class StringValue extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $value
+     *           Returned UTF-8 value.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class StringValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Returned UTF-8 value.
+     *
      * Generated from protobuf field <code>string value = 1;</code>
      * @return string
      */
@@ -42,6 +49,8 @@ class StringValue extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Returned UTF-8 value.
+     *
      * Generated from protobuf field <code>string value = 1;</code>
      * @param string $var
      * @return $this

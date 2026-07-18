@@ -17,13 +17,15 @@ import (
 )
 
 func init() {
-	if C.api_abi_version() != 1 {
-		panic("revault-api native ABI mismatch; expected 1")
+	if C.api_abi_version() != 2 {
+		panic("revault-api native ABI mismatch; expected 2")
 	}
 }
 
 func lastError() error  { return errors.New(C.GoString(C.buffer_last_error())) }
+// LastError returns the diagnostic from the most recent failed native call on this thread.
 func LastError() string { return C.GoString(C.buffer_last_error()) }
+// LastErrorDetails returns structured diagnostics for the most recent native failure.
 func LastErrorDetails() (*messages.ErrorDetails, error) {
 	result := &messages.ErrorDetails{}
 	return result, decodeFrame(C.buffer_last_error_details(), result)
@@ -82,6 +84,29 @@ func require(ok bool) error {
 	return nil
 }
 
+// withSecret limits plaintext lifetime to callback and clears the Go copy on return.
+func withSecret(get func(*unsafe.Pointer) bool, callback func([]byte) error) error {
+	var handle unsafe.Pointer
+	if !get(&handle) {
+		return lastError()
+	}
+	if handle == nil {
+		return nil
+	}
+	defer C.secret_free(handle)
+	var length C.size_t
+	if !bool(C.secret_len(handle, &length)) {
+		return lastError()
+	}
+	secret := make([]byte, int(length))
+	defer clear(secret)
+	if !bool(C.secret_copy(handle, bytePointer(secret), length)) {
+		return lastError()
+	}
+	return callback(secret)
+}
+
+// ContactPublicKey is a shareable key used to encrypt a recipient content key.
 type ContactPublicKey struct{ handle unsafe.Pointer }
 
 func NewContactPublicKey(value []byte) (*ContactPublicKey, error) {
@@ -118,6 +143,7 @@ func (key *ContactPublicKey) Encrypt(contentKey []byte) (*WrappedContactKey, err
 	return &WrappedContactKey{handle: h}, nil
 }
 
+// WrappedContactKey owns an encrypted content-key envelope for one recipient.
 type WrappedContactKey struct{ handle unsafe.Pointer }
 
 func (key *WrappedContactKey) Close() {
@@ -136,6 +162,7 @@ func (key *WrappedContactKey) EncryptedBytes() ([]byte, error) {
 	return takeBuffer(C.key_contact_wrapped_encrypted(key.handle))
 }
 
+// ContactKeyPair owns the private key used to decrypt received content keys.
 type ContactKeyPair struct{ handle unsafe.Pointer }
 
 func GenerateContactKeyPair() (*ContactKeyPair, error) {
@@ -185,6 +212,7 @@ func (key *ContactKeyPair) Decrypt(wrapped *WrappedContactKey) ([]byte, error) {
 	return takeBuffer(C.key_contact_decrypt(key.handle, wrapped.handle))
 }
 
+// SigningPublicKey verifies owner-authorized lockbox commits.
 type SigningPublicKey struct{ handle unsafe.Pointer }
 
 func NewSigningPublicKey(value []byte) (*SigningPublicKey, error) {
@@ -201,6 +229,7 @@ func (key *SigningPublicKey) Close() {
 	}
 }
 
+// SigningKeyPair owns the private key used to authorize mutable lockbox commits.
 type SigningKeyPair struct{ handle unsafe.Pointer }
 
 func GenerateSigningKeyPair() (*SigningKeyPair, error) {
@@ -237,6 +266,7 @@ func (key *SigningKeyPair) PublicKey() (*SigningPublicKey, error) {
 	return NewSigningPublicKey(value)
 }
 
+// LockboxOptions configures runtime cache and worker behavior.
 type LockboxOptions struct {
 	CacheMode  string
 	CacheBytes uint64
@@ -249,6 +279,8 @@ func DefaultLockboxOptions() LockboxOptions {
 	return LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"}
 }
 
+// Lockbox is an owned, mutable view of one encrypted archive.
+// Call Close when it is no longer required.
 type Lockbox struct{ handle unsafe.Pointer }
 
 func adoptLockbox(handle unsafe.Pointer) (*Lockbox, error) {
@@ -405,11 +437,26 @@ func (box *Lockbox) Stat(path string) (*messages.OptionalLockboxEntry, error) {
 	result := &messages.OptionalLockboxEntry{}
 	return result, decodeFrame(C.lockbox_stat(box.handle, charPointer(path), C.size_t(len(path))), result)
 }
-func (box *Lockbox) SetVariable(name, value string, secret bool) error {
-	return require(bool(C.lockbox_set_variable(box.handle, charPointer(name), C.size_t(len(name)), charPointer(value), C.size_t(len(value)), C.bool(secret))))
+func (box *Lockbox) SetVariable(name, value string) error {
+	return require(bool(C.lockbox_set_variable(box.handle, charPointer(name), C.size_t(len(name)), charPointer(value), C.size_t(len(value)))))
 }
-func (box *Lockbox) GetVariable(name string) (string, error) {
-	return takeString(C.lockbox_get_variable(box.handle, charPointer(name), C.size_t(len(name))))
+func (box *Lockbox) SetSecretVariable(name string, value []byte) error {
+	return require(bool(C.lockbox_set_secret_variable(box.handle, charPointer(name), C.size_t(len(name)), bytePointer(value), C.size_t(len(value)))))
+}
+func (box *Lockbox) GetVariable(name string) (*string, error) {
+	result := &messages.OptionalString{}
+	if err := decodeFrame(C.lockbox_get_variable(box.handle, charPointer(name), C.size_t(len(name))), result); err != nil {
+		return nil, err
+	}
+	if !result.Present {
+		return nil, nil
+	}
+	return &result.Value, nil
+}
+func (box *Lockbox) WithSecretVariable(name string, callback func([]byte) error) error {
+	return withSecret(func(output *unsafe.Pointer) bool {
+		return bool(C.lockbox_get_secret_variable(box.handle, charPointer(name), C.size_t(len(name)), output))
+	}, callback)
 }
 func (box *Lockbox) DeleteVariable(name string) error {
 	return require(bool(C.lockbox_delete_variable(box.handle, charPointer(name), C.size_t(len(name)))))
@@ -485,15 +532,18 @@ func (box *Lockbox) CreateFormRecord(path, typeReference, name string) (*message
 	result := &messages.FormRecord{}
 	return result, decodeFrame(C.lockbox_create_form_record(box.handle, charPointer(path), C.size_t(len(path)), charPointer(typeReference), C.size_t(len(typeReference)), charPointer(name), C.size_t(len(name))), result)
 }
-func (box *Lockbox) SetFormField(path, field, value string, secret bool) error {
-	return require(bool(C.lockbox_set_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field)), charPointer(value), C.size_t(len(value)), C.bool(secret))))
+func (box *Lockbox) SetFormField(path, field, value string) error {
+	return require(bool(C.lockbox_set_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field)), charPointer(value), C.size_t(len(value)))))
+}
+func (box *Lockbox) SetSecretFormField(path, field string, value []byte) error {
+	return require(bool(C.lockbox_set_secret_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field)), bytePointer(value), C.size_t(len(value)))))
 }
 func (box *Lockbox) ListFormRecords() (*messages.FormRecordList, error) {
 	result := &messages.FormRecordList{}
 	return result, decodeFrame(C.lockbox_list_form_records(box.handle), result)
 }
-func (box *Lockbox) GetFormRecord(path string) (*messages.FormRecord, error) {
-	result := &messages.FormRecord{}
+func (box *Lockbox) GetFormRecord(path string) (*messages.OptionalFormRecord, error) {
+	result := &messages.OptionalFormRecord{}
 	return result, decodeFrame(C.lockbox_get_form_record(box.handle, charPointer(path), C.size_t(len(path))), result)
 }
 func (box *Lockbox) DeleteFormRecord(path string) error {
@@ -503,9 +553,14 @@ func (box *Lockbox) MoveFormRecords(moves *messages.PathMoveList) error {
 	encoded, err := proto.Marshal(moves); if err != nil { return err }
 	return require(bool(C.lockbox_move_form_records(box.handle, bytePointer(encoded), C.size_t(len(encoded)))))
 }
-func (box *Lockbox) GetFormField(path, field string) (*messages.FormValue, error) {
-	result := &messages.FormValue{}
+func (box *Lockbox) GetFormField(path, field string) (*messages.OptionalFormValue, error) {
+	result := &messages.OptionalFormValue{}
 	return result, decodeFrame(C.lockbox_get_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field))), result)
+}
+func (box *Lockbox) WithSecretFormField(path, field string, callback func([]byte) error) error {
+	return withSecret(func(output *unsafe.Pointer) bool {
+		return bool(C.lockbox_get_secret_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field)), output))
+	}, callback)
 }
 
 func FormatKeyHex(value []byte) (string, error) {
@@ -530,6 +585,7 @@ func HexDecode(value string) ([]byte, error) {
 	return takeBuffer(C.vault_key_hex_decode(charPointer(value), C.size_t(len(value))))
 }
 
+// VaultDirectory is a writable, password-protected local metadata vault.
 type VaultDirectory struct{ handle unsafe.Pointer }
 
 func adoptVaultDirectory(handle unsafe.Pointer) (*VaultDirectory, error) {
@@ -736,6 +792,7 @@ func (vault *VaultDirectory) ListFormRevisions(typeID string) (*messages.FormDef
 	return result, decodeFrame(C.vault_directory_list_form_revisions(vault.handle, charPointer(typeID), C.size_t(len(typeID))), result)
 }
 
+// ReadOnlyVaultDirectory never loads an owner signing key.
 type ReadOnlyVaultDirectory struct{ handle unsafe.Pointer }
 func OpenReadOnlyVaultDirectory(root string, password []byte) (*ReadOnlyVaultDirectory, error) {
 	h := C.vault_read_only_open(charPointer(root), C.size_t(len(root)), bytePointer(password), C.size_t(len(password))); if h == nil { return nil, lastError() }; return &ReadOnlyVaultDirectory{handle:h}, nil
@@ -806,6 +863,7 @@ func ForgetAgentOwnerSigningKey(vaultID, profile string) error {
 	return require(bool(C.vault_agent_forget_owner_signing_key(charPointer(vaultID), C.size_t(len(vaultID)), charPointer(profile), C.size_t(len(profile)))))
 }
 
+// AgentActivity registers an operation that currently requires secret access.
 type AgentActivity struct{ handle unsafe.Pointer }
 
 func BeginAgentActivity(kind string) (*AgentActivity, error) {
@@ -838,6 +896,7 @@ func PutPlatformPassword(password []byte) error {
 func GetPlatformPassword() ([]byte, error) { return takeBuffer(C.vault_platform_get_password()) }
 func ForgetPlatformPassword() error        { return require(bool(C.vault_platform_forget_password())) }
 
+// LocalVault provides workflows for local metadata and remembered lockboxes.
 type LocalVault struct{ handle unsafe.Pointer }
 
 func OpenLocalVault() (*LocalVault, error) {

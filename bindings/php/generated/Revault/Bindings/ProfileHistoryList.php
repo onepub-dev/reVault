@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of profile histories.
+ *
  * Generated from protobuf message <code>revault.bindings.ProfileHistoryList</code>
  */
 class ProfileHistoryList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Profile histories in normalized name order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class ProfileHistoryList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\ProfileHistory>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Profile histories in normalized name order.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class ProfileHistoryList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Profile histories in normalized name order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class ProfileHistoryList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Profile histories in normalized name order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      * @param array<\Revault\Bindings\ProfileHistory>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

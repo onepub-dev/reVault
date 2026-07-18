@@ -11,7 +11,9 @@ use crate::{decode_hex, encode_hex};
 
 const PRIVATE_LABEL: &str = "LOCKBOX PRIVATE KEY";
 const PUBLIC_LABEL: &str = "LOCKBOX PUBLIC KEY";
+/// Number of SHA-256 prefix bytes used for a contact public-key fingerprint.
 pub const PUBLIC_KEY_FINGERPRINT_LEN: usize = 16;
+/// Number of bytes encoded by the short, human-comparable fingerprint code.
 pub const FINGERPRINT_CODE_96_LEN: usize = 12;
 const CROCKFORD_ALPHABET: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
 const KTY: &str = "AKP";

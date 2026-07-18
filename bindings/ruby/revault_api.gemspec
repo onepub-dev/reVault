@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name = "revault_api"
-  spec.version = "0.1.0"
+  spec.version = "0.2.0"
   spec.summary = "Ruby Fiddle bindings for reVault"
   spec.description = "Complete class-based reVault lockbox and vault API"
   spec.authors = ["OnePub"]

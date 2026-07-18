@@ -21,6 +21,7 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
 export 'revault_bindings.pbenum.dart';
 
+/// Metadata for one entry in a lockbox filesystem.
 class LockboxEntry extends $pb.GeneratedMessage {
   factory LockboxEntry({
     $core.String? path,
@@ -78,6 +79,7 @@ class LockboxEntry extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<LockboxEntry>(create);
   static LockboxEntry? _defaultInstance;
 
+  /// Normalized absolute path within the lockbox.
   @$pb.TagNumber(1)
   $core.String get path => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -87,6 +89,7 @@ class LockboxEntry extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearPath() => $_clearField(1);
 
+  /// Type of the entry.
   @$pb.TagNumber(2)
   LockboxEntry_Kind get kind => $_getN(1);
   @$pb.TagNumber(2)
@@ -96,6 +99,7 @@ class LockboxEntry extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearKind() => $_clearField(2);
 
+  /// Logical file length in bytes; zero for directories.
   @$pb.TagNumber(3)
   $fixnum.Int64 get length => $_getI64(2);
   @$pb.TagNumber(3)
@@ -105,6 +109,7 @@ class LockboxEntry extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearLength() => $_clearField(3);
 
+  /// Stored Unix permission bits.
   @$pb.TagNumber(4)
   $core.int get permissions => $_getIZ(3);
   @$pb.TagNumber(4)
@@ -115,6 +120,7 @@ class LockboxEntry extends $pb.GeneratedMessage {
   void clearPermissions() => $_clearField(4);
 }
 
+/// A collection of lockbox entries.
 class LockboxEntryList extends $pb.GeneratedMessage {
   factory LockboxEntryList({
     $core.Iterable<LockboxEntry>? entries,
@@ -161,10 +167,12 @@ class LockboxEntryList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<LockboxEntryList>(create);
   static LockboxEntryList? _defaultInstance;
 
+  /// Entries in the order returned by the requested listing operation.
   @$pb.TagNumber(1)
   $pb.PbList<LockboxEntry> get entries => $_getList(0);
 }
 
+/// Optional entry; `value` is absent when a path does not exist.
 class OptionalLockboxEntry extends $pb.GeneratedMessage {
   factory OptionalLockboxEntry({
     LockboxEntry? value,
@@ -211,6 +219,7 @@ class OptionalLockboxEntry extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<OptionalLockboxEntry>(create);
   static OptionalLockboxEntry? _defaultInstance;
 
+  /// Present entry value.
   @$pb.TagNumber(1)
   LockboxEntry get value => $_getN(0);
   @$pb.TagNumber(1)
@@ -223,6 +232,7 @@ class OptionalLockboxEntry extends $pb.GeneratedMessage {
   LockboxEntry ensureValue() => $_ensure(0);
 }
 
+/// A collection of UTF-8 strings.
 class StringList extends $pb.GeneratedMessage {
   factory StringList({
     $core.Iterable<$core.String>? values,
@@ -267,10 +277,12 @@ class StringList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<StringList>(create);
   static StringList? _defaultInstance;
 
+  /// String values in API-defined order.
   @$pb.TagNumber(1)
   $pb.PbList<$core.String> get values => $_getList(0);
 }
 
+/// One atomic source-to-destination rename.
 class PathMove extends $pb.GeneratedMessage {
   factory PathMove({
     $core.String? source,
@@ -318,6 +330,7 @@ class PathMove extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PathMove>(create);
   static PathMove? _defaultInstance;
 
+  /// Existing variable name or form-record path.
   @$pb.TagNumber(1)
   $core.String get source => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -327,6 +340,7 @@ class PathMove extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSource() => $_clearField(1);
 
+  /// New variable name or form-record path.
   @$pb.TagNumber(2)
   $core.String get destination => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -337,6 +351,7 @@ class PathMove extends $pb.GeneratedMessage {
   void clearDestination() => $_clearField(2);
 }
 
+/// Renames applied as one operation.
 class PathMoveList extends $pb.GeneratedMessage {
   factory PathMoveList({
     $core.Iterable<PathMove>? values,
@@ -383,10 +398,12 @@ class PathMoveList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<PathMoveList>(create);
   static PathMoveList? _defaultInstance;
 
+  /// Requested source-to-destination moves.
   @$pb.TagNumber(1)
   $pb.PbList<PathMove> get values => $_getList(0);
 }
 
+/// A collection of arbitrary byte strings.
 class ByteList extends $pb.GeneratedMessage {
   factory ByteList({
     $core.Iterable<$core.List<$core.int>>? values,
@@ -432,10 +449,12 @@ class ByteList extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ByteList>(create);
   static ByteList? _defaultInstance;
 
+  /// Binary values in API-defined order.
   @$pb.TagNumber(1)
   $pb.PbList<$core.List<$core.int>> get values => $_getList(0);
 }
 
+/// One field in a typed form definition.
 class FormField extends $pb.GeneratedMessage {
   factory FormField({
     $core.String? id,
@@ -489,6 +508,7 @@ class FormField extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<FormField>(create);
   static FormField? _defaultInstance;
 
+  /// Stable field identifier used by records.
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -498,6 +518,7 @@ class FormField extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearId() => $_clearField(1);
 
+  /// User-facing label captured in records.
   @$pb.TagNumber(2)
   $core.String get label => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -507,6 +528,7 @@ class FormField extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearLabel() => $_clearField(2);
 
+  /// Field kind, such as `text`, `password`, or `secret`.
   @$pb.TagNumber(3)
   $core.String get kind => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -516,6 +538,7 @@ class FormField extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearKind() => $_clearField(3);
 
+  /// Whether records must provide a value.
   @$pb.TagNumber(4)
   $core.bool get required => $_getBF(3);
   @$pb.TagNumber(4)
@@ -526,6 +549,7 @@ class FormField extends $pb.GeneratedMessage {
   void clearRequired() => $_clearField(4);
 }
 
+/// A collection of form fields.
 class FormFieldList extends $pb.GeneratedMessage {
   factory FormFieldList({
     $core.Iterable<FormField>? values,
@@ -572,10 +596,12 @@ class FormFieldList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<FormFieldList>(create);
   static FormFieldList? _defaultInstance;
 
+  /// Ordered form fields.
   @$pb.TagNumber(1)
   $pb.PbList<FormField> get values => $_getList(0);
 }
 
+/// One immutable revision of a typed form definition.
 class FormDefinition extends $pb.GeneratedMessage {
   factory FormDefinition({
     $core.String? typeId,
@@ -637,6 +663,7 @@ class FormDefinition extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<FormDefinition>(create);
   static FormDefinition? _defaultInstance;
 
+  /// Stable type identifier shared by all revisions.
   @$pb.TagNumber(1)
   $core.String get typeId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -646,6 +673,7 @@ class FormDefinition extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearTypeId() => $_clearField(1);
 
+  /// Human-readable reference used to resolve the current revision.
   @$pb.TagNumber(2)
   $core.String get alias => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -655,6 +683,7 @@ class FormDefinition extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearAlias() => $_clearField(2);
 
+  /// Monotonically increasing definition revision.
   @$pb.TagNumber(3)
   $core.int get revision => $_getIZ(2);
   @$pb.TagNumber(3)
@@ -664,6 +693,7 @@ class FormDefinition extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearRevision() => $_clearField(3);
 
+  /// Display name.
   @$pb.TagNumber(4)
   $core.String get name => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -673,6 +703,7 @@ class FormDefinition extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearName() => $_clearField(4);
 
+  /// Optional user-facing description.
   @$pb.TagNumber(5)
   $core.String get description => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -682,10 +713,12 @@ class FormDefinition extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearDescription() => $_clearField(5);
 
+  /// Ordered fields belonging to the definition.
   @$pb.TagNumber(6)
   $pb.PbList<FormField> get fields => $_getList(5);
 }
 
+/// A collection of form definitions.
 class FormDefinitionList extends $pb.GeneratedMessage {
   factory FormDefinitionList({
     $core.Iterable<FormDefinition>? values,
@@ -732,10 +765,12 @@ class FormDefinitionList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<FormDefinitionList>(create);
   static FormDefinitionList? _defaultInstance;
 
+  /// Definitions in revision or alias order, as specified by the operation.
   @$pb.TagNumber(1)
   $pb.PbList<FormDefinition> get values => $_getList(0);
 }
 
+/// One value captured in a typed form record.
 class FormValue extends $pb.GeneratedMessage {
   factory FormValue({
     $core.String? fieldId,
@@ -792,6 +827,7 @@ class FormValue extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<FormValue>(create);
   static FormValue? _defaultInstance;
 
+  /// Stable field identifier from the definition revision.
   @$pb.TagNumber(1)
   $core.String get fieldId => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -801,6 +837,7 @@ class FormValue extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearFieldId() => $_clearField(1);
 
+  /// Field label captured when the value was written.
   @$pb.TagNumber(2)
   $core.String get label => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -810,6 +847,7 @@ class FormValue extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearLabel() => $_clearField(2);
 
+  /// Captured field kind.
   @$pb.TagNumber(3)
   $core.String get kind => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -819,6 +857,7 @@ class FormValue extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearKind() => $_clearField(3);
 
+  /// Non-secret text; intentionally empty for secret fields.
   @$pb.TagNumber(4)
   $core.String get value => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -828,6 +867,7 @@ class FormValue extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearValue() => $_clearField(4);
 
+  /// Whether the value must be read through a callback-scoped secret API.
   @$pb.TagNumber(5)
   $core.bool get secret => $_getBF(4);
   @$pb.TagNumber(5)
@@ -838,6 +878,7 @@ class FormValue extends $pb.GeneratedMessage {
   void clearSecret() => $_clearField(5);
 }
 
+/// One typed record stored at a lockbox path.
 class FormRecord extends $pb.GeneratedMessage {
   factory FormRecord({
     $core.String? path,
@@ -900,6 +941,7 @@ class FormRecord extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<FormRecord>(create);
   static FormRecord? _defaultInstance;
 
+  /// Record path within the lockbox.
   @$pb.TagNumber(1)
   $core.String get path => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -909,6 +951,7 @@ class FormRecord extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearPath() => $_clearField(1);
 
+  /// User-facing record name.
   @$pb.TagNumber(2)
   $core.String get name => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -918,6 +961,7 @@ class FormRecord extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearName() => $_clearField(2);
 
+  /// Stable form type identifier.
   @$pb.TagNumber(3)
   $core.String get typeId => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -927,6 +971,7 @@ class FormRecord extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearTypeId() => $_clearField(3);
 
+  /// Alias captured from the definition.
   @$pb.TagNumber(4)
   $core.String get definitionAlias => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -936,6 +981,7 @@ class FormRecord extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearDefinitionAlias() => $_clearField(4);
 
+  /// Definition revision used to create the record.
   @$pb.TagNumber(5)
   $core.int get definitionRevision => $_getIZ(4);
   @$pb.TagNumber(5)
@@ -945,10 +991,12 @@ class FormRecord extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearDefinitionRevision() => $_clearField(5);
 
+  /// Field values in definition order.
   @$pb.TagNumber(6)
   $pb.PbList<FormValue> get values => $_getList(5);
 }
 
+/// A collection of form records.
 class FormRecordList extends $pb.GeneratedMessage {
   factory FormRecordList({
     $core.Iterable<FormRecord>? values,
@@ -995,10 +1043,12 @@ class FormRecordList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<FormRecordList>(create);
   static FormRecordList? _defaultInstance;
 
+  /// Records in normalized path order.
   @$pb.TagNumber(1)
   $pb.PbList<FormRecord> get values => $_getList(0);
 }
 
+/// Optional form record; `value` is absent when the record does not exist.
 class OptionalFormRecord extends $pb.GeneratedMessage {
   factory OptionalFormRecord({
     FormRecord? value,
@@ -1045,6 +1095,7 @@ class OptionalFormRecord extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<OptionalFormRecord>(create);
   static OptionalFormRecord? _defaultInstance;
 
+  /// Present record value.
   @$pb.TagNumber(1)
   FormRecord get value => $_getN(0);
   @$pb.TagNumber(1)
@@ -1057,6 +1108,7 @@ class OptionalFormRecord extends $pb.GeneratedMessage {
   FormRecord ensureValue() => $_ensure(0);
 }
 
+/// Optional form value; `value` is absent when the field does not exist.
 class OptionalFormValue extends $pb.GeneratedMessage {
   factory OptionalFormValue({
     FormValue? value,
@@ -1103,6 +1155,7 @@ class OptionalFormValue extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<OptionalFormValue>(create);
   static OptionalFormValue? _defaultInstance;
 
+  /// Present field value; secret payloads remain omitted.
   @$pb.TagNumber(1)
   FormValue get value => $_getN(0);
   @$pb.TagNumber(1)
@@ -1115,6 +1168,7 @@ class OptionalFormValue extends $pb.GeneratedMessage {
   FormValue ensureValue() => $_ensure(0);
 }
 
+/// Results from scanning or salvaging a damaged lockbox.
 class RecoveryReport extends $pb.GeneratedMessage {
   factory RecoveryReport({
     $core.Iterable<LockboxEntry>? intactFiles,
@@ -1202,9 +1256,11 @@ class RecoveryReport extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<RecoveryReport>(create);
   static RecoveryReport? _defaultInstance;
 
+  /// Metadata for files recovered in full.
   @$pb.TagNumber(1)
   $pb.PbList<LockboxEntry> get intactFiles => $_getList(0);
 
+  /// Total number of fully recovered files.
   @$pb.TagNumber(2)
   $fixnum.Int64 get intactFileCount => $_getI64(1);
   @$pb.TagNumber(2)
@@ -1214,6 +1270,7 @@ class RecoveryReport extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearIntactFileCount() => $_clearField(2);
 
+  /// Number of files for which only partial content was recovered.
   @$pb.TagNumber(3)
   $fixnum.Int64 get partialFiles => $_getI64(2);
   @$pb.TagNumber(3)
@@ -1223,6 +1280,7 @@ class RecoveryReport extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearPartialFiles() => $_clearField(3);
 
+  /// Number of corrupt records skipped by the scanner.
   @$pb.TagNumber(4)
   $fixnum.Int64 get corruptRecords => $_getI64(3);
   @$pb.TagNumber(4)
@@ -1232,6 +1290,7 @@ class RecoveryReport extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearCorruptRecords() => $_clearField(4);
 
+  /// Whether the table of contents was recovered.
   @$pb.TagNumber(5)
   $core.bool get tocRecovered => $_getBF(4);
   @$pb.TagNumber(5)
@@ -1241,6 +1300,7 @@ class RecoveryReport extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearTocRecovered() => $_clearField(5);
 
+  /// Whether variable metadata was recovered.
   @$pb.TagNumber(6)
   $core.bool get variablesRecovered => $_getBF(5);
   @$pb.TagNumber(6)
@@ -1250,6 +1310,7 @@ class RecoveryReport extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearVariablesRecovered() => $_clearField(6);
 
+  /// Number of recovered variables.
   @$pb.TagNumber(7)
   $fixnum.Int64 get variableCount => $_getI64(6);
   @$pb.TagNumber(7)
@@ -1259,6 +1320,7 @@ class RecoveryReport extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearVariableCount() => $_clearField(7);
 
+  /// Whether typed form metadata was recovered.
   @$pb.TagNumber(8)
   $core.bool get formsRecovered => $_getBF(7);
   @$pb.TagNumber(8)
@@ -1268,6 +1330,7 @@ class RecoveryReport extends $pb.GeneratedMessage {
   @$pb.TagNumber(8)
   void clearFormsRecovered() => $_clearField(8);
 
+  /// Number of recovered form definitions.
   @$pb.TagNumber(9)
   $fixnum.Int64 get formDefinitionCount => $_getI64(8);
   @$pb.TagNumber(9)
@@ -1277,6 +1340,7 @@ class RecoveryReport extends $pb.GeneratedMessage {
   @$pb.TagNumber(9)
   void clearFormDefinitionCount() => $_clearField(9);
 
+  /// Number of recovered form records.
   @$pb.TagNumber(10)
   $fixnum.Int64 get formRecordCount => $_getI64(9);
   @$pb.TagNumber(10)
@@ -1287,6 +1351,7 @@ class RecoveryReport extends $pb.GeneratedMessage {
   void clearFormRecordCount() => $_clearField(10);
 }
 
+/// Metadata for one password or contact access slot.
 class KeySlot extends $pb.GeneratedMessage {
   factory KeySlot({
     $fixnum.Int64? id,
@@ -1338,6 +1403,7 @@ class KeySlot extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<KeySlot>(create);
   static KeySlot? _defaultInstance;
 
+  /// Stable slot identifier used for deletion and local labels.
   @$pb.TagNumber(1)
   $fixnum.Int64 get id => $_getI64(0);
   @$pb.TagNumber(1)
@@ -1347,6 +1413,7 @@ class KeySlot extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearId() => $_clearField(1);
 
+  /// Protection type, such as `password` or `contact`.
   @$pb.TagNumber(2)
   $core.String get protection => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1356,6 +1423,7 @@ class KeySlot extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearProtection() => $_clearField(2);
 
+  /// Cryptographic algorithm identifier stored by the slot.
   @$pb.TagNumber(3)
   $core.String get algorithm => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -1366,6 +1434,7 @@ class KeySlot extends $pb.GeneratedMessage {
   void clearAlgorithm() => $_clearField(3);
 }
 
+/// A collection of access slots.
 class KeySlotList extends $pb.GeneratedMessage {
   factory KeySlotList({
     $core.Iterable<KeySlot>? values,
@@ -1412,10 +1481,12 @@ class KeySlotList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<KeySlotList>(create);
   static KeySlotList? _defaultInstance;
 
+  /// Access slots in stable id order.
   @$pb.TagNumber(1)
   $pb.PbList<KeySlot> get values => $_getList(0);
 }
 
+/// Current decrypted-page cache counters.
 class CacheStats extends $pb.GeneratedMessage {
   factory CacheStats({
     $fixnum.Int64? limitBytes,
@@ -1479,6 +1550,7 @@ class CacheStats extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<CacheStats>(create);
   static CacheStats? _defaultInstance;
 
+  /// Configured cache limit in bytes.
   @$pb.TagNumber(1)
   $fixnum.Int64 get limitBytes => $_getI64(0);
   @$pb.TagNumber(1)
@@ -1488,6 +1560,7 @@ class CacheStats extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearLimitBytes() => $_clearField(1);
 
+  /// Bytes currently held by the cache.
   @$pb.TagNumber(2)
   $fixnum.Int64 get usedBytes => $_getI64(1);
   @$pb.TagNumber(2)
@@ -1497,6 +1570,7 @@ class CacheStats extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearUsedBytes() => $_clearField(2);
 
+  /// Number of cached entries.
   @$pb.TagNumber(3)
   $fixnum.Int64 get entries => $_getI64(2);
   @$pb.TagNumber(3)
@@ -1506,6 +1580,7 @@ class CacheStats extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearEntries() => $_clearField(3);
 
+  /// Successful cache lookup count.
   @$pb.TagNumber(4)
   $fixnum.Int64 get hits => $_getI64(3);
   @$pb.TagNumber(4)
@@ -1515,6 +1590,7 @@ class CacheStats extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearHits() => $_clearField(4);
 
+  /// Failed cache lookup count.
   @$pb.TagNumber(5)
   $fixnum.Int64 get misses => $_getI64(4);
   @$pb.TagNumber(5)
@@ -1525,6 +1601,7 @@ class CacheStats extends $pb.GeneratedMessage {
   void clearMisses() => $_clearField(5);
 }
 
+/// Cumulative timing counters for bulk imports, represented as decimal nanoseconds.
 class ImportStats extends $pb.GeneratedMessage {
   factory ImportStats({
     $core.String? hostStatNanos,
@@ -1579,6 +1656,7 @@ class ImportStats extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ImportStats>(create);
   static ImportStats? _defaultInstance;
 
+  /// Time spent querying host file metadata.
   @$pb.TagNumber(1)
   $core.String get hostStatNanos => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -1588,6 +1666,7 @@ class ImportStats extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearHostStatNanos() => $_clearField(1);
 
+  /// Time spent reading host file content.
   @$pb.TagNumber(2)
   $core.String get hostReadNanos => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1597,6 +1676,7 @@ class ImportStats extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearHostReadNanos() => $_clearField(2);
 
+  /// Time spent preparing compression/encryption frames.
   @$pb.TagNumber(3)
   $core.String get framePrepareNanos => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -1606,6 +1686,7 @@ class ImportStats extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearFramePrepareNanos() => $_clearField(3);
 
+  /// Time spent writing encrypted pages.
   @$pb.TagNumber(4)
   $core.String get pageWriteNanos => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -1616,6 +1697,7 @@ class ImportStats extends $pb.GeneratedMessage {
   void clearPageWriteNanos() => $_clearField(4);
 }
 
+/// One logical object stored inside an encrypted page.
 class PageObject extends $pb.GeneratedMessage {
   factory PageObject({
     $fixnum.Int64? id,
@@ -1669,6 +1751,7 @@ class PageObject extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<PageObject>(create);
   static PageObject? _defaultInstance;
 
+  /// Object identifier within the page.
   @$pb.TagNumber(1)
   $fixnum.Int64 get id => $_getI64(0);
   @$pb.TagNumber(1)
@@ -1678,6 +1761,7 @@ class PageObject extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearId() => $_clearField(1);
 
+  /// Object type name.
   @$pb.TagNumber(2)
   $core.String get kind => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -1687,6 +1771,7 @@ class PageObject extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearKind() => $_clearField(2);
 
+  /// Encoded payload length in bytes.
   @$pb.TagNumber(3)
   $fixnum.Int64 get payloadLen => $_getI64(2);
   @$pb.TagNumber(3)
@@ -1697,6 +1782,7 @@ class PageObject extends $pb.GeneratedMessage {
   void clearPayloadLen() => $_clearField(3);
 }
 
+/// Diagnostic metadata for one encrypted lockbox page.
 class PageInspection extends $pb.GeneratedMessage {
   factory PageInspection({
     $fixnum.Int64? offset,
@@ -1776,6 +1862,7 @@ class PageInspection extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<PageInspection>(create);
   static PageInspection? _defaultInstance;
 
+  /// Physical page offset in the archive.
   @$pb.TagNumber(1)
   $fixnum.Int64 get offset => $_getI64(0);
   @$pb.TagNumber(1)
@@ -1785,6 +1872,7 @@ class PageInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearOffset() => $_clearField(1);
 
+  /// Stable page identifier.
   @$pb.TagNumber(2)
   $fixnum.Int64 get pageId => $_getI64(1);
   @$pb.TagNumber(2)
@@ -1794,6 +1882,7 @@ class PageInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearPageId() => $_clearField(2);
 
+  /// Commit sequence that last wrote the page.
   @$pb.TagNumber(3)
   $fixnum.Int64 get sequence => $_getI64(2);
   @$pb.TagNumber(3)
@@ -1803,6 +1892,7 @@ class PageInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearSequence() => $_clearField(3);
 
+  /// Total encoded page length.
   @$pb.TagNumber(4)
   $fixnum.Int64 get pageSize => $_getI64(3);
   @$pb.TagNumber(4)
@@ -1812,6 +1902,7 @@ class PageInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearPageSize() => $_clearField(4);
 
+  /// Length of the authenticated encrypted body.
   @$pb.TagNumber(5)
   $fixnum.Int64 get encryptedBodyLen => $_getI64(4);
   @$pb.TagNumber(5)
@@ -1821,6 +1912,7 @@ class PageInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearEncryptedBodyLen() => $_clearField(5);
 
+  /// Unused capacity remaining in the page.
   @$pb.TagNumber(6)
   $fixnum.Int64 get unusedBytes => $_getI64(5);
   @$pb.TagNumber(6)
@@ -1830,6 +1922,7 @@ class PageInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearUnusedBytes() => $_clearField(6);
 
+  /// Number of logical objects in the page.
   @$pb.TagNumber(7)
   $fixnum.Int64 get objectCount => $_getI64(6);
   @$pb.TagNumber(7)
@@ -1839,10 +1932,12 @@ class PageInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearObjectCount() => $_clearField(7);
 
+  /// Objects discoverable without exposing plaintext payloads.
   @$pb.TagNumber(8)
   $pb.PbList<PageObject> get objects => $_getList(7);
 }
 
+/// A collection of page diagnostics.
 class PageInspectionList extends $pb.GeneratedMessage {
   factory PageInspectionList({
     $core.Iterable<PageInspection>? values,
@@ -1889,10 +1984,12 @@ class PageInspectionList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<PageInspectionList>(create);
   static PageInspectionList? _defaultInstance;
 
+  /// Pages in physical archive order.
   @$pb.TagNumber(1)
   $pb.PbList<PageInspection> get values => $_getList(0);
 }
 
+/// Metadata that can be inspected from a lockbox file without opening content.
 class FileInspection extends $pb.GeneratedMessage {
   factory FileInspection({
     $core.List<$core.int>? lockboxId,
@@ -1961,6 +2058,7 @@ class FileInspection extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<FileInspection>(create);
   static FileInspection? _defaultInstance;
 
+  /// Stable lockbox identifier.
   @$pb.TagNumber(1)
   $core.List<$core.int> get lockboxId => $_getN(0);
   @$pb.TagNumber(1)
@@ -1970,6 +2068,7 @@ class FileInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearLockboxId() => $_clearField(1);
 
+  /// Whether the file header passed structural validation.
   @$pb.TagNumber(2)
   $core.bool get headerReadable => $_getBF(1);
   @$pb.TagNumber(2)
@@ -1979,6 +2078,7 @@ class FileInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearHeaderReadable() => $_clearField(2);
 
+  /// Latest readable key-directory generation.
   @$pb.TagNumber(3)
   $fixnum.Int64 get keyDirectoryGeneration => $_getI64(2);
   @$pb.TagNumber(3)
@@ -1988,6 +2088,7 @@ class FileInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearKeyDirectoryGeneration() => $_clearField(3);
 
+  /// Number of valid redundant key-directory copies.
   @$pb.TagNumber(4)
   $fixnum.Int64 get keyDirectoryCopyCount => $_getI64(3);
   @$pb.TagNumber(4)
@@ -1997,6 +2098,7 @@ class FileInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearKeyDirectoryCopyCount() => $_clearField(4);
 
+  /// Whether commits are authorized by an owner signing key.
   @$pb.TagNumber(5)
   $core.bool get ownerSigned => $_getBF(4);
   @$pb.TagNumber(5)
@@ -2006,10 +2108,12 @@ class FileInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearOwnerSigned() => $_clearField(5);
 
+  /// Access slots visible in the key directory.
   @$pb.TagNumber(6)
   $pb.PbList<KeySlot> get keySlots => $_getList(5);
 }
 
+/// One historical generation of a vault profile's contact keys.
 class ProfileGeneration extends $pb.GeneratedMessage {
   factory ProfileGeneration({
     $core.int? index,
@@ -2076,6 +2180,7 @@ class ProfileGeneration extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ProfileGeneration>(create);
   static ProfileGeneration? _defaultInstance;
 
+  /// Monotonically increasing generation number.
   @$pb.TagNumber(1)
   $core.int get index => $_getIZ(0);
   @$pb.TagNumber(1)
@@ -2085,6 +2190,7 @@ class ProfileGeneration extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearIndex() => $_clearField(1);
 
+  /// Lifecycle status: `active`, `retired`, or `compromised`.
   @$pb.TagNumber(2)
   $core.String get status => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -2094,6 +2200,7 @@ class ProfileGeneration extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearStatus() => $_clearField(2);
 
+  /// Fingerprint of the generation's contact public key.
   @$pb.TagNumber(3)
   $core.List<$core.int> get contactFingerprint => $_getN(2);
   @$pb.TagNumber(3)
@@ -2103,6 +2210,7 @@ class ProfileGeneration extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearContactFingerprint() => $_clearField(3);
 
+  /// Creation time in Unix milliseconds.
   @$pb.TagNumber(4)
   $fixnum.Int64 get createdAtUnixMs => $_getI64(3);
   @$pb.TagNumber(4)
@@ -2112,6 +2220,7 @@ class ProfileGeneration extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearCreatedAtUnixMs() => $_clearField(4);
 
+  /// Retirement time in Unix milliseconds when present.
   @$pb.TagNumber(5)
   $fixnum.Int64 get retiredAtUnixMs => $_getI64(4);
   @$pb.TagNumber(5)
@@ -2121,6 +2230,7 @@ class ProfileGeneration extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearRetiredAtUnixMs() => $_clearField(5);
 
+  /// Whether `retired_at_unix_ms` is present.
   @$pb.TagNumber(6)
   $core.bool get hasRetiredAt => $_getBF(5);
   @$pb.TagNumber(6)
@@ -2131,6 +2241,7 @@ class ProfileGeneration extends $pb.GeneratedMessage {
   void clearHasRetiredAt() => $_clearField(6);
 }
 
+/// Versioned key-generation history for one named profile.
 class ProfileHistory extends $pb.GeneratedMessage {
   factory ProfileHistory({
     $core.String? name,
@@ -2184,6 +2295,7 @@ class ProfileHistory extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ProfileHistory>(create);
   static ProfileHistory? _defaultInstance;
 
+  /// Profile name.
   @$pb.TagNumber(1)
   $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -2193,6 +2305,7 @@ class ProfileHistory extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearName() => $_clearField(1);
 
+  /// Index of the active generation.
   @$pb.TagNumber(2)
   $core.int get activeGeneration => $_getIZ(1);
   @$pb.TagNumber(2)
@@ -2202,10 +2315,12 @@ class ProfileHistory extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearActiveGeneration() => $_clearField(2);
 
+  /// All active, retired, and compromised generations.
   @$pb.TagNumber(3)
   $pb.PbList<ProfileGeneration> get generations => $_getList(2);
 }
 
+/// Local metadata for a remembered lockbox path.
 class KnownLockbox extends $pb.GeneratedMessage {
   factory KnownLockbox({
     $core.List<$core.int>? lockboxId,
@@ -2260,6 +2375,7 @@ class KnownLockbox extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<KnownLockbox>(create);
   static KnownLockbox? _defaultInstance;
 
+  /// Stable identifier embedded in the lockbox.
   @$pb.TagNumber(1)
   $core.List<$core.int> get lockboxId => $_getN(0);
   @$pb.TagNumber(1)
@@ -2269,6 +2385,7 @@ class KnownLockbox extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearLockboxId() => $_clearField(1);
 
+  /// Filesystem path at which the lockbox was last seen.
   @$pb.TagNumber(2)
   $core.String get path => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -2278,6 +2395,7 @@ class KnownLockbox extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearPath() => $_clearField(2);
 
+  /// Last observation time in Unix milliseconds.
   @$pb.TagNumber(3)
   $fixnum.Int64 get lastSeenUnixMs => $_getI64(2);
   @$pb.TagNumber(3)
@@ -2288,6 +2406,7 @@ class KnownLockbox extends $pb.GeneratedMessage {
   void clearLastSeenUnixMs() => $_clearField(3);
 }
 
+/// A collection of remembered lockboxes.
 class KnownLockboxList extends $pb.GeneratedMessage {
   factory KnownLockboxList({
     $core.Iterable<KnownLockbox>? values,
@@ -2334,10 +2453,12 @@ class KnownLockboxList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<KnownLockboxList>(create);
   static KnownLockboxList? _defaultInstance;
 
+  /// Remembered lockbox records.
   @$pb.TagNumber(1)
   $pb.PbList<KnownLockbox> get values => $_getList(0);
 }
 
+/// A local-only label for one lockbox access slot.
 class AccessSlotLabel extends $pb.GeneratedMessage {
   factory AccessSlotLabel({
     $core.List<$core.int>? lockboxId,
@@ -2396,6 +2517,7 @@ class AccessSlotLabel extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<AccessSlotLabel>(create);
   static AccessSlotLabel? _defaultInstance;
 
+  /// Lockbox containing the access slot.
   @$pb.TagNumber(1)
   $core.List<$core.int> get lockboxId => $_getN(0);
   @$pb.TagNumber(1)
@@ -2405,6 +2527,7 @@ class AccessSlotLabel extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearLockboxId() => $_clearField(1);
 
+  /// Stable slot identifier within that lockbox.
   @$pb.TagNumber(2)
   $fixnum.Int64 get slotId => $_getI64(1);
   @$pb.TagNumber(2)
@@ -2414,6 +2537,7 @@ class AccessSlotLabel extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearSlotId() => $_clearField(2);
 
+  /// User-assigned local label.
   @$pb.TagNumber(3)
   $core.String get name => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -2423,6 +2547,7 @@ class AccessSlotLabel extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearName() => $_clearField(3);
 
+  /// Last update time in Unix milliseconds.
   @$pb.TagNumber(4)
   $fixnum.Int64 get updatedAtUnixMs => $_getI64(3);
   @$pb.TagNumber(4)
@@ -2433,6 +2558,7 @@ class AccessSlotLabel extends $pb.GeneratedMessage {
   void clearUpdatedAtUnixMs() => $_clearField(4);
 }
 
+/// A collection of local access-slot labels.
 class AccessSlotLabelList extends $pb.GeneratedMessage {
   factory AccessSlotLabelList({
     $core.Iterable<AccessSlotLabel>? values,
@@ -2479,10 +2605,12 @@ class AccessSlotLabelList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<AccessSlotLabelList>(create);
   static AccessSlotLabelList? _defaultInstance;
 
+  /// Matching access-slot labels.
   @$pb.TagNumber(1)
   $pb.PbList<AccessSlotLabel> get values => $_getList(0);
 }
 
+/// One logical or physical chunk in a streamed lockbox file.
 class StreamChunk extends $pb.GeneratedMessage {
   factory StreamChunk({
     $core.String? path,
@@ -2549,6 +2677,7 @@ class StreamChunk extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<StreamChunk>(create);
   static StreamChunk? _defaultInstance;
 
+  /// Lockbox path of the streamed file.
   @$pb.TagNumber(1)
   $core.String get path => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -2558,6 +2687,7 @@ class StreamChunk extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearPath() => $_clearField(1);
 
+  /// Logical offset within the reconstructed file.
   @$pb.TagNumber(2)
   $fixnum.Int64 get fileOffset => $_getI64(1);
   @$pb.TagNumber(2)
@@ -2567,6 +2697,7 @@ class StreamChunk extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearFileOffset() => $_clearField(2);
 
+  /// Logical chunk length in bytes.
   @$pb.TagNumber(3)
   $fixnum.Int64 get length => $_getI64(2);
   @$pb.TagNumber(3)
@@ -2576,6 +2707,7 @@ class StreamChunk extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearLength() => $_clearField(3);
 
+  /// Physical archive offset, when physical ordering was requested.
   @$pb.TagNumber(4)
   $fixnum.Int64 get physicalOffset => $_getI64(3);
   @$pb.TagNumber(4)
@@ -2585,6 +2717,7 @@ class StreamChunk extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearPhysicalOffset() => $_clearField(4);
 
+  /// Whether the chunk represents a sparse zero-filled range.
   @$pb.TagNumber(5)
   $core.bool get sparse => $_getBF(4);
   @$pb.TagNumber(5)
@@ -2594,6 +2727,7 @@ class StreamChunk extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearSparse() => $_clearField(5);
 
+  /// Decrypted bytes; empty for sparse ranges.
   @$pb.TagNumber(6)
   $core.List<$core.int> get data => $_getN(5);
   @$pb.TagNumber(6)
@@ -2604,6 +2738,7 @@ class StreamChunk extends $pb.GeneratedMessage {
   void clearData() => $_clearField(6);
 }
 
+/// A collection of streamed content chunks.
 class StreamChunkList extends $pb.GeneratedMessage {
   factory StreamChunkList({
     $core.Iterable<StreamChunk>? values,
@@ -2650,10 +2785,12 @@ class StreamChunkList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<StreamChunkList>(create);
   static StreamChunkList? _defaultInstance;
 
+  /// Chunks in logical or physical order as requested.
   @$pb.TagNumber(1)
   $pb.PbList<StreamChunk> get values => $_getList(0);
 }
 
+/// Effective runtime tuning for one open lockbox.
 class RuntimeOptions extends $pb.GeneratedMessage {
   factory RuntimeOptions({
     $core.String? workloadProfile,
@@ -2702,6 +2839,7 @@ class RuntimeOptions extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<RuntimeOptions>(create);
   static RuntimeOptions? _defaultInstance;
 
+  /// Selected workload profile.
   @$pb.TagNumber(1)
   $core.String get workloadProfile => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -2711,6 +2849,7 @@ class RuntimeOptions extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearWorkloadProfile() => $_clearField(1);
 
+  /// Selected worker policy and concurrency.
   @$pb.TagNumber(2)
   $core.String get workerPolicy => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -2721,6 +2860,7 @@ class RuntimeOptions extends $pb.GeneratedMessage {
   void clearWorkerPolicy() => $_clearField(2);
 }
 
+/// Name and sensitivity metadata for one variable; no secret value is included.
 class Variable extends $pb.GeneratedMessage {
   factory Variable({
     $core.String? name,
@@ -2768,6 +2908,7 @@ class Variable extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Variable>(create);
   static Variable? _defaultInstance;
 
+  /// Variable name.
   @$pb.TagNumber(1)
   $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -2777,6 +2918,7 @@ class Variable extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearName() => $_clearField(1);
 
+  /// `normal` or `secret`.
   @$pb.TagNumber(2)
   $core.String get sensitivity => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -2787,6 +2929,7 @@ class Variable extends $pb.GeneratedMessage {
   void clearSensitivity() => $_clearField(2);
 }
 
+/// A collection of variable metadata.
 class VariableList extends $pb.GeneratedMessage {
   factory VariableList({
     $core.Iterable<Variable>? values,
@@ -2833,10 +2976,12 @@ class VariableList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<VariableList>(create);
   static VariableList? _defaultInstance;
 
+  /// Variables in normalized name order.
   @$pb.TagNumber(1)
   $pb.PbList<Variable> get values => $_getList(0);
 }
 
+/// Optional string that distinguishes absence from an empty value.
 class OptionalString extends $pb.GeneratedMessage {
   factory OptionalString({
     $core.bool? present,
@@ -2885,6 +3030,7 @@ class OptionalString extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<OptionalString>(create);
   static OptionalString? _defaultInstance;
 
+  /// Whether a value is present.
   @$pb.TagNumber(1)
   $core.bool get present => $_getBF(0);
   @$pb.TagNumber(1)
@@ -2894,6 +3040,7 @@ class OptionalString extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearPresent() => $_clearField(1);
 
+  /// Present UTF-8 value, which may itself be empty.
   @$pb.TagNumber(2)
   $core.String get value => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -2904,6 +3051,7 @@ class OptionalString extends $pb.GeneratedMessage {
   void clearValue() => $_clearField(2);
 }
 
+/// Owner-signature status for an open lockbox.
 class OwnerInspection extends $pb.GeneratedMessage {
   factory OwnerInspection({
     $core.bool? signed,
@@ -2955,6 +3103,7 @@ class OwnerInspection extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<OwnerInspection>(create);
   static OwnerInspection? _defaultInstance;
 
+  /// Whether the lockbox has owner-signed commits.
   @$pb.TagNumber(1)
   $core.bool get signed => $_getBF(0);
   @$pb.TagNumber(1)
@@ -2964,6 +3113,7 @@ class OwnerInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSigned() => $_clearField(1);
 
+  /// Human-readable owner signing-key fingerprint.
   @$pb.TagNumber(2)
   $core.String get fingerprint => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -2973,6 +3123,7 @@ class OwnerInspection extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearFingerprint() => $_clearField(2);
 
+  /// Whether `fingerprint` is present.
   @$pb.TagNumber(3)
   $core.bool get hasFingerprint_3 => $_getBF(2);
   @$pb.TagNumber(3)
@@ -2983,6 +3134,7 @@ class OwnerInspection extends $pb.GeneratedMessage {
   void clearHasFingerprint_3() => $_clearField(3);
 }
 
+/// Named contact public key stored in the local vault.
 class Contact extends $pb.GeneratedMessage {
   factory Contact({
     $core.String? name,
@@ -3031,6 +3183,7 @@ class Contact extends $pb.GeneratedMessage {
       _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Contact>(create);
   static Contact? _defaultInstance;
 
+  /// User-assigned contact name.
   @$pb.TagNumber(1)
   $core.String get name => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -3040,6 +3193,7 @@ class Contact extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearName() => $_clearField(1);
 
+  /// Encoded contact public key.
   @$pb.TagNumber(2)
   $core.List<$core.int> get key => $_getN(1);
   @$pb.TagNumber(2)
@@ -3050,6 +3204,7 @@ class Contact extends $pb.GeneratedMessage {
   void clearKey() => $_clearField(2);
 }
 
+/// A collection of contacts.
 class ContactList extends $pb.GeneratedMessage {
   factory ContactList({
     $core.Iterable<Contact>? values,
@@ -3096,10 +3251,12 @@ class ContactList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ContactList>(create);
   static ContactList? _defaultInstance;
 
+  /// Contacts in normalized name order.
   @$pb.TagNumber(1)
   $pb.PbList<Contact> get values => $_getList(0);
 }
 
+/// A collection of profile histories.
 class ProfileHistoryList extends $pb.GeneratedMessage {
   factory ProfileHistoryList({
     $core.Iterable<ProfileHistory>? values,
@@ -3146,10 +3303,12 @@ class ProfileHistoryList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ProfileHistoryList>(create);
   static ProfileHistoryList? _defaultInstance;
 
+  /// Profile histories in normalized name order.
   @$pb.TagNumber(1)
   $pb.PbList<ProfileHistory> get values => $_getList(0);
 }
 
+/// Metadata for one secret cached by the session agent.
 class AgentEntry extends $pb.GeneratedMessage {
   factory AgentEntry({
     $core.String? id,
@@ -3197,6 +3356,7 @@ class AgentEntry extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<AgentEntry>(create);
   static AgentEntry? _defaultInstance;
 
+  /// Cache key or lockbox identifier.
   @$pb.TagNumber(1)
   $core.String get id => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -3206,6 +3366,7 @@ class AgentEntry extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearId() => $_clearField(1);
 
+  /// Associated lockbox path when supplied by the client.
   @$pb.TagNumber(2)
   $core.String get path => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -3216,6 +3377,7 @@ class AgentEntry extends $pb.GeneratedMessage {
   void clearPath() => $_clearField(2);
 }
 
+/// A collection of session-agent cache entries.
 class AgentEntryList extends $pb.GeneratedMessage {
   factory AgentEntryList({
     $core.Iterable<AgentEntry>? values,
@@ -3262,10 +3424,12 @@ class AgentEntryList extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<AgentEntryList>(create);
   static AgentEntryList? _defaultInstance;
 
+  /// Current cache entries without their secret values.
   @$pb.TagNumber(1)
   $pb.PbList<AgentEntry> get values => $_getList(0);
 }
 
+/// Platform capabilities used to protect secrets across system sleep.
 class SleepSupport extends $pb.GeneratedMessage {
   factory SleepSupport({
     $core.bool? suspendNotifications,
@@ -3318,6 +3482,7 @@ class SleepSupport extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<SleepSupport>(create);
   static SleepSupport? _defaultInstance;
 
+  /// Whether the platform reports suspend and resume transitions.
   @$pb.TagNumber(1)
   $core.bool get suspendNotifications => $_getBF(0);
   @$pb.TagNumber(1)
@@ -3327,6 +3492,7 @@ class SleepSupport extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSuspendNotifications() => $_clearField(1);
 
+  /// Whether the agent can temporarily inhibit system sleep.
   @$pb.TagNumber(2)
   $core.bool get sleepInhibition => $_getBF(1);
   @$pb.TagNumber(2)
@@ -3336,6 +3502,7 @@ class SleepSupport extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearSleepInhibition() => $_clearField(2);
 
+  /// Whether the configured protection policy is supported.
   @$pb.TagNumber(3)
   $core.bool get supported => $_getBF(2);
   @$pb.TagNumber(3)
@@ -3346,6 +3513,7 @@ class SleepSupport extends $pb.GeneratedMessage {
   void clearSupported() => $_clearField(3);
 }
 
+/// Effective operating-system secret-store configuration.
 class PlatformStatus extends $pb.GeneratedMessage {
   factory PlatformStatus({
     $core.bool? supported,
@@ -3403,6 +3571,7 @@ class PlatformStatus extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<PlatformStatus>(create);
   static PlatformStatus? _defaultInstance;
 
+  /// Whether this build has a backend for the current operating system.
   @$pb.TagNumber(1)
   $core.bool get supported => $_getBF(0);
   @$pb.TagNumber(1)
@@ -3412,6 +3581,7 @@ class PlatformStatus extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearSupported() => $_clearField(1);
 
+  /// Whether secret-store integration is currently disabled.
   @$pb.TagNumber(2)
   $core.bool get disabled => $_getBF(1);
   @$pb.TagNumber(2)
@@ -3421,6 +3591,7 @@ class PlatformStatus extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearDisabled() => $_clearField(2);
 
+  /// Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
   @$pb.TagNumber(3)
   $core.String get scope => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -3430,6 +3601,7 @@ class PlatformStatus extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearScope() => $_clearField(3);
 
+  /// Human-readable platform backend name.
   @$pb.TagNumber(4)
   $core.String get backend => $_getSZ(3);
   @$pb.TagNumber(4)
@@ -3439,6 +3611,7 @@ class PlatformStatus extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearBackend() => $_clearField(4);
 
+  /// Key used for the default local-vault item.
   @$pb.TagNumber(5)
   $core.String get item => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -3449,6 +3622,7 @@ class PlatformStatus extends $pb.GeneratedMessage {
   void clearItem() => $_clearField(5);
 }
 
+/// Required UTF-8 string result.
 class StringValue extends $pb.GeneratedMessage {
   factory StringValue({
     $core.String? value,
@@ -3494,6 +3668,7 @@ class StringValue extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<StringValue>(create);
   static StringValue? _defaultInstance;
 
+  /// Returned UTF-8 value.
   @$pb.TagNumber(1)
   $core.String get value => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -3504,6 +3679,7 @@ class StringValue extends $pb.GeneratedMessage {
   void clearValue() => $_clearField(1);
 }
 
+/// Metadata describing an encrypted local-vault backup archive.
 class VaultBackupManifest extends $pb.GeneratedMessage {
   factory VaultBackupManifest({
     $core.int? formatVersion,
@@ -3566,6 +3742,7 @@ class VaultBackupManifest extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<VaultBackupManifest>(create);
   static VaultBackupManifest? _defaultInstance;
 
+  /// Backup container format version.
   @$pb.TagNumber(1)
   $core.int get formatVersion => $_getIZ(0);
   @$pb.TagNumber(1)
@@ -3575,6 +3752,7 @@ class VaultBackupManifest extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearFormatVersion() => $_clearField(1);
 
+  /// Backup creation time in Unix milliseconds.
   @$pb.TagNumber(2)
   $fixnum.Int64 get createdAtUnixMs => $_getI64(1);
   @$pb.TagNumber(2)
@@ -3584,6 +3762,7 @@ class VaultBackupManifest extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearCreatedAtUnixMs() => $_clearField(2);
 
+  /// Name of the encrypted vault file inside the archive.
   @$pb.TagNumber(3)
   $core.String get vaultFileName => $_getSZ(2);
   @$pb.TagNumber(3)
@@ -3593,6 +3772,7 @@ class VaultBackupManifest extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearVaultFileName() => $_clearField(3);
 
+  /// Encrypted vault file length in bytes.
   @$pb.TagNumber(4)
   $fixnum.Int64 get vaultSize => $_getI64(3);
   @$pb.TagNumber(4)
@@ -3602,6 +3782,7 @@ class VaultBackupManifest extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearVaultSize() => $_clearField(4);
 
+  /// Lowercase hexadecimal SHA-256 of the encrypted vault file.
   @$pb.TagNumber(5)
   $core.String get vaultSha256 => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -3612,6 +3793,7 @@ class VaultBackupManifest extends $pb.GeneratedMessage {
   void clearVaultSha256() => $_clearField(5);
 }
 
+/// Structured diagnostic for the most recent failed binding operation.
 class ErrorDetails extends $pb.GeneratedMessage {
   factory ErrorDetails({
     $core.String? category,
@@ -3674,6 +3856,7 @@ class ErrorDetails extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ErrorDetails>(create);
   static ErrorDetails? _defaultInstance;
 
+  /// Stable error category suitable for programmatic handling.
   @$pb.TagNumber(1)
   $core.String get category => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -3683,6 +3866,7 @@ class ErrorDetails extends $pb.GeneratedMessage {
   @$pb.TagNumber(1)
   void clearCategory() => $_clearField(1);
 
+  /// Artifact type involved in a format-version error, when applicable.
   @$pb.TagNumber(2)
   $core.String get artifactKind => $_getSZ(1);
   @$pb.TagNumber(2)
@@ -3692,6 +3876,7 @@ class ErrorDetails extends $pb.GeneratedMessage {
   @$pb.TagNumber(2)
   void clearArtifactKind() => $_clearField(2);
 
+  /// Version found in the input artifact.
   @$pb.TagNumber(3)
   $core.int get foundVersion => $_getIZ(2);
   @$pb.TagNumber(3)
@@ -3701,6 +3886,7 @@ class ErrorDetails extends $pb.GeneratedMessage {
   @$pb.TagNumber(3)
   void clearFoundVersion() => $_clearField(3);
 
+  /// Highest version supported by this binding.
   @$pb.TagNumber(4)
   $core.int get supportedVersion => $_getIZ(3);
   @$pb.TagNumber(4)
@@ -3710,6 +3896,7 @@ class ErrorDetails extends $pb.GeneratedMessage {
   @$pb.TagNumber(4)
   void clearSupportedVersion() => $_clearField(4);
 
+  /// Human-readable failure message.
   @$pb.TagNumber(5)
   $core.String get message => $_getSZ(4);
   @$pb.TagNumber(5)
@@ -3719,6 +3906,7 @@ class ErrorDetails extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearMessage() => $_clearField(5);
 
+  /// Suggested corrective action for the user.
   @$pb.TagNumber(6)
   $core.String get guidance => $_getSZ(5);
   @$pb.TagNumber(6)

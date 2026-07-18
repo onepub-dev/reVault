@@ -19,11 +19,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Normalized absolute path within the lockbox.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The path.
      */
     java.lang.String getPath();
     /**
+     * <pre>
+     * Normalized absolute path within the lockbox.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The bytes for path.
      */
@@ -31,29 +39,49 @@ public final class RevaultBindings {
         getPathBytes();
 
     /**
+     * <pre>
+     * Type of the entry.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
      * @return The enum numeric value on the wire for kind.
      */
     int getKindValue();
     /**
+     * <pre>
+     * Type of the entry.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
      * @return The kind.
      */
     revault.bindings.RevaultBindings.LockboxEntry.Kind getKind();
 
     /**
+     * <pre>
+     * Logical file length in bytes; zero for directories.
+     * </pre>
+     *
      * <code>uint64 length = 3;</code>
      * @return The length.
      */
     long getLength();
 
     /**
+     * <pre>
+     * Stored Unix permission bits.
+     * </pre>
+     *
      * <code>uint32 permissions = 4;</code>
      * @return The permissions.
      */
     int getPermissions();
   }
   /**
+   * <pre>
+   * Metadata for one entry in a lockbox filesystem.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.LockboxEntry}
    */
   public static final class LockboxEntry extends
@@ -96,23 +124,43 @@ public final class RevaultBindings {
     }
 
     /**
+     * <pre>
+     * Filesystem object type.
+     * </pre>
+     *
      * Protobuf enum {@code revault.bindings.LockboxEntry.Kind}
      */
     public enum Kind
         implements com.google.protobuf.ProtocolMessageEnum {
       /**
+       * <pre>
+       * No object type was supplied.
+       * </pre>
+       *
        * <code>KIND_UNSPECIFIED = 0;</code>
        */
       KIND_UNSPECIFIED(0),
       /**
+       * <pre>
+       * A regular file.
+       * </pre>
+       *
        * <code>FILE = 1;</code>
        */
       FILE(1),
       /**
+       * <pre>
+       * A symbolic link whose target is stored in the lockbox.
+       * </pre>
+       *
        * <code>SYMLINK = 2;</code>
        */
       SYMLINK(2),
       /**
+       * <pre>
+       * A directory.
+       * </pre>
+       *
        * <code>DIRECTORY = 3;</code>
        */
       DIRECTORY(3),
@@ -120,18 +168,34 @@ public final class RevaultBindings {
       ;
 
       /**
+       * <pre>
+       * No object type was supplied.
+       * </pre>
+       *
        * <code>KIND_UNSPECIFIED = 0;</code>
        */
       public static final int KIND_UNSPECIFIED_VALUE = 0;
       /**
+       * <pre>
+       * A regular file.
+       * </pre>
+       *
        * <code>FILE = 1;</code>
        */
       public static final int FILE_VALUE = 1;
       /**
+       * <pre>
+       * A symbolic link whose target is stored in the lockbox.
+       * </pre>
+       *
        * <code>SYMLINK = 2;</code>
        */
       public static final int SYMLINK_VALUE = 2;
       /**
+       * <pre>
+       * A directory.
+       * </pre>
+       *
        * <code>DIRECTORY = 3;</code>
        */
       public static final int DIRECTORY_VALUE = 3;
@@ -225,6 +289,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object path_ = "";
     /**
+     * <pre>
+     * Normalized absolute path within the lockbox.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The path.
      */
@@ -242,6 +310,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Normalized absolute path within the lockbox.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The bytes for path.
      */
@@ -263,6 +335,10 @@ public final class RevaultBindings {
     public static final int KIND_FIELD_NUMBER = 2;
     private int kind_ = 0;
     /**
+     * <pre>
+     * Type of the entry.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
      * @return The enum numeric value on the wire for kind.
      */
@@ -270,6 +346,10 @@ public final class RevaultBindings {
       return kind_;
     }
     /**
+     * <pre>
+     * Type of the entry.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
      * @return The kind.
      */
@@ -281,6 +361,10 @@ public final class RevaultBindings {
     public static final int LENGTH_FIELD_NUMBER = 3;
     private long length_ = 0L;
     /**
+     * <pre>
+     * Logical file length in bytes; zero for directories.
+     * </pre>
+     *
      * <code>uint64 length = 3;</code>
      * @return The length.
      */
@@ -292,6 +376,10 @@ public final class RevaultBindings {
     public static final int PERMISSIONS_FIELD_NUMBER = 4;
     private int permissions_ = 0;
     /**
+     * <pre>
+     * Stored Unix permission bits.
+     * </pre>
+     *
      * <code>uint32 permissions = 4;</code>
      * @return The permissions.
      */
@@ -488,6 +576,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Metadata for one entry in a lockbox filesystem.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.LockboxEntry}
      */
     public static final class Builder extends
@@ -695,6 +787,10 @@ public final class RevaultBindings {
 
       private java.lang.Object path_ = "";
       /**
+       * <pre>
+       * Normalized absolute path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @return The path.
        */
@@ -711,6 +807,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Normalized absolute path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @return The bytes for path.
        */
@@ -728,6 +828,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Normalized absolute path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @param value The path to set.
        * @return This builder for chaining.
@@ -741,6 +845,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Normalized absolute path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @return This builder for chaining.
        */
@@ -751,6 +859,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Normalized absolute path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @param value The bytes for path to set.
        * @return This builder for chaining.
@@ -767,6 +879,10 @@ public final class RevaultBindings {
 
       private int kind_ = 0;
       /**
+       * <pre>
+       * Type of the entry.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
        * @return The enum numeric value on the wire for kind.
        */
@@ -774,6 +890,10 @@ public final class RevaultBindings {
         return kind_;
       }
       /**
+       * <pre>
+       * Type of the entry.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
        * @param value The enum numeric value on the wire for kind to set.
        * @return This builder for chaining.
@@ -785,6 +905,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Type of the entry.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
        * @return The kind.
        */
@@ -794,6 +918,10 @@ public final class RevaultBindings {
         return result == null ? revault.bindings.RevaultBindings.LockboxEntry.Kind.UNRECOGNIZED : result;
       }
       /**
+       * <pre>
+       * Type of the entry.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
        * @param value The kind to set.
        * @return This builder for chaining.
@@ -808,6 +936,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Type of the entry.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
        * @return This builder for chaining.
        */
@@ -820,6 +952,10 @@ public final class RevaultBindings {
 
       private long length_ ;
       /**
+       * <pre>
+       * Logical file length in bytes; zero for directories.
+       * </pre>
+       *
        * <code>uint64 length = 3;</code>
        * @return The length.
        */
@@ -828,6 +964,10 @@ public final class RevaultBindings {
         return length_;
       }
       /**
+       * <pre>
+       * Logical file length in bytes; zero for directories.
+       * </pre>
+       *
        * <code>uint64 length = 3;</code>
        * @param value The length to set.
        * @return This builder for chaining.
@@ -840,6 +980,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Logical file length in bytes; zero for directories.
+       * </pre>
+       *
        * <code>uint64 length = 3;</code>
        * @return This builder for chaining.
        */
@@ -852,6 +996,10 @@ public final class RevaultBindings {
 
       private int permissions_ ;
       /**
+       * <pre>
+       * Stored Unix permission bits.
+       * </pre>
+       *
        * <code>uint32 permissions = 4;</code>
        * @return The permissions.
        */
@@ -860,6 +1008,10 @@ public final class RevaultBindings {
         return permissions_;
       }
       /**
+       * <pre>
+       * Stored Unix permission bits.
+       * </pre>
+       *
        * <code>uint32 permissions = 4;</code>
        * @param value The permissions to set.
        * @return This builder for chaining.
@@ -872,6 +1024,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stored Unix permission bits.
+       * </pre>
+       *
        * <code>uint32 permissions = 4;</code>
        * @return This builder for chaining.
        */
@@ -950,30 +1106,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.LockboxEntry>
         getEntriesList();
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     revault.bindings.RevaultBindings.LockboxEntry getEntries(int index);
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     int getEntriesCount();
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.LockboxEntryOrBuilder>
         getEntriesOrBuilderList();
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     revault.bindings.RevaultBindings.LockboxEntryOrBuilder getEntriesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of lockbox entries.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.LockboxEntryList}
    */
   public static final class LockboxEntryList extends
@@ -1018,6 +1198,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.LockboxEntry> entries_;
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     @java.lang.Override
@@ -1025,6 +1209,10 @@ public final class RevaultBindings {
       return entries_;
     }
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     @java.lang.Override
@@ -1033,6 +1221,10 @@ public final class RevaultBindings {
       return entries_;
     }
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     @java.lang.Override
@@ -1040,6 +1232,10 @@ public final class RevaultBindings {
       return entries_.size();
     }
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     @java.lang.Override
@@ -1047,6 +1243,10 @@ public final class RevaultBindings {
       return entries_.get(index);
     }
     /**
+     * <pre>
+     * Entries in the order returned by the requested listing operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     @java.lang.Override
@@ -1213,6 +1413,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of lockbox entries.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.LockboxEntryList}
      */
     public static final class Builder extends
@@ -1440,6 +1644,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.LockboxEntry, revault.bindings.RevaultBindings.LockboxEntry.Builder, revault.bindings.RevaultBindings.LockboxEntryOrBuilder> entriesBuilder_;
 
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.LockboxEntry> getEntriesList() {
@@ -1450,6 +1658,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public int getEntriesCount() {
@@ -1460,6 +1672,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntry getEntries(int index) {
@@ -1470,6 +1686,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public Builder setEntries(
@@ -1487,6 +1707,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public Builder setEntries(
@@ -1501,6 +1725,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public Builder addEntries(revault.bindings.RevaultBindings.LockboxEntry value) {
@@ -1517,6 +1745,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public Builder addEntries(
@@ -1534,6 +1766,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public Builder addEntries(
@@ -1548,6 +1784,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public Builder addEntries(
@@ -1562,6 +1802,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public Builder addAllEntries(
@@ -1577,6 +1821,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public Builder clearEntries() {
@@ -1590,6 +1838,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public Builder removeEntries(int index) {
@@ -1603,6 +1855,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntry.Builder getEntriesBuilder(
@@ -1610,6 +1866,10 @@ public final class RevaultBindings {
         return getEntriesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntryOrBuilder getEntriesOrBuilder(
@@ -1620,6 +1880,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.LockboxEntryOrBuilder>
@@ -1631,6 +1895,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntry.Builder addEntriesBuilder() {
@@ -1638,6 +1906,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.LockboxEntry.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntry.Builder addEntriesBuilder(
@@ -1646,6 +1918,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.LockboxEntry.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Entries in the order returned by the requested listing operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.LockboxEntry.Builder>
@@ -1735,21 +2011,37 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Present entry value.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry value = 1;</code>
      * @return Whether the value field is set.
      */
     boolean hasValue();
     /**
+     * <pre>
+     * Present entry value.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry value = 1;</code>
      * @return The value.
      */
     revault.bindings.RevaultBindings.LockboxEntry getValue();
     /**
+     * <pre>
+     * Present entry value.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry value = 1;</code>
      */
     revault.bindings.RevaultBindings.LockboxEntryOrBuilder getValueOrBuilder();
   }
   /**
+   * <pre>
+   * Optional entry; `value` is absent when a path does not exist.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.OptionalLockboxEntry}
    */
   public static final class OptionalLockboxEntry extends
@@ -1792,6 +2084,10 @@ public final class RevaultBindings {
     public static final int VALUE_FIELD_NUMBER = 1;
     private revault.bindings.RevaultBindings.LockboxEntry value_;
     /**
+     * <pre>
+     * Present entry value.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry value = 1;</code>
      * @return Whether the value field is set.
      */
@@ -1800,6 +2096,10 @@ public final class RevaultBindings {
       return value_ != null;
     }
     /**
+     * <pre>
+     * Present entry value.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry value = 1;</code>
      * @return The value.
      */
@@ -1808,6 +2108,10 @@ public final class RevaultBindings {
       return value_ == null ? revault.bindings.RevaultBindings.LockboxEntry.getDefaultInstance() : value_;
     }
     /**
+     * <pre>
+     * Present entry value.
+     * </pre>
+     *
      * <code>.revault.bindings.LockboxEntry value = 1;</code>
      */
     @java.lang.Override
@@ -1976,6 +2280,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Optional entry; `value` is absent when a path does not exist.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.OptionalLockboxEntry}
      */
     public static final class Builder extends
@@ -2155,6 +2463,10 @@ public final class RevaultBindings {
       private com.google.protobuf.SingleFieldBuilderV3<
           revault.bindings.RevaultBindings.LockboxEntry, revault.bindings.RevaultBindings.LockboxEntry.Builder, revault.bindings.RevaultBindings.LockboxEntryOrBuilder> valueBuilder_;
       /**
+       * <pre>
+       * Present entry value.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry value = 1;</code>
        * @return Whether the value field is set.
        */
@@ -2162,6 +2474,10 @@ public final class RevaultBindings {
         return ((bitField0_ & 0x00000001) != 0);
       }
       /**
+       * <pre>
+       * Present entry value.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry value = 1;</code>
        * @return The value.
        */
@@ -2173,6 +2489,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Present entry value.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry value = 1;</code>
        */
       public Builder setValue(revault.bindings.RevaultBindings.LockboxEntry value) {
@@ -2189,6 +2509,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present entry value.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry value = 1;</code>
        */
       public Builder setValue(
@@ -2203,6 +2527,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present entry value.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry value = 1;</code>
        */
       public Builder mergeValue(revault.bindings.RevaultBindings.LockboxEntry value) {
@@ -2222,6 +2550,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present entry value.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry value = 1;</code>
        */
       public Builder clearValue() {
@@ -2235,6 +2567,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present entry value.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry value = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntry.Builder getValueBuilder() {
@@ -2243,6 +2579,10 @@ public final class RevaultBindings {
         return getValueFieldBuilder().getBuilder();
       }
       /**
+       * <pre>
+       * Present entry value.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry value = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntryOrBuilder getValueOrBuilder() {
@@ -2254,6 +2594,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Present entry value.
+       * </pre>
+       *
        * <code>.revault.bindings.LockboxEntry value = 1;</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
@@ -2338,23 +2682,39 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * String values in API-defined order.
+     * </pre>
+     *
      * <code>repeated string values = 1;</code>
      * @return A list containing the values.
      */
     java.util.List<java.lang.String>
         getValuesList();
     /**
+     * <pre>
+     * String values in API-defined order.
+     * </pre>
+     *
      * <code>repeated string values = 1;</code>
      * @return The count of values.
      */
     int getValuesCount();
     /**
+     * <pre>
+     * String values in API-defined order.
+     * </pre>
+     *
      * <code>repeated string values = 1;</code>
      * @param index The index of the element to return.
      * @return The values at the given index.
      */
     java.lang.String getValues(int index);
     /**
+     * <pre>
+     * String values in API-defined order.
+     * </pre>
+     *
      * <code>repeated string values = 1;</code>
      * @param index The index of the value to return.
      * @return The bytes of the values at the given index.
@@ -2363,6 +2723,10 @@ public final class RevaultBindings {
         getValuesBytes(int index);
   }
   /**
+   * <pre>
+   * A collection of UTF-8 strings.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.StringList}
    */
   public static final class StringList extends
@@ -2407,6 +2771,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private com.google.protobuf.LazyStringList values_;
     /**
+     * <pre>
+     * String values in API-defined order.
+     * </pre>
+     *
      * <code>repeated string values = 1;</code>
      * @return A list containing the values.
      */
@@ -2415,6 +2783,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * String values in API-defined order.
+     * </pre>
+     *
      * <code>repeated string values = 1;</code>
      * @return The count of values.
      */
@@ -2422,6 +2794,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * String values in API-defined order.
+     * </pre>
+     *
      * <code>repeated string values = 1;</code>
      * @param index The index of the element to return.
      * @return The values at the given index.
@@ -2430,6 +2806,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * String values in API-defined order.
+     * </pre>
+     *
      * <code>repeated string values = 1;</code>
      * @param index The index of the value to return.
      * @return The bytes of the values at the given index.
@@ -2601,6 +2981,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of UTF-8 strings.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.StringList}
      */
     public static final class Builder extends
@@ -2791,6 +3175,10 @@ public final class RevaultBindings {
          }
       }
       /**
+       * <pre>
+       * String values in API-defined order.
+       * </pre>
+       *
        * <code>repeated string values = 1;</code>
        * @return A list containing the values.
        */
@@ -2799,6 +3187,10 @@ public final class RevaultBindings {
         return values_.getUnmodifiableView();
       }
       /**
+       * <pre>
+       * String values in API-defined order.
+       * </pre>
+       *
        * <code>repeated string values = 1;</code>
        * @return The count of values.
        */
@@ -2806,6 +3198,10 @@ public final class RevaultBindings {
         return values_.size();
       }
       /**
+       * <pre>
+       * String values in API-defined order.
+       * </pre>
+       *
        * <code>repeated string values = 1;</code>
        * @param index The index of the element to return.
        * @return The values at the given index.
@@ -2814,6 +3210,10 @@ public final class RevaultBindings {
         return values_.get(index);
       }
       /**
+       * <pre>
+       * String values in API-defined order.
+       * </pre>
+       *
        * <code>repeated string values = 1;</code>
        * @param index The index of the value to return.
        * @return The bytes of the values at the given index.
@@ -2823,6 +3223,10 @@ public final class RevaultBindings {
         return values_.getByteString(index);
       }
       /**
+       * <pre>
+       * String values in API-defined order.
+       * </pre>
+       *
        * <code>repeated string values = 1;</code>
        * @param index The index to set the value at.
        * @param value The values to set.
@@ -2837,6 +3241,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * String values in API-defined order.
+       * </pre>
+       *
        * <code>repeated string values = 1;</code>
        * @param value The values to add.
        * @return This builder for chaining.
@@ -2850,6 +3258,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * String values in API-defined order.
+       * </pre>
+       *
        * <code>repeated string values = 1;</code>
        * @param values The values to add.
        * @return This builder for chaining.
@@ -2863,6 +3275,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * String values in API-defined order.
+       * </pre>
+       *
        * <code>repeated string values = 1;</code>
        * @return This builder for chaining.
        */
@@ -2873,6 +3289,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * String values in API-defined order.
+       * </pre>
+       *
        * <code>repeated string values = 1;</code>
        * @param value The bytes of the values to add.
        * @return This builder for chaining.
@@ -2955,11 +3375,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Existing variable name or form-record path.
+     * </pre>
+     *
      * <code>string source = 1;</code>
      * @return The source.
      */
     java.lang.String getSource();
     /**
+     * <pre>
+     * Existing variable name or form-record path.
+     * </pre>
+     *
      * <code>string source = 1;</code>
      * @return The bytes for source.
      */
@@ -2967,11 +3395,19 @@ public final class RevaultBindings {
         getSourceBytes();
 
     /**
+     * <pre>
+     * New variable name or form-record path.
+     * </pre>
+     *
      * <code>string destination = 2;</code>
      * @return The destination.
      */
     java.lang.String getDestination();
     /**
+     * <pre>
+     * New variable name or form-record path.
+     * </pre>
+     *
      * <code>string destination = 2;</code>
      * @return The bytes for destination.
      */
@@ -2979,6 +3415,10 @@ public final class RevaultBindings {
         getDestinationBytes();
   }
   /**
+   * <pre>
+   * One atomic source-to-destination rename.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.PathMove}
    */
   public static final class PathMove extends
@@ -3024,6 +3464,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object source_ = "";
     /**
+     * <pre>
+     * Existing variable name or form-record path.
+     * </pre>
+     *
      * <code>string source = 1;</code>
      * @return The source.
      */
@@ -3041,6 +3485,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Existing variable name or form-record path.
+     * </pre>
+     *
      * <code>string source = 1;</code>
      * @return The bytes for source.
      */
@@ -3063,6 +3511,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object destination_ = "";
     /**
+     * <pre>
+     * New variable name or form-record path.
+     * </pre>
+     *
      * <code>string destination = 2;</code>
      * @return The destination.
      */
@@ -3080,6 +3532,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * New variable name or form-record path.
+     * </pre>
+     *
      * <code>string destination = 2;</code>
      * @return The bytes for destination.
      */
@@ -3263,6 +3719,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * One atomic source-to-destination rename.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.PathMove}
      */
     public static final class Builder extends
@@ -3448,6 +3908,10 @@ public final class RevaultBindings {
 
       private java.lang.Object source_ = "";
       /**
+       * <pre>
+       * Existing variable name or form-record path.
+       * </pre>
+       *
        * <code>string source = 1;</code>
        * @return The source.
        */
@@ -3464,6 +3928,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Existing variable name or form-record path.
+       * </pre>
+       *
        * <code>string source = 1;</code>
        * @return The bytes for source.
        */
@@ -3481,6 +3949,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Existing variable name or form-record path.
+       * </pre>
+       *
        * <code>string source = 1;</code>
        * @param value The source to set.
        * @return This builder for chaining.
@@ -3494,6 +3966,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Existing variable name or form-record path.
+       * </pre>
+       *
        * <code>string source = 1;</code>
        * @return This builder for chaining.
        */
@@ -3504,6 +3980,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Existing variable name or form-record path.
+       * </pre>
+       *
        * <code>string source = 1;</code>
        * @param value The bytes for source to set.
        * @return This builder for chaining.
@@ -3520,6 +4000,10 @@ public final class RevaultBindings {
 
       private java.lang.Object destination_ = "";
       /**
+       * <pre>
+       * New variable name or form-record path.
+       * </pre>
+       *
        * <code>string destination = 2;</code>
        * @return The destination.
        */
@@ -3536,6 +4020,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * New variable name or form-record path.
+       * </pre>
+       *
        * <code>string destination = 2;</code>
        * @return The bytes for destination.
        */
@@ -3553,6 +4041,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * New variable name or form-record path.
+       * </pre>
+       *
        * <code>string destination = 2;</code>
        * @param value The destination to set.
        * @return This builder for chaining.
@@ -3566,6 +4058,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * New variable name or form-record path.
+       * </pre>
+       *
        * <code>string destination = 2;</code>
        * @return This builder for chaining.
        */
@@ -3576,6 +4072,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * New variable name or form-record path.
+       * </pre>
+       *
        * <code>string destination = 2;</code>
        * @param value The bytes for destination to set.
        * @return This builder for chaining.
@@ -3658,30 +4158,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.PathMove>
         getValuesList();
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     revault.bindings.RevaultBindings.PathMove getValues(int index);
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.PathMoveOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     revault.bindings.RevaultBindings.PathMoveOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * Renames applied as one operation.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.PathMoveList}
    */
   public static final class PathMoveList extends
@@ -3726,6 +4250,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.PathMove> values_;
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     @java.lang.Override
@@ -3733,6 +4261,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     @java.lang.Override
@@ -3741,6 +4273,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     @java.lang.Override
@@ -3748,6 +4284,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     @java.lang.Override
@@ -3755,6 +4295,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Requested source-to-destination moves.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     @java.lang.Override
@@ -3921,6 +4465,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Renames applied as one operation.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.PathMoveList}
      */
     public static final class Builder extends
@@ -4148,6 +4696,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.PathMove, revault.bindings.RevaultBindings.PathMove.Builder, revault.bindings.RevaultBindings.PathMoveOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.PathMove> getValuesList() {
@@ -4158,6 +4710,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public int getValuesCount() {
@@ -4168,6 +4724,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PathMove getValues(int index) {
@@ -4178,6 +4738,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public Builder setValues(
@@ -4195,6 +4759,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public Builder setValues(
@@ -4209,6 +4777,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.PathMove value) {
@@ -4225,6 +4797,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public Builder addValues(
@@ -4242,6 +4818,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public Builder addValues(
@@ -4256,6 +4836,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public Builder addValues(
@@ -4270,6 +4854,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public Builder addAllValues(
@@ -4285,6 +4873,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public Builder clearValues() {
@@ -4298,6 +4890,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -4311,6 +4907,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PathMove.Builder getValuesBuilder(
@@ -4318,6 +4918,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PathMoveOrBuilder getValuesOrBuilder(
@@ -4328,6 +4932,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.PathMoveOrBuilder>
@@ -4339,6 +4947,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PathMove.Builder addValuesBuilder() {
@@ -4346,6 +4958,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.PathMove.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PathMove.Builder addValuesBuilder(
@@ -4354,6 +4970,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.PathMove.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Requested source-to-destination moves.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PathMove values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.PathMove.Builder>
@@ -4443,16 +5063,28 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Binary values in API-defined order.
+     * </pre>
+     *
      * <code>repeated bytes values = 1;</code>
      * @return A list containing the values.
      */
     java.util.List<com.google.protobuf.ByteString> getValuesList();
     /**
+     * <pre>
+     * Binary values in API-defined order.
+     * </pre>
+     *
      * <code>repeated bytes values = 1;</code>
      * @return The count of values.
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Binary values in API-defined order.
+     * </pre>
+     *
      * <code>repeated bytes values = 1;</code>
      * @param index The index of the element to return.
      * @return The values at the given index.
@@ -4460,6 +5092,10 @@ public final class RevaultBindings {
     com.google.protobuf.ByteString getValues(int index);
   }
   /**
+   * <pre>
+   * A collection of arbitrary byte strings.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.ByteList}
    */
   public static final class ByteList extends
@@ -4504,6 +5140,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<com.google.protobuf.ByteString> values_;
     /**
+     * <pre>
+     * Binary values in API-defined order.
+     * </pre>
+     *
      * <code>repeated bytes values = 1;</code>
      * @return A list containing the values.
      */
@@ -4513,6 +5153,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Binary values in API-defined order.
+     * </pre>
+     *
      * <code>repeated bytes values = 1;</code>
      * @return The count of values.
      */
@@ -4520,6 +5164,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Binary values in API-defined order.
+     * </pre>
+     *
      * <code>repeated bytes values = 1;</code>
      * @param index The index of the element to return.
      * @return The values at the given index.
@@ -4691,6 +5339,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of arbitrary byte strings.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.ByteList}
      */
     public static final class Builder extends
@@ -4880,6 +5532,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Binary values in API-defined order.
+       * </pre>
+       *
        * <code>repeated bytes values = 1;</code>
        * @return A list containing the values.
        */
@@ -4889,6 +5545,10 @@ public final class RevaultBindings {
                  java.util.Collections.unmodifiableList(values_) : values_;
       }
       /**
+       * <pre>
+       * Binary values in API-defined order.
+       * </pre>
+       *
        * <code>repeated bytes values = 1;</code>
        * @return The count of values.
        */
@@ -4896,6 +5556,10 @@ public final class RevaultBindings {
         return values_.size();
       }
       /**
+       * <pre>
+       * Binary values in API-defined order.
+       * </pre>
+       *
        * <code>repeated bytes values = 1;</code>
        * @param index The index of the element to return.
        * @return The values at the given index.
@@ -4904,6 +5568,10 @@ public final class RevaultBindings {
         return values_.get(index);
       }
       /**
+       * <pre>
+       * Binary values in API-defined order.
+       * </pre>
+       *
        * <code>repeated bytes values = 1;</code>
        * @param index The index to set the value at.
        * @param value The values to set.
@@ -4918,6 +5586,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Binary values in API-defined order.
+       * </pre>
+       *
        * <code>repeated bytes values = 1;</code>
        * @param value The values to add.
        * @return This builder for chaining.
@@ -4930,6 +5602,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Binary values in API-defined order.
+       * </pre>
+       *
        * <code>repeated bytes values = 1;</code>
        * @param values The values to add.
        * @return This builder for chaining.
@@ -4943,6 +5619,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Binary values in API-defined order.
+       * </pre>
+       *
        * <code>repeated bytes values = 1;</code>
        * @return This builder for chaining.
        */
@@ -5021,11 +5701,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Stable field identifier used by records.
+     * </pre>
+     *
      * <code>string id = 1;</code>
      * @return The id.
      */
     java.lang.String getId();
     /**
+     * <pre>
+     * Stable field identifier used by records.
+     * </pre>
+     *
      * <code>string id = 1;</code>
      * @return The bytes for id.
      */
@@ -5033,11 +5721,19 @@ public final class RevaultBindings {
         getIdBytes();
 
     /**
+     * <pre>
+     * User-facing label captured in records.
+     * </pre>
+     *
      * <code>string label = 2;</code>
      * @return The label.
      */
     java.lang.String getLabel();
     /**
+     * <pre>
+     * User-facing label captured in records.
+     * </pre>
+     *
      * <code>string label = 2;</code>
      * @return The bytes for label.
      */
@@ -5045,11 +5741,19 @@ public final class RevaultBindings {
         getLabelBytes();
 
     /**
+     * <pre>
+     * Field kind, such as `text`, `password`, or `secret`.
+     * </pre>
+     *
      * <code>string kind = 3;</code>
      * @return The kind.
      */
     java.lang.String getKind();
     /**
+     * <pre>
+     * Field kind, such as `text`, `password`, or `secret`.
+     * </pre>
+     *
      * <code>string kind = 3;</code>
      * @return The bytes for kind.
      */
@@ -5057,12 +5761,20 @@ public final class RevaultBindings {
         getKindBytes();
 
     /**
+     * <pre>
+     * Whether records must provide a value.
+     * </pre>
+     *
      * <code>bool required = 4;</code>
      * @return The required.
      */
     boolean getRequired();
   }
   /**
+   * <pre>
+   * One field in a typed form definition.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.FormField}
    */
   public static final class FormField extends
@@ -5109,6 +5821,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object id_ = "";
     /**
+     * <pre>
+     * Stable field identifier used by records.
+     * </pre>
+     *
      * <code>string id = 1;</code>
      * @return The id.
      */
@@ -5126,6 +5842,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Stable field identifier used by records.
+     * </pre>
+     *
      * <code>string id = 1;</code>
      * @return The bytes for id.
      */
@@ -5148,6 +5868,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object label_ = "";
     /**
+     * <pre>
+     * User-facing label captured in records.
+     * </pre>
+     *
      * <code>string label = 2;</code>
      * @return The label.
      */
@@ -5165,6 +5889,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * User-facing label captured in records.
+     * </pre>
+     *
      * <code>string label = 2;</code>
      * @return The bytes for label.
      */
@@ -5187,6 +5915,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object kind_ = "";
     /**
+     * <pre>
+     * Field kind, such as `text`, `password`, or `secret`.
+     * </pre>
+     *
      * <code>string kind = 3;</code>
      * @return The kind.
      */
@@ -5204,6 +5936,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Field kind, such as `text`, `password`, or `secret`.
+     * </pre>
+     *
      * <code>string kind = 3;</code>
      * @return The bytes for kind.
      */
@@ -5225,6 +5961,10 @@ public final class RevaultBindings {
     public static final int REQUIRED_FIELD_NUMBER = 4;
     private boolean required_ = false;
     /**
+     * <pre>
+     * Whether records must provide a value.
+     * </pre>
+     *
      * <code>bool required = 4;</code>
      * @return The required.
      */
@@ -5420,6 +6160,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * One field in a typed form definition.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.FormField}
      */
     public static final class Builder extends
@@ -5631,6 +6375,10 @@ public final class RevaultBindings {
 
       private java.lang.Object id_ = "";
       /**
+       * <pre>
+       * Stable field identifier used by records.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @return The id.
        */
@@ -5647,6 +6395,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable field identifier used by records.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @return The bytes for id.
        */
@@ -5664,6 +6416,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable field identifier used by records.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @param value The id to set.
        * @return This builder for chaining.
@@ -5677,6 +6433,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable field identifier used by records.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @return This builder for chaining.
        */
@@ -5687,6 +6447,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable field identifier used by records.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @param value The bytes for id to set.
        * @return This builder for chaining.
@@ -5703,6 +6467,10 @@ public final class RevaultBindings {
 
       private java.lang.Object label_ = "";
       /**
+       * <pre>
+       * User-facing label captured in records.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @return The label.
        */
@@ -5719,6 +6487,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * User-facing label captured in records.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @return The bytes for label.
        */
@@ -5736,6 +6508,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * User-facing label captured in records.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @param value The label to set.
        * @return This builder for chaining.
@@ -5749,6 +6525,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * User-facing label captured in records.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @return This builder for chaining.
        */
@@ -5759,6 +6539,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * User-facing label captured in records.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @param value The bytes for label to set.
        * @return This builder for chaining.
@@ -5775,6 +6559,10 @@ public final class RevaultBindings {
 
       private java.lang.Object kind_ = "";
       /**
+       * <pre>
+       * Field kind, such as `text`, `password`, or `secret`.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @return The kind.
        */
@@ -5791,6 +6579,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Field kind, such as `text`, `password`, or `secret`.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @return The bytes for kind.
        */
@@ -5808,6 +6600,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Field kind, such as `text`, `password`, or `secret`.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @param value The kind to set.
        * @return This builder for chaining.
@@ -5821,6 +6617,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field kind, such as `text`, `password`, or `secret`.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @return This builder for chaining.
        */
@@ -5831,6 +6631,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field kind, such as `text`, `password`, or `secret`.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @param value The bytes for kind to set.
        * @return This builder for chaining.
@@ -5847,6 +6651,10 @@ public final class RevaultBindings {
 
       private boolean required_ ;
       /**
+       * <pre>
+       * Whether records must provide a value.
+       * </pre>
+       *
        * <code>bool required = 4;</code>
        * @return The required.
        */
@@ -5855,6 +6663,10 @@ public final class RevaultBindings {
         return required_;
       }
       /**
+       * <pre>
+       * Whether records must provide a value.
+       * </pre>
+       *
        * <code>bool required = 4;</code>
        * @param value The required to set.
        * @return This builder for chaining.
@@ -5867,6 +6679,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether records must provide a value.
+       * </pre>
+       *
        * <code>bool required = 4;</code>
        * @return This builder for chaining.
        */
@@ -5945,30 +6761,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.FormField>
         getValuesList();
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     revault.bindings.RevaultBindings.FormField getValues(int index);
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.FormFieldOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     revault.bindings.RevaultBindings.FormFieldOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of form fields.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.FormFieldList}
    */
   public static final class FormFieldList extends
@@ -6013,6 +6853,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.FormField> values_;
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     @java.lang.Override
@@ -6020,6 +6864,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     @java.lang.Override
@@ -6028,6 +6876,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     @java.lang.Override
@@ -6035,6 +6887,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     @java.lang.Override
@@ -6042,6 +6898,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Ordered form fields.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField values = 1;</code>
      */
     @java.lang.Override
@@ -6208,6 +7068,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of form fields.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.FormFieldList}
      */
     public static final class Builder extends
@@ -6435,6 +7299,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.FormField, revault.bindings.RevaultBindings.FormField.Builder, revault.bindings.RevaultBindings.FormFieldOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormField> getValuesList() {
@@ -6445,6 +7313,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public int getValuesCount() {
@@ -6455,6 +7327,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormField getValues(int index) {
@@ -6465,6 +7341,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public Builder setValues(
@@ -6482,6 +7362,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public Builder setValues(
@@ -6496,6 +7380,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.FormField value) {
@@ -6512,6 +7400,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public Builder addValues(
@@ -6529,6 +7421,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public Builder addValues(
@@ -6543,6 +7439,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public Builder addValues(
@@ -6557,6 +7457,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public Builder addAllValues(
@@ -6572,6 +7476,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public Builder clearValues() {
@@ -6585,6 +7493,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -6598,6 +7510,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormField.Builder getValuesBuilder(
@@ -6605,6 +7521,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormFieldOrBuilder getValuesOrBuilder(
@@ -6615,6 +7535,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.FormFieldOrBuilder>
@@ -6626,6 +7550,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormField.Builder addValuesBuilder() {
@@ -6633,6 +7561,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.FormField.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormField.Builder addValuesBuilder(
@@ -6641,6 +7573,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.FormField.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Ordered form fields.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormField.Builder>
@@ -6730,11 +7666,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Stable type identifier shared by all revisions.
+     * </pre>
+     *
      * <code>string type_id = 1;</code>
      * @return The typeId.
      */
     java.lang.String getTypeId();
     /**
+     * <pre>
+     * Stable type identifier shared by all revisions.
+     * </pre>
+     *
      * <code>string type_id = 1;</code>
      * @return The bytes for typeId.
      */
@@ -6742,11 +7686,19 @@ public final class RevaultBindings {
         getTypeIdBytes();
 
     /**
+     * <pre>
+     * Human-readable reference used to resolve the current revision.
+     * </pre>
+     *
      * <code>string alias = 2;</code>
      * @return The alias.
      */
     java.lang.String getAlias();
     /**
+     * <pre>
+     * Human-readable reference used to resolve the current revision.
+     * </pre>
+     *
      * <code>string alias = 2;</code>
      * @return The bytes for alias.
      */
@@ -6754,17 +7706,29 @@ public final class RevaultBindings {
         getAliasBytes();
 
     /**
+     * <pre>
+     * Monotonically increasing definition revision.
+     * </pre>
+     *
      * <code>uint32 revision = 3;</code>
      * @return The revision.
      */
     int getRevision();
 
     /**
+     * <pre>
+     * Display name.
+     * </pre>
+     *
      * <code>string name = 4;</code>
      * @return The name.
      */
     java.lang.String getName();
     /**
+     * <pre>
+     * Display name.
+     * </pre>
+     *
      * <code>string name = 4;</code>
      * @return The bytes for name.
      */
@@ -6772,11 +7736,19 @@ public final class RevaultBindings {
         getNameBytes();
 
     /**
+     * <pre>
+     * Optional user-facing description.
+     * </pre>
+     *
      * <code>string description = 5;</code>
      * @return The description.
      */
     java.lang.String getDescription();
     /**
+     * <pre>
+     * Optional user-facing description.
+     * </pre>
+     *
      * <code>string description = 5;</code>
      * @return The bytes for description.
      */
@@ -6784,30 +7756,54 @@ public final class RevaultBindings {
         getDescriptionBytes();
 
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.FormField>
         getFieldsList();
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     revault.bindings.RevaultBindings.FormField getFields(int index);
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     int getFieldsCount();
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.FormFieldOrBuilder>
         getFieldsOrBuilderList();
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     revault.bindings.RevaultBindings.FormFieldOrBuilder getFieldsOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * One immutable revision of a typed form definition.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.FormDefinition}
    */
   public static final class FormDefinition extends
@@ -6856,6 +7852,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object typeId_ = "";
     /**
+     * <pre>
+     * Stable type identifier shared by all revisions.
+     * </pre>
+     *
      * <code>string type_id = 1;</code>
      * @return The typeId.
      */
@@ -6873,6 +7873,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Stable type identifier shared by all revisions.
+     * </pre>
+     *
      * <code>string type_id = 1;</code>
      * @return The bytes for typeId.
      */
@@ -6895,6 +7899,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object alias_ = "";
     /**
+     * <pre>
+     * Human-readable reference used to resolve the current revision.
+     * </pre>
+     *
      * <code>string alias = 2;</code>
      * @return The alias.
      */
@@ -6912,6 +7920,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Human-readable reference used to resolve the current revision.
+     * </pre>
+     *
      * <code>string alias = 2;</code>
      * @return The bytes for alias.
      */
@@ -6933,6 +7945,10 @@ public final class RevaultBindings {
     public static final int REVISION_FIELD_NUMBER = 3;
     private int revision_ = 0;
     /**
+     * <pre>
+     * Monotonically increasing definition revision.
+     * </pre>
+     *
      * <code>uint32 revision = 3;</code>
      * @return The revision.
      */
@@ -6945,6 +7961,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
     /**
+     * <pre>
+     * Display name.
+     * </pre>
+     *
      * <code>string name = 4;</code>
      * @return The name.
      */
@@ -6962,6 +7982,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Display name.
+     * </pre>
+     *
      * <code>string name = 4;</code>
      * @return The bytes for name.
      */
@@ -6984,6 +8008,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object description_ = "";
     /**
+     * <pre>
+     * Optional user-facing description.
+     * </pre>
+     *
      * <code>string description = 5;</code>
      * @return The description.
      */
@@ -7001,6 +8029,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Optional user-facing description.
+     * </pre>
+     *
      * <code>string description = 5;</code>
      * @return The bytes for description.
      */
@@ -7023,6 +8055,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.FormField> fields_;
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     @java.lang.Override
@@ -7030,6 +8066,10 @@ public final class RevaultBindings {
       return fields_;
     }
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     @java.lang.Override
@@ -7038,6 +8078,10 @@ public final class RevaultBindings {
       return fields_;
     }
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     @java.lang.Override
@@ -7045,6 +8089,10 @@ public final class RevaultBindings {
       return fields_.size();
     }
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     @java.lang.Override
@@ -7052,6 +8100,10 @@ public final class RevaultBindings {
       return fields_.get(index);
     }
     /**
+     * <pre>
+     * Ordered fields belonging to the definition.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormField fields = 6;</code>
      */
     @java.lang.Override
@@ -7269,6 +8321,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * One immutable revision of a typed form definition.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.FormDefinition}
      */
     public static final class Builder extends
@@ -7553,6 +8609,10 @@ public final class RevaultBindings {
 
       private java.lang.Object typeId_ = "";
       /**
+       * <pre>
+       * Stable type identifier shared by all revisions.
+       * </pre>
+       *
        * <code>string type_id = 1;</code>
        * @return The typeId.
        */
@@ -7569,6 +8629,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable type identifier shared by all revisions.
+       * </pre>
+       *
        * <code>string type_id = 1;</code>
        * @return The bytes for typeId.
        */
@@ -7586,6 +8650,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable type identifier shared by all revisions.
+       * </pre>
+       *
        * <code>string type_id = 1;</code>
        * @param value The typeId to set.
        * @return This builder for chaining.
@@ -7599,6 +8667,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable type identifier shared by all revisions.
+       * </pre>
+       *
        * <code>string type_id = 1;</code>
        * @return This builder for chaining.
        */
@@ -7609,6 +8681,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable type identifier shared by all revisions.
+       * </pre>
+       *
        * <code>string type_id = 1;</code>
        * @param value The bytes for typeId to set.
        * @return This builder for chaining.
@@ -7625,6 +8701,10 @@ public final class RevaultBindings {
 
       private java.lang.Object alias_ = "";
       /**
+       * <pre>
+       * Human-readable reference used to resolve the current revision.
+       * </pre>
+       *
        * <code>string alias = 2;</code>
        * @return The alias.
        */
@@ -7641,6 +8721,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Human-readable reference used to resolve the current revision.
+       * </pre>
+       *
        * <code>string alias = 2;</code>
        * @return The bytes for alias.
        */
@@ -7658,6 +8742,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Human-readable reference used to resolve the current revision.
+       * </pre>
+       *
        * <code>string alias = 2;</code>
        * @param value The alias to set.
        * @return This builder for chaining.
@@ -7671,6 +8759,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Human-readable reference used to resolve the current revision.
+       * </pre>
+       *
        * <code>string alias = 2;</code>
        * @return This builder for chaining.
        */
@@ -7681,6 +8773,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Human-readable reference used to resolve the current revision.
+       * </pre>
+       *
        * <code>string alias = 2;</code>
        * @param value The bytes for alias to set.
        * @return This builder for chaining.
@@ -7697,6 +8793,10 @@ public final class RevaultBindings {
 
       private int revision_ ;
       /**
+       * <pre>
+       * Monotonically increasing definition revision.
+       * </pre>
+       *
        * <code>uint32 revision = 3;</code>
        * @return The revision.
        */
@@ -7705,6 +8805,10 @@ public final class RevaultBindings {
         return revision_;
       }
       /**
+       * <pre>
+       * Monotonically increasing definition revision.
+       * </pre>
+       *
        * <code>uint32 revision = 3;</code>
        * @param value The revision to set.
        * @return This builder for chaining.
@@ -7717,6 +8821,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Monotonically increasing definition revision.
+       * </pre>
+       *
        * <code>uint32 revision = 3;</code>
        * @return This builder for chaining.
        */
@@ -7729,6 +8837,10 @@ public final class RevaultBindings {
 
       private java.lang.Object name_ = "";
       /**
+       * <pre>
+       * Display name.
+       * </pre>
+       *
        * <code>string name = 4;</code>
        * @return The name.
        */
@@ -7745,6 +8857,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Display name.
+       * </pre>
+       *
        * <code>string name = 4;</code>
        * @return The bytes for name.
        */
@@ -7762,6 +8878,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Display name.
+       * </pre>
+       *
        * <code>string name = 4;</code>
        * @param value The name to set.
        * @return This builder for chaining.
@@ -7775,6 +8895,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Display name.
+       * </pre>
+       *
        * <code>string name = 4;</code>
        * @return This builder for chaining.
        */
@@ -7785,6 +8909,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Display name.
+       * </pre>
+       *
        * <code>string name = 4;</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
@@ -7801,6 +8929,10 @@ public final class RevaultBindings {
 
       private java.lang.Object description_ = "";
       /**
+       * <pre>
+       * Optional user-facing description.
+       * </pre>
+       *
        * <code>string description = 5;</code>
        * @return The description.
        */
@@ -7817,6 +8949,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Optional user-facing description.
+       * </pre>
+       *
        * <code>string description = 5;</code>
        * @return The bytes for description.
        */
@@ -7834,6 +8970,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Optional user-facing description.
+       * </pre>
+       *
        * <code>string description = 5;</code>
        * @param value The description to set.
        * @return This builder for chaining.
@@ -7847,6 +8987,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Optional user-facing description.
+       * </pre>
+       *
        * <code>string description = 5;</code>
        * @return This builder for chaining.
        */
@@ -7857,6 +9001,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Optional user-facing description.
+       * </pre>
+       *
        * <code>string description = 5;</code>
        * @param value The bytes for description to set.
        * @return This builder for chaining.
@@ -7884,6 +9032,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.FormField, revault.bindings.RevaultBindings.FormField.Builder, revault.bindings.RevaultBindings.FormFieldOrBuilder> fieldsBuilder_;
 
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormField> getFieldsList() {
@@ -7894,6 +9046,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public int getFieldsCount() {
@@ -7904,6 +9060,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormField getFields(int index) {
@@ -7914,6 +9074,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public Builder setFields(
@@ -7931,6 +9095,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public Builder setFields(
@@ -7945,6 +9113,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public Builder addFields(revault.bindings.RevaultBindings.FormField value) {
@@ -7961,6 +9133,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public Builder addFields(
@@ -7978,6 +9154,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public Builder addFields(
@@ -7992,6 +9172,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public Builder addFields(
@@ -8006,6 +9190,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public Builder addAllFields(
@@ -8021,6 +9209,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public Builder clearFields() {
@@ -8034,6 +9226,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public Builder removeFields(int index) {
@@ -8047,6 +9243,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormField.Builder getFieldsBuilder(
@@ -8054,6 +9254,10 @@ public final class RevaultBindings {
         return getFieldsFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormFieldOrBuilder getFieldsOrBuilder(
@@ -8064,6 +9268,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.FormFieldOrBuilder>
@@ -8075,6 +9283,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormField.Builder addFieldsBuilder() {
@@ -8082,6 +9294,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.FormField.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormField.Builder addFieldsBuilder(
@@ -8090,6 +9306,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.FormField.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Ordered fields belonging to the definition.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormField fields = 6;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormField.Builder>
@@ -8179,30 +9399,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.FormDefinition>
         getValuesList();
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     revault.bindings.RevaultBindings.FormDefinition getValues(int index);
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.FormDefinitionOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     revault.bindings.RevaultBindings.FormDefinitionOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of form definitions.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.FormDefinitionList}
    */
   public static final class FormDefinitionList extends
@@ -8247,6 +9491,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.FormDefinition> values_;
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     @java.lang.Override
@@ -8254,6 +9502,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     @java.lang.Override
@@ -8262,6 +9514,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     @java.lang.Override
@@ -8269,6 +9525,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     @java.lang.Override
@@ -8276,6 +9536,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Definitions in revision or alias order, as specified by the operation.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
      */
     @java.lang.Override
@@ -8442,6 +9706,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of form definitions.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.FormDefinitionList}
      */
     public static final class Builder extends
@@ -8669,6 +9937,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.FormDefinition, revault.bindings.RevaultBindings.FormDefinition.Builder, revault.bindings.RevaultBindings.FormDefinitionOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormDefinition> getValuesList() {
@@ -8679,6 +9951,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public int getValuesCount() {
@@ -8689,6 +9965,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormDefinition getValues(int index) {
@@ -8699,6 +9979,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public Builder setValues(
@@ -8716,6 +10000,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public Builder setValues(
@@ -8730,6 +10018,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.FormDefinition value) {
@@ -8746,6 +10038,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public Builder addValues(
@@ -8763,6 +10059,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public Builder addValues(
@@ -8777,6 +10077,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public Builder addValues(
@@ -8791,6 +10095,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public Builder addAllValues(
@@ -8806,6 +10114,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public Builder clearValues() {
@@ -8819,6 +10131,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -8832,6 +10148,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormDefinition.Builder getValuesBuilder(
@@ -8839,6 +10159,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormDefinitionOrBuilder getValuesOrBuilder(
@@ -8849,6 +10173,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.FormDefinitionOrBuilder>
@@ -8860,6 +10188,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormDefinition.Builder addValuesBuilder() {
@@ -8867,6 +10199,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.FormDefinition.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormDefinition.Builder addValuesBuilder(
@@ -8875,6 +10211,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.FormDefinition.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Definitions in revision or alias order, as specified by the operation.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormDefinition values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormDefinition.Builder>
@@ -8964,11 +10304,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Stable field identifier from the definition revision.
+     * </pre>
+     *
      * <code>string field_id = 1;</code>
      * @return The fieldId.
      */
     java.lang.String getFieldId();
     /**
+     * <pre>
+     * Stable field identifier from the definition revision.
+     * </pre>
+     *
      * <code>string field_id = 1;</code>
      * @return The bytes for fieldId.
      */
@@ -8976,11 +10324,19 @@ public final class RevaultBindings {
         getFieldIdBytes();
 
     /**
+     * <pre>
+     * Field label captured when the value was written.
+     * </pre>
+     *
      * <code>string label = 2;</code>
      * @return The label.
      */
     java.lang.String getLabel();
     /**
+     * <pre>
+     * Field label captured when the value was written.
+     * </pre>
+     *
      * <code>string label = 2;</code>
      * @return The bytes for label.
      */
@@ -8988,11 +10344,19 @@ public final class RevaultBindings {
         getLabelBytes();
 
     /**
+     * <pre>
+     * Captured field kind.
+     * </pre>
+     *
      * <code>string kind = 3;</code>
      * @return The kind.
      */
     java.lang.String getKind();
     /**
+     * <pre>
+     * Captured field kind.
+     * </pre>
+     *
      * <code>string kind = 3;</code>
      * @return The bytes for kind.
      */
@@ -9000,11 +10364,19 @@ public final class RevaultBindings {
         getKindBytes();
 
     /**
+     * <pre>
+     * Non-secret text; intentionally empty for secret fields.
+     * </pre>
+     *
      * <code>string value = 4;</code>
      * @return The value.
      */
     java.lang.String getValue();
     /**
+     * <pre>
+     * Non-secret text; intentionally empty for secret fields.
+     * </pre>
+     *
      * <code>string value = 4;</code>
      * @return The bytes for value.
      */
@@ -9012,12 +10384,20 @@ public final class RevaultBindings {
         getValueBytes();
 
     /**
+     * <pre>
+     * Whether the value must be read through a callback-scoped secret API.
+     * </pre>
+     *
      * <code>bool secret = 5;</code>
      * @return The secret.
      */
     boolean getSecret();
   }
   /**
+   * <pre>
+   * One value captured in a typed form record.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.FormValue}
    */
   public static final class FormValue extends
@@ -9065,6 +10445,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object fieldId_ = "";
     /**
+     * <pre>
+     * Stable field identifier from the definition revision.
+     * </pre>
+     *
      * <code>string field_id = 1;</code>
      * @return The fieldId.
      */
@@ -9082,6 +10466,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Stable field identifier from the definition revision.
+     * </pre>
+     *
      * <code>string field_id = 1;</code>
      * @return The bytes for fieldId.
      */
@@ -9104,6 +10492,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object label_ = "";
     /**
+     * <pre>
+     * Field label captured when the value was written.
+     * </pre>
+     *
      * <code>string label = 2;</code>
      * @return The label.
      */
@@ -9121,6 +10513,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Field label captured when the value was written.
+     * </pre>
+     *
      * <code>string label = 2;</code>
      * @return The bytes for label.
      */
@@ -9143,6 +10539,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object kind_ = "";
     /**
+     * <pre>
+     * Captured field kind.
+     * </pre>
+     *
      * <code>string kind = 3;</code>
      * @return The kind.
      */
@@ -9160,6 +10560,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Captured field kind.
+     * </pre>
+     *
      * <code>string kind = 3;</code>
      * @return The bytes for kind.
      */
@@ -9182,6 +10586,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object value_ = "";
     /**
+     * <pre>
+     * Non-secret text; intentionally empty for secret fields.
+     * </pre>
+     *
      * <code>string value = 4;</code>
      * @return The value.
      */
@@ -9199,6 +10607,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Non-secret text; intentionally empty for secret fields.
+     * </pre>
+     *
      * <code>string value = 4;</code>
      * @return The bytes for value.
      */
@@ -9220,6 +10632,10 @@ public final class RevaultBindings {
     public static final int SECRET_FIELD_NUMBER = 5;
     private boolean secret_ = false;
     /**
+     * <pre>
+     * Whether the value must be read through a callback-scoped secret API.
+     * </pre>
+     *
      * <code>bool secret = 5;</code>
      * @return The secret.
      */
@@ -9425,6 +10841,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * One value captured in a typed form record.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.FormValue}
      */
     public static final class Builder extends
@@ -9650,6 +11070,10 @@ public final class RevaultBindings {
 
       private java.lang.Object fieldId_ = "";
       /**
+       * <pre>
+       * Stable field identifier from the definition revision.
+       * </pre>
+       *
        * <code>string field_id = 1;</code>
        * @return The fieldId.
        */
@@ -9666,6 +11090,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable field identifier from the definition revision.
+       * </pre>
+       *
        * <code>string field_id = 1;</code>
        * @return The bytes for fieldId.
        */
@@ -9683,6 +11111,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable field identifier from the definition revision.
+       * </pre>
+       *
        * <code>string field_id = 1;</code>
        * @param value The fieldId to set.
        * @return This builder for chaining.
@@ -9696,6 +11128,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable field identifier from the definition revision.
+       * </pre>
+       *
        * <code>string field_id = 1;</code>
        * @return This builder for chaining.
        */
@@ -9706,6 +11142,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable field identifier from the definition revision.
+       * </pre>
+       *
        * <code>string field_id = 1;</code>
        * @param value The bytes for fieldId to set.
        * @return This builder for chaining.
@@ -9722,6 +11162,10 @@ public final class RevaultBindings {
 
       private java.lang.Object label_ = "";
       /**
+       * <pre>
+       * Field label captured when the value was written.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @return The label.
        */
@@ -9738,6 +11182,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Field label captured when the value was written.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @return The bytes for label.
        */
@@ -9755,6 +11203,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Field label captured when the value was written.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @param value The label to set.
        * @return This builder for chaining.
@@ -9768,6 +11220,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field label captured when the value was written.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @return This builder for chaining.
        */
@@ -9778,6 +11234,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field label captured when the value was written.
+       * </pre>
+       *
        * <code>string label = 2;</code>
        * @param value The bytes for label to set.
        * @return This builder for chaining.
@@ -9794,6 +11254,10 @@ public final class RevaultBindings {
 
       private java.lang.Object kind_ = "";
       /**
+       * <pre>
+       * Captured field kind.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @return The kind.
        */
@@ -9810,6 +11274,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Captured field kind.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @return The bytes for kind.
        */
@@ -9827,6 +11295,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Captured field kind.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @param value The kind to set.
        * @return This builder for chaining.
@@ -9840,6 +11312,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Captured field kind.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @return This builder for chaining.
        */
@@ -9850,6 +11326,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Captured field kind.
+       * </pre>
+       *
        * <code>string kind = 3;</code>
        * @param value The bytes for kind to set.
        * @return This builder for chaining.
@@ -9866,6 +11346,10 @@ public final class RevaultBindings {
 
       private java.lang.Object value_ = "";
       /**
+       * <pre>
+       * Non-secret text; intentionally empty for secret fields.
+       * </pre>
+       *
        * <code>string value = 4;</code>
        * @return The value.
        */
@@ -9882,6 +11366,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Non-secret text; intentionally empty for secret fields.
+       * </pre>
+       *
        * <code>string value = 4;</code>
        * @return The bytes for value.
        */
@@ -9899,6 +11387,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Non-secret text; intentionally empty for secret fields.
+       * </pre>
+       *
        * <code>string value = 4;</code>
        * @param value The value to set.
        * @return This builder for chaining.
@@ -9912,6 +11404,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Non-secret text; intentionally empty for secret fields.
+       * </pre>
+       *
        * <code>string value = 4;</code>
        * @return This builder for chaining.
        */
@@ -9922,6 +11418,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Non-secret text; intentionally empty for secret fields.
+       * </pre>
+       *
        * <code>string value = 4;</code>
        * @param value The bytes for value to set.
        * @return This builder for chaining.
@@ -9938,6 +11438,10 @@ public final class RevaultBindings {
 
       private boolean secret_ ;
       /**
+       * <pre>
+       * Whether the value must be read through a callback-scoped secret API.
+       * </pre>
+       *
        * <code>bool secret = 5;</code>
        * @return The secret.
        */
@@ -9946,6 +11450,10 @@ public final class RevaultBindings {
         return secret_;
       }
       /**
+       * <pre>
+       * Whether the value must be read through a callback-scoped secret API.
+       * </pre>
+       *
        * <code>bool secret = 5;</code>
        * @param value The secret to set.
        * @return This builder for chaining.
@@ -9958,6 +11466,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether the value must be read through a callback-scoped secret API.
+       * </pre>
+       *
        * <code>bool secret = 5;</code>
        * @return This builder for chaining.
        */
@@ -10036,11 +11548,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Record path within the lockbox.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The path.
      */
     java.lang.String getPath();
     /**
+     * <pre>
+     * Record path within the lockbox.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The bytes for path.
      */
@@ -10048,11 +11568,19 @@ public final class RevaultBindings {
         getPathBytes();
 
     /**
+     * <pre>
+     * User-facing record name.
+     * </pre>
+     *
      * <code>string name = 2;</code>
      * @return The name.
      */
     java.lang.String getName();
     /**
+     * <pre>
+     * User-facing record name.
+     * </pre>
+     *
      * <code>string name = 2;</code>
      * @return The bytes for name.
      */
@@ -10060,11 +11588,19 @@ public final class RevaultBindings {
         getNameBytes();
 
     /**
+     * <pre>
+     * Stable form type identifier.
+     * </pre>
+     *
      * <code>string type_id = 3;</code>
      * @return The typeId.
      */
     java.lang.String getTypeId();
     /**
+     * <pre>
+     * Stable form type identifier.
+     * </pre>
+     *
      * <code>string type_id = 3;</code>
      * @return The bytes for typeId.
      */
@@ -10072,11 +11608,19 @@ public final class RevaultBindings {
         getTypeIdBytes();
 
     /**
+     * <pre>
+     * Alias captured from the definition.
+     * </pre>
+     *
      * <code>string definition_alias = 4;</code>
      * @return The definitionAlias.
      */
     java.lang.String getDefinitionAlias();
     /**
+     * <pre>
+     * Alias captured from the definition.
+     * </pre>
+     *
      * <code>string definition_alias = 4;</code>
      * @return The bytes for definitionAlias.
      */
@@ -10084,36 +11628,64 @@ public final class RevaultBindings {
         getDefinitionAliasBytes();
 
     /**
+     * <pre>
+     * Definition revision used to create the record.
+     * </pre>
+     *
      * <code>uint32 definition_revision = 5;</code>
      * @return The definitionRevision.
      */
     int getDefinitionRevision();
 
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.FormValue>
         getValuesList();
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     revault.bindings.RevaultBindings.FormValue getValues(int index);
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.FormValueOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     revault.bindings.RevaultBindings.FormValueOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * One typed record stored at a lockbox path.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.FormRecord}
    */
   public static final class FormRecord extends
@@ -10162,6 +11734,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object path_ = "";
     /**
+     * <pre>
+     * Record path within the lockbox.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The path.
      */
@@ -10179,6 +11755,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Record path within the lockbox.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The bytes for path.
      */
@@ -10201,6 +11781,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
     /**
+     * <pre>
+     * User-facing record name.
+     * </pre>
+     *
      * <code>string name = 2;</code>
      * @return The name.
      */
@@ -10218,6 +11802,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * User-facing record name.
+     * </pre>
+     *
      * <code>string name = 2;</code>
      * @return The bytes for name.
      */
@@ -10240,6 +11828,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object typeId_ = "";
     /**
+     * <pre>
+     * Stable form type identifier.
+     * </pre>
+     *
      * <code>string type_id = 3;</code>
      * @return The typeId.
      */
@@ -10257,6 +11849,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Stable form type identifier.
+     * </pre>
+     *
      * <code>string type_id = 3;</code>
      * @return The bytes for typeId.
      */
@@ -10279,6 +11875,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object definitionAlias_ = "";
     /**
+     * <pre>
+     * Alias captured from the definition.
+     * </pre>
+     *
      * <code>string definition_alias = 4;</code>
      * @return The definitionAlias.
      */
@@ -10296,6 +11896,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Alias captured from the definition.
+     * </pre>
+     *
      * <code>string definition_alias = 4;</code>
      * @return The bytes for definitionAlias.
      */
@@ -10317,6 +11921,10 @@ public final class RevaultBindings {
     public static final int DEFINITION_REVISION_FIELD_NUMBER = 5;
     private int definitionRevision_ = 0;
     /**
+     * <pre>
+     * Definition revision used to create the record.
+     * </pre>
+     *
      * <code>uint32 definition_revision = 5;</code>
      * @return The definitionRevision.
      */
@@ -10329,6 +11937,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.FormValue> values_;
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     @java.lang.Override
@@ -10336,6 +11948,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     @java.lang.Override
@@ -10344,6 +11960,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     @java.lang.Override
@@ -10351,6 +11971,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     @java.lang.Override
@@ -10358,6 +11982,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Field values in definition order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     @java.lang.Override
@@ -10575,6 +12203,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * One typed record stored at a lockbox path.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.FormRecord}
      */
     public static final class Builder extends
@@ -10859,6 +12491,10 @@ public final class RevaultBindings {
 
       private java.lang.Object path_ = "";
       /**
+       * <pre>
+       * Record path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @return The path.
        */
@@ -10875,6 +12511,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Record path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @return The bytes for path.
        */
@@ -10892,6 +12532,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Record path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @param value The path to set.
        * @return This builder for chaining.
@@ -10905,6 +12549,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Record path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @return This builder for chaining.
        */
@@ -10915,6 +12563,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Record path within the lockbox.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @param value The bytes for path to set.
        * @return This builder for chaining.
@@ -10931,6 +12583,10 @@ public final class RevaultBindings {
 
       private java.lang.Object name_ = "";
       /**
+       * <pre>
+       * User-facing record name.
+       * </pre>
+       *
        * <code>string name = 2;</code>
        * @return The name.
        */
@@ -10947,6 +12603,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * User-facing record name.
+       * </pre>
+       *
        * <code>string name = 2;</code>
        * @return The bytes for name.
        */
@@ -10964,6 +12624,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * User-facing record name.
+       * </pre>
+       *
        * <code>string name = 2;</code>
        * @param value The name to set.
        * @return This builder for chaining.
@@ -10977,6 +12641,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * User-facing record name.
+       * </pre>
+       *
        * <code>string name = 2;</code>
        * @return This builder for chaining.
        */
@@ -10987,6 +12655,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * User-facing record name.
+       * </pre>
+       *
        * <code>string name = 2;</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
@@ -11003,6 +12675,10 @@ public final class RevaultBindings {
 
       private java.lang.Object typeId_ = "";
       /**
+       * <pre>
+       * Stable form type identifier.
+       * </pre>
+       *
        * <code>string type_id = 3;</code>
        * @return The typeId.
        */
@@ -11019,6 +12695,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable form type identifier.
+       * </pre>
+       *
        * <code>string type_id = 3;</code>
        * @return The bytes for typeId.
        */
@@ -11036,6 +12716,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable form type identifier.
+       * </pre>
+       *
        * <code>string type_id = 3;</code>
        * @param value The typeId to set.
        * @return This builder for chaining.
@@ -11049,6 +12733,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable form type identifier.
+       * </pre>
+       *
        * <code>string type_id = 3;</code>
        * @return This builder for chaining.
        */
@@ -11059,6 +12747,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable form type identifier.
+       * </pre>
+       *
        * <code>string type_id = 3;</code>
        * @param value The bytes for typeId to set.
        * @return This builder for chaining.
@@ -11075,6 +12767,10 @@ public final class RevaultBindings {
 
       private java.lang.Object definitionAlias_ = "";
       /**
+       * <pre>
+       * Alias captured from the definition.
+       * </pre>
+       *
        * <code>string definition_alias = 4;</code>
        * @return The definitionAlias.
        */
@@ -11091,6 +12787,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Alias captured from the definition.
+       * </pre>
+       *
        * <code>string definition_alias = 4;</code>
        * @return The bytes for definitionAlias.
        */
@@ -11108,6 +12808,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Alias captured from the definition.
+       * </pre>
+       *
        * <code>string definition_alias = 4;</code>
        * @param value The definitionAlias to set.
        * @return This builder for chaining.
@@ -11121,6 +12825,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Alias captured from the definition.
+       * </pre>
+       *
        * <code>string definition_alias = 4;</code>
        * @return This builder for chaining.
        */
@@ -11131,6 +12839,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Alias captured from the definition.
+       * </pre>
+       *
        * <code>string definition_alias = 4;</code>
        * @param value The bytes for definitionAlias to set.
        * @return This builder for chaining.
@@ -11147,6 +12859,10 @@ public final class RevaultBindings {
 
       private int definitionRevision_ ;
       /**
+       * <pre>
+       * Definition revision used to create the record.
+       * </pre>
+       *
        * <code>uint32 definition_revision = 5;</code>
        * @return The definitionRevision.
        */
@@ -11155,6 +12871,10 @@ public final class RevaultBindings {
         return definitionRevision_;
       }
       /**
+       * <pre>
+       * Definition revision used to create the record.
+       * </pre>
+       *
        * <code>uint32 definition_revision = 5;</code>
        * @param value The definitionRevision to set.
        * @return This builder for chaining.
@@ -11167,6 +12887,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Definition revision used to create the record.
+       * </pre>
+       *
        * <code>uint32 definition_revision = 5;</code>
        * @return This builder for chaining.
        */
@@ -11190,6 +12914,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.FormValue, revault.bindings.RevaultBindings.FormValue.Builder, revault.bindings.RevaultBindings.FormValueOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormValue> getValuesList() {
@@ -11200,6 +12928,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public int getValuesCount() {
@@ -11210,6 +12942,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormValue getValues(int index) {
@@ -11220,6 +12956,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public Builder setValues(
@@ -11237,6 +12977,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public Builder setValues(
@@ -11251,6 +12995,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.FormValue value) {
@@ -11267,6 +13015,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public Builder addValues(
@@ -11284,6 +13036,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public Builder addValues(
@@ -11298,6 +13054,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public Builder addValues(
@@ -11312,6 +13072,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public Builder addAllValues(
@@ -11327,6 +13091,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public Builder clearValues() {
@@ -11340,6 +13108,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public Builder removeValues(int index) {
@@ -11353,6 +13125,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormValue.Builder getValuesBuilder(
@@ -11360,6 +13136,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormValueOrBuilder getValuesOrBuilder(
@@ -11370,6 +13150,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.FormValueOrBuilder>
@@ -11381,6 +13165,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormValue.Builder addValuesBuilder() {
@@ -11388,6 +13176,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.FormValue.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public revault.bindings.RevaultBindings.FormValue.Builder addValuesBuilder(
@@ -11396,6 +13188,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.FormValue.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Field values in definition order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormValue values = 6;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormValue.Builder>
@@ -11485,30 +13281,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.FormRecord>
         getValuesList();
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     revault.bindings.RevaultBindings.FormRecord getValues(int index);
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.FormRecordOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     revault.bindings.RevaultBindings.FormRecordOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of form records.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.FormRecordList}
    */
   public static final class FormRecordList extends
@@ -11553,6 +13373,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.FormRecord> values_;
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     @java.lang.Override
@@ -11560,6 +13384,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     @java.lang.Override
@@ -11568,6 +13396,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     @java.lang.Override
@@ -11575,6 +13407,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     @java.lang.Override
@@ -11582,6 +13418,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Records in normalized path order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     @java.lang.Override
@@ -11748,6 +13588,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of form records.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.FormRecordList}
      */
     public static final class Builder extends
@@ -11975,6 +13819,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.FormRecord, revault.bindings.RevaultBindings.FormRecord.Builder, revault.bindings.RevaultBindings.FormRecordOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormRecord> getValuesList() {
@@ -11985,6 +13833,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public int getValuesCount() {
@@ -11995,6 +13847,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormRecord getValues(int index) {
@@ -12005,6 +13861,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public Builder setValues(
@@ -12022,6 +13882,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public Builder setValues(
@@ -12036,6 +13900,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.FormRecord value) {
@@ -12052,6 +13920,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public Builder addValues(
@@ -12069,6 +13941,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public Builder addValues(
@@ -12083,6 +13959,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public Builder addValues(
@@ -12097,6 +13977,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public Builder addAllValues(
@@ -12112,6 +13996,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public Builder clearValues() {
@@ -12125,6 +14013,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -12138,6 +14030,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormRecord.Builder getValuesBuilder(
@@ -12145,6 +14041,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormRecordOrBuilder getValuesOrBuilder(
@@ -12155,6 +14055,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.FormRecordOrBuilder>
@@ -12166,6 +14070,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormRecord.Builder addValuesBuilder() {
@@ -12173,6 +14081,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.FormRecord.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormRecord.Builder addValuesBuilder(
@@ -12181,6 +14093,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.FormRecord.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Records in normalized path order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.FormRecord values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.FormRecord.Builder>
@@ -12270,21 +14186,37 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Present record value.
+     * </pre>
+     *
      * <code>.revault.bindings.FormRecord value = 1;</code>
      * @return Whether the value field is set.
      */
     boolean hasValue();
     /**
+     * <pre>
+     * Present record value.
+     * </pre>
+     *
      * <code>.revault.bindings.FormRecord value = 1;</code>
      * @return The value.
      */
     revault.bindings.RevaultBindings.FormRecord getValue();
     /**
+     * <pre>
+     * Present record value.
+     * </pre>
+     *
      * <code>.revault.bindings.FormRecord value = 1;</code>
      */
     revault.bindings.RevaultBindings.FormRecordOrBuilder getValueOrBuilder();
   }
   /**
+   * <pre>
+   * Optional form record; `value` is absent when the record does not exist.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.OptionalFormRecord}
    */
   public static final class OptionalFormRecord extends
@@ -12327,6 +14259,10 @@ public final class RevaultBindings {
     public static final int VALUE_FIELD_NUMBER = 1;
     private revault.bindings.RevaultBindings.FormRecord value_;
     /**
+     * <pre>
+     * Present record value.
+     * </pre>
+     *
      * <code>.revault.bindings.FormRecord value = 1;</code>
      * @return Whether the value field is set.
      */
@@ -12335,6 +14271,10 @@ public final class RevaultBindings {
       return value_ != null;
     }
     /**
+     * <pre>
+     * Present record value.
+     * </pre>
+     *
      * <code>.revault.bindings.FormRecord value = 1;</code>
      * @return The value.
      */
@@ -12343,6 +14283,10 @@ public final class RevaultBindings {
       return value_ == null ? revault.bindings.RevaultBindings.FormRecord.getDefaultInstance() : value_;
     }
     /**
+     * <pre>
+     * Present record value.
+     * </pre>
+     *
      * <code>.revault.bindings.FormRecord value = 1;</code>
      */
     @java.lang.Override
@@ -12511,6 +14455,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Optional form record; `value` is absent when the record does not exist.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.OptionalFormRecord}
      */
     public static final class Builder extends
@@ -12690,6 +14638,10 @@ public final class RevaultBindings {
       private com.google.protobuf.SingleFieldBuilderV3<
           revault.bindings.RevaultBindings.FormRecord, revault.bindings.RevaultBindings.FormRecord.Builder, revault.bindings.RevaultBindings.FormRecordOrBuilder> valueBuilder_;
       /**
+       * <pre>
+       * Present record value.
+       * </pre>
+       *
        * <code>.revault.bindings.FormRecord value = 1;</code>
        * @return Whether the value field is set.
        */
@@ -12697,6 +14649,10 @@ public final class RevaultBindings {
         return ((bitField0_ & 0x00000001) != 0);
       }
       /**
+       * <pre>
+       * Present record value.
+       * </pre>
+       *
        * <code>.revault.bindings.FormRecord value = 1;</code>
        * @return The value.
        */
@@ -12708,6 +14664,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Present record value.
+       * </pre>
+       *
        * <code>.revault.bindings.FormRecord value = 1;</code>
        */
       public Builder setValue(revault.bindings.RevaultBindings.FormRecord value) {
@@ -12724,6 +14684,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present record value.
+       * </pre>
+       *
        * <code>.revault.bindings.FormRecord value = 1;</code>
        */
       public Builder setValue(
@@ -12738,6 +14702,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present record value.
+       * </pre>
+       *
        * <code>.revault.bindings.FormRecord value = 1;</code>
        */
       public Builder mergeValue(revault.bindings.RevaultBindings.FormRecord value) {
@@ -12757,6 +14725,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present record value.
+       * </pre>
+       *
        * <code>.revault.bindings.FormRecord value = 1;</code>
        */
       public Builder clearValue() {
@@ -12770,6 +14742,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present record value.
+       * </pre>
+       *
        * <code>.revault.bindings.FormRecord value = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormRecord.Builder getValueBuilder() {
@@ -12778,6 +14754,10 @@ public final class RevaultBindings {
         return getValueFieldBuilder().getBuilder();
       }
       /**
+       * <pre>
+       * Present record value.
+       * </pre>
+       *
        * <code>.revault.bindings.FormRecord value = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormRecordOrBuilder getValueOrBuilder() {
@@ -12789,6 +14769,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Present record value.
+       * </pre>
+       *
        * <code>.revault.bindings.FormRecord value = 1;</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
@@ -12873,21 +14857,37 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Present field value; secret payloads remain omitted.
+     * </pre>
+     *
      * <code>.revault.bindings.FormValue value = 1;</code>
      * @return Whether the value field is set.
      */
     boolean hasValue();
     /**
+     * <pre>
+     * Present field value; secret payloads remain omitted.
+     * </pre>
+     *
      * <code>.revault.bindings.FormValue value = 1;</code>
      * @return The value.
      */
     revault.bindings.RevaultBindings.FormValue getValue();
     /**
+     * <pre>
+     * Present field value; secret payloads remain omitted.
+     * </pre>
+     *
      * <code>.revault.bindings.FormValue value = 1;</code>
      */
     revault.bindings.RevaultBindings.FormValueOrBuilder getValueOrBuilder();
   }
   /**
+   * <pre>
+   * Optional form value; `value` is absent when the field does not exist.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.OptionalFormValue}
    */
   public static final class OptionalFormValue extends
@@ -12930,6 +14930,10 @@ public final class RevaultBindings {
     public static final int VALUE_FIELD_NUMBER = 1;
     private revault.bindings.RevaultBindings.FormValue value_;
     /**
+     * <pre>
+     * Present field value; secret payloads remain omitted.
+     * </pre>
+     *
      * <code>.revault.bindings.FormValue value = 1;</code>
      * @return Whether the value field is set.
      */
@@ -12938,6 +14942,10 @@ public final class RevaultBindings {
       return value_ != null;
     }
     /**
+     * <pre>
+     * Present field value; secret payloads remain omitted.
+     * </pre>
+     *
      * <code>.revault.bindings.FormValue value = 1;</code>
      * @return The value.
      */
@@ -12946,6 +14954,10 @@ public final class RevaultBindings {
       return value_ == null ? revault.bindings.RevaultBindings.FormValue.getDefaultInstance() : value_;
     }
     /**
+     * <pre>
+     * Present field value; secret payloads remain omitted.
+     * </pre>
+     *
      * <code>.revault.bindings.FormValue value = 1;</code>
      */
     @java.lang.Override
@@ -13114,6 +15126,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Optional form value; `value` is absent when the field does not exist.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.OptionalFormValue}
      */
     public static final class Builder extends
@@ -13293,6 +15309,10 @@ public final class RevaultBindings {
       private com.google.protobuf.SingleFieldBuilderV3<
           revault.bindings.RevaultBindings.FormValue, revault.bindings.RevaultBindings.FormValue.Builder, revault.bindings.RevaultBindings.FormValueOrBuilder> valueBuilder_;
       /**
+       * <pre>
+       * Present field value; secret payloads remain omitted.
+       * </pre>
+       *
        * <code>.revault.bindings.FormValue value = 1;</code>
        * @return Whether the value field is set.
        */
@@ -13300,6 +15320,10 @@ public final class RevaultBindings {
         return ((bitField0_ & 0x00000001) != 0);
       }
       /**
+       * <pre>
+       * Present field value; secret payloads remain omitted.
+       * </pre>
+       *
        * <code>.revault.bindings.FormValue value = 1;</code>
        * @return The value.
        */
@@ -13311,6 +15335,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Present field value; secret payloads remain omitted.
+       * </pre>
+       *
        * <code>.revault.bindings.FormValue value = 1;</code>
        */
       public Builder setValue(revault.bindings.RevaultBindings.FormValue value) {
@@ -13327,6 +15355,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present field value; secret payloads remain omitted.
+       * </pre>
+       *
        * <code>.revault.bindings.FormValue value = 1;</code>
        */
       public Builder setValue(
@@ -13341,6 +15373,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present field value; secret payloads remain omitted.
+       * </pre>
+       *
        * <code>.revault.bindings.FormValue value = 1;</code>
        */
       public Builder mergeValue(revault.bindings.RevaultBindings.FormValue value) {
@@ -13360,6 +15396,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present field value; secret payloads remain omitted.
+       * </pre>
+       *
        * <code>.revault.bindings.FormValue value = 1;</code>
        */
       public Builder clearValue() {
@@ -13373,6 +15413,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present field value; secret payloads remain omitted.
+       * </pre>
+       *
        * <code>.revault.bindings.FormValue value = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormValue.Builder getValueBuilder() {
@@ -13381,6 +15425,10 @@ public final class RevaultBindings {
         return getValueFieldBuilder().getBuilder();
       }
       /**
+       * <pre>
+       * Present field value; secret payloads remain omitted.
+       * </pre>
+       *
        * <code>.revault.bindings.FormValue value = 1;</code>
        */
       public revault.bindings.RevaultBindings.FormValueOrBuilder getValueOrBuilder() {
@@ -13392,6 +15440,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Present field value; secret payloads remain omitted.
+       * </pre>
+       *
        * <code>.revault.bindings.FormValue value = 1;</code>
        */
       private com.google.protobuf.SingleFieldBuilderV3<
@@ -13476,84 +15528,144 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.LockboxEntry>
         getIntactFilesList();
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     revault.bindings.RevaultBindings.LockboxEntry getIntactFiles(int index);
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     int getIntactFilesCount();
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.LockboxEntryOrBuilder>
         getIntactFilesOrBuilderList();
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     revault.bindings.RevaultBindings.LockboxEntryOrBuilder getIntactFilesOrBuilder(
         int index);
 
     /**
+     * <pre>
+     * Total number of fully recovered files.
+     * </pre>
+     *
      * <code>uint64 intact_file_count = 2;</code>
      * @return The intactFileCount.
      */
     long getIntactFileCount();
 
     /**
+     * <pre>
+     * Number of files for which only partial content was recovered.
+     * </pre>
+     *
      * <code>uint64 partial_files = 3;</code>
      * @return The partialFiles.
      */
     long getPartialFiles();
 
     /**
+     * <pre>
+     * Number of corrupt records skipped by the scanner.
+     * </pre>
+     *
      * <code>uint64 corrupt_records = 4;</code>
      * @return The corruptRecords.
      */
     long getCorruptRecords();
 
     /**
+     * <pre>
+     * Whether the table of contents was recovered.
+     * </pre>
+     *
      * <code>bool toc_recovered = 5;</code>
      * @return The tocRecovered.
      */
     boolean getTocRecovered();
 
     /**
+     * <pre>
+     * Whether variable metadata was recovered.
+     * </pre>
+     *
      * <code>bool variables_recovered = 6;</code>
      * @return The variablesRecovered.
      */
     boolean getVariablesRecovered();
 
     /**
+     * <pre>
+     * Number of recovered variables.
+     * </pre>
+     *
      * <code>uint64 variable_count = 7;</code>
      * @return The variableCount.
      */
     long getVariableCount();
 
     /**
+     * <pre>
+     * Whether typed form metadata was recovered.
+     * </pre>
+     *
      * <code>bool forms_recovered = 8;</code>
      * @return The formsRecovered.
      */
     boolean getFormsRecovered();
 
     /**
+     * <pre>
+     * Number of recovered form definitions.
+     * </pre>
+     *
      * <code>uint64 form_definition_count = 9;</code>
      * @return The formDefinitionCount.
      */
     long getFormDefinitionCount();
 
     /**
+     * <pre>
+     * Number of recovered form records.
+     * </pre>
+     *
      * <code>uint64 form_record_count = 10;</code>
      * @return The formRecordCount.
      */
     long getFormRecordCount();
   }
   /**
+   * <pre>
+   * Results from scanning or salvaging a damaged lockbox.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.RecoveryReport}
    */
   public static final class RecoveryReport extends
@@ -13598,6 +15710,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.LockboxEntry> intactFiles_;
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     @java.lang.Override
@@ -13605,6 +15721,10 @@ public final class RevaultBindings {
       return intactFiles_;
     }
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     @java.lang.Override
@@ -13613,6 +15733,10 @@ public final class RevaultBindings {
       return intactFiles_;
     }
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     @java.lang.Override
@@ -13620,6 +15744,10 @@ public final class RevaultBindings {
       return intactFiles_.size();
     }
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     @java.lang.Override
@@ -13627,6 +15755,10 @@ public final class RevaultBindings {
       return intactFiles_.get(index);
     }
     /**
+     * <pre>
+     * Metadata for files recovered in full.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
      */
     @java.lang.Override
@@ -13638,6 +15770,10 @@ public final class RevaultBindings {
     public static final int INTACT_FILE_COUNT_FIELD_NUMBER = 2;
     private long intactFileCount_ = 0L;
     /**
+     * <pre>
+     * Total number of fully recovered files.
+     * </pre>
+     *
      * <code>uint64 intact_file_count = 2;</code>
      * @return The intactFileCount.
      */
@@ -13649,6 +15785,10 @@ public final class RevaultBindings {
     public static final int PARTIAL_FILES_FIELD_NUMBER = 3;
     private long partialFiles_ = 0L;
     /**
+     * <pre>
+     * Number of files for which only partial content was recovered.
+     * </pre>
+     *
      * <code>uint64 partial_files = 3;</code>
      * @return The partialFiles.
      */
@@ -13660,6 +15800,10 @@ public final class RevaultBindings {
     public static final int CORRUPT_RECORDS_FIELD_NUMBER = 4;
     private long corruptRecords_ = 0L;
     /**
+     * <pre>
+     * Number of corrupt records skipped by the scanner.
+     * </pre>
+     *
      * <code>uint64 corrupt_records = 4;</code>
      * @return The corruptRecords.
      */
@@ -13671,6 +15815,10 @@ public final class RevaultBindings {
     public static final int TOC_RECOVERED_FIELD_NUMBER = 5;
     private boolean tocRecovered_ = false;
     /**
+     * <pre>
+     * Whether the table of contents was recovered.
+     * </pre>
+     *
      * <code>bool toc_recovered = 5;</code>
      * @return The tocRecovered.
      */
@@ -13682,6 +15830,10 @@ public final class RevaultBindings {
     public static final int VARIABLES_RECOVERED_FIELD_NUMBER = 6;
     private boolean variablesRecovered_ = false;
     /**
+     * <pre>
+     * Whether variable metadata was recovered.
+     * </pre>
+     *
      * <code>bool variables_recovered = 6;</code>
      * @return The variablesRecovered.
      */
@@ -13693,6 +15845,10 @@ public final class RevaultBindings {
     public static final int VARIABLE_COUNT_FIELD_NUMBER = 7;
     private long variableCount_ = 0L;
     /**
+     * <pre>
+     * Number of recovered variables.
+     * </pre>
+     *
      * <code>uint64 variable_count = 7;</code>
      * @return The variableCount.
      */
@@ -13704,6 +15860,10 @@ public final class RevaultBindings {
     public static final int FORMS_RECOVERED_FIELD_NUMBER = 8;
     private boolean formsRecovered_ = false;
     /**
+     * <pre>
+     * Whether typed form metadata was recovered.
+     * </pre>
+     *
      * <code>bool forms_recovered = 8;</code>
      * @return The formsRecovered.
      */
@@ -13715,6 +15875,10 @@ public final class RevaultBindings {
     public static final int FORM_DEFINITION_COUNT_FIELD_NUMBER = 9;
     private long formDefinitionCount_ = 0L;
     /**
+     * <pre>
+     * Number of recovered form definitions.
+     * </pre>
+     *
      * <code>uint64 form_definition_count = 9;</code>
      * @return The formDefinitionCount.
      */
@@ -13726,6 +15890,10 @@ public final class RevaultBindings {
     public static final int FORM_RECORD_COUNT_FIELD_NUMBER = 10;
     private long formRecordCount_ = 0L;
     /**
+     * <pre>
+     * Number of recovered form records.
+     * </pre>
+     *
      * <code>uint64 form_record_count = 10;</code>
      * @return The formRecordCount.
      */
@@ -14000,6 +16168,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Results from scanning or salvaging a damaged lockbox.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.RecoveryReport}
      */
     public static final class Builder extends
@@ -14335,6 +16507,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.LockboxEntry, revault.bindings.RevaultBindings.LockboxEntry.Builder, revault.bindings.RevaultBindings.LockboxEntryOrBuilder> intactFilesBuilder_;
 
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.LockboxEntry> getIntactFilesList() {
@@ -14345,6 +16521,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public int getIntactFilesCount() {
@@ -14355,6 +16535,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntry getIntactFiles(int index) {
@@ -14365,6 +16549,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public Builder setIntactFiles(
@@ -14382,6 +16570,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public Builder setIntactFiles(
@@ -14396,6 +16588,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public Builder addIntactFiles(revault.bindings.RevaultBindings.LockboxEntry value) {
@@ -14412,6 +16608,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public Builder addIntactFiles(
@@ -14429,6 +16629,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public Builder addIntactFiles(
@@ -14443,6 +16647,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public Builder addIntactFiles(
@@ -14457,6 +16665,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public Builder addAllIntactFiles(
@@ -14472,6 +16684,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public Builder clearIntactFiles() {
@@ -14485,6 +16701,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public Builder removeIntactFiles(int index) {
@@ -14498,6 +16718,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntry.Builder getIntactFilesBuilder(
@@ -14505,6 +16729,10 @@ public final class RevaultBindings {
         return getIntactFilesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntryOrBuilder getIntactFilesOrBuilder(
@@ -14515,6 +16743,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.LockboxEntryOrBuilder>
@@ -14526,6 +16758,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntry.Builder addIntactFilesBuilder() {
@@ -14533,6 +16769,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.LockboxEntry.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public revault.bindings.RevaultBindings.LockboxEntry.Builder addIntactFilesBuilder(
@@ -14541,6 +16781,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.LockboxEntry.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Metadata for files recovered in full.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.LockboxEntry intact_files = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.LockboxEntry.Builder>
@@ -14564,6 +16808,10 @@ public final class RevaultBindings {
 
       private long intactFileCount_ ;
       /**
+       * <pre>
+       * Total number of fully recovered files.
+       * </pre>
+       *
        * <code>uint64 intact_file_count = 2;</code>
        * @return The intactFileCount.
        */
@@ -14572,6 +16820,10 @@ public final class RevaultBindings {
         return intactFileCount_;
       }
       /**
+       * <pre>
+       * Total number of fully recovered files.
+       * </pre>
+       *
        * <code>uint64 intact_file_count = 2;</code>
        * @param value The intactFileCount to set.
        * @return This builder for chaining.
@@ -14584,6 +16836,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Total number of fully recovered files.
+       * </pre>
+       *
        * <code>uint64 intact_file_count = 2;</code>
        * @return This builder for chaining.
        */
@@ -14596,6 +16852,10 @@ public final class RevaultBindings {
 
       private long partialFiles_ ;
       /**
+       * <pre>
+       * Number of files for which only partial content was recovered.
+       * </pre>
+       *
        * <code>uint64 partial_files = 3;</code>
        * @return The partialFiles.
        */
@@ -14604,6 +16864,10 @@ public final class RevaultBindings {
         return partialFiles_;
       }
       /**
+       * <pre>
+       * Number of files for which only partial content was recovered.
+       * </pre>
+       *
        * <code>uint64 partial_files = 3;</code>
        * @param value The partialFiles to set.
        * @return This builder for chaining.
@@ -14616,6 +16880,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Number of files for which only partial content was recovered.
+       * </pre>
+       *
        * <code>uint64 partial_files = 3;</code>
        * @return This builder for chaining.
        */
@@ -14628,6 +16896,10 @@ public final class RevaultBindings {
 
       private long corruptRecords_ ;
       /**
+       * <pre>
+       * Number of corrupt records skipped by the scanner.
+       * </pre>
+       *
        * <code>uint64 corrupt_records = 4;</code>
        * @return The corruptRecords.
        */
@@ -14636,6 +16908,10 @@ public final class RevaultBindings {
         return corruptRecords_;
       }
       /**
+       * <pre>
+       * Number of corrupt records skipped by the scanner.
+       * </pre>
+       *
        * <code>uint64 corrupt_records = 4;</code>
        * @param value The corruptRecords to set.
        * @return This builder for chaining.
@@ -14648,6 +16924,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Number of corrupt records skipped by the scanner.
+       * </pre>
+       *
        * <code>uint64 corrupt_records = 4;</code>
        * @return This builder for chaining.
        */
@@ -14660,6 +16940,10 @@ public final class RevaultBindings {
 
       private boolean tocRecovered_ ;
       /**
+       * <pre>
+       * Whether the table of contents was recovered.
+       * </pre>
+       *
        * <code>bool toc_recovered = 5;</code>
        * @return The tocRecovered.
        */
@@ -14668,6 +16952,10 @@ public final class RevaultBindings {
         return tocRecovered_;
       }
       /**
+       * <pre>
+       * Whether the table of contents was recovered.
+       * </pre>
+       *
        * <code>bool toc_recovered = 5;</code>
        * @param value The tocRecovered to set.
        * @return This builder for chaining.
@@ -14680,6 +16968,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether the table of contents was recovered.
+       * </pre>
+       *
        * <code>bool toc_recovered = 5;</code>
        * @return This builder for chaining.
        */
@@ -14692,6 +16984,10 @@ public final class RevaultBindings {
 
       private boolean variablesRecovered_ ;
       /**
+       * <pre>
+       * Whether variable metadata was recovered.
+       * </pre>
+       *
        * <code>bool variables_recovered = 6;</code>
        * @return The variablesRecovered.
        */
@@ -14700,6 +16996,10 @@ public final class RevaultBindings {
         return variablesRecovered_;
       }
       /**
+       * <pre>
+       * Whether variable metadata was recovered.
+       * </pre>
+       *
        * <code>bool variables_recovered = 6;</code>
        * @param value The variablesRecovered to set.
        * @return This builder for chaining.
@@ -14712,6 +17012,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether variable metadata was recovered.
+       * </pre>
+       *
        * <code>bool variables_recovered = 6;</code>
        * @return This builder for chaining.
        */
@@ -14724,6 +17028,10 @@ public final class RevaultBindings {
 
       private long variableCount_ ;
       /**
+       * <pre>
+       * Number of recovered variables.
+       * </pre>
+       *
        * <code>uint64 variable_count = 7;</code>
        * @return The variableCount.
        */
@@ -14732,6 +17040,10 @@ public final class RevaultBindings {
         return variableCount_;
       }
       /**
+       * <pre>
+       * Number of recovered variables.
+       * </pre>
+       *
        * <code>uint64 variable_count = 7;</code>
        * @param value The variableCount to set.
        * @return This builder for chaining.
@@ -14744,6 +17056,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Number of recovered variables.
+       * </pre>
+       *
        * <code>uint64 variable_count = 7;</code>
        * @return This builder for chaining.
        */
@@ -14756,6 +17072,10 @@ public final class RevaultBindings {
 
       private boolean formsRecovered_ ;
       /**
+       * <pre>
+       * Whether typed form metadata was recovered.
+       * </pre>
+       *
        * <code>bool forms_recovered = 8;</code>
        * @return The formsRecovered.
        */
@@ -14764,6 +17084,10 @@ public final class RevaultBindings {
         return formsRecovered_;
       }
       /**
+       * <pre>
+       * Whether typed form metadata was recovered.
+       * </pre>
+       *
        * <code>bool forms_recovered = 8;</code>
        * @param value The formsRecovered to set.
        * @return This builder for chaining.
@@ -14776,6 +17100,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether typed form metadata was recovered.
+       * </pre>
+       *
        * <code>bool forms_recovered = 8;</code>
        * @return This builder for chaining.
        */
@@ -14788,6 +17116,10 @@ public final class RevaultBindings {
 
       private long formDefinitionCount_ ;
       /**
+       * <pre>
+       * Number of recovered form definitions.
+       * </pre>
+       *
        * <code>uint64 form_definition_count = 9;</code>
        * @return The formDefinitionCount.
        */
@@ -14796,6 +17128,10 @@ public final class RevaultBindings {
         return formDefinitionCount_;
       }
       /**
+       * <pre>
+       * Number of recovered form definitions.
+       * </pre>
+       *
        * <code>uint64 form_definition_count = 9;</code>
        * @param value The formDefinitionCount to set.
        * @return This builder for chaining.
@@ -14808,6 +17144,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Number of recovered form definitions.
+       * </pre>
+       *
        * <code>uint64 form_definition_count = 9;</code>
        * @return This builder for chaining.
        */
@@ -14820,6 +17160,10 @@ public final class RevaultBindings {
 
       private long formRecordCount_ ;
       /**
+       * <pre>
+       * Number of recovered form records.
+       * </pre>
+       *
        * <code>uint64 form_record_count = 10;</code>
        * @return The formRecordCount.
        */
@@ -14828,6 +17172,10 @@ public final class RevaultBindings {
         return formRecordCount_;
       }
       /**
+       * <pre>
+       * Number of recovered form records.
+       * </pre>
+       *
        * <code>uint64 form_record_count = 10;</code>
        * @param value The formRecordCount to set.
        * @return This builder for chaining.
@@ -14840,6 +17188,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Number of recovered form records.
+       * </pre>
+       *
        * <code>uint64 form_record_count = 10;</code>
        * @return This builder for chaining.
        */
@@ -14918,17 +17270,29 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Stable slot identifier used for deletion and local labels.
+     * </pre>
+     *
      * <code>uint64 id = 1;</code>
      * @return The id.
      */
     long getId();
 
     /**
+     * <pre>
+     * Protection type, such as `password` or `contact`.
+     * </pre>
+     *
      * <code>string protection = 2;</code>
      * @return The protection.
      */
     java.lang.String getProtection();
     /**
+     * <pre>
+     * Protection type, such as `password` or `contact`.
+     * </pre>
+     *
      * <code>string protection = 2;</code>
      * @return The bytes for protection.
      */
@@ -14936,11 +17300,19 @@ public final class RevaultBindings {
         getProtectionBytes();
 
     /**
+     * <pre>
+     * Cryptographic algorithm identifier stored by the slot.
+     * </pre>
+     *
      * <code>string algorithm = 3;</code>
      * @return The algorithm.
      */
     java.lang.String getAlgorithm();
     /**
+     * <pre>
+     * Cryptographic algorithm identifier stored by the slot.
+     * </pre>
+     *
      * <code>string algorithm = 3;</code>
      * @return The bytes for algorithm.
      */
@@ -14948,6 +17320,10 @@ public final class RevaultBindings {
         getAlgorithmBytes();
   }
   /**
+   * <pre>
+   * Metadata for one password or contact access slot.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.KeySlot}
    */
   public static final class KeySlot extends
@@ -14992,6 +17368,10 @@ public final class RevaultBindings {
     public static final int ID_FIELD_NUMBER = 1;
     private long id_ = 0L;
     /**
+     * <pre>
+     * Stable slot identifier used for deletion and local labels.
+     * </pre>
+     *
      * <code>uint64 id = 1;</code>
      * @return The id.
      */
@@ -15004,6 +17384,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object protection_ = "";
     /**
+     * <pre>
+     * Protection type, such as `password` or `contact`.
+     * </pre>
+     *
      * <code>string protection = 2;</code>
      * @return The protection.
      */
@@ -15021,6 +17405,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Protection type, such as `password` or `contact`.
+     * </pre>
+     *
      * <code>string protection = 2;</code>
      * @return The bytes for protection.
      */
@@ -15043,6 +17431,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object algorithm_ = "";
     /**
+     * <pre>
+     * Cryptographic algorithm identifier stored by the slot.
+     * </pre>
+     *
      * <code>string algorithm = 3;</code>
      * @return The algorithm.
      */
@@ -15060,6 +17452,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Cryptographic algorithm identifier stored by the slot.
+     * </pre>
+     *
      * <code>string algorithm = 3;</code>
      * @return The bytes for algorithm.
      */
@@ -15255,6 +17651,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Metadata for one password or contact access slot.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.KeySlot}
      */
     public static final class Builder extends
@@ -15452,6 +17852,10 @@ public final class RevaultBindings {
 
       private long id_ ;
       /**
+       * <pre>
+       * Stable slot identifier used for deletion and local labels.
+       * </pre>
+       *
        * <code>uint64 id = 1;</code>
        * @return The id.
        */
@@ -15460,6 +17864,10 @@ public final class RevaultBindings {
         return id_;
       }
       /**
+       * <pre>
+       * Stable slot identifier used for deletion and local labels.
+       * </pre>
+       *
        * <code>uint64 id = 1;</code>
        * @param value The id to set.
        * @return This builder for chaining.
@@ -15472,6 +17880,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable slot identifier used for deletion and local labels.
+       * </pre>
+       *
        * <code>uint64 id = 1;</code>
        * @return This builder for chaining.
        */
@@ -15484,6 +17896,10 @@ public final class RevaultBindings {
 
       private java.lang.Object protection_ = "";
       /**
+       * <pre>
+       * Protection type, such as `password` or `contact`.
+       * </pre>
+       *
        * <code>string protection = 2;</code>
        * @return The protection.
        */
@@ -15500,6 +17916,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Protection type, such as `password` or `contact`.
+       * </pre>
+       *
        * <code>string protection = 2;</code>
        * @return The bytes for protection.
        */
@@ -15517,6 +17937,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Protection type, such as `password` or `contact`.
+       * </pre>
+       *
        * <code>string protection = 2;</code>
        * @param value The protection to set.
        * @return This builder for chaining.
@@ -15530,6 +17954,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Protection type, such as `password` or `contact`.
+       * </pre>
+       *
        * <code>string protection = 2;</code>
        * @return This builder for chaining.
        */
@@ -15540,6 +17968,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Protection type, such as `password` or `contact`.
+       * </pre>
+       *
        * <code>string protection = 2;</code>
        * @param value The bytes for protection to set.
        * @return This builder for chaining.
@@ -15556,6 +17988,10 @@ public final class RevaultBindings {
 
       private java.lang.Object algorithm_ = "";
       /**
+       * <pre>
+       * Cryptographic algorithm identifier stored by the slot.
+       * </pre>
+       *
        * <code>string algorithm = 3;</code>
        * @return The algorithm.
        */
@@ -15572,6 +18008,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Cryptographic algorithm identifier stored by the slot.
+       * </pre>
+       *
        * <code>string algorithm = 3;</code>
        * @return The bytes for algorithm.
        */
@@ -15589,6 +18029,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Cryptographic algorithm identifier stored by the slot.
+       * </pre>
+       *
        * <code>string algorithm = 3;</code>
        * @param value The algorithm to set.
        * @return This builder for chaining.
@@ -15602,6 +18046,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Cryptographic algorithm identifier stored by the slot.
+       * </pre>
+       *
        * <code>string algorithm = 3;</code>
        * @return This builder for chaining.
        */
@@ -15612,6 +18060,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Cryptographic algorithm identifier stored by the slot.
+       * </pre>
+       *
        * <code>string algorithm = 3;</code>
        * @param value The bytes for algorithm to set.
        * @return This builder for chaining.
@@ -15694,30 +18146,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.KeySlot>
         getValuesList();
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     revault.bindings.RevaultBindings.KeySlot getValues(int index);
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.KeySlotOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     revault.bindings.RevaultBindings.KeySlotOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of access slots.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.KeySlotList}
    */
   public static final class KeySlotList extends
@@ -15762,6 +18238,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.KeySlot> values_;
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     @java.lang.Override
@@ -15769,6 +18249,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     @java.lang.Override
@@ -15777,6 +18261,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     @java.lang.Override
@@ -15784,6 +18272,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     @java.lang.Override
@@ -15791,6 +18283,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Access slots in stable id order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot values = 1;</code>
      */
     @java.lang.Override
@@ -15957,6 +18453,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of access slots.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.KeySlotList}
      */
     public static final class Builder extends
@@ -16184,6 +18684,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.KeySlot, revault.bindings.RevaultBindings.KeySlot.Builder, revault.bindings.RevaultBindings.KeySlotOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.KeySlot> getValuesList() {
@@ -16194,6 +18698,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public int getValuesCount() {
@@ -16204,6 +18712,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KeySlot getValues(int index) {
@@ -16214,6 +18726,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public Builder setValues(
@@ -16231,6 +18747,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public Builder setValues(
@@ -16245,6 +18765,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.KeySlot value) {
@@ -16261,6 +18785,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public Builder addValues(
@@ -16278,6 +18806,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public Builder addValues(
@@ -16292,6 +18824,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public Builder addValues(
@@ -16306,6 +18842,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public Builder addAllValues(
@@ -16321,6 +18861,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public Builder clearValues() {
@@ -16334,6 +18878,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -16347,6 +18895,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KeySlot.Builder getValuesBuilder(
@@ -16354,6 +18906,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KeySlotOrBuilder getValuesOrBuilder(
@@ -16364,6 +18920,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.KeySlotOrBuilder>
@@ -16375,6 +18935,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KeySlot.Builder addValuesBuilder() {
@@ -16382,6 +18946,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.KeySlot.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KeySlot.Builder addValuesBuilder(
@@ -16390,6 +18958,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.KeySlot.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Access slots in stable id order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.KeySlot.Builder>
@@ -16479,36 +19051,60 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Configured cache limit in bytes.
+     * </pre>
+     *
      * <code>uint64 limit_bytes = 1;</code>
      * @return The limitBytes.
      */
     long getLimitBytes();
 
     /**
+     * <pre>
+     * Bytes currently held by the cache.
+     * </pre>
+     *
      * <code>uint64 used_bytes = 2;</code>
      * @return The usedBytes.
      */
     long getUsedBytes();
 
     /**
+     * <pre>
+     * Number of cached entries.
+     * </pre>
+     *
      * <code>uint64 entries = 3;</code>
      * @return The entries.
      */
     long getEntries();
 
     /**
+     * <pre>
+     * Successful cache lookup count.
+     * </pre>
+     *
      * <code>uint64 hits = 4;</code>
      * @return The hits.
      */
     long getHits();
 
     /**
+     * <pre>
+     * Failed cache lookup count.
+     * </pre>
+     *
      * <code>uint64 misses = 5;</code>
      * @return The misses.
      */
     long getMisses();
   }
   /**
+   * <pre>
+   * Current decrypted-page cache counters.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.CacheStats}
    */
   public static final class CacheStats extends
@@ -16551,6 +19147,10 @@ public final class RevaultBindings {
     public static final int LIMIT_BYTES_FIELD_NUMBER = 1;
     private long limitBytes_ = 0L;
     /**
+     * <pre>
+     * Configured cache limit in bytes.
+     * </pre>
+     *
      * <code>uint64 limit_bytes = 1;</code>
      * @return The limitBytes.
      */
@@ -16562,6 +19162,10 @@ public final class RevaultBindings {
     public static final int USED_BYTES_FIELD_NUMBER = 2;
     private long usedBytes_ = 0L;
     /**
+     * <pre>
+     * Bytes currently held by the cache.
+     * </pre>
+     *
      * <code>uint64 used_bytes = 2;</code>
      * @return The usedBytes.
      */
@@ -16573,6 +19177,10 @@ public final class RevaultBindings {
     public static final int ENTRIES_FIELD_NUMBER = 3;
     private long entries_ = 0L;
     /**
+     * <pre>
+     * Number of cached entries.
+     * </pre>
+     *
      * <code>uint64 entries = 3;</code>
      * @return The entries.
      */
@@ -16584,6 +19192,10 @@ public final class RevaultBindings {
     public static final int HITS_FIELD_NUMBER = 4;
     private long hits_ = 0L;
     /**
+     * <pre>
+     * Successful cache lookup count.
+     * </pre>
+     *
      * <code>uint64 hits = 4;</code>
      * @return The hits.
      */
@@ -16595,6 +19207,10 @@ public final class RevaultBindings {
     public static final int MISSES_FIELD_NUMBER = 5;
     private long misses_ = 0L;
     /**
+     * <pre>
+     * Failed cache lookup count.
+     * </pre>
+     *
      * <code>uint64 misses = 5;</code>
      * @return The misses.
      */
@@ -16808,6 +19424,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Current decrypted-page cache counters.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.CacheStats}
      */
     public static final class Builder extends
@@ -17025,6 +19645,10 @@ public final class RevaultBindings {
 
       private long limitBytes_ ;
       /**
+       * <pre>
+       * Configured cache limit in bytes.
+       * </pre>
+       *
        * <code>uint64 limit_bytes = 1;</code>
        * @return The limitBytes.
        */
@@ -17033,6 +19657,10 @@ public final class RevaultBindings {
         return limitBytes_;
       }
       /**
+       * <pre>
+       * Configured cache limit in bytes.
+       * </pre>
+       *
        * <code>uint64 limit_bytes = 1;</code>
        * @param value The limitBytes to set.
        * @return This builder for chaining.
@@ -17045,6 +19673,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Configured cache limit in bytes.
+       * </pre>
+       *
        * <code>uint64 limit_bytes = 1;</code>
        * @return This builder for chaining.
        */
@@ -17057,6 +19689,10 @@ public final class RevaultBindings {
 
       private long usedBytes_ ;
       /**
+       * <pre>
+       * Bytes currently held by the cache.
+       * </pre>
+       *
        * <code>uint64 used_bytes = 2;</code>
        * @return The usedBytes.
        */
@@ -17065,6 +19701,10 @@ public final class RevaultBindings {
         return usedBytes_;
       }
       /**
+       * <pre>
+       * Bytes currently held by the cache.
+       * </pre>
+       *
        * <code>uint64 used_bytes = 2;</code>
        * @param value The usedBytes to set.
        * @return This builder for chaining.
@@ -17077,6 +19717,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Bytes currently held by the cache.
+       * </pre>
+       *
        * <code>uint64 used_bytes = 2;</code>
        * @return This builder for chaining.
        */
@@ -17089,6 +19733,10 @@ public final class RevaultBindings {
 
       private long entries_ ;
       /**
+       * <pre>
+       * Number of cached entries.
+       * </pre>
+       *
        * <code>uint64 entries = 3;</code>
        * @return The entries.
        */
@@ -17097,6 +19745,10 @@ public final class RevaultBindings {
         return entries_;
       }
       /**
+       * <pre>
+       * Number of cached entries.
+       * </pre>
+       *
        * <code>uint64 entries = 3;</code>
        * @param value The entries to set.
        * @return This builder for chaining.
@@ -17109,6 +19761,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Number of cached entries.
+       * </pre>
+       *
        * <code>uint64 entries = 3;</code>
        * @return This builder for chaining.
        */
@@ -17121,6 +19777,10 @@ public final class RevaultBindings {
 
       private long hits_ ;
       /**
+       * <pre>
+       * Successful cache lookup count.
+       * </pre>
+       *
        * <code>uint64 hits = 4;</code>
        * @return The hits.
        */
@@ -17129,6 +19789,10 @@ public final class RevaultBindings {
         return hits_;
       }
       /**
+       * <pre>
+       * Successful cache lookup count.
+       * </pre>
+       *
        * <code>uint64 hits = 4;</code>
        * @param value The hits to set.
        * @return This builder for chaining.
@@ -17141,6 +19805,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Successful cache lookup count.
+       * </pre>
+       *
        * <code>uint64 hits = 4;</code>
        * @return This builder for chaining.
        */
@@ -17153,6 +19821,10 @@ public final class RevaultBindings {
 
       private long misses_ ;
       /**
+       * <pre>
+       * Failed cache lookup count.
+       * </pre>
+       *
        * <code>uint64 misses = 5;</code>
        * @return The misses.
        */
@@ -17161,6 +19833,10 @@ public final class RevaultBindings {
         return misses_;
       }
       /**
+       * <pre>
+       * Failed cache lookup count.
+       * </pre>
+       *
        * <code>uint64 misses = 5;</code>
        * @param value The misses to set.
        * @return This builder for chaining.
@@ -17173,6 +19849,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Failed cache lookup count.
+       * </pre>
+       *
        * <code>uint64 misses = 5;</code>
        * @return This builder for chaining.
        */
@@ -17251,11 +19931,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Time spent querying host file metadata.
+     * </pre>
+     *
      * <code>string host_stat_nanos = 1;</code>
      * @return The hostStatNanos.
      */
     java.lang.String getHostStatNanos();
     /**
+     * <pre>
+     * Time spent querying host file metadata.
+     * </pre>
+     *
      * <code>string host_stat_nanos = 1;</code>
      * @return The bytes for hostStatNanos.
      */
@@ -17263,11 +19951,19 @@ public final class RevaultBindings {
         getHostStatNanosBytes();
 
     /**
+     * <pre>
+     * Time spent reading host file content.
+     * </pre>
+     *
      * <code>string host_read_nanos = 2;</code>
      * @return The hostReadNanos.
      */
     java.lang.String getHostReadNanos();
     /**
+     * <pre>
+     * Time spent reading host file content.
+     * </pre>
+     *
      * <code>string host_read_nanos = 2;</code>
      * @return The bytes for hostReadNanos.
      */
@@ -17275,11 +19971,19 @@ public final class RevaultBindings {
         getHostReadNanosBytes();
 
     /**
+     * <pre>
+     * Time spent preparing compression/encryption frames.
+     * </pre>
+     *
      * <code>string frame_prepare_nanos = 3;</code>
      * @return The framePrepareNanos.
      */
     java.lang.String getFramePrepareNanos();
     /**
+     * <pre>
+     * Time spent preparing compression/encryption frames.
+     * </pre>
+     *
      * <code>string frame_prepare_nanos = 3;</code>
      * @return The bytes for framePrepareNanos.
      */
@@ -17287,11 +19991,19 @@ public final class RevaultBindings {
         getFramePrepareNanosBytes();
 
     /**
+     * <pre>
+     * Time spent writing encrypted pages.
+     * </pre>
+     *
      * <code>string page_write_nanos = 4;</code>
      * @return The pageWriteNanos.
      */
     java.lang.String getPageWriteNanos();
     /**
+     * <pre>
+     * Time spent writing encrypted pages.
+     * </pre>
+     *
      * <code>string page_write_nanos = 4;</code>
      * @return The bytes for pageWriteNanos.
      */
@@ -17299,6 +20011,10 @@ public final class RevaultBindings {
         getPageWriteNanosBytes();
   }
   /**
+   * <pre>
+   * Cumulative timing counters for bulk imports, represented as decimal nanoseconds.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.ImportStats}
    */
   public static final class ImportStats extends
@@ -17346,6 +20062,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object hostStatNanos_ = "";
     /**
+     * <pre>
+     * Time spent querying host file metadata.
+     * </pre>
+     *
      * <code>string host_stat_nanos = 1;</code>
      * @return The hostStatNanos.
      */
@@ -17363,6 +20083,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Time spent querying host file metadata.
+     * </pre>
+     *
      * <code>string host_stat_nanos = 1;</code>
      * @return The bytes for hostStatNanos.
      */
@@ -17385,6 +20109,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object hostReadNanos_ = "";
     /**
+     * <pre>
+     * Time spent reading host file content.
+     * </pre>
+     *
      * <code>string host_read_nanos = 2;</code>
      * @return The hostReadNanos.
      */
@@ -17402,6 +20130,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Time spent reading host file content.
+     * </pre>
+     *
      * <code>string host_read_nanos = 2;</code>
      * @return The bytes for hostReadNanos.
      */
@@ -17424,6 +20156,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object framePrepareNanos_ = "";
     /**
+     * <pre>
+     * Time spent preparing compression/encryption frames.
+     * </pre>
+     *
      * <code>string frame_prepare_nanos = 3;</code>
      * @return The framePrepareNanos.
      */
@@ -17441,6 +20177,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Time spent preparing compression/encryption frames.
+     * </pre>
+     *
      * <code>string frame_prepare_nanos = 3;</code>
      * @return The bytes for framePrepareNanos.
      */
@@ -17463,6 +20203,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object pageWriteNanos_ = "";
     /**
+     * <pre>
+     * Time spent writing encrypted pages.
+     * </pre>
+     *
      * <code>string page_write_nanos = 4;</code>
      * @return The pageWriteNanos.
      */
@@ -17480,6 +20224,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Time spent writing encrypted pages.
+     * </pre>
+     *
      * <code>string page_write_nanos = 4;</code>
      * @return The bytes for pageWriteNanos.
      */
@@ -17683,6 +20431,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Cumulative timing counters for bulk imports, represented as decimal nanoseconds.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.ImportStats}
      */
     public static final class Builder extends
@@ -17896,6 +20648,10 @@ public final class RevaultBindings {
 
       private java.lang.Object hostStatNanos_ = "";
       /**
+       * <pre>
+       * Time spent querying host file metadata.
+       * </pre>
+       *
        * <code>string host_stat_nanos = 1;</code>
        * @return The hostStatNanos.
        */
@@ -17912,6 +20668,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Time spent querying host file metadata.
+       * </pre>
+       *
        * <code>string host_stat_nanos = 1;</code>
        * @return The bytes for hostStatNanos.
        */
@@ -17929,6 +20689,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Time spent querying host file metadata.
+       * </pre>
+       *
        * <code>string host_stat_nanos = 1;</code>
        * @param value The hostStatNanos to set.
        * @return This builder for chaining.
@@ -17942,6 +20706,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Time spent querying host file metadata.
+       * </pre>
+       *
        * <code>string host_stat_nanos = 1;</code>
        * @return This builder for chaining.
        */
@@ -17952,6 +20720,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Time spent querying host file metadata.
+       * </pre>
+       *
        * <code>string host_stat_nanos = 1;</code>
        * @param value The bytes for hostStatNanos to set.
        * @return This builder for chaining.
@@ -17968,6 +20740,10 @@ public final class RevaultBindings {
 
       private java.lang.Object hostReadNanos_ = "";
       /**
+       * <pre>
+       * Time spent reading host file content.
+       * </pre>
+       *
        * <code>string host_read_nanos = 2;</code>
        * @return The hostReadNanos.
        */
@@ -17984,6 +20760,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Time spent reading host file content.
+       * </pre>
+       *
        * <code>string host_read_nanos = 2;</code>
        * @return The bytes for hostReadNanos.
        */
@@ -18001,6 +20781,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Time spent reading host file content.
+       * </pre>
+       *
        * <code>string host_read_nanos = 2;</code>
        * @param value The hostReadNanos to set.
        * @return This builder for chaining.
@@ -18014,6 +20798,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Time spent reading host file content.
+       * </pre>
+       *
        * <code>string host_read_nanos = 2;</code>
        * @return This builder for chaining.
        */
@@ -18024,6 +20812,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Time spent reading host file content.
+       * </pre>
+       *
        * <code>string host_read_nanos = 2;</code>
        * @param value The bytes for hostReadNanos to set.
        * @return This builder for chaining.
@@ -18040,6 +20832,10 @@ public final class RevaultBindings {
 
       private java.lang.Object framePrepareNanos_ = "";
       /**
+       * <pre>
+       * Time spent preparing compression/encryption frames.
+       * </pre>
+       *
        * <code>string frame_prepare_nanos = 3;</code>
        * @return The framePrepareNanos.
        */
@@ -18056,6 +20852,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Time spent preparing compression/encryption frames.
+       * </pre>
+       *
        * <code>string frame_prepare_nanos = 3;</code>
        * @return The bytes for framePrepareNanos.
        */
@@ -18073,6 +20873,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Time spent preparing compression/encryption frames.
+       * </pre>
+       *
        * <code>string frame_prepare_nanos = 3;</code>
        * @param value The framePrepareNanos to set.
        * @return This builder for chaining.
@@ -18086,6 +20890,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Time spent preparing compression/encryption frames.
+       * </pre>
+       *
        * <code>string frame_prepare_nanos = 3;</code>
        * @return This builder for chaining.
        */
@@ -18096,6 +20904,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Time spent preparing compression/encryption frames.
+       * </pre>
+       *
        * <code>string frame_prepare_nanos = 3;</code>
        * @param value The bytes for framePrepareNanos to set.
        * @return This builder for chaining.
@@ -18112,6 +20924,10 @@ public final class RevaultBindings {
 
       private java.lang.Object pageWriteNanos_ = "";
       /**
+       * <pre>
+       * Time spent writing encrypted pages.
+       * </pre>
+       *
        * <code>string page_write_nanos = 4;</code>
        * @return The pageWriteNanos.
        */
@@ -18128,6 +20944,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Time spent writing encrypted pages.
+       * </pre>
+       *
        * <code>string page_write_nanos = 4;</code>
        * @return The bytes for pageWriteNanos.
        */
@@ -18145,6 +20965,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Time spent writing encrypted pages.
+       * </pre>
+       *
        * <code>string page_write_nanos = 4;</code>
        * @param value The pageWriteNanos to set.
        * @return This builder for chaining.
@@ -18158,6 +20982,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Time spent writing encrypted pages.
+       * </pre>
+       *
        * <code>string page_write_nanos = 4;</code>
        * @return This builder for chaining.
        */
@@ -18168,6 +20996,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Time spent writing encrypted pages.
+       * </pre>
+       *
        * <code>string page_write_nanos = 4;</code>
        * @param value The bytes for pageWriteNanos to set.
        * @return This builder for chaining.
@@ -18250,17 +21082,29 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Object identifier within the page.
+     * </pre>
+     *
      * <code>uint64 id = 1;</code>
      * @return The id.
      */
     long getId();
 
     /**
+     * <pre>
+     * Object type name.
+     * </pre>
+     *
      * <code>string kind = 2;</code>
      * @return The kind.
      */
     java.lang.String getKind();
     /**
+     * <pre>
+     * Object type name.
+     * </pre>
+     *
      * <code>string kind = 2;</code>
      * @return The bytes for kind.
      */
@@ -18268,12 +21112,20 @@ public final class RevaultBindings {
         getKindBytes();
 
     /**
+     * <pre>
+     * Encoded payload length in bytes.
+     * </pre>
+     *
      * <code>uint64 payload_len = 3;</code>
      * @return The payloadLen.
      */
     long getPayloadLen();
   }
   /**
+   * <pre>
+   * One logical object stored inside an encrypted page.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.PageObject}
    */
   public static final class PageObject extends
@@ -18317,6 +21169,10 @@ public final class RevaultBindings {
     public static final int ID_FIELD_NUMBER = 1;
     private long id_ = 0L;
     /**
+     * <pre>
+     * Object identifier within the page.
+     * </pre>
+     *
      * <code>uint64 id = 1;</code>
      * @return The id.
      */
@@ -18329,6 +21185,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object kind_ = "";
     /**
+     * <pre>
+     * Object type name.
+     * </pre>
+     *
      * <code>string kind = 2;</code>
      * @return The kind.
      */
@@ -18346,6 +21206,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Object type name.
+     * </pre>
+     *
      * <code>string kind = 2;</code>
      * @return The bytes for kind.
      */
@@ -18367,6 +21231,10 @@ public final class RevaultBindings {
     public static final int PAYLOAD_LEN_FIELD_NUMBER = 3;
     private long payloadLen_ = 0L;
     /**
+     * <pre>
+     * Encoded payload length in bytes.
+     * </pre>
+     *
      * <code>uint64 payload_len = 3;</code>
      * @return The payloadLen.
      */
@@ -18554,6 +21422,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * One logical object stored inside an encrypted page.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.PageObject}
      */
     public static final class Builder extends
@@ -18749,6 +21621,10 @@ public final class RevaultBindings {
 
       private long id_ ;
       /**
+       * <pre>
+       * Object identifier within the page.
+       * </pre>
+       *
        * <code>uint64 id = 1;</code>
        * @return The id.
        */
@@ -18757,6 +21633,10 @@ public final class RevaultBindings {
         return id_;
       }
       /**
+       * <pre>
+       * Object identifier within the page.
+       * </pre>
+       *
        * <code>uint64 id = 1;</code>
        * @param value The id to set.
        * @return This builder for chaining.
@@ -18769,6 +21649,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Object identifier within the page.
+       * </pre>
+       *
        * <code>uint64 id = 1;</code>
        * @return This builder for chaining.
        */
@@ -18781,6 +21665,10 @@ public final class RevaultBindings {
 
       private java.lang.Object kind_ = "";
       /**
+       * <pre>
+       * Object type name.
+       * </pre>
+       *
        * <code>string kind = 2;</code>
        * @return The kind.
        */
@@ -18797,6 +21685,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Object type name.
+       * </pre>
+       *
        * <code>string kind = 2;</code>
        * @return The bytes for kind.
        */
@@ -18814,6 +21706,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Object type name.
+       * </pre>
+       *
        * <code>string kind = 2;</code>
        * @param value The kind to set.
        * @return This builder for chaining.
@@ -18827,6 +21723,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Object type name.
+       * </pre>
+       *
        * <code>string kind = 2;</code>
        * @return This builder for chaining.
        */
@@ -18837,6 +21737,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Object type name.
+       * </pre>
+       *
        * <code>string kind = 2;</code>
        * @param value The bytes for kind to set.
        * @return This builder for chaining.
@@ -18853,6 +21757,10 @@ public final class RevaultBindings {
 
       private long payloadLen_ ;
       /**
+       * <pre>
+       * Encoded payload length in bytes.
+       * </pre>
+       *
        * <code>uint64 payload_len = 3;</code>
        * @return The payloadLen.
        */
@@ -18861,6 +21769,10 @@ public final class RevaultBindings {
         return payloadLen_;
       }
       /**
+       * <pre>
+       * Encoded payload length in bytes.
+       * </pre>
+       *
        * <code>uint64 payload_len = 3;</code>
        * @param value The payloadLen to set.
        * @return This builder for chaining.
@@ -18873,6 +21785,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Encoded payload length in bytes.
+       * </pre>
+       *
        * <code>uint64 payload_len = 3;</code>
        * @return This builder for chaining.
        */
@@ -18951,72 +21867,124 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Physical page offset in the archive.
+     * </pre>
+     *
      * <code>uint64 offset = 1;</code>
      * @return The offset.
      */
     long getOffset();
 
     /**
+     * <pre>
+     * Stable page identifier.
+     * </pre>
+     *
      * <code>uint64 page_id = 2;</code>
      * @return The pageId.
      */
     long getPageId();
 
     /**
+     * <pre>
+     * Commit sequence that last wrote the page.
+     * </pre>
+     *
      * <code>uint64 sequence = 3;</code>
      * @return The sequence.
      */
     long getSequence();
 
     /**
+     * <pre>
+     * Total encoded page length.
+     * </pre>
+     *
      * <code>uint64 page_size = 4;</code>
      * @return The pageSize.
      */
     long getPageSize();
 
     /**
+     * <pre>
+     * Length of the authenticated encrypted body.
+     * </pre>
+     *
      * <code>uint64 encrypted_body_len = 5;</code>
      * @return The encryptedBodyLen.
      */
     long getEncryptedBodyLen();
 
     /**
+     * <pre>
+     * Unused capacity remaining in the page.
+     * </pre>
+     *
      * <code>uint64 unused_bytes = 6;</code>
      * @return The unusedBytes.
      */
     long getUnusedBytes();
 
     /**
+     * <pre>
+     * Number of logical objects in the page.
+     * </pre>
+     *
      * <code>uint64 object_count = 7;</code>
      * @return The objectCount.
      */
     long getObjectCount();
 
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.PageObject>
         getObjectsList();
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     revault.bindings.RevaultBindings.PageObject getObjects(int index);
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     int getObjectsCount();
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.PageObjectOrBuilder>
         getObjectsOrBuilderList();
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     revault.bindings.RevaultBindings.PageObjectOrBuilder getObjectsOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * Diagnostic metadata for one encrypted lockbox page.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.PageInspection}
    */
   public static final class PageInspection extends
@@ -19060,6 +22028,10 @@ public final class RevaultBindings {
     public static final int OFFSET_FIELD_NUMBER = 1;
     private long offset_ = 0L;
     /**
+     * <pre>
+     * Physical page offset in the archive.
+     * </pre>
+     *
      * <code>uint64 offset = 1;</code>
      * @return The offset.
      */
@@ -19071,6 +22043,10 @@ public final class RevaultBindings {
     public static final int PAGE_ID_FIELD_NUMBER = 2;
     private long pageId_ = 0L;
     /**
+     * <pre>
+     * Stable page identifier.
+     * </pre>
+     *
      * <code>uint64 page_id = 2;</code>
      * @return The pageId.
      */
@@ -19082,6 +22058,10 @@ public final class RevaultBindings {
     public static final int SEQUENCE_FIELD_NUMBER = 3;
     private long sequence_ = 0L;
     /**
+     * <pre>
+     * Commit sequence that last wrote the page.
+     * </pre>
+     *
      * <code>uint64 sequence = 3;</code>
      * @return The sequence.
      */
@@ -19093,6 +22073,10 @@ public final class RevaultBindings {
     public static final int PAGE_SIZE_FIELD_NUMBER = 4;
     private long pageSize_ = 0L;
     /**
+     * <pre>
+     * Total encoded page length.
+     * </pre>
+     *
      * <code>uint64 page_size = 4;</code>
      * @return The pageSize.
      */
@@ -19104,6 +22088,10 @@ public final class RevaultBindings {
     public static final int ENCRYPTED_BODY_LEN_FIELD_NUMBER = 5;
     private long encryptedBodyLen_ = 0L;
     /**
+     * <pre>
+     * Length of the authenticated encrypted body.
+     * </pre>
+     *
      * <code>uint64 encrypted_body_len = 5;</code>
      * @return The encryptedBodyLen.
      */
@@ -19115,6 +22103,10 @@ public final class RevaultBindings {
     public static final int UNUSED_BYTES_FIELD_NUMBER = 6;
     private long unusedBytes_ = 0L;
     /**
+     * <pre>
+     * Unused capacity remaining in the page.
+     * </pre>
+     *
      * <code>uint64 unused_bytes = 6;</code>
      * @return The unusedBytes.
      */
@@ -19126,6 +22118,10 @@ public final class RevaultBindings {
     public static final int OBJECT_COUNT_FIELD_NUMBER = 7;
     private long objectCount_ = 0L;
     /**
+     * <pre>
+     * Number of logical objects in the page.
+     * </pre>
+     *
      * <code>uint64 object_count = 7;</code>
      * @return The objectCount.
      */
@@ -19138,6 +22134,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.PageObject> objects_;
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     @java.lang.Override
@@ -19145,6 +22145,10 @@ public final class RevaultBindings {
       return objects_;
     }
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     @java.lang.Override
@@ -19153,6 +22157,10 @@ public final class RevaultBindings {
       return objects_;
     }
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     @java.lang.Override
@@ -19160,6 +22168,10 @@ public final class RevaultBindings {
       return objects_.size();
     }
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     @java.lang.Override
@@ -19167,6 +22179,10 @@ public final class RevaultBindings {
       return objects_.get(index);
     }
     /**
+     * <pre>
+     * Objects discoverable without exposing plaintext payloads.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageObject objects = 8;</code>
      */
     @java.lang.Override
@@ -19417,6 +22433,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Diagnostic metadata for one encrypted lockbox page.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.PageInspection}
      */
     public static final class Builder extends
@@ -19717,6 +22737,10 @@ public final class RevaultBindings {
 
       private long offset_ ;
       /**
+       * <pre>
+       * Physical page offset in the archive.
+       * </pre>
+       *
        * <code>uint64 offset = 1;</code>
        * @return The offset.
        */
@@ -19725,6 +22749,10 @@ public final class RevaultBindings {
         return offset_;
       }
       /**
+       * <pre>
+       * Physical page offset in the archive.
+       * </pre>
+       *
        * <code>uint64 offset = 1;</code>
        * @param value The offset to set.
        * @return This builder for chaining.
@@ -19737,6 +22765,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Physical page offset in the archive.
+       * </pre>
+       *
        * <code>uint64 offset = 1;</code>
        * @return This builder for chaining.
        */
@@ -19749,6 +22781,10 @@ public final class RevaultBindings {
 
       private long pageId_ ;
       /**
+       * <pre>
+       * Stable page identifier.
+       * </pre>
+       *
        * <code>uint64 page_id = 2;</code>
        * @return The pageId.
        */
@@ -19757,6 +22793,10 @@ public final class RevaultBindings {
         return pageId_;
       }
       /**
+       * <pre>
+       * Stable page identifier.
+       * </pre>
+       *
        * <code>uint64 page_id = 2;</code>
        * @param value The pageId to set.
        * @return This builder for chaining.
@@ -19769,6 +22809,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable page identifier.
+       * </pre>
+       *
        * <code>uint64 page_id = 2;</code>
        * @return This builder for chaining.
        */
@@ -19781,6 +22825,10 @@ public final class RevaultBindings {
 
       private long sequence_ ;
       /**
+       * <pre>
+       * Commit sequence that last wrote the page.
+       * </pre>
+       *
        * <code>uint64 sequence = 3;</code>
        * @return The sequence.
        */
@@ -19789,6 +22837,10 @@ public final class RevaultBindings {
         return sequence_;
       }
       /**
+       * <pre>
+       * Commit sequence that last wrote the page.
+       * </pre>
+       *
        * <code>uint64 sequence = 3;</code>
        * @param value The sequence to set.
        * @return This builder for chaining.
@@ -19801,6 +22853,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Commit sequence that last wrote the page.
+       * </pre>
+       *
        * <code>uint64 sequence = 3;</code>
        * @return This builder for chaining.
        */
@@ -19813,6 +22869,10 @@ public final class RevaultBindings {
 
       private long pageSize_ ;
       /**
+       * <pre>
+       * Total encoded page length.
+       * </pre>
+       *
        * <code>uint64 page_size = 4;</code>
        * @return The pageSize.
        */
@@ -19821,6 +22881,10 @@ public final class RevaultBindings {
         return pageSize_;
       }
       /**
+       * <pre>
+       * Total encoded page length.
+       * </pre>
+       *
        * <code>uint64 page_size = 4;</code>
        * @param value The pageSize to set.
        * @return This builder for chaining.
@@ -19833,6 +22897,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Total encoded page length.
+       * </pre>
+       *
        * <code>uint64 page_size = 4;</code>
        * @return This builder for chaining.
        */
@@ -19845,6 +22913,10 @@ public final class RevaultBindings {
 
       private long encryptedBodyLen_ ;
       /**
+       * <pre>
+       * Length of the authenticated encrypted body.
+       * </pre>
+       *
        * <code>uint64 encrypted_body_len = 5;</code>
        * @return The encryptedBodyLen.
        */
@@ -19853,6 +22925,10 @@ public final class RevaultBindings {
         return encryptedBodyLen_;
       }
       /**
+       * <pre>
+       * Length of the authenticated encrypted body.
+       * </pre>
+       *
        * <code>uint64 encrypted_body_len = 5;</code>
        * @param value The encryptedBodyLen to set.
        * @return This builder for chaining.
@@ -19865,6 +22941,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Length of the authenticated encrypted body.
+       * </pre>
+       *
        * <code>uint64 encrypted_body_len = 5;</code>
        * @return This builder for chaining.
        */
@@ -19877,6 +22957,10 @@ public final class RevaultBindings {
 
       private long unusedBytes_ ;
       /**
+       * <pre>
+       * Unused capacity remaining in the page.
+       * </pre>
+       *
        * <code>uint64 unused_bytes = 6;</code>
        * @return The unusedBytes.
        */
@@ -19885,6 +22969,10 @@ public final class RevaultBindings {
         return unusedBytes_;
       }
       /**
+       * <pre>
+       * Unused capacity remaining in the page.
+       * </pre>
+       *
        * <code>uint64 unused_bytes = 6;</code>
        * @param value The unusedBytes to set.
        * @return This builder for chaining.
@@ -19897,6 +22985,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Unused capacity remaining in the page.
+       * </pre>
+       *
        * <code>uint64 unused_bytes = 6;</code>
        * @return This builder for chaining.
        */
@@ -19909,6 +23001,10 @@ public final class RevaultBindings {
 
       private long objectCount_ ;
       /**
+       * <pre>
+       * Number of logical objects in the page.
+       * </pre>
+       *
        * <code>uint64 object_count = 7;</code>
        * @return The objectCount.
        */
@@ -19917,6 +23013,10 @@ public final class RevaultBindings {
         return objectCount_;
       }
       /**
+       * <pre>
+       * Number of logical objects in the page.
+       * </pre>
+       *
        * <code>uint64 object_count = 7;</code>
        * @param value The objectCount to set.
        * @return This builder for chaining.
@@ -19929,6 +23029,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Number of logical objects in the page.
+       * </pre>
+       *
        * <code>uint64 object_count = 7;</code>
        * @return This builder for chaining.
        */
@@ -19952,6 +23056,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.PageObject, revault.bindings.RevaultBindings.PageObject.Builder, revault.bindings.RevaultBindings.PageObjectOrBuilder> objectsBuilder_;
 
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.PageObject> getObjectsList() {
@@ -19962,6 +23070,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public int getObjectsCount() {
@@ -19972,6 +23084,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public revault.bindings.RevaultBindings.PageObject getObjects(int index) {
@@ -19982,6 +23098,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public Builder setObjects(
@@ -19999,6 +23119,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public Builder setObjects(
@@ -20013,6 +23137,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public Builder addObjects(revault.bindings.RevaultBindings.PageObject value) {
@@ -20029,6 +23157,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public Builder addObjects(
@@ -20046,6 +23178,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public Builder addObjects(
@@ -20060,6 +23196,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public Builder addObjects(
@@ -20074,6 +23214,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public Builder addAllObjects(
@@ -20089,6 +23233,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public Builder clearObjects() {
@@ -20102,6 +23250,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public Builder removeObjects(int index) {
@@ -20115,6 +23267,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public revault.bindings.RevaultBindings.PageObject.Builder getObjectsBuilder(
@@ -20122,6 +23278,10 @@ public final class RevaultBindings {
         return getObjectsFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public revault.bindings.RevaultBindings.PageObjectOrBuilder getObjectsOrBuilder(
@@ -20132,6 +23292,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.PageObjectOrBuilder>
@@ -20143,6 +23307,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public revault.bindings.RevaultBindings.PageObject.Builder addObjectsBuilder() {
@@ -20150,6 +23318,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.PageObject.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public revault.bindings.RevaultBindings.PageObject.Builder addObjectsBuilder(
@@ -20158,6 +23330,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.PageObject.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Objects discoverable without exposing plaintext payloads.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageObject objects = 8;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.PageObject.Builder>
@@ -20247,30 +23423,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.PageInspection>
         getValuesList();
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     revault.bindings.RevaultBindings.PageInspection getValues(int index);
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.PageInspectionOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     revault.bindings.RevaultBindings.PageInspectionOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of page diagnostics.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.PageInspectionList}
    */
   public static final class PageInspectionList extends
@@ -20315,6 +23515,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.PageInspection> values_;
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     @java.lang.Override
@@ -20322,6 +23526,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     @java.lang.Override
@@ -20330,6 +23538,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     @java.lang.Override
@@ -20337,6 +23549,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     @java.lang.Override
@@ -20344,6 +23560,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Pages in physical archive order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     @java.lang.Override
@@ -20510,6 +23730,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of page diagnostics.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.PageInspectionList}
      */
     public static final class Builder extends
@@ -20737,6 +23961,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.PageInspection, revault.bindings.RevaultBindings.PageInspection.Builder, revault.bindings.RevaultBindings.PageInspectionOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.PageInspection> getValuesList() {
@@ -20747,6 +23975,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public int getValuesCount() {
@@ -20757,6 +23989,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PageInspection getValues(int index) {
@@ -20767,6 +24003,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public Builder setValues(
@@ -20784,6 +24024,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public Builder setValues(
@@ -20798,6 +24042,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.PageInspection value) {
@@ -20814,6 +24062,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public Builder addValues(
@@ -20831,6 +24083,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public Builder addValues(
@@ -20845,6 +24101,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public Builder addValues(
@@ -20859,6 +24119,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public Builder addAllValues(
@@ -20874,6 +24138,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public Builder clearValues() {
@@ -20887,6 +24155,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -20900,6 +24172,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PageInspection.Builder getValuesBuilder(
@@ -20907,6 +24183,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PageInspectionOrBuilder getValuesOrBuilder(
@@ -20917,6 +24197,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.PageInspectionOrBuilder>
@@ -20928,6 +24212,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PageInspection.Builder addValuesBuilder() {
@@ -20935,6 +24223,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.PageInspection.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public revault.bindings.RevaultBindings.PageInspection.Builder addValuesBuilder(
@@ -20943,6 +24235,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.PageInspection.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Pages in physical archive order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.PageInspection values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.PageInspection.Builder>
@@ -21032,60 +24328,104 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Stable lockbox identifier.
+     * </pre>
+     *
      * <code>bytes lockbox_id = 1;</code>
      * @return The lockboxId.
      */
     com.google.protobuf.ByteString getLockboxId();
 
     /**
+     * <pre>
+     * Whether the file header passed structural validation.
+     * </pre>
+     *
      * <code>bool header_readable = 2;</code>
      * @return The headerReadable.
      */
     boolean getHeaderReadable();
 
     /**
+     * <pre>
+     * Latest readable key-directory generation.
+     * </pre>
+     *
      * <code>uint64 key_directory_generation = 3;</code>
      * @return The keyDirectoryGeneration.
      */
     long getKeyDirectoryGeneration();
 
     /**
+     * <pre>
+     * Number of valid redundant key-directory copies.
+     * </pre>
+     *
      * <code>uint64 key_directory_copy_count = 4;</code>
      * @return The keyDirectoryCopyCount.
      */
     long getKeyDirectoryCopyCount();
 
     /**
+     * <pre>
+     * Whether commits are authorized by an owner signing key.
+     * </pre>
+     *
      * <code>bool owner_signed = 5;</code>
      * @return The ownerSigned.
      */
     boolean getOwnerSigned();
 
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.KeySlot>
         getKeySlotsList();
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     revault.bindings.RevaultBindings.KeySlot getKeySlots(int index);
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     int getKeySlotsCount();
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.KeySlotOrBuilder>
         getKeySlotsOrBuilderList();
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     revault.bindings.RevaultBindings.KeySlotOrBuilder getKeySlotsOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * Metadata that can be inspected from a lockbox file without opening content.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.FileInspection}
    */
   public static final class FileInspection extends
@@ -21130,6 +24470,10 @@ public final class RevaultBindings {
     public static final int LOCKBOX_ID_FIELD_NUMBER = 1;
     private com.google.protobuf.ByteString lockboxId_ = com.google.protobuf.ByteString.EMPTY;
     /**
+     * <pre>
+     * Stable lockbox identifier.
+     * </pre>
+     *
      * <code>bytes lockbox_id = 1;</code>
      * @return The lockboxId.
      */
@@ -21141,6 +24485,10 @@ public final class RevaultBindings {
     public static final int HEADER_READABLE_FIELD_NUMBER = 2;
     private boolean headerReadable_ = false;
     /**
+     * <pre>
+     * Whether the file header passed structural validation.
+     * </pre>
+     *
      * <code>bool header_readable = 2;</code>
      * @return The headerReadable.
      */
@@ -21152,6 +24500,10 @@ public final class RevaultBindings {
     public static final int KEY_DIRECTORY_GENERATION_FIELD_NUMBER = 3;
     private long keyDirectoryGeneration_ = 0L;
     /**
+     * <pre>
+     * Latest readable key-directory generation.
+     * </pre>
+     *
      * <code>uint64 key_directory_generation = 3;</code>
      * @return The keyDirectoryGeneration.
      */
@@ -21163,6 +24515,10 @@ public final class RevaultBindings {
     public static final int KEY_DIRECTORY_COPY_COUNT_FIELD_NUMBER = 4;
     private long keyDirectoryCopyCount_ = 0L;
     /**
+     * <pre>
+     * Number of valid redundant key-directory copies.
+     * </pre>
+     *
      * <code>uint64 key_directory_copy_count = 4;</code>
      * @return The keyDirectoryCopyCount.
      */
@@ -21174,6 +24530,10 @@ public final class RevaultBindings {
     public static final int OWNER_SIGNED_FIELD_NUMBER = 5;
     private boolean ownerSigned_ = false;
     /**
+     * <pre>
+     * Whether commits are authorized by an owner signing key.
+     * </pre>
+     *
      * <code>bool owner_signed = 5;</code>
      * @return The ownerSigned.
      */
@@ -21186,6 +24546,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.KeySlot> keySlots_;
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     @java.lang.Override
@@ -21193,6 +24557,10 @@ public final class RevaultBindings {
       return keySlots_;
     }
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     @java.lang.Override
@@ -21201,6 +24569,10 @@ public final class RevaultBindings {
       return keySlots_;
     }
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     @java.lang.Override
@@ -21208,6 +24580,10 @@ public final class RevaultBindings {
       return keySlots_.size();
     }
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     @java.lang.Override
@@ -21215,6 +24591,10 @@ public final class RevaultBindings {
       return keySlots_.get(index);
     }
     /**
+     * <pre>
+     * Access slots visible in the key directory.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
      */
     @java.lang.Override
@@ -21440,6 +24820,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Metadata that can be inspected from a lockbox file without opening content.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.FileInspection}
      */
     public static final class Builder extends
@@ -21716,6 +25100,10 @@ public final class RevaultBindings {
 
       private com.google.protobuf.ByteString lockboxId_ = com.google.protobuf.ByteString.EMPTY;
       /**
+       * <pre>
+       * Stable lockbox identifier.
+       * </pre>
+       *
        * <code>bytes lockbox_id = 1;</code>
        * @return The lockboxId.
        */
@@ -21724,6 +25112,10 @@ public final class RevaultBindings {
         return lockboxId_;
       }
       /**
+       * <pre>
+       * Stable lockbox identifier.
+       * </pre>
+       *
        * <code>bytes lockbox_id = 1;</code>
        * @param value The lockboxId to set.
        * @return This builder for chaining.
@@ -21736,6 +25128,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable lockbox identifier.
+       * </pre>
+       *
        * <code>bytes lockbox_id = 1;</code>
        * @return This builder for chaining.
        */
@@ -21748,6 +25144,10 @@ public final class RevaultBindings {
 
       private boolean headerReadable_ ;
       /**
+       * <pre>
+       * Whether the file header passed structural validation.
+       * </pre>
+       *
        * <code>bool header_readable = 2;</code>
        * @return The headerReadable.
        */
@@ -21756,6 +25156,10 @@ public final class RevaultBindings {
         return headerReadable_;
       }
       /**
+       * <pre>
+       * Whether the file header passed structural validation.
+       * </pre>
+       *
        * <code>bool header_readable = 2;</code>
        * @param value The headerReadable to set.
        * @return This builder for chaining.
@@ -21768,6 +25172,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether the file header passed structural validation.
+       * </pre>
+       *
        * <code>bool header_readable = 2;</code>
        * @return This builder for chaining.
        */
@@ -21780,6 +25188,10 @@ public final class RevaultBindings {
 
       private long keyDirectoryGeneration_ ;
       /**
+       * <pre>
+       * Latest readable key-directory generation.
+       * </pre>
+       *
        * <code>uint64 key_directory_generation = 3;</code>
        * @return The keyDirectoryGeneration.
        */
@@ -21788,6 +25200,10 @@ public final class RevaultBindings {
         return keyDirectoryGeneration_;
       }
       /**
+       * <pre>
+       * Latest readable key-directory generation.
+       * </pre>
+       *
        * <code>uint64 key_directory_generation = 3;</code>
        * @param value The keyDirectoryGeneration to set.
        * @return This builder for chaining.
@@ -21800,6 +25216,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Latest readable key-directory generation.
+       * </pre>
+       *
        * <code>uint64 key_directory_generation = 3;</code>
        * @return This builder for chaining.
        */
@@ -21812,6 +25232,10 @@ public final class RevaultBindings {
 
       private long keyDirectoryCopyCount_ ;
       /**
+       * <pre>
+       * Number of valid redundant key-directory copies.
+       * </pre>
+       *
        * <code>uint64 key_directory_copy_count = 4;</code>
        * @return The keyDirectoryCopyCount.
        */
@@ -21820,6 +25244,10 @@ public final class RevaultBindings {
         return keyDirectoryCopyCount_;
       }
       /**
+       * <pre>
+       * Number of valid redundant key-directory copies.
+       * </pre>
+       *
        * <code>uint64 key_directory_copy_count = 4;</code>
        * @param value The keyDirectoryCopyCount to set.
        * @return This builder for chaining.
@@ -21832,6 +25260,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Number of valid redundant key-directory copies.
+       * </pre>
+       *
        * <code>uint64 key_directory_copy_count = 4;</code>
        * @return This builder for chaining.
        */
@@ -21844,6 +25276,10 @@ public final class RevaultBindings {
 
       private boolean ownerSigned_ ;
       /**
+       * <pre>
+       * Whether commits are authorized by an owner signing key.
+       * </pre>
+       *
        * <code>bool owner_signed = 5;</code>
        * @return The ownerSigned.
        */
@@ -21852,6 +25288,10 @@ public final class RevaultBindings {
         return ownerSigned_;
       }
       /**
+       * <pre>
+       * Whether commits are authorized by an owner signing key.
+       * </pre>
+       *
        * <code>bool owner_signed = 5;</code>
        * @param value The ownerSigned to set.
        * @return This builder for chaining.
@@ -21864,6 +25304,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether commits are authorized by an owner signing key.
+       * </pre>
+       *
        * <code>bool owner_signed = 5;</code>
        * @return This builder for chaining.
        */
@@ -21887,6 +25331,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.KeySlot, revault.bindings.RevaultBindings.KeySlot.Builder, revault.bindings.RevaultBindings.KeySlotOrBuilder> keySlotsBuilder_;
 
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.KeySlot> getKeySlotsList() {
@@ -21897,6 +25345,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public int getKeySlotsCount() {
@@ -21907,6 +25359,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public revault.bindings.RevaultBindings.KeySlot getKeySlots(int index) {
@@ -21917,6 +25373,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public Builder setKeySlots(
@@ -21934,6 +25394,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public Builder setKeySlots(
@@ -21948,6 +25412,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public Builder addKeySlots(revault.bindings.RevaultBindings.KeySlot value) {
@@ -21964,6 +25432,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public Builder addKeySlots(
@@ -21981,6 +25453,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public Builder addKeySlots(
@@ -21995,6 +25471,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public Builder addKeySlots(
@@ -22009,6 +25489,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public Builder addAllKeySlots(
@@ -22024,6 +25508,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public Builder clearKeySlots() {
@@ -22037,6 +25525,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public Builder removeKeySlots(int index) {
@@ -22050,6 +25542,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public revault.bindings.RevaultBindings.KeySlot.Builder getKeySlotsBuilder(
@@ -22057,6 +25553,10 @@ public final class RevaultBindings {
         return getKeySlotsFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public revault.bindings.RevaultBindings.KeySlotOrBuilder getKeySlotsOrBuilder(
@@ -22067,6 +25567,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.KeySlotOrBuilder>
@@ -22078,6 +25582,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public revault.bindings.RevaultBindings.KeySlot.Builder addKeySlotsBuilder() {
@@ -22085,6 +25593,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.KeySlot.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public revault.bindings.RevaultBindings.KeySlot.Builder addKeySlotsBuilder(
@@ -22093,6 +25605,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.KeySlot.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Access slots visible in the key directory.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KeySlot key_slots = 6;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.KeySlot.Builder>
@@ -22182,17 +25698,29 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Monotonically increasing generation number.
+     * </pre>
+     *
      * <code>uint32 index = 1;</code>
      * @return The index.
      */
     int getIndex();
 
     /**
+     * <pre>
+     * Lifecycle status: `active`, `retired`, or `compromised`.
+     * </pre>
+     *
      * <code>string status = 2;</code>
      * @return The status.
      */
     java.lang.String getStatus();
     /**
+     * <pre>
+     * Lifecycle status: `active`, `retired`, or `compromised`.
+     * </pre>
+     *
      * <code>string status = 2;</code>
      * @return The bytes for status.
      */
@@ -22200,30 +25728,50 @@ public final class RevaultBindings {
         getStatusBytes();
 
     /**
+     * <pre>
+     * Fingerprint of the generation's contact public key.
+     * </pre>
+     *
      * <code>bytes contact_fingerprint = 3;</code>
      * @return The contactFingerprint.
      */
     com.google.protobuf.ByteString getContactFingerprint();
 
     /**
+     * <pre>
+     * Creation time in Unix milliseconds.
+     * </pre>
+     *
      * <code>uint64 created_at_unix_ms = 4;</code>
      * @return The createdAtUnixMs.
      */
     long getCreatedAtUnixMs();
 
     /**
+     * <pre>
+     * Retirement time in Unix milliseconds when present.
+     * </pre>
+     *
      * <code>uint64 retired_at_unix_ms = 5;</code>
      * @return The retiredAtUnixMs.
      */
     long getRetiredAtUnixMs();
 
     /**
+     * <pre>
+     * Whether `retired_at_unix_ms` is present.
+     * </pre>
+     *
      * <code>bool has_retired_at = 6;</code>
      * @return The hasRetiredAt.
      */
     boolean getHasRetiredAt();
   }
   /**
+   * <pre>
+   * One historical generation of a vault profile's contact keys.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.ProfileGeneration}
    */
   public static final class ProfileGeneration extends
@@ -22268,6 +25816,10 @@ public final class RevaultBindings {
     public static final int INDEX_FIELD_NUMBER = 1;
     private int index_ = 0;
     /**
+     * <pre>
+     * Monotonically increasing generation number.
+     * </pre>
+     *
      * <code>uint32 index = 1;</code>
      * @return The index.
      */
@@ -22280,6 +25832,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object status_ = "";
     /**
+     * <pre>
+     * Lifecycle status: `active`, `retired`, or `compromised`.
+     * </pre>
+     *
      * <code>string status = 2;</code>
      * @return The status.
      */
@@ -22297,6 +25853,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Lifecycle status: `active`, `retired`, or `compromised`.
+     * </pre>
+     *
      * <code>string status = 2;</code>
      * @return The bytes for status.
      */
@@ -22318,6 +25878,10 @@ public final class RevaultBindings {
     public static final int CONTACT_FINGERPRINT_FIELD_NUMBER = 3;
     private com.google.protobuf.ByteString contactFingerprint_ = com.google.protobuf.ByteString.EMPTY;
     /**
+     * <pre>
+     * Fingerprint of the generation's contact public key.
+     * </pre>
+     *
      * <code>bytes contact_fingerprint = 3;</code>
      * @return The contactFingerprint.
      */
@@ -22329,6 +25893,10 @@ public final class RevaultBindings {
     public static final int CREATED_AT_UNIX_MS_FIELD_NUMBER = 4;
     private long createdAtUnixMs_ = 0L;
     /**
+     * <pre>
+     * Creation time in Unix milliseconds.
+     * </pre>
+     *
      * <code>uint64 created_at_unix_ms = 4;</code>
      * @return The createdAtUnixMs.
      */
@@ -22340,6 +25908,10 @@ public final class RevaultBindings {
     public static final int RETIRED_AT_UNIX_MS_FIELD_NUMBER = 5;
     private long retiredAtUnixMs_ = 0L;
     /**
+     * <pre>
+     * Retirement time in Unix milliseconds when present.
+     * </pre>
+     *
      * <code>uint64 retired_at_unix_ms = 5;</code>
      * @return The retiredAtUnixMs.
      */
@@ -22351,6 +25923,10 @@ public final class RevaultBindings {
     public static final int HAS_RETIRED_AT_FIELD_NUMBER = 6;
     private boolean hasRetiredAt_ = false;
     /**
+     * <pre>
+     * Whether `retired_at_unix_ms` is present.
+     * </pre>
+     *
      * <code>bool has_retired_at = 6;</code>
      * @return The hasRetiredAt.
      */
@@ -22572,6 +26148,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * One historical generation of a vault profile's contact keys.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.ProfileGeneration}
      */
     public static final class Builder extends
@@ -22803,6 +26383,10 @@ public final class RevaultBindings {
 
       private int index_ ;
       /**
+       * <pre>
+       * Monotonically increasing generation number.
+       * </pre>
+       *
        * <code>uint32 index = 1;</code>
        * @return The index.
        */
@@ -22811,6 +26395,10 @@ public final class RevaultBindings {
         return index_;
       }
       /**
+       * <pre>
+       * Monotonically increasing generation number.
+       * </pre>
+       *
        * <code>uint32 index = 1;</code>
        * @param value The index to set.
        * @return This builder for chaining.
@@ -22823,6 +26411,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Monotonically increasing generation number.
+       * </pre>
+       *
        * <code>uint32 index = 1;</code>
        * @return This builder for chaining.
        */
@@ -22835,6 +26427,10 @@ public final class RevaultBindings {
 
       private java.lang.Object status_ = "";
       /**
+       * <pre>
+       * Lifecycle status: `active`, `retired`, or `compromised`.
+       * </pre>
+       *
        * <code>string status = 2;</code>
        * @return The status.
        */
@@ -22851,6 +26447,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Lifecycle status: `active`, `retired`, or `compromised`.
+       * </pre>
+       *
        * <code>string status = 2;</code>
        * @return The bytes for status.
        */
@@ -22868,6 +26468,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Lifecycle status: `active`, `retired`, or `compromised`.
+       * </pre>
+       *
        * <code>string status = 2;</code>
        * @param value The status to set.
        * @return This builder for chaining.
@@ -22881,6 +26485,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Lifecycle status: `active`, `retired`, or `compromised`.
+       * </pre>
+       *
        * <code>string status = 2;</code>
        * @return This builder for chaining.
        */
@@ -22891,6 +26499,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Lifecycle status: `active`, `retired`, or `compromised`.
+       * </pre>
+       *
        * <code>string status = 2;</code>
        * @param value The bytes for status to set.
        * @return This builder for chaining.
@@ -22907,6 +26519,10 @@ public final class RevaultBindings {
 
       private com.google.protobuf.ByteString contactFingerprint_ = com.google.protobuf.ByteString.EMPTY;
       /**
+       * <pre>
+       * Fingerprint of the generation's contact public key.
+       * </pre>
+       *
        * <code>bytes contact_fingerprint = 3;</code>
        * @return The contactFingerprint.
        */
@@ -22915,6 +26531,10 @@ public final class RevaultBindings {
         return contactFingerprint_;
       }
       /**
+       * <pre>
+       * Fingerprint of the generation's contact public key.
+       * </pre>
+       *
        * <code>bytes contact_fingerprint = 3;</code>
        * @param value The contactFingerprint to set.
        * @return This builder for chaining.
@@ -22927,6 +26547,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Fingerprint of the generation's contact public key.
+       * </pre>
+       *
        * <code>bytes contact_fingerprint = 3;</code>
        * @return This builder for chaining.
        */
@@ -22939,6 +26563,10 @@ public final class RevaultBindings {
 
       private long createdAtUnixMs_ ;
       /**
+       * <pre>
+       * Creation time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 created_at_unix_ms = 4;</code>
        * @return The createdAtUnixMs.
        */
@@ -22947,6 +26575,10 @@ public final class RevaultBindings {
         return createdAtUnixMs_;
       }
       /**
+       * <pre>
+       * Creation time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 created_at_unix_ms = 4;</code>
        * @param value The createdAtUnixMs to set.
        * @return This builder for chaining.
@@ -22959,6 +26591,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Creation time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 created_at_unix_ms = 4;</code>
        * @return This builder for chaining.
        */
@@ -22971,6 +26607,10 @@ public final class RevaultBindings {
 
       private long retiredAtUnixMs_ ;
       /**
+       * <pre>
+       * Retirement time in Unix milliseconds when present.
+       * </pre>
+       *
        * <code>uint64 retired_at_unix_ms = 5;</code>
        * @return The retiredAtUnixMs.
        */
@@ -22979,6 +26619,10 @@ public final class RevaultBindings {
         return retiredAtUnixMs_;
       }
       /**
+       * <pre>
+       * Retirement time in Unix milliseconds when present.
+       * </pre>
+       *
        * <code>uint64 retired_at_unix_ms = 5;</code>
        * @param value The retiredAtUnixMs to set.
        * @return This builder for chaining.
@@ -22991,6 +26635,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Retirement time in Unix milliseconds when present.
+       * </pre>
+       *
        * <code>uint64 retired_at_unix_ms = 5;</code>
        * @return This builder for chaining.
        */
@@ -23003,6 +26651,10 @@ public final class RevaultBindings {
 
       private boolean hasRetiredAt_ ;
       /**
+       * <pre>
+       * Whether `retired_at_unix_ms` is present.
+       * </pre>
+       *
        * <code>bool has_retired_at = 6;</code>
        * @return The hasRetiredAt.
        */
@@ -23011,6 +26663,10 @@ public final class RevaultBindings {
         return hasRetiredAt_;
       }
       /**
+       * <pre>
+       * Whether `retired_at_unix_ms` is present.
+       * </pre>
+       *
        * <code>bool has_retired_at = 6;</code>
        * @param value The hasRetiredAt to set.
        * @return This builder for chaining.
@@ -23023,6 +26679,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether `retired_at_unix_ms` is present.
+       * </pre>
+       *
        * <code>bool has_retired_at = 6;</code>
        * @return This builder for chaining.
        */
@@ -23101,11 +26761,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Profile name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The name.
      */
     java.lang.String getName();
     /**
+     * <pre>
+     * Profile name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The bytes for name.
      */
@@ -23113,36 +26781,64 @@ public final class RevaultBindings {
         getNameBytes();
 
     /**
+     * <pre>
+     * Index of the active generation.
+     * </pre>
+     *
      * <code>uint32 active_generation = 2;</code>
      * @return The activeGeneration.
      */
     int getActiveGeneration();
 
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.ProfileGeneration>
         getGenerationsList();
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     revault.bindings.RevaultBindings.ProfileGeneration getGenerations(int index);
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     int getGenerationsCount();
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.ProfileGenerationOrBuilder>
         getGenerationsOrBuilderList();
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     revault.bindings.RevaultBindings.ProfileGenerationOrBuilder getGenerationsOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * Versioned key-generation history for one named profile.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.ProfileHistory}
    */
   public static final class ProfileHistory extends
@@ -23188,6 +26884,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
     /**
+     * <pre>
+     * Profile name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The name.
      */
@@ -23205,6 +26905,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Profile name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The bytes for name.
      */
@@ -23226,6 +26930,10 @@ public final class RevaultBindings {
     public static final int ACTIVE_GENERATION_FIELD_NUMBER = 2;
     private int activeGeneration_ = 0;
     /**
+     * <pre>
+     * Index of the active generation.
+     * </pre>
+     *
      * <code>uint32 active_generation = 2;</code>
      * @return The activeGeneration.
      */
@@ -23238,6 +26946,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.ProfileGeneration> generations_;
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     @java.lang.Override
@@ -23245,6 +26957,10 @@ public final class RevaultBindings {
       return generations_;
     }
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     @java.lang.Override
@@ -23253,6 +26969,10 @@ public final class RevaultBindings {
       return generations_;
     }
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     @java.lang.Override
@@ -23260,6 +26980,10 @@ public final class RevaultBindings {
       return generations_.size();
     }
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     @java.lang.Override
@@ -23267,6 +26991,10 @@ public final class RevaultBindings {
       return generations_.get(index);
     }
     /**
+     * <pre>
+     * All active, retired, and compromised generations.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
      */
     @java.lang.Override
@@ -23454,6 +27182,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Versioned key-generation history for one named profile.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.ProfileHistory}
      */
     public static final class Builder extends
@@ -23696,6 +27428,10 @@ public final class RevaultBindings {
 
       private java.lang.Object name_ = "";
       /**
+       * <pre>
+       * Profile name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @return The name.
        */
@@ -23712,6 +27448,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Profile name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @return The bytes for name.
        */
@@ -23729,6 +27469,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Profile name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @param value The name to set.
        * @return This builder for chaining.
@@ -23742,6 +27486,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @return This builder for chaining.
        */
@@ -23752,6 +27500,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
@@ -23768,6 +27520,10 @@ public final class RevaultBindings {
 
       private int activeGeneration_ ;
       /**
+       * <pre>
+       * Index of the active generation.
+       * </pre>
+       *
        * <code>uint32 active_generation = 2;</code>
        * @return The activeGeneration.
        */
@@ -23776,6 +27532,10 @@ public final class RevaultBindings {
         return activeGeneration_;
       }
       /**
+       * <pre>
+       * Index of the active generation.
+       * </pre>
+       *
        * <code>uint32 active_generation = 2;</code>
        * @param value The activeGeneration to set.
        * @return This builder for chaining.
@@ -23788,6 +27548,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Index of the active generation.
+       * </pre>
+       *
        * <code>uint32 active_generation = 2;</code>
        * @return This builder for chaining.
        */
@@ -23811,6 +27575,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.ProfileGeneration, revault.bindings.RevaultBindings.ProfileGeneration.Builder, revault.bindings.RevaultBindings.ProfileGenerationOrBuilder> generationsBuilder_;
 
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.ProfileGeneration> getGenerationsList() {
@@ -23821,6 +27589,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public int getGenerationsCount() {
@@ -23831,6 +27603,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public revault.bindings.RevaultBindings.ProfileGeneration getGenerations(int index) {
@@ -23841,6 +27617,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public Builder setGenerations(
@@ -23858,6 +27638,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public Builder setGenerations(
@@ -23872,6 +27656,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public Builder addGenerations(revault.bindings.RevaultBindings.ProfileGeneration value) {
@@ -23888,6 +27676,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public Builder addGenerations(
@@ -23905,6 +27697,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public Builder addGenerations(
@@ -23919,6 +27715,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public Builder addGenerations(
@@ -23933,6 +27733,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public Builder addAllGenerations(
@@ -23948,6 +27752,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public Builder clearGenerations() {
@@ -23961,6 +27769,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public Builder removeGenerations(int index) {
@@ -23974,6 +27786,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public revault.bindings.RevaultBindings.ProfileGeneration.Builder getGenerationsBuilder(
@@ -23981,6 +27797,10 @@ public final class RevaultBindings {
         return getGenerationsFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public revault.bindings.RevaultBindings.ProfileGenerationOrBuilder getGenerationsOrBuilder(
@@ -23991,6 +27811,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.ProfileGenerationOrBuilder>
@@ -24002,6 +27826,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public revault.bindings.RevaultBindings.ProfileGeneration.Builder addGenerationsBuilder() {
@@ -24009,6 +27837,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.ProfileGeneration.getDefaultInstance());
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public revault.bindings.RevaultBindings.ProfileGeneration.Builder addGenerationsBuilder(
@@ -24017,6 +27849,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.ProfileGeneration.getDefaultInstance());
       }
       /**
+       * <pre>
+       * All active, retired, and compromised generations.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileGeneration generations = 3;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.ProfileGeneration.Builder>
@@ -24106,17 +27942,29 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Stable identifier embedded in the lockbox.
+     * </pre>
+     *
      * <code>bytes lockbox_id = 1;</code>
      * @return The lockboxId.
      */
     com.google.protobuf.ByteString getLockboxId();
 
     /**
+     * <pre>
+     * Filesystem path at which the lockbox was last seen.
+     * </pre>
+     *
      * <code>string path = 2;</code>
      * @return The path.
      */
     java.lang.String getPath();
     /**
+     * <pre>
+     * Filesystem path at which the lockbox was last seen.
+     * </pre>
+     *
      * <code>string path = 2;</code>
      * @return The bytes for path.
      */
@@ -24124,12 +27972,20 @@ public final class RevaultBindings {
         getPathBytes();
 
     /**
+     * <pre>
+     * Last observation time in Unix milliseconds.
+     * </pre>
+     *
      * <code>uint64 last_seen_unix_ms = 3;</code>
      * @return The lastSeenUnixMs.
      */
     long getLastSeenUnixMs();
   }
   /**
+   * <pre>
+   * Local metadata for a remembered lockbox path.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.KnownLockbox}
    */
   public static final class KnownLockbox extends
@@ -24174,6 +28030,10 @@ public final class RevaultBindings {
     public static final int LOCKBOX_ID_FIELD_NUMBER = 1;
     private com.google.protobuf.ByteString lockboxId_ = com.google.protobuf.ByteString.EMPTY;
     /**
+     * <pre>
+     * Stable identifier embedded in the lockbox.
+     * </pre>
+     *
      * <code>bytes lockbox_id = 1;</code>
      * @return The lockboxId.
      */
@@ -24186,6 +28046,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object path_ = "";
     /**
+     * <pre>
+     * Filesystem path at which the lockbox was last seen.
+     * </pre>
+     *
      * <code>string path = 2;</code>
      * @return The path.
      */
@@ -24203,6 +28067,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Filesystem path at which the lockbox was last seen.
+     * </pre>
+     *
      * <code>string path = 2;</code>
      * @return The bytes for path.
      */
@@ -24224,6 +28092,10 @@ public final class RevaultBindings {
     public static final int LAST_SEEN_UNIX_MS_FIELD_NUMBER = 3;
     private long lastSeenUnixMs_ = 0L;
     /**
+     * <pre>
+     * Last observation time in Unix milliseconds.
+     * </pre>
+     *
      * <code>uint64 last_seen_unix_ms = 3;</code>
      * @return The lastSeenUnixMs.
      */
@@ -24410,6 +28282,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Local metadata for a remembered lockbox path.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.KnownLockbox}
      */
     public static final class Builder extends
@@ -24605,6 +28481,10 @@ public final class RevaultBindings {
 
       private com.google.protobuf.ByteString lockboxId_ = com.google.protobuf.ByteString.EMPTY;
       /**
+       * <pre>
+       * Stable identifier embedded in the lockbox.
+       * </pre>
+       *
        * <code>bytes lockbox_id = 1;</code>
        * @return The lockboxId.
        */
@@ -24613,6 +28493,10 @@ public final class RevaultBindings {
         return lockboxId_;
       }
       /**
+       * <pre>
+       * Stable identifier embedded in the lockbox.
+       * </pre>
+       *
        * <code>bytes lockbox_id = 1;</code>
        * @param value The lockboxId to set.
        * @return This builder for chaining.
@@ -24625,6 +28509,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable identifier embedded in the lockbox.
+       * </pre>
+       *
        * <code>bytes lockbox_id = 1;</code>
        * @return This builder for chaining.
        */
@@ -24637,6 +28525,10 @@ public final class RevaultBindings {
 
       private java.lang.Object path_ = "";
       /**
+       * <pre>
+       * Filesystem path at which the lockbox was last seen.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @return The path.
        */
@@ -24653,6 +28545,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Filesystem path at which the lockbox was last seen.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @return The bytes for path.
        */
@@ -24670,6 +28566,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Filesystem path at which the lockbox was last seen.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @param value The path to set.
        * @return This builder for chaining.
@@ -24683,6 +28583,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Filesystem path at which the lockbox was last seen.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @return This builder for chaining.
        */
@@ -24693,6 +28597,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Filesystem path at which the lockbox was last seen.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @param value The bytes for path to set.
        * @return This builder for chaining.
@@ -24709,6 +28617,10 @@ public final class RevaultBindings {
 
       private long lastSeenUnixMs_ ;
       /**
+       * <pre>
+       * Last observation time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 last_seen_unix_ms = 3;</code>
        * @return The lastSeenUnixMs.
        */
@@ -24717,6 +28629,10 @@ public final class RevaultBindings {
         return lastSeenUnixMs_;
       }
       /**
+       * <pre>
+       * Last observation time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 last_seen_unix_ms = 3;</code>
        * @param value The lastSeenUnixMs to set.
        * @return This builder for chaining.
@@ -24729,6 +28645,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Last observation time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 last_seen_unix_ms = 3;</code>
        * @return This builder for chaining.
        */
@@ -24807,30 +28727,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.KnownLockbox>
         getValuesList();
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     revault.bindings.RevaultBindings.KnownLockbox getValues(int index);
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.KnownLockboxOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     revault.bindings.RevaultBindings.KnownLockboxOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of remembered lockboxes.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.KnownLockboxList}
    */
   public static final class KnownLockboxList extends
@@ -24875,6 +28819,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.KnownLockbox> values_;
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     @java.lang.Override
@@ -24882,6 +28830,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     @java.lang.Override
@@ -24890,6 +28842,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     @java.lang.Override
@@ -24897,6 +28853,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     @java.lang.Override
@@ -24904,6 +28864,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Remembered lockbox records.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
      */
     @java.lang.Override
@@ -25070,6 +29034,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of remembered lockboxes.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.KnownLockboxList}
      */
     public static final class Builder extends
@@ -25297,6 +29265,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.KnownLockbox, revault.bindings.RevaultBindings.KnownLockbox.Builder, revault.bindings.RevaultBindings.KnownLockboxOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.KnownLockbox> getValuesList() {
@@ -25307,6 +29279,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public int getValuesCount() {
@@ -25317,6 +29293,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KnownLockbox getValues(int index) {
@@ -25327,6 +29307,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public Builder setValues(
@@ -25344,6 +29328,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public Builder setValues(
@@ -25358,6 +29346,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.KnownLockbox value) {
@@ -25374,6 +29366,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public Builder addValues(
@@ -25391,6 +29387,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public Builder addValues(
@@ -25405,6 +29405,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public Builder addValues(
@@ -25419,6 +29423,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public Builder addAllValues(
@@ -25434,6 +29442,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public Builder clearValues() {
@@ -25447,6 +29459,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -25460,6 +29476,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KnownLockbox.Builder getValuesBuilder(
@@ -25467,6 +29487,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KnownLockboxOrBuilder getValuesOrBuilder(
@@ -25477,6 +29501,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.KnownLockboxOrBuilder>
@@ -25488,6 +29516,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KnownLockbox.Builder addValuesBuilder() {
@@ -25495,6 +29527,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.KnownLockbox.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public revault.bindings.RevaultBindings.KnownLockbox.Builder addValuesBuilder(
@@ -25503,6 +29539,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.KnownLockbox.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Remembered lockbox records.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.KnownLockbox values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.KnownLockbox.Builder>
@@ -25592,23 +29632,39 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Lockbox containing the access slot.
+     * </pre>
+     *
      * <code>bytes lockbox_id = 1;</code>
      * @return The lockboxId.
      */
     com.google.protobuf.ByteString getLockboxId();
 
     /**
+     * <pre>
+     * Stable slot identifier within that lockbox.
+     * </pre>
+     *
      * <code>uint64 slot_id = 2;</code>
      * @return The slotId.
      */
     long getSlotId();
 
     /**
+     * <pre>
+     * User-assigned local label.
+     * </pre>
+     *
      * <code>string name = 3;</code>
      * @return The name.
      */
     java.lang.String getName();
     /**
+     * <pre>
+     * User-assigned local label.
+     * </pre>
+     *
      * <code>string name = 3;</code>
      * @return The bytes for name.
      */
@@ -25616,12 +29672,20 @@ public final class RevaultBindings {
         getNameBytes();
 
     /**
+     * <pre>
+     * Last update time in Unix milliseconds.
+     * </pre>
+     *
      * <code>uint64 updated_at_unix_ms = 4;</code>
      * @return The updatedAtUnixMs.
      */
     long getUpdatedAtUnixMs();
   }
   /**
+   * <pre>
+   * A local-only label for one lockbox access slot.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.AccessSlotLabel}
    */
   public static final class AccessSlotLabel extends
@@ -25666,6 +29730,10 @@ public final class RevaultBindings {
     public static final int LOCKBOX_ID_FIELD_NUMBER = 1;
     private com.google.protobuf.ByteString lockboxId_ = com.google.protobuf.ByteString.EMPTY;
     /**
+     * <pre>
+     * Lockbox containing the access slot.
+     * </pre>
+     *
      * <code>bytes lockbox_id = 1;</code>
      * @return The lockboxId.
      */
@@ -25677,6 +29745,10 @@ public final class RevaultBindings {
     public static final int SLOT_ID_FIELD_NUMBER = 2;
     private long slotId_ = 0L;
     /**
+     * <pre>
+     * Stable slot identifier within that lockbox.
+     * </pre>
+     *
      * <code>uint64 slot_id = 2;</code>
      * @return The slotId.
      */
@@ -25689,6 +29761,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
     /**
+     * <pre>
+     * User-assigned local label.
+     * </pre>
+     *
      * <code>string name = 3;</code>
      * @return The name.
      */
@@ -25706,6 +29782,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * User-assigned local label.
+     * </pre>
+     *
      * <code>string name = 3;</code>
      * @return The bytes for name.
      */
@@ -25727,6 +29807,10 @@ public final class RevaultBindings {
     public static final int UPDATED_AT_UNIX_MS_FIELD_NUMBER = 4;
     private long updatedAtUnixMs_ = 0L;
     /**
+     * <pre>
+     * Last update time in Unix milliseconds.
+     * </pre>
+     *
      * <code>uint64 updated_at_unix_ms = 4;</code>
      * @return The updatedAtUnixMs.
      */
@@ -25925,6 +30009,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A local-only label for one lockbox access slot.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.AccessSlotLabel}
      */
     public static final class Builder extends
@@ -26132,6 +30220,10 @@ public final class RevaultBindings {
 
       private com.google.protobuf.ByteString lockboxId_ = com.google.protobuf.ByteString.EMPTY;
       /**
+       * <pre>
+       * Lockbox containing the access slot.
+       * </pre>
+       *
        * <code>bytes lockbox_id = 1;</code>
        * @return The lockboxId.
        */
@@ -26140,6 +30232,10 @@ public final class RevaultBindings {
         return lockboxId_;
       }
       /**
+       * <pre>
+       * Lockbox containing the access slot.
+       * </pre>
+       *
        * <code>bytes lockbox_id = 1;</code>
        * @param value The lockboxId to set.
        * @return This builder for chaining.
@@ -26152,6 +30248,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Lockbox containing the access slot.
+       * </pre>
+       *
        * <code>bytes lockbox_id = 1;</code>
        * @return This builder for chaining.
        */
@@ -26164,6 +30264,10 @@ public final class RevaultBindings {
 
       private long slotId_ ;
       /**
+       * <pre>
+       * Stable slot identifier within that lockbox.
+       * </pre>
+       *
        * <code>uint64 slot_id = 2;</code>
        * @return The slotId.
        */
@@ -26172,6 +30276,10 @@ public final class RevaultBindings {
         return slotId_;
       }
       /**
+       * <pre>
+       * Stable slot identifier within that lockbox.
+       * </pre>
+       *
        * <code>uint64 slot_id = 2;</code>
        * @param value The slotId to set.
        * @return This builder for chaining.
@@ -26184,6 +30292,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable slot identifier within that lockbox.
+       * </pre>
+       *
        * <code>uint64 slot_id = 2;</code>
        * @return This builder for chaining.
        */
@@ -26196,6 +30308,10 @@ public final class RevaultBindings {
 
       private java.lang.Object name_ = "";
       /**
+       * <pre>
+       * User-assigned local label.
+       * </pre>
+       *
        * <code>string name = 3;</code>
        * @return The name.
        */
@@ -26212,6 +30328,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * User-assigned local label.
+       * </pre>
+       *
        * <code>string name = 3;</code>
        * @return The bytes for name.
        */
@@ -26229,6 +30349,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * User-assigned local label.
+       * </pre>
+       *
        * <code>string name = 3;</code>
        * @param value The name to set.
        * @return This builder for chaining.
@@ -26242,6 +30366,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * User-assigned local label.
+       * </pre>
+       *
        * <code>string name = 3;</code>
        * @return This builder for chaining.
        */
@@ -26252,6 +30380,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * User-assigned local label.
+       * </pre>
+       *
        * <code>string name = 3;</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
@@ -26268,6 +30400,10 @@ public final class RevaultBindings {
 
       private long updatedAtUnixMs_ ;
       /**
+       * <pre>
+       * Last update time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 updated_at_unix_ms = 4;</code>
        * @return The updatedAtUnixMs.
        */
@@ -26276,6 +30412,10 @@ public final class RevaultBindings {
         return updatedAtUnixMs_;
       }
       /**
+       * <pre>
+       * Last update time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 updated_at_unix_ms = 4;</code>
        * @param value The updatedAtUnixMs to set.
        * @return This builder for chaining.
@@ -26288,6 +30428,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Last update time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 updated_at_unix_ms = 4;</code>
        * @return This builder for chaining.
        */
@@ -26366,30 +30510,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.AccessSlotLabel>
         getValuesList();
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     revault.bindings.RevaultBindings.AccessSlotLabel getValues(int index);
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.AccessSlotLabelOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     revault.bindings.RevaultBindings.AccessSlotLabelOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of local access-slot labels.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.AccessSlotLabelList}
    */
   public static final class AccessSlotLabelList extends
@@ -26434,6 +30602,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.AccessSlotLabel> values_;
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     @java.lang.Override
@@ -26441,6 +30613,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     @java.lang.Override
@@ -26449,6 +30625,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     @java.lang.Override
@@ -26456,6 +30636,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     @java.lang.Override
@@ -26463,6 +30647,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Matching access-slot labels.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     @java.lang.Override
@@ -26629,6 +30817,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of local access-slot labels.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.AccessSlotLabelList}
      */
     public static final class Builder extends
@@ -26856,6 +31048,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.AccessSlotLabel, revault.bindings.RevaultBindings.AccessSlotLabel.Builder, revault.bindings.RevaultBindings.AccessSlotLabelOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.AccessSlotLabel> getValuesList() {
@@ -26866,6 +31062,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public int getValuesCount() {
@@ -26876,6 +31076,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AccessSlotLabel getValues(int index) {
@@ -26886,6 +31090,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public Builder setValues(
@@ -26903,6 +31111,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public Builder setValues(
@@ -26917,6 +31129,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.AccessSlotLabel value) {
@@ -26933,6 +31149,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public Builder addValues(
@@ -26950,6 +31170,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public Builder addValues(
@@ -26964,6 +31188,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public Builder addValues(
@@ -26978,6 +31206,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public Builder addAllValues(
@@ -26993,6 +31225,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public Builder clearValues() {
@@ -27006,6 +31242,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -27019,6 +31259,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AccessSlotLabel.Builder getValuesBuilder(
@@ -27026,6 +31270,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AccessSlotLabelOrBuilder getValuesOrBuilder(
@@ -27036,6 +31284,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.AccessSlotLabelOrBuilder>
@@ -27047,6 +31299,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AccessSlotLabel.Builder addValuesBuilder() {
@@ -27054,6 +31310,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.AccessSlotLabel.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AccessSlotLabel.Builder addValuesBuilder(
@@ -27062,6 +31322,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.AccessSlotLabel.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Matching access-slot labels.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.AccessSlotLabel.Builder>
@@ -27151,11 +31415,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Lockbox path of the streamed file.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The path.
      */
     java.lang.String getPath();
     /**
+     * <pre>
+     * Lockbox path of the streamed file.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The bytes for path.
      */
@@ -27163,36 +31435,60 @@ public final class RevaultBindings {
         getPathBytes();
 
     /**
+     * <pre>
+     * Logical offset within the reconstructed file.
+     * </pre>
+     *
      * <code>uint64 file_offset = 2;</code>
      * @return The fileOffset.
      */
     long getFileOffset();
 
     /**
+     * <pre>
+     * Logical chunk length in bytes.
+     * </pre>
+     *
      * <code>uint64 length = 3;</code>
      * @return The length.
      */
     long getLength();
 
     /**
+     * <pre>
+     * Physical archive offset, when physical ordering was requested.
+     * </pre>
+     *
      * <code>uint64 physical_offset = 4;</code>
      * @return The physicalOffset.
      */
     long getPhysicalOffset();
 
     /**
+     * <pre>
+     * Whether the chunk represents a sparse zero-filled range.
+     * </pre>
+     *
      * <code>bool sparse = 5;</code>
      * @return The sparse.
      */
     boolean getSparse();
 
     /**
+     * <pre>
+     * Decrypted bytes; empty for sparse ranges.
+     * </pre>
+     *
      * <code>bytes data = 6;</code>
      * @return The data.
      */
     com.google.protobuf.ByteString getData();
   }
   /**
+   * <pre>
+   * One logical or physical chunk in a streamed lockbox file.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.StreamChunk}
    */
   public static final class StreamChunk extends
@@ -27238,6 +31534,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object path_ = "";
     /**
+     * <pre>
+     * Lockbox path of the streamed file.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The path.
      */
@@ -27255,6 +31555,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Lockbox path of the streamed file.
+     * </pre>
+     *
      * <code>string path = 1;</code>
      * @return The bytes for path.
      */
@@ -27276,6 +31580,10 @@ public final class RevaultBindings {
     public static final int FILE_OFFSET_FIELD_NUMBER = 2;
     private long fileOffset_ = 0L;
     /**
+     * <pre>
+     * Logical offset within the reconstructed file.
+     * </pre>
+     *
      * <code>uint64 file_offset = 2;</code>
      * @return The fileOffset.
      */
@@ -27287,6 +31595,10 @@ public final class RevaultBindings {
     public static final int LENGTH_FIELD_NUMBER = 3;
     private long length_ = 0L;
     /**
+     * <pre>
+     * Logical chunk length in bytes.
+     * </pre>
+     *
      * <code>uint64 length = 3;</code>
      * @return The length.
      */
@@ -27298,6 +31610,10 @@ public final class RevaultBindings {
     public static final int PHYSICAL_OFFSET_FIELD_NUMBER = 4;
     private long physicalOffset_ = 0L;
     /**
+     * <pre>
+     * Physical archive offset, when physical ordering was requested.
+     * </pre>
+     *
      * <code>uint64 physical_offset = 4;</code>
      * @return The physicalOffset.
      */
@@ -27309,6 +31625,10 @@ public final class RevaultBindings {
     public static final int SPARSE_FIELD_NUMBER = 5;
     private boolean sparse_ = false;
     /**
+     * <pre>
+     * Whether the chunk represents a sparse zero-filled range.
+     * </pre>
+     *
      * <code>bool sparse = 5;</code>
      * @return The sparse.
      */
@@ -27320,6 +31640,10 @@ public final class RevaultBindings {
     public static final int DATA_FIELD_NUMBER = 6;
     private com.google.protobuf.ByteString data_ = com.google.protobuf.ByteString.EMPTY;
     /**
+     * <pre>
+     * Decrypted bytes; empty for sparse ranges.
+     * </pre>
+     *
      * <code>bytes data = 6;</code>
      * @return The data.
      */
@@ -27542,6 +31866,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * One logical or physical chunk in a streamed lockbox file.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.StreamChunk}
      */
     public static final class Builder extends
@@ -27773,6 +32101,10 @@ public final class RevaultBindings {
 
       private java.lang.Object path_ = "";
       /**
+       * <pre>
+       * Lockbox path of the streamed file.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @return The path.
        */
@@ -27789,6 +32121,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Lockbox path of the streamed file.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @return The bytes for path.
        */
@@ -27806,6 +32142,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Lockbox path of the streamed file.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @param value The path to set.
        * @return This builder for chaining.
@@ -27819,6 +32159,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Lockbox path of the streamed file.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @return This builder for chaining.
        */
@@ -27829,6 +32173,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Lockbox path of the streamed file.
+       * </pre>
+       *
        * <code>string path = 1;</code>
        * @param value The bytes for path to set.
        * @return This builder for chaining.
@@ -27845,6 +32193,10 @@ public final class RevaultBindings {
 
       private long fileOffset_ ;
       /**
+       * <pre>
+       * Logical offset within the reconstructed file.
+       * </pre>
+       *
        * <code>uint64 file_offset = 2;</code>
        * @return The fileOffset.
        */
@@ -27853,6 +32205,10 @@ public final class RevaultBindings {
         return fileOffset_;
       }
       /**
+       * <pre>
+       * Logical offset within the reconstructed file.
+       * </pre>
+       *
        * <code>uint64 file_offset = 2;</code>
        * @param value The fileOffset to set.
        * @return This builder for chaining.
@@ -27865,6 +32221,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Logical offset within the reconstructed file.
+       * </pre>
+       *
        * <code>uint64 file_offset = 2;</code>
        * @return This builder for chaining.
        */
@@ -27877,6 +32237,10 @@ public final class RevaultBindings {
 
       private long length_ ;
       /**
+       * <pre>
+       * Logical chunk length in bytes.
+       * </pre>
+       *
        * <code>uint64 length = 3;</code>
        * @return The length.
        */
@@ -27885,6 +32249,10 @@ public final class RevaultBindings {
         return length_;
       }
       /**
+       * <pre>
+       * Logical chunk length in bytes.
+       * </pre>
+       *
        * <code>uint64 length = 3;</code>
        * @param value The length to set.
        * @return This builder for chaining.
@@ -27897,6 +32265,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Logical chunk length in bytes.
+       * </pre>
+       *
        * <code>uint64 length = 3;</code>
        * @return This builder for chaining.
        */
@@ -27909,6 +32281,10 @@ public final class RevaultBindings {
 
       private long physicalOffset_ ;
       /**
+       * <pre>
+       * Physical archive offset, when physical ordering was requested.
+       * </pre>
+       *
        * <code>uint64 physical_offset = 4;</code>
        * @return The physicalOffset.
        */
@@ -27917,6 +32293,10 @@ public final class RevaultBindings {
         return physicalOffset_;
       }
       /**
+       * <pre>
+       * Physical archive offset, when physical ordering was requested.
+       * </pre>
+       *
        * <code>uint64 physical_offset = 4;</code>
        * @param value The physicalOffset to set.
        * @return This builder for chaining.
@@ -27929,6 +32309,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Physical archive offset, when physical ordering was requested.
+       * </pre>
+       *
        * <code>uint64 physical_offset = 4;</code>
        * @return This builder for chaining.
        */
@@ -27941,6 +32325,10 @@ public final class RevaultBindings {
 
       private boolean sparse_ ;
       /**
+       * <pre>
+       * Whether the chunk represents a sparse zero-filled range.
+       * </pre>
+       *
        * <code>bool sparse = 5;</code>
        * @return The sparse.
        */
@@ -27949,6 +32337,10 @@ public final class RevaultBindings {
         return sparse_;
       }
       /**
+       * <pre>
+       * Whether the chunk represents a sparse zero-filled range.
+       * </pre>
+       *
        * <code>bool sparse = 5;</code>
        * @param value The sparse to set.
        * @return This builder for chaining.
@@ -27961,6 +32353,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether the chunk represents a sparse zero-filled range.
+       * </pre>
+       *
        * <code>bool sparse = 5;</code>
        * @return This builder for chaining.
        */
@@ -27973,6 +32369,10 @@ public final class RevaultBindings {
 
       private com.google.protobuf.ByteString data_ = com.google.protobuf.ByteString.EMPTY;
       /**
+       * <pre>
+       * Decrypted bytes; empty for sparse ranges.
+       * </pre>
+       *
        * <code>bytes data = 6;</code>
        * @return The data.
        */
@@ -27981,6 +32381,10 @@ public final class RevaultBindings {
         return data_;
       }
       /**
+       * <pre>
+       * Decrypted bytes; empty for sparse ranges.
+       * </pre>
+       *
        * <code>bytes data = 6;</code>
        * @param value The data to set.
        * @return This builder for chaining.
@@ -27993,6 +32397,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Decrypted bytes; empty for sparse ranges.
+       * </pre>
+       *
        * <code>bytes data = 6;</code>
        * @return This builder for chaining.
        */
@@ -28071,30 +32479,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.StreamChunk>
         getValuesList();
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     revault.bindings.RevaultBindings.StreamChunk getValues(int index);
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.StreamChunkOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     revault.bindings.RevaultBindings.StreamChunkOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of streamed content chunks.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.StreamChunkList}
    */
   public static final class StreamChunkList extends
@@ -28139,6 +32571,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.StreamChunk> values_;
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     @java.lang.Override
@@ -28146,6 +32582,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     @java.lang.Override
@@ -28154,6 +32594,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     @java.lang.Override
@@ -28161,6 +32605,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     @java.lang.Override
@@ -28168,6 +32616,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Chunks in logical or physical order as requested.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
      */
     @java.lang.Override
@@ -28334,6 +32786,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of streamed content chunks.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.StreamChunkList}
      */
     public static final class Builder extends
@@ -28561,6 +33017,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.StreamChunk, revault.bindings.RevaultBindings.StreamChunk.Builder, revault.bindings.RevaultBindings.StreamChunkOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.StreamChunk> getValuesList() {
@@ -28571,6 +33031,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public int getValuesCount() {
@@ -28581,6 +33045,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public revault.bindings.RevaultBindings.StreamChunk getValues(int index) {
@@ -28591,6 +33059,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public Builder setValues(
@@ -28608,6 +33080,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public Builder setValues(
@@ -28622,6 +33098,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.StreamChunk value) {
@@ -28638,6 +33118,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public Builder addValues(
@@ -28655,6 +33139,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public Builder addValues(
@@ -28669,6 +33157,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public Builder addValues(
@@ -28683,6 +33175,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public Builder addAllValues(
@@ -28698,6 +33194,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public Builder clearValues() {
@@ -28711,6 +33211,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -28724,6 +33228,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public revault.bindings.RevaultBindings.StreamChunk.Builder getValuesBuilder(
@@ -28731,6 +33239,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public revault.bindings.RevaultBindings.StreamChunkOrBuilder getValuesOrBuilder(
@@ -28741,6 +33253,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.StreamChunkOrBuilder>
@@ -28752,6 +33268,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public revault.bindings.RevaultBindings.StreamChunk.Builder addValuesBuilder() {
@@ -28759,6 +33279,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.StreamChunk.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public revault.bindings.RevaultBindings.StreamChunk.Builder addValuesBuilder(
@@ -28767,6 +33291,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.StreamChunk.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Chunks in logical or physical order as requested.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.StreamChunk values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.StreamChunk.Builder>
@@ -28856,11 +33384,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Selected workload profile.
+     * </pre>
+     *
      * <code>string workload_profile = 1;</code>
      * @return The workloadProfile.
      */
     java.lang.String getWorkloadProfile();
     /**
+     * <pre>
+     * Selected workload profile.
+     * </pre>
+     *
      * <code>string workload_profile = 1;</code>
      * @return The bytes for workloadProfile.
      */
@@ -28868,11 +33404,19 @@ public final class RevaultBindings {
         getWorkloadProfileBytes();
 
     /**
+     * <pre>
+     * Selected worker policy and concurrency.
+     * </pre>
+     *
      * <code>string worker_policy = 2;</code>
      * @return The workerPolicy.
      */
     java.lang.String getWorkerPolicy();
     /**
+     * <pre>
+     * Selected worker policy and concurrency.
+     * </pre>
+     *
      * <code>string worker_policy = 2;</code>
      * @return The bytes for workerPolicy.
      */
@@ -28880,6 +33424,10 @@ public final class RevaultBindings {
         getWorkerPolicyBytes();
   }
   /**
+   * <pre>
+   * Effective runtime tuning for one open lockbox.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.RuntimeOptions}
    */
   public static final class RuntimeOptions extends
@@ -28925,6 +33473,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object workloadProfile_ = "";
     /**
+     * <pre>
+     * Selected workload profile.
+     * </pre>
+     *
      * <code>string workload_profile = 1;</code>
      * @return The workloadProfile.
      */
@@ -28942,6 +33494,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Selected workload profile.
+     * </pre>
+     *
      * <code>string workload_profile = 1;</code>
      * @return The bytes for workloadProfile.
      */
@@ -28964,6 +33520,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object workerPolicy_ = "";
     /**
+     * <pre>
+     * Selected worker policy and concurrency.
+     * </pre>
+     *
      * <code>string worker_policy = 2;</code>
      * @return The workerPolicy.
      */
@@ -28981,6 +33541,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Selected worker policy and concurrency.
+     * </pre>
+     *
      * <code>string worker_policy = 2;</code>
      * @return The bytes for workerPolicy.
      */
@@ -29164,6 +33728,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Effective runtime tuning for one open lockbox.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.RuntimeOptions}
      */
     public static final class Builder extends
@@ -29349,6 +33917,10 @@ public final class RevaultBindings {
 
       private java.lang.Object workloadProfile_ = "";
       /**
+       * <pre>
+       * Selected workload profile.
+       * </pre>
+       *
        * <code>string workload_profile = 1;</code>
        * @return The workloadProfile.
        */
@@ -29365,6 +33937,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Selected workload profile.
+       * </pre>
+       *
        * <code>string workload_profile = 1;</code>
        * @return The bytes for workloadProfile.
        */
@@ -29382,6 +33958,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Selected workload profile.
+       * </pre>
+       *
        * <code>string workload_profile = 1;</code>
        * @param value The workloadProfile to set.
        * @return This builder for chaining.
@@ -29395,6 +33975,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Selected workload profile.
+       * </pre>
+       *
        * <code>string workload_profile = 1;</code>
        * @return This builder for chaining.
        */
@@ -29405,6 +33989,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Selected workload profile.
+       * </pre>
+       *
        * <code>string workload_profile = 1;</code>
        * @param value The bytes for workloadProfile to set.
        * @return This builder for chaining.
@@ -29421,6 +34009,10 @@ public final class RevaultBindings {
 
       private java.lang.Object workerPolicy_ = "";
       /**
+       * <pre>
+       * Selected worker policy and concurrency.
+       * </pre>
+       *
        * <code>string worker_policy = 2;</code>
        * @return The workerPolicy.
        */
@@ -29437,6 +34029,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Selected worker policy and concurrency.
+       * </pre>
+       *
        * <code>string worker_policy = 2;</code>
        * @return The bytes for workerPolicy.
        */
@@ -29454,6 +34050,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Selected worker policy and concurrency.
+       * </pre>
+       *
        * <code>string worker_policy = 2;</code>
        * @param value The workerPolicy to set.
        * @return This builder for chaining.
@@ -29467,6 +34067,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Selected worker policy and concurrency.
+       * </pre>
+       *
        * <code>string worker_policy = 2;</code>
        * @return This builder for chaining.
        */
@@ -29477,6 +34081,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Selected worker policy and concurrency.
+       * </pre>
+       *
        * <code>string worker_policy = 2;</code>
        * @param value The bytes for workerPolicy to set.
        * @return This builder for chaining.
@@ -29559,11 +34167,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Variable name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The name.
      */
     java.lang.String getName();
     /**
+     * <pre>
+     * Variable name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The bytes for name.
      */
@@ -29571,11 +34187,19 @@ public final class RevaultBindings {
         getNameBytes();
 
     /**
+     * <pre>
+     * `normal` or `secret`.
+     * </pre>
+     *
      * <code>string sensitivity = 2;</code>
      * @return The sensitivity.
      */
     java.lang.String getSensitivity();
     /**
+     * <pre>
+     * `normal` or `secret`.
+     * </pre>
+     *
      * <code>string sensitivity = 2;</code>
      * @return The bytes for sensitivity.
      */
@@ -29583,6 +34207,10 @@ public final class RevaultBindings {
         getSensitivityBytes();
   }
   /**
+   * <pre>
+   * Name and sensitivity metadata for one variable; no secret value is included.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.Variable}
    */
   public static final class Variable extends
@@ -29628,6 +34256,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
     /**
+     * <pre>
+     * Variable name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The name.
      */
@@ -29645,6 +34277,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Variable name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The bytes for name.
      */
@@ -29667,6 +34303,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object sensitivity_ = "";
     /**
+     * <pre>
+     * `normal` or `secret`.
+     * </pre>
+     *
      * <code>string sensitivity = 2;</code>
      * @return The sensitivity.
      */
@@ -29684,6 +34324,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * `normal` or `secret`.
+     * </pre>
+     *
      * <code>string sensitivity = 2;</code>
      * @return The bytes for sensitivity.
      */
@@ -29867,6 +34511,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Name and sensitivity metadata for one variable; no secret value is included.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.Variable}
      */
     public static final class Builder extends
@@ -30052,6 +34700,10 @@ public final class RevaultBindings {
 
       private java.lang.Object name_ = "";
       /**
+       * <pre>
+       * Variable name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @return The name.
        */
@@ -30068,6 +34720,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Variable name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @return The bytes for name.
        */
@@ -30085,6 +34741,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Variable name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @param value The name to set.
        * @return This builder for chaining.
@@ -30098,6 +34758,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variable name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @return This builder for chaining.
        */
@@ -30108,6 +34772,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variable name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
@@ -30124,6 +34792,10 @@ public final class RevaultBindings {
 
       private java.lang.Object sensitivity_ = "";
       /**
+       * <pre>
+       * `normal` or `secret`.
+       * </pre>
+       *
        * <code>string sensitivity = 2;</code>
        * @return The sensitivity.
        */
@@ -30140,6 +34812,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * `normal` or `secret`.
+       * </pre>
+       *
        * <code>string sensitivity = 2;</code>
        * @return The bytes for sensitivity.
        */
@@ -30157,6 +34833,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * `normal` or `secret`.
+       * </pre>
+       *
        * <code>string sensitivity = 2;</code>
        * @param value The sensitivity to set.
        * @return This builder for chaining.
@@ -30170,6 +34850,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * `normal` or `secret`.
+       * </pre>
+       *
        * <code>string sensitivity = 2;</code>
        * @return This builder for chaining.
        */
@@ -30180,6 +34864,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * `normal` or `secret`.
+       * </pre>
+       *
        * <code>string sensitivity = 2;</code>
        * @param value The bytes for sensitivity to set.
        * @return This builder for chaining.
@@ -30262,30 +34950,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.Variable>
         getValuesList();
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     revault.bindings.RevaultBindings.Variable getValues(int index);
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.VariableOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     revault.bindings.RevaultBindings.VariableOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of variable metadata.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.VariableList}
    */
   public static final class VariableList extends
@@ -30330,6 +35042,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.Variable> values_;
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     @java.lang.Override
@@ -30337,6 +35053,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     @java.lang.Override
@@ -30345,6 +35065,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     @java.lang.Override
@@ -30352,6 +35076,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     @java.lang.Override
@@ -30359,6 +35087,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Variables in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Variable values = 1;</code>
      */
     @java.lang.Override
@@ -30525,6 +35257,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of variable metadata.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.VariableList}
      */
     public static final class Builder extends
@@ -30752,6 +35488,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.Variable, revault.bindings.RevaultBindings.Variable.Builder, revault.bindings.RevaultBindings.VariableOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.Variable> getValuesList() {
@@ -30762,6 +35502,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public int getValuesCount() {
@@ -30772,6 +35516,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public revault.bindings.RevaultBindings.Variable getValues(int index) {
@@ -30782,6 +35530,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public Builder setValues(
@@ -30799,6 +35551,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public Builder setValues(
@@ -30813,6 +35569,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.Variable value) {
@@ -30829,6 +35589,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public Builder addValues(
@@ -30846,6 +35610,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public Builder addValues(
@@ -30860,6 +35628,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public Builder addValues(
@@ -30874,6 +35646,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public Builder addAllValues(
@@ -30889,6 +35665,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public Builder clearValues() {
@@ -30902,6 +35682,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -30915,6 +35699,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public revault.bindings.RevaultBindings.Variable.Builder getValuesBuilder(
@@ -30922,6 +35710,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public revault.bindings.RevaultBindings.VariableOrBuilder getValuesOrBuilder(
@@ -30932,6 +35724,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.VariableOrBuilder>
@@ -30943,6 +35739,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public revault.bindings.RevaultBindings.Variable.Builder addValuesBuilder() {
@@ -30950,6 +35750,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.Variable.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public revault.bindings.RevaultBindings.Variable.Builder addValuesBuilder(
@@ -30958,6 +35762,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.Variable.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Variables in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Variable values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.Variable.Builder>
@@ -31047,17 +35855,29 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Whether a value is present.
+     * </pre>
+     *
      * <code>bool present = 1;</code>
      * @return The present.
      */
     boolean getPresent();
 
     /**
+     * <pre>
+     * Present UTF-8 value, which may itself be empty.
+     * </pre>
+     *
      * <code>string value = 2;</code>
      * @return The value.
      */
     java.lang.String getValue();
     /**
+     * <pre>
+     * Present UTF-8 value, which may itself be empty.
+     * </pre>
+     *
      * <code>string value = 2;</code>
      * @return The bytes for value.
      */
@@ -31065,6 +35885,10 @@ public final class RevaultBindings {
         getValueBytes();
   }
   /**
+   * <pre>
+   * Optional string that distinguishes absence from an empty value.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.OptionalString}
    */
   public static final class OptionalString extends
@@ -31108,6 +35932,10 @@ public final class RevaultBindings {
     public static final int PRESENT_FIELD_NUMBER = 1;
     private boolean present_ = false;
     /**
+     * <pre>
+     * Whether a value is present.
+     * </pre>
+     *
      * <code>bool present = 1;</code>
      * @return The present.
      */
@@ -31120,6 +35948,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object value_ = "";
     /**
+     * <pre>
+     * Present UTF-8 value, which may itself be empty.
+     * </pre>
+     *
      * <code>string value = 2;</code>
      * @return The value.
      */
@@ -31137,6 +35969,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Present UTF-8 value, which may itself be empty.
+     * </pre>
+     *
      * <code>string value = 2;</code>
      * @return The bytes for value.
      */
@@ -31322,6 +36158,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Optional string that distinguishes absence from an empty value.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.OptionalString}
      */
     public static final class Builder extends
@@ -31505,6 +36345,10 @@ public final class RevaultBindings {
 
       private boolean present_ ;
       /**
+       * <pre>
+       * Whether a value is present.
+       * </pre>
+       *
        * <code>bool present = 1;</code>
        * @return The present.
        */
@@ -31513,6 +36357,10 @@ public final class RevaultBindings {
         return present_;
       }
       /**
+       * <pre>
+       * Whether a value is present.
+       * </pre>
+       *
        * <code>bool present = 1;</code>
        * @param value The present to set.
        * @return This builder for chaining.
@@ -31525,6 +36373,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether a value is present.
+       * </pre>
+       *
        * <code>bool present = 1;</code>
        * @return This builder for chaining.
        */
@@ -31537,6 +36389,10 @@ public final class RevaultBindings {
 
       private java.lang.Object value_ = "";
       /**
+       * <pre>
+       * Present UTF-8 value, which may itself be empty.
+       * </pre>
+       *
        * <code>string value = 2;</code>
        * @return The value.
        */
@@ -31553,6 +36409,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Present UTF-8 value, which may itself be empty.
+       * </pre>
+       *
        * <code>string value = 2;</code>
        * @return The bytes for value.
        */
@@ -31570,6 +36430,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Present UTF-8 value, which may itself be empty.
+       * </pre>
+       *
        * <code>string value = 2;</code>
        * @param value The value to set.
        * @return This builder for chaining.
@@ -31583,6 +36447,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present UTF-8 value, which may itself be empty.
+       * </pre>
+       *
        * <code>string value = 2;</code>
        * @return This builder for chaining.
        */
@@ -31593,6 +36461,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Present UTF-8 value, which may itself be empty.
+       * </pre>
+       *
        * <code>string value = 2;</code>
        * @param value The bytes for value to set.
        * @return This builder for chaining.
@@ -31675,17 +36547,29 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Whether the lockbox has owner-signed commits.
+     * </pre>
+     *
      * <code>bool signed = 1;</code>
      * @return The signed.
      */
     boolean getSigned();
 
     /**
+     * <pre>
+     * Human-readable owner signing-key fingerprint.
+     * </pre>
+     *
      * <code>string fingerprint = 2;</code>
      * @return The fingerprint.
      */
     java.lang.String getFingerprint();
     /**
+     * <pre>
+     * Human-readable owner signing-key fingerprint.
+     * </pre>
+     *
      * <code>string fingerprint = 2;</code>
      * @return The bytes for fingerprint.
      */
@@ -31693,12 +36577,20 @@ public final class RevaultBindings {
         getFingerprintBytes();
 
     /**
+     * <pre>
+     * Whether `fingerprint` is present.
+     * </pre>
+     *
      * <code>bool has_fingerprint = 3;</code>
      * @return The hasFingerprint.
      */
     boolean getHasFingerprint();
   }
   /**
+   * <pre>
+   * Owner-signature status for an open lockbox.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.OwnerInspection}
    */
   public static final class OwnerInspection extends
@@ -31742,6 +36634,10 @@ public final class RevaultBindings {
     public static final int SIGNED_FIELD_NUMBER = 1;
     private boolean signed_ = false;
     /**
+     * <pre>
+     * Whether the lockbox has owner-signed commits.
+     * </pre>
+     *
      * <code>bool signed = 1;</code>
      * @return The signed.
      */
@@ -31754,6 +36650,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object fingerprint_ = "";
     /**
+     * <pre>
+     * Human-readable owner signing-key fingerprint.
+     * </pre>
+     *
      * <code>string fingerprint = 2;</code>
      * @return The fingerprint.
      */
@@ -31771,6 +36671,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Human-readable owner signing-key fingerprint.
+     * </pre>
+     *
      * <code>string fingerprint = 2;</code>
      * @return The bytes for fingerprint.
      */
@@ -31792,6 +36696,10 @@ public final class RevaultBindings {
     public static final int HAS_FINGERPRINT_FIELD_NUMBER = 3;
     private boolean hasFingerprint_ = false;
     /**
+     * <pre>
+     * Whether `fingerprint` is present.
+     * </pre>
+     *
      * <code>bool has_fingerprint = 3;</code>
      * @return The hasFingerprint.
      */
@@ -31979,6 +36887,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Owner-signature status for an open lockbox.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.OwnerInspection}
      */
     public static final class Builder extends
@@ -32174,6 +37086,10 @@ public final class RevaultBindings {
 
       private boolean signed_ ;
       /**
+       * <pre>
+       * Whether the lockbox has owner-signed commits.
+       * </pre>
+       *
        * <code>bool signed = 1;</code>
        * @return The signed.
        */
@@ -32182,6 +37098,10 @@ public final class RevaultBindings {
         return signed_;
       }
       /**
+       * <pre>
+       * Whether the lockbox has owner-signed commits.
+       * </pre>
+       *
        * <code>bool signed = 1;</code>
        * @param value The signed to set.
        * @return This builder for chaining.
@@ -32194,6 +37114,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether the lockbox has owner-signed commits.
+       * </pre>
+       *
        * <code>bool signed = 1;</code>
        * @return This builder for chaining.
        */
@@ -32206,6 +37130,10 @@ public final class RevaultBindings {
 
       private java.lang.Object fingerprint_ = "";
       /**
+       * <pre>
+       * Human-readable owner signing-key fingerprint.
+       * </pre>
+       *
        * <code>string fingerprint = 2;</code>
        * @return The fingerprint.
        */
@@ -32222,6 +37150,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Human-readable owner signing-key fingerprint.
+       * </pre>
+       *
        * <code>string fingerprint = 2;</code>
        * @return The bytes for fingerprint.
        */
@@ -32239,6 +37171,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Human-readable owner signing-key fingerprint.
+       * </pre>
+       *
        * <code>string fingerprint = 2;</code>
        * @param value The fingerprint to set.
        * @return This builder for chaining.
@@ -32252,6 +37188,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Human-readable owner signing-key fingerprint.
+       * </pre>
+       *
        * <code>string fingerprint = 2;</code>
        * @return This builder for chaining.
        */
@@ -32262,6 +37202,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Human-readable owner signing-key fingerprint.
+       * </pre>
+       *
        * <code>string fingerprint = 2;</code>
        * @param value The bytes for fingerprint to set.
        * @return This builder for chaining.
@@ -32278,6 +37222,10 @@ public final class RevaultBindings {
 
       private boolean hasFingerprint_ ;
       /**
+       * <pre>
+       * Whether `fingerprint` is present.
+       * </pre>
+       *
        * <code>bool has_fingerprint = 3;</code>
        * @return The hasFingerprint.
        */
@@ -32286,6 +37234,10 @@ public final class RevaultBindings {
         return hasFingerprint_;
       }
       /**
+       * <pre>
+       * Whether `fingerprint` is present.
+       * </pre>
+       *
        * <code>bool has_fingerprint = 3;</code>
        * @param value The hasFingerprint to set.
        * @return This builder for chaining.
@@ -32298,6 +37250,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether `fingerprint` is present.
+       * </pre>
+       *
        * <code>bool has_fingerprint = 3;</code>
        * @return This builder for chaining.
        */
@@ -32376,11 +37332,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * User-assigned contact name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The name.
      */
     java.lang.String getName();
     /**
+     * <pre>
+     * User-assigned contact name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The bytes for name.
      */
@@ -32388,12 +37352,20 @@ public final class RevaultBindings {
         getNameBytes();
 
     /**
+     * <pre>
+     * Encoded contact public key.
+     * </pre>
+     *
      * <code>bytes key = 2;</code>
      * @return The key.
      */
     com.google.protobuf.ByteString getKey();
   }
   /**
+   * <pre>
+   * Named contact public key stored in the local vault.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.Contact}
    */
   public static final class Contact extends
@@ -32439,6 +37411,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object name_ = "";
     /**
+     * <pre>
+     * User-assigned contact name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The name.
      */
@@ -32456,6 +37432,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * User-assigned contact name.
+     * </pre>
+     *
      * <code>string name = 1;</code>
      * @return The bytes for name.
      */
@@ -32477,6 +37457,10 @@ public final class RevaultBindings {
     public static final int KEY_FIELD_NUMBER = 2;
     private com.google.protobuf.ByteString key_ = com.google.protobuf.ByteString.EMPTY;
     /**
+     * <pre>
+     * Encoded contact public key.
+     * </pre>
+     *
      * <code>bytes key = 2;</code>
      * @return The key.
      */
@@ -32651,6 +37635,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Named contact public key stored in the local vault.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.Contact}
      */
     public static final class Builder extends
@@ -32834,6 +37822,10 @@ public final class RevaultBindings {
 
       private java.lang.Object name_ = "";
       /**
+       * <pre>
+       * User-assigned contact name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @return The name.
        */
@@ -32850,6 +37842,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * User-assigned contact name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @return The bytes for name.
        */
@@ -32867,6 +37863,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * User-assigned contact name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @param value The name to set.
        * @return This builder for chaining.
@@ -32880,6 +37880,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * User-assigned contact name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @return This builder for chaining.
        */
@@ -32890,6 +37894,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * User-assigned contact name.
+       * </pre>
+       *
        * <code>string name = 1;</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
@@ -32906,6 +37914,10 @@ public final class RevaultBindings {
 
       private com.google.protobuf.ByteString key_ = com.google.protobuf.ByteString.EMPTY;
       /**
+       * <pre>
+       * Encoded contact public key.
+       * </pre>
+       *
        * <code>bytes key = 2;</code>
        * @return The key.
        */
@@ -32914,6 +37926,10 @@ public final class RevaultBindings {
         return key_;
       }
       /**
+       * <pre>
+       * Encoded contact public key.
+       * </pre>
+       *
        * <code>bytes key = 2;</code>
        * @param value The key to set.
        * @return This builder for chaining.
@@ -32926,6 +37942,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Encoded contact public key.
+       * </pre>
+       *
        * <code>bytes key = 2;</code>
        * @return This builder for chaining.
        */
@@ -33004,30 +38024,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.Contact>
         getValuesList();
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     revault.bindings.RevaultBindings.Contact getValues(int index);
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.ContactOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     revault.bindings.RevaultBindings.ContactOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of contacts.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.ContactList}
    */
   public static final class ContactList extends
@@ -33072,6 +38116,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.Contact> values_;
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     @java.lang.Override
@@ -33079,6 +38127,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     @java.lang.Override
@@ -33087,6 +38139,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     @java.lang.Override
@@ -33094,6 +38150,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     @java.lang.Override
@@ -33101,6 +38161,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Contacts in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     @java.lang.Override
@@ -33267,6 +38331,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of contacts.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.ContactList}
      */
     public static final class Builder extends
@@ -33494,6 +38562,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.Contact, revault.bindings.RevaultBindings.Contact.Builder, revault.bindings.RevaultBindings.ContactOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.Contact> getValuesList() {
@@ -33504,6 +38576,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public int getValuesCount() {
@@ -33514,6 +38590,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public revault.bindings.RevaultBindings.Contact getValues(int index) {
@@ -33524,6 +38604,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public Builder setValues(
@@ -33541,6 +38625,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public Builder setValues(
@@ -33555,6 +38643,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.Contact value) {
@@ -33571,6 +38663,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public Builder addValues(
@@ -33588,6 +38684,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public Builder addValues(
@@ -33602,6 +38702,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public Builder addValues(
@@ -33616,6 +38720,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public Builder addAllValues(
@@ -33631,6 +38739,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public Builder clearValues() {
@@ -33644,6 +38756,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -33657,6 +38773,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public revault.bindings.RevaultBindings.Contact.Builder getValuesBuilder(
@@ -33664,6 +38784,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public revault.bindings.RevaultBindings.ContactOrBuilder getValuesOrBuilder(
@@ -33674,6 +38798,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.ContactOrBuilder>
@@ -33685,6 +38813,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public revault.bindings.RevaultBindings.Contact.Builder addValuesBuilder() {
@@ -33692,6 +38824,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.Contact.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public revault.bindings.RevaultBindings.Contact.Builder addValuesBuilder(
@@ -33700,6 +38836,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.Contact.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Contacts in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.Contact values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.Contact.Builder>
@@ -33789,30 +38929,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.ProfileHistory>
         getValuesList();
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     revault.bindings.RevaultBindings.ProfileHistory getValues(int index);
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.ProfileHistoryOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     revault.bindings.RevaultBindings.ProfileHistoryOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of profile histories.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.ProfileHistoryList}
    */
   public static final class ProfileHistoryList extends
@@ -33857,6 +39021,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.ProfileHistory> values_;
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     @java.lang.Override
@@ -33864,6 +39032,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     @java.lang.Override
@@ -33872,6 +39044,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     @java.lang.Override
@@ -33879,6 +39055,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     @java.lang.Override
@@ -33886,6 +39066,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Profile histories in normalized name order.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
      */
     @java.lang.Override
@@ -34052,6 +39236,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of profile histories.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.ProfileHistoryList}
      */
     public static final class Builder extends
@@ -34279,6 +39467,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.ProfileHistory, revault.bindings.RevaultBindings.ProfileHistory.Builder, revault.bindings.RevaultBindings.ProfileHistoryOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.ProfileHistory> getValuesList() {
@@ -34289,6 +39481,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public int getValuesCount() {
@@ -34299,6 +39495,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public revault.bindings.RevaultBindings.ProfileHistory getValues(int index) {
@@ -34309,6 +39509,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public Builder setValues(
@@ -34326,6 +39530,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public Builder setValues(
@@ -34340,6 +39548,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.ProfileHistory value) {
@@ -34356,6 +39568,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public Builder addValues(
@@ -34373,6 +39589,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public Builder addValues(
@@ -34387,6 +39607,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public Builder addValues(
@@ -34401,6 +39625,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public Builder addAllValues(
@@ -34416,6 +39644,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public Builder clearValues() {
@@ -34429,6 +39661,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -34442,6 +39678,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public revault.bindings.RevaultBindings.ProfileHistory.Builder getValuesBuilder(
@@ -34449,6 +39689,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public revault.bindings.RevaultBindings.ProfileHistoryOrBuilder getValuesOrBuilder(
@@ -34459,6 +39703,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.ProfileHistoryOrBuilder>
@@ -34470,6 +39718,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public revault.bindings.RevaultBindings.ProfileHistory.Builder addValuesBuilder() {
@@ -34477,6 +39729,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.ProfileHistory.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public revault.bindings.RevaultBindings.ProfileHistory.Builder addValuesBuilder(
@@ -34485,6 +39741,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.ProfileHistory.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Profile histories in normalized name order.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.ProfileHistory values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.ProfileHistory.Builder>
@@ -34574,11 +39834,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Cache key or lockbox identifier.
+     * </pre>
+     *
      * <code>string id = 1;</code>
      * @return The id.
      */
     java.lang.String getId();
     /**
+     * <pre>
+     * Cache key or lockbox identifier.
+     * </pre>
+     *
      * <code>string id = 1;</code>
      * @return The bytes for id.
      */
@@ -34586,11 +39854,19 @@ public final class RevaultBindings {
         getIdBytes();
 
     /**
+     * <pre>
+     * Associated lockbox path when supplied by the client.
+     * </pre>
+     *
      * <code>string path = 2;</code>
      * @return The path.
      */
     java.lang.String getPath();
     /**
+     * <pre>
+     * Associated lockbox path when supplied by the client.
+     * </pre>
+     *
      * <code>string path = 2;</code>
      * @return The bytes for path.
      */
@@ -34598,6 +39874,10 @@ public final class RevaultBindings {
         getPathBytes();
   }
   /**
+   * <pre>
+   * Metadata for one secret cached by the session agent.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.AgentEntry}
    */
   public static final class AgentEntry extends
@@ -34643,6 +39923,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object id_ = "";
     /**
+     * <pre>
+     * Cache key or lockbox identifier.
+     * </pre>
+     *
      * <code>string id = 1;</code>
      * @return The id.
      */
@@ -34660,6 +39944,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Cache key or lockbox identifier.
+     * </pre>
+     *
      * <code>string id = 1;</code>
      * @return The bytes for id.
      */
@@ -34682,6 +39970,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object path_ = "";
     /**
+     * <pre>
+     * Associated lockbox path when supplied by the client.
+     * </pre>
+     *
      * <code>string path = 2;</code>
      * @return The path.
      */
@@ -34699,6 +39991,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Associated lockbox path when supplied by the client.
+     * </pre>
+     *
      * <code>string path = 2;</code>
      * @return The bytes for path.
      */
@@ -34882,6 +40178,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Metadata for one secret cached by the session agent.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.AgentEntry}
      */
     public static final class Builder extends
@@ -35067,6 +40367,10 @@ public final class RevaultBindings {
 
       private java.lang.Object id_ = "";
       /**
+       * <pre>
+       * Cache key or lockbox identifier.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @return The id.
        */
@@ -35083,6 +40387,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Cache key or lockbox identifier.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @return The bytes for id.
        */
@@ -35100,6 +40408,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Cache key or lockbox identifier.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @param value The id to set.
        * @return This builder for chaining.
@@ -35113,6 +40425,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Cache key or lockbox identifier.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @return This builder for chaining.
        */
@@ -35123,6 +40439,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Cache key or lockbox identifier.
+       * </pre>
+       *
        * <code>string id = 1;</code>
        * @param value The bytes for id to set.
        * @return This builder for chaining.
@@ -35139,6 +40459,10 @@ public final class RevaultBindings {
 
       private java.lang.Object path_ = "";
       /**
+       * <pre>
+       * Associated lockbox path when supplied by the client.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @return The path.
        */
@@ -35155,6 +40479,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Associated lockbox path when supplied by the client.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @return The bytes for path.
        */
@@ -35172,6 +40500,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Associated lockbox path when supplied by the client.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @param value The path to set.
        * @return This builder for chaining.
@@ -35185,6 +40517,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Associated lockbox path when supplied by the client.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @return This builder for chaining.
        */
@@ -35195,6 +40531,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Associated lockbox path when supplied by the client.
+       * </pre>
+       *
        * <code>string path = 2;</code>
        * @param value The bytes for path to set.
        * @return This builder for chaining.
@@ -35277,30 +40617,54 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     java.util.List<revault.bindings.RevaultBindings.AgentEntry>
         getValuesList();
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     revault.bindings.RevaultBindings.AgentEntry getValues(int index);
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     int getValuesCount();
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     java.util.List<? extends revault.bindings.RevaultBindings.AgentEntryOrBuilder>
         getValuesOrBuilderList();
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     revault.bindings.RevaultBindings.AgentEntryOrBuilder getValuesOrBuilder(
         int index);
   }
   /**
+   * <pre>
+   * A collection of session-agent cache entries.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.AgentEntryList}
    */
   public static final class AgentEntryList extends
@@ -35345,6 +40709,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private java.util.List<revault.bindings.RevaultBindings.AgentEntry> values_;
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     @java.lang.Override
@@ -35352,6 +40720,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     @java.lang.Override
@@ -35360,6 +40732,10 @@ public final class RevaultBindings {
       return values_;
     }
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     @java.lang.Override
@@ -35367,6 +40743,10 @@ public final class RevaultBindings {
       return values_.size();
     }
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     @java.lang.Override
@@ -35374,6 +40754,10 @@ public final class RevaultBindings {
       return values_.get(index);
     }
     /**
+     * <pre>
+     * Current cache entries without their secret values.
+     * </pre>
+     *
      * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     @java.lang.Override
@@ -35540,6 +40924,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * A collection of session-agent cache entries.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.AgentEntryList}
      */
     public static final class Builder extends
@@ -35767,6 +41155,10 @@ public final class RevaultBindings {
           revault.bindings.RevaultBindings.AgentEntry, revault.bindings.RevaultBindings.AgentEntry.Builder, revault.bindings.RevaultBindings.AgentEntryOrBuilder> valuesBuilder_;
 
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.AgentEntry> getValuesList() {
@@ -35777,6 +41169,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public int getValuesCount() {
@@ -35787,6 +41183,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AgentEntry getValues(int index) {
@@ -35797,6 +41197,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public Builder setValues(
@@ -35814,6 +41218,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public Builder setValues(
@@ -35828,6 +41236,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public Builder addValues(revault.bindings.RevaultBindings.AgentEntry value) {
@@ -35844,6 +41256,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public Builder addValues(
@@ -35861,6 +41277,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public Builder addValues(
@@ -35875,6 +41295,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public Builder addValues(
@@ -35889,6 +41313,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public Builder addAllValues(
@@ -35904,6 +41332,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public Builder clearValues() {
@@ -35917,6 +41349,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public Builder removeValues(int index) {
@@ -35930,6 +41366,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AgentEntry.Builder getValuesBuilder(
@@ -35937,6 +41377,10 @@ public final class RevaultBindings {
         return getValuesFieldBuilder().getBuilder(index);
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AgentEntryOrBuilder getValuesOrBuilder(
@@ -35947,6 +41391,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public java.util.List<? extends revault.bindings.RevaultBindings.AgentEntryOrBuilder>
@@ -35958,6 +41406,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AgentEntry.Builder addValuesBuilder() {
@@ -35965,6 +41417,10 @@ public final class RevaultBindings {
             revault.bindings.RevaultBindings.AgentEntry.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public revault.bindings.RevaultBindings.AgentEntry.Builder addValuesBuilder(
@@ -35973,6 +41429,10 @@ public final class RevaultBindings {
             index, revault.bindings.RevaultBindings.AgentEntry.getDefaultInstance());
       }
       /**
+       * <pre>
+       * Current cache entries without their secret values.
+       * </pre>
+       *
        * <code>repeated .revault.bindings.AgentEntry values = 1;</code>
        */
       public java.util.List<revault.bindings.RevaultBindings.AgentEntry.Builder>
@@ -36062,24 +41522,40 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Whether the platform reports suspend and resume transitions.
+     * </pre>
+     *
      * <code>bool suspend_notifications = 1;</code>
      * @return The suspendNotifications.
      */
     boolean getSuspendNotifications();
 
     /**
+     * <pre>
+     * Whether the agent can temporarily inhibit system sleep.
+     * </pre>
+     *
      * <code>bool sleep_inhibition = 2;</code>
      * @return The sleepInhibition.
      */
     boolean getSleepInhibition();
 
     /**
+     * <pre>
+     * Whether the configured protection policy is supported.
+     * </pre>
+     *
      * <code>bool supported = 3;</code>
      * @return The supported.
      */
     boolean getSupported();
   }
   /**
+   * <pre>
+   * Platform capabilities used to protect secrets across system sleep.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.SleepSupport}
    */
   public static final class SleepSupport extends
@@ -36122,6 +41598,10 @@ public final class RevaultBindings {
     public static final int SUSPEND_NOTIFICATIONS_FIELD_NUMBER = 1;
     private boolean suspendNotifications_ = false;
     /**
+     * <pre>
+     * Whether the platform reports suspend and resume transitions.
+     * </pre>
+     *
      * <code>bool suspend_notifications = 1;</code>
      * @return The suspendNotifications.
      */
@@ -36133,6 +41613,10 @@ public final class RevaultBindings {
     public static final int SLEEP_INHIBITION_FIELD_NUMBER = 2;
     private boolean sleepInhibition_ = false;
     /**
+     * <pre>
+     * Whether the agent can temporarily inhibit system sleep.
+     * </pre>
+     *
      * <code>bool sleep_inhibition = 2;</code>
      * @return The sleepInhibition.
      */
@@ -36144,6 +41628,10 @@ public final class RevaultBindings {
     public static final int SUPPORTED_FIELD_NUMBER = 3;
     private boolean supported_ = false;
     /**
+     * <pre>
+     * Whether the configured protection policy is supported.
+     * </pre>
+     *
      * <code>bool supported = 3;</code>
      * @return The supported.
      */
@@ -36333,6 +41821,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Platform capabilities used to protect secrets across system sleep.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.SleepSupport}
      */
     public static final class Builder extends
@@ -36526,6 +42018,10 @@ public final class RevaultBindings {
 
       private boolean suspendNotifications_ ;
       /**
+       * <pre>
+       * Whether the platform reports suspend and resume transitions.
+       * </pre>
+       *
        * <code>bool suspend_notifications = 1;</code>
        * @return The suspendNotifications.
        */
@@ -36534,6 +42030,10 @@ public final class RevaultBindings {
         return suspendNotifications_;
       }
       /**
+       * <pre>
+       * Whether the platform reports suspend and resume transitions.
+       * </pre>
+       *
        * <code>bool suspend_notifications = 1;</code>
        * @param value The suspendNotifications to set.
        * @return This builder for chaining.
@@ -36546,6 +42046,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether the platform reports suspend and resume transitions.
+       * </pre>
+       *
        * <code>bool suspend_notifications = 1;</code>
        * @return This builder for chaining.
        */
@@ -36558,6 +42062,10 @@ public final class RevaultBindings {
 
       private boolean sleepInhibition_ ;
       /**
+       * <pre>
+       * Whether the agent can temporarily inhibit system sleep.
+       * </pre>
+       *
        * <code>bool sleep_inhibition = 2;</code>
        * @return The sleepInhibition.
        */
@@ -36566,6 +42074,10 @@ public final class RevaultBindings {
         return sleepInhibition_;
       }
       /**
+       * <pre>
+       * Whether the agent can temporarily inhibit system sleep.
+       * </pre>
+       *
        * <code>bool sleep_inhibition = 2;</code>
        * @param value The sleepInhibition to set.
        * @return This builder for chaining.
@@ -36578,6 +42090,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether the agent can temporarily inhibit system sleep.
+       * </pre>
+       *
        * <code>bool sleep_inhibition = 2;</code>
        * @return This builder for chaining.
        */
@@ -36590,6 +42106,10 @@ public final class RevaultBindings {
 
       private boolean supported_ ;
       /**
+       * <pre>
+       * Whether the configured protection policy is supported.
+       * </pre>
+       *
        * <code>bool supported = 3;</code>
        * @return The supported.
        */
@@ -36598,6 +42118,10 @@ public final class RevaultBindings {
         return supported_;
       }
       /**
+       * <pre>
+       * Whether the configured protection policy is supported.
+       * </pre>
+       *
        * <code>bool supported = 3;</code>
        * @param value The supported to set.
        * @return This builder for chaining.
@@ -36610,6 +42134,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether the configured protection policy is supported.
+       * </pre>
+       *
        * <code>bool supported = 3;</code>
        * @return This builder for chaining.
        */
@@ -36688,23 +42216,39 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Whether this build has a backend for the current operating system.
+     * </pre>
+     *
      * <code>bool supported = 1;</code>
      * @return The supported.
      */
     boolean getSupported();
 
     /**
+     * <pre>
+     * Whether secret-store integration is currently disabled.
+     * </pre>
+     *
      * <code>bool disabled = 2;</code>
      * @return The disabled.
      */
     boolean getDisabled();
 
     /**
+     * <pre>
+     * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+     * </pre>
+     *
      * <code>string scope = 3;</code>
      * @return The scope.
      */
     java.lang.String getScope();
     /**
+     * <pre>
+     * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+     * </pre>
+     *
      * <code>string scope = 3;</code>
      * @return The bytes for scope.
      */
@@ -36712,11 +42256,19 @@ public final class RevaultBindings {
         getScopeBytes();
 
     /**
+     * <pre>
+     * Human-readable platform backend name.
+     * </pre>
+     *
      * <code>string backend = 4;</code>
      * @return The backend.
      */
     java.lang.String getBackend();
     /**
+     * <pre>
+     * Human-readable platform backend name.
+     * </pre>
+     *
      * <code>string backend = 4;</code>
      * @return The bytes for backend.
      */
@@ -36724,11 +42276,19 @@ public final class RevaultBindings {
         getBackendBytes();
 
     /**
+     * <pre>
+     * Key used for the default local-vault item.
+     * </pre>
+     *
      * <code>string item = 5;</code>
      * @return The item.
      */
     java.lang.String getItem();
     /**
+     * <pre>
+     * Key used for the default local-vault item.
+     * </pre>
+     *
      * <code>string item = 5;</code>
      * @return The bytes for item.
      */
@@ -36736,6 +42296,10 @@ public final class RevaultBindings {
         getItemBytes();
   }
   /**
+   * <pre>
+   * Effective operating-system secret-store configuration.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.PlatformStatus}
    */
   public static final class PlatformStatus extends
@@ -36781,6 +42345,10 @@ public final class RevaultBindings {
     public static final int SUPPORTED_FIELD_NUMBER = 1;
     private boolean supported_ = false;
     /**
+     * <pre>
+     * Whether this build has a backend for the current operating system.
+     * </pre>
+     *
      * <code>bool supported = 1;</code>
      * @return The supported.
      */
@@ -36792,6 +42360,10 @@ public final class RevaultBindings {
     public static final int DISABLED_FIELD_NUMBER = 2;
     private boolean disabled_ = false;
     /**
+     * <pre>
+     * Whether secret-store integration is currently disabled.
+     * </pre>
+     *
      * <code>bool disabled = 2;</code>
      * @return The disabled.
      */
@@ -36804,6 +42376,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object scope_ = "";
     /**
+     * <pre>
+     * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+     * </pre>
+     *
      * <code>string scope = 3;</code>
      * @return The scope.
      */
@@ -36821,6 +42397,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+     * </pre>
+     *
      * <code>string scope = 3;</code>
      * @return The bytes for scope.
      */
@@ -36843,6 +42423,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object backend_ = "";
     /**
+     * <pre>
+     * Human-readable platform backend name.
+     * </pre>
+     *
      * <code>string backend = 4;</code>
      * @return The backend.
      */
@@ -36860,6 +42444,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Human-readable platform backend name.
+     * </pre>
+     *
      * <code>string backend = 4;</code>
      * @return The bytes for backend.
      */
@@ -36882,6 +42470,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object item_ = "";
     /**
+     * <pre>
+     * Key used for the default local-vault item.
+     * </pre>
+     *
      * <code>string item = 5;</code>
      * @return The item.
      */
@@ -36899,6 +42491,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Key used for the default local-vault item.
+     * </pre>
+     *
      * <code>string item = 5;</code>
      * @return The bytes for item.
      */
@@ -37116,6 +42712,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Effective operating-system secret-store configuration.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.PlatformStatus}
      */
     public static final class Builder extends
@@ -37339,6 +42939,10 @@ public final class RevaultBindings {
 
       private boolean supported_ ;
       /**
+       * <pre>
+       * Whether this build has a backend for the current operating system.
+       * </pre>
+       *
        * <code>bool supported = 1;</code>
        * @return The supported.
        */
@@ -37347,6 +42951,10 @@ public final class RevaultBindings {
         return supported_;
       }
       /**
+       * <pre>
+       * Whether this build has a backend for the current operating system.
+       * </pre>
+       *
        * <code>bool supported = 1;</code>
        * @param value The supported to set.
        * @return This builder for chaining.
@@ -37359,6 +42967,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether this build has a backend for the current operating system.
+       * </pre>
+       *
        * <code>bool supported = 1;</code>
        * @return This builder for chaining.
        */
@@ -37371,6 +42983,10 @@ public final class RevaultBindings {
 
       private boolean disabled_ ;
       /**
+       * <pre>
+       * Whether secret-store integration is currently disabled.
+       * </pre>
+       *
        * <code>bool disabled = 2;</code>
        * @return The disabled.
        */
@@ -37379,6 +42995,10 @@ public final class RevaultBindings {
         return disabled_;
       }
       /**
+       * <pre>
+       * Whether secret-store integration is currently disabled.
+       * </pre>
+       *
        * <code>bool disabled = 2;</code>
        * @param value The disabled to set.
        * @return This builder for chaining.
@@ -37391,6 +43011,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Whether secret-store integration is currently disabled.
+       * </pre>
+       *
        * <code>bool disabled = 2;</code>
        * @return This builder for chaining.
        */
@@ -37403,6 +43027,10 @@ public final class RevaultBindings {
 
       private java.lang.Object scope_ = "";
       /**
+       * <pre>
+       * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+       * </pre>
+       *
        * <code>string scope = 3;</code>
        * @return The scope.
        */
@@ -37419,6 +43047,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+       * </pre>
+       *
        * <code>string scope = 3;</code>
        * @return The bytes for scope.
        */
@@ -37436,6 +43068,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+       * </pre>
+       *
        * <code>string scope = 3;</code>
        * @param value The scope to set.
        * @return This builder for chaining.
@@ -37449,6 +43085,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+       * </pre>
+       *
        * <code>string scope = 3;</code>
        * @return This builder for chaining.
        */
@@ -37459,6 +43099,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+       * </pre>
+       *
        * <code>string scope = 3;</code>
        * @param value The bytes for scope to set.
        * @return This builder for chaining.
@@ -37475,6 +43119,10 @@ public final class RevaultBindings {
 
       private java.lang.Object backend_ = "";
       /**
+       * <pre>
+       * Human-readable platform backend name.
+       * </pre>
+       *
        * <code>string backend = 4;</code>
        * @return The backend.
        */
@@ -37491,6 +43139,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Human-readable platform backend name.
+       * </pre>
+       *
        * <code>string backend = 4;</code>
        * @return The bytes for backend.
        */
@@ -37508,6 +43160,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Human-readable platform backend name.
+       * </pre>
+       *
        * <code>string backend = 4;</code>
        * @param value The backend to set.
        * @return This builder for chaining.
@@ -37521,6 +43177,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Human-readable platform backend name.
+       * </pre>
+       *
        * <code>string backend = 4;</code>
        * @return This builder for chaining.
        */
@@ -37531,6 +43191,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Human-readable platform backend name.
+       * </pre>
+       *
        * <code>string backend = 4;</code>
        * @param value The bytes for backend to set.
        * @return This builder for chaining.
@@ -37547,6 +43211,10 @@ public final class RevaultBindings {
 
       private java.lang.Object item_ = "";
       /**
+       * <pre>
+       * Key used for the default local-vault item.
+       * </pre>
+       *
        * <code>string item = 5;</code>
        * @return The item.
        */
@@ -37563,6 +43231,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Key used for the default local-vault item.
+       * </pre>
+       *
        * <code>string item = 5;</code>
        * @return The bytes for item.
        */
@@ -37580,6 +43252,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Key used for the default local-vault item.
+       * </pre>
+       *
        * <code>string item = 5;</code>
        * @param value The item to set.
        * @return This builder for chaining.
@@ -37593,6 +43269,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Key used for the default local-vault item.
+       * </pre>
+       *
        * <code>string item = 5;</code>
        * @return This builder for chaining.
        */
@@ -37603,6 +43283,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Key used for the default local-vault item.
+       * </pre>
+       *
        * <code>string item = 5;</code>
        * @param value The bytes for item to set.
        * @return This builder for chaining.
@@ -37685,11 +43369,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Returned UTF-8 value.
+     * </pre>
+     *
      * <code>string value = 1;</code>
      * @return The value.
      */
     java.lang.String getValue();
     /**
+     * <pre>
+     * Returned UTF-8 value.
+     * </pre>
+     *
      * <code>string value = 1;</code>
      * @return The bytes for value.
      */
@@ -37697,6 +43389,10 @@ public final class RevaultBindings {
         getValueBytes();
   }
   /**
+   * <pre>
+   * Required UTF-8 string result.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.StringValue}
    */
   public static final class StringValue extends
@@ -37741,6 +43437,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object value_ = "";
     /**
+     * <pre>
+     * Returned UTF-8 value.
+     * </pre>
+     *
      * <code>string value = 1;</code>
      * @return The value.
      */
@@ -37758,6 +43458,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Returned UTF-8 value.
+     * </pre>
+     *
      * <code>string value = 1;</code>
      * @return The bytes for value.
      */
@@ -37931,6 +43635,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Required UTF-8 string result.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.StringValue}
      */
     public static final class Builder extends
@@ -38102,6 +43810,10 @@ public final class RevaultBindings {
 
       private java.lang.Object value_ = "";
       /**
+       * <pre>
+       * Returned UTF-8 value.
+       * </pre>
+       *
        * <code>string value = 1;</code>
        * @return The value.
        */
@@ -38118,6 +43830,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Returned UTF-8 value.
+       * </pre>
+       *
        * <code>string value = 1;</code>
        * @return The bytes for value.
        */
@@ -38135,6 +43851,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Returned UTF-8 value.
+       * </pre>
+       *
        * <code>string value = 1;</code>
        * @param value The value to set.
        * @return This builder for chaining.
@@ -38148,6 +43868,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Returned UTF-8 value.
+       * </pre>
+       *
        * <code>string value = 1;</code>
        * @return This builder for chaining.
        */
@@ -38158,6 +43882,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Returned UTF-8 value.
+       * </pre>
+       *
        * <code>string value = 1;</code>
        * @param value The bytes for value to set.
        * @return This builder for chaining.
@@ -38240,23 +43968,39 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Backup container format version.
+     * </pre>
+     *
      * <code>uint32 format_version = 1;</code>
      * @return The formatVersion.
      */
     int getFormatVersion();
 
     /**
+     * <pre>
+     * Backup creation time in Unix milliseconds.
+     * </pre>
+     *
      * <code>uint64 created_at_unix_ms = 2;</code>
      * @return The createdAtUnixMs.
      */
     long getCreatedAtUnixMs();
 
     /**
+     * <pre>
+     * Name of the encrypted vault file inside the archive.
+     * </pre>
+     *
      * <code>string vault_file_name = 3;</code>
      * @return The vaultFileName.
      */
     java.lang.String getVaultFileName();
     /**
+     * <pre>
+     * Name of the encrypted vault file inside the archive.
+     * </pre>
+     *
      * <code>string vault_file_name = 3;</code>
      * @return The bytes for vaultFileName.
      */
@@ -38264,17 +44008,29 @@ public final class RevaultBindings {
         getVaultFileNameBytes();
 
     /**
+     * <pre>
+     * Encrypted vault file length in bytes.
+     * </pre>
+     *
      * <code>uint64 vault_size = 4;</code>
      * @return The vaultSize.
      */
     long getVaultSize();
 
     /**
+     * <pre>
+     * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+     * </pre>
+     *
      * <code>string vault_sha256 = 5;</code>
      * @return The vaultSha256.
      */
     java.lang.String getVaultSha256();
     /**
+     * <pre>
+     * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+     * </pre>
+     *
      * <code>string vault_sha256 = 5;</code>
      * @return The bytes for vaultSha256.
      */
@@ -38282,6 +44038,10 @@ public final class RevaultBindings {
         getVaultSha256Bytes();
   }
   /**
+   * <pre>
+   * Metadata describing an encrypted local-vault backup archive.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.VaultBackupManifest}
    */
   public static final class VaultBackupManifest extends
@@ -38326,6 +44086,10 @@ public final class RevaultBindings {
     public static final int FORMAT_VERSION_FIELD_NUMBER = 1;
     private int formatVersion_ = 0;
     /**
+     * <pre>
+     * Backup container format version.
+     * </pre>
+     *
      * <code>uint32 format_version = 1;</code>
      * @return The formatVersion.
      */
@@ -38337,6 +44101,10 @@ public final class RevaultBindings {
     public static final int CREATED_AT_UNIX_MS_FIELD_NUMBER = 2;
     private long createdAtUnixMs_ = 0L;
     /**
+     * <pre>
+     * Backup creation time in Unix milliseconds.
+     * </pre>
+     *
      * <code>uint64 created_at_unix_ms = 2;</code>
      * @return The createdAtUnixMs.
      */
@@ -38349,6 +44117,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object vaultFileName_ = "";
     /**
+     * <pre>
+     * Name of the encrypted vault file inside the archive.
+     * </pre>
+     *
      * <code>string vault_file_name = 3;</code>
      * @return The vaultFileName.
      */
@@ -38366,6 +44138,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Name of the encrypted vault file inside the archive.
+     * </pre>
+     *
      * <code>string vault_file_name = 3;</code>
      * @return The bytes for vaultFileName.
      */
@@ -38387,6 +44163,10 @@ public final class RevaultBindings {
     public static final int VAULT_SIZE_FIELD_NUMBER = 4;
     private long vaultSize_ = 0L;
     /**
+     * <pre>
+     * Encrypted vault file length in bytes.
+     * </pre>
+     *
      * <code>uint64 vault_size = 4;</code>
      * @return The vaultSize.
      */
@@ -38399,6 +44179,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object vaultSha256_ = "";
     /**
+     * <pre>
+     * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+     * </pre>
+     *
      * <code>string vault_sha256 = 5;</code>
      * @return The vaultSha256.
      */
@@ -38416,6 +44200,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+     * </pre>
+     *
      * <code>string vault_sha256 = 5;</code>
      * @return The bytes for vaultSha256.
      */
@@ -38634,6 +44422,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Metadata describing an encrypted local-vault backup archive.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.VaultBackupManifest}
      */
     public static final class Builder extends
@@ -38855,6 +44647,10 @@ public final class RevaultBindings {
 
       private int formatVersion_ ;
       /**
+       * <pre>
+       * Backup container format version.
+       * </pre>
+       *
        * <code>uint32 format_version = 1;</code>
        * @return The formatVersion.
        */
@@ -38863,6 +44659,10 @@ public final class RevaultBindings {
         return formatVersion_;
       }
       /**
+       * <pre>
+       * Backup container format version.
+       * </pre>
+       *
        * <code>uint32 format_version = 1;</code>
        * @param value The formatVersion to set.
        * @return This builder for chaining.
@@ -38875,6 +44675,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Backup container format version.
+       * </pre>
+       *
        * <code>uint32 format_version = 1;</code>
        * @return This builder for chaining.
        */
@@ -38887,6 +44691,10 @@ public final class RevaultBindings {
 
       private long createdAtUnixMs_ ;
       /**
+       * <pre>
+       * Backup creation time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 created_at_unix_ms = 2;</code>
        * @return The createdAtUnixMs.
        */
@@ -38895,6 +44703,10 @@ public final class RevaultBindings {
         return createdAtUnixMs_;
       }
       /**
+       * <pre>
+       * Backup creation time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 created_at_unix_ms = 2;</code>
        * @param value The createdAtUnixMs to set.
        * @return This builder for chaining.
@@ -38907,6 +44719,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Backup creation time in Unix milliseconds.
+       * </pre>
+       *
        * <code>uint64 created_at_unix_ms = 2;</code>
        * @return This builder for chaining.
        */
@@ -38919,6 +44735,10 @@ public final class RevaultBindings {
 
       private java.lang.Object vaultFileName_ = "";
       /**
+       * <pre>
+       * Name of the encrypted vault file inside the archive.
+       * </pre>
+       *
        * <code>string vault_file_name = 3;</code>
        * @return The vaultFileName.
        */
@@ -38935,6 +44755,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Name of the encrypted vault file inside the archive.
+       * </pre>
+       *
        * <code>string vault_file_name = 3;</code>
        * @return The bytes for vaultFileName.
        */
@@ -38952,6 +44776,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Name of the encrypted vault file inside the archive.
+       * </pre>
+       *
        * <code>string vault_file_name = 3;</code>
        * @param value The vaultFileName to set.
        * @return This builder for chaining.
@@ -38965,6 +44793,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Name of the encrypted vault file inside the archive.
+       * </pre>
+       *
        * <code>string vault_file_name = 3;</code>
        * @return This builder for chaining.
        */
@@ -38975,6 +44807,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Name of the encrypted vault file inside the archive.
+       * </pre>
+       *
        * <code>string vault_file_name = 3;</code>
        * @param value The bytes for vaultFileName to set.
        * @return This builder for chaining.
@@ -38991,6 +44827,10 @@ public final class RevaultBindings {
 
       private long vaultSize_ ;
       /**
+       * <pre>
+       * Encrypted vault file length in bytes.
+       * </pre>
+       *
        * <code>uint64 vault_size = 4;</code>
        * @return The vaultSize.
        */
@@ -38999,6 +44839,10 @@ public final class RevaultBindings {
         return vaultSize_;
       }
       /**
+       * <pre>
+       * Encrypted vault file length in bytes.
+       * </pre>
+       *
        * <code>uint64 vault_size = 4;</code>
        * @param value The vaultSize to set.
        * @return This builder for chaining.
@@ -39011,6 +44855,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Encrypted vault file length in bytes.
+       * </pre>
+       *
        * <code>uint64 vault_size = 4;</code>
        * @return This builder for chaining.
        */
@@ -39023,6 +44871,10 @@ public final class RevaultBindings {
 
       private java.lang.Object vaultSha256_ = "";
       /**
+       * <pre>
+       * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+       * </pre>
+       *
        * <code>string vault_sha256 = 5;</code>
        * @return The vaultSha256.
        */
@@ -39039,6 +44891,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+       * </pre>
+       *
        * <code>string vault_sha256 = 5;</code>
        * @return The bytes for vaultSha256.
        */
@@ -39056,6 +44912,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+       * </pre>
+       *
        * <code>string vault_sha256 = 5;</code>
        * @param value The vaultSha256 to set.
        * @return This builder for chaining.
@@ -39069,6 +44929,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+       * </pre>
+       *
        * <code>string vault_sha256 = 5;</code>
        * @return This builder for chaining.
        */
@@ -39079,6 +44943,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Lowercase hexadecimal SHA-256 of the encrypted vault file.
+       * </pre>
+       *
        * <code>string vault_sha256 = 5;</code>
        * @param value The bytes for vaultSha256 to set.
        * @return This builder for chaining.
@@ -39161,11 +45029,19 @@ public final class RevaultBindings {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * Stable error category suitable for programmatic handling.
+     * </pre>
+     *
      * <code>string category = 1;</code>
      * @return The category.
      */
     java.lang.String getCategory();
     /**
+     * <pre>
+     * Stable error category suitable for programmatic handling.
+     * </pre>
+     *
      * <code>string category = 1;</code>
      * @return The bytes for category.
      */
@@ -39173,11 +45049,19 @@ public final class RevaultBindings {
         getCategoryBytes();
 
     /**
+     * <pre>
+     * Artifact type involved in a format-version error, when applicable.
+     * </pre>
+     *
      * <code>string artifact_kind = 2;</code>
      * @return The artifactKind.
      */
     java.lang.String getArtifactKind();
     /**
+     * <pre>
+     * Artifact type involved in a format-version error, when applicable.
+     * </pre>
+     *
      * <code>string artifact_kind = 2;</code>
      * @return The bytes for artifactKind.
      */
@@ -39185,23 +45069,39 @@ public final class RevaultBindings {
         getArtifactKindBytes();
 
     /**
+     * <pre>
+     * Version found in the input artifact.
+     * </pre>
+     *
      * <code>uint32 found_version = 3;</code>
      * @return The foundVersion.
      */
     int getFoundVersion();
 
     /**
+     * <pre>
+     * Highest version supported by this binding.
+     * </pre>
+     *
      * <code>uint32 supported_version = 4;</code>
      * @return The supportedVersion.
      */
     int getSupportedVersion();
 
     /**
+     * <pre>
+     * Human-readable failure message.
+     * </pre>
+     *
      * <code>string message = 5;</code>
      * @return The message.
      */
     java.lang.String getMessage();
     /**
+     * <pre>
+     * Human-readable failure message.
+     * </pre>
+     *
      * <code>string message = 5;</code>
      * @return The bytes for message.
      */
@@ -39209,11 +45109,19 @@ public final class RevaultBindings {
         getMessageBytes();
 
     /**
+     * <pre>
+     * Suggested corrective action for the user.
+     * </pre>
+     *
      * <code>string guidance = 6;</code>
      * @return The guidance.
      */
     java.lang.String getGuidance();
     /**
+     * <pre>
+     * Suggested corrective action for the user.
+     * </pre>
+     *
      * <code>string guidance = 6;</code>
      * @return The bytes for guidance.
      */
@@ -39221,6 +45129,10 @@ public final class RevaultBindings {
         getGuidanceBytes();
   }
   /**
+   * <pre>
+   * Structured diagnostic for the most recent failed binding operation.
+   * </pre>
+   *
    * Protobuf type {@code revault.bindings.ErrorDetails}
    */
   public static final class ErrorDetails extends
@@ -39268,6 +45180,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object category_ = "";
     /**
+     * <pre>
+     * Stable error category suitable for programmatic handling.
+     * </pre>
+     *
      * <code>string category = 1;</code>
      * @return The category.
      */
@@ -39285,6 +45201,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Stable error category suitable for programmatic handling.
+     * </pre>
+     *
      * <code>string category = 1;</code>
      * @return The bytes for category.
      */
@@ -39307,6 +45227,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object artifactKind_ = "";
     /**
+     * <pre>
+     * Artifact type involved in a format-version error, when applicable.
+     * </pre>
+     *
      * <code>string artifact_kind = 2;</code>
      * @return The artifactKind.
      */
@@ -39324,6 +45248,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Artifact type involved in a format-version error, when applicable.
+     * </pre>
+     *
      * <code>string artifact_kind = 2;</code>
      * @return The bytes for artifactKind.
      */
@@ -39345,6 +45273,10 @@ public final class RevaultBindings {
     public static final int FOUND_VERSION_FIELD_NUMBER = 3;
     private int foundVersion_ = 0;
     /**
+     * <pre>
+     * Version found in the input artifact.
+     * </pre>
+     *
      * <code>uint32 found_version = 3;</code>
      * @return The foundVersion.
      */
@@ -39356,6 +45288,10 @@ public final class RevaultBindings {
     public static final int SUPPORTED_VERSION_FIELD_NUMBER = 4;
     private int supportedVersion_ = 0;
     /**
+     * <pre>
+     * Highest version supported by this binding.
+     * </pre>
+     *
      * <code>uint32 supported_version = 4;</code>
      * @return The supportedVersion.
      */
@@ -39368,6 +45304,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object message_ = "";
     /**
+     * <pre>
+     * Human-readable failure message.
+     * </pre>
+     *
      * <code>string message = 5;</code>
      * @return The message.
      */
@@ -39385,6 +45325,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Human-readable failure message.
+     * </pre>
+     *
      * <code>string message = 5;</code>
      * @return The bytes for message.
      */
@@ -39407,6 +45351,10 @@ public final class RevaultBindings {
     @SuppressWarnings("serial")
     private volatile java.lang.Object guidance_ = "";
     /**
+     * <pre>
+     * Suggested corrective action for the user.
+     * </pre>
+     *
      * <code>string guidance = 6;</code>
      * @return The guidance.
      */
@@ -39424,6 +45372,10 @@ public final class RevaultBindings {
       }
     }
     /**
+     * <pre>
+     * Suggested corrective action for the user.
+     * </pre>
+     *
      * <code>string guidance = 6;</code>
      * @return The bytes for guidance.
      */
@@ -39649,6 +45601,10 @@ public final class RevaultBindings {
       return builder;
     }
     /**
+     * <pre>
+     * Structured diagnostic for the most recent failed binding operation.
+     * </pre>
+     *
      * Protobuf type {@code revault.bindings.ErrorDetails}
      */
     public static final class Builder extends
@@ -39886,6 +45842,10 @@ public final class RevaultBindings {
 
       private java.lang.Object category_ = "";
       /**
+       * <pre>
+       * Stable error category suitable for programmatic handling.
+       * </pre>
+       *
        * <code>string category = 1;</code>
        * @return The category.
        */
@@ -39902,6 +45862,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable error category suitable for programmatic handling.
+       * </pre>
+       *
        * <code>string category = 1;</code>
        * @return The bytes for category.
        */
@@ -39919,6 +45883,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Stable error category suitable for programmatic handling.
+       * </pre>
+       *
        * <code>string category = 1;</code>
        * @param value The category to set.
        * @return This builder for chaining.
@@ -39932,6 +45900,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable error category suitable for programmatic handling.
+       * </pre>
+       *
        * <code>string category = 1;</code>
        * @return This builder for chaining.
        */
@@ -39942,6 +45914,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Stable error category suitable for programmatic handling.
+       * </pre>
+       *
        * <code>string category = 1;</code>
        * @param value The bytes for category to set.
        * @return This builder for chaining.
@@ -39958,6 +45934,10 @@ public final class RevaultBindings {
 
       private java.lang.Object artifactKind_ = "";
       /**
+       * <pre>
+       * Artifact type involved in a format-version error, when applicable.
+       * </pre>
+       *
        * <code>string artifact_kind = 2;</code>
        * @return The artifactKind.
        */
@@ -39974,6 +45954,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Artifact type involved in a format-version error, when applicable.
+       * </pre>
+       *
        * <code>string artifact_kind = 2;</code>
        * @return The bytes for artifactKind.
        */
@@ -39991,6 +45975,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Artifact type involved in a format-version error, when applicable.
+       * </pre>
+       *
        * <code>string artifact_kind = 2;</code>
        * @param value The artifactKind to set.
        * @return This builder for chaining.
@@ -40004,6 +45992,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Artifact type involved in a format-version error, when applicable.
+       * </pre>
+       *
        * <code>string artifact_kind = 2;</code>
        * @return This builder for chaining.
        */
@@ -40014,6 +46006,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Artifact type involved in a format-version error, when applicable.
+       * </pre>
+       *
        * <code>string artifact_kind = 2;</code>
        * @param value The bytes for artifactKind to set.
        * @return This builder for chaining.
@@ -40030,6 +46026,10 @@ public final class RevaultBindings {
 
       private int foundVersion_ ;
       /**
+       * <pre>
+       * Version found in the input artifact.
+       * </pre>
+       *
        * <code>uint32 found_version = 3;</code>
        * @return The foundVersion.
        */
@@ -40038,6 +46038,10 @@ public final class RevaultBindings {
         return foundVersion_;
       }
       /**
+       * <pre>
+       * Version found in the input artifact.
+       * </pre>
+       *
        * <code>uint32 found_version = 3;</code>
        * @param value The foundVersion to set.
        * @return This builder for chaining.
@@ -40050,6 +46054,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Version found in the input artifact.
+       * </pre>
+       *
        * <code>uint32 found_version = 3;</code>
        * @return This builder for chaining.
        */
@@ -40062,6 +46070,10 @@ public final class RevaultBindings {
 
       private int supportedVersion_ ;
       /**
+       * <pre>
+       * Highest version supported by this binding.
+       * </pre>
+       *
        * <code>uint32 supported_version = 4;</code>
        * @return The supportedVersion.
        */
@@ -40070,6 +46082,10 @@ public final class RevaultBindings {
         return supportedVersion_;
       }
       /**
+       * <pre>
+       * Highest version supported by this binding.
+       * </pre>
+       *
        * <code>uint32 supported_version = 4;</code>
        * @param value The supportedVersion to set.
        * @return This builder for chaining.
@@ -40082,6 +46098,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Highest version supported by this binding.
+       * </pre>
+       *
        * <code>uint32 supported_version = 4;</code>
        * @return This builder for chaining.
        */
@@ -40094,6 +46114,10 @@ public final class RevaultBindings {
 
       private java.lang.Object message_ = "";
       /**
+       * <pre>
+       * Human-readable failure message.
+       * </pre>
+       *
        * <code>string message = 5;</code>
        * @return The message.
        */
@@ -40110,6 +46134,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Human-readable failure message.
+       * </pre>
+       *
        * <code>string message = 5;</code>
        * @return The bytes for message.
        */
@@ -40127,6 +46155,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Human-readable failure message.
+       * </pre>
+       *
        * <code>string message = 5;</code>
        * @param value The message to set.
        * @return This builder for chaining.
@@ -40140,6 +46172,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Human-readable failure message.
+       * </pre>
+       *
        * <code>string message = 5;</code>
        * @return This builder for chaining.
        */
@@ -40150,6 +46186,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Human-readable failure message.
+       * </pre>
+       *
        * <code>string message = 5;</code>
        * @param value The bytes for message to set.
        * @return This builder for chaining.
@@ -40166,6 +46206,10 @@ public final class RevaultBindings {
 
       private java.lang.Object guidance_ = "";
       /**
+       * <pre>
+       * Suggested corrective action for the user.
+       * </pre>
+       *
        * <code>string guidance = 6;</code>
        * @return The guidance.
        */
@@ -40182,6 +46226,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Suggested corrective action for the user.
+       * </pre>
+       *
        * <code>string guidance = 6;</code>
        * @return The bytes for guidance.
        */
@@ -40199,6 +46247,10 @@ public final class RevaultBindings {
         }
       }
       /**
+       * <pre>
+       * Suggested corrective action for the user.
+       * </pre>
+       *
        * <code>string guidance = 6;</code>
        * @param value The guidance to set.
        * @return This builder for chaining.
@@ -40212,6 +46264,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Suggested corrective action for the user.
+       * </pre>
+       *
        * <code>string guidance = 6;</code>
        * @return This builder for chaining.
        */
@@ -40222,6 +46278,10 @@ public final class RevaultBindings {
         return this;
       }
       /**
+       * <pre>
+       * Suggested corrective action for the user.
+       * </pre>
+       *
        * <code>string guidance = 6;</code>
        * @param value The bytes for guidance to set.
        * @return This builder for chaining.

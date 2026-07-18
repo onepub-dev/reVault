@@ -1,20 +1,37 @@
 #pragma once
 
+/**
+ * @file revault_api.hpp
+ * @brief RAII C++ API for encrypted reVault lockboxes and local vaults.
+ *
+ * `revault::Vault` is the entry point for creating or opening lockboxes,
+ * managing cryptographic keys, and opening the local metadata vault. Owned
+ * native handles release themselves; secret values are exposed only to
+ * callback-scoped byte spans.
+ *
+ * See the [repository README](https://github.com/onepub-dev/reVault#readme)
+ * for installation, the security model, and complete examples.
+ */
+
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <string_view>
 #include <stdexcept>
 #include <optional>
+#include <functional>
+#include <span>
 #include <vector>
 
 #include <revault_api.h>
 #include <revault_bindings.pb.h>
 
+/** High-level, ownership-safe wrappers around the stable reVault C ABI. */
 namespace revault {
 
 inline void require_compatible_abi() {
-  if (api_abi_version() != 1)
-    throw std::runtime_error("revault-api native ABI mismatch; expected 1");
+  if (api_abi_version() != 2)
+    throw std::runtime_error("revault-api native ABI mismatch; expected 2");
 }
 
 class VaultDirectory;
@@ -55,6 +72,35 @@ inline std::string take_string(RevaultBuffer result) {
   return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
 }
 
+/**
+ * Invokes `callback` with a temporary plaintext span, then wipes the transfer
+ * buffer and releases the native secret handle. The callback must not retain
+ * the span.
+ */
+inline bool with_secret_handle(
+    void* handle,
+    const std::function<void(std::span<const std::uint8_t>)>& callback) {
+  if (!handle) return false;
+  try {
+    std::size_t length{};
+    if (!secret_len(handle, &length)) throw std::runtime_error(buffer_last_error());
+    std::vector<std::uint8_t> bytes(length);
+    if (!secret_copy(handle, bytes.data(), bytes.size()))
+      throw std::runtime_error(buffer_last_error());
+    try { callback(bytes); }
+    catch (...) {
+      std::fill(bytes.begin(), bytes.end(), 0);
+      throw;
+    }
+    std::fill(bytes.begin(), bytes.end(), 0);
+    secret_free(handle);
+    return true;
+  } catch (...) {
+    secret_free(handle);
+    throw;
+  }
+}
+
 template <typename Message>
 Message take_message(RevaultBuffer result) {
   if (!result.ptr) throw std::runtime_error(buffer_last_error());
@@ -89,6 +135,7 @@ inline std::string encode_moves(
   return message.SerializeAsString();
 }
 
+/** Shareable contact public key used to encrypt a recipient content key. */
 class ContactPublicKey {
  public:
   explicit ContactPublicKey(const std::vector<std::uint8_t>& bytes)
@@ -118,6 +165,7 @@ class ContactPublicKey {
   void* handle_{};
 };
 
+/** Move-only encrypted content-key envelope for one contact recipient. */
 class WrappedContactKey {
  public:
   WrappedContactKey(const WrappedContactKey&) = delete;
@@ -143,6 +191,7 @@ inline WrappedContactKey ContactPublicKey::encrypt(
       handle_, content_key.data(), content_key.size()));
 }
 
+/** Move-only contact key pair used to decrypt received content keys. */
 class ContactKeyPair {
  public:
   ContactKeyPair() : handle_(key_contact_generate()) {
@@ -176,6 +225,7 @@ class ContactKeyPair {
   void* handle_{};
 };
 
+/** Public key used to verify owner-authorized lockbox commits. */
 class SigningPublicKey {
  public:
   explicit SigningPublicKey(const std::vector<std::uint8_t>& bytes)
@@ -195,6 +245,7 @@ class SigningPublicKey {
   void* handle_{};
 };
 
+/** Move-only signing key pair used to authorize mutable lockbox commits. */
 class SigningKeyPair {
  public:
   SigningKeyPair() : handle_(key_signing_generate()) {
@@ -220,6 +271,7 @@ class SigningKeyPair {
   void* handle_{};
 };
 
+/** Runtime cache and worker tuning for opening or creating lockboxes. */
 struct LockboxOptions {
   std::string cache_mode{"bytes"};
   std::uint64_t cache_bytes{64 * 1024 * 1024};
@@ -228,6 +280,7 @@ struct LockboxOptions {
   std::size_t jobs{0};
 };
 
+/** Move-only, mutable view of one encrypted lockbox archive. */
 class Lockbox {
  public:
   static std::uint16_t format_version() { return lockbox_format_version(); }
@@ -400,10 +453,23 @@ class Lockbox {
   void set_permissions(const std::string& path, std::uint32_t value) {
     if (!lockbox_set_permissions(handle_, path.data(), path.size(), value)) throw std::runtime_error(buffer_last_error());
   }
-  void set_variable(const std::string& name, const std::string& value, bool secret = false) {
-    if (!lockbox_set_variable(handle_, name.data(), name.size(), value.data(), value.size(), secret)) throw std::runtime_error(buffer_last_error());
+  void set_variable(const std::string& name, const std::string& value) {
+    if (!lockbox_set_variable(handle_, name.data(), name.size(), value.data(), value.size())) throw std::runtime_error(buffer_last_error());
   }
-  Buffer get_variable(const std::string& name) const { return checked(lockbox_get_variable(handle_, name.data(), name.size())); }
+  void set_secret_variable(const std::string& name, std::span<const std::uint8_t> value) {
+    if (!lockbox_set_secret_variable(handle_, name.data(), name.size(), value.data(), value.size())) throw std::runtime_error(buffer_last_error());
+  }
+  std::optional<std::string> get_variable(const std::string& name) const {
+    auto value = decoded<bindings::OptionalString>(lockbox_get_variable(handle_, name.data(), name.size()));
+    return value.present() ? std::optional<std::string>(value.value()) : std::nullopt;
+  }
+  bool with_secret_variable(const std::string& name,
+      const std::function<void(std::span<const std::uint8_t>)>& callback) const {
+    void* secret{};
+    if (!lockbox_get_secret_variable(handle_, name.data(), name.size(), &secret))
+      throw std::runtime_error(buffer_last_error());
+    return with_secret_handle(secret, callback);
+  }
   void delete_variable(const std::string& name) {
     if (!lockbox_delete_variable(handle_, name.data(), name.size())) throw std::runtime_error(buffer_last_error());
   }
@@ -476,16 +542,22 @@ class Lockbox {
         name.data(), name.size()));
   }
   void set_form_field(const std::string& path, const std::string& field,
-                      const std::string& value, bool secret = false) {
+                      const std::string& value) {
     if (!lockbox_set_form_field(handle_, path.data(), path.size(), field.data(), field.size(),
-                                value.data(), value.size(), secret))
+                                value.data(), value.size()))
+      throw std::runtime_error(buffer_last_error());
+  }
+  void set_secret_form_field(const std::string& path, const std::string& field,
+                             std::span<const std::uint8_t> value) {
+    if (!lockbox_set_secret_form_field(handle_, path.data(), path.size(), field.data(), field.size(),
+                                       value.data(), value.size()))
       throw std::runtime_error(buffer_last_error());
   }
   bindings::FormRecordList list_form_records() const {
     return decoded<bindings::FormRecordList>(lockbox_list_form_records(handle_));
   }
-  bindings::FormRecord get_form_record(const std::string& path) const {
-    return decoded<bindings::FormRecord>(
+  bindings::OptionalFormRecord get_form_record(const std::string& path) const {
+    return decoded<bindings::OptionalFormRecord>(
         lockbox_get_form_record(handle_, path.data(), path.size()));
   }
   void delete_form_record(const std::string& path) {
@@ -497,10 +569,17 @@ class Lockbox {
     if (!lockbox_move_form_records(handle_, reinterpret_cast<const std::uint8_t*>(encoded.data()), encoded.size()))
       throw std::runtime_error(buffer_last_error());
   }
-  bindings::FormValue get_form_field(const std::string& path,
-                                     const std::string& field) const {
-    return decoded<bindings::FormValue>(lockbox_get_form_field(
+  bindings::OptionalFormValue get_form_field(const std::string& path,
+                                             const std::string& field) const {
+    return decoded<bindings::OptionalFormValue>(lockbox_get_form_field(
         handle_, path.data(), path.size(), field.data(), field.size()));
+  }
+  bool with_secret_form_field(const std::string& path, const std::string& field,
+      const std::function<void(std::span<const std::uint8_t>)>& callback) const {
+    void* secret{};
+    if (!lockbox_get_secret_form_field(handle_, path.data(), path.size(), field.data(), field.size(), &secret))
+      throw std::runtime_error(buffer_last_error());
+    return with_secret_handle(secret, callback);
   }
   void set_workload_profile(const std::string& profile) {
     if (!lockbox_set_workload_profile(handle_, profile.data(), profile.size()))
@@ -543,6 +622,7 @@ class Lockbox {
   void* handle_;
 };
 
+/** Move-only, writable, password-protected local metadata vault. */
 class VaultDirectory {
  public:
   static std::uint32_t current_structure_version() { return vault_structure_version_current(); }
@@ -790,6 +870,7 @@ class VaultDirectory {
   void* handle_{};
 };
 
+/** Move-only metadata view that never loads an owner signing key. */
 class ReadOnlyVaultDirectory {
  public:
   ReadOnlyVaultDirectory(const std::string& root, const std::string& password)
@@ -841,6 +922,7 @@ class KeyFormat {
   }
 };
 
+/** Move-only registration for an operation that currently requires secret access. */
 class AgentActivity {
  public:
   AgentActivity(const AgentActivity&) = delete;
@@ -861,6 +943,7 @@ class AgentActivity {
   void* handle_{};
 };
 
+/** Client for the local session agent's time-limited secret cache. */
 class Agent {
  public:
   static void start() { checked(vault_agent_start()); }
@@ -924,6 +1007,7 @@ class Agent {
   }
 };
 
+/** Controls integration with the operating system's secret store. */
 class PlatformSecretStore {
  public:
   static bindings::PlatformStatus status() {
@@ -947,6 +1031,7 @@ class PlatformSecretStore {
   }
 };
 
+/** High-level workflow for local metadata and remembered lockbox files. */
 class LocalVault {
  public:
   LocalVault() : handle_(vault_local()) {

@@ -10,11 +10,11 @@ COPY . .
 RUN cd rust && cargo build --locked --release -p revault_bindings -p revault_tooling
 RUN install -m 0755 rust/target/release/revault-tool /usr/local/bin/revault-tool \
     && revault-tool release package-native --repository . \
-      --version 0.1.0 --target linux-x86_64-gnu \
+      --version 0.2.0 --target linux-x86_64-gnu \
       --library rust/target/release/librevault_api.so \
       --static-library rust/target/release/librevault_api.a --output /tmp/native \
     && revault-tool release install-native \
-      --archive /tmp/native/revault-api-native-0.1.0-linux-x86_64-gnu.tar.gz \
+      --archive /tmp/native/revault-api-native-0.2.0-linux-x86_64-gnu.tar.gz \
       --prefix /usr/local \
     && ldconfig
 RUN cmake -S bindings/e2e/c -B /tmp/revault-c-conformance \

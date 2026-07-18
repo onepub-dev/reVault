@@ -9,19 +9,27 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Owner-signature status for an open lockbox.
+ *
  * Generated from protobuf message <code>revault.bindings.OwnerInspection</code>
  */
 class OwnerInspection extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Whether the lockbox has owner-signed commits.
+     *
      * Generated from protobuf field <code>bool signed = 1;</code>
      */
     protected $signed = false;
     /**
+     * Human-readable owner signing-key fingerprint.
+     *
      * Generated from protobuf field <code>string fingerprint = 2;</code>
      */
     protected $fingerprint = '';
     /**
+     * Whether `fingerprint` is present.
+     *
      * Generated from protobuf field <code>bool has_fingerprint = 3;</code>
      */
     protected $has_fingerprint = false;
@@ -33,8 +41,11 @@ class OwnerInspection extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type bool $signed
+     *           Whether the lockbox has owner-signed commits.
      *     @type string $fingerprint
+     *           Human-readable owner signing-key fingerprint.
      *     @type bool $has_fingerprint
+     *           Whether `fingerprint` is present.
      * }
      */
     public function __construct($data = NULL) {
@@ -43,6 +54,8 @@ class OwnerInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the lockbox has owner-signed commits.
+     *
      * Generated from protobuf field <code>bool signed = 1;</code>
      * @return bool
      */
@@ -52,6 +65,8 @@ class OwnerInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether the lockbox has owner-signed commits.
+     *
      * Generated from protobuf field <code>bool signed = 1;</code>
      * @param bool $var
      * @return $this
@@ -65,6 +80,8 @@ class OwnerInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Human-readable owner signing-key fingerprint.
+     *
      * Generated from protobuf field <code>string fingerprint = 2;</code>
      * @return string
      */
@@ -74,6 +91,8 @@ class OwnerInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Human-readable owner signing-key fingerprint.
+     *
      * Generated from protobuf field <code>string fingerprint = 2;</code>
      * @param string $var
      * @return $this
@@ -87,6 +106,8 @@ class OwnerInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether `fingerprint` is present.
+     *
      * Generated from protobuf field <code>bool has_fingerprint = 3;</code>
      * @return bool
      */
@@ -96,6 +117,8 @@ class OwnerInspection extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether `fingerprint` is present.
+     *
      * Generated from protobuf field <code>bool has_fingerprint = 3;</code>
      * @param bool $var
      * @return $this
