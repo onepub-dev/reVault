@@ -16,7 +16,7 @@ const VERBOSE_HELP_TEMPLATE: &str = "\
 pub(crate) fn command(verbose: bool) -> Command {
     let command = Command::new("lockbox")
         .about(ABOUT)
-        .disable_version_flag(true)
+        .version(env!("CARGO_PKG_VERSION"))
         .disable_help_subcommand(true)
         .arg_required_else_help(true)
         .subcommand_required(true)

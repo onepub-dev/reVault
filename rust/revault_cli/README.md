@@ -21,6 +21,10 @@ Installing this crate provides the `lockbox` and `lbx` commands. It is an
 application package, not a Rust library: install it with `cargo install`,
 rather than adding it as a dependency.
 
+End users can install prebuilt Linux, macOS, and Windows releases without a
+Rust toolchain. See the [CLI distribution guide](https://github.com/onepub-dev/reVault/blob/master/docs/cli_distribution.md)
+for installers, supported targets, and package-manager plans.
+
 The CLI creates and opens lockboxes, manages their files, variables and forms,
 and manages the vault, profiles, contacts and recipient access that make
 sharing possible. It also maintains a local open session so you do not need to

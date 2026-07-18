@@ -341,6 +341,8 @@ lockbox.commit()?;
 ## Documentation
 
 - [CLI how-to](docs/cli_how_to.md): command examples.
+- [CI/CD with reVault](docs/ci_cd.md): proposed bootstrap and ephemeral CI
+  workflow for encrypted deployment secrets.
 - [Lockbox Session Agent](docs/lockbox_session_agent.md): local open cache
   lifecycle, protocol, and security model.
 - [Archive format](rust/revault_lockbox_api/ARCHIVE_FORMAT.md): lockbox archive details and page
