@@ -1,4 +1,9 @@
-"""Generated complete class-oriented Python API. Do not edit."""
+"""Owned, class-oriented reVault API.
+
+Use :class:`Vault` as the entry point and close owned handles with a context
+manager. Secret access is callback-scoped. The repository README contains the
+security model and examples: https://github.com/onepub-dev/reVault#readme
+"""
 from __future__ import annotations
 import ctypes
 from pathlib import Path
@@ -68,6 +73,7 @@ class OwnedHandle:
         if close and self._handle: close()
 
 class Vault:
+    """Entry point for lockboxes, keys, local metadata, agent, and platform services."""
     def __init__(self, path: str | Path | None = None):
         self._root = self; self._lib = load(path); self.agent = Agent(self, None); self.platform = Platform(self, None)
     @property
@@ -75,39 +81,51 @@ class Vault:
     def last_error_details(self): return _call(self, 'buffer_last_error_details', ())
 
 class Lockbox(OwnedHandle):
+    """Owned, mutable view of one encrypted lockbox archive."""
     pass
 
 class ContactKeyPair(OwnedHandle):
+    """Owned contact key pair used to decrypt received content keys."""
     pass
 
 class ContactPublicKey(OwnedHandle):
+    """Shareable contact public key used to encrypt a recipient content key."""
     pass
 
 class WrappedContactKey(OwnedHandle):
+    """Owned encrypted content-key envelope for one contact recipient."""
     pass
 
 class SigningKeyPair(OwnedHandle):
+    """Owned signing key pair used to authorize mutable lockbox commits."""
     pass
 
 class SigningPublicKey(OwnedHandle):
+    """Public key used to verify owner-authorized lockbox commits."""
     pass
 
 class VaultDirectory(OwnedHandle):
+    """Writable, password-protected local metadata vault."""
     pass
 
 class ReadOnlyVaultDirectory(OwnedHandle):
+    """Read-only metadata view that never loads an owner signing key."""
     pass
 
 class Agent(OwnedHandle):
+    """Client for the local session agent's time-limited secret cache."""
     pass
 
 class AgentActivity(OwnedHandle):
+    """Owned registration for an operation requiring secret access."""
     pass
 
 class Platform(OwnedHandle):
+    """Controls integration with the operating system's secret store."""
     pass
 
 class LocalVault(OwnedHandle):
+    """High-level workflow for local metadata and remembered lockboxes."""
     pass
 
 def _Vault_lockbox_format_version(self):
@@ -419,6 +437,7 @@ def _Lockbox_set_variable(self, name, value):
 Lockbox.set_variable = _Lockbox_set_variable
 
 def _Lockbox_set_secret_variable(self, name, value):
+    """Store a secret variable from mutable bytes."""
     raw, secret = name.encode(), bytearray(value)
     native = (ctypes.c_uint8 * len(secret)).from_buffer(secret) if secret else None
     try:
@@ -433,6 +452,7 @@ def _Lockbox_get_variable(self, name):
 Lockbox.get_variable = _Lockbox_get_variable
 
 def _Lockbox_with_secret_variable(self, name, callback):
+    """Call ``callback`` with temporary secret bytes, then wipe the transfer copy."""
     raw = name.encode()
     return _with_secret(self, lambda output: self._lib.lockbox_get_secret_variable(self._handle, raw, len(raw), output), callback)
 Lockbox.with_secret_variable = _Lockbox_with_secret_variable
@@ -534,6 +554,7 @@ def _Lockbox_set_form_field(self, path, field, value):
 Lockbox.set_form_field = _Lockbox_set_form_field
 
 def _Lockbox_set_secret_form_field(self, path, field, value):
+    """Store a secret form field from mutable bytes."""
     path_raw, field_raw, secret = path.encode(), field.encode(), bytearray(value)
     native = (ctypes.c_uint8 * len(secret)).from_buffer(secret) if secret else None
     try:
@@ -563,6 +584,7 @@ def _Lockbox_get_form_field(self, path, field):
 Lockbox.get_form_field = _Lockbox_get_form_field
 
 def _Lockbox_with_secret_form_field(self, path, field, callback):
+    """Call ``callback`` with temporary field bytes, then wipe the transfer copy."""
     path_raw, field_raw = path.encode(), field.encode()
     return _with_secret(self, lambda output: self._lib.lockbox_get_secret_form_field(self._handle, path_raw, len(path_raw), field_raw, len(field_raw), output), callback)
 Lockbox.with_secret_form_field = _Lockbox_with_secret_form_field

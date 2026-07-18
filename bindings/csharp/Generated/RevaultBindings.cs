@@ -180,6 +180,9 @@ namespace Revault.Bindings {
 
   }
   #region Messages
+  /// <summary>
+  /// Metadata for one entry in a lockbox filesystem.
+  /// </summary>
   public sealed partial class LockboxEntry : pb::IMessage<LockboxEntry>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -230,6 +233,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "path" field.</summary>
     public const int PathFieldNumber = 1;
     private string path_ = "";
+    /// <summary>
+    /// Normalized absolute path within the lockbox.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Path {
@@ -242,6 +248,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "kind" field.</summary>
     public const int KindFieldNumber = 2;
     private global::Revault.Bindings.LockboxEntry.Types.Kind kind_ = global::Revault.Bindings.LockboxEntry.Types.Kind.Unspecified;
+    /// <summary>
+    /// Type of the entry.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public global::Revault.Bindings.LockboxEntry.Types.Kind Kind {
@@ -254,6 +263,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "length" field.</summary>
     public const int LengthFieldNumber = 3;
     private ulong length_;
+    /// <summary>
+    /// Logical file length in bytes; zero for directories.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong Length {
@@ -266,6 +278,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "permissions" field.</summary>
     public const int PermissionsFieldNumber = 4;
     private uint permissions_;
+    /// <summary>
+    /// Stored Unix permission bits.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public uint Permissions {
@@ -483,10 +498,25 @@ namespace Revault.Bindings {
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public static partial class Types {
+      /// <summary>
+      /// Filesystem object type.
+      /// </summary>
       public enum Kind {
+        /// <summary>
+        /// No object type was supplied.
+        /// </summary>
         [pbr::OriginalName("KIND_UNSPECIFIED")] Unspecified = 0,
+        /// <summary>
+        /// A regular file.
+        /// </summary>
         [pbr::OriginalName("FILE")] File = 1,
+        /// <summary>
+        /// A symbolic link whose target is stored in the lockbox.
+        /// </summary>
         [pbr::OriginalName("SYMLINK")] Symlink = 2,
+        /// <summary>
+        /// A directory.
+        /// </summary>
         [pbr::OriginalName("DIRECTORY")] Directory = 3,
       }
 
@@ -495,6 +525,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of lockbox entries.
+  /// </summary>
   public sealed partial class LockboxEntryList : pb::IMessage<LockboxEntryList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -544,6 +577,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.LockboxEntry> _repeated_entries_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.LockboxEntry.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.LockboxEntry> entries_ = new pbc::RepeatedField<global::Revault.Bindings.LockboxEntry>();
+    /// <summary>
+    /// Entries in the order returned by the requested listing operation.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.LockboxEntry> Entries {
@@ -673,6 +709,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Optional entry; `value` is absent when a path does not exist.
+  /// </summary>
   public sealed partial class OptionalLockboxEntry : pb::IMessage<OptionalLockboxEntry>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -720,6 +759,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "value" field.</summary>
     public const int ValueFieldNumber = 1;
     private global::Revault.Bindings.LockboxEntry value_;
+    /// <summary>
+    /// Present entry value.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public global::Revault.Bindings.LockboxEntry Value {
@@ -871,6 +913,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of UTF-8 strings.
+  /// </summary>
   public sealed partial class StringList : pb::IMessage<StringList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -920,6 +965,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<string> _repeated_values_codec
         = pb::FieldCodec.ForString(10);
     private readonly pbc::RepeatedField<string> values_ = new pbc::RepeatedField<string>();
+    /// <summary>
+    /// String values in API-defined order.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<string> Values {
@@ -1049,6 +1097,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// One atomic source-to-destination rename.
+  /// </summary>
   public sealed partial class PathMove : pb::IMessage<PathMove>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -1097,6 +1148,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "source" field.</summary>
     public const int SourceFieldNumber = 1;
     private string source_ = "";
+    /// <summary>
+    /// Existing variable name or form-record path.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Source {
@@ -1109,6 +1163,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "destination" field.</summary>
     public const int DestinationFieldNumber = 2;
     private string destination_ = "";
+    /// <summary>
+    /// New variable name or form-record path.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Destination {
@@ -1275,6 +1332,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Renames applied as one operation.
+  /// </summary>
   public sealed partial class PathMoveList : pb::IMessage<PathMoveList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -1324,6 +1384,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.PathMove> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.PathMove.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.PathMove> values_ = new pbc::RepeatedField<global::Revault.Bindings.PathMove>();
+    /// <summary>
+    /// Requested source-to-destination moves.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.PathMove> Values {
@@ -1453,6 +1516,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of arbitrary byte strings.
+  /// </summary>
   public sealed partial class ByteList : pb::IMessage<ByteList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -1502,6 +1568,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<pb::ByteString> _repeated_values_codec
         = pb::FieldCodec.ForBytes(10);
     private readonly pbc::RepeatedField<pb::ByteString> values_ = new pbc::RepeatedField<pb::ByteString>();
+    /// <summary>
+    /// Binary values in API-defined order.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<pb::ByteString> Values {
@@ -1631,6 +1700,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// One field in a typed form definition.
+  /// </summary>
   public sealed partial class FormField : pb::IMessage<FormField>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -1681,6 +1753,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "id" field.</summary>
     public const int IdFieldNumber = 1;
     private string id_ = "";
+    /// <summary>
+    /// Stable field identifier used by records.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Id {
@@ -1693,6 +1768,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "label" field.</summary>
     public const int LabelFieldNumber = 2;
     private string label_ = "";
+    /// <summary>
+    /// User-facing label captured in records.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Label {
@@ -1705,6 +1783,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "kind" field.</summary>
     public const int KindFieldNumber = 3;
     private string kind_ = "";
+    /// <summary>
+    /// Field kind, such as `text`, `password`, or `secret`.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Kind {
@@ -1717,6 +1798,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "required" field.</summary>
     public const int RequiredFieldNumber = 4;
     private bool required_;
+    /// <summary>
+    /// Whether records must provide a value.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool Required {
@@ -1931,6 +2015,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of form fields.
+  /// </summary>
   public sealed partial class FormFieldList : pb::IMessage<FormFieldList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -1980,6 +2067,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.FormField> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.FormField.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.FormField> values_ = new pbc::RepeatedField<global::Revault.Bindings.FormField>();
+    /// <summary>
+    /// Ordered form fields.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.FormField> Values {
@@ -2109,6 +2199,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// One immutable revision of a typed form definition.
+  /// </summary>
   public sealed partial class FormDefinition : pb::IMessage<FormDefinition>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -2161,6 +2254,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "type_id" field.</summary>
     public const int TypeIdFieldNumber = 1;
     private string typeId_ = "";
+    /// <summary>
+    /// Stable type identifier shared by all revisions.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string TypeId {
@@ -2173,6 +2269,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "alias" field.</summary>
     public const int AliasFieldNumber = 2;
     private string alias_ = "";
+    /// <summary>
+    /// Human-readable reference used to resolve the current revision.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Alias {
@@ -2185,6 +2284,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "revision" field.</summary>
     public const int RevisionFieldNumber = 3;
     private uint revision_;
+    /// <summary>
+    /// Monotonically increasing definition revision.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public uint Revision {
@@ -2197,6 +2299,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "name" field.</summary>
     public const int NameFieldNumber = 4;
     private string name_ = "";
+    /// <summary>
+    /// Display name.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Name {
@@ -2209,6 +2314,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "description" field.</summary>
     public const int DescriptionFieldNumber = 5;
     private string description_ = "";
+    /// <summary>
+    /// Optional user-facing description.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Description {
@@ -2223,6 +2331,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.FormField> _repeated_fields_codec
         = pb::FieldCodec.ForMessage(50, global::Revault.Bindings.FormField.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.FormField> fields_ = new pbc::RepeatedField<global::Revault.Bindings.FormField>();
+    /// <summary>
+    /// Ordered fields belonging to the definition.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.FormField> Fields {
@@ -2472,6 +2583,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of form definitions.
+  /// </summary>
   public sealed partial class FormDefinitionList : pb::IMessage<FormDefinitionList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -2521,6 +2635,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.FormDefinition> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.FormDefinition.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.FormDefinition> values_ = new pbc::RepeatedField<global::Revault.Bindings.FormDefinition>();
+    /// <summary>
+    /// Definitions in revision or alias order, as specified by the operation.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.FormDefinition> Values {
@@ -2650,6 +2767,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// One value captured in a typed form record.
+  /// </summary>
   public sealed partial class FormValue : pb::IMessage<FormValue>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -2701,6 +2821,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "field_id" field.</summary>
     public const int FieldIdFieldNumber = 1;
     private string fieldId_ = "";
+    /// <summary>
+    /// Stable field identifier from the definition revision.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string FieldId {
@@ -2713,6 +2836,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "label" field.</summary>
     public const int LabelFieldNumber = 2;
     private string label_ = "";
+    /// <summary>
+    /// Field label captured when the value was written.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Label {
@@ -2725,6 +2851,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "kind" field.</summary>
     public const int KindFieldNumber = 3;
     private string kind_ = "";
+    /// <summary>
+    /// Captured field kind.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Kind {
@@ -2737,6 +2866,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "value" field.</summary>
     public const int ValueFieldNumber = 4;
     private string value_ = "";
+    /// <summary>
+    /// Non-secret text; intentionally empty for secret fields.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Value {
@@ -2749,6 +2881,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "secret" field.</summary>
     public const int SecretFieldNumber = 5;
     private bool secret_;
+    /// <summary>
+    /// Whether the value must be read through a callback-scoped secret API.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool Secret {
@@ -2987,6 +3122,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// One typed record stored at a lockbox path.
+  /// </summary>
   public sealed partial class FormRecord : pb::IMessage<FormRecord>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -3039,6 +3177,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "path" field.</summary>
     public const int PathFieldNumber = 1;
     private string path_ = "";
+    /// <summary>
+    /// Record path within the lockbox.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Path {
@@ -3051,6 +3192,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "name" field.</summary>
     public const int NameFieldNumber = 2;
     private string name_ = "";
+    /// <summary>
+    /// User-facing record name.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Name {
@@ -3063,6 +3207,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "type_id" field.</summary>
     public const int TypeIdFieldNumber = 3;
     private string typeId_ = "";
+    /// <summary>
+    /// Stable form type identifier.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string TypeId {
@@ -3075,6 +3222,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "definition_alias" field.</summary>
     public const int DefinitionAliasFieldNumber = 4;
     private string definitionAlias_ = "";
+    /// <summary>
+    /// Alias captured from the definition.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string DefinitionAlias {
@@ -3087,6 +3237,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "definition_revision" field.</summary>
     public const int DefinitionRevisionFieldNumber = 5;
     private uint definitionRevision_;
+    /// <summary>
+    /// Definition revision used to create the record.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public uint DefinitionRevision {
@@ -3101,6 +3254,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.FormValue> _repeated_values_codec
         = pb::FieldCodec.ForMessage(50, global::Revault.Bindings.FormValue.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.FormValue> values_ = new pbc::RepeatedField<global::Revault.Bindings.FormValue>();
+    /// <summary>
+    /// Field values in definition order.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.FormValue> Values {
@@ -3350,6 +3506,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of form records.
+  /// </summary>
   public sealed partial class FormRecordList : pb::IMessage<FormRecordList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -3399,6 +3558,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.FormRecord> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.FormRecord.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.FormRecord> values_ = new pbc::RepeatedField<global::Revault.Bindings.FormRecord>();
+    /// <summary>
+    /// Records in normalized path order.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.FormRecord> Values {
@@ -3528,6 +3690,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Optional form record; `value` is absent when the record does not exist.
+  /// </summary>
   public sealed partial class OptionalFormRecord : pb::IMessage<OptionalFormRecord>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -3575,6 +3740,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "value" field.</summary>
     public const int ValueFieldNumber = 1;
     private global::Revault.Bindings.FormRecord value_;
+    /// <summary>
+    /// Present record value.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public global::Revault.Bindings.FormRecord Value {
@@ -3726,6 +3894,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Optional form value; `value` is absent when the field does not exist.
+  /// </summary>
   public sealed partial class OptionalFormValue : pb::IMessage<OptionalFormValue>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -3773,6 +3944,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "value" field.</summary>
     public const int ValueFieldNumber = 1;
     private global::Revault.Bindings.FormValue value_;
+    /// <summary>
+    /// Present field value; secret payloads remain omitted.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public global::Revault.Bindings.FormValue Value {
@@ -3924,6 +4098,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Results from scanning or salvaging a damaged lockbox.
+  /// </summary>
   public sealed partial class RecoveryReport : pb::IMessage<RecoveryReport>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -3982,6 +4159,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.LockboxEntry> _repeated_intactFiles_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.LockboxEntry.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.LockboxEntry> intactFiles_ = new pbc::RepeatedField<global::Revault.Bindings.LockboxEntry>();
+    /// <summary>
+    /// Metadata for files recovered in full.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.LockboxEntry> IntactFiles {
@@ -3991,6 +4171,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "intact_file_count" field.</summary>
     public const int IntactFileCountFieldNumber = 2;
     private ulong intactFileCount_;
+    /// <summary>
+    /// Total number of fully recovered files.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong IntactFileCount {
@@ -4003,6 +4186,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "partial_files" field.</summary>
     public const int PartialFilesFieldNumber = 3;
     private ulong partialFiles_;
+    /// <summary>
+    /// Number of files for which only partial content was recovered.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong PartialFiles {
@@ -4015,6 +4201,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "corrupt_records" field.</summary>
     public const int CorruptRecordsFieldNumber = 4;
     private ulong corruptRecords_;
+    /// <summary>
+    /// Number of corrupt records skipped by the scanner.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong CorruptRecords {
@@ -4027,6 +4216,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "toc_recovered" field.</summary>
     public const int TocRecoveredFieldNumber = 5;
     private bool tocRecovered_;
+    /// <summary>
+    /// Whether the table of contents was recovered.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool TocRecovered {
@@ -4039,6 +4231,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "variables_recovered" field.</summary>
     public const int VariablesRecoveredFieldNumber = 6;
     private bool variablesRecovered_;
+    /// <summary>
+    /// Whether variable metadata was recovered.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool VariablesRecovered {
@@ -4051,6 +4246,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "variable_count" field.</summary>
     public const int VariableCountFieldNumber = 7;
     private ulong variableCount_;
+    /// <summary>
+    /// Number of recovered variables.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong VariableCount {
@@ -4063,6 +4261,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "forms_recovered" field.</summary>
     public const int FormsRecoveredFieldNumber = 8;
     private bool formsRecovered_;
+    /// <summary>
+    /// Whether typed form metadata was recovered.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool FormsRecovered {
@@ -4075,6 +4276,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "form_definition_count" field.</summary>
     public const int FormDefinitionCountFieldNumber = 9;
     private ulong formDefinitionCount_;
+    /// <summary>
+    /// Number of recovered form definitions.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong FormDefinitionCount {
@@ -4087,6 +4291,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "form_record_count" field.</summary>
     public const int FormRecordCountFieldNumber = 10;
     private ulong formRecordCount_;
+    /// <summary>
+    /// Number of recovered form records.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong FormRecordCount {
@@ -4435,6 +4642,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Metadata for one password or contact access slot.
+  /// </summary>
   public sealed partial class KeySlot : pb::IMessage<KeySlot>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -4484,6 +4694,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "id" field.</summary>
     public const int IdFieldNumber = 1;
     private ulong id_;
+    /// <summary>
+    /// Stable slot identifier used for deletion and local labels.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong Id {
@@ -4496,6 +4709,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "protection" field.</summary>
     public const int ProtectionFieldNumber = 2;
     private string protection_ = "";
+    /// <summary>
+    /// Protection type, such as `password` or `contact`.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Protection {
@@ -4508,6 +4724,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "algorithm" field.</summary>
     public const int AlgorithmFieldNumber = 3;
     private string algorithm_ = "";
+    /// <summary>
+    /// Cryptographic algorithm identifier stored by the slot.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Algorithm {
@@ -4698,6 +4917,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of access slots.
+  /// </summary>
   public sealed partial class KeySlotList : pb::IMessage<KeySlotList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -4747,6 +4969,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.KeySlot> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.KeySlot.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.KeySlot> values_ = new pbc::RepeatedField<global::Revault.Bindings.KeySlot>();
+    /// <summary>
+    /// Access slots in stable id order.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.KeySlot> Values {
@@ -4876,6 +5101,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Current decrypted-page cache counters.
+  /// </summary>
   public sealed partial class CacheStats : pb::IMessage<CacheStats>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -4927,6 +5155,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "limit_bytes" field.</summary>
     public const int LimitBytesFieldNumber = 1;
     private ulong limitBytes_;
+    /// <summary>
+    /// Configured cache limit in bytes.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong LimitBytes {
@@ -4939,6 +5170,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "used_bytes" field.</summary>
     public const int UsedBytesFieldNumber = 2;
     private ulong usedBytes_;
+    /// <summary>
+    /// Bytes currently held by the cache.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong UsedBytes {
@@ -4951,6 +5185,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "entries" field.</summary>
     public const int EntriesFieldNumber = 3;
     private ulong entries_;
+    /// <summary>
+    /// Number of cached entries.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong Entries {
@@ -4963,6 +5200,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "hits" field.</summary>
     public const int HitsFieldNumber = 4;
     private ulong hits_;
+    /// <summary>
+    /// Successful cache lookup count.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong Hits {
@@ -4975,6 +5215,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "misses" field.</summary>
     public const int MissesFieldNumber = 5;
     private ulong misses_;
+    /// <summary>
+    /// Failed cache lookup count.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong Misses {
@@ -5213,6 +5456,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Cumulative timing counters for bulk imports, represented as decimal nanoseconds.
+  /// </summary>
   public sealed partial class ImportStats : pb::IMessage<ImportStats>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -5263,6 +5509,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "host_stat_nanos" field.</summary>
     public const int HostStatNanosFieldNumber = 1;
     private string hostStatNanos_ = "";
+    /// <summary>
+    /// Time spent querying host file metadata.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string HostStatNanos {
@@ -5275,6 +5524,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "host_read_nanos" field.</summary>
     public const int HostReadNanosFieldNumber = 2;
     private string hostReadNanos_ = "";
+    /// <summary>
+    /// Time spent reading host file content.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string HostReadNanos {
@@ -5287,6 +5539,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "frame_prepare_nanos" field.</summary>
     public const int FramePrepareNanosFieldNumber = 3;
     private string framePrepareNanos_ = "";
+    /// <summary>
+    /// Time spent preparing compression/encryption frames.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string FramePrepareNanos {
@@ -5299,6 +5554,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "page_write_nanos" field.</summary>
     public const int PageWriteNanosFieldNumber = 4;
     private string pageWriteNanos_ = "";
+    /// <summary>
+    /// Time spent writing encrypted pages.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string PageWriteNanos {
@@ -5513,6 +5771,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// One logical object stored inside an encrypted page.
+  /// </summary>
   public sealed partial class PageObject : pb::IMessage<PageObject>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -5562,6 +5823,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "id" field.</summary>
     public const int IdFieldNumber = 1;
     private ulong id_;
+    /// <summary>
+    /// Object identifier within the page.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong Id {
@@ -5574,6 +5838,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "kind" field.</summary>
     public const int KindFieldNumber = 2;
     private string kind_ = "";
+    /// <summary>
+    /// Object type name.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Kind {
@@ -5586,6 +5853,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "payload_len" field.</summary>
     public const int PayloadLenFieldNumber = 3;
     private ulong payloadLen_;
+    /// <summary>
+    /// Encoded payload length in bytes.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong PayloadLen {
@@ -5776,6 +6046,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Diagnostic metadata for one encrypted lockbox page.
+  /// </summary>
   public sealed partial class PageInspection : pb::IMessage<PageInspection>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -5830,6 +6103,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "offset" field.</summary>
     public const int OffsetFieldNumber = 1;
     private ulong offset_;
+    /// <summary>
+    /// Physical page offset in the archive.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong Offset {
@@ -5842,6 +6118,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "page_id" field.</summary>
     public const int PageIdFieldNumber = 2;
     private ulong pageId_;
+    /// <summary>
+    /// Stable page identifier.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong PageId {
@@ -5854,6 +6133,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "sequence" field.</summary>
     public const int SequenceFieldNumber = 3;
     private ulong sequence_;
+    /// <summary>
+    /// Commit sequence that last wrote the page.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong Sequence {
@@ -5866,6 +6148,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "page_size" field.</summary>
     public const int PageSizeFieldNumber = 4;
     private ulong pageSize_;
+    /// <summary>
+    /// Total encoded page length.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong PageSize {
@@ -5878,6 +6163,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "encrypted_body_len" field.</summary>
     public const int EncryptedBodyLenFieldNumber = 5;
     private ulong encryptedBodyLen_;
+    /// <summary>
+    /// Length of the authenticated encrypted body.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong EncryptedBodyLen {
@@ -5890,6 +6178,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "unused_bytes" field.</summary>
     public const int UnusedBytesFieldNumber = 6;
     private ulong unusedBytes_;
+    /// <summary>
+    /// Unused capacity remaining in the page.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong UnusedBytes {
@@ -5902,6 +6193,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "object_count" field.</summary>
     public const int ObjectCountFieldNumber = 7;
     private ulong objectCount_;
+    /// <summary>
+    /// Number of logical objects in the page.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong ObjectCount {
@@ -5916,6 +6210,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.PageObject> _repeated_objects_codec
         = pb::FieldCodec.ForMessage(66, global::Revault.Bindings.PageObject.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.PageObject> objects_ = new pbc::RepeatedField<global::Revault.Bindings.PageObject>();
+    /// <summary>
+    /// Objects discoverable without exposing plaintext payloads.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.PageObject> Objects {
@@ -6213,6 +6510,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of page diagnostics.
+  /// </summary>
   public sealed partial class PageInspectionList : pb::IMessage<PageInspectionList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -6262,6 +6562,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.PageInspection> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.PageInspection.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.PageInspection> values_ = new pbc::RepeatedField<global::Revault.Bindings.PageInspection>();
+    /// <summary>
+    /// Pages in physical archive order.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.PageInspection> Values {
@@ -6391,6 +6694,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Metadata that can be inspected from a lockbox file without opening content.
+  /// </summary>
   public sealed partial class FileInspection : pb::IMessage<FileInspection>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -6443,6 +6749,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "lockbox_id" field.</summary>
     public const int LockboxIdFieldNumber = 1;
     private pb::ByteString lockboxId_ = pb::ByteString.Empty;
+    /// <summary>
+    /// Stable lockbox identifier.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pb::ByteString LockboxId {
@@ -6455,6 +6764,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "header_readable" field.</summary>
     public const int HeaderReadableFieldNumber = 2;
     private bool headerReadable_;
+    /// <summary>
+    /// Whether the file header passed structural validation.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool HeaderReadable {
@@ -6467,6 +6779,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "key_directory_generation" field.</summary>
     public const int KeyDirectoryGenerationFieldNumber = 3;
     private ulong keyDirectoryGeneration_;
+    /// <summary>
+    /// Latest readable key-directory generation.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong KeyDirectoryGeneration {
@@ -6479,6 +6794,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "key_directory_copy_count" field.</summary>
     public const int KeyDirectoryCopyCountFieldNumber = 4;
     private ulong keyDirectoryCopyCount_;
+    /// <summary>
+    /// Number of valid redundant key-directory copies.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong KeyDirectoryCopyCount {
@@ -6491,6 +6809,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "owner_signed" field.</summary>
     public const int OwnerSignedFieldNumber = 5;
     private bool ownerSigned_;
+    /// <summary>
+    /// Whether commits are authorized by an owner signing key.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool OwnerSigned {
@@ -6505,6 +6826,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.KeySlot> _repeated_keySlots_codec
         = pb::FieldCodec.ForMessage(50, global::Revault.Bindings.KeySlot.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.KeySlot> keySlots_ = new pbc::RepeatedField<global::Revault.Bindings.KeySlot>();
+    /// <summary>
+    /// Access slots visible in the key directory.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.KeySlot> KeySlots {
@@ -6754,6 +7078,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// One historical generation of a vault profile's contact keys.
+  /// </summary>
   public sealed partial class ProfileGeneration : pb::IMessage<ProfileGeneration>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -6806,6 +7133,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "index" field.</summary>
     public const int IndexFieldNumber = 1;
     private uint index_;
+    /// <summary>
+    /// Monotonically increasing generation number.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public uint Index {
@@ -6818,6 +7148,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "status" field.</summary>
     public const int StatusFieldNumber = 2;
     private string status_ = "";
+    /// <summary>
+    /// Lifecycle status: `active`, `retired`, or `compromised`.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Status {
@@ -6830,6 +7163,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "contact_fingerprint" field.</summary>
     public const int ContactFingerprintFieldNumber = 3;
     private pb::ByteString contactFingerprint_ = pb::ByteString.Empty;
+    /// <summary>
+    /// Fingerprint of the generation's contact public key.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pb::ByteString ContactFingerprint {
@@ -6842,6 +7178,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "created_at_unix_ms" field.</summary>
     public const int CreatedAtUnixMsFieldNumber = 4;
     private ulong createdAtUnixMs_;
+    /// <summary>
+    /// Creation time in Unix milliseconds.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong CreatedAtUnixMs {
@@ -6854,6 +7193,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "retired_at_unix_ms" field.</summary>
     public const int RetiredAtUnixMsFieldNumber = 5;
     private ulong retiredAtUnixMs_;
+    /// <summary>
+    /// Retirement time in Unix milliseconds when present.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong RetiredAtUnixMs {
@@ -6866,6 +7208,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "has_retired_at" field.</summary>
     public const int HasRetiredAtFieldNumber = 6;
     private bool hasRetiredAt_;
+    /// <summary>
+    /// Whether `retired_at_unix_ms` is present.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool HasRetiredAt {
@@ -7128,6 +7473,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Versioned key-generation history for one named profile.
+  /// </summary>
   public sealed partial class ProfileHistory : pb::IMessage<ProfileHistory>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -7177,6 +7525,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "name" field.</summary>
     public const int NameFieldNumber = 1;
     private string name_ = "";
+    /// <summary>
+    /// Profile name.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Name {
@@ -7189,6 +7540,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "active_generation" field.</summary>
     public const int ActiveGenerationFieldNumber = 2;
     private uint activeGeneration_;
+    /// <summary>
+    /// Index of the active generation.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public uint ActiveGeneration {
@@ -7203,6 +7557,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.ProfileGeneration> _repeated_generations_codec
         = pb::FieldCodec.ForMessage(26, global::Revault.Bindings.ProfileGeneration.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.ProfileGeneration> generations_ = new pbc::RepeatedField<global::Revault.Bindings.ProfileGeneration>();
+    /// <summary>
+    /// All active, retired, and compromised generations.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.ProfileGeneration> Generations {
@@ -7380,6 +7737,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Local metadata for a remembered lockbox path.
+  /// </summary>
   public sealed partial class KnownLockbox : pb::IMessage<KnownLockbox>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -7429,6 +7789,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "lockbox_id" field.</summary>
     public const int LockboxIdFieldNumber = 1;
     private pb::ByteString lockboxId_ = pb::ByteString.Empty;
+    /// <summary>
+    /// Stable identifier embedded in the lockbox.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pb::ByteString LockboxId {
@@ -7441,6 +7804,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "path" field.</summary>
     public const int PathFieldNumber = 2;
     private string path_ = "";
+    /// <summary>
+    /// Filesystem path at which the lockbox was last seen.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Path {
@@ -7453,6 +7819,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "last_seen_unix_ms" field.</summary>
     public const int LastSeenUnixMsFieldNumber = 3;
     private ulong lastSeenUnixMs_;
+    /// <summary>
+    /// Last observation time in Unix milliseconds.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong LastSeenUnixMs {
@@ -7643,6 +8012,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of remembered lockboxes.
+  /// </summary>
   public sealed partial class KnownLockboxList : pb::IMessage<KnownLockboxList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -7692,6 +8064,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.KnownLockbox> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.KnownLockbox.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.KnownLockbox> values_ = new pbc::RepeatedField<global::Revault.Bindings.KnownLockbox>();
+    /// <summary>
+    /// Remembered lockbox records.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.KnownLockbox> Values {
@@ -7821,6 +8196,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A local-only label for one lockbox access slot.
+  /// </summary>
   public sealed partial class AccessSlotLabel : pb::IMessage<AccessSlotLabel>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -7871,6 +8249,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "lockbox_id" field.</summary>
     public const int LockboxIdFieldNumber = 1;
     private pb::ByteString lockboxId_ = pb::ByteString.Empty;
+    /// <summary>
+    /// Lockbox containing the access slot.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pb::ByteString LockboxId {
@@ -7883,6 +8264,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "slot_id" field.</summary>
     public const int SlotIdFieldNumber = 2;
     private ulong slotId_;
+    /// <summary>
+    /// Stable slot identifier within that lockbox.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong SlotId {
@@ -7895,6 +8279,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "name" field.</summary>
     public const int NameFieldNumber = 3;
     private string name_ = "";
+    /// <summary>
+    /// User-assigned local label.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Name {
@@ -7907,6 +8294,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "updated_at_unix_ms" field.</summary>
     public const int UpdatedAtUnixMsFieldNumber = 4;
     private ulong updatedAtUnixMs_;
+    /// <summary>
+    /// Last update time in Unix milliseconds.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong UpdatedAtUnixMs {
@@ -8121,6 +8511,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of local access-slot labels.
+  /// </summary>
   public sealed partial class AccessSlotLabelList : pb::IMessage<AccessSlotLabelList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -8170,6 +8563,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.AccessSlotLabel> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.AccessSlotLabel.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.AccessSlotLabel> values_ = new pbc::RepeatedField<global::Revault.Bindings.AccessSlotLabel>();
+    /// <summary>
+    /// Matching access-slot labels.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.AccessSlotLabel> Values {
@@ -8299,6 +8695,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// One logical or physical chunk in a streamed lockbox file.
+  /// </summary>
   public sealed partial class StreamChunk : pb::IMessage<StreamChunk>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -8351,6 +8750,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "path" field.</summary>
     public const int PathFieldNumber = 1;
     private string path_ = "";
+    /// <summary>
+    /// Lockbox path of the streamed file.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Path {
@@ -8363,6 +8765,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "file_offset" field.</summary>
     public const int FileOffsetFieldNumber = 2;
     private ulong fileOffset_;
+    /// <summary>
+    /// Logical offset within the reconstructed file.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong FileOffset {
@@ -8375,6 +8780,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "length" field.</summary>
     public const int LengthFieldNumber = 3;
     private ulong length_;
+    /// <summary>
+    /// Logical chunk length in bytes.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong Length {
@@ -8387,6 +8795,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "physical_offset" field.</summary>
     public const int PhysicalOffsetFieldNumber = 4;
     private ulong physicalOffset_;
+    /// <summary>
+    /// Physical archive offset, when physical ordering was requested.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong PhysicalOffset {
@@ -8399,6 +8810,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "sparse" field.</summary>
     public const int SparseFieldNumber = 5;
     private bool sparse_;
+    /// <summary>
+    /// Whether the chunk represents a sparse zero-filled range.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool Sparse {
@@ -8411,6 +8825,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "data" field.</summary>
     public const int DataFieldNumber = 6;
     private pb::ByteString data_ = pb::ByteString.Empty;
+    /// <summary>
+    /// Decrypted bytes; empty for sparse ranges.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pb::ByteString Data {
@@ -8673,6 +9090,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of streamed content chunks.
+  /// </summary>
   public sealed partial class StreamChunkList : pb::IMessage<StreamChunkList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -8722,6 +9142,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.StreamChunk> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.StreamChunk.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.StreamChunk> values_ = new pbc::RepeatedField<global::Revault.Bindings.StreamChunk>();
+    /// <summary>
+    /// Chunks in logical or physical order as requested.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.StreamChunk> Values {
@@ -8851,6 +9274,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Effective runtime tuning for one open lockbox.
+  /// </summary>
   public sealed partial class RuntimeOptions : pb::IMessage<RuntimeOptions>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -8899,6 +9325,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "workload_profile" field.</summary>
     public const int WorkloadProfileFieldNumber = 1;
     private string workloadProfile_ = "";
+    /// <summary>
+    /// Selected workload profile.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string WorkloadProfile {
@@ -8911,6 +9340,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "worker_policy" field.</summary>
     public const int WorkerPolicyFieldNumber = 2;
     private string workerPolicy_ = "";
+    /// <summary>
+    /// Selected worker policy and concurrency.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string WorkerPolicy {
@@ -9077,6 +9509,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Name and sensitivity metadata for one variable; no secret value is included.
+  /// </summary>
   public sealed partial class Variable : pb::IMessage<Variable>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -9125,6 +9560,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "name" field.</summary>
     public const int NameFieldNumber = 1;
     private string name_ = "";
+    /// <summary>
+    /// Variable name.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Name {
@@ -9137,6 +9575,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "sensitivity" field.</summary>
     public const int SensitivityFieldNumber = 2;
     private string sensitivity_ = "";
+    /// <summary>
+    /// `normal` or `secret`.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Sensitivity {
@@ -9303,6 +9744,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of variable metadata.
+  /// </summary>
   public sealed partial class VariableList : pb::IMessage<VariableList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -9352,6 +9796,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.Variable> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.Variable.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.Variable> values_ = new pbc::RepeatedField<global::Revault.Bindings.Variable>();
+    /// <summary>
+    /// Variables in normalized name order.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.Variable> Values {
@@ -9481,6 +9928,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Optional string that distinguishes absence from an empty value.
+  /// </summary>
   public sealed partial class OptionalString : pb::IMessage<OptionalString>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -9529,6 +9979,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "present" field.</summary>
     public const int PresentFieldNumber = 1;
     private bool present_;
+    /// <summary>
+    /// Whether a value is present.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool Present {
@@ -9541,6 +9994,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "value" field.</summary>
     public const int ValueFieldNumber = 2;
     private string value_ = "";
+    /// <summary>
+    /// Present UTF-8 value, which may itself be empty.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Value {
@@ -9707,6 +10163,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Owner-signature status for an open lockbox.
+  /// </summary>
   public sealed partial class OwnerInspection : pb::IMessage<OwnerInspection>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -9756,6 +10215,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "signed" field.</summary>
     public const int SignedFieldNumber = 1;
     private bool signed_;
+    /// <summary>
+    /// Whether the lockbox has owner-signed commits.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool Signed {
@@ -9768,6 +10230,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "fingerprint" field.</summary>
     public const int FingerprintFieldNumber = 2;
     private string fingerprint_ = "";
+    /// <summary>
+    /// Human-readable owner signing-key fingerprint.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Fingerprint {
@@ -9780,6 +10245,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "has_fingerprint" field.</summary>
     public const int HasFingerprintFieldNumber = 3;
     private bool hasFingerprint_;
+    /// <summary>
+    /// Whether `fingerprint` is present.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool HasFingerprint {
@@ -9970,6 +10438,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Named contact public key stored in the local vault.
+  /// </summary>
   public sealed partial class Contact : pb::IMessage<Contact>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -10018,6 +10489,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "name" field.</summary>
     public const int NameFieldNumber = 1;
     private string name_ = "";
+    /// <summary>
+    /// User-assigned contact name.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Name {
@@ -10030,6 +10504,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "key" field.</summary>
     public const int KeyFieldNumber = 2;
     private pb::ByteString key_ = pb::ByteString.Empty;
+    /// <summary>
+    /// Encoded contact public key.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pb::ByteString Key {
@@ -10196,6 +10673,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of contacts.
+  /// </summary>
   public sealed partial class ContactList : pb::IMessage<ContactList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -10245,6 +10725,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.Contact> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.Contact.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.Contact> values_ = new pbc::RepeatedField<global::Revault.Bindings.Contact>();
+    /// <summary>
+    /// Contacts in normalized name order.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.Contact> Values {
@@ -10374,6 +10857,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of profile histories.
+  /// </summary>
   public sealed partial class ProfileHistoryList : pb::IMessage<ProfileHistoryList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -10423,6 +10909,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.ProfileHistory> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.ProfileHistory.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.ProfileHistory> values_ = new pbc::RepeatedField<global::Revault.Bindings.ProfileHistory>();
+    /// <summary>
+    /// Profile histories in normalized name order.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.ProfileHistory> Values {
@@ -10552,6 +11041,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Metadata for one secret cached by the session agent.
+  /// </summary>
   public sealed partial class AgentEntry : pb::IMessage<AgentEntry>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -10600,6 +11092,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "id" field.</summary>
     public const int IdFieldNumber = 1;
     private string id_ = "";
+    /// <summary>
+    /// Cache key or lockbox identifier.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Id {
@@ -10612,6 +11107,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "path" field.</summary>
     public const int PathFieldNumber = 2;
     private string path_ = "";
+    /// <summary>
+    /// Associated lockbox path when supplied by the client.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Path {
@@ -10778,6 +11276,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// A collection of session-agent cache entries.
+  /// </summary>
   public sealed partial class AgentEntryList : pb::IMessage<AgentEntryList>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -10827,6 +11328,9 @@ namespace Revault.Bindings {
     private static readonly pb::FieldCodec<global::Revault.Bindings.AgentEntry> _repeated_values_codec
         = pb::FieldCodec.ForMessage(10, global::Revault.Bindings.AgentEntry.Parser);
     private readonly pbc::RepeatedField<global::Revault.Bindings.AgentEntry> values_ = new pbc::RepeatedField<global::Revault.Bindings.AgentEntry>();
+    /// <summary>
+    /// Current cache entries without their secret values.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public pbc::RepeatedField<global::Revault.Bindings.AgentEntry> Values {
@@ -10956,6 +11460,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Platform capabilities used to protect secrets across system sleep.
+  /// </summary>
   public sealed partial class SleepSupport : pb::IMessage<SleepSupport>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -11005,6 +11512,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "suspend_notifications" field.</summary>
     public const int SuspendNotificationsFieldNumber = 1;
     private bool suspendNotifications_;
+    /// <summary>
+    /// Whether the platform reports suspend and resume transitions.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool SuspendNotifications {
@@ -11017,6 +11527,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "sleep_inhibition" field.</summary>
     public const int SleepInhibitionFieldNumber = 2;
     private bool sleepInhibition_;
+    /// <summary>
+    /// Whether the agent can temporarily inhibit system sleep.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool SleepInhibition {
@@ -11029,6 +11542,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "supported" field.</summary>
     public const int SupportedFieldNumber = 3;
     private bool supported_;
+    /// <summary>
+    /// Whether the configured protection policy is supported.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool Supported {
@@ -11219,6 +11735,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Effective operating-system secret-store configuration.
+  /// </summary>
   public sealed partial class PlatformStatus : pb::IMessage<PlatformStatus>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -11270,6 +11789,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "supported" field.</summary>
     public const int SupportedFieldNumber = 1;
     private bool supported_;
+    /// <summary>
+    /// Whether this build has a backend for the current operating system.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool Supported {
@@ -11282,6 +11804,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "disabled" field.</summary>
     public const int DisabledFieldNumber = 2;
     private bool disabled_;
+    /// <summary>
+    /// Whether secret-store integration is currently disabled.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public bool Disabled {
@@ -11294,6 +11819,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "scope" field.</summary>
     public const int ScopeFieldNumber = 3;
     private string scope_ = "";
+    /// <summary>
+    /// Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Scope {
@@ -11306,6 +11834,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "backend" field.</summary>
     public const int BackendFieldNumber = 4;
     private string backend_ = "";
+    /// <summary>
+    /// Human-readable platform backend name.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Backend {
@@ -11318,6 +11849,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "item" field.</summary>
     public const int ItemFieldNumber = 5;
     private string item_ = "";
+    /// <summary>
+    /// Key used for the default local-vault item.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Item {
@@ -11556,6 +12090,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Required UTF-8 string result.
+  /// </summary>
   public sealed partial class StringValue : pb::IMessage<StringValue>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -11603,6 +12140,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "value" field.</summary>
     public const int ValueFieldNumber = 1;
     private string value_ = "";
+    /// <summary>
+    /// Returned UTF-8 value.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Value {
@@ -11745,6 +12285,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Metadata describing an encrypted local-vault backup archive.
+  /// </summary>
   public sealed partial class VaultBackupManifest : pb::IMessage<VaultBackupManifest>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -11796,6 +12339,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "format_version" field.</summary>
     public const int FormatVersionFieldNumber = 1;
     private uint formatVersion_;
+    /// <summary>
+    /// Backup container format version.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public uint FormatVersion {
@@ -11808,6 +12354,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "created_at_unix_ms" field.</summary>
     public const int CreatedAtUnixMsFieldNumber = 2;
     private ulong createdAtUnixMs_;
+    /// <summary>
+    /// Backup creation time in Unix milliseconds.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong CreatedAtUnixMs {
@@ -11820,6 +12369,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "vault_file_name" field.</summary>
     public const int VaultFileNameFieldNumber = 3;
     private string vaultFileName_ = "";
+    /// <summary>
+    /// Name of the encrypted vault file inside the archive.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string VaultFileName {
@@ -11832,6 +12384,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "vault_size" field.</summary>
     public const int VaultSizeFieldNumber = 4;
     private ulong vaultSize_;
+    /// <summary>
+    /// Encrypted vault file length in bytes.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public ulong VaultSize {
@@ -11844,6 +12399,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "vault_sha256" field.</summary>
     public const int VaultSha256FieldNumber = 5;
     private string vaultSha256_ = "";
+    /// <summary>
+    /// Lowercase hexadecimal SHA-256 of the encrypted vault file.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string VaultSha256 {
@@ -12082,6 +12640,9 @@ namespace Revault.Bindings {
 
   }
 
+  /// <summary>
+  /// Structured diagnostic for the most recent failed binding operation.
+  /// </summary>
   public sealed partial class ErrorDetails : pb::IMessage<ErrorDetails>
   #if !GOOGLE_PROTOBUF_REFSTRUCT_COMPATIBILITY_MODE
       , pb::IBufferMessage
@@ -12134,6 +12695,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "category" field.</summary>
     public const int CategoryFieldNumber = 1;
     private string category_ = "";
+    /// <summary>
+    /// Stable error category suitable for programmatic handling.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Category {
@@ -12146,6 +12710,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "artifact_kind" field.</summary>
     public const int ArtifactKindFieldNumber = 2;
     private string artifactKind_ = "";
+    /// <summary>
+    /// Artifact type involved in a format-version error, when applicable.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string ArtifactKind {
@@ -12158,6 +12725,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "found_version" field.</summary>
     public const int FoundVersionFieldNumber = 3;
     private uint foundVersion_;
+    /// <summary>
+    /// Version found in the input artifact.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public uint FoundVersion {
@@ -12170,6 +12740,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "supported_version" field.</summary>
     public const int SupportedVersionFieldNumber = 4;
     private uint supportedVersion_;
+    /// <summary>
+    /// Highest version supported by this binding.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public uint SupportedVersion {
@@ -12182,6 +12755,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "message" field.</summary>
     public const int MessageFieldNumber = 5;
     private string message_ = "";
+    /// <summary>
+    /// Human-readable failure message.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Message {
@@ -12194,6 +12770,9 @@ namespace Revault.Bindings {
     /// <summary>Field number for the "guidance" field.</summary>
     public const int GuidanceFieldNumber = 6;
     private string guidance_ = "";
+    /// <summary>
+    /// Suggested corrective action for the user.
+    /// </summary>
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute]
     [global::System.CodeDom.Compiler.GeneratedCode("protoc", null)]
     public string Guidance {

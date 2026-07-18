@@ -1,4 +1,19 @@
--- Generated complete class-oriented LuaJIT API. Do not edit.
+--- Encrypt files, variables, and typed form records in portable reVault
+-- lockboxes, and manage keys and local vault metadata.
+--
+-- Create a `Vault` to access the API. Call `free` on owned native handles, and
+-- use callback-scoped secret accessors to avoid retaining plaintext.
+--
+-- See the [repository README](https://github.com/onepub-dev/reVault#readme)
+-- for installation, security guidance, and complete examples.
+-- @module revault_api
+-- @usage
+-- local revault = require('revault_api')
+-- local vault = revault.Vault.new()
+-- local lockbox = vault:lockbox_create(string.rep('\0', 32))
+-- lockbox:set_variable('environment', 'production')
+-- local bytes = lockbox:to_bytes()
+-- lockbox:free()
 local ffi = require('ffi')
 local pb = require('pb')
 
@@ -1408,18 +1423,44 @@ local function owned(name)
   classes[name] = class; return class
 end
 
+--- Entry point for lockboxes, keys, local metadata, agent, and platform services.
+-- @type Vault
 local Vault = owned("Vault")
+--- Owned, mutable view of one encrypted lockbox archive.
+-- @type Lockbox
 local Lockbox = owned("Lockbox")
+--- Owned contact key pair used to decrypt received content keys.
+-- @type ContactKeyPair
 local ContactKeyPair = owned("ContactKeyPair")
+--- Shareable contact public key used to encrypt a recipient content key.
+-- @type ContactPublicKey
 local ContactPublicKey = owned("ContactPublicKey")
+--- Owned encrypted content-key envelope for one contact recipient.
+-- @type WrappedContactKey
 local WrappedContactKey = owned("WrappedContactKey")
+--- Owned signing key pair used to authorize mutable lockbox commits.
+-- @type SigningKeyPair
 local SigningKeyPair = owned("SigningKeyPair")
+--- Public key used to verify owner-authorized lockbox commits.
+-- @type SigningPublicKey
 local SigningPublicKey = owned("SigningPublicKey")
+--- Writable, password-protected local metadata vault.
+-- @type VaultDirectory
 local VaultDirectory = owned("VaultDirectory")
+--- Read-only metadata view that never loads an owner signing key.
+-- @type ReadOnlyVaultDirectory
 local ReadOnlyVaultDirectory = owned("ReadOnlyVaultDirectory")
+--- Client for the local session agent's time-limited secret cache.
+-- @type Agent
 local Agent = owned("Agent")
+--- Owned registration for an operation that requires secret access.
+-- @type AgentActivity
 local AgentActivity = owned("AgentActivity")
+--- Controls integration with the operating system's secret store.
+-- @type Platform
 local Platform = owned("Platform")
+--- High-level workflow for local metadata and remembered lockboxes.
+-- @type LocalVault
 local LocalVault = owned("LocalVault")
 
 Vault.new_handle = Vault.new
@@ -1740,6 +1781,7 @@ function Lockbox:set_variable(name, value)
   return self.operations:lockbox_set_variable(self.handle, name, value)
 end
 
+--- Stores a secret variable from binary string bytes.
 function Lockbox:set_secret_variable(name, value)
   return self.operations:lockbox_set_secret_variable(self.handle, name, value)
 end
@@ -1748,6 +1790,7 @@ function Lockbox:get_variable(name)
   return self.operations:lockbox_get_variable(self.handle, name)
 end
 
+--- Calls `callback` with temporary secret bytes, then wipes the transfer copy.
 function Lockbox:with_secret_variable(name, callback)
   return self.operations:lockbox_get_secret_variable(self.handle, name, callback)
 end
@@ -1848,6 +1891,7 @@ function Lockbox:set_form_field(path, field, value)
   return self.operations:lockbox_set_form_field(self.handle, path, field, value)
 end
 
+--- Stores a secret form field from binary string bytes.
 function Lockbox:set_secret_form_field(path, field, value)
   return self.operations:lockbox_set_secret_form_field(self.handle, path, field, value)
 end
@@ -1872,6 +1916,7 @@ function Lockbox:get_form_field(path, field)
   return self.operations:lockbox_get_form_field(self.handle, path, field)
 end
 
+--- Calls `callback` with temporary field bytes, then wipes the transfer copy.
 function Lockbox:with_secret_form_field(path, field, callback)
   return self.operations:lockbox_get_secret_form_field(self.handle, path, field, callback)
 end

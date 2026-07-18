@@ -4,6 +4,12 @@ package revault
 import "C"
 import "unsafe"
 
+// Native exposes the stable ABI directly for binding authors.
+//
+// Application code should use Vault and Lockbox, which manage ownership,
+// errors, structured results, and callback-scoped secrets. Native methods use
+// C pointers and lengths and follow the ownership rules in revault_api.h.
+// See https://github.com/onepub-dev/reVault#readme.
 type Native struct{}
 func (Native) ApiAbiVersion() C.uint32_t {
     return C.api_abi_version()

@@ -6,7 +6,13 @@ import 'src/binding_operations.dart';
 import 'src/generated/revault_bindings.pb.dart' as pb;
 import 'src/native_library.dart';
 
-/// Complete owned Dart API. Structured results are concrete protobuf classes.
+/// Entry point for encrypted lockboxes, keys, local vault metadata, the session
+/// agent, and the platform secret store.
+///
+/// Call [load] once to locate and validate the native ABI. Structured results
+/// are concrete protobuf classes. See the
+/// [repository README](https://github.com/onepub-dev/reVault#readme) for a
+/// complete example and guidance on handling secret values.
 final class Vault {
   static Future<Vault> load() async => Vault(await loadNativeLibrary());
 
@@ -222,6 +228,7 @@ final class Vault {
   LocalVault openLocalVault() => LocalVault._(this, operations.vaultLocal());
 }
 
+/// Runtime cache and worker tuning used when a lockbox is created or opened.
 final class LockboxOptions {
   const LockboxOptions({
     this.cacheMode = 'bytes',
@@ -241,6 +248,7 @@ abstract base class _Owned {
   bool get disposed => _handle == ffi.nullptr;
 }
 
+/// Shareable contact public key used to encrypt a content key for a recipient.
 final class ContactPublicKey extends _Owned {
   ContactPublicKey._(super.vault, super.handle);
   Uint8List export(String format) =>
@@ -258,6 +266,7 @@ final class ContactPublicKey extends _Owned {
   }
 }
 
+/// Owned encrypted content-key envelope for one contact recipient.
 final class WrappedContactKey extends _Owned {
   WrappedContactKey._(super.vault, super.handle);
   Uint8List publicBytes() => vault.operations.keyContactWrappedPublic(_handle);
@@ -273,6 +282,7 @@ final class WrappedContactKey extends _Owned {
   }
 }
 
+/// Owned contact key pair used to decrypt content keys sent by contacts.
 final class ContactKeyPair extends _Owned {
   ContactKeyPair._(super.vault, super.handle);
   Uint8List publicBytes() => vault.operations.keyContactPublic(_handle);
@@ -291,6 +301,7 @@ final class ContactKeyPair extends _Owned {
   }
 }
 
+/// Shareable public key used to verify owner-authorized lockbox commits.
 final class SigningPublicKey extends _Owned {
   SigningPublicKey._(super.vault, super.handle);
   void dispose() {
@@ -301,6 +312,7 @@ final class SigningPublicKey extends _Owned {
   }
 }
 
+/// Owned signing key pair used to authorize mutable lockbox commits.
 final class SigningKeyPair extends _Owned {
   SigningKeyPair._(super.vault, super.handle);
   Uint8List publicBytes() => vault.operations.keySigningPublic(_handle);
@@ -315,6 +327,10 @@ final class SigningKeyPair extends _Owned {
   }
 }
 
+/// Owned, mutable view of an encrypted lockbox archive.
+///
+/// Call [commit] after mutations and [dispose] when the native handle is no
+/// longer required.
 final class Lockbox extends _Owned {
   Lockbox._(super.vault, super.handle);
   void addFile(
@@ -419,6 +435,8 @@ final class Lockbox extends _Owned {
       vault.operations.lockboxStat(_handle, path);
   void setVariable(String name, String value) =>
       vault.operations.lockboxSetVariable(_handle, name, value);
+
+  /// Stores a secret variable without converting it to an immutable String.
   void setSecretVariable(String name, Uint8List value) =>
       vault.operations.lockboxSetSecretVariable(_handle, name, value);
   String? getVariable(String name) {
@@ -426,6 +444,7 @@ final class Lockbox extends _Owned {
     return value.present ? value.value : null;
   }
 
+  /// Invokes [callback] with temporary secret bytes, then wipes the transfer copy.
   T? withSecretVariable<T>(
     String name,
     T Function(Uint8List secret) callback,
@@ -492,6 +511,8 @@ final class Lockbox extends _Owned {
   );
   void setFormField(String path, String field, String value) =>
       vault.operations.lockboxSetFormField(_handle, path, field, value);
+
+  /// Stores a secret form field without creating an immutable String.
   void setSecretFormField(String path, String field, Uint8List value) =>
       vault.operations.lockboxSetSecretFormField(_handle, path, field, value);
   pb.FormRecordList listFormRecords() =>
@@ -507,6 +528,8 @@ final class Lockbox extends _Owned {
       );
   pb.OptionalFormValue getFormField(String path, String field) =>
       vault.operations.lockboxGetFormField(_handle, path, field);
+
+  /// Invokes [callback] with temporary field bytes, then wipes the transfer copy.
   T? withSecretFormField<T>(
     String path,
     String field,
@@ -526,6 +549,7 @@ final class Lockbox extends _Owned {
   }
 }
 
+/// Writable, password-protected local metadata vault.
 final class VaultDirectory extends _Owned {
   VaultDirectory._(super.vault, super.handle);
   String get root => vault.operations.vaultDirectoryRoot(_handle);
@@ -661,6 +685,7 @@ final class VaultDirectory extends _Owned {
   }
 }
 
+/// Read-only metadata view that never loads the owner signing key.
 final class ReadOnlyVaultDirectory extends _Owned {
   ReadOnlyVaultDirectory._(super.vault, super.handle);
   pb.StringList listProfileNames() =>
@@ -679,6 +704,7 @@ final class ReadOnlyVaultDirectory extends _Owned {
   }
 }
 
+/// Owned registration of an operation that currently requires secret access.
 final class AgentActivity extends _Owned {
   AgentActivity._(super.vault, super.handle);
   void dispose() {
@@ -689,6 +715,7 @@ final class AgentActivity extends _Owned {
   }
 }
 
+/// High-level workflow for local metadata and remembered lockbox files.
 final class LocalVault extends _Owned {
   LocalVault._(super.vault, super.handle);
   Lockbox createWithPassword(String path, Uint8List password) => Lockbox._(

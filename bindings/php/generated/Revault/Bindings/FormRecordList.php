@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of form records.
+ *
  * Generated from protobuf message <code>revault.bindings.FormRecordList</code>
  */
 class FormRecordList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Records in normalized path order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormRecord values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class FormRecordList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\FormRecord>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Records in normalized path order.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class FormRecordList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Records in normalized path order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormRecord values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class FormRecordList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Records in normalized path order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormRecord values = 1;</code>
      * @param array<\Revault\Bindings\FormRecord>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

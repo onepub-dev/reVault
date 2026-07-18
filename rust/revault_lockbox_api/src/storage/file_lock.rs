@@ -12,8 +12,11 @@ const DEFAULT_LOCK_TIMEOUT: Duration = Duration::from_secs(30);
 const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Diagnostic scope recorded by a cross-process write lock.
 pub enum FileLockScope {
+    /// Lock protects a `.lbox` archive.
     Lockbox,
+    /// Lock protects a local vault directory.
     Vault,
 }
 
@@ -27,6 +30,9 @@ impl FileLockScope {
 }
 
 #[derive(Debug)]
+/// RAII write lock shared by threads and cooperating processes.
+///
+/// Dropping the final guard removes the sidecar lock file.
 pub struct ScopedFileLock {
     lock_path: PathBuf,
     #[cfg(unix)]
@@ -36,6 +42,7 @@ pub struct ScopedFileLock {
 }
 
 impl ScopedFileLock {
+    /// Acquires the lock for `target`, waiting up to the configured timeout.
     pub fn acquire(target: &Path, scope: FileLockScope) -> Result<Self> {
         let lock_path = lock_path_for(target);
         if enter_thread_lock(&lock_path) {

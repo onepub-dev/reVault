@@ -9,15 +9,21 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Named contact public key stored in the local vault.
+ *
  * Generated from protobuf message <code>revault.bindings.Contact</code>
  */
 class Contact extends \Google\Protobuf\Internal\Message
 {
     /**
+     * User-assigned contact name.
+     *
      * Generated from protobuf field <code>string name = 1;</code>
      */
     protected $name = '';
     /**
+     * Encoded contact public key.
+     *
      * Generated from protobuf field <code>bytes key = 2;</code>
      */
     protected $key = '';
@@ -29,7 +35,9 @@ class Contact extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $name
+     *           User-assigned contact name.
      *     @type string $key
+     *           Encoded contact public key.
      * }
      */
     public function __construct($data = NULL) {
@@ -38,6 +46,8 @@ class Contact extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * User-assigned contact name.
+     *
      * Generated from protobuf field <code>string name = 1;</code>
      * @return string
      */
@@ -47,6 +57,8 @@ class Contact extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * User-assigned contact name.
+     *
      * Generated from protobuf field <code>string name = 1;</code>
      * @param string $var
      * @return $this
@@ -60,6 +72,8 @@ class Contact extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Encoded contact public key.
+     *
      * Generated from protobuf field <code>bytes key = 2;</code>
      * @return string
      */
@@ -69,6 +83,8 @@ class Contact extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Encoded contact public key.
+     *
      * Generated from protobuf field <code>bytes key = 2;</code>
      * @param string $var
      * @return $this

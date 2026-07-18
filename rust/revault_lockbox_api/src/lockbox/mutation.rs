@@ -39,6 +39,9 @@ impl<State> Lockbox<State> {
         Ok(())
     }
 
+    /// Creates every missing parent directory required by `path`.
+    ///
+    /// The path itself is not created.
     pub fn create_parent_dirs_for(&mut self, path: &LockboxPath) -> Result<()>
     where
         State: crate::WritableLockboxState,

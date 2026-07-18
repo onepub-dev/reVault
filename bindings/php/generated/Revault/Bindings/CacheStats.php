@@ -9,27 +9,39 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Current decrypted-page cache counters.
+ *
  * Generated from protobuf message <code>revault.bindings.CacheStats</code>
  */
 class CacheStats extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Configured cache limit in bytes.
+     *
      * Generated from protobuf field <code>uint64 limit_bytes = 1;</code>
      */
     protected $limit_bytes = 0;
     /**
+     * Bytes currently held by the cache.
+     *
      * Generated from protobuf field <code>uint64 used_bytes = 2;</code>
      */
     protected $used_bytes = 0;
     /**
+     * Number of cached entries.
+     *
      * Generated from protobuf field <code>uint64 entries = 3;</code>
      */
     protected $entries = 0;
     /**
+     * Successful cache lookup count.
+     *
      * Generated from protobuf field <code>uint64 hits = 4;</code>
      */
     protected $hits = 0;
     /**
+     * Failed cache lookup count.
+     *
      * Generated from protobuf field <code>uint64 misses = 5;</code>
      */
     protected $misses = 0;
@@ -41,10 +53,15 @@ class CacheStats extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type int|string $limit_bytes
+     *           Configured cache limit in bytes.
      *     @type int|string $used_bytes
+     *           Bytes currently held by the cache.
      *     @type int|string $entries
+     *           Number of cached entries.
      *     @type int|string $hits
+     *           Successful cache lookup count.
      *     @type int|string $misses
+     *           Failed cache lookup count.
      * }
      */
     public function __construct($data = NULL) {
@@ -53,6 +70,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Configured cache limit in bytes.
+     *
      * Generated from protobuf field <code>uint64 limit_bytes = 1;</code>
      * @return int|string
      */
@@ -62,6 +81,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Configured cache limit in bytes.
+     *
      * Generated from protobuf field <code>uint64 limit_bytes = 1;</code>
      * @param int|string $var
      * @return $this
@@ -75,6 +96,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Bytes currently held by the cache.
+     *
      * Generated from protobuf field <code>uint64 used_bytes = 2;</code>
      * @return int|string
      */
@@ -84,6 +107,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Bytes currently held by the cache.
+     *
      * Generated from protobuf field <code>uint64 used_bytes = 2;</code>
      * @param int|string $var
      * @return $this
@@ -97,6 +122,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of cached entries.
+     *
      * Generated from protobuf field <code>uint64 entries = 3;</code>
      * @return int|string
      */
@@ -106,6 +133,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Number of cached entries.
+     *
      * Generated from protobuf field <code>uint64 entries = 3;</code>
      * @param int|string $var
      * @return $this
@@ -119,6 +148,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Successful cache lookup count.
+     *
      * Generated from protobuf field <code>uint64 hits = 4;</code>
      * @return int|string
      */
@@ -128,6 +159,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Successful cache lookup count.
+     *
      * Generated from protobuf field <code>uint64 hits = 4;</code>
      * @param int|string $var
      * @return $this
@@ -141,6 +174,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Failed cache lookup count.
+     *
      * Generated from protobuf field <code>uint64 misses = 5;</code>
      * @return int|string
      */
@@ -150,6 +185,8 @@ class CacheStats extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Failed cache lookup count.
+     *
      * Generated from protobuf field <code>uint64 misses = 5;</code>
      * @param int|string $var
      * @return $this

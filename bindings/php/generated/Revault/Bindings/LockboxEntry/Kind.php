@@ -7,23 +7,33 @@ namespace Revault\Bindings\LockboxEntry;
 use UnexpectedValueException;
 
 /**
+ * Filesystem object type.
+ *
  * Protobuf type <code>revault.bindings.LockboxEntry.Kind</code>
  */
 class Kind
 {
     /**
+     * No object type was supplied.
+     *
      * Generated from protobuf enum <code>KIND_UNSPECIFIED = 0;</code>
      */
     const KIND_UNSPECIFIED = 0;
     /**
+     * A regular file.
+     *
      * Generated from protobuf enum <code>FILE = 1;</code>
      */
     const FILE = 1;
     /**
+     * A symbolic link whose target is stored in the lockbox.
+     *
      * Generated from protobuf enum <code>SYMLINK = 2;</code>
      */
     const SYMLINK = 2;
     /**
+     * A directory.
+     *
      * Generated from protobuf enum <code>DIRECTORY = 3;</code>
      */
     const DIRECTORY = 3;

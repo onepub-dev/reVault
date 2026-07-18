@@ -1,5 +1,18 @@
 #pragma once
 
+/**
+ * @file revault_api.hpp
+ * @brief RAII C++ API for encrypted reVault lockboxes and local vaults.
+ *
+ * `revault::Vault` is the entry point for creating or opening lockboxes,
+ * managing cryptographic keys, and opening the local metadata vault. Owned
+ * native handles release themselves; secret values are exposed only to
+ * callback-scoped byte spans.
+ *
+ * See the [repository README](https://github.com/onepub-dev/reVault#readme)
+ * for installation, the security model, and complete examples.
+ */
+
 #include <algorithm>
 #include <cstdint>
 #include <string>
@@ -13,6 +26,7 @@
 #include <revault_api.h>
 #include <revault_bindings.pb.h>
 
+/** High-level, ownership-safe wrappers around the stable reVault C ABI. */
 namespace revault {
 
 inline void require_compatible_abi() {
@@ -58,6 +72,11 @@ inline std::string take_string(RevaultBuffer result) {
   return {reinterpret_cast<const char*>(bytes.data()), bytes.size()};
 }
 
+/**
+ * Invokes `callback` with a temporary plaintext span, then wipes the transfer
+ * buffer and releases the native secret handle. The callback must not retain
+ * the span.
+ */
 inline bool with_secret_handle(
     void* handle,
     const std::function<void(std::span<const std::uint8_t>)>& callback) {
@@ -116,6 +135,7 @@ inline std::string encode_moves(
   return message.SerializeAsString();
 }
 
+/** Shareable contact public key used to encrypt a recipient content key. */
 class ContactPublicKey {
  public:
   explicit ContactPublicKey(const std::vector<std::uint8_t>& bytes)
@@ -145,6 +165,7 @@ class ContactPublicKey {
   void* handle_{};
 };
 
+/** Move-only encrypted content-key envelope for one contact recipient. */
 class WrappedContactKey {
  public:
   WrappedContactKey(const WrappedContactKey&) = delete;
@@ -170,6 +191,7 @@ inline WrappedContactKey ContactPublicKey::encrypt(
       handle_, content_key.data(), content_key.size()));
 }
 
+/** Move-only contact key pair used to decrypt received content keys. */
 class ContactKeyPair {
  public:
   ContactKeyPair() : handle_(key_contact_generate()) {
@@ -203,6 +225,7 @@ class ContactKeyPair {
   void* handle_{};
 };
 
+/** Public key used to verify owner-authorized lockbox commits. */
 class SigningPublicKey {
  public:
   explicit SigningPublicKey(const std::vector<std::uint8_t>& bytes)
@@ -222,6 +245,7 @@ class SigningPublicKey {
   void* handle_{};
 };
 
+/** Move-only signing key pair used to authorize mutable lockbox commits. */
 class SigningKeyPair {
  public:
   SigningKeyPair() : handle_(key_signing_generate()) {
@@ -247,6 +271,7 @@ class SigningKeyPair {
   void* handle_{};
 };
 
+/** Runtime cache and worker tuning for opening or creating lockboxes. */
 struct LockboxOptions {
   std::string cache_mode{"bytes"};
   std::uint64_t cache_bytes{64 * 1024 * 1024};
@@ -255,6 +280,7 @@ struct LockboxOptions {
   std::size_t jobs{0};
 };
 
+/** Move-only, mutable view of one encrypted lockbox archive. */
 class Lockbox {
  public:
   static std::uint16_t format_version() { return lockbox_format_version(); }
@@ -596,6 +622,7 @@ class Lockbox {
   void* handle_;
 };
 
+/** Move-only, writable, password-protected local metadata vault. */
 class VaultDirectory {
  public:
   static std::uint32_t current_structure_version() { return vault_structure_version_current(); }
@@ -843,6 +870,7 @@ class VaultDirectory {
   void* handle_{};
 };
 
+/** Move-only metadata view that never loads an owner signing key. */
 class ReadOnlyVaultDirectory {
  public:
   ReadOnlyVaultDirectory(const std::string& root, const std::string& password)
@@ -894,6 +922,7 @@ class KeyFormat {
   }
 };
 
+/** Move-only registration for an operation that currently requires secret access. */
 class AgentActivity {
  public:
   AgentActivity(const AgentActivity&) = delete;
@@ -914,6 +943,7 @@ class AgentActivity {
   void* handle_{};
 };
 
+/** Client for the local session agent's time-limited secret cache. */
 class Agent {
  public:
   static void start() { checked(vault_agent_start()); }
@@ -977,6 +1007,7 @@ class Agent {
   }
 };
 
+/** Controls integration with the operating system's secret store. */
 class PlatformSecretStore {
  public:
   static bindings::PlatformStatus status() {
@@ -1000,6 +1031,7 @@ class PlatformSecretStore {
   }
 };
 
+/** High-level workflow for local metadata and remembered lockbox files. */
 class LocalVault {
  public:
   LocalVault() : handle_(vault_local()) {

@@ -3,9 +3,11 @@ use std::sync::Arc;
 use crate::{Error, LockboxPath, Result, SecretString};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// Stable UUID-shaped identifier shared by all revisions of a form definition.
 pub struct FormTypeId(String);
 
 impl FormTypeId {
+    /// Parses and normalizes a UUID-shaped hexadecimal form type id.
     pub fn new(value: impl AsRef<str>) -> Result<Self> {
         let value = value.as_ref();
         if value.len() != 36 || !value.chars().all(|ch| ch == '-' || ch.is_ascii_hexdigit()) {
@@ -20,6 +22,7 @@ impl FormTypeId {
         Ok(Self(crate::LockboxId::new_random()?.to_string()))
     }
 
+    /// Returns the normalized lowercase identifier.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -32,36 +35,58 @@ impl std::fmt::Display for FormTypeId {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Versioned schema describing the fields accepted by a form record.
 pub struct FormDefinition {
+    /// Stable identity shared by all revisions.
     pub type_id: FormTypeId,
+    /// Human-friendly lookup name.
     pub alias: String,
+    /// Monotonically increasing schema revision, beginning at one.
     pub revision: u32,
+    /// Display name for the form type.
     pub name: String,
+    /// Optional explanatory text shown to users.
     pub description: String,
+    /// Ordered field definitions captured by this revision.
     pub fields: Vec<FormFieldDefinition>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Schema for one named field in a form definition.
 pub struct FormFieldDefinition {
+    /// Stable machine-readable identifier within the form.
     pub id: String,
+    /// User-facing field label.
     pub label: String,
+    /// Validation and sensitivity category.
     pub kind: FormFieldKind,
+    /// Whether callers should require a value before considering a form complete.
     pub required: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Validation and sensitivity category for a form field.
 pub enum FormFieldKind {
+    /// Single-line plain text.
     Text,
+    /// UTF-8 text retained in secure memory and redacted from metadata views.
     Secret,
+    /// Absolute URL text.
     Url,
+    /// Email-address text.
     Email,
+    /// Calendar date in `YYYY-MM-DD` form.
     Date,
+    /// Calendar month in `YYYY-MM` form.
     Month,
+    /// Multi-line plain text.
     Notes,
+    /// Numeric text accepted by the form validator.
     Number,
 }
 
 impl FormFieldKind {
+    /// Returns whether values of this kind must use secure memory.
     pub fn is_secret(self) -> bool {
         matches!(self, Self::Secret)
     }
@@ -95,38 +120,56 @@ impl FormFieldKind {
 }
 
 #[derive(Debug, Clone)]
+/// Stored form instance tied to a definition revision.
 pub struct FormRecord {
+    /// Logical lockbox path identifying this record.
     pub path: LockboxPath,
+    /// User-facing record name.
     pub name: String,
+    /// Stable form type identity.
     pub type_id: FormTypeId,
+    /// Alias captured from the definition revision.
     pub definition_alias: String,
+    /// Definition revision last applied to this record.
     pub definition_revision: u32,
+    /// Values that have been assigned, in record order.
     pub values: Vec<FormFieldValue>,
 }
 
 #[derive(Debug, Clone)]
+/// One value stored in a form record with captured display metadata.
 pub struct FormFieldValue {
+    /// Machine-readable field identifier.
     pub field_id: String,
+    /// User-facing label captured when the value was set.
     pub captured_label: String,
+    /// Field kind used to validate the value.
     pub kind: FormFieldKind,
+    /// Normal or secure value payload.
     pub value: FormValue,
 }
 
 #[derive(Debug, Clone)]
+/// Sensitivity-aware payload stored by a form field.
 pub enum FormValue {
+    /// Non-secret UTF-8 value held as an ordinary string.
     Normal(String),
+    /// Secret UTF-8 value held in shared secure memory.
     Secret(Arc<SecretString>),
 }
 
 impl FormValue {
+    /// Creates a non-secret form value.
     pub fn normal(value: impl Into<String>) -> Self {
         Self::Normal(value.into())
     }
 
+    /// Moves a secure string into a secret form value.
     pub fn secret(value: SecretString) -> Self {
         Self::Secret(Arc::new(value))
     }
 
+    /// Returns whether this value contains secure secret text.
     pub fn is_secret(&self) -> bool {
         matches!(self, Self::Secret(_))
     }

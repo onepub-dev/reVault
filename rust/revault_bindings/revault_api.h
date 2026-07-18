@@ -1,5 +1,23 @@
 #ifndef REVAULT_API_H
 #define REVAULT_API_H
+/**
+ * @file revault_api.h
+ * @brief Stable C ABI for encrypted reVault lockboxes and local vaults.
+ *
+ * The API stores files, variables, and typed form records in portable encrypted
+ * lockboxes. It also manages contact keys, signing keys, the local metadata
+ * vault, the session agent, and the platform secret store.
+ *
+ * Native objects are returned as opaque pointers and must be released with the
+ * matching `_free` function. A failed pointer or Boolean result can be
+ * diagnosed with `buffer_last_error()` or `buffer_last_error_details()`.
+ * Returned `RevaultBuffer` values belong to the caller and must be passed to
+ * `buffer_free()`. Secret getters return opaque secret handles so plaintext can
+ * be copied only for the shortest practical scope and then wiped.
+ *
+ * @see https://github.com/onepub-dev/reVault#readme Repository overview,
+ *      security model, installation, and examples.
+ */
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -8,15 +26,22 @@
 extern "C" {
 #endif
 
+/** Caller-owned bytes returned by the native library. Release with `buffer_free`. */
 typedef struct { uint8_t *ptr; size_t len; } RevaultBuffer;
 /* Structured buffers use the versioned LBWF frame and Protobuf schemas in
  * bindings/proto. Raw file/key buffers remain unframed bytes. */
 uint32_t api_abi_version(void);
+/** Returns the diagnostic for the most recent failed call on this thread. */
 const char *buffer_last_error(void);
+/** Returns structured error details in a versioned Protobuf wire frame. */
 RevaultBuffer buffer_last_error_details(void);
+/** Wipes and releases bytes returned in a `RevaultBuffer`. */
 void buffer_free(RevaultBuffer value);
+/** Returns the byte length owned by an opaque secret handle. */
 bool secret_len(const void *handle, size_t *out_len);
+/** Copies a secret into caller memory; wipe the destination immediately after use. */
 bool secret_copy(const void *handle, uint8_t *destination, size_t destination_len);
+/** Wipes and releases an opaque secret handle. */
 void secret_free(void *handle);
 uint16_t lockbox_format_version(void);
 uint16_t lockbox_probe_format_version(const uint8_t *bytes, size_t len);
@@ -57,8 +82,10 @@ RevaultBuffer lockbox_list(const void *handle, const char *path, size_t path_len
 RevaultBuffer lockbox_list_with_options(const void *handle, const char *path, size_t path_len, const char *glob, size_t glob_len, bool recursive, bool include_files, bool include_symlinks, bool include_directories, size_t limit);
 RevaultBuffer lockbox_stat(const void *handle, const char *path, size_t path_len);
 bool lockbox_set_variable(void *handle, const char *name, size_t name_len, const char *value, size_t value_len);
+/** Stores a secret variable from bytes without requiring an immutable string. */
 bool lockbox_set_secret_variable(void *handle, const char *name, size_t name_len, const uint8_t *value, size_t value_len);
 RevaultBuffer lockbox_get_variable(const void *handle, const char *name, size_t name_len);
+/** Returns an opaque secret handle through `output`; inspect, copy, and free it promptly. */
 bool lockbox_get_secret_variable(const void *handle, const char *name, size_t name_len, void **output);
 bool lockbox_delete_variable(void *handle, const char *name, size_t name_len);
 bool lockbox_move_variables(void *handle, const uint8_t *moves_proto, size_t moves_len);
@@ -86,12 +113,14 @@ RevaultBuffer lockbox_resolve_form(const void *handle, const char *reference, si
 RevaultBuffer lockbox_list_form_revisions(const void *handle, const char *type_id, size_t type_id_len);
 RevaultBuffer lockbox_create_form_record(void *handle, const char *path, size_t path_len, const char *type_reference, size_t type_len, const char *name, size_t name_len);
 bool lockbox_set_form_field(void *handle, const char *path, size_t path_len, const char *field, size_t field_len, const char *value, size_t value_len);
+/** Stores a secret form field from bytes without requiring an immutable string. */
 bool lockbox_set_secret_form_field(void *handle, const char *path, size_t path_len, const char *field, size_t field_len, const uint8_t *value, size_t value_len);
 RevaultBuffer lockbox_list_form_records(const void *handle);
 RevaultBuffer lockbox_get_form_record(const void *handle, const char *path, size_t path_len);
 bool lockbox_delete_form_record(void *handle, const char *path, size_t path_len);
 bool lockbox_move_form_records(void *handle, const uint8_t *moves_proto, size_t moves_len);
 RevaultBuffer lockbox_get_form_field(const void *handle, const char *path, size_t path_len, const char *field, size_t field_len);
+/** Returns a secret field through an opaque handle; copy and free it promptly. */
 bool lockbox_get_secret_form_field(const void *handle, const char *path, size_t path_len, const char *field, size_t field_len, void **output);
 RevaultBuffer lockbox_to_bytes(const void *handle);
 void lockbox_free(void *handle);

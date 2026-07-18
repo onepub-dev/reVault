@@ -1,4 +1,13 @@
-"""Public Python entry point and native-library loader for reVault."""
+"""Encrypt files, variables, and typed records in portable reVault lockboxes.
+
+``Vault`` is the entry point for lockboxes, keys, local vault metadata, the
+session agent, and the platform secret store. Owned handles are context
+managers; secret values use callback-scoped accessors to limit plaintext
+lifetime.
+
+Installation, security guidance, and examples are in the repository README:
+https://github.com/onepub-dev/reVault#readme
+"""
 from __future__ import annotations
 
 import ctypes

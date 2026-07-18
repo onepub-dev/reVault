@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of page diagnostics.
+ *
  * Generated from protobuf message <code>revault.bindings.PageInspectionList</code>
  */
 class PageInspectionList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Pages in physical archive order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.PageInspection values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class PageInspectionList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\PageInspection>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Pages in physical archive order.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class PageInspectionList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Pages in physical archive order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.PageInspection values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class PageInspectionList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Pages in physical archive order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.PageInspection values = 1;</code>
      * @param array<\Revault\Bindings\PageInspection>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of contacts.
+ *
  * Generated from protobuf message <code>revault.bindings.ContactList</code>
  */
 class ContactList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Contacts in normalized name order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.Contact values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class ContactList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\Contact>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Contacts in normalized name order.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class ContactList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Contacts in normalized name order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.Contact values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class ContactList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Contacts in normalized name order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.Contact values = 1;</code>
      * @param array<\Revault\Bindings\Contact>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

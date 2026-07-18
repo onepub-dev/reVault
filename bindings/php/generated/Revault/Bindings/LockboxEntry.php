@@ -9,23 +9,33 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Metadata for one entry in a lockbox filesystem.
+ *
  * Generated from protobuf message <code>revault.bindings.LockboxEntry</code>
  */
 class LockboxEntry extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Normalized absolute path within the lockbox.
+     *
      * Generated from protobuf field <code>string path = 1;</code>
      */
     protected $path = '';
     /**
+     * Type of the entry.
+     *
      * Generated from protobuf field <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
      */
     protected $kind = 0;
     /**
+     * Logical file length in bytes; zero for directories.
+     *
      * Generated from protobuf field <code>uint64 length = 3;</code>
      */
     protected $length = 0;
     /**
+     * Stored Unix permission bits.
+     *
      * Generated from protobuf field <code>uint32 permissions = 4;</code>
      */
     protected $permissions = 0;
@@ -37,9 +47,13 @@ class LockboxEntry extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $path
+     *           Normalized absolute path within the lockbox.
      *     @type int $kind
+     *           Type of the entry.
      *     @type int|string $length
+     *           Logical file length in bytes; zero for directories.
      *     @type int $permissions
+     *           Stored Unix permission bits.
      * }
      */
     public function __construct($data = NULL) {
@@ -48,6 +62,8 @@ class LockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Normalized absolute path within the lockbox.
+     *
      * Generated from protobuf field <code>string path = 1;</code>
      * @return string
      */
@@ -57,6 +73,8 @@ class LockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Normalized absolute path within the lockbox.
+     *
      * Generated from protobuf field <code>string path = 1;</code>
      * @param string $var
      * @return $this
@@ -70,6 +88,8 @@ class LockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Type of the entry.
+     *
      * Generated from protobuf field <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
      * @return int
      */
@@ -79,6 +99,8 @@ class LockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Type of the entry.
+     *
      * Generated from protobuf field <code>.revault.bindings.LockboxEntry.Kind kind = 2;</code>
      * @param int $var
      * @return $this
@@ -92,6 +114,8 @@ class LockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Logical file length in bytes; zero for directories.
+     *
      * Generated from protobuf field <code>uint64 length = 3;</code>
      * @return int|string
      */
@@ -101,6 +125,8 @@ class LockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Logical file length in bytes; zero for directories.
+     *
      * Generated from protobuf field <code>uint64 length = 3;</code>
      * @param int|string $var
      * @return $this
@@ -114,6 +140,8 @@ class LockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stored Unix permission bits.
+     *
      * Generated from protobuf field <code>uint32 permissions = 4;</code>
      * @return int
      */
@@ -123,6 +151,8 @@ class LockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stored Unix permission bits.
+     *
      * Generated from protobuf field <code>uint32 permissions = 4;</code>
      * @param int $var
      * @return $this

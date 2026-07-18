@@ -1,12 +1,25 @@
-// Generated complete TypeScript API. Do not edit.
+/**
+ * Encrypt files, variables, and typed form records in portable reVault
+ * lockboxes, and manage keys and local vault metadata.
+ *
+ * Start with {@link Vault}. Call `free()` on owned handles and use the
+ * callback-scoped secret accessors to avoid retaining plaintext.
+ *
+ * @see {@link https://github.com/onepub-dev/reVault#readme | Repository README}
+ * for installation, security guidance, and complete examples.
+ * @packageDocumentation
+ */
 import type * as $protobuf from 'protobufjs';
 export { revault } from './generated/messages.js';
 export type Binary = Uint8Array;
 export type BinaryInput = Uint8Array | string;
 export type NativeHandle = ContactKeyPair | ContactPublicKey | WrappedContactKey | SigningKeyPair | SigningPublicKey | VaultDirectory | ReadOnlyVaultDirectory | AgentActivity | LocalVault;
+/** Constructs one of the generated Protobuf result messages by qualified name. */
 export function createMessage(name: string, fields?: object): $protobuf.Message;
+/** Serializes a generated Protobuf result message. */
 export function encodeMessage(message: $protobuf.Message): Binary;
 
+/** Entry point for lockboxes, keys, local vault metadata, agent, and platform services. */
 export class Vault {
   constructor();
   readonly agent: Agent;
@@ -66,6 +79,7 @@ export class Vault {
   vaultLocal(): LocalVault;
 }
 
+/** Owned, mutable view of one encrypted lockbox archive. Call {@link free} when finished. */
 export class Lockbox {
   addFile(path: string, data: BinaryInput, replace: boolean): boolean;
   addFileWithPermissions(path: string, data: BinaryInput, permissions: number, replace: boolean): boolean;
@@ -93,8 +107,14 @@ export class Lockbox {
   listWithOptions(path: string, glob: string, recursive: boolean, includeFiles: boolean, includeSymlinks: boolean, includeDirectories: boolean, limit: number): import('./generated/messages.js').revault.bindings.LockboxEntryList;
   stat(path: string): import('./generated/messages.js').revault.bindings.OptionalLockboxEntry;
   setVariable(name: string, value: string): boolean;
+  /** Stores a secret value without first converting it to a JavaScript string. */
   setSecretVariable(name: string, value: BinaryInput): boolean;
   getVariable(name: string): string | undefined;
+  /**
+   * Invokes `callback` with temporary secret bytes and overwrites the native
+   * transfer buffer immediately afterwards. Do not retain plaintext unless the
+   * resulting security tradeoff is intentional.
+   */
   withSecretVariable<T>(name: string, callback: (value: Uint8Array) => T): T | undefined;
   deleteVariable(name: string): boolean;
   moveVariables(movesProto: BinaryInput): boolean;
@@ -120,17 +140,20 @@ export class Lockbox {
   listFormRevisions(typeId: string): import('./generated/messages.js').revault.bindings.FormDefinitionList;
   createFormRecord(path: string, typeReference: string, name: string): import('./generated/messages.js').revault.bindings.FormRecord;
   setFormField(path: string, field: string, value: string): boolean;
+  /** Stores a secret form field from bytes without creating an immutable string. */
   setSecretFormField(path: string, field: string, value: BinaryInput): boolean;
   listFormRecords(): import('./generated/messages.js').revault.bindings.FormRecordList;
   getFormRecord(path: string): import('./generated/messages.js').revault.bindings.OptionalFormRecord;
   deleteFormRecord(path: string): boolean;
   moveFormRecords(movesProto: BinaryInput): boolean;
   getFormField(path: string, field: string): import('./generated/messages.js').revault.bindings.OptionalFormValue;
+  /** Calls `callback` with temporary secret field bytes, then overwrites the transfer buffer. */
   withSecretFormField<T>(path: string, field: string, callback: (value: Uint8Array) => T): T | undefined;
   toBytes(): Binary;
   free(): void;
 }
 
+/** Owned hybrid contact key pair used to decrypt content keys sent by contacts. */
 export class ContactKeyPair {
   public(): Binary;
   private(): Binary;
@@ -138,11 +161,13 @@ export class ContactKeyPair {
   decrypt(wrapped: NativeHandle): Binary;
 }
 
+/** Shareable contact public key used to encrypt a lockbox content key. */
 export class ContactPublicKey {
   publicFree(): void;
   encrypt(contentKey: BinaryInput): WrappedContactKey;
 }
 
+/** Owned encrypted content-key envelope for one contact recipient. */
 export class WrappedContactKey {
   public(): Binary;
   ciphertext(): Binary;
@@ -150,16 +175,19 @@ export class WrappedContactKey {
   free(): void;
 }
 
+/** Owned owner-signing key pair used to authorize mutable lockbox commits. */
 export class SigningKeyPair {
   public(): Binary;
   private(): Binary;
   free(): void;
 }
 
+/** Shareable owner-signing public key used to verify lockbox commits. */
 export class SigningPublicKey {
   publicFree(): void;
 }
 
+/** Writable, password-protected local metadata vault. Call {@link free} when finished. */
 export class VaultDirectory {
   root(): string;
   structureVersion(): number;
@@ -206,6 +234,7 @@ export class VaultDirectory {
   free(): void;
 }
 
+/** Read-only local metadata vault that never loads an owner signing key. */
 export class ReadOnlyVaultDirectory {
   listProfileNames(): import('./generated/messages.js').revault.bindings.StringList;
   listContactNames(): import('./generated/messages.js').revault.bindings.StringList;
@@ -214,6 +243,7 @@ export class ReadOnlyVaultDirectory {
   free(): void;
 }
 
+/** Client for the local session agent's time-limited secret cache. */
 export class Agent {
   isRunning(): boolean;
   forgetAll(): boolean;
@@ -236,9 +266,11 @@ export class Agent {
   endActivity(handle: NativeHandle): void;
 }
 
+/** Owned registration that keeps one secret activity visible to the session agent. */
 export class AgentActivity {
 }
 
+/** Controls integration with the operating system's secret store. */
 export class Platform {
   status(): import('./generated/messages.js').revault.bindings.PlatformStatus;
   setScope(scope: string): boolean;
@@ -250,6 +282,7 @@ export class Platform {
   getPassword(): Binary;
 }
 
+/** High-level workflow for opening local metadata and remembered lockboxes. */
 export class LocalVault {
   createLockboxPassword(path: string, password: BinaryInput): Lockbox;
   openLockboxPassword(path: string, password: BinaryInput): Lockbox;

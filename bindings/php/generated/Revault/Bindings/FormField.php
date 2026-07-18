@@ -9,23 +9,33 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * One field in a typed form definition.
+ *
  * Generated from protobuf message <code>revault.bindings.FormField</code>
  */
 class FormField extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Stable field identifier used by records.
+     *
      * Generated from protobuf field <code>string id = 1;</code>
      */
     protected $id = '';
     /**
+     * User-facing label captured in records.
+     *
      * Generated from protobuf field <code>string label = 2;</code>
      */
     protected $label = '';
     /**
+     * Field kind, such as `text`, `password`, or `secret`.
+     *
      * Generated from protobuf field <code>string kind = 3;</code>
      */
     protected $kind = '';
     /**
+     * Whether records must provide a value.
+     *
      * Generated from protobuf field <code>bool required = 4;</code>
      */
     protected $required = false;
@@ -37,9 +47,13 @@ class FormField extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $id
+     *           Stable field identifier used by records.
      *     @type string $label
+     *           User-facing label captured in records.
      *     @type string $kind
+     *           Field kind, such as `text`, `password`, or `secret`.
      *     @type bool $required
+     *           Whether records must provide a value.
      * }
      */
     public function __construct($data = NULL) {
@@ -48,6 +62,8 @@ class FormField extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable field identifier used by records.
+     *
      * Generated from protobuf field <code>string id = 1;</code>
      * @return string
      */
@@ -57,6 +73,8 @@ class FormField extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable field identifier used by records.
+     *
      * Generated from protobuf field <code>string id = 1;</code>
      * @param string $var
      * @return $this
@@ -70,6 +88,8 @@ class FormField extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * User-facing label captured in records.
+     *
      * Generated from protobuf field <code>string label = 2;</code>
      * @return string
      */
@@ -79,6 +99,8 @@ class FormField extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * User-facing label captured in records.
+     *
      * Generated from protobuf field <code>string label = 2;</code>
      * @param string $var
      * @return $this
@@ -92,6 +114,8 @@ class FormField extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Field kind, such as `text`, `password`, or `secret`.
+     *
      * Generated from protobuf field <code>string kind = 3;</code>
      * @return string
      */
@@ -101,6 +125,8 @@ class FormField extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Field kind, such as `text`, `password`, or `secret`.
+     *
      * Generated from protobuf field <code>string kind = 3;</code>
      * @param string $var
      * @return $this
@@ -114,6 +140,8 @@ class FormField extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether records must provide a value.
+     *
      * Generated from protobuf field <code>bool required = 4;</code>
      * @return bool
      */
@@ -123,6 +151,8 @@ class FormField extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether records must provide a value.
+     *
      * Generated from protobuf field <code>bool required = 4;</code>
      * @param bool $var
      * @return $this

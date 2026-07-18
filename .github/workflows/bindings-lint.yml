@@ -7,7 +7,10 @@ on:
       - '.github/workflows/bindings-*.yml'
       - 'bindings/**'
       - 'rust/revault_bindings/**'
+      - 'rust/revault_lockbox_api/**'
+      - 'rust/revault_page_api/**'
       - 'rust/revault_tooling/**'
+      - 'rust/revault_vault_api/**'
       - 'rust/revault_wasm_bindings/**'
   push:
     branches: [main]
@@ -15,7 +18,10 @@ on:
       - '.github/workflows/bindings-*.yml'
       - 'bindings/**'
       - 'rust/revault_bindings/**'
+      - 'rust/revault_lockbox_api/**'
+      - 'rust/revault_page_api/**'
       - 'rust/revault_tooling/**'
+      - 'rust/revault_vault_api/**'
       - 'rust/revault_wasm_bindings/**'
 
 permissions:
@@ -76,6 +82,13 @@ jobs:
           cargo clippy --locked -p revault_bindings -p revault_tooling -p revault_wasm_bindings --all-targets -- -D warnings
           cargo run --locked -p revault_tooling -- bindings check --repository ..
           cargo xtask check-required
+      - name: Public API documentation
+        working-directory: rust
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          cargo doc --locked --no-deps --all-features -p revault_page_api -p revault_lockbox_api -p revault_vault_api -p revault_wasm_bindings
+          cargo doc --locked --no-deps --manifest-path ../bindings/rust/Cargo.toml
       - name: Build native library for compiled facades
         working-directory: rust
         run: cargo build --locked -p revault_bindings
@@ -95,6 +108,7 @@ jobs:
           dart pub get
           dart format --output=none --set-exit-if-changed lib ../e2e/dart/conformance.dart
           dart analyze --fatal-infos --fatal-warnings
+          dart doc
       - name: Go formatting and vet
         working-directory: bindings/go
         env:
@@ -106,7 +120,7 @@ jobs:
           go test ./...
       - name: Java and Kotlin compiler lint
         run: |
-          gradle -p bindings/java --no-daemon compileJava publishToMavenLocal
+          gradle -p bindings/java --no-daemon compileJava javadoc publishToMavenLocal
           gradle -p bindings/kotlin --no-daemon compileKotlin
       - name: C# formatting and warnings
         working-directory: bindings/csharp

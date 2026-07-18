@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Optional entry; `value` is absent when a path does not exist.
+ *
  * Generated from protobuf message <code>revault.bindings.OptionalLockboxEntry</code>
  */
 class OptionalLockboxEntry extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Present entry value.
+     *
      * Generated from protobuf field <code>.revault.bindings.LockboxEntry value = 1;</code>
      */
     protected $value = null;
@@ -25,6 +29,7 @@ class OptionalLockboxEntry extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type \Revault\Bindings\LockboxEntry $value
+     *           Present entry value.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class OptionalLockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Present entry value.
+     *
      * Generated from protobuf field <code>.revault.bindings.LockboxEntry value = 1;</code>
      * @return \Revault\Bindings\LockboxEntry|null
      */
@@ -52,6 +59,8 @@ class OptionalLockboxEntry extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Present entry value.
+     *
      * Generated from protobuf field <code>.revault.bindings.LockboxEntry value = 1;</code>
      * @param \Revault\Bindings\LockboxEntry $var
      * @return $this

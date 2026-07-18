@@ -5,7 +5,15 @@ namespace Revault;
 
 use FFI\CData;
 
-/** Complete class-based PHP API; structured values are concrete protobuf messages. */
+/**
+ * Entry point for encrypted lockboxes, cryptographic keys, local vault
+ * metadata, the session agent, and the platform secret store.
+ *
+ * Structured values are concrete protobuf messages. Release owned handles
+ * promptly and use callback-scoped secret accessors to avoid retaining
+ * plaintext. See the repository README for installation and examples:
+ * https://github.com/onepub-dev/reVault#readme
+ */
 final class Vault
 {
     private readonly BindingOperations $operations;
@@ -307,6 +315,7 @@ abstract class OwnedHandle
     final public function nativeHandle(): CData { return $this->handle; }
 }
 
+/** Owned, mutable view of one encrypted lockbox archive. */
 class Lockbox extends OwnedHandle
 {
 
@@ -440,6 +449,7 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxSetVariable($this->handle, $name, $value);
     }
 
+    /** Stores a secret variable from binary-safe PHP string bytes. */
     public function setSecretVariable(string $name, string $value): bool
     {
         return $this->operations->lockboxSetSecretVariable($this->handle, $name, $value);
@@ -451,6 +461,7 @@ class Lockbox extends OwnedHandle
         return $value->getPresent() ? $value->getValue() : null;
     }
 
+    /** Invokes the callback with temporary secret bytes, then wipes the native transfer. */
     public function withSecretVariable(string $name, callable $callback): mixed
     {
         return $this->operations->lockboxWithSecretVariable($this->handle, $name, $callback);
@@ -576,6 +587,7 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxSetFormField($this->handle, $path, $field, $value);
     }
 
+    /** Stores a secret form field from binary-safe PHP string bytes. */
     public function setSecretFormField(string $path, string $field, string $value): bool
     {
         return $this->operations->lockboxSetSecretFormField($this->handle, $path, $field, $value);
@@ -606,6 +618,7 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxGetFormField($this->handle, $path, $field);
     }
 
+    /** Invokes the callback with temporary field bytes, then wipes the native transfer. */
     public function withSecretFormField(string $path, string $field, callable $callback): mixed
     {
         return $this->operations->lockboxWithSecretFormField($this->handle, $path, $field, $callback);
@@ -623,6 +636,7 @@ class Lockbox extends OwnedHandle
 
 }
 
+/** Owned contact key pair used to decrypt content keys sent by contacts. */
 class ContactKeyPair extends OwnedHandle
 {
 
@@ -648,6 +662,7 @@ class ContactKeyPair extends OwnedHandle
 
 }
 
+/** Shareable contact public key used to encrypt a recipient content key. */
 class ContactPublicKey extends OwnedHandle
 {
 
@@ -663,6 +678,7 @@ class ContactPublicKey extends OwnedHandle
 
 }
 
+/** Owned encrypted content-key envelope for one contact recipient. */
 class WrappedContactKey extends OwnedHandle
 {
 
@@ -688,6 +704,7 @@ class WrappedContactKey extends OwnedHandle
 
 }
 
+/** Owned signing key pair used to authorize mutable lockbox commits. */
 class SigningKeyPair extends OwnedHandle
 {
 
@@ -708,6 +725,7 @@ class SigningKeyPair extends OwnedHandle
 
 }
 
+/** Public key used to verify owner-authorized lockbox commits. */
 class SigningPublicKey extends OwnedHandle
 {
 
@@ -718,6 +736,7 @@ class SigningPublicKey extends OwnedHandle
 
 }
 
+/** Writable, password-protected local metadata vault. */
 class VaultDirectory extends OwnedHandle
 {
 
@@ -938,6 +957,7 @@ class VaultDirectory extends OwnedHandle
 
 }
 
+/** Read-only metadata view that never loads an owner signing key. */
 class ReadOnlyVaultDirectory
 {
     public function __construct(protected readonly BindingOperations $operations, protected CData $handle) {}
@@ -969,6 +989,7 @@ class ReadOnlyVaultDirectory
 
 }
 
+/** Client for the local session agent's time-limited secret cache. */
 class Agent
 {
     public function __construct(protected readonly BindingOperations $operations) {}
@@ -1070,11 +1091,13 @@ class Agent
 
 }
 
+/** Owned registration for an operation that currently requires secret access. */
 class AgentActivity extends OwnedHandle
 {
 
 }
 
+/** Controls integration with the operating system's secret store. */
 class Platform
 {
     public function __construct(protected readonly BindingOperations $operations) {}
@@ -1121,6 +1144,7 @@ class Platform
 
 }
 
+/** High-level workflow for local metadata and remembered lockboxes. */
 class LocalVault extends OwnedHandle
 {
 

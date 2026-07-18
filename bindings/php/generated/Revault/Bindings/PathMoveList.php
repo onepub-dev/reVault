@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Renames applied as one operation.
+ *
  * Generated from protobuf message <code>revault.bindings.PathMoveList</code>
  */
 class PathMoveList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Requested source-to-destination moves.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.PathMove values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class PathMoveList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\PathMove>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Requested source-to-destination moves.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class PathMoveList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Requested source-to-destination moves.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.PathMove values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class PathMoveList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Requested source-to-destination moves.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.PathMove values = 1;</code>
      * @param array<\Revault\Bindings\PathMove>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

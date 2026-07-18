@@ -9,27 +9,39 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Effective operating-system secret-store configuration.
+ *
  * Generated from protobuf message <code>revault.bindings.PlatformStatus</code>
  */
 class PlatformStatus extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Whether this build has a backend for the current operating system.
+     *
      * Generated from protobuf field <code>bool supported = 1;</code>
      */
     protected $supported = false;
     /**
+     * Whether secret-store integration is currently disabled.
+     *
      * Generated from protobuf field <code>bool disabled = 2;</code>
      */
     protected $disabled = false;
     /**
+     * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+     *
      * Generated from protobuf field <code>string scope = 3;</code>
      */
     protected $scope = '';
     /**
+     * Human-readable platform backend name.
+     *
      * Generated from protobuf field <code>string backend = 4;</code>
      */
     protected $backend = '';
     /**
+     * Key used for the default local-vault item.
+     *
      * Generated from protobuf field <code>string item = 5;</code>
      */
     protected $item = '';
@@ -41,10 +53,15 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type bool $supported
+     *           Whether this build has a backend for the current operating system.
      *     @type bool $disabled
+     *           Whether secret-store integration is currently disabled.
      *     @type string $scope
+     *           Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
      *     @type string $backend
+     *           Human-readable platform backend name.
      *     @type string $item
+     *           Key used for the default local-vault item.
      * }
      */
     public function __construct($data = NULL) {
@@ -53,6 +70,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether this build has a backend for the current operating system.
+     *
      * Generated from protobuf field <code>bool supported = 1;</code>
      * @return bool
      */
@@ -62,6 +81,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether this build has a backend for the current operating system.
+     *
      * Generated from protobuf field <code>bool supported = 1;</code>
      * @param bool $var
      * @return $this
@@ -75,6 +96,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether secret-store integration is currently disabled.
+     *
      * Generated from protobuf field <code>bool disabled = 2;</code>
      * @return bool
      */
@@ -84,6 +107,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether secret-store integration is currently disabled.
+     *
      * Generated from protobuf field <code>bool disabled = 2;</code>
      * @param bool $var
      * @return $this
@@ -97,6 +122,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+     *
      * Generated from protobuf field <code>string scope = 3;</code>
      * @return string
      */
@@ -106,6 +133,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Effective automatic-open scope: `off`, `vault`, or `lockboxes`.
+     *
      * Generated from protobuf field <code>string scope = 3;</code>
      * @param string $var
      * @return $this
@@ -119,6 +148,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Human-readable platform backend name.
+     *
      * Generated from protobuf field <code>string backend = 4;</code>
      * @return string
      */
@@ -128,6 +159,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Human-readable platform backend name.
+     *
      * Generated from protobuf field <code>string backend = 4;</code>
      * @param string $var
      * @return $this
@@ -141,6 +174,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Key used for the default local-vault item.
+     *
      * Generated from protobuf field <code>string item = 5;</code>
      * @return string
      */
@@ -150,6 +185,8 @@ class PlatformStatus extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Key used for the default local-vault item.
+     *
      * Generated from protobuf field <code>string item = 5;</code>
      * @param string $var
      * @return $this

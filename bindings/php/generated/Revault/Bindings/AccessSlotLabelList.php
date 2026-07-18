@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of local access-slot labels.
+ *
  * Generated from protobuf message <code>revault.bindings.AccessSlotLabelList</code>
  */
 class AccessSlotLabelList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Matching access-slot labels.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class AccessSlotLabelList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\AccessSlotLabel>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Matching access-slot labels.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class AccessSlotLabelList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Matching access-slot labels.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class AccessSlotLabelList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Matching access-slot labels.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.AccessSlotLabel values = 1;</code>
      * @param array<\Revault\Bindings\AccessSlotLabel>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

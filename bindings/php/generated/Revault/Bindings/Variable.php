@@ -9,15 +9,21 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Name and sensitivity metadata for one variable; no secret value is included.
+ *
  * Generated from protobuf message <code>revault.bindings.Variable</code>
  */
 class Variable extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Variable name.
+     *
      * Generated from protobuf field <code>string name = 1;</code>
      */
     protected $name = '';
     /**
+     * `normal` or `secret`.
+     *
      * Generated from protobuf field <code>string sensitivity = 2;</code>
      */
     protected $sensitivity = '';
@@ -29,7 +35,9 @@ class Variable extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $name
+     *           Variable name.
      *     @type string $sensitivity
+     *           `normal` or `secret`.
      * }
      */
     public function __construct($data = NULL) {
@@ -38,6 +46,8 @@ class Variable extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Variable name.
+     *
      * Generated from protobuf field <code>string name = 1;</code>
      * @return string
      */
@@ -47,6 +57,8 @@ class Variable extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Variable name.
+     *
      * Generated from protobuf field <code>string name = 1;</code>
      * @param string $var
      * @return $this
@@ -60,6 +72,8 @@ class Variable extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * `normal` or `secret`.
+     *
      * Generated from protobuf field <code>string sensitivity = 2;</code>
      * @return string
      */
@@ -69,6 +83,8 @@ class Variable extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * `normal` or `secret`.
+     *
      * Generated from protobuf field <code>string sensitivity = 2;</code>
      * @param string $var
      * @return $this

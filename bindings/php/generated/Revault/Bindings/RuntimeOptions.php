@@ -9,15 +9,21 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Effective runtime tuning for one open lockbox.
+ *
  * Generated from protobuf message <code>revault.bindings.RuntimeOptions</code>
  */
 class RuntimeOptions extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Selected workload profile.
+     *
      * Generated from protobuf field <code>string workload_profile = 1;</code>
      */
     protected $workload_profile = '';
     /**
+     * Selected worker policy and concurrency.
+     *
      * Generated from protobuf field <code>string worker_policy = 2;</code>
      */
     protected $worker_policy = '';
@@ -29,7 +35,9 @@ class RuntimeOptions extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $workload_profile
+     *           Selected workload profile.
      *     @type string $worker_policy
+     *           Selected worker policy and concurrency.
      * }
      */
     public function __construct($data = NULL) {
@@ -38,6 +46,8 @@ class RuntimeOptions extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Selected workload profile.
+     *
      * Generated from protobuf field <code>string workload_profile = 1;</code>
      * @return string
      */
@@ -47,6 +57,8 @@ class RuntimeOptions extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Selected workload profile.
+     *
      * Generated from protobuf field <code>string workload_profile = 1;</code>
      * @param string $var
      * @return $this
@@ -60,6 +72,8 @@ class RuntimeOptions extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Selected worker policy and concurrency.
+     *
      * Generated from protobuf field <code>string worker_policy = 2;</code>
      * @return string
      */
@@ -69,6 +83,8 @@ class RuntimeOptions extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Selected worker policy and concurrency.
+     *
      * Generated from protobuf field <code>string worker_policy = 2;</code>
      * @param string $var
      * @return $this

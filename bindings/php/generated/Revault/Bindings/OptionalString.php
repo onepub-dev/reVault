@@ -9,15 +9,21 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * Optional string that distinguishes absence from an empty value.
+ *
  * Generated from protobuf message <code>revault.bindings.OptionalString</code>
  */
 class OptionalString extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Whether a value is present.
+     *
      * Generated from protobuf field <code>bool present = 1;</code>
      */
     protected $present = false;
     /**
+     * Present UTF-8 value, which may itself be empty.
+     *
      * Generated from protobuf field <code>string value = 2;</code>
      */
     protected $value = '';
@@ -29,7 +35,9 @@ class OptionalString extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type bool $present
+     *           Whether a value is present.
      *     @type string $value
+     *           Present UTF-8 value, which may itself be empty.
      * }
      */
     public function __construct($data = NULL) {
@@ -38,6 +46,8 @@ class OptionalString extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether a value is present.
+     *
      * Generated from protobuf field <code>bool present = 1;</code>
      * @return bool
      */
@@ -47,6 +57,8 @@ class OptionalString extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Whether a value is present.
+     *
      * Generated from protobuf field <code>bool present = 1;</code>
      * @param bool $var
      * @return $this
@@ -60,6 +72,8 @@ class OptionalString extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Present UTF-8 value, which may itself be empty.
+     *
      * Generated from protobuf field <code>string value = 2;</code>
      * @return string
      */
@@ -69,6 +83,8 @@ class OptionalString extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Present UTF-8 value, which may itself be empty.
+     *
      * Generated from protobuf field <code>string value = 2;</code>
      * @param string $var
      * @return $this

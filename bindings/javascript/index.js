@@ -1,4 +1,9 @@
-// Generated complete class-oriented JavaScript API. Do not edit.
+/**
+ * Owned JavaScript API for encrypted reVault lockboxes and local vaults.
+ * See https://github.com/onepub-dev/reVault#readme for installation, security
+ * guidance, and complete examples.
+ * @module @onepub-dev/revault-api
+ */
 import { BindingOperations } from './native.js';
 export { createMessage, encodeMessage } from './native.js';
 export { revault } from './generated/messages.js';

@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of session-agent cache entries.
+ *
  * Generated from protobuf message <code>revault.bindings.AgentEntryList</code>
  */
 class AgentEntryList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Current cache entries without their secret values.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      */
     private $values;
@@ -25,6 +29,7 @@ class AgentEntryList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\AgentEntry>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Current cache entries without their secret values.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class AgentEntryList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Current cache entries without their secret values.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class AgentEntryList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Current cache entries without their secret values.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.AgentEntry values = 1;</code>
      * @param array<\Revault\Bindings\AgentEntry>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

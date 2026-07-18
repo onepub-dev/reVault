@@ -9,31 +9,45 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * One typed record stored at a lockbox path.
+ *
  * Generated from protobuf message <code>revault.bindings.FormRecord</code>
  */
 class FormRecord extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Record path within the lockbox.
+     *
      * Generated from protobuf field <code>string path = 1;</code>
      */
     protected $path = '';
     /**
+     * User-facing record name.
+     *
      * Generated from protobuf field <code>string name = 2;</code>
      */
     protected $name = '';
     /**
+     * Stable form type identifier.
+     *
      * Generated from protobuf field <code>string type_id = 3;</code>
      */
     protected $type_id = '';
     /**
+     * Alias captured from the definition.
+     *
      * Generated from protobuf field <code>string definition_alias = 4;</code>
      */
     protected $definition_alias = '';
     /**
+     * Definition revision used to create the record.
+     *
      * Generated from protobuf field <code>uint32 definition_revision = 5;</code>
      */
     protected $definition_revision = 0;
     /**
+     * Field values in definition order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormValue values = 6;</code>
      */
     private $values;
@@ -45,11 +59,17 @@ class FormRecord extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type string $path
+     *           Record path within the lockbox.
      *     @type string $name
+     *           User-facing record name.
      *     @type string $type_id
+     *           Stable form type identifier.
      *     @type string $definition_alias
+     *           Alias captured from the definition.
      *     @type int $definition_revision
+     *           Definition revision used to create the record.
      *     @type array<\Revault\Bindings\FormValue>|\Google\Protobuf\Internal\RepeatedField $values
+     *           Field values in definition order.
      * }
      */
     public function __construct($data = NULL) {
@@ -58,6 +78,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Record path within the lockbox.
+     *
      * Generated from protobuf field <code>string path = 1;</code>
      * @return string
      */
@@ -67,6 +89,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Record path within the lockbox.
+     *
      * Generated from protobuf field <code>string path = 1;</code>
      * @param string $var
      * @return $this
@@ -80,6 +104,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * User-facing record name.
+     *
      * Generated from protobuf field <code>string name = 2;</code>
      * @return string
      */
@@ -89,6 +115,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * User-facing record name.
+     *
      * Generated from protobuf field <code>string name = 2;</code>
      * @param string $var
      * @return $this
@@ -102,6 +130,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable form type identifier.
+     *
      * Generated from protobuf field <code>string type_id = 3;</code>
      * @return string
      */
@@ -111,6 +141,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Stable form type identifier.
+     *
      * Generated from protobuf field <code>string type_id = 3;</code>
      * @param string $var
      * @return $this
@@ -124,6 +156,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Alias captured from the definition.
+     *
      * Generated from protobuf field <code>string definition_alias = 4;</code>
      * @return string
      */
@@ -133,6 +167,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Alias captured from the definition.
+     *
      * Generated from protobuf field <code>string definition_alias = 4;</code>
      * @param string $var
      * @return $this
@@ -146,6 +182,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Definition revision used to create the record.
+     *
      * Generated from protobuf field <code>uint32 definition_revision = 5;</code>
      * @return int
      */
@@ -155,6 +193,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Definition revision used to create the record.
+     *
      * Generated from protobuf field <code>uint32 definition_revision = 5;</code>
      * @param int $var
      * @return $this
@@ -168,6 +208,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Field values in definition order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormValue values = 6;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -177,6 +219,8 @@ class FormRecord extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Field values in definition order.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.FormValue values = 6;</code>
      * @param array<\Revault\Bindings\FormValue>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this

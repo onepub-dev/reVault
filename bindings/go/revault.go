@@ -23,7 +23,9 @@ func init() {
 }
 
 func lastError() error  { return errors.New(C.GoString(C.buffer_last_error())) }
+// LastError returns the diagnostic from the most recent failed native call on this thread.
 func LastError() string { return C.GoString(C.buffer_last_error()) }
+// LastErrorDetails returns structured diagnostics for the most recent native failure.
 func LastErrorDetails() (*messages.ErrorDetails, error) {
 	result := &messages.ErrorDetails{}
 	return result, decodeFrame(C.buffer_last_error_details(), result)
@@ -104,6 +106,7 @@ func withSecret(get func(*unsafe.Pointer) bool, callback func([]byte) error) err
 	return callback(secret)
 }
 
+// ContactPublicKey is a shareable key used to encrypt a recipient content key.
 type ContactPublicKey struct{ handle unsafe.Pointer }
 
 func NewContactPublicKey(value []byte) (*ContactPublicKey, error) {
@@ -140,6 +143,7 @@ func (key *ContactPublicKey) Encrypt(contentKey []byte) (*WrappedContactKey, err
 	return &WrappedContactKey{handle: h}, nil
 }
 
+// WrappedContactKey owns an encrypted content-key envelope for one recipient.
 type WrappedContactKey struct{ handle unsafe.Pointer }
 
 func (key *WrappedContactKey) Close() {
@@ -158,6 +162,7 @@ func (key *WrappedContactKey) EncryptedBytes() ([]byte, error) {
 	return takeBuffer(C.key_contact_wrapped_encrypted(key.handle))
 }
 
+// ContactKeyPair owns the private key used to decrypt received content keys.
 type ContactKeyPair struct{ handle unsafe.Pointer }
 
 func GenerateContactKeyPair() (*ContactKeyPair, error) {
@@ -207,6 +212,7 @@ func (key *ContactKeyPair) Decrypt(wrapped *WrappedContactKey) ([]byte, error) {
 	return takeBuffer(C.key_contact_decrypt(key.handle, wrapped.handle))
 }
 
+// SigningPublicKey verifies owner-authorized lockbox commits.
 type SigningPublicKey struct{ handle unsafe.Pointer }
 
 func NewSigningPublicKey(value []byte) (*SigningPublicKey, error) {
@@ -223,6 +229,7 @@ func (key *SigningPublicKey) Close() {
 	}
 }
 
+// SigningKeyPair owns the private key used to authorize mutable lockbox commits.
 type SigningKeyPair struct{ handle unsafe.Pointer }
 
 func GenerateSigningKeyPair() (*SigningKeyPair, error) {
@@ -259,6 +266,7 @@ func (key *SigningKeyPair) PublicKey() (*SigningPublicKey, error) {
 	return NewSigningPublicKey(value)
 }
 
+// LockboxOptions configures runtime cache and worker behavior.
 type LockboxOptions struct {
 	CacheMode  string
 	CacheBytes uint64
@@ -271,6 +279,8 @@ func DefaultLockboxOptions() LockboxOptions {
 	return LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"}
 }
 
+// Lockbox is an owned, mutable view of one encrypted archive.
+// Call Close when it is no longer required.
 type Lockbox struct{ handle unsafe.Pointer }
 
 func adoptLockbox(handle unsafe.Pointer) (*Lockbox, error) {
@@ -575,6 +585,7 @@ func HexDecode(value string) ([]byte, error) {
 	return takeBuffer(C.vault_key_hex_decode(charPointer(value), C.size_t(len(value))))
 }
 
+// VaultDirectory is a writable, password-protected local metadata vault.
 type VaultDirectory struct{ handle unsafe.Pointer }
 
 func adoptVaultDirectory(handle unsafe.Pointer) (*VaultDirectory, error) {
@@ -781,6 +792,7 @@ func (vault *VaultDirectory) ListFormRevisions(typeID string) (*messages.FormDef
 	return result, decodeFrame(C.vault_directory_list_form_revisions(vault.handle, charPointer(typeID), C.size_t(len(typeID))), result)
 }
 
+// ReadOnlyVaultDirectory never loads an owner signing key.
 type ReadOnlyVaultDirectory struct{ handle unsafe.Pointer }
 func OpenReadOnlyVaultDirectory(root string, password []byte) (*ReadOnlyVaultDirectory, error) {
 	h := C.vault_read_only_open(charPointer(root), C.size_t(len(root)), bytePointer(password), C.size_t(len(password))); if h == nil { return nil, lastError() }; return &ReadOnlyVaultDirectory{handle:h}, nil
@@ -851,6 +863,7 @@ func ForgetAgentOwnerSigningKey(vaultID, profile string) error {
 	return require(bool(C.vault_agent_forget_owner_signing_key(charPointer(vaultID), C.size_t(len(vaultID)), charPointer(profile), C.size_t(len(profile)))))
 }
 
+// AgentActivity registers an operation that currently requires secret access.
 type AgentActivity struct{ handle unsafe.Pointer }
 
 func BeginAgentActivity(kind string) (*AgentActivity, error) {
@@ -883,6 +896,7 @@ func PutPlatformPassword(password []byte) error {
 func GetPlatformPassword() ([]byte, error) { return takeBuffer(C.vault_platform_get_password()) }
 func ForgetPlatformPassword() error        { return require(bool(C.vault_platform_forget_password())) }
 
+// LocalVault provides workflows for local metadata and remembered lockboxes.
 type LocalVault struct{ handle unsafe.Pointer }
 
 func OpenLocalVault() (*LocalVault, error) {

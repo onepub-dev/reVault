@@ -80,6 +80,8 @@ fn check(repository: &Path) -> Result {
     for relative in complete_routes {
         require_names(&repository.join(relative), &operations, relative)?;
     }
+    check_package_documentation(&repository)?;
+    check_schema_documentation(&repository)?;
     let messages = schema_messages(&repository)?;
     for relative in [
         "bindings/cpp/generated/revault_bindings.pb.h",
@@ -129,6 +131,68 @@ fn check(repository: &Path) -> Result {
         "verified {} ABI declarations and {} operations across all generated binding surfaces",
         declarations.len(),
         operations.len()
+    );
+    Ok(())
+}
+
+fn check_schema_documentation(repository: &Path) -> Result {
+    let relative = "bindings/proto/revault_bindings.proto";
+    let schema = fs::read_to_string(repository.join(relative))?;
+    let mut previous = "";
+    let mut declaration_depth = 0usize;
+    for (index, line) in schema.lines().enumerate() {
+        let trimmed = line.trim();
+        let opens_declaration = trimmed.starts_with("message ") || trimmed.starts_with("enum ");
+        let is_member = declaration_depth > 0 && trimmed.contains(" = ") && trimmed.ends_with(';');
+        if (opens_declaration || is_member) && !previous.starts_with("//") {
+            return Err(format!(
+                "{relative}:{} public schema declaration lacks documentation: {trimmed}",
+                index + 1
+            )
+            .into());
+        }
+        if opens_declaration || declaration_depth > 0 {
+            declaration_depth += trimmed.matches('{').count();
+        }
+        declaration_depth = declaration_depth.saturating_sub(trimmed.matches('}').count());
+        if !trimmed.is_empty() {
+            previous = trimmed;
+        }
+    }
+    println!("verified every generated Protobuf model and field is documented");
+    Ok(())
+}
+
+fn check_package_documentation(repository: &Path) -> Result {
+    const README_URL: &str = "https://github.com/onepub-dev/reVault#readme";
+    let package_surfaces = [
+        "rust/revault_bindings/revault_api.h",
+        "bindings/cpp/revault_api.hpp",
+        "bindings/csharp/Vault.cs",
+        "bindings/dart/lib/revault_api.dart",
+        "bindings/go/doc.go",
+        "bindings/java/src/com/onepub/revault/package-info.java",
+        "bindings/javascript/index.d.ts",
+        "bindings/kotlin/src/main/kotlin/Vault.kt",
+        "bindings/lua/revault_api.lua",
+        "bindings/php/src/Vault.php",
+        "bindings/python/revault_api/__init__.py",
+        "bindings/ruby/revault_api.rb",
+        "bindings/rust/src/lib.rs",
+        "bindings/swift/Sources/RevaultAPI/RevaultAPI.docc/RevaultAPI.md",
+        "bindings/typescript/index.ts",
+        "bindings/wasm/index.d.ts",
+    ];
+    for relative in package_surfaces {
+        require_features(
+            &repository.join(relative),
+            &[README_URL],
+            &format!("{relative} package documentation"),
+        )?;
+    }
+    println!(
+        "verified package overviews and repository README links for {} language bindings",
+        package_surfaces.len()
     );
     Ok(())
 }

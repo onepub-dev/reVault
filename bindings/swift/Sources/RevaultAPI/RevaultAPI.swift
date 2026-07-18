@@ -1,9 +1,17 @@
-// Generated complete class-oriented Swift API. Do not edit.
+// Swift API for encrypted reVault lockboxes and local vault metadata.
+// See https://github.com/onepub-dev/reVault#readme for installation, security
+// guidance, and complete examples.
 import Foundation
 import RevaultC
 import SwiftProtobuf
 
-public enum RevaultError: Error { case native(String); case invalidFrame }
+/// Errors raised while validating or invoking the native reVault API.
+public enum RevaultError: Error {
+    /// The native operation failed with the associated diagnostic message.
+    case native(String)
+    /// A structured native response was not a valid reVault wire frame.
+    case invalidFrame
+}
 
 private func lastError() -> String {
     guard let value = buffer_last_error() else { return "native reVault operation failed" }
@@ -1391,36 +1399,53 @@ final class BindingOperations {
 
 }
 
+/// Base class for objects that own a native reVault handle.
+///
+/// Concrete subclasses expose the matching close operation. Do not share a
+/// handle across concurrent operations unless the specific API documents it.
 public class OwnedHandle {
     fileprivate let operations: BindingOperations
     fileprivate var handle: UnsafeMutableRawPointer?
     fileprivate init(_ operations: BindingOperations, _ handle: UnsafeMutableRawPointer?) { self.operations = operations; self.handle = handle }
 }
 
+/// Owned, mutable view of one encrypted lockbox archive.
 public final class Lockbox: OwnedHandle {}
 
+/// Owned contact key pair used to decrypt content keys sent by contacts.
 public final class ContactKeyPair: OwnedHandle {}
 
+/// Shareable contact public key used to encrypt a recipient content key.
 public final class ContactPublicKey: OwnedHandle {}
 
+/// Owned encrypted content-key envelope for one contact recipient.
 public final class WrappedContactKey: OwnedHandle {}
 
+/// Owned signing key pair used to authorize mutable lockbox commits.
 public final class SigningKeyPair: OwnedHandle {}
 
+/// Public key used to verify owner-authorized lockbox commits.
 public final class SigningPublicKey: OwnedHandle {}
 
+/// Writable, password-protected local metadata vault.
 public final class VaultDirectory: OwnedHandle {}
 
+/// Read-only metadata view that never loads an owner signing key.
 public final class ReadOnlyVaultDirectory: OwnedHandle {}
 
+/// Client for the local session agent's time-limited secret cache.
 public final class Agent: OwnedHandle {}
 
+/// Owned registration for an operation that currently requires secret access.
 public final class AgentActivity: OwnedHandle {}
 
+/// Controls integration with the operating system's secret store.
 public final class Platform: OwnedHandle {}
 
+/// High-level workflow for local metadata and remembered lockboxes.
 public final class LocalVault: OwnedHandle {}
 
+/// Entry point for lockboxes, keys, local metadata, agent, and platform services.
 public final class Vault {
     fileprivate let operations = BindingOperations()
     public lazy var agent = Agent(operations, nil)

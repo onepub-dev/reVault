@@ -9,11 +9,15 @@ use Google\Protobuf\Internal\RepeatedField;
 use Google\Protobuf\Internal\GPBUtil;
 
 /**
+ * A collection of lockbox entries.
+ *
  * Generated from protobuf message <code>revault.bindings.LockboxEntryList</code>
  */
 class LockboxEntryList extends \Google\Protobuf\Internal\Message
 {
     /**
+     * Entries in the order returned by the requested listing operation.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      */
     private $entries;
@@ -25,6 +29,7 @@ class LockboxEntryList extends \Google\Protobuf\Internal\Message
      *     Optional. Data for populating the Message object.
      *
      *     @type array<\Revault\Bindings\LockboxEntry>|\Google\Protobuf\Internal\RepeatedField $entries
+     *           Entries in the order returned by the requested listing operation.
      * }
      */
     public function __construct($data = NULL) {
@@ -33,6 +38,8 @@ class LockboxEntryList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Entries in the order returned by the requested listing operation.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      * @return \Google\Protobuf\Internal\RepeatedField
      */
@@ -42,6 +49,8 @@ class LockboxEntryList extends \Google\Protobuf\Internal\Message
     }
 
     /**
+     * Entries in the order returned by the requested listing operation.
+     *
      * Generated from protobuf field <code>repeated .revault.bindings.LockboxEntry entries = 1;</code>
      * @param array<\Revault\Bindings\LockboxEntry>|\Google\Protobuf\Internal\RepeatedField $var
      * @return $this
