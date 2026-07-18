@@ -14,6 +14,14 @@ logs/
 .mcp_logs/mcp_command_server.log
 **/target/
 **/node_modules/
+**/__pycache__/
+bindings/typescript/dist/
+bindings/**/.gradle/
+bindings/csharp/bin/
+bindings/csharp/obj/
+bindings/e2e/csharp/bin/
+bindings/e2e/csharp/obj/
+bindings/e2e/csharp/publish/
 rust/.tmp-archive-compare
 rust/.ci-compression-corpus
 rust/perf.data*
@@ -23,3 +31,9 @@ rust/fuzz/target
 rust/revault_cli/testbox
 rust/revault_cli/testbox.lbox
 **/*.lbox
+.e2e-work/
+package-conformance-*/
+.codex/
+.crates.toml
+.crates2.json
+/dart/bin/

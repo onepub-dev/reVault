@@ -1,0 +1,22 @@
+plugins {
+    id 'application'
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'dev.onepub:revault-api:0.1.0'
+}
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(22) }
+}
+
+sourceSets.main.java.srcDirs = [projectDir]
+application {
+    mainClass = 'com.onepub.revault.e2e.Conformance'
+    applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
+}

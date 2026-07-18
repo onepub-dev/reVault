@@ -110,6 +110,14 @@ pub fn set_auto_open_scope(scope: AutoOpenScope) -> Result<()> {
     match scope {
         AutoOpenScope::Off => {
             let _ = forget_platform_vault_password();
+            if let Ok(profile) = default_vault_path() {
+                let vault_id = profile.to_string_lossy().into_owned();
+                let _ = crate::forget_vault_unlock_key(&vault_id);
+                let _ = crate::forget_owner_signing_key(
+                    &vault_id,
+                    crate::VaultDirectory::DEFAULT_KEY_NAME,
+                );
+            }
             write_disabled_marker()?;
             write_auto_open_scope(scope)
         }
@@ -420,7 +428,9 @@ mod tests {
     fn auto_open_off_forgets_stored_vault_password() -> Result<()> {
         let _lock = env_lock().lock().expect("env test lock poisoned");
         let vault_dir = temp_vault_dir("auto-open-off-forgets-stored-vault-password");
+        let agent_dir = vault_dir.join("agent");
         let _vault_dir_guard = EnvVarGuard::set("LOCKBOX_VAULT_DIR", &vault_dir);
+        let _agent_dir_guard = EnvVarGuard::set("LOCKBOX_SESSION_AGENT_DIR", &agent_dir);
         let _mode_guard = EnvVarGuard::unset(MODE_ENV);
         test_platform_store()
             .lock()
@@ -436,6 +446,18 @@ mod tests {
 
         set_auto_open_scope(AutoOpenScope::Off)?;
         assert_eq!(auto_open_scope()?, AutoOpenScope::Off);
+
+        let vault_id = vault_dir.join("local-vault.lbox");
+        crate::put_vault_unlock_key(
+            &vault_id.to_string_lossy(),
+            SecretString::try_from_bytes(b"must not be cached".to_vec())?,
+            None,
+        )
+        .map_err(|err| revault_lockbox_api::Error::Io(err.to_string()))?;
+        assert!(
+            !crate::is_running(),
+            "disabled auto-open must not start the session agent"
+        );
 
         set_auto_open_scope(AutoOpenScope::Vault)?;
         assert!(get_platform_vault_password()?.is_none());

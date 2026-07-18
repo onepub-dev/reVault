@@ -1,12 +1,14 @@
 use super::{
-    encode_control_err_response, encode_control_ok_response, encode_err_response, encode_forget,
-    encode_forget_all, encode_get, encode_key_response, encode_list, encode_list_response,
-    encode_miss_response, encode_ok_response, encode_put, encode_register_secret_activity,
-    encode_registered_response, encode_stop, encode_unregister_secret_activity, frame_header_len,
-    frame_message_type, frame_payload_len, is_control_message_type, max_message_bytes,
-    parse_control_request, parse_control_response, parse_request, parse_response, AgentRequest,
-    AgentResponse, CachedLockbox, ControlRequest, ControlResponse, SecretActivityKind, SecretVec,
-    DEFAULT_TTL_SECONDS,
+    encode_control_err_response, encode_control_ok_response, encode_err_response,
+    encode_forget_all, encode_forget_identifier, encode_get_identifier, encode_info,
+    encode_info_response, encode_key_response, encode_list, encode_list_response,
+    encode_miss_response, encode_ok_response, encode_put_identifier,
+    encode_register_secret_activity, encode_registered_response, encode_stop,
+    encode_unregister_secret_activity, frame_header_len, frame_message_type, frame_payload_len,
+    is_control_message_type, max_message_bytes, parse_control_request, parse_control_response,
+    parse_request, parse_response, AgentRequest, AgentResponse, CachedLockbox, ControlRequest,
+    ControlResponse, SecretActivityKind, SecretVec, AGENT_IMPLEMENTATION_VERSION,
+    AGENT_PROTOCOL_VERSION, DEFAULT_TTL_SECONDS,
 };
 use crate::active_secret::ActiveSecretRegistry;
 use crate::agent_config::AgentConfig;
@@ -178,7 +180,11 @@ pub(crate) fn verify_agent_transport_security() -> io::Result<()> {
 }
 
 pub(crate) fn get(lockbox_id: LockboxId) -> io::Result<Option<SecretVec>> {
-    match request_existing(&encode_get(lockbox_id)?)? {
+    get_named(&lockbox_id.to_string())
+}
+
+pub(crate) fn get_named(identifier: &str) -> io::Result<Option<SecretVec>> {
+    match request_existing(&encode_get_identifier(identifier)?)? {
         Some(AgentResponse::Key(key)) => Ok(Some(key)),
         Some(AgentResponse::Miss) | None => Ok(None),
         Some(response) => invalid_agent_response(response),
@@ -191,11 +197,37 @@ pub(crate) fn put(
     path: Option<&str>,
     ttl_seconds: Option<u64>,
 ) -> io::Result<()> {
-    expect_ok(request(&encode_put(lockbox_id, key, path, ttl_seconds)?)?)
+    expect_ok(request(&encode_put_identifier(
+        &lockbox_id.to_string(),
+        key,
+        path,
+        ttl_seconds,
+    )?)?)
+}
+
+pub(crate) fn put_named(
+    identifier: &str,
+    key: &SecretVec,
+    path: Option<&str>,
+    ttl_seconds: Option<u64>,
+) -> io::Result<()> {
+    if !is_running() {
+        return Ok(());
+    }
+    expect_ok(request(&encode_put_identifier(
+        identifier,
+        key,
+        path,
+        ttl_seconds,
+    )?)?)
 }
 
 pub(crate) fn forget(lockbox_id: LockboxId) -> io::Result<()> {
-    match request_existing(&encode_forget(lockbox_id)?)? {
+    forget_named(&lockbox_id.to_string())
+}
+
+pub(crate) fn forget_named(identifier: &str) -> io::Result<()> {
+    match request_existing(&encode_forget_identifier(identifier)?)? {
         Some(response) => expect_ok(response),
         None => Ok(()),
     }
@@ -238,10 +270,18 @@ pub(crate) fn unregister_secret_activity(pid: u32, token: u64) -> io::Result<()>
 }
 
 pub(crate) fn is_running() -> bool {
-    open_pipe(&wide_pipe_name()).is_ok()
+    existing_agent_is_compatible().unwrap_or(false)
+}
+
+pub(crate) fn start() -> io::Result<()> {
+    ensure_agent()
 }
 
 fn request(message: &SecretVec) -> io::Result<AgentResponse> {
+    // A Windows pipe instance serves exactly one request. Do not consume an
+    // instance with a compatibility probe immediately before the real
+    // request: the server needs a short interval to create its next instance,
+    // and clients can otherwise observe ERROR_FILE_NOT_FOUND in that gap.
     let pipe_name = wide_pipe_name();
     let handle = match open_pipe(&pipe_name) {
         Ok(handle) => handle,
@@ -317,6 +357,56 @@ fn start_agent() -> io::Result<()> {
         .spawn()?;
 
     Ok(())
+}
+
+fn ensure_agent() -> io::Result<()> {
+    if open_pipe(&wide_pipe_name()).is_ok() {
+        if existing_agent_is_compatible()? {
+            return Ok(());
+        }
+        stop_incompatible_agent()?;
+    }
+    start_agent()?;
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while Instant::now() < deadline {
+        if existing_agent_is_compatible()? {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+    Err(io::Error::new(
+        io::ErrorKind::TimedOut,
+        "lockbox session agent did not start",
+    ))
+}
+
+fn existing_agent_is_compatible() -> io::Result<bool> {
+    let Ok(handle) = open_pipe(&wide_pipe_name()) else {
+        return Ok(false);
+    };
+    Ok(matches!(
+        request_with_handle(handle, &encode_info()?),
+        Ok(AgentResponse::Info(protocol, implementation))
+            if protocol == AGENT_PROTOCOL_VERSION
+                && implementation == AGENT_IMPLEMENTATION_VERSION
+    ))
+}
+
+fn stop_incompatible_agent() -> io::Result<()> {
+    if let Ok(handle) = open_pipe(&wide_pipe_name()) {
+        let _ = request_with_handle(handle, &encode_stop()?);
+    }
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while Instant::now() < deadline {
+        if open_pipe(&wide_pipe_name()).is_err() {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+    Err(io::Error::new(
+        io::ErrorKind::TimedOut,
+        "incompatible lockbox session agent did not stop",
+    ))
 }
 
 fn create_pipe() -> io::Result<OwnedHandle> {
@@ -585,12 +675,19 @@ fn handle_cache_request(
         }
         Ok(AgentRequest::List) => {
             log_agent_event("agent request list");
-            log_agent_event(format!("listed cached lockboxes count={}", cache.len()));
-            encode_list_response(cache.iter().map(|(id, entry)| CachedLockbox {
+            let visible = cache
+                .iter()
+                .filter(|(id, _)| {
+                    !id.starts_with("vault-unlock:") && !id.starts_with("owner-signing:")
+                })
+                .collect::<Vec<_>>();
+            log_agent_event(format!("listed cached lockboxes count={}", visible.len()));
+            encode_list_response(visible.into_iter().map(|(id, entry)| CachedLockbox {
                 id: id.clone(),
                 path: entry.path.clone(),
             }))?
         }
+        Ok(AgentRequest::Info) => encode_info_response()?,
         Err(err) => {
             log_agent_event(format!("agent request parse failed: {err}"));
             encode_err_response("invalid request")?
@@ -930,6 +1027,7 @@ fn invalid_agent_response<T>(response: AgentResponse) -> io::Result<T> {
         AgentResponse::Miss => "MISS",
         AgentResponse::Key(_) => "KEY",
         AgentResponse::List(_) => "LIST",
+        AgentResponse::Info(_, _) => "INFO",
         AgentResponse::Err(_) => "ERR",
     };
     Err(io::Error::new(

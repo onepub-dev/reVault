@@ -1,0 +1,7 @@
+target	os	arch	rust_target	runner	library	static_library	import_library	archive
+linux-x86_64-gnu	linux	x86_64	x86_64-unknown-linux-gnu	ubuntu-24.04	librevault_api.so	librevault_api.a		tar.gz
+linux-aarch64-gnu	linux	aarch64	aarch64-unknown-linux-gnu	ubuntu-24.04-arm	librevault_api.so	librevault_api.a		tar.gz
+macos-x86_64	macos	x86_64	x86_64-apple-darwin	macos-15-intel	librevault_api.dylib	librevault_api.a		tar.gz
+macos-aarch64	macos	aarch64	aarch64-apple-darwin	macos-15	librevault_api.dylib	librevault_api.a		tar.gz
+windows-x86_64-msvc	windows	x86_64	x86_64-pc-windows-msvc	windows-2025	revault_api.dll	revault_api.lib	revault_api.dll.lib	zip
+windows-aarch64-msvc	windows	aarch64	aarch64-pc-windows-msvc	windows-11-arm	revault_api.dll	revault_api.lib	revault_api.dll.lib	zip

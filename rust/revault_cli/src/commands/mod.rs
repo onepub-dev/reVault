@@ -1,9 +1,12 @@
+mod completion;
 mod context;
 mod doctor;
+mod error_output;
 mod files;
 mod form;
 mod help;
 mod keys;
+mod migrate;
 mod output;
 mod recovery;
 mod session;
@@ -18,7 +21,20 @@ use revault_vault_api::SecretActivityKind;
 use std::env as std_env;
 use std::path::Path;
 
+pub(crate) use error_output::{exit_code, print_error};
+
 pub(crate) fn run() -> CliResult<()> {
+    let binary_name = std::env::args_os()
+        .next()
+        .and_then(|value| {
+            Path::new(&value)
+                .file_stem()
+                .map(|name| name.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| "lockbox".to_string());
+    clap_complete::CompleteEnv::with_factory(|| help::command(false))
+        .bin(binary_name)
+        .complete();
     let args: Vec<String> = normalize_form_define_separator(std::env::args().skip(1).collect());
     if args.first().map(String::as_str) == Some("__agent") {
         return Ok(revault_vault_api::serve_agent()?);
@@ -60,6 +76,8 @@ pub(crate) fn run() -> CliResult<()> {
         "keygen" => keys::keygen_matches(command_matches)?,
         "open-key" => keys::open_key_matches(command_matches)?,
         "session" => session::run_matches(command_matches)?,
+        "completion" => completion::run_matches(command_matches)?,
+        "migrate" => migrate::run_matches(command_matches, &access)?,
         "access" => keys::access_matches(command_matches, &access)?,
         "vault" => vault::run_matches(command_matches)?,
         "add" => files::add_matches(
@@ -111,7 +129,7 @@ fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
         }
         "variable" => Some(SecretActivityKind::Variables),
         "form" => Some(SecretActivityKind::Form),
-        "recover" => Some(SecretActivityKind::Recovery),
+        "recover" | "migrate" => Some(SecretActivityKind::Recovery),
         "access" | "open-key" | "session" => Some(SecretActivityKind::Vault),
         _ => None,
     }

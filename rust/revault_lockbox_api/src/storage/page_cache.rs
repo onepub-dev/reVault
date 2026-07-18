@@ -12,8 +12,6 @@ use crate::storage::Storage;
 use crate::{Error, Result};
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
-const AUTO_RESIZE_INTERVAL: u64 = 1024;
-
 #[derive(Debug)]
 pub(crate) struct PageCache {
     limit: CacheLimit,
@@ -26,7 +24,6 @@ pub(crate) struct PageCache {
     recent: VecDeque<u64>,
     hits: u64,
     misses: u64,
-    operations_since_resize: u64,
 }
 
 impl Clone for PageCache {
@@ -42,7 +39,6 @@ impl Clone for PageCache {
             recent: self.recent.clone(),
             hits: self.hits,
             misses: self.misses,
-            operations_since_resize: self.operations_since_resize,
         }
     }
 }
@@ -95,7 +91,6 @@ impl PageCache {
             recent: VecDeque::new(),
             hits: 0,
             misses: 0,
-            operations_since_resize: 0,
         }
     }
 
@@ -107,7 +102,6 @@ impl PageCache {
         security: PageSecurity,
         key: PageReadKey<'_>,
     ) -> Result<DecodedPage> {
-        self.refresh_limit_if_needed();
         if let Some(entry) = self.pages.get_mut(&offset) {
             if entry.security == security {
                 self.hits = self.hits.saturating_add(1);
@@ -187,7 +181,6 @@ impl PageCache {
         storage: &mut impl Storage,
         request: SecurePageAppend<'_>,
     ) -> Result<u64> {
-        self.refresh_limit_if_needed();
         let page_offset = storage.len()?;
         let encoded = encode_single_object_page_secure(SecureSingleObjectPage {
             page_size: DEFAULT_METADATA_PAGE_BYTES,
@@ -354,7 +347,6 @@ impl PageCache {
 
     #[cfg(test)]
     pub(crate) fn get_page(&mut self, offset: u64) -> Option<DecodedPage> {
-        self.refresh_limit_if_needed();
         if self.zeroed_pages.contains_key(&offset) {
             self.misses = self.misses.saturating_add(1);
             return None;
@@ -379,7 +371,6 @@ impl PageCache {
         offset: u64,
         f: impl FnOnce(&mut DecodedPage) -> R,
     ) -> Option<R> {
-        self.refresh_limit_if_needed();
         if self.zeroed_pages.contains_key(&offset) {
             self.misses = self.misses.saturating_add(1);
             return None;
@@ -427,7 +418,6 @@ impl PageCache {
         security: PageSecurity,
         force: bool,
     ) {
-        self.refresh_limit_if_needed();
         if !force && (self.limit_bytes == 0 || weight > self.limit_bytes) {
             return;
         }
@@ -481,24 +471,6 @@ impl PageCache {
             entries: self.pages.len(),
             hits: self.hits,
             misses: self.misses,
-        }
-    }
-
-    fn refresh_limit_if_needed(&mut self) {
-        if self.limit != CacheLimit::Auto {
-            return;
-        }
-        self.operations_since_resize = self.operations_since_resize.saturating_add(1);
-        if self.operations_since_resize < AUTO_RESIZE_INTERVAL {
-            return;
-        }
-        self.operations_since_resize = 0;
-        let next_limit = cache_limit_bytes(CacheLimit::Auto);
-        if next_limit < self.limit_bytes {
-            self.limit_bytes = next_limit;
-            self.trim_to_limit();
-        } else {
-            self.limit_bytes = next_limit;
         }
     }
 

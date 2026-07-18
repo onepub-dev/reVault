@@ -1,0 +1,15 @@
+{
+  "name": "@onepub-dev/revault-api-wasm",
+  "version": "0.1.0",
+  "description": "Hosted WebAssembly class API for reVault lockboxes and vaults",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": "github:onepub-dev/reVault",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": "./index.js",
+  "files": ["index.js", "index.d.ts", "generated", "LICENSE"],
+  "dependencies": {
+    "@onepub-dev/revault-api": "0.1.0"
+  }
+}

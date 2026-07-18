@@ -13,22 +13,73 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
 
+use super::error_output::ExitCode;
+
 pub(crate) type CliResult<T> = Result<T, Box<dyn std::error::Error>>;
 const MIN_VAULT_PASS_PHRASE_CHARS: usize = 15;
 
 #[derive(Debug)]
-struct CliMessage(String);
+pub(crate) struct CliMessage {
+    pub(super) exit_code: ExitCode,
+    pub(super) summary: String,
+    pub(super) details: Vec<(String, String)>,
+    pub(super) next_step: Option<String>,
+}
+
+impl CliMessage {
+    pub(crate) fn exit_code(&self) -> ExitCode {
+        self.exit_code
+    }
+
+    pub(crate) fn summary(&self) -> &str {
+        &self.summary
+    }
+
+    pub(crate) fn details(&self) -> &[(String, String)] {
+        &self.details
+    }
+
+    pub(crate) fn next_step(&self) -> Option<&str> {
+        self.next_step.as_deref()
+    }
+}
 
 impl fmt::Display for CliMessage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.summary)?;
+        for (label, value) in &self.details {
+            write!(f, ". {label}: {value}")?;
+        }
+        if let Some(next_step) = &self.next_step {
+            write!(f, ". {next_step}")?;
+        }
+        Ok(())
     }
 }
 
 impl std::error::Error for CliMessage {}
 
 pub(crate) fn cli_error(message: impl Into<String>) -> Box<dyn std::error::Error> {
-    Box::new(CliMessage(message.into()))
+    Box::new(CliMessage {
+        exit_code: ExitCode::General,
+        summary: message.into(),
+        details: Vec::new(),
+        next_step: None,
+    })
+}
+
+fn cli_diagnostic(
+    exit_code: ExitCode,
+    summary: impl Into<String>,
+    details: Vec<(String, String)>,
+    next_step: impl Into<String>,
+) -> Box<dyn std::error::Error> {
+    Box::new(CliMessage {
+        exit_code,
+        summary: summary.into(),
+        details,
+        next_step: Some(next_step.into()),
+    })
 }
 
 pub(crate) enum Access {
@@ -53,12 +104,10 @@ pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
             Err(Error::VaultUnavailable(message)) if message.contains("no cached content key") => {
                 match auto_open_lockbox(path) {
                     Ok(lockbox) => Ok(lockbox),
-                    Err(AutoOpenLockboxError::Disabled) => Err(cli_error(format!(
-                        "lockbox is closed: {path}. Run `lockbox open {path}` first."
-                    ))),
-                    Err(AutoOpenLockboxError::Unavailable(reason)) => Err(cli_error(format!(
-                        "lockbox is closed: {path}. Auto-open could not open it: {reason}. Run `lockbox open {path}` first."
-                    ))),
+                    Err(AutoOpenLockboxError::Disabled) => Err(closed_lockbox_error(path, None)),
+                    Err(AutoOpenLockboxError::Unavailable(reason)) => {
+                        Err(closed_lockbox_error(path, Some(reason)))
+                    }
                 }
             }
             Err(err) => Err(err.into()),
@@ -68,30 +117,72 @@ pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
 
 enum AutoOpenLockboxError {
     Disabled,
-    Unavailable(String),
+    Unavailable(Error),
+}
+
+fn closed_lockbox_error(path: &str, reason: Option<Error>) -> Box<dyn std::error::Error> {
+    let mut details = vec![("Lockbox".to_string(), path.to_string())];
+    let next_step = match reason {
+        Some(Error::UnsupportedFormatVersion {
+            artifact: revault_lockbox_api::ArtifactKind::Vault,
+            found,
+            supported,
+        }) if found < supported => {
+            details.push((
+                "Auto-open".to_string(),
+                format!(
+                    "Your local vault uses format version {found}; this reVault build uses version {supported}."
+                ),
+            ));
+            "Migrate the vault, then retry:\n  lbx migrate vault --replace".to_string()
+        }
+        Some(Error::UnsupportedFormatVersion {
+            artifact: revault_lockbox_api::ArtifactKind::Vault,
+            found,
+            supported,
+        }) => {
+            details.push((
+                "Auto-open".to_string(),
+                format!(
+                    "Your local vault uses format version {found}; this reVault build supports version {supported}."
+                ),
+            ));
+            "Install a newer reVault release, then retry.".to_string()
+        }
+        Some(reason) => {
+            details.push(("Auto-open".to_string(), reason.to_string()));
+            format!("Open the lockbox explicitly:\n  lbx open {path}")
+        }
+        None => format!("Open the lockbox first:\n  lbx open {path}"),
+    };
+    cli_diagnostic(
+        ExitCode::LockboxClosed,
+        "Lockbox is closed",
+        details,
+        next_step,
+    )
 }
 
 fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
-    let scope =
-        auto_open_scope().map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
+    let scope = auto_open_scope().map_err(AutoOpenLockboxError::Unavailable)?;
     if scope != AutoOpenScope::Lockboxes {
         return Err(AutoOpenLockboxError::Disabled);
     }
     let password = revault_lockbox_api::SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
-        .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?
+        .map_err(|err| AutoOpenLockboxError::Unavailable(err.into()))?
         .or(get_platform_vault_password().unwrap_or_default())
         .ok_or_else(|| {
-            AutoOpenLockboxError::Unavailable(
+            AutoOpenLockboxError::Unavailable(Error::VaultUnavailable(
                 "vault pass phrase is not stored for auto-open".to_string(),
-            )
+            ))
         })?;
     let vault = VaultDirectory::open_or_create_default(&password)
-        .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
-    let lockbox_id = VaultOpen::read_lockbox_id(Path::new(path))
-        .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
+        .map_err(AutoOpenLockboxError::Unavailable)?;
+    let lockbox_id =
+        VaultOpen::read_lockbox_id(Path::new(path)).map_err(AutoOpenLockboxError::Unavailable)?;
     if let Some(lockbox_password) = vault
         .remembered_lockbox_password(lockbox_id)
-        .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?
+        .map_err(AutoOpenLockboxError::Unavailable)?
     {
         if let Ok(lockbox) =
             Vault::new(NoopStore).open_lockbox_with_password(path, &lockbox_password)
@@ -100,14 +191,14 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
             return Ok(lockbox);
         }
     }
-    let identities = vault
+    let profiles = vault
         .list_private_keys()
-        .map_err(|err| AutoOpenLockboxError::Unavailable(err.to_string()))?;
-    for identity in identities {
-        let Ok(keypair) = vault.load_private_key(&identity) else {
+        .map_err(AutoOpenLockboxError::Unavailable)?;
+    for profile in profiles {
+        let Ok(keypair) = vault.load_private_key(&profile) else {
             continue;
         };
-        let Ok(signing_key) = vault.load_owner_signing_key(&identity) else {
+        let Ok(signing_key) = vault.load_owner_signing_key(&profile) else {
             continue;
         };
         let Ok(lockbox) = Lockbox::open_for_write(
@@ -117,7 +208,7 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
         ) else {
             continue;
         };
-        let Ok(cache_keypair) = vault.load_private_key(&identity) else {
+        let Ok(cache_keypair) = vault.load_private_key(&profile) else {
             return Ok(lockbox);
         };
         if local_vault()
@@ -131,9 +222,9 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
         }
         return Ok(lockbox);
     }
-    Err(AutoOpenLockboxError::Unavailable(
-        "no remembered pass phrase or vault identity could open it".to_string(),
-    ))
+    Err(AutoOpenLockboxError::Unavailable(Error::VaultUnavailable(
+        "no remembered pass phrase or vault profile could open it".to_string(),
+    )))
 }
 
 pub(crate) fn open_or_create(path: &str, access: &Access) -> CliResult<Lockbox> {
@@ -331,10 +422,11 @@ pub(crate) fn remember_default_vault_password_with_warning(password: &SecretStri
 }
 
 pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
-    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
-        return open_default_vault_with_password(&password);
+    if auto_open_scope()? != revault_vault_api::AutoOpenScope::Off {
+        // Start before opening the vault so the agent cannot inherit a vault
+        // file lock. Failure is non-fatal: CI and agentless use remain valid.
+        let _ = revault_vault_api::start();
     }
-
     let platform_enabled = !platform_secret_store_disabled()?;
     if platform_enabled {
         if let Ok(Some(password)) = get_platform_vault_password() {
@@ -347,6 +439,18 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
         }
     }
 
+    let vault_id = default_vault_path()?.to_string_lossy().into_owned();
+    if let Ok(Some(password)) = revault_vault_api::get_vault_unlock_key(&vault_id) {
+        if let Ok(vault) = open_default_vault_with_password(&password) {
+            return Ok(vault);
+        }
+        let _ = revault_vault_api::forget_vault_unlock_key(&vault_id);
+    }
+
+    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
+        return open_default_vault_with_password(&password);
+    }
+
     let password =
         prompt_secret("Vault pass phrase: ").map_err(|err| Error::Io(err.to_string()))?;
     let vault = open_default_vault_with_password(&password)?;
@@ -356,11 +460,38 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
     Ok(vault)
 }
 
+/// Resolves the configured vault password without opening the native vault.
+/// Migration uses this before selecting the historical reader for the source
+/// format.
+pub(crate) fn vault_password_without_open() -> CliResult<SecretString> {
+    if !platform_secret_store_disabled()? {
+        if let Ok(Some(password)) = get_platform_vault_password() {
+            return Ok(password);
+        }
+    }
+    let vault_id = default_vault_path()?.to_string_lossy().into_owned();
+    if let Ok(Some(password)) = revault_vault_api::get_vault_unlock_key(&vault_id) {
+        return Ok(password);
+    }
+    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
+        return Ok(password);
+    }
+    prompt_secret("Vault pass phrase: ").map_err(|err| Error::Io(err.to_string()).into())
+}
+
 pub(crate) fn open_default_vault_with_password(
     password: &SecretString,
 ) -> CliResult<VaultDirectory> {
     match VaultDirectory::open_or_create_default(password) {
-        Ok(vault) => Ok(vault),
+        Ok(vault) => {
+            let vault_id = default_vault_path()?.to_string_lossy().into_owned();
+            let _ = revault_vault_api::put_vault_unlock_key(
+                &vault_id,
+                password.try_clone()?,
+                None,
+            );
+            Ok(vault)
+        }
         Err(Error::InvalidKey | Error::CorruptHeader) => Err(cli_error(
             "vault open failed: check the vault pass phrase. If the pass phrase is correct, the local vault file may be damaged",
         )),
@@ -439,12 +570,12 @@ pub(crate) fn load_contact_from_vault(
             public_key: import_public_key(&std::fs::read(arg)?)?,
         });
     }
-    if let Some(name) = arg.strip_prefix("identity:") {
+    if let Some(name) = arg.strip_prefix("profile:") {
         if name.is_empty() {
-            return Err(cli_error("missing identity name after identity:"));
+            return Err(cli_error("missing profile name after profile:"));
         }
         return Ok(ResolvedContact {
-            name: Some(format!("identity:{name}")),
+            name: Some(format!("profile:{name}")),
             public_key: vault.load_private_key(name)?.public_key(),
         });
     }
@@ -457,11 +588,11 @@ pub(crate) fn load_contact_from_vault(
             public_key: vault.load_contact(name)?,
         });
     }
-    let is_identity = vault.private_key_exists(arg)?;
+    let is_profile = vault.private_key_exists(arg)?;
     let is_contact = vault.contact_exists(arg)?;
-    match (is_identity, is_contact) {
+    match (is_profile, is_contact) {
         (true, true) => Err(cli_error(format!(
-            "ambiguous access target: {arg} matches both an identity and a contact. Use identity:{arg} or contact:{arg}."
+            "ambiguous access target: {arg} matches both a profile and a contact. Use profile:{arg} or contact:{arg}."
         ))),
         (true, false) => Ok(ResolvedContact {
             name: Some(arg.to_string()),
@@ -472,7 +603,7 @@ pub(crate) fn load_contact_from_vault(
             public_key: vault.load_contact(arg)?,
         }),
         (false, false) => Err(cli_error(format!(
-            "identity or contact not found: {arg}. Use a saved identity, saved contact, or pass a name with a public key file."
+            "profile or contact not found: {arg}. Use a saved profile, saved contact, or pass a name with a public key file."
         ))),
     }
 }

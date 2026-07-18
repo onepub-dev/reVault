@@ -126,14 +126,14 @@ fn open_options(options: OpenOptions) -> CliResult<()> {
         .any(|slot| slot.protection == LockboxKeySlotProtection::Password);
     let vault = default_vault()?;
     if matches!(options.password_source, PasswordSource::Prompt) {
-        if let Some(lb) = open_with_vault_identity(&options, &vault)? {
+        if let Some(lb) = open_with_vault_profile(&options, &vault)? {
             mirror_key_directory_with_vault(&lb, &options.lockbox_path, &vault)?;
             println!("Lockbox opened: {}", options.lockbox_path);
             return Ok(());
         }
         if !has_password_slot {
             return Err(cli_error(format!(
-                "none of the local vault identities can open {}; the lockbox has no password access",
+                "none of the local vault profiles can open {}; the lockbox has no password access",
                 options.lockbox_path
             )));
         }
@@ -167,21 +167,21 @@ fn open_options(options: OpenOptions) -> CliResult<()> {
     Ok(())
 }
 
-fn open_with_vault_identity(
+fn open_with_vault_profile(
     options: &OpenOptions,
     vault: &VaultDirectory,
 ) -> CliResult<Option<Lockbox>> {
-    let mut identities = vault.list_private_keys()?;
-    if let Some(index) = identities
+    let mut profiles = vault.list_private_keys()?;
+    if let Some(index) = profiles
         .iter()
         .position(|name| name == VaultDirectory::DEFAULT_KEY_NAME)
     {
-        let default = identities.remove(index);
-        identities.insert(0, default);
+        let default = profiles.remove(index);
+        profiles.insert(0, default);
     }
-    for identity in identities {
-        let keypair = vault.load_private_key(&identity)?;
-        let signing_key = vault.load_owner_signing_key(&identity)?;
+    for profile in profiles {
+        let keypair = vault.load_private_key(&profile)?;
+        let signing_key = vault.load_owner_signing_key(&profile)?;
         let opened = if let Some(ttl_seconds) = options.ttl_seconds {
             local_vault().open_lockbox_with_for_duration_and_signing_key(
                 &options.lockbox_path,
@@ -315,22 +315,22 @@ pub(crate) fn access_matches(matches: &ArgMatches, access: &Access) -> CliResult
             let scope = if sub.get_flag("all") {
                 if positionals.len() > 1 {
                     return Err(cli_error(
-                        "access refresh --all accepts at most one identity argument",
+                        "access refresh --all accepts at most one profile argument",
                     ));
                 }
                 RefreshScope::All {
-                    identity: positionals.first().cloned(),
+                    profile: positionals.first().cloned(),
                 }
             } else {
                 let args = optional_lockbox_positionals(positionals, 1)?;
                 if args.len() > 2 {
                     return Err(cli_error(
-                        "access refresh requires lockbox and identity arguments",
+                        "access refresh requires lockbox and profile arguments",
                     ));
                 }
                 RefreshScope::One {
                     lockbox_path: require_arg(&args, 0, "lockbox")?.to_string(),
-                    identity: require_arg(&args, 1, "identity")?.to_string(),
+                    profile: require_arg(&args, 1, "profile")?.to_string(),
                 }
             };
             refresh_access_request(
@@ -352,7 +352,7 @@ pub(crate) fn access_matches(matches: &ArgMatches, access: &Access) -> CliResult
 
 pub(crate) fn grant_access(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let contact_arg = require_arg(args, 1, "identity or contact")?;
+    let contact_arg = require_arg(args, 1, "profile or contact")?;
     let contact = if let Some(public_key_path) = args.get(2) {
         load_contact_file(contact_arg, public_key_path)?
     } else {
@@ -473,24 +473,24 @@ struct RefreshAccessRequest {
 
 enum RefreshScope {
     All {
-        identity: Option<String>,
+        profile: Option<String>,
     },
     One {
         lockbox_path: String,
-        identity: String,
+        profile: String,
     },
 }
 
 fn refresh_access_request(request: RefreshAccessRequest, access: &Access) -> CliResult<()> {
     match request.scope {
-        RefreshScope::All { identity } => {
+        RefreshScope::All { profile } => {
             let vault = default_vault()?;
-            let identities = match identity.as_deref() {
-                Some(identity) => vec![identity.to_string()],
+            let profiles = match profile.as_deref() {
+                Some(profile) => vec![profile.to_string()],
                 None => vault.list_private_keys()?,
             };
-            if identities.is_empty() {
-                return Err(cli_error("no vault identities found to refresh"));
+            if profiles.is_empty() {
+                return Err(cli_error("no vault profiles found to refresh"));
             }
             let known = vault.list_known_lockboxes()?;
             let mut missing = Vec::new();
@@ -515,13 +515,13 @@ fn refresh_access_request(request: RefreshAccessRequest, access: &Access) -> Cli
                         continue;
                     }
                 }
-                match refresh_targets_for_lockbox(&lockbox.path, &identities, access) {
+                match refresh_targets_for_lockbox(&lockbox.path, &profiles, access) {
                     Ok(found) => targets.extend(found),
                     Err(err) => inaccessible.push((lockbox.path.clone(), err.to_string())),
                 }
             }
             print_refresh_plan(
-                identity.as_deref(),
+                profile.as_deref(),
                 Some(known.len()),
                 &targets,
                 &missing,
@@ -533,12 +533,12 @@ fn refresh_access_request(request: RefreshAccessRequest, access: &Access) -> Cli
         }
         RefreshScope::One {
             lockbox_path,
-            identity,
+            profile,
         } => {
-            let identities = vec![identity.clone()];
-            let targets = refresh_targets_for_lockbox(&lockbox_path, &identities, access)?;
+            let profiles = vec![profile.clone()];
+            let targets = refresh_targets_for_lockbox(&lockbox_path, &profiles, access)?;
             print_refresh_plan(
-                Some(&identity),
+                Some(&profile),
                 None,
                 &targets,
                 &[],
@@ -554,23 +554,23 @@ fn refresh_access_request(request: RefreshAccessRequest, access: &Access) -> Cli
 #[derive(Debug, Clone)]
 struct RefreshTarget {
     lockbox_path: String,
-    identity: String,
+    profile: String,
     slot_count: usize,
 }
 
 fn refresh_targets_for_lockbox(
     lockbox_path: &str,
-    identities: &[String],
+    profiles: &[String],
     access: &Access,
 ) -> CliResult<Vec<RefreshTarget>> {
     let lb = open_existing(lockbox_path, access)?;
     let mut targets = Vec::new();
-    for identity in identities {
-        let slot_count = matching_contact_slot_ids(&lb, identity).len();
+    for profile in profiles {
+        let slot_count = matching_contact_slot_ids(&lb, profile).len();
         if slot_count > 0 {
             targets.push(RefreshTarget {
                 lockbox_path: lockbox_path.to_string(),
-                identity: identity.clone(),
+                profile: profile.clone(),
                 slot_count,
             });
         }
@@ -578,14 +578,14 @@ fn refresh_targets_for_lockbox(
     Ok(targets)
 }
 
-fn matching_contact_slot_ids(lockbox: &Lockbox, identity: &str) -> Vec<u64> {
+fn matching_contact_slot_ids(lockbox: &Lockbox, profile: &str) -> Vec<u64> {
     let labels = access_slot_labels_by_slot(lockbox.lockbox_id());
     lockbox
         .list_key_slots()
         .into_iter()
         .filter(|slot| {
             slot.protection == LockboxKeySlotProtection::Contact
-                && labels.get(&slot.id).is_some_and(|name| name == identity)
+                && labels.get(&slot.id).is_some_and(|name| name == profile)
         })
         .map(|slot| slot.id)
         .collect()
@@ -611,7 +611,7 @@ fn resolve_access_revoke_target(lockbox: &Lockbox, target: &str) -> CliResult<u6
     let mut labels = vault.find_access_slot_labels(lockbox.lockbox_id(), target)?;
     if labels.is_empty() && !target.contains(':') {
         labels.extend(
-            vault.find_access_slot_labels(lockbox.lockbox_id(), &format!("identity:{target}"))?,
+            vault.find_access_slot_labels(lockbox.lockbox_id(), &format!("profile:{target}"))?,
         );
         labels.extend(
             vault.find_access_slot_labels(lockbox.lockbox_id(), &format!("contact:{target}"))?,
@@ -635,7 +635,7 @@ fn retained_contacts_after_revoke(
     let slots = lockbox.list_key_slots();
     if revoked_slot_ids.len() >= slots.len() {
         return Err(cli_error(
-            "cannot revoke the last access entry; grant another identity or contact first",
+            "cannot revoke the last access entry; grant another profile or contact first",
         ));
     }
     let labels = access_slot_labels_by_slot(lockbox.lockbox_id());
@@ -646,7 +646,7 @@ fn retained_contacts_after_revoke(
         }
         if slot.protection != LockboxKeySlotProtection::Contact {
             return Err(cli_error(format!(
-                "cannot true-revoke while retaining non-contact access slot {}; rekey requires a vault-resolvable contact or identity",
+                "cannot true-revoke while retaining non-contact access slot {}; rekey requires a vault-resolvable contact or profile",
                 slot.id
             )));
         }
@@ -661,7 +661,7 @@ fn retained_contacts_after_revoke(
     }
     if retained.is_empty() {
         return Err(cli_error(
-            "cannot true-revoke without at least one retained contact or identity",
+            "cannot true-revoke without at least one retained contact or profile",
         ));
     }
     Ok(retained)
@@ -669,14 +669,14 @@ fn retained_contacts_after_revoke(
 
 fn access_entry_name(label: &str) -> String {
     label
-        .strip_prefix("identity:")
+        .strip_prefix("profile:")
         .or_else(|| label.strip_prefix("contact:"))
         .unwrap_or(label)
         .to_string()
 }
 
 fn print_refresh_plan(
-    identity: Option<&str>,
+    profile: Option<&str>,
     known_count: Option<usize>,
     targets: &[RefreshTarget],
     missing: &[String],
@@ -685,14 +685,14 @@ fn print_refresh_plan(
     yes: bool,
 ) {
     println!("Refresh plan:");
-    match identity {
-        Some(identity) => println!("  identity: {identity}"),
-        None => println!("  identity: all"),
+    match profile {
+        Some(profile) => println!("  profile: {profile}"),
+        None => println!("  profile: all"),
     }
     if let Some(known_count) = known_count {
         println!("  known lockboxes: {known_count}");
     }
-    println!("  matching lockbox/identity pairs: {}", targets.len());
+    println!("  matching lockbox/profile pairs: {}", targets.len());
     println!(
         "  matching access entries: {}",
         targets
@@ -710,7 +710,7 @@ fn print_refresh_plan(
         for target in targets {
             println!(
                 "  {} {} ({} access entries)",
-                target.lockbox_path, target.identity, target.slot_count
+                target.lockbox_path, target.profile, target.slot_count
             );
         }
     }
@@ -754,18 +754,18 @@ fn apply_refresh_plan(
     let public_keys = load_refresh_public_keys(targets)?;
     let mut updated = 0usize;
     for target in targets {
-        let public_key = public_keys.get(&target.identity).ok_or_else(|| {
+        let public_key = public_keys.get(&target.profile).ok_or_else(|| {
             cli_error(format!(
-                "vault identity {} was not loaded for refresh",
-                target.identity
+                "vault profile {} was not loaded for refresh",
+                target.profile
             ))
         })?;
-        if refresh_lockbox_identity(&target.lockbox_path, &target.identity, public_key, access)? {
+        if refresh_lockbox_profile(&target.lockbox_path, &target.profile, public_key, access)? {
             updated += 1;
         }
     }
     println!();
-    println!("Refreshed access for {updated} lockbox/identity pairs.");
+    println!("Refreshed access for {updated} lockbox/profile pairs.");
     Ok(())
 }
 
@@ -775,30 +775,30 @@ fn load_refresh_public_keys(
     let vault = default_vault()?;
     let mut public_keys = BTreeMap::new();
     for target in targets {
-        if public_keys.contains_key(&target.identity) {
+        if public_keys.contains_key(&target.profile) {
             continue;
         }
         public_keys.insert(
-            target.identity.clone(),
-            vault.load_private_key(&target.identity)?.public_key(),
+            target.profile.clone(),
+            vault.load_private_key(&target.profile)?.public_key(),
         );
     }
     Ok(public_keys)
 }
 
-fn refresh_lockbox_identity(
+fn refresh_lockbox_profile(
     lockbox_path: &str,
-    identity: &str,
+    profile: &str,
     public_key: &ContactPublicKey,
     access: &Access,
 ) -> CliResult<bool> {
     let mut lb = open_existing(lockbox_path, access)?;
-    let old_slot_ids = matching_contact_slot_ids(&lb, identity);
+    let old_slot_ids = matching_contact_slot_ids(&lb, profile);
     if old_slot_ids.is_empty() {
         return Ok(false);
     }
-    let new_slot_id = lb.add_contact_named(identity.to_string(), public_key)?;
-    default_vault()?.remember_access_slot_label(lb.lockbox_id(), new_slot_id, identity)?;
+    let new_slot_id = lb.add_contact_named(profile.to_string(), public_key)?;
+    default_vault()?.remember_access_slot_label(lb.lockbox_id(), new_slot_id, profile)?;
     for slot_id in old_slot_ids {
         if slot_id != new_slot_id {
             lb.delete_key(slot_id)?;
@@ -814,7 +814,7 @@ fn refresh_lockbox_identity(
 }
 
 fn confirm_access_refresh(target_count: usize) -> CliResult<bool> {
-    eprintln!("Refresh access for {target_count} lockbox/identity pairs?");
+    eprintln!("Refresh access for {target_count} lockbox/profile pairs?");
     eprint!("Type 'yes' to apply: ");
     io::stderr().flush()?;
     let mut answer = String::new();

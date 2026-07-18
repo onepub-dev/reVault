@@ -214,8 +214,8 @@ fn print_revault_vault_api(inspection: &LockboxFileInspection) {
                 )
             );
             match vault.list_private_keys() {
-                Ok(keys) => println!("  identities: {}", keys.len()),
-                Err(err) => println!("  identities: not checked: {err}"),
+                Ok(keys) => println!("  profiles: {}", keys.len()),
+                Err(err) => println!("  profiles: not checked: {err}"),
             }
         }
         Ok(None) => {

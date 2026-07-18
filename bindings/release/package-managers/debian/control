@@ -1,0 +1,17 @@
+Source: revault-api
+Section: libs
+Priority: optional
+Maintainer: OnePub <support@onepub.dev>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/onepub-dev/reVault
+
+Package: librevault-api1
+Architecture: amd64 arm64
+Depends: ${shlibs:Depends}, ${misc:Depends}, libdbus-1-3
+Description: reVault native lockbox and vault API runtime
+
+Package: librevault-api-dev
+Architecture: amd64 arm64
+Depends: librevault-api1 (= ${binary:Version}), ${misc:Depends}
+Description: development files for the reVault native API

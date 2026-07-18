@@ -70,7 +70,7 @@ Rust idioms. The Rust API Guidelines are the baseline for public API shape, and
 Clippy/rustfmt are the enforcement tools.
 
 Required checks before Rust work is considered complete:
--   `bash rust/tools/check_required.sh`
+-   `(cd rust && cargo xtask check-required)`
 
 `-D warnings` runs Clippy's default lint groups as errors. That is not the
 strictest possible Clippy configuration. For deep review, public API work,
@@ -78,7 +78,7 @@ unsafe work, crypto/key handling, compression, parsers, page-cache changes, or
 large refactors, also run a stricter advisory pass:
 
 ```text
-bash rust/tools/clippy_advisory.sh
+(cd rust && cargo xtask clippy-advisory)
 ```
 
 Treat findings from the advisory pass as review input. Fix correctness,
@@ -181,7 +181,7 @@ Both the Browser and CLI will use a simple **In-Memory Index** for the Table of 
     -   Identical logic for both platforms.
 
 ## CLI Support
-The CLI tool `dvault` must support:
+The CLI tool `revault` must support:
 -   Creating a vault from a directory.
 -   Extracting a vault.
 -   Mounting a vault (FUSE) or serving it via HTTP (for browser testing).

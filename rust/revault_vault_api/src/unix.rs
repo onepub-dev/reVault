@@ -1,12 +1,14 @@
 use super::{
-    encode_control_err_response, encode_control_ok_response, encode_err_response, encode_forget,
-    encode_forget_all, encode_get, encode_key_response, encode_list, encode_list_response,
-    encode_miss_response, encode_ok_response, encode_put, encode_register_secret_activity,
-    encode_registered_response, encode_stop, encode_unregister_secret_activity, frame_header_len,
-    frame_message_type, frame_payload_len, is_control_message_type, max_message_bytes,
-    parse_control_request, parse_control_response, parse_request, parse_response, AgentRequest,
-    AgentResponse, CachedLockbox, ControlRequest, ControlResponse, SecretActivityKind, SecretVec,
-    DEFAULT_TTL_SECONDS,
+    encode_control_err_response, encode_control_ok_response, encode_err_response,
+    encode_forget_all, encode_forget_identifier, encode_get_identifier, encode_info,
+    encode_info_response, encode_key_response, encode_list, encode_list_response,
+    encode_miss_response, encode_ok_response, encode_put_identifier,
+    encode_register_secret_activity, encode_registered_response, encode_stop,
+    encode_unregister_secret_activity, frame_header_len, frame_message_type, frame_payload_len,
+    is_control_message_type, max_message_bytes, parse_control_request, parse_control_response,
+    parse_request, parse_response, AgentRequest, AgentResponse, CachedLockbox, ControlRequest,
+    ControlResponse, SecretActivityKind, SecretVec, AGENT_IMPLEMENTATION_VERSION,
+    AGENT_PROTOCOL_VERSION, DEFAULT_TTL_SECONDS,
 };
 use crate::active_secret::ActiveSecretRegistry;
 use crate::agent_config::AgentConfig;
@@ -142,10 +144,14 @@ pub(crate) fn verify_agent_transport_security() -> io::Result<()> {
 }
 
 pub(crate) fn get(lockbox_id: LockboxId) -> io::Result<Option<SecretVec>> {
+    get_named(&lockbox_id.to_string())
+}
+
+pub(crate) fn get_named(identifier: &str) -> io::Result<Option<SecretVec>> {
     if !existing_agent_is_reachable()? {
         return Ok(None);
     }
-    match request(&encode_get(lockbox_id)?)? {
+    match request(&encode_get_identifier(identifier)?)? {
         AgentResponse::Key(key) => Ok(Some(key)),
         AgentResponse::Miss => Ok(None),
         response => invalid_agent_response(response),
@@ -158,14 +164,40 @@ pub(crate) fn put(
     path: Option<&str>,
     ttl_seconds: Option<u64>,
 ) -> io::Result<()> {
-    expect_ok(request(&encode_put(lockbox_id, key, path, ttl_seconds)?)?)
+    expect_ok(request(&encode_put_identifier(
+        &lockbox_id.to_string(),
+        key,
+        path,
+        ttl_seconds,
+    )?)?)
 }
 
-pub(crate) fn forget(lockbox_id: LockboxId) -> io::Result<()> {
+pub(crate) fn put_named(
+    identifier: &str,
+    key: &SecretVec,
+    path: Option<&str>,
+    ttl_seconds: Option<u64>,
+) -> io::Result<()> {
     if !existing_agent_is_reachable()? {
         return Ok(());
     }
-    expect_ok(request(&encode_forget(lockbox_id)?)?)
+    expect_ok(request(&encode_put_identifier(
+        identifier,
+        key,
+        path,
+        ttl_seconds,
+    )?)?)
+}
+
+pub(crate) fn forget(lockbox_id: LockboxId) -> io::Result<()> {
+    forget_named(&lockbox_id.to_string())
+}
+
+pub(crate) fn forget_named(identifier: &str) -> io::Result<()> {
+    if !existing_agent_is_reachable()? {
+        return Ok(());
+    }
+    expect_ok(request(&encode_forget_identifier(identifier)?)?)
 }
 
 pub(crate) fn forget_all() -> io::Result<()> {
@@ -209,16 +241,27 @@ pub(crate) fn unregister_secret_activity(pid: u32, token: u64) -> io::Result<()>
 }
 
 pub(crate) fn is_running() -> bool {
-    existing_agent_is_reachable().unwrap_or(false)
+    existing_agent_is_compatible().unwrap_or(false)
+}
+
+pub(crate) fn start() -> io::Result<()> {
+    ensure_agent()
 }
 
 fn existing_agent_is_reachable() -> io::Result<bool> {
-    prepare_socket_dir()?;
+    if !socket_dir().exists() {
+        return Ok(false);
+    }
+    validate_socket_dir(&socket_dir())?;
     Ok(UnixStream::connect(socket_path()).is_ok())
 }
 
 fn request(message: &SecretVec) -> io::Result<AgentResponse> {
     ensure_agent()?;
+    request_started_agent(message)
+}
+
+fn request_started_agent(message: &SecretVec) -> io::Result<AgentResponse> {
     let mut stream = connect_started_agent()?;
     message
         .with_bytes(|message| stream.write_all(message))
@@ -251,7 +294,10 @@ fn connect_started_agent() -> io::Result<UnixStream> {
 fn ensure_agent() -> io::Result<()> {
     prepare_socket_dir()?;
     if UnixStream::connect(socket_path()).is_ok() {
-        return Ok(());
+        if existing_agent_is_compatible()? {
+            return Ok(());
+        }
+        stop_incompatible_agent()?;
     }
     let exe = env::current_exe()?;
     Command::new(exe)
@@ -269,6 +315,34 @@ fn ensure_agent() -> io::Result<()> {
         thread::sleep(Duration::from_millis(25));
     }
     Err(agent_start_timeout_error())
+}
+
+fn existing_agent_is_compatible() -> io::Result<bool> {
+    if !existing_agent_is_reachable()? {
+        return Ok(false);
+    }
+    let request = encode_info()?;
+    Ok(matches!(
+        request_started_agent(&request),
+        Ok(AgentResponse::Info(protocol, implementation))
+            if protocol == AGENT_PROTOCOL_VERSION
+                && implementation == AGENT_IMPLEMENTATION_VERSION
+    ))
+}
+
+fn stop_incompatible_agent() -> io::Result<()> {
+    let _ = request_started_agent(&encode_stop()?);
+    let deadline = Instant::now() + Duration::from_secs(3);
+    while Instant::now() < deadline {
+        if !existing_agent_is_reachable()? {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(25));
+    }
+    Err(io::Error::new(
+        io::ErrorKind::TimedOut,
+        "incompatible lockbox session agent did not stop",
+    ))
 }
 
 fn agent_start_timeout_error() -> io::Error {
@@ -455,12 +529,19 @@ fn handle_agent_request(
             encode_ok_response()?
         }
         Ok(AgentRequest::List) => {
-            log_agent_event(format!("listed cached lockboxes count={}", cache.len()));
-            encode_list_response(cache.iter().map(|(id, entry)| CachedLockbox {
+            let visible = cache
+                .iter()
+                .filter(|(id, _)| {
+                    !id.starts_with("vault-unlock:") && !id.starts_with("owner-signing:")
+                })
+                .collect::<Vec<_>>();
+            log_agent_event(format!("listed cached lockboxes count={}", visible.len()));
+            encode_list_response(visible.into_iter().map(|(id, entry)| CachedLockbox {
                 id: id.clone(),
                 path: entry.path.clone(),
             }))?
         }
+        Ok(AgentRequest::Info) => encode_info_response()?,
         Err(_) => encode_err_response("invalid request")?,
     };
     Ok((stop, response))
@@ -525,6 +606,7 @@ fn invalid_agent_response<T>(response: AgentResponse) -> io::Result<T> {
         AgentResponse::Miss => "MISS",
         AgentResponse::Key(_) => "KEY",
         AgentResponse::List(_) => "LIST",
+        AgentResponse::Info(_, _) => "INFO",
         AgentResponse::Err(_) => "ERR",
     };
     Err(io::Error::new(
@@ -766,6 +848,7 @@ fn current_user() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent_protocol::{encode_forget, encode_get, encode_put};
 
     #[test]
     fn sleep_watcher_suspend_event_is_detected() {
@@ -807,6 +890,13 @@ mod tests {
             _ => panic!("expected list response"),
         }
 
+        let (_, response) = round_trip(&mut cache, encode_info().unwrap());
+        assert!(matches!(
+            response,
+            AgentResponse::Info(AGENT_PROTOCOL_VERSION, ref implementation)
+                if implementation == AGENT_IMPLEMENTATION_VERSION
+        ));
+
         let (_, response) = round_trip(&mut cache, encode_forget(lockbox_id).unwrap());
         assert_ok(response);
 
@@ -825,6 +915,40 @@ mod tests {
         let (stop, response) = round_trip(&mut cache, encode_stop().unwrap());
         assert!(stop);
         assert_ok(response);
+    }
+
+    #[test]
+    fn typed_named_entries_have_ttl_and_are_hidden_from_archive_listing() {
+        let mut cache = BTreeMap::<String, CacheEntry>::new();
+        let key = SecretVec::try_from_slice(b"owner-signing-record").unwrap();
+        let identifier = "owner-signing:/vault\0default";
+
+        let (_, response) = round_trip(
+            &mut cache,
+            super::encode_put_identifier(identifier, &key, None, Some(1)).unwrap(),
+        );
+        assert_ok(response);
+        let (_, response) = round_trip(
+            &mut cache,
+            super::encode_get_identifier(identifier).unwrap(),
+        );
+        match response {
+            AgentResponse::Key(stored) => assert_secret_eq(&stored, &key),
+            _ => panic!("expected typed cache hit"),
+        }
+
+        let (_, response) = round_trip(&mut cache, encode_list().unwrap());
+        assert!(matches!(response, AgentResponse::List(entries) if entries.is_empty()));
+
+        cache
+            .get_mut(identifier)
+            .expect("typed cache entry")
+            .expires_at = Instant::now() - Duration::from_secs(1);
+        let (_, response) = round_trip(
+            &mut cache,
+            super::encode_get_identifier(identifier).unwrap(),
+        );
+        assert!(matches!(response, AgentResponse::Miss));
     }
 
     #[test]

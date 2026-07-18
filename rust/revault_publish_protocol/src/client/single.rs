@@ -118,7 +118,7 @@ impl<T: Transport> PublishClient<T> {
         contact: ContactPublish<'_>,
     ) -> Result<PublishResult, ClientError> {
         let payload = payload::encode_contact_publish(
-            contact.identity,
+            contact.profile,
             contact.public_key,
             contact.signing_public_key,
             contact.fingerprint,

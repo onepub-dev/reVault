@@ -267,6 +267,74 @@ impl<State> Lockbox<State> {
         Ok(record)
     }
 
+    /// Restores an exact logical form record during archive migration.
+    ///
+    /// Unlike `create_form_record`, this preserves the definition revision and
+    /// captured labels recorded by the source archive.
+    #[doc(hidden)]
+    #[cfg(feature = "migration")]
+    pub fn import_migration_form_record(&mut self, mut record: FormRecord) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
+        record.path = record.path.file_path()?;
+        self.ensure_parent_directory(&record.path)?;
+        record.name = validate_form_record_name(&record.name)?;
+        self.ensure_forms_loaded()?;
+        let definition = self
+            .form_definitions
+            .borrow()
+            .as_ref()
+            .ok_or(Error::CorruptRecord)?
+            .get(&definition_key(&record.type_id, record.definition_revision))
+            .cloned()
+            .ok_or_else(|| {
+                Error::NotFound(format!(
+                    "form type {} revision {}",
+                    record.type_id, record.definition_revision
+                ))
+            })?;
+        if definition.alias != record.definition_alias {
+            return Err(Error::InvalidInput(
+                "form record definition alias does not match its revision".to_string(),
+            ));
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        for value in &record.values {
+            if !seen.insert(value.field_id.clone()) {
+                return Err(Error::InvalidInput(format!(
+                    "duplicate form field: {}",
+                    value.field_id
+                )));
+            }
+            let field = definition
+                .fields
+                .iter()
+                .find(|field| field.id == value.field_id)
+                .ok_or_else(|| {
+                    Error::InvalidInput(format!("unknown form field: {}", value.field_id))
+                })?;
+            if field.kind != value.kind {
+                return Err(Error::InvalidInput(format!(
+                    "form field kind changed for {}",
+                    value.field_id
+                )));
+            }
+            validate_form_value(value.kind, &value.value)?;
+        }
+        let path = record.path.clone();
+        if self
+            .form_records
+            .borrow()
+            .as_ref()
+            .ok_or(Error::CorruptRecord)?
+            .contains_key(&path)
+        {
+            return Err(Error::AlreadyExists(path.to_string()));
+        }
+        self.set_form_record_value(path, record)
+    }
+
     pub fn get_form_record(&self, path: &LockboxPath) -> Result<Option<FormRecord>> {
         self.ensure_forms_loaded()?;
         Ok(self
@@ -303,6 +371,66 @@ impl<State> Lockbox<State> {
         }
         self.dirty_form_keys.insert(record_key(&path));
         self.dirty_forms = true;
+        Ok(())
+    }
+
+    /// Move one or more form records while preserving all field values.
+    ///
+    /// The complete move is validated before records are changed. Existing
+    /// unrelated records are never overwritten.
+    pub fn move_form_records(&mut self, moves: &[(LockboxPath, LockboxPath)]) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
+        let moves = moves
+            .iter()
+            .map(|(source, destination)| Ok((source.file_path()?, destination.file_path()?)))
+            .collect::<Result<Vec<_>>>()?;
+        for (_, destination) in &moves {
+            self.create_parent_dirs_for(destination)?;
+        }
+        self.ensure_forms_loaded()?;
+        let mut records = self.form_records.borrow_mut();
+        let records = records.as_mut().ok_or(Error::CorruptRecord)?;
+        let sources = moves
+            .iter()
+            .map(|(source, _)| source.clone())
+            .collect::<BTreeSet<_>>();
+        if sources.len() != moves.len() {
+            return Err(Error::InvalidInput(
+                "a form record cannot be moved more than once".to_string(),
+            ));
+        }
+        let mut destinations = BTreeSet::new();
+        for (source, destination) in &moves {
+            if !records.contains_key(source) {
+                return Err(Error::NotFound(format!("form record {source}")));
+            }
+            if !destinations.insert(destination.clone()) {
+                return Err(Error::AlreadyExists(destination.to_string()));
+            }
+            if source != destination
+                && records.contains_key(destination)
+                && !sources.contains(destination)
+            {
+                return Err(Error::AlreadyExists(destination.to_string()));
+            }
+        }
+        let moved = moves
+            .iter()
+            .filter(|(source, destination)| source != destination)
+            .map(|(source, destination)| {
+                let mut record = records.remove(source).ok_or(Error::CorruptRecord)?;
+                self.dirty_form_keys.insert(record_key(source));
+                record.path = destination.clone();
+                self.dirty_form_keys.insert(record_key(destination));
+                Ok((destination.clone(), record))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if !moved.is_empty() {
+            records.extend(moved);
+            self.dirty_forms = true;
+        }
         Ok(())
     }
 

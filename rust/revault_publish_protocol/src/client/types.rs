@@ -168,7 +168,7 @@ pub trait Transport: Clone {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ContactPublish<'a> {
-    pub identity: &'a str,
+    pub profile: &'a str,
     pub public_key: &'a [u8],
     pub signing_public_key: &'a [u8],
     pub fingerprint: &'a [u8],

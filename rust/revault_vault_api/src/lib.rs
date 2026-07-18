@@ -48,20 +48,24 @@ mod unix;
 mod windows;
 
 pub use agent_client::{
-    begin_secret_activity, forget, forget_all, get, is_running, list, put, serve_agent, stop,
-    verify_agent_transport_security, AgentClient, SecretActivityGuard,
+    begin_secret_activity, forget, forget_all, forget_owner_signing_key, forget_vault_unlock_key,
+    get, get_owner_signing_key, get_vault_unlock_key, is_running, list, put, put_owner_signing_key,
+    put_vault_unlock_key, serve_agent, start, stop, verify_agent_transport_security, AgentClient,
+    SecretActivityGuard,
 };
 pub use agent_log::{agent_log_destination, agent_log_path};
 pub use agent_protocol::CachedLockbox;
 pub use agent_protocol::SecretActivityKind;
 pub(crate) use agent_protocol::{
-    encode_control_err_response, encode_control_ok_response, encode_err_response, encode_forget,
-    encode_forget_all, encode_get, encode_key_response, encode_list, encode_list_response,
-    encode_miss_response, encode_ok_response, encode_put, encode_register_secret_activity,
-    encode_registered_response, encode_stop, encode_unregister_secret_activity, frame_header_len,
-    frame_message_type, frame_payload_len, is_control_message_type, max_message_bytes,
-    parse_control_request, parse_control_response, parse_request, parse_response, AgentRequest,
-    AgentResponse, ControlRequest, ControlResponse, DEFAULT_TTL_SECONDS,
+    encode_control_err_response, encode_control_ok_response, encode_err_response,
+    encode_forget_all, encode_forget_identifier, encode_get_identifier, encode_info,
+    encode_info_response, encode_key_response, encode_list, encode_list_response,
+    encode_miss_response, encode_ok_response, encode_put_identifier,
+    encode_register_secret_activity, encode_registered_response, encode_stop,
+    encode_unregister_secret_activity, frame_header_len, frame_message_type, frame_payload_len,
+    is_control_message_type, max_message_bytes, parse_control_request, parse_control_response,
+    parse_request, parse_response, AgentRequest, AgentResponse, ControlRequest, ControlResponse,
+    AGENT_IMPLEMENTATION_VERSION, AGENT_PROTOCOL_VERSION, DEFAULT_TTL_SECONDS,
 };
 pub use content_key_store::ContentKeyStore;
 pub use hex::{decode_hex, encode_hex};
@@ -82,6 +86,7 @@ pub use sleep_watcher::{agent_sleep_support, AgentSleepSupport};
 pub use vault::{local_vault, LocalVault, Vault};
 pub use vault_directory::{
     backup_default_vault, default_vault_dir, default_vault_path, restore_default_vault,
-    AccessSlotLabel, IdentityGeneration, IdentityGenerationStatus, IdentityHistory, KnownLockbox,
-    StoredContact, VaultBackupManifest, VaultDirectory, CURRENT_VAULT_STRUCTURE_VERSION,
+    AccessSlotLabel, KnownLockbox, ProfileGeneration, ProfileGenerationStatus, ProfileHistory,
+    ReadOnlyVaultDirectory, StoredContact, VaultBackupManifest, VaultDirectory,
+    CURRENT_VAULT_STRUCTURE_VERSION,
 };

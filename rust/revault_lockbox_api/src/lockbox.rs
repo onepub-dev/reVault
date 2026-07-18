@@ -366,12 +366,12 @@ impl<State> Lockbox<State> {
 }
 
 impl Lockbox<Writable> {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings", feature = "migration"))]
     pub fn create(key: impl AsRef<[u8]>) -> Self {
         Self::create_with_options(key, LockboxOptions::default())
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings", feature = "migration"))]
     pub fn create_with_options(key: impl AsRef<[u8]>, options: LockboxOptions) -> Self {
         Self::create_with_lockbox_id_and_options(
             key,
@@ -380,12 +380,12 @@ impl Lockbox<Writable> {
         )
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings", feature = "migration"))]
     pub fn create_with_lockbox_id(key: impl AsRef<[u8]>, lockbox_id: LockboxId) -> Self {
         Self::create_with_lockbox_id_and_options(key, lockbox_id, LockboxOptions::default())
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings", feature = "migration"))]
     pub fn create_with_lockbox_id_and_options(
         key: impl AsRef<[u8]>,
         lockbox_id: LockboxId,
@@ -458,12 +458,12 @@ impl Lockbox<Writable> {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings"))]
     pub fn open_bytes_with_key(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> Result<Self> {
         Self::open_bytes_with_key_options(bytes, key, LockboxOptions::default())
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings"))]
     pub fn open_bytes_with_key_options(
         bytes: Vec<u8>,
         key: impl AsRef<[u8]>,
@@ -476,7 +476,7 @@ impl Lockbox<Writable> {
         Ok(lockbox)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "bindings"))]
     pub(crate) fn open_storage(
         storage: StorageBackend,
         key: impl AsRef<[u8]>,

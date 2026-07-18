@@ -33,7 +33,7 @@ fn contact_payload(label: &str) -> Vec<u8> {
 fn key_replacement_payload(label: &str) -> Vec<u8> {
     revault_publish_protocol::payload::encode_key_replacement(
         revault_publish_protocol::payload::KeyReplacement {
-            identity: &format!("{label}@example.com"),
+            profile: &format!("{label}@example.com"),
             old_fingerprint: &[3_u8; 32],
             new_public_key: b"replacement-public-key-material",
             new_signing_public_key: b"replacement-signing-public-key-material",
@@ -957,7 +957,7 @@ fn client_api_can_receive_publish_and_delete() {
             900,
             2,
             ContactPublish {
-                identity: "client@example.com",
+                profile: "client@example.com",
                 public_key: b"public-key-material",
                 signing_public_key: b"signing-public-key-material",
                 fingerprint: &[1_u8; 32],

@@ -81,6 +81,15 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
             lb.delete_variable(&name)?;
             lb.commit()?;
         }
+        "move" | "mv" => {
+            let args = optional_lockbox_positionals(positional_values(sub, "args"), 2)?;
+            move_variables(
+                &args[0],
+                require_arg(&args, 1, "source path or glob")?,
+                require_arg(&args, 2, "destination path")?,
+                access,
+            )?;
+        }
         _ => {
             return Err(
                 Error::InvalidInput(format!("unknown variable command: {subcommand}")).into(),
@@ -88,6 +97,61 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         }
     }
     Ok(())
+}
+
+fn move_variables(
+    lockbox_path: &str,
+    source_pattern: &str,
+    destination: &str,
+    access: &Access,
+) -> CliResult<()> {
+    let pattern = VariableNamePattern::new(source_pattern)?;
+    let destination = VariableName::new(destination)?;
+    let mut lb = open_existing(lockbox_path, access)?;
+    let moves = lb
+        .list_variables()?
+        .into_iter()
+        .filter(|(name, _)| name.matches_pattern(&pattern))
+        .map(|(name, _)| {
+            let target = moved_path(source_pattern, name.as_str(), destination.as_str())?;
+            Ok((name, VariableName::new(target)?))
+        })
+        .collect::<CliResult<Vec<_>>>()?;
+    if moves.is_empty() {
+        return Err(Error::NotFound(format!("no variables match {source_pattern}")).into());
+    }
+    lb.move_variables(&moves)?;
+    lb.commit()?;
+    for (source, destination) in moves {
+        println!("{source}\t{destination}\tmoved");
+    }
+    Ok(())
+}
+
+fn moved_path(pattern: &str, source: &str, destination: &str) -> CliResult<String> {
+    let canonical_pattern = pattern.trim_start_matches('/');
+    let components = canonical_pattern.split('/').collect::<Vec<_>>();
+    let wildcard = components
+        .iter()
+        .position(|component| component.contains('*') || component.contains('?'));
+    let anchor_components = match wildcard {
+        Some(index) => &components[..index],
+        None => &components[..components.len().saturating_sub(1)],
+    };
+    let anchor = if anchor_components.is_empty() {
+        "/".to_string()
+    } else {
+        format!("/{}", anchor_components.join("/"))
+    };
+    let relative = source
+        .strip_prefix(&anchor)
+        .unwrap_or(source)
+        .trim_start_matches('/');
+    Ok(format!(
+        "{}/{}",
+        destination.trim_end_matches('/'),
+        relative
+    ))
 }
 
 fn set_variable_request(
@@ -506,4 +570,23 @@ fn powershell_quote(value: &str) -> String {
 
 fn cmd_quote_value(value: &str) -> String {
     value.replace('"', "\"\"")
+}
+
+#[cfg(test)]
+mod move_tests {
+    use super::moved_path;
+
+    #[test]
+    fn root_glob_preserves_variable_names() {
+        assert_eq!(moved_path("/*", "/TMP", "/dev").unwrap(), "/dev/TMP");
+        assert_eq!(moved_path("/*", "/MODE", "/dev").unwrap(), "/dev/MODE");
+    }
+
+    #[test]
+    fn nested_glob_preserves_paths_below_its_fixed_prefix() {
+        assert_eq!(
+            moved_path("/production/**", "/production/api/TOKEN", "/archive").unwrap(),
+            "/archive/api/TOKEN"
+        );
+    }
 }

@@ -1,26 +1,31 @@
 # Redundant Key Server Design
 
+This document describes the current ownership, discovery, replication, and
+promotion model. Read the [server introduction](README.md) first, use the
+[configuration guide](KEY_SERVER_CONFIG.md) to deploy it, and use
+[Troubleshooting](TROUBLESHOOTING.md) during operations.
+
 ## Goals
 
-The published payload service must start as a simple single-server deployment while keeping
-the wire format and publish codes compatible with a future redundant deployment.
+The published payload service supports a simple single-server deployment while
+keeping the wire format and publish codes compatible with redundant deployment.
 
 The redundancy design must:
 
-- keep standalone mode as the default
+- keep standalone mode available for private or initial deployments
 - avoid DNS round-robin sending receives to the wrong server
 - support more than two servers later
 - provide a clear standby and recovery path
 - avoid replication storms
 - preserve single-use publish semantics
 
-## Phase 0: Single Server
+## Single-server baseline
 
-The first production deployment runs one server:
+The original production deployment used one server:
 
 ```text
 server_id: 0
-url: https://keypublish.revault.onepub.dev/v1/publish
+url: https://keyshare0.revault.onepub.dev/v1/publish
 ```
 
 The server still generates self-routing publish codes:
@@ -41,12 +46,11 @@ compatible when extra servers are added later.
 
 ## Server Ids
 
-Server ids are decimal digits from `0` to `9`.
+Server ids are values from `0` to `35`, displayed as `0..9` and `a..z` in
+publish codes.
 
-This intentionally limits the first routing design to ten public owner slots.
-That is enough for the first deployment and keeps manually entered codes
-decimal-only. If we need more owner slots later, we can add a new code format
-version rather than overloading existing codes.
+The original deployment used decimal ids only. The current code format retains
+those ids and extends the available owner slots with lower-case letters.
 
 The server id is stable operational configuration, not a random instance id.
 A replacement machine for server `3` must run with `server_id = 3` when it is
@@ -57,12 +61,19 @@ serving published payloads owned by that id.
 Users should not have to configure failover pairs. Failover topology belongs on
 the servers.
 
-For an organization running its own publish service, clients should be configured
-with a discovery base URL or topology URL:
+Every key-server member serves the topology document. There is no separate
+topology service. For an organization running its own publish service, clients
+can be configured with a topology URL:
 
 ```yaml
-publish_topology_url: https://publish.example.com/v1/topology
+publish:
+  topology_url: "https://keyshare0.example.com/v1/topology"
 ```
+
+The production reVault CLI has two ordered bootstrap URLs,
+`keyshare0.revault.onepub.dev/v1/topology` and
+`keyshare1.revault.onepub.dev/v1/topology`. It tries the second if the first is
+unavailable, then learns all current member URLs from the returned document.
 
 The topology endpoint returns public routing metadata as a binary document:
 
@@ -97,17 +108,18 @@ The operator configures this topology on the key servers:
 ```yaml
 key_servers:
   - id: 0
-    url: https://keypublish0.revault.onepub.dev/v1/publish
+    url: https://keyshare0.revault.onepub.dev/v1/publish
   - id: 1
-    url: https://keypublish1.revault.onepub.dev/v1/publish
+    url: https://keyshare1.revault.onepub.dev/v1/publish
   - id: 2
-    url: https://keypublish2.revault.onepub.dev/v1/publish
+    url: https://keyshare2.revault.onepub.dev/v1/publish
 ```
 
-For `PUBLISH`, the CLI chooses a topology server and keeps that choice sticky
-for 24 hours. The sticky selection is persisted locally so repeated CLI
-invocations normally use the same server instead of spreading requests across
-the cluster. The selected server generates a code prefixed with its own id.
+For `PUBLISH`, the CLI selects a key-server member from the discovered topology
+and keeps that choice sticky for 24 hours. The sticky selection is persisted
+locally so repeated CLI invocations normally use the same member instead of
+spreading requests across the cluster. The selected member generates a code
+prefixed with its own id.
 
 For `RECEIVE` and `DELETE`, the CLI reads the first digit and sends the request
 to the primary endpoint for that owner id first. It then tries the failover

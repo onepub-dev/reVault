@@ -505,7 +505,7 @@ fn default_config() -> &'static str {
 state_dir = \"/var/lib/revault-key-server\"\n\
 server_id = 0\n\
 cluster_id = \"default\"\n\
-public_url = \"https://keypublish.revault.onepub.dev/v1/publish\"\n\
+public_url = \"https://keyshare0.revault.onepub.dev/v1/publish\"\n\
 topology_version = 1\n\
 origin_epoch = 1\n\
 verification_ttl_seconds = 1800\n\
@@ -529,7 +529,7 @@ verification_email_ip_rate_limit_per_hour = 30\n\
 \n\
 [[topology_server]]\n\
 id = 0\n\
-url = \"https://keypublish.revault.onepub.dev/v1/publish\"\n\
+url = \"https://keyshare0.revault.onepub.dev/v1/publish\"\n\
 status = \"active\"\n\
 \n\
 [[route]]\n\
@@ -612,11 +612,9 @@ mod tests {
     fn default_config_includes_public_single_server_topology() {
         let config = default_config();
         assert!(config.contains("server_id = 0"));
-        assert!(
-            config.contains("public_url = \"https://keypublish.revault.onepub.dev/v1/publish\"")
-        );
+        assert!(config.contains("public_url = \"https://keyshare0.revault.onepub.dev/v1/publish\""));
         assert!(config.contains("[[topology_server]]"));
-        assert!(config.contains("url = \"https://keypublish.revault.onepub.dev/v1/publish\""));
+        assert!(config.contains("url = \"https://keyshare0.revault.onepub.dev/v1/publish\""));
         assert!(config.contains("[[route]]"));
         assert!(config.contains("primary = 0"));
     }

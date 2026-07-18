@@ -35,6 +35,18 @@ Clear the cached open explicitly when done:
 lockbox close secrets.lbox
 ```
 
+## Exit Codes
+
+Scripts should use the CLI exit status instead of parsing human-readable error
+messages. The stable exit codes are `0` for success, `1` for an unclassified
+failure, `2` for invalid command usage or input, `10` when the lockbox session
+is closed, `11` when authentication fails, `12` when an entry is not found,
+`13` when the local vault is unavailable, `14` for an unsupported lockbox or
+vault format, and `15` for corrupt or truncated data. In particular, exit code
+`10` means the caller should ask the user to run `lbx open <lockbox>` and retry.
+Error descriptions and recovery guidance are written to standard error and may
+be improved without changing these numeric codes.
+
 Create a lockbox and cache open access:
 
 ```bash
@@ -185,7 +197,7 @@ lockbox visualize secrets.lbox
 The command is intentionally hidden from normal help; use
 `lockbox --help --verbose` to show it.
 
-The command prints public lockbox identity, summary counts for files, symlinks,
+The command prints public lockbox profile, summary counts for files, symlinks,
 environment variables, key slots, logical file bytes, per-page metadata, page
 object kinds, and a recovery-scan summary. It does not print file paths, file
 contents, environment variable names, or environment variable values. Use
@@ -424,7 +436,7 @@ lockbox vault import-key legacy alice.key alice.pub
 Export a vault-managed private key:
 
 ```bash
-lockbox vault identity export-private legacy legacy.key
+lockbox vault profile export-private legacy legacy.key
 ```
 
 Supported key file formats:
@@ -439,8 +451,8 @@ Supported key file formats:
 Select an export format with `--format`:
 
 ```bash
-lockbox vault identity export --format jwk default alice.jwk
-lockbox vault identity export-private --format lockbox-pem legacy legacy.key
+lockbox vault profile export --format jwk default alice.jwk
+lockbox vault profile export-private --format lockbox-pem legacy legacy.key
 ```
 
 Imports auto-detect native Lockbox PEM, JWK, JWKS, and raw hex.

@@ -15,7 +15,7 @@ use crate::key_directory::encode_key_directory;
 use crate::page::{page_size_for_encoded_objects, PageObject, PageObjectKind};
 use crate::storage::{Storage, StorageBackend};
 use crate::{Error, LockboxOptions, Result};
-#[cfg(test)]
+#[cfg(any(test, feature = "migration"))]
 use std::fs;
 use std::path::Path;
 
@@ -145,7 +145,7 @@ impl Lockbox<crate::Writable> {
     ///
     /// Returns `Error::Io` if the host write fails. Returns storage or
     /// serialization errors if pending lockbox state cannot be materialized.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "migration"))]
     pub fn write_to_path(&self, path: impl AsRef<Path>) -> Result<()> {
         let path = HostPath::new(path);
         fs::write(path.as_path(), self.bytes()?).map_err(|err| Error::Io(err.to_string()))

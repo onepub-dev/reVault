@@ -212,23 +212,25 @@ fn validate_text(value: &str, description: &str) -> Result<()> {
 fn validate_kind_text(kind: FormFieldKind, value: &str) -> Result<()> {
     validate_text(value, "form field value")?;
     match kind {
-        FormFieldKind::Url if !value.is_empty() => {
-            if !(value.starts_with("https://") || value.starts_with("http://")) {
-                return Err(Error::InvalidInput(
-                    "url form field values must start with http:// or https://".to_string(),
-                ));
-            }
+        FormFieldKind::Url
+            if !(value.is_empty()
+                || value.starts_with("https://")
+                || value.starts_with("http://")) =>
+        {
+            return Err(Error::InvalidInput(
+                "url form field values must start with http:// or https://".to_string(),
+            ));
         }
-        FormFieldKind::Email if !value.is_empty() => {
-            if value.contains(char::is_whitespace)
-                || !value.contains('@')
-                || value.starts_with('@')
-                || value.ends_with('@')
-            {
-                return Err(Error::InvalidInput(
-                    "email form field value is not a valid email address".to_string(),
-                ));
-            }
+        FormFieldKind::Email
+            if !value.is_empty()
+                && (value.contains(char::is_whitespace)
+                    || !value.contains('@')
+                    || value.starts_with('@')
+                    || value.ends_with('@')) =>
+        {
+            return Err(Error::InvalidInput(
+                "email form field value is not a valid email address".to_string(),
+            ));
         }
         FormFieldKind::Date if !value.is_empty() => validate_fixed_date(value, DateField::Date)?,
         FormFieldKind::Month if !value.is_empty() => validate_fixed_date(value, DateField::Month)?,
