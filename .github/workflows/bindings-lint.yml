@@ -64,9 +64,11 @@ jobs:
         with:
           php-version: '8.3'
           extensions: ffi
+          tools: composer:v2
       - uses: leafo/gh-actions-lua@v11
         with:
           luaVersion: luajit-2.1
+      - uses: leafo/gh-actions-luarocks@v5
       - uses: swift-actions/setup-swift@v2
         with:
           swift-version: '6.1'
@@ -87,7 +89,13 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
-          cargo doc --locked --no-deps --all-features -p revault_page_api -p revault_lockbox_api -p revault_vault_api -p revault_wasm_bindings
+          cargo doc --locked --no-deps --all-features \
+            -p revault_page_api@0.0.3 -p revault_lockbox_api@0.0.4 \
+            -p revault_vault_api@0.0.4 -p revault_bindings@0.2.0 \
+            -p revault_wasm_bindings@0.0.1 -p revault_wire@0.0.1 \
+            -p revault_migration_format@0.0.1 -p revault_migrate_vault_v1@0.0.1 \
+            -p revault_migrate_archive_v1@0.0.2 -p revault_migration@0.0.1 \
+            -p revault_publish_protocol@0.0.3 -p revault_key_server@0.0.5
           cargo doc --locked --no-deps --manifest-path ../bindings/rust/Cargo.toml
       - name: Build native library for compiled facades
         working-directory: rust
@@ -106,9 +114,15 @@ jobs:
         working-directory: bindings/dart
         run: |
           dart pub get
-          dart format --output=none --set-exit-if-changed lib ../e2e/dart/conformance.dart
+          dart format --language-version=3.10 --output=none --set-exit-if-changed lib ../e2e/dart/conformance.dart
           dart analyze --fatal-infos --fatal-warnings
           dart doc
+      - name: Dart pub.dev score and publication payload
+        working-directory: bindings/dart
+        run: |
+          dart pub global activate pana 0.23.14
+          pana --exit-code-threshold 10 .
+          dart pub publish --dry-run
       - name: Go formatting and vet
         working-directory: bindings/go
         env:
@@ -155,4 +169,27 @@ jobs:
         env:
           LIBRARY_PATH: ${{ github.workspace }}/rust/target/debug
           LD_LIBRARY_PATH: ${{ github.workspace }}/rust/target/debug
-        run: swift build -Xswiftc -warnings-as-errors
+        run: |
+          swift package dump-package > /dev/null
+          swift build -Xswiftc -warnings-as-errors
+          swift test -Xswiftc -warnings-as-errors
+      - name: Registry-native package validation
+        run: |
+          mkdir -p build/registry/python build/registry/nuget
+          npm pack --dry-run --json --workspace @onepub-dev/revault-api > build/registry/npm.json
+          npm pack --dry-run --json --workspace @onepub-dev/revault-api-wasm > build/registry/npm-wasm.json
+          python -m pip install build twine
+          python -m build bindings/python --outdir build/registry/python
+          python -m twine check build/registry/python/*
+          dotnet pack bindings/csharp/RevaultBindings.csproj -warnaserror -o build/registry/nuget
+          composer validate --working-dir bindings/php --strict --no-check-publish
+          gem build bindings/ruby/revault_api.gemspec --output build/registry/revault_api.gem
+          luarocks lint bindings/lua/revault_api-0.2.0-1.rockspec
+          cargo package --locked --manifest-path bindings/rust/Cargo.toml
+      - name: Upload registry validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: binding-registry-validation
+          path: build/registry
+          if-no-files-found: warn

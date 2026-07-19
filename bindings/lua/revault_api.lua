@@ -1463,320 +1463,400 @@ local Platform = owned("Platform")
 -- @type LocalVault
 local LocalVault = owned("LocalVault")
 
-Vault.new_handle = Vault.new
+local new_vault_handle = Vault.new
+--- Loads the native library and creates the main reVault facade.
 function Vault.new()
   local operations = Operations.new()
-  local value = Vault.new_handle and Vault.new_handle(operations, nil) or setmetatable({ operations = operations }, Vault)
+  local value = new_vault_handle(operations, nil)
   value.agent = Agent.new(operations, nil); value.platform = Platform.new(operations, nil)
   return value
 end
+--- Returns the last error.
 function Vault:last_error() return self.operations:last_error_message() end
+--- Returns the last error details.
 function Vault:last_error_details() return self.operations:buffer_last_error_details() end
 
+--- Returns the lockbox format version.
 function Vault:lockbox_format_version()
   return self.operations:lockbox_format_version()
 end
 
+--- Returns the lockbox probe format version.
 function Vault:lockbox_probe_format_version(bytes)
   return self.operations:lockbox_probe_format_version(bytes)
 end
 
+--- Returns the lockbox create.
 function Vault:lockbox_create(key)
   return Lockbox.new(self.operations, self.operations:lockbox_create(key))
 end
 
+--- Creates a lockbox with explicit cache capacity, workload, worker policy, and job count.
 function Vault:lockbox_create_with_options(key, cache_mode, cache_bytes, workload, worker, jobs)
   return Lockbox.new(self.operations, self.operations:lockbox_create_with_options(key, cache_mode, cache_bytes, workload, worker, jobs))
 end
 
+--- Returns the lockbox create password.
 function Vault:lockbox_create_password(password)
   return Lockbox.new(self.operations, self.operations:lockbox_create_password(password))
 end
 
+--- Returns the lockbox create contact.
 function Vault:lockbox_create_contact(contact)
   return Lockbox.new(self.operations, self.operations:lockbox_create_contact(contact.handle))
 end
 
+--- Returns the lockbox create with signing key.
 function Vault:lockbox_create_with_signing_key(content_key, signing_key)
   return Lockbox.new(self.operations, self.operations:lockbox_create_with_signing_key(content_key, signing_key.handle))
 end
 
+--- Returns the lockbox open.
 function Vault:lockbox_open(archive, key)
   return Lockbox.new(self.operations, self.operations:lockbox_open(archive, key))
 end
 
+--- Opens a lockbox with explicit cache capacity, workload, worker policy, and job count.
 function Vault:lockbox_open_with_options(archive, key, cache_mode, cache_bytes, workload, worker, jobs)
   return Lockbox.new(self.operations, self.operations:lockbox_open_with_options(archive, key, cache_mode, cache_bytes, workload, worker, jobs))
 end
 
+--- Returns the lockbox open password.
 function Vault:lockbox_open_password(archive, password)
   return Lockbox.new(self.operations, self.operations:lockbox_open_password(archive, password))
 end
 
+--- Returns the lockbox open contact.
 function Vault:lockbox_open_contact(archive, contact)
   return Lockbox.new(self.operations, self.operations:lockbox_open_contact(archive, contact.handle))
 end
 
+--- Returns the lockbox inspect file.
 function Vault:lockbox_inspect_file(path)
   return self.operations:lockbox_inspect_file(path)
 end
 
+--- Returns the lockbox recovery scan path.
 function Vault:lockbox_recovery_scan_path(path, key)
   return self.operations:lockbox_recovery_scan_path(path, key)
 end
 
+--- Returns the lockbox recovery scan.
 function Vault:lockbox_recovery_scan(bytes, key)
   return self.operations:lockbox_recovery_scan(bytes, key)
 end
 
+--- Returns the lockbox recovery salvage.
 function Vault:lockbox_recovery_salvage(bytes, key, signing_key)
   return Lockbox.new(self.operations, self.operations:lockbox_recovery_salvage(bytes, key, signing_key.handle))
 end
 
+--- Returns the key contact generate.
 function Vault:key_contact_generate()
   return ContactKeyPair.new(self.operations, self.operations:key_contact_generate())
 end
 
+--- Returns the key contact from private.
 function Vault:key_contact_from_private(bytes)
   return ContactKeyPair.new(self.operations, self.operations:key_contact_from_private(bytes))
 end
 
+--- Returns the key contact public from bytes.
 function Vault:key_contact_public_from_bytes(bytes)
   return ContactPublicKey.new(self.operations, self.operations:key_contact_public_from_bytes(bytes))
 end
 
+--- Returns the key signing generate.
 function Vault:key_signing_generate()
   return SigningKeyPair.new(self.operations, self.operations:key_signing_generate())
 end
 
+--- Returns the key signing from private.
 function Vault:key_signing_from_private(bytes)
   return SigningKeyPair.new(self.operations, self.operations:key_signing_from_private(bytes))
 end
 
+--- Returns the key signing public from bytes.
 function Vault:key_signing_public_from_bytes(bytes)
   return SigningPublicKey.new(self.operations, self.operations:key_signing_public_from_bytes(bytes))
 end
 
+--- Returns the vault key export private.
 function Vault:vault_key_export_private(key, format)
   return self.operations:vault_key_export_private(key.handle, format)
 end
 
+--- Returns the vault key export public.
 function Vault:vault_key_export_public(key, format)
   return self.operations:vault_key_export_public(key.handle, format)
 end
 
+--- Returns the vault key import private.
 function Vault:vault_key_import_private(bytes)
   return ContactKeyPair.new(self.operations, self.operations:vault_key_import_private(bytes))
 end
 
+--- Returns the vault key import public.
 function Vault:vault_key_import_public(bytes)
   return ContactPublicKey.new(self.operations, self.operations:vault_key_import_public(bytes))
 end
 
+--- Returns the vault key fingerprint.
 function Vault:vault_key_fingerprint(key)
   return self.operations:vault_key_fingerprint(key.handle)
 end
 
+--- Returns the vault key format hex.
 function Vault:vault_key_format_hex(bytes)
   return self.operations:vault_key_format_hex(bytes)
 end
 
+--- Returns the vault key decode hex.
 function Vault:vault_key_decode_hex(text)
   return self.operations:vault_key_decode_hex(text)
 end
 
+--- Returns the vault key format crockford.
 function Vault:vault_key_format_crockford(bytes)
   return self.operations:vault_key_format_crockford(bytes)
 end
 
+--- Returns the vault key format crockford reading.
 function Vault:vault_key_format_crockford_reading(code)
   return self.operations:vault_key_format_crockford_reading(code)
 end
 
+--- Returns the vault key decode crockford.
 function Vault:vault_key_decode_crockford(code)
   return self.operations:vault_key_decode_crockford(code)
 end
 
+--- Returns the vault key hex encode.
 function Vault:vault_key_hex_encode(bytes)
   return self.operations:vault_key_hex_encode(bytes)
 end
 
+--- Returns the vault key hex decode.
 function Vault:vault_key_hex_decode(text)
   return self.operations:vault_key_hex_decode(text)
 end
 
+--- Returns the vault directory open.
 function Vault:vault_directory_open(root, password)
   return VaultDirectory.new(self.operations, self.operations:vault_directory_open(root, password))
 end
 
+--- Returns the vault structure version current.
 function Vault:vault_structure_version_current()
   return self.operations:vault_structure_version_current()
 end
 
+--- Returns the vault directory probe structure version.
 function Vault:vault_directory_probe_structure_version(root, password)
   return self.operations:vault_directory_probe_structure_version(root, password)
 end
 
+--- Returns the vault directory open or create default.
 function Vault:vault_directory_open_or_create_default(password)
   return VaultDirectory.new(self.operations, self.operations:vault_directory_open_or_create_default(password))
 end
 
+--- Returns the vault directory replace default.
 function Vault:vault_directory_replace_default(password)
   return VaultDirectory.new(self.operations, self.operations:vault_directory_replace_default(password))
 end
 
+--- Returns the vault directory change password.
 function Vault:vault_directory_change_password(root, old_password, new_password)
   return self.operations:vault_directory_change_password(root, old_password, new_password)
 end
 
+--- Returns the vault directory change default password.
 function Vault:vault_directory_change_default_password(old_password, new_password)
   return self.operations:vault_directory_change_default_password(old_password, new_password)
 end
 
+--- Returns the vault directory replace.
 function Vault:vault_directory_replace(root, password)
   return VaultDirectory.new(self.operations, self.operations:vault_directory_replace(root, password))
 end
 
+--- Returns the vault directory open or create.
 function Vault:vault_directory_open_or_create(root, password)
   return VaultDirectory.new(self.operations, self.operations:vault_directory_open_or_create(root, password))
 end
 
+--- Returns the vault backup default.
 function Vault:vault_backup_default(path, overwrite)
   return self.operations:vault_backup_default(path, overwrite)
 end
 
+--- Returns the vault restore default.
 function Vault:vault_restore_default(path, overwrite)
   return self.operations:vault_restore_default(path, overwrite)
 end
 
+--- Returns the vault read only open.
 function Vault:vault_read_only_open(root, password)
   return ReadOnlyVaultDirectory.new(self.operations, self.operations:vault_read_only_open(root, password))
 end
 
+--- Returns the vault read only open default.
 function Vault:vault_read_only_open_default(password)
   return ReadOnlyVaultDirectory.new(self.operations, self.operations:vault_read_only_open_default(password))
 end
 
+--- Returns the vault default directory.
 function Vault:vault_default_directory()
   return self.operations:vault_default_directory()
 end
 
+--- Returns the vault default path.
 function Vault:vault_default_path()
   return self.operations:vault_default_path()
 end
 
+--- Returns the vault agent log path.
 function Vault:vault_agent_log_path()
   return self.operations:vault_agent_log_path()
 end
 
+--- Returns the vault agent log destination.
 function Vault:vault_agent_log_destination()
   return self.operations:vault_agent_log_destination()
 end
 
+--- Returns the vault local.
 function Vault:vault_local()
   return LocalVault.new(self.operations, self.operations:vault_local())
 end
 
+--- Adds file.
 function Lockbox:add_file(path, data, replace)
   return self.operations:lockbox_add_file(self.handle, path, data, replace)
 end
 
+--- Adds file with permissions.
 function Lockbox:add_file_with_permissions(path, data, permissions, replace)
   return self.operations:lockbox_add_file_with_permissions(self.handle, path, data, permissions, replace)
 end
 
+--- Returns file.
 function Lockbox:get_file(path)
   return self.operations:lockbox_get_file(self.handle, path)
 end
 
+--- Extracts file.
 function Lockbox:extract_file(source, destination, replace)
   return self.operations:lockbox_extract_file(self.handle, source, destination, replace)
 end
 
+--- Extracts directory.
 function Lockbox:extract_directory(destination, max_file_bytes, max_total_bytes, max_files, restore_symlinks, restore_permissions, overwrite)
   return self.operations:lockbox_extract_directory(self.handle, destination, max_file_bytes, max_total_bytes, max_files, restore_symlinks, restore_permissions, overwrite)
 end
 
+--- Returns the stream content.
 function Lockbox:stream_content(physical)
   return self.operations:lockbox_stream_content(self.handle, physical)
 end
 
+--- Returns cache statistics for this lockbox.
 function Lockbox:cache_stats()
   return self.operations:lockbox_cache_stats(self.handle)
 end
 
+--- Returns import statistics for this lockbox.
 function Lockbox:import_stats()
   return self.operations:lockbox_import_stats(self.handle)
 end
 
+--- Updates import stats.
 function Lockbox:reset_import_stats()
   return self.operations:lockbox_reset_import_stats(self.handle)
 end
 
+--- Returns the page inspection.
 function Lockbox:page_inspection()
   return self.operations:lockbox_page_inspection(self.handle)
 end
 
+--- Returns the recovery report.
 function Lockbox:recovery_report()
   return self.operations:lockbox_recovery_report(self.handle)
 end
 
+--- Returns the recovery report render.
 function Lockbox:recovery_report_render(verbose, max_entries)
   return self.operations:lockbox_recovery_report_render(self.handle, verbose, max_entries)
 end
 
+--- Returns the storage len.
 function Lockbox:storage_len()
   return self.operations:lockbox_storage_len(self.handle)
 end
 
+--- Sets workload profile.
 function Lockbox:set_workload_profile(profile)
   return self.operations:lockbox_set_workload_profile(self.handle, profile)
 end
 
+--- Sets worker policy.
 function Lockbox:set_worker_policy(mode, jobs)
   return self.operations:lockbox_set_worker_policy(self.handle, mode, jobs)
 end
 
+--- Returns the runtime options.
 function Lockbox:runtime_options()
   return self.operations:lockbox_runtime_options(self.handle)
 end
 
+--- Authenticates and publishes the staged changes.
 function Lockbox:commit()
   return self.operations:lockbox_commit(self.handle)
 end
 
+--- Creates dir.
 function Lockbox:create_dir(path, create_parents)
   return self.operations:lockbox_create_dir(self.handle, path, create_parents)
 end
 
+--- Removes delete.
 function Lockbox:delete(path)
   return self.operations:lockbox_delete(self.handle, path)
 end
 
+--- Removes dir.
 function Lockbox:remove_dir(path, recursive)
   return self.operations:lockbox_remove_dir(self.handle, path, recursive)
 end
 
+--- Creates parent dirs.
 function Lockbox:create_parent_dirs(path)
   return self.operations:lockbox_create_parent_dirs(self.handle, path)
 end
 
+--- Updates rename.
 function Lockbox:rename(from, to)
   return self.operations:lockbox_rename(self.handle, from, to)
 end
 
+--- Lists list.
 function Lockbox:list(path, recursive)
   return self.operations:lockbox_list(self.handle, path, recursive)
 end
 
+--- Lists with options.
 function Lockbox:list_with_options(path, glob, recursive, include_files, include_symlinks, include_directories, limit)
   return self.operations:lockbox_list_with_options(self.handle, path, glob, recursive, include_files, include_symlinks, include_directories, limit)
 end
 
+--- Returns metadata for the selected lockbox entry.
 function Lockbox:stat(path)
   return self.operations:lockbox_stat(self.handle, path)
 end
 
+--- Sets variable.
 function Lockbox:set_variable(name, value)
   return self.operations:lockbox_set_variable(self.handle, name, value)
 end
@@ -1786,6 +1866,7 @@ function Lockbox:set_secret_variable(name, value)
   return self.operations:lockbox_set_secret_variable(self.handle, name, value)
 end
 
+--- Returns variable.
 function Lockbox:get_variable(name)
   return self.operations:lockbox_get_variable(self.handle, name)
 end
@@ -1795,98 +1876,122 @@ function Lockbox:with_secret_variable(name, callback)
   return self.operations:lockbox_get_secret_variable(self.handle, name, callback)
 end
 
+--- Removes variable.
 function Lockbox:delete_variable(name)
   return self.operations:lockbox_delete_variable(self.handle, name)
 end
 
+--- Updates variables.
 function Lockbox:move_variables(moves_proto)
   return self.operations:lockbox_move_variables(self.handle, moves_proto)
 end
 
+--- Lists variables.
 function Lockbox:list_variables()
   return self.operations:lockbox_list_variables(self.handle)
 end
 
+--- Returns the variable sensitivity.
 function Lockbox:variable_sensitivity(name)
   return self.operations:lockbox_variable_sensitivity(self.handle, name)
 end
 
+--- Adds symlink.
 function Lockbox:add_symlink(path, target, replace)
   return self.operations:lockbox_add_symlink(self.handle, path, target, replace)
 end
 
+--- Returns symlink target.
 function Lockbox:get_symlink_target(path)
   return self.operations:lockbox_get_symlink_target(self.handle, path)
 end
 
+--- Returns the id.
 function Lockbox:id()
   return self.operations:lockbox_id(self.handle)
 end
 
+--- Reports whether exists.
 function Lockbox:exists(path)
   return self.operations:lockbox_exists(self.handle, path)
 end
 
+--- Reports whether dir.
 function Lockbox:is_dir(path)
   return self.operations:lockbox_is_dir(self.handle, path)
 end
 
+--- Returns the permissions.
 function Lockbox:permissions(path)
   return self.operations:lockbox_permissions(self.handle, path)
 end
 
+--- Sets permissions.
 function Lockbox:set_permissions(path, permissions)
   return self.operations:lockbox_set_permissions(self.handle, path, permissions)
 end
 
+--- Returns range.
 function Lockbox:read_range(path, offset, len)
   return self.operations:lockbox_read_range(self.handle, path, offset, len)
 end
 
+--- Adds password.
 function Lockbox:add_password(password)
   return self.operations:lockbox_add_password(self.handle, password)
 end
 
+--- Adds contact.
 function Lockbox:add_contact(contact, name)
   return self.operations:lockbox_add_contact(self.handle, contact.handle, name)
 end
 
+--- Removes key.
 function Lockbox:delete_key(id)
   return self.operations:lockbox_delete_key(self.handle, id)
 end
 
+--- Lists key slots.
 function Lockbox:list_key_slots()
   return self.operations:lockbox_list_key_slots(self.handle)
 end
 
+--- Sets owner signing key.
 function Lockbox:set_owner_signing_key(key)
   return self.operations:lockbox_set_owner_signing_key(self.handle, key.handle)
 end
 
+--- Returns the owner inspection.
 function Lockbox:owner_inspection()
   return self.operations:lockbox_owner_inspection(self.handle)
 end
 
+--- Returns the define form.
 function Lockbox:define_form(alias, name, description, fields_proto)
   return self.operations:lockbox_define_form(self.handle, alias, name, description, fields_proto)
 end
 
+--- Lists form definitions.
 function Lockbox:list_form_definitions()
   return self.operations:lockbox_list_form_definitions(self.handle)
 end
 
+--- Returns the resolve form.
 function Lockbox:resolve_form(reference)
   return self.operations:lockbox_resolve_form(self.handle, reference)
 end
 
+--- Lists form revisions.
 function Lockbox:list_form_revisions(type_id)
   return self.operations:lockbox_list_form_revisions(self.handle, type_id)
 end
 
+--- Creates form record.
 function Lockbox:create_form_record(path, type_reference, name)
   return self.operations:lockbox_create_form_record(self.handle, path, type_reference, name)
 end
 
+--- Sets form field.
 function Lockbox:set_form_field(path, field, value)
   return self.operations:lockbox_set_form_field(self.handle, path, field, value)
 end
@@ -1896,22 +2001,27 @@ function Lockbox:set_secret_form_field(path, field, value)
   return self.operations:lockbox_set_secret_form_field(self.handle, path, field, value)
 end
 
+--- Lists form records.
 function Lockbox:list_form_records()
   return self.operations:lockbox_list_form_records(self.handle)
 end
 
+--- Returns form record.
 function Lockbox:get_form_record(path)
   return self.operations:lockbox_get_form_record(self.handle, path)
 end
 
+--- Removes form record.
 function Lockbox:delete_form_record(path)
   return self.operations:lockbox_delete_form_record(self.handle, path)
 end
 
+--- Updates form records.
 function Lockbox:move_form_records(moves_proto)
   return self.operations:lockbox_move_form_records(self.handle, moves_proto)
 end
 
+--- Returns form field.
 function Lockbox:get_form_field(path, field)
   return self.operations:lockbox_get_form_field(self.handle, path, field)
 end
@@ -1921,417 +2031,517 @@ function Lockbox:with_secret_form_field(path, field, callback)
   return self.operations:lockbox_get_secret_form_field(self.handle, path, field, callback)
 end
 
+--- Returns the to bytes.
 function Lockbox:to_bytes()
   return self.operations:lockbox_to_bytes(self.handle)
 end
 
+--- Releases the native resources held by this object.
 function Lockbox:free()
   self.operations:lockbox_free(self.handle)
   self.handle = nil
 end
 
+--- Returns the public.
 function ContactKeyPair:public()
   return self.operations:key_contact_public(self.handle)
 end
 
+--- Returns the private.
 function ContactKeyPair:private()
   return self.operations:key_contact_private(self.handle)
 end
 
+--- Releases the native resources held by this object.
 function ContactKeyPair:free()
   self.operations:key_contact_free(self.handle)
   self.handle = nil
 end
 
+--- Decrypts a wrapped content key for this contact.
 function ContactKeyPair:decrypt(wrapped)
   return self.operations:key_contact_decrypt(self.handle, wrapped.handle)
 end
 
+--- Returns the public free.
 function ContactPublicKey:public_free()
   self.operations:key_contact_public_free(self.handle)
   self.handle = nil
 end
 
+--- Encrypts a content key for the selected contact.
 function ContactPublicKey:encrypt(content_key)
   return WrappedContactKey.new(self.operations, self.operations:key_contact_encrypt(self.handle, content_key))
 end
 
+--- Returns the public.
 function WrappedContactKey:public()
   return self.operations:key_contact_wrapped_public(self.handle)
 end
 
+--- Returns the ciphertext.
 function WrappedContactKey:ciphertext()
   return self.operations:key_contact_wrapped_ciphertext(self.handle)
 end
 
+--- Returns the encrypted.
 function WrappedContactKey:encrypted()
   return self.operations:key_contact_wrapped_encrypted(self.handle)
 end
 
+--- Releases the native resources held by this object.
 function WrappedContactKey:free()
   self.operations:key_contact_wrapped_free(self.handle)
   self.handle = nil
 end
 
+--- Returns the public.
 function SigningKeyPair:public()
   return self.operations:key_signing_public(self.handle)
 end
 
+--- Returns the private.
 function SigningKeyPair:private()
   return self.operations:key_signing_private(self.handle)
 end
 
+--- Releases the native resources held by this object.
 function SigningKeyPair:free()
   self.operations:key_signing_free(self.handle)
   self.handle = nil
 end
 
+--- Returns the public free.
 function SigningPublicKey:public_free()
   self.operations:key_signing_public_free(self.handle)
   self.handle = nil
 end
 
+--- Returns the root.
 function VaultDirectory:root()
   return self.operations:vault_directory_root(self.handle)
 end
 
+--- Returns the structure version.
 function VaultDirectory:structure_version()
   return self.operations:vault_directory_structure_version(self.handle)
 end
 
+--- Lists private keys.
 function VaultDirectory:list_private_keys()
   return self.operations:vault_directory_list_private_keys(self.handle)
 end
 
+--- Lists private key names.
 function VaultDirectory:list_private_key_names()
   return self.operations:vault_directory_list_private_key_names(self.handle)
 end
 
+--- Lists contact names.
 function VaultDirectory:list_contact_names()
   return self.operations:vault_directory_list_contact_names(self.handle)
 end
 
+--- Lists form aliases.
 function VaultDirectory:list_form_aliases()
   return self.operations:vault_directory_list_form_aliases(self.handle)
 end
 
+--- Returns the private key exists.
 function VaultDirectory:private_key_exists(name)
   return self.operations:vault_directory_private_key_exists(self.handle, name)
 end
 
+--- Removes private key.
 function VaultDirectory:delete_private_key(name)
   return self.operations:vault_directory_delete_private_key(self.handle, name)
 end
 
+--- Stores private key.
 function VaultDirectory:store_private_key(name, key)
   return self.operations:vault_directory_store_private_key(self.handle, name, key.handle)
 end
 
+--- Loads private key.
 function VaultDirectory:load_private_key(name)
   return ContactKeyPair.new(self.operations, self.operations:vault_directory_load_private_key(self.handle, name))
 end
 
+--- Loads private key generation.
 function VaultDirectory:load_private_key_generation(name, index)
   return ContactKeyPair.new(self.operations, self.operations:vault_directory_load_private_key_generation(self.handle, name, index))
 end
 
+--- Stores contact.
 function VaultDirectory:store_contact(name, key)
   return self.operations:vault_directory_store_contact(self.handle, name, key.handle)
 end
 
+--- Loads contact.
 function VaultDirectory:load_contact(name)
   return ContactPublicKey.new(self.operations, self.operations:vault_directory_load_contact(self.handle, name))
 end
 
+--- Returns the contact exists.
 function VaultDirectory:contact_exists(name)
   return self.operations:vault_directory_contact_exists(self.handle, name)
 end
 
+--- Removes contact.
 function VaultDirectory:delete_contact(name)
   return self.operations:vault_directory_delete_contact(self.handle, name)
 end
 
+--- Lists contacts.
 function VaultDirectory:list_contacts()
   return self.operations:vault_directory_list_contacts(self.handle)
 end
 
+--- Stores profile email.
 function VaultDirectory:store_profile_email(name, email)
   return self.operations:vault_directory_store_profile_email(self.handle, name, email)
 end
 
+--- Returns the profile email.
 function VaultDirectory:profile_email(name)
   return self.operations:vault_directory_profile_email(self.handle, name)
 end
 
+--- Stores backup.
 function VaultDirectory:store_backup(id, bytes)
   return self.operations:vault_directory_store_backup(self.handle, id, bytes)
 end
 
+--- Loads backup.
 function VaultDirectory:load_backup(id)
   return self.operations:vault_directory_load_backup(self.handle, id)
 end
 
+--- Returns the backup count.
 function VaultDirectory:backup_count()
   return self.operations:vault_directory_backup_count(self.handle)
 end
 
+--- Returns the restore private key.
 function VaultDirectory:restore_private_key(name, key, signing_key, overwrite)
   return self.operations:vault_directory_restore_private_key(self.handle, name, key.handle, signing_key.handle, overwrite)
 end
 
+--- Loads owner signing key.
 function VaultDirectory:load_owner_signing_key(name)
   return SigningKeyPair.new(self.operations, self.operations:vault_directory_load_owner_signing_key(self.handle, name))
 end
 
+--- Loads owner signing key generation.
 function VaultDirectory:load_owner_signing_key_generation(name, index)
   return SigningKeyPair.new(self.operations, self.operations:vault_directory_load_owner_signing_key_generation(self.handle, name, index))
 end
 
+--- Stores contact signing key.
 function VaultDirectory:store_contact_signing_key(name, key)
   return self.operations:vault_directory_store_contact_signing_key(self.handle, name, key.handle)
 end
 
+--- Loads contact signing key.
 function VaultDirectory:load_contact_signing_key(name)
   return SigningPublicKey.new(self.operations, self.operations:vault_directory_load_contact_signing_key(self.handle, name))
 end
 
+--- Lists profile generations.
 function VaultDirectory:list_profile_generations(name)
   return self.operations:vault_directory_list_profile_generations(self.handle, name)
 end
 
+--- Updates private key.
 function VaultDirectory:rotate_private_key(name)
   return self.operations:vault_directory_rotate_private_key(self.handle, name)
 end
 
+--- Stores lockbox.
 function VaultDirectory:remember_lockbox(id, path)
   return self.operations:vault_directory_remember_lockbox(self.handle, id, path)
 end
 
+--- Lists known lockboxes.
 function VaultDirectory:list_known_lockboxes()
   return self.operations:vault_directory_list_known_lockboxes(self.handle)
 end
 
+--- Removes lockbox.
 function VaultDirectory:forget_lockbox(path)
   return self.operations:vault_directory_forget_lockbox(self.handle, path)
 end
 
+--- Stores access slot label.
 function VaultDirectory:remember_access_slot_label(id, slot_id, name)
   return self.operations:vault_directory_remember_access_slot_label(self.handle, id, slot_id, name)
 end
 
+--- Lists access slot labels.
 function VaultDirectory:list_access_slot_labels(id)
   return self.operations:vault_directory_list_access_slot_labels(self.handle, id)
 end
 
+--- Returns the find access slot labels.
 function VaultDirectory:find_access_slot_labels(id, name)
   return self.operations:vault_directory_find_access_slot_labels(self.handle, id, name)
 end
 
+--- Removes access slot label.
 function VaultDirectory:forget_access_slot_label(id, slot_id)
   return self.operations:vault_directory_forget_access_slot_label(self.handle, id, slot_id)
 end
 
+--- Returns the define form.
 function VaultDirectory:define_form(alias, name, description, fields_proto)
   return self.operations:vault_directory_define_form(self.handle, alias, name, description, fields_proto)
 end
 
+--- Returns the resolve form.
 function VaultDirectory:resolve_form(reference)
   return self.operations:vault_directory_resolve_form(self.handle, reference)
 end
 
+--- Lists forms.
 function VaultDirectory:list_forms()
   return self.operations:vault_directory_list_forms(self.handle)
 end
 
+--- Lists form revisions.
 function VaultDirectory:list_form_revisions(type_id)
   return self.operations:vault_directory_list_form_revisions(self.handle, type_id)
 end
 
+--- Returns the seed forms.
 function VaultDirectory:seed_forms()
   return self.operations:vault_directory_seed_forms(self.handle)
 end
 
+--- Stores password.
 function VaultDirectory:remember_password(id, password)
   return self.operations:vault_directory_remember_password(self.handle, id, password)
 end
 
+--- Returns the remembered password.
 function VaultDirectory:remembered_password(id)
   return self.operations:vault_directory_remembered_password(self.handle, id)
 end
 
+--- Releases the native resources held by this object.
 function VaultDirectory:free()
   self.operations:vault_directory_free(self.handle)
   self.handle = nil
 end
 
+--- Lists profile names.
 function ReadOnlyVaultDirectory:list_profile_names()
   return self.operations:vault_read_only_list_profile_names(self.handle)
 end
 
+--- Lists contact names.
 function ReadOnlyVaultDirectory:list_contact_names()
   return self.operations:vault_read_only_list_contact_names(self.handle)
 end
 
+--- Lists form aliases.
 function ReadOnlyVaultDirectory:list_form_aliases()
   return self.operations:vault_read_only_list_form_aliases(self.handle)
 end
 
+--- Lists known lockboxes.
 function ReadOnlyVaultDirectory:list_known_lockboxes()
   return self.operations:vault_read_only_list_known_lockboxes(self.handle)
 end
 
+--- Releases the native resources held by this object.
 function ReadOnlyVaultDirectory:free()
   self.operations:vault_read_only_free(self.handle)
   self.handle = nil
 end
 
+--- Reports whether running.
 function Agent:is_running()
   return self.operations:vault_is_running()
 end
 
+--- Removes all.
 function Agent:forget_all()
   return self.operations:vault_forget_all()
 end
 
+--- Returns the serve.
 function Agent:serve()
   return self.operations:vault_agent_serve()
 end
 
+--- Verifies transport.
 function Agent:verify_transport()
   return self.operations:vault_agent_verify_transport()
 end
 
+--- Returns get.
 function Agent:get(id)
   return self.operations:vault_agent_get(id)
 end
 
+--- Stores put.
 function Agent:put(id, key)
   return self.operations:vault_agent_put(id, key)
 end
 
+--- Removes forget.
 function Agent:forget(id)
   return self.operations:vault_agent_forget(id)
 end
 
+--- Stops stop.
 function Agent:stop()
   return self.operations:vault_agent_stop()
 end
 
+--- Starts start.
 function Agent:start()
   return self.operations:vault_agent_start()
 end
 
+--- Lists list.
 function Agent:list()
   return self.operations:vault_agent_list()
 end
 
+--- Returns the sleep support.
 function Agent:sleep_support()
   return self.operations:vault_agent_sleep_support()
 end
 
+--- Returns vault unlock key.
 function Agent:get_vault_unlock_key(vault_id)
   return self.operations:vault_agent_get_vault_unlock_key(vault_id)
 end
 
+--- Stores vault unlock key.
 function Agent:put_vault_unlock_key(vault_id, key, ttl_seconds)
   return self.operations:vault_agent_put_vault_unlock_key(vault_id, key, ttl_seconds)
 end
 
+--- Removes vault unlock key.
 function Agent:forget_vault_unlock_key(vault_id)
   return self.operations:vault_agent_forget_vault_unlock_key(vault_id)
 end
 
+--- Returns owner signing key.
 function Agent:get_owner_signing_key(vault_id, profile)
   return SigningKeyPair.new(self.operations, self.operations:vault_agent_get_owner_signing_key(vault_id, profile))
 end
 
+--- Stores owner signing key.
 function Agent:put_owner_signing_key(vault_id, profile, key, ttl_seconds)
   return self.operations:vault_agent_put_owner_signing_key(vault_id, profile, key.handle, ttl_seconds)
 end
 
+--- Removes owner signing key.
 function Agent:forget_owner_signing_key(vault_id, profile)
   return self.operations:vault_agent_forget_owner_signing_key(vault_id, profile)
 end
 
+--- Starts activity.
 function Agent:begin_activity(kind)
   return AgentActivity.new(self.operations, self.operations:vault_agent_begin_activity(kind))
 end
 
+--- Stops activity.
 function Agent:end_activity(handle)
   return self.operations:vault_agent_end_activity(handle.handle)
 end
 
+--- Returns the status.
 function Platform:status()
   return self.operations:vault_platform_status()
 end
 
+--- Sets scope.
 function Platform:set_scope(scope)
   return self.operations:vault_platform_set_scope(scope)
 end
 
+--- Removes password.
 function Platform:forget_password()
   return self.operations:vault_platform_forget_password()
 end
 
+--- Stores password.
 function Platform:put_password(password)
   return self.operations:vault_platform_put_password(password)
 end
 
+--- Returns the enable.
 function Platform:enable()
   return self.operations:vault_platform_enable()
 end
 
+--- Returns the disable.
 function Platform:disable()
   return self.operations:vault_platform_disable()
 end
 
+--- Returns the disabled.
 function Platform:disabled()
   return self.operations:vault_platform_disabled()
 end
 
+--- Returns password.
 function Platform:get_password()
   return self.operations:vault_platform_get_password()
 end
 
+--- Creates lockbox password.
 function LocalVault:create_lockbox_password(path, password)
   return Lockbox.new(self.operations, self.operations:vault_create_lockbox_password(self.handle, path, password))
 end
 
+--- Opens lockbox password.
 function LocalVault:open_lockbox_password(path, password)
   return Lockbox.new(self.operations, self.operations:vault_open_lockbox_password(self.handle, path, password))
 end
 
+--- Creates lockbox content key.
 function LocalVault:create_lockbox_content_key(path, content_key, signing_key)
   return Lockbox.new(self.operations, self.operations:vault_create_lockbox_content_key(self.handle, path, content_key, signing_key.handle))
 end
 
+--- Creates lockbox contact.
 function LocalVault:create_lockbox_contact(path, contact, name, signing_key)
   return Lockbox.new(self.operations, self.operations:vault_create_lockbox_contact(self.handle, path, contact.handle, name, signing_key.handle))
 end
 
+--- Opens lockbox content key.
 function LocalVault:open_lockbox_content_key(path, content_key, signing_key)
   return Lockbox.new(self.operations, self.operations:vault_open_lockbox_content_key(self.handle, path, content_key, signing_key.handle))
 end
 
+--- Stores lockbox password.
 function LocalVault:cache_lockbox_password(path, password, ttl_seconds)
   return self.operations:vault_cache_lockbox_password(self.handle, path, password, ttl_seconds)
 end
 
+--- Releases the native resources held by lockbox.
 function LocalVault:close_lockbox(path)
   return self.operations:vault_close_lockbox(self.handle, path)
 end
 
+--- Releases the native resources held by all.
 function LocalVault:close_all()
   return self.operations:vault_close_all(self.handle)
 end
 
+--- Releases the native resources held by this object.
 function LocalVault:free()
   self.operations:vault_free(self.handle)
   self.handle = nil
 end
 
 local M = {
-  Vault = Vault, Models = Models, native = native,
+  Vault = Vault, Models = Models,
   Lockbox = Lockbox, ContactKeyPair = ContactKeyPair, ContactPublicKey = ContactPublicKey,
   WrappedContactKey = WrappedContactKey, SigningKeyPair = SigningKeyPair,
   SigningPublicKey = SigningPublicKey, VaultDirectory = VaultDirectory, ReadOnlyVaultDirectory = ReadOnlyVaultDirectory,

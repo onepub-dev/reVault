@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Small, protocol-independent binary framing primitives.
 //!
 //! The publish protocol keeps its existing wire format. New cross-language
@@ -6,16 +8,25 @@
 
 use std::fmt;
 
+/// Represents the magic constant case.
 pub const MAGIC: [u8; 4] = *b"LBWF";
+/// Represents the version constant case.
 pub const VERSION: u16 = 1;
+/// Represents the len constant case.
 pub const HEADER_LEN: usize = 12;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Represents wire error.
 pub enum WireError {
+    /// Represents the too short case.
     TooShort,
+    /// Represents the bad magic case.
     BadMagic,
+    /// Represents the unsupported version case.
     UnsupportedVersion,
+    /// Represents the length mismatch case.
     LengthMismatch,
+    /// Represents the payload too large case.
     PayloadTooLarge,
 }
 
@@ -27,6 +38,7 @@ impl fmt::Display for WireError {
 
 impl std::error::Error for WireError {}
 
+/// Encodes encode.
 pub fn encode(payload: &[u8]) -> Vec<u8> {
     let mut frame = Vec::with_capacity(HEADER_LEN + payload.len());
     frame.extend_from_slice(&MAGIC);
@@ -37,6 +49,7 @@ pub fn encode(payload: &[u8]) -> Vec<u8> {
     frame
 }
 
+/// Decodes decode.
 pub fn decode(frame: &[u8], max_payload: usize) -> Result<&[u8], WireError> {
     if frame.len() < HEADER_LEN {
         return Err(WireError::TooShort);

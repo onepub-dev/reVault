@@ -10,7 +10,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 /** Generated complete, typed Java surface for every exported binding operation. */
-public final class BindingOperations {
+final class BindingOperations {
   private static final MemoryLayout BUFFER = MemoryLayout.structLayout(
       ValueLayout.ADDRESS.withName("ptr"), ValueLayout.JAVA_LONG.withName("len"));
   private final RevaultNativeApi api;
@@ -24,7 +24,6 @@ public final class BindingOperations {
   }
 
   @FunctionalInterface private interface Parser<T extends MessageLite> { T parse(byte[] value) throws InvalidProtocolBufferException; }
-  @FunctionalInterface public interface SecretCallback<T> { T use(byte[] secret); }
   @FunctionalInterface private interface SecretGetter { boolean get(MemorySegment output); }
 
   private static Object call(java.lang.invoke.MethodHandle method, Object... args) {
@@ -53,7 +52,7 @@ public final class BindingOperations {
     call(api.buffer_free, value); return result;
   }
   private String takeString(MemorySegment value) { return new String(take(value), StandardCharsets.UTF_8); }
-  private <T> T withSecret(SecretGetter getter, SecretCallback<T> callback) {
+  private <T> T withSecret(SecretGetter getter, Revault.SecretCallback<T> callback) {
     try (var arena = Arena.ofConfined()) {
       var output = arena.allocate(ValueLayout.ADDRESS);
       require(getter.get(output));
@@ -328,7 +327,7 @@ public final class BindingOperations {
     }
   }
 
-  public <T> T lockboxWithSecretVariable(MemorySegment handle, String name, SecretCallback<T> callback) {
+  public <T> T lockboxWithSecretVariable(MemorySegment handle, String name, Revault.SecretCallback<T> callback) {
     try (var arena = Arena.ofConfined()) {
       var nameBytes = text(arena, name);
       return withSecret(output -> (boolean) call(api.lockbox_get_secret_variable, handle, nameBytes, (long) name.getBytes(StandardCharsets.UTF_8).length, output), callback);
@@ -523,7 +522,7 @@ public final class BindingOperations {
     }
   }
 
-  public <T> T lockboxWithSecretFormField(MemorySegment handle, String path, String field, SecretCallback<T> callback) {
+  public <T> T lockboxWithSecretFormField(MemorySegment handle, String path, String field, Revault.SecretCallback<T> callback) {
     try (var arena = Arena.ofConfined()) {
       var pathBytes = text(arena, path);
       var fieldBytes = text(arena, field);

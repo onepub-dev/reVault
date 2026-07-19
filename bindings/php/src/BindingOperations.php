@@ -7,7 +7,11 @@ use FFI;
 use FFI\CData;
 use RuntimeException;
 
-/** Complete binary operation layer generated from revault_api.h. */
+/**
+ * Complete binary operation layer generated from revault_api.h.
+ *
+ * @internal Use {@see Vault} from application code.
+ */
 final class BindingOperations
 {
     public function __construct(private readonly FFI $ffi) { if ($ffi->api_abi_version() !== 2) { throw new RuntimeException('revault-api native ABI mismatch; expected 2'); } }

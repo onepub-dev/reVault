@@ -29,7 +29,19 @@ mavenPublishing {
                 url.set("https://github.com/onepub-dev/reVault/blob/master/rust/revault_lockbox_api/LICENSE")
             }
         }
-        scm { url.set("https://github.com/onepub-dev/reVault") }
-        developers { developer { id.set("onepub"); name.set("OnePub") } }
+        scm {
+            connection.set("scm:git:https://github.com/onepub-dev/reVault.git")
+            developerConnection.set("scm:git:ssh://git@github.com/onepub-dev/reVault.git")
+            url.set("https://github.com/onepub-dev/reVault")
+        }
+        developers {
+            developer {
+                id.set("onepub")
+                name.set("OnePub")
+                email.set("bsutton@onepub.dev")
+                organization.set("OnePub")
+                organizationUrl.set("https://onepub.dev")
+            }
+        }
     }
 }

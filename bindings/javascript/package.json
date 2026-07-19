@@ -3,11 +3,21 @@
   "version": "0.2.0",
   "description": "Complete class-based reVault lockbox and vault API",
   "license": "SEE LICENSE IN LICENSE",
-  "repository": "github:onepub-dev/reVault",
+  "homepage": "https://github.com/onepub-dev/reVault#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/onepub-dev/reVault.git",
+    "directory": "bindings/javascript"
+  },
+  "bugs": {
+    "url": "https://github.com/onepub-dev/reVault/issues"
+  },
+  "keywords": ["encryption", "credentials", "archive", "security", "vault", "ffi"],
+  "engines": { "node": ">=20" },
   "type": "module",
   "types": "./index.d.ts",
   "exports": "./index.js",
-  "files": ["index.js", "index.d.ts", "native.js", "native-loader.js", "generated", "LICENSE"],
+  "files": ["index.js", "index.d.ts", "native.js", "native-loader.js", "generated", "README.md", "LICENSE"],
   "dependencies": {
     "koffi": "^2.14.1",
     "protobufjs": "^7.5.3"

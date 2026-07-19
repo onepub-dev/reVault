@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "RevaultAPI",
+    platforms: [.macOS(.v13)],
     products: [
         .library(name: "RevaultAPI", targets: ["RevaultAPI"]),
         .executable(name: "revault-swift-conformance", targets: ["RevaultConformance"]),
@@ -21,6 +22,11 @@ let package = Package(
             name: "RevaultConformance",
             dependencies: ["RevaultAPI"],
             path: "Sources/RevaultConformance"
+        ),
+        .testTarget(
+            name: "RevaultAPITests",
+            dependencies: ["RevaultAPI"],
+            path: "Tests/RevaultAPITests"
         ),
     ]
 )

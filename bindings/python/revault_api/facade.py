@@ -65,7 +65,7 @@ def _call(owner, symbol, values):
     if result_kind == 'binary': return raw
     return getattr(messages, result_kind[8:]).FromString(_wire_payload(raw))
 
-class OwnedHandle:
+class _OwnedHandle:
     def __init__(self, root, handle): self._root, self._lib, self._handle = root, getattr(root, '_lib', root), ctypes.c_void_p(handle)
     def __enter__(self): return self
     def __exit__(self, *_):
@@ -75,368 +75,451 @@ class OwnedHandle:
 class Vault:
     """Entry point for lockboxes, keys, local metadata, agent, and platform services."""
     def __init__(self, path: str | Path | None = None):
+        """Load and validate the bundled native library, or the library at path."""
         self._root = self; self._lib = load(path); self.agent = Agent(self, None); self.platform = Platform(self, None)
     @property
-    def last_error(self): return _error(self._lib)
-    def last_error_details(self): return _call(self, 'buffer_last_error_details', ())
+    def last_error(self):
+        """Return the diagnostic from the most recent native call on this thread."""
+        return _error(self._lib)
+    def last_error_details(self):
+        """Return structured details for the most recent native failure."""
+        return _call(self, 'buffer_last_error_details', ())
 
-class Lockbox(OwnedHandle):
+class Lockbox(_OwnedHandle):
     """Owned, mutable view of one encrypted lockbox archive."""
     pass
 
-class ContactKeyPair(OwnedHandle):
+class ContactKeyPair(_OwnedHandle):
     """Owned contact key pair used to decrypt received content keys."""
     pass
 
-class ContactPublicKey(OwnedHandle):
+class ContactPublicKey(_OwnedHandle):
     """Shareable contact public key used to encrypt a recipient content key."""
     pass
 
-class WrappedContactKey(OwnedHandle):
+class WrappedContactKey(_OwnedHandle):
     """Owned encrypted content-key envelope for one contact recipient."""
     pass
 
-class SigningKeyPair(OwnedHandle):
+class SigningKeyPair(_OwnedHandle):
     """Owned signing key pair used to authorize mutable lockbox commits."""
     pass
 
-class SigningPublicKey(OwnedHandle):
+class SigningPublicKey(_OwnedHandle):
     """Public key used to verify owner-authorized lockbox commits."""
     pass
 
-class VaultDirectory(OwnedHandle):
+class VaultDirectory(_OwnedHandle):
     """Writable, password-protected local metadata vault."""
     pass
 
-class ReadOnlyVaultDirectory(OwnedHandle):
+class ReadOnlyVaultDirectory(_OwnedHandle):
     """Read-only metadata view that never loads an owner signing key."""
     pass
 
-class Agent(OwnedHandle):
+class Agent(_OwnedHandle):
     """Client for the local session agent's time-limited secret cache."""
     pass
 
-class AgentActivity(OwnedHandle):
+class AgentActivity(_OwnedHandle):
     """Owned registration for an operation requiring secret access."""
     pass
 
-class Platform(OwnedHandle):
+class Platform(_OwnedHandle):
     """Controls integration with the operating system's secret store."""
     pass
 
-class LocalVault(OwnedHandle):
+class LocalVault(_OwnedHandle):
     """High-level workflow for local metadata and remembered lockboxes."""
     pass
 
 def _Vault_lockbox_format_version(self):
+    """Returns the version."""
     return _call(self, 'lockbox_format_version', ())
 Vault.lockbox_format_version = _Vault_lockbox_format_version
 
 def _Vault_lockbox_probe_format_version(self, bytes):
+    """Returns the version."""
     return _call(self, 'lockbox_probe_format_version', (bytes,))
 Vault.lockbox_probe_format_version = _Vault_lockbox_probe_format_version
 
 def _Vault_lockbox_create(self, key):
+    """Creates a new lockbox."""
     return _call(self, 'lockbox_create', (key,))
 Vault.lockbox_create = _Vault_lockbox_create
 
 def _Vault_lockbox_create_with_options(self, key, cache_mode, cache_bytes, workload, worker, jobs):
+    """Create a lockbox with explicit cache capacity, workload, worker policy, and job count."""
     return _call(self, 'lockbox_create_with_options', (key, cache_mode, cache_bytes, workload, worker, jobs))
 Vault.lockbox_create_with_options = _Vault_lockbox_create_with_options
 
 def _Vault_lockbox_create_password(self, password):
+    """Returns the password."""
     return _call(self, 'lockbox_create_password', (password,))
 Vault.lockbox_create_password = _Vault_lockbox_create_password
 
 def _Vault_lockbox_create_contact(self, contact):
+    """Returns the contact."""
     return _call(self, 'lockbox_create_contact', (contact,))
 Vault.lockbox_create_contact = _Vault_lockbox_create_contact
 
 def _Vault_lockbox_create_with_signing_key(self, content_key, signing_key):
+    """Returns the key."""
     return _call(self, 'lockbox_create_with_signing_key', (content_key, signing_key))
 Vault.lockbox_create_with_signing_key = _Vault_lockbox_create_with_signing_key
 
 def _Vault_lockbox_open(self, archive, key):
+    """Opens an existing lockbox."""
     return _call(self, 'lockbox_open', (archive, key))
 Vault.lockbox_open = _Vault_lockbox_open
 
 def _Vault_lockbox_open_with_options(self, archive, key, cache_mode, cache_bytes, workload, worker, jobs):
+    """Open a lockbox with explicit cache capacity, workload, worker policy, and job count."""
     return _call(self, 'lockbox_open_with_options', (archive, key, cache_mode, cache_bytes, workload, worker, jobs))
 Vault.lockbox_open_with_options = _Vault_lockbox_open_with_options
 
 def _Vault_lockbox_open_password(self, archive, password):
+    """Returns the password."""
     return _call(self, 'lockbox_open_password', (archive, password))
 Vault.lockbox_open_password = _Vault_lockbox_open_password
 
 def _Vault_lockbox_open_contact(self, archive, contact):
+    """Returns the contact."""
     return _call(self, 'lockbox_open_contact', (archive, contact))
 Vault.lockbox_open_contact = _Vault_lockbox_open_contact
 
 def _Vault_lockbox_inspect_file(self, path):
+    """Returns the file."""
     return _call(self, 'lockbox_inspect_file', (path,))
 Vault.lockbox_inspect_file = _Vault_lockbox_inspect_file
 
 def _Vault_lockbox_recovery_scan_path(self, path, key):
+    """Returns the path."""
     return _call(self, 'lockbox_recovery_scan_path', (path, key))
 Vault.lockbox_recovery_scan_path = _Vault_lockbox_recovery_scan_path
 
 def _Vault_lockbox_recovery_scan(self, bytes, key):
+    """Scans scan."""
     return _call(self, 'lockbox_recovery_scan', (bytes, key))
 Vault.lockbox_recovery_scan = _Vault_lockbox_recovery_scan
 
 def _Vault_lockbox_recovery_salvage(self, bytes, key, signing_key):
+    """Salvages salvage."""
     return _call(self, 'lockbox_recovery_salvage', (bytes, key, signing_key))
 Vault.lockbox_recovery_salvage = _Vault_lockbox_recovery_salvage
 
 def _Vault_key_contact_generate(self):
+    """Generates generate."""
     return _call(self, 'key_contact_generate', ())
 Vault.key_contact_generate = _Vault_key_contact_generate
 
 def _Vault_key_contact_from_private(self, bytes):
+    """Returns the private."""
     return _call(self, 'key_contact_from_private', (bytes,))
 Vault.key_contact_from_private = _Vault_key_contact_from_private
 
 def _Vault_key_contact_public_from_bytes(self, bytes):
+    """Returns the bytes."""
     return _call(self, 'key_contact_public_from_bytes', (bytes,))
 Vault.key_contact_public_from_bytes = _Vault_key_contact_public_from_bytes
 
 def _Vault_key_signing_generate(self):
+    """Generates generate."""
     return _call(self, 'key_signing_generate', ())
 Vault.key_signing_generate = _Vault_key_signing_generate
 
 def _Vault_key_signing_from_private(self, bytes):
+    """Returns the private."""
     return _call(self, 'key_signing_from_private', (bytes,))
 Vault.key_signing_from_private = _Vault_key_signing_from_private
 
 def _Vault_key_signing_public_from_bytes(self, bytes):
+    """Returns the bytes."""
     return _call(self, 'key_signing_public_from_bytes', (bytes,))
 Vault.key_signing_public_from_bytes = _Vault_key_signing_public_from_bytes
 
 def _Vault_vault_key_export_private(self, key, format):
+    """Returns the private."""
     return _call(self, 'vault_key_export_private', (key, format))
 Vault.vault_key_export_private = _Vault_vault_key_export_private
 
 def _Vault_vault_key_export_public(self, key, format):
+    """Returns the public."""
     return _call(self, 'vault_key_export_public', (key, format))
 Vault.vault_key_export_public = _Vault_vault_key_export_public
 
 def _Vault_vault_key_import_private(self, bytes):
+    """Returns the private."""
     return _call(self, 'vault_key_import_private', (bytes,))
 Vault.vault_key_import_private = _Vault_vault_key_import_private
 
 def _Vault_vault_key_import_public(self, bytes):
+    """Returns the public."""
     return _call(self, 'vault_key_import_public', (bytes,))
 Vault.vault_key_import_public = _Vault_vault_key_import_public
 
 def _Vault_vault_key_fingerprint(self, key):
+    """Returns the stable fingerprint of this key."""
     return _call(self, 'vault_key_fingerprint', (key,))
 Vault.vault_key_fingerprint = _Vault_vault_key_fingerprint
 
 def _Vault_vault_key_format_hex(self, bytes):
+    """Returns the hex."""
     return _call(self, 'vault_key_format_hex', (bytes,))
 Vault.vault_key_format_hex = _Vault_vault_key_format_hex
 
 def _Vault_vault_key_decode_hex(self, text):
+    """Returns the hex."""
     return _call(self, 'vault_key_decode_hex', (text,))
 Vault.vault_key_decode_hex = _Vault_vault_key_decode_hex
 
 def _Vault_vault_key_format_crockford(self, bytes):
+    """Returns the crockford."""
     return _call(self, 'vault_key_format_crockford', (bytes,))
 Vault.vault_key_format_crockford = _Vault_vault_key_format_crockford
 
 def _Vault_vault_key_format_crockford_reading(self, code):
+    """Returns the reading."""
     return _call(self, 'vault_key_format_crockford_reading', (code,))
 Vault.vault_key_format_crockford_reading = _Vault_vault_key_format_crockford_reading
 
 def _Vault_vault_key_decode_crockford(self, code):
+    """Returns the crockford."""
     return _call(self, 'vault_key_decode_crockford', (code,))
 Vault.vault_key_decode_crockford = _Vault_vault_key_decode_crockford
 
 def _Vault_vault_key_hex_encode(self, bytes):
+    """Encodes encode."""
     return _call(self, 'vault_key_hex_encode', (bytes,))
 Vault.vault_key_hex_encode = _Vault_vault_key_hex_encode
 
 def _Vault_vault_key_hex_decode(self, text):
+    """Decodes decode."""
     return _call(self, 'vault_key_hex_decode', (text,))
 Vault.vault_key_hex_decode = _Vault_vault_key_hex_decode
 
 def _Vault_vault_directory_open(self, root, password):
+    """Opens an existing lockbox."""
     return _call(self, 'vault_directory_open', (root, password))
 Vault.vault_directory_open = _Vault_vault_directory_open
 
 def _Vault_vault_structure_version_current(self):
+    """Returns the current."""
     return _call(self, 'vault_structure_version_current', ())
 Vault.vault_structure_version_current = _Vault_vault_structure_version_current
 
 def _Vault_vault_directory_probe_structure_version(self, root, password):
+    """Returns the version."""
     return _call(self, 'vault_directory_probe_structure_version', (root, password))
 Vault.vault_directory_probe_structure_version = _Vault_vault_directory_probe_structure_version
 
 def _Vault_vault_directory_open_or_create_default(self, password):
+    """Returns the default."""
     return _call(self, 'vault_directory_open_or_create_default', (password,))
 Vault.vault_directory_open_or_create_default = _Vault_vault_directory_open_or_create_default
 
 def _Vault_vault_directory_replace_default(self, password):
+    """Returns the default."""
     return _call(self, 'vault_directory_replace_default', (password,))
 Vault.vault_directory_replace_default = _Vault_vault_directory_replace_default
 
 def _Vault_vault_directory_change_password(self, root, old_password, new_password):
+    """Returns the password."""
     return _call(self, 'vault_directory_change_password', (root, old_password, new_password))
 Vault.vault_directory_change_password = _Vault_vault_directory_change_password
 
 def _Vault_vault_directory_change_default_password(self, old_password, new_password):
+    """Returns the password."""
     return _call(self, 'vault_directory_change_default_password', (old_password, new_password))
 Vault.vault_directory_change_default_password = _Vault_vault_directory_change_default_password
 
 def _Vault_vault_directory_replace(self, root, password):
+    """Updates replace."""
     return _call(self, 'vault_directory_replace', (root, password))
 Vault.vault_directory_replace = _Vault_vault_directory_replace
 
 def _Vault_vault_directory_open_or_create(self, root, password):
+    """Creates a new lockbox."""
     return _call(self, 'vault_directory_open_or_create', (root, password))
 Vault.vault_directory_open_or_create = _Vault_vault_directory_open_or_create
 
 def _Vault_vault_backup_default(self, path, overwrite):
+    """Returns the default."""
     return _call(self, 'vault_backup_default', (path, overwrite))
 Vault.vault_backup_default = _Vault_vault_backup_default
 
 def _Vault_vault_restore_default(self, path, overwrite):
+    """Returns the default."""
     return _call(self, 'vault_restore_default', (path, overwrite))
 Vault.vault_restore_default = _Vault_vault_restore_default
 
 def _Vault_vault_read_only_open(self, root, password):
+    """Opens an existing lockbox."""
     return _call(self, 'vault_read_only_open', (root, password))
 Vault.vault_read_only_open = _Vault_vault_read_only_open
 
 def _Vault_vault_read_only_open_default(self, password):
+    """Returns the default."""
     return _call(self, 'vault_read_only_open_default', (password,))
 Vault.vault_read_only_open_default = _Vault_vault_read_only_open_default
 
 def _Vault_vault_default_directory(self):
+    """Returns the directory."""
     return _call(self, 'vault_default_directory', ())
 Vault.vault_default_directory = _Vault_vault_default_directory
 
 def _Vault_vault_default_path(self):
+    """Returns the path."""
     return _call(self, 'vault_default_path', ())
 Vault.vault_default_path = _Vault_vault_default_path
 
 def _Vault_vault_agent_log_path(self):
+    """Returns the path."""
     return _call(self, 'vault_agent_log_path', ())
 Vault.vault_agent_log_path = _Vault_vault_agent_log_path
 
 def _Vault_vault_agent_log_destination(self):
+    """Returns the destination."""
     return _call(self, 'vault_agent_log_destination', ())
 Vault.vault_agent_log_destination = _Vault_vault_agent_log_destination
 
 def _Vault_vault_local(self):
+    """Returns the local."""
     return _call(self, 'vault_local', ())
 Vault.vault_local = _Vault_vault_local
 
 def _Lockbox_add_file(self, path, data, replace):
+    """Returns the file."""
     return _call(self, 'lockbox_add_file', (path, data, replace))
 Lockbox.add_file = _Lockbox_add_file
 
 def _Lockbox_add_file_with_permissions(self, path, data, permissions, replace):
+    """Returns the permissions."""
     return _call(self, 'lockbox_add_file_with_permissions', (path, data, permissions, replace))
 Lockbox.add_file_with_permissions = _Lockbox_add_file_with_permissions
 
 def _Lockbox_get_file(self, path):
+    """Returns the file."""
     return _call(self, 'lockbox_get_file', (path,))
 Lockbox.get_file = _Lockbox_get_file
 
 def _Lockbox_extract_file(self, source, destination, replace):
+    """Returns the file."""
     return _call(self, 'lockbox_extract_file', (source, destination, replace))
 Lockbox.extract_file = _Lockbox_extract_file
 
 def _Lockbox_extract_directory(self, destination, max_file_bytes, max_total_bytes, max_files, restore_symlinks, restore_permissions, overwrite):
+    """Returns the directory."""
     return _call(self, 'lockbox_extract_directory', (destination, max_file_bytes, max_total_bytes, max_files, restore_symlinks, restore_permissions, overwrite))
 Lockbox.extract_directory = _Lockbox_extract_directory
 
 def _Lockbox_stream_content(self, physical):
+    """Returns the content."""
     return _call(self, 'lockbox_stream_content', (physical,))
 Lockbox.stream_content = _Lockbox_stream_content
 
 def _Lockbox_cache_stats(self):
+    """Returns the stats."""
     return _call(self, 'lockbox_cache_stats', ())
 Lockbox.cache_stats = _Lockbox_cache_stats
 
 def _Lockbox_import_stats(self):
+    """Returns the stats."""
     return _call(self, 'lockbox_import_stats', ())
 Lockbox.import_stats = _Lockbox_import_stats
 
 def _Lockbox_reset_import_stats(self):
+    """Returns the stats."""
     return _call(self, 'lockbox_reset_import_stats', ())
 Lockbox.reset_import_stats = _Lockbox_reset_import_stats
 
 def _Lockbox_page_inspection(self):
+    """Returns the inspection."""
     return _call(self, 'lockbox_page_inspection', ())
 Lockbox.page_inspection = _Lockbox_page_inspection
 
 def _Lockbox_recovery_report(self):
+    """Returns the report."""
     return _call(self, 'lockbox_recovery_report', ())
 Lockbox.recovery_report = _Lockbox_recovery_report
 
 def _Lockbox_recovery_report_render(self, verbose, max_entries):
+    """Returns the render."""
     return _call(self, 'lockbox_recovery_report_render', (verbose, max_entries))
 Lockbox.recovery_report_render = _Lockbox_recovery_report_render
 
 def _Lockbox_storage_len(self):
+    """Returns the len."""
     return _call(self, 'lockbox_storage_len', ())
 Lockbox.storage_len = _Lockbox_storage_len
 
 def _Lockbox_set_workload_profile(self, profile):
+    """Returns the profile."""
     return _call(self, 'lockbox_set_workload_profile', (profile,))
 Lockbox.set_workload_profile = _Lockbox_set_workload_profile
 
 def _Lockbox_set_worker_policy(self, mode, jobs):
+    """Returns the policy."""
     return _call(self, 'lockbox_set_worker_policy', (mode, jobs))
 Lockbox.set_worker_policy = _Lockbox_set_worker_policy
 
 def _Lockbox_runtime_options(self):
+    """Returns the options."""
     return _call(self, 'lockbox_runtime_options', ())
 Lockbox.runtime_options = _Lockbox_runtime_options
 
 def _Lockbox_commit(self):
+    """Authenticates and publishes the staged changes."""
     return _call(self, 'lockbox_commit', ())
 Lockbox.commit = _Lockbox_commit
 
 def _Lockbox_create_dir(self, path, create_parents):
+    """Returns the dir."""
     return _call(self, 'lockbox_create_dir', (path, create_parents))
 Lockbox.create_dir = _Lockbox_create_dir
 
 def _Lockbox_delete(self, path):
+    """Removes delete."""
     return _call(self, 'lockbox_delete', (path,))
 Lockbox.delete = _Lockbox_delete
 
 def _Lockbox_remove_dir(self, path, recursive):
+    """Returns the dir."""
     return _call(self, 'lockbox_remove_dir', (path, recursive))
 Lockbox.remove_dir = _Lockbox_remove_dir
 
 def _Lockbox_create_parent_dirs(self, path):
+    """Returns the dirs."""
     return _call(self, 'lockbox_create_parent_dirs', (path,))
 Lockbox.create_parent_dirs = _Lockbox_create_parent_dirs
 
 def _Lockbox_rename(self, source, destination):
+    """Updates rename."""
     return _call(self, 'lockbox_rename', (source, destination))
 Lockbox.rename = _Lockbox_rename
 
 def _Lockbox_list(self, path, recursive):
+    """Lists list."""
     return _call(self, 'lockbox_list', (path, recursive))
 Lockbox.list = _Lockbox_list
 
 def _Lockbox_list_with_options(self, path, glob, recursive, include_files, include_symlinks, include_directories, limit):
+    """Returns the options."""
     return _call(self, 'lockbox_list_with_options', (path, glob, recursive, include_files, include_symlinks, include_directories, limit))
 Lockbox.list_with_options = _Lockbox_list_with_options
 
 def _Lockbox_stat(self, path):
+    """Returns metadata for the selected lockbox entry."""
     return _call(self, 'lockbox_stat', (path,))
 Lockbox.stat = _Lockbox_stat
 
 def _Lockbox_set_variable(self, name, value):
+    """Returns the variable."""
     return _call(self, 'lockbox_set_variable', (name, value))
 Lockbox.set_variable = _Lockbox_set_variable
 
 def _Lockbox_set_secret_variable(self, name, value):
+    """Returns the variable."""
     """Store a secret variable from mutable bytes."""
     raw, secret = name.encode(), bytearray(value)
     native = (ctypes.c_uint8 * len(secret)).from_buffer(secret) if secret else None
@@ -447,113 +530,140 @@ def _Lockbox_set_secret_variable(self, name, value):
 Lockbox.set_secret_variable = _Lockbox_set_secret_variable
 
 def _Lockbox_get_variable(self, name):
+    """Returns the variable."""
     value = _call(self, 'lockbox_get_variable', (name,))
     return value.value if value.present else None
 Lockbox.get_variable = _Lockbox_get_variable
 
 def _Lockbox_with_secret_variable(self, name, callback):
+    """Returns the variable."""
     """Call ``callback`` with temporary secret bytes, then wipe the transfer copy."""
     raw = name.encode()
     return _with_secret(self, lambda output: self._lib.lockbox_get_secret_variable(self._handle, raw, len(raw), output), callback)
 Lockbox.with_secret_variable = _Lockbox_with_secret_variable
 
 def _Lockbox_delete_variable(self, name):
+    """Returns the variable."""
     return _call(self, 'lockbox_delete_variable', (name,))
 Lockbox.delete_variable = _Lockbox_delete_variable
 
 def _Lockbox_move_variables(self, moves_proto):
+    """Returns the variables."""
     return _call(self, 'lockbox_move_variables', (moves_proto,))
 Lockbox.move_variables = _Lockbox_move_variables
 
 def _Lockbox_list_variables(self):
+    """Returns the variables."""
     return _call(self, 'lockbox_list_variables', ())
 Lockbox.list_variables = _Lockbox_list_variables
 
 def _Lockbox_variable_sensitivity(self, name):
+    """Returns the sensitivity."""
     return _call(self, 'lockbox_variable_sensitivity', (name,))
 Lockbox.variable_sensitivity = _Lockbox_variable_sensitivity
 
 def _Lockbox_add_symlink(self, path, target, replace):
+    """Returns the symlink."""
     return _call(self, 'lockbox_add_symlink', (path, target, replace))
 Lockbox.add_symlink = _Lockbox_add_symlink
 
 def _Lockbox_get_symlink_target(self, path):
+    """Returns the target."""
     return _call(self, 'lockbox_get_symlink_target', (path,))
 Lockbox.get_symlink_target = _Lockbox_get_symlink_target
 
 def _Lockbox_id(self):
+    """Returns the id."""
     return _call(self, 'lockbox_id', ())
 Lockbox.id = _Lockbox_id
 
 def _Lockbox_exists(self, path):
+    """Reports whether exists."""
     return _call(self, 'lockbox_exists', (path,))
 Lockbox.exists = _Lockbox_exists
 
 def _Lockbox_is_dir(self, path):
+    """Returns the dir."""
     return _call(self, 'lockbox_is_dir', (path,))
 Lockbox.is_dir = _Lockbox_is_dir
 
 def _Lockbox_permissions(self, path):
+    """Returns the permissions."""
     return _call(self, 'lockbox_permissions', (path,))
 Lockbox.permissions = _Lockbox_permissions
 
 def _Lockbox_set_permissions(self, path, permissions):
+    """Returns the permissions."""
     return _call(self, 'lockbox_set_permissions', (path, permissions))
 Lockbox.set_permissions = _Lockbox_set_permissions
 
 def _Lockbox_read_range(self, path, offset, len):
+    """Returns the range."""
     return _call(self, 'lockbox_read_range', (path, offset, len))
 Lockbox.read_range = _Lockbox_read_range
 
 def _Lockbox_add_password(self, password):
+    """Returns the password."""
     return _call(self, 'lockbox_add_password', (password,))
 Lockbox.add_password = _Lockbox_add_password
 
 def _Lockbox_add_contact(self, contact, name):
+    """Returns the contact."""
     return _call(self, 'lockbox_add_contact', (contact, name))
 Lockbox.add_contact = _Lockbox_add_contact
 
 def _Lockbox_delete_key(self, id):
+    """Returns the key."""
     return _call(self, 'lockbox_delete_key', (id,))
 Lockbox.delete_key = _Lockbox_delete_key
 
 def _Lockbox_list_key_slots(self):
+    """Returns the slots."""
     return _call(self, 'lockbox_list_key_slots', ())
 Lockbox.list_key_slots = _Lockbox_list_key_slots
 
 def _Lockbox_set_owner_signing_key(self, key):
+    """Returns the key."""
     return _call(self, 'lockbox_set_owner_signing_key', (key,))
 Lockbox.set_owner_signing_key = _Lockbox_set_owner_signing_key
 
 def _Lockbox_owner_inspection(self):
+    """Returns the inspection."""
     return _call(self, 'lockbox_owner_inspection', ())
 Lockbox.owner_inspection = _Lockbox_owner_inspection
 
 def _Lockbox_define_form(self, alias, name, description, fields_proto):
+    """Returns the form."""
     return _call(self, 'lockbox_define_form', (alias, name, description, fields_proto))
 Lockbox.define_form = _Lockbox_define_form
 
 def _Lockbox_list_form_definitions(self):
+    """Returns the definitions."""
     return _call(self, 'lockbox_list_form_definitions', ())
 Lockbox.list_form_definitions = _Lockbox_list_form_definitions
 
 def _Lockbox_resolve_form(self, reference):
+    """Returns the form."""
     return _call(self, 'lockbox_resolve_form', (reference,))
 Lockbox.resolve_form = _Lockbox_resolve_form
 
 def _Lockbox_list_form_revisions(self, type_id):
+    """Returns the revisions."""
     return _call(self, 'lockbox_list_form_revisions', (type_id,))
 Lockbox.list_form_revisions = _Lockbox_list_form_revisions
 
 def _Lockbox_create_form_record(self, path, type_reference, name):
+    """Returns the record."""
     return _call(self, 'lockbox_create_form_record', (path, type_reference, name))
 Lockbox.create_form_record = _Lockbox_create_form_record
 
 def _Lockbox_set_form_field(self, path, field, value):
+    """Returns the field."""
     return _call(self, 'lockbox_set_form_field', (path, field, value))
 Lockbox.set_form_field = _Lockbox_set_form_field
 
 def _Lockbox_set_secret_form_field(self, path, field, value):
+    """Returns the field."""
     """Store a secret form field from mutable bytes."""
     path_raw, field_raw, secret = path.encode(), field.encode(), bytearray(value)
     native = (ctypes.c_uint8 * len(secret)).from_buffer(secret) if secret else None
@@ -564,428 +674,534 @@ def _Lockbox_set_secret_form_field(self, path, field, value):
 Lockbox.set_secret_form_field = _Lockbox_set_secret_form_field
 
 def _Lockbox_list_form_records(self):
+    """Returns the records."""
     return _call(self, 'lockbox_list_form_records', ())
 Lockbox.list_form_records = _Lockbox_list_form_records
 
 def _Lockbox_get_form_record(self, path):
+    """Returns the record."""
     return _call(self, 'lockbox_get_form_record', (path,))
 Lockbox.get_form_record = _Lockbox_get_form_record
 
 def _Lockbox_delete_form_record(self, path):
+    """Returns the record."""
     return _call(self, 'lockbox_delete_form_record', (path,))
 Lockbox.delete_form_record = _Lockbox_delete_form_record
 
 def _Lockbox_move_form_records(self, moves_proto):
+    """Returns the records."""
     return _call(self, 'lockbox_move_form_records', (moves_proto,))
 Lockbox.move_form_records = _Lockbox_move_form_records
 
 def _Lockbox_get_form_field(self, path, field):
+    """Returns the field."""
     return _call(self, 'lockbox_get_form_field', (path, field))
 Lockbox.get_form_field = _Lockbox_get_form_field
 
 def _Lockbox_with_secret_form_field(self, path, field, callback):
+    """Returns the field."""
     """Call ``callback`` with temporary field bytes, then wipe the transfer copy."""
     path_raw, field_raw = path.encode(), field.encode()
     return _with_secret(self, lambda output: self._lib.lockbox_get_secret_form_field(self._handle, path_raw, len(path_raw), field_raw, len(field_raw), output), callback)
 Lockbox.with_secret_form_field = _Lockbox_with_secret_form_field
 
 def _Lockbox_to_bytes(self):
+    """Returns the bytes."""
     return _call(self, 'lockbox_to_bytes', ())
 Lockbox.to_bytes = _Lockbox_to_bytes
 
 def _Lockbox_free(self):
+    """Releases the native resources held by this object."""
     return _call(self, 'lockbox_free', ())
 Lockbox.free = _Lockbox_free
 
 def _ContactKeyPair_public(self):
+    """Returns the public."""
     return _call(self, 'key_contact_public', ())
 ContactKeyPair.public = _ContactKeyPair_public
 
 def _ContactKeyPair_private(self):
+    """Returns the private."""
     return _call(self, 'key_contact_private', ())
 ContactKeyPair.private = _ContactKeyPair_private
 
 def _ContactKeyPair_free(self):
+    """Releases the native resources held by this object."""
     return _call(self, 'key_contact_free', ())
 ContactKeyPair.free = _ContactKeyPair_free
 
 def _ContactKeyPair_decrypt(self, wrapped):
+    """Decrypts a wrapped content key for this contact."""
     return _call(self, 'key_contact_decrypt', (wrapped,))
 ContactKeyPair.decrypt = _ContactKeyPair_decrypt
 
 def _ContactPublicKey_public_free(self):
+    """Releases the native resources held by this object."""
     return _call(self, 'key_contact_public_free', ())
 ContactPublicKey.public_free = _ContactPublicKey_public_free
 
 def _ContactPublicKey_encrypt(self, content_key):
+    """Encrypts a content key for the selected contact."""
     return _call(self, 'key_contact_encrypt', (content_key,))
 ContactPublicKey.encrypt = _ContactPublicKey_encrypt
 
 def _WrappedContactKey_public(self):
+    """Returns the public."""
     return _call(self, 'key_contact_wrapped_public', ())
 WrappedContactKey.public = _WrappedContactKey_public
 
 def _WrappedContactKey_ciphertext(self):
+    """Returns the ciphertext."""
     return _call(self, 'key_contact_wrapped_ciphertext', ())
 WrappedContactKey.ciphertext = _WrappedContactKey_ciphertext
 
 def _WrappedContactKey_encrypted(self):
+    """Returns the encrypted."""
     return _call(self, 'key_contact_wrapped_encrypted', ())
 WrappedContactKey.encrypted = _WrappedContactKey_encrypted
 
 def _WrappedContactKey_free(self):
+    """Releases the native resources held by this object."""
     return _call(self, 'key_contact_wrapped_free', ())
 WrappedContactKey.free = _WrappedContactKey_free
 
 def _SigningKeyPair_public(self):
+    """Returns the public."""
     return _call(self, 'key_signing_public', ())
 SigningKeyPair.public = _SigningKeyPair_public
 
 def _SigningKeyPair_private(self):
+    """Returns the private."""
     return _call(self, 'key_signing_private', ())
 SigningKeyPair.private = _SigningKeyPair_private
 
 def _SigningKeyPair_free(self):
+    """Releases the native resources held by this object."""
     return _call(self, 'key_signing_free', ())
 SigningKeyPair.free = _SigningKeyPair_free
 
 def _SigningPublicKey_public_free(self):
+    """Releases the native resources held by this object."""
     return _call(self, 'key_signing_public_free', ())
 SigningPublicKey.public_free = _SigningPublicKey_public_free
 
 def _VaultDirectory_root(self):
+    """Returns the root."""
     return _call(self, 'vault_directory_root', ())
 VaultDirectory.root = _VaultDirectory_root
 
 def _VaultDirectory_structure_version(self):
+    """Returns the version."""
     return _call(self, 'vault_directory_structure_version', ())
 VaultDirectory.structure_version = _VaultDirectory_structure_version
 
 def _VaultDirectory_list_private_keys(self):
+    """Returns the keys."""
     return _call(self, 'vault_directory_list_private_keys', ())
 VaultDirectory.list_private_keys = _VaultDirectory_list_private_keys
 
 def _VaultDirectory_list_private_key_names(self):
+    """Returns the names."""
     return _call(self, 'vault_directory_list_private_key_names', ())
 VaultDirectory.list_private_key_names = _VaultDirectory_list_private_key_names
 
 def _VaultDirectory_list_contact_names(self):
+    """Returns the names."""
     return _call(self, 'vault_directory_list_contact_names', ())
 VaultDirectory.list_contact_names = _VaultDirectory_list_contact_names
 
 def _VaultDirectory_list_form_aliases(self):
+    """Returns the aliases."""
     return _call(self, 'vault_directory_list_form_aliases', ())
 VaultDirectory.list_form_aliases = _VaultDirectory_list_form_aliases
 
 def _VaultDirectory_private_key_exists(self, name):
+    """Reports whether exists."""
     return _call(self, 'vault_directory_private_key_exists', (name,))
 VaultDirectory.private_key_exists = _VaultDirectory_private_key_exists
 
 def _VaultDirectory_delete_private_key(self, name):
+    """Returns the key."""
     return _call(self, 'vault_directory_delete_private_key', (name,))
 VaultDirectory.delete_private_key = _VaultDirectory_delete_private_key
 
 def _VaultDirectory_store_private_key(self, name, key):
+    """Returns the key."""
     return _call(self, 'vault_directory_store_private_key', (name, key))
 VaultDirectory.store_private_key = _VaultDirectory_store_private_key
 
 def _VaultDirectory_load_private_key(self, name):
+    """Returns the key."""
     return _call(self, 'vault_directory_load_private_key', (name,))
 VaultDirectory.load_private_key = _VaultDirectory_load_private_key
 
 def _VaultDirectory_load_private_key_generation(self, name, index):
+    """Returns the generation."""
     return _call(self, 'vault_directory_load_private_key_generation', (name, index))
 VaultDirectory.load_private_key_generation = _VaultDirectory_load_private_key_generation
 
 def _VaultDirectory_store_contact(self, name, key):
+    """Returns the contact."""
     return _call(self, 'vault_directory_store_contact', (name, key))
 VaultDirectory.store_contact = _VaultDirectory_store_contact
 
 def _VaultDirectory_load_contact(self, name):
+    """Returns the contact."""
     return _call(self, 'vault_directory_load_contact', (name,))
 VaultDirectory.load_contact = _VaultDirectory_load_contact
 
 def _VaultDirectory_contact_exists(self, name):
+    """Reports whether exists."""
     return _call(self, 'vault_directory_contact_exists', (name,))
 VaultDirectory.contact_exists = _VaultDirectory_contact_exists
 
 def _VaultDirectory_delete_contact(self, name):
+    """Returns the contact."""
     return _call(self, 'vault_directory_delete_contact', (name,))
 VaultDirectory.delete_contact = _VaultDirectory_delete_contact
 
 def _VaultDirectory_list_contacts(self):
+    """Returns the contacts."""
     return _call(self, 'vault_directory_list_contacts', ())
 VaultDirectory.list_contacts = _VaultDirectory_list_contacts
 
 def _VaultDirectory_store_profile_email(self, name, email):
+    """Returns the email."""
     return _call(self, 'vault_directory_store_profile_email', (name, email))
 VaultDirectory.store_profile_email = _VaultDirectory_store_profile_email
 
 def _VaultDirectory_profile_email(self, name):
+    """Returns the email."""
     return _call(self, 'vault_directory_profile_email', (name,))
 VaultDirectory.profile_email = _VaultDirectory_profile_email
 
 def _VaultDirectory_store_backup(self, id, bytes):
+    """Returns the backup."""
     return _call(self, 'vault_directory_store_backup', (id, bytes))
 VaultDirectory.store_backup = _VaultDirectory_store_backup
 
 def _VaultDirectory_load_backup(self, id):
+    """Returns the backup."""
     return _call(self, 'vault_directory_load_backup', (id,))
 VaultDirectory.load_backup = _VaultDirectory_load_backup
 
 def _VaultDirectory_backup_count(self):
+    """Returns the count."""
     return _call(self, 'vault_directory_backup_count', ())
 VaultDirectory.backup_count = _VaultDirectory_backup_count
 
 def _VaultDirectory_restore_private_key(self, name, key, signing_key, overwrite):
+    """Returns the key."""
     return _call(self, 'vault_directory_restore_private_key', (name, key, signing_key, overwrite))
 VaultDirectory.restore_private_key = _VaultDirectory_restore_private_key
 
 def _VaultDirectory_load_owner_signing_key(self, name):
+    """Returns the key."""
     return _call(self, 'vault_directory_load_owner_signing_key', (name,))
 VaultDirectory.load_owner_signing_key = _VaultDirectory_load_owner_signing_key
 
 def _VaultDirectory_load_owner_signing_key_generation(self, name, index):
+    """Returns the generation."""
     return _call(self, 'vault_directory_load_owner_signing_key_generation', (name, index))
 VaultDirectory.load_owner_signing_key_generation = _VaultDirectory_load_owner_signing_key_generation
 
 def _VaultDirectory_store_contact_signing_key(self, name, key):
+    """Returns the key."""
     return _call(self, 'vault_directory_store_contact_signing_key', (name, key))
 VaultDirectory.store_contact_signing_key = _VaultDirectory_store_contact_signing_key
 
 def _VaultDirectory_load_contact_signing_key(self, name):
+    """Returns the key."""
     return _call(self, 'vault_directory_load_contact_signing_key', (name,))
 VaultDirectory.load_contact_signing_key = _VaultDirectory_load_contact_signing_key
 
 def _VaultDirectory_list_profile_generations(self, name):
+    """Returns the generations."""
     return _call(self, 'vault_directory_list_profile_generations', (name,))
 VaultDirectory.list_profile_generations = _VaultDirectory_list_profile_generations
 
 def _VaultDirectory_rotate_private_key(self, name):
+    """Returns the key."""
     return _call(self, 'vault_directory_rotate_private_key', (name,))
 VaultDirectory.rotate_private_key = _VaultDirectory_rotate_private_key
 
 def _VaultDirectory_remember_lockbox(self, id, path):
+    """Returns the lockbox."""
     return _call(self, 'vault_directory_remember_lockbox', (id, path))
 VaultDirectory.remember_lockbox = _VaultDirectory_remember_lockbox
 
 def _VaultDirectory_list_known_lockboxes(self):
+    """Returns the lockboxes."""
     return _call(self, 'vault_directory_list_known_lockboxes', ())
 VaultDirectory.list_known_lockboxes = _VaultDirectory_list_known_lockboxes
 
 def _VaultDirectory_forget_lockbox(self, path):
+    """Returns the lockbox."""
     return _call(self, 'vault_directory_forget_lockbox', (path,))
 VaultDirectory.forget_lockbox = _VaultDirectory_forget_lockbox
 
 def _VaultDirectory_remember_access_slot_label(self, id, slot_id, name):
+    """Returns the label."""
     return _call(self, 'vault_directory_remember_access_slot_label', (id, slot_id, name))
 VaultDirectory.remember_access_slot_label = _VaultDirectory_remember_access_slot_label
 
 def _VaultDirectory_list_access_slot_labels(self, id):
+    """Returns the labels."""
     return _call(self, 'vault_directory_list_access_slot_labels', (id,))
 VaultDirectory.list_access_slot_labels = _VaultDirectory_list_access_slot_labels
 
 def _VaultDirectory_find_access_slot_labels(self, id, name):
+    """Returns the labels."""
     return _call(self, 'vault_directory_find_access_slot_labels', (id, name))
 VaultDirectory.find_access_slot_labels = _VaultDirectory_find_access_slot_labels
 
 def _VaultDirectory_forget_access_slot_label(self, id, slot_id):
+    """Returns the label."""
     return _call(self, 'vault_directory_forget_access_slot_label', (id, slot_id))
 VaultDirectory.forget_access_slot_label = _VaultDirectory_forget_access_slot_label
 
 def _VaultDirectory_define_form(self, alias, name, description, fields_proto):
+    """Returns the form."""
     return _call(self, 'vault_directory_define_form', (alias, name, description, fields_proto))
 VaultDirectory.define_form = _VaultDirectory_define_form
 
 def _VaultDirectory_resolve_form(self, reference):
+    """Returns the form."""
     return _call(self, 'vault_directory_resolve_form', (reference,))
 VaultDirectory.resolve_form = _VaultDirectory_resolve_form
 
 def _VaultDirectory_list_forms(self):
+    """Returns the forms."""
     return _call(self, 'vault_directory_list_forms', ())
 VaultDirectory.list_forms = _VaultDirectory_list_forms
 
 def _VaultDirectory_list_form_revisions(self, type_id):
+    """Returns the revisions."""
     return _call(self, 'vault_directory_list_form_revisions', (type_id,))
 VaultDirectory.list_form_revisions = _VaultDirectory_list_form_revisions
 
 def _VaultDirectory_seed_forms(self):
+    """Returns the forms."""
     return _call(self, 'vault_directory_seed_forms', ())
 VaultDirectory.seed_forms = _VaultDirectory_seed_forms
 
 def _VaultDirectory_remember_password(self, id, password):
+    """Returns the password."""
     return _call(self, 'vault_directory_remember_password', (id, password))
 VaultDirectory.remember_password = _VaultDirectory_remember_password
 
 def _VaultDirectory_remembered_password(self, id):
+    """Returns the password."""
     return _call(self, 'vault_directory_remembered_password', (id,))
 VaultDirectory.remembered_password = _VaultDirectory_remembered_password
 
 def _VaultDirectory_free(self):
+    """Releases the native resources held by this object."""
     return _call(self, 'vault_directory_free', ())
 VaultDirectory.free = _VaultDirectory_free
 
 def _ReadOnlyVaultDirectory_list_profile_names(self):
+    """Returns the names."""
     return _call(self, 'vault_read_only_list_profile_names', ())
 ReadOnlyVaultDirectory.list_profile_names = _ReadOnlyVaultDirectory_list_profile_names
 
 def _ReadOnlyVaultDirectory_list_contact_names(self):
+    """Returns the names."""
     return _call(self, 'vault_read_only_list_contact_names', ())
 ReadOnlyVaultDirectory.list_contact_names = _ReadOnlyVaultDirectory_list_contact_names
 
 def _ReadOnlyVaultDirectory_list_form_aliases(self):
+    """Returns the aliases."""
     return _call(self, 'vault_read_only_list_form_aliases', ())
 ReadOnlyVaultDirectory.list_form_aliases = _ReadOnlyVaultDirectory_list_form_aliases
 
 def _ReadOnlyVaultDirectory_list_known_lockboxes(self):
+    """Returns the lockboxes."""
     return _call(self, 'vault_read_only_list_known_lockboxes', ())
 ReadOnlyVaultDirectory.list_known_lockboxes = _ReadOnlyVaultDirectory_list_known_lockboxes
 
 def _ReadOnlyVaultDirectory_free(self):
+    """Releases the native resources held by this object."""
     return _call(self, 'vault_read_only_free', ())
 ReadOnlyVaultDirectory.free = _ReadOnlyVaultDirectory_free
 
 def _Agent_is_running(self):
+    """Returns the running."""
     return _call(self, 'vault_is_running', ())
 Agent.is_running = _Agent_is_running
 
 def _Agent_forget_all(self):
+    """Returns the all."""
     return _call(self, 'vault_forget_all', ())
 Agent.forget_all = _Agent_forget_all
 
 def _Agent_serve(self):
+    """Returns the serve."""
     return _call(self, 'vault_agent_serve', ())
 Agent.serve = _Agent_serve
 
 def _Agent_verify_transport(self):
+    """Returns the transport."""
     return _call(self, 'vault_agent_verify_transport', ())
 Agent.verify_transport = _Agent_verify_transport
 
 def _Agent_get(self, id):
+    """Returns get."""
     return _call(self, 'vault_agent_get', (id,))
 Agent.get = _Agent_get
 
 def _Agent_put(self, id, key):
+    """Stores put."""
     return _call(self, 'vault_agent_put', (id, key))
 Agent.put = _Agent_put
 
 def _Agent_forget(self, id):
+    """Removes forget."""
     return _call(self, 'vault_agent_forget', (id,))
 Agent.forget = _Agent_forget
 
 def _Agent_stop(self):
+    """Stops stop."""
     return _call(self, 'vault_agent_stop', ())
 Agent.stop = _Agent_stop
 
 def _Agent_start(self):
+    """Starts start."""
     return _call(self, 'vault_agent_start', ())
 Agent.start = _Agent_start
 
 def _Agent_list(self):
+    """Lists list."""
     return _call(self, 'vault_agent_list', ())
 Agent.list = _Agent_list
 
 def _Agent_sleep_support(self):
+    """Returns the support."""
     return _call(self, 'vault_agent_sleep_support', ())
 Agent.sleep_support = _Agent_sleep_support
 
 def _Agent_get_vault_unlock_key(self, vault_id):
+    """Returns the key."""
     return _call(self, 'vault_agent_get_vault_unlock_key', (vault_id,))
 Agent.get_vault_unlock_key = _Agent_get_vault_unlock_key
 
 def _Agent_put_vault_unlock_key(self, vault_id, key, ttl_seconds):
+    """Returns the key."""
     return _call(self, 'vault_agent_put_vault_unlock_key', (vault_id, key, ttl_seconds))
 Agent.put_vault_unlock_key = _Agent_put_vault_unlock_key
 
 def _Agent_forget_vault_unlock_key(self, vault_id):
+    """Returns the key."""
     return _call(self, 'vault_agent_forget_vault_unlock_key', (vault_id,))
 Agent.forget_vault_unlock_key = _Agent_forget_vault_unlock_key
 
 def _Agent_get_owner_signing_key(self, vault_id, profile):
+    """Returns the key."""
     return _call(self, 'vault_agent_get_owner_signing_key', (vault_id, profile))
 Agent.get_owner_signing_key = _Agent_get_owner_signing_key
 
 def _Agent_put_owner_signing_key(self, vault_id, profile, key, ttl_seconds):
+    """Returns the key."""
     return _call(self, 'vault_agent_put_owner_signing_key', (vault_id, profile, key, ttl_seconds))
 Agent.put_owner_signing_key = _Agent_put_owner_signing_key
 
 def _Agent_forget_owner_signing_key(self, vault_id, profile):
+    """Returns the key."""
     return _call(self, 'vault_agent_forget_owner_signing_key', (vault_id, profile))
 Agent.forget_owner_signing_key = _Agent_forget_owner_signing_key
 
 def _Agent_begin_activity(self, kind):
+    """Returns the activity."""
     return _call(self, 'vault_agent_begin_activity', (kind,))
 Agent.begin_activity = _Agent_begin_activity
 
 def _Agent_end_activity(self, handle):
+    """Returns the activity."""
     return _call(self, 'vault_agent_end_activity', (handle,))
 Agent.end_activity = _Agent_end_activity
 
 def _Platform_status(self):
+    """Returns the status."""
     return _call(self, 'vault_platform_status', ())
 Platform.status = _Platform_status
 
 def _Platform_set_scope(self, scope):
+    """Returns the scope."""
     return _call(self, 'vault_platform_set_scope', (scope,))
 Platform.set_scope = _Platform_set_scope
 
 def _Platform_forget_password(self):
+    """Returns the password."""
     return _call(self, 'vault_platform_forget_password', ())
 Platform.forget_password = _Platform_forget_password
 
 def _Platform_put_password(self, password):
+    """Returns the password."""
     return _call(self, 'vault_platform_put_password', (password,))
 Platform.put_password = _Platform_put_password
 
 def _Platform_enable(self):
+    """Returns the enable."""
     return _call(self, 'vault_platform_enable', ())
 Platform.enable = _Platform_enable
 
 def _Platform_disable(self):
+    """Returns the disable."""
     return _call(self, 'vault_platform_disable', ())
 Platform.disable = _Platform_disable
 
 def _Platform_disabled(self):
+    """Returns the disabled."""
     return _call(self, 'vault_platform_disabled', ())
 Platform.disabled = _Platform_disabled
 
 def _Platform_get_password(self):
+    """Returns the password."""
     return _call(self, 'vault_platform_get_password', ())
 Platform.get_password = _Platform_get_password
 
 def _LocalVault_create_lockbox_password(self, path, password):
+    """Returns the password."""
     return _call(self, 'vault_create_lockbox_password', (path, password))
 LocalVault.create_lockbox_password = _LocalVault_create_lockbox_password
 
 def _LocalVault_open_lockbox_password(self, path, password):
+    """Returns the password."""
     return _call(self, 'vault_open_lockbox_password', (path, password))
 LocalVault.open_lockbox_password = _LocalVault_open_lockbox_password
 
 def _LocalVault_create_lockbox_content_key(self, path, content_key, signing_key):
+    """Returns the key."""
     return _call(self, 'vault_create_lockbox_content_key', (path, content_key, signing_key))
 LocalVault.create_lockbox_content_key = _LocalVault_create_lockbox_content_key
 
 def _LocalVault_create_lockbox_contact(self, path, contact, name, signing_key):
+    """Returns the contact."""
     return _call(self, 'vault_create_lockbox_contact', (path, contact, name, signing_key))
 LocalVault.create_lockbox_contact = _LocalVault_create_lockbox_contact
 
 def _LocalVault_open_lockbox_content_key(self, path, content_key, signing_key):
+    """Returns the key."""
     return _call(self, 'vault_open_lockbox_content_key', (path, content_key, signing_key))
 LocalVault.open_lockbox_content_key = _LocalVault_open_lockbox_content_key
 
 def _LocalVault_cache_lockbox_password(self, path, password, ttl_seconds):
+    """Returns the password."""
     return _call(self, 'vault_cache_lockbox_password', (path, password, ttl_seconds))
 LocalVault.cache_lockbox_password = _LocalVault_cache_lockbox_password
 
 def _LocalVault_close_lockbox(self, path):
+    """Returns the lockbox."""
     return _call(self, 'vault_close_lockbox', (path,))
 LocalVault.close_lockbox = _LocalVault_close_lockbox
 
 def _LocalVault_close_all(self):
+    """Returns the all."""
     return _call(self, 'vault_close_all', ())
 LocalVault.close_all = _LocalVault_close_all
 
 def _LocalVault_free(self):
+    """Releases the native resources held by this object."""
     return _call(self, 'vault_free', ())
 LocalVault.free = _LocalVault_free
 

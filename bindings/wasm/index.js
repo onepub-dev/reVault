@@ -53,10 +53,16 @@ function wrap(value) {
   });
 }
 
+/** Entry point for the hosted WASM form of the complete reVault facade. */
 export class Vault {
+  /** Creates a facade whose binding calls are dispatched through the WASM runtime. */
   constructor() { return wrap(new host.Vault()); }
 }
+/** Constructs a generated Protobuf result message by qualified name. */
 export const createMessage = host.createMessage;
+/** Serializes a generated Protobuf result message. */
 export const encodeMessage = host.encodeMessage;
+/** Generated Protobuf message namespace. */
 export const revault = host.revault;
+/** Returns the number of binding calls dispatched through the WASM runtime. */
 export function wasmDispatchCount() { return runtime.calls; }

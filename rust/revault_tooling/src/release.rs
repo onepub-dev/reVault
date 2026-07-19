@@ -8,7 +8,7 @@ use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 use tar::{Builder as TarBuilder, Header};
@@ -711,7 +711,6 @@ fn assemble_packages(args: AssemblePackages) -> Result {
     require_version(&output.join("dart/pubspec.yaml"), &args.version)?;
     copy_tree(&bindings.join("php"), &output.join("composer"))?;
     copy_tree(&layout.join("php/native"), &output.join("composer/native"))?;
-    replace_release_version(&output.join("composer/composer.json"), &args.version)?;
     assemble_go(&source, &layout, output, &manifest)?;
     for (name, destination) in [
         ("rust", "cargo/revault-api"),
@@ -1248,7 +1247,7 @@ fn go_platform(target: &str) -> Result<(&'static str, &'static str, &'static str
     })
 }
 
-pub fn publish_migration(repository: &Path, publish: bool) -> Result {
+pub fn publish_cli(repository: &Path, publish: bool) -> Result {
     let rust = repository.canonicalize()?.join("rust");
     let packages = [
         "revault_lockbox_api",
@@ -1263,6 +1262,11 @@ pub fn publish_migration(repository: &Path, publish: bool) -> Result {
     for package in packages {
         let manifest = find_package_manifest(&rust, package)?;
         let version = manifest_value(&manifest, "version")?;
+        let release = format!("{package}@{version}");
+        if crate_is_published(&rust, &release)? {
+            println!("skipping {release}: already published on crates.io");
+            continue;
+        }
         let mut command = Command::new("cargo");
         command
             .current_dir(&rust)
@@ -1272,15 +1276,9 @@ pub fn publish_migration(repository: &Path, publish: bool) -> Result {
         }
         run_process(&mut command)?;
         if publish {
-            let release = format!("{package}@{version}");
             let mut visible = false;
             for _ in 0..30 {
-                if Command::new("cargo")
-                    .current_dir(&rust)
-                    .args(["info", &release, "--registry", "crates-io"])
-                    .status()
-                    .is_ok_and(|status| status.success())
-                {
+                if crate_is_published(&rust, &release)? {
                     visible = true;
                     break;
                 }
@@ -1295,6 +1293,16 @@ pub fn publish_migration(repository: &Path, publish: bool) -> Result {
         }
     }
     Ok(())
+}
+
+fn crate_is_published(rust: &Path, release: &str) -> Result<bool> {
+    Ok(Command::new("cargo")
+        .current_dir(rust)
+        .args(["info", release, "--registry", "crates-io"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?
+        .success())
 }
 
 fn find_package_manifest(rust: &Path, package: &str) -> Result<PathBuf> {

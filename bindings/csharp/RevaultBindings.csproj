@@ -6,13 +6,16 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
     <PackageId>Revault.Api</PackageId>
     <Version>0.2.0</Version>
     <Authors>OnePub</Authors>
     <Description>Complete class-based reVault lockbox and vault API.</Description>
+    <PackageProjectUrl>https://github.com/onepub-dev/reVault</PackageProjectUrl>
+    <PackageTags>encryption;credentials;archive;security;vault</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <RepositoryUrl>https://github.com/onepub-dev/reVault</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>

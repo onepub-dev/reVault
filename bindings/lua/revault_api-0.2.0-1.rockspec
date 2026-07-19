@@ -3,6 +3,10 @@ version = "0.2.0-1"
 source = { url = "https://github.com/onepub-dev/reVault" }
 description = {
   summary = "Complete class-based reVault lockbox and vault API",
+  detailed = [[
+    Encrypt files, credentials, keys, and typed records in portable lockboxes,
+    and manage local vault metadata through an owned LuaJIT FFI API.
+  ]],
   homepage = "https://github.com/onepub-dev/reVault",
   license = "reVault Source Available License 1.0"
 }

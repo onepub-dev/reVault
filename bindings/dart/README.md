@@ -13,7 +13,11 @@ dependencies:
 ```dart
 final vault = await Vault.load();
 final box = vault.createLockbox(Uint8List(32)); // load a real key securely
-box.addFile('/hello.txt', Uint8List.fromList('hello\n'.codeUnits), false);
+box.addFile(
+  '/hello.txt',
+  Uint8List.fromList('hello\n'.codeUnits),
+  replace: false,
+);
 box.setVariable('owner', 'alice');
 box.setSecretVariable('token', Uint8List.fromList('secret'.codeUnits));
 box.withSecretVariable('token', (token) => token.length);

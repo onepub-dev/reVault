@@ -10,6 +10,7 @@
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
 // ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 // ignore_for_file: unused_import
+// ignore_for_file: public_member_api_docs
 
 import 'dart:convert' as $convert;
 import 'dart:core' as $core;

@@ -4,9 +4,10 @@ using System.Runtime.InteropServices;
 namespace Revault;
 
 [StructLayout(LayoutKind.Sequential)]
-public struct RevaultBuffer { public IntPtr Ptr; public nuint Length; }
+internal struct RevaultBuffer { public IntPtr Ptr; public nuint Length; }
 
-public static partial class RevaultNative {
+internal static partial class RevaultNative
+{
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern uint api_abi_version();
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]

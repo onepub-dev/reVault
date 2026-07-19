@@ -41,7 +41,19 @@ mavenPublishing {
                 url = 'https://github.com/onepub-dev/reVault/blob/master/rust/revault_lockbox_api/LICENSE'
             }
         }
-        scm { url = 'https://github.com/onepub-dev/reVault' }
-        developers { developer { id = 'onepub'; name = 'OnePub' } }
+        scm {
+            connection = 'scm:git:https://github.com/onepub-dev/reVault.git'
+            developerConnection = 'scm:git:ssh://git@github.com/onepub-dev/reVault.git'
+            url = 'https://github.com/onepub-dev/reVault'
+        }
+        developers {
+            developer {
+                id = 'onepub'
+                name = 'OnePub'
+                email = 'bsutton@onepub.dev'
+                organization = 'OnePub'
+                organizationUrl = 'https://onepub.dev'
+            }
+        }
     }
 }

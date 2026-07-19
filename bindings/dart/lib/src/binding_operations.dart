@@ -1,9 +1,11 @@
 // Generated complete typed operation layer. Do not edit by hand.
+// ignore_for_file: public_member_api_docs
+
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
-import '../revault_native.dart';
+import 'revault_native.dart';
 import 'generated/revault_bindings.pb.dart' as pb;
 
 final class BindingOperations {
@@ -16,17 +18,23 @@ final class BindingOperations {
   String get lastError =>
       native.buffer_last_error().cast<Utf8>().toDartString();
   bool _requireBool(bool value) {
-    if (!value) throw StateError(lastError);
+    if (!value) {
+      throw StateError(lastError);
+    }
     return true;
   }
 
   ffi.Pointer<ffi.Void> _requireHandle(ffi.Pointer<ffi.Void> value) {
-    if (value == ffi.nullptr) throw StateError(lastError);
+    if (value == ffi.nullptr) {
+      throw StateError(lastError);
+    }
     return value;
   }
 
   Uint8List _take(RevaultBuffer value) {
-    if (value.ptr == ffi.nullptr) throw StateError(lastError);
+    if (value.ptr == ffi.nullptr) {
+      throw StateError(lastError);
+    }
     final result = Uint8List.fromList(value.ptr.asTypedList(value.len));
     native.buffer_free(value);
     return result;
@@ -35,11 +43,13 @@ final class BindingOperations {
   String _takeString(RevaultBuffer value) => utf8.decode(_take(value));
   Uint8List _payload(RevaultBuffer value) {
     final frame = _take(value);
-    if (frame.length < 12 || ascii.decode(frame.sublist(0, 4)) != 'LBWF')
+    if (frame.length < 12 || ascii.decode(frame.sublist(0, 4)) != 'LBWF') {
       throw StateError('invalid reVault binding frame');
+    }
     final length = ByteData.sublistView(frame, 8, 12).getUint32(0);
-    if (length != frame.length - 12)
+    if (length != frame.length - 12) {
       throw StateError('invalid reVault binding frame length');
+    }
     return Uint8List.sublistView(frame, 12);
   }
 
@@ -648,8 +658,10 @@ final class BindingOperations {
     ),
   );
 
-  pb.VariableList lockboxListVariables(ffi.Pointer<ffi.Void> handle) => pb
-      .VariableList.fromBuffer(_payload(native.lockbox_list_variables(handle)));
+  pb.VariableList lockboxListVariables(ffi.Pointer<ffi.Void> handle) =>
+      pb.VariableList.fromBuffer(
+        _payload(native.lockbox_list_variables(handle)),
+      );
 
   pb.OptionalString lockboxVariableSensitivity(
     ffi.Pointer<ffi.Void> handle,
@@ -804,8 +816,10 @@ final class BindingOperations {
   bool lockboxDeleteKey(ffi.Pointer<ffi.Void> handle, int id) =>
       _requireBool(native.lockbox_delete_key(handle, id));
 
-  pb.KeySlotList lockboxListKeySlots(ffi.Pointer<ffi.Void> handle) => pb
-      .KeySlotList.fromBuffer(_payload(native.lockbox_list_key_slots(handle)));
+  pb.KeySlotList lockboxListKeySlots(ffi.Pointer<ffi.Void> handle) =>
+      pb.KeySlotList.fromBuffer(
+        _payload(native.lockbox_list_key_slots(handle)),
+      );
 
   bool lockboxSetOwnerSigningKey(
     ffi.Pointer<ffi.Void> handle,

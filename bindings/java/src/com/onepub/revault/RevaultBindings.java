@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Java 22+ FFM wrapper for the shared reVault C ABI. */
-public final class RevaultBindings {
+final class RevaultBindings {
   public enum ProfileGenerationStatus { ACTIVE, RETIRED, COMPROMISED }
   public record ProfileGeneration(int index, ProfileGenerationStatus status, byte[] contactFingerprint,
       long createdAtUnixMs, Long retiredAtUnixMs) {}

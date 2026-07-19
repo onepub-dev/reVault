@@ -19,27 +19,34 @@ LANGUAGE = "python"
 
 
 def passed(symbol: str, assertions: int) -> None:
+    """Report a successfully exercised ABI symbol and assertion count."""
     print(f"PASS\t{LANGUAGE}\t{symbol}\t{assertions}", flush=True)
 
 
 def check(condition: bool, message: str) -> None:
+    """Raise an assertion failure with context when a conformance check fails."""
     if not condition:
         raise AssertionError(message)
 
 
 def data(value: bytes) -> ctypes.Array[ctypes.c_char]:
+    """Copy bytes into a stable mutable buffer suitable for native calls."""
     return ctypes.create_string_buffer(value, len(value))
 
 
 class Runtime:
+    """Own the loaded native library and decode its ABI return conventions."""
+
     def __init__(self) -> None:
         library = os.environ.get("REVAULT_LIBRARY")
         self.lib = binding.load(library) if library else binding.load()
 
     def error(self) -> str:
+        """Return the most recent native error message."""
         return self.lib.buffer_last_error().decode()
 
     def raw(self, result, expected: bytes | None = None) -> bytes:
+        """Copy and free a native buffer, optionally validating its payload."""
         check(bool(result.ptr), f"expected returned buffer: {self.error()}")
         value = ctypes.string_at(result.ptr, result.len)
         self.lib.buffer_free(result)
@@ -49,6 +56,7 @@ class Runtime:
         return value
 
     def frame(self, result) -> bytes:
+        """Validate a binding frame and return its protobuf payload."""
         value = self.raw(result)
         check(len(value) >= 12 and value[:4] == b"LBWF", "binding frame magic")
         length = int.from_bytes(value[8:12], "big")
@@ -56,10 +64,12 @@ class Runtime:
         return value[12:]
 
     def bool(self, value: bool, operation: str) -> None:
+        """Validate a native Boolean success result for an operation."""
         check(bool(value), f"{operation}: {self.error()}")
 
 
 def archive_lifecycle(runtime: Runtime) -> None:
+    """Exercise the core lockbox archive lifecycle."""
     lib = runtime.lib
     key = data(b"K" * 32)
     hello = data(b"hello from python conformance")
@@ -216,6 +226,7 @@ def archive_lifecycle(runtime: Runtime) -> None:
 
 
 def key_lifecycle(runtime: Runtime) -> None:
+    """Exercise contact, signing, wrapping, and key-format operations."""
     lib = runtime.lib
     content = bytes(range(32))
     content_data = data(content)
@@ -323,6 +334,7 @@ def key_lifecycle(runtime: Runtime) -> None:
 
 
 def advanced_archive(runtime: Runtime) -> None:
+    """Exercise forms, recovery, ownership, and advanced lockbox operations."""
     lib = runtime.lib
     key_bytes = b"1" * 32
     key = data(key_bytes)
@@ -551,6 +563,7 @@ def advanced_archive(runtime: Runtime) -> None:
 
 
 def vault_lifecycle(runtime: Runtime) -> None:
+    """Exercise persistent vault-directory operations."""
     lib = runtime.lib
     artifact_dir = Path(os.environ.get("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts")) / LANGUAGE
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -739,6 +752,7 @@ def vault_lifecycle(runtime: Runtime) -> None:
 
 
 def default_vault_lifecycle(runtime: Runtime) -> None:
+    """Exercise operations on the platform default vault directory."""
     lib = runtime.lib
     base = Path(os.environ.get("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts")) / LANGUAGE
     root = base / "default-vault"
@@ -776,6 +790,7 @@ def default_vault_lifecycle(runtime: Runtime) -> None:
 
 
 def platform_secret_store(runtime: Runtime) -> None:
+    """Exercise the platform-backed vault password store."""
     lib = runtime.lib
     base = Path(os.environ.get("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts")) / LANGUAGE / "platform-vault"
     base.mkdir(parents=True, exist_ok=True)
@@ -806,6 +821,7 @@ def platform_secret_store(runtime: Runtime) -> None:
 
 
 def interop_open(runtime: Runtime, producer: str) -> None:
+    """Open and validate artifacts produced by another language binding."""
     base = Path(os.environ.get("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts")) / producer
     archive = (base / "archive.lbox").read_bytes()
     archive_data, key = data(archive), data(b"K" * 32)
@@ -826,6 +842,7 @@ def interop_open(runtime: Runtime, producer: str) -> None:
 
 
 def agent_and_local_vault(runtime: Runtime) -> None:
+    """Exercise the session agent and local-vault convenience API."""
     lib = runtime.lib
     agent_dir = Path(tempfile.mkdtemp(prefix="revault-python-agent-"))
     agent_vault_dir = Path(tempfile.mkdtemp(prefix="revault-python-agent-vault-"))
@@ -976,6 +993,7 @@ def agent_and_local_vault(runtime: Runtime) -> None:
 
 
 def main() -> None:
+    """Run the requested Python ABI conformance scenario."""
     runtime = Runtime()
     if len(sys.argv) == 3 and sys.argv[1] == "--interop":
         interop_open(runtime, sys.argv[2])

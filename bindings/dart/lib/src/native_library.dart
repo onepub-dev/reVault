@@ -1,3 +1,6 @@
+// Package-private native-library discovery.
+// ignore_for_file: public_member_api_docs
+
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
@@ -47,10 +50,9 @@ String _target() {
     'linux' => 'linux-$architecture-gnu',
     'macos' => 'macos-$architecture',
     'windows' => 'windows-$architecture-msvc',
-    _ =>
-      throw UnsupportedError(
-        'Unsupported operating system: ${Platform.operatingSystem}',
-      ),
+    _ => throw UnsupportedError(
+      'Unsupported operating system: ${Platform.operatingSystem}',
+    ),
   };
 }
 
@@ -58,8 +60,7 @@ String _libraryName() => switch (Platform.operatingSystem) {
   'linux' => 'librevault_api.so',
   'macos' => 'librevault_api.dylib',
   'windows' => 'revault_api.dll',
-  _ =>
-    throw UnsupportedError(
-      'Unsupported operating system: ${Platform.operatingSystem}',
-    ),
+  _ => throw UnsupportedError(
+    'Unsupported operating system: ${Platform.operatingSystem}',
+  ),
 };

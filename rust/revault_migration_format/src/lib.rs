@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Versioned, encrypted, authenticated, streaming migration artifacts shared
 //! by historical reVault exporters and current importers.
 

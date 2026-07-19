@@ -87,7 +87,7 @@ def load(path: Optional[str | Path] = None) -> ctypes.CDLL:
     if library.api_abi_version() != 2:
         raise RuntimeError("revault-api native ABI mismatch; expected 2")
 
-    from .revault_native import configure_native
+    from ._revault_native import configure_native
 
     configure_native(library, _Buffer)
     return library

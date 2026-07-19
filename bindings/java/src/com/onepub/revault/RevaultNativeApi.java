@@ -4,7 +4,7 @@ import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 
 /** Generated complete FFM surface for revault_api.h. */
-public final class RevaultNativeApi {
+final class RevaultNativeApi {
   private static final MemoryLayout BUFFER = MemoryLayout.structLayout(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
   private final Linker linker;
   private final SymbolLookup symbols;

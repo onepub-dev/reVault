@@ -25,6 +25,7 @@ packages = ["revault_cli"]
 tag-namespace = "revault_cli-v"
 github-attestations = true
 pr-run-mode = "plan"
+publish-jobs = ["./revault-cli-crates"]
 
 [workspace.metadata.dist.dependencies.apt]
 libdbus-1-dev = "*"

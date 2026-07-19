@@ -33,7 +33,7 @@ static fs::path artifact_root() {
 static std::vector<std::uint8_t> bytes(const std::string& value) {
   return {value.begin(), value.end()};
 }
-static std::vector<std::uint8_t> copy(const Buffer& value) { return value.bytes(); }
+static std::vector<std::uint8_t> copy(const std::vector<std::uint8_t>& value) { return value; }
 static void write(const fs::path& path, const std::vector<std::uint8_t>& value) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   output.write(reinterpret_cast<const char*>(value.data()), value.size());

@@ -1,6 +1,6 @@
 package com.onepub.revault;
 
-public final class RevaultAbiSymbols {
+final class RevaultAbiSymbols {
   private RevaultAbiSymbols() {}
   public static final String[] ALL = {
     "api_abi_version",
