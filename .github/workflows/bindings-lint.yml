@@ -92,7 +92,7 @@ jobs:
           cargo doc --locked --no-deps --all-features \
             -p revault_page_api@0.0.3 -p revault_lockbox_api@0.0.4 \
             -p revault_vault_api@0.0.4 -p revault_bindings@0.2.0 \
-            -p revault_wasm_bindings@0.0.1 -p revault_wire@0.0.1 \
+            -p revault_wasm_bindings@0.0.1 \
             -p revault_migration_format@0.0.1 -p revault_migrate_vault_v1@0.0.1 \
             -p revault_migrate_archive_v1@0.0.2 -p revault_migration@0.0.1 \
             -p revault_publish_protocol@0.0.3 -p revault_key_server@0.0.5

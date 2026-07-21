@@ -23,7 +23,7 @@ use revault_lockbox_api::Result as LockboxResult;
 
 // flatc 25.2.10 predates Rust 2024's explicit unsafe-block requirement. Keep
 // that compatibility allowance confined to generated private transport code.
-#[allow(missing_docs, unsafe_op_in_unsafe_fn, unused_imports)]
+#[allow(missing_docs, unsafe_op_in_unsafe_fn, unused_imports, clippy::all)]
 mod bindings_flatbuffers {
     include!("generated/revault_bindings_generated.rs");
 }

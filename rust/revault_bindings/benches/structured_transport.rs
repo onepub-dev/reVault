@@ -4,7 +4,7 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use prost::Message;
 use std::hint::black_box;
 
-#[allow(missing_docs, unsafe_op_in_unsafe_fn, unused_imports)]
+#[allow(missing_docs, unsafe_op_in_unsafe_fn, unused_imports, clippy::all)]
 mod transport {
     include!("../src/generated/revault_bindings_generated.rs");
 }
