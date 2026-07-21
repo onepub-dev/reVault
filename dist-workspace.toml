@@ -1,2 +1,23 @@
 [workspace]
 members = ["cargo:rust"]
+
+[dist]
+cargo-dist-version = "0.31.0"
+ci = ["github"]
+packages = ["revault_cli"]
+tag-namespace = "revault_cli-v"
+github-attestations = true
+pr-run-mode = "plan"
+publish-jobs = ["./revault-cli-crates"]
+
+[dist.dependencies.apt]
+libdbus-1-dev = "*"
+pkg-config = "*"
+
+[dist.github-custom-runners]
+global = "ubuntu-24.04"
+x86_64-unknown-linux-gnu = "ubuntu-24.04"
+aarch64-unknown-linux-gnu = "ubuntu-24.04-arm"
+x86_64-apple-darwin = "macos-15-intel"
+aarch64-apple-darwin = "macos-15"
+x86_64-pc-windows-msvc = "windows-2025"
