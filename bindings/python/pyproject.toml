@@ -7,7 +7,7 @@ name = "revault-api"
 version = "0.2.0"
 description = "Python ctypes bindings for reVault"
 requires-python = ">=3.10"
-dependencies = ["protobuf>=3.20"]
+dependencies = ["flatbuffers>=25.2.10,<26"]
 license-files = ["LICENSE"]
 license = "LicenseRef-reVault-Source-Available-1.0"
 readme = "README.md"
@@ -39,7 +39,7 @@ revault_api = ["_native/**/*"]
 
 [tool.ruff]
 target-version = "py310"
-extend-exclude = ["**/revault_bindings_pb2.py"]
+extend-exclude = ["**/_flatbuffers/**"]
 
 [tool.ruff.lint]
 select = ["D100", "D101", "D102", "D103", "E4", "E7", "E9", "F"]

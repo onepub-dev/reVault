@@ -1,15 +1,13 @@
-using Google.Protobuf;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
-using Revault.Bindings;
 
 namespace Revault;
 
 /// <summary>Generated complete, typed C# surface for every exported operation.</summary>
 internal sealed class BindingOperations
 {
-    public BindingOperations() { if (RevaultNative.api_abi_version() != 2) throw new DllNotFoundException("revault-api native ABI mismatch; expected 2"); }
+    public BindingOperations() { if (RevaultNative.api_abi_version() != 3) throw new DllNotFoundException("revault-api native ABI mismatch; expected 3"); }
     private static string LastError() => Marshal.PtrToStringUTF8(RevaultNative.buffer_last_error()) ?? "native operation failed";
     private static bool Require(bool value) { if (!value) throw new InvalidOperationException(LastError()); return true; }
     private static IntPtr Require(IntPtr value) { if (value == IntPtr.Zero) throw new InvalidOperationException(LastError()); return value; }
@@ -48,21 +46,17 @@ internal sealed class BindingOperations
         }
         finally { RevaultNative.secret_free(handle); }
     }
-    private static T Frame<T>(RevaultBuffer value, MessageParser<T> parser) where T : IMessage<T>
+    private static T Frame<T>(RevaultBuffer value, Func<byte[], T> parser)
     {
         var frame = Take(value);
-        if (frame.Length < 12 || frame[0] != 'L' || frame[1] != 'B' || frame[2] != 'W' || frame[3] != 'F')
-            throw new InvalidOperationException("invalid reVault binding frame");
-        var length = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(frame.AsSpan(8, 4));
-        if (length != frame.Length - 12) throw new InvalidOperationException("invalid reVault binding frame length");
-        return parser.ParseFrom(frame, 12, checked((int)length));
+        return parser(frame);
     }
 
     public string LastErrorMessage() => LastError();
 
-    public unsafe Revault.Bindings.ErrorDetails BufferLastErrorDetails()
+    public unsafe ErrorDetails BufferLastErrorDetails()
     {
-        return Frame(RevaultNative.buffer_last_error_details(), Revault.Bindings.ErrorDetails.Parser);
+        return Frame(RevaultNative.buffer_last_error_details(), DomainCodec.ErrorDetails);
     }
 
     public unsafe ushort LockboxFormatVersion()
@@ -183,19 +177,19 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_extract_directory(handle, (IntPtr)destinationBytesPointer, (nuint)destinationBytes.Length, maxFileBytes, maxTotalBytes, maxFiles, restoreSymlinks, restorePermissions, overwrite)); }
     }
 
-    public unsafe Revault.Bindings.StreamChunkList LockboxStreamContent(IntPtr handle, bool physical)
+    public unsafe IReadOnlyList<StreamChunk> LockboxStreamContent(IntPtr handle, bool physical)
     {
-        return Frame(RevaultNative.lockbox_stream_content(handle, physical), Revault.Bindings.StreamChunkList.Parser);
+        return Frame(RevaultNative.lockbox_stream_content(handle, physical), DomainCodec.StreamChunkList);
     }
 
-    public unsafe Revault.Bindings.CacheStats LockboxCacheStats(IntPtr handle)
+    public unsafe CacheStats LockboxCacheStats(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_cache_stats(handle), Revault.Bindings.CacheStats.Parser);
+        return Frame(RevaultNative.lockbox_cache_stats(handle), DomainCodec.CacheStats);
     }
 
-    public unsafe Revault.Bindings.ImportStats LockboxImportStats(IntPtr handle)
+    public unsafe ImportStats LockboxImportStats(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_import_stats(handle), Revault.Bindings.ImportStats.Parser);
+        return Frame(RevaultNative.lockbox_import_stats(handle), DomainCodec.ImportStats);
     }
 
     public unsafe bool LockboxResetImportStats(IntPtr handle)
@@ -203,21 +197,21 @@ internal sealed class BindingOperations
         return Require(RevaultNative.lockbox_reset_import_stats(handle));
     }
 
-    public unsafe Revault.Bindings.FileInspection LockboxInspectFile(string path)
+    public unsafe FileInspection LockboxInspectFile(string path)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         fixed (byte* pathBytesPointer = pathBytes)
-        { return Frame(RevaultNative.lockbox_inspect_file((IntPtr)pathBytesPointer, (nuint)pathBytes.Length), Revault.Bindings.FileInspection.Parser); }
+        { return Frame(RevaultNative.lockbox_inspect_file((IntPtr)pathBytesPointer, (nuint)pathBytes.Length), DomainCodec.FileInspection); }
     }
 
-    public unsafe Revault.Bindings.PageInspectionList LockboxPageInspection(IntPtr handle)
+    public unsafe IReadOnlyList<PageInspection> LockboxPageInspection(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_page_inspection(handle), Revault.Bindings.PageInspectionList.Parser);
+        return Frame(RevaultNative.lockbox_page_inspection(handle), DomainCodec.PageInspectionList);
     }
 
-    public unsafe Revault.Bindings.RecoveryReport LockboxRecoveryReport(IntPtr handle)
+    public unsafe RecoveryReport LockboxRecoveryReport(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_recovery_report(handle), Revault.Bindings.RecoveryReport.Parser);
+        return Frame(RevaultNative.lockbox_recovery_report(handle), DomainCodec.RecoveryReport);
     }
 
     public unsafe string LockboxRecoveryReportRender(IntPtr handle, bool verbose, nuint maxEntries)
@@ -225,12 +219,12 @@ internal sealed class BindingOperations
         return TakeString(RevaultNative.lockbox_recovery_report_render(handle, verbose, maxEntries));
     }
 
-    public unsafe Revault.Bindings.RecoveryReport LockboxRecoveryScanPath(string path, byte[] key)
+    public unsafe RecoveryReport LockboxRecoveryScanPath(string path, byte[] key)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         fixed (byte* pathBytesPointer = pathBytes)
         fixed (byte* keyPointer = key)
-        { return Frame(RevaultNative.lockbox_recovery_scan_path((IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)keyPointer, (nuint)key.Length), Revault.Bindings.RecoveryReport.Parser); }
+        { return Frame(RevaultNative.lockbox_recovery_scan_path((IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)keyPointer, (nuint)key.Length), DomainCodec.RecoveryReport); }
     }
 
     public unsafe ulong LockboxStorageLen(IntPtr handle)
@@ -252,9 +246,9 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_set_worker_policy(handle, (IntPtr)modeBytesPointer, (nuint)modeBytes.Length, jobs)); }
     }
 
-    public unsafe Revault.Bindings.RuntimeOptions LockboxRuntimeOptions(IntPtr handle)
+    public unsafe RuntimeOptions LockboxRuntimeOptions(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_runtime_options(handle), Revault.Bindings.RuntimeOptions.Parser);
+        return Frame(RevaultNative.lockbox_runtime_options(handle), DomainCodec.RuntimeOptions);
     }
 
     public unsafe bool LockboxCommit(IntPtr handle)
@@ -299,27 +293,27 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_rename(handle, (IntPtr)fromBytesPointer, (nuint)fromBytes.Length, (IntPtr)toBytesPointer, (nuint)toBytes.Length)); }
     }
 
-    public unsafe Revault.Bindings.LockboxEntryList LockboxList(IntPtr handle, string path, bool recursive)
+    public unsafe IReadOnlyList<LockboxEntry> LockboxList(IntPtr handle, string path, bool recursive)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         fixed (byte* pathBytesPointer = pathBytes)
-        { return Frame(RevaultNative.lockbox_list(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, recursive), Revault.Bindings.LockboxEntryList.Parser); }
+        { return Frame(RevaultNative.lockbox_list(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, recursive), DomainCodec.LockboxEntryList); }
     }
 
-    public unsafe Revault.Bindings.LockboxEntryList LockboxListWithOptions(IntPtr handle, string path, string glob, bool recursive, bool includeFiles, bool includeSymlinks, bool includeDirectories, nuint limit)
+    public unsafe IReadOnlyList<LockboxEntry> LockboxListWithOptions(IntPtr handle, string path, string glob, bool recursive, bool includeFiles, bool includeSymlinks, bool includeDirectories, nuint limit)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         var globBytes = Encoding.UTF8.GetBytes(glob);
         fixed (byte* pathBytesPointer = pathBytes)
         fixed (byte* globBytesPointer = globBytes)
-        { return Frame(RevaultNative.lockbox_list_with_options(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)globBytesPointer, (nuint)globBytes.Length, recursive, includeFiles, includeSymlinks, includeDirectories, limit), Revault.Bindings.LockboxEntryList.Parser); }
+        { return Frame(RevaultNative.lockbox_list_with_options(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)globBytesPointer, (nuint)globBytes.Length, recursive, includeFiles, includeSymlinks, includeDirectories, limit), DomainCodec.LockboxEntryList); }
     }
 
-    public unsafe Revault.Bindings.OptionalLockboxEntry LockboxStat(IntPtr handle, string path)
+    public unsafe LockboxEntry? LockboxStat(IntPtr handle, string path)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         fixed (byte* pathBytesPointer = pathBytes)
-        { return Frame(RevaultNative.lockbox_stat(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length), Revault.Bindings.OptionalLockboxEntry.Parser); }
+        { return Frame(RevaultNative.lockbox_stat(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length), DomainCodec.OptionalLockboxEntry); }
     }
 
     public unsafe bool LockboxSetVariable(IntPtr handle, string name, string value)
@@ -339,11 +333,11 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_set_secret_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, (IntPtr)valuePointer, (nuint)value.Length)); }
     }
 
-    public unsafe Revault.Bindings.OptionalString LockboxGetVariable(IntPtr handle, string name)
+    public unsafe string? LockboxGetVariable(IntPtr handle, string name)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
         fixed (byte* nameBytesPointer = nameBytes)
-        { return Frame(RevaultNative.lockbox_get_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), Revault.Bindings.OptionalString.Parser); }
+        { return Frame(RevaultNative.lockbox_get_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.OptionalString); }
     }
 
     public unsafe T? LockboxWithSecretVariable<T>(IntPtr handle, string name, SecretCallback<T> callback)
@@ -362,22 +356,22 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_delete_variable(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length)); }
     }
 
-    public unsafe bool LockboxMoveVariables(IntPtr handle, byte[] movesProto)
+    public unsafe bool LockboxMoveVariables(IntPtr handle, byte[] movesFlatbuffer)
     {
-        fixed (byte* movesProtoPointer = movesProto)
-        { return Require(RevaultNative.lockbox_move_variables(handle, (IntPtr)movesProtoPointer, (nuint)movesProto.Length)); }
+        fixed (byte* movesFlatbufferPointer = movesFlatbuffer)
+        { return Require(RevaultNative.lockbox_move_variables(handle, (IntPtr)movesFlatbufferPointer, (nuint)movesFlatbuffer.Length)); }
     }
 
-    public unsafe Revault.Bindings.VariableList LockboxListVariables(IntPtr handle)
+    public unsafe IReadOnlyList<Variable> LockboxListVariables(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_list_variables(handle), Revault.Bindings.VariableList.Parser);
+        return Frame(RevaultNative.lockbox_list_variables(handle), DomainCodec.VariableList);
     }
 
-    public unsafe Revault.Bindings.OptionalString LockboxVariableSensitivity(IntPtr handle, string name)
+    public unsafe string? LockboxVariableSensitivity(IntPtr handle, string name)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
         fixed (byte* nameBytesPointer = nameBytes)
-        { return Frame(RevaultNative.lockbox_variable_sensitivity(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), Revault.Bindings.OptionalString.Parser); }
+        { return Frame(RevaultNative.lockbox_variable_sensitivity(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.OptionalString); }
     }
 
     public unsafe bool LockboxAddSymlink(IntPtr handle, string path, string target, bool replace)
@@ -436,11 +430,11 @@ internal sealed class BindingOperations
         { return Take(RevaultNative.lockbox_read_range(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, offset, len)); }
     }
 
-    public unsafe Revault.Bindings.RecoveryReport LockboxRecoveryScan(byte[] bytes, byte[] key)
+    public unsafe RecoveryReport LockboxRecoveryScan(byte[] bytes, byte[] key)
     {
         fixed (byte* bytesPointer = bytes)
         fixed (byte* keyPointer = key)
-        { return Frame(RevaultNative.lockbox_recovery_scan((IntPtr)bytesPointer, (nuint)bytes.Length, (IntPtr)keyPointer, (nuint)key.Length), Revault.Bindings.RecoveryReport.Parser); }
+        { return Frame(RevaultNative.lockbox_recovery_scan((IntPtr)bytesPointer, (nuint)bytes.Length, (IntPtr)keyPointer, (nuint)key.Length), DomainCodec.RecoveryReport); }
     }
 
     public unsafe IntPtr LockboxRecoverySalvage(byte[] bytes, byte[] key, IntPtr signingKey)
@@ -468,9 +462,9 @@ internal sealed class BindingOperations
         return Require(RevaultNative.lockbox_delete_key(handle, id));
     }
 
-    public unsafe Revault.Bindings.KeySlotList LockboxListKeySlots(IntPtr handle)
+    public unsafe IReadOnlyList<KeySlot> LockboxListKeySlots(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_list_key_slots(handle), Revault.Bindings.KeySlotList.Parser);
+        return Frame(RevaultNative.lockbox_list_key_slots(handle), DomainCodec.KeySlotList);
     }
 
     public unsafe bool LockboxSetOwnerSigningKey(IntPtr handle, IntPtr key)
@@ -478,12 +472,12 @@ internal sealed class BindingOperations
         return Require(RevaultNative.lockbox_set_owner_signing_key(handle, key));
     }
 
-    public unsafe Revault.Bindings.OwnerInspection LockboxOwnerInspection(IntPtr handle)
+    public unsafe OwnerInspection LockboxOwnerInspection(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_owner_inspection(handle), Revault.Bindings.OwnerInspection.Parser);
+        return Frame(RevaultNative.lockbox_owner_inspection(handle), DomainCodec.OwnerInspection);
     }
 
-    public unsafe Revault.Bindings.FormDefinition LockboxDefineForm(IntPtr handle, string alias, string name, string description, byte[] fieldsProto)
+    public unsafe FormDefinition LockboxDefineForm(IntPtr handle, string alias, string name, string description, byte[] fieldsFlatbuffer)
     {
         var aliasBytes = Encoding.UTF8.GetBytes(alias);
         var nameBytes = Encoding.UTF8.GetBytes(name);
@@ -491,30 +485,30 @@ internal sealed class BindingOperations
         fixed (byte* aliasBytesPointer = aliasBytes)
         fixed (byte* nameBytesPointer = nameBytes)
         fixed (byte* descriptionBytesPointer = descriptionBytes)
-        fixed (byte* fieldsProtoPointer = fieldsProto)
-        { return Frame(RevaultNative.lockbox_define_form(handle, (IntPtr)aliasBytesPointer, (nuint)aliasBytes.Length, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, (IntPtr)descriptionBytesPointer, (nuint)descriptionBytes.Length, (IntPtr)fieldsProtoPointer, (nuint)fieldsProto.Length), Revault.Bindings.FormDefinition.Parser); }
+        fixed (byte* fieldsFlatbufferPointer = fieldsFlatbuffer)
+        { return Frame(RevaultNative.lockbox_define_form(handle, (IntPtr)aliasBytesPointer, (nuint)aliasBytes.Length, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, (IntPtr)descriptionBytesPointer, (nuint)descriptionBytes.Length, (IntPtr)fieldsFlatbufferPointer, (nuint)fieldsFlatbuffer.Length), DomainCodec.FormDefinition); }
     }
 
-    public unsafe Revault.Bindings.FormDefinitionList LockboxListFormDefinitions(IntPtr handle)
+    public unsafe IReadOnlyList<FormDefinition> LockboxListFormDefinitions(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_list_form_definitions(handle), Revault.Bindings.FormDefinitionList.Parser);
+        return Frame(RevaultNative.lockbox_list_form_definitions(handle), DomainCodec.FormDefinitionList);
     }
 
-    public unsafe Revault.Bindings.FormDefinition LockboxResolveForm(IntPtr handle, string reference)
+    public unsafe FormDefinition LockboxResolveForm(IntPtr handle, string reference)
     {
         var referenceBytes = Encoding.UTF8.GetBytes(reference);
         fixed (byte* referenceBytesPointer = referenceBytes)
-        { return Frame(RevaultNative.lockbox_resolve_form(handle, (IntPtr)referenceBytesPointer, (nuint)referenceBytes.Length), Revault.Bindings.FormDefinition.Parser); }
+        { return Frame(RevaultNative.lockbox_resolve_form(handle, (IntPtr)referenceBytesPointer, (nuint)referenceBytes.Length), DomainCodec.FormDefinition); }
     }
 
-    public unsafe Revault.Bindings.FormDefinitionList LockboxListFormRevisions(IntPtr handle, string typeId)
+    public unsafe IReadOnlyList<FormDefinition> LockboxListFormRevisions(IntPtr handle, string typeId)
     {
         var typeIdBytes = Encoding.UTF8.GetBytes(typeId);
         fixed (byte* typeIdBytesPointer = typeIdBytes)
-        { return Frame(RevaultNative.lockbox_list_form_revisions(handle, (IntPtr)typeIdBytesPointer, (nuint)typeIdBytes.Length), Revault.Bindings.FormDefinitionList.Parser); }
+        { return Frame(RevaultNative.lockbox_list_form_revisions(handle, (IntPtr)typeIdBytesPointer, (nuint)typeIdBytes.Length), DomainCodec.FormDefinitionList); }
     }
 
-    public unsafe Revault.Bindings.FormRecord LockboxCreateFormRecord(IntPtr handle, string path, string typeReference, string name)
+    public unsafe FormRecord LockboxCreateFormRecord(IntPtr handle, string path, string typeReference, string name)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         var typeReferenceBytes = Encoding.UTF8.GetBytes(typeReference);
@@ -522,7 +516,7 @@ internal sealed class BindingOperations
         fixed (byte* pathBytesPointer = pathBytes)
         fixed (byte* typeReferenceBytesPointer = typeReferenceBytes)
         fixed (byte* nameBytesPointer = nameBytes)
-        { return Frame(RevaultNative.lockbox_create_form_record(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)typeReferenceBytesPointer, (nuint)typeReferenceBytes.Length, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), Revault.Bindings.FormRecord.Parser); }
+        { return Frame(RevaultNative.lockbox_create_form_record(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)typeReferenceBytesPointer, (nuint)typeReferenceBytes.Length, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.FormRecord); }
     }
 
     public unsafe bool LockboxSetFormField(IntPtr handle, string path, string field, string value)
@@ -546,16 +540,16 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_set_secret_form_field(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)fieldBytesPointer, (nuint)fieldBytes.Length, (IntPtr)valuePointer, (nuint)value.Length)); }
     }
 
-    public unsafe Revault.Bindings.FormRecordList LockboxListFormRecords(IntPtr handle)
+    public unsafe IReadOnlyList<FormRecord> LockboxListFormRecords(IntPtr handle)
     {
-        return Frame(RevaultNative.lockbox_list_form_records(handle), Revault.Bindings.FormRecordList.Parser);
+        return Frame(RevaultNative.lockbox_list_form_records(handle), DomainCodec.FormRecordList);
     }
 
-    public unsafe Revault.Bindings.OptionalFormRecord LockboxGetFormRecord(IntPtr handle, string path)
+    public unsafe FormRecord? LockboxGetFormRecord(IntPtr handle, string path)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         fixed (byte* pathBytesPointer = pathBytes)
-        { return Frame(RevaultNative.lockbox_get_form_record(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length), Revault.Bindings.OptionalFormRecord.Parser); }
+        { return Frame(RevaultNative.lockbox_get_form_record(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length), DomainCodec.OptionalFormRecord); }
     }
 
     public unsafe bool LockboxDeleteFormRecord(IntPtr handle, string path)
@@ -565,19 +559,19 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_delete_form_record(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length)); }
     }
 
-    public unsafe bool LockboxMoveFormRecords(IntPtr handle, byte[] movesProto)
+    public unsafe bool LockboxMoveFormRecords(IntPtr handle, byte[] movesFlatbuffer)
     {
-        fixed (byte* movesProtoPointer = movesProto)
-        { return Require(RevaultNative.lockbox_move_form_records(handle, (IntPtr)movesProtoPointer, (nuint)movesProto.Length)); }
+        fixed (byte* movesFlatbufferPointer = movesFlatbuffer)
+        { return Require(RevaultNative.lockbox_move_form_records(handle, (IntPtr)movesFlatbufferPointer, (nuint)movesFlatbuffer.Length)); }
     }
 
-    public unsafe Revault.Bindings.OptionalFormValue LockboxGetFormField(IntPtr handle, string path, string field)
+    public unsafe FormValue? LockboxGetFormField(IntPtr handle, string path, string field)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         var fieldBytes = Encoding.UTF8.GetBytes(field);
         fixed (byte* pathBytesPointer = pathBytes)
         fixed (byte* fieldBytesPointer = fieldBytes)
-        { return Frame(RevaultNative.lockbox_get_form_field(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)fieldBytesPointer, (nuint)fieldBytes.Length), Revault.Bindings.OptionalFormValue.Parser); }
+        { return Frame(RevaultNative.lockbox_get_form_field(handle, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length, (IntPtr)fieldBytesPointer, (nuint)fieldBytes.Length), DomainCodec.OptionalFormValue); }
     }
 
     public unsafe T? LockboxWithSecretFormField<T>(IntPtr handle, string path, string field, SecretCallback<T> callback)
@@ -868,24 +862,24 @@ internal sealed class BindingOperations
         return RevaultNative.vault_directory_structure_version(handle);
     }
 
-    public unsafe Revault.Bindings.StringList VaultDirectoryListPrivateKeys(IntPtr handle)
+    public unsafe IReadOnlyList<string> VaultDirectoryListPrivateKeys(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_directory_list_private_keys(handle), Revault.Bindings.StringList.Parser);
+        return Frame(RevaultNative.vault_directory_list_private_keys(handle), DomainCodec.StringList);
     }
 
-    public unsafe Revault.Bindings.StringList VaultDirectoryListPrivateKeyNames(IntPtr handle)
+    public unsafe IReadOnlyList<string> VaultDirectoryListPrivateKeyNames(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_directory_list_private_key_names(handle), Revault.Bindings.StringList.Parser);
+        return Frame(RevaultNative.vault_directory_list_private_key_names(handle), DomainCodec.StringList);
     }
 
-    public unsafe Revault.Bindings.StringList VaultDirectoryListContactNames(IntPtr handle)
+    public unsafe IReadOnlyList<string> VaultDirectoryListContactNames(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_directory_list_contact_names(handle), Revault.Bindings.StringList.Parser);
+        return Frame(RevaultNative.vault_directory_list_contact_names(handle), DomainCodec.StringList);
     }
 
-    public unsafe Revault.Bindings.StringList VaultDirectoryListFormAliases(IntPtr handle)
+    public unsafe IReadOnlyList<string> VaultDirectoryListFormAliases(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_directory_list_form_aliases(handle), Revault.Bindings.StringList.Parser);
+        return Frame(RevaultNative.vault_directory_list_form_aliases(handle), DomainCodec.StringList);
     }
 
     public unsafe bool VaultDirectoryPrivateKeyExists(IntPtr handle, string name)
@@ -951,9 +945,9 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.vault_directory_delete_contact(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length)); }
     }
 
-    public unsafe Revault.Bindings.ContactList VaultDirectoryListContacts(IntPtr handle)
+    public unsafe IReadOnlyList<Contact> VaultDirectoryListContacts(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_directory_list_contacts(handle), Revault.Bindings.ContactList.Parser);
+        return Frame(RevaultNative.vault_directory_list_contacts(handle), DomainCodec.ContactList);
     }
 
     public unsafe bool VaultDirectoryStoreProfileEmail(IntPtr handle, string name, string email)
@@ -965,11 +959,11 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.vault_directory_store_profile_email(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, (IntPtr)emailBytesPointer, (nuint)emailBytes.Length)); }
     }
 
-    public unsafe Revault.Bindings.OptionalString VaultDirectoryProfileEmail(IntPtr handle, string name)
+    public unsafe string? VaultDirectoryProfileEmail(IntPtr handle, string name)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
         fixed (byte* nameBytesPointer = nameBytes)
-        { return Frame(RevaultNative.vault_directory_profile_email(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), Revault.Bindings.OptionalString.Parser); }
+        { return Frame(RevaultNative.vault_directory_profile_email(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.OptionalString); }
     }
 
     public unsafe bool VaultDirectoryStoreBackup(IntPtr handle, byte[] id, byte[] bytes)
@@ -1025,18 +1019,18 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.vault_directory_load_contact_signing_key(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length)); }
     }
 
-    public unsafe Revault.Bindings.ProfileHistory VaultDirectoryListProfileGenerations(IntPtr handle, string name)
+    public unsafe ProfileHistory VaultDirectoryListProfileGenerations(IntPtr handle, string name)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
         fixed (byte* nameBytesPointer = nameBytes)
-        { return Frame(RevaultNative.vault_directory_list_profile_generations(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), Revault.Bindings.ProfileHistory.Parser); }
+        { return Frame(RevaultNative.vault_directory_list_profile_generations(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.ProfileHistory); }
     }
 
-    public unsafe Revault.Bindings.ProfileHistory VaultDirectoryRotatePrivateKey(IntPtr handle, string name)
+    public unsafe ProfileHistory VaultDirectoryRotatePrivateKey(IntPtr handle, string name)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
         fixed (byte* nameBytesPointer = nameBytes)
-        { return Frame(RevaultNative.vault_directory_rotate_private_key(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), Revault.Bindings.ProfileHistory.Parser); }
+        { return Frame(RevaultNative.vault_directory_rotate_private_key(handle, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.ProfileHistory); }
     }
 
     public unsafe bool VaultDirectoryRememberLockbox(IntPtr handle, byte[] id, string path)
@@ -1047,9 +1041,9 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.vault_directory_remember_lockbox(handle, (IntPtr)idPointer, (nuint)id.Length, (IntPtr)pathBytesPointer, (nuint)pathBytes.Length)); }
     }
 
-    public unsafe Revault.Bindings.KnownLockboxList VaultDirectoryListKnownLockboxes(IntPtr handle)
+    public unsafe IReadOnlyList<KnownLockbox> VaultDirectoryListKnownLockboxes(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_directory_list_known_lockboxes(handle), Revault.Bindings.KnownLockboxList.Parser);
+        return Frame(RevaultNative.vault_directory_list_known_lockboxes(handle), DomainCodec.KnownLockboxList);
     }
 
     public unsafe bool VaultDirectoryForgetLockbox(IntPtr handle, string path)
@@ -1067,18 +1061,18 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.vault_directory_remember_access_slot_label(handle, (IntPtr)idPointer, (nuint)id.Length, slotId, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length)); }
     }
 
-    public unsafe Revault.Bindings.AccessSlotLabelList VaultDirectoryListAccessSlotLabels(IntPtr handle, byte[] id)
+    public unsafe IReadOnlyList<AccessSlotLabel> VaultDirectoryListAccessSlotLabels(IntPtr handle, byte[] id)
     {
         fixed (byte* idPointer = id)
-        { return Frame(RevaultNative.vault_directory_list_access_slot_labels(handle, (IntPtr)idPointer, (nuint)id.Length), Revault.Bindings.AccessSlotLabelList.Parser); }
+        { return Frame(RevaultNative.vault_directory_list_access_slot_labels(handle, (IntPtr)idPointer, (nuint)id.Length), DomainCodec.AccessSlotLabelList); }
     }
 
-    public unsafe Revault.Bindings.AccessSlotLabelList VaultDirectoryFindAccessSlotLabels(IntPtr handle, byte[] id, string name)
+    public unsafe IReadOnlyList<AccessSlotLabel> VaultDirectoryFindAccessSlotLabels(IntPtr handle, byte[] id, string name)
     {
         var nameBytes = Encoding.UTF8.GetBytes(name);
         fixed (byte* idPointer = id)
         fixed (byte* nameBytesPointer = nameBytes)
-        { return Frame(RevaultNative.vault_directory_find_access_slot_labels(handle, (IntPtr)idPointer, (nuint)id.Length, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), Revault.Bindings.AccessSlotLabelList.Parser); }
+        { return Frame(RevaultNative.vault_directory_find_access_slot_labels(handle, (IntPtr)idPointer, (nuint)id.Length, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length), DomainCodec.AccessSlotLabelList); }
     }
 
     public unsafe bool VaultDirectoryForgetAccessSlotLabel(IntPtr handle, byte[] id, ulong slotId)
@@ -1087,7 +1081,7 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.vault_directory_forget_access_slot_label(handle, (IntPtr)idPointer, (nuint)id.Length, slotId)); }
     }
 
-    public unsafe Revault.Bindings.FormDefinition VaultDirectoryDefineForm(IntPtr handle, string alias, string name, string description, byte[] fieldsProto)
+    public unsafe FormDefinition VaultDirectoryDefineForm(IntPtr handle, string alias, string name, string description, byte[] fieldsFlatbuffer)
     {
         var aliasBytes = Encoding.UTF8.GetBytes(alias);
         var nameBytes = Encoding.UTF8.GetBytes(name);
@@ -1095,27 +1089,27 @@ internal sealed class BindingOperations
         fixed (byte* aliasBytesPointer = aliasBytes)
         fixed (byte* nameBytesPointer = nameBytes)
         fixed (byte* descriptionBytesPointer = descriptionBytes)
-        fixed (byte* fieldsProtoPointer = fieldsProto)
-        { return Frame(RevaultNative.vault_directory_define_form(handle, (IntPtr)aliasBytesPointer, (nuint)aliasBytes.Length, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, (IntPtr)descriptionBytesPointer, (nuint)descriptionBytes.Length, (IntPtr)fieldsProtoPointer, (nuint)fieldsProto.Length), Revault.Bindings.FormDefinition.Parser); }
+        fixed (byte* fieldsFlatbufferPointer = fieldsFlatbuffer)
+        { return Frame(RevaultNative.vault_directory_define_form(handle, (IntPtr)aliasBytesPointer, (nuint)aliasBytes.Length, (IntPtr)nameBytesPointer, (nuint)nameBytes.Length, (IntPtr)descriptionBytesPointer, (nuint)descriptionBytes.Length, (IntPtr)fieldsFlatbufferPointer, (nuint)fieldsFlatbuffer.Length), DomainCodec.FormDefinition); }
     }
 
-    public unsafe Revault.Bindings.FormDefinition VaultDirectoryResolveForm(IntPtr handle, string reference)
+    public unsafe FormDefinition VaultDirectoryResolveForm(IntPtr handle, string reference)
     {
         var referenceBytes = Encoding.UTF8.GetBytes(reference);
         fixed (byte* referenceBytesPointer = referenceBytes)
-        { return Frame(RevaultNative.vault_directory_resolve_form(handle, (IntPtr)referenceBytesPointer, (nuint)referenceBytes.Length), Revault.Bindings.FormDefinition.Parser); }
+        { return Frame(RevaultNative.vault_directory_resolve_form(handle, (IntPtr)referenceBytesPointer, (nuint)referenceBytes.Length), DomainCodec.FormDefinition); }
     }
 
-    public unsafe Revault.Bindings.FormDefinitionList VaultDirectoryListForms(IntPtr handle)
+    public unsafe IReadOnlyList<FormDefinition> VaultDirectoryListForms(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_directory_list_forms(handle), Revault.Bindings.FormDefinitionList.Parser);
+        return Frame(RevaultNative.vault_directory_list_forms(handle), DomainCodec.FormDefinitionList);
     }
 
-    public unsafe Revault.Bindings.FormDefinitionList VaultDirectoryListFormRevisions(IntPtr handle, string typeId)
+    public unsafe IReadOnlyList<FormDefinition> VaultDirectoryListFormRevisions(IntPtr handle, string typeId)
     {
         var typeIdBytes = Encoding.UTF8.GetBytes(typeId);
         fixed (byte* typeIdBytesPointer = typeIdBytes)
-        { return Frame(RevaultNative.vault_directory_list_form_revisions(handle, (IntPtr)typeIdBytesPointer, (nuint)typeIdBytes.Length), Revault.Bindings.FormDefinitionList.Parser); }
+        { return Frame(RevaultNative.vault_directory_list_form_revisions(handle, (IntPtr)typeIdBytesPointer, (nuint)typeIdBytes.Length), DomainCodec.FormDefinitionList); }
     }
 
     public unsafe nuint VaultDirectorySeedForms(IntPtr handle)
@@ -1136,18 +1130,18 @@ internal sealed class BindingOperations
         { return Take(RevaultNative.vault_directory_remembered_password(handle, (IntPtr)idPointer, (nuint)id.Length)); }
     }
 
-    public unsafe Revault.Bindings.VaultBackupManifest VaultBackupDefault(string path, bool overwrite)
+    public unsafe VaultBackupManifest VaultBackupDefault(string path, bool overwrite)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         fixed (byte* pathBytesPointer = pathBytes)
-        { return Frame(RevaultNative.vault_backup_default((IntPtr)pathBytesPointer, (nuint)pathBytes.Length, overwrite), Revault.Bindings.VaultBackupManifest.Parser); }
+        { return Frame(RevaultNative.vault_backup_default((IntPtr)pathBytesPointer, (nuint)pathBytes.Length, overwrite), DomainCodec.VaultBackupManifest); }
     }
 
-    public unsafe Revault.Bindings.VaultBackupManifest VaultRestoreDefault(string path, bool overwrite)
+    public unsafe VaultBackupManifest VaultRestoreDefault(string path, bool overwrite)
     {
         var pathBytes = Encoding.UTF8.GetBytes(path);
         fixed (byte* pathBytesPointer = pathBytes)
-        { return Frame(RevaultNative.vault_restore_default((IntPtr)pathBytesPointer, (nuint)pathBytes.Length, overwrite), Revault.Bindings.VaultBackupManifest.Parser); }
+        { return Frame(RevaultNative.vault_restore_default((IntPtr)pathBytesPointer, (nuint)pathBytes.Length, overwrite), DomainCodec.VaultBackupManifest); }
     }
 
     public unsafe void VaultDirectoryFree(IntPtr handle)
@@ -1169,24 +1163,24 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.vault_read_only_open_default((IntPtr)passwordPointer, (nuint)password.Length)); }
     }
 
-    public unsafe Revault.Bindings.StringList VaultReadOnlyListProfileNames(IntPtr handle)
+    public unsafe IReadOnlyList<string> VaultReadOnlyListProfileNames(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_read_only_list_profile_names(handle), Revault.Bindings.StringList.Parser);
+        return Frame(RevaultNative.vault_read_only_list_profile_names(handle), DomainCodec.StringList);
     }
 
-    public unsafe Revault.Bindings.StringList VaultReadOnlyListContactNames(IntPtr handle)
+    public unsafe IReadOnlyList<string> VaultReadOnlyListContactNames(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_read_only_list_contact_names(handle), Revault.Bindings.StringList.Parser);
+        return Frame(RevaultNative.vault_read_only_list_contact_names(handle), DomainCodec.StringList);
     }
 
-    public unsafe Revault.Bindings.StringList VaultReadOnlyListFormAliases(IntPtr handle)
+    public unsafe IReadOnlyList<string> VaultReadOnlyListFormAliases(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_read_only_list_form_aliases(handle), Revault.Bindings.StringList.Parser);
+        return Frame(RevaultNative.vault_read_only_list_form_aliases(handle), DomainCodec.StringList);
     }
 
-    public unsafe Revault.Bindings.KnownLockboxList VaultReadOnlyListKnownLockboxes(IntPtr handle)
+    public unsafe IReadOnlyList<KnownLockbox> VaultReadOnlyListKnownLockboxes(IntPtr handle)
     {
-        return Frame(RevaultNative.vault_read_only_list_known_lockboxes(handle), Revault.Bindings.KnownLockboxList.Parser);
+        return Frame(RevaultNative.vault_read_only_list_known_lockboxes(handle), DomainCodec.KnownLockboxList);
     }
 
     public unsafe void VaultReadOnlyFree(IntPtr handle)
@@ -1233,19 +1227,19 @@ internal sealed class BindingOperations
         return Require(RevaultNative.vault_agent_start());
     }
 
-    public unsafe Revault.Bindings.AgentEntryList VaultAgentList()
+    public unsafe IReadOnlyList<AgentEntry> VaultAgentList()
     {
-        return Frame(RevaultNative.vault_agent_list(), Revault.Bindings.AgentEntryList.Parser);
+        return Frame(RevaultNative.vault_agent_list(), DomainCodec.AgentEntryList);
     }
 
-    public unsafe Revault.Bindings.SleepSupport VaultAgentSleepSupport()
+    public unsafe SleepSupport VaultAgentSleepSupport()
     {
-        return Frame(RevaultNative.vault_agent_sleep_support(), Revault.Bindings.SleepSupport.Parser);
+        return Frame(RevaultNative.vault_agent_sleep_support(), DomainCodec.SleepSupport);
     }
 
-    public unsafe Revault.Bindings.PlatformStatus VaultPlatformStatus()
+    public unsafe PlatformStatus VaultPlatformStatus()
     {
-        return Frame(RevaultNative.vault_platform_status(), Revault.Bindings.PlatformStatus.Parser);
+        return Frame(RevaultNative.vault_platform_status(), DomainCodec.PlatformStatus);
     }
 
     public unsafe bool VaultPlatformSetScope(string scope)

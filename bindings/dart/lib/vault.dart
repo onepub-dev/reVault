@@ -3,14 +3,15 @@ import 'dart:typed_data';
 
 import 'src/revault_native.dart';
 import 'src/binding_operations.dart';
-import 'src/generated/revault_bindings.pb.dart' as pb;
+import 'src/domain_models.dart';
 import 'src/native_library.dart';
 
 /// Entry point for encrypted lockboxes, keys, local vault metadata, the session
 /// agent, and the platform secret store.
 ///
-/// Call [load] once to locate and validate the native ABI. Structured results
-/// are concrete protobuf classes. See the
+/// Call [load] once when the application starts, then use the returned object
+/// to create or open lockboxes, manage recipient and signing keys, and access
+/// the local services used to remember vaults and credentials. See the
 /// [repository README](https://github.com/onepub-dev/reVault#readme) for a
 /// complete example and guidance on handling secret values.
 final class Vault {
@@ -27,7 +28,7 @@ final class Vault {
   String get lastError => _operations.lastErrorMessage();
 
   /// Returns structured details for the most recent failed native call.
-  pb.ErrorDetails get lastErrorDetails => _operations.bufferLastErrorDetails();
+  ErrorDetails get lastErrorDetails => _operations.bufferLastErrorDetails();
 
   /// Returns the lockbox format version written by this library.
   int get lockboxFormatVersion => _operations.lockboxFormatVersion();
@@ -166,15 +167,15 @@ final class Vault {
       Lockbox._(this, _operations.lockboxOpenContact(archive, contact._handle));
 
   /// Inspects clear-text structural metadata in the lockbox file at [path].
-  pb.FileInspection inspectLockboxFile(String path) =>
+  FileInspection inspectLockboxFile(String path) =>
       _operations.lockboxInspectFile(path);
 
   /// Scans a possibly damaged lockbox at [path] using [key].
-  pb.RecoveryReport scanLockboxPath(String path, Uint8List key) =>
+  RecoveryReport scanLockboxPath(String path, Uint8List key) =>
       _operations.lockboxRecoveryScanPath(path, key);
 
   /// Scans possibly damaged lockbox [archive] bytes using [key].
-  pb.RecoveryReport scanLockbox(Uint8List archive, Uint8List key) =>
+  RecoveryReport scanLockbox(Uint8List archive, Uint8List key) =>
       _operations.lockboxRecoveryScan(archive, key);
 
   /// Salvages intact state from [archive] into a new clean lockbox.
@@ -260,13 +261,13 @@ final class Vault {
   String get defaultVaultPath => _operations.vaultDefaultPath();
 
   /// Writes an encrypted backup of the default metadata vault to [path].
-  pb.VaultBackupManifest backupDefaultVault(
+  VaultBackupManifest backupDefaultVault(
     String path, {
     bool overwrite = false,
   }) => _operations.vaultBackupDefault(path, overwrite);
 
   /// Restores the default metadata vault from encrypted backup [path].
-  pb.VaultBackupManifest restoreDefaultVault(
+  VaultBackupManifest restoreDefaultVault(
     String path, {
     bool overwrite = false,
   }) => _operations.vaultRestoreDefault(path, overwrite);
@@ -300,10 +301,10 @@ final class Vault {
   void forgetAgentKey(Uint8List id) => _operations.vaultAgentForget(id);
 
   /// Lists the non-secret identifiers currently known to the agent.
-  pb.AgentEntryList listAgentKeys() => _operations.vaultAgentList();
+  List<AgentEntry> listAgentKeys() => _operations.vaultAgentList();
 
   /// Reports whether sleep inhibition and suspend notification are supported.
-  pb.SleepSupport agentSleepSupport() => _operations.vaultAgentSleepSupport();
+  SleepSupport agentSleepSupport() => _operations.vaultAgentSleepSupport();
 
   /// Returns the agent log file path, when file logging is enabled.
   String get agentLogPath => _operations.vaultAgentLogPath();
@@ -352,7 +353,7 @@ final class Vault {
       AgentActivity._(this, _operations.vaultAgentBeginActivity(kind));
 
   /// Reports availability and configuration of the platform secret store.
-  pb.PlatformStatus platformStatus() => _operations.vaultPlatformStatus();
+  PlatformStatus platformStatus() => _operations.vaultPlatformStatus();
 
   /// Selects the platform-store namespace identified by [scope].
   void setPlatformScope(String scope) =>
@@ -377,14 +378,15 @@ final class Vault {
   /// Deletes the password stored in the selected platform scope.
   void forgetPlatformPassword() => _operations.vaultPlatformForgetPassword();
 
-  /// Opens the high-level workflow for remembered lockbox files.
+  /// Starts a local-vault session for lockboxes addressed by host file paths.
   LocalVault openLocalVault() => LocalVault._(this, _operations.vaultLocal());
 }
 
-/// Runtime cache and worker tuning used when a lockbox is created or opened.
+/// Memory and CPU settings applied when [Vault] creates or opens a [Lockbox].
 ///
-/// String options use the same stable values as the CLI. Invalid values are
-/// rejected by the native API rather than silently replaced.
+/// The defaults suit interactive applications. Increase the cache or select a
+/// parallel worker policy for bulk operations after measuring the host's
+/// available memory and CPU capacity.
 final class LockboxOptions {
   /// Creates runtime options with conservative interactive defaults.
   const LockboxOptions({
@@ -418,7 +420,11 @@ abstract base class _Owned {
   bool get disposed => _handle == ffi.nullptr;
 }
 
-/// Shareable contact public key used to encrypt a content key for a recipient.
+/// A recipient's shareable encryption identity.
+///
+/// Import or load this key before granting that recipient lockbox access. It
+/// contains no private key material and encrypts content keys that only the
+/// matching [ContactKeyPair] can recover.
 final class ContactPublicKey extends _Owned {
   ContactPublicKey._(super.vault, super.handle);
 
@@ -444,7 +450,10 @@ final class ContactPublicKey extends _Owned {
   }
 }
 
-/// Owned encrypted content-key envelope for one contact recipient.
+/// An encrypted content key addressed to one contact.
+///
+/// [ContactPublicKey.encrypt] creates this value for storage or transfer with a
+/// lockbox access record. Only the matching [ContactKeyPair] can decrypt it.
 final class WrappedContactKey extends _Owned {
   WrappedContactKey._(super.vault, super.handle);
 
@@ -468,7 +477,11 @@ final class WrappedContactKey extends _Owned {
   }
 }
 
-/// Owned contact key pair used to decrypt content keys sent by contacts.
+/// A profile's private and public contact-encryption identity.
+///
+/// Generate, import, or load this key pair for a profile; distribute its public
+/// half to contacts and retain the private half to decrypt content keys they
+/// address to that profile.
 final class ContactKeyPair extends _Owned {
   ContactKeyPair._(super.vault, super.handle);
 
@@ -499,7 +512,10 @@ final class ContactKeyPair extends _Owned {
   }
 }
 
-/// Shareable public key used to verify owner-authorized lockbox commits.
+/// The shareable half of a lockbox owner's signing identity.
+///
+/// Readers use it to verify that a mutable lockbox revision was authorized by
+/// the owner. It contains no private signing material.
 final class SigningPublicKey extends _Owned {
   SigningPublicKey._(super.vault, super.handle);
 
@@ -512,7 +528,10 @@ final class SigningPublicKey extends _Owned {
   }
 }
 
-/// Owned signing key pair used to authorize mutable lockbox commits.
+/// A lockbox owner's private and public signing identity.
+///
+/// Supply it when creating or committing a mutable lockbox so later readers can
+/// authenticate revisions with the corresponding [SigningPublicKey].
 final class SigningKeyPair extends _Owned {
   SigningKeyPair._(super.vault, super.handle);
 
@@ -535,10 +554,11 @@ final class SigningKeyPair extends _Owned {
   }
 }
 
-/// Owned, mutable view of an encrypted lockbox archive.
+/// An open encrypted archive containing files, variables, secrets, and forms.
 ///
-/// Call [commit] after mutations and [dispose] when the native handle is no
-/// longer required.
+/// Obtain it from [Vault] or [LocalVault]. Reads observe its current contents;
+/// mutations remain pending until [commit]. Call [dispose] when finished to
+/// release decrypted state.
 final class Lockbox extends _Owned {
   Lockbox._(super.vault, super.handle);
 
@@ -602,24 +622,24 @@ final class Lockbox extends _Owned {
   );
 
   /// Returns logical content chunks, or physical chunks when [physical] is set.
-  pb.StreamChunkList streamContent({bool physical = false}) =>
+  List<StreamChunk> streamContent({bool physical = false}) =>
       vault._operations.lockboxStreamContent(_handle, physical);
 
   /// Returns current decoded-page cache counters.
-  pb.CacheStats cacheStats() => vault._operations.lockboxCacheStats(_handle);
+  CacheStats cacheStats() => vault._operations.lockboxCacheStats(_handle);
 
   /// Returns accumulated file-import timing counters.
-  pb.ImportStats importStats() => vault._operations.lockboxImportStats(_handle);
+  ImportStats importStats() => vault._operations.lockboxImportStats(_handle);
 
   /// Resets accumulated file-import timing counters.
   void resetImportStats() => vault._operations.lockboxResetImportStats(_handle);
 
   /// Returns structural metadata for each currently readable page.
-  pb.PageInspectionList pageInspection() =>
+  List<PageInspection> pageInspection() =>
       vault._operations.lockboxPageInspection(_handle);
 
   /// Scans the open lockbox and summarizes recoverable content.
-  pb.RecoveryReport recoveryReport() =>
+  RecoveryReport recoveryReport() =>
       vault._operations.lockboxRecoveryReport(_handle);
 
   /// Renders a human-readable recovery report.
@@ -642,7 +662,7 @@ final class Lockbox extends _Owned {
       vault._operations.lockboxSetWorkerPolicy(_handle, mode, jobs);
 
   /// Returns the effective workload and worker policies.
-  pb.RuntimeOptions runtimeOptions() =>
+  RuntimeOptions runtimeOptions() =>
       vault._operations.lockboxRuntimeOptions(_handle);
 
   /// Authenticates and publishes all staged changes as a new commit.
@@ -668,11 +688,11 @@ final class Lockbox extends _Owned {
       vault._operations.lockboxRename(_handle, from, to);
 
   /// Lists children below [path], optionally recursively.
-  pb.LockboxEntryList list(String path, {bool recursive = false}) =>
+  List<LockboxEntry> list(String path, {bool recursive = false}) =>
       vault._operations.lockboxList(_handle, path, recursive);
 
   /// Lists entries matching [glob] with explicit kind and result filters.
-  pb.LockboxEntryList listWithOptions(
+  List<LockboxEntry> listWithOptions(
     String path,
     String glob, {
     bool recursive = false,
@@ -692,7 +712,7 @@ final class Lockbox extends _Owned {
   );
 
   /// Returns metadata for [path], or an absent optional value when missing.
-  pb.OptionalLockboxEntry stat(String path) =>
+  LockboxEntry? stat(String path) =>
       vault._operations.lockboxStat(_handle, path);
 
   /// Stores a non-secret UTF-8 variable.
@@ -704,10 +724,8 @@ final class Lockbox extends _Owned {
       vault._operations.lockboxSetSecretVariable(_handle, name, value);
 
   /// Returns a non-secret variable, or `null` when [name] is absent.
-  String? getVariable(String name) {
-    final value = vault._operations.lockboxGetVariable(_handle, name);
-    return value.present ? value.value : null;
-  }
+  String? getVariable(String name) =>
+      vault._operations.lockboxGetVariable(_handle, name);
 
   /// Invokes [callback] with temporary secret bytes, then wipes the transfer copy.
   T? withSecretVariable<T>(
@@ -720,15 +738,15 @@ final class Lockbox extends _Owned {
       vault._operations.lockboxDeleteVariable(_handle, name);
 
   /// Applies all variable [moves] atomically.
-  void moveVariables(pb.PathMoveList moves) => vault._operations
-      .lockboxMoveVariables(_handle, Uint8List.fromList(moves.writeToBuffer()));
+  void moveVariables(List<PathMove> moves) => vault._operations
+      .lockboxMoveVariables(_handle, DomainDecoders.pathMoves(moves));
 
   /// Lists variable names and sensitivity without returning secret values.
-  pb.VariableList listVariables() =>
+  List<Variable> listVariables() =>
       vault._operations.lockboxListVariables(_handle);
 
   /// Returns the sensitivity classification of variable [name].
-  pb.OptionalString variableSensitivity(String name) =>
+  String? variableSensitivity(String name) =>
       vault._operations.lockboxVariableSensitivity(_handle, name);
 
   /// Adds a stored symlink from [path] to lockbox [target].
@@ -773,7 +791,7 @@ final class Lockbox extends _Owned {
   void deleteKey(int id) => vault._operations.lockboxDeleteKey(_handle, id);
 
   /// Lists password and contact access slots without exposing key material.
-  pb.KeySlotList listKeySlots() =>
+  List<KeySlot> listKeySlots() =>
       vault._operations.lockboxListKeySlots(_handle);
 
   /// Sets the signing key required to authorize subsequent commits.
@@ -781,46 +799,43 @@ final class Lockbox extends _Owned {
       vault._operations.lockboxSetOwnerSigningKey(_handle, key._handle);
 
   /// Reports whether the lockbox is signed and its owner fingerprint.
-  pb.OwnerInspection ownerInspection() =>
+  OwnerInspection ownerInspection() =>
       vault._operations.lockboxOwnerInspection(_handle);
 
   /// Defines a new immutable revision of a typed form.
-  pb.FormDefinition defineForm(
+  FormDefinition defineForm(
     String alias,
     String name,
     String description,
-    pb.FormFieldList fields,
+    List<FormField> fields,
   ) => vault._operations.lockboxDefineForm(
     _handle,
     alias,
     name,
     description,
-    Uint8List.fromList(fields.writeToBuffer()),
+    DomainDecoders.formFields(fields),
   );
 
   /// Lists the current form definitions embedded in this lockbox.
-  pb.FormDefinitionList listFormDefinitions() =>
+  List<FormDefinition> listFormDefinitions() =>
       vault._operations.lockboxListFormDefinitions(_handle);
 
   /// Resolves a form alias or stable type identifier.
-  pb.FormDefinition resolveForm(String reference) =>
+  FormDefinition resolveForm(String reference) =>
       vault._operations.lockboxResolveForm(_handle, reference);
 
   /// Lists every stored revision for [typeId].
-  pb.FormDefinitionList listFormRevisions(String typeId) =>
+  List<FormDefinition> listFormRevisions(String typeId) =>
       vault._operations.lockboxListFormRevisions(_handle, typeId);
 
   /// Creates a form record at [path] using [typeReference].
-  pb.FormRecord createFormRecord(
-    String path,
-    String typeReference,
-    String name,
-  ) => vault._operations.lockboxCreateFormRecord(
-    _handle,
-    path,
-    typeReference,
-    name,
-  );
+  FormRecord createFormRecord(String path, String typeReference, String name) =>
+      vault._operations.lockboxCreateFormRecord(
+        _handle,
+        path,
+        typeReference,
+        name,
+      );
 
   /// Stores a non-secret [value] in a form [field].
   void setFormField(String path, String field, String value) =>
@@ -831,11 +846,11 @@ final class Lockbox extends _Owned {
       vault._operations.lockboxSetSecretFormField(_handle, path, field, value);
 
   /// Lists all typed form records without returning secret field values.
-  pb.FormRecordList listFormRecords() =>
+  List<FormRecord> listFormRecords() =>
       vault._operations.lockboxListFormRecords(_handle);
 
   /// Returns the form record at [path], when present.
-  pb.OptionalFormRecord getFormRecord(String path) =>
+  FormRecord? getFormRecord(String path) =>
       vault._operations.lockboxGetFormRecord(_handle, path);
 
   /// Deletes the form record at [path].
@@ -843,14 +858,11 @@ final class Lockbox extends _Owned {
       vault._operations.lockboxDeleteFormRecord(_handle, path);
 
   /// Applies all form-record [moves] atomically.
-  void moveFormRecords(pb.PathMoveList moves) =>
-      vault._operations.lockboxMoveFormRecords(
-        _handle,
-        Uint8List.fromList(moves.writeToBuffer()),
-      );
+  void moveFormRecords(List<PathMove> moves) => vault._operations
+      .lockboxMoveFormRecords(_handle, DomainDecoders.pathMoves(moves));
 
   /// Returns a non-secret form [field], or an absent optional value.
-  pb.OptionalFormValue getFormField(String path, String field) =>
+  FormValue? getFormField(String path, String field) =>
       vault._operations.lockboxGetFormField(_handle, path, field);
 
   /// Invokes [callback] with temporary field bytes, then wipes the transfer copy.
@@ -877,7 +889,11 @@ final class Lockbox extends _Owned {
   }
 }
 
-/// Writable, password-protected local metadata vault.
+/// A writable, password-protected metadata store for one reVault installation.
+///
+/// Open or create it through [Vault] to manage profile keys, contacts, form
+/// definitions, encrypted key backups, remembered lockbox paths, and local
+/// access-slot labels. Lockbox file contents are stored separately.
 final class VaultDirectory extends _Owned {
   VaultDirectory._(super.vault, super.handle);
 
@@ -889,19 +905,19 @@ final class VaultDirectory extends _Owned {
       vault._operations.vaultDirectoryStructureVersion(_handle);
 
   /// Lists serialized private-key records for backup workflows.
-  pb.StringList listPrivateKeys() =>
+  List<String> listPrivateKeys() =>
       vault._operations.vaultDirectoryListPrivateKeys(_handle);
 
   /// Lists profile names that have private contact keys.
-  pb.StringList listPrivateKeyNames() =>
+  List<String> listPrivateKeyNames() =>
       vault._operations.vaultDirectoryListPrivateKeyNames(_handle);
 
   /// Lists stored contact names.
-  pb.StringList listContactNames() =>
+  List<String> listContactNames() =>
       vault._operations.vaultDirectoryListContactNames(_handle);
 
   /// Lists stored form aliases.
-  pb.StringList listFormAliases() =>
+  List<String> listFormAliases() =>
       vault._operations.vaultDirectoryListFormAliases(_handle);
 
   /// Whether a profile private key exists under [name].
@@ -952,7 +968,7 @@ final class VaultDirectory extends _Owned {
       vault._operations.vaultDirectoryDeleteContact(_handle, name);
 
   /// Lists stored contacts and their public-key records.
-  pb.ContactList listContacts() =>
+  List<Contact> listContacts() =>
       vault._operations.vaultDirectoryListContacts(_handle);
 
   /// Stores the contact [email] associated with profile [name].
@@ -960,7 +976,7 @@ final class VaultDirectory extends _Owned {
       vault._operations.vaultDirectoryStoreProfileEmail(_handle, name, email);
 
   /// Returns the email associated with profile [name], when present.
-  pb.OptionalString profileEmail(String name) =>
+  String? profileEmail(String name) =>
       vault._operations.vaultDirectoryProfileEmail(_handle, name);
 
   /// Stores encrypted key-directory backup [value] under lockbox [id].
@@ -1017,11 +1033,11 @@ final class VaultDirectory extends _Owned {
   );
 
   /// Lists active and retired key generations for profile [name].
-  pb.ProfileHistory listProfileGenerations(String name) =>
+  ProfileHistory listProfileGenerations(String name) =>
       vault._operations.vaultDirectoryListProfileGenerations(_handle, name);
 
   /// Rotates profile [name] to newly generated contact and signing keys.
-  pb.ProfileHistory rotatePrivateKey(String name) =>
+  ProfileHistory rotatePrivateKey(String name) =>
       vault._operations.vaultDirectoryRotatePrivateKey(_handle, name);
 
   /// Remembers that lockbox [id] is stored at host [path].
@@ -1029,7 +1045,7 @@ final class VaultDirectory extends _Owned {
       vault._operations.vaultDirectoryRememberLockbox(_handle, id, path);
 
   /// Lists remembered lockbox identifiers and host paths.
-  pb.KnownLockboxList listKnownLockboxes() =>
+  List<KnownLockbox> listKnownLockboxes() =>
       vault._operations.vaultDirectoryListKnownLockboxes(_handle);
 
   /// Forgets the lockbox remembered at host [path].
@@ -1042,11 +1058,11 @@ final class VaultDirectory extends _Owned {
       .vaultDirectoryRememberAccessSlotLabel(_handle, id, slotId, name);
 
   /// Lists local access-slot labels for lockbox [id].
-  pb.AccessSlotLabelList listAccessSlotLabels(Uint8List id) =>
+  List<AccessSlotLabel> listAccessSlotLabels(Uint8List id) =>
       vault._operations.vaultDirectoryListAccessSlotLabels(_handle, id);
 
   /// Finds labels named [name] for lockbox [id].
-  pb.AccessSlotLabelList findAccessSlotLabels(Uint8List id, String name) =>
+  List<AccessSlotLabel> findAccessSlotLabels(Uint8List id, String name) =>
       vault._operations.vaultDirectoryFindAccessSlotLabels(_handle, id, name);
 
   /// Deletes the local label for one lockbox access slot.
@@ -1054,29 +1070,29 @@ final class VaultDirectory extends _Owned {
       .vaultDirectoryForgetAccessSlotLabel(_handle, id, slotId);
 
   /// Defines a new immutable revision of a vault-wide form.
-  pb.FormDefinition defineForm(
+  FormDefinition defineForm(
     String alias,
     String name,
     String description,
-    pb.FormFieldList fields,
+    List<FormField> fields,
   ) => vault._operations.vaultDirectoryDefineForm(
     _handle,
     alias,
     name,
     description,
-    Uint8List.fromList(fields.writeToBuffer()),
+    DomainDecoders.formFields(fields),
   );
 
   /// Resolves a vault-wide form alias or stable type identifier.
-  pb.FormDefinition resolveForm(String reference) =>
+  FormDefinition resolveForm(String reference) =>
       vault._operations.vaultDirectoryResolveForm(_handle, reference);
 
   /// Lists current vault-wide form definitions.
-  pb.FormDefinitionList listForms() =>
+  List<FormDefinition> listForms() =>
       vault._operations.vaultDirectoryListForms(_handle);
 
   /// Lists every vault-wide revision for [typeId].
-  pb.FormDefinitionList listFormRevisions(String typeId) =>
+  List<FormDefinition> listFormRevisions(String typeId) =>
       vault._operations.vaultDirectoryListFormRevisions(_handle, typeId);
 
   /// Installs any built-in form definitions that are not already present.
@@ -1099,24 +1115,27 @@ final class VaultDirectory extends _Owned {
   }
 }
 
-/// Read-only metadata view that never loads the owner signing key.
+/// A restricted view of a local metadata store for discovery and listing.
+///
+/// Use it when an application needs profile names, contacts, forms, or known
+/// lockbox paths without gaining access to owner signing keys or mutation APIs.
 final class ReadOnlyVaultDirectory extends _Owned {
   ReadOnlyVaultDirectory._(super.vault, super.handle);
 
   /// Lists profile names without loading private or signing keys.
-  pb.StringList listProfileNames() =>
+  List<String> listProfileNames() =>
       vault._operations.vaultReadOnlyListProfileNames(_handle);
 
   /// Lists contact names without loading contact key material.
-  pb.StringList listContactNames() =>
+  List<String> listContactNames() =>
       vault._operations.vaultReadOnlyListContactNames(_handle);
 
   /// Lists vault-wide form aliases.
-  pb.StringList listFormAliases() =>
+  List<String> listFormAliases() =>
       vault._operations.vaultReadOnlyListFormAliases(_handle);
 
   /// Lists remembered lockbox identifiers and host paths.
-  pb.KnownLockboxList listKnownLockboxes() =>
+  List<KnownLockbox> listKnownLockboxes() =>
       vault._operations.vaultReadOnlyListKnownLockboxes(_handle);
 
   /// Wipes decrypted metadata and releases the read-only handle.
@@ -1128,7 +1147,11 @@ final class ReadOnlyVaultDirectory extends _Owned {
   }
 }
 
-/// Owned registration of an operation that currently requires secret access.
+/// A lifetime token for an operation that currently needs cached secrets.
+///
+/// Keep the token returned by the agent activity API alive for the duration of
+/// the operation, then call [dispose] so the session agent can expire secrets
+/// when no other activity needs them.
 final class AgentActivity extends _Owned {
   AgentActivity._(super.vault, super.handle);
 
@@ -1141,7 +1164,11 @@ final class AgentActivity extends _Owned {
   }
 }
 
-/// High-level workflow for local metadata and remembered lockbox files.
+/// A session that manages lockbox files used by a local application.
+///
+/// Obtain it from [Vault.openLocalVault] to create or open lockboxes by host
+/// path, cache short-lived passwords, and close individual or all open files.
+/// Call [dispose] when the application session ends.
 final class LocalVault extends _Owned {
   LocalVault._(super.vault, super.handle);
 
@@ -1213,10 +1240,10 @@ final class LocalVault extends _Owned {
   void closeLockbox(String path) =>
       vault._operations.vaultCloseLockbox(_handle, path);
 
-  /// Commits and closes every lockbox opened by this workflow.
+  /// Commits and closes every lockbox opened by this local-vault session.
   void closeAll() => vault._operations.vaultCloseAll(_handle);
 
-  /// Closes open lockboxes and releases the local-vault workflow handle.
+  /// Closes open lockboxes and ends this local-vault session.
   void dispose() {
     if (!disposed) {
       vault._operations.vaultFree(_handle);

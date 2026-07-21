@@ -1,7 +1,7 @@
 --- Encrypt files, variables, and typed form records in portable reVault
 -- lockboxes, and manage keys and local vault metadata.
 --
--- Create a `Vault` to access the API. Call `free` on owned native handles, and
+-- Create a `Vault` to access the API. Call `free` on values that retain sensitive state, and
 -- use callback-scoped secret accessors to avoid retaining plaintext.
 --
 -- See the [repository README](https://github.com/onepub-dev/reVault#readme)
@@ -15,7 +15,7 @@
 -- local bytes = lockbox:to_bytes()
 -- lockbox:free()
 local ffi = require('ffi')
-local pb = require('pb')
+local flatbuffers = require('revault_flatbuffers')
 
 ffi.cdef[[
 typedef struct { uint8_t *ptr; size_t len; } RevaultBuffer;
@@ -69,7 +69,7 @@ bool lockbox_set_secret_variable(void * handle, const char * name, size_t name_l
 RevaultBuffer lockbox_get_variable(const void * handle, const char * name, size_t name_len);
 bool lockbox_get_secret_variable(const void * handle, const char * name, size_t name_len, void ** output);
 bool lockbox_delete_variable(void * handle, const char * name, size_t name_len);
-bool lockbox_move_variables(void * handle, const uint8_t * moves_proto, size_t moves_len);
+bool lockbox_move_variables(void * handle, const uint8_t * moves_flatbuffer, size_t moves_len);
 RevaultBuffer lockbox_list_variables(const void * handle);
 RevaultBuffer lockbox_variable_sensitivity(const void * handle, const char * name, size_t name_len);
 bool lockbox_add_symlink(void * handle, const char * path, size_t path_len, const char * target, size_t target_len, bool replace);
@@ -88,7 +88,7 @@ bool lockbox_delete_key(void * handle, uint64_t id);
 RevaultBuffer lockbox_list_key_slots(const void * handle);
 bool lockbox_set_owner_signing_key(void * handle, const void * key);
 RevaultBuffer lockbox_owner_inspection(const void * handle);
-RevaultBuffer lockbox_define_form(void * handle, const char * alias, size_t alias_len, const char * name, size_t name_len, const char * description, size_t description_len, const uint8_t * fields_proto, size_t fields_len);
+RevaultBuffer lockbox_define_form(void * handle, const char * alias, size_t alias_len, const char * name, size_t name_len, const char * description, size_t description_len, const uint8_t * fields_flatbuffer, size_t fields_len);
 RevaultBuffer lockbox_list_form_definitions(const void * handle);
 RevaultBuffer lockbox_resolve_form(const void * handle, const char * reference, size_t reference_len);
 RevaultBuffer lockbox_list_form_revisions(const void * handle, const char * type_id, size_t type_id_len);
@@ -98,7 +98,7 @@ bool lockbox_set_secret_form_field(void * handle, const char * path, size_t path
 RevaultBuffer lockbox_list_form_records(const void * handle);
 RevaultBuffer lockbox_get_form_record(const void * handle, const char * path, size_t path_len);
 bool lockbox_delete_form_record(void * handle, const char * path, size_t path_len);
-bool lockbox_move_form_records(void * handle, const uint8_t * moves_proto, size_t moves_len);
+bool lockbox_move_form_records(void * handle, const uint8_t * moves_flatbuffer, size_t moves_len);
 RevaultBuffer lockbox_get_form_field(const void * handle, const char * path, size_t path_len, const char * field, size_t field_len);
 bool lockbox_get_secret_form_field(const void * handle, const char * path, size_t path_len, const char * field, size_t field_len, void ** output);
 RevaultBuffer lockbox_to_bytes(const void * handle);
@@ -181,7 +181,7 @@ bool vault_directory_remember_access_slot_label(const void * handle, const uint8
 RevaultBuffer vault_directory_list_access_slot_labels(const void * handle, const uint8_t * id, size_t id_len);
 RevaultBuffer vault_directory_find_access_slot_labels(const void * handle, const uint8_t * id, size_t id_len, const char * name, size_t name_len);
 bool vault_directory_forget_access_slot_label(const void * handle, const uint8_t * id, size_t id_len, uint64_t slot_id);
-RevaultBuffer vault_directory_define_form(const void * handle, const char * alias, size_t alias_len, const char * name, size_t name_len, const char * description, size_t description_len, const uint8_t * fields_proto, size_t fields_len);
+RevaultBuffer vault_directory_define_form(const void * handle, const char * alias, size_t alias_len, const char * name, size_t name_len, const char * description, size_t description_len, const uint8_t * fields_flatbuffer, size_t fields_len);
 RevaultBuffer vault_directory_resolve_form(const void * handle, const char * reference, size_t reference_len);
 RevaultBuffer vault_directory_list_forms(const void * handle);
 RevaultBuffer vault_directory_list_form_revisions(const void * handle, const char * type_id, size_t type_id_len);
@@ -267,21 +267,7 @@ local function native_library()
   error('revault-api native carrier is missing for ' .. target .. '; set REVAULT_LIBRARY for development')
 end
 local native = ffi.load(native_library())
-if tonumber(native.api_abi_version()) ~= 2 then error('revault-api native ABI mismatch; expected 2') end
-local descriptor = os.getenv('REVAULT_PROTO_DESCRIPTOR')
-if not descriptor then
-  for pattern in package.path:gmatch('[^;]+') do
-    local directory = pattern:match('^(.*[/\\])')
-    if directory then
-      local candidate = directory .. 'revault_bindings.pb'
-      local file = io.open(candidate, 'rb')
-      if file then file:close(); descriptor = candidate; break end
-    end
-  end
-end
-descriptor = descriptor or 'bindings/lua/revault_bindings.pb'
-assert(pb.loadfile(descriptor))
-
+if tonumber(native.api_abi_version()) ~= 3 then error('revault-api native ABI mismatch; expected 3') end
 local function last_error()
   local value = native.buffer_last_error()
   return value == nil and 'native reVault operation failed' or ffi.string(value)
@@ -328,57 +314,157 @@ local function model(name)
   local class = { __name = name }
   class.__index = class
   function class.new(fields) return wrap(name, fields or {}) end
-  function class:encode() return pb.encode('.revault.bindings.' .. name, self) end
-  function class.decode(bytes) return wrap(name, assert(pb.decode('.revault.bindings.' .. name, bytes))) end
+  function class:encode()
+    if name == 'PathMoveList' then return flatbuffers.encode_path_moves(self.values or {}) end
+    if name == 'FormFieldList' then return flatbuffers.encode_form_fields(self.values or {}) end
+    error('encoding ' .. name .. ' is not a supported reVault API input')
+  end
+  function class.decode(bytes) return wrap(name, flatbuffers.decode(name, bytes)) end
   Models[name] = class
 end
+--- A local human-readable label attached to one lockbox access slot.
+-- @type AccessSlotLabel
 model("AccessSlotLabel")
+--- Ordered AccessSlotLabel values returned by the corresponding list operation.
+-- @type AccessSlotLabelList
 model("AccessSlotLabelList")
+--- A lockbox key currently held by the local session agent, identified by lockbox and path.
+-- @type AgentEntry
 model("AgentEntry")
+--- Ordered AgentEntry values returned by the corresponding list operation.
+-- @type AgentEntryList
 model("AgentEntryList")
+--- Ordered Byte values returned by the corresponding list operation.
+-- @type ByteList
 model("ByteList")
+--- Current capacity, occupancy, hit, and miss counters for an open lockbox cache.
+-- @type CacheStats
 model("CacheStats")
+--- A named recipient public key stored in the local vault address book.
+-- @type Contact
 model("Contact")
+--- Ordered Contact values returned by the corresponding list operation.
+-- @type ContactList
 model("ContactList")
+--- Structured category, version, guidance, and artifact context for the most recent native failure.
+-- @type ErrorDetails
 model("ErrorDetails")
+--- Header, owner-signature, and key-slot information read from a lockbox file without opening its contents.
+-- @type FileInspection
 model("FileInspection")
+--- A versioned form schema used to validate and label structured records in a lockbox.
+-- @type FormDefinition
 model("FormDefinition")
+--- Ordered FormDefinition values returned by the corresponding list operation.
+-- @type FormDefinitionList
 model("FormDefinitionList")
+--- One named input in a reusable form definition, including its display label and sensitivity kind.
+-- @type FormField
 model("FormField")
+--- Ordered field definitions supplied when defining a form.
+-- @type FormFieldList
 model("FormFieldList")
+--- A named structured record stored at a lockbox path and tied to a form-definition revision.
+-- @type FormRecord
 model("FormRecord")
+--- Ordered FormRecord values returned by the corresponding list operation.
+-- @type FormRecordList
 model("FormRecordList")
+--- The current value and sensitivity metadata for one field in a stored form record.
+-- @type FormValue
 model("FormValue")
+--- Time spent reading host files and preparing encrypted pages during the latest import work.
+-- @type ImportStats
 model("ImportStats")
+--- One password or contact credential that can unlock a lockbox content key.
+-- @type KeySlot
 model("KeySlot")
+--- Ordered KeySlot values returned by the corresponding list operation.
+-- @type KeySlotList
 model("KeySlotList")
+--- A lockbox identifier and host path remembered by the local vault for later discovery.
+-- @type KnownLockbox
 model("KnownLockbox")
+--- Ordered KnownLockbox values returned by the corresponding list operation.
+-- @type KnownLockboxList
 model("KnownLockboxList")
+--- Metadata for one file, directory, or symbolic link stored at a lockbox path.
+-- @type LockboxEntry
 model("LockboxEntry")
+--- Ordered lockbox entries selected by a list operation.
+-- @type LockboxEntryList
 model("LockboxEntryList")
+--- The form record found at a lockbox path, or no value when absent.
+-- @type OptionalFormRecord
 model("OptionalFormRecord")
+--- The requested non-secret form value, or no value when the field is absent.
+-- @type OptionalFormValue
 model("OptionalFormValue")
+--- The metadata found for a lockbox path, or no value when the path is absent.
+-- @type OptionalLockboxEntry
 model("OptionalLockboxEntry")
+--- A text lookup that distinguishes an absent value from an empty string.
+-- @type OptionalString
 model("OptionalString")
+--- Whether a lockbox is owner-signed and, when available, the signing-key fingerprint.
+-- @type OwnerInspection
 model("OwnerInspection")
+--- Layout and utilization details for one encrypted page in a lockbox archive.
+-- @type PageInspection
 model("PageInspection")
+--- Ordered PageInspection values returned by the corresponding list operation.
+-- @type PageInspectionList
 model("PageInspectionList")
+--- One logical object recorded inside an inspected encrypted lockbox page.
+-- @type PageObject
 model("PageObject")
+--- A source and destination pair used to rename a variable or form record atomically.
+-- @type PathMove
 model("PathMove")
+--- Atomic variable or form-record renames supplied to a move operation.
+-- @type PathMoveList
 model("PathMoveList")
+--- Availability and configuration of the operating-system credential store used for the vault password.
+-- @type PlatformStatus
 model("PlatformStatus")
+--- One active or retired generation of the contact keys belonging to a named vault profile.
+-- @type ProfileGeneration
 model("ProfileGeneration")
+--- The active generation and rotation history for a named vault profile.
+-- @type ProfileHistory
 model("ProfileHistory")
+--- Ordered ProfileHistory values returned by the corresponding list operation.
+-- @type ProfileHistoryList
 model("ProfileHistoryList")
+--- The files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox.
+-- @type RecoveryReport
 model("RecoveryReport")
+--- The workload and worker policies currently applied to an open lockbox.
+-- @type RuntimeOptions
 model("RuntimeOptions")
+--- The host capabilities used to protect cached secrets across suspend and sleep.
+-- @type SleepSupport
 model("SleepSupport")
+--- A logical or physical byte range emitted while walking the contents of a lockbox.
+-- @type StreamChunk
 model("StreamChunk")
+--- Ordered StreamChunk values returned by the corresponding list operation.
+-- @type StreamChunkList
 model("StreamChunkList")
+--- Ordered names or identifiers returned by a vault list operation.
+-- @type StringList
 model("StringList")
+--- One text result returned by the native API.
+-- @type StringValue
 model("StringValue")
+--- The name and sensitivity classification of a variable stored in a lockbox.
+-- @type Variable
 model("Variable")
+--- Ordered Variable values returned by the corresponding list operation.
+-- @type VariableList
 model("VariableList")
+--- The version, size, checksum, and creation time of an exported local-vault backup.
+-- @type VaultBackupManifest
 model("VaultBackupManifest")
 
 local function take(buffer)
@@ -386,15 +472,6 @@ local function take(buffer)
   local value = ffi.string(buffer.ptr, tonumber(buffer.len))
   native.buffer_free(buffer)
   return value
-end
-
-local function payload(buffer)
-  local frame = take(buffer)
-  if #frame < 12 or frame:sub(1, 4) ~= 'LBWF' then error('invalid reVault binding frame', 3) end
-  local a, b, c, d = frame:byte(9, 12)
-  local length = ((a * 256 + b) * 256 + c) * 256 + d
-  if length ~= #frame - 12 then error('invalid reVault binding frame length', 3) end
-  return frame:sub(13)
 end
 
 local function with_secret(getter, callback)
@@ -423,7 +500,7 @@ function Operations.new() return setmetatable({}, Operations) end
 function Operations:last_error_message() return last_error() end
 
 function Operations:buffer_last_error_details()
-  return Models.ErrorDetails.decode(payload(native.buffer_last_error_details()))
+  return Models.ErrorDetails.decode(take(native.buffer_last_error_details()))
 end
 
 function Operations:lockbox_format_version()
@@ -513,15 +590,15 @@ function Operations:lockbox_extract_directory(handle, destination, max_file_byte
 end
 
 function Operations:lockbox_stream_content(handle, physical)
-  return Models.StreamChunkList.decode(payload(native.lockbox_stream_content(handle, physical)))
+  return Models.StreamChunkList.decode(take(native.lockbox_stream_content(handle, physical)))
 end
 
 function Operations:lockbox_cache_stats(handle)
-  return Models.CacheStats.decode(payload(native.lockbox_cache_stats(handle)))
+  return Models.CacheStats.decode(take(native.lockbox_cache_stats(handle)))
 end
 
 function Operations:lockbox_import_stats(handle)
-  return Models.ImportStats.decode(payload(native.lockbox_import_stats(handle)))
+  return Models.ImportStats.decode(take(native.lockbox_import_stats(handle)))
 end
 
 function Operations:lockbox_reset_import_stats(handle)
@@ -530,15 +607,15 @@ function Operations:lockbox_reset_import_stats(handle)
 end
 
 function Operations:lockbox_inspect_file(path)
-  return Models.FileInspection.decode(payload(native.lockbox_inspect_file(path, #path)))
+  return Models.FileInspection.decode(take(native.lockbox_inspect_file(path, #path)))
 end
 
 function Operations:lockbox_page_inspection(handle)
-  return Models.PageInspectionList.decode(payload(native.lockbox_page_inspection(handle)))
+  return Models.PageInspectionList.decode(take(native.lockbox_page_inspection(handle)))
 end
 
 function Operations:lockbox_recovery_report(handle)
-  return Models.RecoveryReport.decode(payload(native.lockbox_recovery_report(handle)))
+  return Models.RecoveryReport.decode(take(native.lockbox_recovery_report(handle)))
 end
 
 function Operations:lockbox_recovery_report_render(handle, verbose, max_entries)
@@ -546,7 +623,7 @@ function Operations:lockbox_recovery_report_render(handle, verbose, max_entries)
 end
 
 function Operations:lockbox_recovery_scan_path(path, key)
-  return Models.RecoveryReport.decode(payload(native.lockbox_recovery_scan_path(path, #path, key, #key)))
+  return Models.RecoveryReport.decode(take(native.lockbox_recovery_scan_path(path, #path, key, #key)))
 end
 
 function Operations:lockbox_storage_len(handle)
@@ -564,7 +641,7 @@ function Operations:lockbox_set_worker_policy(handle, mode, jobs)
 end
 
 function Operations:lockbox_runtime_options(handle)
-  return Models.RuntimeOptions.decode(payload(native.lockbox_runtime_options(handle)))
+  return Models.RuntimeOptions.decode(take(native.lockbox_runtime_options(handle)))
 end
 
 function Operations:lockbox_commit(handle)
@@ -598,15 +675,15 @@ function Operations:lockbox_rename(handle, from, to)
 end
 
 function Operations:lockbox_list(handle, path, recursive)
-  return Models.LockboxEntryList.decode(payload(native.lockbox_list(handle, path, #path, recursive)))
+  return Models.LockboxEntryList.decode(take(native.lockbox_list(handle, path, #path, recursive)))
 end
 
 function Operations:lockbox_list_with_options(handle, path, glob, recursive, include_files, include_symlinks, include_directories, limit)
-  return Models.LockboxEntryList.decode(payload(native.lockbox_list_with_options(handle, path, #path, glob, #glob, recursive, include_files, include_symlinks, include_directories, limit)))
+  return Models.LockboxEntryList.decode(take(native.lockbox_list_with_options(handle, path, #path, glob, #glob, recursive, include_files, include_symlinks, include_directories, limit)))
 end
 
 function Operations:lockbox_stat(handle, path)
-  return Models.OptionalLockboxEntry.decode(payload(native.lockbox_stat(handle, path, #path)))
+  return Models.OptionalLockboxEntry.decode(take(native.lockbox_stat(handle, path, #path)))
 end
 
 function Operations:lockbox_set_variable(handle, name, value)
@@ -623,7 +700,7 @@ function Operations:lockbox_set_secret_variable(handle, name, value)
 end
 
 function Operations:lockbox_get_variable(handle, name)
-  local value = Models.OptionalString.decode(payload(native.lockbox_get_variable(handle, name, #name)))
+  local value = Models.OptionalString.decode(take(native.lockbox_get_variable(handle, name, #name)))
   return value.present and value.value or nil
 end
 
@@ -636,17 +713,17 @@ function Operations:lockbox_delete_variable(handle, name)
   return true
 end
 
-function Operations:lockbox_move_variables(handle, moves_proto)
-  if not native.lockbox_move_variables(handle, moves_proto, #moves_proto) then error(last_error(), 2) end
+function Operations:lockbox_move_variables(handle, moves_flatbuffer)
+  if not native.lockbox_move_variables(handle, moves_flatbuffer, #moves_flatbuffer) then error(last_error(), 2) end
   return true
 end
 
 function Operations:lockbox_list_variables(handle)
-  return Models.VariableList.decode(payload(native.lockbox_list_variables(handle)))
+  return Models.VariableList.decode(take(native.lockbox_list_variables(handle)))
 end
 
 function Operations:lockbox_variable_sensitivity(handle, name)
-  return Models.OptionalString.decode(payload(native.lockbox_variable_sensitivity(handle, name, #name)))
+  return Models.OptionalString.decode(take(native.lockbox_variable_sensitivity(handle, name, #name)))
 end
 
 function Operations:lockbox_add_symlink(handle, path, target, replace)
@@ -684,7 +761,7 @@ function Operations:lockbox_read_range(handle, path, offset, len)
 end
 
 function Operations:lockbox_recovery_scan(bytes, key)
-  return Models.RecoveryReport.decode(payload(native.lockbox_recovery_scan(bytes, #bytes, key, #key)))
+  return Models.RecoveryReport.decode(take(native.lockbox_recovery_scan(bytes, #bytes, key, #key)))
 end
 
 function Operations:lockbox_recovery_salvage(bytes, key, signing_key)
@@ -707,7 +784,7 @@ function Operations:lockbox_delete_key(handle, id)
 end
 
 function Operations:lockbox_list_key_slots(handle)
-  return Models.KeySlotList.decode(payload(native.lockbox_list_key_slots(handle)))
+  return Models.KeySlotList.decode(take(native.lockbox_list_key_slots(handle)))
 end
 
 function Operations:lockbox_set_owner_signing_key(handle, key)
@@ -716,27 +793,27 @@ function Operations:lockbox_set_owner_signing_key(handle, key)
 end
 
 function Operations:lockbox_owner_inspection(handle)
-  return Models.OwnerInspection.decode(payload(native.lockbox_owner_inspection(handle)))
+  return Models.OwnerInspection.decode(take(native.lockbox_owner_inspection(handle)))
 end
 
-function Operations:lockbox_define_form(handle, alias, name, description, fields_proto)
-  return Models.FormDefinition.decode(payload(native.lockbox_define_form(handle, alias, #alias, name, #name, description, #description, fields_proto, #fields_proto)))
+function Operations:lockbox_define_form(handle, alias, name, description, fields_flatbuffer)
+  return Models.FormDefinition.decode(take(native.lockbox_define_form(handle, alias, #alias, name, #name, description, #description, fields_flatbuffer, #fields_flatbuffer)))
 end
 
 function Operations:lockbox_list_form_definitions(handle)
-  return Models.FormDefinitionList.decode(payload(native.lockbox_list_form_definitions(handle)))
+  return Models.FormDefinitionList.decode(take(native.lockbox_list_form_definitions(handle)))
 end
 
 function Operations:lockbox_resolve_form(handle, reference)
-  return Models.FormDefinition.decode(payload(native.lockbox_resolve_form(handle, reference, #reference)))
+  return Models.FormDefinition.decode(take(native.lockbox_resolve_form(handle, reference, #reference)))
 end
 
 function Operations:lockbox_list_form_revisions(handle, type_id)
-  return Models.FormDefinitionList.decode(payload(native.lockbox_list_form_revisions(handle, type_id, #type_id)))
+  return Models.FormDefinitionList.decode(take(native.lockbox_list_form_revisions(handle, type_id, #type_id)))
 end
 
 function Operations:lockbox_create_form_record(handle, path, type_reference, name)
-  return Models.FormRecord.decode(payload(native.lockbox_create_form_record(handle, path, #path, type_reference, #type_reference, name, #name)))
+  return Models.FormRecord.decode(take(native.lockbox_create_form_record(handle, path, #path, type_reference, #type_reference, name, #name)))
 end
 
 function Operations:lockbox_set_form_field(handle, path, field, value)
@@ -753,11 +830,11 @@ function Operations:lockbox_set_secret_form_field(handle, path, field, value)
 end
 
 function Operations:lockbox_list_form_records(handle)
-  return Models.FormRecordList.decode(payload(native.lockbox_list_form_records(handle)))
+  return Models.FormRecordList.decode(take(native.lockbox_list_form_records(handle)))
 end
 
 function Operations:lockbox_get_form_record(handle, path)
-  return Models.OptionalFormRecord.decode(payload(native.lockbox_get_form_record(handle, path, #path)))
+  return Models.OptionalFormRecord.decode(take(native.lockbox_get_form_record(handle, path, #path)))
 end
 
 function Operations:lockbox_delete_form_record(handle, path)
@@ -765,13 +842,13 @@ function Operations:lockbox_delete_form_record(handle, path)
   return true
 end
 
-function Operations:lockbox_move_form_records(handle, moves_proto)
-  if not native.lockbox_move_form_records(handle, moves_proto, #moves_proto) then error(last_error(), 2) end
+function Operations:lockbox_move_form_records(handle, moves_flatbuffer)
+  if not native.lockbox_move_form_records(handle, moves_flatbuffer, #moves_flatbuffer) then error(last_error(), 2) end
   return true
 end
 
 function Operations:lockbox_get_form_field(handle, path, field)
-  return Models.OptionalFormValue.decode(payload(native.lockbox_get_form_field(handle, path, #path, field, #field)))
+  return Models.OptionalFormValue.decode(take(native.lockbox_get_form_field(handle, path, #path, field, #field)))
 end
 
 function Operations:lockbox_get_secret_form_field(handle, path, field, callback)
@@ -998,19 +1075,19 @@ function Operations:vault_directory_structure_version(handle)
 end
 
 function Operations:vault_directory_list_private_keys(handle)
-  return Models.StringList.decode(payload(native.vault_directory_list_private_keys(handle)))
+  return Models.StringList.decode(take(native.vault_directory_list_private_keys(handle)))
 end
 
 function Operations:vault_directory_list_private_key_names(handle)
-  return Models.StringList.decode(payload(native.vault_directory_list_private_key_names(handle)))
+  return Models.StringList.decode(take(native.vault_directory_list_private_key_names(handle)))
 end
 
 function Operations:vault_directory_list_contact_names(handle)
-  return Models.StringList.decode(payload(native.vault_directory_list_contact_names(handle)))
+  return Models.StringList.decode(take(native.vault_directory_list_contact_names(handle)))
 end
 
 function Operations:vault_directory_list_form_aliases(handle)
-  return Models.StringList.decode(payload(native.vault_directory_list_form_aliases(handle)))
+  return Models.StringList.decode(take(native.vault_directory_list_form_aliases(handle)))
 end
 
 function Operations:vault_directory_private_key_exists(handle, name)
@@ -1060,7 +1137,7 @@ function Operations:vault_directory_delete_contact(handle, name)
 end
 
 function Operations:vault_directory_list_contacts(handle)
-  return Models.ContactList.decode(payload(native.vault_directory_list_contacts(handle)))
+  return Models.ContactList.decode(take(native.vault_directory_list_contacts(handle)))
 end
 
 function Operations:vault_directory_store_profile_email(handle, name, email)
@@ -1069,7 +1146,7 @@ function Operations:vault_directory_store_profile_email(handle, name, email)
 end
 
 function Operations:vault_directory_profile_email(handle, name)
-  return Models.OptionalString.decode(payload(native.vault_directory_profile_email(handle, name, #name)))
+  return Models.OptionalString.decode(take(native.vault_directory_profile_email(handle, name, #name)))
 end
 
 function Operations:vault_directory_store_backup(handle, id, bytes)
@@ -1114,11 +1191,11 @@ function Operations:vault_directory_load_contact_signing_key(handle, name)
 end
 
 function Operations:vault_directory_list_profile_generations(handle, name)
-  return Models.ProfileHistory.decode(payload(native.vault_directory_list_profile_generations(handle, name, #name)))
+  return Models.ProfileHistory.decode(take(native.vault_directory_list_profile_generations(handle, name, #name)))
 end
 
 function Operations:vault_directory_rotate_private_key(handle, name)
-  return Models.ProfileHistory.decode(payload(native.vault_directory_rotate_private_key(handle, name, #name)))
+  return Models.ProfileHistory.decode(take(native.vault_directory_rotate_private_key(handle, name, #name)))
 end
 
 function Operations:vault_directory_remember_lockbox(handle, id, path)
@@ -1127,7 +1204,7 @@ function Operations:vault_directory_remember_lockbox(handle, id, path)
 end
 
 function Operations:vault_directory_list_known_lockboxes(handle)
-  return Models.KnownLockboxList.decode(payload(native.vault_directory_list_known_lockboxes(handle)))
+  return Models.KnownLockboxList.decode(take(native.vault_directory_list_known_lockboxes(handle)))
 end
 
 function Operations:vault_directory_forget_lockbox(handle, path)
@@ -1141,11 +1218,11 @@ function Operations:vault_directory_remember_access_slot_label(handle, id, slot_
 end
 
 function Operations:vault_directory_list_access_slot_labels(handle, id)
-  return Models.AccessSlotLabelList.decode(payload(native.vault_directory_list_access_slot_labels(handle, id, #id)))
+  return Models.AccessSlotLabelList.decode(take(native.vault_directory_list_access_slot_labels(handle, id, #id)))
 end
 
 function Operations:vault_directory_find_access_slot_labels(handle, id, name)
-  return Models.AccessSlotLabelList.decode(payload(native.vault_directory_find_access_slot_labels(handle, id, #id, name, #name)))
+  return Models.AccessSlotLabelList.decode(take(native.vault_directory_find_access_slot_labels(handle, id, #id, name, #name)))
 end
 
 function Operations:vault_directory_forget_access_slot_label(handle, id, slot_id)
@@ -1153,20 +1230,20 @@ function Operations:vault_directory_forget_access_slot_label(handle, id, slot_id
   return true
 end
 
-function Operations:vault_directory_define_form(handle, alias, name, description, fields_proto)
-  return Models.FormDefinition.decode(payload(native.vault_directory_define_form(handle, alias, #alias, name, #name, description, #description, fields_proto, #fields_proto)))
+function Operations:vault_directory_define_form(handle, alias, name, description, fields_flatbuffer)
+  return Models.FormDefinition.decode(take(native.vault_directory_define_form(handle, alias, #alias, name, #name, description, #description, fields_flatbuffer, #fields_flatbuffer)))
 end
 
 function Operations:vault_directory_resolve_form(handle, reference)
-  return Models.FormDefinition.decode(payload(native.vault_directory_resolve_form(handle, reference, #reference)))
+  return Models.FormDefinition.decode(take(native.vault_directory_resolve_form(handle, reference, #reference)))
 end
 
 function Operations:vault_directory_list_forms(handle)
-  return Models.FormDefinitionList.decode(payload(native.vault_directory_list_forms(handle)))
+  return Models.FormDefinitionList.decode(take(native.vault_directory_list_forms(handle)))
 end
 
 function Operations:vault_directory_list_form_revisions(handle, type_id)
-  return Models.FormDefinitionList.decode(payload(native.vault_directory_list_form_revisions(handle, type_id, #type_id)))
+  return Models.FormDefinitionList.decode(take(native.vault_directory_list_form_revisions(handle, type_id, #type_id)))
 end
 
 function Operations:vault_directory_seed_forms(handle)
@@ -1183,11 +1260,11 @@ function Operations:vault_directory_remembered_password(handle, id)
 end
 
 function Operations:vault_backup_default(path, overwrite)
-  return Models.VaultBackupManifest.decode(payload(native.vault_backup_default(path, #path, overwrite)))
+  return Models.VaultBackupManifest.decode(take(native.vault_backup_default(path, #path, overwrite)))
 end
 
 function Operations:vault_restore_default(path, overwrite)
-  return Models.VaultBackupManifest.decode(payload(native.vault_restore_default(path, #path, overwrite)))
+  return Models.VaultBackupManifest.decode(take(native.vault_restore_default(path, #path, overwrite)))
 end
 
 function Operations:vault_directory_free(handle)
@@ -1207,19 +1284,19 @@ function Operations:vault_read_only_open_default(password)
 end
 
 function Operations:vault_read_only_list_profile_names(handle)
-  return Models.StringList.decode(payload(native.vault_read_only_list_profile_names(handle)))
+  return Models.StringList.decode(take(native.vault_read_only_list_profile_names(handle)))
 end
 
 function Operations:vault_read_only_list_contact_names(handle)
-  return Models.StringList.decode(payload(native.vault_read_only_list_contact_names(handle)))
+  return Models.StringList.decode(take(native.vault_read_only_list_contact_names(handle)))
 end
 
 function Operations:vault_read_only_list_form_aliases(handle)
-  return Models.StringList.decode(payload(native.vault_read_only_list_form_aliases(handle)))
+  return Models.StringList.decode(take(native.vault_read_only_list_form_aliases(handle)))
 end
 
 function Operations:vault_read_only_list_known_lockboxes(handle)
-  return Models.KnownLockboxList.decode(payload(native.vault_read_only_list_known_lockboxes(handle)))
+  return Models.KnownLockboxList.decode(take(native.vault_read_only_list_known_lockboxes(handle)))
 end
 
 function Operations:vault_read_only_free(handle)
@@ -1261,15 +1338,15 @@ function Operations:vault_agent_start()
 end
 
 function Operations:vault_agent_list()
-  return Models.AgentEntryList.decode(payload(native.vault_agent_list()))
+  return Models.AgentEntryList.decode(take(native.vault_agent_list()))
 end
 
 function Operations:vault_agent_sleep_support()
-  return Models.SleepSupport.decode(payload(native.vault_agent_sleep_support()))
+  return Models.SleepSupport.decode(take(native.vault_agent_sleep_support()))
 end
 
 function Operations:vault_platform_status()
-  return Models.PlatformStatus.decode(payload(native.vault_platform_status()))
+  return Models.PlatformStatus.decode(take(native.vault_platform_status()))
 end
 
 function Operations:vault_platform_set_scope(scope)
@@ -1423,43 +1500,44 @@ local function owned(name)
   classes[name] = class; return class
 end
 
---- Entry point for lockboxes, keys, local metadata, agent, and platform services.
+--- Primary API for opening lockboxes, managing keys and metadata, using the
+--- session agent, and accessing operating-system credential storage.
 -- @type Vault
 local Vault = owned("Vault")
---- Owned, mutable view of one encrypted lockbox archive.
+--- An open encrypted archive containing files, variables, secrets, and forms.
 -- @type Lockbox
 local Lockbox = owned("Lockbox")
---- Owned contact key pair used to decrypt received content keys.
+--- A profile's contact-encryption identity used to decrypt keys addressed to it.
 -- @type ContactKeyPair
 local ContactKeyPair = owned("ContactKeyPair")
---- Shareable contact public key used to encrypt a recipient content key.
+--- A recipient's shareable encryption identity used when granting access.
 -- @type ContactPublicKey
 local ContactPublicKey = owned("ContactPublicKey")
---- Owned encrypted content-key envelope for one contact recipient.
+--- A content key encrypted for one contact and recoverable by its matching key pair.
 -- @type WrappedContactKey
 local WrappedContactKey = owned("WrappedContactKey")
---- Owned signing key pair used to authorize mutable lockbox commits.
+--- A lockbox owner's signing identity used to authorize mutable revisions.
 -- @type SigningKeyPair
 local SigningKeyPair = owned("SigningKeyPair")
---- Public key used to verify owner-authorized lockbox commits.
+--- The public identity readers use to verify owner-authorized revisions.
 -- @type SigningPublicKey
 local SigningPublicKey = owned("SigningPublicKey")
---- Writable, password-protected local metadata vault.
+--- Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
 -- @type VaultDirectory
 local VaultDirectory = owned("VaultDirectory")
---- Read-only metadata view that never loads an owner signing key.
+--- A metadata view for discovery that never loads an owner signing key.
 -- @type ReadOnlyVaultDirectory
 local ReadOnlyVaultDirectory = owned("ReadOnlyVaultDirectory")
---- Client for the local session agent's time-limited secret cache.
+--- Client for the session service that temporarily caches unlock and signing keys.
 -- @type Agent
 local Agent = owned("Agent")
---- Owned registration for an operation that requires secret access.
+--- A token kept alive while an operation needs secrets cached by the agent.
 -- @type AgentActivity
 local AgentActivity = owned("AgentActivity")
---- Controls integration with the operating system's secret store.
+--- Access to operating-system credential storage for a scoped vault password.
 -- @type Platform
 local Platform = owned("Platform")
---- High-level workflow for local metadata and remembered lockboxes.
+--- A session that opens lockboxes by host path, caches passwords, and closes local files.
 -- @type LocalVault
 local LocalVault = owned("LocalVault")
 
@@ -1881,9 +1959,9 @@ function Lockbox:delete_variable(name)
   return self.operations:lockbox_delete_variable(self.handle, name)
 end
 
---- Updates variables.
-function Lockbox:move_variables(moves_proto)
-  return self.operations:lockbox_move_variables(self.handle, moves_proto)
+--- Atomically renames variables using source and destination path pairs.
+function Lockbox:move_variables(moves)
+  return self.operations:lockbox_move_variables(self.handle, flatbuffers.encode_path_moves(moves))
 end
 
 --- Lists variables.
@@ -1966,9 +2044,9 @@ function Lockbox:owner_inspection()
   return self.operations:lockbox_owner_inspection(self.handle)
 end
 
---- Returns the define form.
-function Lockbox:define_form(alias, name, description, fields_proto)
-  return self.operations:lockbox_define_form(self.handle, alias, name, description, fields_proto)
+--- Defines a reusable, versioned form from the supplied field definitions.
+function Lockbox:define_form(alias, name, description, fields)
+  return self.operations:lockbox_define_form(self.handle, alias, name, description, flatbuffers.encode_form_fields(fields))
 end
 
 --- Lists form definitions.
@@ -2016,9 +2094,9 @@ function Lockbox:delete_form_record(path)
   return self.operations:lockbox_delete_form_record(self.handle, path)
 end
 
---- Updates form records.
-function Lockbox:move_form_records(moves_proto)
-  return self.operations:lockbox_move_form_records(self.handle, moves_proto)
+--- Atomically renames form records using source and destination path pairs.
+function Lockbox:move_form_records(moves)
+  return self.operations:lockbox_move_form_records(self.handle, flatbuffers.encode_path_moves(moves))
 end
 
 --- Returns form field.
@@ -2292,9 +2370,9 @@ function VaultDirectory:forget_access_slot_label(id, slot_id)
   return self.operations:vault_directory_forget_access_slot_label(self.handle, id, slot_id)
 end
 
---- Returns the define form.
-function VaultDirectory:define_form(alias, name, description, fields_proto)
-  return self.operations:vault_directory_define_form(self.handle, alias, name, description, fields_proto)
+--- Defines a reusable, versioned form in the local vault.
+function VaultDirectory:define_form(alias, name, description, fields)
+  return self.operations:vault_directory_define_form(self.handle, alias, name, description, flatbuffers.encode_form_fields(fields))
 end
 
 --- Returns the resolve form.

@@ -2,7 +2,7 @@
 
 reVault is an encrypted archive and local-vault library for files, credentials,
 keys, and typed records. The Dart package provides an owned, class-based API and
-generated Protobuf result types. See the
+documented Dart domain values with no code-generation types in the public API. See the
 [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
 
 ```yaml

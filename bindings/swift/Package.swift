@@ -9,13 +9,13 @@ let package = Package(
         .executable(name: "revault-swift-conformance", targets: ["RevaultConformance"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.29.0"),
+        .package(url: "https://github.com/google/flatbuffers.git", exact: "25.2.10"),
     ],
     targets: [
         .systemLibrary(name: "RevaultC", path: "CModule"),
         .target(
             name: "RevaultAPI",
-            dependencies: ["RevaultC", .product(name: "SwiftProtobuf", package: "swift-protobuf")],
+            dependencies: ["RevaultC", .product(name: "FlatBuffers", package: "flatbuffers")],
             path: "Sources/RevaultAPI"
         ),
         .executableTarget(

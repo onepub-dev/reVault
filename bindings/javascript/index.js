@@ -4,18 +4,27 @@
  * guidance, and complete examples.
  * @module @onepub-dev/revault-api
  */
-import { BindingOperations } from './native.js';
-/** Exports this key in the requested format. */
-export { createMessage, encodeMessage } from './native.js';
-/** Exports this key in the requested format. */
-export { revault } from './generated/messages.js';
+import { BindingOperations, createMessage, encodeMessage } from './native.js';
+
+function encodePathMoves(moves) {
+  return encodeMessage(createMessage('PathMoveList', {
+    values: moves.map((move) => createMessage('PathMove', move)),
+  }));
+}
+
+function encodeFormFields(fields) {
+  return encodeMessage(createMessage('FormFieldList', {
+    values: fields.map((field) => createMessage('FormField', field)),
+  }));
+}
 
 class OwnedHandle {
   /** Creates a new facade over the bundled native library. */
   constructor(operations, nativeHandle) { this.operations = operations; this.nativeHandle = nativeHandle; }
 }
 
-/** Returns the vault. */
+/** Primary API used to open lockboxes, manage keys and metadata, use the
+ * session agent, and access operating-system credential storage. */
 export class Vault {
   /** Creates a new facade over the bundled native library. */
   constructor() { this.operations = new BindingOperations(); this.agent = new Agent(this.operations); this.platform = new Platform(this.operations); }
@@ -281,7 +290,8 @@ export class Vault {
 
 }
 
-/** Returns the lockbox. */
+/** An open encrypted archive containing files, variables, secrets, and forms.
+ * Commit pending changes and release it when finished with decrypted content. */
 export class Lockbox extends OwnedHandle {
   /** Adds file. */
   addFile(path, data, replace) {
@@ -434,8 +444,8 @@ export class Lockbox extends OwnedHandle {
   }
 
   /** Updates variables. */
-  moveVariables(movesProto) {
-    return this.operations.lockboxMoveVariables(this.nativeHandle, movesProto);
+  moveVariables(moves) {
+    return this.operations.lockboxMoveVariables(this.nativeHandle, encodePathMoves(moves));
   }
 
   /** Lists variables. */
@@ -519,8 +529,8 @@ export class Lockbox extends OwnedHandle {
   }
 
   /** Returns the define form. */
-  defineForm(alias, name, description, fieldsProto) {
-    return this.operations.lockboxDefineForm(this.nativeHandle, alias, name, description, fieldsProto);
+  defineForm(alias, name, description, fields) {
+    return this.operations.lockboxDefineForm(this.nativeHandle, alias, name, description, encodeFormFields(fields));
   }
 
   /** Lists form definitions. */
@@ -569,8 +579,8 @@ export class Lockbox extends OwnedHandle {
   }
 
   /** Updates form records. */
-  moveFormRecords(movesProto) {
-    return this.operations.lockboxMoveFormRecords(this.nativeHandle, movesProto);
+  moveFormRecords(moves) {
+    return this.operations.lockboxMoveFormRecords(this.nativeHandle, encodePathMoves(moves));
   }
 
   /** Returns form field. */
@@ -596,7 +606,8 @@ export class Lockbox extends OwnedHandle {
 
 }
 
-/** Returns the contact key pair. */
+/** A profile's contact-encryption identity, retained to decrypt content keys
+ * addressed to the profile. */
 export class ContactKeyPair extends OwnedHandle {
   /** Returns the public. */
   public() {
@@ -621,7 +632,7 @@ export class ContactKeyPair extends OwnedHandle {
 
 }
 
-/** Returns the contact public key. */
+/** A recipient's shareable encryption identity, used when granting access. */
 export class ContactPublicKey extends OwnedHandle {
   /** Returns the public free. */
   publicFree() {
@@ -636,7 +647,7 @@ export class ContactPublicKey extends OwnedHandle {
 
 }
 
-/** Returns the wrapped contact key. */
+/** A content key encrypted for one contact and recoverable by its private key. */
 export class WrappedContactKey extends OwnedHandle {
   /** Returns the public. */
   public() {
@@ -661,7 +672,7 @@ export class WrappedContactKey extends OwnedHandle {
 
 }
 
-/** Returns the signing key pair. */
+/** A lockbox owner's signing identity, used to authorize mutable revisions. */
 export class SigningKeyPair extends OwnedHandle {
   /** Returns the public. */
   public() {
@@ -681,7 +692,7 @@ export class SigningKeyPair extends OwnedHandle {
 
 }
 
-/** Returns the signing public key. */
+/** The public identity readers use to verify owner-authorized revisions. */
 export class SigningPublicKey extends OwnedHandle {
   /** Returns the public free. */
   publicFree() {
@@ -691,7 +702,8 @@ export class SigningPublicKey extends OwnedHandle {
 
 }
 
-/** Returns the vault directory. */
+/** A password-protected local store for profile keys, contacts, forms, backups,
+ * and remembered lockbox paths; it does not contain lockbox file contents. */
 export class VaultDirectory extends OwnedHandle {
   /** Returns the root. */
   root() {
@@ -869,8 +881,8 @@ export class VaultDirectory extends OwnedHandle {
   }
 
   /** Returns the define form. */
-  defineForm(alias, name, description, fieldsProto) {
-    return this.operations.vaultDirectoryDefineForm(this.nativeHandle, alias, name, description, fieldsProto);
+  defineForm(alias, name, description, fields) {
+    return this.operations.vaultDirectoryDefineForm(this.nativeHandle, alias, name, description, encodeFormFields(fields));
   }
 
   /** Returns the resolve form. */
@@ -911,7 +923,7 @@ export class VaultDirectory extends OwnedHandle {
 
 }
 
-/** Returns only vault directory. */
+/** A restricted local metadata view for discovery without signing-key access. */
 export class ReadOnlyVaultDirectory extends OwnedHandle {
   /** Lists profile names. */
   listProfileNames() {
@@ -940,7 +952,8 @@ export class ReadOnlyVaultDirectory extends OwnedHandle {
 
 }
 
-/** Returns the agent. */
+/** Client for the session service that temporarily caches vault unlock and
+ * owner signing keys across application operations. */
 export class Agent {
   /** Creates a new facade over the bundled native library. */
   constructor(operations) { this.operations = operations; }
@@ -1042,11 +1055,11 @@ export class Agent {
 
 }
 
-/** Returns the agent activity. */
+/** A token kept alive while an operation needs secrets cached by the agent. */
 export class AgentActivity extends OwnedHandle {
 }
 
-/** Returns the platform. */
+/** Access to operating-system credential storage for a scoped vault password. */
 export class Platform {
   /** Creates a new facade over the bundled native library. */
   constructor(operations) { this.operations = operations; }
@@ -1093,7 +1106,8 @@ export class Platform {
 
 }
 
-/** Returns the local vault. */
+/** A session for opening lockboxes by host path, caching short-lived passwords,
+ * and committing and closing locally used lockbox files. */
 export class LocalVault extends OwnedHandle {
   /** Creates lockbox password. */
   createLockboxPassword(path, password) {

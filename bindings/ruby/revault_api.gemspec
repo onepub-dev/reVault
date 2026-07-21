@@ -17,5 +17,4 @@ Gem::Specification.new do |spec|
   spec.platform = "@GEM_PLATFORM@"
   spec.files = Dir["revault_api.rb", "lib/**/*.rb", "generated/**/*.rb", "native/**/*", "README.md", "LICENSE"]
   spec.require_paths = ["."]
-  spec.add_runtime_dependency "google-protobuf", "~> 3.25"
 end

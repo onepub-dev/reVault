@@ -1,6 +1,4 @@
 using System.Text;
-using Google.Protobuf;
-using Revault.Bindings;
 
 namespace Revault;
 
@@ -14,7 +12,9 @@ public delegate T SecretCallback<T>(ReadOnlySpan<byte> secret);
 /// vault, the session agent, and the platform secret store.
 /// </summary>
 /// <remarks>
-/// Native handles implement <see cref="IDisposable"/> and should be disposed
+/// Create one when the application starts, then use it to open lockboxes and
+/// manage keys and local services.
+/// Values that retain sensitive state implement <see cref="IDisposable"/> and should be disposed
 /// promptly. Secret variables and form fields are available only through
 /// callback-scoped APIs so callers can avoid retaining plaintext. See the
 /// <see href="https://github.com/onepub-dev/reVault#readme">repository README</see>
@@ -25,7 +25,7 @@ public sealed class Vault
     private readonly BindingOperations operations = new();
     private static void Open(IntPtr handle) { if (handle == IntPtr.Zero) throw new ObjectDisposedException("native object"); }
 
-    /// <summary>Runtime cache and worker tuning for opening or creating lockboxes.</summary>
+    /// <summary>Memory and CPU settings applied when creating or opening a lockbox.</summary>
     /// <param name="CacheMode">Cache strategy, such as <c>bytes</c>.</param>
     /// <param name="CacheBytes">Maximum cache capacity in bytes.</param>
     /// <param name="Workload">Workload profile, such as <c>interactive</c>.</param>
@@ -50,7 +50,7 @@ public sealed class Vault
     /// <summary>Determines vault structure version without fully opening it.</summary>
     public uint ProbeVaultStructureVersion(string root, byte[] password) => (uint)operations.VaultDirectoryProbeStructureVersion(root, password);
 
-    /// <summary>Shareable contact public key used to encrypt a recipient content key.</summary>
+    /// <summary>A recipient's shareable encryption identity used when granting lockbox access.</summary>
     public sealed class ContactPublicKey : IDisposable
     {
         private readonly Vault owner; internal IntPtr Handle;
@@ -67,7 +67,7 @@ public sealed class Vault
         ~ContactPublicKey() => Dispose();
     }
 
-    /// <summary>Owned encrypted content-key envelope for one contact recipient.</summary>
+    /// <summary>A content key encrypted for one contact and recoverable only by its matching key pair.</summary>
     public sealed class WrappedContactKey : IDisposable
     {
         private readonly Vault owner; internal IntPtr Handle;
@@ -84,7 +84,7 @@ public sealed class Vault
         ~WrappedContactKey() => Dispose();
     }
 
-    /// <summary>Owned contact key pair used to decrypt received content keys.</summary>
+    /// <summary>A profile's contact-encryption identity used to decrypt content keys addressed to it.</summary>
     public sealed class ContactKeyPair : IDisposable
     {
         private readonly Vault owner; internal IntPtr Handle;
@@ -105,7 +105,7 @@ public sealed class Vault
         ~ContactKeyPair() => Dispose();
     }
 
-    /// <summary>Public key used to verify owner-authorized lockbox commits.</summary>
+    /// <summary>The public identity readers use to verify owner-authorized lockbox revisions.</summary>
     public sealed class SigningPublicKey : IDisposable
     {
         private readonly Vault owner; internal IntPtr Handle;
@@ -116,7 +116,7 @@ public sealed class Vault
         ~SigningPublicKey() => Dispose();
     }
 
-    /// <summary>Owned signing key pair used to authorize mutable lockbox commits.</summary>
+    /// <summary>A lockbox owner's signing identity used to authorize mutable revisions.</summary>
     public sealed class SigningKeyPair : IDisposable
     {
         private readonly Vault owner; internal IntPtr Handle;
@@ -195,7 +195,7 @@ public sealed class Vault
     public Lockbox SalvageLockbox(byte[] archive, byte[] key, SigningKeyPair? signing = null) =>
         new(this, operations.LockboxRecoverySalvage(archive, key, signing?.Handle ?? IntPtr.Zero));
 
-    /// <summary>Owned, mutable view of one encrypted lockbox archive.</summary>
+    /// <summary>An open encrypted archive containing files, variables, secrets, and forms.</summary>
     public sealed class Lockbox : IDisposable
     {
         private readonly Vault owner; internal IntPtr Handle;
@@ -213,7 +213,7 @@ public sealed class Vault
             bool restoreSymlinks, bool restorePermissions, bool overwrite) => owner.operations.LockboxExtractDirectory(
                 Handle, destination, maxFileBytes, maxTotalBytes, maxFiles, restoreSymlinks, restorePermissions, overwrite);
         /// <summary>Returns the stream content.</summary>
-        public StreamChunkList StreamContent(bool physical = false) => owner.operations.LockboxStreamContent(Handle, physical);
+        public IReadOnlyList<StreamChunk> StreamContent(bool physical = false) => owner.operations.LockboxStreamContent(Handle, physical);
         /// <summary>Returns cache statistics for this lockbox.</summary>
         public CacheStats CacheStats() => owner.operations.LockboxCacheStats(Handle);
         /// <summary>Returns import statistics for this lockbox.</summary>
@@ -221,7 +221,7 @@ public sealed class Vault
         /// <summary>Updates import stats.</summary>
         public void ResetImportStats() => owner.operations.LockboxResetImportStats(Handle);
         /// <summary>Returns the page inspection.</summary>
-        public PageInspectionList PageInspection() => owner.operations.LockboxPageInspection(Handle);
+        public IReadOnlyList<PageInspection> PageInspection() => owner.operations.LockboxPageInspection(Handle);
         /// <summary>Returns the recovery report.</summary>
         public RecoveryReport RecoveryReport() => owner.operations.LockboxRecoveryReport(Handle);
         /// <summary>Returns the render recovery report.</summary>
@@ -247,29 +247,29 @@ public sealed class Vault
         /// <summary>Updates rename.</summary>
         public void Rename(string from, string to) => owner.operations.LockboxRename(Handle, from, to);
         /// <summary>Lists list.</summary>
-        public LockboxEntryList List(string path = "/", bool recursive = false) => owner.operations.LockboxList(Handle, path, recursive);
+        public IReadOnlyList<LockboxEntry> List(string path = "/", bool recursive = false) => owner.operations.LockboxList(Handle, path, recursive);
         /// <summary>Lists list.</summary>
-        public LockboxEntryList List(string path, string glob, bool recursive, bool includeFiles,
+        public IReadOnlyList<LockboxEntry> List(string path, string glob, bool recursive, bool includeFiles,
             bool includeSymlinks, bool includeDirectories, nuint limit) => owner.operations.LockboxListWithOptions(
                 Handle, path, glob, recursive, includeFiles, includeSymlinks, includeDirectories, limit);
         /// <summary>Returns metadata for the selected lockbox entry.</summary>
-        public OptionalLockboxEntry Stat(string path) => owner.operations.LockboxStat(Handle, path);
+        public LockboxEntry? Stat(string path) => owner.operations.LockboxStat(Handle, path);
         /// <summary>Sets variable.</summary>
         public void SetVariable(string name, string value) => owner.operations.LockboxSetVariable(Handle, name, value);
         /// <summary>Stores a secret variable from mutable bytes.</summary>
         public void SetSecretVariable(string name, byte[] value) => owner.operations.LockboxSetSecretVariable(Handle, name, value);
         /// <summary>Returns variable.</summary>
-        public string? GetVariable(string name) { var value = owner.operations.LockboxGetVariable(Handle, name); return value.Present ? value.Value : null; }
+        public string? GetVariable(string name) => owner.operations.LockboxGetVariable(Handle, name);
         /// <summary>Invokes <paramref name="callback"/> with temporary secret bytes, then wipes the transfer buffer.</summary>
         public T? WithSecretVariable<T>(string name, SecretCallback<T> callback) => owner.operations.LockboxWithSecretVariable(Handle, name, callback);
         /// <summary>Removes variable.</summary>
         public void DeleteVariable(string name) => owner.operations.LockboxDeleteVariable(Handle, name);
         /// <summary>Updates variables.</summary>
-        public void MoveVariables(PathMoveList moves) => owner.operations.LockboxMoveVariables(Handle, moves.ToByteArray());
+        public void MoveVariables(IReadOnlyList<PathMove> moves) => owner.operations.LockboxMoveVariables(Handle, DomainCodec.EncodePathMoves(moves));
         /// <summary>Lists variables.</summary>
-        public VariableList ListVariables() => owner.operations.LockboxListVariables(Handle);
+        public IReadOnlyList<Variable> ListVariables() => owner.operations.LockboxListVariables(Handle);
         /// <summary>Returns the variable sensitivity.</summary>
-        public OptionalString VariableSensitivity(string name) => owner.operations.LockboxVariableSensitivity(Handle, name);
+        public string? VariableSensitivity(string name) => owner.operations.LockboxVariableSensitivity(Handle, name);
         /// <summary>Adds symlink.</summary>
         public void AddSymlink(string path, string target, bool replace = false) => owner.operations.LockboxAddSymlink(Handle, path, target, replace);
         /// <summary>Returns the symlink target.</summary>
@@ -293,20 +293,20 @@ public sealed class Vault
         /// <summary>Removes key.</summary>
         public void DeleteKey(ulong id) => owner.operations.LockboxDeleteKey(Handle, id);
         /// <summary>Lists key slots.</summary>
-        public KeySlotList ListKeySlots() => owner.operations.LockboxListKeySlots(Handle);
+        public IReadOnlyList<KeySlot> ListKeySlots() => owner.operations.LockboxListKeySlots(Handle);
         /// <summary>Sets owner signing key.</summary>
         public void SetOwnerSigningKey(SigningKeyPair key) => owner.operations.LockboxSetOwnerSigningKey(Handle, key.Handle);
         /// <summary>Returns the owner inspection.</summary>
         public OwnerInspection OwnerInspection() => owner.operations.LockboxOwnerInspection(Handle);
         /// <summary>Returns the define form.</summary>
-        public FormDefinition DefineForm(string alias, string name, string description, FormFieldList fields) =>
-            owner.operations.LockboxDefineForm(Handle, alias, name, description, fields.ToByteArray());
+        public FormDefinition DefineForm(string alias, string name, string description, IReadOnlyList<FormField> fields) =>
+            owner.operations.LockboxDefineForm(Handle, alias, name, description, DomainCodec.EncodeFormFields(fields));
         /// <summary>Lists form definitions.</summary>
-        public FormDefinitionList ListFormDefinitions() => owner.operations.LockboxListFormDefinitions(Handle);
+        public IReadOnlyList<FormDefinition> ListFormDefinitions() => owner.operations.LockboxListFormDefinitions(Handle);
         /// <summary>Returns the resolve form.</summary>
         public FormDefinition ResolveForm(string reference) => owner.operations.LockboxResolveForm(Handle, reference);
         /// <summary>Lists form revisions.</summary>
-        public FormDefinitionList ListFormRevisions(string typeId) => owner.operations.LockboxListFormRevisions(Handle, typeId);
+        public IReadOnlyList<FormDefinition> ListFormRevisions(string typeId) => owner.operations.LockboxListFormRevisions(Handle, typeId);
         /// <summary>Creates form record.</summary>
         public FormRecord CreateFormRecord(string path, string typeReference, string name) => owner.operations.LockboxCreateFormRecord(Handle, path, typeReference, name);
         /// <summary>Sets form field.</summary>
@@ -314,15 +314,15 @@ public sealed class Vault
         /// <summary>Stores a secret form field from mutable bytes.</summary>
         public void SetSecretFormField(string path, string field, byte[] value) => owner.operations.LockboxSetSecretFormField(Handle, path, field, value);
         /// <summary>Lists form records.</summary>
-        public FormRecordList ListFormRecords() => owner.operations.LockboxListFormRecords(Handle);
+        public IReadOnlyList<FormRecord> ListFormRecords() => owner.operations.LockboxListFormRecords(Handle);
         /// <summary>Returns form record.</summary>
-        public OptionalFormRecord GetFormRecord(string path) => owner.operations.LockboxGetFormRecord(Handle, path);
+        public FormRecord? GetFormRecord(string path) => owner.operations.LockboxGetFormRecord(Handle, path);
         /// <summary>Removes form record.</summary>
         public void DeleteFormRecord(string path) => owner.operations.LockboxDeleteFormRecord(Handle, path);
         /// <summary>Updates form records.</summary>
-        public void MoveFormRecords(PathMoveList moves) => owner.operations.LockboxMoveFormRecords(Handle, moves.ToByteArray());
+        public void MoveFormRecords(IReadOnlyList<PathMove> moves) => owner.operations.LockboxMoveFormRecords(Handle, DomainCodec.EncodePathMoves(moves));
         /// <summary>Returns form field.</summary>
-        public OptionalFormValue GetFormField(string path, string field) => owner.operations.LockboxGetFormField(Handle, path, field);
+        public FormValue? GetFormField(string path, string field) => owner.operations.LockboxGetFormField(Handle, path, field);
         /// <summary>Invokes <paramref name="callback"/> with temporary field bytes, then wipes the transfer buffer.</summary>
         public T? WithSecretFormField<T>(string path, string field, SecretCallback<T> callback) => owner.operations.LockboxWithSecretFormField(Handle, path, field, callback);
         /// <summary>Returns the bytes.</summary>
@@ -356,7 +356,7 @@ public sealed class Vault
     /// <summary>Returns the restore default vault.</summary>
     public VaultBackupManifest RestoreDefaultVault(string path, bool overwrite = false) => operations.VaultRestoreDefault(path, overwrite);
 
-    /// <summary>Writable, password-protected local metadata vault.</summary>
+    /// <summary>Password-protected storage for profile keys, contacts, forms, backups, and known lockbox paths.</summary>
     public sealed class VaultDirectory : IDisposable
     {
         private readonly Vault owner; internal IntPtr Handle;
@@ -366,13 +366,13 @@ public sealed class Vault
         /// <summary>Returns the structure version.</summary>
         public uint StructureVersion => owner.operations.VaultDirectoryStructureVersion(Handle);
         /// <summary>Lists private keys.</summary>
-        public StringList ListPrivateKeys() => owner.operations.VaultDirectoryListPrivateKeys(Handle);
+        public IReadOnlyList<string> ListPrivateKeys() => owner.operations.VaultDirectoryListPrivateKeys(Handle);
         /// <summary>Lists private key names.</summary>
-        public StringList ListPrivateKeyNames() => owner.operations.VaultDirectoryListPrivateKeyNames(Handle);
+        public IReadOnlyList<string> ListPrivateKeyNames() => owner.operations.VaultDirectoryListPrivateKeyNames(Handle);
         /// <summary>Lists contact names.</summary>
-        public StringList ListContactNames() => owner.operations.VaultDirectoryListContactNames(Handle);
+        public IReadOnlyList<string> ListContactNames() => owner.operations.VaultDirectoryListContactNames(Handle);
         /// <summary>Lists form aliases.</summary>
-        public StringList ListFormAliases() => owner.operations.VaultDirectoryListFormAliases(Handle);
+        public IReadOnlyList<string> ListFormAliases() => owner.operations.VaultDirectoryListFormAliases(Handle);
         /// <summary>Returns the private key exists.</summary>
         public bool PrivateKeyExists(string name) => owner.operations.VaultDirectoryPrivateKeyExists(Handle, name);
         /// <summary>Removes private key.</summary>
@@ -392,11 +392,11 @@ public sealed class Vault
         /// <summary>Removes contact.</summary>
         public void DeleteContact(string name) => owner.operations.VaultDirectoryDeleteContact(Handle, name);
         /// <summary>Lists contacts.</summary>
-        public ContactList ListContacts() => owner.operations.VaultDirectoryListContacts(Handle);
+        public IReadOnlyList<Contact> ListContacts() => owner.operations.VaultDirectoryListContacts(Handle);
         /// <summary>Stores profile email.</summary>
         public void StoreProfileEmail(string name, string email) => owner.operations.VaultDirectoryStoreProfileEmail(Handle, name, email);
         /// <summary>Returns the profile email.</summary>
-        public OptionalString ProfileEmail(string name) => owner.operations.VaultDirectoryProfileEmail(Handle, name);
+        public string? ProfileEmail(string name) => owner.operations.VaultDirectoryProfileEmail(Handle, name);
         /// <summary>Stores backup.</summary>
         public void StoreBackup(byte[] id, byte[] value) => owner.operations.VaultDirectoryStoreBackup(Handle, id, value);
         /// <summary>Loads backup.</summary>
@@ -422,26 +422,26 @@ public sealed class Vault
         /// <summary>Stores lockbox.</summary>
         public void RememberLockbox(byte[] id, string path) => owner.operations.VaultDirectoryRememberLockbox(Handle, id, path);
         /// <summary>Lists known lockboxes.</summary>
-        public KnownLockboxList ListKnownLockboxes() => owner.operations.VaultDirectoryListKnownLockboxes(Handle);
+        public IReadOnlyList<KnownLockbox> ListKnownLockboxes() => owner.operations.VaultDirectoryListKnownLockboxes(Handle);
         /// <summary>Removes lockbox.</summary>
         public void ForgetLockbox(string path) => owner.operations.VaultDirectoryForgetLockbox(Handle, path);
         /// <summary>Stores access slot label.</summary>
         public void RememberAccessSlotLabel(byte[] id, ulong slotId, string name) => owner.operations.VaultDirectoryRememberAccessSlotLabel(Handle, id, slotId, name);
         /// <summary>Lists access slot labels.</summary>
-        public AccessSlotLabelList ListAccessSlotLabels(byte[] id) => owner.operations.VaultDirectoryListAccessSlotLabels(Handle, id);
+        public IReadOnlyList<AccessSlotLabel> ListAccessSlotLabels(byte[] id) => owner.operations.VaultDirectoryListAccessSlotLabels(Handle, id);
         /// <summary>Returns the find access slot labels.</summary>
-        public AccessSlotLabelList FindAccessSlotLabels(byte[] id, string name) => owner.operations.VaultDirectoryFindAccessSlotLabels(Handle, id, name);
+        public IReadOnlyList<AccessSlotLabel> FindAccessSlotLabels(byte[] id, string name) => owner.operations.VaultDirectoryFindAccessSlotLabels(Handle, id, name);
         /// <summary>Removes access slot label.</summary>
         public void ForgetAccessSlotLabel(byte[] id, ulong slotId) => owner.operations.VaultDirectoryForgetAccessSlotLabel(Handle, id, slotId);
         /// <summary>Returns the define form.</summary>
-        public FormDefinition DefineForm(string alias, string name, string description, FormFieldList fields) =>
-            owner.operations.VaultDirectoryDefineForm(Handle, alias, name, description, fields.ToByteArray());
+        public FormDefinition DefineForm(string alias, string name, string description, IReadOnlyList<FormField> fields) =>
+            owner.operations.VaultDirectoryDefineForm(Handle, alias, name, description, DomainCodec.EncodeFormFields(fields));
         /// <summary>Returns the resolve form.</summary>
         public FormDefinition ResolveForm(string reference) => owner.operations.VaultDirectoryResolveForm(Handle, reference);
         /// <summary>Lists forms.</summary>
-        public FormDefinitionList ListForms() => owner.operations.VaultDirectoryListForms(Handle);
+        public IReadOnlyList<FormDefinition> ListForms() => owner.operations.VaultDirectoryListForms(Handle);
         /// <summary>Lists form revisions.</summary>
-        public FormDefinitionList ListFormRevisions(string typeId) => owner.operations.VaultDirectoryListFormRevisions(Handle, typeId);
+        public IReadOnlyList<FormDefinition> ListFormRevisions(string typeId) => owner.operations.VaultDirectoryListFormRevisions(Handle, typeId);
         /// <summary>Returns the seed forms.</summary>
         public nuint SeedForms() => owner.operations.VaultDirectorySeedForms(Handle);
         /// <summary>Stores password.</summary>
@@ -460,19 +460,19 @@ public sealed class Vault
     /// <summary>Opens default read only vault directory.</summary>
     public ReadOnlyVaultDirectory OpenDefaultReadOnlyVaultDirectory(byte[] password) =>
         new(this, operations.VaultReadOnlyOpenDefault(password));
-    /// <summary>Read-only metadata view that never loads an owner signing key.</summary>
+    /// <summary>A metadata view for discovery and diagnostics that never loads an owner signing key.</summary>
     public sealed class ReadOnlyVaultDirectory : IDisposable
     {
         private readonly Vault owner; private IntPtr handle;
         internal ReadOnlyVaultDirectory(Vault owner, IntPtr handle) { this.owner = owner; this.handle = handle; }
         /// <summary>Lists profile names.</summary>
-        public StringList ListProfileNames() => owner.operations.VaultReadOnlyListProfileNames(handle);
+        public IReadOnlyList<string> ListProfileNames() => owner.operations.VaultReadOnlyListProfileNames(handle);
         /// <summary>Lists contact names.</summary>
-        public StringList ListContactNames() => owner.operations.VaultReadOnlyListContactNames(handle);
+        public IReadOnlyList<string> ListContactNames() => owner.operations.VaultReadOnlyListContactNames(handle);
         /// <summary>Lists form aliases.</summary>
-        public StringList ListFormAliases() => owner.operations.VaultReadOnlyListFormAliases(handle);
+        public IReadOnlyList<string> ListFormAliases() => owner.operations.VaultReadOnlyListFormAliases(handle);
         /// <summary>Lists known lockboxes.</summary>
-        public KnownLockboxList ListKnownLockboxes() => owner.operations.VaultReadOnlyListKnownLockboxes(handle);
+        public IReadOnlyList<KnownLockbox> ListKnownLockboxes() => owner.operations.VaultReadOnlyListKnownLockboxes(handle);
         /// <summary>Releases the native resources held by this object.</summary>
         public void Dispose() { if (handle != IntPtr.Zero) { owner.operations.VaultReadOnlyFree(handle); handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         /// <summary>Releases the read-only vault handle during finalization.</summary>
@@ -498,7 +498,7 @@ public sealed class Vault
     /// <summary>Removes agent key.</summary>
     public void ForgetAgentKey(byte[] id) => operations.VaultAgentForget(id);
     /// <summary>Lists agent keys.</summary>
-    public AgentEntryList ListAgentKeys() => operations.VaultAgentList();
+    public IReadOnlyList<AgentEntry> ListAgentKeys() => operations.VaultAgentList();
     /// <summary>Returns the agent sleep support.</summary>
     public SleepSupport AgentSleepSupport() => operations.VaultAgentSleepSupport();
     /// <summary>Returns the agent log path.</summary>
@@ -521,7 +521,7 @@ public sealed class Vault
     /// <summary>Starts agent activity.</summary>
     public AgentActivity BeginAgentActivity(string kind) => new(this, operations.VaultAgentBeginActivity(kind));
 
-    /// <summary>Owned registration for an operation that currently requires secret access.</summary>
+    /// <summary>A token kept alive while an operation needs secrets cached by the session agent.</summary>
     public sealed class AgentActivity : IDisposable
     {
         private readonly Vault owner; private IntPtr handle;
@@ -551,7 +551,7 @@ public sealed class Vault
 
     /// <summary>Opens local vault.</summary>
     public LocalVault OpenLocalVault() => new(this, operations.VaultLocal());
-    /// <summary>High-level workflow for local metadata and remembered lockboxes.</summary>
+    /// <summary>A session that opens lockboxes by host path, caches passwords, and closes locally used files.</summary>
     public sealed class LocalVault : IDisposable
     {
         private readonly Vault owner; private IntPtr handle;

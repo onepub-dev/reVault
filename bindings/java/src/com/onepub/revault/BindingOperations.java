@@ -1,12 +1,9 @@
 package com.onepub.revault;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.MessageLite;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.ValueLayout;
-import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 /** Generated complete, typed Java surface for every exported binding operation. */
@@ -18,12 +15,12 @@ final class BindingOperations {
   public BindingOperations(RevaultNativeApi api) {
     this.api = api;
     try {
-      if ((int) api.api_abi_version.invokeExact() != 2) throw new IllegalStateException("revault-api native ABI mismatch; expected 2");
+      if ((int) api.api_abi_version.invokeExact() != 3) throw new IllegalStateException("revault-api native ABI mismatch; expected 3");
     } catch (RuntimeException error) { throw error; }
       catch (Throwable error) { throw new IllegalStateException(error); }
   }
 
-  @FunctionalInterface private interface Parser<T extends MessageLite> { T parse(byte[] value) throws InvalidProtocolBufferException; }
+  @FunctionalInterface private interface Parser<T> { T parse(byte[] value); }
   @FunctionalInterface private interface SecretGetter { boolean get(MemorySegment output); }
 
   private static Object call(java.lang.invoke.MethodHandle method, Object... args) {
@@ -73,21 +70,15 @@ final class BindingOperations {
       } finally { call(api.secret_free, handle); }
     }
   }
-  private <T extends MessageLite> T frame(MemorySegment value, Parser<T> parser) {
-    var bytes = take(value);
-    if (bytes.length < 12 || bytes[0] != 'L' || bytes[1] != 'B' || bytes[2] != 'W' || bytes[3] != 'F')
-      throw new IllegalArgumentException("invalid reVault binding frame");
-    int length = java.nio.ByteBuffer.wrap(bytes, 8, 4).order(ByteOrder.BIG_ENDIAN).getInt();
-    if (length != bytes.length - 12) throw new IllegalArgumentException("invalid reVault binding frame length");
-    try { return parser.parse(java.util.Arrays.copyOfRange(bytes, 12, bytes.length)); }
-    catch (InvalidProtocolBufferException error) { throw new IllegalArgumentException("invalid reVault protobuf payload", error); }
+  private <T> T frame(MemorySegment value, Parser<T> parser) {
+    return parser.parse(take(value));
   }
 
   public String lastErrorMessage() { return lastError(); }
 
-  public revault.bindings.RevaultBindings.ErrorDetails bufferLastErrorDetails() {
+  public ErrorDetails bufferLastErrorDetails() {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.buffer_last_error_details, arena), revault.bindings.RevaultBindings.ErrorDetails::parseFrom);
+      return frame((MemorySegment) call(api.buffer_last_error_details, arena), DomainCodec::errorDetails);
     }
   }
 
@@ -183,21 +174,21 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.StreamChunkList lockboxStreamContent(MemorySegment handle, boolean physical) {
+  public java.util.List<StreamChunk> lockboxStreamContent(MemorySegment handle, boolean physical) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_stream_content, arena, handle, physical), revault.bindings.RevaultBindings.StreamChunkList::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_stream_content, arena, handle, physical), DomainCodec::streamChunkList);
     }
   }
 
-  public revault.bindings.RevaultBindings.CacheStats lockboxCacheStats(MemorySegment handle) {
+  public CacheStats lockboxCacheStats(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_cache_stats, arena, handle), revault.bindings.RevaultBindings.CacheStats::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_cache_stats, arena, handle), DomainCodec::cacheStats);
     }
   }
 
-  public revault.bindings.RevaultBindings.ImportStats lockboxImportStats(MemorySegment handle) {
+  public ImportStats lockboxImportStats(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_import_stats, arena, handle), revault.bindings.RevaultBindings.ImportStats::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_import_stats, arena, handle), DomainCodec::importStats);
     }
   }
 
@@ -205,21 +196,21 @@ final class BindingOperations {
     return require((boolean) call(api.lockbox_reset_import_stats, handle));
   }
 
-  public revault.bindings.RevaultBindings.FileInspection lockboxInspectFile(String path) {
+  public FileInspection lockboxInspectFile(String path) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_inspect_file, arena, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.FileInspection::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_inspect_file, arena, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length), DomainCodec::fileInspection);
     }
   }
 
-  public revault.bindings.RevaultBindings.PageInspectionList lockboxPageInspection(MemorySegment handle) {
+  public java.util.List<PageInspection> lockboxPageInspection(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_page_inspection, arena, handle), revault.bindings.RevaultBindings.PageInspectionList::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_page_inspection, arena, handle), DomainCodec::pageInspectionList);
     }
   }
 
-  public revault.bindings.RevaultBindings.RecoveryReport lockboxRecoveryReport(MemorySegment handle) {
+  public RecoveryReport lockboxRecoveryReport(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_recovery_report, arena, handle), revault.bindings.RevaultBindings.RecoveryReport::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_recovery_report, arena, handle), DomainCodec::recoveryReport);
     }
   }
 
@@ -229,9 +220,9 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.RecoveryReport lockboxRecoveryScanPath(String path, byte[] key) {
+  public RecoveryReport lockboxRecoveryScanPath(String path, byte[] key) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_recovery_scan_path, arena, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, bytes(arena, key), (long) key.length), revault.bindings.RevaultBindings.RecoveryReport::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_recovery_scan_path, arena, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, bytes(arena, key), (long) key.length), DomainCodec::recoveryReport);
     }
   }
 
@@ -251,9 +242,9 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.RuntimeOptions lockboxRuntimeOptions(MemorySegment handle) {
+  public RuntimeOptions lockboxRuntimeOptions(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_runtime_options, arena, handle), revault.bindings.RevaultBindings.RuntimeOptions::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_runtime_options, arena, handle), DomainCodec::runtimeOptions);
     }
   }
 
@@ -291,21 +282,21 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.LockboxEntryList lockboxList(MemorySegment handle, String path, boolean recursive) {
+  public java.util.List<LockboxEntry> lockboxList(MemorySegment handle, String path, boolean recursive) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_list, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, recursive), revault.bindings.RevaultBindings.LockboxEntryList::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_list, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, recursive), DomainCodec::lockboxEntryList);
     }
   }
 
-  public revault.bindings.RevaultBindings.LockboxEntryList lockboxListWithOptions(MemorySegment handle, String path, String glob, boolean recursive, boolean includeFiles, boolean includeSymlinks, boolean includeDirectories, long limit) {
+  public java.util.List<LockboxEntry> lockboxListWithOptions(MemorySegment handle, String path, String glob, boolean recursive, boolean includeFiles, boolean includeSymlinks, boolean includeDirectories, long limit) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_list_with_options, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, glob), (long) glob.getBytes(StandardCharsets.UTF_8).length, recursive, includeFiles, includeSymlinks, includeDirectories, limit), revault.bindings.RevaultBindings.LockboxEntryList::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_list_with_options, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, glob), (long) glob.getBytes(StandardCharsets.UTF_8).length, recursive, includeFiles, includeSymlinks, includeDirectories, limit), DomainCodec::lockboxEntryList);
     }
   }
 
-  public revault.bindings.RevaultBindings.OptionalLockboxEntry lockboxStat(MemorySegment handle, String path) {
+  public LockboxEntry lockboxStat(MemorySegment handle, String path) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_stat, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.OptionalLockboxEntry::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_stat, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalLockboxEntry);
     }
   }
 
@@ -321,9 +312,9 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.OptionalString lockboxGetVariable(MemorySegment handle, String name) {
+  public String lockboxGetVariable(MemorySegment handle, String name) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_get_variable, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.OptionalString::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_get_variable, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalString);
     }
   }
 
@@ -340,21 +331,21 @@ final class BindingOperations {
     }
   }
 
-  public boolean lockboxMoveVariables(MemorySegment handle, byte[] movesProto) {
+  public boolean lockboxMoveVariables(MemorySegment handle, byte[] movesFlatbuffer) {
     try (var arena = Arena.ofConfined()) {
-      return require((boolean) call(api.lockbox_move_variables, handle, bytes(arena, movesProto), (long) movesProto.length));
+      return require((boolean) call(api.lockbox_move_variables, handle, bytes(arena, movesFlatbuffer), (long) movesFlatbuffer.length));
     }
   }
 
-  public revault.bindings.RevaultBindings.VariableList lockboxListVariables(MemorySegment handle) {
+  public java.util.List<Variable> lockboxListVariables(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_list_variables, arena, handle), revault.bindings.RevaultBindings.VariableList::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_list_variables, arena, handle), DomainCodec::variableList);
     }
   }
 
-  public revault.bindings.RevaultBindings.OptionalString lockboxVariableSensitivity(MemorySegment handle, String name) {
+  public String lockboxVariableSensitivity(MemorySegment handle, String name) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_variable_sensitivity, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.OptionalString::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_variable_sensitivity, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalString);
     }
   }
 
@@ -406,9 +397,9 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.RecoveryReport lockboxRecoveryScan(byte[] bytes, byte[] key) {
+  public RecoveryReport lockboxRecoveryScan(byte[] bytes, byte[] key) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_recovery_scan, arena, bytes(arena, bytes), (long) bytes.length, bytes(arena, key), (long) key.length), revault.bindings.RevaultBindings.RecoveryReport::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_recovery_scan, arena, bytes(arena, bytes), (long) bytes.length, bytes(arena, key), (long) key.length), DomainCodec::recoveryReport);
     }
   }
 
@@ -434,9 +425,9 @@ final class BindingOperations {
     return require((boolean) call(api.lockbox_delete_key, handle, id));
   }
 
-  public revault.bindings.RevaultBindings.KeySlotList lockboxListKeySlots(MemorySegment handle) {
+  public java.util.List<KeySlot> lockboxListKeySlots(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_list_key_slots, arena, handle), revault.bindings.RevaultBindings.KeySlotList::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_list_key_slots, arena, handle), DomainCodec::keySlotList);
     }
   }
 
@@ -444,39 +435,39 @@ final class BindingOperations {
     return require((boolean) call(api.lockbox_set_owner_signing_key, handle, key));
   }
 
-  public revault.bindings.RevaultBindings.OwnerInspection lockboxOwnerInspection(MemorySegment handle) {
+  public OwnerInspection lockboxOwnerInspection(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_owner_inspection, arena, handle), revault.bindings.RevaultBindings.OwnerInspection::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_owner_inspection, arena, handle), DomainCodec::ownerInspection);
     }
   }
 
-  public revault.bindings.RevaultBindings.FormDefinition lockboxDefineForm(MemorySegment handle, String alias, String name, String description, byte[] fieldsProto) {
+  public FormDefinition lockboxDefineForm(MemorySegment handle, String alias, String name, String description, byte[] fieldsFlatbuffer) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_define_form, arena, handle, text(arena, alias), (long) alias.getBytes(StandardCharsets.UTF_8).length, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length, text(arena, description), (long) description.getBytes(StandardCharsets.UTF_8).length, bytes(arena, fieldsProto), (long) fieldsProto.length), revault.bindings.RevaultBindings.FormDefinition::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_define_form, arena, handle, text(arena, alias), (long) alias.getBytes(StandardCharsets.UTF_8).length, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length, text(arena, description), (long) description.getBytes(StandardCharsets.UTF_8).length, bytes(arena, fieldsFlatbuffer), (long) fieldsFlatbuffer.length), DomainCodec::formDefinition);
     }
   }
 
-  public revault.bindings.RevaultBindings.FormDefinitionList lockboxListFormDefinitions(MemorySegment handle) {
+  public java.util.List<FormDefinition> lockboxListFormDefinitions(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_list_form_definitions, arena, handle), revault.bindings.RevaultBindings.FormDefinitionList::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_list_form_definitions, arena, handle), DomainCodec::formDefinitionList);
     }
   }
 
-  public revault.bindings.RevaultBindings.FormDefinition lockboxResolveForm(MemorySegment handle, String reference) {
+  public FormDefinition lockboxResolveForm(MemorySegment handle, String reference) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_resolve_form, arena, handle, text(arena, reference), (long) reference.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.FormDefinition::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_resolve_form, arena, handle, text(arena, reference), (long) reference.getBytes(StandardCharsets.UTF_8).length), DomainCodec::formDefinition);
     }
   }
 
-  public revault.bindings.RevaultBindings.FormDefinitionList lockboxListFormRevisions(MemorySegment handle, String typeId) {
+  public java.util.List<FormDefinition> lockboxListFormRevisions(MemorySegment handle, String typeId) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_list_form_revisions, arena, handle, text(arena, typeId), (long) typeId.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.FormDefinitionList::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_list_form_revisions, arena, handle, text(arena, typeId), (long) typeId.getBytes(StandardCharsets.UTF_8).length), DomainCodec::formDefinitionList);
     }
   }
 
-  public revault.bindings.RevaultBindings.FormRecord lockboxCreateFormRecord(MemorySegment handle, String path, String typeReference, String name) {
+  public FormRecord lockboxCreateFormRecord(MemorySegment handle, String path, String typeReference, String name) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_create_form_record, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, typeReference), (long) typeReference.getBytes(StandardCharsets.UTF_8).length, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.FormRecord::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_create_form_record, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, typeReference), (long) typeReference.getBytes(StandardCharsets.UTF_8).length, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::formRecord);
     }
   }
 
@@ -492,15 +483,15 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.FormRecordList lockboxListFormRecords(MemorySegment handle) {
+  public java.util.List<FormRecord> lockboxListFormRecords(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_list_form_records, arena, handle), revault.bindings.RevaultBindings.FormRecordList::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_list_form_records, arena, handle), DomainCodec::formRecordList);
     }
   }
 
-  public revault.bindings.RevaultBindings.OptionalFormRecord lockboxGetFormRecord(MemorySegment handle, String path) {
+  public FormRecord lockboxGetFormRecord(MemorySegment handle, String path) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_get_form_record, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.OptionalFormRecord::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_get_form_record, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalFormRecord);
     }
   }
 
@@ -510,15 +501,15 @@ final class BindingOperations {
     }
   }
 
-  public boolean lockboxMoveFormRecords(MemorySegment handle, byte[] movesProto) {
+  public boolean lockboxMoveFormRecords(MemorySegment handle, byte[] movesFlatbuffer) {
     try (var arena = Arena.ofConfined()) {
-      return require((boolean) call(api.lockbox_move_form_records, handle, bytes(arena, movesProto), (long) movesProto.length));
+      return require((boolean) call(api.lockbox_move_form_records, handle, bytes(arena, movesFlatbuffer), (long) movesFlatbuffer.length));
     }
   }
 
-  public revault.bindings.RevaultBindings.OptionalFormValue lockboxGetFormField(MemorySegment handle, String path, String field) {
+  public FormValue lockboxGetFormField(MemorySegment handle, String path, String field) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.lockbox_get_form_field, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, field), (long) field.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.OptionalFormValue::parseFrom);
+      return frame((MemorySegment) call(api.lockbox_get_form_field, arena, handle, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, field), (long) field.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalFormValue);
     }
   }
 
@@ -788,27 +779,27 @@ final class BindingOperations {
     return (int) call(api.vault_directory_structure_version, handle);
   }
 
-  public revault.bindings.RevaultBindings.StringList vaultDirectoryListPrivateKeys(MemorySegment handle) {
+  public java.util.List<String> vaultDirectoryListPrivateKeys(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_private_keys, arena, handle), revault.bindings.RevaultBindings.StringList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_private_keys, arena, handle), DomainCodec::stringList);
     }
   }
 
-  public revault.bindings.RevaultBindings.StringList vaultDirectoryListPrivateKeyNames(MemorySegment handle) {
+  public java.util.List<String> vaultDirectoryListPrivateKeyNames(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_private_key_names, arena, handle), revault.bindings.RevaultBindings.StringList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_private_key_names, arena, handle), DomainCodec::stringList);
     }
   }
 
-  public revault.bindings.RevaultBindings.StringList vaultDirectoryListContactNames(MemorySegment handle) {
+  public java.util.List<String> vaultDirectoryListContactNames(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_contact_names, arena, handle), revault.bindings.RevaultBindings.StringList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_contact_names, arena, handle), DomainCodec::stringList);
     }
   }
 
-  public revault.bindings.RevaultBindings.StringList vaultDirectoryListFormAliases(MemorySegment handle) {
+  public java.util.List<String> vaultDirectoryListFormAliases(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_form_aliases, arena, handle), revault.bindings.RevaultBindings.StringList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_form_aliases, arena, handle), DomainCodec::stringList);
     }
   }
 
@@ -866,9 +857,9 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.ContactList vaultDirectoryListContacts(MemorySegment handle) {
+  public java.util.List<Contact> vaultDirectoryListContacts(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_contacts, arena, handle), revault.bindings.RevaultBindings.ContactList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_contacts, arena, handle), DomainCodec::contactList);
     }
   }
 
@@ -878,9 +869,9 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.OptionalString vaultDirectoryProfileEmail(MemorySegment handle, String name) {
+  public String vaultDirectoryProfileEmail(MemorySegment handle, String name) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_profile_email, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.OptionalString::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_profile_email, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::optionalString);
     }
   }
 
@@ -930,15 +921,15 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.ProfileHistory vaultDirectoryListProfileGenerations(MemorySegment handle, String name) {
+  public ProfileHistory vaultDirectoryListProfileGenerations(MemorySegment handle, String name) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_profile_generations, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.ProfileHistory::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_profile_generations, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::profileHistory);
     }
   }
 
-  public revault.bindings.RevaultBindings.ProfileHistory vaultDirectoryRotatePrivateKey(MemorySegment handle, String name) {
+  public ProfileHistory vaultDirectoryRotatePrivateKey(MemorySegment handle, String name) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_rotate_private_key, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.ProfileHistory::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_rotate_private_key, arena, handle, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::profileHistory);
     }
   }
 
@@ -948,9 +939,9 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.KnownLockboxList vaultDirectoryListKnownLockboxes(MemorySegment handle) {
+  public java.util.List<KnownLockbox> vaultDirectoryListKnownLockboxes(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_known_lockboxes, arena, handle), revault.bindings.RevaultBindings.KnownLockboxList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_known_lockboxes, arena, handle), DomainCodec::knownLockboxList);
     }
   }
 
@@ -966,15 +957,15 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.AccessSlotLabelList vaultDirectoryListAccessSlotLabels(MemorySegment handle, byte[] id) {
+  public java.util.List<AccessSlotLabel> vaultDirectoryListAccessSlotLabels(MemorySegment handle, byte[] id) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_access_slot_labels, arena, handle, bytes(arena, id), (long) id.length), revault.bindings.RevaultBindings.AccessSlotLabelList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_access_slot_labels, arena, handle, bytes(arena, id), (long) id.length), DomainCodec::accessSlotLabelList);
     }
   }
 
-  public revault.bindings.RevaultBindings.AccessSlotLabelList vaultDirectoryFindAccessSlotLabels(MemorySegment handle, byte[] id, String name) {
+  public java.util.List<AccessSlotLabel> vaultDirectoryFindAccessSlotLabels(MemorySegment handle, byte[] id, String name) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_find_access_slot_labels, arena, handle, bytes(arena, id), (long) id.length, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.AccessSlotLabelList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_find_access_slot_labels, arena, handle, bytes(arena, id), (long) id.length, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length), DomainCodec::accessSlotLabelList);
     }
   }
 
@@ -984,27 +975,27 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.FormDefinition vaultDirectoryDefineForm(MemorySegment handle, String alias, String name, String description, byte[] fieldsProto) {
+  public FormDefinition vaultDirectoryDefineForm(MemorySegment handle, String alias, String name, String description, byte[] fieldsFlatbuffer) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_define_form, arena, handle, text(arena, alias), (long) alias.getBytes(StandardCharsets.UTF_8).length, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length, text(arena, description), (long) description.getBytes(StandardCharsets.UTF_8).length, bytes(arena, fieldsProto), (long) fieldsProto.length), revault.bindings.RevaultBindings.FormDefinition::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_define_form, arena, handle, text(arena, alias), (long) alias.getBytes(StandardCharsets.UTF_8).length, text(arena, name), (long) name.getBytes(StandardCharsets.UTF_8).length, text(arena, description), (long) description.getBytes(StandardCharsets.UTF_8).length, bytes(arena, fieldsFlatbuffer), (long) fieldsFlatbuffer.length), DomainCodec::formDefinition);
     }
   }
 
-  public revault.bindings.RevaultBindings.FormDefinition vaultDirectoryResolveForm(MemorySegment handle, String reference) {
+  public FormDefinition vaultDirectoryResolveForm(MemorySegment handle, String reference) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_resolve_form, arena, handle, text(arena, reference), (long) reference.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.FormDefinition::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_resolve_form, arena, handle, text(arena, reference), (long) reference.getBytes(StandardCharsets.UTF_8).length), DomainCodec::formDefinition);
     }
   }
 
-  public revault.bindings.RevaultBindings.FormDefinitionList vaultDirectoryListForms(MemorySegment handle) {
+  public java.util.List<FormDefinition> vaultDirectoryListForms(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_forms, arena, handle), revault.bindings.RevaultBindings.FormDefinitionList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_forms, arena, handle), DomainCodec::formDefinitionList);
     }
   }
 
-  public revault.bindings.RevaultBindings.FormDefinitionList vaultDirectoryListFormRevisions(MemorySegment handle, String typeId) {
+  public java.util.List<FormDefinition> vaultDirectoryListFormRevisions(MemorySegment handle, String typeId) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_directory_list_form_revisions, arena, handle, text(arena, typeId), (long) typeId.getBytes(StandardCharsets.UTF_8).length), revault.bindings.RevaultBindings.FormDefinitionList::parseFrom);
+      return frame((MemorySegment) call(api.vault_directory_list_form_revisions, arena, handle, text(arena, typeId), (long) typeId.getBytes(StandardCharsets.UTF_8).length), DomainCodec::formDefinitionList);
     }
   }
 
@@ -1024,15 +1015,15 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.VaultBackupManifest vaultBackupDefault(String path, boolean overwrite) {
+  public VaultBackupManifest vaultBackupDefault(String path, boolean overwrite) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_backup_default, arena, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, overwrite), revault.bindings.RevaultBindings.VaultBackupManifest::parseFrom);
+      return frame((MemorySegment) call(api.vault_backup_default, arena, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, overwrite), DomainCodec::vaultBackupManifest);
     }
   }
 
-  public revault.bindings.RevaultBindings.VaultBackupManifest vaultRestoreDefault(String path, boolean overwrite) {
+  public VaultBackupManifest vaultRestoreDefault(String path, boolean overwrite) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_restore_default, arena, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, overwrite), revault.bindings.RevaultBindings.VaultBackupManifest::parseFrom);
+      return frame((MemorySegment) call(api.vault_restore_default, arena, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, overwrite), DomainCodec::vaultBackupManifest);
     }
   }
 
@@ -1052,27 +1043,27 @@ final class BindingOperations {
     }
   }
 
-  public revault.bindings.RevaultBindings.StringList vaultReadOnlyListProfileNames(MemorySegment handle) {
+  public java.util.List<String> vaultReadOnlyListProfileNames(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_read_only_list_profile_names, arena, handle), revault.bindings.RevaultBindings.StringList::parseFrom);
+      return frame((MemorySegment) call(api.vault_read_only_list_profile_names, arena, handle), DomainCodec::stringList);
     }
   }
 
-  public revault.bindings.RevaultBindings.StringList vaultReadOnlyListContactNames(MemorySegment handle) {
+  public java.util.List<String> vaultReadOnlyListContactNames(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_read_only_list_contact_names, arena, handle), revault.bindings.RevaultBindings.StringList::parseFrom);
+      return frame((MemorySegment) call(api.vault_read_only_list_contact_names, arena, handle), DomainCodec::stringList);
     }
   }
 
-  public revault.bindings.RevaultBindings.StringList vaultReadOnlyListFormAliases(MemorySegment handle) {
+  public java.util.List<String> vaultReadOnlyListFormAliases(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_read_only_list_form_aliases, arena, handle), revault.bindings.RevaultBindings.StringList::parseFrom);
+      return frame((MemorySegment) call(api.vault_read_only_list_form_aliases, arena, handle), DomainCodec::stringList);
     }
   }
 
-  public revault.bindings.RevaultBindings.KnownLockboxList vaultReadOnlyListKnownLockboxes(MemorySegment handle) {
+  public java.util.List<KnownLockbox> vaultReadOnlyListKnownLockboxes(MemorySegment handle) {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_read_only_list_known_lockboxes, arena, handle), revault.bindings.RevaultBindings.KnownLockboxList::parseFrom);
+      return frame((MemorySegment) call(api.vault_read_only_list_known_lockboxes, arena, handle), DomainCodec::knownLockboxList);
     }
   }
 
@@ -1114,21 +1105,21 @@ final class BindingOperations {
     return require((boolean) call(api.vault_agent_start));
   }
 
-  public revault.bindings.RevaultBindings.AgentEntryList vaultAgentList() {
+  public java.util.List<AgentEntry> vaultAgentList() {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_agent_list, arena), revault.bindings.RevaultBindings.AgentEntryList::parseFrom);
+      return frame((MemorySegment) call(api.vault_agent_list, arena), DomainCodec::agentEntryList);
     }
   }
 
-  public revault.bindings.RevaultBindings.SleepSupport vaultAgentSleepSupport() {
+  public SleepSupport vaultAgentSleepSupport() {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_agent_sleep_support, arena), revault.bindings.RevaultBindings.SleepSupport::parseFrom);
+      return frame((MemorySegment) call(api.vault_agent_sleep_support, arena), DomainCodec::sleepSupport);
     }
   }
 
-  public revault.bindings.RevaultBindings.PlatformStatus vaultPlatformStatus() {
+  public PlatformStatus vaultPlatformStatus() {
     try (var arena = Arena.ofConfined()) {
-      return frame((MemorySegment) call(api.vault_platform_status, arena), revault.bindings.RevaultBindings.PlatformStatus::parseFrom);
+      return frame((MemorySegment) call(api.vault_platform_status, arena), DomainCodec::platformStatus);
     }
   }
 

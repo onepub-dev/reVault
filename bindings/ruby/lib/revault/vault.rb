@@ -16,7 +16,8 @@ module Revault
     end
   end
 
-  # Main entry point for lockboxes, keys, the local vault, agent, and platform store.
+  # Primary API used to open lockboxes, manage keys and metadata, use the
+  # session agent, and access operating-system credential storage.
   class Vault
     attr_reader :agent, :platform
     # Returns the initialize.
@@ -287,7 +288,7 @@ module Revault
 
   end
 
-  # Owned, mutable view of one encrypted lockbox archive.
+  # An open encrypted archive containing files, variables, secrets, and forms.
   class Lockbox < OwnedHandle
     # Adds file.
     def add_file(path, data, replace)
@@ -439,9 +440,9 @@ module Revault
       @operations.lockbox_delete_variable(@native_handle, name)
     end
 
-    # Updates variables.
-    def move_variables(moves_proto)
-      @operations.lockbox_move_variables(@native_handle, moves_proto)
+    # Atomically renames variables using source and destination path pairs.
+    def move_variables(moves)
+      @operations.lockbox_move_variables(@native_handle, Internal::DomainCodec.encode_path_moves(moves))
     end
 
     # Lists variables.
@@ -524,9 +525,9 @@ module Revault
       @operations.lockbox_owner_inspection(@native_handle)
     end
 
-    # Returns the define form.
-    def define_form(alias_name, name, description, fields_proto)
-      @operations.lockbox_define_form(@native_handle, alias_name, name, description, fields_proto)
+    # Defines a reusable, versioned form from the supplied field definitions.
+    def define_form(alias_name, name, description, fields)
+      @operations.lockbox_define_form(@native_handle, alias_name, name, description, Internal::DomainCodec.encode_form_fields(fields))
     end
 
     # Lists form definitions.
@@ -574,9 +575,9 @@ module Revault
       @operations.lockbox_delete_form_record(@native_handle, path)
     end
 
-    # Updates form records.
-    def move_form_records(moves_proto)
-      @operations.lockbox_move_form_records(@native_handle, moves_proto)
+    # Atomically renames form records using source and destination path pairs.
+    def move_form_records(moves)
+      @operations.lockbox_move_form_records(@native_handle, Internal::DomainCodec.encode_path_moves(moves))
     end
 
     # Returns form field.
@@ -602,7 +603,7 @@ module Revault
 
   end
 
-  # Owned contact key pair used to decrypt received content keys.
+  # A profile's contact-encryption identity used to decrypt keys addressed to it.
   class ContactKeyPair < OwnedHandle
     # Returns the public.
     def public()
@@ -627,7 +628,7 @@ module Revault
 
   end
 
-  # Shareable contact public key used to encrypt a recipient content key.
+  # A recipient's shareable encryption identity used when granting access.
   class ContactPublicKey < OwnedHandle
     # Returns the public free.
     def public_free()
@@ -642,7 +643,7 @@ module Revault
 
   end
 
-  # Owned encrypted content-key envelope for one contact recipient.
+  # A content key encrypted for one contact and recoverable by its matching key pair.
   class WrappedContactKey < OwnedHandle
     # Returns the public.
     def public()
@@ -667,7 +668,7 @@ module Revault
 
   end
 
-  # Owned signing key pair used to authorize mutable lockbox commits.
+  # A lockbox owner's signing identity used to authorize mutable revisions.
   class SigningKeyPair < OwnedHandle
     # Returns the public.
     def public()
@@ -687,7 +688,7 @@ module Revault
 
   end
 
-  # Public key used to verify owner-authorized lockbox commits.
+  # The public identity readers use to verify owner-authorized revisions.
   class SigningPublicKey < OwnedHandle
     # Returns the public free.
     def public_free()
@@ -697,7 +698,7 @@ module Revault
 
   end
 
-  # Writable, password-protected local metadata vault.
+  # Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
   class VaultDirectory < OwnedHandle
     # Returns the root.
     def root()
@@ -874,9 +875,9 @@ module Revault
       @operations.vault_directory_forget_access_slot_label(@native_handle, id, slot_id)
     end
 
-    # Returns the define form.
-    def define_form(alias_name, name, description, fields_proto)
-      @operations.vault_directory_define_form(@native_handle, alias_name, name, description, fields_proto)
+    # Defines a reusable, versioned form in the local vault.
+    def define_form(alias_name, name, description, fields)
+      @operations.vault_directory_define_form(@native_handle, alias_name, name, description, Internal::DomainCodec.encode_form_fields(fields))
     end
 
     # Returns the resolve form.
@@ -917,7 +918,7 @@ module Revault
 
   end
 
-  # Read-only metadata view that never loads an owner signing key.
+  # A metadata view for discovery that never loads an owner signing key.
   class ReadOnlyVaultDirectory < OwnedHandle
     # Lists profile names.
     def list_profile_names()
@@ -946,7 +947,7 @@ module Revault
 
   end
 
-  # Client for the local session agent's time-limited secret cache.
+  # Client for the session service that temporarily caches unlock and signing keys.
   class Agent
     # Returns the initialize.
     def initialize(operations)
@@ -1050,11 +1051,11 @@ module Revault
 
   end
 
-  # Owned registration for an operation that requires secret access.
+  # A token kept alive while an operation needs secrets cached by the agent.
   class AgentActivity < OwnedHandle
   end
 
-  # Controls integration with the operating system's secret store.
+  # Access to operating-system credential storage for a scoped vault password.
   class Platform
     # Returns the initialize.
     def initialize(operations)
@@ -1103,7 +1104,7 @@ module Revault
 
   end
 
-  # High-level workflow for local metadata and remembered lockboxes.
+  # A session that opens lockboxes by host path, caches passwords, and closes local files.
   class LocalVault < OwnedHandle
     # Creates lockbox password.
     def create_lockbox_password(path, password)

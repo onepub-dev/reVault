@@ -10,5 +10,5 @@
 /// for installation, the security model, and complete examples.
 library;
 
-export 'src/generated/revault_bindings.pb.dart';
+export 'src/domain_models.dart' hide DomainDecoders;
 export 'vault.dart';

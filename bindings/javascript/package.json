@@ -17,11 +17,15 @@
   "type": "module",
   "types": "./index.d.ts",
   "exports": "./index.js",
-  "files": ["index.js", "index.d.ts", "native.js", "native-loader.js", "generated", "README.md", "LICENSE"],
-  "dependencies": {
-    "koffi": "^2.14.1",
-    "protobufjs": "^7.5.3"
+  "files": ["index.js", "index.d.ts", "domain.d.ts", "native.js", "native-loader.js", "generated/flatbuffers.js", "README.md", "LICENSE"],
+  "scripts": {
+    "build:transport": "esbuild generated/flatbuffers/revault/internal.ts --bundle --format=esm --platform=node --outfile=generated/flatbuffers.js"
   },
+  "dependencies": {
+    "flatbuffers": "^25.2.10",
+    "koffi": "^2.14.1"
+  },
+  "devDependencies": { "esbuild": "^0.25.0", "typescript": "^5.9.0" },
   "optionalDependencies": {
     "@onepub-dev/revault-api-native-linux-x86_64-gnu": "0.2.0",
     "@onepub-dev/revault-api-native-linux-aarch64-gnu": "0.2.0",

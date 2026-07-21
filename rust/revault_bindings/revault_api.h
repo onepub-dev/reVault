@@ -28,13 +28,15 @@ extern "C" {
 
 /** Caller-owned bytes returned by the native library. Release with `buffer_free`. */
 typedef struct { uint8_t *ptr; size_t len; } RevaultBuffer;
-/* Structured buffers use the versioned LBWF frame and Protobuf schemas in
- * bindings/proto. Raw file/key buffers remain unframed bytes. */
+/* Structured buffers use the private FlatBuffers schema in
+ * bindings/flatbuffers. Raw file/key buffers remain unframed bytes. Language
+ * facades own these buffers and expose reVault domain objects, not transport
+ * tables. */
 /** Returns the major version of this stable native ABI. */
 uint32_t api_abi_version(void);
 /** Returns the diagnostic for the most recent failed call on this thread. */
 const char *buffer_last_error(void);
-/** Returns structured error details in a versioned Protobuf wire frame. */
+/** Returns structured details for the most recent failed call on this thread. */
 RevaultBuffer buffer_last_error_details(void);
 /** Wipes and releases bytes returned in a `RevaultBuffer`. */
 void buffer_free(RevaultBuffer value);
@@ -131,7 +133,7 @@ bool lockbox_get_secret_variable(const void *handle, const char *name, size_t na
 /** Removes variable. */
 bool lockbox_delete_variable(void *handle, const char *name, size_t name_len);
 /** Updates variables. */
-bool lockbox_move_variables(void *handle, const uint8_t *moves_proto, size_t moves_len);
+bool lockbox_move_variables(void *handle, const uint8_t *moves_flatbuffer, size_t moves_len);
 /** Lists variables. */
 RevaultBuffer lockbox_list_variables(const void *handle);
 /** Returns the variable sensitivity. */
@@ -169,7 +171,7 @@ bool lockbox_set_owner_signing_key(void *handle, const void *key);
 /** Returns the owner inspection. */
 RevaultBuffer lockbox_owner_inspection(const void *handle);
 /** Returns the define form. */
-RevaultBuffer lockbox_define_form(void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_proto, size_t fields_len);
+RevaultBuffer lockbox_define_form(void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_flatbuffer, size_t fields_len);
 /** Lists form definitions. */
 RevaultBuffer lockbox_list_form_definitions(const void *handle);
 /** Returns the resolve form. */
@@ -189,7 +191,7 @@ RevaultBuffer lockbox_get_form_record(const void *handle, const char *path, size
 /** Removes form record. */
 bool lockbox_delete_form_record(void *handle, const char *path, size_t path_len);
 /** Updates form records. */
-bool lockbox_move_form_records(void *handle, const uint8_t *moves_proto, size_t moves_len);
+bool lockbox_move_form_records(void *handle, const uint8_t *moves_flatbuffer, size_t moves_len);
 /** Returns form field. */
 RevaultBuffer lockbox_get_form_field(const void *handle, const char *path, size_t path_len, const char *field, size_t field_len);
 /** Returns a secret field through an opaque handle; copy and free it promptly. */
@@ -355,7 +357,7 @@ RevaultBuffer vault_directory_find_access_slot_labels(const void *handle, const 
 /** Returns the directory forget access slot label. */
 bool vault_directory_forget_access_slot_label(const void *handle, const uint8_t *id, size_t id_len, uint64_t slot_id);
 /** Returns the directory define form. */
-RevaultBuffer vault_directory_define_form(const void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_proto, size_t fields_len);
+RevaultBuffer vault_directory_define_form(const void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_flatbuffer, size_t fields_len);
 /** Returns the directory resolve form. */
 RevaultBuffer vault_directory_resolve_form(const void *handle, const char *reference, size_t reference_len);
 /** Returns the directory list forms. */

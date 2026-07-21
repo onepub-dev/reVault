@@ -756,13 +756,13 @@ let package = Package(
     name: "RevaultAPI",
     products: [.library(name: "RevaultAPI", targets: ["RevaultAPI"])],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-protobuf.git", from: "1.29.0"),
+        .package(url: "https://github.com/google/flatbuffers.git", exact: "25.2.10"),
     ],
     targets: [
         revaultC,
         .target(
             name: "RevaultAPI",
-            dependencies: ["RevaultC", .product(name: "SwiftProtobuf", package: "swift-protobuf")],
+            dependencies: ["RevaultC", .product(name: "FlatBuffers", package: "flatbuffers")],
             path: "Sources/RevaultAPI"
         ),
     ]

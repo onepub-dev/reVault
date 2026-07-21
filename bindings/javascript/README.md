@@ -2,7 +2,7 @@
 
 reVault is an encrypted archive and local-vault library for files, credentials,
 keys, and typed records. The Node package selects a platform-native carrier and
-provides generated Protobuf results. See the
+returns documented reVault domain values while keeping its binary transport private. See the
 [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
 
 ```shell

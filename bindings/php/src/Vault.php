@@ -9,9 +9,10 @@ use FFI\CData;
  * Entry point for encrypted lockboxes, cryptographic keys, local vault
  * metadata, the session agent, and the platform secret store.
  *
- * Structured values are concrete protobuf messages. Release owned handles
- * promptly and use callback-scoped secret accessors to avoid retaining
- * plaintext. See the repository README for installation and examples:
+ * Create one when the application starts, then use it to open lockboxes and
+ * manage keys and local services. Release disposable values promptly and use
+ * callback-scoped secret accessors to avoid retaining plaintext. See the
+ * repository README for installation and examples:
  * https://github.com/onepub-dev/reVault#readme
  */
 final class Vault
@@ -124,19 +125,19 @@ final class Vault
     }
 
     /** Returns the lockbox inspect file. */
-    public function lockboxInspectFile(string $path): \Revault\Bindings\FileInspection
+    public function lockboxInspectFile(string $path): \Revault\FileInspection
     {
         return $this->operations->lockboxInspectFile($path);
     }
 
     /** Returns the lockbox recovery scan path. */
-    public function lockboxRecoveryScanPath(string $path, string $key): \Revault\Bindings\RecoveryReport
+    public function lockboxRecoveryScanPath(string $path, string $key): \Revault\RecoveryReport
     {
         return $this->operations->lockboxRecoveryScanPath($path, $key);
     }
 
     /** Returns the lockbox recovery scan. */
-    public function lockboxRecoveryScan(string $bytes, string $key): \Revault\Bindings\RecoveryReport
+    public function lockboxRecoveryScan(string $bytes, string $key): \Revault\RecoveryReport
     {
         return $this->operations->lockboxRecoveryScan($bytes, $key);
     }
@@ -310,13 +311,13 @@ final class Vault
     }
 
     /** Returns the vault backup default. */
-    public function vaultBackupDefault(string $path, bool $overwrite): \Revault\Bindings\VaultBackupManifest
+    public function vaultBackupDefault(string $path, bool $overwrite): \Revault\VaultBackupManifest
     {
         return $this->operations->vaultBackupDefault($path, $overwrite);
     }
 
     /** Returns the vault restore default. */
-    public function vaultRestoreDefault(string $path, bool $overwrite): \Revault\Bindings\VaultBackupManifest
+    public function vaultRestoreDefault(string $path, bool $overwrite): \Revault\VaultBackupManifest
     {
         return $this->operations->vaultRestoreDefault($path, $overwrite);
     }
@@ -365,6 +366,7 @@ final class Vault
 
 }
 
+/** Base type for disposable API values; applications use its concrete subclasses. */
 abstract class OwnedHandle
 {
     /** Returns the construct. */
@@ -372,7 +374,7 @@ abstract class OwnedHandle
     final public function nativeHandle(): CData { return $this->handle; }
 }
 
-/** Owned, mutable view of one encrypted lockbox archive. */
+/** An open encrypted archive containing files, variables, secrets, and forms. */
 class Lockbox extends OwnedHandle
 {
 
@@ -407,19 +409,19 @@ class Lockbox extends OwnedHandle
     }
 
     /** Returns the stream content. */
-    public function streamContent(bool $physical): \Revault\Bindings\StreamChunkList
+    public function streamContent(bool $physical): \Revault\StreamChunkList
     {
         return $this->operations->lockboxStreamContent($this->handle, $physical);
     }
 
     /** Returns cache statistics for this lockbox. */
-    public function cacheStats(): \Revault\Bindings\CacheStats
+    public function cacheStats(): \Revault\CacheStats
     {
         return $this->operations->lockboxCacheStats($this->handle);
     }
 
     /** Returns import statistics for this lockbox. */
-    public function importStats(): \Revault\Bindings\ImportStats
+    public function importStats(): \Revault\ImportStats
     {
         return $this->operations->lockboxImportStats($this->handle);
     }
@@ -431,13 +433,13 @@ class Lockbox extends OwnedHandle
     }
 
     /** Returns the page inspection. */
-    public function pageInspection(): \Revault\Bindings\PageInspectionList
+    public function pageInspection(): \Revault\PageInspectionList
     {
         return $this->operations->lockboxPageInspection($this->handle);
     }
 
     /** Returns the recovery report. */
-    public function recoveryReport(): \Revault\Bindings\RecoveryReport
+    public function recoveryReport(): \Revault\RecoveryReport
     {
         return $this->operations->lockboxRecoveryReport($this->handle);
     }
@@ -467,7 +469,7 @@ class Lockbox extends OwnedHandle
     }
 
     /** Returns the runtime options. */
-    public function runtimeOptions(): \Revault\Bindings\RuntimeOptions
+    public function runtimeOptions(): \Revault\RuntimeOptions
     {
         return $this->operations->lockboxRuntimeOptions($this->handle);
     }
@@ -509,19 +511,19 @@ class Lockbox extends OwnedHandle
     }
 
     /** Lists list. */
-    public function list(string $path, bool $recursive): \Revault\Bindings\LockboxEntryList
+    public function list(string $path, bool $recursive): \Revault\LockboxEntryList
     {
         return $this->operations->lockboxList($this->handle, $path, $recursive);
     }
 
     /** Lists with options. */
-    public function listWithOptions(string $path, string $glob, bool $recursive, bool $includeFiles, bool $includeSymlinks, bool $includeDirectories, int $limit): \Revault\Bindings\LockboxEntryList
+    public function listWithOptions(string $path, string $glob, bool $recursive, bool $includeFiles, bool $includeSymlinks, bool $includeDirectories, int $limit): \Revault\LockboxEntryList
     {
         return $this->operations->lockboxListWithOptions($this->handle, $path, $glob, $recursive, $includeFiles, $includeSymlinks, $includeDirectories, $limit);
     }
 
     /** Returns metadata for the selected lockbox entry. */
-    public function stat(string $path): \Revault\Bindings\OptionalLockboxEntry
+    public function stat(string $path): \Revault\OptionalLockboxEntry
     {
         return $this->operations->lockboxStat($this->handle, $path);
     }
@@ -557,20 +559,20 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxDeleteVariable($this->handle, $name);
     }
 
-    /** Updates variables. */
-    public function moveVariables(string $movesProto): bool
+    /** Atomically renames variables using source and destination path pairs. */
+    public function moveVariables(array $moves): bool
     {
-        return $this->operations->lockboxMoveVariables($this->handle, $movesProto);
+        return $this->operations->lockboxMoveVariables($this->handle, DomainCodec::encodePathMoves($moves));
     }
 
     /** Lists variables. */
-    public function listVariables(): \Revault\Bindings\VariableList
+    public function listVariables(): \Revault\VariableList
     {
         return $this->operations->lockboxListVariables($this->handle);
     }
 
     /** Returns the variable sensitivity. */
-    public function variableSensitivity(string $name): \Revault\Bindings\OptionalString
+    public function variableSensitivity(string $name): \Revault\OptionalString
     {
         return $this->operations->lockboxVariableSensitivity($this->handle, $name);
     }
@@ -642,7 +644,7 @@ class Lockbox extends OwnedHandle
     }
 
     /** Lists key slots. */
-    public function listKeySlots(): \Revault\Bindings\KeySlotList
+    public function listKeySlots(): \Revault\KeySlotList
     {
         return $this->operations->lockboxListKeySlots($this->handle);
     }
@@ -654,37 +656,37 @@ class Lockbox extends OwnedHandle
     }
 
     /** Returns the owner inspection. */
-    public function ownerInspection(): \Revault\Bindings\OwnerInspection
+    public function ownerInspection(): \Revault\OwnerInspection
     {
         return $this->operations->lockboxOwnerInspection($this->handle);
     }
 
-    /** Returns the define form. */
-    public function defineForm(string $alias, string $name, string $description, string $fieldsProto): \Revault\Bindings\FormDefinition
+    /** Defines a reusable, versioned form from the supplied field definitions. */
+    public function defineForm(string $alias, string $name, string $description, array $fields): \Revault\FormDefinition
     {
-        return $this->operations->lockboxDefineForm($this->handle, $alias, $name, $description, $fieldsProto);
+        return $this->operations->lockboxDefineForm($this->handle, $alias, $name, $description, DomainCodec::encodeFormFields($fields));
     }
 
     /** Lists form definitions. */
-    public function listFormDefinitions(): \Revault\Bindings\FormDefinitionList
+    public function listFormDefinitions(): \Revault\FormDefinitionList
     {
         return $this->operations->lockboxListFormDefinitions($this->handle);
     }
 
     /** Returns the resolve form. */
-    public function resolveForm(string $reference): \Revault\Bindings\FormDefinition
+    public function resolveForm(string $reference): \Revault\FormDefinition
     {
         return $this->operations->lockboxResolveForm($this->handle, $reference);
     }
 
     /** Lists form revisions. */
-    public function listFormRevisions(string $typeId): \Revault\Bindings\FormDefinitionList
+    public function listFormRevisions(string $typeId): \Revault\FormDefinitionList
     {
         return $this->operations->lockboxListFormRevisions($this->handle, $typeId);
     }
 
     /** Creates form record. */
-    public function createFormRecord(string $path, string $typeReference, string $name): \Revault\Bindings\FormRecord
+    public function createFormRecord(string $path, string $typeReference, string $name): \Revault\FormRecord
     {
         return $this->operations->lockboxCreateFormRecord($this->handle, $path, $typeReference, $name);
     }
@@ -702,13 +704,13 @@ class Lockbox extends OwnedHandle
     }
 
     /** Lists form records. */
-    public function listFormRecords(): \Revault\Bindings\FormRecordList
+    public function listFormRecords(): \Revault\FormRecordList
     {
         return $this->operations->lockboxListFormRecords($this->handle);
     }
 
     /** Returns form record. */
-    public function getFormRecord(string $path): \Revault\Bindings\OptionalFormRecord
+    public function getFormRecord(string $path): \Revault\OptionalFormRecord
     {
         return $this->operations->lockboxGetFormRecord($this->handle, $path);
     }
@@ -719,14 +721,14 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxDeleteFormRecord($this->handle, $path);
     }
 
-    /** Updates form records. */
-    public function moveFormRecords(string $movesProto): bool
+    /** Atomically renames form records using source and destination path pairs. */
+    public function moveFormRecords(array $moves): bool
     {
-        return $this->operations->lockboxMoveFormRecords($this->handle, $movesProto);
+        return $this->operations->lockboxMoveFormRecords($this->handle, DomainCodec::encodePathMoves($moves));
     }
 
     /** Returns form field. */
-    public function getFormField(string $path, string $field): \Revault\Bindings\OptionalFormValue
+    public function getFormField(string $path, string $field): \Revault\OptionalFormValue
     {
         return $this->operations->lockboxGetFormField($this->handle, $path, $field);
     }
@@ -751,7 +753,7 @@ class Lockbox extends OwnedHandle
 
 }
 
-/** Owned contact key pair used to decrypt content keys sent by contacts. */
+/** A profile's contact-encryption identity used to decrypt content keys addressed to it. */
 class ContactKeyPair extends OwnedHandle
 {
 
@@ -781,7 +783,7 @@ class ContactKeyPair extends OwnedHandle
 
 }
 
-/** Shareable contact public key used to encrypt a recipient content key. */
+/** A recipient's shareable encryption identity used when granting lockbox access. */
 class ContactPublicKey extends OwnedHandle
 {
 
@@ -799,7 +801,7 @@ class ContactPublicKey extends OwnedHandle
 
 }
 
-/** Owned encrypted content-key envelope for one contact recipient. */
+/** A content key encrypted for one contact and recoverable only by its matching key pair. */
 class WrappedContactKey extends OwnedHandle
 {
 
@@ -829,7 +831,7 @@ class WrappedContactKey extends OwnedHandle
 
 }
 
-/** Owned signing key pair used to authorize mutable lockbox commits. */
+/** A lockbox owner's signing identity used to authorize mutable revisions. */
 class SigningKeyPair extends OwnedHandle
 {
 
@@ -853,7 +855,7 @@ class SigningKeyPair extends OwnedHandle
 
 }
 
-/** Public key used to verify owner-authorized lockbox commits. */
+/** The public identity readers use to verify owner-authorized lockbox revisions. */
 class SigningPublicKey extends OwnedHandle
 {
 
@@ -865,7 +867,7 @@ class SigningPublicKey extends OwnedHandle
 
 }
 
-/** Writable, password-protected local metadata vault. */
+/** Password-protected storage for profile keys, contacts, forms, backups, and known lockbox paths. */
 class VaultDirectory extends OwnedHandle
 {
 
@@ -882,25 +884,25 @@ class VaultDirectory extends OwnedHandle
     }
 
     /** Lists private keys. */
-    public function listPrivateKeys(): \Revault\Bindings\StringList
+    public function listPrivateKeys(): \Revault\StringList
     {
         return $this->operations->vaultDirectoryListPrivateKeys($this->handle);
     }
 
     /** Lists private key names. */
-    public function listPrivateKeyNames(): \Revault\Bindings\StringList
+    public function listPrivateKeyNames(): \Revault\StringList
     {
         return $this->operations->vaultDirectoryListPrivateKeyNames($this->handle);
     }
 
     /** Lists contact names. */
-    public function listContactNames(): \Revault\Bindings\StringList
+    public function listContactNames(): \Revault\StringList
     {
         return $this->operations->vaultDirectoryListContactNames($this->handle);
     }
 
     /** Lists form aliases. */
-    public function listFormAliases(): \Revault\Bindings\StringList
+    public function listFormAliases(): \Revault\StringList
     {
         return $this->operations->vaultDirectoryListFormAliases($this->handle);
     }
@@ -960,7 +962,7 @@ class VaultDirectory extends OwnedHandle
     }
 
     /** Lists contacts. */
-    public function listContacts(): \Revault\Bindings\ContactList
+    public function listContacts(): \Revault\ContactList
     {
         return $this->operations->vaultDirectoryListContacts($this->handle);
     }
@@ -972,7 +974,7 @@ class VaultDirectory extends OwnedHandle
     }
 
     /** Returns the profile email. */
-    public function profileEmail(string $name): \Revault\Bindings\OptionalString
+    public function profileEmail(string $name): \Revault\OptionalString
     {
         return $this->operations->vaultDirectoryProfileEmail($this->handle, $name);
     }
@@ -1026,13 +1028,13 @@ class VaultDirectory extends OwnedHandle
     }
 
     /** Lists profile generations. */
-    public function listProfileGenerations(string $name): \Revault\Bindings\ProfileHistory
+    public function listProfileGenerations(string $name): \Revault\ProfileHistory
     {
         return $this->operations->vaultDirectoryListProfileGenerations($this->handle, $name);
     }
 
     /** Updates private key. */
-    public function rotatePrivateKey(string $name): \Revault\Bindings\ProfileHistory
+    public function rotatePrivateKey(string $name): \Revault\ProfileHistory
     {
         return $this->operations->vaultDirectoryRotatePrivateKey($this->handle, $name);
     }
@@ -1044,7 +1046,7 @@ class VaultDirectory extends OwnedHandle
     }
 
     /** Lists known lockboxes. */
-    public function listKnownLockboxes(): \Revault\Bindings\KnownLockboxList
+    public function listKnownLockboxes(): \Revault\KnownLockboxList
     {
         return $this->operations->vaultDirectoryListKnownLockboxes($this->handle);
     }
@@ -1062,13 +1064,13 @@ class VaultDirectory extends OwnedHandle
     }
 
     /** Lists access slot labels. */
-    public function listAccessSlotLabels(string $id): \Revault\Bindings\AccessSlotLabelList
+    public function listAccessSlotLabels(string $id): \Revault\AccessSlotLabelList
     {
         return $this->operations->vaultDirectoryListAccessSlotLabels($this->handle, $id);
     }
 
     /** Returns the find access slot labels. */
-    public function findAccessSlotLabels(string $id, string $name): \Revault\Bindings\AccessSlotLabelList
+    public function findAccessSlotLabels(string $id, string $name): \Revault\AccessSlotLabelList
     {
         return $this->operations->vaultDirectoryFindAccessSlotLabels($this->handle, $id, $name);
     }
@@ -1079,26 +1081,26 @@ class VaultDirectory extends OwnedHandle
         return $this->operations->vaultDirectoryForgetAccessSlotLabel($this->handle, $id, $slotId);
     }
 
-    /** Returns the define form. */
-    public function defineForm(string $alias, string $name, string $description, string $fieldsProto): \Revault\Bindings\FormDefinition
+    /** Defines a reusable, versioned form in the local vault. */
+    public function defineForm(string $alias, string $name, string $description, array $fields): \Revault\FormDefinition
     {
-        return $this->operations->vaultDirectoryDefineForm($this->handle, $alias, $name, $description, $fieldsProto);
+        return $this->operations->vaultDirectoryDefineForm($this->handle, $alias, $name, $description, DomainCodec::encodeFormFields($fields));
     }
 
     /** Returns the resolve form. */
-    public function resolveForm(string $reference): \Revault\Bindings\FormDefinition
+    public function resolveForm(string $reference): \Revault\FormDefinition
     {
         return $this->operations->vaultDirectoryResolveForm($this->handle, $reference);
     }
 
     /** Lists forms. */
-    public function listForms(): \Revault\Bindings\FormDefinitionList
+    public function listForms(): \Revault\FormDefinitionList
     {
         return $this->operations->vaultDirectoryListForms($this->handle);
     }
 
     /** Lists form revisions. */
-    public function listFormRevisions(string $typeId): \Revault\Bindings\FormDefinitionList
+    public function listFormRevisions(string $typeId): \Revault\FormDefinitionList
     {
         return $this->operations->vaultDirectoryListFormRevisions($this->handle, $typeId);
     }
@@ -1129,32 +1131,32 @@ class VaultDirectory extends OwnedHandle
 
 }
 
-/** Read-only metadata view that never loads an owner signing key. */
+/** A metadata view for discovery and diagnostics that never loads an owner signing key. */
 class ReadOnlyVaultDirectory
 {
     /** Returns the construct. */
     public function __construct(protected readonly BindingOperations $operations, protected CData $handle) {}
 
     /** Lists profile names. */
-    public function listProfileNames(): \Revault\Bindings\StringList
+    public function listProfileNames(): \Revault\StringList
     {
         return $this->operations->vaultReadOnlyListProfileNames($this->handle);
     }
 
     /** Lists contact names. */
-    public function listContactNames(): \Revault\Bindings\StringList
+    public function listContactNames(): \Revault\StringList
     {
         return $this->operations->vaultReadOnlyListContactNames($this->handle);
     }
 
     /** Lists form aliases. */
-    public function listFormAliases(): \Revault\Bindings\StringList
+    public function listFormAliases(): \Revault\StringList
     {
         return $this->operations->vaultReadOnlyListFormAliases($this->handle);
     }
 
     /** Lists known lockboxes. */
-    public function listKnownLockboxes(): \Revault\Bindings\KnownLockboxList
+    public function listKnownLockboxes(): \Revault\KnownLockboxList
     {
         return $this->operations->vaultReadOnlyListKnownLockboxes($this->handle);
     }
@@ -1167,7 +1169,7 @@ class ReadOnlyVaultDirectory
 
 }
 
-/** Client for the local session agent's time-limited secret cache. */
+/** Client for the session service that temporarily caches vault unlock and signing keys. */
 class Agent
 {
     /** Returns the construct. */
@@ -1228,13 +1230,13 @@ class Agent
     }
 
     /** Lists list. */
-    public function list(): \Revault\Bindings\AgentEntryList
+    public function list(): \Revault\AgentEntryList
     {
         return $this->operations->vaultAgentList();
     }
 
     /** Returns the sleep support. */
-    public function sleepSupport(): \Revault\Bindings\SleepSupport
+    public function sleepSupport(): \Revault\SleepSupport
     {
         return $this->operations->vaultAgentSleepSupport();
     }
@@ -1289,20 +1291,20 @@ class Agent
 
 }
 
-/** Owned registration for an operation that currently requires secret access. */
+/** A token kept alive while an operation needs secrets cached by the session agent. */
 class AgentActivity extends OwnedHandle
 {
 
 }
 
-/** Controls integration with the operating system's secret store. */
+/** Access to operating-system credential storage for a scoped vault password. */
 class Platform
 {
     /** Returns the construct. */
     public function __construct(protected readonly BindingOperations $operations) {}
 
     /** Returns the status. */
-    public function status(): \Revault\Bindings\PlatformStatus
+    public function status(): \Revault\PlatformStatus
     {
         return $this->operations->vaultPlatformStatus();
     }
@@ -1351,7 +1353,7 @@ class Platform
 
 }
 
-/** High-level workflow for local metadata and remembered lockboxes. */
+/** A session that opens lockboxes by host path, caches passwords, and closes locally used files. */
 class LocalVault extends OwnedHandle
 {
 

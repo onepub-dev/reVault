@@ -16,7 +16,7 @@ use tempfile::TempDir;
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 
-const NATIVE_ABI_VERSION: u32 = 2;
+const NATIVE_ABI_VERSION: u32 = 3;
 
 #[derive(Subcommand)]
 pub enum ReleaseCommand {
@@ -397,7 +397,7 @@ fn package_native(args: PackageNative) -> Result {
         rust_target: row.rust_target.clone(),
         library: row.library.clone(),
         abi: NATIVE_ABI_VERSION,
-        wire: "LBWF/protobuf".into(),
+        wire: "FlatBuffers/25.2.10".into(),
         library_sha256: sha256(&library)?,
         static_library: row.static_library.clone(),
         static_library_sha256: sha256(&static_library)?,
@@ -441,8 +441,8 @@ fn package_native(args: PackageNative) -> Result {
             format!("{prefix}/include/revault_api.h"),
         ),
         (
-            repository.join("bindings/proto/revault_bindings.proto"),
-            format!("{prefix}/proto/revault_bindings.proto"),
+            repository.join("bindings/flatbuffers/revault_bindings.fbs"),
+            format!("{prefix}/flatbuffers/revault_bindings.fbs"),
         ),
         (
             repository.join("rust/revault_lockbox_api/LICENSE"),
@@ -912,7 +912,7 @@ fn extract_verified(archive: &Path, destination: &Path) -> Result<(PathBuf, Nati
     }
     let root = roots[0].path();
     let metadata: NativeMetadata = serde_json::from_slice(&fs::read(root.join("metadata.json"))?)?;
-    if metadata.abi != NATIVE_ABI_VERSION || metadata.wire != "LBWF/protobuf" {
+    if metadata.abi != NATIVE_ABI_VERSION || metadata.wire != "FlatBuffers/25.2.10" {
         return Err("unsupported native archive ABI or wire protocol".into());
     }
     let library = root.join("lib").join(&metadata.library);

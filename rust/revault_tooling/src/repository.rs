@@ -9,8 +9,8 @@ use std::process::Command;
 pub enum BindingsCommand {
     /// Verify every ABI operation is present in every generated surface.
     Check(Check),
-    /// Regenerate Protobuf models through pinned ecosystem generators.
-    GenerateProtobuf(GenerateProtobuf),
+    /// Regenerate private FlatBuffers transport models with flatc 25.2.10.
+    GenerateFlatbuffers(GenerateFlatbuffers),
 }
 
 #[derive(Args)]
@@ -20,7 +20,7 @@ pub struct Check {
 }
 
 #[derive(Args)]
-pub struct GenerateProtobuf {
+pub struct GenerateFlatbuffers {
     #[arg(long, default_value = ".")]
     repository: PathBuf,
 }
@@ -28,7 +28,7 @@ pub struct GenerateProtobuf {
 pub fn run(command: BindingsCommand) -> Result {
     match command {
         BindingsCommand::Check(args) => check(&args.repository),
-        BindingsCommand::GenerateProtobuf(args) => generate_protobuf(&args.repository),
+        BindingsCommand::GenerateFlatbuffers(args) => generate_flatbuffers(&args.repository),
     }
 }
 
@@ -82,36 +82,20 @@ fn check(repository: &Path) -> Result {
     }
     check_package_documentation(&repository)?;
     check_registry_quality(&repository)?;
-    check_schema_documentation(&repository)?;
+    check_transport_schema(&repository)?;
     check_public_api_documentation(&repository)?;
     let messages = schema_messages(&repository)?;
     for relative in [
-        "bindings/cpp/generated/revault_bindings.pb.h",
-        "bindings/csharp/Generated/RevaultBindings.cs",
-        "bindings/dart/lib/src/generated/revault_bindings.pb.dart",
-        "bindings/go/messages/revault_bindings.pb.go",
-        "bindings/java/generated/revault/bindings/RevaultBindings.java",
-        "bindings/javascript/generated/messages.js",
-        "bindings/lua/revault_api.lua",
-        "bindings/ruby/generated/revault_bindings_pb.rb",
-        "bindings/swift/Sources/RevaultAPI/revault_bindings.pb.swift",
+        "bindings/cpp/generated/flatbuffers/revault_bindings_generated.h",
+        "bindings/csharp/Generated/FlatBuffers/revault_bindings_generated.cs",
+        "bindings/dart/lib/src/generated/flatbuffers/revault_bindings_revault.internal_generated.dart",
+        "bindings/go/internal/transport/revault_bindings_generated.go",
+        "bindings/javascript/generated/flatbuffers.js",
+        "bindings/lua/revault_flatbuffers.lua",
+        "bindings/ruby/lib/revault/domain_models.rb",
+        "bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers/revault_bindings_generated.swift",
     ] {
         require_names(&repository.join(relative), &messages, relative)?;
-    }
-    let php_models: BTreeSet<_> =
-        fs::read_dir(repository.join("bindings/php/generated/Revault/Bindings"))?
-            .filter_map(|entry| entry.ok())
-            .filter_map(|entry| {
-                entry
-                    .path()
-                    .file_stem()
-                    .and_then(|name| name.to_str())
-                    .map(str::to_string)
-            })
-            .collect();
-    if !messages.is_subset(&php_models) {
-        let missing: Vec<_> = messages.difference(&php_models).cloned().collect();
-        return Err(format!("PHP generated models are missing: {}", missing.join(", ")).into());
     }
     require_features(
         &repository.join("bindings/wasm/index.js"),
@@ -521,31 +505,23 @@ fn exported_go_declaration(line: &str) -> bool {
         .is_some_and(|character| character.is_ascii_uppercase())
 }
 
-fn check_schema_documentation(repository: &Path) -> Result {
-    let relative = "bindings/proto/revault_bindings.proto";
+fn check_transport_schema(repository: &Path) -> Result {
+    let relative = "bindings/flatbuffers/revault_bindings.fbs";
     let schema = fs::read_to_string(repository.join(relative))?;
-    let mut previous = "";
-    let mut declaration_depth = 0usize;
+    if !schema.contains("Private cross-language transport") {
+        return Err(format!("{relative} must state that it is a private transport").into());
+    }
     for (index, line) in schema.lines().enumerate() {
         let trimmed = line.trim();
-        let opens_declaration = trimmed.starts_with("message ") || trimmed.starts_with("enum ");
-        let is_member = declaration_depth > 0 && trimmed.contains(" = ") && trimmed.ends_with(';');
-        if (opens_declaration || is_member) && !previous.starts_with("//") {
+        if trimmed.contains(':') && trimmed.ends_with(';') && !trimmed.contains("(id:") {
             return Err(format!(
-                "{relative}:{} public schema declaration lacks documentation: {trimmed}",
+                "{relative}:{} transport field lacks a stable numeric id: {trimmed}",
                 index + 1
             )
             .into());
         }
-        if opens_declaration || declaration_depth > 0 {
-            declaration_depth += trimmed.matches('{').count();
-        }
-        declaration_depth = declaration_depth.saturating_sub(trimmed.matches('}').count());
-        if !trimmed.is_empty() {
-            previous = trimmed;
-        }
     }
-    println!("verified every generated Protobuf model and field is documented");
+    println!("verified the private FlatBuffers transport and stable field ids");
     Ok(())
 }
 
@@ -765,7 +741,7 @@ fn require_names(path: &Path, names: &BTreeSet<String>, label: &str) -> Result {
 }
 
 fn check_results(repository: &Path, _operations: &BTreeSet<String>) -> Result {
-    let source = fs::read_to_string(repository.join("bindings/proto/results.tsv"))?;
+    let source = fs::read_to_string(repository.join("bindings/flatbuffers/results.tsv"))?;
     let mut rows = BTreeMap::new();
     for line in source
         .lines()
@@ -803,13 +779,13 @@ fn check_results(repository: &Path, _operations: &BTreeSet<String>) -> Result {
     let messages = schema_messages(repository)?;
     for (symbol, (encoding, message)) in &rows {
         match *encoding {
-            "lbwf" if !messages.contains(*message) => {
-                return Err(format!("{symbol}: unknown protobuf message {message}").into())
+            "flatbuffer" if !messages.contains(*message) => {
+                return Err(format!("{symbol}: unknown FlatBuffers table {message}").into())
             }
             "raw" if !matches!(*message, "bytes" | "utf8") => {
                 return Err(format!("{symbol}: invalid raw result type {message}").into())
             }
-            "lbwf" | "raw" => {}
+            "flatbuffer" | "raw" => {}
             _ => return Err(format!("{symbol}: invalid encoding {encoding}").into()),
         }
     }
@@ -818,163 +794,155 @@ fn check_results(repository: &Path, _operations: &BTreeSet<String>) -> Result {
 }
 
 fn schema_messages(repository: &Path) -> Result<BTreeSet<String>> {
-    let schema = fs::read_to_string(repository.join("bindings/proto/revault_bindings.proto"))?;
+    let schema = fs::read_to_string(repository.join("bindings/flatbuffers/revault_bindings.fbs"))?;
     Ok(schema
         .lines()
-        .filter_map(|line| line.trim().strip_prefix("message "))
+        .filter_map(|line| line.trim().strip_prefix("table "))
         .filter_map(|tail| tail.split_whitespace().next())
         .map(str::to_string)
         .collect())
 }
 
-fn generate_protobuf(repository: &Path) -> Result {
+fn generate_flatbuffers(repository: &Path) -> Result {
     let repository = repository.canonicalize()?;
-    let proto = repository.join("bindings/proto/revault_bindings.proto");
-    let include = repository.join("bindings/proto");
-    let commands: Vec<(&str, Vec<String>)> = vec![
+    let schema = repository.join("bindings/flatbuffers/revault_bindings.fbs");
+    let version = Command::new("flatc").arg("--version").output()?;
+    let version = String::from_utf8_lossy(&version.stdout);
+    if !version.contains("25.2.10") {
+        return Err(format!("flatc 25.2.10 is required; found {}", version.trim()).into());
+    }
+    let outputs = [
+        ("--cpp", "bindings/cpp/generated/flatbuffers"),
+        ("--csharp", "bindings/csharp/Generated/FlatBuffers"),
+        ("--dart", "bindings/dart/lib/src/generated/flatbuffers"),
+        ("--go", "bindings/go/internal/transport"),
+        ("--java", "bindings/java/generated/flatbuffers"),
         (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                format!(
-                    "--python_out={}",
-                    repository.join("bindings/python/revault_api").display()
-                ),
-                proto.display().to_string(),
-            ],
+            "--kotlin",
+            "bindings/kotlin/src/main/kotlin/internal/flatbuffers",
         ),
+        ("--php", "bindings/php/generated/flatbuffers"),
+        ("--python", "bindings/python/revault_api/_flatbuffers"),
         (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                format!(
-                    "--cpp_out={}",
-                    repository.join("bindings/cpp/generated").display()
-                ),
-                proto.display().to_string(),
-            ],
+            "--swift",
+            "bindings/swift/Sources/RevaultAPI/Internal/FlatBuffers",
         ),
-        (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                format!(
-                    "--csharp_out={}",
-                    repository.join("bindings/csharp/Generated").display()
-                ),
-                proto.display().to_string(),
-            ],
-        ),
-        (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                format!(
-                    "--ruby_out={}",
-                    repository.join("bindings/ruby/generated").display()
-                ),
-                proto.display().to_string(),
-            ],
-        ),
-        (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                format!(
-                    "--dart_out={}",
-                    repository.join("bindings/dart/lib/src/generated").display()
-                ),
-                proto.display().to_string(),
-            ],
-        ),
-        (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                format!(
-                    "--go_out={}",
-                    repository.join("bindings/go/messages").display()
-                ),
-                "--go_opt=paths=source_relative".into(),
-                proto.display().to_string(),
-            ],
-        ),
-        (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                "--swift_opt=Visibility=Public".into(),
-                format!(
-                    "--swift_out={}",
-                    repository
-                        .join("bindings/swift/Sources/RevaultAPI")
-                        .display()
-                ),
-                proto.display().to_string(),
-            ],
-        ),
-        (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                format!(
-                    "--descriptor_set_out={}",
-                    repository
-                        .join("bindings/lua/revault_bindings.pb")
-                        .display()
-                ),
-                proto.display().to_string(),
-            ],
-        ),
-        (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                format!(
-                    "--java_out={}",
-                    repository.join("bindings/java/generated").display()
-                ),
-                proto.display().to_string(),
-            ],
-        ),
-        (
-            "protoc",
-            vec![
-                format!("-I{}", include.display()),
-                format!(
-                    "--php_out={}",
-                    repository.join("bindings/php/generated").display()
-                ),
-                proto.display().to_string(),
-            ],
-        ),
+        ("--ts", "bindings/javascript/generated/flatbuffers"),
     ];
-    for (program, arguments) in commands {
-        let status = Command::new(program).args(arguments).status()?;
+    for (language, relative_output) in outputs {
+        let output = repository.join(relative_output);
+        if output.exists() {
+            fs::remove_dir_all(&output)?;
+        }
+        fs::create_dir_all(&output)?;
+        let mut command = Command::new("flatc");
+        command.arg(language).arg("--gen-object-api");
+        if language != "--java" {
+            command.arg("--gen-onefile");
+        }
+        if language == "--go" {
+            command.args(["--go-namespace", "revaulttransport"]);
+        } else if language == "--java" {
+            command.args(["--java-package-prefix", "com.onepub."]);
+        }
+        let status = command.arg("-o").arg(&output).arg(&schema).status()?;
         if !status.success() {
-            return Err(format!("{program} failed with {status}").into());
+            return Err(format!("flatc {language} failed with {status}").into());
         }
+        if language == "--csharp" {
+            let generated = output.join("revault_bindings_generated.cs");
+            let source = fs::read_to_string(&generated)?
+                .replace("revault.internal", "Revault.Internal.Transport");
+            let source = source
+                .lines()
+                .map(|line| {
+                    if line.starts_with("public struct ")
+                        || line.starts_with("public class ")
+                        || line.starts_with("public enum ")
+                    {
+                        line.replacen("public ", "internal ", 1)
+                    } else if line.starts_with("static public class ") {
+                        line.replacen("static public class ", "internal static class ", 1)
+                    } else {
+                        line.to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            fs::write(generated, format!("#pragma warning disable 1591\n{source}"))?;
+        } else if language == "--swift" {
+            let generated = output.join("revault_bindings_generated.swift");
+            let source = fs::read_to_string(&generated)?.replace("public ", "internal ");
+            fs::write(generated, format!("import FlatBuffers\n{source}"))?;
+        } else if language == "--php" {
+            for entry in fs::read_dir(&output)? {
+                let path = entry?.path();
+                if path.extension().and_then(|value| value.to_str()) == Some("php") {
+                    let source = fs::read_to_string(&path)?
+                        .replace(
+                            "namespace revault\\internal;",
+                            "namespace Revault\\Internal\\Transport;",
+                        )
+                        .replace("\\revault\\internal\\", "\\Revault\\Internal\\Transport\\");
+                    fs::write(path, source)?;
+                }
+            }
+        }
+        normalize_generated_tree(&output)?;
     }
-    for generated in [
-        "revault_bindings.pb.dart",
-        "revault_bindings.pbenum.dart",
-        "revault_bindings.pbjson.dart",
+    let rust_output = repository.join("rust/revault_bindings/src/generated");
+    if rust_output.exists() {
+        fs::remove_dir_all(&rust_output)?;
+    }
+    fs::create_dir_all(&rust_output)?;
+    let status = Command::new("flatc")
+        .args(["--rust", "--gen-onefile", "--gen-object-api", "-o"])
+        .arg(rust_output)
+        .arg(&schema)
+        .status()?;
+    if !status.success() {
+        return Err(format!("flatc --rust failed with {status}").into());
+    }
+    normalize_generated_tree(&repository.join("rust/revault_bindings/src/generated"))?;
+    for generator in [
+        "generate_dart_models.py",
+        "generate_typescript_models.py",
+        "generate_go_models.py",
+        "generate_java_models.py",
+        "generate_csharp_models.py",
+        "generate_cpp_models.py",
+        "generate_swift_models.py",
+        "generate_php_models.py",
+        "generate_ruby_models.py",
+        "generate_lua_models.py",
+        "document_lua_models.py",
     ] {
-        let path = repository
-            .join("bindings/dart/lib/src/generated")
-            .join(generated);
-        let source = fs::read_to_string(&path)?;
-        if !source.contains("// ignore_for_file: public_member_api_docs") {
-            let marker = "// Generated from revault_bindings.proto.\n";
-            let source = source.replacen(
-                marker,
-                &format!("{marker}\n// ignore_for_file: public_member_api_docs\n"),
-                1,
-            );
-            fs::write(path, source)?;
+        let status = Command::new("python3")
+            .arg(repository.join("bindings/flatbuffers").join(generator))
+            .status()?;
+        if !status.success() {
+            return Err(format!("{generator} failed with {status}").into());
         }
     }
-    println!("regenerated canonical Protobuf models; ecosystem-specific generated facades are validated by bindings check");
+    println!("regenerated private FlatBuffers transports with flatc 25.2.10");
+    Ok(())
+}
+
+fn normalize_generated_tree(directory: &Path) -> Result {
+    for entry in fs::read_dir(directory)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            normalize_generated_tree(&path)?;
+            continue;
+        }
+        let source = fs::read_to_string(&path)?;
+        let normalized = source
+            .lines()
+            .map(str::trim_end)
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(path, format!("{}\n", normalized.trim_end()))?;
+    }
     Ok(())
 }
 

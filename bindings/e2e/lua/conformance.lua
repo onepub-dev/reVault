@@ -36,15 +36,15 @@ local function artifact_root()
   mkdir(path); return path
 end
 local function fields()
-  return revault.Models.FormFieldList.new({ values = {
+  return {
     revault.Models.FormField.new({ id = 'username', label = 'Username', kind = 'text', required = true }),
     revault.Models.FormField.new({ id = 'password', label = 'Password', kind = 'secret', required = true })
-  }}):encode()
+  }
 end
 local function moves(source, destination)
-  return revault.Models.PathMoveList.new({ values = {
+  return {
     revault.Models.PathMove.new({ source = source, destination = destination })
-  }}):encode()
+  }
 end
 
 local function archive_lifecycle()

@@ -4,43 +4,13 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SymbolLookup;
 import java.nio.charset.StandardCharsets;
-import revault.bindings.RevaultBindings.AccessSlotLabelList;
-import revault.bindings.RevaultBindings.AgentEntryList;
-import revault.bindings.RevaultBindings.CacheStats;
-import revault.bindings.RevaultBindings.ContactList;
-import revault.bindings.RevaultBindings.ErrorDetails;
-import revault.bindings.RevaultBindings.FileInspection;
-import revault.bindings.RevaultBindings.FormDefinition;
-import revault.bindings.RevaultBindings.FormDefinitionList;
-import revault.bindings.RevaultBindings.FormFieldList;
-import revault.bindings.RevaultBindings.FormRecord;
-import revault.bindings.RevaultBindings.FormRecordList;
-import revault.bindings.RevaultBindings.ImportStats;
-import revault.bindings.RevaultBindings.KeySlotList;
-import revault.bindings.RevaultBindings.KnownLockboxList;
-import revault.bindings.RevaultBindings.LockboxEntryList;
-import revault.bindings.RevaultBindings.OptionalLockboxEntry;
-import revault.bindings.RevaultBindings.OptionalFormRecord;
-import revault.bindings.RevaultBindings.OptionalFormValue;
-import revault.bindings.RevaultBindings.OptionalString;
-import revault.bindings.RevaultBindings.OwnerInspection;
-import revault.bindings.RevaultBindings.PageInspectionList;
-import revault.bindings.RevaultBindings.PathMoveList;
-import revault.bindings.RevaultBindings.PlatformStatus;
-import revault.bindings.RevaultBindings.ProfileHistory;
-import revault.bindings.RevaultBindings.RecoveryReport;
-import revault.bindings.RevaultBindings.RuntimeOptions;
-import revault.bindings.RevaultBindings.SleepSupport;
-import revault.bindings.RevaultBindings.StreamChunkList;
-import revault.bindings.RevaultBindings.StringList;
-import revault.bindings.RevaultBindings.VariableList;
-import revault.bindings.RevaultBindings.VaultBackupManifest;
 
 /**
  * Entry point for encrypted lockboxes, keys, local vault metadata, the session
  * agent, and the platform secret store.
  *
- * <p>Owned objects implement {@link AutoCloseable}. Secret variables and form
+ * <p>Create one when the application starts, then use it to open lockboxes and
+ * manage keys and local services. Owned objects implement {@link AutoCloseable}. Secret variables and form
  * fields are exposed through callback-scoped methods. See the
  * <a href="https://github.com/onepub-dev/reVault#readme">repository README</a>
  * for installation and examples.
@@ -98,7 +68,7 @@ public final class Revault {
   /** Determines vault structure version without fully opening it. */
   public int probeVaultStructureVersion(String root, byte[] password) { return operations.vaultDirectoryProbeStructureVersion(root, password); }
 
-  /** Shareable contact public key used to encrypt a recipient content key. */
+  /** A recipient's shareable encryption identity used when granting lockbox access. */
   public final class ContactPublicKey implements AutoCloseable {
     private MemorySegment handle;
     private ContactPublicKey(MemorySegment handle) { this.handle = handle; }
@@ -116,7 +86,7 @@ public final class Revault {
     }
   }
 
-  /** Owned encrypted content-key envelope for one contact recipient. */
+  /** A content key encrypted for one contact and recoverable only by its matching key pair. */
   public final class WrappedContactKey implements AutoCloseable {
     private MemorySegment handle;
     private WrappedContactKey(MemorySegment handle) { this.handle = handle; }
@@ -132,7 +102,7 @@ public final class Revault {
     }
   }
 
-  /** Owned contact key pair used to decrypt received content keys. */
+  /** A profile's contact-encryption identity used to decrypt content keys addressed to it. */
   public final class ContactKeyPair implements AutoCloseable {
     private MemorySegment handle;
     private ContactKeyPair(MemorySegment handle) { this.handle = handle; }
@@ -154,7 +124,7 @@ public final class Revault {
     }
   }
 
-  /** Public key used to verify owner-authorized lockbox commits. */
+  /** The public identity readers use to verify owner-authorized lockbox revisions. */
   public final class SigningPublicKey implements AutoCloseable {
     private MemorySegment handle;
     private SigningPublicKey(MemorySegment handle) { this.handle = handle; }
@@ -164,7 +134,7 @@ public final class Revault {
     }
   }
 
-  /** Owned signing key pair used to authorize mutable lockbox commits. */
+  /** A lockbox owner's signing identity used to authorize mutable revisions. */
   public final class SigningKeyPair implements AutoCloseable {
     private MemorySegment handle;
     private SigningKeyPair(MemorySegment handle) { this.handle = handle; }
@@ -257,7 +227,7 @@ public final class Revault {
         signingKey == null ? MemorySegment.NULL : signingKey.handle));
   }
 
-  /** Owned, mutable view of one encrypted lockbox archive. */
+  /** An open encrypted archive containing files, variables, secrets, and forms. */
   public final class Lockbox implements AutoCloseable {
     private MemorySegment handle;
     private Lockbox(MemorySegment handle) { this.handle = handle; }
@@ -276,7 +246,7 @@ public final class Revault {
           restoreSymlinks, restorePermissions, overwrite);
     }
     /** Returns the stream content. */
-    public StreamChunkList streamContent(boolean physical) { return operations.lockboxStreamContent(handle, physical); }
+    public java.util.List<StreamChunk> streamContent(boolean physical) { return operations.lockboxStreamContent(handle, physical); }
     /** Returns cache statistics for this lockbox. */
     public CacheStats cacheStats() { return operations.lockboxCacheStats(handle); }
     /** Returns import statistics for this lockbox. */
@@ -284,7 +254,7 @@ public final class Revault {
     /** Updates import stats. */
     public void resetImportStats() { operations.lockboxResetImportStats(handle); }
     /** Returns the page inspection. */
-    public PageInspectionList pageInspection() { return operations.lockboxPageInspection(handle); }
+    public java.util.List<PageInspection> pageInspection() { return operations.lockboxPageInspection(handle); }
     /** Returns the recovery report. */
     public RecoveryReport recoveryReport() { return operations.lockboxRecoveryReport(handle); }
     /** Returns the render recovery report. */
@@ -310,31 +280,31 @@ public final class Revault {
     /** Updates rename. */
     public void rename(String from, String to) { operations.lockboxRename(handle, from, to); }
     /** Lists list. */
-    public LockboxEntryList list(String path, boolean recursive) { return operations.lockboxList(handle, path, recursive); }
+    public java.util.List<LockboxEntry> list(String path, boolean recursive) { return operations.lockboxList(handle, path, recursive); }
     /** Lists list. */
-    public LockboxEntryList list(String path, String glob, boolean recursive, boolean includeFiles,
+    public java.util.List<LockboxEntry> list(String path, String glob, boolean recursive, boolean includeFiles,
         boolean includeSymlinks, boolean includeDirectories, long limit) {
       return operations.lockboxListWithOptions(handle, path, glob, recursive, includeFiles,
           includeSymlinks, includeDirectories, limit);
     }
     /** Returns metadata for the selected lockbox entry. */
-    public OptionalLockboxEntry stat(String path) { return operations.lockboxStat(handle, path); }
+    public LockboxEntry stat(String path) { return operations.lockboxStat(handle, path); }
     /** Sets variable. */
     public void setVariable(String name, String value) { operations.lockboxSetVariable(handle, name, value); }
     /** Stores a secret variable from mutable bytes. */
     public void setSecretVariable(String name, byte[] value) { operations.lockboxSetSecretVariable(handle, name, value); }
     /** Returns variable. */
-    public String getVariable(String name) { var value = operations.lockboxGetVariable(handle, name); return value.getPresent() ? value.getValue() : null; }
+    public String getVariable(String name) { return operations.lockboxGetVariable(handle, name); }
     /** Invokes {@code callback} with temporary secret bytes, then wipes the transfer buffer. */
     public <T> T withSecretVariable(String name, SecretCallback<T> callback) { return operations.lockboxWithSecretVariable(handle, name, callback); }
     /** Removes variable. */
     public void deleteVariable(String name) { operations.lockboxDeleteVariable(handle, name); }
     /** Updates variables. */
-    public void moveVariables(PathMoveList moves) { operations.lockboxMoveVariables(handle, moves.toByteArray()); }
+    public void moveVariables(java.util.List<PathMove> moves) { operations.lockboxMoveVariables(handle, DomainCodec.encodePathMoves(moves)); }
     /** Lists variables. */
-    public VariableList listVariables() { return operations.lockboxListVariables(handle); }
+    public java.util.List<Variable> listVariables() { return operations.lockboxListVariables(handle); }
     /** Returns the variable sensitivity. */
-    public OptionalString variableSensitivity(String name) { return operations.lockboxVariableSensitivity(handle, name); }
+    public String variableSensitivity(String name) { return operations.lockboxVariableSensitivity(handle, name); }
     /** Adds symlink. */
     public void addSymlink(String path, String target, boolean replace) { operations.lockboxAddSymlink(handle, path, target, replace); }
     /** Returns the symlink target. */
@@ -366,21 +336,21 @@ public final class Revault {
     /** Removes key. */
     public void deleteKey(long id) { operations.lockboxDeleteKey(handle, id); }
     /** Lists key slots. */
-    public KeySlotList listKeySlots() { return operations.lockboxListKeySlots(handle); }
+    public java.util.List<KeySlot> listKeySlots() { return operations.lockboxListKeySlots(handle); }
     /** Sets owner signing key. */
     public void setOwnerSigningKey(SigningKeyPair key) { operations.lockboxSetOwnerSigningKey(handle, key.handle); }
     /** Returns the owner inspection. */
     public OwnerInspection ownerInspection() { return operations.lockboxOwnerInspection(handle); }
     /** Returns the define form. */
-    public FormDefinition defineForm(String alias, String name, String description, FormFieldList fields) {
-      return operations.lockboxDefineForm(handle, alias, name, description, fields.toByteArray());
+    public FormDefinition defineForm(String alias, String name, String description, java.util.List<FormField> fields) {
+      return operations.lockboxDefineForm(handle, alias, name, description, DomainCodec.encodeFormFields(fields));
     }
     /** Lists form definitions. */
-    public FormDefinitionList listFormDefinitions() { return operations.lockboxListFormDefinitions(handle); }
+    public java.util.List<FormDefinition> listFormDefinitions() { return operations.lockboxListFormDefinitions(handle); }
     /** Returns the resolve form. */
     public FormDefinition resolveForm(String reference) { return operations.lockboxResolveForm(handle, reference); }
     /** Lists form revisions. */
-    public FormDefinitionList listFormRevisions(String typeId) { return operations.lockboxListFormRevisions(handle, typeId); }
+    public java.util.List<FormDefinition> listFormRevisions(String typeId) { return operations.lockboxListFormRevisions(handle, typeId); }
     /** Creates form record. */
     public FormRecord createFormRecord(String path, String typeReference, String name) {
       return operations.lockboxCreateFormRecord(handle, path, typeReference, name);
@@ -392,15 +362,15 @@ public final class Revault {
     /** Stores a secret form field from mutable bytes. */
     public void setSecretFormField(String path, String field, byte[] value) { operations.lockboxSetSecretFormField(handle, path, field, value); }
     /** Lists form records. */
-    public FormRecordList listFormRecords() { return operations.lockboxListFormRecords(handle); }
+    public java.util.List<FormRecord> listFormRecords() { return operations.lockboxListFormRecords(handle); }
     /** Returns form record. */
-    public OptionalFormRecord getFormRecord(String path) { return operations.lockboxGetFormRecord(handle, path); }
+    public FormRecord getFormRecord(String path) { return operations.lockboxGetFormRecord(handle, path); }
     /** Removes form record. */
     public void deleteFormRecord(String path) { operations.lockboxDeleteFormRecord(handle, path); }
     /** Updates form records. */
-    public void moveFormRecords(PathMoveList moves) { operations.lockboxMoveFormRecords(handle, moves.toByteArray()); }
+    public void moveFormRecords(java.util.List<PathMove> moves) { operations.lockboxMoveFormRecords(handle, DomainCodec.encodePathMoves(moves)); }
     /** Returns form field. */
-    public OptionalFormValue getFormField(String path, String field) { return operations.lockboxGetFormField(handle, path, field); }
+    public FormValue getFormField(String path, String field) { return operations.lockboxGetFormField(handle, path, field); }
     /** Invokes {@code callback} with temporary field bytes, then wipes the transfer buffer. */
     public <T> T withSecretFormField(String path, String field, SecretCallback<T> callback) { return operations.lockboxWithSecretFormField(handle, path, field, callback); }
     /** Returns the bytes. */
@@ -458,7 +428,7 @@ public final class Revault {
     return operations.vaultRestoreDefault(path, overwrite);
   }
 
-  /** Writable, password-protected local metadata vault. */
+  /** Password-protected storage for profile keys, contacts, forms, backups, and known lockbox paths. */
   public final class VaultDirectory implements AutoCloseable {
     private MemorySegment handle;
     private VaultDirectory(MemorySegment handle) { this.handle = handle; }
@@ -467,13 +437,13 @@ public final class Revault {
     /** Returns the structure version. */
     public int structureVersion() { return operations.vaultDirectoryStructureVersion(handle); }
     /** Lists private keys. */
-    public StringList listPrivateKeys() { return operations.vaultDirectoryListPrivateKeys(handle); }
+    public java.util.List<String> listPrivateKeys() { return operations.vaultDirectoryListPrivateKeys(handle); }
     /** Lists private key names. */
-    public StringList listPrivateKeyNames() { return operations.vaultDirectoryListPrivateKeyNames(handle); }
+    public java.util.List<String> listPrivateKeyNames() { return operations.vaultDirectoryListPrivateKeyNames(handle); }
     /** Lists contact names. */
-    public StringList listContactNames() { return operations.vaultDirectoryListContactNames(handle); }
+    public java.util.List<String> listContactNames() { return operations.vaultDirectoryListContactNames(handle); }
     /** Lists form aliases. */
-    public StringList listFormAliases() { return operations.vaultDirectoryListFormAliases(handle); }
+    public java.util.List<String> listFormAliases() { return operations.vaultDirectoryListFormAliases(handle); }
     /** Returns the private key exists. */
     public boolean privateKeyExists(String name) { return operations.vaultDirectoryPrivateKeyExists(handle, name); }
     /** Removes private key. */
@@ -495,11 +465,11 @@ public final class Revault {
     /** Removes contact. */
     public void deleteContact(String name) { operations.vaultDirectoryDeleteContact(handle, name); }
     /** Lists contacts. */
-    public ContactList listContacts() { return operations.vaultDirectoryListContacts(handle); }
+    public java.util.List<Contact> listContacts() { return operations.vaultDirectoryListContacts(handle); }
     /** Stores profile email. */
     public void storeProfileEmail(String name, String email) { operations.vaultDirectoryStoreProfileEmail(handle, name, email); }
     /** Returns the profile email. */
-    public OptionalString profileEmail(String name) { return operations.vaultDirectoryProfileEmail(handle, name); }
+    public String profileEmail(String name) { return operations.vaultDirectoryProfileEmail(handle, name); }
     /** Stores backup. */
     public void storeBackup(byte[] id, byte[] value) { operations.vaultDirectoryStoreBackup(handle, id, value); }
     /** Loads backup. */
@@ -535,7 +505,7 @@ public final class Revault {
     /** Stores lockbox. */
     public void rememberLockbox(byte[] id, String path) { operations.vaultDirectoryRememberLockbox(handle, id, path); }
     /** Lists known lockboxes. */
-    public KnownLockboxList listKnownLockboxes() { return operations.vaultDirectoryListKnownLockboxes(handle); }
+    public java.util.List<KnownLockbox> listKnownLockboxes() { return operations.vaultDirectoryListKnownLockboxes(handle); }
     /** Removes lockbox. */
     public void forgetLockbox(String path) { operations.vaultDirectoryForgetLockbox(handle, path); }
     /** Stores access slot label. */
@@ -543,23 +513,23 @@ public final class Revault {
       operations.vaultDirectoryRememberAccessSlotLabel(handle, id, slotId, name);
     }
     /** Lists access slot labels. */
-    public AccessSlotLabelList listAccessSlotLabels(byte[] id) { return operations.vaultDirectoryListAccessSlotLabels(handle, id); }
+    public java.util.List<AccessSlotLabel> listAccessSlotLabels(byte[] id) { return operations.vaultDirectoryListAccessSlotLabels(handle, id); }
     /** Returns the find access slot labels. */
-    public AccessSlotLabelList findAccessSlotLabels(byte[] id, String name) {
+    public java.util.List<AccessSlotLabel> findAccessSlotLabels(byte[] id, String name) {
       return operations.vaultDirectoryFindAccessSlotLabels(handle, id, name);
     }
     /** Removes access slot label. */
     public void forgetAccessSlotLabel(byte[] id, long slotId) { operations.vaultDirectoryForgetAccessSlotLabel(handle, id, slotId); }
     /** Returns the define form. */
-    public FormDefinition defineForm(String alias, String name, String description, FormFieldList fields) {
-      return operations.vaultDirectoryDefineForm(handle, alias, name, description, fields.toByteArray());
+    public FormDefinition defineForm(String alias, String name, String description, java.util.List<FormField> fields) {
+      return operations.vaultDirectoryDefineForm(handle, alias, name, description, DomainCodec.encodeFormFields(fields));
     }
     /** Returns the resolve form. */
     public FormDefinition resolveForm(String reference) { return operations.vaultDirectoryResolveForm(handle, reference); }
     /** Lists forms. */
-    public FormDefinitionList listForms() { return operations.vaultDirectoryListForms(handle); }
+    public java.util.List<FormDefinition> listForms() { return operations.vaultDirectoryListForms(handle); }
     /** Lists form revisions. */
-    public FormDefinitionList listFormRevisions(String typeId) { return operations.vaultDirectoryListFormRevisions(handle, typeId); }
+    public java.util.List<FormDefinition> listFormRevisions(String typeId) { return operations.vaultDirectoryListFormRevisions(handle, typeId); }
     /** Returns the seed forms. */
     public long seedForms() { return operations.vaultDirectorySeedForms(handle); }
     /** Stores password. */
@@ -570,18 +540,18 @@ public final class Revault {
     @Override public void close() { if (handle != null) { operations.vaultDirectoryFree(handle); handle = null; } }
   }
 
-  /** Read-only metadata view that never loads an owner signing key. */
+  /** A metadata view for discovery and diagnostics that never loads an owner signing key. */
   public final class ReadOnlyVaultDirectory implements AutoCloseable {
     private MemorySegment handle;
     private ReadOnlyVaultDirectory(MemorySegment handle) { this.handle = handle; }
     /** Lists profile names. */
-    public StringList listProfileNames() { return operations.vaultReadOnlyListProfileNames(handle); }
+    public java.util.List<String> listProfileNames() { return operations.vaultReadOnlyListProfileNames(handle); }
     /** Lists contact names. */
-    public StringList listContactNames() { return operations.vaultReadOnlyListContactNames(handle); }
+    public java.util.List<String> listContactNames() { return operations.vaultReadOnlyListContactNames(handle); }
     /** Lists form aliases. */
-    public StringList listFormAliases() { return operations.vaultReadOnlyListFormAliases(handle); }
+    public java.util.List<String> listFormAliases() { return operations.vaultReadOnlyListFormAliases(handle); }
     /** Lists known lockboxes. */
-    public KnownLockboxList listKnownLockboxes() { return operations.vaultReadOnlyListKnownLockboxes(handle); }
+    public java.util.List<KnownLockbox> listKnownLockboxes() { return operations.vaultReadOnlyListKnownLockboxes(handle); }
     /** Releases the native resources held by this object. */
     @Override public void close() { if (handle != null) { operations.vaultReadOnlyFree(handle); handle = null; } }
   }
@@ -605,7 +575,7 @@ public final class Revault {
   /** Removes agent key. */
   public void forgetAgentKey(byte[] id) { operations.vaultAgentForget(id); }
   /** Lists agent keys. */
-  public AgentEntryList listAgentKeys() { return operations.vaultAgentList(); }
+  public java.util.List<AgentEntry> listAgentKeys() { return operations.vaultAgentList(); }
   /** Returns the agent sleep support. */
   public SleepSupport agentSleepSupport() { return operations.vaultAgentSleepSupport(); }
   /** Returns the agent log path. */
@@ -637,7 +607,7 @@ public final class Revault {
   public AgentActivity beginAgentActivity(String kind) {
     return new AgentActivity(operations.vaultAgentBeginActivity(kind));
   }
-  /** Owned registration for an operation that currently requires secret access. */
+  /** A token kept alive while an operation needs secrets cached by the session agent. */
   public final class AgentActivity implements AutoCloseable {
     private MemorySegment handle;
     private AgentActivity(MemorySegment handle) { this.handle = handle; }
@@ -666,7 +636,7 @@ public final class Revault {
 
   /** Opens local vault. */
   public LocalVault openLocalVault() { return new LocalVault(operations.vaultLocal()); }
-  /** High-level workflow for local metadata and remembered lockboxes. */
+  /** A session that opens lockboxes by host path, caches passwords, and closes locally used files. */
   public final class LocalVault implements AutoCloseable {
     private MemorySegment handle;
     private LocalVault(MemorySegment handle) { this.handle = handle; }

@@ -160,8 +160,8 @@ func (native) LockboxGetSecretVariable(handle unsafe.Pointer, name unsafe.Pointe
 func (native) LockboxDeleteVariable(handle unsafe.Pointer, name unsafe.Pointer, name_len C.size_t) C.bool {
 	return C.lockbox_delete_variable(handle, (*C.char)(name), name_len)
 }
-func (native) LockboxMoveVariables(handle unsafe.Pointer, moves_proto unsafe.Pointer, moves_len C.size_t) C.bool {
-	return C.lockbox_move_variables(handle, (*C.uint8_t)(moves_proto), moves_len)
+func (native) LockboxMoveVariables(handle unsafe.Pointer, moves_flatbuffer unsafe.Pointer, moves_len C.size_t) C.bool {
+	return C.lockbox_move_variables(handle, (*C.uint8_t)(moves_flatbuffer), moves_len)
 }
 func (native) LockboxListVariables(handle unsafe.Pointer) C.RevaultBuffer {
 	return C.lockbox_list_variables(handle)
@@ -217,8 +217,8 @@ func (native) LockboxSetOwnerSigningKey(handle unsafe.Pointer, key unsafe.Pointe
 func (native) LockboxOwnerInspection(handle unsafe.Pointer) C.RevaultBuffer {
 	return C.lockbox_owner_inspection(handle)
 }
-func (native) LockboxDefineForm(handle unsafe.Pointer, alias unsafe.Pointer, alias_len C.size_t, name unsafe.Pointer, name_len C.size_t, description unsafe.Pointer, description_len C.size_t, fields_proto unsafe.Pointer, fields_len C.size_t) C.RevaultBuffer {
-	return C.lockbox_define_form(handle, (*C.char)(alias), alias_len, (*C.char)(name), name_len, (*C.char)(description), description_len, (*C.uint8_t)(fields_proto), fields_len)
+func (native) LockboxDefineForm(handle unsafe.Pointer, alias unsafe.Pointer, alias_len C.size_t, name unsafe.Pointer, name_len C.size_t, description unsafe.Pointer, description_len C.size_t, fields_flatbuffer unsafe.Pointer, fields_len C.size_t) C.RevaultBuffer {
+	return C.lockbox_define_form(handle, (*C.char)(alias), alias_len, (*C.char)(name), name_len, (*C.char)(description), description_len, (*C.uint8_t)(fields_flatbuffer), fields_len)
 }
 func (native) LockboxListFormDefinitions(handle unsafe.Pointer) C.RevaultBuffer {
 	return C.lockbox_list_form_definitions(handle)
@@ -247,8 +247,8 @@ func (native) LockboxGetFormRecord(handle unsafe.Pointer, path unsafe.Pointer, p
 func (native) LockboxDeleteFormRecord(handle unsafe.Pointer, path unsafe.Pointer, path_len C.size_t) C.bool {
 	return C.lockbox_delete_form_record(handle, (*C.char)(path), path_len)
 }
-func (native) LockboxMoveFormRecords(handle unsafe.Pointer, moves_proto unsafe.Pointer, moves_len C.size_t) C.bool {
-	return C.lockbox_move_form_records(handle, (*C.uint8_t)(moves_proto), moves_len)
+func (native) LockboxMoveFormRecords(handle unsafe.Pointer, moves_flatbuffer unsafe.Pointer, moves_len C.size_t) C.bool {
+	return C.lockbox_move_form_records(handle, (*C.uint8_t)(moves_flatbuffer), moves_len)
 }
 func (native) LockboxGetFormField(handle unsafe.Pointer, path unsafe.Pointer, path_len C.size_t, field unsafe.Pointer, field_len C.size_t) C.RevaultBuffer {
 	return C.lockbox_get_form_field(handle, (*C.char)(path), path_len, (*C.char)(field), field_len)
@@ -496,8 +496,8 @@ func (native) VaultDirectoryFindAccessSlotLabels(handle unsafe.Pointer, id unsaf
 func (native) VaultDirectoryForgetAccessSlotLabel(handle unsafe.Pointer, id unsafe.Pointer, id_len C.size_t, slot_id C.uint64_t) C.bool {
 	return C.vault_directory_forget_access_slot_label(handle, (*C.uint8_t)(id), id_len, slot_id)
 }
-func (native) VaultDirectoryDefineForm(handle unsafe.Pointer, alias unsafe.Pointer, alias_len C.size_t, name unsafe.Pointer, name_len C.size_t, description unsafe.Pointer, description_len C.size_t, fields_proto unsafe.Pointer, fields_len C.size_t) C.RevaultBuffer {
-	return C.vault_directory_define_form(handle, (*C.char)(alias), alias_len, (*C.char)(name), name_len, (*C.char)(description), description_len, (*C.uint8_t)(fields_proto), fields_len)
+func (native) VaultDirectoryDefineForm(handle unsafe.Pointer, alias unsafe.Pointer, alias_len C.size_t, name unsafe.Pointer, name_len C.size_t, description unsafe.Pointer, description_len C.size_t, fields_flatbuffer unsafe.Pointer, fields_len C.size_t) C.RevaultBuffer {
+	return C.vault_directory_define_form(handle, (*C.char)(alias), alias_len, (*C.char)(name), name_len, (*C.char)(description), description_len, (*C.uint8_t)(fields_flatbuffer), fields_len)
 }
 func (native) VaultDirectoryResolveForm(handle unsafe.Pointer, reference unsafe.Pointer, reference_len C.size_t) C.RevaultBuffer {
 	return C.vault_directory_resolve_form(handle, (*C.char)(reference), reference_len)

@@ -7,7 +7,11 @@ group = 'dev.onepub'
 version = '0.2.0'
 
 java {
-    toolchain { languageVersion = JavaLanguageVersion.of(22) }
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(
+            providers.gradleProperty('javaToolchain').getOrElse('22').toInteger()
+        )
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -22,7 +26,7 @@ repositories {
 }
 
 dependencies {
-    api 'com.google.protobuf:protobuf-java:3.21.12'
+    implementation 'com.google.flatbuffers:flatbuffers-java:25.2.10'
 }
 
 mavenPublishing {

@@ -55,7 +55,7 @@ bool lockbox_set_secret_variable(void *handle, const char *name, size_t name_len
 RevaultBuffer lockbox_get_variable(const void *handle, const char *name, size_t name_len);
 bool lockbox_get_secret_variable(const void *handle, const char *name, size_t name_len, void **output);
 bool lockbox_delete_variable(void *handle, const char *name, size_t name_len);
-bool lockbox_move_variables(void *handle, const uint8_t *moves_proto, size_t moves_len);
+bool lockbox_move_variables(void *handle, const uint8_t *moves_flatbuffer, size_t moves_len);
 RevaultBuffer lockbox_list_variables(const void *handle);
 RevaultBuffer lockbox_variable_sensitivity(const void *handle, const char *name, size_t name_len);
 bool lockbox_add_symlink(void *handle, const char *path, size_t path_len, const char *target, size_t target_len, bool replace);
@@ -74,7 +74,7 @@ bool lockbox_delete_key(void *handle, uint64_t id);
 RevaultBuffer lockbox_list_key_slots(const void *handle);
 bool lockbox_set_owner_signing_key(void *handle, const void *key);
 RevaultBuffer lockbox_owner_inspection(const void *handle);
-RevaultBuffer lockbox_define_form(void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_proto, size_t fields_len);
+RevaultBuffer lockbox_define_form(void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_flatbuffer, size_t fields_len);
 RevaultBuffer lockbox_list_form_definitions(const void *handle);
 RevaultBuffer lockbox_resolve_form(const void *handle, const char *reference, size_t reference_len);
 RevaultBuffer lockbox_list_form_revisions(const void *handle, const char *type_id, size_t type_id_len);
@@ -84,7 +84,7 @@ bool lockbox_set_secret_form_field(void *handle, const char *path, size_t path_l
 RevaultBuffer lockbox_list_form_records(const void *handle);
 RevaultBuffer lockbox_get_form_record(const void *handle, const char *path, size_t path_len);
 bool lockbox_delete_form_record(void *handle, const char *path, size_t path_len);
-bool lockbox_move_form_records(void *handle, const uint8_t *moves_proto, size_t moves_len);
+bool lockbox_move_form_records(void *handle, const uint8_t *moves_flatbuffer, size_t moves_len);
 RevaultBuffer lockbox_get_form_field(const void *handle, const char *path, size_t path_len, const char *field, size_t field_len);
 bool lockbox_get_secret_form_field(const void *handle, const char *path, size_t path_len, const char *field, size_t field_len, void **output);
 RevaultBuffer lockbox_to_bytes(const void *handle);
@@ -167,7 +167,7 @@ bool vault_directory_remember_access_slot_label(const void *handle, const uint8_
 RevaultBuffer vault_directory_list_access_slot_labels(const void *handle, const uint8_t *id, size_t id_len);
 RevaultBuffer vault_directory_find_access_slot_labels(const void *handle, const uint8_t *id, size_t id_len, const char *name, size_t name_len);
 bool vault_directory_forget_access_slot_label(const void *handle, const uint8_t *id, size_t id_len, uint64_t slot_id);
-RevaultBuffer vault_directory_define_form(const void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_proto, size_t fields_len);
+RevaultBuffer vault_directory_define_form(const void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_flatbuffer, size_t fields_len);
 RevaultBuffer vault_directory_resolve_form(const void *handle, const char *reference, size_t reference_len);
 RevaultBuffer vault_directory_list_forms(const void *handle);
 RevaultBuffer vault_directory_list_form_revisions(const void *handle, const char *type_id, size_t type_id_len);

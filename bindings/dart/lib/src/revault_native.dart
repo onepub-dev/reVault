@@ -2982,9 +2982,9 @@ final class RevaultNative {
   final _LockboxMoveVariablesDart _lockbox_move_variables;
   bool lockbox_move_variables(
     ffi.Pointer<ffi.Void> handle,
-    ffi.Pointer<ffi.Uint8> moves_proto,
+    ffi.Pointer<ffi.Uint8> moves_flatbuffer,
     int moves_len,
-  ) => _lockbox_move_variables(handle, moves_proto, moves_len);
+  ) => _lockbox_move_variables(handle, moves_flatbuffer, moves_len);
   final _LockboxListVariablesDart _lockbox_list_variables;
   RevaultBuffer lockbox_list_variables(ffi.Pointer<ffi.Void> handle) =>
       _lockbox_list_variables(handle);
@@ -3096,7 +3096,7 @@ final class RevaultNative {
     int name_len,
     ffi.Pointer<ffi.Uint8> description,
     int description_len,
-    ffi.Pointer<ffi.Uint8> fields_proto,
+    ffi.Pointer<ffi.Uint8> fields_flatbuffer,
     int fields_len,
   ) => _lockbox_define_form(
     handle,
@@ -3106,7 +3106,7 @@ final class RevaultNative {
     name_len,
     description,
     description_len,
-    fields_proto,
+    fields_flatbuffer,
     fields_len,
   );
   final _LockboxListFormDefinitionsDart _lockbox_list_form_definitions;
@@ -3196,9 +3196,9 @@ final class RevaultNative {
   final _LockboxMoveFormRecordsDart _lockbox_move_form_records;
   bool lockbox_move_form_records(
     ffi.Pointer<ffi.Void> handle,
-    ffi.Pointer<ffi.Uint8> moves_proto,
+    ffi.Pointer<ffi.Uint8> moves_flatbuffer,
     int moves_len,
-  ) => _lockbox_move_form_records(handle, moves_proto, moves_len);
+  ) => _lockbox_move_form_records(handle, moves_flatbuffer, moves_len);
   final _LockboxGetFormFieldDart _lockbox_get_form_field;
   RevaultBuffer lockbox_get_form_field(
     ffi.Pointer<ffi.Void> handle,
@@ -3698,7 +3698,7 @@ final class RevaultNative {
     int name_len,
     ffi.Pointer<ffi.Uint8> description,
     int description_len,
-    ffi.Pointer<ffi.Uint8> fields_proto,
+    ffi.Pointer<ffi.Uint8> fields_flatbuffer,
     int fields_len,
   ) => _vault_directory_define_form(
     handle,
@@ -3708,7 +3708,7 @@ final class RevaultNative {
     name_len,
     description,
     description_len,
-    fields_proto,
+    fields_flatbuffer,
     fields_len,
   );
   final _VaultDirectoryResolveFormDart _vault_directory_resolve_form;

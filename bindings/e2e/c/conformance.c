@@ -223,69 +223,49 @@ static void interop_open(const char *producer) {
 
 static Bytes framed_payload(RevaultBuffer value) {
   CHECK(value.ptr != NULL, "expected returned buffer");
-  CHECK(value.len >= 12, "binding frame is too short");
-  CHECK(memcmp(value.ptr, "LBWF", 4) == 0, "binding frame magic");
-  size_t len = ((size_t)value.ptr[8] << 24) | ((size_t)value.ptr[9] << 16) |
-               ((size_t)value.ptr[10] << 8) | value.ptr[11];
-  CHECK(len + 12 == value.len, "binding frame length");
-  return (Bytes){value.ptr + 12, len};
+  CHECK(value.len >= 8, "FlatBuffer is too short");
+  return (Bytes){value.ptr, value.len};
 }
 
-static uint64_t varint(Bytes bytes, size_t *offset) {
-  uint64_t value = 0;
-  unsigned shift = 0;
-  while (*offset < bytes.len && shift < 64) {
-    uint8_t current = bytes.ptr[(*offset)++];
-    value |= (uint64_t)(current & 0x7f) << shift;
-    if ((current & 0x80) == 0) return value;
-    shift += 7;
-  }
-  CHECK(false, "invalid protobuf varint");
-  return 0;
+static uint16_t little_u16(const uint8_t *value) {
+  return (uint16_t)value[0] | (uint16_t)((uint16_t)value[1] << 8);
 }
 
-static Bytes protobuf_bytes(Bytes message, uint32_t wanted) {
-  size_t offset = 0;
-  while (offset < message.len) {
-    uint64_t tag = varint(message, &offset);
-    uint32_t field = (uint32_t)(tag >> 3);
-    uint32_t wire = (uint32_t)(tag & 7);
-    if (wire == 0) {
-      (void)varint(message, &offset);
-    } else if (wire == 2) {
-      size_t len = (size_t)varint(message, &offset);
-      CHECK(offset + len <= message.len, "truncated protobuf bytes");
-      if (field == wanted) return (Bytes){message.ptr + offset, len};
-      offset += len;
-    } else {
-      CHECK(false, "unsupported protobuf wire type");
-    }
-  }
-  return (Bytes){NULL, 0};
+static uint32_t little_u32(const uint8_t *value) {
+  return (uint32_t)value[0] | ((uint32_t)value[1] << 8) |
+         ((uint32_t)value[2] << 16) | ((uint32_t)value[3] << 24);
 }
 
-static uint64_t protobuf_varint(Bytes message, uint32_t wanted, bool *found) {
-  size_t offset = 0;
-  while (offset < message.len) {
-    uint64_t tag = varint(message, &offset);
-    uint32_t field = (uint32_t)(tag >> 3);
-    uint32_t wire = (uint32_t)(tag & 7);
-    if (wire == 0) {
-      uint64_t value = varint(message, &offset);
-      if (field == wanted) {
-        *found = true;
-        return value;
-      }
-    } else if (wire == 2) {
-      size_t len = (size_t)varint(message, &offset);
-      CHECK(offset + len <= message.len, "truncated protobuf field");
-      offset += len;
-    } else {
-      CHECK(false, "unsupported protobuf wire type");
-    }
-  }
-  *found = false;
-  return 0;
+static const uint8_t *flatbuffer_field(Bytes message, uint32_t wanted) {
+  CHECK(wanted > 0 && message.len >= 8, "invalid FlatBuffer field");
+  uint32_t root = little_u32(message.ptr);
+  CHECK(root + 4 <= message.len, "invalid FlatBuffer root");
+  const uint8_t *table = message.ptr + root;
+  uint32_t back = little_u32(table);
+  CHECK(back <= root, "invalid FlatBuffer vtable");
+  const uint8_t *vtable = table - back;
+  uint16_t vtable_len = little_u16(vtable);
+  size_t entry = 4 + (size_t)(wanted - 1) * 2;
+  if (entry + 2 > vtable_len) return NULL;
+  uint16_t offset = little_u16(vtable + entry);
+  return offset == 0 ? NULL : table + offset;
+}
+
+static Bytes flatbuffer_bytes(Bytes message, uint32_t wanted) {
+  const uint8_t *field = flatbuffer_field(message, wanted);
+  if (field == NULL) return (Bytes){NULL, 0};
+  const uint8_t *value = field + little_u32(field);
+  CHECK(value + 4 <= message.ptr + message.len, "invalid FlatBuffer offset");
+  size_t len = little_u32(value);
+  CHECK(value + 4 + len <= message.ptr + message.len,
+        "invalid FlatBuffer vector");
+  return (Bytes){value + 4, len};
+}
+
+static uint64_t flatbuffer_scalar(Bytes message, uint32_t wanted, bool *found) {
+  const uint8_t *field = flatbuffer_field(message, wanted);
+  *found = field != NULL;
+  return field == NULL ? 0 : field[0];
 }
 
 static void expect_raw(RevaultBuffer value, const uint8_t *expected,
@@ -300,9 +280,9 @@ static void expect_raw(RevaultBuffer value, const uint8_t *expected,
 static void expect_optional_string(RevaultBuffer value, const char *expected) {
   Bytes payload = framed_payload(value);
   bool found = false;
-  CHECK(protobuf_varint(payload, 1, &found) == 1 && found,
+  CHECK(flatbuffer_scalar(payload, 1, &found) == 1 && found,
         "optional string presence");
-  Bytes text = protobuf_bytes(payload, 2);
+  Bytes text = flatbuffer_bytes(payload, 2);
   CHECK(text.ptr != NULL && text.len == strlen(expected),
         "optional string length");
   CHECK(memcmp(text.ptr, expected, text.len) == 0, "optional string value");
@@ -373,8 +353,20 @@ static void archive_lifecycle(void) {
   expect_optional_string(lockbox_get_variable(box, "normal", 6), "value");
   PASS(lockbox_set_variable, 1);
   PASS(lockbox_get_variable, 3);
-  static const uint8_t move_normal[] = {0x0a, 0x0f, 0x0a, 0x06, 'n','o','r','m','a','l', 0x12, 0x05, 'm','o','v','e','d'};
-  static const uint8_t move_back[] = {0x0a, 0x0f, 0x0a, 0x05, 'm','o','v','e','d', 0x12, 0x06, 'n','o','r','m','a','l'};
+  static const uint8_t move_normal[] = {
+      0x0c,0x00,0x00,0x00,0x00,0x00,0x06,0x00,0x08,0x00,0x04,0x00,
+      0x06,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x01,0x00,0x00,0x00,
+      0x0c,0x00,0x00,0x00,0x08,0x00,0x0c,0x00,0x08,0x00,0x04,0x00,
+      0x08,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x10,0x00,0x00,0x00,
+      0x05,0x00,0x00,0x00,'m','o','v','e','d',0x00,0x00,0x00,
+      0x06,0x00,0x00,0x00,'n','o','r','m','a','l',0x00,0x00};
+  static const uint8_t move_back[] = {
+      0x0c,0x00,0x00,0x00,0x00,0x00,0x06,0x00,0x08,0x00,0x04,0x00,
+      0x06,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x01,0x00,0x00,0x00,
+      0x0c,0x00,0x00,0x00,0x08,0x00,0x0c,0x00,0x08,0x00,0x04,0x00,
+      0x08,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x10,0x00,0x00,0x00,
+      0x06,0x00,0x00,0x00,'n','o','r','m','a','l',0x00,0x00,
+      0x05,0x00,0x00,0x00,'m','o','v','e','d',0x00,0x00,0x00};
   CHECK(lockbox_move_variables(box, move_normal, sizeof(move_normal)), "move variable");
   expect_optional_string(lockbox_get_variable(box, "moved", 5), "value");
   CHECK(lockbox_move_variables(box, move_back, sizeof(move_back)), "move variable back");
@@ -403,7 +395,7 @@ static void archive_lifecycle(void) {
   PASS(secret_free, 1);
   RevaultBuffer sensitivity = lockbox_variable_sensitivity(box, "secret", 6);
   Bytes sensitivity_payload = framed_payload(sensitivity);
-  Bytes sensitivity_text = protobuf_bytes(sensitivity_payload, 2);
+  Bytes sensitivity_text = flatbuffer_bytes(sensitivity_payload, 2);
   CHECK(sensitivity_text.len == 6 &&
             memcmp(sensitivity_text.ptr, "secret", 6) == 0,
         "secret sensitivity");
@@ -427,13 +419,13 @@ static void archive_lifecycle(void) {
 
   RevaultBuffer listing = lockbox_list(box, "/", 1, true);
   Bytes listing_payload = framed_payload(listing);
-  CHECK(protobuf_bytes(listing_payload, 1).ptr != NULL, "listing entry");
+  CHECK(flatbuffer_bytes(listing_payload, 1).ptr != NULL, "listing entry");
   buffer_free(listing);
   PASS(lockbox_list, 2);
 
   RevaultBuffer stat = lockbox_stat(box, "/renamed.txt", 12);
   Bytes stat_payload = framed_payload(stat);
-  CHECK(protobuf_bytes(stat_payload, 1).ptr != NULL, "stat entry");
+  CHECK(flatbuffer_bytes(stat_payload, 1).ptr != NULL, "stat entry");
   buffer_free(stat);
   PASS(lockbox_stat, 2);
 
@@ -815,18 +807,25 @@ static void vault_lifecycle(void) {
   PASS(vault_directory_remembered_password, 3);
 
   static const uint8_t form_fields[] = {
-      0x0a, 0x1c, 0x0a, 0x08, 'u', 's', 'e', 'r', 'n', 'a', 'm', 'e',
-      0x12, 0x08, 'U',  's',  'e',  'r', 'n', 'a', 'm', 'e', 0x1a, 0x04,
-      't',  'e',  'x',  't',  0x20, 0x01,
-      0x0a, 0x1e, 0x0a, 0x08, 'p', 'a', 's', 's', 'w', 'o', 'r', 'd',
-      0x12, 0x08, 'P', 'a', 's', 's', 'w', 'o', 'r', 'd', 0x1a, 0x06,
-      's', 'e', 'c', 'r', 'e', 't', 0x20, 0x01};
+      0x0c,0x00,0x00,0x00,0x00,0x00,0x06,0x00,0x08,0x00,0x04,0x00,
+      0x06,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x02,0x00,0x00,0x00,
+      0x54,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0xc0,0xff,0xff,0xff,
+      0x00,0x00,0x00,0x01,0x0c,0x00,0x00,0x00,0x14,0x00,0x00,0x00,
+      0x20,0x00,0x00,0x00,0x06,0x00,0x00,0x00,'s','e','c','r','e','t',
+      0x00,0x00,0x08,0x00,0x00,0x00,'P','a','s','s','w','o','r','d',
+      0x00,0x00,0x00,0x00,0x08,0x00,0x00,0x00,'p','a','s','s','w','o','r','d',
+      0x00,0x00,0x00,0x00,0x0c,0x00,0x14,0x00,0x10,0x00,0x0c,0x00,
+      0x08,0x00,0x07,0x00,0x0c,0x00,0x00,0x00,0x00,0x00,0x00,0x01,
+      0x0c,0x00,0x00,0x00,0x14,0x00,0x00,0x00,0x20,0x00,0x00,0x00,
+      0x04,0x00,0x00,0x00,'t','e','x','t',0x00,0x00,0x00,0x00,
+      0x08,0x00,0x00,0x00,'U','s','e','r','n','a','m','e',0x00,0x00,0x00,0x00,
+      0x08,0x00,0x00,0x00,'u','s','e','r','n','a','m','e',0x00,0x00,0x00,0x00};
   RevaultBuffer form = vault_directory_define_form(
       vault, "login", 5, "Login", 5, "Login form", 10, form_fields,
       sizeof(form_fields));
   Bytes vault_form_payload = framed_payload(form);
   CHECK(vault_form_payload.len > 0, "define vault form");
-  Bytes vault_form_type = protobuf_bytes(vault_form_payload, 1);
+  Bytes vault_form_type = flatbuffer_bytes(vault_form_payload, 1);
   CHECK(vault_form_type.ptr != NULL, "vault form type id");
   char vault_form_type_id[128] = {0};
   CHECK(vault_form_type.len < sizeof(vault_form_type_id), "vault form type id length");
@@ -1198,12 +1197,19 @@ static void archive_advanced(void) {
   const uint8_t password[] = "archive password";
   const uint8_t payload[] = "advanced archive payload";
   static const uint8_t form_fields[] = {
-      0x0a, 0x1c, 0x0a, 0x08, 'u', 's', 'e', 'r', 'n', 'a', 'm', 'e',
-      0x12, 0x08, 'U',  's',  'e',  'r', 'n', 'a', 'm', 'e', 0x1a, 0x04,
-      't',  'e',  'x',  't',  0x20, 0x01,
-      0x0a, 0x1e, 0x0a, 0x08, 'p', 'a', 's', 's', 'w', 'o', 'r', 'd',
-      0x12, 0x08, 'P', 'a', 's', 's', 'w', 'o', 'r', 'd', 0x1a, 0x06,
-      's', 'e', 'c', 'r', 'e', 't', 0x20, 0x01};
+      0x0c,0x00,0x00,0x00,0x00,0x00,0x06,0x00,0x08,0x00,0x04,0x00,
+      0x06,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x02,0x00,0x00,0x00,
+      0x54,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0xc0,0xff,0xff,0xff,
+      0x00,0x00,0x00,0x01,0x0c,0x00,0x00,0x00,0x14,0x00,0x00,0x00,
+      0x20,0x00,0x00,0x00,0x06,0x00,0x00,0x00,'s','e','c','r','e','t',
+      0x00,0x00,0x08,0x00,0x00,0x00,'P','a','s','s','w','o','r','d',
+      0x00,0x00,0x00,0x00,0x08,0x00,0x00,0x00,'p','a','s','s','w','o','r','d',
+      0x00,0x00,0x00,0x00,0x0c,0x00,0x14,0x00,0x10,0x00,0x0c,0x00,
+      0x08,0x00,0x07,0x00,0x0c,0x00,0x00,0x00,0x00,0x00,0x00,0x01,
+      0x0c,0x00,0x00,0x00,0x14,0x00,0x00,0x00,0x20,0x00,0x00,0x00,
+      0x04,0x00,0x00,0x00,'t','e','x','t',0x00,0x00,0x00,0x00,
+      0x08,0x00,0x00,0x00,'U','s','e','r','n','a','m','e',0x00,0x00,0x00,0x00,
+      0x08,0x00,0x00,0x00,'u','s','e','r','n','a','m','e',0x00,0x00,0x00,0x00};
 
   void *box = lockbox_create_with_options(
       key, sizeof(key), "bytes", 5, 1024 * 1024, "bulk-import", 11,
@@ -1216,7 +1222,7 @@ static void archive_advanced(void) {
 
   RevaultBuffer listed = lockbox_list_with_options(
       box, "/", 1, "*.txt", 5, true, true, false, false, 10);
-  CHECK(protobuf_bytes(framed_payload(listed), 1).ptr != NULL,
+  CHECK(flatbuffer_bytes(framed_payload(listed), 1).ptr != NULL,
         "filtered listing");
   buffer_free(listed);
   PASS(lockbox_list_with_options, 2);
@@ -1225,7 +1231,7 @@ static void archive_advanced(void) {
       box, "account", 7, "Account", 7, "Account form", 12, form_fields,
       sizeof(form_fields));
   Bytes definition_payload = framed_payload(definition);
-  Bytes type_id_value = protobuf_bytes(definition_payload, 1);
+  Bytes type_id_value = flatbuffer_bytes(definition_payload, 1);
   CHECK(type_id_value.ptr != NULL && type_id_value.len < 128,
         "form type identifier");
   char type_id[128] = {0};
@@ -1275,8 +1281,20 @@ static void archive_advanced(void) {
   memset(form_secret_bytes, 0, sizeof(form_secret_bytes));
   secret_free(form_secret_handle);
   PASS(lockbox_get_secret_form_field, 1);
-  static const uint8_t move_form[] = {0x0a,0x1c,0x0a,0x0d,'/','a','c','c','o','u','n','t','.','f','o','r','m',0x12,0x0b,'/','m','o','v','e','d','.','f','o','r','m'};
-  static const uint8_t move_form_back[] = {0x0a,0x1c,0x0a,0x0b,'/','m','o','v','e','d','.','f','o','r','m',0x12,0x0d,'/','a','c','c','o','u','n','t','.','f','o','r','m'};
+  static const uint8_t move_form[] = {
+      0x0c,0x00,0x00,0x00,0x00,0x00,0x06,0x00,0x08,0x00,0x04,0x00,
+      0x06,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x01,0x00,0x00,0x00,
+      0x0c,0x00,0x00,0x00,0x08,0x00,0x0c,0x00,0x08,0x00,0x04,0x00,
+      0x08,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x14,0x00,0x00,0x00,
+      0x0b,0x00,0x00,0x00,'/','m','o','v','e','d','.','f','o','r','m',0x00,
+      0x0d,0x00,0x00,0x00,'/','a','c','c','o','u','n','t','.','f','o','r','m',0x00,0x00,0x00};
+  static const uint8_t move_form_back[] = {
+      0x0c,0x00,0x00,0x00,0x00,0x00,0x06,0x00,0x08,0x00,0x04,0x00,
+      0x06,0x00,0x00,0x00,0x04,0x00,0x00,0x00,0x01,0x00,0x00,0x00,
+      0x0c,0x00,0x00,0x00,0x08,0x00,0x0c,0x00,0x08,0x00,0x04,0x00,
+      0x08,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x18,0x00,0x00,0x00,
+      0x0d,0x00,0x00,0x00,'/','a','c','c','o','u','n','t','.','f','o','r','m',0x00,0x00,0x00,
+      0x0b,0x00,0x00,0x00,'/','m','o','v','e','d','.','f','o','r','m',0x00};
   CHECK(lockbox_move_form_records(box, move_form, sizeof(move_form)), "move form record");
   CHECK(lockbox_move_form_records(box, move_form_back, sizeof(move_form_back)), "move form record back");
   PASS(lockbox_move_form_records, 2);
@@ -1317,7 +1335,7 @@ static void archive_advanced(void) {
   RevaultBuffer owner = lockbox_owner_inspection(box);
   Bytes owner_payload = framed_payload(owner);
   bool owner_found = false;
-  CHECK(protobuf_varint(owner_payload, 1, &owner_found) == 1 && owner_found,
+  CHECK(flatbuffer_scalar(owner_payload, 1, &owner_found) == 1 && owner_found,
         "owner-signed archive inspection");
   buffer_free(owner);
   PASS(lockbox_owner_inspection, 2);
@@ -1422,7 +1440,7 @@ static void archive_advanced(void) {
   RevaultBuffer signed_owner = lockbox_owner_inspection(signed_box);
   Bytes signed_owner_payload = framed_payload(signed_owner);
   bool signed_found = false;
-  CHECK(protobuf_varint(signed_owner_payload, 1, &signed_found) == 1 &&
+  CHECK(flatbuffer_scalar(signed_owner_payload, 1, &signed_found) == 1 &&
             signed_found,
         "signed owner inspection");
   buffer_free(signed_owner);
@@ -1461,7 +1479,7 @@ static void archive_advanced(void) {
 }
 
 int main(int argc, char **argv) {
-  CHECK(api_abi_version() == 2, "revault-api ABI version");
+  CHECK(api_abi_version() == 3, "revault-api ABI version");
   executable_path = argv[0];
   if (argc == 2 && strcmp(argv[1], "--serve-agent") == 0) {
     if (vault_agent_serve()) return 0;

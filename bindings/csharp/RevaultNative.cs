@@ -129,7 +129,7 @@ internal static partial class RevaultNative
     public static extern bool lockbox_delete_variable(IntPtr handle, IntPtr name, nuint name_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool lockbox_move_variables(IntPtr handle, IntPtr moves_proto, nuint moves_len);
+    public static extern bool lockbox_move_variables(IntPtr handle, IntPtr moves_flatbuffer, nuint moves_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer lockbox_list_variables(IntPtr handle);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
@@ -173,7 +173,7 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer lockbox_owner_inspection(IntPtr handle);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
-    public static extern RevaultBuffer lockbox_define_form(IntPtr handle, IntPtr alias, nuint alias_len, IntPtr name, nuint name_len, IntPtr description, nuint description_len, IntPtr fields_proto, nuint fields_len);
+    public static extern RevaultBuffer lockbox_define_form(IntPtr handle, IntPtr alias, nuint alias_len, IntPtr name, nuint name_len, IntPtr description, nuint description_len, IntPtr fields_flatbuffer, nuint fields_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer lockbox_list_form_definitions(IntPtr handle);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
@@ -197,7 +197,7 @@ internal static partial class RevaultNative
     public static extern bool lockbox_delete_form_record(IntPtr handle, IntPtr path, nuint path_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     [return: MarshalAs(UnmanagedType.I1)]
-    public static extern bool lockbox_move_form_records(IntPtr handle, IntPtr moves_proto, nuint moves_len);
+    public static extern bool lockbox_move_form_records(IntPtr handle, IntPtr moves_flatbuffer, nuint moves_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer lockbox_get_form_field(IntPtr handle, IntPtr path, nuint path_len, IntPtr field, nuint field_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
@@ -382,7 +382,7 @@ internal static partial class RevaultNative
     [return: MarshalAs(UnmanagedType.I1)]
     public static extern bool vault_directory_forget_access_slot_label(IntPtr handle, IntPtr id, nuint id_len, ulong slot_id);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
-    public static extern RevaultBuffer vault_directory_define_form(IntPtr handle, IntPtr alias, nuint alias_len, IntPtr name, nuint name_len, IntPtr description, nuint description_len, IntPtr fields_proto, nuint fields_len);
+    public static extern RevaultBuffer vault_directory_define_form(IntPtr handle, IntPtr alias, nuint alias_len, IntPtr name, nuint name_len, IntPtr description, nuint description_len, IntPtr fields_flatbuffer, nuint fields_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern RevaultBuffer vault_directory_resolve_form(IntPtr handle, IntPtr reference, nuint reference_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]

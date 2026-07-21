@@ -19,14 +19,15 @@
 //! getters additionally use opaque handles so language facades can constrain
 //! plaintext copies to a callback scope.
 
-use prost::Message;
 use revault_lockbox_api::Result as LockboxResult;
 
-#[allow(missing_docs)]
-/// Represents bindings proto.
-pub mod bindings_proto {
-    include!(concat!(env!("OUT_DIR"), "/revault.bindings.rs"));
+// flatc 25.2.10 predates Rust 2024's explicit unsafe-block requirement. Keep
+// that compatibility allowance confined to generated private transport code.
+#[allow(missing_docs, unsafe_op_in_unsafe_fn, unused_imports)]
+mod bindings_flatbuffers {
+    include!("generated/revault_bindings_generated.rs");
 }
+use bindings_flatbuffers::revault::internal as bindings_transport;
 use revault_lockbox_api::{
     ContactKeyPair, ContactPublicKey, ContactWrappedKey, ContentStreamOptions, ContentStreamOrder,
     ExtractPolicy, FormDefinition, FormFieldDefinition, FormFieldKind, FormRecord, FormTypeId,
@@ -64,7 +65,7 @@ impl SecretHandle {
 /// Major version of the stable native ABI exposed by this library.
 #[no_mangle]
 pub extern "C" fn api_abi_version() -> u32 {
-    2
+    3
 }
 
 type LockboxHandle = Lockbox;
@@ -109,78 +110,89 @@ fn buffer(bytes: Vec<u8>) -> RevaultBuffer {
     result
 }
 
-fn protobuf_buffer<T: Message>(value: &T) -> RevaultBuffer {
-    clear_error();
-    buffer(revault_wire::encode(&value.encode_to_vec()))
+macro_rules! flatbuffer_buffer {
+    ($value:expr) => {{
+        let mut builder = flatbuffers::FlatBufferBuilder::new();
+        let root = $value.pack(&mut builder);
+        builder.finish(root, None);
+        clear_error();
+        buffer(builder.finished_data().to_vec())
+    }};
 }
 
-fn lockbox_entry_proto(entry: &LockboxEntry) -> bindings_proto::LockboxEntry {
-    bindings_proto::LockboxEntry {
-        path: entry.path.as_str().to_string(),
+fn lockbox_entry_transport(entry: &LockboxEntry) -> bindings_transport::LockboxEntryT {
+    bindings_transport::LockboxEntryT {
+        path: Some(entry.path.as_str().to_string()),
         kind: match entry.kind {
-            LockboxEntryKind::File => bindings_proto::lockbox_entry::Kind::File as i32,
-            LockboxEntryKind::Symlink => bindings_proto::lockbox_entry::Kind::Symlink as i32,
-            LockboxEntryKind::Directory => bindings_proto::lockbox_entry::Kind::Directory as i32,
+            LockboxEntryKind::File => bindings_transport::LockboxEntryKind::FILE,
+            LockboxEntryKind::Symlink => bindings_transport::LockboxEntryKind::SYMLINK,
+            LockboxEntryKind::Directory => bindings_transport::LockboxEntryKind::DIRECTORY,
         },
         length: entry.len,
         permissions: entry.permissions,
     }
 }
 
-fn form_definition_proto(definition: &FormDefinition) -> bindings_proto::FormDefinition {
-    bindings_proto::FormDefinition {
-        type_id: definition.type_id.as_str().to_string(),
-        alias: definition.alias.clone(),
+fn form_definition_transport(definition: &FormDefinition) -> bindings_transport::FormDefinitionT {
+    bindings_transport::FormDefinitionT {
+        type_id: Some(definition.type_id.as_str().to_string()),
+        alias: Some(definition.alias.clone()),
         revision: definition.revision as u32,
-        name: definition.name.clone(),
-        description: definition.description.clone(),
-        fields: definition
-            .fields
-            .iter()
-            .map(|field| bindings_proto::FormField {
-                id: field.id.clone(),
-                label: field.label.clone(),
-                kind: format!("{:?}", field.kind).to_ascii_lowercase(),
-                required: field.required,
-            })
-            .collect(),
+        name: Some(definition.name.clone()),
+        description: Some(definition.description.clone()),
+        fields: Some(
+            definition
+                .fields
+                .iter()
+                .map(|field| bindings_transport::FormFieldT {
+                    id: Some(field.id.clone()),
+                    label: Some(field.label.clone()),
+                    kind: Some(format!("{:?}", field.kind).to_ascii_lowercase()),
+                    required: field.required,
+                })
+                .collect(),
+        ),
     }
 }
 
-fn form_value_proto(value: &revault_lockbox_api::FormFieldValue) -> bindings_proto::FormValue {
+fn form_value_transport(
+    value: &revault_lockbox_api::FormFieldValue,
+) -> bindings_transport::FormValueT {
     let text = match &value.value {
         FormValue::Normal(text) => text.clone(),
         FormValue::Secret(_) => String::new(),
     };
-    bindings_proto::FormValue {
-        field_id: value.field_id.clone(),
-        label: value.captured_label.clone(),
-        kind: format!("{:?}", value.kind).to_ascii_lowercase(),
-        value: text,
+    bindings_transport::FormValueT {
+        field_id: Some(value.field_id.clone()),
+        label: Some(value.captured_label.clone()),
+        kind: Some(format!("{:?}", value.kind).to_ascii_lowercase()),
+        value: Some(text),
         secret: value.value.is_secret(),
     }
 }
 
-fn form_record_proto(record: &FormRecord) -> bindings_proto::FormRecord {
-    bindings_proto::FormRecord {
-        path: record.path.as_str().to_string(),
-        name: record.name.clone(),
-        type_id: record.type_id.as_str().to_string(),
-        definition_alias: record.definition_alias.clone(),
+fn form_record_transport(record: &FormRecord) -> bindings_transport::FormRecordT {
+    bindings_transport::FormRecordT {
+        path: Some(record.path.as_str().to_string()),
+        name: Some(record.name.clone()),
+        type_id: Some(record.type_id.as_str().to_string()),
+        definition_alias: Some(record.definition_alias.clone()),
         definition_revision: record.definition_revision as u32,
-        values: record.values.iter().map(form_value_proto).collect(),
+        values: Some(record.values.iter().map(form_value_transport).collect()),
     }
 }
 
-fn form_definition_list_proto(values: &[FormDefinition]) -> bindings_proto::FormDefinitionList {
-    bindings_proto::FormDefinitionList {
-        values: values.iter().map(form_definition_proto).collect(),
+fn form_definition_list_transport(
+    values: &[FormDefinition],
+) -> bindings_transport::FormDefinitionListT {
+    bindings_transport::FormDefinitionListT {
+        values: Some(values.iter().map(form_definition_transport).collect()),
     }
 }
 
-fn form_record_list_proto(values: &[FormRecord]) -> bindings_proto::FormRecordList {
-    bindings_proto::FormRecordList {
-        values: values.iter().map(form_record_proto).collect(),
+fn form_record_list_transport(values: &[FormRecord]) -> bindings_transport::FormRecordListT {
+    bindings_transport::FormRecordListT {
+        values: Some(values.iter().map(form_record_transport).collect()),
     }
 }
 
@@ -198,17 +210,19 @@ fn form_kind(value: &str) -> Option<FormFieldKind> {
     })
 }
 
-fn form_fields_from_proto(bytes: &[u8]) -> Result<Vec<FormFieldDefinition>, String> {
-    let fields = bindings_proto::FormFieldList::decode(bytes)
-        .map_err(|error| format!("invalid form fields protobuf: {error}"))?;
+fn form_fields_from_transport(bytes: &[u8]) -> Result<Vec<FormFieldDefinition>, String> {
+    let fields = flatbuffers::root::<bindings_transport::FormFieldList<'_>>(bytes)
+        .map_err(|error| format!("invalid form fields FlatBuffer: {error}"))?
+        .unpack();
     fields
         .values
+        .unwrap_or_default()
         .into_iter()
         .map(|field| {
             Ok(FormFieldDefinition {
-                id: field.id,
-                label: field.label,
-                kind: form_kind(&field.kind)
+                id: field.id.unwrap_or_default(),
+                label: field.label.unwrap_or_default(),
+                kind: form_kind(field.kind.as_deref().unwrap_or_default())
                     .ok_or_else(|| "invalid form field kind".to_string())?,
                 required: field.required,
             })
@@ -216,36 +230,53 @@ fn form_fields_from_proto(bytes: &[u8]) -> Result<Vec<FormFieldDefinition>, Stri
         .collect()
 }
 
-fn path_moves_from_proto(bytes: &[u8]) -> Result<Vec<(LockboxPath, LockboxPath)>, String> {
-    bindings_proto::PathMoveList::decode(bytes)
-        .map_err(|error| format!("invalid path moves protobuf: {error}"))?
+fn path_moves_from_transport(bytes: &[u8]) -> Result<Vec<(LockboxPath, LockboxPath)>, String> {
+    flatbuffers::root::<bindings_transport::PathMoveList<'_>>(bytes)
+        .map_err(|error| format!("invalid path moves FlatBuffer: {error}"))?
+        .unpack()
         .values
+        .unwrap_or_default()
         .into_iter()
         .map(|value| {
             Ok((
-                LockboxPath::new(value.source).map_err(|error| error.to_string())?,
-                LockboxPath::new(value.destination).map_err(|error| error.to_string())?,
+                LockboxPath::new(value.source.unwrap_or_default())
+                    .map_err(|error| error.to_string())?,
+                LockboxPath::new(value.destination.unwrap_or_default())
+                    .map_err(|error| error.to_string())?,
             ))
         })
         .collect()
 }
 
-fn string_moves_from_proto(bytes: &[u8]) -> Result<Vec<(String, String)>, String> {
-    Ok(bindings_proto::PathMoveList::decode(bytes)
-        .map_err(|error| format!("invalid moves protobuf: {error}"))?
-        .values
-        .into_iter()
-        .map(|value| (value.source, value.destination))
-        .collect())
+fn string_moves_from_transport(bytes: &[u8]) -> Result<Vec<(String, String)>, String> {
+    Ok(
+        flatbuffers::root::<bindings_transport::PathMoveList<'_>>(bytes)
+            .map_err(|error| format!("invalid moves FlatBuffer: {error}"))?
+            .unpack()
+            .values
+            .unwrap_or_default()
+            .into_iter()
+            .map(|value| {
+                (
+                    value.source.unwrap_or_default(),
+                    value.destination.unwrap_or_default(),
+                )
+            })
+            .collect(),
+    )
 }
 
-fn recovery_proto(report: &revault_lockbox_api::RecoveryReport) -> bindings_proto::RecoveryReport {
-    bindings_proto::RecoveryReport {
-        intact_files: report
-            .intact_files
-            .iter()
-            .map(lockbox_entry_proto)
-            .collect(),
+fn recovery_transport(
+    report: &revault_lockbox_api::RecoveryReport,
+) -> bindings_transport::RecoveryReportT {
+    bindings_transport::RecoveryReportT {
+        intact_files: Some(
+            report
+                .intact_files
+                .iter()
+                .map(lockbox_entry_transport)
+                .collect(),
+        ),
         intact_file_count: report.intact_file_count as u64,
         partial_files: report.partial_files as u64,
         corrupt_records: report.corrupt_records as u64,
@@ -258,28 +289,34 @@ fn recovery_proto(report: &revault_lockbox_api::RecoveryReport) -> bindings_prot
     }
 }
 
-fn key_slot_proto(slot: &LockboxKeySlot) -> bindings_proto::KeySlot {
-    bindings_proto::KeySlot {
+fn key_slot_transport(slot: &LockboxKeySlot) -> bindings_transport::KeySlotT {
+    bindings_transport::KeySlotT {
         id: slot.id,
-        protection: match slot.protection {
-            LockboxKeySlotProtection::Password => "password",
-            LockboxKeySlotProtection::Contact => "contact",
-            _ => "unknown",
-        }
-        .to_string(),
-        algorithm: match slot.algorithm {
-            LockboxKeySlotAlgorithm::Argon2idChaCha20Poly1305 => "argon2id+chacha20-poly1305",
-            LockboxKeySlotAlgorithm::X25519MlKem768ChaCha20Poly1305 => {
-                "x25519+ml-kem-768+chacha20-poly1305"
+        protection: Some(
+            match slot.protection {
+                LockboxKeySlotProtection::Password => "password",
+                LockboxKeySlotProtection::Contact => "contact",
+                _ => "unknown",
             }
-            _ => "unknown",
-        }
-        .to_string(),
+            .to_string(),
+        ),
+        algorithm: Some(
+            match slot.algorithm {
+                LockboxKeySlotAlgorithm::Argon2idChaCha20Poly1305 => "argon2id+chacha20-poly1305",
+                LockboxKeySlotAlgorithm::X25519MlKem768ChaCha20Poly1305 => {
+                    "x25519+ml-kem-768+chacha20-poly1305"
+                }
+                _ => "unknown",
+            }
+            .to_string(),
+        ),
     }
 }
 
-fn cache_stats_proto(stats: revault_lockbox_api::CacheStats) -> bindings_proto::CacheStats {
-    bindings_proto::CacheStats {
+fn cache_stats_transport(
+    stats: revault_lockbox_api::CacheStats,
+) -> bindings_transport::CacheStatsT {
+    bindings_transport::CacheStatsT {
         limit_bytes: stats.limit_bytes as u64,
         used_bytes: stats.used_bytes as u64,
         entries: stats.entries as u64,
@@ -288,19 +325,21 @@ fn cache_stats_proto(stats: revault_lockbox_api::CacheStats) -> bindings_proto::
     }
 }
 
-fn import_stats_proto(stats: revault_lockbox_api::ImportStats) -> bindings_proto::ImportStats {
-    bindings_proto::ImportStats {
-        host_stat_nanos: stats.host_stat_nanos.to_string(),
-        host_read_nanos: stats.host_read_nanos.to_string(),
-        frame_prepare_nanos: stats.frame_prepare_nanos.to_string(),
-        page_write_nanos: stats.page_write_nanos.to_string(),
+fn import_stats_transport(
+    stats: revault_lockbox_api::ImportStats,
+) -> bindings_transport::ImportStatsT {
+    bindings_transport::ImportStatsT {
+        host_stat_nanos: Some(stats.host_stat_nanos.to_string()),
+        host_read_nanos: Some(stats.host_read_nanos.to_string()),
+        frame_prepare_nanos: Some(stats.frame_prepare_nanos.to_string()),
+        page_write_nanos: Some(stats.page_write_nanos.to_string()),
     }
 }
 
-fn page_inspection_proto(
+fn page_inspection_transport(
     page: &revault_lockbox_api::PageInspection,
-) -> bindings_proto::PageInspection {
-    bindings_proto::PageInspection {
+) -> bindings_transport::PageInspectionT {
+    bindings_transport::PageInspectionT {
         offset: page.offset,
         page_id: page.page_id,
         sequence: page.sequence,
@@ -308,110 +347,119 @@ fn page_inspection_proto(
         encrypted_body_len: page.encrypted_body_len as u64,
         unused_bytes: page.unused_bytes as u64,
         object_count: page.object_count as u64,
-        objects: page
-            .objects
-            .iter()
-            .map(|object| bindings_proto::PageObject {
-                id: object.id,
-                kind: object.kind.to_string(),
-                payload_len: object.payload_len as u64,
-            })
-            .collect(),
+        objects: Some(
+            page.objects
+                .iter()
+                .map(|object| bindings_transport::PageObjectT {
+                    id: object.id,
+                    kind: Some(object.kind.to_string()),
+                    payload_len: object.payload_len as u64,
+                })
+                .collect(),
+        ),
     }
 }
 
-fn file_inspection_proto(
+fn file_inspection_transport(
     value: &revault_lockbox_api::LockboxFileInspection,
-) -> bindings_proto::FileInspection {
-    bindings_proto::FileInspection {
-        lockbox_id: value.lockbox_id.as_bytes().to_vec(),
+) -> bindings_transport::FileInspectionT {
+    bindings_transport::FileInspectionT {
+        lockbox_id: Some(value.lockbox_id.as_bytes().to_vec()),
         header_readable: value.header_readable,
         key_directory_generation: value.key_directory_generation,
         key_directory_copy_count: value.key_directory_copy_count as u64,
         owner_signed: value.owner_signed,
-        key_slots: value.key_slots.iter().map(key_slot_proto).collect(),
+        key_slots: Some(value.key_slots.iter().map(key_slot_transport).collect()),
     }
 }
 
-fn profile_history_proto(
+fn profile_history_transport(
     value: &revault_vault_api::ProfileHistory,
-) -> bindings_proto::ProfileHistory {
-    bindings_proto::ProfileHistory {
-        name: value.name.clone(),
+) -> bindings_transport::ProfileHistoryT {
+    bindings_transport::ProfileHistoryT {
+        name: Some(value.name.clone()),
         active_generation: value.active_generation as u32,
-        generations: value
-            .generations
-            .iter()
-            .map(|generation| bindings_proto::ProfileGeneration {
-                index: generation.index as u32,
-                status: format!("{:?}", generation.status).to_ascii_lowercase(),
-                contact_fingerprint: generation.contact_fingerprint.clone(),
-                created_at_unix_ms: generation.created_at_unix_ms,
-                retired_at_unix_ms: generation.retired_at_unix_ms.unwrap_or_default(),
-                has_retired_at: generation.retired_at_unix_ms.is_some(),
-            })
-            .collect(),
+        generations: Some(
+            value
+                .generations
+                .iter()
+                .map(|generation| bindings_transport::ProfileGenerationT {
+                    index: generation.index as u32,
+                    status: Some(format!("{:?}", generation.status).to_ascii_lowercase()),
+                    contact_fingerprint: Some(generation.contact_fingerprint.clone()),
+                    created_at_unix_ms: generation.created_at_unix_ms,
+                    retired_at_unix_ms: generation.retired_at_unix_ms.unwrap_or_default(),
+                    has_retired_at: generation.retired_at_unix_ms.is_some(),
+                })
+                .collect(),
+        ),
     }
 }
 
-fn known_lockbox_proto(value: &revault_vault_api::KnownLockbox) -> bindings_proto::KnownLockbox {
-    bindings_proto::KnownLockbox {
-        lockbox_id: value.lockbox_id.as_bytes().to_vec(),
-        path: value.path.clone(),
+fn known_lockbox_transport(
+    value: &revault_vault_api::KnownLockbox,
+) -> bindings_transport::KnownLockboxT {
+    bindings_transport::KnownLockboxT {
+        lockbox_id: Some(value.lockbox_id.as_bytes().to_vec()),
+        path: Some(value.path.clone()),
         last_seen_unix_ms: value.last_seen_unix_ms,
     }
 }
 
-fn access_slot_label_proto(
+fn access_slot_label_transport(
     value: &revault_vault_api::AccessSlotLabel,
-) -> bindings_proto::AccessSlotLabel {
-    bindings_proto::AccessSlotLabel {
-        lockbox_id: value.lockbox_id.as_bytes().to_vec(),
+) -> bindings_transport::AccessSlotLabelT {
+    bindings_transport::AccessSlotLabelT {
+        lockbox_id: Some(value.lockbox_id.as_bytes().to_vec()),
         slot_id: value.slot_id,
-        name: value.name.clone(),
+        name: Some(value.name.clone()),
         updated_at_unix_ms: value.updated_at_unix_ms,
     }
 }
 
-fn key_slot_list_proto(values: &[LockboxKeySlot]) -> bindings_proto::KeySlotList {
-    bindings_proto::KeySlotList {
-        values: values.iter().map(key_slot_proto).collect(),
+fn key_slot_list_transport(values: &[LockboxKeySlot]) -> bindings_transport::KeySlotListT {
+    bindings_transport::KeySlotListT {
+        values: Some(values.iter().map(key_slot_transport).collect()),
     }
 }
 
-fn page_inspection_list_proto(
+fn page_inspection_list_transport(
     values: &[revault_lockbox_api::PageInspection],
-) -> bindings_proto::PageInspectionList {
-    bindings_proto::PageInspectionList {
-        values: values.iter().map(page_inspection_proto).collect(),
+) -> bindings_transport::PageInspectionListT {
+    bindings_transport::PageInspectionListT {
+        values: Some(values.iter().map(page_inspection_transport).collect()),
     }
 }
 
-fn known_lockbox_list_proto(
+fn known_lockbox_list_transport(
     values: &[revault_vault_api::KnownLockbox],
-) -> bindings_proto::KnownLockboxList {
-    bindings_proto::KnownLockboxList {
-        values: values.iter().map(known_lockbox_proto).collect(),
+) -> bindings_transport::KnownLockboxListT {
+    bindings_transport::KnownLockboxListT {
+        values: Some(values.iter().map(known_lockbox_transport).collect()),
     }
 }
 
-fn access_slot_label_list_proto(
+fn access_slot_label_list_transport(
     values: &[revault_vault_api::AccessSlotLabel],
-) -> bindings_proto::AccessSlotLabelList {
-    bindings_proto::AccessSlotLabelList {
-        values: values.iter().map(access_slot_label_proto).collect(),
+) -> bindings_transport::AccessSlotLabelListT {
+    bindings_transport::AccessSlotLabelListT {
+        values: Some(values.iter().map(access_slot_label_transport).collect()),
     }
 }
 
-fn contact_list_proto(values: &[revault_vault_api::StoredContact]) -> bindings_proto::ContactList {
-    bindings_proto::ContactList {
-        values: values
-            .iter()
-            .map(|value| bindings_proto::Contact {
-                name: value.name.clone(),
-                key: value.key.to_bytes(),
-            })
-            .collect(),
+fn contact_list_transport(
+    values: &[revault_vault_api::StoredContact],
+) -> bindings_transport::ContactListT {
+    bindings_transport::ContactListT {
+        values: Some(
+            values
+                .iter()
+                .map(|value| bindings_transport::ContactT {
+                    name: Some(value.name.clone()),
+                    key: Some(value.key.to_bytes()),
+                })
+                .collect(),
+        ),
     }
 }
 
@@ -442,23 +490,27 @@ pub extern "C" fn buffer_last_error_details() -> RevaultBuffer {
             })
             .unwrap_or(0)
     };
-    protobuf_buffer(&bindings_proto::ErrorDetails {
-        category: if unsupported {
-            "unsupported_format_version"
-        } else {
-            "native"
-        }
-        .to_string(),
-        artifact_kind: if unsupported {
-            words.get(1).copied().unwrap_or("")
-        } else {
-            ""
-        }
-        .to_string(),
+    flatbuffer_buffer!(&bindings_transport::ErrorDetailsT {
+        category: Some(
+            if unsupported {
+                "unsupported_format_version"
+            } else {
+                "native"
+            }
+            .to_string()
+        ),
+        artifact_kind: Some(
+            if unsupported {
+                words.get(1).copied().unwrap_or("")
+            } else {
+                ""
+            }
+            .to_string()
+        ),
         found_version: if unsupported { parse_version(4) } else { 0 },
         supported_version: if unsupported { parse_version(10) } else { 0 },
-        message,
-        guidance,
+        message: Some(message),
+        guidance: Some(guidance),
     })
 }
 
@@ -1308,20 +1360,22 @@ pub unsafe extern "C" fn lockbox_stream_content(
         reader
             .read_to_end(&mut data)
             .map_err(|error| revault_lockbox_api::Error::Io(error.to_string()))?;
-        chunks.push(bindings_proto::StreamChunk {
-            path: chunk.path.as_str().to_string(),
+        chunks.push(bindings_transport::StreamChunkT {
+            path: Some(chunk.path.as_str().to_string()),
             file_offset: chunk.file_offset,
             length: chunk.len,
             physical_offset: chunk.physical_offset.unwrap_or_default(),
             sparse: chunk.sparse,
-            data,
+            data: Some(data),
         });
         Ok(())
     });
     match result {
         Ok(()) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::StreamChunkList { values: chunks })
+            flatbuffer_buffer!(&bindings_transport::StreamChunkListT {
+                values: Some(chunks),
+            })
         }
         Err(error) => {
             set_error(error);
@@ -1345,7 +1399,7 @@ pub unsafe extern "C" fn lockbox_cache_stats(handle: *const c_void) -> RevaultBu
         };
     };
     clear_error();
-    protobuf_buffer(&cache_stats_proto(handle.inspector().cache_stats()))
+    flatbuffer_buffer!(&cache_stats_transport(handle.inspector().cache_stats()))
 }
 
 #[no_mangle]
@@ -1360,7 +1414,7 @@ pub unsafe extern "C" fn lockbox_import_stats(handle: *const c_void) -> RevaultB
         };
     };
     clear_error();
-    protobuf_buffer(&import_stats_proto(handle.import_stats()))
+    flatbuffer_buffer!(&import_stats_transport(handle.import_stats()))
 }
 
 #[no_mangle]
@@ -1392,7 +1446,7 @@ pub unsafe extern "C" fn lockbox_inspect_file(
     match Lockbox::inspect_file(path) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&file_inspection_proto(&value))
+            flatbuffer_buffer!(&file_inspection_transport(&value))
         }
         Err(error) => {
             set_error(error);
@@ -1418,7 +1472,7 @@ pub unsafe extern "C" fn lockbox_page_inspection(handle: *const c_void) -> Revau
     match handle.inspector().inspect_pages() {
         Ok(pages) => {
             clear_error();
-            protobuf_buffer(&page_inspection_list_proto(&pages))
+            flatbuffer_buffer!(&page_inspection_list_transport(&pages))
         }
         Err(error) => {
             set_error(error);
@@ -1442,7 +1496,7 @@ pub unsafe extern "C" fn lockbox_recovery_report(handle: *const c_void) -> Revau
         };
     };
     clear_error();
-    protobuf_buffer(&recovery_proto(&handle.inspector().recovery_report()))
+    flatbuffer_buffer!(&recovery_transport(&handle.inspector().recovery_report()))
 }
 
 #[no_mangle]
@@ -1493,7 +1547,7 @@ pub unsafe extern "C" fn lockbox_recovery_scan_path(
     };
     let report = revault_lockbox_api::RecoveryScanner::scan_path(std::path::Path::new(path), key);
     clear_error();
-    protobuf_buffer(&recovery_proto(&report))
+    flatbuffer_buffer!(&recovery_transport(&report))
 }
 
 #[no_mangle]
@@ -1592,9 +1646,9 @@ pub unsafe extern "C" fn lockbox_runtime_options(handle: *const c_void) -> Revau
         };
     };
     clear_error();
-    protobuf_buffer(&bindings_proto::RuntimeOptions {
-        workload_profile: format!("{:?}", handle.workload_profile()).to_ascii_lowercase(),
-        worker_policy: format!("{:?}", handle.worker_policy()).to_ascii_lowercase(),
+    flatbuffer_buffer!(&bindings_transport::RuntimeOptionsT {
+        workload_profile: Some(format!("{:?}", handle.workload_profile()).to_ascii_lowercase()),
+        worker_policy: Some(format!("{:?}", handle.worker_policy()).to_ascii_lowercase()),
     })
 }
 
@@ -1671,8 +1725,8 @@ pub unsafe extern "C" fn lockbox_list(
                 };
             };
             clear_error();
-            protobuf_buffer(&bindings_proto::LockboxEntryList {
-                entries: entries.iter().map(lockbox_entry_proto).collect(),
+            flatbuffer_buffer!(&bindings_transport::LockboxEntryListT {
+                entries: Some(entries.iter().map(lockbox_entry_transport).collect()),
             })
         }
         Err(error) => {
@@ -1742,8 +1796,8 @@ pub unsafe extern "C" fn lockbox_list_with_options(
         Ok(entries) => match entries.collect::<Result<Vec<_>, _>>() {
             Ok(entries) => {
                 clear_error();
-                protobuf_buffer(&bindings_proto::LockboxEntryList {
-                    entries: entries.iter().map(lockbox_entry_proto).collect(),
+                flatbuffer_buffer!(&bindings_transport::LockboxEntryListT {
+                    entries: Some(entries.iter().map(lockbox_entry_transport).collect()),
                 })
             }
             Err(error) => {
@@ -1796,13 +1850,13 @@ pub unsafe extern "C" fn lockbox_stat(
     match handle.stat(&path) {
         Some(entry) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::OptionalLockboxEntry {
-                value: Some(lockbox_entry_proto(&entry)),
+            flatbuffer_buffer!(&bindings_transport::OptionalLockboxEntryT {
+                value: Some(Box::new(lockbox_entry_transport(&entry))),
             })
         }
         None => {
             clear_error();
-            protobuf_buffer(&bindings_proto::OptionalLockboxEntry { value: None })
+            flatbuffer_buffer!(&bindings_transport::OptionalLockboxEntryT { value: None })
         }
     }
 }
@@ -1902,9 +1956,9 @@ pub unsafe extern "C" fn lockbox_get_variable(
         };
     };
     match VariableName::new(name).and_then(|name| handle.get_variable(&name)) {
-        Ok(value) => protobuf_buffer(&bindings_proto::OptionalString {
+        Ok(value) => flatbuffer_buffer!(&bindings_transport::OptionalStringT {
             present: value.is_some(),
-            value: value.unwrap_or_default(),
+            value: Some(value.unwrap_or_default()),
         }),
         Err(error) => {
             set_error(error);
@@ -1977,7 +2031,7 @@ pub unsafe extern "C" fn lockbox_delete_variable(
 /// Updates variables.
 pub unsafe extern "C" fn lockbox_move_variables(
     handle: *mut c_void,
-    moves_proto: *const u8,
+    moves_transport: *const u8,
     moves_len: usize,
 ) -> bool {
     let Some(handle) =
@@ -1986,11 +2040,11 @@ pub unsafe extern "C" fn lockbox_move_variables(
         set_error("lockbox handle is null");
         return false;
     };
-    let Some(bytes) = (unsafe { input(moves_proto, moves_len) }) else {
+    let Some(bytes) = (unsafe { input(moves_transport, moves_len) }) else {
         set_error("path moves pointer is null");
         return false;
     };
-    let moves = match string_moves_from_proto(bytes) {
+    let moves = match string_moves_from_transport(bytes) {
         Ok(values) => values
             .into_iter()
             .map(|(source, destination)| {
@@ -2028,14 +2082,16 @@ pub unsafe extern "C" fn lockbox_list_variables(handle: *const c_void) -> Revaul
     match handle.list_variables() {
         Ok(values) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::VariableList {
-                values: values
-                    .iter()
-                    .map(|(name, sensitivity)| bindings_proto::Variable {
-                        name: name.as_str().to_string(),
-                        sensitivity: format!("{:?}", sensitivity).to_ascii_lowercase(),
-                    })
-                    .collect(),
+            flatbuffer_buffer!(&bindings_transport::VariableListT {
+                values: Some(
+                    values
+                        .iter()
+                        .map(|(name, sensitivity)| bindings_transport::VariableT {
+                            name: Some(name.as_str().to_string()),
+                            sensitivity: Some(format!("{:?}", sensitivity).to_ascii_lowercase()),
+                        })
+                        .collect()
+                ),
             })
         }
         Err(error) => {
@@ -2073,11 +2129,13 @@ pub unsafe extern "C" fn lockbox_variable_sensitivity(
     match VariableName::new(name).and_then(|name| handle.variable_sensitivity(&name)) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::OptionalString {
+            flatbuffer_buffer!(&bindings_transport::OptionalStringT {
                 present: value.is_some(),
-                value: value
-                    .map(|value| format!("{:?}", value).to_ascii_lowercase())
-                    .unwrap_or_default(),
+                value: Some(
+                    value
+                        .map(|value| format!("{:?}", value).to_ascii_lowercase())
+                        .unwrap_or_default()
+                ),
             })
         }
         Err(error) => {
@@ -2353,7 +2411,7 @@ pub unsafe extern "C" fn lockbox_recovery_scan(
     };
     let report = revault_lockbox_api::RecoveryScanner::scan_bytes(bytes.to_vec(), key);
     clear_error();
-    protobuf_buffer(&recovery_proto(&report))
+    flatbuffer_buffer!(&recovery_transport(&report))
 }
 
 #[no_mangle]
@@ -2497,7 +2555,7 @@ pub unsafe extern "C" fn lockbox_list_key_slots(handle: *const c_void) -> Revaul
         };
     };
     clear_error();
-    protobuf_buffer(&key_slot_list_proto(&handle.list_key_slots()))
+    flatbuffer_buffer!(&key_slot_list_transport(&handle.list_key_slots()))
 }
 
 #[no_mangle]
@@ -2544,9 +2602,9 @@ pub unsafe extern "C" fn lockbox_owner_inspection(handle: *const c_void) -> Reva
     match handle.owner_inspection() {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::OwnerInspection {
+            flatbuffer_buffer!(&bindings_transport::OwnerInspectionT {
                 signed: value.signed,
-                fingerprint: value.fingerprint.clone().unwrap_or_default(),
+                fingerprint: Some(value.fingerprint.clone().unwrap_or_default()),
                 has_fingerprint: value.fingerprint.is_some(),
             })
         }
@@ -2570,7 +2628,7 @@ pub unsafe extern "C" fn lockbox_define_form(
     name_len: usize,
     description: *const c_char,
     description_len: usize,
-    fields_proto: *const u8,
+    fields_transport: *const u8,
     fields_len: usize,
 ) -> RevaultBuffer {
     let Some(handle) =
@@ -2582,11 +2640,11 @@ pub unsafe extern "C" fn lockbox_define_form(
             len: 0,
         };
     };
-    let (Some(alias), Some(name), Some(description), Some(fields_proto)) = (
+    let (Some(alias), Some(name), Some(description), Some(fields_transport)) = (
         unsafe { input_str(alias, alias_len) },
         unsafe { input_str(name, name_len) },
         unsafe { input_str(description, description_len) },
-        unsafe { input(fields_proto, fields_len) },
+        unsafe { input(fields_transport, fields_len) },
     ) else {
         set_error("invalid form input");
         return RevaultBuffer {
@@ -2594,7 +2652,7 @@ pub unsafe extern "C" fn lockbox_define_form(
             len: 0,
         };
     };
-    let fields = match form_fields_from_proto(fields_proto) {
+    let fields = match form_fields_from_transport(fields_transport) {
         Ok(fields) => fields,
         Err(error) => {
             set_error(error);
@@ -2614,7 +2672,7 @@ pub unsafe extern "C" fn lockbox_define_form(
     match handle.define_form_with_description(alias, name, description, fields) {
         Ok(definition) => {
             clear_error();
-            protobuf_buffer(&form_definition_proto(&definition))
+            flatbuffer_buffer!(&form_definition_transport(&definition))
         }
         Err(error) => {
             set_error(error);
@@ -2640,7 +2698,7 @@ pub unsafe extern "C" fn lockbox_list_form_definitions(handle: *const c_void) ->
     match handle.list_form_definitions() {
         Ok(definitions) => {
             clear_error();
-            protobuf_buffer(&form_definition_list_proto(&definitions))
+            flatbuffer_buffer!(&form_definition_list_transport(&definitions))
         }
         Err(error) => {
             set_error(error);
@@ -2677,7 +2735,7 @@ pub unsafe extern "C" fn lockbox_resolve_form(
     match handle.resolve_form_definition(reference) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&form_definition_proto(&value))
+            flatbuffer_buffer!(&form_definition_transport(&value))
         }
         Err(error) => {
             set_error(error);
@@ -2724,7 +2782,7 @@ pub unsafe extern "C" fn lockbox_list_form_revisions(
     match handle.list_form_definition_revisions(&type_id) {
         Ok(values) => {
             clear_error();
-            protobuf_buffer(&form_definition_list_proto(&values))
+            flatbuffer_buffer!(&form_definition_list_transport(&values))
         }
         Err(error) => {
             set_error(error);
@@ -2772,7 +2830,7 @@ pub unsafe extern "C" fn lockbox_create_form_record(
     {
         Ok(record) => {
             clear_error();
-            protobuf_buffer(&form_record_proto(&record))
+            flatbuffer_buffer!(&form_record_transport(&record))
         }
         Err(error) => {
             set_error(error);
@@ -2879,7 +2937,7 @@ pub unsafe extern "C" fn lockbox_list_form_records(handle: *const c_void) -> Rev
     match handle.list_form_records() {
         Ok(values) => {
             clear_error();
-            protobuf_buffer(&form_record_list_proto(&values))
+            flatbuffer_buffer!(&form_record_list_transport(&values))
         }
         Err(error) => {
             set_error(error);
@@ -2916,8 +2974,8 @@ pub unsafe extern "C" fn lockbox_get_form_record(
     match LockboxPath::new(path).and_then(|path| handle.get_form_record(&path)) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::OptionalFormRecord {
-                value: value.as_ref().map(form_record_proto),
+            flatbuffer_buffer!(&bindings_transport::OptionalFormRecordT {
+                value: value.as_ref().map(form_record_transport).map(Box::new),
             })
         }
         Err(error) => {
@@ -2963,7 +3021,7 @@ pub unsafe extern "C" fn lockbox_delete_form_record(
 /// Updates form records.
 pub unsafe extern "C" fn lockbox_move_form_records(
     handle: *mut c_void,
-    moves_proto: *const u8,
+    moves_transport: *const u8,
     moves_len: usize,
 ) -> bool {
     let Some(handle) =
@@ -2972,11 +3030,11 @@ pub unsafe extern "C" fn lockbox_move_form_records(
         set_error("lockbox handle is null");
         return false;
     };
-    let Some(bytes) = (unsafe { input(moves_proto, moves_len) }) else {
+    let Some(bytes) = (unsafe { input(moves_transport, moves_len) }) else {
         set_error("path moves pointer is null");
         return false;
     };
-    let moves = match path_moves_from_proto(bytes) {
+    let moves = match path_moves_from_transport(bytes) {
         Ok(values) => values,
         Err(error) => {
             set_error(error);
@@ -3024,8 +3082,8 @@ pub unsafe extern "C" fn lockbox_get_form_field(
     match LockboxPath::new(path).and_then(|path| handle.get_form_field(&path, field)) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::OptionalFormValue {
-                value: value.as_ref().map(form_value_proto),
+            flatbuffer_buffer!(&bindings_transport::OptionalFormValueT {
+                value: value.as_ref().map(form_value_transport).map(Box::new),
             })
         }
         Err(error) => {
@@ -3990,7 +4048,7 @@ pub unsafe extern "C" fn vault_directory_list_private_keys(handle: *const c_void
     match handle.list_private_keys() {
         Ok(keys) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::StringList { values: keys })
+            flatbuffer_buffer!(&bindings_transport::StringListT { values: Some(keys) })
         }
         Err(error) => {
             set_error(error);
@@ -4006,7 +4064,9 @@ fn string_list_buffer(value: LockboxResult<Vec<String>>) -> RevaultBuffer {
     match value {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::StringList { values: value })
+            flatbuffer_buffer!(&bindings_transport::StringListT {
+                values: Some(value),
+            })
         }
         Err(error) => {
             set_error(error);
@@ -4362,7 +4422,7 @@ pub unsafe extern "C" fn vault_directory_list_contacts(handle: *const c_void) ->
     match handle.list_contacts() {
         Ok(values) => {
             clear_error();
-            protobuf_buffer(&contact_list_proto(&values))
+            flatbuffer_buffer!(&contact_list_transport(&values))
         }
         Err(error) => {
             set_error(error);
@@ -4433,9 +4493,9 @@ pub unsafe extern "C" fn vault_directory_profile_email(
     match handle.profile_email(name) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::OptionalString {
+            flatbuffer_buffer!(&bindings_transport::OptionalStringT {
                 present: value.is_some(),
-                value: value.unwrap_or_default(),
+                value: Some(value.unwrap_or_default()),
             })
         }
         Err(error) => {
@@ -4732,7 +4792,7 @@ pub unsafe extern "C" fn vault_directory_list_profile_generations(
     match handle.list_profile_generations(name) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&profile_history_proto(&value))
+            flatbuffer_buffer!(&profile_history_transport(&value))
         }
         Err(error) => {
             set_error(error);
@@ -4770,7 +4830,7 @@ pub unsafe extern "C" fn vault_directory_rotate_private_key(
     match handle.rotate_private_key(name) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&profile_history_proto(&value))
+            flatbuffer_buffer!(&profile_history_transport(&value))
         }
         Err(error) => {
             set_error(error);
@@ -4837,7 +4897,7 @@ pub unsafe extern "C" fn vault_directory_list_known_lockboxes(
     match handle.list_known_lockboxes() {
         Ok(values) => {
             clear_error();
-            protobuf_buffer(&known_lockbox_list_proto(&values))
+            flatbuffer_buffer!(&known_lockbox_list_transport(&values))
         }
         Err(error) => {
             set_error(error);
@@ -4946,7 +5006,7 @@ pub unsafe extern "C" fn vault_directory_list_access_slot_labels(
     match handle.list_access_slot_labels(id) {
         Ok(values) => {
             clear_error();
-            protobuf_buffer(&access_slot_label_list_proto(&values))
+            flatbuffer_buffer!(&access_slot_label_list_transport(&values))
         }
         Err(error) => {
             set_error(error);
@@ -4996,7 +5056,7 @@ pub unsafe extern "C" fn vault_directory_find_access_slot_labels(
     match handle.find_access_slot_labels(id, name) {
         Ok(values) => {
             clear_error();
-            protobuf_buffer(&access_slot_label_list_proto(&values))
+            flatbuffer_buffer!(&access_slot_label_list_transport(&values))
         }
         Err(error) => {
             set_error(error);
@@ -5051,7 +5111,7 @@ pub unsafe extern "C" fn vault_directory_define_form(
     name_len: usize,
     description: *const c_char,
     description_len: usize,
-    fields_proto: *const u8,
+    fields_transport: *const u8,
     fields_len: usize,
 ) -> RevaultBuffer {
     let Some(handle) =
@@ -5063,11 +5123,11 @@ pub unsafe extern "C" fn vault_directory_define_form(
             len: 0,
         };
     };
-    let (Some(alias), Some(name), Some(description), Some(fields_proto)) = (
+    let (Some(alias), Some(name), Some(description), Some(fields_transport)) = (
         unsafe { input_str(alias, alias_len) },
         unsafe { input_str(name, name_len) },
         unsafe { input_str(description, description_len) },
-        unsafe { input(fields_proto, fields_len) },
+        unsafe { input(fields_transport, fields_len) },
     ) else {
         set_error("invalid form input");
         return RevaultBuffer {
@@ -5075,7 +5135,7 @@ pub unsafe extern "C" fn vault_directory_define_form(
             len: 0,
         };
     };
-    let fields = match form_fields_from_proto(fields_proto) {
+    let fields = match form_fields_from_transport(fields_transport) {
         Ok(fields) => fields,
         Err(error) => {
             set_error(error);
@@ -5095,7 +5155,7 @@ pub unsafe extern "C" fn vault_directory_define_form(
     match handle.define_form_with_description(alias, name, description, fields) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&form_definition_proto(&value))
+            flatbuffer_buffer!(&form_definition_transport(&value))
         }
         Err(error) => {
             set_error(error);
@@ -5133,7 +5193,7 @@ pub unsafe extern "C" fn vault_directory_resolve_form(
     match handle.resolve_form_definition(reference) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&form_definition_proto(&value))
+            flatbuffer_buffer!(&form_definition_transport(&value))
         }
         Err(error) => {
             set_error(error);
@@ -5160,7 +5220,7 @@ pub unsafe extern "C" fn vault_directory_list_forms(handle: *const c_void) -> Re
     match handle.list_form_definitions() {
         Ok(values) => {
             clear_error();
-            protobuf_buffer(&form_definition_list_proto(&values))
+            flatbuffer_buffer!(&form_definition_list_transport(&values))
         }
         Err(error) => {
             set_error(error);
@@ -5206,7 +5266,7 @@ pub unsafe extern "C" fn vault_directory_list_form_revisions(
         }
     };
     match handle.list_form_definition_revisions(&type_id) {
-        Ok(values) => protobuf_buffer(&form_definition_list_proto(&values)),
+        Ok(values) => flatbuffer_buffer!(&form_definition_list_transport(&values)),
         Err(error) => {
             set_error(error);
             RevaultBuffer {
@@ -5357,12 +5417,12 @@ pub unsafe extern "C" fn vault_backup_default(
     match revault_vault_api::backup_default_vault(path, overwrite) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::VaultBackupManifest {
+            flatbuffer_buffer!(&bindings_transport::VaultBackupManifestT {
                 format_version: value.format_version as u32,
                 created_at_unix_ms: value.created_at_unix_ms,
-                vault_file_name: value.vault_file_name,
+                vault_file_name: Some(value.vault_file_name),
                 vault_size: value.vault_size,
-                vault_sha256: value.vault_sha256,
+                vault_sha256: Some(value.vault_sha256),
             })
         }
         Err(error) => {
@@ -5392,12 +5452,12 @@ pub unsafe extern "C" fn vault_restore_default(
     match revault_vault_api::restore_default_vault(path, overwrite) {
         Ok(value) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::VaultBackupManifest {
+            flatbuffer_buffer!(&bindings_transport::VaultBackupManifestT {
                 format_version: value.format_version as u32,
                 created_at_unix_ms: value.created_at_unix_ms,
-                vault_file_name: value.vault_file_name,
+                vault_file_name: Some(value.vault_file_name),
                 vault_size: value.vault_size,
-                vault_sha256: value.vault_sha256,
+                vault_sha256: Some(value.vault_sha256),
             })
         }
         Err(error) => {
@@ -5521,7 +5581,7 @@ pub unsafe extern "C" fn vault_read_only_list_known_lockboxes(
         };
     };
     match handle.list_known_lockboxes() {
-        Ok(values) => protobuf_buffer(&known_lockbox_list_proto(&values)),
+        Ok(values) => flatbuffer_buffer!(&known_lockbox_list_transport(&values)),
         Err(error) => {
             set_error(error);
             RevaultBuffer {
@@ -5716,14 +5776,16 @@ pub extern "C" fn vault_agent_list() -> RevaultBuffer {
     match revault_vault_api::list() {
         Ok(entries) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::AgentEntryList {
-                values: entries
-                    .iter()
-                    .map(|entry| bindings_proto::AgentEntry {
-                        id: entry.id.clone(),
-                        path: entry.path.clone().unwrap_or_default(),
-                    })
-                    .collect(),
+            flatbuffer_buffer!(&bindings_transport::AgentEntryListT {
+                values: Some(
+                    entries
+                        .iter()
+                        .map(|entry| bindings_transport::AgentEntryT {
+                            id: Some(entry.id.clone()),
+                            path: Some(entry.path.clone().unwrap_or_default()),
+                        })
+                        .collect()
+                ),
             })
         }
         Err(error) => {
@@ -5741,7 +5803,7 @@ pub extern "C" fn vault_agent_list() -> RevaultBuffer {
 pub extern "C" fn vault_agent_sleep_support() -> RevaultBuffer {
     let support = revault_vault_api::agent_sleep_support();
     clear_error();
-    protobuf_buffer(&bindings_proto::SleepSupport {
+    flatbuffer_buffer!(&bindings_transport::SleepSupportT {
         suspend_notifications: support.suspend_notifications,
         sleep_inhibition: support.sleep_inhibition,
         supported: support.supported(),
@@ -5754,12 +5816,12 @@ pub extern "C" fn vault_platform_status() -> RevaultBuffer {
     match revault_vault_api::platform_secret_store_status() {
         Ok(status) => {
             clear_error();
-            protobuf_buffer(&bindings_proto::PlatformStatus {
+            flatbuffer_buffer!(&bindings_transport::PlatformStatusT {
                 supported: status.supported,
                 disabled: status.disabled,
-                scope: status.scope.as_str().to_string(),
-                backend: status.backend.to_string(),
-                item: status.item,
+                scope: Some(status.scope.as_str().to_string()),
+                backend: Some(status.backend.to_string()),
+                item: Some(status.item),
             })
         }
         Err(error) => {
@@ -6686,39 +6748,41 @@ mod tests {
         buffer_free(result);
         let listed = unsafe { lockbox_list(handle, b"/".as_ptr().cast(), 1, true) };
         let listed_bytes = unsafe { std::slice::from_raw_parts(listed.ptr, listed.len) };
-        let payload = revault_wire::decode(listed_bytes, 1024).unwrap();
-        let listing = bindings_proto::LockboxEntryList::decode(payload).unwrap();
+        let listing =
+            flatbuffers::root::<bindings_transport::LockboxEntryList<'_>>(listed_bytes).unwrap();
         assert!(listing
-            .entries
+            .entries()
+            .unwrap()
             .iter()
-            .any(|entry| entry.path == "/docs/readme.txt"));
+            .any(|entry| entry.path() == Some("/docs/readme.txt")));
         buffer_free(listed);
         let stats = unsafe { lockbox_cache_stats(handle) };
         let stats_bytes = unsafe { std::slice::from_raw_parts(stats.ptr, stats.len) };
-        let stats_payload = revault_wire::decode(stats_bytes, 16 * 1024).unwrap();
-        bindings_proto::CacheStats::decode(stats_payload).unwrap();
+        flatbuffers::root::<bindings_transport::CacheStats<'_>>(stats_bytes).unwrap();
         buffer_free(stats);
 
         let missing_path = b"/missing";
         let stat =
             unsafe { lockbox_stat(handle, missing_path.as_ptr().cast(), missing_path.len()) };
         let stat_bytes = unsafe { std::slice::from_raw_parts(stat.ptr, stat.len) };
-        let stat_payload = revault_wire::decode(stat_bytes, 1024).unwrap();
-        assert!(bindings_proto::OptionalLockboxEntry::decode(stat_payload)
-            .unwrap()
-            .value
-            .is_none());
+        assert!(
+            flatbuffers::root::<bindings_transport::OptionalLockboxEntry<'_>>(stat_bytes)
+                .unwrap()
+                .value()
+                .is_none()
+        );
         buffer_free(stat);
 
         let record = unsafe {
             lockbox_get_form_record(handle, missing_path.as_ptr().cast(), missing_path.len())
         };
         let record_bytes = unsafe { std::slice::from_raw_parts(record.ptr, record.len) };
-        let record_payload = revault_wire::decode(record_bytes, 1024).unwrap();
-        assert!(bindings_proto::OptionalFormRecord::decode(record_payload)
-            .unwrap()
-            .value
-            .is_none());
+        assert!(
+            flatbuffers::root::<bindings_transport::OptionalFormRecord<'_>>(record_bytes)
+                .unwrap()
+                .value()
+                .is_none()
+        );
         buffer_free(record);
 
         let field = b"username";
@@ -6732,11 +6796,12 @@ mod tests {
             )
         };
         let value_bytes = unsafe { std::slice::from_raw_parts(value.ptr, value.len) };
-        let value_payload = revault_wire::decode(value_bytes, 1024).unwrap();
-        assert!(bindings_proto::OptionalFormValue::decode(value_payload)
-            .unwrap()
-            .value
-            .is_none());
+        assert!(
+            flatbuffers::root::<bindings_transport::OptionalFormValue<'_>>(value_bytes)
+                .unwrap()
+                .value()
+                .is_none()
+        );
         buffer_free(value);
         unsafe { lockbox_free(handle) };
     }

@@ -13,17 +13,17 @@ def artifact_root
   FileUtils.mkdir_p(path, mode: 0o700); path
 end
 def fields
-  Revault::Bindings::FormFieldList.new(values: [
+  [
     Revault::Bindings::FormField.new(
       id: 'username', label: 'Username', kind: 'text', required: true),
     Revault::Bindings::FormField.new(
       id: 'password', label: 'Password', kind: 'secret', required: true)
-  ]).to_proto
+  ]
 end
 def moves(source, destination)
-  Revault::Bindings::PathMoveList.new(values: [
+  [
     Revault::Bindings::PathMove.new(source:, destination:)
-  ]).to_proto
+  ]
 end
 
 def archive_lifecycle

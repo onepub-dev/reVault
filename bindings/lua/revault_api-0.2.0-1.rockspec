@@ -10,12 +10,12 @@ description = {
   homepage = "https://github.com/onepub-dev/reVault",
   license = "reVault Source Available License 1.0"
 }
-dependencies = { "lua >= 5.1", "lua-protobuf" }
+dependencies = { "lua >= 5.1" }
 build = {
   type = "builtin",
-  modules = { revault_api = "revault_api.lua" },
+  modules = { revault_api = "revault_api.lua", revault_flatbuffers = "revault_flatbuffers.lua" },
   install = {
     lib = { ["revault_api_native"] = "native/@NATIVE_TARGET@/@NATIVE_LIBRARY@" },
-    lua = { ["revault_bindings"] = "revault_bindings.pb" }
+    lua = { ["revault_flatbuffers"] = "revault_flatbuffers.lua" }
   }
 }

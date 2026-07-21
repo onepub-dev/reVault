@@ -1,9 +1,0 @@
-[package]
-name = "revault_wire"
-version = "0.0.1"
-edition = "2021"
-rust-version = "1.95"
-license-file = "../revault_lockbox_api/LICENSE"
-description = "Versioned binary framing primitives shared by reVault protocols"
-
-[dependencies]

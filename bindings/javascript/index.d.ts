@@ -9,21 +9,16 @@
  * for installation, security guidance, and complete examples.
  * @packageDocumentation
  */
-import type * as $protobuf from 'protobufjs';
-/** Exports this key in the requested format. */
-export { revault } from './generated/messages.js';
+export type * from './domain.js';
 /** Returns the binary. */
 export type Binary = Uint8Array;
 /** Returns the binary input. */
 export type BinaryInput = Uint8Array | string;
 /** Returns the native handle. */
 export type NativeHandle = ContactKeyPair | ContactPublicKey | WrappedContactKey | SigningKeyPair | SigningPublicKey | VaultDirectory | ReadOnlyVaultDirectory | AgentActivity | LocalVault;
-/** Constructs one of the generated Protobuf result messages by qualified name. */
-export function createMessage(name: string, fields?: object): $protobuf.Message;
-/** Serializes a generated Protobuf result message. */
-export function encodeMessage(message: $protobuf.Message): Binary;
-
-/** Entry point for lockboxes, keys, local vault metadata, agent, and platform services. */
+/** Primary API used to open lockboxes, manage keys and metadata, use the
+ * session agent, and access operating-system credential storage. Create one
+ * when the application starts. */
 export class Vault {
   /** Creates a new facade over the bundled native library. */
   constructor();
@@ -34,7 +29,7 @@ export class Vault {
   /** Returns the last error. */
   lastError(): string;
   /** Returns the last error details. */
-  lastErrorDetails(): import('./generated/messages.js').revault.bindings.ErrorDetails;
+  lastErrorDetails(): import('./domain.js').ErrorDetails;
   /** Returns the lockbox format version. */
   lockboxFormatVersion(): number;
   /** Returns the lockbox probe format version. */
@@ -63,11 +58,11 @@ export class Vault {
   /** Returns the lockbox open contact. */
   lockboxOpenContact(archive: BinaryInput, contact: NativeHandle): Lockbox;
   /** Returns the lockbox inspect file. */
-  lockboxInspectFile(path: string): import('./generated/messages.js').revault.bindings.FileInspection;
+  lockboxInspectFile(path: string): import('./domain.js').FileInspection;
   /** Returns the lockbox recovery scan path. */
-  lockboxRecoveryScanPath(path: string, key: BinaryInput): import('./generated/messages.js').revault.bindings.RecoveryReport;
+  lockboxRecoveryScanPath(path: string, key: BinaryInput): import('./domain.js').RecoveryReport;
   /** Returns the lockbox recovery scan. */
-  lockboxRecoveryScan(bytes: BinaryInput, key: BinaryInput): import('./generated/messages.js').revault.bindings.RecoveryReport;
+  lockboxRecoveryScan(bytes: BinaryInput, key: BinaryInput): import('./domain.js').RecoveryReport;
   /** Returns the lockbox recovery salvage. */
   lockboxRecoverySalvage(bytes: BinaryInput, key: BinaryInput, signingKey: NativeHandle): Lockbox;
   /** Returns the key contact generate. */
@@ -125,9 +120,9 @@ export class Vault {
   /** Returns the vault directory open or create. */
   vaultDirectoryOpenOrCreate(root: string, password: BinaryInput): VaultDirectory;
   /** Returns the vault backup default. */
-  vaultBackupDefault(path: string, overwrite: boolean): import('./generated/messages.js').revault.bindings.VaultBackupManifest;
+  vaultBackupDefault(path: string, overwrite: boolean): import('./domain.js').VaultBackupManifest;
   /** Returns the vault restore default. */
-  vaultRestoreDefault(path: string, overwrite: boolean): import('./generated/messages.js').revault.bindings.VaultBackupManifest;
+  vaultRestoreDefault(path: string, overwrite: boolean): import('./domain.js').VaultBackupManifest;
   /** Returns the vault read only open. */
   vaultReadOnlyOpen(root: string, password: BinaryInput): ReadOnlyVaultDirectory;
   /** Returns the vault read only open default. */
@@ -144,7 +139,9 @@ export class Vault {
   vaultLocal(): LocalVault;
 }
 
-/** Owned, mutable view of one encrypted lockbox archive. Call {@link free} when finished. */
+/** An open encrypted archive containing files, variables, secrets, and forms.
+ * Obtain one from {@link Vault} or {@link LocalVault}, commit pending changes,
+ * and call {@link free} when finished with its decrypted contents. */
 export class Lockbox {
   /** Adds file. */
   addFile(path: string, data: BinaryInput, replace: boolean): boolean;
@@ -157,17 +154,17 @@ export class Lockbox {
   /** Extracts directory. */
   extractDirectory(destination: string, maxFileBytes: number, maxTotalBytes: number, maxFiles: number, restoreSymlinks: boolean, restorePermissions: boolean, overwrite: boolean): boolean;
   /** Returns the stream content. */
-  streamContent(physical: boolean): import('./generated/messages.js').revault.bindings.StreamChunkList;
+  streamContent(physical: boolean): ReadonlyArray<import('./domain.js').StreamChunk>;
   /** Returns cache statistics for this lockbox. */
-  cacheStats(): import('./generated/messages.js').revault.bindings.CacheStats;
+  cacheStats(): import('./domain.js').CacheStats;
   /** Returns import statistics for this lockbox. */
-  importStats(): import('./generated/messages.js').revault.bindings.ImportStats;
+  importStats(): import('./domain.js').ImportStats;
   /** Updates import stats. */
   resetImportStats(): boolean;
   /** Returns the page inspection. */
-  pageInspection(): import('./generated/messages.js').revault.bindings.PageInspectionList;
+  pageInspection(): ReadonlyArray<import('./domain.js').PageInspection>;
   /** Returns the recovery report. */
-  recoveryReport(): import('./generated/messages.js').revault.bindings.RecoveryReport;
+  recoveryReport(): import('./domain.js').RecoveryReport;
   /** Returns the recovery report render. */
   recoveryReportRender(verbose: boolean, maxEntries: number): string;
   /** Returns the storage len. */
@@ -177,7 +174,7 @@ export class Lockbox {
   /** Sets worker policy. */
   setWorkerPolicy(mode: string, jobs: number): boolean;
   /** Returns the runtime options. */
-  runtimeOptions(): import('./generated/messages.js').revault.bindings.RuntimeOptions;
+  runtimeOptions(): import('./domain.js').RuntimeOptions;
   /** Authenticates and publishes the staged changes. */
   commit(): boolean;
   /** Creates dir. */
@@ -191,11 +188,11 @@ export class Lockbox {
   /** Updates rename. */
   rename(from: string, to: string): boolean;
   /** Lists list. */
-  list(path: string, recursive: boolean): import('./generated/messages.js').revault.bindings.LockboxEntryList;
+  list(path: string, recursive: boolean): ReadonlyArray<import('./domain.js').LockboxEntry>;
   /** Lists with options. */
-  listWithOptions(path: string, glob: string, recursive: boolean, includeFiles: boolean, includeSymlinks: boolean, includeDirectories: boolean, limit: number): import('./generated/messages.js').revault.bindings.LockboxEntryList;
+  listWithOptions(path: string, glob: string, recursive: boolean, includeFiles: boolean, includeSymlinks: boolean, includeDirectories: boolean, limit: number): ReadonlyArray<import('./domain.js').LockboxEntry>;
   /** Returns metadata for the selected lockbox entry. */
-  stat(path: string): import('./generated/messages.js').revault.bindings.OptionalLockboxEntry;
+  stat(path: string): import('./domain.js').LockboxEntry | undefined;
   /** Sets variable. */
   setVariable(name: string, value: string): boolean;
   /** Stores a secret value without first converting it to a JavaScript string. */
@@ -211,11 +208,11 @@ export class Lockbox {
   /** Removes variable. */
   deleteVariable(name: string): boolean;
   /** Updates variables. */
-  moveVariables(movesProto: BinaryInput): boolean;
+  moveVariables(moves: ReadonlyArray<import('./domain.js').PathMoveInput>): boolean;
   /** Lists variables. */
-  listVariables(): import('./generated/messages.js').revault.bindings.VariableList;
+  listVariables(): ReadonlyArray<import('./domain.js').Variable>;
   /** Returns the variable sensitivity. */
-  variableSensitivity(name: string): import('./generated/messages.js').revault.bindings.OptionalString;
+  variableSensitivity(name: string): string | undefined;
   /** Adds symlink. */
   addSymlink(path: string, target: string, replace: boolean): boolean;
   /** Returns symlink target. */
@@ -239,35 +236,35 @@ export class Lockbox {
   /** Removes key. */
   deleteKey(id: number): boolean;
   /** Lists key slots. */
-  listKeySlots(): import('./generated/messages.js').revault.bindings.KeySlotList;
+  listKeySlots(): ReadonlyArray<import('./domain.js').KeySlot>;
   /** Sets owner signing key. */
   setOwnerSigningKey(key: NativeHandle): boolean;
   /** Returns the owner inspection. */
-  ownerInspection(): import('./generated/messages.js').revault.bindings.OwnerInspection;
+  ownerInspection(): import('./domain.js').OwnerInspection;
   /** Returns the define form. */
-  defineForm(alias: string, name: string, description: string, fieldsProto: BinaryInput): import('./generated/messages.js').revault.bindings.FormDefinition;
+  defineForm(alias: string, name: string, description: string, fields: ReadonlyArray<import('./domain.js').FormFieldInput>): import('./domain.js').FormDefinition;
   /** Lists form definitions. */
-  listFormDefinitions(): import('./generated/messages.js').revault.bindings.FormDefinitionList;
+  listFormDefinitions(): ReadonlyArray<import('./domain.js').FormDefinition>;
   /** Returns the resolve form. */
-  resolveForm(reference: string): import('./generated/messages.js').revault.bindings.FormDefinition;
+  resolveForm(reference: string): import('./domain.js').FormDefinition;
   /** Lists form revisions. */
-  listFormRevisions(typeId: string): import('./generated/messages.js').revault.bindings.FormDefinitionList;
+  listFormRevisions(typeId: string): ReadonlyArray<import('./domain.js').FormDefinition>;
   /** Creates form record. */
-  createFormRecord(path: string, typeReference: string, name: string): import('./generated/messages.js').revault.bindings.FormRecord;
+  createFormRecord(path: string, typeReference: string, name: string): import('./domain.js').FormRecord;
   /** Sets form field. */
   setFormField(path: string, field: string, value: string): boolean;
   /** Stores a secret form field from bytes without creating an immutable string. */
   setSecretFormField(path: string, field: string, value: BinaryInput): boolean;
   /** Lists form records. */
-  listFormRecords(): import('./generated/messages.js').revault.bindings.FormRecordList;
+  listFormRecords(): ReadonlyArray<import('./domain.js').FormRecord>;
   /** Returns form record. */
-  getFormRecord(path: string): import('./generated/messages.js').revault.bindings.OptionalFormRecord;
+  getFormRecord(path: string): import('./domain.js').FormRecord | undefined;
   /** Removes form record. */
   deleteFormRecord(path: string): boolean;
   /** Updates form records. */
-  moveFormRecords(movesProto: BinaryInput): boolean;
+  moveFormRecords(moves: ReadonlyArray<import('./domain.js').PathMoveInput>): boolean;
   /** Returns form field. */
-  getFormField(path: string, field: string): import('./generated/messages.js').revault.bindings.OptionalFormValue;
+  getFormField(path: string, field: string): import('./domain.js').FormValue | undefined;
   /** Calls `callback` with temporary secret field bytes, then overwrites the transfer buffer. */
   withSecretFormField<T>(path: string, field: string, callback: (value: Uint8Array) => T): T | undefined;
   /** Returns the to bytes. */
@@ -276,7 +273,8 @@ export class Lockbox {
   free(): void;
 }
 
-/** Owned hybrid contact key pair used to decrypt content keys sent by contacts. */
+/** A profile's contact-encryption identity. Distribute its public half and
+ * retain the private half to decrypt content keys addressed to the profile. */
 export class ContactKeyPair {
   /** Returns the public. */
   public(): Binary;
@@ -288,7 +286,8 @@ export class ContactKeyPair {
   decrypt(wrapped: NativeHandle): Binary;
 }
 
-/** Shareable contact public key used to encrypt a lockbox content key. */
+/** A recipient's shareable encryption identity. Use it when granting that
+ * recipient lockbox access; it contains no private key material. */
 export class ContactPublicKey {
   /** Returns the public free. */
   publicFree(): void;
@@ -296,7 +295,8 @@ export class ContactPublicKey {
   encrypt(contentKey: BinaryInput): WrappedContactKey;
 }
 
-/** Owned encrypted content-key envelope for one contact recipient. */
+/** A content key encrypted for one contact. Store or transfer it with an access
+ * record; only the matching {@link ContactKeyPair} can recover the key. */
 export class WrappedContactKey {
   /** Returns the public. */
   public(): Binary;
@@ -308,7 +308,8 @@ export class WrappedContactKey {
   free(): void;
 }
 
-/** Owned owner-signing key pair used to authorize mutable lockbox commits. */
+/** A lockbox owner's signing identity. Supply it when creating or committing a
+ * mutable lockbox so readers can authenticate revisions. */
 export class SigningKeyPair {
   /** Returns the public. */
   public(): Binary;
@@ -318,26 +319,28 @@ export class SigningKeyPair {
   free(): void;
 }
 
-/** Shareable owner-signing public key used to verify lockbox commits. */
+/** The shareable half of a lockbox owner's signing identity, used by readers to
+ * verify owner-authorized revisions. */
 export class SigningPublicKey {
   /** Returns the public free. */
   publicFree(): void;
 }
 
-/** Writable, password-protected local metadata vault. Call {@link free} when finished. */
+/** A writable, password-protected store for profile keys, contacts, forms,
+ * backups, and remembered lockbox paths. Lockbox contents remain separate. */
 export class VaultDirectory {
   /** Returns the root. */
   root(): string;
   /** Returns the structure version. */
   structureVersion(): number;
   /** Lists private keys. */
-  listPrivateKeys(): import('./generated/messages.js').revault.bindings.StringList;
+  listPrivateKeys(): ReadonlyArray<string>;
   /** Lists private key names. */
-  listPrivateKeyNames(): import('./generated/messages.js').revault.bindings.StringList;
+  listPrivateKeyNames(): ReadonlyArray<string>;
   /** Lists contact names. */
-  listContactNames(): import('./generated/messages.js').revault.bindings.StringList;
+  listContactNames(): ReadonlyArray<string>;
   /** Lists form aliases. */
-  listFormAliases(): import('./generated/messages.js').revault.bindings.StringList;
+  listFormAliases(): ReadonlyArray<string>;
   /** Returns the private key exists. */
   privateKeyExists(name: string): boolean;
   /** Removes private key. */
@@ -357,11 +360,11 @@ export class VaultDirectory {
   /** Removes contact. */
   deleteContact(name: string): boolean;
   /** Lists contacts. */
-  listContacts(): import('./generated/messages.js').revault.bindings.ContactList;
+  listContacts(): ReadonlyArray<import('./domain.js').Contact>;
   /** Stores profile email. */
   storeProfileEmail(name: string, email: string): boolean;
   /** Returns the profile email. */
-  profileEmail(name: string): import('./generated/messages.js').revault.bindings.OptionalString;
+  profileEmail(name: string): string | undefined;
   /** Stores backup. */
   storeBackup(id: BinaryInput, bytes: BinaryInput): boolean;
   /** Loads backup. */
@@ -379,31 +382,31 @@ export class VaultDirectory {
   /** Loads contact signing key. */
   loadContactSigningKey(name: string): SigningPublicKey;
   /** Lists profile generations. */
-  listProfileGenerations(name: string): import('./generated/messages.js').revault.bindings.ProfileHistory;
+  listProfileGenerations(name: string): import('./domain.js').ProfileHistory;
   /** Updates private key. */
-  rotatePrivateKey(name: string): import('./generated/messages.js').revault.bindings.ProfileHistory;
+  rotatePrivateKey(name: string): import('./domain.js').ProfileHistory;
   /** Stores lockbox. */
   rememberLockbox(id: BinaryInput, path: string): boolean;
   /** Lists known lockboxes. */
-  listKnownLockboxes(): import('./generated/messages.js').revault.bindings.KnownLockboxList;
+  listKnownLockboxes(): ReadonlyArray<import('./domain.js').KnownLockbox>;
   /** Removes lockbox. */
   forgetLockbox(path: string): boolean;
   /** Stores access slot label. */
   rememberAccessSlotLabel(id: BinaryInput, slotId: number, name: string): boolean;
   /** Lists access slot labels. */
-  listAccessSlotLabels(id: BinaryInput): import('./generated/messages.js').revault.bindings.AccessSlotLabelList;
+  listAccessSlotLabels(id: BinaryInput): ReadonlyArray<import('./domain.js').AccessSlotLabel>;
   /** Returns the find access slot labels. */
-  findAccessSlotLabels(id: BinaryInput, name: string): import('./generated/messages.js').revault.bindings.AccessSlotLabelList;
+  findAccessSlotLabels(id: BinaryInput, name: string): ReadonlyArray<import('./domain.js').AccessSlotLabel>;
   /** Removes access slot label. */
   forgetAccessSlotLabel(id: BinaryInput, slotId: number): boolean;
   /** Returns the define form. */
-  defineForm(alias: string, name: string, description: string, fieldsProto: BinaryInput): import('./generated/messages.js').revault.bindings.FormDefinition;
+  defineForm(alias: string, name: string, description: string, fields: ReadonlyArray<import('./domain.js').FormFieldInput>): import('./domain.js').FormDefinition;
   /** Returns the resolve form. */
-  resolveForm(reference: string): import('./generated/messages.js').revault.bindings.FormDefinition;
+  resolveForm(reference: string): import('./domain.js').FormDefinition;
   /** Lists forms. */
-  listForms(): import('./generated/messages.js').revault.bindings.FormDefinitionList;
+  listForms(): ReadonlyArray<import('./domain.js').FormDefinition>;
   /** Lists form revisions. */
-  listFormRevisions(typeId: string): import('./generated/messages.js').revault.bindings.FormDefinitionList;
+  listFormRevisions(typeId: string): ReadonlyArray<import('./domain.js').FormDefinition>;
   /** Returns the seed forms. */
   seedForms(): number;
   /** Stores password. */
@@ -414,21 +417,23 @@ export class VaultDirectory {
   free(): void;
 }
 
-/** Read-only local metadata vault that never loads an owner signing key. */
+/** A restricted metadata view for discovery or diagnostics that lists local
+ * profiles, contacts, forms, and lockboxes without loading owner signing keys. */
 export class ReadOnlyVaultDirectory {
   /** Lists profile names. */
-  listProfileNames(): import('./generated/messages.js').revault.bindings.StringList;
+  listProfileNames(): ReadonlyArray<string>;
   /** Lists contact names. */
-  listContactNames(): import('./generated/messages.js').revault.bindings.StringList;
+  listContactNames(): ReadonlyArray<string>;
   /** Lists form aliases. */
-  listFormAliases(): import('./generated/messages.js').revault.bindings.StringList;
+  listFormAliases(): ReadonlyArray<string>;
   /** Lists known lockboxes. */
-  listKnownLockboxes(): import('./generated/messages.js').revault.bindings.KnownLockboxList;
+  listKnownLockboxes(): ReadonlyArray<import('./domain.js').KnownLockbox>;
   /** Releases the native resources held by this object. */
   free(): void;
 }
 
-/** Client for the local session agent's time-limited secret cache. */
+/** Client for the local session service that temporarily caches vault unlock
+ * and owner signing keys across application operations. */
 export class Agent {
   /** Reports whether running. */
   isRunning(): boolean;
@@ -449,9 +454,9 @@ export class Agent {
   /** Starts start. */
   start(): boolean;
   /** Lists list. */
-  list(): import('./generated/messages.js').revault.bindings.AgentEntryList;
+  list(): ReadonlyArray<import('./domain.js').AgentEntry>;
   /** Returns the sleep support. */
-  sleepSupport(): import('./generated/messages.js').revault.bindings.SleepSupport;
+  sleepSupport(): import('./domain.js').SleepSupport;
   /** Returns vault unlock key. */
   getVaultUnlockKey(vaultId: string): Binary;
   /** Stores vault unlock key. */
@@ -470,14 +475,15 @@ export class Agent {
   endActivity(handle: NativeHandle): void;
 }
 
-/** Owned registration that keeps one secret activity visible to the session agent. */
+/** A lifetime token kept alive while an operation needs cached secrets. Release
+ * it afterward so the session agent can expire unused secrets. */
 export class AgentActivity {
 }
 
-/** Controls integration with the operating system's secret store. */
+/** Access to operating-system credential storage for a scoped vault password. */
 export class Platform {
   /** Returns the status. */
-  status(): import('./generated/messages.js').revault.bindings.PlatformStatus;
+  status(): import('./domain.js').PlatformStatus;
   /** Sets scope. */
   setScope(scope: string): boolean;
   /** Removes password. */
@@ -494,7 +500,8 @@ export class Platform {
   getPassword(): Binary;
 }
 
-/** High-level workflow for opening local metadata and remembered lockboxes. */
+/** A session for creating or opening lockboxes by host path, caching short-lived
+ * passwords, and committing and closing the files used by a local application. */
 export class LocalVault {
   /** Creates lockbox password. */
   createLockboxPassword(path: string, password: BinaryInput): Lockbox;

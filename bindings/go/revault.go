@@ -9,18 +9,13 @@ package revault
 import "C"
 
 import (
-	"encoding/binary"
 	"errors"
-	"fmt"
 	"unsafe"
-
-	"github.com/onepub-dev/revault-api/messages"
-	"google.golang.org/protobuf/proto"
 )
 
 func init() {
-	if C.api_abi_version() != 2 {
-		panic("revault-api native ABI mismatch; expected 2")
+	if C.api_abi_version() != 3 {
+		panic("revault-api native ABI mismatch; expected 3")
 	}
 }
 
@@ -30,9 +25,8 @@ func lastError() error { return errors.New(C.GoString(C.buffer_last_error())) }
 func LastError() string { return C.GoString(C.buffer_last_error()) }
 
 // LastErrorDetails returns structured diagnostics for the most recent native failure.
-func LastErrorDetails() (*messages.ErrorDetails, error) {
-	result := &messages.ErrorDetails{}
-	return result, decodeFrame(C.buffer_last_error_details(), result)
+func LastErrorDetails() (*ErrorDetails, error) {
+	return decodeResult(C.buffer_last_error_details(), decodeErrorDetails)
 }
 
 // LockboxFormatVersion returns or performs lockbox format version.
@@ -74,22 +68,13 @@ func takeString(value C.RevaultBuffer) (string, error) {
 	result, err := takeBuffer(value)
 	return string(result), err
 }
-func decodeFrame(value C.RevaultBuffer, result proto.Message) error {
-	frame, err := takeBuffer(value)
+func decodeResult[T any](value C.RevaultBuffer, decode func([]byte) T) (T, error) {
+	var zero T
+	bytes, err := takeBuffer(value)
 	if err != nil {
-		return err
+		return zero, err
 	}
-	if len(frame) < 12 || string(frame[:4]) != "LBWF" {
-		return errors.New("invalid reVault binary frame")
-	}
-	length := int(binary.BigEndian.Uint32(frame[8:12]))
-	if length+12 != len(frame) {
-		return errors.New("invalid reVault binary frame length")
-	}
-	if err := proto.Unmarshal(frame[12:], result); err != nil {
-		return fmt.Errorf("invalid reVault protobuf payload: %w", err)
-	}
-	return nil
+	return decode(bytes), nil
 }
 func require(ok bool) error {
 	if !ok {
@@ -120,7 +105,8 @@ func withSecret(get func(*unsafe.Pointer) bool, callback func([]byte) error) err
 	return callback(secret)
 }
 
-// ContactPublicKey is a shareable key used to encrypt a recipient content key.
+// ContactPublicKey is a recipient's shareable encryption identity, used when
+// granting that recipient lockbox access and containing no private material.
 type ContactPublicKey struct{ handle unsafe.Pointer }
 
 // NewContactPublicKey returns or performs new contact public key.
@@ -168,7 +154,8 @@ func (key *ContactPublicKey) Encrypt(contentKey []byte) (*WrappedContactKey, err
 	return &WrappedContactKey{handle: h}, nil
 }
 
-// WrappedContactKey owns an encrypted content-key envelope for one recipient.
+// WrappedContactKey is a content key encrypted for one contact and recoverable
+// only by the matching ContactKeyPair.
 type WrappedContactKey struct{ handle unsafe.Pointer }
 
 // Close releases the native resources held by close.
@@ -194,7 +181,8 @@ func (key *WrappedContactKey) EncryptedBytes() ([]byte, error) {
 	return takeBuffer(C.key_contact_wrapped_encrypted(key.handle))
 }
 
-// ContactKeyPair owns the private key used to decrypt received content keys.
+// ContactKeyPair is a profile's contact-encryption identity. Distribute its
+// public half and retain it to decrypt content keys addressed to the profile.
 type ContactKeyPair struct{ handle unsafe.Pointer }
 
 // GenerateContactKeyPair generates contact key pair.
@@ -261,7 +249,8 @@ func (key *ContactKeyPair) Decrypt(wrapped *WrappedContactKey) ([]byte, error) {
 	return takeBuffer(C.key_contact_decrypt(key.handle, wrapped.handle))
 }
 
-// SigningPublicKey verifies owner-authorized lockbox commits.
+// SigningPublicKey is the public identity readers use to verify
+// owner-authorized lockbox revisions.
 type SigningPublicKey struct{ handle unsafe.Pointer }
 
 // NewSigningPublicKey returns or performs new signing public key.
@@ -281,7 +270,8 @@ func (key *SigningPublicKey) Close() {
 	}
 }
 
-// SigningKeyPair owns the private key used to authorize mutable lockbox commits.
+// SigningKeyPair is a lockbox owner's signing identity, supplied when creating
+// or committing a mutable lockbox so readers can authenticate its revisions.
 type SigningKeyPair struct{ handle unsafe.Pointer }
 
 // GenerateSigningKeyPair generates signing key pair.
@@ -329,7 +319,8 @@ func (key *SigningKeyPair) PublicKey() (*SigningPublicKey, error) {
 	return NewSigningPublicKey(value)
 }
 
-// LockboxOptions configures runtime cache and worker behavior.
+// LockboxOptions controls memory and CPU behavior when creating or opening a
+// Lockbox. Its default values suit interactive applications.
 type LockboxOptions struct {
 	// CacheMode selects the cache strategy, such as "bytes".
 	CacheMode string
@@ -348,8 +339,9 @@ func DefaultLockboxOptions() LockboxOptions {
 	return LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"}
 }
 
-// Lockbox is an owned, mutable view of one encrypted archive.
-// Call Close when it is no longer required.
+// Lockbox is an open encrypted archive containing files, variables, secrets,
+// and forms. Commit pending mutations and call Close when finished with its
+// decrypted contents.
 type Lockbox struct{ handle unsafe.Pointer }
 
 func adoptLockbox(handle unsafe.Pointer) (*Lockbox, error) {
@@ -497,21 +489,18 @@ func (box *Lockbox) ExtractDirectory(destination string, maxFileBytes, maxTotalB
 }
 
 // StreamContent returns or performs stream content.
-func (box *Lockbox) StreamContent(physical bool) (*messages.StreamChunkList, error) {
-	result := &messages.StreamChunkList{}
-	return result, decodeFrame(C.lockbox_stream_content(box.handle, C.bool(physical)), result)
+func (box *Lockbox) StreamContent(physical bool) ([]StreamChunk, error) {
+	return decodeResult(C.lockbox_stream_content(box.handle, C.bool(physical)), decodeStreamChunkList)
 }
 
 // CacheStats stores stats.
-func (box *Lockbox) CacheStats() (*messages.CacheStats, error) {
-	result := &messages.CacheStats{}
-	return result, decodeFrame(C.lockbox_cache_stats(box.handle), result)
+func (box *Lockbox) CacheStats() (*CacheStats, error) {
+	return decodeResult(C.lockbox_cache_stats(box.handle), decodeCacheStats)
 }
 
 // ImportStats imports stats.
-func (box *Lockbox) ImportStats() (*messages.ImportStats, error) {
-	result := &messages.ImportStats{}
-	return result, decodeFrame(C.lockbox_import_stats(box.handle), result)
+func (box *Lockbox) ImportStats() (*ImportStats, error) {
+	return decodeResult(C.lockbox_import_stats(box.handle), decodeImportStats)
 }
 
 // ResetImportStats updates import stats.
@@ -520,21 +509,18 @@ func (box *Lockbox) ResetImportStats() error {
 }
 
 // InspectLockboxFile inspects lockbox file.
-func InspectLockboxFile(path string) (*messages.FileInspection, error) {
-	result := &messages.FileInspection{}
-	return result, decodeFrame(C.lockbox_inspect_file(charPointer(path), C.size_t(len(path))), result)
+func InspectLockboxFile(path string) (*FileInspection, error) {
+	return decodeResult(C.lockbox_inspect_file(charPointer(path), C.size_t(len(path))), decodeFileInspection)
 }
 
 // PageInspection returns or performs page inspection.
-func (box *Lockbox) PageInspection() (*messages.PageInspectionList, error) {
-	result := &messages.PageInspectionList{}
-	return result, decodeFrame(C.lockbox_page_inspection(box.handle), result)
+func (box *Lockbox) PageInspection() ([]PageInspection, error) {
+	return decodeResult(C.lockbox_page_inspection(box.handle), decodePageInspectionList)
 }
 
 // RecoveryReport returns or performs recovery report.
-func (box *Lockbox) RecoveryReport() (*messages.RecoveryReport, error) {
-	result := &messages.RecoveryReport{}
-	return result, decodeFrame(C.lockbox_recovery_report(box.handle), result)
+func (box *Lockbox) RecoveryReport() (*RecoveryReport, error) {
+	return decodeResult(C.lockbox_recovery_report(box.handle), decodeRecoveryReport)
 }
 
 // RenderRecoveryReport returns or performs render recovery report.
@@ -543,15 +529,13 @@ func (box *Lockbox) RenderRecoveryReport(verbose bool, maxEntries uint) (string,
 }
 
 // ScanLockboxPath scans lockbox path.
-func ScanLockboxPath(path string, key []byte) (*messages.RecoveryReport, error) {
-	result := &messages.RecoveryReport{}
-	return result, decodeFrame(C.lockbox_recovery_scan_path(charPointer(path), C.size_t(len(path)), bytePointer(key), C.size_t(len(key))), result)
+func ScanLockboxPath(path string, key []byte) (*RecoveryReport, error) {
+	return decodeResult(C.lockbox_recovery_scan_path(charPointer(path), C.size_t(len(path)), bytePointer(key), C.size_t(len(key))), decodeRecoveryReport)
 }
 
 // ScanLockbox scans lockbox.
-func ScanLockbox(archive, key []byte) (*messages.RecoveryReport, error) {
-	result := &messages.RecoveryReport{}
-	return result, decodeFrame(C.lockbox_recovery_scan(bytePointer(archive), C.size_t(len(archive)), bytePointer(key), C.size_t(len(key))), result)
+func ScanLockbox(archive, key []byte) (*RecoveryReport, error) {
+	return decodeResult(C.lockbox_recovery_scan(bytePointer(archive), C.size_t(len(archive)), bytePointer(key), C.size_t(len(key))), decodeRecoveryReport)
 }
 
 // SalvageLockbox salvages lockbox.
@@ -574,27 +558,23 @@ func (box *Lockbox) SetWorkerPolicy(mode string, jobs uint) error {
 }
 
 // RuntimeOptions returns or performs runtime options.
-func (box *Lockbox) RuntimeOptions() (*messages.RuntimeOptions, error) {
-	result := &messages.RuntimeOptions{}
-	return result, decodeFrame(C.lockbox_runtime_options(box.handle), result)
+func (box *Lockbox) RuntimeOptions() (*RuntimeOptions, error) {
+	return decodeResult(C.lockbox_runtime_options(box.handle), decodeRuntimeOptions)
 }
 
 // List lists list.
-func (box *Lockbox) List(path string, recursive bool) (*messages.LockboxEntryList, error) {
-	result := &messages.LockboxEntryList{}
-	return result, decodeFrame(C.lockbox_list(box.handle, charPointer(path), C.size_t(len(path)), C.bool(recursive)), result)
+func (box *Lockbox) List(path string, recursive bool) ([]LockboxEntry, error) {
+	return decodeResult(C.lockbox_list(box.handle, charPointer(path), C.size_t(len(path)), C.bool(recursive)), decodeLockboxEntryList)
 }
 
 // ListWithOptions lists with options.
-func (box *Lockbox) ListWithOptions(path, glob string, recursive, includeFiles, includeSymlinks, includeDirectories bool, limit uint) (*messages.LockboxEntryList, error) {
-	result := &messages.LockboxEntryList{}
-	return result, decodeFrame(C.lockbox_list_with_options(box.handle, charPointer(path), C.size_t(len(path)), charPointer(glob), C.size_t(len(glob)), C.bool(recursive), C.bool(includeFiles), C.bool(includeSymlinks), C.bool(includeDirectories), C.size_t(limit)), result)
+func (box *Lockbox) ListWithOptions(path, glob string, recursive, includeFiles, includeSymlinks, includeDirectories bool, limit uint) ([]LockboxEntry, error) {
+	return decodeResult(C.lockbox_list_with_options(box.handle, charPointer(path), C.size_t(len(path)), charPointer(glob), C.size_t(len(glob)), C.bool(recursive), C.bool(includeFiles), C.bool(includeSymlinks), C.bool(includeDirectories), C.size_t(limit)), decodeLockboxEntryList)
 }
 
 // Stat returns metadata for the selected lockbox entry.
-func (box *Lockbox) Stat(path string) (*messages.OptionalLockboxEntry, error) {
-	result := &messages.OptionalLockboxEntry{}
-	return result, decodeFrame(C.lockbox_stat(box.handle, charPointer(path), C.size_t(len(path))), result)
+func (box *Lockbox) Stat(path string) (*LockboxEntry, error) {
+	return decodeResult(C.lockbox_stat(box.handle, charPointer(path), C.size_t(len(path))), decodeOptionalLockboxEntry)
 }
 
 // SetVariable sets variable.
@@ -609,14 +589,7 @@ func (box *Lockbox) SetSecretVariable(name string, value []byte) error {
 
 // GetVariable returns variable.
 func (box *Lockbox) GetVariable(name string) (*string, error) {
-	result := &messages.OptionalString{}
-	if err := decodeFrame(C.lockbox_get_variable(box.handle, charPointer(name), C.size_t(len(name))), result); err != nil {
-		return nil, err
-	}
-	if !result.Present {
-		return nil, nil
-	}
-	return &result.Value, nil
+	return decodeResult(C.lockbox_get_variable(box.handle, charPointer(name), C.size_t(len(name))), decodeOptionalString)
 }
 
 // WithSecretVariable returns or performs with secret variable.
@@ -632,24 +605,19 @@ func (box *Lockbox) DeleteVariable(name string) error {
 }
 
 // MoveVariables updates variables.
-func (box *Lockbox) MoveVariables(moves *messages.PathMoveList) error {
-	encoded, err := proto.Marshal(moves)
-	if err != nil {
-		return err
-	}
+func (box *Lockbox) MoveVariables(moves []PathMove) error {
+	encoded := encodePathMoves(moves)
 	return require(bool(C.lockbox_move_variables(box.handle, bytePointer(encoded), C.size_t(len(encoded)))))
 }
 
 // ListVariables lists variables.
-func (box *Lockbox) ListVariables() (*messages.VariableList, error) {
-	result := &messages.VariableList{}
-	return result, decodeFrame(C.lockbox_list_variables(box.handle), result)
+func (box *Lockbox) ListVariables() ([]Variable, error) {
+	return decodeResult(C.lockbox_list_variables(box.handle), decodeVariableList)
 }
 
 // VariableSensitivity returns or performs variable sensitivity.
-func (box *Lockbox) VariableSensitivity(name string) (*messages.OptionalString, error) {
-	result := &messages.OptionalString{}
-	return result, decodeFrame(C.lockbox_variable_sensitivity(box.handle, charPointer(name), C.size_t(len(name))), result)
+func (box *Lockbox) VariableSensitivity(name string) (*string, error) {
+	return decodeResult(C.lockbox_variable_sensitivity(box.handle, charPointer(name), C.size_t(len(name))), decodeOptionalString)
 }
 
 // AddSymlink adds symlink.
@@ -689,9 +657,8 @@ func (box *Lockbox) DeleteKey(id uint64) error {
 }
 
 // ListKeySlots lists key slots.
-func (box *Lockbox) ListKeySlots() (*messages.KeySlotList, error) {
-	result := &messages.KeySlotList{}
-	return result, decodeFrame(C.lockbox_list_key_slots(box.handle), result)
+func (box *Lockbox) ListKeySlots() ([]KeySlot, error) {
+	return decodeResult(C.lockbox_list_key_slots(box.handle), decodeKeySlotList)
 }
 
 // SetOwnerSigningKey sets owner signing key.
@@ -700,43 +667,34 @@ func (box *Lockbox) SetOwnerSigningKey(key *SigningKeyPair) error {
 }
 
 // OwnerInspection returns or performs owner inspection.
-func (box *Lockbox) OwnerInspection() (*messages.OwnerInspection, error) {
-	result := &messages.OwnerInspection{}
-	return result, decodeFrame(C.lockbox_owner_inspection(box.handle), result)
+func (box *Lockbox) OwnerInspection() (*OwnerInspection, error) {
+	return decodeResult(C.lockbox_owner_inspection(box.handle), decodeOwnerInspection)
 }
 
 // DefineForm returns or performs define form.
-func (box *Lockbox) DefineForm(alias, name, description string, fields *messages.FormFieldList) (*messages.FormDefinition, error) {
-	encoded, err := proto.Marshal(fields)
-	if err != nil {
-		return nil, err
-	}
-	result := &messages.FormDefinition{}
-	return result, decodeFrame(C.lockbox_define_form(box.handle, charPointer(alias), C.size_t(len(alias)), charPointer(name), C.size_t(len(name)), charPointer(description), C.size_t(len(description)), bytePointer(encoded), C.size_t(len(encoded))), result)
+func (box *Lockbox) DefineForm(alias, name, description string, fields []FormField) (*FormDefinition, error) {
+	encoded := encodeFormFields(fields)
+	return decodeResult(C.lockbox_define_form(box.handle, charPointer(alias), C.size_t(len(alias)), charPointer(name), C.size_t(len(name)), charPointer(description), C.size_t(len(description)), bytePointer(encoded), C.size_t(len(encoded))), decodeFormDefinition)
 }
 
 // ListFormDefinitions lists form definitions.
-func (box *Lockbox) ListFormDefinitions() (*messages.FormDefinitionList, error) {
-	result := &messages.FormDefinitionList{}
-	return result, decodeFrame(C.lockbox_list_form_definitions(box.handle), result)
+func (box *Lockbox) ListFormDefinitions() ([]FormDefinition, error) {
+	return decodeResult(C.lockbox_list_form_definitions(box.handle), decodeFormDefinitionList)
 }
 
 // ResolveForm returns or performs resolve form.
-func (box *Lockbox) ResolveForm(reference string) (*messages.FormDefinition, error) {
-	result := &messages.FormDefinition{}
-	return result, decodeFrame(C.lockbox_resolve_form(box.handle, charPointer(reference), C.size_t(len(reference))), result)
+func (box *Lockbox) ResolveForm(reference string) (*FormDefinition, error) {
+	return decodeResult(C.lockbox_resolve_form(box.handle, charPointer(reference), C.size_t(len(reference))), decodeFormDefinition)
 }
 
 // ListFormRevisions lists form revisions.
-func (box *Lockbox) ListFormRevisions(typeID string) (*messages.FormDefinitionList, error) {
-	result := &messages.FormDefinitionList{}
-	return result, decodeFrame(C.lockbox_list_form_revisions(box.handle, charPointer(typeID), C.size_t(len(typeID))), result)
+func (box *Lockbox) ListFormRevisions(typeID string) ([]FormDefinition, error) {
+	return decodeResult(C.lockbox_list_form_revisions(box.handle, charPointer(typeID), C.size_t(len(typeID))), decodeFormDefinitionList)
 }
 
 // CreateFormRecord creates form record.
-func (box *Lockbox) CreateFormRecord(path, typeReference, name string) (*messages.FormRecord, error) {
-	result := &messages.FormRecord{}
-	return result, decodeFrame(C.lockbox_create_form_record(box.handle, charPointer(path), C.size_t(len(path)), charPointer(typeReference), C.size_t(len(typeReference)), charPointer(name), C.size_t(len(name))), result)
+func (box *Lockbox) CreateFormRecord(path, typeReference, name string) (*FormRecord, error) {
+	return decodeResult(C.lockbox_create_form_record(box.handle, charPointer(path), C.size_t(len(path)), charPointer(typeReference), C.size_t(len(typeReference)), charPointer(name), C.size_t(len(name))), decodeFormRecord)
 }
 
 // SetFormField sets form field.
@@ -750,15 +708,13 @@ func (box *Lockbox) SetSecretFormField(path, field string, value []byte) error {
 }
 
 // ListFormRecords lists form records.
-func (box *Lockbox) ListFormRecords() (*messages.FormRecordList, error) {
-	result := &messages.FormRecordList{}
-	return result, decodeFrame(C.lockbox_list_form_records(box.handle), result)
+func (box *Lockbox) ListFormRecords() ([]FormRecord, error) {
+	return decodeResult(C.lockbox_list_form_records(box.handle), decodeFormRecordList)
 }
 
 // GetFormRecord returns form record.
-func (box *Lockbox) GetFormRecord(path string) (*messages.OptionalFormRecord, error) {
-	result := &messages.OptionalFormRecord{}
-	return result, decodeFrame(C.lockbox_get_form_record(box.handle, charPointer(path), C.size_t(len(path))), result)
+func (box *Lockbox) GetFormRecord(path string) (*FormRecord, error) {
+	return decodeResult(C.lockbox_get_form_record(box.handle, charPointer(path), C.size_t(len(path))), decodeOptionalFormRecord)
 }
 
 // DeleteFormRecord removes form record.
@@ -767,18 +723,14 @@ func (box *Lockbox) DeleteFormRecord(path string) error {
 }
 
 // MoveFormRecords updates form records.
-func (box *Lockbox) MoveFormRecords(moves *messages.PathMoveList) error {
-	encoded, err := proto.Marshal(moves)
-	if err != nil {
-		return err
-	}
+func (box *Lockbox) MoveFormRecords(moves []PathMove) error {
+	encoded := encodePathMoves(moves)
 	return require(bool(C.lockbox_move_form_records(box.handle, bytePointer(encoded), C.size_t(len(encoded)))))
 }
 
 // GetFormField returns form field.
-func (box *Lockbox) GetFormField(path, field string) (*messages.OptionalFormValue, error) {
-	result := &messages.OptionalFormValue{}
-	return result, decodeFrame(C.lockbox_get_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field))), result)
+func (box *Lockbox) GetFormField(path, field string) (*FormValue, error) {
+	return decodeResult(C.lockbox_get_form_field(box.handle, charPointer(path), C.size_t(len(path)), charPointer(field), C.size_t(len(field))), decodeOptionalFormValue)
 }
 
 // WithSecretFormField returns or performs with secret form field.
@@ -823,7 +775,9 @@ func HexDecode(value string) ([]byte, error) {
 	return takeBuffer(C.vault_key_hex_decode(charPointer(value), C.size_t(len(value))))
 }
 
-// VaultDirectory is a writable, password-protected local metadata vault.
+// VaultDirectory is password-protected storage for profile keys, contacts,
+// forms, backups, and remembered lockbox paths. Lockbox contents remain in
+// their separate archive files.
 type VaultDirectory struct{ handle unsafe.Pointer }
 
 func adoptVaultDirectory(handle unsafe.Pointer) (*VaultDirectory, error) {
@@ -875,15 +829,13 @@ func DefaultVaultDirectory() (string, error) { return takeString(C.vault_default
 func DefaultVaultPath() (string, error) { return takeString(C.vault_default_path()) }
 
 // BackupDefaultVault returns or performs backup default vault.
-func BackupDefaultVault(path string, overwrite bool) (*messages.VaultBackupManifest, error) {
-	result := &messages.VaultBackupManifest{}
-	return result, decodeFrame(C.vault_backup_default(charPointer(path), C.size_t(len(path)), C.bool(overwrite)), result)
+func BackupDefaultVault(path string, overwrite bool) (*VaultBackupManifest, error) {
+	return decodeResult(C.vault_backup_default(charPointer(path), C.size_t(len(path)), C.bool(overwrite)), decodeVaultBackupManifest)
 }
 
 // RestoreDefaultVault returns or performs restore default vault.
-func RestoreDefaultVault(path string, overwrite bool) (*messages.VaultBackupManifest, error) {
-	result := &messages.VaultBackupManifest{}
-	return result, decodeFrame(C.vault_restore_default(charPointer(path), C.size_t(len(path)), C.bool(overwrite)), result)
+func RestoreDefaultVault(path string, overwrite bool) (*VaultBackupManifest, error) {
+	return decodeResult(C.vault_restore_default(charPointer(path), C.size_t(len(path)), C.bool(overwrite)), decodeVaultBackupManifest)
 }
 
 // Close releases the native resources held by close.
@@ -905,27 +857,23 @@ func (vault *VaultDirectory) StructureVersion() uint32 {
 }
 
 // ListPrivateKeys lists private keys.
-func (vault *VaultDirectory) ListPrivateKeys() (*messages.StringList, error) {
-	result := &messages.StringList{}
-	return result, decodeFrame(C.vault_directory_list_private_keys(vault.handle), result)
+func (vault *VaultDirectory) ListPrivateKeys() ([]string, error) {
+	return decodeResult(C.vault_directory_list_private_keys(vault.handle), decodeStringList)
 }
 
 // ListPrivateKeyNames lists private key names.
-func (vault *VaultDirectory) ListPrivateKeyNames() (*messages.StringList, error) {
-	result := &messages.StringList{}
-	return result, decodeFrame(C.vault_directory_list_private_key_names(vault.handle), result)
+func (vault *VaultDirectory) ListPrivateKeyNames() ([]string, error) {
+	return decodeResult(C.vault_directory_list_private_key_names(vault.handle), decodeStringList)
 }
 
 // ListContactNames lists contact names.
-func (vault *VaultDirectory) ListContactNames() (*messages.StringList, error) {
-	result := &messages.StringList{}
-	return result, decodeFrame(C.vault_directory_list_contact_names(vault.handle), result)
+func (vault *VaultDirectory) ListContactNames() ([]string, error) {
+	return decodeResult(C.vault_directory_list_contact_names(vault.handle), decodeStringList)
 }
 
 // ListFormAliases lists form aliases.
-func (vault *VaultDirectory) ListFormAliases() (*messages.StringList, error) {
-	result := &messages.StringList{}
-	return result, decodeFrame(C.vault_directory_list_form_aliases(vault.handle), result)
+func (vault *VaultDirectory) ListFormAliases() ([]string, error) {
+	return decodeResult(C.vault_directory_list_form_aliases(vault.handle), decodeStringList)
 }
 
 // PrivateKeyExists returns or performs private key exists.
@@ -986,9 +934,8 @@ func (vault *VaultDirectory) DeleteContact(name string) error {
 }
 
 // ListContacts lists contacts.
-func (vault *VaultDirectory) ListContacts() (*messages.ContactList, error) {
-	result := &messages.ContactList{}
-	return result, decodeFrame(C.vault_directory_list_contacts(vault.handle), result)
+func (vault *VaultDirectory) ListContacts() ([]Contact, error) {
+	return decodeResult(C.vault_directory_list_contacts(vault.handle), decodeContactList)
 }
 
 // StoreProfileEmail stores profile email.
@@ -997,9 +944,8 @@ func (vault *VaultDirectory) StoreProfileEmail(name, email string) error {
 }
 
 // ProfileEmail returns or performs profile email.
-func (vault *VaultDirectory) ProfileEmail(name string) (*messages.OptionalString, error) {
-	result := &messages.OptionalString{}
-	return result, decodeFrame(C.vault_directory_profile_email(vault.handle, charPointer(name), C.size_t(len(name))), result)
+func (vault *VaultDirectory) ProfileEmail(name string) (*string, error) {
+	return decodeResult(C.vault_directory_profile_email(vault.handle, charPointer(name), C.size_t(len(name))), decodeOptionalString)
 }
 
 // StoreBackup stores backup.
@@ -1055,15 +1001,13 @@ func (vault *VaultDirectory) LoadContactSigningKey(name string) (*SigningPublicK
 }
 
 // ListProfileGenerations lists profile generations.
-func (vault *VaultDirectory) ListProfileGenerations(name string) (*messages.ProfileHistory, error) {
-	result := &messages.ProfileHistory{}
-	return result, decodeFrame(C.vault_directory_list_profile_generations(vault.handle, charPointer(name), C.size_t(len(name))), result)
+func (vault *VaultDirectory) ListProfileGenerations(name string) (*ProfileHistory, error) {
+	return decodeResult(C.vault_directory_list_profile_generations(vault.handle, charPointer(name), C.size_t(len(name))), decodeProfileHistory)
 }
 
 // RotatePrivateKey updates private key.
-func (vault *VaultDirectory) RotatePrivateKey(name string) (*messages.ProfileHistory, error) {
-	result := &messages.ProfileHistory{}
-	return result, decodeFrame(C.vault_directory_rotate_private_key(vault.handle, charPointer(name), C.size_t(len(name))), result)
+func (vault *VaultDirectory) RotatePrivateKey(name string) (*ProfileHistory, error) {
+	return decodeResult(C.vault_directory_rotate_private_key(vault.handle, charPointer(name), C.size_t(len(name))), decodeProfileHistory)
 }
 
 // RememberLockbox stores lockbox.
@@ -1072,9 +1016,8 @@ func (vault *VaultDirectory) RememberLockbox(id []byte, path string) error {
 }
 
 // ListKnownLockboxes lists known lockboxes.
-func (vault *VaultDirectory) ListKnownLockboxes() (*messages.KnownLockboxList, error) {
-	result := &messages.KnownLockboxList{}
-	return result, decodeFrame(C.vault_directory_list_known_lockboxes(vault.handle), result)
+func (vault *VaultDirectory) ListKnownLockboxes() ([]KnownLockbox, error) {
+	return decodeResult(C.vault_directory_list_known_lockboxes(vault.handle), decodeKnownLockboxList)
 }
 
 // ForgetLockbox removes lockbox.
@@ -1088,15 +1031,13 @@ func (vault *VaultDirectory) RememberAccessSlotLabel(id []byte, slotID uint64, n
 }
 
 // ListAccessSlotLabels lists access slot labels.
-func (vault *VaultDirectory) ListAccessSlotLabels(id []byte) (*messages.AccessSlotLabelList, error) {
-	result := &messages.AccessSlotLabelList{}
-	return result, decodeFrame(C.vault_directory_list_access_slot_labels(vault.handle, bytePointer(id), C.size_t(len(id))), result)
+func (vault *VaultDirectory) ListAccessSlotLabels(id []byte) ([]AccessSlotLabel, error) {
+	return decodeResult(C.vault_directory_list_access_slot_labels(vault.handle, bytePointer(id), C.size_t(len(id))), decodeAccessSlotLabelList)
 }
 
 // FindAccessSlotLabels returns or performs find access slot labels.
-func (vault *VaultDirectory) FindAccessSlotLabels(id []byte, name string) (*messages.AccessSlotLabelList, error) {
-	result := &messages.AccessSlotLabelList{}
-	return result, decodeFrame(C.vault_directory_find_access_slot_labels(vault.handle, bytePointer(id), C.size_t(len(id)), charPointer(name), C.size_t(len(name))), result)
+func (vault *VaultDirectory) FindAccessSlotLabels(id []byte, name string) ([]AccessSlotLabel, error) {
+	return decodeResult(C.vault_directory_find_access_slot_labels(vault.handle, bytePointer(id), C.size_t(len(id)), charPointer(name), C.size_t(len(name))), decodeAccessSlotLabelList)
 }
 
 // ForgetAccessSlotLabel removes access slot label.
@@ -1105,34 +1046,28 @@ func (vault *VaultDirectory) ForgetAccessSlotLabel(id []byte, slotID uint64) err
 }
 
 // DefineForm returns or performs define form.
-func (vault *VaultDirectory) DefineForm(alias, name, description string, fields *messages.FormFieldList) (*messages.FormDefinition, error) {
-	encoded, err := proto.Marshal(fields)
-	if err != nil {
-		return nil, err
-	}
-	result := &messages.FormDefinition{}
-	return result, decodeFrame(C.vault_directory_define_form(vault.handle, charPointer(alias), C.size_t(len(alias)), charPointer(name), C.size_t(len(name)), charPointer(description), C.size_t(len(description)), bytePointer(encoded), C.size_t(len(encoded))), result)
+func (vault *VaultDirectory) DefineForm(alias, name, description string, fields []FormField) (*FormDefinition, error) {
+	encoded := encodeFormFields(fields)
+	return decodeResult(C.vault_directory_define_form(vault.handle, charPointer(alias), C.size_t(len(alias)), charPointer(name), C.size_t(len(name)), charPointer(description), C.size_t(len(description)), bytePointer(encoded), C.size_t(len(encoded))), decodeFormDefinition)
 }
 
 // ResolveForm returns or performs resolve form.
-func (vault *VaultDirectory) ResolveForm(reference string) (*messages.FormDefinition, error) {
-	result := &messages.FormDefinition{}
-	return result, decodeFrame(C.vault_directory_resolve_form(vault.handle, charPointer(reference), C.size_t(len(reference))), result)
+func (vault *VaultDirectory) ResolveForm(reference string) (*FormDefinition, error) {
+	return decodeResult(C.vault_directory_resolve_form(vault.handle, charPointer(reference), C.size_t(len(reference))), decodeFormDefinition)
 }
 
 // ListForms lists forms.
-func (vault *VaultDirectory) ListForms() (*messages.FormDefinitionList, error) {
-	result := &messages.FormDefinitionList{}
-	return result, decodeFrame(C.vault_directory_list_forms(vault.handle), result)
+func (vault *VaultDirectory) ListForms() ([]FormDefinition, error) {
+	return decodeResult(C.vault_directory_list_forms(vault.handle), decodeFormDefinitionList)
 }
 
 // ListFormRevisions lists form revisions.
-func (vault *VaultDirectory) ListFormRevisions(typeID string) (*messages.FormDefinitionList, error) {
-	result := &messages.FormDefinitionList{}
-	return result, decodeFrame(C.vault_directory_list_form_revisions(vault.handle, charPointer(typeID), C.size_t(len(typeID))), result)
+func (vault *VaultDirectory) ListFormRevisions(typeID string) ([]FormDefinition, error) {
+	return decodeResult(C.vault_directory_list_form_revisions(vault.handle, charPointer(typeID), C.size_t(len(typeID))), decodeFormDefinitionList)
 }
 
-// ReadOnlyVaultDirectory never loads an owner signing key.
+// ReadOnlyVaultDirectory lists local metadata for discovery or diagnostics
+// without loading an owner signing key or exposing mutation operations.
 type ReadOnlyVaultDirectory struct{ handle unsafe.Pointer }
 
 // OpenReadOnlyVaultDirectory opens read only vault directory.
@@ -1154,27 +1089,23 @@ func OpenDefaultReadOnlyVaultDirectory(password []byte) (*ReadOnlyVaultDirectory
 }
 
 // ListProfileNames lists profile names.
-func (vault *ReadOnlyVaultDirectory) ListProfileNames() (*messages.StringList, error) {
-	result := &messages.StringList{}
-	return result, decodeFrame(C.vault_read_only_list_profile_names(vault.handle), result)
+func (vault *ReadOnlyVaultDirectory) ListProfileNames() ([]string, error) {
+	return decodeResult(C.vault_read_only_list_profile_names(vault.handle), decodeStringList)
 }
 
 // ListContactNames lists contact names.
-func (vault *ReadOnlyVaultDirectory) ListContactNames() (*messages.StringList, error) {
-	result := &messages.StringList{}
-	return result, decodeFrame(C.vault_read_only_list_contact_names(vault.handle), result)
+func (vault *ReadOnlyVaultDirectory) ListContactNames() ([]string, error) {
+	return decodeResult(C.vault_read_only_list_contact_names(vault.handle), decodeStringList)
 }
 
 // ListFormAliases lists form aliases.
-func (vault *ReadOnlyVaultDirectory) ListFormAliases() (*messages.StringList, error) {
-	result := &messages.StringList{}
-	return result, decodeFrame(C.vault_read_only_list_form_aliases(vault.handle), result)
+func (vault *ReadOnlyVaultDirectory) ListFormAliases() ([]string, error) {
+	return decodeResult(C.vault_read_only_list_form_aliases(vault.handle), decodeStringList)
 }
 
 // ListKnownLockboxes lists known lockboxes.
-func (vault *ReadOnlyVaultDirectory) ListKnownLockboxes() (*messages.KnownLockboxList, error) {
-	result := &messages.KnownLockboxList{}
-	return result, decodeFrame(C.vault_read_only_list_known_lockboxes(vault.handle), result)
+func (vault *ReadOnlyVaultDirectory) ListKnownLockboxes() ([]KnownLockbox, error) {
+	return decodeResult(C.vault_read_only_list_known_lockboxes(vault.handle), decodeKnownLockboxList)
 }
 
 // Close releases the native resources held by close.
@@ -1234,15 +1165,13 @@ func ForgetAgentKey(id []byte) error {
 }
 
 // ListAgentKeys lists agent keys.
-func ListAgentKeys() (*messages.AgentEntryList, error) {
-	result := &messages.AgentEntryList{}
-	return result, decodeFrame(C.vault_agent_list(), result)
+func ListAgentKeys() ([]AgentEntry, error) {
+	return decodeResult(C.vault_agent_list(), decodeAgentEntryList)
 }
 
 // AgentSleepSupport returns or performs agent sleep support.
-func AgentSleepSupport() (*messages.SleepSupport, error) {
-	result := &messages.SleepSupport{}
-	return result, decodeFrame(C.vault_agent_sleep_support(), result)
+func AgentSleepSupport() (*SleepSupport, error) {
+	return decodeResult(C.vault_agent_sleep_support(), decodeSleepSupport)
 }
 
 // AgentLogPath returns or performs agent log path.
@@ -1285,7 +1214,8 @@ func ForgetAgentOwnerSigningKey(vaultID, profile string) error {
 	return require(bool(C.vault_agent_forget_owner_signing_key(charPointer(vaultID), C.size_t(len(vaultID)), charPointer(profile), C.size_t(len(profile)))))
 }
 
-// AgentActivity registers an operation that currently requires secret access.
+// AgentActivity is a token kept alive while an operation needs secrets cached
+// by the session agent. Close it afterward so unused secrets can expire.
 type AgentActivity struct{ handle unsafe.Pointer }
 
 // BeginAgentActivity starts agent activity.
@@ -1306,9 +1236,8 @@ func (activity *AgentActivity) Close() {
 }
 
 // PlatformStatus returns or performs platform status.
-func PlatformStatus() (*messages.PlatformStatus, error) {
-	result := &messages.PlatformStatus{}
-	return result, decodeFrame(C.vault_platform_status(), result)
+func PlatformStatus() (*PlatformCredentialStatus, error) {
+	return decodeResult(C.vault_platform_status(), decodePlatformStatus)
 }
 
 // SetPlatformScope sets platform scope.
@@ -1336,7 +1265,8 @@ func GetPlatformPassword() ([]byte, error) { return takeBuffer(C.vault_platform_
 // ForgetPlatformPassword removes platform password.
 func ForgetPlatformPassword() error { return require(bool(C.vault_platform_forget_password())) }
 
-// LocalVault provides workflows for local metadata and remembered lockboxes.
+// LocalVault is a session for opening lockboxes by host path, caching
+// short-lived passwords, and committing and closing locally used files.
 type LocalVault struct{ handle unsafe.Pointer }
 
 // OpenLocalVault opens local vault.

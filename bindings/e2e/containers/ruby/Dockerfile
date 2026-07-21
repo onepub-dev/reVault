@@ -1,5 +1,5 @@
 FROM rust:1.95-bookworm AS native
-RUN apt-get update && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config protobuf-compiler \
+RUN apt-get update && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 COPY . .
@@ -12,7 +12,6 @@ RUN rust/target/release/revault-tool release package-native --repository . \
 FROM ruby:3.3-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 python3 \
-    && gem install google-protobuf -v '~> 3.25' --no-document \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 COPY . .

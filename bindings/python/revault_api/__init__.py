@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from . import revault_bindings_pb2 as messages
+from ._domain import FormField, PathMove
 
 
 class _Buffer(ctypes.Structure):
@@ -26,15 +26,6 @@ class _Buffer(ctypes.Structure):
 
 def _error(library: ctypes.CDLL) -> str:
     return library.buffer_last_error().decode()
-
-
-def _wire_payload(frame: bytes) -> bytes:
-    if frame[:4] != b"LBWF" or len(frame) < 12:
-        raise RuntimeError("invalid binding frame")
-    length = int.from_bytes(frame[8:12], "big")
-    if len(frame) != 12 + length:
-        raise RuntimeError("invalid binding frame length")
-    return frame[12:]
 
 
 def _native_library_path() -> str:
@@ -84,8 +75,8 @@ def load(path: Optional[str | Path] = None) -> ctypes.CDLL:
     library = ctypes.CDLL(str(path or _native_library_path()))
     library.api_abi_version.argtypes = []
     library.api_abi_version.restype = ctypes.c_uint32
-    if library.api_abi_version() != 2:
-        raise RuntimeError("revault-api native ABI mismatch; expected 2")
+    if library.api_abi_version() != 3:
+        raise RuntimeError("revault-api native ABI mismatch; expected 3")
 
     from ._revault_native import configure_native
 
@@ -127,5 +118,6 @@ __all__ = [
     "VaultDirectory",
     "WrappedContactKey",
     "load",
-    "messages",
+    "FormField",
+    "PathMove",
 ]

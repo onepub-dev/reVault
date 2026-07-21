@@ -8,8 +8,8 @@ from __future__ import annotations
 import ctypes
 from pathlib import Path
 
-from . import revault_bindings_pb2 as messages
-from . import _Buffer, _error, _wire_payload, load
+from . import _Buffer, _error, load
+from ._domain import decode, encode_form_fields, encode_path_moves
 
 def _take(lib, result):
     if not result.ptr: raise RuntimeError(_error(lib))
@@ -37,6 +37,8 @@ def _with_secret(owner, getter, callback):
 def _call(owner, symbol, values):
     lib = owner._lib
     route = _ROUTES[symbol]
+    if route[0] and route[0][0] == 'handle' and hasattr(owner, '_handle'):
+        values = (owner, *values)
     native_args, keepalive = [], []
     for kind, value in zip(route[0], values):
         if kind in ('text', 'bytes'):
@@ -63,7 +65,7 @@ def _call(owner, symbol, values):
     raw = _take(lib, result)
     if result_kind == 'utf8': return raw.decode()
     if result_kind == 'binary': return raw
-    return getattr(messages, result_kind[8:]).FromString(_wire_payload(raw))
+    return decode(result_kind[8:], raw)
 
 class _OwnedHandle:
     def __init__(self, root, handle): self._root, self._lib, self._handle = root, getattr(root, '_lib', root), ctypes.c_void_p(handle)
@@ -73,7 +75,11 @@ class _OwnedHandle:
         if close and self._handle: close()
 
 class Vault:
-    """Entry point for lockboxes, keys, local metadata, agent, and platform services."""
+    """Primary API used to open lockboxes and access reVault's local services.
+
+    Create one when the application starts, then use it to manage keys, metadata,
+    the session agent, and operating-system credential storage.
+    """
     def __init__(self, path: str | Path | None = None):
         """Load and validate the bundled native library, or the library at path."""
         self._root = self; self._lib = load(path); self.agent = Agent(self, None); self.platform = Platform(self, None)
@@ -86,51 +92,99 @@ class Vault:
         return _call(self, 'buffer_last_error_details', ())
 
 class Lockbox(_OwnedHandle):
-    """Owned, mutable view of one encrypted lockbox archive."""
+    """An open encrypted archive containing files, variables, secrets, and forms.
+
+    Obtain one from ``Vault`` or ``LocalVault``; commit pending mutations and
+    release it when the application finishes using its decrypted contents.
+    """
     pass
 
 class ContactKeyPair(_OwnedHandle):
-    """Owned contact key pair used to decrypt received content keys."""
+    """A profile's contact-encryption identity, including its private key.
+
+    Distribute the public half and retain this object to decrypt content keys
+    addressed to the profile.
+    """
     pass
 
 class ContactPublicKey(_OwnedHandle):
-    """Shareable contact public key used to encrypt a recipient content key."""
+    """A recipient's shareable encryption identity.
+
+    Use it when granting that recipient lockbox access; it contains no private
+    key material.
+    """
     pass
 
 class WrappedContactKey(_OwnedHandle):
-    """Owned encrypted content-key envelope for one contact recipient."""
+    """A content key encrypted for one contact.
+
+    Store or transfer it with an access record; only the matching
+    ``ContactKeyPair`` can recover the content key.
+    """
     pass
 
 class SigningKeyPair(_OwnedHandle):
-    """Owned signing key pair used to authorize mutable lockbox commits."""
+    """A lockbox owner's signing identity, including its private key.
+
+    Supply it when creating or committing a mutable lockbox so readers can
+    authenticate revisions.
+    """
     pass
 
 class SigningPublicKey(_OwnedHandle):
-    """Public key used to verify owner-authorized lockbox commits."""
+    """The shareable half of a lockbox owner's signing identity.
+
+    Readers use it to verify owner-authorized revisions; it cannot create a
+    signature.
+    """
     pass
 
 class VaultDirectory(_OwnedHandle):
-    """Writable, password-protected local metadata vault."""
+    """A writable, password-protected metadata store for one installation.
+
+    It keeps profile keys, contacts, forms, backups, and remembered lockbox
+    paths; lockbox file contents remain separate.
+    """
     pass
 
 class ReadOnlyVaultDirectory(_OwnedHandle):
-    """Read-only metadata view that never loads an owner signing key."""
+    """A restricted metadata view for listing profiles, contacts, and lockboxes.
+
+    Use it for discovery screens and diagnostics that must not load owner
+    signing keys or change local metadata.
+    """
     pass
 
 class Agent(_OwnedHandle):
-    """Client for the local session agent's time-limited secret cache."""
+    """Client for the local session service that caches secrets for a limited time.
+
+    Use it to start or inspect the agent and temporarily retain vault unlock or
+    owner signing keys across application operations.
+    """
     pass
 
 class AgentActivity(_OwnedHandle):
-    """Owned registration for an operation requiring secret access."""
+    """A lifetime token for an operation that currently needs cached secrets.
+
+    Keep it alive during the operation and release it afterward so the agent can
+    expire secrets when no other activity needs them.
+    """
     pass
 
 class Platform(_OwnedHandle):
-    """Controls integration with the operating system's secret store."""
+    """Access to the operating system credential store used for vault passwords.
+
+    Select an application scope, then enable, save, retrieve, or forget the
+    password associated with that scope.
+    """
     pass
 
 class LocalVault(_OwnedHandle):
-    """High-level workflow for local metadata and remembered lockboxes."""
+    """A session that manages lockbox files used by a local application.
+
+    Use it to create or open lockboxes by host path, cache short-lived
+    passwords, and commit and close the files opened during the session.
+    """
     pass
 
 def _Vault_lockbox_format_version(self):
@@ -531,8 +585,7 @@ Lockbox.set_secret_variable = _Lockbox_set_secret_variable
 
 def _Lockbox_get_variable(self, name):
     """Returns the variable."""
-    value = _call(self, 'lockbox_get_variable', (name,))
-    return value.value if value.present else None
+    return _call(self, 'lockbox_get_variable', (name,))
 Lockbox.get_variable = _Lockbox_get_variable
 
 def _Lockbox_with_secret_variable(self, name, callback):
@@ -547,9 +600,9 @@ def _Lockbox_delete_variable(self, name):
     return _call(self, 'lockbox_delete_variable', (name,))
 Lockbox.delete_variable = _Lockbox_delete_variable
 
-def _Lockbox_move_variables(self, moves_proto):
+def _Lockbox_move_variables(self, moves):
     """Returns the variables."""
-    return _call(self, 'lockbox_move_variables', (moves_proto,))
+    return _call(self, 'lockbox_move_variables', (encode_path_moves(moves),))
 Lockbox.move_variables = _Lockbox_move_variables
 
 def _Lockbox_list_variables(self):
@@ -632,9 +685,9 @@ def _Lockbox_owner_inspection(self):
     return _call(self, 'lockbox_owner_inspection', ())
 Lockbox.owner_inspection = _Lockbox_owner_inspection
 
-def _Lockbox_define_form(self, alias, name, description, fields_proto):
+def _Lockbox_define_form(self, alias, name, description, fields):
     """Returns the form."""
-    return _call(self, 'lockbox_define_form', (alias, name, description, fields_proto))
+    return _call(self, 'lockbox_define_form', (alias, name, description, encode_form_fields(fields)))
 Lockbox.define_form = _Lockbox_define_form
 
 def _Lockbox_list_form_definitions(self):
@@ -688,9 +741,9 @@ def _Lockbox_delete_form_record(self, path):
     return _call(self, 'lockbox_delete_form_record', (path,))
 Lockbox.delete_form_record = _Lockbox_delete_form_record
 
-def _Lockbox_move_form_records(self, moves_proto):
+def _Lockbox_move_form_records(self, moves):
     """Returns the records."""
-    return _call(self, 'lockbox_move_form_records', (moves_proto,))
+    return _call(self, 'lockbox_move_form_records', (encode_path_moves(moves),))
 Lockbox.move_form_records = _Lockbox_move_form_records
 
 def _Lockbox_get_form_field(self, path, field):
@@ -960,9 +1013,9 @@ def _VaultDirectory_forget_access_slot_label(self, id, slot_id):
     return _call(self, 'vault_directory_forget_access_slot_label', (id, slot_id))
 VaultDirectory.forget_access_slot_label = _VaultDirectory_forget_access_slot_label
 
-def _VaultDirectory_define_form(self, alias, name, description, fields_proto):
+def _VaultDirectory_define_form(self, alias, name, description, fields):
     """Returns the form."""
-    return _call(self, 'vault_directory_define_form', (alias, name, description, fields_proto))
+    return _call(self, 'vault_directory_define_form', (alias, name, description, encode_form_fields(fields)))
 VaultDirectory.define_form = _VaultDirectory_define_form
 
 def _VaultDirectory_resolve_form(self, reference):
@@ -1425,4 +1478,4 @@ _ROUTES = {
     'vault_free': (('handle',), 'void', True),
 }
 
-__all__ = ['Vault', 'Lockbox', 'ContactKeyPair', 'ContactPublicKey', 'WrappedContactKey', 'SigningKeyPair', 'SigningPublicKey', 'VaultDirectory', 'ReadOnlyVaultDirectory', 'Agent', 'AgentActivity', 'Platform', 'LocalVault', 'Revault', 'messages']
+__all__ = ['Vault', 'Lockbox', 'ContactKeyPair', 'ContactPublicKey', 'WrappedContactKey', 'SigningKeyPair', 'SigningPublicKey', 'VaultDirectory', 'ReadOnlyVaultDirectory', 'Agent', 'AgentActivity', 'Platform', 'LocalVault', 'Revault']

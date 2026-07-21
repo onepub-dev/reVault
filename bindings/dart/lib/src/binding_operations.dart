@@ -5,13 +5,13 @@ import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
+import 'domain_models.dart';
 import 'revault_native.dart';
-import 'generated/revault_bindings.pb.dart' as pb;
 
 final class BindingOperations {
   BindingOperations(this.native) {
-    if (native.api_abi_version() != 2) {
-      throw StateError('revault-api native ABI mismatch; expected 2');
+    if (native.api_abi_version() != 3) {
+      throw StateError('revault-api native ABI mismatch; expected 3');
     }
   }
   final RevaultNative native;
@@ -41,18 +41,6 @@ final class BindingOperations {
   }
 
   String _takeString(RevaultBuffer value) => utf8.decode(_take(value));
-  Uint8List _payload(RevaultBuffer value) {
-    final frame = _take(value);
-    if (frame.length < 12 || ascii.decode(frame.sublist(0, 4)) != 'LBWF') {
-      throw StateError('invalid reVault binding frame');
-    }
-    final length = ByteData.sublistView(frame, 8, 12).getUint32(0);
-    if (length != frame.length - 12) {
-      throw StateError('invalid reVault binding frame length');
-    }
-    return Uint8List.sublistView(frame, 12);
-  }
-
   T _withBytes<T>(
     Uint8List value,
     T Function(ffi.Pointer<ffi.Uint8>, int) callback,
@@ -108,8 +96,8 @@ final class BindingOperations {
 
   String lastErrorMessage() => lastError;
 
-  pb.ErrorDetails bufferLastErrorDetails() =>
-      pb.ErrorDetails.fromBuffer(_payload(native.buffer_last_error_details()));
+  ErrorDetails bufferLastErrorDetails() =>
+      DomainDecoders.errorDetails(_take(native.buffer_last_error_details()));
 
   int lockboxFormatVersion() => native.lockbox_format_version();
 
@@ -368,37 +356,37 @@ final class BindingOperations {
     ),
   );
 
-  pb.StreamChunkList lockboxStreamContent(
+  List<StreamChunk> lockboxStreamContent(
     ffi.Pointer<ffi.Void> handle,
     bool physical,
-  ) => pb.StreamChunkList.fromBuffer(
-    _payload(native.lockbox_stream_content(handle, physical)),
+  ) => DomainDecoders.streamChunkList(
+    _take(native.lockbox_stream_content(handle, physical)),
   );
 
-  pb.CacheStats lockboxCacheStats(ffi.Pointer<ffi.Void> handle) =>
-      pb.CacheStats.fromBuffer(_payload(native.lockbox_cache_stats(handle)));
+  CacheStats lockboxCacheStats(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.cacheStats(_take(native.lockbox_cache_stats(handle)));
 
-  pb.ImportStats lockboxImportStats(ffi.Pointer<ffi.Void> handle) =>
-      pb.ImportStats.fromBuffer(_payload(native.lockbox_import_stats(handle)));
+  ImportStats lockboxImportStats(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.importStats(_take(native.lockbox_import_stats(handle)));
 
   bool lockboxResetImportStats(ffi.Pointer<ffi.Void> handle) =>
       _requireBool(native.lockbox_reset_import_stats(handle));
 
-  pb.FileInspection lockboxInspectFile(String path) => _withText(
+  FileInspection lockboxInspectFile(String path) => _withText(
     path,
-    (pathPointer, pathLength) => pb.FileInspection.fromBuffer(
-      _payload(native.lockbox_inspect_file(pathPointer, pathLength)),
+    (pathPointer, pathLength) => DomainDecoders.fileInspection(
+      _take(native.lockbox_inspect_file(pathPointer, pathLength)),
     ),
   );
 
-  pb.PageInspectionList lockboxPageInspection(ffi.Pointer<ffi.Void> handle) =>
-      pb.PageInspectionList.fromBuffer(
-        _payload(native.lockbox_page_inspection(handle)),
+  List<PageInspection> lockboxPageInspection(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.pageInspectionList(
+        _take(native.lockbox_page_inspection(handle)),
       );
 
-  pb.RecoveryReport lockboxRecoveryReport(ffi.Pointer<ffi.Void> handle) =>
-      pb.RecoveryReport.fromBuffer(
-        _payload(native.lockbox_recovery_report(handle)),
+  RecoveryReport lockboxRecoveryReport(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.recoveryReport(
+        _take(native.lockbox_recovery_report(handle)),
       );
 
   String lockboxRecoveryReportRender(
@@ -409,13 +397,13 @@ final class BindingOperations {
     native.lockbox_recovery_report_render(handle, verbose, maxEntries),
   );
 
-  pb.RecoveryReport lockboxRecoveryScanPath(String path, Uint8List key) =>
+  RecoveryReport lockboxRecoveryScanPath(String path, Uint8List key) =>
       _withText(
         path,
         (pathPointer, pathLength) => _withBytes(
           key,
-          (keyPointer, keyLength) => pb.RecoveryReport.fromBuffer(
-            _payload(
+          (keyPointer, keyLength) => DomainDecoders.recoveryReport(
+            _take(
               native.lockbox_recovery_scan_path(
                 pathPointer,
                 pathLength,
@@ -455,9 +443,9 @@ final class BindingOperations {
     ),
   );
 
-  pb.RuntimeOptions lockboxRuntimeOptions(ffi.Pointer<ffi.Void> handle) =>
-      pb.RuntimeOptions.fromBuffer(
-        _payload(native.lockbox_runtime_options(handle)),
+  RuntimeOptions lockboxRuntimeOptions(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.runtimeOptions(
+        _take(native.lockbox_runtime_options(handle)),
       );
 
   bool lockboxCommit(ffi.Pointer<ffi.Void> handle) =>
@@ -516,18 +504,18 @@ final class BindingOperations {
         ),
       );
 
-  pb.LockboxEntryList lockboxList(
+  List<LockboxEntry> lockboxList(
     ffi.Pointer<ffi.Void> handle,
     String path,
     bool recursive,
   ) => _withText(
     path,
-    (pathPointer, pathLength) => pb.LockboxEntryList.fromBuffer(
-      _payload(native.lockbox_list(handle, pathPointer, pathLength, recursive)),
+    (pathPointer, pathLength) => DomainDecoders.lockboxEntryList(
+      _take(native.lockbox_list(handle, pathPointer, pathLength, recursive)),
     ),
   );
 
-  pb.LockboxEntryList lockboxListWithOptions(
+  List<LockboxEntry> lockboxListWithOptions(
     ffi.Pointer<ffi.Void> handle,
     String path,
     String glob,
@@ -540,8 +528,8 @@ final class BindingOperations {
     path,
     (pathPointer, pathLength) => _withText(
       glob,
-      (globPointer, globLength) => pb.LockboxEntryList.fromBuffer(
-        _payload(
+      (globPointer, globLength) => DomainDecoders.lockboxEntryList(
+        _take(
           native.lockbox_list_with_options(
             handle,
             pathPointer,
@@ -559,15 +547,13 @@ final class BindingOperations {
     ),
   );
 
-  pb.OptionalLockboxEntry lockboxStat(
-    ffi.Pointer<ffi.Void> handle,
-    String path,
-  ) => _withText(
-    path,
-    (pathPointer, pathLength) => pb.OptionalLockboxEntry.fromBuffer(
-      _payload(native.lockbox_stat(handle, pathPointer, pathLength)),
-    ),
-  );
+  LockboxEntry? lockboxStat(ffi.Pointer<ffi.Void> handle, String path) =>
+      _withText(
+        path,
+        (pathPointer, pathLength) => DomainDecoders.optionalLockboxEntry(
+          _take(native.lockbox_stat(handle, pathPointer, pathLength)),
+        ),
+      );
 
   bool lockboxSetVariable(
     ffi.Pointer<ffi.Void> handle,
@@ -609,15 +595,13 @@ final class BindingOperations {
     ),
   );
 
-  pb.OptionalString lockboxGetVariable(
-    ffi.Pointer<ffi.Void> handle,
-    String name,
-  ) => _withText(
-    name,
-    (namePointer, nameLength) => pb.OptionalString.fromBuffer(
-      _payload(native.lockbox_get_variable(handle, namePointer, nameLength)),
-    ),
-  );
+  String? lockboxGetVariable(ffi.Pointer<ffi.Void> handle, String name) =>
+      _withText(
+        name,
+        (namePointer, nameLength) => DomainDecoders.optionalString(
+          _take(native.lockbox_get_variable(handle, namePointer, nameLength)),
+        ),
+      );
 
   T? lockboxWithSecretVariable<T>(
     ffi.Pointer<ffi.Void> handle,
@@ -646,30 +630,28 @@ final class BindingOperations {
 
   bool lockboxMoveVariables(
     ffi.Pointer<ffi.Void> handle,
-    Uint8List movesProto,
+    Uint8List movesFlatbuffer,
   ) => _withBytes(
-    movesProto,
-    (movesProtoPointer, movesProtoLength) => _requireBool(
+    movesFlatbuffer,
+    (movesFlatbufferPointer, movesFlatbufferLength) => _requireBool(
       native.lockbox_move_variables(
         handle,
-        movesProtoPointer,
-        movesProtoLength,
+        movesFlatbufferPointer,
+        movesFlatbufferLength,
       ),
     ),
   );
 
-  pb.VariableList lockboxListVariables(ffi.Pointer<ffi.Void> handle) =>
-      pb.VariableList.fromBuffer(
-        _payload(native.lockbox_list_variables(handle)),
-      );
+  List<Variable> lockboxListVariables(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.variableList(_take(native.lockbox_list_variables(handle)));
 
-  pb.OptionalString lockboxVariableSensitivity(
+  String? lockboxVariableSensitivity(
     ffi.Pointer<ffi.Void> handle,
     String name,
   ) => _withText(
     name,
-    (namePointer, nameLength) => pb.OptionalString.fromBuffer(
-      _payload(
+    (namePointer, nameLength) => DomainDecoders.optionalString(
+      _take(
         native.lockbox_variable_sensitivity(handle, namePointer, nameLength),
       ),
     ),
@@ -755,13 +737,13 @@ final class BindingOperations {
     ),
   );
 
-  pb.RecoveryReport lockboxRecoveryScan(Uint8List bytes, Uint8List key) =>
+  RecoveryReport lockboxRecoveryScan(Uint8List bytes, Uint8List key) =>
       _withBytes(
         bytes,
         (bytesPointer, bytesLength) => _withBytes(
           key,
-          (keyPointer, keyLength) => pb.RecoveryReport.fromBuffer(
-            _payload(
+          (keyPointer, keyLength) => DomainDecoders.recoveryReport(
+            _take(
               native.lockbox_recovery_scan(
                 bytesPointer,
                 bytesLength,
@@ -816,27 +798,25 @@ final class BindingOperations {
   bool lockboxDeleteKey(ffi.Pointer<ffi.Void> handle, int id) =>
       _requireBool(native.lockbox_delete_key(handle, id));
 
-  pb.KeySlotList lockboxListKeySlots(ffi.Pointer<ffi.Void> handle) =>
-      pb.KeySlotList.fromBuffer(
-        _payload(native.lockbox_list_key_slots(handle)),
-      );
+  List<KeySlot> lockboxListKeySlots(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.keySlotList(_take(native.lockbox_list_key_slots(handle)));
 
   bool lockboxSetOwnerSigningKey(
     ffi.Pointer<ffi.Void> handle,
     ffi.Pointer<ffi.Void> key,
   ) => _requireBool(native.lockbox_set_owner_signing_key(handle, key));
 
-  pb.OwnerInspection lockboxOwnerInspection(ffi.Pointer<ffi.Void> handle) =>
-      pb.OwnerInspection.fromBuffer(
-        _payload(native.lockbox_owner_inspection(handle)),
+  OwnerInspection lockboxOwnerInspection(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.ownerInspection(
+        _take(native.lockbox_owner_inspection(handle)),
       );
 
-  pb.FormDefinition lockboxDefineForm(
+  FormDefinition lockboxDefineForm(
     ffi.Pointer<ffi.Void> handle,
     String alias,
     String name,
     String description,
-    Uint8List fieldsProto,
+    Uint8List fieldsFlatbuffer,
   ) => _withText(
     alias,
     (aliasPointer, aliasLength) => _withText(
@@ -844,10 +824,10 @@ final class BindingOperations {
       (namePointer, nameLength) => _withText(
         description,
         (descriptionPointer, descriptionLength) => _withBytes(
-          fieldsProto,
-          (fieldsProtoPointer, fieldsProtoLength) =>
-              pb.FormDefinition.fromBuffer(
-                _payload(
+          fieldsFlatbuffer,
+          (fieldsFlatbufferPointer, fieldsFlatbufferLength) =>
+              DomainDecoders.formDefinition(
+                _take(
                   native.lockbox_define_form(
                     handle,
                     aliasPointer,
@@ -856,8 +836,8 @@ final class BindingOperations {
                     nameLength,
                     descriptionPointer,
                     descriptionLength,
-                    fieldsProtoPointer,
-                    fieldsProtoLength,
+                    fieldsFlatbufferPointer,
+                    fieldsFlatbufferLength,
                   ),
                 ),
               ),
@@ -866,37 +846,37 @@ final class BindingOperations {
     ),
   );
 
-  pb.FormDefinitionList lockboxListFormDefinitions(
+  List<FormDefinition> lockboxListFormDefinitions(
     ffi.Pointer<ffi.Void> handle,
-  ) => pb.FormDefinitionList.fromBuffer(
-    _payload(native.lockbox_list_form_definitions(handle)),
+  ) => DomainDecoders.formDefinitionList(
+    _take(native.lockbox_list_form_definitions(handle)),
   );
 
-  pb.FormDefinition lockboxResolveForm(
+  FormDefinition lockboxResolveForm(
     ffi.Pointer<ffi.Void> handle,
     String reference,
   ) => _withText(
     reference,
-    (referencePointer, referenceLength) => pb.FormDefinition.fromBuffer(
-      _payload(
+    (referencePointer, referenceLength) => DomainDecoders.formDefinition(
+      _take(
         native.lockbox_resolve_form(handle, referencePointer, referenceLength),
       ),
     ),
   );
 
-  pb.FormDefinitionList lockboxListFormRevisions(
+  List<FormDefinition> lockboxListFormRevisions(
     ffi.Pointer<ffi.Void> handle,
     String typeId,
   ) => _withText(
     typeId,
-    (typeIdPointer, typeIdLength) => pb.FormDefinitionList.fromBuffer(
-      _payload(
+    (typeIdPointer, typeIdLength) => DomainDecoders.formDefinitionList(
+      _take(
         native.lockbox_list_form_revisions(handle, typeIdPointer, typeIdLength),
       ),
     ),
   );
 
-  pb.FormRecord lockboxCreateFormRecord(
+  FormRecord lockboxCreateFormRecord(
     ffi.Pointer<ffi.Void> handle,
     String path,
     String typeReference,
@@ -907,8 +887,8 @@ final class BindingOperations {
       typeReference,
       (typeReferencePointer, typeReferenceLength) => _withText(
         name,
-        (namePointer, nameLength) => pb.FormRecord.fromBuffer(
-          _payload(
+        (namePointer, nameLength) => DomainDecoders.formRecord(
+          _take(
             native.lockbox_create_form_record(
               handle,
               pathPointer,
@@ -976,20 +956,20 @@ final class BindingOperations {
     ),
   );
 
-  pb.FormRecordList lockboxListFormRecords(ffi.Pointer<ffi.Void> handle) =>
-      pb.FormRecordList.fromBuffer(
-        _payload(native.lockbox_list_form_records(handle)),
+  List<FormRecord> lockboxListFormRecords(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.formRecordList(
+        _take(native.lockbox_list_form_records(handle)),
       );
 
-  pb.OptionalFormRecord lockboxGetFormRecord(
-    ffi.Pointer<ffi.Void> handle,
-    String path,
-  ) => _withText(
-    path,
-    (pathPointer, pathLength) => pb.OptionalFormRecord.fromBuffer(
-      _payload(native.lockbox_get_form_record(handle, pathPointer, pathLength)),
-    ),
-  );
+  FormRecord? lockboxGetFormRecord(ffi.Pointer<ffi.Void> handle, String path) =>
+      _withText(
+        path,
+        (pathPointer, pathLength) => DomainDecoders.optionalFormRecord(
+          _take(
+            native.lockbox_get_form_record(handle, pathPointer, pathLength),
+          ),
+        ),
+      );
 
   bool lockboxDeleteFormRecord(ffi.Pointer<ffi.Void> handle, String path) =>
       _withText(
@@ -1001,19 +981,19 @@ final class BindingOperations {
 
   bool lockboxMoveFormRecords(
     ffi.Pointer<ffi.Void> handle,
-    Uint8List movesProto,
+    Uint8List movesFlatbuffer,
   ) => _withBytes(
-    movesProto,
-    (movesProtoPointer, movesProtoLength) => _requireBool(
+    movesFlatbuffer,
+    (movesFlatbufferPointer, movesFlatbufferLength) => _requireBool(
       native.lockbox_move_form_records(
         handle,
-        movesProtoPointer,
-        movesProtoLength,
+        movesFlatbufferPointer,
+        movesFlatbufferLength,
       ),
     ),
   );
 
-  pb.OptionalFormValue lockboxGetFormField(
+  FormValue? lockboxGetFormField(
     ffi.Pointer<ffi.Void> handle,
     String path,
     String field,
@@ -1021,8 +1001,8 @@ final class BindingOperations {
     path,
     (pathPointer, pathLength) => _withText(
       field,
-      (fieldPointer, fieldLength) => pb.OptionalFormValue.fromBuffer(
-        _payload(
+      (fieldPointer, fieldLength) => DomainDecoders.optionalFormValue(
+        _take(
           native.lockbox_get_form_field(
             handle,
             pathPointer,
@@ -1371,25 +1351,25 @@ final class BindingOperations {
   int vaultDirectoryStructureVersion(ffi.Pointer<ffi.Void> handle) =>
       native.vault_directory_structure_version(handle);
 
-  pb.StringList vaultDirectoryListPrivateKeys(ffi.Pointer<ffi.Void> handle) =>
-      pb.StringList.fromBuffer(
-        _payload(native.vault_directory_list_private_keys(handle)),
+  List<String> vaultDirectoryListPrivateKeys(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.stringList(
+        _take(native.vault_directory_list_private_keys(handle)),
       );
 
-  pb.StringList vaultDirectoryListPrivateKeyNames(
+  List<String> vaultDirectoryListPrivateKeyNames(
     ffi.Pointer<ffi.Void> handle,
-  ) => pb.StringList.fromBuffer(
-    _payload(native.vault_directory_list_private_key_names(handle)),
+  ) => DomainDecoders.stringList(
+    _take(native.vault_directory_list_private_key_names(handle)),
   );
 
-  pb.StringList vaultDirectoryListContactNames(ffi.Pointer<ffi.Void> handle) =>
-      pb.StringList.fromBuffer(
-        _payload(native.vault_directory_list_contact_names(handle)),
+  List<String> vaultDirectoryListContactNames(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.stringList(
+        _take(native.vault_directory_list_contact_names(handle)),
       );
 
-  pb.StringList vaultDirectoryListFormAliases(ffi.Pointer<ffi.Void> handle) =>
-      pb.StringList.fromBuffer(
-        _payload(native.vault_directory_list_form_aliases(handle)),
+  List<String> vaultDirectoryListFormAliases(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.stringList(
+        _take(native.vault_directory_list_form_aliases(handle)),
       );
 
   bool vaultDirectoryPrivateKeyExists(
@@ -1508,9 +1488,9 @@ final class BindingOperations {
         ),
       );
 
-  pb.ContactList vaultDirectoryListContacts(ffi.Pointer<ffi.Void> handle) =>
-      pb.ContactList.fromBuffer(
-        _payload(native.vault_directory_list_contacts(handle)),
+  List<Contact> vaultDirectoryListContacts(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.contactList(
+        _take(native.vault_directory_list_contacts(handle)),
       );
 
   bool vaultDirectoryStoreProfileEmail(
@@ -1533,13 +1513,13 @@ final class BindingOperations {
     ),
   );
 
-  pb.OptionalString vaultDirectoryProfileEmail(
+  String? vaultDirectoryProfileEmail(
     ffi.Pointer<ffi.Void> handle,
     String name,
   ) => _withText(
     name,
-    (namePointer, nameLength) => pb.OptionalString.fromBuffer(
-      _payload(
+    (namePointer, nameLength) => DomainDecoders.optionalString(
+      _take(
         native.vault_directory_profile_email(handle, namePointer, nameLength),
       ),
     ),
@@ -1657,13 +1637,13 @@ final class BindingOperations {
     ),
   );
 
-  pb.ProfileHistory vaultDirectoryListProfileGenerations(
+  ProfileHistory vaultDirectoryListProfileGenerations(
     ffi.Pointer<ffi.Void> handle,
     String name,
   ) => _withText(
     name,
-    (namePointer, nameLength) => pb.ProfileHistory.fromBuffer(
-      _payload(
+    (namePointer, nameLength) => DomainDecoders.profileHistory(
+      _take(
         native.vault_directory_list_profile_generations(
           handle,
           namePointer,
@@ -1673,13 +1653,13 @@ final class BindingOperations {
     ),
   );
 
-  pb.ProfileHistory vaultDirectoryRotatePrivateKey(
+  ProfileHistory vaultDirectoryRotatePrivateKey(
     ffi.Pointer<ffi.Void> handle,
     String name,
   ) => _withText(
     name,
-    (namePointer, nameLength) => pb.ProfileHistory.fromBuffer(
-      _payload(
+    (namePointer, nameLength) => DomainDecoders.profileHistory(
+      _take(
         native.vault_directory_rotate_private_key(
           handle,
           namePointer,
@@ -1709,10 +1689,10 @@ final class BindingOperations {
     ),
   );
 
-  pb.KnownLockboxList vaultDirectoryListKnownLockboxes(
+  List<KnownLockbox> vaultDirectoryListKnownLockboxes(
     ffi.Pointer<ffi.Void> handle,
-  ) => pb.KnownLockboxList.fromBuffer(
-    _payload(native.vault_directory_list_known_lockboxes(handle)),
+  ) => DomainDecoders.knownLockboxList(
+    _take(native.vault_directory_list_known_lockboxes(handle)),
   );
 
   bool vaultDirectoryForgetLockbox(ffi.Pointer<ffi.Void> handle, String path) =>
@@ -1749,13 +1729,13 @@ final class BindingOperations {
     ),
   );
 
-  pb.AccessSlotLabelList vaultDirectoryListAccessSlotLabels(
+  List<AccessSlotLabel> vaultDirectoryListAccessSlotLabels(
     ffi.Pointer<ffi.Void> handle,
     Uint8List id,
   ) => _withBytes(
     id,
-    (idPointer, idLength) => pb.AccessSlotLabelList.fromBuffer(
-      _payload(
+    (idPointer, idLength) => DomainDecoders.accessSlotLabelList(
+      _take(
         native.vault_directory_list_access_slot_labels(
           handle,
           idPointer,
@@ -1765,7 +1745,7 @@ final class BindingOperations {
     ),
   );
 
-  pb.AccessSlotLabelList vaultDirectoryFindAccessSlotLabels(
+  List<AccessSlotLabel> vaultDirectoryFindAccessSlotLabels(
     ffi.Pointer<ffi.Void> handle,
     Uint8List id,
     String name,
@@ -1773,8 +1753,8 @@ final class BindingOperations {
     id,
     (idPointer, idLength) => _withText(
       name,
-      (namePointer, nameLength) => pb.AccessSlotLabelList.fromBuffer(
-        _payload(
+      (namePointer, nameLength) => DomainDecoders.accessSlotLabelList(
+        _take(
           native.vault_directory_find_access_slot_labels(
             handle,
             idPointer,
@@ -1803,12 +1783,12 @@ final class BindingOperations {
     ),
   );
 
-  pb.FormDefinition vaultDirectoryDefineForm(
+  FormDefinition vaultDirectoryDefineForm(
     ffi.Pointer<ffi.Void> handle,
     String alias,
     String name,
     String description,
-    Uint8List fieldsProto,
+    Uint8List fieldsFlatbuffer,
   ) => _withText(
     alias,
     (aliasPointer, aliasLength) => _withText(
@@ -1816,10 +1796,10 @@ final class BindingOperations {
       (namePointer, nameLength) => _withText(
         description,
         (descriptionPointer, descriptionLength) => _withBytes(
-          fieldsProto,
-          (fieldsProtoPointer, fieldsProtoLength) =>
-              pb.FormDefinition.fromBuffer(
-                _payload(
+          fieldsFlatbuffer,
+          (fieldsFlatbufferPointer, fieldsFlatbufferLength) =>
+              DomainDecoders.formDefinition(
+                _take(
                   native.vault_directory_define_form(
                     handle,
                     aliasPointer,
@@ -1828,8 +1808,8 @@ final class BindingOperations {
                     nameLength,
                     descriptionPointer,
                     descriptionLength,
-                    fieldsProtoPointer,
-                    fieldsProtoLength,
+                    fieldsFlatbufferPointer,
+                    fieldsFlatbufferLength,
                   ),
                 ),
               ),
@@ -1838,13 +1818,13 @@ final class BindingOperations {
     ),
   );
 
-  pb.FormDefinition vaultDirectoryResolveForm(
+  FormDefinition vaultDirectoryResolveForm(
     ffi.Pointer<ffi.Void> handle,
     String reference,
   ) => _withText(
     reference,
-    (referencePointer, referenceLength) => pb.FormDefinition.fromBuffer(
-      _payload(
+    (referencePointer, referenceLength) => DomainDecoders.formDefinition(
+      _take(
         native.vault_directory_resolve_form(
           handle,
           referencePointer,
@@ -1854,18 +1834,18 @@ final class BindingOperations {
     ),
   );
 
-  pb.FormDefinitionList vaultDirectoryListForms(ffi.Pointer<ffi.Void> handle) =>
-      pb.FormDefinitionList.fromBuffer(
-        _payload(native.vault_directory_list_forms(handle)),
+  List<FormDefinition> vaultDirectoryListForms(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.formDefinitionList(
+        _take(native.vault_directory_list_forms(handle)),
       );
 
-  pb.FormDefinitionList vaultDirectoryListFormRevisions(
+  List<FormDefinition> vaultDirectoryListFormRevisions(
     ffi.Pointer<ffi.Void> handle,
     String typeId,
   ) => _withText(
     typeId,
-    (typeIdPointer, typeIdLength) => pb.FormDefinitionList.fromBuffer(
-      _payload(
+    (typeIdPointer, typeIdLength) => DomainDecoders.formDefinitionList(
+      _take(
         native.vault_directory_list_form_revisions(
           handle,
           typeIdPointer,
@@ -1908,21 +1888,21 @@ final class BindingOperations {
     ),
   );
 
-  pb.VaultBackupManifest vaultBackupDefault(String path, bool overwrite) =>
+  VaultBackupManifest vaultBackupDefault(String path, bool overwrite) =>
       _withText(
         path,
-        (pathPointer, pathLength) => pb.VaultBackupManifest.fromBuffer(
-          _payload(
+        (pathPointer, pathLength) => DomainDecoders.vaultBackupManifest(
+          _take(
             native.vault_backup_default(pathPointer, pathLength, overwrite),
           ),
         ),
       );
 
-  pb.VaultBackupManifest vaultRestoreDefault(String path, bool overwrite) =>
+  VaultBackupManifest vaultRestoreDefault(String path, bool overwrite) =>
       _withText(
         path,
-        (pathPointer, pathLength) => pb.VaultBackupManifest.fromBuffer(
-          _payload(
+        (pathPointer, pathLength) => DomainDecoders.vaultBackupManifest(
+          _take(
             native.vault_restore_default(pathPointer, pathLength, overwrite),
           ),
         ),
@@ -1955,25 +1935,25 @@ final class BindingOperations {
         ),
       );
 
-  pb.StringList vaultReadOnlyListProfileNames(ffi.Pointer<ffi.Void> handle) =>
-      pb.StringList.fromBuffer(
-        _payload(native.vault_read_only_list_profile_names(handle)),
+  List<String> vaultReadOnlyListProfileNames(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.stringList(
+        _take(native.vault_read_only_list_profile_names(handle)),
       );
 
-  pb.StringList vaultReadOnlyListContactNames(ffi.Pointer<ffi.Void> handle) =>
-      pb.StringList.fromBuffer(
-        _payload(native.vault_read_only_list_contact_names(handle)),
+  List<String> vaultReadOnlyListContactNames(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.stringList(
+        _take(native.vault_read_only_list_contact_names(handle)),
       );
 
-  pb.StringList vaultReadOnlyListFormAliases(ffi.Pointer<ffi.Void> handle) =>
-      pb.StringList.fromBuffer(
-        _payload(native.vault_read_only_list_form_aliases(handle)),
+  List<String> vaultReadOnlyListFormAliases(ffi.Pointer<ffi.Void> handle) =>
+      DomainDecoders.stringList(
+        _take(native.vault_read_only_list_form_aliases(handle)),
       );
 
-  pb.KnownLockboxList vaultReadOnlyListKnownLockboxes(
+  List<KnownLockbox> vaultReadOnlyListKnownLockboxes(
     ffi.Pointer<ffi.Void> handle,
-  ) => pb.KnownLockboxList.fromBuffer(
-    _payload(native.vault_read_only_list_known_lockboxes(handle)),
+  ) => DomainDecoders.knownLockboxList(
+    _take(native.vault_read_only_list_known_lockboxes(handle)),
   );
 
   void vaultReadOnlyFree(ffi.Pointer<ffi.Void> handle) =>
@@ -2009,14 +1989,14 @@ final class BindingOperations {
 
   bool vaultAgentStart() => _requireBool(native.vault_agent_start());
 
-  pb.AgentEntryList vaultAgentList() =>
-      pb.AgentEntryList.fromBuffer(_payload(native.vault_agent_list()));
+  List<AgentEntry> vaultAgentList() =>
+      DomainDecoders.agentEntryList(_take(native.vault_agent_list()));
 
-  pb.SleepSupport vaultAgentSleepSupport() =>
-      pb.SleepSupport.fromBuffer(_payload(native.vault_agent_sleep_support()));
+  SleepSupport vaultAgentSleepSupport() =>
+      DomainDecoders.sleepSupport(_take(native.vault_agent_sleep_support()));
 
-  pb.PlatformStatus vaultPlatformStatus() =>
-      pb.PlatformStatus.fromBuffer(_payload(native.vault_platform_status()));
+  PlatformStatus vaultPlatformStatus() =>
+      DomainDecoders.platformStatus(_take(native.vault_platform_status()));
 
   bool vaultPlatformSetScope(String scope) => _withText(
     scope,

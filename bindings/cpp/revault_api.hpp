@@ -4,10 +4,10 @@
  * @file revault_api.hpp
  * @brief RAII C++ API for encrypted reVault lockboxes and local vaults.
  *
- * `revault::Vault` is the entry point for creating or opening lockboxes,
- * managing cryptographic keys, and opening the local metadata vault. Owned
- * native handles release themselves; secret values are exposed only to
- * callback-scoped byte spans.
+ * Use the functions and classes in `revault` to create or open lockboxes,
+ * manage cryptographic keys, and open the local metadata vault. Objects that
+ * retain sensitive state release it when destroyed; secret values are exposed
+ * only to callback-scoped byte spans.
  *
  * See the [repository README](https://github.com/onepub-dev/reVault#readme)
  * for installation, the security model, and complete examples.
@@ -24,7 +24,7 @@
 #include <vector>
 
 #include <revault_api.h>
-#include <revault_bindings.pb.h>
+#include "domain_models.hpp"
 
 /** High-level, ownership-safe wrappers around the stable reVault C ABI. */
 namespace revault {
@@ -38,8 +38,8 @@ class WrappedContactKey;
 namespace detail {
 
 inline void require_compatible_abi() {
-  if (api_abi_version() != 2)
-    throw std::runtime_error("revault-api native ABI mismatch; expected 2");
+  if (api_abi_version() != 3)
+    throw std::runtime_error("revault-api native ABI mismatch; expected 3");
 }
 
 class Buffer {
@@ -118,34 +118,11 @@ template <typename Message>
 Message take_message(RevaultBuffer result) {
   if (!result.ptr) throw std::runtime_error(buffer_last_error());
   Buffer owned(result);
-  if (owned.size() < 12 || std::string_view(
-          reinterpret_cast<const char*>(owned.data()), 4) != "LBWF")
-    throw std::runtime_error("invalid reVault binary frame");
-  const auto* bytes = owned.data();
-  const std::size_t length = (static_cast<std::size_t>(bytes[8]) << 24) |
-                             (static_cast<std::size_t>(bytes[9]) << 16) |
-                             (static_cast<std::size_t>(bytes[10]) << 8) |
-                             static_cast<std::size_t>(bytes[11]);
-  if (length + 12 != owned.size())
-    throw std::runtime_error("invalid reVault binary frame length");
-  Message message;
-  if (!message.ParseFromArray(bytes + 12, static_cast<int>(length)))
-    throw std::runtime_error("invalid reVault protobuf payload");
-  return message;
+  return decode<Message>({owned.data(), owned.size()});
 }
 
 inline bindings::ErrorDetails last_error_details() {
   return take_message<bindings::ErrorDetails>(buffer_last_error_details());
-}
-
-inline std::string encode_moves(
-    const std::vector<std::pair<std::string, std::string>>& moves) {
-  bindings::PathMoveList message;
-  for (const auto& [source, destination] : moves) {
-    auto* item = message.add_values();
-    item->set_source(source); item->set_destination(destination);
-  }
-  return message.SerializeAsString();
 }
 
 }  // namespace detail
@@ -158,7 +135,8 @@ inline bindings::ErrorDetails last_error_details() {
   return detail::last_error_details();
 }
 
-/** Shareable contact public key used to encrypt a recipient content key. */
+/** A recipient's shareable encryption identity, used when granting that
+ * recipient lockbox access and containing no private key material. */
 class ContactPublicKey {
  public:
   /** Returns the contact public key. */
@@ -198,7 +176,8 @@ class ContactPublicKey {
   void* handle_{};
 };
 
-/** Move-only encrypted content-key envelope for one contact recipient. */
+/** A content key encrypted for one contact, stored with an access record and
+ * recoverable only by the matching ContactKeyPair. */
 class WrappedContactKey {
  public:
   /** Returns the wrapped contact key. */
@@ -232,7 +211,8 @@ inline WrappedContactKey ContactPublicKey::encrypt(
       handle_, content_key.data(), content_key.size()));
 }
 
-/** Move-only contact key pair used to decrypt received content keys. */
+/** A profile's contact-encryption identity; distribute its public half and
+ * retain the private half to decrypt content keys addressed to the profile. */
 class ContactKeyPair {
  public:
   /** Returns the contact key pair. */
@@ -279,7 +259,8 @@ class ContactKeyPair {
   void* handle_{};
 };
 
-/** Public key used to verify owner-authorized lockbox commits. */
+/** The shareable half of a lockbox owner's signing identity, used by readers to
+ * verify owner-authorized revisions. */
 class SigningPublicKey {
  public:
   /** Returns the signing public key. */
@@ -305,7 +286,8 @@ class SigningPublicKey {
   void* handle_{};
 };
 
-/** Move-only signing key pair used to authorize mutable lockbox commits. */
+/** A lockbox owner's signing identity, supplied when creating or committing a
+ * mutable lockbox so readers can authenticate its revisions. */
 class SigningKeyPair {
  public:
   /** Returns the signing key pair. */
@@ -341,7 +323,8 @@ class SigningKeyPair {
   void* handle_{};
 };
 
-/** Runtime cache and worker tuning for opening or creating lockboxes. */
+/** Memory and CPU settings applied when creating or opening a Lockbox; the
+ * defaults suit interactive applications. */
 struct LockboxOptions {
   /** Cache strategy, such as `bytes`. */
   std::string cache_mode{"bytes"};
@@ -355,7 +338,8 @@ struct LockboxOptions {
   std::size_t jobs{0};
 };
 
-/** Move-only, mutable view of one encrypted lockbox archive. */
+/** An open encrypted archive containing files, variables, secrets, and forms;
+ * commit mutations and release the object when finished with decrypted data. */
 class Lockbox {
  public:
   /** Returns the supported lockbox format version. */
@@ -582,8 +566,8 @@ class Lockbox {
   }
   /** Returns variable. */
   std::optional<std::string> get_variable(const std::string& name) const {
-    auto value = decoded<bindings::OptionalString>(lockbox_get_variable(handle_, name.data(), name.size()));
-    return value.present() ? std::optional<std::string>(value.value()) : std::nullopt;
+    return decoded<bindings::OptionalString>(
+        lockbox_get_variable(handle_, name.data(), name.size()));
   }
   /** Returns the with secret variable. */
   bool with_secret_variable(const std::string& name,
@@ -598,7 +582,7 @@ class Lockbox {
     if (!lockbox_delete_variable(handle_, name.data(), name.size())) throw std::runtime_error(buffer_last_error());
   }
   /** Updates variables. */
-  void move_variables(const std::vector<std::pair<std::string, std::string>>& moves) {
+  void move_variables(const bindings::PathMoveList& moves) {
     const auto encoded = detail::encode_moves(moves);
     if (!lockbox_move_variables(handle_, reinterpret_cast<const std::uint8_t*>(encoded.data()), encoded.size()))
       throw std::runtime_error(buffer_last_error());
@@ -659,7 +643,7 @@ class Lockbox {
                                        const std::string& name,
                                        const std::string& description,
                                        const bindings::FormFieldList& fields) {
-    const std::string encoded = fields.SerializeAsString();
+    const std::string encoded = detail::encode_fields(fields);
     return decoded<bindings::FormDefinition>(lockbox_define_form(
         handle_, alias.data(), alias.size(), name.data(), name.size(),
         description.data(), description.size(),
@@ -716,7 +700,7 @@ class Lockbox {
       throw std::runtime_error(buffer_last_error());
   }
   /** Updates form records. */
-  void move_form_records(const std::vector<std::pair<std::string, std::string>>& moves) {
+  void move_form_records(const bindings::PathMoveList& moves) {
     const auto encoded = detail::encode_moves(moves);
     if (!lockbox_move_form_records(handle_, reinterpret_cast<const std::uint8_t*>(encoded.data()), encoded.size()))
       throw std::runtime_error(buffer_last_error());
@@ -761,34 +745,13 @@ class Lockbox {
   template <typename Message>
   static Message decoded(RevaultBuffer result) {
     detail::Buffer owned = checked(result);
-    if (owned.size() < 12 || std::string_view(
-            reinterpret_cast<const char*>(owned.data()), 4) != "LBWF")
-      throw std::runtime_error("invalid reVault binary frame");
-    const auto* bytes = owned.data();
-    const std::size_t length = (static_cast<std::size_t>(bytes[8]) << 24) |
-                               (static_cast<std::size_t>(bytes[9]) << 16) |
-                               (static_cast<std::size_t>(bytes[10]) << 8) |
-                               static_cast<std::size_t>(bytes[11]);
-    if (length + 12 != owned.size())
-      throw std::runtime_error("invalid reVault binary frame length");
-    Message message;
-    if (!message.ParseFromArray(bytes + 12, static_cast<int>(length))) {
-      constexpr char hex_digits[] = "0123456789abcdef";
-      std::string hex;
-      for (std::size_t index = 0; index < std::min(length, std::size_t{32}); ++index) {
-        const auto byte = bytes[index + 12];
-        hex.push_back(hex_digits[byte >> 4]);
-        hex.push_back(hex_digits[byte & 0x0f]);
-      }
-      throw std::runtime_error("invalid reVault protobuf payload (" +
-                               std::to_string(length) + " bytes; prefix " + hex + ")");
-    }
-    return message;
+    return detail::decode<Message>({owned.data(), owned.size()});
   }
   void* handle_;
 };
 
-/** Move-only, writable, password-protected local metadata vault. */
+/** A writable, password-protected store for profile keys, contacts, forms,
+ * backups, and remembered lockbox paths; lockbox contents remain separate. */
 class VaultDirectory {
  public:
   /** Returns the current structure version. */
@@ -1049,7 +1012,7 @@ class VaultDirectory {
                                        const std::string& name,
                                        const std::string& description,
                                        const bindings::FormFieldList& fields) const {
-    const std::string encoded = fields.SerializeAsString();
+    const std::string encoded = detail::encode_fields(fields);
     return detail::take_message<bindings::FormDefinition>(vault_directory_define_form(
         handle_, alias.data(), alias.size(), name.data(), name.size(),
         description.data(), description.size(),
@@ -1097,7 +1060,8 @@ class VaultDirectory {
   void* handle_{};
 };
 
-/** Move-only metadata view that never loads an owner signing key. */
+/** A restricted metadata view for discovery or diagnostics without loading an
+ * owner signing key or exposing mutation operations. */
 class ReadOnlyVaultDirectory {
  public:
   /** Returns only vault directory. */
@@ -1167,7 +1131,8 @@ class KeyFormat {
   }
 };
 
-/** Move-only registration for an operation that currently requires secret access. */
+/** A lifetime token kept alive while an operation needs cached secrets; destroy
+ * it afterward so the session agent can expire unused secrets. */
 class AgentActivity {
  public:
   /** Returns the agent activity. */
@@ -1193,7 +1158,8 @@ class AgentActivity {
   void* handle_{};
 };
 
-/** Client for the local session agent's time-limited secret cache. */
+/** Client for the local session service that temporarily caches vault unlock
+ * and owner signing keys across application operations. */
 class Agent {
  public:
   /** Starts start. */
@@ -1277,7 +1243,7 @@ class Agent {
   }
 };
 
-/** Controls integration with the operating system's secret store. */
+/** Access to operating-system credential storage for a scoped vault password. */
 class PlatformSecretStore {
  public:
   /** Returns the status. */
@@ -1309,7 +1275,8 @@ class PlatformSecretStore {
   }
 };
 
-/** High-level workflow for local metadata and remembered lockbox files. */
+/** A session for creating or opening lockboxes by host path, caching short-lived
+ * passwords, and committing and closing files used by a local application. */
 class LocalVault {
  public:
   /** Returns the local vault. */
