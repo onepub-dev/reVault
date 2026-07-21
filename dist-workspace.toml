@@ -9,6 +9,7 @@ tag-namespace = "revault_cli-v"
 github-attestations = true
 pr-run-mode = "plan"
 publish-jobs = ["./revault-cli-crates"]
+github-custom-job-permissions = { "revault-cli-crates" = { contents = "read", id-token = "write", packages = "write" } }
 
 [dist.dependencies.apt]
 libdbus-1-dev = "*"
