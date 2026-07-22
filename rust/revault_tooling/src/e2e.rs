@@ -534,10 +534,11 @@ fn native_conformance(args: NativeConformance) -> Result {
     let mut combined = Vec::new();
     for phase in ["--core", "--agent", "--platform", "--last-error"] {
         println!("running native conformance phase {phase}");
+        let phase_output = work.join(format!("{}.tsv", phase.trim_start_matches('-')));
         let mut command = Command::new(&executable);
         command
             .arg(phase)
-            .stdout(Stdio::piped())
+            .stdout(fs::File::create(&phase_output)?)
             .stderr(Stdio::inherit());
         if cfg!(target_os = "linux") {
             command.env("LD_LIBRARY_PATH", &library_dir);
@@ -569,16 +570,10 @@ fn native_conformance(args: NativeConformance) -> Result {
             }
             thread::sleep(Duration::from_millis(50));
         };
-        let mut stdout = Vec::new();
-        child
-            .stdout
-            .take()
-            .ok_or("native conformance stdout was not captured")?
-            .read_to_end(&mut stdout)?;
         if !status.success() {
             return Err(format!("native conformance phase {phase} failed with {status}").into());
         }
-        combined.extend_from_slice(&stdout);
+        combined.extend_from_slice(&fs::read(&phase_output)?);
     }
     let results = work.join("results.tsv");
     fs::write(&results, combined)?;

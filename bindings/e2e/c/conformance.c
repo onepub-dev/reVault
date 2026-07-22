@@ -1015,6 +1015,7 @@ static void agent_and_local_vault(void) {
   PASS(vault_forget_all, 1);
   AgentProcess child = spawn_agent();
 
+  trace_phase("agent startup");
   bool running = false;
   for (unsigned attempt = 0; attempt < 200; ++attempt) {
     if (vault_is_running()) {
@@ -1031,6 +1032,7 @@ static void agent_and_local_vault(void) {
   CHECK(vault_agent_verify_transport(), "agent transport security");
   PASS(vault_agent_verify_transport, 1);
 
+  trace_phase("agent content-key cache");
   uint8_t id[16];
   uint8_t key[32];
   for (size_t i = 0; i < sizeof(id); ++i) id[i] = (uint8_t)(0xc0 + i);
@@ -1042,12 +1044,14 @@ static void agent_and_local_vault(void) {
   PASS(vault_agent_get, 3);
   PASS(vault_agent_list, 1);
 
+  trace_phase("agent vault-unlock cache");
   CHECK(vault_agent_put_vault_unlock_key("vault-id", 8, key, sizeof(key), 120),
         "agent put vault key");
   expect_raw(vault_agent_get_vault_unlock_key("vault-id", 8), key, sizeof(key));
   PASS(vault_agent_put_vault_unlock_key, 1);
   PASS(vault_agent_get_vault_unlock_key, 3);
 
+  trace_phase("agent owner-signing cache");
   void *owner = key_signing_generate();
   CHECK(owner != NULL, "agent owner fixture");
   CHECK(vault_agent_put_owner_signing_key("vault-id", 8, "alice", 5, owner, 120),
@@ -1059,6 +1063,7 @@ static void agent_and_local_vault(void) {
   PASS(vault_agent_get_owner_signing_key, 1);
   key_signing_free(loaded_owner);
 
+  trace_phase("agent secret activity");
   void *activity = vault_agent_begin_activity("open", 4);
   CHECK(activity != NULL, "begin agent activity");
   PASS(vault_agent_begin_activity, 1);
@@ -1067,6 +1072,7 @@ static void agent_and_local_vault(void) {
   expect_framed_nonempty(vault_agent_sleep_support(), "agent sleep support");
   PASS(vault_agent_sleep_support, 1);
 
+  trace_phase("agent diagnostics");
   RevaultBuffer log_path = vault_agent_log_path();
   CHECK(log_path.ptr != NULL && log_path.len > 0, "agent log path");
   buffer_free(log_path);
@@ -1077,6 +1083,7 @@ static void agent_and_local_vault(void) {
   PASS(vault_agent_log_path, 2);
   PASS(vault_agent_log_destination, 2);
 
+  trace_phase("agent local vault");
   void *local = vault_local();
   CHECK(local != NULL, "local vault handle");
   PASS(vault_local, 1);
@@ -1156,6 +1163,7 @@ static void agent_and_local_vault(void) {
   vault_free(local);
   PASS(vault_free, 1);
 
+  trace_phase("agent cleanup");
   CHECK(vault_agent_forget_owner_signing_key("vault-id", 8, "alice", 5),
         "forget agent owner key");
   CHECK(vault_agent_forget_vault_unlock_key("vault-id", 8), "forget agent vault key");
