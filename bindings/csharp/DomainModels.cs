@@ -3,7 +3,8 @@ using Google.FlatBuffers;
 namespace Revault;
 
 /// <summary>Identifies the filesystem object stored at a lockbox path.</summary>
-public enum LockboxEntryKind {
+public enum LockboxEntryKind
+{
     /// <summary>No recognized kind was reported.</summary>
     Unspecified,
     /// <summary>A regular file.</summary>
@@ -297,51 +298,63 @@ internal static class DomainCodec
     private static ErrorDetails FromInternal(Revault.Internal.Transport.ErrorDetailsT value) =>
         new(value.Category ?? string.Empty, value.ArtifactKind ?? string.Empty, value.FoundVersion, value.SupportedVersion, value.Message ?? string.Empty, value.Guidance ?? string.Empty);
     internal static ErrorDetails ErrorDetails(byte[] bytes) => FromInternal(Revault.Internal.Transport.ErrorDetails.GetRootAsErrorDetails(new ByteBuffer(bytes)).UnPack());
-    internal static IReadOnlyList<StreamChunk> StreamChunkList(byte[] bytes) {
+    internal static IReadOnlyList<StreamChunk> StreamChunkList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.StreamChunkList.GetRootAsStreamChunkList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<StreamChunk>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<PageInspection> PageInspectionList(byte[] bytes) {
+    internal static IReadOnlyList<PageInspection> PageInspectionList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.PageInspectionList.GetRootAsPageInspectionList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<PageInspection>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<LockboxEntry> LockboxEntryList(byte[] bytes) {
+    internal static IReadOnlyList<LockboxEntry> LockboxEntryList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.LockboxEntryList.GetRootAsLockboxEntryList(new ByteBuffer(bytes)).UnPack().Entries;
         return values is null ? Array.Empty<LockboxEntry>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<Variable> VariableList(byte[] bytes) {
+    internal static IReadOnlyList<Variable> VariableList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.VariableList.GetRootAsVariableList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<Variable>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<KeySlot> KeySlotList(byte[] bytes) {
+    internal static IReadOnlyList<KeySlot> KeySlotList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.KeySlotList.GetRootAsKeySlotList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<KeySlot>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<FormDefinition> FormDefinitionList(byte[] bytes) {
+    internal static IReadOnlyList<FormDefinition> FormDefinitionList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.FormDefinitionList.GetRootAsFormDefinitionList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<FormDefinition>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<FormRecord> FormRecordList(byte[] bytes) {
+    internal static IReadOnlyList<FormRecord> FormRecordList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.FormRecordList.GetRootAsFormRecordList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<FormRecord>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<Contact> ContactList(byte[] bytes) {
+    internal static IReadOnlyList<Contact> ContactList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.ContactList.GetRootAsContactList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<Contact>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<KnownLockbox> KnownLockboxList(byte[] bytes) {
+    internal static IReadOnlyList<KnownLockbox> KnownLockboxList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.KnownLockboxList.GetRootAsKnownLockboxList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<KnownLockbox>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<AccessSlotLabel> AccessSlotLabelList(byte[] bytes) {
+    internal static IReadOnlyList<AccessSlotLabel> AccessSlotLabelList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.AccessSlotLabelList.GetRootAsAccessSlotLabelList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<AccessSlotLabel>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<AgentEntry> AgentEntryList(byte[] bytes) {
+    internal static IReadOnlyList<AgentEntry> AgentEntryList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.AgentEntryList.GetRootAsAgentEntryList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<AgentEntry>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<ProfileHistory> ProfileHistoryList(byte[] bytes) {
+    internal static IReadOnlyList<ProfileHistory> ProfileHistoryList(byte[] bytes)
+    {
         var values = Revault.Internal.Transport.ProfileHistoryList.GetRootAsProfileHistoryList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<ProfileHistory>() : values.Select(FromInternal).ToArray();
     }

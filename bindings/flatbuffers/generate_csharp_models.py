@@ -38,7 +38,8 @@ base = [name for name in tables if name not in wrappers]
 lines = [
     "using Google.FlatBuffers;", "", "namespace Revault;", "",
     "/// <summary>Identifies the filesystem object stored at a lockbox path.</summary>",
-    "public enum LockboxEntryKind {",
+    "public enum LockboxEntryKind",
+    "{",
     "    /// <summary>No recognized kind was reported.</summary>", "    Unspecified,",
     "    /// <summary>A regular file.</summary>", "    File,",
     "    /// <summary>A symbolic link.</summary>", "    Symlink,",
@@ -86,7 +87,7 @@ list_types = {
 }
 for wrapper, item in list_types.items():
     field = "Entries" if wrapper == "LockboxEntryList" else "Values"
-    lines += [f"    internal static IReadOnlyList<{item}> {wrapper}(byte[] bytes) {{", f"        var values = Revault.Internal.Transport.{wrapper}.GetRootAs{wrapper}(new ByteBuffer(bytes)).UnPack().{field};", f"        return values is null ? Array.Empty<{item}>() : values.Select(FromInternal).ToArray();", "    }"]
+    lines += [f"    internal static IReadOnlyList<{item}> {wrapper}(byte[] bytes)", "    {", f"        var values = Revault.Internal.Transport.{wrapper}.GetRootAs{wrapper}(new ByteBuffer(bytes)).UnPack().{field};", f"        return values is null ? Array.Empty<{item}>() : values.Select(FromInternal).ToArray();", "    }"]
 lines += [
     "    internal static IReadOnlyList<string> StringList(byte[] bytes) => Revault.Internal.Transport.StringList.GetRootAsStringList(new ByteBuffer(bytes)).UnPack().Values?.ToArray() ?? Array.Empty<string>();",
     "    internal static LockboxEntry? OptionalLockboxEntry(byte[] bytes) { var value = Revault.Internal.Transport.OptionalLockboxEntry.GetRootAsOptionalLockboxEntry(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }",
