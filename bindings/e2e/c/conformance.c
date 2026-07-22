@@ -137,8 +137,8 @@ static AgentProcess spawn_agent(void) {
 
 static void wait_for_agent(AgentProcess child) {
 #ifdef _WIN32
-  CHECK(WaitForSingleObject(child, INFINITE) == WAIT_OBJECT_0,
-        "wait for agent");
+  CHECK(WaitForSingleObject(child, 10000) == WAIT_OBJECT_0,
+        "agent stopped within ten seconds");
   DWORD status = 1;
   CHECK(GetExitCodeProcess(child, &status) && status == 0,
         "agent exit status");
@@ -148,6 +148,11 @@ static void wait_for_agent(AgentProcess child) {
   CHECK(waitpid(child, &status, 0) == child, "wait for agent");
   CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0, "agent exit status");
 #endif
+}
+
+static void trace_phase(const char *phase) {
+  fprintf(stderr, "native conformance: %s\n", phase);
+  fflush(stderr);
 }
 
 static void pause_for_agent(void) {
@@ -1504,10 +1509,12 @@ int main(int argc, char **argv) {
     return 1;
   }
   if (argc == 2 && strcmp(argv[1], "--agent") == 0) {
+    trace_phase("agent and local vault");
     agent_and_local_vault();
     return 0;
   }
   if (argc == 2 && strcmp(argv[1], "--platform") == 0) {
+    trace_phase("platform secret store");
     platform_secret_store();
     return 0;
   }
@@ -1528,12 +1535,19 @@ int main(int argc, char **argv) {
     PASS(buffer_last_error, 1);
     return 0;
   }
+  trace_phase("archive lifecycle");
   archive_lifecycle();
+  trace_phase("key lifecycle");
   key_lifecycle();
+  trace_phase("advanced archive");
   archive_advanced();
+  trace_phase("vault lifecycle");
   vault_lifecycle();
+  trace_phase("default vault lifecycle");
   default_vault_lifecycle();
+  trace_phase("agent and local vault");
   agent_and_local_vault();
+  trace_phase("platform secret store");
   platform_secret_store();
   const char *error = buffer_last_error();
   CHECK(error != NULL, "last-error pointer");
