@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:revault_api/vault.dart';
+import 'package:revault_api/revault_api.dart';
 
 late final Vault api;
 void pass(String symbol, [int assertions = 1]) =>
