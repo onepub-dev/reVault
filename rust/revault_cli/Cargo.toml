@@ -3,9 +3,11 @@ name = "revault_cli"
 version = "0.0.3"
 edition = "2021"
 rust-version = "1.95"
+authors = ["OnePub IP Pty Ltd <support@onepub.dev>"]
 license-file = "LICENSE"
 description = "CLI for reVault encrypted lockboxes, store files, variables and forms with integration to your platform key storage"
 repository = "https://github.com/onepub-dev/reVault"
+homepage = "https://github.com/onepub-dev/reVault"
 documentation = "https://docs.rs/revault_cli"
 readme = "README.md"
 exclude = [
@@ -15,6 +17,25 @@ exclude = [
     "*.profile-backup",
     ".env",
 ]
+
+[package.metadata.dist]
+display-name = "reVault CLI"
+install-path = "~/.revault/bin"
+installers = ["shell", "powershell", "msi"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "x86_64-pc-windows-msvc",
+]
+unix-archive = ".tar.gz"
+
+[package.metadata.wix]
+upgrade-guid = "A6F49109-D525-434D-815E-1AE5C8160B52"
+path-guid = "09D9BEC0-8140-4FF1-9F2F-87F0D78FE444"
+license = "LICENSE"
+eula = false
 
 [[bin]]
 name = "lockbox"

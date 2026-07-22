@@ -34,8 +34,9 @@ enum Command {
         #[command(subcommand)]
         command: repository::BindingsCommand,
     },
-    /// Publish the ordered migration release set.
-    PublishMigration {
+    /// Publish the CLI and its workspace dependencies in dependency order.
+    #[command(name = "publish-cli", visible_alias = "publish-migration")]
+    PublishCli {
         #[arg(long, conflicts_with = "publish")]
         dry_run: bool,
         #[arg(long, conflicts_with = "dry_run")]
@@ -58,10 +59,10 @@ fn run() -> Result {
         Command::Release { command } => release::run(command),
         Command::E2e { command } => e2e::run(command),
         Command::Bindings { command } => repository::run(command),
-        Command::PublishMigration {
+        Command::PublishCli {
             dry_run,
             publish,
             repository,
-        } => release::publish_migration(&repository, publish && !dry_run),
+        } => release::publish_cli(&repository, publish && !dry_run),
     }
 }

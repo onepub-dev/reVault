@@ -4,10 +4,8 @@ declare(strict_types=1);
 require __DIR__ . '/vendor/autoload.php';
 
 use Revault\Vault;
-use Revault\Bindings\FormField;
-use Revault\Bindings\FormFieldList;
-use Revault\Bindings\PathMove;
-use Revault\Bindings\PathMoveList;
+use Revault\FormField;
+use Revault\PathMove;
 
 $api = new Vault();
 
@@ -18,15 +16,14 @@ function artifactRoot(): string {
     if (!is_dir($path)) mkdir($path, 0700, true);
     return $path;
 }
-function fields(): string {
-    return (new FormFieldList(['values' => [new FormField([
-        'id' => 'username', 'label' => 'Username', 'kind' => 'text', 'required' => true,
-    ])]]))->serializeToString();
+function fields(): array {
+    return [
+        new FormField('username', 'Username', 'text', true),
+        new FormField('password', 'Password', 'secret', true),
+    ];
 }
-function moves(string $source, string $destination): string {
-    return (new PathMoveList(['values' => [new PathMove([
-        'source' => $source, 'destination' => $destination,
-    ])]]))->serializeToString();
+function moves(string $source, string $destination): array {
+    return [new PathMove($source, $destination)];
 }
 function freeHandle(object $value, string $symbol): void { $value->free(); pass($symbol); }
 
@@ -44,11 +41,13 @@ function archiveLifecycle(Vault $api): void {
     check($box->exists('/renamed.txt') && !$box->exists('/hello.txt'), 'exists'); pass('lockbox_exists', 2);
     $box->setPermissions('/renamed.txt', 0600); pass('lockbox_set_permissions', 2);
     check($box->readRange('/renamed.txt', 0, 11) === 'replacement', 'range'); pass('lockbox_read_range', 3);
-    $box->setVariable('normal', 'value', false); pass('lockbox_set_variable');
+    $box->setVariable('normal', 'value'); pass('lockbox_set_variable');
     check($box->getVariable('normal') === 'value', 'variable'); pass('lockbox_get_variable', 3);
     $box->moveVariables(moves('normal', 'moved')); check($box->getVariable('moved') === 'value', 'moved variable');
     $box->moveVariables(moves('moved', 'normal')); pass('lockbox_move_variables', 3);
-    $box->setVariable('secret', 'hidden', true);
+    $box->setSecretVariable('secret', 'hidden'); pass('lockbox_set_secret_variable');
+    check($box->withSecretVariable('secret', fn (\FFI\CData $value, int $length): int => $length) === 6, 'secret variable');
+    pass('lockbox_get_secret_variable'); pass('secret_len'); pass('secret_copy'); pass('secret_free');
     $box->variableSensitivity('secret'); pass('lockbox_variable_sensitivity', 2);
     check(count($box->listVariables()->getValues()) === 2, 'variables'); pass('lockbox_list_variables');
     $box->deleteVariable('normal'); pass('lockbox_delete_variable');
@@ -121,7 +120,10 @@ function advancedArchive(Vault $api): void {
     $box->listFormDefinitions(); $box->resolveForm('account'); $box->listFormRevisions($typeId);
     pass('lockbox_list_form_definitions'); pass('lockbox_resolve_form'); pass('lockbox_list_form_revisions');
     $box->createFormRecord('/account.form', 'account', 'Primary'); pass('lockbox_create_form_record');
-    $box->setFormField('/account.form', 'username', 'alice', false); pass('lockbox_set_form_field');
+    $box->setFormField('/account.form', 'username', 'alice'); pass('lockbox_set_form_field');
+    $box->setSecretFormField('/account.form', 'password', 'hidden'); pass('lockbox_set_secret_form_field');
+    check($box->withSecretFormField('/account.form', 'password', fn (\FFI\CData $value, int $length): int => $length) === 6, 'secret form field');
+    pass('lockbox_get_secret_form_field');
     $box->getFormRecord('/account.form'); $box->getFormField('/account.form', 'username'); $box->listFormRecords();
     pass('lockbox_get_form_record'); pass('lockbox_get_form_field'); pass('lockbox_list_form_records');
     $box->moveFormRecords(moves('/account.form', '/moved.form')); $box->getFormRecord('/moved.form');

@@ -3,11 +3,14 @@ use std::fmt;
 /// Native persisted artifact whose format version was rejected.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArtifactKind {
+    /// Portable encrypted `.lbox` archive.
     Lockbox,
+    /// Local vault directory and its metadata.
     Vault,
 }
 
 impl ArtifactKind {
+    /// Returns the user-facing artifact name used in diagnostics.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Lockbox => "archive",
@@ -23,8 +26,11 @@ pub enum Error {
     CorruptHeader,
     /// A valid artifact uses a native format this build cannot read.
     UnsupportedFormatVersion {
+        /// Kind of persisted artifact that was probed.
         artifact: ArtifactKind,
+        /// Version encoded by the artifact.
         found: u32,
+        /// Newest version supported by this build.
         supported: u32,
     },
     /// An encrypted record or decoded page failed validation.

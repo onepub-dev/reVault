@@ -4,11 +4,17 @@ plugins {
 }
 
 group = "dev.onepub"
-version = "0.1.0"
+version = "0.2.0"
 
 repositories { mavenLocal(); mavenCentral() }
-dependencies { api("dev.onepub:revault-api:0.1.0") }
+dependencies {
+    api("dev.onepub:revault-api:0.2.0")
+    implementation("com.google.flatbuffers:flatbuffers-java:25.2.10")
+}
 java { toolchain { languageVersion.set(JavaLanguageVersion.of(22)) } }
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions.allWarningsAsErrors.set(true)
+}
 
 mavenPublishing {
     publishToMavenCentral(automaticRelease = true, validateDeployment = true)
@@ -26,7 +32,19 @@ mavenPublishing {
                 url.set("https://github.com/onepub-dev/reVault/blob/master/rust/revault_lockbox_api/LICENSE")
             }
         }
-        scm { url.set("https://github.com/onepub-dev/reVault") }
-        developers { developer { id.set("onepub"); name.set("OnePub") } }
+        scm {
+            connection.set("scm:git:https://github.com/onepub-dev/reVault.git")
+            developerConnection.set("scm:git:ssh://git@github.com/onepub-dev/reVault.git")
+            url.set("https://github.com/onepub-dev/reVault")
+        }
+        developers {
+            developer {
+                id.set("onepub")
+                name.set("OnePub")
+                email.set("bsutton@onepub.dev")
+                organization.set("OnePub")
+                organizationUrl.set("https://onepub.dev")
+            }
+        }
     }
 }

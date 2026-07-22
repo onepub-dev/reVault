@@ -4,13 +4,18 @@ use sha2::{Digest, Sha256};
 
 const MAGIC: &[u8; 4] = b"LBSP";
 const HEADER_LEN: usize = 12;
+/// Represents the fingerprint len constant case.
 pub const CONTACT_FINGERPRINT_LEN: usize = 16;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u16)]
+/// Represents payload type.
 pub enum PayloadType {
+    /// Represents the contact publish case.
     ContactPublish = 1,
+    /// Represents the signed key replacement case.
     SignedKeyReplacement = 2,
+    /// Represents the unsigned key replacement case.
     UnsignedKeyReplacement = 3,
 }
 
@@ -26,14 +31,23 @@ impl PayloadType {
 }
 
 #[derive(Debug)]
+/// Represents payload error.
 pub enum PayloadError {
+    /// Represents the too short case.
     TooShort,
+    /// Represents the bad magic case.
     BadMagic,
+    /// Represents the unsupported version case.
     UnsupportedVersion,
+    /// Represents the unknown type case.
     UnknownType,
+    /// Represents the trailing bytes case.
     TrailingBytes,
+    /// Represents the field too large case.
     FieldTooLarge,
+    /// Represents the missing field case.
     MissingField,
+    /// Represents the invalid field case.
     InvalidField,
 }
 
@@ -45,6 +59,7 @@ impl fmt::Display for PayloadError {
 
 impl std::error::Error for PayloadError {}
 
+/// Returns the validate payload.
 pub fn validate_payload(bytes: &[u8]) -> Result<PayloadType, PayloadError> {
     if bytes.len() < HEADER_LEN {
         return Err(PayloadError::TooShort);
@@ -74,6 +89,7 @@ pub fn validate_payload(bytes: &[u8]) -> Result<PayloadType, PayloadError> {
     Ok(payload_type)
 }
 
+/// Encodes contact publish.
 pub fn encode_contact_publish(
     profile: &str,
     public_key: &[u8],
@@ -94,6 +110,7 @@ pub fn encode_contact_publish(
     encode_payload(PayloadType::ContactPublish, &body)
 }
 
+/// Returns the normalize contact email.
 pub fn normalize_contact_email(email: &str) -> Result<String, PayloadError> {
     let normalized = email.trim().to_ascii_lowercase();
     if normalized.is_empty()
@@ -108,6 +125,7 @@ pub fn normalize_contact_email(email: &str) -> Result<String, PayloadError> {
     Ok(normalized)
 }
 
+/// Returns the contact fingerprint.
 pub fn contact_fingerprint(
     email: &str,
     contact_public_key: &[u8],
@@ -130,16 +148,25 @@ fn update_fingerprint_field(hasher: &mut Sha256, value: &[u8]) {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents decoded contact publish.
 pub struct DecodedContactPublish {
+    /// Represents the profile carried by this record case.
     pub profile: String,
+    /// Represents the public key carried by this record case.
     pub public_key: Vec<u8>,
+    /// Represents the signing public key carried by this record case.
     pub signing_public_key: Vec<u8>,
+    /// Represents the fingerprint carried by this record case.
     pub fingerprint: Vec<u8>,
+    /// Represents the publish nonce carried by this record case.
     pub publish_nonce: Vec<u8>,
+    /// Represents the created at unix ms carried by this record case.
     pub created_at_unix_ms: u64,
+    /// Represents the expires at unix ms carried by this record case.
     pub expires_at_unix_ms: u64,
 }
 
+/// Decodes contact publish.
 pub fn decode_contact_publish(bytes: &[u8]) -> Result<DecodedContactPublish, PayloadError> {
     if validate_payload(bytes)? != PayloadType::ContactPublish {
         return Err(PayloadError::UnknownType);
@@ -157,24 +184,37 @@ pub fn decode_contact_publish(bytes: &[u8]) -> Result<DecodedContactPublish, Pay
     })
 }
 
+/// Represents signed key replacement.
 pub struct SignedKeyReplacement<'a> {
+    /// Represents the profile carried by this record case.
     pub profile: &'a str,
+    /// Represents the old fingerprint carried by this record case.
     pub old_fingerprint: &'a [u8],
+    /// Represents the new public key carried by this record case.
     pub new_public_key: &'a [u8],
+    /// Represents the new signing public key carried by this record case.
     pub new_signing_public_key: &'a [u8],
+    /// Represents the new fingerprint carried by this record case.
     pub new_fingerprint: &'a [u8],
+    /// Represents the replacement nonce carried by this record case.
     pub replacement_nonce: &'a [u8],
+    /// Represents the signature by old key carried by this record case.
     pub signature_by_old_key: &'a [u8],
+    /// Represents the created at unix ms carried by this record case.
     pub created_at_unix_ms: u64,
+    /// Represents the expires at unix ms carried by this record case.
     pub expires_at_unix_ms: u64,
 }
 
+/// Represents key replacement.
 pub type KeyReplacement<'a> = SignedKeyReplacement<'a>;
 
+/// Encodes key replacement.
 pub fn encode_key_replacement(replacement: KeyReplacement<'_>) -> Vec<u8> {
     encode_signed_key_replacement(replacement)
 }
 
+/// Encodes signed key replacement.
 pub fn encode_signed_key_replacement(replacement: SignedKeyReplacement<'_>) -> Vec<u8> {
     let mut body = Vec::new();
     put_string(&mut body, replacement.profile);
@@ -189,17 +229,27 @@ pub fn encode_signed_key_replacement(replacement: SignedKeyReplacement<'_>) -> V
     encode_payload(PayloadType::SignedKeyReplacement, &body)
 }
 
+/// Represents unsigned key replacement.
 pub struct UnsignedKeyReplacement<'a> {
+    /// Represents the profile carried by this record case.
     pub profile: &'a str,
+    /// Represents the old fingerprint carried by this record case.
     pub old_fingerprint: &'a [u8],
+    /// Represents the new public key carried by this record case.
     pub new_public_key: &'a [u8],
+    /// Represents the new signing public key carried by this record case.
     pub new_signing_public_key: &'a [u8],
+    /// Represents the new fingerprint carried by this record case.
     pub new_fingerprint: &'a [u8],
+    /// Represents the replacement nonce carried by this record case.
     pub replacement_nonce: &'a [u8],
+    /// Represents the created at unix ms carried by this record case.
     pub created_at_unix_ms: u64,
+    /// Represents the expires at unix ms carried by this record case.
     pub expires_at_unix_ms: u64,
 }
 
+/// Encodes unsigned key replacement.
 pub fn encode_unsigned_key_replacement(replacement: UnsignedKeyReplacement<'_>) -> Vec<u8> {
     let mut body = Vec::new();
     put_string(&mut body, replacement.profile);

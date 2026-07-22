@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added prebuilt Linux, macOS, and Windows release artifacts, Unix and
+  PowerShell installers, a Windows MSI, checksums, and build provenance.
+- Added `--version` so installers and package managers can verify the installed
+  CLI without opening a vault.
 - Raised the minimum supported Rust version from 1.88 to 1.95.
 - Renamed vault identities to profiles throughout the CLI. Profile commands,
   output labels, completion, publishing, recovery backups, and file extensions

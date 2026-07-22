@@ -12,10 +12,10 @@ Symbols use descriptive namespaces: `lockbox_*`, `vault_*`, `key_*`, and
 The ABI covers lockbox data and metadata operations, key management, recovery,
 vault directories, local-vault integration, session-agent controls, platform
 secret-store controls, key formatting, and explicit buffer/handle ownership.
-Structured responses use the shared `LBWF` binary frame and Protobuf schemas in
-`bindings/proto`. Every structured result and form-definition input uses a
-named Protobuf message. File contents and cryptographic material remain raw
-bytes.
+Structured responses use the private FlatBuffers schema in
+`bindings/flatbuffers`. Each language facade retains the returned buffer and
+exposes reVault domain objects; generated transport tables are not public API.
+File contents and cryptographic material remain raw bytes.
 The hosted WebAssembly package runs every API call through a real WASM
 dispatcher and uses its Node host adapter for filesystem, native vault,
 keyring, and agent facilities. The standalone browser module retains portable
@@ -25,7 +25,7 @@ or a session-agent process.
 
 ## Language targets
 
-The native ABI and shared Protobuf schema are the common contract for the
+The native ABI and private FlatBuffers schema are the common contract for the
 selected issue-189 targets:
 
 | Target | Binding location |
@@ -44,24 +44,37 @@ selected issue-189 targets:
 | Swift | `bindings/swift` |
 | WebAssembly | `bindings/wasm`, `rust/revault_wasm_bindings` |
 
-The checked-in binding surfaces and Protobuf models are validated or regenerated
+The checked-in binding surfaces and private transport models are validated or regenerated
 through the Rust tool:
 
 ```text
 cargo run --locked -p revault_tooling --bin revault-tool -- bindings check
-cargo run --locked -p revault_tooling --bin revault-tool -- bindings generate-protobuf
+cargo run --locked -p revault_tooling --bin revault-tool -- bindings generate-flatbuffers
 ```
 
-Full model regeneration requires `protoc` plus the pinned Go, Dart, and Swift
-Protobuf generator plugins on `PATH`; release containers install and run those
-same generators before compiling their package consumers.
+Full transport regeneration requires `flatc` 25.2.10 on `PATH`. Generated
+files live only in internal package locations; Ruby, Lua, and C use small
+private readers because the official compiler does not provide a suitable
+generator for those targets.
 
-The generated declaration surface covers all 211 exported C ABI functions:
-the ABI-version query plus 210 domain functions. C++, C, PHP, Swift, Lua, and Ruby
+The generated declaration surface covers all 218 exported C ABI functions:
+the ABI-version query plus 217 domain functions. C++, C, PHP, Swift, Lua, and Ruby
 consume the header or the complete native symbol table directly; Java/Kotlin
 use the generated Java FFM method-handle surface and typed facade.
 The generated low-level surfaces are intentionally separate from the typed
 facades so new ABI additions cannot silently disappear from a target.
+
+Semantic parity is checked separately from symbol parity. The review in
+`api/rust-to-abi.tsv` maps public Rust operations to one or more ABI operations;
+`api/rust-only-exclusions.tsv` records the small set of Rust ownership,
+migration, raw-key security, and language-native value helpers that do not cross an FFI boundary,
+with a rationale for each. The binding check scans both public Rust crates and
+fails when a newly public function has not been reviewed.
+
+Secret variable and form-field reads use opaque native secret handles and are
+exposed by each facade only through a scoped callback. All native result buffers
+are wiped by `buffer_free`; callers that request exportable private-key or agent
+bytes still own and must clear the resulting language-managed byte array.
 
 The acceptance contract for language-level archive/vault interoperability is
 defined in [`e2e/CONFORMANCE.md`](e2e/CONFORMANCE.md). Language runners must
@@ -73,7 +86,7 @@ for e2e coverage.
 All foreign-language packages use the same versioned C ABI library. Canonical
 native archives contain the dynamic and static libraries, the Windows DLL
 import library where applicable, the target-built Ruby ABI adapter, C header,
-Protobuf schema, license, target
+private FlatBuffers schema, license, target
 metadata, SPDX SBOM, and SHA-256 sidecar. Linux requires
 the system `libdbus-1` runtime; macOS and Windows use their native secret-store
 implementations. A package must never select an artifact for another operating
@@ -124,7 +137,7 @@ inputs consumed by the Rust tool rather than release scripts.
    ecosystem package exclusively from them.
 3. Install every claimed language/target package in a clean GitHub Actions
    consumer with no build tree or native-library override. The test must record
-   the installed native path and archive hash before exercising all 210 calls.
+   the installed native path and archive hash before exercising all 217 calls.
    Rust is the explicit source-native exception: its consumer runs the complete
    `public_api_suite` and `vault_api` suites after `cargo package`, securely
    unpacks the `.crate` into a clean consumer, and records that archive's hash;
@@ -157,10 +170,11 @@ The public name is `revault-api`, adapted only where a registry requires a
 different spelling or namespace (`revault_api`, `Revault.Api`,
 `dev.onepub:revault-api`, or `@onepub-dev/revault-api`). Publication runs only for
 an accepted `revault-api-vX.Y.Z` tag after the native archives and registry
-package layouts have been built. The 94 installed package checks and 480-path
-interoperability suite run alongside the bootstrap release without blocking
-publication; they become release gates after the initial test-and-refinement
-cycle. The release workflow uses the protected GitHub environment `release`.
+package layouts have been built. The 94 installed-package checks and the
+480-path interoperability suite are hard release gates. Native archives,
+registry packages, and promotion jobs are not published until both suites
+pass. The release workflow also uses the protected GitHub environment
+`release`.
 
 Create these public companion repositories before tagging a release:
 
@@ -211,8 +225,8 @@ LuaRocks, Go, crates.io, SwiftPM, or Homebrew publications.
 To release, create and push one tag after all authorizations above exist:
 
 ```text
-git tag -s revault-api-v0.1.0 -m "Release revault-api 0.1.0"
-git push origin revault-api-v0.1.0
+git tag -s revault-api-v0.2.0 -m "Release revault-api 0.2.0"
+git push origin revault-api-v0.2.0
 ```
 
 Do not rerun publication by changing an existing tag. Registry versions and

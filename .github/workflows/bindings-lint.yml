@@ -1,0 +1,198 @@
+name: bindings lint
+
+on:
+  workflow_call:
+  pull_request:
+    paths:
+      - '.github/workflows/bindings-*.yml'
+      - 'bindings/**'
+      - 'rust/revault_bindings/**'
+      - 'rust/revault_lockbox_api/**'
+      - 'rust/revault_page_api/**'
+      - 'rust/revault_tooling/**'
+      - 'rust/revault_vault_api/**'
+      - 'rust/revault_wasm_bindings/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/bindings-*.yml'
+      - 'bindings/**'
+      - 'rust/revault_bindings/**'
+      - 'rust/revault_lockbox_api/**'
+      - 'rust/revault_page_api/**'
+      - 'rust/revault_tooling/**'
+      - 'rust/revault_vault_api/**'
+      - 'rust/revault_wasm_bindings/**'
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: clippy,rustfmt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: bindings/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '22'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: dart-lang/setup-dart@v1
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.x'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: ffi
+          tools: composer:v2
+      - uses: leafo/gh-actions-lua@v11
+        with:
+          luaVersion: luajit-2.1
+      - uses: leafo/gh-actions-luarocks@v5
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: '6.1'
+      - name: Install native lint dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          build-essential cmake libdbus-1-dev libprotobuf-dev
+          pkg-config protobuf-compiler
+      - name: Rust formatting, lint and binding coverage
+        working-directory: rust
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --locked -p revault_bindings -p revault_tooling -p revault_wasm_bindings --all-targets -- -D warnings
+          cargo run --locked -p revault_tooling -- bindings check --repository ..
+          cargo xtask check-required
+      - name: Public API documentation
+        working-directory: rust
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: |
+          cargo doc --locked --no-deps --all-features \
+            -p revault_page_api@0.0.3 -p revault_lockbox_api@0.0.4 \
+            -p revault_vault_api@0.0.4 -p revault_bindings@0.2.0 \
+            -p revault_wasm_bindings@0.0.1 \
+            -p revault_migration_format@0.0.1 -p revault_migrate_vault_v1@0.0.1 \
+            -p revault_migrate_archive_v1@0.0.2 -p revault_migration@0.0.1 \
+            -p revault_publish_protocol@0.0.3 -p revault_key_server@0.0.5
+          cargo doc --locked --no-deps --manifest-path ../bindings/rust/Cargo.toml
+      - name: Build native library for compiled facades
+        working-directory: rust
+        run: cargo build --locked -p revault_bindings
+      - name: C and C++ warnings-as-errors
+        env:
+          REVAULT_LIBRARY: ${{ github.workspace }}/rust/target/debug/librevault_api.so
+        run: |
+          cmake -S bindings/cpp -B build/cpp -DREVAULT_NATIVE_LIBRARY="$REVAULT_LIBRARY" -DREVAULT_NATIVE_INCLUDE_DIR="${{ github.workspace }}/rust/revault_bindings"
+          cmake --build build/cpp --parallel 2
+          cmake -S bindings/e2e/cpp -B build/cpp-e2e -DREVAULT_API_CPP_INCLUDE_DIR="${{ github.workspace }}/bindings/cpp" -DREVAULT_API_NATIVE_INCLUDE_DIR="${{ github.workspace }}/rust/revault_bindings" -DREVAULT_API_CPP_LIBRARY="${{ github.workspace }}/build/cpp/librevault_api_cpp.a" -DREVAULT_API_NATIVE_LIBRARY="$REVAULT_LIBRARY"
+          cmake --build build/cpp-e2e --parallel 2
+          cmake -S bindings/e2e/c -B build/c-e2e -DREVAULT_API_INCLUDE_DIR="${{ github.workspace }}/rust/revault_bindings" -DREVAULT_API_LIBRARY="$REVAULT_LIBRARY"
+          cmake --build build/c-e2e --parallel 2
+      - name: Dart formatting and analysis
+        working-directory: bindings/dart
+        run: |
+          dart pub get
+          dart format --language-version=3.10 --output=none --set-exit-if-changed lib ../e2e/dart/conformance.dart
+          dart analyze --fatal-infos --fatal-warnings
+          dart doc
+      - name: Dart pub.dev score and publication payload
+        working-directory: bindings/dart
+        run: |
+          dart pub global activate pana 0.23.14
+          pana_root="$(mktemp -d)"
+          mkdir "$pana_root/revault_api"
+          cp -R . "$pana_root/revault_api"
+          pana --exit-code-threshold 10 "$pana_root/revault_api"
+          dart pub publish --dry-run
+      - name: Go formatting and vet
+        working-directory: bindings/go
+        env:
+          LIBRARY_PATH: ${{ github.workspace }}/rust/target/debug
+          LD_LIBRARY_PATH: ${{ github.workspace }}/rust/target/debug
+        run: |
+          test -z "$(gofmt -l .)"
+          go vet ./...
+          go test ./...
+      - name: Java and Kotlin compiler lint
+        run: |
+          gradle -p bindings/java --no-daemon compileJava javadoc publishToMavenLocal
+          gradle -p bindings/kotlin --no-daemon compileKotlin
+      - name: C# formatting and warnings
+        working-directory: bindings/csharp
+        run: |
+          dotnet format RevaultBindings.csproj --verify-no-changes
+          dotnet build RevaultBindings.csproj -warnaserror
+      - name: JavaScript syntax and strict TypeScript
+        working-directory: bindings
+        run: |
+          npm ci --ignore-scripts
+          node --check javascript/index.js
+          node --check javascript/native.js
+          node --check wasm/index.js
+          node node_modules/typescript/bin/tsc --noEmit -p typescript/tsconfig.json
+          node node_modules/typescript/bin/tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --typeRoots typescript/node_modules/@types --types node e2e/typescript/conformance.ts
+      - name: Python lint and bytecode
+        run: |
+          python -m pip install ruff
+          ruff check bindings/python/revault_api --config bindings/python/pyproject.toml
+          ruff check bindings/e2e/python/conformance.py --config bindings/python/pyproject.toml
+          python -m compileall -q bindings/python/revault_api bindings/e2e/python/conformance.py
+      - name: PHP, Ruby and Lua syntax
+        run: |
+          find bindings/php/src bindings/e2e/php -name '*.php' -print0 | xargs -0 -n1 php -l
+          find bindings/ruby bindings/e2e/ruby -name '*.rb' -print0 | xargs -0 -n1 ruby -c
+          gem install rubocop --version 1.63.5 --no-document
+          rubocop --config bindings/ruby/.rubocop.yml --only Lint bindings/ruby/lib bindings/ruby/revault_api.gemspec bindings/e2e/ruby/conformance.rb
+          luajit -e 'assert(loadfile("bindings/lua/revault_api.lua"))'
+          luajit -e 'assert(loadfile("bindings/e2e/lua/conformance.lua"))'
+      - name: Swift compile
+        working-directory: bindings/swift
+        env:
+          LIBRARY_PATH: ${{ github.workspace }}/rust/target/debug
+          LD_LIBRARY_PATH: ${{ github.workspace }}/rust/target/debug
+        run: |
+          swift package dump-package > /dev/null
+          swift build -Xswiftc -warnings-as-errors
+          swift test -Xswiftc -warnings-as-errors
+      - name: Registry-native package validation
+        run: |
+          mkdir -p build/registry/python build/registry/nuget
+          npm pack --dry-run --json ./bindings/javascript > build/registry/npm.json
+          npm pack --dry-run --json ./bindings/wasm > build/registry/npm-wasm.json
+          python -m pip install build twine
+          python -m build bindings/python --outdir build/registry/python
+          python -m twine check build/registry/python/*
+          dotnet pack bindings/csharp/RevaultBindings.csproj -warnaserror -o build/registry/nuget
+          composer validate --working-dir bindings/php --strict --no-check-publish
+          gem build bindings/ruby/revault_api.gemspec --output build/registry/revault_api.gem
+          luarocks lint bindings/lua/revault_api-0.2.0-1.rockspec
+          cargo package --locked --manifest-path bindings/rust/Cargo.toml
+      - name: Upload registry validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: binding-registry-validation
+          path: build/registry
+          if-no-files-found: warn

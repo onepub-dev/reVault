@@ -15,6 +15,18 @@ use revault_vault_api::{
 };
 
 #[test]
+fn version_is_available_for_installers_and_package_managers() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+
+    let version = run_output(bin, &["--version"]);
+    assert_success(&version);
+    assert_eq!(
+        String::from_utf8_lossy(&version.stdout).trim(),
+        concat!("lockbox ", env!("CARGO_PKG_VERSION"))
+    );
+}
+
+#[test]
 fn lbx_binary_is_alias_for_revault_cli() {
     let bin = env!("CARGO_BIN_EXE_lbx");
 

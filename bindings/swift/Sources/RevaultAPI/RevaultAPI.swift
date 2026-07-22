@@ -1,9 +1,17 @@
-// Generated complete class-oriented Swift API. Do not edit.
+// Swift API for encrypted reVault lockboxes and local vault metadata.
+// See https://github.com/onepub-dev/reVault#readme for installation, security
+// guidance, and complete examples.
 import Foundation
 import RevaultC
-import SwiftProtobuf
+import FlatBuffers
 
-public enum RevaultError: Error { case native(String); case invalidFrame }
+/// Errors raised while validating or invoking the native reVault API.
+public enum RevaultError: Error {
+    /// The native operation failed with the associated diagnostic message.
+    case native(String)
+    /// A structured native response was not a valid reVault wire frame.
+    case invalidFrame
+}
 
 private func lastError() -> String {
     guard let value = buffer_last_error() else { return "native reVault operation failed" }
@@ -17,20 +25,36 @@ private func take(_ buffer: RevaultBuffer) throws -> Data {
     return value
 }
 
-private func payload(_ buffer: RevaultBuffer) throws -> Data {
-    let frame = try take(buffer)
-    guard frame.count >= 12, Array(frame.prefix(4)) == [76, 66, 87, 70] else { throw RevaultError.invalidFrame }
-    let length = frame[8..<12].reduce(0) { ($0 << 8) | Int($1) }
-    guard length == frame.count - 12 else { throw RevaultError.invalidFrame }
-    return Data(frame.dropFirst(12))
+private func withSecret<T>(
+    _ getter: (UnsafeMutablePointer<UnsafeMutableRawPointer?>) -> Bool,
+    _ callback: (UnsafeRawBufferPointer) throws -> T
+) throws -> T? {
+    var handle: UnsafeMutableRawPointer?
+    guard getter(&handle) else { throw RevaultError.native(lastError()) }
+    guard let handle else { return nil }
+    defer { secret_free(handle) }
+    var length = 0
+    guard secret_len(handle, &length) else { throw RevaultError.native(lastError()) }
+    var bytes = [UInt8](repeating: 0, count: length)
+    defer {
+        bytes.withUnsafeMutableBytes { raw in
+            _ = raw.initializeMemory(as: UInt8.self, repeating: 0)
+        }
+    }
+    guard bytes.withUnsafeMutableBytes({ raw in
+        secret_copy(handle, raw.bindMemory(to: UInt8.self).baseAddress, length)
+    }) else {
+        throw RevaultError.native(lastError())
+    }
+    return try bytes.withUnsafeBytes(callback)
 }
 
 final class BindingOperations {
-    init() { precondition(api_abi_version() == 1, "revault-api native ABI mismatch; expected 1") }
+    init() { precondition(api_abi_version() == 3, "revault-api native ABI mismatch; expected 3") }
     func lastErrorMessage() -> String { lastError() }
 
-    func bufferLastErrorDetails() throws -> Revault_Bindings_ErrorDetails {
-        return try Revault_Bindings_ErrorDetails(serializedBytes: payload(buffer_last_error_details()))
+    func bufferLastErrorDetails() throws -> ErrorDetails {
+        return DomainCodec.errorDetails(try take(buffer_last_error_details()))
     }
 
     func lockboxFormatVersion() throws -> UInt16 {
@@ -38,7 +62,7 @@ final class BindingOperations {
     }
 
     func lockboxProbeFormatVersion(_ bytes: Data) throws -> UInt16 {
-        return try bytes.withUnsafeBytes { bytesBytes in
+        return bytes.withUnsafeBytes { bytesBytes in
             return lockbox_probe_format_version(bytesBytes.bindMemory(to: UInt8.self).baseAddress, bytes.count)
         }
     }
@@ -162,16 +186,16 @@ final class BindingOperations {
         }
     }
 
-    func lockboxStreamContent(_ handle: UnsafeMutableRawPointer, _ physical: Bool) throws -> Revault_Bindings_StreamChunkList {
-        return try Revault_Bindings_StreamChunkList(serializedBytes: payload(lockbox_stream_content(handle, physical)))
+    func lockboxStreamContent(_ handle: UnsafeMutableRawPointer, _ physical: Bool) throws -> [StreamChunk] {
+        return DomainCodec.streamChunkList(try take(lockbox_stream_content(handle, physical)))
     }
 
-    func lockboxCacheStats(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_CacheStats {
-        return try Revault_Bindings_CacheStats(serializedBytes: payload(lockbox_cache_stats(handle)))
+    func lockboxCacheStats(_ handle: UnsafeMutableRawPointer) throws -> CacheStats {
+        return DomainCodec.cacheStats(try take(lockbox_cache_stats(handle)))
     }
 
-    func lockboxImportStats(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_ImportStats {
-        return try Revault_Bindings_ImportStats(serializedBytes: payload(lockbox_import_stats(handle)))
+    func lockboxImportStats(_ handle: UnsafeMutableRawPointer) throws -> ImportStats {
+        return DomainCodec.importStats(try take(lockbox_import_stats(handle)))
     }
 
     func lockboxResetImportStats(_ handle: UnsafeMutableRawPointer) throws -> Bool {
@@ -179,28 +203,28 @@ final class BindingOperations {
         return true
     }
 
-    func lockboxInspectFile(_ path: String) throws -> Revault_Bindings_FileInspection {
+    func lockboxInspectFile(_ path: String) throws -> FileInspection {
         return try path.withCString { pathPointer in
-            return try Revault_Bindings_FileInspection(serializedBytes: payload(lockbox_inspect_file(pathPointer, path.utf8.count)))
+            return DomainCodec.fileInspection(try take(lockbox_inspect_file(pathPointer, path.utf8.count)))
         }
     }
 
-    func lockboxPageInspection(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_PageInspectionList {
-        return try Revault_Bindings_PageInspectionList(serializedBytes: payload(lockbox_page_inspection(handle)))
+    func lockboxPageInspection(_ handle: UnsafeMutableRawPointer) throws -> [PageInspection] {
+        return DomainCodec.pageInspectionList(try take(lockbox_page_inspection(handle)))
     }
 
-    func lockboxRecoveryReport(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_RecoveryReport {
-        return try Revault_Bindings_RecoveryReport(serializedBytes: payload(lockbox_recovery_report(handle)))
+    func lockboxRecoveryReport(_ handle: UnsafeMutableRawPointer) throws -> RecoveryReport {
+        return DomainCodec.recoveryReport(try take(lockbox_recovery_report(handle)))
     }
 
     func lockboxRecoveryReportRender(_ handle: UnsafeMutableRawPointer, _ verbose: Bool, _ maxEntries: Int) throws -> String {
         return String(decoding: try take(lockbox_recovery_report_render(handle, verbose, maxEntries)), as: UTF8.self)
     }
 
-    func lockboxRecoveryScanPath(_ path: String, _ key: Data) throws -> Revault_Bindings_RecoveryReport {
+    func lockboxRecoveryScanPath(_ path: String, _ key: Data) throws -> RecoveryReport {
         return try path.withCString { pathPointer in
             return try key.withUnsafeBytes { keyBytes in
-                return try Revault_Bindings_RecoveryReport(serializedBytes: payload(lockbox_recovery_scan_path(pathPointer, path.utf8.count, keyBytes.bindMemory(to: UInt8.self).baseAddress, key.count)))
+                return DomainCodec.recoveryReport(try take(lockbox_recovery_scan_path(pathPointer, path.utf8.count, keyBytes.bindMemory(to: UInt8.self).baseAddress, key.count)))
             }
         }
     }
@@ -223,8 +247,8 @@ final class BindingOperations {
         }
     }
 
-    func lockboxRuntimeOptions(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_RuntimeOptions {
-        return try Revault_Bindings_RuntimeOptions(serializedBytes: payload(lockbox_runtime_options(handle)))
+    func lockboxRuntimeOptions(_ handle: UnsafeMutableRawPointer) throws -> RuntimeOptions {
+        return DomainCodec.runtimeOptions(try take(lockbox_runtime_options(handle)))
     }
 
     func lockboxCommit(_ handle: UnsafeMutableRawPointer) throws -> Bool {
@@ -269,38 +293,55 @@ final class BindingOperations {
         }
     }
 
-    func lockboxList(_ handle: UnsafeMutableRawPointer, _ path: String, _ recursive: Bool) throws -> Revault_Bindings_LockboxEntryList {
+    func lockboxList(_ handle: UnsafeMutableRawPointer, _ path: String, _ recursive: Bool) throws -> [LockboxEntry] {
         return try path.withCString { pathPointer in
-            return try Revault_Bindings_LockboxEntryList(serializedBytes: payload(lockbox_list(handle, pathPointer, path.utf8.count, recursive)))
+            return DomainCodec.lockboxEntryList(try take(lockbox_list(handle, pathPointer, path.utf8.count, recursive)))
         }
     }
 
-    func lockboxListWithOptions(_ handle: UnsafeMutableRawPointer, _ path: String, _ glob: String, _ recursive: Bool, _ includeFiles: Bool, _ includeSymlinks: Bool, _ includeDirectories: Bool, _ limit: Int) throws -> Revault_Bindings_LockboxEntryList {
+    func lockboxListWithOptions(_ handle: UnsafeMutableRawPointer, _ path: String, _ glob: String, _ recursive: Bool, _ includeFiles: Bool, _ includeSymlinks: Bool, _ includeDirectories: Bool, _ limit: Int) throws -> [LockboxEntry] {
         return try path.withCString { pathPointer in
             return try glob.withCString { globPointer in
-                return try Revault_Bindings_LockboxEntryList(serializedBytes: payload(lockbox_list_with_options(handle, pathPointer, path.utf8.count, globPointer, glob.utf8.count, recursive, includeFiles, includeSymlinks, includeDirectories, limit)))
+                return DomainCodec.lockboxEntryList(try take(lockbox_list_with_options(handle, pathPointer, path.utf8.count, globPointer, glob.utf8.count, recursive, includeFiles, includeSymlinks, includeDirectories, limit)))
             }
         }
     }
 
-    func lockboxStat(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> Revault_Bindings_OptionalLockboxEntry {
+    func lockboxStat(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> LockboxEntry? {
         return try path.withCString { pathPointer in
-            return try Revault_Bindings_OptionalLockboxEntry(serializedBytes: payload(lockbox_stat(handle, pathPointer, path.utf8.count)))
+            return DomainCodec.optionalLockboxEntry(try take(lockbox_stat(handle, pathPointer, path.utf8.count)))
         }
     }
 
-    func lockboxSetVariable(_ handle: UnsafeMutableRawPointer, _ name: String, _ value: String, _ secret: Bool) throws -> Bool {
+    func lockboxSetVariable(_ handle: UnsafeMutableRawPointer, _ name: String, _ value: String) throws -> Bool {
         return try name.withCString { namePointer in
             return try value.withCString { valuePointer in
-                guard lockbox_set_variable(handle, namePointer, name.utf8.count, valuePointer, value.utf8.count, secret) else { throw RevaultError.native(lastError()) }
+                guard lockbox_set_variable(handle, namePointer, name.utf8.count, valuePointer, value.utf8.count) else { throw RevaultError.native(lastError()) }
                 return true
             }
         }
     }
 
-    func lockboxGetVariable(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> String {
+    func lockboxSetSecretVariable(_ handle: UnsafeMutableRawPointer, _ name: String, _ value: Data) throws -> Bool {
+        var secret = [UInt8](value)
+        defer { _ = secret.withUnsafeMutableBytes { $0.initializeMemory(as: UInt8.self, repeating: 0) } }
         return try name.withCString { namePointer in
-            return String(decoding: try take(lockbox_get_variable(handle, namePointer, name.utf8.count)), as: UTF8.self)
+            try secret.withUnsafeBytes { bytes in
+                guard lockbox_set_secret_variable(handle, namePointer, name.utf8.count, bytes.bindMemory(to: UInt8.self).baseAddress, bytes.count) else { throw RevaultError.native(lastError()) }
+                return true
+            }
+        }
+    }
+
+    func lockboxGetVariable(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> String? {
+        return try name.withCString { namePointer in
+            return DomainCodec.optionalString(try take(lockbox_get_variable(handle, namePointer, name.utf8.count)))
+        }
+    }
+
+    func lockboxWithSecretVariable<T>(_ handle: UnsafeMutableRawPointer, _ name: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        try name.withCString { namePointer in
+            try withSecret({ lockbox_get_secret_variable(handle, namePointer, name.utf8.count, $0) }, callback)
         }
     }
 
@@ -311,20 +352,20 @@ final class BindingOperations {
         }
     }
 
-    func lockboxMoveVariables(_ handle: UnsafeMutableRawPointer, _ movesProto: Data) throws -> Bool {
-        return try movesProto.withUnsafeBytes { movesProtoBytes in
-            guard lockbox_move_variables(handle, movesProtoBytes.bindMemory(to: UInt8.self).baseAddress, movesProto.count) else { throw RevaultError.native(lastError()) }
+    func lockboxMoveVariables(_ handle: UnsafeMutableRawPointer, _ movesFlatbuffer: Data) throws -> Bool {
+        return try movesFlatbuffer.withUnsafeBytes { movesFlatbufferBytes in
+            guard lockbox_move_variables(handle, movesFlatbufferBytes.bindMemory(to: UInt8.self).baseAddress, movesFlatbuffer.count) else { throw RevaultError.native(lastError()) }
             return true
         }
     }
 
-    func lockboxListVariables(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_VariableList {
-        return try Revault_Bindings_VariableList(serializedBytes: payload(lockbox_list_variables(handle)))
+    func lockboxListVariables(_ handle: UnsafeMutableRawPointer) throws -> [Variable] {
+        return DomainCodec.variableList(try take(lockbox_list_variables(handle)))
     }
 
-    func lockboxVariableSensitivity(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> Revault_Bindings_OptionalString {
+    func lockboxVariableSensitivity(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> String? {
         return try name.withCString { namePointer in
-            return try Revault_Bindings_OptionalString(serializedBytes: payload(lockbox_variable_sensitivity(handle, namePointer, name.utf8.count)))
+            return DomainCodec.optionalString(try take(lockbox_variable_sensitivity(handle, namePointer, name.utf8.count)))
         }
     }
 
@@ -348,19 +389,19 @@ final class BindingOperations {
     }
 
     func lockboxExists(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> Bool {
-        return try path.withCString { pathPointer in
+        return path.withCString { pathPointer in
             return lockbox_exists(handle, pathPointer, path.utf8.count)
         }
     }
 
     func lockboxIsDir(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> Bool {
-        return try path.withCString { pathPointer in
+        return path.withCString { pathPointer in
             return lockbox_is_dir(handle, pathPointer, path.utf8.count)
         }
     }
 
     func lockboxPermissions(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> UInt32 {
-        return try path.withCString { pathPointer in
+        return path.withCString { pathPointer in
             return lockbox_permissions(handle, pathPointer, path.utf8.count)
         }
     }
@@ -378,10 +419,10 @@ final class BindingOperations {
         }
     }
 
-    func lockboxRecoveryScan(_ bytes: Data, _ key: Data) throws -> Revault_Bindings_RecoveryReport {
+    func lockboxRecoveryScan(_ bytes: Data, _ key: Data) throws -> RecoveryReport {
         return try bytes.withUnsafeBytes { bytesBytes in
             return try key.withUnsafeBytes { keyBytes in
-                return try Revault_Bindings_RecoveryReport(serializedBytes: payload(lockbox_recovery_scan(bytesBytes.bindMemory(to: UInt8.self).baseAddress, bytes.count, keyBytes.bindMemory(to: UInt8.self).baseAddress, key.count)))
+                return DomainCodec.recoveryReport(try take(lockbox_recovery_scan(bytesBytes.bindMemory(to: UInt8.self).baseAddress, bytes.count, keyBytes.bindMemory(to: UInt8.self).baseAddress, key.count)))
             }
         }
     }
@@ -396,13 +437,13 @@ final class BindingOperations {
     }
 
     func lockboxAddPassword(_ handle: UnsafeMutableRawPointer, _ password: Data) throws -> UInt64 {
-        return try password.withUnsafeBytes { passwordBytes in
+        return password.withUnsafeBytes { passwordBytes in
             return lockbox_add_password(handle, passwordBytes.bindMemory(to: UInt8.self).baseAddress, password.count)
         }
     }
 
     func lockboxAddContact(_ handle: UnsafeMutableRawPointer, _ contact: UnsafeMutableRawPointer, _ name: String) throws -> UInt64 {
-        return try name.withCString { namePointer in
+        return name.withCString { namePointer in
             return lockbox_add_contact(handle, contact, namePointer, name.utf8.count)
         }
     }
@@ -412,8 +453,8 @@ final class BindingOperations {
         return true
     }
 
-    func lockboxListKeySlots(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_KeySlotList {
-        return try Revault_Bindings_KeySlotList(serializedBytes: payload(lockbox_list_key_slots(handle)))
+    func lockboxListKeySlots(_ handle: UnsafeMutableRawPointer) throws -> [KeySlot] {
+        return DomainCodec.keySlotList(try take(lockbox_list_key_slots(handle)))
     }
 
     func lockboxSetOwnerSigningKey(_ handle: UnsafeMutableRawPointer, _ key: UnsafeMutableRawPointer) throws -> Bool {
@@ -421,66 +462,79 @@ final class BindingOperations {
         return true
     }
 
-    func lockboxOwnerInspection(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_OwnerInspection {
-        return try Revault_Bindings_OwnerInspection(serializedBytes: payload(lockbox_owner_inspection(handle)))
+    func lockboxOwnerInspection(_ handle: UnsafeMutableRawPointer) throws -> OwnerInspection {
+        return DomainCodec.ownerInspection(try take(lockbox_owner_inspection(handle)))
     }
 
-    func lockboxDefineForm(_ handle: UnsafeMutableRawPointer, _ alias: String, _ name: String, _ description: String, _ fieldsProto: Data) throws -> Revault_Bindings_FormDefinition {
+    func lockboxDefineForm(_ handle: UnsafeMutableRawPointer, _ alias: String, _ name: String, _ description: String, _ fieldsFlatbuffer: Data) throws -> FormDefinition {
         return try alias.withCString { aliasPointer in
             return try name.withCString { namePointer in
                 return try description.withCString { descriptionPointer in
-                    return try fieldsProto.withUnsafeBytes { fieldsProtoBytes in
-                        return try Revault_Bindings_FormDefinition(serializedBytes: payload(lockbox_define_form(handle, aliasPointer, alias.utf8.count, namePointer, name.utf8.count, descriptionPointer, description.utf8.count, fieldsProtoBytes.bindMemory(to: UInt8.self).baseAddress, fieldsProto.count)))
+                    return try fieldsFlatbuffer.withUnsafeBytes { fieldsFlatbufferBytes in
+                        return DomainCodec.formDefinition(try take(lockbox_define_form(handle, aliasPointer, alias.utf8.count, namePointer, name.utf8.count, descriptionPointer, description.utf8.count, fieldsFlatbufferBytes.bindMemory(to: UInt8.self).baseAddress, fieldsFlatbuffer.count)))
                     }
                 }
             }
         }
     }
 
-    func lockboxListFormDefinitions(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_FormDefinitionList {
-        return try Revault_Bindings_FormDefinitionList(serializedBytes: payload(lockbox_list_form_definitions(handle)))
+    func lockboxListFormDefinitions(_ handle: UnsafeMutableRawPointer) throws -> [FormDefinition] {
+        return DomainCodec.formDefinitionList(try take(lockbox_list_form_definitions(handle)))
     }
 
-    func lockboxResolveForm(_ handle: UnsafeMutableRawPointer, _ reference: String) throws -> Revault_Bindings_FormDefinition {
+    func lockboxResolveForm(_ handle: UnsafeMutableRawPointer, _ reference: String) throws -> FormDefinition {
         return try reference.withCString { referencePointer in
-            return try Revault_Bindings_FormDefinition(serializedBytes: payload(lockbox_resolve_form(handle, referencePointer, reference.utf8.count)))
+            return DomainCodec.formDefinition(try take(lockbox_resolve_form(handle, referencePointer, reference.utf8.count)))
         }
     }
 
-    func lockboxListFormRevisions(_ handle: UnsafeMutableRawPointer, _ typeId: String) throws -> Revault_Bindings_FormDefinitionList {
+    func lockboxListFormRevisions(_ handle: UnsafeMutableRawPointer, _ typeId: String) throws -> [FormDefinition] {
         return try typeId.withCString { typeIdPointer in
-            return try Revault_Bindings_FormDefinitionList(serializedBytes: payload(lockbox_list_form_revisions(handle, typeIdPointer, typeId.utf8.count)))
+            return DomainCodec.formDefinitionList(try take(lockbox_list_form_revisions(handle, typeIdPointer, typeId.utf8.count)))
         }
     }
 
-    func lockboxCreateFormRecord(_ handle: UnsafeMutableRawPointer, _ path: String, _ typeReference: String, _ name: String) throws -> Revault_Bindings_FormRecord {
+    func lockboxCreateFormRecord(_ handle: UnsafeMutableRawPointer, _ path: String, _ typeReference: String, _ name: String) throws -> FormRecord {
         return try path.withCString { pathPointer in
             return try typeReference.withCString { typeReferencePointer in
                 return try name.withCString { namePointer in
-                    return try Revault_Bindings_FormRecord(serializedBytes: payload(lockbox_create_form_record(handle, pathPointer, path.utf8.count, typeReferencePointer, typeReference.utf8.count, namePointer, name.utf8.count)))
+                    return DomainCodec.formRecord(try take(lockbox_create_form_record(handle, pathPointer, path.utf8.count, typeReferencePointer, typeReference.utf8.count, namePointer, name.utf8.count)))
                 }
             }
         }
     }
 
-    func lockboxSetFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String, _ value: String, _ secret: Bool) throws -> Bool {
+    func lockboxSetFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String, _ value: String) throws -> Bool {
         return try path.withCString { pathPointer in
             return try field.withCString { fieldPointer in
                 return try value.withCString { valuePointer in
-                    guard lockbox_set_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count, valuePointer, value.utf8.count, secret) else { throw RevaultError.native(lastError()) }
+                    guard lockbox_set_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count, valuePointer, value.utf8.count) else { throw RevaultError.native(lastError()) }
                     return true
                 }
             }
         }
     }
 
-    func lockboxListFormRecords(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_FormRecordList {
-        return try Revault_Bindings_FormRecordList(serializedBytes: payload(lockbox_list_form_records(handle)))
+    func lockboxSetSecretFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String, _ value: Data) throws -> Bool {
+        var secret = [UInt8](value)
+        defer { _ = secret.withUnsafeMutableBytes { $0.initializeMemory(as: UInt8.self, repeating: 0) } }
+        return try path.withCString { pathPointer in
+            try field.withCString { fieldPointer in
+                try secret.withUnsafeBytes { bytes in
+                    guard lockbox_set_secret_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count, bytes.bindMemory(to: UInt8.self).baseAddress, bytes.count) else { throw RevaultError.native(lastError()) }
+                    return true
+                }
+            }
+        }
     }
 
-    func lockboxGetFormRecord(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> Revault_Bindings_FormRecord {
+    func lockboxListFormRecords(_ handle: UnsafeMutableRawPointer) throws -> [FormRecord] {
+        return DomainCodec.formRecordList(try take(lockbox_list_form_records(handle)))
+    }
+
+    func lockboxGetFormRecord(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> FormRecord? {
         return try path.withCString { pathPointer in
-            return try Revault_Bindings_FormRecord(serializedBytes: payload(lockbox_get_form_record(handle, pathPointer, path.utf8.count)))
+            return DomainCodec.optionalFormRecord(try take(lockbox_get_form_record(handle, pathPointer, path.utf8.count)))
         }
     }
 
@@ -491,17 +545,25 @@ final class BindingOperations {
         }
     }
 
-    func lockboxMoveFormRecords(_ handle: UnsafeMutableRawPointer, _ movesProto: Data) throws -> Bool {
-        return try movesProto.withUnsafeBytes { movesProtoBytes in
-            guard lockbox_move_form_records(handle, movesProtoBytes.bindMemory(to: UInt8.self).baseAddress, movesProto.count) else { throw RevaultError.native(lastError()) }
+    func lockboxMoveFormRecords(_ handle: UnsafeMutableRawPointer, _ movesFlatbuffer: Data) throws -> Bool {
+        return try movesFlatbuffer.withUnsafeBytes { movesFlatbufferBytes in
+            guard lockbox_move_form_records(handle, movesFlatbufferBytes.bindMemory(to: UInt8.self).baseAddress, movesFlatbuffer.count) else { throw RevaultError.native(lastError()) }
             return true
         }
     }
 
-    func lockboxGetFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String) throws -> Revault_Bindings_FormValue {
+    func lockboxGetFormField(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String) throws -> FormValue? {
         return try path.withCString { pathPointer in
             return try field.withCString { fieldPointer in
-                return try Revault_Bindings_FormValue(serializedBytes: payload(lockbox_get_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count)))
+                return DomainCodec.optionalFormValue(try take(lockbox_get_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count)))
+            }
+        }
+    }
+
+    func lockboxWithSecretFormField<T>(_ handle: UnsafeMutableRawPointer, _ path: String, _ field: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        try path.withCString { pathPointer in
+            try field.withCString { fieldPointer in
+                try withSecret({ lockbox_get_secret_form_field(handle, pathPointer, path.utf8.count, fieldPointer, field.utf8.count, $0) }, callback)
             }
         }
     }
@@ -706,8 +768,8 @@ final class BindingOperations {
     }
 
     func vaultDirectoryProbeStructureVersion(_ root: String, _ password: Data) throws -> UInt32 {
-        return try root.withCString { rootPointer in
-            return try password.withUnsafeBytes { passwordBytes in
+        return root.withCString { rootPointer in
+            return password.withUnsafeBytes { passwordBytes in
                 return vault_directory_probe_structure_version(rootPointer, root.utf8.count, passwordBytes.bindMemory(to: UInt8.self).baseAddress, password.count)
             }
         }
@@ -773,24 +835,24 @@ final class BindingOperations {
         return vault_directory_structure_version(handle)
     }
 
-    func vaultDirectoryListPrivateKeys(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_StringList {
-        return try Revault_Bindings_StringList(serializedBytes: payload(vault_directory_list_private_keys(handle)))
+    func vaultDirectoryListPrivateKeys(_ handle: UnsafeMutableRawPointer) throws -> [String] {
+        return DomainCodec.stringList(try take(vault_directory_list_private_keys(handle)))
     }
 
-    func vaultDirectoryListPrivateKeyNames(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_StringList {
-        return try Revault_Bindings_StringList(serializedBytes: payload(vault_directory_list_private_key_names(handle)))
+    func vaultDirectoryListPrivateKeyNames(_ handle: UnsafeMutableRawPointer) throws -> [String] {
+        return DomainCodec.stringList(try take(vault_directory_list_private_key_names(handle)))
     }
 
-    func vaultDirectoryListContactNames(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_StringList {
-        return try Revault_Bindings_StringList(serializedBytes: payload(vault_directory_list_contact_names(handle)))
+    func vaultDirectoryListContactNames(_ handle: UnsafeMutableRawPointer) throws -> [String] {
+        return DomainCodec.stringList(try take(vault_directory_list_contact_names(handle)))
     }
 
-    func vaultDirectoryListFormAliases(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_StringList {
-        return try Revault_Bindings_StringList(serializedBytes: payload(vault_directory_list_form_aliases(handle)))
+    func vaultDirectoryListFormAliases(_ handle: UnsafeMutableRawPointer) throws -> [String] {
+        return DomainCodec.stringList(try take(vault_directory_list_form_aliases(handle)))
     }
 
     func vaultDirectoryPrivateKeyExists(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> Bool {
-        return try name.withCString { namePointer in
+        return name.withCString { namePointer in
             return vault_directory_private_key_exists(handle, namePointer, name.utf8.count)
         }
     }
@@ -838,7 +900,7 @@ final class BindingOperations {
     }
 
     func vaultDirectoryContactExists(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> Bool {
-        return try name.withCString { namePointer in
+        return name.withCString { namePointer in
             return vault_directory_contact_exists(handle, namePointer, name.utf8.count)
         }
     }
@@ -850,8 +912,8 @@ final class BindingOperations {
         }
     }
 
-    func vaultDirectoryListContacts(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_ContactList {
-        return try Revault_Bindings_ContactList(serializedBytes: payload(vault_directory_list_contacts(handle)))
+    func vaultDirectoryListContacts(_ handle: UnsafeMutableRawPointer) throws -> [Contact] {
+        return DomainCodec.contactList(try take(vault_directory_list_contacts(handle)))
     }
 
     func vaultDirectoryStoreProfileEmail(_ handle: UnsafeMutableRawPointer, _ name: String, _ email: String) throws -> Bool {
@@ -863,9 +925,9 @@ final class BindingOperations {
         }
     }
 
-    func vaultDirectoryProfileEmail(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> Revault_Bindings_OptionalString {
+    func vaultDirectoryProfileEmail(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> String? {
         return try name.withCString { namePointer in
-            return try Revault_Bindings_OptionalString(serializedBytes: payload(vault_directory_profile_email(handle, namePointer, name.utf8.count)))
+            return DomainCodec.optionalString(try take(vault_directory_profile_email(handle, namePointer, name.utf8.count)))
         }
     }
 
@@ -923,15 +985,15 @@ final class BindingOperations {
         }
     }
 
-    func vaultDirectoryListProfileGenerations(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> Revault_Bindings_ProfileHistory {
+    func vaultDirectoryListProfileGenerations(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> ProfileHistory {
         return try name.withCString { namePointer in
-            return try Revault_Bindings_ProfileHistory(serializedBytes: payload(vault_directory_list_profile_generations(handle, namePointer, name.utf8.count)))
+            return DomainCodec.profileHistory(try take(vault_directory_list_profile_generations(handle, namePointer, name.utf8.count)))
         }
     }
 
-    func vaultDirectoryRotatePrivateKey(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> Revault_Bindings_ProfileHistory {
+    func vaultDirectoryRotatePrivateKey(_ handle: UnsafeMutableRawPointer, _ name: String) throws -> ProfileHistory {
         return try name.withCString { namePointer in
-            return try Revault_Bindings_ProfileHistory(serializedBytes: payload(vault_directory_rotate_private_key(handle, namePointer, name.utf8.count)))
+            return DomainCodec.profileHistory(try take(vault_directory_rotate_private_key(handle, namePointer, name.utf8.count)))
         }
     }
 
@@ -944,8 +1006,8 @@ final class BindingOperations {
         }
     }
 
-    func vaultDirectoryListKnownLockboxes(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_KnownLockboxList {
-        return try Revault_Bindings_KnownLockboxList(serializedBytes: payload(vault_directory_list_known_lockboxes(handle)))
+    func vaultDirectoryListKnownLockboxes(_ handle: UnsafeMutableRawPointer) throws -> [KnownLockbox] {
+        return DomainCodec.knownLockboxList(try take(vault_directory_list_known_lockboxes(handle)))
     }
 
     func vaultDirectoryForgetLockbox(_ handle: UnsafeMutableRawPointer, _ path: String) throws -> Bool {
@@ -964,16 +1026,16 @@ final class BindingOperations {
         }
     }
 
-    func vaultDirectoryListAccessSlotLabels(_ handle: UnsafeMutableRawPointer, _ id: Data) throws -> Revault_Bindings_AccessSlotLabelList {
+    func vaultDirectoryListAccessSlotLabels(_ handle: UnsafeMutableRawPointer, _ id: Data) throws -> [AccessSlotLabel] {
         return try id.withUnsafeBytes { idBytes in
-            return try Revault_Bindings_AccessSlotLabelList(serializedBytes: payload(vault_directory_list_access_slot_labels(handle, idBytes.bindMemory(to: UInt8.self).baseAddress, id.count)))
+            return DomainCodec.accessSlotLabelList(try take(vault_directory_list_access_slot_labels(handle, idBytes.bindMemory(to: UInt8.self).baseAddress, id.count)))
         }
     }
 
-    func vaultDirectoryFindAccessSlotLabels(_ handle: UnsafeMutableRawPointer, _ id: Data, _ name: String) throws -> Revault_Bindings_AccessSlotLabelList {
+    func vaultDirectoryFindAccessSlotLabels(_ handle: UnsafeMutableRawPointer, _ id: Data, _ name: String) throws -> [AccessSlotLabel] {
         return try id.withUnsafeBytes { idBytes in
             return try name.withCString { namePointer in
-                return try Revault_Bindings_AccessSlotLabelList(serializedBytes: payload(vault_directory_find_access_slot_labels(handle, idBytes.bindMemory(to: UInt8.self).baseAddress, id.count, namePointer, name.utf8.count)))
+                return DomainCodec.accessSlotLabelList(try take(vault_directory_find_access_slot_labels(handle, idBytes.bindMemory(to: UInt8.self).baseAddress, id.count, namePointer, name.utf8.count)))
             }
         }
     }
@@ -985,31 +1047,31 @@ final class BindingOperations {
         }
     }
 
-    func vaultDirectoryDefineForm(_ handle: UnsafeMutableRawPointer, _ alias: String, _ name: String, _ description: String, _ fieldsProto: Data) throws -> Revault_Bindings_FormDefinition {
+    func vaultDirectoryDefineForm(_ handle: UnsafeMutableRawPointer, _ alias: String, _ name: String, _ description: String, _ fieldsFlatbuffer: Data) throws -> FormDefinition {
         return try alias.withCString { aliasPointer in
             return try name.withCString { namePointer in
                 return try description.withCString { descriptionPointer in
-                    return try fieldsProto.withUnsafeBytes { fieldsProtoBytes in
-                        return try Revault_Bindings_FormDefinition(serializedBytes: payload(vault_directory_define_form(handle, aliasPointer, alias.utf8.count, namePointer, name.utf8.count, descriptionPointer, description.utf8.count, fieldsProtoBytes.bindMemory(to: UInt8.self).baseAddress, fieldsProto.count)))
+                    return try fieldsFlatbuffer.withUnsafeBytes { fieldsFlatbufferBytes in
+                        return DomainCodec.formDefinition(try take(vault_directory_define_form(handle, aliasPointer, alias.utf8.count, namePointer, name.utf8.count, descriptionPointer, description.utf8.count, fieldsFlatbufferBytes.bindMemory(to: UInt8.self).baseAddress, fieldsFlatbuffer.count)))
                     }
                 }
             }
         }
     }
 
-    func vaultDirectoryResolveForm(_ handle: UnsafeMutableRawPointer, _ reference: String) throws -> Revault_Bindings_FormDefinition {
+    func vaultDirectoryResolveForm(_ handle: UnsafeMutableRawPointer, _ reference: String) throws -> FormDefinition {
         return try reference.withCString { referencePointer in
-            return try Revault_Bindings_FormDefinition(serializedBytes: payload(vault_directory_resolve_form(handle, referencePointer, reference.utf8.count)))
+            return DomainCodec.formDefinition(try take(vault_directory_resolve_form(handle, referencePointer, reference.utf8.count)))
         }
     }
 
-    func vaultDirectoryListForms(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_FormDefinitionList {
-        return try Revault_Bindings_FormDefinitionList(serializedBytes: payload(vault_directory_list_forms(handle)))
+    func vaultDirectoryListForms(_ handle: UnsafeMutableRawPointer) throws -> [FormDefinition] {
+        return DomainCodec.formDefinitionList(try take(vault_directory_list_forms(handle)))
     }
 
-    func vaultDirectoryListFormRevisions(_ handle: UnsafeMutableRawPointer, _ typeId: String) throws -> Revault_Bindings_FormDefinitionList {
+    func vaultDirectoryListFormRevisions(_ handle: UnsafeMutableRawPointer, _ typeId: String) throws -> [FormDefinition] {
         return try typeId.withCString { typeIdPointer in
-            return try Revault_Bindings_FormDefinitionList(serializedBytes: payload(vault_directory_list_form_revisions(handle, typeIdPointer, typeId.utf8.count)))
+            return DomainCodec.formDefinitionList(try take(vault_directory_list_form_revisions(handle, typeIdPointer, typeId.utf8.count)))
         }
     }
 
@@ -1032,15 +1094,15 @@ final class BindingOperations {
         }
     }
 
-    func vaultBackupDefault(_ path: String, _ overwrite: Bool) throws -> Revault_Bindings_VaultBackupManifest {
+    func vaultBackupDefault(_ path: String, _ overwrite: Bool) throws -> VaultBackupManifest {
         return try path.withCString { pathPointer in
-            return try Revault_Bindings_VaultBackupManifest(serializedBytes: payload(vault_backup_default(pathPointer, path.utf8.count, overwrite)))
+            return DomainCodec.vaultBackupManifest(try take(vault_backup_default(pathPointer, path.utf8.count, overwrite)))
         }
     }
 
-    func vaultRestoreDefault(_ path: String, _ overwrite: Bool) throws -> Revault_Bindings_VaultBackupManifest {
+    func vaultRestoreDefault(_ path: String, _ overwrite: Bool) throws -> VaultBackupManifest {
         return try path.withCString { pathPointer in
-            return try Revault_Bindings_VaultBackupManifest(serializedBytes: payload(vault_restore_default(pathPointer, path.utf8.count, overwrite)))
+            return DomainCodec.vaultBackupManifest(try take(vault_restore_default(pathPointer, path.utf8.count, overwrite)))
         }
     }
 
@@ -1064,20 +1126,20 @@ final class BindingOperations {
         }
     }
 
-    func vaultReadOnlyListProfileNames(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_StringList {
-        return try Revault_Bindings_StringList(serializedBytes: payload(vault_read_only_list_profile_names(handle)))
+    func vaultReadOnlyListProfileNames(_ handle: UnsafeMutableRawPointer) throws -> [String] {
+        return DomainCodec.stringList(try take(vault_read_only_list_profile_names(handle)))
     }
 
-    func vaultReadOnlyListContactNames(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_StringList {
-        return try Revault_Bindings_StringList(serializedBytes: payload(vault_read_only_list_contact_names(handle)))
+    func vaultReadOnlyListContactNames(_ handle: UnsafeMutableRawPointer) throws -> [String] {
+        return DomainCodec.stringList(try take(vault_read_only_list_contact_names(handle)))
     }
 
-    func vaultReadOnlyListFormAliases(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_StringList {
-        return try Revault_Bindings_StringList(serializedBytes: payload(vault_read_only_list_form_aliases(handle)))
+    func vaultReadOnlyListFormAliases(_ handle: UnsafeMutableRawPointer) throws -> [String] {
+        return DomainCodec.stringList(try take(vault_read_only_list_form_aliases(handle)))
     }
 
-    func vaultReadOnlyListKnownLockboxes(_ handle: UnsafeMutableRawPointer) throws -> Revault_Bindings_KnownLockboxList {
-        return try Revault_Bindings_KnownLockboxList(serializedBytes: payload(vault_read_only_list_known_lockboxes(handle)))
+    func vaultReadOnlyListKnownLockboxes(_ handle: UnsafeMutableRawPointer) throws -> [KnownLockbox] {
+        return DomainCodec.knownLockboxList(try take(vault_read_only_list_known_lockboxes(handle)))
     }
 
     func vaultReadOnlyFree(_ handle: UnsafeMutableRawPointer) throws -> Void {
@@ -1126,16 +1188,16 @@ final class BindingOperations {
         return true
     }
 
-    func vaultAgentList() throws -> Revault_Bindings_AgentEntryList {
-        return try Revault_Bindings_AgentEntryList(serializedBytes: payload(vault_agent_list()))
+    func vaultAgentList() throws -> [AgentEntry] {
+        return DomainCodec.agentEntryList(try take(vault_agent_list()))
     }
 
-    func vaultAgentSleepSupport() throws -> Revault_Bindings_SleepSupport {
-        return try Revault_Bindings_SleepSupport(serializedBytes: payload(vault_agent_sleep_support()))
+    func vaultAgentSleepSupport() throws -> SleepSupport {
+        return DomainCodec.sleepSupport(try take(vault_agent_sleep_support()))
     }
 
-    func vaultPlatformStatus() throws -> Revault_Bindings_PlatformStatus {
-        return try Revault_Bindings_PlatformStatus(serializedBytes: payload(vault_platform_status()))
+    func vaultPlatformStatus() throws -> PlatformStatus {
+        return DomainCodec.platformStatus(try take(vault_platform_status()))
     }
 
     func vaultPlatformSetScope(_ scope: String) throws -> Bool {
@@ -1328,479 +1390,663 @@ final class BindingOperations {
 
 }
 
+/// Base type for API values that retain sensitive state until released.
+///
+/// Applications receive concrete subclasses such as ``Lockbox`` and should
+/// release them promptly after use. Do not share these values across concurrent
+/// operations unless the specific API documents it.
 public class OwnedHandle {
     fileprivate let operations: BindingOperations
     fileprivate var handle: UnsafeMutableRawPointer?
     fileprivate init(_ operations: BindingOperations, _ handle: UnsafeMutableRawPointer?) { self.operations = operations; self.handle = handle }
 }
 
+/// An open encrypted archive containing files, variables, secrets, and forms.
+/// Commit pending mutations and release it when finished with decrypted data.
 public final class Lockbox: OwnedHandle {}
 
+/// A profile's contact-encryption identity used to decrypt keys addressed to it.
 public final class ContactKeyPair: OwnedHandle {}
 
+/// A recipient's shareable encryption identity used when granting lockbox access.
 public final class ContactPublicKey: OwnedHandle {}
 
+/// A content key encrypted for one contact and recoverable by its matching key pair.
 public final class WrappedContactKey: OwnedHandle {}
 
+/// A lockbox owner's signing identity used to authorize mutable revisions.
 public final class SigningKeyPair: OwnedHandle {}
 
+/// The public identity readers use to verify owner-authorized revisions.
 public final class SigningPublicKey: OwnedHandle {}
 
+/// Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
 public final class VaultDirectory: OwnedHandle {}
 
+/// A metadata view for discovery that never loads an owner signing key.
 public final class ReadOnlyVaultDirectory: OwnedHandle {}
 
+/// Client for the session service that temporarily caches unlock and signing keys.
 public final class Agent: OwnedHandle {}
 
+/// A token kept alive while an operation needs secrets cached by the agent.
 public final class AgentActivity: OwnedHandle {}
 
+/// Access to operating-system credential storage for a scoped vault password.
 public final class Platform: OwnedHandle {}
 
+/// A session that opens lockboxes by host path, caches passwords, and closes local files.
 public final class LocalVault: OwnedHandle {}
 
+/// Primary API used to open lockboxes, manage keys and metadata, use the session
+/// agent, and access operating-system credential storage.
 public final class Vault {
     fileprivate let operations = BindingOperations()
+    /// Returns the agent.
     public lazy var agent = Agent(operations, nil)
+    /// Returns the platform.
     public lazy var platform = Platform(operations, nil)
+    /// Returns the init.
     public init() {}
+    /// Returns the last error.
     public func lastError() -> String { operations.lastErrorMessage() }
-    public func lastErrorDetails() throws -> Revault_Bindings_ErrorDetails { try operations.bufferLastErrorDetails() }
+    /// Returns the last error details.
+    public func lastErrorDetails() throws -> ErrorDetails { try operations.bufferLastErrorDetails() }
 
+    /// Returns the lockbox format version.
     public func lockboxFormatVersion() throws -> UInt16 {
         return try operations.lockboxFormatVersion()
     }
 
+    /// Returns the lockbox probe format version.
     public func lockboxProbeFormatVersion(_ bytes: Data) throws -> UInt16 {
         return try operations.lockboxProbeFormatVersion(bytes)
     }
 
+    /// Returns the lockbox create.
     public func lockboxCreate(_ key: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreate(key))
     }
 
+    /// Creates a lockbox with explicit cache capacity, workload, worker policy, and job count.
     public func lockboxCreateWithOptions(_ key: Data, _ cacheMode: String, _ cacheBytes: UInt64, _ workload: String, _ worker: String, _ jobs: Int) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreateWithOptions(key, cacheMode, cacheBytes, workload, worker, jobs))
     }
 
+    /// Returns the lockbox create password.
     public func lockboxCreatePassword(_ password: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreatePassword(password))
     }
 
+    /// Returns the lockbox create contact.
     public func lockboxCreateContact(_ contact: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreateContact(contact.handle!))
     }
 
+    /// Returns the lockbox create with signing key.
     public func lockboxCreateWithSigningKey(_ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreateWithSigningKey(contentKey, signingKey.handle!))
     }
 
+    /// Returns the lockbox open.
     public func lockboxOpen(_ archive: Data, _ key: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxOpen(archive, key))
     }
 
+    /// Opens a lockbox with explicit cache capacity, workload, worker policy, and job count.
     public func lockboxOpenWithOptions(_ archive: Data, _ key: Data, _ cacheMode: String, _ cacheBytes: UInt64, _ workload: String, _ worker: String, _ jobs: Int) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxOpenWithOptions(archive, key, cacheMode, cacheBytes, workload, worker, jobs))
     }
 
+    /// Returns the lockbox open password.
     public func lockboxOpenPassword(_ archive: Data, _ password: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxOpenPassword(archive, password))
     }
 
+    /// Returns the lockbox open contact.
     public func lockboxOpenContact(_ archive: Data, _ contact: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxOpenContact(archive, contact.handle!))
     }
 
-    public func lockboxInspectFile(_ path: String) throws -> Revault_Bindings_FileInspection {
+    /// Returns the lockbox inspect file.
+    public func lockboxInspectFile(_ path: String) throws -> FileInspection {
         return try operations.lockboxInspectFile(path)
     }
 
-    public func lockboxRecoveryScanPath(_ path: String, _ key: Data) throws -> Revault_Bindings_RecoveryReport {
+    /// Returns the lockbox recovery scan path.
+    public func lockboxRecoveryScanPath(_ path: String, _ key: Data) throws -> RecoveryReport {
         return try operations.lockboxRecoveryScanPath(path, key)
     }
 
-    public func lockboxRecoveryScan(_ bytes: Data, _ key: Data) throws -> Revault_Bindings_RecoveryReport {
+    /// Returns the lockbox recovery scan.
+    public func lockboxRecoveryScan(_ bytes: Data, _ key: Data) throws -> RecoveryReport {
         return try operations.lockboxRecoveryScan(bytes, key)
     }
 
+    /// Returns the lockbox recovery salvage.
     public func lockboxRecoverySalvage(_ bytes: Data, _ key: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxRecoverySalvage(bytes, key, signingKey.handle!))
     }
 
+    /// Returns the key contact generate.
     public func keyContactGenerate() throws -> ContactKeyPair {
         return ContactKeyPair(operations, try operations.keyContactGenerate())
     }
 
+    /// Returns the key contact from private.
     public func keyContactFromPrivate(_ bytes: Data) throws -> ContactKeyPair {
         return ContactKeyPair(operations, try operations.keyContactFromPrivate(bytes))
     }
 
+    /// Returns the key contact public from bytes.
     public func keyContactPublicFromBytes(_ bytes: Data) throws -> ContactPublicKey {
         return ContactPublicKey(operations, try operations.keyContactPublicFromBytes(bytes))
     }
 
+    /// Returns the key signing generate.
     public func keySigningGenerate() throws -> SigningKeyPair {
         return SigningKeyPair(operations, try operations.keySigningGenerate())
     }
 
+    /// Returns the key signing from private.
     public func keySigningFromPrivate(_ bytes: Data) throws -> SigningKeyPair {
         return SigningKeyPair(operations, try operations.keySigningFromPrivate(bytes))
     }
 
+    /// Returns the key signing public from bytes.
     public func keySigningPublicFromBytes(_ bytes: Data) throws -> SigningPublicKey {
         return SigningPublicKey(operations, try operations.keySigningPublicFromBytes(bytes))
     }
 
+    /// Returns the vault key export private.
     public func vaultKeyExportPrivate(_ key: OwnedHandle, _ format: String) throws -> Data {
         return try operations.vaultKeyExportPrivate(key.handle!, format)
     }
 
+    /// Returns the vault key export public.
     public func vaultKeyExportPublic(_ key: OwnedHandle, _ format: String) throws -> Data {
         return try operations.vaultKeyExportPublic(key.handle!, format)
     }
 
+    /// Returns the vault key import private.
     public func vaultKeyImportPrivate(_ bytes: Data) throws -> ContactKeyPair {
         return ContactKeyPair(operations, try operations.vaultKeyImportPrivate(bytes))
     }
 
+    /// Returns the vault key import public.
     public func vaultKeyImportPublic(_ bytes: Data) throws -> ContactPublicKey {
         return ContactPublicKey(operations, try operations.vaultKeyImportPublic(bytes))
     }
 
+    /// Returns the vault key fingerprint.
     public func vaultKeyFingerprint(_ key: OwnedHandle) throws -> Data {
         return try operations.vaultKeyFingerprint(key.handle!)
     }
 
+    /// Returns the vault key format hex.
     public func vaultKeyFormatHex(_ bytes: Data) throws -> String {
         return try operations.vaultKeyFormatHex(bytes)
     }
 
+    /// Returns the vault key decode hex.
     public func vaultKeyDecodeHex(_ text: String) throws -> Data {
         return try operations.vaultKeyDecodeHex(text)
     }
 
+    /// Returns the vault key format crockford.
     public func vaultKeyFormatCrockford(_ bytes: Data) throws -> String {
         return try operations.vaultKeyFormatCrockford(bytes)
     }
 
+    /// Returns the vault key format crockford reading.
     public func vaultKeyFormatCrockfordReading(_ code: String) throws -> String {
         return try operations.vaultKeyFormatCrockfordReading(code)
     }
 
+    /// Returns the vault key decode crockford.
     public func vaultKeyDecodeCrockford(_ code: String) throws -> Data {
         return try operations.vaultKeyDecodeCrockford(code)
     }
 
+    /// Returns the vault key hex encode.
     public func vaultKeyHexEncode(_ bytes: Data) throws -> String {
         return try operations.vaultKeyHexEncode(bytes)
     }
 
+    /// Returns the vault key hex decode.
     public func vaultKeyHexDecode(_ text: String) throws -> Data {
         return try operations.vaultKeyHexDecode(text)
     }
 
+    /// Returns the vault directory open.
     public func vaultDirectoryOpen(_ root: String, _ password: Data) throws -> VaultDirectory {
         return VaultDirectory(operations, try operations.vaultDirectoryOpen(root, password))
     }
 
+    /// Returns the vault structure version current.
     public func vaultStructureVersionCurrent() throws -> UInt32 {
         return try operations.vaultStructureVersionCurrent()
     }
 
+    /// Returns the vault directory probe structure version.
     public func vaultDirectoryProbeStructureVersion(_ root: String, _ password: Data) throws -> UInt32 {
         return try operations.vaultDirectoryProbeStructureVersion(root, password)
     }
 
+    /// Returns the vault directory open or create default.
     public func vaultDirectoryOpenOrCreateDefault(_ password: Data) throws -> VaultDirectory {
         return VaultDirectory(operations, try operations.vaultDirectoryOpenOrCreateDefault(password))
     }
 
+    /// Returns the vault directory replace default.
     public func vaultDirectoryReplaceDefault(_ password: Data) throws -> VaultDirectory {
         return VaultDirectory(operations, try operations.vaultDirectoryReplaceDefault(password))
     }
 
+    /// Returns the vault directory change password.
+    @discardableResult
     public func vaultDirectoryChangePassword(_ root: String, _ oldPassword: Data, _ newPassword: Data) throws -> Bool {
         return try operations.vaultDirectoryChangePassword(root, oldPassword, newPassword)
     }
 
+    /// Returns the vault directory change default password.
+    @discardableResult
     public func vaultDirectoryChangeDefaultPassword(_ oldPassword: Data, _ newPassword: Data) throws -> Bool {
         return try operations.vaultDirectoryChangeDefaultPassword(oldPassword, newPassword)
     }
 
+    /// Returns the vault directory replace.
     public func vaultDirectoryReplace(_ root: String, _ password: Data) throws -> VaultDirectory {
         return VaultDirectory(operations, try operations.vaultDirectoryReplace(root, password))
     }
 
+    /// Returns the vault directory open or create.
     public func vaultDirectoryOpenOrCreate(_ root: String, _ password: Data) throws -> VaultDirectory {
         return VaultDirectory(operations, try operations.vaultDirectoryOpenOrCreate(root, password))
     }
 
-    public func vaultBackupDefault(_ path: String, _ overwrite: Bool) throws -> Revault_Bindings_VaultBackupManifest {
+    /// Returns the vault backup default.
+    public func vaultBackupDefault(_ path: String, _ overwrite: Bool) throws -> VaultBackupManifest {
         return try operations.vaultBackupDefault(path, overwrite)
     }
 
-    public func vaultRestoreDefault(_ path: String, _ overwrite: Bool) throws -> Revault_Bindings_VaultBackupManifest {
+    /// Returns the vault restore default.
+    public func vaultRestoreDefault(_ path: String, _ overwrite: Bool) throws -> VaultBackupManifest {
         return try operations.vaultRestoreDefault(path, overwrite)
     }
 
+    /// Returns the vault read only open.
     public func vaultReadOnlyOpen(_ root: String, _ password: Data) throws -> ReadOnlyVaultDirectory {
         return ReadOnlyVaultDirectory(operations, try operations.vaultReadOnlyOpen(root, password))
     }
 
+    /// Returns the vault read only open default.
     public func vaultReadOnlyOpenDefault(_ password: Data) throws -> ReadOnlyVaultDirectory {
         return ReadOnlyVaultDirectory(operations, try operations.vaultReadOnlyOpenDefault(password))
     }
 
+    /// Returns the vault default directory.
     public func vaultDefaultDirectory() throws -> String {
         return try operations.vaultDefaultDirectory()
     }
 
+    /// Returns the vault default path.
     public func vaultDefaultPath() throws -> String {
         return try operations.vaultDefaultPath()
     }
 
+    /// Returns the vault agent log path.
     public func vaultAgentLogPath() throws -> String {
         return try operations.vaultAgentLogPath()
     }
 
+    /// Returns the vault agent log destination.
     public func vaultAgentLogDestination() throws -> String {
         return try operations.vaultAgentLogDestination()
     }
 
+    /// Returns the vault local.
     public func vaultLocal() throws -> LocalVault {
         return LocalVault(operations, try operations.vaultLocal())
     }
 
 }
 
-public extension Lockbox {
+/// Returns the member.
+extension Lockbox {
+    /// Adds file.
+    @discardableResult
     public func addFile(_ path: String, _ data: Data, _ replace: Bool) throws -> Bool {
         return try operations.lockboxAddFile(handle!, path, data, replace)
     }
 
+    /// Adds file with permissions.
+    @discardableResult
     public func addFileWithPermissions(_ path: String, _ data: Data, _ permissions: UInt32, _ replace: Bool) throws -> Bool {
         return try operations.lockboxAddFileWithPermissions(handle!, path, data, permissions, replace)
     }
 
+    /// Returns file.
     public func getFile(_ path: String) throws -> Data {
         return try operations.lockboxGetFile(handle!, path)
     }
 
+    /// Extracts file.
+    @discardableResult
     public func extractFile(_ source: String, _ destination: String, _ replace: Bool) throws -> Bool {
         return try operations.lockboxExtractFile(handle!, source, destination, replace)
     }
 
+    /// Extracts directory.
+    @discardableResult
     public func extractDirectory(_ destination: String, _ maxFileBytes: UInt64, _ maxTotalBytes: UInt64, _ maxFiles: Int, _ restoreSymlinks: Bool, _ restorePermissions: Bool, _ overwrite: Bool) throws -> Bool {
         return try operations.lockboxExtractDirectory(handle!, destination, maxFileBytes, maxTotalBytes, maxFiles, restoreSymlinks, restorePermissions, overwrite)
     }
 
-    public func streamContent(_ physical: Bool) throws -> Revault_Bindings_StreamChunkList {
+    /// Returns the stream content.
+    public func streamContent(_ physical: Bool) throws -> [StreamChunk] {
         return try operations.lockboxStreamContent(handle!, physical)
     }
 
-    public func cacheStats() throws -> Revault_Bindings_CacheStats {
+    /// Returns cache statistics for this lockbox.
+    public func cacheStats() throws -> CacheStats {
         return try operations.lockboxCacheStats(handle!)
     }
 
-    public func importStats() throws -> Revault_Bindings_ImportStats {
+    /// Returns import statistics for this lockbox.
+    public func importStats() throws -> ImportStats {
         return try operations.lockboxImportStats(handle!)
     }
 
+    /// Updates import stats.
+    @discardableResult
     public func resetImportStats() throws -> Bool {
         return try operations.lockboxResetImportStats(handle!)
     }
 
-    public func pageInspection() throws -> Revault_Bindings_PageInspectionList {
+    /// Returns the page inspection.
+    public func pageInspection() throws -> [PageInspection] {
         return try operations.lockboxPageInspection(handle!)
     }
 
-    public func recoveryReport() throws -> Revault_Bindings_RecoveryReport {
+    /// Returns the recovery report.
+    public func recoveryReport() throws -> RecoveryReport {
         return try operations.lockboxRecoveryReport(handle!)
     }
 
+    /// Returns the recovery report render.
     public func recoveryReportRender(_ verbose: Bool, _ maxEntries: Int) throws -> String {
         return try operations.lockboxRecoveryReportRender(handle!, verbose, maxEntries)
     }
 
+    /// Returns the storage len.
     public func storageLen() throws -> UInt64 {
         return try operations.lockboxStorageLen(handle!)
     }
 
+    /// Sets workload profile.
+    @discardableResult
     public func setWorkloadProfile(_ profile: String) throws -> Bool {
         return try operations.lockboxSetWorkloadProfile(handle!, profile)
     }
 
+    /// Sets worker policy.
+    @discardableResult
     public func setWorkerPolicy(_ mode: String, _ jobs: Int) throws -> Bool {
         return try operations.lockboxSetWorkerPolicy(handle!, mode, jobs)
     }
 
-    public func runtimeOptions() throws -> Revault_Bindings_RuntimeOptions {
+    /// Returns the runtime options.
+    public func runtimeOptions() throws -> RuntimeOptions {
         return try operations.lockboxRuntimeOptions(handle!)
     }
 
+    /// Authenticates and publishes the staged changes.
+    @discardableResult
     public func commit() throws -> Bool {
         return try operations.lockboxCommit(handle!)
     }
 
+    /// Creates dir.
+    @discardableResult
     public func createDir(_ path: String, _ createParents: Bool) throws -> Bool {
         return try operations.lockboxCreateDir(handle!, path, createParents)
     }
 
+    /// Removes delete.
+    @discardableResult
     public func delete(_ path: String) throws -> Bool {
         return try operations.lockboxDelete(handle!, path)
     }
 
+    /// Removes dir.
+    @discardableResult
     public func removeDir(_ path: String, _ recursive: Bool) throws -> Bool {
         return try operations.lockboxRemoveDir(handle!, path, recursive)
     }
 
+    /// Creates parent dirs.
+    @discardableResult
     public func createParentDirs(_ path: String) throws -> Bool {
         return try operations.lockboxCreateParentDirs(handle!, path)
     }
 
+    /// Updates rename.
+    @discardableResult
     public func rename(_ from: String, _ to: String) throws -> Bool {
         return try operations.lockboxRename(handle!, from, to)
     }
 
-    public func list(_ path: String, _ recursive: Bool) throws -> Revault_Bindings_LockboxEntryList {
+    /// Lists list.
+    public func list(_ path: String, _ recursive: Bool) throws -> [LockboxEntry] {
         return try operations.lockboxList(handle!, path, recursive)
     }
 
-    public func listWithOptions(_ path: String, _ glob: String, _ recursive: Bool, _ includeFiles: Bool, _ includeSymlinks: Bool, _ includeDirectories: Bool, _ limit: Int) throws -> Revault_Bindings_LockboxEntryList {
+    /// Lists with options.
+    public func listWithOptions(_ path: String, _ glob: String, _ recursive: Bool, _ includeFiles: Bool, _ includeSymlinks: Bool, _ includeDirectories: Bool, _ limit: Int) throws -> [LockboxEntry] {
         return try operations.lockboxListWithOptions(handle!, path, glob, recursive, includeFiles, includeSymlinks, includeDirectories, limit)
     }
 
-    public func stat(_ path: String) throws -> Revault_Bindings_OptionalLockboxEntry {
+    /// Returns metadata for the selected lockbox entry.
+    public func stat(_ path: String) throws -> LockboxEntry? {
         return try operations.lockboxStat(handle!, path)
     }
 
-    public func setVariable(_ name: String, _ value: String, _ secret: Bool) throws -> Bool {
-        return try operations.lockboxSetVariable(handle!, name, value, secret)
+    /// Sets variable.
+    @discardableResult
+    public func setVariable(_ name: String, _ value: String) throws -> Bool {
+        return try operations.lockboxSetVariable(handle!, name, value)
     }
 
-    public func getVariable(_ name: String) throws -> String {
+    /// Sets secret variable.
+    @discardableResult
+    public func setSecretVariable(_ name: String, _ value: Data) throws -> Bool {
+        return try operations.lockboxSetSecretVariable(handle!, name, value)
+    }
+
+    /// Returns variable.
+    public func getVariable(_ name: String) throws -> String? {
         return try operations.lockboxGetVariable(handle!, name)
     }
 
+    /// Returns the with secret variable.
+    public func withSecretVariable<T>(_ name: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        return try operations.lockboxWithSecretVariable(handle!, name, callback)
+    }
+
+    /// Removes variable.
+    @discardableResult
     public func deleteVariable(_ name: String) throws -> Bool {
         return try operations.lockboxDeleteVariable(handle!, name)
     }
 
-    public func moveVariables(_ movesProto: Data) throws -> Bool {
-        return try operations.lockboxMoveVariables(handle!, movesProto)
+    /// Updates variables.
+    @discardableResult
+    public func moveVariables(_ moves: [PathMove]) throws -> Bool {
+        return try operations.lockboxMoveVariables(handle!, DomainCodec.encodePathMoves(moves))
     }
 
-    public func listVariables() throws -> Revault_Bindings_VariableList {
+    /// Lists variables.
+    public func listVariables() throws -> [Variable] {
         return try operations.lockboxListVariables(handle!)
     }
 
-    public func variableSensitivity(_ name: String) throws -> Revault_Bindings_OptionalString {
+    /// Returns the variable sensitivity.
+    public func variableSensitivity(_ name: String) throws -> String? {
         return try operations.lockboxVariableSensitivity(handle!, name)
     }
 
+    /// Adds symlink.
+    @discardableResult
     public func addSymlink(_ path: String, _ target: String, _ replace: Bool) throws -> Bool {
         return try operations.lockboxAddSymlink(handle!, path, target, replace)
     }
 
+    /// Returns symlink target.
     public func getSymlinkTarget(_ path: String) throws -> String {
         return try operations.lockboxGetSymlinkTarget(handle!, path)
     }
 
+    /// Returns the id.
     public func id() throws -> Data {
         return try operations.lockboxId(handle!)
     }
 
+    /// Reports whether exists.
+    @discardableResult
     public func exists(_ path: String) throws -> Bool {
         return try operations.lockboxExists(handle!, path)
     }
 
+    /// Reports whether dir.
+    @discardableResult
     public func isDir(_ path: String) throws -> Bool {
         return try operations.lockboxIsDir(handle!, path)
     }
 
+    /// Returns the permissions.
     public func permissions(_ path: String) throws -> UInt32 {
         return try operations.lockboxPermissions(handle!, path)
     }
 
+    /// Sets permissions.
+    @discardableResult
     public func setPermissions(_ path: String, _ permissions: UInt32) throws -> Bool {
         return try operations.lockboxSetPermissions(handle!, path, permissions)
     }
 
+    /// Returns range.
     public func readRange(_ path: String, _ offset: UInt64, _ len: UInt64) throws -> Data {
         return try operations.lockboxReadRange(handle!, path, offset, len)
     }
 
+    /// Adds password.
     public func addPassword(_ password: Data) throws -> UInt64 {
         return try operations.lockboxAddPassword(handle!, password)
     }
 
+    /// Adds contact.
     public func addContact(_ contact: OwnedHandle, _ name: String) throws -> UInt64 {
         return try operations.lockboxAddContact(handle!, contact.handle!, name)
     }
 
+    /// Removes key.
+    @discardableResult
     public func deleteKey(_ id: UInt64) throws -> Bool {
         return try operations.lockboxDeleteKey(handle!, id)
     }
 
-    public func listKeySlots() throws -> Revault_Bindings_KeySlotList {
+    /// Lists key slots.
+    public func listKeySlots() throws -> [KeySlot] {
         return try operations.lockboxListKeySlots(handle!)
     }
 
+    /// Sets owner signing key.
+    @discardableResult
     public func setOwnerSigningKey(_ key: OwnedHandle) throws -> Bool {
         return try operations.lockboxSetOwnerSigningKey(handle!, key.handle!)
     }
 
-    public func ownerInspection() throws -> Revault_Bindings_OwnerInspection {
+    /// Returns the owner inspection.
+    public func ownerInspection() throws -> OwnerInspection {
         return try operations.lockboxOwnerInspection(handle!)
     }
 
-    public func defineForm(_ alias: String, _ name: String, _ description: String, _ fieldsProto: Data) throws -> Revault_Bindings_FormDefinition {
-        return try operations.lockboxDefineForm(handle!, alias, name, description, fieldsProto)
+    /// Returns the define form.
+    public func defineForm(_ alias: String, _ name: String, _ description: String, _ fields: [FormField]) throws -> FormDefinition {
+        return try operations.lockboxDefineForm(handle!, alias, name, description, DomainCodec.encodeFormFields(fields))
     }
 
-    public func listFormDefinitions() throws -> Revault_Bindings_FormDefinitionList {
+    /// Lists form definitions.
+    public func listFormDefinitions() throws -> [FormDefinition] {
         return try operations.lockboxListFormDefinitions(handle!)
     }
 
-    public func resolveForm(_ reference: String) throws -> Revault_Bindings_FormDefinition {
+    /// Returns the resolve form.
+    public func resolveForm(_ reference: String) throws -> FormDefinition {
         return try operations.lockboxResolveForm(handle!, reference)
     }
 
-    public func listFormRevisions(_ typeId: String) throws -> Revault_Bindings_FormDefinitionList {
+    /// Lists form revisions.
+    public func listFormRevisions(_ typeId: String) throws -> [FormDefinition] {
         return try operations.lockboxListFormRevisions(handle!, typeId)
     }
 
-    public func createFormRecord(_ path: String, _ typeReference: String, _ name: String) throws -> Revault_Bindings_FormRecord {
+    /// Creates form record.
+    public func createFormRecord(_ path: String, _ typeReference: String, _ name: String) throws -> FormRecord {
         return try operations.lockboxCreateFormRecord(handle!, path, typeReference, name)
     }
 
-    public func setFormField(_ path: String, _ field: String, _ value: String, _ secret: Bool) throws -> Bool {
-        return try operations.lockboxSetFormField(handle!, path, field, value, secret)
+    /// Sets form field.
+    @discardableResult
+    public func setFormField(_ path: String, _ field: String, _ value: String) throws -> Bool {
+        return try operations.lockboxSetFormField(handle!, path, field, value)
     }
 
-    public func listFormRecords() throws -> Revault_Bindings_FormRecordList {
+    /// Sets secret form field.
+    @discardableResult
+    public func setSecretFormField(_ path: String, _ field: String, _ value: Data) throws -> Bool {
+        return try operations.lockboxSetSecretFormField(handle!, path, field, value)
+    }
+
+    /// Lists form records.
+    public func listFormRecords() throws -> [FormRecord] {
         return try operations.lockboxListFormRecords(handle!)
     }
 
-    public func getFormRecord(_ path: String) throws -> Revault_Bindings_FormRecord {
+    /// Returns form record.
+    public func getFormRecord(_ path: String) throws -> FormRecord? {
         return try operations.lockboxGetFormRecord(handle!, path)
     }
 
+    /// Removes form record.
+    @discardableResult
     public func deleteFormRecord(_ path: String) throws -> Bool {
         return try operations.lockboxDeleteFormRecord(handle!, path)
     }
 
-    public func moveFormRecords(_ movesProto: Data) throws -> Bool {
-        return try operations.lockboxMoveFormRecords(handle!, movesProto)
+    /// Updates form records.
+    @discardableResult
+    public func moveFormRecords(_ moves: [PathMove]) throws -> Bool {
+        return try operations.lockboxMoveFormRecords(handle!, DomainCodec.encodePathMoves(moves))
     }
 
-    public func getFormField(_ path: String, _ field: String) throws -> Revault_Bindings_FormValue {
+    /// Returns form field.
+    public func getFormField(_ path: String, _ field: String) throws -> FormValue? {
         return try operations.lockboxGetFormField(handle!, path, field)
     }
 
+    /// Returns the with secret form field.
+    public func withSecretFormField<T>(_ path: String, _ field: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
+        return try operations.lockboxWithSecretFormField(handle!, path, field, callback)
+    }
+
+    /// Returns the to bytes.
     public func toBytes() throws -> Data {
         return try operations.lockboxToBytes(handle!)
     }
 
+    /// Releases the native resources held by this object.
     public func free() throws -> Void {
         try operations.lockboxFree(handle!)
         handle = nil
@@ -1808,51 +2054,64 @@ public extension Lockbox {
 
 }
 
-public extension ContactKeyPair {
+/// Returns the member.
+extension ContactKeyPair {
+    /// Returns the public bytes.
     public func publicBytes() throws -> Data {
         return try operations.keyContactPublic(handle!)
     }
 
+    /// Returns the private bytes.
     public func privateBytes() throws -> Data {
         return try operations.keyContactPrivate(handle!)
     }
 
+    /// Releases the native resources held by this object.
     public func free() throws -> Void {
         try operations.keyContactFree(handle!)
         handle = nil
     }
 
+    /// Decrypts a wrapped content key for this contact.
     public func decrypt(_ wrapped: OwnedHandle) throws -> Data {
         return try operations.keyContactDecrypt(handle!, wrapped.handle!)
     }
 
 }
 
-public extension ContactPublicKey {
+/// Returns the member.
+extension ContactPublicKey {
+    /// Returns the public free.
     public func publicFree() throws -> Void {
         try operations.keyContactPublicFree(handle!)
         handle = nil
     }
 
+    /// Encrypts a content key for the selected contact.
     public func encrypt(_ contentKey: Data) throws -> WrappedContactKey {
         return WrappedContactKey(operations, try operations.keyContactEncrypt(handle!, contentKey))
     }
 
 }
 
-public extension WrappedContactKey {
+/// Returns the member.
+extension WrappedContactKey {
+    /// Returns the public bytes.
     public func publicBytes() throws -> Data {
         return try operations.keyContactWrappedPublic(handle!)
     }
 
+    /// Returns the ciphertext.
     public func ciphertext() throws -> Data {
         return try operations.keyContactWrappedCiphertext(handle!)
     }
 
+    /// Returns the encrypted.
     public func encrypted() throws -> Data {
         return try operations.keyContactWrappedEncrypted(handle!)
     }
 
+    /// Releases the native resources held by this object.
     public func free() throws -> Void {
         try operations.keyContactWrappedFree(handle!)
         handle = nil
@@ -1860,15 +2119,19 @@ public extension WrappedContactKey {
 
 }
 
-public extension SigningKeyPair {
+/// Returns the member.
+extension SigningKeyPair {
+    /// Returns the public bytes.
     public func publicBytes() throws -> Data {
         return try operations.keySigningPublic(handle!)
     }
 
+    /// Returns the private bytes.
     public func privateBytes() throws -> Data {
         return try operations.keySigningPrivate(handle!)
     }
 
+    /// Releases the native resources held by this object.
     public func free() throws -> Void {
         try operations.keySigningFree(handle!)
         handle = nil
@@ -1876,7 +2139,9 @@ public extension SigningKeyPair {
 
 }
 
-public extension SigningPublicKey {
+/// Returns the member.
+extension SigningPublicKey {
+    /// Returns the public free.
     public func publicFree() throws -> Void {
         try operations.keySigningPublicFree(handle!)
         handle = nil
@@ -1884,175 +2149,234 @@ public extension SigningPublicKey {
 
 }
 
-public extension VaultDirectory {
+/// Returns the member.
+extension VaultDirectory {
+    /// Returns the root.
     public func root() throws -> String {
         return try operations.vaultDirectoryRoot(handle!)
     }
 
+    /// Returns the structure version.
     public func structureVersion() throws -> UInt32 {
         return try operations.vaultDirectoryStructureVersion(handle!)
     }
 
-    public func listPrivateKeys() throws -> Revault_Bindings_StringList {
+    /// Lists private keys.
+    public func listPrivateKeys() throws -> [String] {
         return try operations.vaultDirectoryListPrivateKeys(handle!)
     }
 
-    public func listPrivateKeyNames() throws -> Revault_Bindings_StringList {
+    /// Lists private key names.
+    public func listPrivateKeyNames() throws -> [String] {
         return try operations.vaultDirectoryListPrivateKeyNames(handle!)
     }
 
-    public func listContactNames() throws -> Revault_Bindings_StringList {
+    /// Lists contact names.
+    public func listContactNames() throws -> [String] {
         return try operations.vaultDirectoryListContactNames(handle!)
     }
 
-    public func listFormAliases() throws -> Revault_Bindings_StringList {
+    /// Lists form aliases.
+    public func listFormAliases() throws -> [String] {
         return try operations.vaultDirectoryListFormAliases(handle!)
     }
 
+    /// Returns the private key exists.
+    @discardableResult
     public func privateKeyExists(_ name: String) throws -> Bool {
         return try operations.vaultDirectoryPrivateKeyExists(handle!, name)
     }
 
+    /// Removes private key.
+    @discardableResult
     public func deletePrivateKey(_ name: String) throws -> Bool {
         return try operations.vaultDirectoryDeletePrivateKey(handle!, name)
     }
 
+    /// Stores private key.
+    @discardableResult
     public func storePrivateKey(_ name: String, _ key: OwnedHandle) throws -> Bool {
         return try operations.vaultDirectoryStorePrivateKey(handle!, name, key.handle!)
     }
 
+    /// Loads private key.
     public func loadPrivateKey(_ name: String) throws -> ContactKeyPair {
         return ContactKeyPair(operations, try operations.vaultDirectoryLoadPrivateKey(handle!, name))
     }
 
+    /// Loads private key generation.
     public func loadPrivateKeyGeneration(_ name: String, _ index: UInt16) throws -> ContactKeyPair {
         return ContactKeyPair(operations, try operations.vaultDirectoryLoadPrivateKeyGeneration(handle!, name, index))
     }
 
+    /// Stores contact.
+    @discardableResult
     public func storeContact(_ name: String, _ key: OwnedHandle) throws -> Bool {
         return try operations.vaultDirectoryStoreContact(handle!, name, key.handle!)
     }
 
+    /// Loads contact.
     public func loadContact(_ name: String) throws -> ContactPublicKey {
         return ContactPublicKey(operations, try operations.vaultDirectoryLoadContact(handle!, name))
     }
 
+    /// Returns the contact exists.
+    @discardableResult
     public func contactExists(_ name: String) throws -> Bool {
         return try operations.vaultDirectoryContactExists(handle!, name)
     }
 
+    /// Removes contact.
+    @discardableResult
     public func deleteContact(_ name: String) throws -> Bool {
         return try operations.vaultDirectoryDeleteContact(handle!, name)
     }
 
-    public func listContacts() throws -> Revault_Bindings_ContactList {
+    /// Lists contacts.
+    public func listContacts() throws -> [Contact] {
         return try operations.vaultDirectoryListContacts(handle!)
     }
 
+    /// Stores profile email.
+    @discardableResult
     public func storeProfileEmail(_ name: String, _ email: String) throws -> Bool {
         return try operations.vaultDirectoryStoreProfileEmail(handle!, name, email)
     }
 
-    public func profileEmail(_ name: String) throws -> Revault_Bindings_OptionalString {
+    /// Returns the profile email.
+    public func profileEmail(_ name: String) throws -> String? {
         return try operations.vaultDirectoryProfileEmail(handle!, name)
     }
 
+    /// Stores backup.
+    @discardableResult
     public func storeBackup(_ id: Data, _ bytes: Data) throws -> Bool {
         return try operations.vaultDirectoryStoreBackup(handle!, id, bytes)
     }
 
+    /// Loads backup.
     public func loadBackup(_ id: Data) throws -> Data {
         return try operations.vaultDirectoryLoadBackup(handle!, id)
     }
 
+    /// Returns the backup count.
     public func backupCount() throws -> UInt64 {
         return try operations.vaultDirectoryBackupCount(handle!)
     }
 
+    /// Returns the restore private key.
+    @discardableResult
     public func restorePrivateKey(_ name: String, _ key: OwnedHandle, _ signingKey: OwnedHandle, _ overwrite: Bool) throws -> Bool {
         return try operations.vaultDirectoryRestorePrivateKey(handle!, name, key.handle!, signingKey.handle!, overwrite)
     }
 
+    /// Loads owner signing key.
     public func loadOwnerSigningKey(_ name: String) throws -> SigningKeyPair {
         return SigningKeyPair(operations, try operations.vaultDirectoryLoadOwnerSigningKey(handle!, name))
     }
 
+    /// Loads owner signing key generation.
     public func loadOwnerSigningKeyGeneration(_ name: String, _ index: UInt16) throws -> SigningKeyPair {
         return SigningKeyPair(operations, try operations.vaultDirectoryLoadOwnerSigningKeyGeneration(handle!, name, index))
     }
 
+    /// Stores contact signing key.
+    @discardableResult
     public func storeContactSigningKey(_ name: String, _ key: OwnedHandle) throws -> Bool {
         return try operations.vaultDirectoryStoreContactSigningKey(handle!, name, key.handle!)
     }
 
+    /// Loads contact signing key.
     public func loadContactSigningKey(_ name: String) throws -> SigningPublicKey {
         return SigningPublicKey(operations, try operations.vaultDirectoryLoadContactSigningKey(handle!, name))
     }
 
-    public func listProfileGenerations(_ name: String) throws -> Revault_Bindings_ProfileHistory {
+    /// Lists profile generations.
+    public func listProfileGenerations(_ name: String) throws -> ProfileHistory {
         return try operations.vaultDirectoryListProfileGenerations(handle!, name)
     }
 
-    public func rotatePrivateKey(_ name: String) throws -> Revault_Bindings_ProfileHistory {
+    /// Updates private key.
+    public func rotatePrivateKey(_ name: String) throws -> ProfileHistory {
         return try operations.vaultDirectoryRotatePrivateKey(handle!, name)
     }
 
+    /// Stores lockbox.
+    @discardableResult
     public func rememberLockbox(_ id: Data, _ path: String) throws -> Bool {
         return try operations.vaultDirectoryRememberLockbox(handle!, id, path)
     }
 
-    public func listKnownLockboxes() throws -> Revault_Bindings_KnownLockboxList {
+    /// Lists known lockboxes.
+    public func listKnownLockboxes() throws -> [KnownLockbox] {
         return try operations.vaultDirectoryListKnownLockboxes(handle!)
     }
 
+    /// Removes lockbox.
+    @discardableResult
     public func forgetLockbox(_ path: String) throws -> Bool {
         return try operations.vaultDirectoryForgetLockbox(handle!, path)
     }
 
+    /// Stores access slot label.
+    @discardableResult
     public func rememberAccessSlotLabel(_ id: Data, _ slotId: UInt64, _ name: String) throws -> Bool {
         return try operations.vaultDirectoryRememberAccessSlotLabel(handle!, id, slotId, name)
     }
 
-    public func listAccessSlotLabels(_ id: Data) throws -> Revault_Bindings_AccessSlotLabelList {
+    /// Lists access slot labels.
+    public func listAccessSlotLabels(_ id: Data) throws -> [AccessSlotLabel] {
         return try operations.vaultDirectoryListAccessSlotLabels(handle!, id)
     }
 
-    public func findAccessSlotLabels(_ id: Data, _ name: String) throws -> Revault_Bindings_AccessSlotLabelList {
+    /// Returns the find access slot labels.
+    public func findAccessSlotLabels(_ id: Data, _ name: String) throws -> [AccessSlotLabel] {
         return try operations.vaultDirectoryFindAccessSlotLabels(handle!, id, name)
     }
 
+    /// Removes access slot label.
+    @discardableResult
     public func forgetAccessSlotLabel(_ id: Data, _ slotId: UInt64) throws -> Bool {
         return try operations.vaultDirectoryForgetAccessSlotLabel(handle!, id, slotId)
     }
 
-    public func defineForm(_ alias: String, _ name: String, _ description: String, _ fieldsProto: Data) throws -> Revault_Bindings_FormDefinition {
-        return try operations.vaultDirectoryDefineForm(handle!, alias, name, description, fieldsProto)
+    /// Returns the define form.
+    public func defineForm(_ alias: String, _ name: String, _ description: String, _ fields: [FormField]) throws -> FormDefinition {
+        return try operations.vaultDirectoryDefineForm(handle!, alias, name, description, DomainCodec.encodeFormFields(fields))
     }
 
-    public func resolveForm(_ reference: String) throws -> Revault_Bindings_FormDefinition {
+    /// Returns the resolve form.
+    public func resolveForm(_ reference: String) throws -> FormDefinition {
         return try operations.vaultDirectoryResolveForm(handle!, reference)
     }
 
-    public func listForms() throws -> Revault_Bindings_FormDefinitionList {
+    /// Lists forms.
+    public func listForms() throws -> [FormDefinition] {
         return try operations.vaultDirectoryListForms(handle!)
     }
 
-    public func listFormRevisions(_ typeId: String) throws -> Revault_Bindings_FormDefinitionList {
+    /// Lists form revisions.
+    public func listFormRevisions(_ typeId: String) throws -> [FormDefinition] {
         return try operations.vaultDirectoryListFormRevisions(handle!, typeId)
     }
 
+    /// Returns the seed forms.
     public func seedForms() throws -> Int {
         return try operations.vaultDirectorySeedForms(handle!)
     }
 
+    /// Stores password.
+    @discardableResult
     public func rememberPassword(_ id: Data, _ password: Data) throws -> Bool {
         return try operations.vaultDirectoryRememberPassword(handle!, id, password)
     }
 
+    /// Returns the remembered password.
     public func rememberedPassword(_ id: Data) throws -> Data {
         return try operations.vaultDirectoryRememberedPassword(handle!, id)
     }
 
+    /// Releases the native resources held by this object.
     public func free() throws -> Void {
         try operations.vaultDirectoryFree(handle!)
         handle = nil
@@ -2060,23 +2384,29 @@ public extension VaultDirectory {
 
 }
 
-public extension ReadOnlyVaultDirectory {
-    public func listProfileNames() throws -> Revault_Bindings_StringList {
+/// Returns the member.
+extension ReadOnlyVaultDirectory {
+    /// Lists profile names.
+    public func listProfileNames() throws -> [String] {
         return try operations.vaultReadOnlyListProfileNames(handle!)
     }
 
-    public func listContactNames() throws -> Revault_Bindings_StringList {
+    /// Lists contact names.
+    public func listContactNames() throws -> [String] {
         return try operations.vaultReadOnlyListContactNames(handle!)
     }
 
-    public func listFormAliases() throws -> Revault_Bindings_StringList {
+    /// Lists form aliases.
+    public func listFormAliases() throws -> [String] {
         return try operations.vaultReadOnlyListFormAliases(handle!)
     }
 
-    public func listKnownLockboxes() throws -> Revault_Bindings_KnownLockboxList {
+    /// Lists known lockboxes.
+    public func listKnownLockboxes() throws -> [KnownLockbox] {
         return try operations.vaultReadOnlyListKnownLockboxes(handle!)
     }
 
+    /// Releases the native resources held by this object.
     public func free() throws -> Void {
         try operations.vaultReadOnlyFree(handle!)
         handle = nil
@@ -2084,156 +2414,217 @@ public extension ReadOnlyVaultDirectory {
 
 }
 
-public extension Agent {
+/// Returns the member.
+extension Agent {
+    /// Reports whether running.
+    @discardableResult
     public func isRunning() throws -> Bool {
         return try operations.vaultIsRunning()
     }
 
+    /// Removes all.
+    @discardableResult
     public func forgetAll() throws -> Bool {
         return try operations.vaultForgetAll()
     }
 
+    /// Returns the serve.
+    @discardableResult
     public func serve() throws -> Bool {
         return try operations.vaultAgentServe()
     }
 
+    /// Verifies transport.
+    @discardableResult
     public func verifyTransport() throws -> Bool {
         return try operations.vaultAgentVerifyTransport()
     }
 
+    /// Returns get.
     public func get(_ id: Data) throws -> Data {
         return try operations.vaultAgentGet(id)
     }
 
+    /// Stores put.
+    @discardableResult
     public func put(_ id: Data, _ key: Data) throws -> Bool {
         return try operations.vaultAgentPut(id, key)
     }
 
+    /// Removes forget.
+    @discardableResult
     public func forget(_ id: Data) throws -> Bool {
         return try operations.vaultAgentForget(id)
     }
 
+    /// Stops stop.
+    @discardableResult
     public func stop() throws -> Bool {
         return try operations.vaultAgentStop()
     }
 
+    /// Starts start.
+    @discardableResult
     public func start() throws -> Bool {
         return try operations.vaultAgentStart()
     }
 
-    public func list() throws -> Revault_Bindings_AgentEntryList {
+    /// Lists list.
+    public func list() throws -> [AgentEntry] {
         return try operations.vaultAgentList()
     }
 
-    public func sleepSupport() throws -> Revault_Bindings_SleepSupport {
+    /// Returns the sleep support.
+    public func sleepSupport() throws -> SleepSupport {
         return try operations.vaultAgentSleepSupport()
     }
 
+    /// Returns vault unlock key.
     public func getVaultUnlockKey(_ vaultId: String) throws -> Data {
         return try operations.vaultAgentGetVaultUnlockKey(vaultId)
     }
 
+    /// Stores vault unlock key.
+    @discardableResult
     public func putVaultUnlockKey(_ vaultId: String, _ key: Data, _ ttlSeconds: UInt64) throws -> Bool {
         return try operations.vaultAgentPutVaultUnlockKey(vaultId, key, ttlSeconds)
     }
 
+    /// Removes vault unlock key.
+    @discardableResult
     public func forgetVaultUnlockKey(_ vaultId: String) throws -> Bool {
         return try operations.vaultAgentForgetVaultUnlockKey(vaultId)
     }
 
+    /// Returns owner signing key.
     public func getOwnerSigningKey(_ vaultId: String, _ profile: String) throws -> SigningKeyPair {
         return SigningKeyPair(operations, try operations.vaultAgentGetOwnerSigningKey(vaultId, profile))
     }
 
+    /// Stores owner signing key.
+    @discardableResult
     public func putOwnerSigningKey(_ vaultId: String, _ profile: String, _ key: OwnedHandle, _ ttlSeconds: UInt64) throws -> Bool {
         return try operations.vaultAgentPutOwnerSigningKey(vaultId, profile, key.handle!, ttlSeconds)
     }
 
+    /// Removes owner signing key.
+    @discardableResult
     public func forgetOwnerSigningKey(_ vaultId: String, _ profile: String) throws -> Bool {
         return try operations.vaultAgentForgetOwnerSigningKey(vaultId, profile)
     }
 
+    /// Starts activity.
     public func beginActivity(_ kind: String) throws -> AgentActivity {
         return AgentActivity(operations, try operations.vaultAgentBeginActivity(kind))
     }
 
+    /// Stops activity.
     public func endActivity(_ handle: OwnedHandle) throws -> Void {
         try operations.vaultAgentEndActivity(handle.handle!)
     }
 
 }
 
-public extension AgentActivity {
+/// Returns the member.
+extension AgentActivity {
 }
 
-public extension Platform {
-    public func status() throws -> Revault_Bindings_PlatformStatus {
+/// Returns the member.
+extension Platform {
+    /// Returns the status.
+    public func status() throws -> PlatformStatus {
         return try operations.vaultPlatformStatus()
     }
 
+    /// Sets scope.
+    @discardableResult
     public func setScope(_ scope: String) throws -> Bool {
         return try operations.vaultPlatformSetScope(scope)
     }
 
+    /// Removes password.
+    @discardableResult
     public func forgetPassword() throws -> Bool {
         return try operations.vaultPlatformForgetPassword()
     }
 
+    /// Stores password.
+    @discardableResult
     public func putPassword(_ password: Data) throws -> Bool {
         return try operations.vaultPlatformPutPassword(password)
     }
 
+    /// Returns the enable.
+    @discardableResult
     public func enable() throws -> Bool {
         return try operations.vaultPlatformEnable()
     }
 
+    /// Returns the disable.
+    @discardableResult
     public func disable() throws -> Bool {
         return try operations.vaultPlatformDisable()
     }
 
+    /// Returns the disabled.
+    @discardableResult
     public func disabled() throws -> Bool {
         return try operations.vaultPlatformDisabled()
     }
 
+    /// Returns password.
     public func getPassword() throws -> Data {
         return try operations.vaultPlatformGetPassword()
     }
 
 }
 
-public extension LocalVault {
+/// Returns the member.
+extension LocalVault {
+    /// Creates lockbox password.
     public func createLockboxPassword(_ path: String, _ password: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.vaultCreateLockboxPassword(handle!, path, password))
     }
 
+    /// Opens lockbox password.
     public func openLockboxPassword(_ path: String, _ password: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.vaultOpenLockboxPassword(handle!, path, password))
     }
 
+    /// Creates lockbox content key.
     public func createLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.vaultCreateLockboxContentKey(handle!, path, contentKey, signingKey.handle!))
     }
 
+    /// Creates lockbox contact.
     public func createLockboxContact(_ path: String, _ contact: OwnedHandle, _ name: String, _ signingKey: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.vaultCreateLockboxContact(handle!, path, contact.handle!, name, signingKey.handle!))
     }
 
+    /// Opens lockbox content key.
     public func openLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.vaultOpenLockboxContentKey(handle!, path, contentKey, signingKey.handle!))
     }
 
+    /// Stores lockbox password.
+    @discardableResult
     public func cacheLockboxPassword(_ path: String, _ password: Data, _ ttlSeconds: UInt64) throws -> Bool {
         return try operations.vaultCacheLockboxPassword(handle!, path, password, ttlSeconds)
     }
 
+    /// Releases the native resources held by lockbox.
+    @discardableResult
     public func closeLockbox(_ path: String) throws -> Bool {
         return try operations.vaultCloseLockbox(handle!, path)
     }
 
+    /// Releases the native resources held by all.
+    @discardableResult
     public func closeAll() throws -> Bool {
         return try operations.vaultCloseAll(handle!)
     }
 
+    /// Releases the native resources held by this object.
     public func free() throws -> Void {
         try operations.vaultFree(handle!)
         handle = nil

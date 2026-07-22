@@ -9,7 +9,6 @@ members = [
     "revault_migration",
     "revault_cli",
     "revault_publish_protocol",
-    "revault_wire",
     "revault_key_server",
     "revault_bindings",
     "revault_wasm_bindings",
@@ -17,3 +16,8 @@ members = [
     "xtask",
 ]
 resolver = "2"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"

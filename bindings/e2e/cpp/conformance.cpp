@@ -33,7 +33,7 @@ static fs::path artifact_root() {
 static std::vector<std::uint8_t> bytes(const std::string& value) {
   return {value.begin(), value.end()};
 }
-static std::vector<std::uint8_t> copy(const Buffer& value) { return value.bytes(); }
+static std::vector<std::uint8_t> copy(const std::vector<std::uint8_t>& value) { return value; }
 static void write(const fs::path& path, const std::vector<std::uint8_t>& value) {
   std::ofstream output(path, std::ios::binary | std::ios::trunc);
   output.write(reinterpret_cast<const char*>(value.data()), value.size());
@@ -74,17 +74,22 @@ static void archive_lifecycle() {
   check(copy(box.read_range("/renamed.txt", 0, 11)) == bytes("replacement"), "range");
   pass("lockbox_read_range", 3);
   box.set_variable("normal", "value");
-  check(copy(box.get_variable("normal")) == bytes("value"), "variable");
+  check(box.get_variable("normal") == "value", "variable");
   pass("lockbox_set_variable");
   pass("lockbox_get_variable", 3);
   box.move_variables({{"normal", "moved"}});
-  check(copy(box.get_variable("moved")) == bytes("value"), "moved variable");
+  check(box.get_variable("moved") == "value", "moved variable");
   box.move_variables({{"moved", "normal"}});
   pass("lockbox_move_variables", 3);
-  box.set_variable("secret", "hidden", true);
-  check(box.variable_sensitivity("secret").present(), "variable sensitivity");
+  box.set_secret_variable("secret", bytes("hidden"));
+  pass("lockbox_set_secret_variable");
+  check(box.with_secret_variable("secret", [](std::span<const std::uint8_t> value) {
+    check(std::string(value.begin(), value.end()) == "hidden", "secret variable");
+  }), "secret variable present");
+  pass("lockbox_get_secret_variable"); pass("secret_len"); pass("secret_copy"); pass("secret_free");
+  check(box.variable_sensitivity("secret").has_value(), "variable sensitivity");
   pass("lockbox_variable_sensitivity", 2);
-  check(box.list_variables().values_size() == 2, "variable list");
+  check(box.list_variables().size() == 2, "variable list");
   pass("lockbox_list_variables");
   box.delete_variable("normal");
   pass("lockbox_delete_variable");
@@ -92,13 +97,13 @@ static void archive_lifecycle() {
   check(copy(box.symlink_target("/link")) == bytes("/renamed.txt"), "symlink target");
   pass("lockbox_add_symlink");
   pass("lockbox_get_symlink_target", 3);
-  check(box.list("/", true).entries_size() > 0, "entry list");
+  check(box.list("/", true).size() > 0, "entry list");
   check(box.stat("/renamed.txt").has_value(), "entry stat");
   pass("lockbox_list", 2);
   pass("lockbox_stat", 2);
   box.set_workload_profile("read-mostly");
   box.set_worker_policy("single", 1);
-  check(!box.runtime_options().workload_profile().empty(), "runtime options");
+  check(!box.runtime_options().workload_profile.empty(), "runtime options");
   pass("lockbox_set_workload_profile");
   pass("lockbox_set_worker_policy");
   pass("lockbox_runtime_options");
@@ -121,7 +126,7 @@ static void archive_lifecycle() {
     throw std::runtime_error("invalid lockbox probe unexpectedly succeeded");
   } catch (const std::exception&) {
     const auto details = last_error_details();
-    check(!details.message().empty(), "structured native error details");
+    check(!details.message.empty(), "structured native error details");
   }
   pass("buffer_last_error_details", 2);
   const auto artifact = artifact_root() / "archive.lbox";
@@ -221,37 +226,39 @@ static void advanced_archive() {
   pass("lockbox_create_with_options");
   box.add_file("/account.txt", bytes("account data"));
   auto listed = box.list_with_options("/", "*.txt", true, true, false, false, 20);
-  check(listed.entries_size() == 1, "filtered listing");
+  check(listed.size() == 1, "filtered listing");
   pass("lockbox_list_with_options", 2);
 
-  bindings::FormFieldList fields;
-  auto* field = fields.add_values();
-  field->set_id("username");
-  field->set_label("Username");
-  field->set_kind("text");
-  field->set_required(true);
+  bindings::FormFieldList fields{{"username", "Username", "text", true},
+                                 {"password", "Password", "secret", true}};
   const auto definition = box.define_form("account", "Account", "Account form", fields);
-  check(!definition.type_id().empty(), "form type identifier");
+  check(!definition.type_id.empty(), "form type identifier");
   pass("lockbox_define_form", 2);
-  check(box.list_form_definitions().values_size() == 1, "form definitions");
-  check(box.resolve_form("account").type_id() == definition.type_id(), "form resolution");
-  check(box.list_form_revisions(definition.type_id()).values_size() == 1, "form revisions");
+  check(box.list_form_definitions().size() == 1, "form definitions");
+  check(box.resolve_form("account").type_id == definition.type_id, "form resolution");
+  check(box.list_form_revisions(definition.type_id).size() == 1, "form revisions");
   pass("lockbox_list_form_definitions");
   pass("lockbox_resolve_form");
   pass("lockbox_list_form_revisions");
   auto record = box.create_form_record("/account.form", "account", "Primary");
-  check(record.path() == "/account.form", "form record path");
+  check(record.path == "/account.form", "form record path");
   pass("lockbox_create_form_record");
   box.set_form_field("/account.form", "username", "alice");
   pass("lockbox_set_form_field");
-  check(box.get_form_record("/account.form").values_size() == 1, "form record value");
-  check(box.get_form_field("/account.form", "username").value() == "alice", "form field");
-  check(box.list_form_records().values_size() == 1, "form records");
+  box.set_secret_form_field("/account.form", "password", bytes("hidden"));
+  pass("lockbox_set_secret_form_field");
+  check(box.with_secret_form_field("/account.form", "password", [](std::span<const std::uint8_t> value) {
+    check(std::string(value.begin(), value.end()) == "hidden", "secret form field");
+  }), "secret form field present");
+  pass("lockbox_get_secret_form_field");
+  check(box.get_form_record("/account.form").value().values.size() == 2, "form record values");
+  check(box.get_form_field("/account.form", "username").value().value == "alice", "form field");
+  check(box.list_form_records().size() == 1, "form records");
   pass("lockbox_get_form_record");
   pass("lockbox_get_form_field");
   pass("lockbox_list_form_records");
   box.move_form_records({{"/account.form", "/moved.form"}});
-  check(box.get_form_record("/moved.form").values_size() == 1,
+  check(box.get_form_record("/moved.form").value().values.size() == 2,
         "moved form record");
   box.move_form_records({{"/moved.form", "/account.form"}});
   pass("lockbox_move_form_records", 3);
@@ -267,21 +274,21 @@ static void advanced_archive() {
   const auto contact_slot = box.add_contact(contact_public, "recipient");
   check(contact_slot != UINT64_MAX, "contact slot");
   pass("lockbox_add_contact");
-  check(box.list_key_slots().values_size() >= 2, "key slots");
+  check(box.list_key_slots().size() >= 2, "key slots");
   pass("lockbox_list_key_slots");
   box.delete_key(password_slot);
   pass("lockbox_delete_key");
 
   box.commit();
-  check(box.owner_inspection().signed_(), "owner inspection");
+  check(box.owner_inspection().is_signed, "owner inspection");
   pass("lockbox_owner_inspection", 2);
-  check(box.cache_stats().limit_bytes() > 0, "cache stats");
-  check(!box.import_stats().host_read_nanos().empty(), "import stats");
+  check(box.cache_stats().limit_bytes > 0, "cache stats");
+  check(!box.import_stats().host_read_nanos.empty(), "import stats");
   box.reset_import_stats();
-  check(box.page_inspection().values_size() > 0, "page inspection");
-  check(box.recovery_report().intact_file_count() > 0, "recovery report");
+  check(box.page_inspection().size() > 0, "page inspection");
+  check(box.recovery_report().intact_file_count > 0, "recovery report");
   check(!box.render_recovery_report(true, 100).empty(), "rendered recovery report");
-  check(box.stream_content(false).values_size() > 0, "content stream");
+  check(box.stream_content(false).size() > 0, "content stream");
   check(!box.id().empty(), "lockbox id");
   pass("lockbox_cache_stats");
   pass("lockbox_import_stats");
@@ -295,9 +302,9 @@ static void advanced_archive() {
   auto archive = copy(box.to_bytes());
   const auto path = artifact_root() / "advanced.lbox";
   write(path, archive);
-  check(Lockbox::inspect_file(path.string()).header_readable(), "file inspection");
-  check(Lockbox::scan_path(path.string(), key).intact_file_count() > 0, "scan path");
-  check(Lockbox::scan(archive, key).intact_file_count() > 0, "scan bytes");
+  check(Lockbox::inspect_file(path.string()).header_readable, "file inspection");
+  check(Lockbox::scan_path(path.string(), key).intact_file_count > 0, "scan path");
+  check(Lockbox::scan(archive, key).intact_file_count > 0, "scan bytes");
   pass("lockbox_inspect_file");
   pass("lockbox_recovery_scan_path");
   pass("lockbox_recovery_scan");
@@ -328,7 +335,7 @@ static void advanced_archive() {
   pass("lockbox_open_contact", 2);
   auto signed_box = Lockbox::create_signed(key, signing);
   signed_box.commit();
-  check(signed_box.owner_inspection().signed_(), "signed create");
+  check(signed_box.owner_inspection().is_signed, "signed create");
   pass("lockbox_create_with_signing_key", 2);
 
   const auto extract_root = artifact_root() / "extract";
@@ -381,12 +388,12 @@ static void vault_lifecycle() {
     pass("vault_directory_load_private_key_generation");
     vault.store_profile_email("alice", "alice@example.test");
     auto email = vault.profile_email("alice");
-    check(email.present() && email.value() == "alice@example.test", "profile email");
+    check(email.has_value() && email.value() == "alice@example.test", "profile email");
     pass("vault_directory_store_profile_email");
     pass("vault_directory_profile_email", 3);
-    check(vault.list_profile_generations("alice").generations_size() == 1,
+    check(vault.list_profile_generations("alice").generations.size() == 1,
           "profile history");
-    check(vault.rotate_private_key("alice").generations_size() == 2,
+    check(vault.rotate_private_key("alice").generations.size() == 2,
           "profile rotation");
     pass("vault_directory_list_profile_generations");
     pass("vault_directory_rotate_private_key");
@@ -397,7 +404,7 @@ static void vault_lifecycle() {
     vault.store_contact("bob", contact_public);
     check(vault.contact_exists("bob"), "contact exists");
     auto loaded_contact = vault.load_contact("bob");
-    check(vault.list_contacts().values_size() == 1, "contacts list");
+    check(vault.list_contacts().size() == 1, "contacts list");
     pass("vault_directory_store_contact");
     pass("vault_directory_contact_exists");
     pass("vault_directory_load_contact");
@@ -406,9 +413,9 @@ static void vault_lifecycle() {
     auto loaded_contact_signing = vault.load_contact_signing_key("bob");
     pass("vault_directory_store_contact_signing_key");
     pass("vault_directory_load_contact_signing_key");
-    check(vault.list_private_keys().values_size() > 0, "private key list");
-    check(vault.list_private_key_names().values_size() > 0, "private key name list");
-    check(vault.list_contact_names().values_size() > 0, "contact name list");
+    check(vault.list_private_keys().size() > 0, "private key list");
+    check(vault.list_private_key_names().size() > 0, "private key name list");
+    check(vault.list_contact_names().size() > 0, "contact name list");
     pass("vault_directory_list_private_keys");
     pass("vault_directory_list_private_key_names");
     pass("vault_directory_list_contact_names");
@@ -419,12 +426,12 @@ static void vault_lifecycle() {
     pass("vault_directory_backup_count");
     pass("vault_directory_load_backup", 3);
     vault.remember_lockbox(id, "/tmp/example.lbox");
-    check(vault.list_known_lockboxes().values_size() == 1, "known lockboxes");
+    check(vault.list_known_lockboxes().size() == 1, "known lockboxes");
     pass("vault_directory_remember_lockbox");
     pass("vault_directory_list_known_lockboxes");
     vault.remember_access_slot_label(id, 7, "primary");
-    check(vault.list_access_slot_labels(id).values_size() == 1, "access labels");
-    check(vault.find_access_slot_labels(id, "primary").values_size() == 1,
+    check(vault.list_access_slot_labels(id).size() == 1, "access labels");
+    check(vault.find_access_slot_labels(id, "primary").size() == 1,
           "access label lookup");
     pass("vault_directory_remember_access_slot_label");
     pass("vault_directory_list_access_slot_labels");
@@ -433,23 +440,20 @@ static void vault_lifecycle() {
     check(vault.remembered_password(id) == bytes(password), "remembered password");
     pass("vault_directory_remember_password");
     pass("vault_directory_remembered_password", 3);
-    bindings::FormFieldList fields;
-    auto* field = fields.add_values();
-    field->set_id("username"); field->set_label("Username");
-    field->set_kind("text"); field->set_required(true);
+    bindings::FormFieldList fields{{"username", "Username", "text", true}};
     const auto vault_form = vault.define_form("login", "Login", "Login form", fields);
-    check(!vault_form.type_id().empty(), "vault form definition");
-    check(!vault.resolve_form("login").type_id().empty(), "vault form resolve");
-    check(vault.list_forms().values_size() > 0, "vault forms");
+    check(!vault_form.type_id.empty(), "vault form definition");
+    check(!vault.resolve_form("login").type_id.empty(), "vault form resolve");
+    check(vault.list_forms().size() > 0, "vault forms");
     pass("vault_directory_define_form");
     pass("vault_directory_resolve_form");
     pass("vault_directory_list_forms");
-    check(vault.list_form_revisions(vault_form.type_id()).values_size() > 0,
+    check(vault.list_form_revisions(vault_form.type_id).size() > 0,
           "vault form revisions");
     pass("vault_directory_list_form_revisions", 2);
     check(vault.seed_forms() > 0, "seed forms");
     pass("vault_directory_seed_forms");
-    check(vault.list_form_aliases().values_size() > 0, "form aliases");
+    check(vault.list_form_aliases().size() > 0, "form aliases");
     pass("vault_directory_list_form_aliases");
     vault.forget_access_slot_label(id, 7);
     vault.forget_lockbox("/tmp/example.lbox");
@@ -467,9 +471,9 @@ static void vault_lifecycle() {
   pass("vault_directory_free");
   {
     ReadOnlyVaultDirectory readonly(root.string(), password);
-    check(readonly.list_profile_names().values_size() > 0, "read-only profiles");
+    check(readonly.list_profile_names().size() > 0, "read-only profiles");
     (void)readonly.list_contact_names();
-    check(readonly.list_form_aliases().values_size() > 0, "read-only form aliases");
+    check(readonly.list_form_aliases().size() > 0, "read-only form aliases");
     (void)readonly.list_known_lockboxes();
     pass("vault_read_only_open");
     pass("vault_read_only_list_profile_names", 2);
@@ -519,8 +523,8 @@ static void default_vault_lifecycle() {
   pass("vault_directory_change_default_password");
   const auto backup = artifact_root() / "default-vault.backup";
   fs::remove(backup);
-  check(VaultDirectory::backup_default(backup.string()).vault_size() > 0, "default backup");
-  check(VaultDirectory::restore_default(backup.string(), true).vault_size() > 0,
+  check(VaultDirectory::backup_default(backup.string()).vault_size > 0, "default backup");
+  check(VaultDirectory::restore_default(backup.string(), true).vault_size > 0,
         "default restore");
   pass("vault_backup_default");
   pass("vault_restore_default");
@@ -568,7 +572,7 @@ static void agent_and_local_vault() {
   for (std::size_t i = 0; i < key.size(); ++i) key[i] = 0x20 + i;
   Agent::put(id, key);
   check(Agent::get(id) == key, "agent generic key");
-  check(Agent::list().values_size() > 0, "agent list");
+  check(Agent::list().size() > 0, "agent list");
   pass("vault_agent_put");
   pass("vault_agent_get", 3);
   pass("vault_agent_list");

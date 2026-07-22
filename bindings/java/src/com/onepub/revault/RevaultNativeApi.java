@@ -4,7 +4,7 @@ import java.lang.foreign.*;
 import java.lang.invoke.MethodHandle;
 
 /** Generated complete FFM surface for revault_api.h. */
-public final class RevaultNativeApi {
+final class RevaultNativeApi {
   private static final MemoryLayout BUFFER = MemoryLayout.structLayout(ValueLayout.ADDRESS, ValueLayout.JAVA_LONG);
   private final Linker linker;
   private final SymbolLookup symbols;
@@ -12,6 +12,9 @@ public final class RevaultNativeApi {
   public final MethodHandle buffer_last_error;
   public final MethodHandle buffer_last_error_details;
   public final MethodHandle buffer_free;
+  public final MethodHandle secret_len;
+  public final MethodHandle secret_copy;
+  public final MethodHandle secret_free;
   public final MethodHandle lockbox_format_version;
   public final MethodHandle lockbox_probe_format_version;
   public final MethodHandle lockbox_create;
@@ -51,7 +54,9 @@ public final class RevaultNativeApi {
   public final MethodHandle lockbox_list_with_options;
   public final MethodHandle lockbox_stat;
   public final MethodHandle lockbox_set_variable;
+  public final MethodHandle lockbox_set_secret_variable;
   public final MethodHandle lockbox_get_variable;
+  public final MethodHandle lockbox_get_secret_variable;
   public final MethodHandle lockbox_delete_variable;
   public final MethodHandle lockbox_move_variables;
   public final MethodHandle lockbox_list_variables;
@@ -78,11 +83,13 @@ public final class RevaultNativeApi {
   public final MethodHandle lockbox_list_form_revisions;
   public final MethodHandle lockbox_create_form_record;
   public final MethodHandle lockbox_set_form_field;
+  public final MethodHandle lockbox_set_secret_form_field;
   public final MethodHandle lockbox_list_form_records;
   public final MethodHandle lockbox_get_form_record;
   public final MethodHandle lockbox_delete_form_record;
   public final MethodHandle lockbox_move_form_records;
   public final MethodHandle lockbox_get_form_field;
+  public final MethodHandle lockbox_get_secret_form_field;
   public final MethodHandle lockbox_to_bytes;
   public final MethodHandle lockbox_free;
   public final MethodHandle vault_is_running;
@@ -227,6 +234,9 @@ public final class RevaultNativeApi {
     buffer_last_error = linker.downcallHandle(symbols.find("buffer_last_error").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS));
     buffer_last_error_details = linker.downcallHandle(symbols.find("buffer_last_error_details").orElseThrow(), FunctionDescriptor.of(BUFFER));
     buffer_free = linker.downcallHandle(symbols.find("buffer_free").orElseThrow(), FunctionDescriptor.ofVoid(BUFFER));
+    secret_len = linker.downcallHandle(symbols.find("secret_len").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+    secret_copy = linker.downcallHandle(symbols.find("secret_copy").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    secret_free = linker.downcallHandle(symbols.find("secret_free").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
     lockbox_format_version = linker.downcallHandle(symbols.find("lockbox_format_version").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_SHORT));
     lockbox_probe_format_version = linker.downcallHandle(symbols.find("lockbox_probe_format_version").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_SHORT, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_create = linker.downcallHandle(symbols.find("lockbox_create").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
@@ -265,8 +275,10 @@ public final class RevaultNativeApi {
     lockbox_list = linker.downcallHandle(symbols.find("lockbox_list").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_BOOLEAN));
     lockbox_list_with_options = linker.downcallHandle(symbols.find("lockbox_list_with_options").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_BOOLEAN, ValueLayout.JAVA_BOOLEAN, ValueLayout.JAVA_BOOLEAN, ValueLayout.JAVA_BOOLEAN, ValueLayout.JAVA_LONG));
     lockbox_stat = linker.downcallHandle(symbols.find("lockbox_stat").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
-    lockbox_set_variable = linker.downcallHandle(symbols.find("lockbox_set_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_BOOLEAN));
+    lockbox_set_variable = linker.downcallHandle(symbols.find("lockbox_set_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    lockbox_set_secret_variable = linker.downcallHandle(symbols.find("lockbox_set_secret_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_get_variable = linker.downcallHandle(symbols.find("lockbox_get_variable").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    lockbox_get_secret_variable = linker.downcallHandle(symbols.find("lockbox_get_secret_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
     lockbox_delete_variable = linker.downcallHandle(symbols.find("lockbox_delete_variable").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_move_variables = linker.downcallHandle(symbols.find("lockbox_move_variables").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_list_variables = linker.downcallHandle(symbols.find("lockbox_list_variables").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS));
@@ -292,12 +304,14 @@ public final class RevaultNativeApi {
     lockbox_resolve_form = linker.downcallHandle(symbols.find("lockbox_resolve_form").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_list_form_revisions = linker.downcallHandle(symbols.find("lockbox_list_form_revisions").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_create_form_record = linker.downcallHandle(symbols.find("lockbox_create_form_record").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
-    lockbox_set_form_field = linker.downcallHandle(symbols.find("lockbox_set_form_field").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_BOOLEAN));
+    lockbox_set_form_field = linker.downcallHandle(symbols.find("lockbox_set_form_field").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    lockbox_set_secret_form_field = linker.downcallHandle(symbols.find("lockbox_set_secret_form_field").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_list_form_records = linker.downcallHandle(symbols.find("lockbox_list_form_records").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS));
     lockbox_get_form_record = linker.downcallHandle(symbols.find("lockbox_get_form_record").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_delete_form_record = linker.downcallHandle(symbols.find("lockbox_delete_form_record").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_move_form_records = linker.downcallHandle(symbols.find("lockbox_move_form_records").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_get_form_field = linker.downcallHandle(symbols.find("lockbox_get_form_field").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    lockbox_get_secret_form_field = linker.downcallHandle(symbols.find("lockbox_get_secret_form_field").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
     lockbox_to_bytes = linker.downcallHandle(symbols.find("lockbox_to_bytes").orElseThrow(), FunctionDescriptor.of(BUFFER, ValueLayout.ADDRESS));
     lockbox_free = linker.downcallHandle(symbols.find("lockbox_free").orElseThrow(), FunctionDescriptor.ofVoid(ValueLayout.ADDRESS));
     vault_is_running = linker.downcallHandle(symbols.find("vault_is_running").orElseThrow(), FunctionDescriptor.of(ValueLayout.JAVA_BOOLEAN));

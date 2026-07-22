@@ -367,11 +367,20 @@ impl<State> Lockbox<State> {
 
 impl Lockbox<Writable> {
     #[cfg(any(test, feature = "bindings", feature = "migration"))]
+    /// Creates an uncommitted, in-memory lockbox from a raw content key.
+    ///
+    /// This low-level constructor is intended for language bindings and format
+    /// migrations. Prefer [`Lockbox::create_in_memory`] in application code so
+    /// the key is wrapped in an access slot before the lockbox is shared.
     pub fn create(key: impl AsRef<[u8]>) -> Self {
         Self::create_with_options(key, LockboxOptions::default())
     }
 
     #[cfg(any(test, feature = "bindings", feature = "migration"))]
+    /// Creates an uncommitted in-memory lockbox with runtime tuning options.
+    ///
+    /// The raw content key is copied into secure memory. The returned lockbox
+    /// has no key slot until one is explicitly added.
     pub fn create_with_options(key: impl AsRef<[u8]>, options: LockboxOptions) -> Self {
         Self::create_with_lockbox_id_and_options(
             key,
@@ -381,11 +390,18 @@ impl Lockbox<Writable> {
     }
 
     #[cfg(any(test, feature = "bindings", feature = "migration"))]
+    /// Creates an uncommitted in-memory lockbox with a caller-supplied id.
+    ///
+    /// This is primarily useful to preserve identity during a migration.
     pub fn create_with_lockbox_id(key: impl AsRef<[u8]>, lockbox_id: LockboxId) -> Self {
         Self::create_with_lockbox_id_and_options(key, lockbox_id, LockboxOptions::default())
     }
 
     #[cfg(any(test, feature = "bindings", feature = "migration"))]
+    /// Creates an uncommitted in-memory lockbox with a supplied id and options.
+    ///
+    /// This is the most configurable raw-key constructor used by bindings and
+    /// migrations. Call [`Lockbox::commit`] before serializing the result.
     pub fn create_with_lockbox_id_and_options(
         key: impl AsRef<[u8]>,
         lockbox_id: LockboxId,
@@ -459,11 +475,19 @@ impl Lockbox<Writable> {
     }
 
     #[cfg(any(test, feature = "bindings"))]
+    /// Opens in-memory lockbox bytes for writing with a raw content key.
+    ///
+    /// Integrity and format validation are performed before the lockbox is
+    /// returned. Prefer password or contact-key opening in application code.
     pub fn open_bytes_with_key(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> Result<Self> {
         Self::open_bytes_with_key_options(bytes, key, LockboxOptions::default())
     }
 
     #[cfg(any(test, feature = "bindings"))]
+    /// Opens in-memory lockbox bytes with a raw key and runtime tuning options.
+    ///
+    /// The returned lockbox is writable and owns both the archive bytes and a
+    /// secure copy of the content key.
     pub fn open_bytes_with_key_options(
         bytes: Vec<u8>,
         key: impl AsRef<[u8]>,
@@ -730,6 +754,11 @@ impl<State> Lockbox<State> {
         self.read_only = true;
     }
 
+    /// Sets the owner signing key used to authenticate subsequent commits.
+    ///
+    /// The next commit records the public verification key and hybrid
+    /// signatures. Opening that lockbox for later writes requires the same
+    /// owner keypair.
     pub fn set_owner_signing_key(&mut self, keypair: OwnerSigningKeyPair)
     where
         State: WritableLockboxState,

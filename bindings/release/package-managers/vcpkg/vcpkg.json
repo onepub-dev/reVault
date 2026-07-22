@@ -1,6 +1,6 @@
 {
   "name": "revault-api",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Stable native API for reVault lockboxes and vaults",
   "homepage": "https://github.com/onepub-dev/reVault",
   "license": "LicenseRef-reVault-Source-Available-1.0",

@@ -1,6 +1,6 @@
 [package]
 name = "revault_bindings"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.95"
 license-file = "../revault_lockbox_api/LICENSE"
@@ -18,8 +18,13 @@ native = []
 [dependencies]
 revault_lockbox_api = { path = "../revault_lockbox_api", features = ["bindings"] }
 revault_vault_api = { path = "../revault_vault_api" }
-revault_wire = { path = "../revault_wire" }
+flatbuffers = "=25.2.10"
+zeroize = "1.9"
+
+[dev-dependencies]
+criterion = "0.8.2"
 prost = "0.14"
 
-[build-dependencies]
-prost-build = "0.14"
+[[bench]]
+name = "structured_transport"
+harness = false

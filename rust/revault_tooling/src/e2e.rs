@@ -315,7 +315,7 @@ fn invocations(language: &str) -> Vec<Invocation> {
         "csharp" => ("dotnet", &["/opt/revault-csharp/Conformance.dll"]),
         "dart" => ("/opt/revault-dart/conformance", &[]),
         "go" => ("/tmp/revault-go-conformance", &[]),
-        "java" => ("java", &["--enable-native-access=ALL-UNNAMED", "-Djava.io.tmpdir=/tmp/revault-java-extract", "-Drevault.keepExtracted=true", "-cp", "/opt/revault-java:/root/.m2/repository/dev/onepub/revault-api/0.1.0/revault-api-0.1.0.jar:/root/.m2/repository/com/google/protobuf/protobuf-java/3.21.12/protobuf-java-3.21.12.jar", "com.onepub.revault.e2e.Conformance"]),
+        "java" => ("java", &["--enable-native-access=ALL-UNNAMED", "-Djava.io.tmpdir=/tmp/revault-java-extract", "-Drevault.keepExtracted=true", "-cp", "/opt/revault-java:/root/.m2/repository/dev/onepub/revault-api/0.2.0/revault-api-0.2.0.jar:/root/.m2/repository/com/google/flatbuffers/flatbuffers-java/25.2.10/flatbuffers-java-25.2.10.jar", "com.onepub.revault.e2e.Conformance"]),
         "javascript" | "wasm" => ("node", &["bindings/e2e/javascript/conformance.js"]),
         "kotlin" => ("bindings/e2e/kotlin/build/install/revault-api-kotlin-conformance/bin/revault-api-kotlin-conformance", &[]),
         "lua" => ("luajit", &["bindings/e2e/lua/conformance.lua"]),

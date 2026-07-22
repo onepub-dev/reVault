@@ -115,10 +115,12 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
             .arg(&target)
             .current_dir(&package),
     )?;
-    let archive = target.join("package/revault-api-0.1.0.crate");
-    if !archive.is_file() {
-        return Err("cargo package did not produce revault-api-0.1.0.crate".into());
-    }
+    let archive = find_named_package(&target.join("package"), "revault-api-", ".crate")?;
+    let unpacked_name = archive
+        .file_name()
+        .and_then(|name| name.to_str())
+        .and_then(|name| name.strip_suffix(".crate"))
+        .ok_or("cargo package produced an invalid archive name")?;
     let unpacked = work.join("rust-unpacked");
     fs::create_dir_all(&unpacked)?;
     let decoder = flate2::read::GzDecoder::new(fs::File::open(&archive)?);
@@ -147,7 +149,7 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
         consumer.join("Cargo.toml"),
         format!(
             "[package]\nname = \"revault-api-consumer\"\nversion = \"0.0.0\"\nedition = \"2021\"\n\n[dependencies]\nrevault-api = {{ path = {:?} }}\n\n[patch.crates-io]\nrevault_lockbox_api = {{ path = {:?} }}\nrevault_vault_api = {{ path = {:?} }}\n",
-            unpacked.join("revault-api-0.1.0"),
+            unpacked.join(unpacked_name),
             repository.join("rust/revault_lockbox_api"),
             repository.join("rust/revault_vault_api"),
         ),
@@ -633,12 +635,13 @@ fn prepare_ruby(target: &str, repository: &Path, packages: &Path, work: &Path) -
 fn prepare_lua(target: &str, repository: &Path, packages: &Path, work: &Path) -> Result<Prepared> {
     let package = packages.join("lua").join(target);
     let tree = work.join("lua-tree");
+    let rockspec = find_named_package(&package, "revault_api-", "-1.rockspec")?;
     run_status(
         Command::new("luarocks")
             .arg("make")
             .arg("--tree")
             .arg(&tree)
-            .arg("revault_api-0.1.0-1.rockspec")
+            .arg(rockspec)
             .current_dir(&package),
     )?;
     let native_root = find_parent(&tree, &dynamic_library(target))?;
@@ -674,6 +677,27 @@ fn prepare_lua(target: &str, repository: &Path, packages: &Path, work: &Path) ->
             ("LUA_CPATH".into(), lua_cpath),
         ],
     })
+}
+
+fn find_named_package(directory: &Path, prefix: &str, suffix: &str) -> Result<PathBuf> {
+    let mut matches = fs::read_dir(directory)?
+        .filter_map(|entry| entry.ok().map(|entry| entry.path()))
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with(prefix) && name.ends_with(suffix))
+        });
+    let path = matches
+        .next()
+        .ok_or_else(|| format!("{} has no {prefix}*{suffix} package", directory.display()))?;
+    if matches.next().is_some() {
+        return Err(format!(
+            "{} has multiple {prefix}*{suffix} packages",
+            directory.display()
+        )
+        .into());
+    }
+    Ok(path)
 }
 
 fn prepare_gradle(

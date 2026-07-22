@@ -1,7 +1,7 @@
 # Generated complete binary operation layer. Do not edit.
 require 'fiddle'
 require 'fiddle/import'
-require_relative '../../generated/revault_bindings_pb'
+require_relative 'domain_models'
 require_relative 'native_library'
 
 module Revault
@@ -11,6 +11,9 @@ module Revault
     BufferStruct = struct ['void *ptr', 'size_t len']
     extern 'uint32_t api_abi_version(void)'
     extern 'const char * buffer_last_error(void)'
+    extern 'bool secret_len(void *, size_t *)'
+    extern 'bool secret_copy(void *, void *, size_t)'
+    extern 'void secret_free(void *)'
     extern 'uint16_t lockbox_format_version(void)'
     extern 'uint16_t lockbox_probe_format_version(void *, size_t)'
     extern 'void * lockbox_create(void *, size_t)'
@@ -36,7 +39,9 @@ module Revault
     extern 'bool lockbox_remove_dir(void *, void *, size_t, bool)'
     extern 'bool lockbox_create_parent_dirs(void *, void *, size_t)'
     extern 'bool lockbox_rename(void *, void *, size_t, void *, size_t)'
-    extern 'bool lockbox_set_variable(void *, void *, size_t, void *, size_t, bool)'
+    extern 'bool lockbox_set_variable(void *, void *, size_t, void *, size_t)'
+    extern 'bool lockbox_set_secret_variable(void *, void *, size_t, void *, size_t)'
+    extern 'bool lockbox_get_secret_variable(void *, void *, size_t, void *)'
     extern 'bool lockbox_delete_variable(void *, void *, size_t)'
     extern 'bool lockbox_move_variables(void *, void *, size_t)'
     extern 'bool lockbox_add_symlink(void *, void *, size_t, void *, size_t, bool)'
@@ -49,7 +54,9 @@ module Revault
     extern 'uint64_t lockbox_add_contact(void *, void *, void *, size_t)'
     extern 'bool lockbox_delete_key(void *, uint64_t)'
     extern 'bool lockbox_set_owner_signing_key(void *, void *)'
-    extern 'bool lockbox_set_form_field(void *, void *, size_t, void *, size_t, void *, size_t, bool)'
+    extern 'bool lockbox_set_form_field(void *, void *, size_t, void *, size_t, void *, size_t)'
+    extern 'bool lockbox_set_secret_form_field(void *, void *, size_t, void *, size_t, void *, size_t)'
+    extern 'bool lockbox_get_secret_form_field(void *, void *, size_t, void *, size_t, void *)'
     extern 'bool lockbox_delete_form_record(void *, void *, size_t)'
     extern 'bool lockbox_move_form_records(void *, void *, size_t)'
     extern 'void lockbox_free(void *)'
@@ -228,7 +235,7 @@ module Revault
   end
 
   class BindingOperations
-    def initialize = raise('revault-api native ABI mismatch; expected 1') unless Native.api_abi_version == 1
+    def initialize = raise('revault-api native ABI mismatch; expected 3') unless Native.api_abi_version == 3
     def last_error_message = Native.buffer_last_error.to_s
     def require_value(value)
       raise last_error_message unless value
@@ -249,15 +256,32 @@ module Revault
     ensure
       Shim.ruby_buffer_free(value) if value && !value.ptr.null?
     end
-    def payload(value)
-      frame = take(value)
-      raise 'invalid reVault binding frame' unless frame.bytesize >= 12 && frame[0, 4] == 'LBWF'
-      raise 'invalid reVault binding frame length' unless frame[8, 4].unpack1('N') == frame.bytesize - 12
-      frame[12..]
+    def with_secret(getter)
+      output = Fiddle::Pointer.malloc(Fiddle::SIZEOF_VOIDP)
+      raise last_error_message unless getter.call(output)
+      address = output[0, Fiddle::SIZEOF_VOIDP].unpack1('J')
+      return nil if address.zero?
+      handle = Fiddle::Pointer.new(address)
+      begin
+        length_out = Fiddle::Pointer.malloc(Fiddle::SIZEOF_SIZE_T)
+        raise last_error_message unless Native.secret_len(handle, length_out)
+        length = length_out[0, Fiddle::SIZEOF_SIZE_T].unpack1('J')
+        native = Fiddle::Pointer.malloc([length, 1].max)
+        raise last_error_message unless Native.secret_copy(handle, native, length)
+        secret = native.to_s(length)
+        begin
+          yield secret, length
+        ensure
+          secret.replace("\0" * secret.bytesize)
+          native[0, [length, 1].max] = "\0" * [length, 1].max
+        end
+      ensure
+        Native.secret_free(handle)
+      end
     end
 
     def buffer_last_error_details()
-      Revault::Bindings::ErrorDetails.decode(payload(buffer_call(:buffer_last_error_details)))
+      Revault::Internal::DomainCodec.decode('ErrorDetails', take(buffer_call(:buffer_last_error_details)))
     end
 
     def lockbox_format_version()
@@ -325,15 +349,15 @@ module Revault
     end
 
     def lockbox_stream_content(handle, physical)
-      Revault::Bindings::StreamChunkList.decode(payload(buffer_call(:lockbox_stream_content, handle, physical)))
+      Revault::Internal::DomainCodec.decode('StreamChunkList', take(buffer_call(:lockbox_stream_content, handle, physical)))
     end
 
     def lockbox_cache_stats(handle)
-      Revault::Bindings::CacheStats.decode(payload(buffer_call(:lockbox_cache_stats, handle)))
+      Revault::Internal::DomainCodec.decode('CacheStats', take(buffer_call(:lockbox_cache_stats, handle)))
     end
 
     def lockbox_import_stats(handle)
-      Revault::Bindings::ImportStats.decode(payload(buffer_call(:lockbox_import_stats, handle)))
+      Revault::Internal::DomainCodec.decode('ImportStats', take(buffer_call(:lockbox_import_stats, handle)))
     end
 
     def lockbox_reset_import_stats(handle)
@@ -341,15 +365,15 @@ module Revault
     end
 
     def lockbox_inspect_file(path)
-      Revault::Bindings::FileInspection.decode(payload(buffer_call(:lockbox_inspect_file, Fiddle::Pointer[path], path.bytesize)))
+      Revault::Internal::DomainCodec.decode('FileInspection', take(buffer_call(:lockbox_inspect_file, Fiddle::Pointer[path], path.bytesize)))
     end
 
     def lockbox_page_inspection(handle)
-      Revault::Bindings::PageInspectionList.decode(payload(buffer_call(:lockbox_page_inspection, handle)))
+      Revault::Internal::DomainCodec.decode('PageInspectionList', take(buffer_call(:lockbox_page_inspection, handle)))
     end
 
     def lockbox_recovery_report(handle)
-      Revault::Bindings::RecoveryReport.decode(payload(buffer_call(:lockbox_recovery_report, handle)))
+      Revault::Internal::DomainCodec.decode('RecoveryReport', take(buffer_call(:lockbox_recovery_report, handle)))
     end
 
     def lockbox_recovery_report_render(handle, verbose, max_entries)
@@ -357,7 +381,7 @@ module Revault
     end
 
     def lockbox_recovery_scan_path(path, key)
-      Revault::Bindings::RecoveryReport.decode(payload(buffer_call(:lockbox_recovery_scan_path, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[key], key.bytesize)))
+      Revault::Internal::DomainCodec.decode('RecoveryReport', take(buffer_call(:lockbox_recovery_scan_path, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[key], key.bytesize)))
     end
 
     def lockbox_storage_len(handle)
@@ -373,7 +397,7 @@ module Revault
     end
 
     def lockbox_runtime_options(handle)
-      Revault::Bindings::RuntimeOptions.decode(payload(buffer_call(:lockbox_runtime_options, handle)))
+      Revault::Internal::DomainCodec.decode('RuntimeOptions', take(buffer_call(:lockbox_runtime_options, handle)))
     end
 
     def lockbox_commit(handle)
@@ -401,39 +425,51 @@ module Revault
     end
 
     def lockbox_list(handle, path, recursive)
-      Revault::Bindings::LockboxEntryList.decode(payload(buffer_call(:lockbox_list, handle, Fiddle::Pointer[path], path.bytesize, recursive)))
+      Revault::Internal::DomainCodec.decode('LockboxEntryList', take(buffer_call(:lockbox_list, handle, Fiddle::Pointer[path], path.bytesize, recursive)))
     end
 
     def lockbox_list_with_options(handle, path, glob, recursive, include_files, include_symlinks, include_directories, limit)
-      Revault::Bindings::LockboxEntryList.decode(payload(buffer_call(:lockbox_list_with_options, handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[glob], glob.bytesize, recursive, include_files, include_symlinks, include_directories, limit)))
+      Revault::Internal::DomainCodec.decode('LockboxEntryList', take(buffer_call(:lockbox_list_with_options, handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[glob], glob.bytesize, recursive, include_files, include_symlinks, include_directories, limit)))
     end
 
     def lockbox_stat(handle, path)
-      Revault::Bindings::OptionalLockboxEntry.decode(payload(buffer_call(:lockbox_stat, handle, Fiddle::Pointer[path], path.bytesize)))
+      Revault::Internal::DomainCodec.decode('OptionalLockboxEntry', take(buffer_call(:lockbox_stat, handle, Fiddle::Pointer[path], path.bytesize)))
     end
 
-    def lockbox_set_variable(handle, name, value, secret)
-      require_value(Native.lockbox_set_variable(handle, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[value], value.bytesize, secret))
+    def lockbox_set_variable(handle, name, value)
+      require_value(Native.lockbox_set_variable(handle, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[value], value.bytesize))
+    end
+
+    def lockbox_set_secret_variable(handle, name, value)
+      secret = value.dup
+      require_value(Native.lockbox_set_secret_variable(handle, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[secret], secret.bytesize))
+    ensure
+      secret&.replace("\0" * secret.bytesize)
     end
 
     def lockbox_get_variable(handle, name)
-      take(buffer_call(:lockbox_get_variable, handle, Fiddle::Pointer[name], name.bytesize))
+      value = Revault::Internal::DomainCodec.decode('OptionalString', take(buffer_call(:lockbox_get_variable, handle, Fiddle::Pointer[name], name.bytesize)))
+      value.present ? value.value : nil
+    end
+
+    def lockbox_get_secret_variable(handle, name, &callback)
+      with_secret(->(output) { Native.lockbox_get_secret_variable(handle, Fiddle::Pointer[name], name.bytesize, output) }, &callback)
     end
 
     def lockbox_delete_variable(handle, name)
       require_value(Native.lockbox_delete_variable(handle, Fiddle::Pointer[name], name.bytesize))
     end
 
-    def lockbox_move_variables(handle, moves_proto)
-      require_value(Native.lockbox_move_variables(handle, Fiddle::Pointer[moves_proto], moves_proto.bytesize))
+    def lockbox_move_variables(handle, moves_flatbuffer)
+      require_value(Native.lockbox_move_variables(handle, Fiddle::Pointer[moves_flatbuffer], moves_flatbuffer.bytesize))
     end
 
     def lockbox_list_variables(handle)
-      Revault::Bindings::VariableList.decode(payload(buffer_call(:lockbox_list_variables, handle)))
+      Revault::Internal::DomainCodec.decode('VariableList', take(buffer_call(:lockbox_list_variables, handle)))
     end
 
     def lockbox_variable_sensitivity(handle, name)
-      Revault::Bindings::OptionalString.decode(payload(buffer_call(:lockbox_variable_sensitivity, handle, Fiddle::Pointer[name], name.bytesize)))
+      Revault::Internal::DomainCodec.decode('OptionalString', take(buffer_call(:lockbox_variable_sensitivity, handle, Fiddle::Pointer[name], name.bytesize)))
     end
 
     def lockbox_add_symlink(handle, path, target, replace)
@@ -469,7 +505,7 @@ module Revault
     end
 
     def lockbox_recovery_scan(bytes, key)
-      Revault::Bindings::RecoveryReport.decode(payload(buffer_call(:lockbox_recovery_scan, Fiddle::Pointer[bytes], bytes.bytesize, Fiddle::Pointer[key], key.bytesize)))
+      Revault::Internal::DomainCodec.decode('RecoveryReport', take(buffer_call(:lockbox_recovery_scan, Fiddle::Pointer[bytes], bytes.bytesize, Fiddle::Pointer[key], key.bytesize)))
     end
 
     def lockbox_recovery_salvage(bytes, key, signing_key)
@@ -489,7 +525,7 @@ module Revault
     end
 
     def lockbox_list_key_slots(handle)
-      Revault::Bindings::KeySlotList.decode(payload(buffer_call(:lockbox_list_key_slots, handle)))
+      Revault::Internal::DomainCodec.decode('KeySlotList', take(buffer_call(:lockbox_list_key_slots, handle)))
     end
 
     def lockbox_set_owner_signing_key(handle, key)
@@ -497,51 +533,62 @@ module Revault
     end
 
     def lockbox_owner_inspection(handle)
-      Revault::Bindings::OwnerInspection.decode(payload(buffer_call(:lockbox_owner_inspection, handle)))
+      Revault::Internal::DomainCodec.decode('OwnerInspection', take(buffer_call(:lockbox_owner_inspection, handle)))
     end
 
-    def lockbox_define_form(handle, alias_name, name, description, fields_proto)
-      Revault::Bindings::FormDefinition.decode(payload(buffer_call(:lockbox_define_form, handle, Fiddle::Pointer[alias_name], alias_name.bytesize, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[description], description.bytesize, Fiddle::Pointer[fields_proto], fields_proto.bytesize)))
+    def lockbox_define_form(handle, alias_name, name, description, fields_flatbuffer)
+      Revault::Internal::DomainCodec.decode('FormDefinition', take(buffer_call(:lockbox_define_form, handle, Fiddle::Pointer[alias_name], alias_name.bytesize, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[description], description.bytesize, Fiddle::Pointer[fields_flatbuffer], fields_flatbuffer.bytesize)))
     end
 
     def lockbox_list_form_definitions(handle)
-      Revault::Bindings::FormDefinitionList.decode(payload(buffer_call(:lockbox_list_form_definitions, handle)))
+      Revault::Internal::DomainCodec.decode('FormDefinitionList', take(buffer_call(:lockbox_list_form_definitions, handle)))
     end
 
     def lockbox_resolve_form(handle, reference)
-      Revault::Bindings::FormDefinition.decode(payload(buffer_call(:lockbox_resolve_form, handle, Fiddle::Pointer[reference], reference.bytesize)))
+      Revault::Internal::DomainCodec.decode('FormDefinition', take(buffer_call(:lockbox_resolve_form, handle, Fiddle::Pointer[reference], reference.bytesize)))
     end
 
     def lockbox_list_form_revisions(handle, type_id)
-      Revault::Bindings::FormDefinitionList.decode(payload(buffer_call(:lockbox_list_form_revisions, handle, Fiddle::Pointer[type_id], type_id.bytesize)))
+      Revault::Internal::DomainCodec.decode('FormDefinitionList', take(buffer_call(:lockbox_list_form_revisions, handle, Fiddle::Pointer[type_id], type_id.bytesize)))
     end
 
     def lockbox_create_form_record(handle, path, type_reference, name)
-      Revault::Bindings::FormRecord.decode(payload(buffer_call(:lockbox_create_form_record, handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[type_reference], type_reference.bytesize, Fiddle::Pointer[name], name.bytesize)))
+      Revault::Internal::DomainCodec.decode('FormRecord', take(buffer_call(:lockbox_create_form_record, handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[type_reference], type_reference.bytesize, Fiddle::Pointer[name], name.bytesize)))
     end
 
-    def lockbox_set_form_field(handle, path, field, value, secret)
-      require_value(Native.lockbox_set_form_field(handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize, Fiddle::Pointer[value], value.bytesize, secret))
+    def lockbox_set_form_field(handle, path, field, value)
+      require_value(Native.lockbox_set_form_field(handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize, Fiddle::Pointer[value], value.bytesize))
+    end
+
+    def lockbox_set_secret_form_field(handle, path, field, value)
+      secret = value.dup
+      require_value(Native.lockbox_set_secret_form_field(handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize, Fiddle::Pointer[secret], secret.bytesize))
+    ensure
+      secret&.replace("\0" * secret.bytesize)
     end
 
     def lockbox_list_form_records(handle)
-      Revault::Bindings::FormRecordList.decode(payload(buffer_call(:lockbox_list_form_records, handle)))
+      Revault::Internal::DomainCodec.decode('FormRecordList', take(buffer_call(:lockbox_list_form_records, handle)))
     end
 
     def lockbox_get_form_record(handle, path)
-      Revault::Bindings::FormRecord.decode(payload(buffer_call(:lockbox_get_form_record, handle, Fiddle::Pointer[path], path.bytesize)))
+      Revault::Internal::DomainCodec.decode('OptionalFormRecord', take(buffer_call(:lockbox_get_form_record, handle, Fiddle::Pointer[path], path.bytesize)))
     end
 
     def lockbox_delete_form_record(handle, path)
       require_value(Native.lockbox_delete_form_record(handle, Fiddle::Pointer[path], path.bytesize))
     end
 
-    def lockbox_move_form_records(handle, moves_proto)
-      require_value(Native.lockbox_move_form_records(handle, Fiddle::Pointer[moves_proto], moves_proto.bytesize))
+    def lockbox_move_form_records(handle, moves_flatbuffer)
+      require_value(Native.lockbox_move_form_records(handle, Fiddle::Pointer[moves_flatbuffer], moves_flatbuffer.bytesize))
     end
 
     def lockbox_get_form_field(handle, path, field)
-      Revault::Bindings::FormValue.decode(payload(buffer_call(:lockbox_get_form_field, handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize)))
+      Revault::Internal::DomainCodec.decode('OptionalFormValue', take(buffer_call(:lockbox_get_form_field, handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize)))
+    end
+
+    def lockbox_get_secret_form_field(handle, path, field, &callback)
+      with_secret(->(output) { Native.lockbox_get_secret_form_field(handle, Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[field], field.bytesize, output) }, &callback)
     end
 
     def lockbox_to_bytes(handle)
@@ -733,19 +780,19 @@ module Revault
     end
 
     def vault_directory_list_private_keys(handle)
-      Revault::Bindings::StringList.decode(payload(buffer_call(:vault_directory_list_private_keys, handle)))
+      Revault::Internal::DomainCodec.decode('StringList', take(buffer_call(:vault_directory_list_private_keys, handle)))
     end
 
     def vault_directory_list_private_key_names(handle)
-      Revault::Bindings::StringList.decode(payload(buffer_call(:vault_directory_list_private_key_names, handle)))
+      Revault::Internal::DomainCodec.decode('StringList', take(buffer_call(:vault_directory_list_private_key_names, handle)))
     end
 
     def vault_directory_list_contact_names(handle)
-      Revault::Bindings::StringList.decode(payload(buffer_call(:vault_directory_list_contact_names, handle)))
+      Revault::Internal::DomainCodec.decode('StringList', take(buffer_call(:vault_directory_list_contact_names, handle)))
     end
 
     def vault_directory_list_form_aliases(handle)
-      Revault::Bindings::StringList.decode(payload(buffer_call(:vault_directory_list_form_aliases, handle)))
+      Revault::Internal::DomainCodec.decode('StringList', take(buffer_call(:vault_directory_list_form_aliases, handle)))
     end
 
     def vault_directory_private_key_exists(handle, name)
@@ -785,7 +832,7 @@ module Revault
     end
 
     def vault_directory_list_contacts(handle)
-      Revault::Bindings::ContactList.decode(payload(buffer_call(:vault_directory_list_contacts, handle)))
+      Revault::Internal::DomainCodec.decode('ContactList', take(buffer_call(:vault_directory_list_contacts, handle)))
     end
 
     def vault_directory_store_profile_email(handle, name, email)
@@ -793,7 +840,7 @@ module Revault
     end
 
     def vault_directory_profile_email(handle, name)
-      Revault::Bindings::OptionalString.decode(payload(buffer_call(:vault_directory_profile_email, handle, Fiddle::Pointer[name], name.bytesize)))
+      Revault::Internal::DomainCodec.decode('OptionalString', take(buffer_call(:vault_directory_profile_email, handle, Fiddle::Pointer[name], name.bytesize)))
     end
 
     def vault_directory_store_backup(handle, id, bytes)
@@ -829,11 +876,11 @@ module Revault
     end
 
     def vault_directory_list_profile_generations(handle, name)
-      Revault::Bindings::ProfileHistory.decode(payload(buffer_call(:vault_directory_list_profile_generations, handle, Fiddle::Pointer[name], name.bytesize)))
+      Revault::Internal::DomainCodec.decode('ProfileHistory', take(buffer_call(:vault_directory_list_profile_generations, handle, Fiddle::Pointer[name], name.bytesize)))
     end
 
     def vault_directory_rotate_private_key(handle, name)
-      Revault::Bindings::ProfileHistory.decode(payload(buffer_call(:vault_directory_rotate_private_key, handle, Fiddle::Pointer[name], name.bytesize)))
+      Revault::Internal::DomainCodec.decode('ProfileHistory', take(buffer_call(:vault_directory_rotate_private_key, handle, Fiddle::Pointer[name], name.bytesize)))
     end
 
     def vault_directory_remember_lockbox(handle, id, path)
@@ -841,7 +888,7 @@ module Revault
     end
 
     def vault_directory_list_known_lockboxes(handle)
-      Revault::Bindings::KnownLockboxList.decode(payload(buffer_call(:vault_directory_list_known_lockboxes, handle)))
+      Revault::Internal::DomainCodec.decode('KnownLockboxList', take(buffer_call(:vault_directory_list_known_lockboxes, handle)))
     end
 
     def vault_directory_forget_lockbox(handle, path)
@@ -853,31 +900,31 @@ module Revault
     end
 
     def vault_directory_list_access_slot_labels(handle, id)
-      Revault::Bindings::AccessSlotLabelList.decode(payload(buffer_call(:vault_directory_list_access_slot_labels, handle, Fiddle::Pointer[id], id.bytesize)))
+      Revault::Internal::DomainCodec.decode('AccessSlotLabelList', take(buffer_call(:vault_directory_list_access_slot_labels, handle, Fiddle::Pointer[id], id.bytesize)))
     end
 
     def vault_directory_find_access_slot_labels(handle, id, name)
-      Revault::Bindings::AccessSlotLabelList.decode(payload(buffer_call(:vault_directory_find_access_slot_labels, handle, Fiddle::Pointer[id], id.bytesize, Fiddle::Pointer[name], name.bytesize)))
+      Revault::Internal::DomainCodec.decode('AccessSlotLabelList', take(buffer_call(:vault_directory_find_access_slot_labels, handle, Fiddle::Pointer[id], id.bytesize, Fiddle::Pointer[name], name.bytesize)))
     end
 
     def vault_directory_forget_access_slot_label(handle, id, slot_id)
       require_value(Native.vault_directory_forget_access_slot_label(handle, Fiddle::Pointer[id], id.bytesize, slot_id))
     end
 
-    def vault_directory_define_form(handle, alias_name, name, description, fields_proto)
-      Revault::Bindings::FormDefinition.decode(payload(buffer_call(:vault_directory_define_form, handle, Fiddle::Pointer[alias_name], alias_name.bytesize, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[description], description.bytesize, Fiddle::Pointer[fields_proto], fields_proto.bytesize)))
+    def vault_directory_define_form(handle, alias_name, name, description, fields_flatbuffer)
+      Revault::Internal::DomainCodec.decode('FormDefinition', take(buffer_call(:vault_directory_define_form, handle, Fiddle::Pointer[alias_name], alias_name.bytesize, Fiddle::Pointer[name], name.bytesize, Fiddle::Pointer[description], description.bytesize, Fiddle::Pointer[fields_flatbuffer], fields_flatbuffer.bytesize)))
     end
 
     def vault_directory_resolve_form(handle, reference)
-      Revault::Bindings::FormDefinition.decode(payload(buffer_call(:vault_directory_resolve_form, handle, Fiddle::Pointer[reference], reference.bytesize)))
+      Revault::Internal::DomainCodec.decode('FormDefinition', take(buffer_call(:vault_directory_resolve_form, handle, Fiddle::Pointer[reference], reference.bytesize)))
     end
 
     def vault_directory_list_forms(handle)
-      Revault::Bindings::FormDefinitionList.decode(payload(buffer_call(:vault_directory_list_forms, handle)))
+      Revault::Internal::DomainCodec.decode('FormDefinitionList', take(buffer_call(:vault_directory_list_forms, handle)))
     end
 
     def vault_directory_list_form_revisions(handle, type_id)
-      Revault::Bindings::FormDefinitionList.decode(payload(buffer_call(:vault_directory_list_form_revisions, handle, Fiddle::Pointer[type_id], type_id.bytesize)))
+      Revault::Internal::DomainCodec.decode('FormDefinitionList', take(buffer_call(:vault_directory_list_form_revisions, handle, Fiddle::Pointer[type_id], type_id.bytesize)))
     end
 
     def vault_directory_seed_forms(handle)
@@ -893,11 +940,11 @@ module Revault
     end
 
     def vault_backup_default(path, overwrite)
-      Revault::Bindings::VaultBackupManifest.decode(payload(buffer_call(:vault_backup_default, Fiddle::Pointer[path], path.bytesize, overwrite)))
+      Revault::Internal::DomainCodec.decode('VaultBackupManifest', take(buffer_call(:vault_backup_default, Fiddle::Pointer[path], path.bytesize, overwrite)))
     end
 
     def vault_restore_default(path, overwrite)
-      Revault::Bindings::VaultBackupManifest.decode(payload(buffer_call(:vault_restore_default, Fiddle::Pointer[path], path.bytesize, overwrite)))
+      Revault::Internal::DomainCodec.decode('VaultBackupManifest', take(buffer_call(:vault_restore_default, Fiddle::Pointer[path], path.bytesize, overwrite)))
     end
 
     def vault_directory_free(handle)
@@ -913,19 +960,19 @@ module Revault
     end
 
     def vault_read_only_list_profile_names(handle)
-      Revault::Bindings::StringList.decode(payload(buffer_call(:vault_read_only_list_profile_names, handle)))
+      Revault::Internal::DomainCodec.decode('StringList', take(buffer_call(:vault_read_only_list_profile_names, handle)))
     end
 
     def vault_read_only_list_contact_names(handle)
-      Revault::Bindings::StringList.decode(payload(buffer_call(:vault_read_only_list_contact_names, handle)))
+      Revault::Internal::DomainCodec.decode('StringList', take(buffer_call(:vault_read_only_list_contact_names, handle)))
     end
 
     def vault_read_only_list_form_aliases(handle)
-      Revault::Bindings::StringList.decode(payload(buffer_call(:vault_read_only_list_form_aliases, handle)))
+      Revault::Internal::DomainCodec.decode('StringList', take(buffer_call(:vault_read_only_list_form_aliases, handle)))
     end
 
     def vault_read_only_list_known_lockboxes(handle)
-      Revault::Bindings::KnownLockboxList.decode(payload(buffer_call(:vault_read_only_list_known_lockboxes, handle)))
+      Revault::Internal::DomainCodec.decode('KnownLockboxList', take(buffer_call(:vault_read_only_list_known_lockboxes, handle)))
     end
 
     def vault_read_only_free(handle)
@@ -961,15 +1008,15 @@ module Revault
     end
 
     def vault_agent_list()
-      Revault::Bindings::AgentEntryList.decode(payload(buffer_call(:vault_agent_list)))
+      Revault::Internal::DomainCodec.decode('AgentEntryList', take(buffer_call(:vault_agent_list)))
     end
 
     def vault_agent_sleep_support()
-      Revault::Bindings::SleepSupport.decode(payload(buffer_call(:vault_agent_sleep_support)))
+      Revault::Internal::DomainCodec.decode('SleepSupport', take(buffer_call(:vault_agent_sleep_support)))
     end
 
     def vault_platform_status()
-      Revault::Bindings::PlatformStatus.decode(payload(buffer_call(:vault_platform_status)))
+      Revault::Internal::DomainCodec.decode('PlatformStatus', take(buffer_call(:vault_platform_status)))
     end
 
     def vault_platform_set_scope(scope)

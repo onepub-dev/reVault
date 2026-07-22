@@ -4,6 +4,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+/// Returns the file used when agent events cannot be sent to the platform log.
+///
+/// `LOCKBOX_SESSION_AGENT_LOG` overrides the platform-specific fallback path.
 pub fn agent_log_path() -> PathBuf {
     if let Ok(path) = env::var("LOCKBOX_SESSION_AGENT_LOG") {
         return PathBuf::from(path);
@@ -11,6 +14,10 @@ pub fn agent_log_path() -> PathBuf {
     fallback_log_path()
 }
 
+/// Describes where session-agent events are currently written.
+///
+/// The result is either the configured log file or a human-readable platform
+/// log destination suitable for diagnostics and user interfaces.
 pub fn agent_log_destination() -> String {
     if let Ok(path) = env::var("LOCKBOX_SESSION_AGENT_LOG") {
         return format!("{}", PathBuf::from(path).display());

@@ -12,11 +12,6 @@ on:
         required: true
         default: python,ruby,git
         type: string
-      run_conformance:
-        description: Run the exhaustive and per-package conformance suites
-        required: true
-        default: false
-        type: boolean
   push:
     tags:
       - revault-api-v*
@@ -28,6 +23,9 @@ env:
   RELEASE_VERSION: ${{ inputs.version }}
 
 jobs:
+  binding-lint:
+    uses: ./.github/workflows/bindings-lint.yml
+
   package-matrix:
     name: define 94 claimed package combinations
     runs-on: ubuntu-24.04
@@ -41,7 +39,7 @@ jobs:
         run: echo "value=$(cargo run --locked --quiet --manifest-path rust/Cargo.toml -p revault_tooling -- e2e matrix-json)" >> "$GITHUB_OUTPUT"
 
   conformance:
-    if: github.event_name != 'workflow_dispatch' || inputs.run_conformance
+    needs: binding-lint
     name: 16 installed Linux APIs and 480 interoperability paths
     runs-on: ubuntu-24.04
     steps:
@@ -51,6 +49,7 @@ jobs:
         run: cargo run --locked -p revault_tooling -- e2e matrix --compose ../bindings/e2e/compose.yaml
 
   native:
+    needs: binding-lint
     name: native ${{ matrix.target }}
     strategy:
       fail-fast: false
@@ -136,8 +135,7 @@ jobs:
             --library "rust/target/${{ matrix.rust_target }}/release/${{ matrix.library }}" \
             --static-library "rust/target/${{ matrix.rust_target }}/release/${{ matrix.static_library }}" \
             --output dist
-      - name: Install archive and run all 210 native operations
-        continue-on-error: true
+      - name: Install archive and run all 217 native operations
         shell: bash
         env:
           RUSTFLAGS: ${{ runner.os == 'Windows' && '-Clinker=lld-link.exe' || '' }}
@@ -188,7 +186,6 @@ jobs:
           if-no-files-found: error
 
   package-conformance:
-    if: github.event_name != 'workflow_dispatch' || inputs.run_conformance
     name: ${{ matrix.language }} installed package on ${{ matrix.target }}
     needs: [package-matrix, native, ecosystem-layouts]
     strategy:
@@ -311,7 +308,7 @@ jobs:
 
   github-release:
     if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
-    needs: [native, macos-xcframework, ecosystem-layouts]
+    needs: [native, macos-xcframework, ecosystem-layouts, conformance, package-conformance]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
