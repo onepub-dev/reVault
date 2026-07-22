@@ -636,7 +636,7 @@ module Revault
     def field_location(bytes, table_position, index)
       vtable = table_position - bytes.unpack1('l<', offset: table_position)
       vtable_length = bytes.unpack1('v', offset: vtable)
-      entry = vtable + 4 + index * 2
+      entry = vtable + 4 + (index * 2)
       return nil if entry + 2 > vtable + vtable_length
       offset = bytes.unpack1('v', offset: entry)
       offset.zero? ? nil : table_position + offset
@@ -659,7 +659,7 @@ module Revault
       start = vector + 4
       return bytes.byteslice(start, length) if type == 'ubyte'
       Array.new(length) do |index|
-        element = start + index * 4
+        element = start + (index * 4)
         if type == 'string'
           read_string(bytes, element)
         elsif SCHEMA.key?(type.split('.').last)
@@ -674,7 +674,6 @@ module Revault
       case type
       when 'string' then read_string(bytes, location)
       when 'bool', 'ubyte' then bytes.getbyte(location) != 0
-      when 'uint' then bytes.unpack1('V', offset: location)
       when 'ulong' then bytes.unpack1('Q<', offset: location)
       else bytes.unpack1('V', offset: location)
       end
@@ -704,7 +703,7 @@ module Revault
       vector = align(bytes); patch_u32(bytes, root + 4, vector - (root + 4)); bytes << [values.length].pack('V') << ("\0" * (values.length * 4))
       values.each_with_index do |value, index|
         position = kind == :path_move ? append_path_move(bytes, value) : append_form_field(bytes, value)
-        element = vector + 4 + index * 4; patch_u32(bytes, element, position - element)
+        element = vector + 4 + (index * 4); patch_u32(bytes, element, position - element)
       end
       bytes
     end
@@ -720,7 +719,7 @@ module Revault
     end
 
     def append_vtable(bytes, offsets, object_size)
-      align(bytes, 2); position = bytes.bytesize; bytes << [4 + offsets.length * 2, object_size, *offsets].pack('v*'); position
+      align(bytes, 2); position = bytes.bytesize; bytes << [4 + (offsets.length * 2), object_size, *offsets].pack('v*'); position
     end
 
     def append_string_field(bytes, field, value)

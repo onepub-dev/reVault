@@ -164,7 +164,7 @@ jobs:
           find bindings/php/src bindings/e2e/php -name '*.php' -print0 | xargs -0 -n1 php -l
           find bindings/ruby bindings/e2e/ruby -name '*.rb' -print0 | xargs -0 -n1 ruby -c
           gem install rubocop --version 1.63.5 --no-document
-          rubocop --only Lint bindings/ruby/lib bindings/ruby/revault_api.gemspec bindings/e2e/ruby/conformance.rb
+          rubocop --config bindings/ruby/.rubocop.yml --only Lint bindings/ruby/lib bindings/ruby/revault_api.gemspec bindings/e2e/ruby/conformance.rb
           luajit -b bindings/lua/revault_api.lua /tmp/revault_api.luac
           luajit -b bindings/e2e/lua/conformance.lua /tmp/revault_conformance.luac
       - name: Swift compile
