@@ -498,9 +498,9 @@ fn native_conformance(args: NativeConformance) -> Result {
     }
     let service_env = linux_secret_service_env()?;
     fs::create_dir_all(&args.work)?;
-    let work = args.work.canonicalize()?;
-    let repository = args.repository.canonicalize()?;
-    let archive = args.archive.canonicalize()?;
+    let work = PathBuf::from(crate::release::msvc_path(&args.work.canonicalize()?));
+    let repository = PathBuf::from(crate::release::msvc_path(&args.repository.canonicalize()?));
+    let archive = PathBuf::from(crate::release::msvc_path(&args.archive.canonicalize()?));
     let install = crate::release::install_archive(&archive, &work.join("installed"))?;
     let build = work.join("build");
     run_status(
