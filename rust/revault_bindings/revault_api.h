@@ -8,9 +8,22 @@
  * lockboxes. It also manages contact keys, signing keys, the local metadata
  * vault, the session agent, and the platform secret store.
  *
- * Native objects are returned as opaque pointers and must be released with the
- * matching `_free` function. A failed pointer or Boolean result can be
- * diagnosed with `buffer_last_error()` or `buffer_last_error_details()`.
+ * Native objects are returned as opaque pointers. Every non-null handle passed
+ * to this API must have been returned by the matching reVault constructor or
+ * import function, must still be live, and must have the type expected by the
+ * called function. A handle must not be freed or accessed concurrently while a
+ * call using it is in progress. Mutable calls require exclusive access. Each
+ * owned handle must be released exactly once with its matching `_free`
+ * function; using a handle after that call is invalid.
+ *
+ * For pointer-and-length inputs, a non-zero length requires a readable pointer
+ * to at least that many bytes. Output pointers must be writable for the stated
+ * result type. Unless a function explicitly documents ownership transfer,
+ * caller-owned input remains owned by the caller and must remain valid until
+ * the function returns.
+ *
+ * A failed pointer or Boolean result can be diagnosed with
+ * `buffer_last_error()` or `buffer_last_error_details()`.
  * Returned `RevaultBuffer` values belong to the caller and must be passed to
  * `buffer_free()`. Secret getters return opaque secret handles so plaintext can
  * be copied only for the shortest practical scope and then wiped.

@@ -3,7 +3,6 @@
 // This crate is a generated-style C boundary: exported functions accept
 // caller-owned pointers and mirror the flat declarations in revault_api.h.
 #![allow(
-    clippy::missing_safety_doc,
     clippy::not_unsafe_ptr_arg_deref,
     clippy::too_many_arguments,
     clippy::undocumented_unsafe_blocks,
@@ -74,6 +73,26 @@ type ReadOnlyVaultDirectoryHandle = revault_vault_api::ReadOnlyVaultDirectory;
 type ContactWrappedKeyHandle = ContactWrappedKey;
 type LocalVaultHandle = revault_vault_api::LocalVault;
 type SecretActivityHandle = revault_vault_api::SecretActivityGuard;
+
+/// Borrows a live lockbox behind its opaque C handle.
+///
+/// # Safety
+/// `handle` must be null or the live, correctly aligned result of a reVault
+/// lockbox constructor. The pointee must outlive the returned borrow and must
+/// not be mutably accessed for its duration.
+unsafe fn lockbox_ref<'a>(handle: *const c_void) -> Option<&'a LockboxHandle> {
+    (!handle.is_null()).then(|| unsafe { &*handle.cast::<LockboxHandle>() })
+}
+
+/// Mutably borrows a live lockbox behind its opaque C handle.
+///
+/// # Safety
+/// `handle` must be null or the live, correctly aligned result of a reVault
+/// lockbox constructor. The pointee must outlive the returned borrow and no
+/// other access to it may overlap the borrow.
+unsafe fn lockbox_mut<'a>(handle: *mut c_void) -> Option<&'a mut LockboxHandle> {
+    (!handle.is_null()).then(|| unsafe { &mut *handle.cast::<LockboxHandle>() })
+}
 
 thread_local! {
     static LAST_ERROR: RefCell<CString> = RefCell::new(CString::new("").unwrap());
@@ -523,6 +542,13 @@ pub extern "C" fn lockbox_format_version() -> u16 {
 
 #[no_mangle]
 /// Determines format version without fully opening it.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_probe_format_version(bytes: *const u8, len: usize) -> u16 {
     let Some(bytes) = (unsafe { input(bytes, len) }) else {
         set_error("lockbox bytes pointer is null");
@@ -555,6 +581,13 @@ pub extern "C" fn buffer_free(value: RevaultBuffer) {
 
 /// Return the byte length of an opaque secret.
 #[no_mangle]
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn secret_len(handle: *const c_void, out_len: *mut usize) -> bool {
     // SAFETY: a non-null handle returned by this library points to SecretHandle.
     let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<SecretHandle>()) })
@@ -582,6 +615,13 @@ pub unsafe extern "C" fn secret_len(handle: *const c_void, out_len: *mut usize) 
 
 /// Copy an opaque secret into a caller-owned mutable buffer.
 #[no_mangle]
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn secret_copy(
     handle: *const c_void,
     destination: *mut u8,
@@ -624,6 +664,13 @@ pub unsafe extern "C" fn secret_copy(
 
 /// Release an opaque secret and zeroize its secure allocation.
 #[no_mangle]
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn secret_free(handle: *mut c_void) {
     if !handle.is_null() {
         // SAFETY: ownership of a handle returned by this library transfers once.
@@ -672,6 +719,13 @@ pub extern "C" fn lockbox_create(key: *const u8, key_len: usize) -> *mut c_void 
 
 #[no_mangle]
 /// Creates password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_create_password(password: *const u8, len: usize) -> *mut c_void {
     let Some(password) = (unsafe { input(password, len) }) else {
         set_error("password pointer is null");
@@ -747,6 +801,13 @@ fn lockbox_options(
 
 #[no_mangle]
 /// Creates with options.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_create_with_options(
     key: *const u8,
     key_len: usize,
@@ -793,6 +854,13 @@ pub unsafe extern "C" fn lockbox_create_with_options(
 
 #[no_mangle]
 /// Creates contact.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_create_contact(contact: *const c_void) -> *mut c_void {
     let Some(contact) =
         (!contact.is_null()).then(|| unsafe { &*(contact.cast::<ContactPublicKey>()) })
@@ -827,6 +895,13 @@ pub unsafe extern "C" fn lockbox_create_contact(contact: *const c_void) -> *mut 
 
 #[no_mangle]
 /// Creates with signing key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_create_with_signing_key(
     content_key: *const u8,
     key_len: usize,
@@ -889,6 +964,13 @@ pub extern "C" fn lockbox_open(
 
 #[no_mangle]
 /// Opens with options.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_open_with_options(
     archive: *const u8,
     archive_len: usize,
@@ -939,6 +1021,13 @@ pub unsafe extern "C" fn lockbox_open_with_options(
 
 #[no_mangle]
 /// Opens password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_open_password(
     bytes: *const u8,
     len: usize,
@@ -980,6 +1069,13 @@ pub unsafe extern "C" fn lockbox_open_password(
 
 #[no_mangle]
 /// Opens contact.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_open_contact(
     bytes: *const u8,
     len: usize,
@@ -1006,6 +1102,13 @@ pub unsafe extern "C" fn lockbox_open_contact(
 
 #[no_mangle]
 /// Adds file.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_add_file(
     handle: *mut c_void,
     path: *const c_char,
@@ -1014,9 +1117,7 @@ pub unsafe extern "C" fn lockbox_add_file(
     data_len: usize,
     replace: bool,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1040,6 +1141,13 @@ pub unsafe extern "C" fn lockbox_add_file(
 
 #[no_mangle]
 /// Adds file with permissions.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_add_file_with_permissions(
     handle: *mut c_void,
     path: *const c_char,
@@ -1049,9 +1157,7 @@ pub unsafe extern "C" fn lockbox_add_file_with_permissions(
     permissions: u32,
     replace: bool,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1077,13 +1183,19 @@ pub unsafe extern "C" fn lockbox_add_file_with_permissions(
 
 #[no_mangle]
 /// Returns file.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_get_file(
     handle: *const c_void,
     path: *const c_char,
     path_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1114,10 +1226,15 @@ pub unsafe extern "C" fn lockbox_get_file(
 
 #[no_mangle]
 /// Authenticates and publishes the staged changes.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_commit(handle: *mut c_void) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1135,15 +1252,20 @@ pub unsafe extern "C" fn lockbox_commit(handle: *mut c_void) -> bool {
 
 #[no_mangle]
 /// Creates dir.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_create_dir(
     handle: *mut c_void,
     path: *const c_char,
     path_len: usize,
     create_parents: bool,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1165,14 +1287,19 @@ pub unsafe extern "C" fn lockbox_create_dir(
 
 #[no_mangle]
 /// Removes delete.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_delete(
     handle: *mut c_void,
     path: *const c_char,
     path_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1194,15 +1321,20 @@ pub unsafe extern "C" fn lockbox_delete(
 
 #[no_mangle]
 /// Removes dir.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_remove_dir(
     handle: *mut c_void,
     path: *const c_char,
     path_len: usize,
     recursive: bool,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1231,14 +1363,19 @@ pub unsafe extern "C" fn lockbox_remove_dir(
 
 #[no_mangle]
 /// Creates parent dirs.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_create_parent_dirs(
     handle: *mut c_void,
     path: *const c_char,
     path_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1260,6 +1397,13 @@ pub unsafe extern "C" fn lockbox_create_parent_dirs(
 
 #[no_mangle]
 /// Extracts file.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_extract_file(
     handle: *const c_void,
     source: *const c_char,
@@ -1268,8 +1412,7 @@ pub unsafe extern "C" fn lockbox_extract_file(
     destination_len: usize,
     replace: bool,
 ) -> bool {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1295,6 +1438,13 @@ pub unsafe extern "C" fn lockbox_extract_file(
 
 #[no_mangle]
 /// Extracts directory.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_extract_directory(
     handle: *const c_void,
     destination: *const c_char,
@@ -1306,8 +1456,7 @@ pub unsafe extern "C" fn lockbox_extract_directory(
     restore_permissions: bool,
     overwrite: bool,
 ) -> bool {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1337,12 +1486,18 @@ pub unsafe extern "C" fn lockbox_extract_directory(
 
 #[no_mangle]
 /// Returns the stream content.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_stream_content(
     handle: *const c_void,
     physical: bool,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1389,9 +1544,15 @@ pub unsafe extern "C" fn lockbox_stream_content(
 
 #[no_mangle]
 /// Returns cache statistics for this lockbox.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_cache_stats(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1404,9 +1565,15 @@ pub unsafe extern "C" fn lockbox_cache_stats(handle: *const c_void) -> RevaultBu
 
 #[no_mangle]
 /// Returns import statistics for this lockbox.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_import_stats(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1419,9 +1586,15 @@ pub unsafe extern "C" fn lockbox_import_stats(handle: *const c_void) -> RevaultB
 
 #[no_mangle]
 /// Updates import stats.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_reset_import_stats(handle: *const c_void) -> bool {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1432,6 +1605,13 @@ pub unsafe extern "C" fn lockbox_reset_import_stats(handle: *const c_void) -> bo
 
 #[no_mangle]
 /// Inspects file.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_inspect_file(
     path: *const c_char,
     path_len: usize,
@@ -1460,9 +1640,15 @@ pub unsafe extern "C" fn lockbox_inspect_file(
 
 #[no_mangle]
 /// Returns the page inspection.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_page_inspection(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1486,9 +1672,15 @@ pub unsafe extern "C" fn lockbox_page_inspection(handle: *const c_void) -> Revau
 
 #[no_mangle]
 /// Returns the recovery report.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_recovery_report(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1501,13 +1693,19 @@ pub unsafe extern "C" fn lockbox_recovery_report(handle: *const c_void) -> Revau
 
 #[no_mangle]
 /// Returns the recovery report render.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_recovery_report_render(
     handle: *const c_void,
     verbose: bool,
     max_entries: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1530,6 +1728,13 @@ pub unsafe extern "C" fn lockbox_recovery_report_render(
 
 #[no_mangle]
 /// Returns the recovery scan path.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_recovery_scan_path(
     path: *const c_char,
     path_len: usize,
@@ -1552,9 +1757,15 @@ pub unsafe extern "C" fn lockbox_recovery_scan_path(
 
 #[no_mangle]
 /// Returns the storage len.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_storage_len(handle: *const c_void) -> u64 {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return 0;
     };
@@ -1572,14 +1783,19 @@ pub unsafe extern "C" fn lockbox_storage_len(handle: *const c_void) -> u64 {
 
 #[no_mangle]
 /// Sets workload profile.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_set_workload_profile(
     handle: *mut c_void,
     profile: *const c_char,
     profile_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1604,15 +1820,20 @@ pub unsafe extern "C" fn lockbox_set_workload_profile(
 
 #[no_mangle]
 /// Sets worker policy.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_set_worker_policy(
     handle: *mut c_void,
     mode: *const c_char,
     mode_len: usize,
     jobs: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1636,9 +1857,15 @@ pub unsafe extern "C" fn lockbox_set_worker_policy(
 
 #[no_mangle]
 /// Returns the runtime options.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_runtime_options(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1654,6 +1881,13 @@ pub unsafe extern "C" fn lockbox_runtime_options(handle: *const c_void) -> Revau
 
 #[no_mangle]
 /// Updates rename.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_rename(
     handle: *mut c_void,
     from: *const c_char,
@@ -1661,9 +1895,7 @@ pub unsafe extern "C" fn lockbox_rename(
     to: *const c_char,
     to_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1689,14 +1921,20 @@ pub unsafe extern "C" fn lockbox_rename(
 
 #[no_mangle]
 /// Lists list.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_list(
     handle: *const c_void,
     path: *const c_char,
     path_len: usize,
     recursive: bool,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1741,6 +1979,13 @@ pub unsafe extern "C" fn lockbox_list(
 
 #[no_mangle]
 /// Lists with options.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_list_with_options(
     handle: *const c_void,
     path: *const c_char,
@@ -1753,8 +1998,7 @@ pub unsafe extern "C" fn lockbox_list_with_options(
     include_directories: bool,
     limit: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1820,13 +2064,19 @@ pub unsafe extern "C" fn lockbox_list_with_options(
 
 #[no_mangle]
 /// Returns metadata for the selected lockbox entry.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_stat(
     handle: *const c_void,
     path: *const c_char,
     path_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1863,6 +2113,13 @@ pub unsafe extern "C" fn lockbox_stat(
 
 #[no_mangle]
 /// Sets variable.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_set_variable(
     handle: *mut c_void,
     name: *const c_char,
@@ -1870,9 +2127,7 @@ pub unsafe extern "C" fn lockbox_set_variable(
     value: *const c_char,
     value_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1897,6 +2152,13 @@ pub unsafe extern "C" fn lockbox_set_variable(
 
 #[no_mangle]
 /// Sets secret variable.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_set_secret_variable(
     handle: *mut c_void,
     name: *const c_char,
@@ -1904,9 +2166,7 @@ pub unsafe extern "C" fn lockbox_set_secret_variable(
     value: *const u8,
     value_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1935,13 +2195,19 @@ pub unsafe extern "C" fn lockbox_set_secret_variable(
 
 #[no_mangle]
 /// Returns variable.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_get_variable(
     handle: *const c_void,
     name: *const c_char,
     name_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -1972,14 +2238,20 @@ pub unsafe extern "C" fn lockbox_get_variable(
 
 #[no_mangle]
 /// Returns secret variable.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_get_secret_variable(
     handle: *const c_void,
     name: *const c_char,
     name_len: usize,
     output: *mut *mut c_void,
 ) -> bool {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2000,14 +2272,19 @@ pub unsafe extern "C" fn lockbox_get_secret_variable(
 
 #[no_mangle]
 /// Removes variable.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_delete_variable(
     handle: *mut c_void,
     name: *const c_char,
     name_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2029,14 +2306,19 @@ pub unsafe extern "C" fn lockbox_delete_variable(
 
 #[no_mangle]
 /// Updates variables.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_move_variables(
     handle: *mut c_void,
     moves_transport: *const u8,
     moves_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2070,9 +2352,15 @@ pub unsafe extern "C" fn lockbox_move_variables(
 
 #[no_mangle]
 /// Lists variables.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_list_variables(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2106,13 +2394,19 @@ pub unsafe extern "C" fn lockbox_list_variables(handle: *const c_void) -> Revaul
 
 #[no_mangle]
 /// Returns the variable sensitivity.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_variable_sensitivity(
     handle: *const c_void,
     name: *const c_char,
     name_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2150,6 +2444,13 @@ pub unsafe extern "C" fn lockbox_variable_sensitivity(
 
 #[no_mangle]
 /// Adds symlink.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_add_symlink(
     handle: *mut c_void,
     path: *const c_char,
@@ -2158,9 +2459,7 @@ pub unsafe extern "C" fn lockbox_add_symlink(
     target_len: usize,
     replace: bool,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2187,13 +2486,19 @@ pub unsafe extern "C" fn lockbox_add_symlink(
 
 #[no_mangle]
 /// Returns symlink target.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_get_symlink_target(
     handle: *const c_void,
     path: *const c_char,
     path_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2224,9 +2529,15 @@ pub unsafe extern "C" fn lockbox_get_symlink_target(
 
 #[no_mangle]
 /// Returns the id.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_id(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2239,13 +2550,19 @@ pub unsafe extern "C" fn lockbox_id(handle: *const c_void) -> RevaultBuffer {
 
 #[no_mangle]
 /// Reports whether exists.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_exists(
     handle: *const c_void,
     path: *const c_char,
     path_len: usize,
 ) -> bool {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2267,13 +2584,19 @@ pub unsafe extern "C" fn lockbox_exists(
 
 #[no_mangle]
 /// Reports whether dir.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_is_dir(
     handle: *const c_void,
     path: *const c_char,
     path_len: usize,
 ) -> bool {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2295,13 +2618,19 @@ pub unsafe extern "C" fn lockbox_is_dir(
 
 #[no_mangle]
 /// Returns the permissions.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_permissions(
     handle: *const c_void,
     path: *const c_char,
     path_len: usize,
 ) -> u32 {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return u32::MAX;
     };
@@ -2326,15 +2655,20 @@ pub unsafe extern "C" fn lockbox_permissions(
 
 #[no_mangle]
 /// Sets permissions.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_set_permissions(
     handle: *mut c_void,
     path: *const c_char,
     path_len: usize,
     permissions: u32,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2356,6 +2690,13 @@ pub unsafe extern "C" fn lockbox_set_permissions(
 
 #[no_mangle]
 /// Returns range.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_read_range(
     handle: *const c_void,
     path: *const c_char,
@@ -2363,8 +2704,7 @@ pub unsafe extern "C" fn lockbox_read_range(
     offset: u64,
     len: u64,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2395,6 +2735,13 @@ pub unsafe extern "C" fn lockbox_read_range(
 
 #[no_mangle]
 /// Returns the recovery scan.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_recovery_scan(
     bytes: *const u8,
     len: usize,
@@ -2416,6 +2763,13 @@ pub unsafe extern "C" fn lockbox_recovery_scan(
 
 #[no_mangle]
 /// Returns the recovery salvage.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_recovery_salvage(
     bytes: *const u8,
     len: usize,
@@ -2445,14 +2799,19 @@ pub unsafe extern "C" fn lockbox_recovery_salvage(
 
 #[no_mangle]
 /// Adds password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_add_password(
     handle: *mut c_void,
     password: *const u8,
     len: usize,
 ) -> u64 {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return u64::MAX;
     };
@@ -2481,15 +2840,20 @@ pub unsafe extern "C" fn lockbox_add_password(
 
 #[no_mangle]
 /// Adds contact.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_add_contact(
     handle: *mut c_void,
     contact: *const c_void,
     name: *const c_char,
     name_len: usize,
 ) -> u64 {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return u64::MAX;
     };
@@ -2524,10 +2888,15 @@ pub unsafe extern "C" fn lockbox_add_contact(
 
 #[no_mangle]
 /// Removes key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_delete_key(handle: *mut c_void, id: u64) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2545,9 +2914,15 @@ pub unsafe extern "C" fn lockbox_delete_key(handle: *mut c_void, id: u64) -> boo
 
 #[no_mangle]
 /// Lists key slots.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_list_key_slots(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2560,13 +2935,18 @@ pub unsafe extern "C" fn lockbox_list_key_slots(handle: *const c_void) -> Revaul
 
 #[no_mangle]
 /// Sets owner signing key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_set_owner_signing_key(
     handle: *mut c_void,
     key: *const c_void,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2590,9 +2970,15 @@ pub unsafe extern "C" fn lockbox_set_owner_signing_key(
 
 #[no_mangle]
 /// Returns the owner inspection.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_owner_inspection(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2620,6 +3006,13 @@ pub unsafe extern "C" fn lockbox_owner_inspection(handle: *const c_void) -> Reva
 
 #[no_mangle]
 /// Returns the define form.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_define_form(
     handle: *mut c_void,
     alias: *const c_char,
@@ -2631,9 +3024,7 @@ pub unsafe extern "C" fn lockbox_define_form(
     fields_transport: *const u8,
     fields_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2686,9 +3077,15 @@ pub unsafe extern "C" fn lockbox_define_form(
 
 #[no_mangle]
 /// Lists form definitions.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_list_form_definitions(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2712,13 +3109,19 @@ pub unsafe extern "C" fn lockbox_list_form_definitions(handle: *const c_void) ->
 
 #[no_mangle]
 /// Returns the resolve form.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_resolve_form(
     handle: *const c_void,
     reference: *const c_char,
     reference_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2749,13 +3152,19 @@ pub unsafe extern "C" fn lockbox_resolve_form(
 
 #[no_mangle]
 /// Lists form revisions.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_list_form_revisions(
     handle: *const c_void,
     type_id: *const c_char,
     type_id_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2796,6 +3205,13 @@ pub unsafe extern "C" fn lockbox_list_form_revisions(
 
 #[no_mangle]
 /// Creates form record.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_create_form_record(
     handle: *mut c_void,
     path: *const c_char,
@@ -2805,9 +3221,7 @@ pub unsafe extern "C" fn lockbox_create_form_record(
     name: *const c_char,
     name_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2844,6 +3258,13 @@ pub unsafe extern "C" fn lockbox_create_form_record(
 
 #[no_mangle]
 /// Sets form field.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_set_form_field(
     handle: *mut c_void,
     path: *const c_char,
@@ -2853,9 +3274,7 @@ pub unsafe extern "C" fn lockbox_set_form_field(
     value: *const c_char,
     value_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2883,6 +3302,13 @@ pub unsafe extern "C" fn lockbox_set_form_field(
 
 #[no_mangle]
 /// Sets secret form field.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_set_secret_form_field(
     handle: *mut c_void,
     path: *const c_char,
@@ -2892,9 +3318,7 @@ pub unsafe extern "C" fn lockbox_set_secret_form_field(
     value: *const u8,
     value_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -2925,9 +3349,15 @@ pub unsafe extern "C" fn lockbox_set_secret_form_field(
 
 #[no_mangle]
 /// Lists form records.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_list_form_records(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2951,13 +3381,19 @@ pub unsafe extern "C" fn lockbox_list_form_records(handle: *const c_void) -> Rev
 
 #[no_mangle]
 /// Returns form record.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_get_form_record(
     handle: *const c_void,
     path: *const c_char,
     path_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -2990,14 +3426,19 @@ pub unsafe extern "C" fn lockbox_get_form_record(
 
 #[no_mangle]
 /// Removes form record.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_delete_form_record(
     handle: *mut c_void,
     path: *const c_char,
     path_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -3019,14 +3460,19 @@ pub unsafe extern "C" fn lockbox_delete_form_record(
 
 #[no_mangle]
 /// Updates form records.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_move_form_records(
     handle: *mut c_void,
     moves_transport: *const u8,
     moves_len: usize,
 ) -> bool {
-    let Some(handle) =
-        (!handle.is_null()).then(|| unsafe { &mut *(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -3055,6 +3501,13 @@ pub unsafe extern "C" fn lockbox_move_form_records(
 
 #[no_mangle]
 /// Returns form field.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_get_form_field(
     handle: *const c_void,
     path: *const c_char,
@@ -3062,8 +3515,7 @@ pub unsafe extern "C" fn lockbox_get_form_field(
     field: *const c_char,
     field_len: usize,
 ) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -3098,6 +3550,13 @@ pub unsafe extern "C" fn lockbox_get_form_field(
 
 #[no_mangle]
 /// Returns secret form field.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_get_secret_form_field(
     handle: *const c_void,
     path: *const c_char,
@@ -3106,8 +3565,7 @@ pub unsafe extern "C" fn lockbox_get_secret_form_field(
     field_len: usize,
     output: *mut *mut c_void,
 ) -> bool {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -3150,6 +3608,13 @@ pub extern "C" fn key_contact_generate() -> *mut c_void {
 
 #[no_mangle]
 /// Returns the from private.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_from_private(bytes: *const u8, len: usize) -> *mut c_void {
     let Some(bytes) = (unsafe { input(bytes, len) }) else {
         set_error("private key pointer is null");
@@ -3169,6 +3634,13 @@ pub unsafe extern "C" fn key_contact_from_private(bytes: *const u8, len: usize) 
 
 #[no_mangle]
 /// Returns the public.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_public(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<ContactKeyPair>()) })
     else {
@@ -3184,6 +3656,13 @@ pub unsafe extern "C" fn key_contact_public(handle: *const c_void) -> RevaultBuf
 
 #[no_mangle]
 /// Returns the private.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_private(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<ContactKeyPair>()) })
     else {
@@ -3219,6 +3698,13 @@ pub unsafe extern "C" fn key_contact_private(handle: *const c_void) -> RevaultBu
 
 #[no_mangle]
 /// Returns the public from bytes.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_public_from_bytes(
     bytes: *const u8,
     len: usize,
@@ -3238,6 +3724,13 @@ pub unsafe extern "C" fn key_contact_public_from_bytes(
 
 #[no_mangle]
 /// Returns the public free.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_public_free(handle: *mut c_void) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle.cast::<ContactPublicKey>())) };
@@ -3246,6 +3739,13 @@ pub unsafe extern "C" fn key_contact_public_free(handle: *mut c_void) {
 
 #[no_mangle]
 /// Releases the native resources held by this object.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_free(handle: *mut c_void) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle.cast::<ContactKeyPair>())) };
@@ -3254,6 +3754,13 @@ pub unsafe extern "C" fn key_contact_free(handle: *mut c_void) {
 
 #[no_mangle]
 /// Encrypts a content key for the selected contact.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_encrypt(
     contact: *const c_void,
     content_key: *const u8,
@@ -3283,6 +3790,13 @@ pub unsafe extern "C" fn key_contact_encrypt(
 
 #[no_mangle]
 /// Decrypts a wrapped content key for this contact.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_decrypt(
     contact: *const c_void,
     wrapped: *const c_void,
@@ -3314,6 +3828,13 @@ pub unsafe extern "C" fn key_contact_decrypt(
 
 #[no_mangle]
 /// Returns the wrapped public.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_wrapped_public(wrapped: *const c_void) -> RevaultBuffer {
     let Some(wrapped) =
         (!wrapped.is_null()).then(|| unsafe { &*(wrapped.cast::<ContactWrappedKeyHandle>()) })
@@ -3330,6 +3851,13 @@ pub unsafe extern "C" fn key_contact_wrapped_public(wrapped: *const c_void) -> R
 
 #[no_mangle]
 /// Returns the wrapped ciphertext.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_wrapped_ciphertext(wrapped: *const c_void) -> RevaultBuffer {
     let Some(wrapped) =
         (!wrapped.is_null()).then(|| unsafe { &*(wrapped.cast::<ContactWrappedKeyHandle>()) })
@@ -3346,6 +3874,13 @@ pub unsafe extern "C" fn key_contact_wrapped_ciphertext(wrapped: *const c_void) 
 
 #[no_mangle]
 /// Returns the wrapped encrypted.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_wrapped_encrypted(wrapped: *const c_void) -> RevaultBuffer {
     let Some(wrapped) =
         (!wrapped.is_null()).then(|| unsafe { &*(wrapped.cast::<ContactWrappedKeyHandle>()) })
@@ -3362,6 +3897,13 @@ pub unsafe extern "C" fn key_contact_wrapped_encrypted(wrapped: *const c_void) -
 
 #[no_mangle]
 /// Returns the wrapped free.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_contact_wrapped_free(handle: *mut c_void) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle.cast::<ContactWrappedKeyHandle>())) };
@@ -3377,6 +3919,13 @@ fn key_format(value: *const c_char, len: usize) -> Result<revault_vault_api::Key
 
 #[no_mangle]
 /// Returns the key export private.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_export_private(
     key: *const c_void,
     format: *const c_char,
@@ -3425,6 +3974,13 @@ pub unsafe extern "C" fn vault_key_export_private(
 
 #[no_mangle]
 /// Returns the key export public.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_export_public(
     key: *const c_void,
     format: *const c_char,
@@ -3464,6 +4020,13 @@ pub unsafe extern "C" fn vault_key_export_public(
 
 #[no_mangle]
 /// Returns the key import private.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_import_private(bytes: *const u8, len: usize) -> *mut c_void {
     let Some(bytes) = (unsafe { input(bytes, len) }) else {
         set_error("private key pointer is null");
@@ -3490,6 +4053,13 @@ pub unsafe extern "C" fn vault_key_import_private(bytes: *const u8, len: usize) 
 
 #[no_mangle]
 /// Returns the key import public.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_import_public(bytes: *const u8, len: usize) -> *mut c_void {
     let Some(bytes) = (unsafe { input(bytes, len) }) else {
         set_error("public key pointer is null");
@@ -3509,6 +4079,13 @@ pub unsafe extern "C" fn vault_key_import_public(bytes: *const u8, len: usize) -
 
 #[no_mangle]
 /// Returns the key fingerprint.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_fingerprint(key: *const c_void) -> RevaultBuffer {
     let Some(key) = (!key.is_null()).then(|| unsafe { &*(key.cast::<ContactPublicKey>()) }) else {
         set_error("contact public key handle is null");
@@ -3523,6 +4100,13 @@ pub unsafe extern "C" fn vault_key_fingerprint(key: *const c_void) -> RevaultBuf
 
 #[no_mangle]
 /// Returns the key format hex.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_format_hex(bytes: *const u8, len: usize) -> RevaultBuffer {
     let Some(bytes) = (unsafe { input(bytes, len) }) else {
         set_error("fingerprint pointer is null");
@@ -3537,6 +4121,13 @@ pub unsafe extern "C" fn vault_key_format_hex(bytes: *const u8, len: usize) -> R
 
 #[no_mangle]
 /// Returns the key decode hex.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_decode_hex(text: *const c_char, len: usize) -> RevaultBuffer {
     let Some(text) = (unsafe { input_str(text, len) }) else {
         set_error("fingerprint text is invalid");
@@ -3562,6 +4153,13 @@ pub unsafe extern "C" fn vault_key_decode_hex(text: *const c_char, len: usize) -
 
 #[no_mangle]
 /// Returns the key format crockford.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_format_crockford(bytes: *const u8, len: usize) -> RevaultBuffer {
     let Some(bytes) = (unsafe { input(bytes, len) }) else {
         set_error("fingerprint pointer is null");
@@ -3583,6 +4181,13 @@ pub unsafe extern "C" fn vault_key_format_crockford(bytes: *const u8, len: usize
 
 #[no_mangle]
 /// Returns the key format crockford reading.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_format_crockford_reading(
     code: *const c_char,
     len: usize,
@@ -3600,6 +4205,13 @@ pub unsafe extern "C" fn vault_key_format_crockford_reading(
 
 #[no_mangle]
 /// Returns the key decode crockford.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_decode_crockford(
     code: *const c_char,
     len: usize,
@@ -3628,6 +4240,13 @@ pub unsafe extern "C" fn vault_key_decode_crockford(
 
 #[no_mangle]
 /// Returns the key hex encode.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_hex_encode(bytes: *const u8, len: usize) -> RevaultBuffer {
     let Some(bytes) = (unsafe { input(bytes, len) }) else {
         set_error("byte pointer is null");
@@ -3642,6 +4261,13 @@ pub unsafe extern "C" fn vault_key_hex_encode(bytes: *const u8, len: usize) -> R
 
 #[no_mangle]
 /// Returns the key hex decode.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_key_hex_decode(text: *const c_char, len: usize) -> RevaultBuffer {
     let Some(text) = (unsafe { input_str(text, len) }) else {
         set_error("hex text is invalid");
@@ -3679,6 +4305,13 @@ pub extern "C" fn key_signing_generate() -> *mut c_void {
 
 #[no_mangle]
 /// Returns the from private.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_signing_from_private(bytes: *const u8, len: usize) -> *mut c_void {
     let Some(bytes) = (unsafe { input(bytes, len) }) else {
         set_error("private signing key pointer is null");
@@ -3698,6 +4331,13 @@ pub unsafe extern "C" fn key_signing_from_private(bytes: *const u8, len: usize) 
 
 #[no_mangle]
 /// Returns the public.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_signing_public(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<OwnerSigningKeyPair>()) })
@@ -3714,6 +4354,13 @@ pub unsafe extern "C" fn key_signing_public(handle: *const c_void) -> RevaultBuf
 
 #[no_mangle]
 /// Returns the private.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_signing_private(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<OwnerSigningKeyPair>()) })
@@ -3750,6 +4397,13 @@ pub unsafe extern "C" fn key_signing_private(handle: *const c_void) -> RevaultBu
 
 #[no_mangle]
 /// Returns the public from bytes.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_signing_public_from_bytes(
     bytes: *const u8,
     len: usize,
@@ -3769,6 +4423,13 @@ pub unsafe extern "C" fn key_signing_public_from_bytes(
 
 #[no_mangle]
 /// Returns the public free.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_signing_public_free(handle: *mut c_void) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle.cast::<OwnerSigningPublicKey>())) };
@@ -3777,6 +4438,13 @@ pub unsafe extern "C" fn key_signing_public_free(handle: *mut c_void) {
 
 #[no_mangle]
 /// Releases the native resources held by this object.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn key_signing_free(handle: *mut c_void) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle.cast::<OwnerSigningKeyPair>())) };
@@ -3785,6 +4453,13 @@ pub unsafe extern "C" fn key_signing_free(handle: *mut c_void) {
 
 #[no_mangle]
 /// Returns the directory open.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_open(
     root: *const c_char,
     root_len: usize,
@@ -3825,6 +4500,13 @@ pub extern "C" fn vault_structure_version_current() -> u32 {
 
 #[no_mangle]
 /// Returns the directory probe structure version.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_probe_structure_version(
     root: *const c_char,
     root_len: usize,
@@ -3872,6 +4554,13 @@ fn vault_handle(value: LockboxResult<VaultDirectoryHandle>) -> *mut c_void {
 
 #[no_mangle]
 /// Returns the directory open or create default.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_open_or_create_default(
     password: *const u8,
     password_len: usize,
@@ -3887,6 +4576,13 @@ pub unsafe extern "C" fn vault_directory_open_or_create_default(
 
 #[no_mangle]
 /// Returns the directory replace default.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_replace_default(
     password: *const u8,
     password_len: usize,
@@ -3902,6 +4598,13 @@ pub unsafe extern "C" fn vault_directory_replace_default(
 
 #[no_mangle]
 /// Returns the directory open or create.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_open_or_create(
     root: *const c_char,
     root_len: usize,
@@ -3921,6 +4624,13 @@ pub unsafe extern "C" fn vault_directory_open_or_create(
 
 #[no_mangle]
 /// Returns the directory replace.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_replace(
     root: *const c_char,
     root_len: usize,
@@ -3951,6 +4661,13 @@ fn vault_bool(value: LockboxResult<()>) -> bool {
 
 #[no_mangle]
 /// Returns the directory change password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_change_password(
     root: *const c_char,
     root_len: usize,
@@ -3976,6 +4693,13 @@ pub unsafe extern "C" fn vault_directory_change_password(
 
 #[no_mangle]
 /// Returns the directory change default password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_change_default_password(
     old_password: *const u8,
     old_len: usize,
@@ -3998,6 +4722,13 @@ pub unsafe extern "C" fn vault_directory_change_default_password(
 
 #[no_mangle]
 /// Returns the directory root.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_root(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
@@ -4014,6 +4745,13 @@ pub unsafe extern "C" fn vault_directory_root(handle: *const c_void) -> RevaultB
 
 #[no_mangle]
 /// Returns the directory structure version.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_structure_version(handle: *const c_void) -> u32 {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
@@ -4035,6 +4773,13 @@ pub unsafe extern "C" fn vault_directory_structure_version(handle: *const c_void
 
 #[no_mangle]
 /// Returns the directory list private keys.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_private_keys(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
@@ -4080,6 +4825,13 @@ fn string_list_buffer(value: LockboxResult<Vec<String>>) -> RevaultBuffer {
 
 #[no_mangle]
 /// Returns the directory list private key names.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_private_key_names(
     handle: *const c_void,
 ) -> RevaultBuffer {
@@ -4097,6 +4849,13 @@ pub unsafe extern "C" fn vault_directory_list_private_key_names(
 
 #[no_mangle]
 /// Returns the directory list contact names.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_contact_names(
     handle: *const c_void,
 ) -> RevaultBuffer {
@@ -4119,6 +4878,13 @@ pub unsafe extern "C" fn vault_directory_list_contact_names(
 
 #[no_mangle]
 /// Returns the directory list form aliases.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_form_aliases(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
@@ -4138,6 +4904,13 @@ pub unsafe extern "C" fn vault_directory_list_form_aliases(handle: *const c_void
 
 #[no_mangle]
 /// Returns the directory private key exists.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_private_key_exists(
     handle: *const c_void,
     name: *const c_char,
@@ -4167,6 +4940,13 @@ pub unsafe extern "C" fn vault_directory_private_key_exists(
 
 #[no_mangle]
 /// Returns the directory delete private key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_delete_private_key(
     handle: *const c_void,
     name: *const c_char,
@@ -4196,6 +4976,13 @@ pub unsafe extern "C" fn vault_directory_delete_private_key(
 
 #[no_mangle]
 /// Returns the directory store private key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_store_private_key(
     handle: *const c_void,
     name: *const c_char,
@@ -4230,6 +5017,13 @@ pub unsafe extern "C" fn vault_directory_store_private_key(
 
 #[no_mangle]
 /// Returns the directory load private key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_load_private_key(
     handle: *const c_void,
     name: *const c_char,
@@ -4259,6 +5053,13 @@ pub unsafe extern "C" fn vault_directory_load_private_key(
 
 #[no_mangle]
 /// Returns the directory load private key generation.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_load_private_key_generation(
     handle: *const c_void,
     name: *const c_char,
@@ -4289,6 +5090,13 @@ pub unsafe extern "C" fn vault_directory_load_private_key_generation(
 
 #[no_mangle]
 /// Returns the directory store contact.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_store_contact(
     handle: *const c_void,
     name: *const c_char,
@@ -4322,6 +5130,13 @@ pub unsafe extern "C" fn vault_directory_store_contact(
 
 #[no_mangle]
 /// Returns the directory load contact.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_load_contact(
     handle: *const c_void,
     name: *const c_char,
@@ -4351,6 +5166,13 @@ pub unsafe extern "C" fn vault_directory_load_contact(
 
 #[no_mangle]
 /// Returns the directory contact exists.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_contact_exists(
     handle: *const c_void,
     name: *const c_char,
@@ -4380,6 +5202,13 @@ pub unsafe extern "C" fn vault_directory_contact_exists(
 
 #[no_mangle]
 /// Returns the directory delete contact.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_delete_contact(
     handle: *const c_void,
     name: *const c_char,
@@ -4409,6 +5238,13 @@ pub unsafe extern "C" fn vault_directory_delete_contact(
 
 #[no_mangle]
 /// Returns the directory list contacts.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_contacts(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
@@ -4436,6 +5272,13 @@ pub unsafe extern "C" fn vault_directory_list_contacts(handle: *const c_void) ->
 
 #[no_mangle]
 /// Returns the directory store profile email.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_store_profile_email(
     handle: *const c_void,
     name: *const c_char,
@@ -4469,6 +5312,13 @@ pub unsafe extern "C" fn vault_directory_store_profile_email(
 
 #[no_mangle]
 /// Returns the directory profile email.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_profile_email(
     handle: *const c_void,
     name: *const c_char,
@@ -4510,6 +5360,13 @@ pub unsafe extern "C" fn vault_directory_profile_email(
 
 #[no_mangle]
 /// Returns the directory store backup.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_store_backup(
     handle: *const c_void,
     id: *const u8,
@@ -4548,6 +5405,13 @@ pub unsafe extern "C" fn vault_directory_store_backup(
 
 #[no_mangle]
 /// Returns the directory load backup.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_load_backup(
     handle: *const c_void,
     id: *const u8,
@@ -4589,6 +5453,13 @@ pub unsafe extern "C" fn vault_directory_load_backup(
 
 #[no_mangle]
 /// Returns the directory backup count.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_backup_count(handle: *const c_void) -> u64 {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
@@ -4610,6 +5481,13 @@ pub unsafe extern "C" fn vault_directory_backup_count(handle: *const c_void) -> 
 
 #[no_mangle]
 /// Returns the directory restore private key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_restore_private_key(
     handle: *const c_void,
     name: *const c_char,
@@ -4647,6 +5525,13 @@ pub unsafe extern "C" fn vault_directory_restore_private_key(
 
 #[no_mangle]
 /// Returns the directory load owner signing key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_load_owner_signing_key(
     handle: *const c_void,
     name: *const c_char,
@@ -4676,6 +5561,13 @@ pub unsafe extern "C" fn vault_directory_load_owner_signing_key(
 
 #[no_mangle]
 /// Returns the directory load owner signing key generation.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_load_owner_signing_key_generation(
     handle: *const c_void,
     name: *const c_char,
@@ -4706,6 +5598,13 @@ pub unsafe extern "C" fn vault_directory_load_owner_signing_key_generation(
 
 #[no_mangle]
 /// Returns the directory store contact signing key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_store_contact_signing_key(
     handle: *const c_void,
     name: *const c_char,
@@ -4739,6 +5638,13 @@ pub unsafe extern "C" fn vault_directory_store_contact_signing_key(
 
 #[no_mangle]
 /// Returns the directory load contact signing key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_load_contact_signing_key(
     handle: *const c_void,
     name: *const c_char,
@@ -4768,6 +5674,13 @@ pub unsafe extern "C" fn vault_directory_load_contact_signing_key(
 
 #[no_mangle]
 /// Returns the directory list profile generations.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_profile_generations(
     handle: *const c_void,
     name: *const c_char,
@@ -4806,6 +5719,13 @@ pub unsafe extern "C" fn vault_directory_list_profile_generations(
 
 #[no_mangle]
 /// Returns the directory rotate private key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_rotate_private_key(
     handle: *const c_void,
     name: *const c_char,
@@ -4844,6 +5764,13 @@ pub unsafe extern "C" fn vault_directory_rotate_private_key(
 
 #[no_mangle]
 /// Returns the directory remember lockbox.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_remember_lockbox(
     handle: *const c_void,
     id: *const u8,
@@ -4882,6 +5809,13 @@ pub unsafe extern "C" fn vault_directory_remember_lockbox(
 
 #[no_mangle]
 /// Returns the directory list known lockboxes.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_known_lockboxes(
     handle: *const c_void,
 ) -> RevaultBuffer {
@@ -4911,6 +5845,13 @@ pub unsafe extern "C" fn vault_directory_list_known_lockboxes(
 
 #[no_mangle]
 /// Returns the directory forget lockbox.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_forget_lockbox(
     handle: *const c_void,
     path: *const c_char,
@@ -4940,6 +5881,13 @@ pub unsafe extern "C" fn vault_directory_forget_lockbox(
 
 #[no_mangle]
 /// Returns the directory remember access slot label.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_remember_access_slot_label(
     handle: *const c_void,
     id: *const u8,
@@ -4979,6 +5927,13 @@ pub unsafe extern "C" fn vault_directory_remember_access_slot_label(
 
 #[no_mangle]
 /// Returns the directory list access slot labels.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_access_slot_labels(
     handle: *const c_void,
     id: *const u8,
@@ -5020,6 +5975,13 @@ pub unsafe extern "C" fn vault_directory_list_access_slot_labels(
 
 #[no_mangle]
 /// Returns the directory find access slot labels.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_find_access_slot_labels(
     handle: *const c_void,
     id: *const u8,
@@ -5070,6 +6032,13 @@ pub unsafe extern "C" fn vault_directory_find_access_slot_labels(
 
 #[no_mangle]
 /// Returns the directory forget access slot label.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_forget_access_slot_label(
     handle: *const c_void,
     id: *const u8,
@@ -5103,6 +6072,13 @@ pub unsafe extern "C" fn vault_directory_forget_access_slot_label(
 
 #[no_mangle]
 /// Returns the directory define form.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_define_form(
     handle: *const c_void,
     alias: *const c_char,
@@ -5169,6 +6145,13 @@ pub unsafe extern "C" fn vault_directory_define_form(
 
 #[no_mangle]
 /// Returns the directory resolve form.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_resolve_form(
     handle: *const c_void,
     reference: *const c_char,
@@ -5207,6 +6190,13 @@ pub unsafe extern "C" fn vault_directory_resolve_form(
 
 #[no_mangle]
 /// Returns the directory list forms.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_forms(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
@@ -5234,6 +6224,13 @@ pub unsafe extern "C" fn vault_directory_list_forms(handle: *const c_void) -> Re
 
 #[no_mangle]
 /// Returns the directory list form revisions.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_list_form_revisions(
     handle: *const c_void,
     type_id: *const c_char,
@@ -5279,6 +6276,13 @@ pub unsafe extern "C" fn vault_directory_list_form_revisions(
 
 #[no_mangle]
 /// Returns the directory seed forms.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_seed_forms(handle: *const c_void) -> usize {
     let Some(handle) =
         (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
@@ -5300,6 +6304,13 @@ pub unsafe extern "C" fn vault_directory_seed_forms(handle: *const c_void) -> us
 
 #[no_mangle]
 /// Returns the directory remember password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_remember_password(
     handle: *const c_void,
     id: *const u8,
@@ -5345,6 +6356,13 @@ pub unsafe extern "C" fn vault_directory_remember_password(
 
 #[no_mangle]
 /// Returns the directory remembered password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_remembered_password(
     handle: *const c_void,
     id: *const u8,
@@ -5402,6 +6420,13 @@ pub unsafe extern "C" fn vault_directory_remembered_password(
 
 #[no_mangle]
 /// Returns the backup default.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_backup_default(
     path: *const c_char,
     path_len: usize,
@@ -5437,6 +6462,13 @@ pub unsafe extern "C" fn vault_backup_default(
 
 #[no_mangle]
 /// Returns the restore default.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_restore_default(
     path: *const c_char,
     path_len: usize,
@@ -5472,6 +6504,13 @@ pub unsafe extern "C" fn vault_restore_default(
 
 #[no_mangle]
 /// Returns the directory free.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_directory_free(handle: *mut c_void) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle.cast::<VaultDirectoryHandle>())) };
@@ -5493,6 +6532,13 @@ fn read_only_vault_handle(value: LockboxResult<ReadOnlyVaultDirectoryHandle>) ->
 
 #[no_mangle]
 /// Returns only open.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_read_only_open(
     root: *const c_char,
     root_len: usize,
@@ -5510,6 +6556,13 @@ pub unsafe extern "C" fn vault_read_only_open(
 
 #[no_mangle]
 /// Returns only open default.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_read_only_open_default(
     password: *const u8,
     password_len: usize,
@@ -5527,6 +6580,13 @@ unsafe fn read_only_vault<'a>(handle: *const c_void) -> Option<&'a ReadOnlyVault
 
 #[no_mangle]
 /// Returns only list profile names.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_read_only_list_profile_names(
     handle: *const c_void,
 ) -> RevaultBuffer {
@@ -5542,6 +6602,13 @@ pub unsafe extern "C" fn vault_read_only_list_profile_names(
 
 #[no_mangle]
 /// Returns only list contact names.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_read_only_list_contact_names(
     handle: *const c_void,
 ) -> RevaultBuffer {
@@ -5557,6 +6624,13 @@ pub unsafe extern "C" fn vault_read_only_list_contact_names(
 
 #[no_mangle]
 /// Returns only list form aliases.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_read_only_list_form_aliases(handle: *const c_void) -> RevaultBuffer {
     let Some(handle) = (unsafe { read_only_vault(handle) }) else {
         set_error("read-only vault handle is null");
@@ -5570,6 +6644,13 @@ pub unsafe extern "C" fn vault_read_only_list_form_aliases(handle: *const c_void
 
 #[no_mangle]
 /// Returns only list known lockboxes.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_read_only_list_known_lockboxes(
     handle: *const c_void,
 ) -> RevaultBuffer {
@@ -5594,6 +6675,13 @@ pub unsafe extern "C" fn vault_read_only_list_known_lockboxes(
 
 #[no_mangle]
 /// Returns only free.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_read_only_free(handle: *mut c_void) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle.cast::<ReadOnlyVaultDirectoryHandle>())) };
@@ -5615,6 +6703,13 @@ fn lockbox_id_from_bytes(
 
 #[no_mangle]
 /// Returns the agent serve.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_serve() -> bool {
     match revault_vault_api::serve_agent() {
         Ok(()) => {
@@ -5645,6 +6740,13 @@ pub extern "C" fn vault_agent_verify_transport() -> bool {
 
 #[no_mangle]
 /// Returns the agent get.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_get(id: *const u8, id_len: usize) -> RevaultBuffer {
     let id = match lockbox_id_from_bytes(id, id_len) {
         Ok(id) => id,
@@ -5689,6 +6791,13 @@ pub unsafe extern "C" fn vault_agent_get(id: *const u8, id_len: usize) -> Revaul
 
 #[no_mangle]
 /// Returns the agent put.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_put(
     id: *const u8,
     id_len: usize,
@@ -5720,6 +6829,13 @@ pub unsafe extern "C" fn vault_agent_put(
 
 #[no_mangle]
 /// Returns the agent forget.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_forget(id: *const u8, id_len: usize) -> bool {
     let id = match lockbox_id_from_bytes(id, id_len) {
         Ok(id) => id,
@@ -5851,6 +6967,13 @@ fn auto_open_scope(
 
 #[no_mangle]
 /// Returns the platform set scope.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_platform_set_scope(scope: *const c_char, len: usize) -> bool {
     let scope = match auto_open_scope(scope, len) {
         Ok(scope) => scope,
@@ -6022,6 +7145,13 @@ pub extern "C" fn vault_agent_log_destination() -> RevaultBuffer {
 
 #[no_mangle]
 /// Returns the agent get vault unlock key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_get_vault_unlock_key(
     vault_id: *const c_char,
     vault_id_len: usize,
@@ -6066,6 +7196,13 @@ pub unsafe extern "C" fn vault_agent_get_vault_unlock_key(
 
 #[no_mangle]
 /// Returns the agent put vault unlock key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_put_vault_unlock_key(
     vault_id: *const c_char,
     vault_id_len: usize,
@@ -6102,6 +7239,13 @@ pub unsafe extern "C" fn vault_agent_put_vault_unlock_key(
 
 #[no_mangle]
 /// Returns the agent forget vault unlock key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_forget_vault_unlock_key(
     vault_id: *const c_char,
     vault_id_len: usize,
@@ -6124,6 +7268,13 @@ pub unsafe extern "C" fn vault_agent_forget_vault_unlock_key(
 
 #[no_mangle]
 /// Returns the agent get owner signing key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_get_owner_signing_key(
     vault_id: *const c_char,
     vault_len: usize,
@@ -6154,6 +7305,13 @@ pub unsafe extern "C" fn vault_agent_get_owner_signing_key(
 
 #[no_mangle]
 /// Returns the agent put owner signing key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_put_owner_signing_key(
     vault_id: *const c_char,
     vault_len: usize,
@@ -6191,6 +7349,13 @@ pub unsafe extern "C" fn vault_agent_put_owner_signing_key(
 
 #[no_mangle]
 /// Returns the agent forget owner signing key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_forget_owner_signing_key(
     vault_id: *const c_char,
     vault_len: usize,
@@ -6235,6 +7400,13 @@ fn activity_kind(
 
 #[no_mangle]
 /// Returns the agent begin activity.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_begin_activity(
     kind: *const c_char,
     len: usize,
@@ -6260,6 +7432,13 @@ pub unsafe extern "C" fn vault_agent_begin_activity(
 
 #[no_mangle]
 /// Returns the agent end activity.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_agent_end_activity(handle: *mut c_void) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle.cast::<SecretActivityHandle>())) };
@@ -6268,6 +7447,13 @@ pub unsafe extern "C" fn vault_agent_end_activity(handle: *mut c_void) {
 
 #[no_mangle]
 /// Returns the platform put password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_platform_put_password(password: *const u8, len: usize) -> bool {
     let Some(password) = (unsafe { input(password, len) }) else {
         set_error("password pointer is null");
@@ -6300,6 +7486,13 @@ pub extern "C" fn vault_local() -> *mut c_void {
 
 #[no_mangle]
 /// Creates lockbox password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_create_lockbox_password(
     vault: *const c_void,
     path: *const c_char,
@@ -6339,6 +7532,13 @@ pub unsafe extern "C" fn vault_create_lockbox_password(
 
 #[no_mangle]
 /// Opens lockbox password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_open_lockbox_password(
     vault: *const c_void,
     path: *const c_char,
@@ -6378,6 +7578,13 @@ pub unsafe extern "C" fn vault_open_lockbox_password(
 
 #[no_mangle]
 /// Creates lockbox content key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_create_lockbox_content_key(
     vault: *const c_void,
     path: *const c_char,
@@ -6424,6 +7631,13 @@ pub unsafe extern "C" fn vault_create_lockbox_content_key(
 
 #[no_mangle]
 /// Creates lockbox contact.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_create_lockbox_contact(
     vault: *const c_void,
     path: *const c_char,
@@ -6478,6 +7692,13 @@ pub unsafe extern "C" fn vault_create_lockbox_contact(
 
 #[no_mangle]
 /// Opens lockbox content key.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_open_lockbox_content_key(
     vault: *const c_void,
     path: *const c_char,
@@ -6520,6 +7741,13 @@ pub unsafe extern "C" fn vault_open_lockbox_content_key(
 
 #[no_mangle]
 /// Stores lockbox password.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_cache_lockbox_password(
     vault: *const c_void,
     path: *const c_char,
@@ -6560,6 +7788,13 @@ pub unsafe extern "C" fn vault_cache_lockbox_password(
 
 #[no_mangle]
 /// Releases the native resources held by lockbox.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_close_lockbox(
     vault: *const c_void,
     path: *const c_char,
@@ -6588,6 +7823,13 @@ pub unsafe extern "C" fn vault_close_lockbox(
 
 #[no_mangle]
 /// Releases the native resources held by all.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_close_all(vault: *const c_void) -> bool {
     let Some(vault) = (!vault.is_null()).then(|| unsafe { &*(vault.cast::<LocalVaultHandle>()) })
     else {
@@ -6608,6 +7850,13 @@ pub unsafe extern "C" fn vault_close_all(vault: *const c_void) -> bool {
 
 #[no_mangle]
 /// Releases the native resources held by this object.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn vault_free(vault: *mut c_void) {
     if !vault.is_null() {
         unsafe { drop(Box::from_raw(vault.cast::<LocalVaultHandle>())) };
@@ -6616,9 +7865,15 @@ pub unsafe extern "C" fn vault_free(vault: *mut c_void) {
 
 #[no_mangle]
 /// Returns the to bytes.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_to_bytes(handle: *const c_void) -> RevaultBuffer {
-    let Some(handle) = (!handle.is_null()).then(|| unsafe { &*(handle.cast::<LockboxHandle>()) })
-    else {
+    let Some(handle) = (unsafe { lockbox_ref(handle) }) else {
         set_error("lockbox handle is null");
         return RevaultBuffer {
             ptr: ptr::null_mut(),
@@ -6642,6 +7897,13 @@ pub unsafe extern "C" fn lockbox_to_bytes(handle: *const c_void) -> RevaultBuffe
 
 #[no_mangle]
 /// Releases the native resources held by this object.
+///
+/// # Safety
+/// Opaque handles must come from the matching reVault constructor or import,
+/// remain live, and have the expected type. Other non-null pointers must be
+/// valid for their documented access and byte length; required output pointers
+/// must be writable. Callers must prevent overlapping access that aliases
+/// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_free(handle: *mut c_void) {
     if !handle.is_null() {
         unsafe { drop(Box::from_raw(handle.cast::<LockboxHandle>())) };
