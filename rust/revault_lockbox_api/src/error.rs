@@ -1,10 +1,38 @@
 use std::fmt;
 
+/// Native persisted artifact whose format version was rejected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArtifactKind {
+    /// Portable encrypted `.lbox` archive.
+    Lockbox,
+    /// Local vault directory and its metadata.
+    Vault,
+}
+
+impl ArtifactKind {
+    /// Returns the user-facing artifact name used in diagnostics.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Lockbox => "archive",
+            Self::Vault => "vault",
+        }
+    }
+}
+
 /// Error type returned by lockbox operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// The public header could not be parsed or authenticated.
     CorruptHeader,
+    /// A valid artifact uses a native format this build cannot read.
+    UnsupportedFormatVersion {
+        /// Kind of persisted artifact that was probed.
+        artifact: ArtifactKind,
+        /// Version encoded by the artifact.
+        found: u32,
+        /// Newest version supported by this build.
+        supported: u32,
+    },
     /// An encrypted record or decoded page failed validation.
     CorruptRecord,
     /// Stored vault metadata failed validation.
@@ -46,6 +74,14 @@ impl Error {
             Error::CorruptHeader => {
                 "Verify this is a lockbox file, then try recovery if the file may be damaged."
             }
+            Error::UnsupportedFormatVersion { artifact, .. } => match artifact {
+                ArtifactKind::Lockbox => {
+                    "Run `lockbox migrate archive <path> --output <path>` or use `--replace`."
+                }
+                ArtifactKind::Vault => {
+                    "Run `lockbox migrate vault --output <directory>` or use `--replace`."
+                }
+            },
             Error::CorruptRecord => {
                 "The lockbox contents failed validation; try recovery or restore from a clean copy."
             }
@@ -108,6 +144,21 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::CorruptHeader => write!(f, "corrupt lockbox header"),
+            Error::UnsupportedFormatVersion {
+                artifact,
+                found,
+                supported,
+            } => write!(
+                f,
+                "unsupported {} format version {found}; this reVault build supports version {supported}. {}",
+                artifact.as_str(),
+                Error::UnsupportedFormatVersion {
+                    artifact: *artifact,
+                    found: *found,
+                    supported: *supported,
+                }
+                .guidance()
+            ),
             Error::CorruptRecord => write!(f, "corrupt lockbox page or record"),
             Error::CorruptVaultRecord(message) => {
                 write!(f, "corrupt vault record: {message}")

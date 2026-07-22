@@ -5,7 +5,7 @@
 This document defines the client-side sharing, verification, contact storage,
 and key replacement flows for the reVault key server.
 
-The key server is only a rendezvous store. It does not verify identity, key
+The key server is only a rendezvous store. It does not verify profile, key
 ownership, key continuity, or trust. Those decisions belong in the CLI and the
 local vault.
 
@@ -21,20 +21,20 @@ key replacement -> verified contact plus optional pending replacement
 This design covers:
 
 ```text
-lockbox vault identity publish
+lockbox vault profile publish
 lockbox vault contact add --publish-code
 lockbox vault contact update --publish-code
 lockbox vault contact update --accept
 lockbox vault contact update --reject
-lockbox vault identity rotate
-lockbox vault identity history
+lockbox vault profile rotate
+lockbox vault profile history
 lockbox access refresh
 lockbox vault lockbox list
 lockbox vault lockbox forget
 key server URL configuration
 binary vault contact records
 signed and unsigned key replacement
-old lockbox access after identity rotation
+old lockbox access after profile rotation
 ```
 
 The contact subcommand remains under `vault`.
@@ -44,21 +44,21 @@ The contact subcommand remains under `vault`.
 New and amended commands:
 
 ```text
-lockbox vault identity publish [identity] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
+lockbox vault profile publish [profile] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
 
-lockbox vault contact add <identity> --publish-code CODE [--server URL]
-lockbox vault contact add <identity> <public-key-file>
+lockbox vault contact add <profile> --publish-code CODE [--server URL]
+lockbox vault contact add <profile> <public-key-file>
 
-lockbox vault contact update <identity> --publish-code CODE [--server URL]
-lockbox vault contact update <identity> <public-key-file>
-lockbox vault contact update <identity> --accept
-lockbox vault contact update <identity> --reject
+lockbox vault contact update <profile> --publish-code CODE [--server URL]
+lockbox vault contact update <profile> <public-key-file>
+lockbox vault contact update <profile> --accept
+lockbox vault contact update <profile> --reject
 
-lockbox vault identity rotate [identity]
-lockbox vault identity history [identity]
+lockbox vault profile rotate [profile]
+lockbox vault profile history [profile]
 
-lockbox access refresh <lockbox> <identity>
-lockbox access refresh --all <identity>
+lockbox access refresh <lockbox> <profile>
+lockbox access refresh --all <profile>
 lockbox access refresh --all
 
 lockbox vault lockbox list
@@ -74,12 +74,12 @@ existing trust relationship.
 handles both signed and unsigned replacement payloads and direct offline public
 key files.
 
-`vault identity rotate` is local-only. It does not contact the key server.
-After rotation, the user can call `lockbox vault identity publish` to publish either the
+`vault profile rotate` is local-only. It does not contact the key server.
+After rotation, the user can call `lockbox vault profile publish` to publish either the
 active key or a retired key generation.
 
-`access refresh` updates lockbox access entries from retired identity
-generations to active identity generations. It is the user-facing command for
+`access refresh` updates lockbox access entries from retired profile
+generations to active profile generations. It is the user-facing command for
 the underlying key-directory update operation.
 
 `vault lockbox forget` removes a missing or unwanted lockbox reference from the
@@ -89,10 +89,10 @@ vault's known-lockbox list. It does not modify the lockbox file itself.
 
 ### Initial Publish Through The Server
 
-Alice publishes her active identity:
+Alice publishes her active profile:
 
 ```bash
-lockbox vault identity publish alice@example.com
+lockbox vault profile publish alice@example.com
 ```
 
 Alice sees:
@@ -125,7 +125,7 @@ If Bob enters `71-44-92`, the contact is stored as verified.
 Alice exports a public contact file:
 
 ```bash
-lockbox vault identity export alice@example.com alice.lockbox-contact
+lockbox vault profile export alice@example.com alice.lockbox-contact
 ```
 
 Bob imports and verifies it:
@@ -140,10 +140,10 @@ matches.
 
 ### Signed Key Replacement
 
-Alice rotates her local identity:
+Alice rotates her local profile:
 
 ```bash
-lockbox vault identity rotate alice@example.com
+lockbox vault profile rotate alice@example.com
 ```
 
 This creates a new active key generation and keeps the old generation retired.
@@ -152,7 +152,7 @@ It does not upload anything.
 Alice publishes a replacement for Bob:
 
 ```bash
-lockbox vault identity publish alice@example.com
+lockbox vault profile publish alice@example.com
 ```
 
 Because Alice has an old retired signing key, the CLI builds a
@@ -170,10 +170,10 @@ contact record is promoted to the new key and remains verified.
 ### Unsigned Key Replacement
 
 Alice lost her old vault and cannot sign with the previous key. She creates a
-new identity with the same public identity string and publishes it:
+new profile with the same public profile string and publishes it:
 
 ```bash
-lockbox vault identity publish alice@example.com --unsigned-replacement
+lockbox vault profile publish alice@example.com --unsigned-replacement
 ```
 
 Bob updates Alice:
@@ -187,25 +187,25 @@ verification code, and asks Bob to enter the code from Alice. If it matches,
 Bob may accept the replacement. If verification is deferred, the replacement is
 stored as pending and every use of Alice's old key warns.
 
-### Using A Retired Identity Key
+### Using A Retired Profile Key
 
-Alice lists identity generations:
+Alice lists profile generations:
 
 ```bash
-lockbox vault identity history alice@example.com
+lockbox vault profile history alice@example.com
 ```
 
 Then publishes a retired key because a third party needs access to an old archive:
 
 ```bash
-lockbox vault identity publish alice@example.com --key-index 1
+lockbox vault profile publish alice@example.com --key-index 1
 ```
 
 The CLI must warn that a retired key is being published.
 
 ### Rewrapping An Old Lockbox
 
-Alice rotates her identity and then refreshes an old lockbox so it no longer
+Alice rotates her profile and then refreshes an old lockbox so it no longer
 depends on the retired key:
 
 ```bash
@@ -215,7 +215,7 @@ lockbox access refresh project.lbox alice@example.com
 The CLI opens with any available generation, adds the active generation, then
 removes the retired generation.
 
-Alice refreshes every known lockbox for every identity:
+Alice refreshes every known lockbox for every profile:
 
 ```bash
 lockbox access refresh --all
@@ -242,7 +242,7 @@ Missing:
 
 Could not check:
   client.lbox
-    cannot open with any vault identity
+    cannot open with any vault profile
 
 Apply these updates? [y/N]
 ```
@@ -250,15 +250,18 @@ Apply these updates? [y/N]
 Missing lockboxes are errors for explicit refresh requests and reported
 problems for `--all`. They are never silently ignored.
 
-## Server URL Configuration
+## Discovery and Server URL Configuration
 
-The CLI must resolve the key server URL in this order:
+The current CLI resolves discovery in this order:
 
 ```text
-1 command line: --server URL
-2 environment: LOCKBOX_KEY_SERVER
-3 YAML config: publish.server
-4 built-in default: https://keypublish.revault.onepub.dev/v1/publish
+1 command line: --topology-url URL
+2 command line: --server URL (direct-server override)
+3 YAML config: publish.topology_url
+4 YAML config: publish.server (direct-server override)
+5 built-in topology bootstrap URLs, tried in order:
+  https://keyshare0.revault.onepub.dev/v1/topology
+  https://keyshare1.revault.onepub.dev/v1/topology
 ```
 
 The YAML config path should reuse the existing CLI config path logic:
@@ -272,12 +275,13 @@ Config shape:
 
 ```yaml
 publish:
-  server: "https://keypublish.revault.onepub.dev/v1/publish"
+  topology_url: "https://keyshare0.example.com/v1/topology"
 ```
 
 The config parser should be small and strict. Unknown top-level fields can be
-ignored for forward compatibility, but malformed `publish.server` must be a clear
-configuration error.
+ignored for forward compatibility. `publish.server` remains available for
+development and emergency direct-server overrides, but production normally
+bootstraps through topology.
 
 ## Published Protocol Crate
 
@@ -303,19 +307,19 @@ parsing or manually build key server request bytes.
 ## Verification Code
 
 The verification code is derived from the received payload. It detects server
-substitution. It does not prove the human identity by itself.
+substitution. It does not prove the human profile by itself.
 
 For initial contact publishs:
 
 ```text
-hash("lockbox contact verify v1" || identity || public_key || publish_nonce)
+hash("lockbox contact verify v1" || profile || public_key || publish_nonce)
 ```
 
 For replacements:
 
 ```text
 hash("lockbox contact replacement verify v1"
-     || identity
+     || profile
      || old_public_key_fingerprint
      || new_public_key
      || new_public_key_fingerprint
@@ -358,7 +362,7 @@ The contact record should be versioned:
 ContactRecord {
     magic: "LBCR"
     version: u16
-    identity: utf8_string
+    profile: utf8_string
     contact_status: u16
     current_public_key: bytes
     current_fingerprint: bytes
@@ -489,29 +493,29 @@ what fingerprint did I previously trust?
 
 ## CLI Commands
 
-### Publish Vault Identity
+### Publish Vault Profile
 
 ```bash
-lockbox vault identity publish [identity] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
+lockbox vault profile publish [profile] [--key-index N] [--server URL] [--ttl 15m] [--max-receives 1]
 ```
 
-This publishes a vault identity's public contact material. If `identity` is
-omitted, use the vault default identity.
+This publishes a vault profile's public contact material. If `profile` is
+omitted, use the vault default profile.
 
-Publicly published identity strings should be email addresses. The CLI should
-strongly encourage this and may require an email-like value for identities that
+Publicly published profile strings should be email addresses. The CLI should
+strongly encourage this and may require an email-like value for profiles that
 are published through the server. Email addresses provide a natural globally
 unique contact key for other users' vaults.
 
-Local aliases can still exist, but they should not be the identity string in a
-publish payload. If a local identity has alias `default`, the vault identity publish command
-should either use the email identity stored in that identity record or require:
+Local aliases can still exist, but they should not be the profile string in a
+publish payload. If a local profile has alias `default`, the vault profile publish command
+should either use the email profile stored in that profile record or require:
 
 ```bash
-lockbox vault identity publish default --as alice@example.com
+lockbox vault profile publish default --as alice@example.com
 ```
 
-`--key-index` selects a historical identity generation. Omitting it publishes the
+`--key-index` selects a historical profile generation. Omitting it publishes the
 active generation. Sharing a retired generation must print a warning.
 
 Output:
@@ -526,7 +530,7 @@ Receive expires after verification: 2 hours
 The `publish` command must:
 
 ```text
-load the identity record from the vault
+load the profile record from the vault
 select the active or requested key generation
 build a contact_publish_v1, signed_key_replacement_v1, or unsigned_key_replacement_v1 payload
 upload it through PublishClient
@@ -534,7 +538,7 @@ compute the verification code locally
 print the published payload code and verification code
 ```
 
-When the identity has retired generations, the CLI decides the payload type:
+When the profile has retired generations, the CLI decides the payload type:
 
 ```text
 no known previous contact context -> contact_publish_v1
@@ -561,7 +565,7 @@ The command must:
 receive the published payload payload
 require PayloadType::ContactPublish
 decode the contact payload
-verify the payload identity matches the requested contact name
+verify the payload profile matches the requested contact name
 compute the verification code
 prompt for or read --verification-code
 store the contact as verified only if the code matches
@@ -586,7 +590,7 @@ load the existing contact record
 receive the published payload payload
 dispatch on PayloadType
 require signed or unsigned key replacement payload
-verify payload identity matches contact name
+verify payload profile matches contact name
 verify old fingerprint matches the current contact key
 store or apply the replacement according to replacement type
 ```
@@ -633,42 +637,42 @@ unsigned replacement: verification code was confirmed
 `--reject` clears `pending_replacement` and appends a
 `replacement_rejected` history entry.
 
-## Identity Records And Signing
+## Profile Records And Signing
 
 Current `ContactKeyPair` material is used for key wrapping. It is not a
-signing identity. In the current code it is hybrid X25519 + ML-KEM contact
+signing profile. In the current code it is hybrid X25519 + ML-KEM contact
 material. X25519 performs key agreement and ML-KEM performs key encapsulation;
 neither component is a digital signature algorithm.
 
 Signed replacement requires signature-capable key material. This does not mean
-the user needs a second logical identity. It means each vault identity
+the user needs a second logical profile. It means each vault profile
 generation needs to contain the key material required for the jobs that
 generation performs:
 
 ```text
 contact key material: unwrap lockbox content keys
-signing key material: sign identity replacement claims
+signing key material: sign profile replacement claims
 ```
 
-The old identity generation signs the replacement claim with its old signing
+The old profile generation signs the replacement claim with its old signing
 private key. Contacts verify that claim with the old signing public key they
-already trust. If a future identity key type can both unwrap and sign safely,
+already trust. If a future profile key type can both unwrap and sign safely,
 the record format can encode that as one cryptographic keypair. The current
 hybrid contact key cannot do that, so a signing component is required inside
-the same identity generation.
+the same profile generation.
 
-Vault identities should become versioned binary identity records:
+Vault profiles should become versioned binary profile records:
 
 ```text
-IdentityRecord {
+ProfileRecord {
     magic: "LBIR"
     version: u16
     name: utf8_string
     active_generation: u16
-    generations: [IdentityGeneration]
+    generations: [ProfileGeneration]
 }
 
-IdentityGeneration {
+ProfileGeneration {
     index: u16
     contact_keypair: secret bytes
     signing_keypair: secret bytes
@@ -688,7 +692,7 @@ Generation status values:
 3 compromised
 ```
 
-The signing component is generated with each identity generation and included
+The signing component is generated with each profile generation and included
 in contact publish payloads as the public signing key. Signed key replacement
 signs the canonical replacement body with the old generation's signing private
 key. The replacement payload carries the new generation's contact public key
@@ -697,13 +701,13 @@ and new signing public key.
 The key server does not create or verify signatures. It only validates that a
 signed replacement payload has the correct typed structure.
 
-## Identity Rotation
+## Profile Rotation
 
-Identity rotation is a local vault action. It should not take `--server` and it
+Profile rotation is a local vault action. It should not take `--server` and it
 should not upload anything.
 
 ```bash
-lockbox vault identity rotate [identity]
+lockbox vault profile rotate [profile]
 ```
 
 Default behavior:
@@ -711,35 +715,35 @@ Default behavior:
 ```text
 generate a new contact keypair
 generate a new signing keypair
-keep the old identity key material
+keep the old profile key material
 mark the previous active generation as retired
 make the new generation active
 print a warning that existing lockboxes may still depend on retired keys
-suggest lockbox vault identity publish to notify contacts
+suggest lockbox vault profile publish to notify contacts
 suggest access refresh to migrate old lockboxes
 ```
 
 The user then publishes the new active generation with one or more third parties:
 
 ```bash
-lockbox vault identity publish alice@example.com
+lockbox vault profile publish alice@example.com
 ```
 
 The user can publish a retired generation when another party needs to access an
 old archive:
 
 ```bash
-lockbox vault identity publish alice@example.com --key-index 1
+lockbox vault profile publish alice@example.com --key-index 1
 ```
 
-The CLI must warn whenever it uses a retired identity generation, including for
+The CLI must warn whenever it uses a retired profile generation, including for
 opening, sharing, or refreshing access. The warning should include the
 generation index and fingerprint.
 
-Identity history lists addressable generations:
+Profile history lists addressable generations:
 
 ```bash
-lockbox vault identity history [identity]
+lockbox vault profile history [profile]
 ```
 
 Output columns:
@@ -758,18 +762,18 @@ known_lockboxes
 lockboxes used each generation, print `unknown`.
 
 If a user lost their old vault, they cannot produce a signed replacement. In
-that case they create or import a new identity and publish an unsigned
+that case they create or import a new profile and publish an unsigned
 replacement:
 
 ```bash
-lockbox vault identity publish alice@example.com --unsigned-replacement
+lockbox vault profile publish alice@example.com --unsigned-replacement
 ```
 
 The receiver must verify by code before accepting it.
 
-## Existing Lockboxes After Identity Rotation
+## Existing Lockboxes After Profile Rotation
 
-Identity rotation does not automatically update old lockboxes.
+Profile rotation does not automatically update old lockboxes.
 
 Any lockbox encrypted to the old contact public key remains openable only
 with the matching old private key until its access entries are refreshed to the
@@ -779,7 +783,7 @@ Therefore:
 
 ```text
 do not delete old private key material during rotation
-keep old identity generations in the vault as retired
+keep old profile generations in the vault as retired
 warn users that old lockboxes still depend on retired keys
 provide a separate lockbox access refresh command
 ```
@@ -787,16 +791,16 @@ provide a separate lockbox access refresh command
 Refresh one lockbox from any retired generation to the active generation:
 
 ```bash
-lockbox access refresh <lockbox> <identity>
+lockbox access refresh <lockbox> <profile>
 ```
 
-Refresh known lockboxes for one identity:
+Refresh known lockboxes for one profile:
 
 ```bash
-lockbox access refresh --all <identity>
+lockbox access refresh --all <profile>
 ```
 
-Refresh known lockboxes for every identity:
+Refresh known lockboxes for every profile:
 
 ```bash
 lockbox access refresh --all
@@ -827,15 +831,15 @@ entries.
 List old key generations first:
 
 ```bash
-lockbox vault identity history <identity>
+lockbox vault profile history <profile>
 ```
 
 The refresh flow must:
 
 ```text
-open the lockbox using any available current or retired identity generation
-add access for the new identity public key
-remove access for the retired identity public key
+open the lockbox using any available current or retired profile generation
+add access for the new profile public key
+remove access for the retired profile public key
 commit the lockbox
 update key-directory backup in the vault
 ```
@@ -922,33 +926,32 @@ big-endian integers
 strict trailing-byte rejection
 ```
 
-Do not use JSON for contact, history, identity, or replacement records.
+Do not use JSON for contact, history, profile, or replacement records.
 
 ## Implementation Order
 
-1. Add CLI config module with `publish.server` YAML support and default
-   `keypublish.revault.onepub.dev`.
+1. Add CLI publish configuration and redundant topology bootstrap support.
 2. Add binary contact record codec to `revault_vault_api`.
 3. Replace trusted-contact vault APIs with contact-record APIs.
 4. Update access resolution to load only verified contact current keys and warn
    on pending replacement.
-5. Add binary identity records with signing key material.
+5. Add binary profile records with signing key material.
 6. Add verification-code helpers and canonical signing body helpers to the
    published protocol or a small contact-sharing module.
-7. Implement `lockbox vault identity publish` publish/receive/delete.
+7. Implement `lockbox vault profile publish` publish/receive/delete.
 8. Implement `lockbox vault contact add --publish-code`.
-9. Implement `lockbox vault identity rotate`.
+9. Implement `lockbox vault profile rotate`.
 10. Implement signed and unsigned `lockbox vault contact update --publish-code`.
 11. Implement `--accept` and `--reject` pending replacement handling.
-12. Implement lockbox access refresh commands for retired identity generations.
+12. Implement lockbox access refresh commands for retired profile generations.
 13. Track known lockboxes in the vault.
 14. Add `lockbox vault lockbox list` and `lockbox vault lockbox forget`.
 
 Implemented in the current key-server pass:
 
-- `lockbox vault identity publish`
+- `lockbox vault profile publish`
 - `lockbox vault contact receive`
-- `lockbox vault identity publish delete`
+- `lockbox vault profile publish delete`
 - `publish.server` and `publish.topology_url` YAML-style config lookup
 - `--server` and `--topology-url` command overrides
 - TLS-capable HTTP transport for `https://` key servers
@@ -962,10 +965,10 @@ Remaining CLI/contact work:
 
 ## Open Engineering Notes
 
-The exact signing algorithm should be chosen before implementing identity
+The exact signing algorithm should be chosen before implementing profile
 records. Ed25519 is a pragmatic choice because it is small, fast, and widely
 understood, but this should be decided deliberately and exposed as a versioned
-signing-key type in the binary identity and contact records.
+signing-key type in the binary profile and contact records.
 
 The current `PublishClient` supports both `http://` and `https://` endpoints.
 Plain HTTP remains useful for local tests and private reverse-proxy deployments;

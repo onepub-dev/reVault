@@ -1,0 +1,16 @@
+language	registry	package	publish_command	native_delivery
+javascript-typescript	npm	@onepub-dev/revault-api	npm publish --access public	optional @onepub-dev/revault-api-native-<target> packages
+wasm	npm	@onepub-dev/revault-api-wasm	npm publish --access public	bundled wasm and transitive Node host
+python	PyPI	revault-api	python -m twine upload dist/*	platform wheels
+java	Maven Central	dev.onepub:revault-api	./gradlew publish	JAR resources
+kotlin	Maven Central	dev.onepub:revault-api-kotlin	./gradlew publish	Java runtime dependency
+csharp	NuGet	Revault.Api	dotnet nuget push dist/*.nupkg	runtimes RID assets
+dart	pub.dev	revault_api	dart pub publish	bundled checked native assets
+ruby	RubyGems	revault_api	gem push *.gem	platform gems
+php	Packagist	onepub/revault-api	git tag and Packagist webhook	bundled checked native assets
+lua	LuaRocks	revault_api	luarocks upload *.rockspec --api-key $LUAROCKS_API_KEY	platform rocks
+go	Go module proxy	github.com/onepub-dev/revault-api	git tag vX.Y.Z	bundled static native archives
+rust	crates.io	revault-api	cargo publish	compiled from Rust source
+swift	Swift Package Manager	RevaultAPI	git tag vX.Y.Z	macOS XCFramework; Linux system package
+c	GitHub Releases/vcpkg/Homebrew/Debian/RPM	revault-api	promote signed native release	canonical native archive
+cpp	ConanCenter/vcpkg/Homebrew/Debian/RPM	revault-api	promote signed native release	canonical native archive

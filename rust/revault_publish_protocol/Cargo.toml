@@ -1,8 +1,8 @@
 [package]
 name = "revault_publish_protocol"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.95"
 license-file = "LICENSE"
 description = "reVault key server wire protocol and client API"
 repository = "https://github.com/onepub-dev/reVault"

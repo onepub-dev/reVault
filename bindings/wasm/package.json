@@ -1,0 +1,25 @@
+{
+  "name": "@onepub-dev/revault-api-wasm",
+  "version": "0.2.0",
+  "description": "Hosted WebAssembly class API for reVault lockboxes and vaults",
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://github.com/onepub-dev/reVault#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/onepub-dev/reVault.git",
+    "directory": "bindings/wasm"
+  },
+  "bugs": {
+    "url": "https://github.com/onepub-dev/reVault/issues"
+  },
+  "keywords": ["encryption", "credentials", "archive", "security", "vault", "webassembly"],
+  "engines": { "node": ">=20" },
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": "./index.js",
+  "files": ["index.js", "index.d.ts", "generated", "README.md", "LICENSE"],
+  "dependencies": {
+    "@onepub-dev/revault-api": "0.2.0"
+  }
+}

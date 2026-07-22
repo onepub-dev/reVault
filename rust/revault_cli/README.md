@@ -12,17 +12,21 @@ Before using the commands, these terms are useful:
 
 - A **lockbox** is the encrypted archive that holds files, variables, and form
   records.
-- A **vault** is your private local store for identities, trusted contacts, and
+- A **vault** is your private local store for profiles, trusted contacts, and
   the keys that let you create and open lockboxes.
-- An **identity** is your public/private key pair. You can use it to give
+- An **profile** is your public/private key pair. You can use it to give
   trusted contacts access to a lockbox without sharing a password.
 
 Installing this crate provides the `lockbox` and `lbx` commands. It is an
 application package, not a Rust library: install it with `cargo install`,
 rather than adding it as a dependency.
 
+End users can install prebuilt Linux, macOS, and Windows releases without a
+Rust toolchain. See the [CLI distribution guide](https://github.com/onepub-dev/reVault/blob/master/docs/cli_distribution.md)
+for installers, supported targets, and package-manager plans.
+
 The CLI creates and opens lockboxes, manages their files, variables and forms,
-and manages the vault, identities, contacts and recipient access that make
+and manages the vault, profiles, contacts and recipient access that make
 sharing possible. It also maintains a local open session so you do not need to
 re-enter keys for every command.
 
@@ -39,10 +43,10 @@ then follow its CLI quick start and command guide.
 This example creates a vault-backed lockbox for a small application. It imports
 files, stores ordinary configuration and a secret as variables, and stores a
 website login as a typed form record. Run `lbx vault init` once before this
-example; it creates your local vault and default identity.
+example; it creates your local vault and default profile.
 
 ```bash
-# Create and open an encrypted lockbox for the default vault identity.
+# Create and open an encrypted lockbox for the default vault profile.
 lbx create project-secrets.lbox
 
 # Add one host file at a chosen path inside the lockbox.

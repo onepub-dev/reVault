@@ -1,0 +1,17 @@
+{
+  "name": "onepub/revault-api",
+  "description": "Complete class-based reVault lockbox and vault API",
+  "license": "proprietary",
+  "homepage": "https://github.com/onepub-dev/reVault",
+  "keywords": ["encryption", "credentials", "archive", "security", "vault", "ffi"],
+  "support": {
+    "docs": "https://github.com/onepub-dev/reVault/tree/master/docs",
+    "issues": "https://github.com/onepub-dev/reVault/issues",
+    "source": "https://github.com/onepub-dev/reVault/tree/master/bindings/php",
+    "security": "https://github.com/onepub-dev/reVault/blob/master/SECURITY.md"
+  },
+  "autoload": { "classmap": ["src/", "generated/flatbuffers/"], "psr-4": {
+    "Revault\\": "src/"
+  } },
+  "require": { "php": ">=8.1", "ext-ffi": "*", "google/flatbuffers": "^25.2.10" }
+}

@@ -5,20 +5,34 @@ use crate::payload;
 use crate::protocol::{Operation, ProtocolError, Status};
 
 #[derive(Debug)]
+/// Represents client error.
 pub enum ClientError {
+    /// Represents the io case.
     Io(std::io::Error),
+    /// Represents the url case.
     Url(String),
+    /// Represents the http case.
     Http(String),
+    /// Represents the protocol case.
     Protocol(ProtocolError),
+    /// Represents the payload case.
     Payload(payload::PayloadError),
+    /// Represents the topology case.
     Topology(String),
+    /// Represents the replication case.
     Replication(String),
+    /// Represents the server case.
     Server {
+        /// Represents the status carried by this record case.
         status: Status,
+        /// Represents the message carried by this record case.
         message: String,
     },
+    /// Represents the unexpected operation case.
     UnexpectedOperation {
+        /// Represents the expected carried by this record case.
         expected: Operation,
+        /// Represents the actual carried by this record case.
         actual: Operation,
     },
 }

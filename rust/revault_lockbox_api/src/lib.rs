@@ -1,11 +1,40 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
+#![deny(missing_docs)]
 //! Core encrypted lockbox storage engine.
 //!
 //! `revault_lockbox_api` owns the portable `.lbox` file format and the in-memory API
 //! for storing files, symlinks, variable values, and key slots. It does not
 //! know about a user's local vault or open-cache agent; those are implemented in
 //! `revault_vault_api`.
+//!
+//! Start with [`Lockbox::create_in_memory`] for an in-memory archive or
+//! [`Lockbox::create_file`] for a file-backed archive. Add password or contact
+//! key slots before sharing the resulting `.lbox` file. Secret variables and
+//! secret form fields are exposed only through callback-scoped secure values.
+//!
+//! # Example
+//!
+//! ```
+//! use revault_lockbox_api::{
+//!     Lockbox, LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretString,
+//! };
+//!
+//! let password = SecretString::try_from_slice(b"correct horse")?;
+//! let signing_key = OwnerSigningKeyPair::generate()?;
+//! let mut lockbox = Lockbox::create_in_memory(
+//!     LockboxProtection::Password(&password),
+//!     &signing_key,
+//! )?;
+//! lockbox.add_file(&LockboxPath::new("/notes.txt")?, b"encrypted", false)?;
+//! lockbox.commit()?;
+//! let encrypted_archive = lockbox.try_to_bytes()?;
+//! assert!(!encrypted_archive.is_empty());
+//! # Ok::<(), revault_lockbox_api::Error>(())
+//! ```
+//!
+//! See the [reVault repository README](https://github.com/onepub-dev/reVault#readme)
+//! for installation, security guidance, and end-to-end examples.
 
 mod checked;
 mod compression;
@@ -43,15 +72,14 @@ pub(crate) use model::{
     variable_sensitivity,
 };
 pub(crate) use paths::{host_path, lockbox_path};
-pub(crate) use storage::{
-    cache_options, file_lock, free_index, free_slot, memory_pressure, page_cache,
-};
+pub(crate) use storage::{cache_options, file_lock, free_index, free_slot, page_cache};
 pub(crate) use toc::{form_btree, page_tree, toc_btree, toc_codec, toc_entry, variable_btree};
 
 pub use cache_options::{CacheLimit, CacheStats, LockboxOptions, WorkerPolicy, WorkloadProfile};
 pub use entry::{LockboxEntry, LockboxEntryKind};
-pub use error::{Error, Result};
+pub use error::{ArtifactKind, Error, Result};
 pub use extract_policy::ExtractPolicy;
+pub use file_format::header::{probe_lockbox_format_version, LOCKBOX_FORMAT_VERSION};
 #[doc(hidden)]
 pub use file_lock::{lock_path_for, FileLockScope, ScopedFileLock};
 pub use form::{

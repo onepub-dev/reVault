@@ -20,7 +20,7 @@ Before the API details, these terms establish the model:
   archive record.
 - An **owner signing key** proves that a change was authorised by the lockbox
   owner.
-- A **vault** is a higher-level, local private store for identities, contacts,
+- A **vault** is a higher-level, local private store for profiles, contacts,
   and lockbox keys. Vault management is provided by `revault_vault_api` and the
   CLI, not by this crate.
 

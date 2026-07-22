@@ -2,9 +2,10 @@ use crate::checked::{array_16, read_u16_le, read_u32_le, read_u64_le};
 use crate::constants::{HEADER_LEN, HEADER_MAGIC};
 use crate::crypto::strong_checksum;
 use crate::lockbox_id::LockboxId;
-use crate::{Error, Result};
+use crate::{ArtifactKind, Error, Result};
 
-const HEADER_VERSION: u16 = 1;
+/// Current on-disk `.lbox` format version written by this crate.
+pub const LOCKBOX_FORMAT_VERSION: u16 = 1;
 const HEADER_CHECKSUM_START: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,7 +30,7 @@ pub(crate) fn write_header(
     }
     bytes[..HEADER_LEN].fill(0);
     bytes[0..8].copy_from_slice(HEADER_MAGIC);
-    bytes[8..10].copy_from_slice(&HEADER_VERSION.to_le_bytes());
+    bytes[8..10].copy_from_slice(&LOCKBOX_FORMAT_VERSION.to_le_bytes());
     bytes[12..16].copy_from_slice(&(HEADER_LEN as u32).to_le_bytes());
     bytes[16..24].copy_from_slice(&commit_root_offset.to_le_bytes());
     bytes[24..32].copy_from_slice(&sequence.to_le_bytes());
@@ -47,9 +48,6 @@ pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
     if &bytes[0..8] != HEADER_MAGIC {
         return Err(Error::CorruptHeader);
     }
-    if read_u16_le(&bytes[8..10]).map_err(|_| Error::CorruptHeader)? != HEADER_VERSION {
-        return Err(Error::CorruptHeader);
-    }
     if read_u16_le(&bytes[10..12]).map_err(|_| Error::CorruptHeader)? != 0 {
         return Err(Error::CorruptHeader);
     }
@@ -59,6 +57,14 @@ pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
     let expected = strong_checksum(&bytes[0..HEADER_CHECKSUM_START]);
     if bytes[HEADER_CHECKSUM_START..HEADER_LEN] != expected {
         return Err(Error::CorruptHeader);
+    }
+    let version = read_u16_le(&bytes[8..10]).map_err(|_| Error::CorruptHeader)?;
+    if version != LOCKBOX_FORMAT_VERSION {
+        return Err(Error::UnsupportedFormatVersion {
+            artifact: ArtifactKind::Lockbox,
+            found: u32::from(version),
+            supported: u32::from(LOCKBOX_FORMAT_VERSION),
+        });
     }
     let commit_root_offset = read_u64_le(&bytes[16..24]).map_err(|_| Error::CorruptHeader)?;
     let sequence = read_u64_le(&bytes[24..32]).map_err(|_| Error::CorruptHeader)?;
@@ -73,6 +79,22 @@ pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
         lockbox_id,
         commit_auth_offset,
     })
+}
+
+/// Reads the stable native archive format discriminator from a complete,
+/// authenticated public header without attempting to parse that format.
+pub fn probe_lockbox_format_version(bytes: &[u8]) -> Result<u16> {
+    if bytes.len() < HEADER_LEN {
+        return Err(Error::Truncated);
+    }
+    if &bytes[0..8] != HEADER_MAGIC {
+        return Err(Error::CorruptHeader);
+    }
+    let expected = strong_checksum(&bytes[0..HEADER_CHECKSUM_START]);
+    if bytes[HEADER_CHECKSUM_START..HEADER_LEN] != expected {
+        return Err(Error::CorruptHeader);
+    }
+    read_u16_le(&bytes[8..10]).map_err(|_| Error::CorruptHeader)
 }
 
 /// Read the lockbox id from encoded lockbox header bytes.
@@ -145,5 +167,25 @@ mod tests {
         bytes[16] ^= 0x01;
 
         assert!(matches!(read_header(&bytes), Err(Error::CorruptHeader)));
+    }
+
+    #[test]
+    fn header_reports_valid_but_unsupported_format_separately_from_corruption() {
+        let lockbox_id = LockboxId::new_random().unwrap();
+        let mut bytes = Vec::new();
+        write_header(&mut bytes, 1, 2, 3, lockbox_id, 4);
+        bytes[8..10].copy_from_slice(&2u16.to_le_bytes());
+        let digest = strong_checksum(&bytes[0..HEADER_CHECKSUM_START]);
+        bytes[HEADER_CHECKSUM_START..HEADER_LEN].copy_from_slice(&digest);
+
+        assert_eq!(probe_lockbox_format_version(&bytes).unwrap(), 2);
+        assert!(matches!(
+            read_header(&bytes),
+            Err(Error::UnsupportedFormatVersion {
+                artifact: ArtifactKind::Lockbox,
+                found: 2,
+                supported: 1,
+            })
+        ));
     }
 }

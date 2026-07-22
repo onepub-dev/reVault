@@ -1,12 +1,14 @@
 # Performance tracking
 
-The key-server performance baseline is captured with the ignored heavy failover test and the helper script:
+The key-server performance baseline is captured with the ignored heavy failover
+test and the workspace task:
 
 ```bash
-bash tools/measure_key_server_performance.sh
+cargo xtask measure-key-server-performance
 ```
 
-The script writes logs under `target/perf/` and preserves the benchmark output line emitted by `heavy_failover_recovery_under_load`.
+The task writes logs under `target/perf/` and preserves the benchmark output
+line emitted by `heavy_failover_recovery_under_load`.
 
 Current post-Axum reference from local validation:
 
@@ -24,6 +26,6 @@ Interpretation:
 
 When changing server, replication, topology, protocol, or storage behavior:
 
-- Run `bash tools/run_network_tests.sh` for correctness.
-- Run `bash tools/measure_key_server_performance.sh` for a captured performance log.
+- Run `cargo xtask run-network-tests` for correctness.
+- Run `cargo xtask measure-key-server-performance` for a captured performance log.
 - Compare the final `heavy_failover flows=...` line against recent local or CI artifacts.

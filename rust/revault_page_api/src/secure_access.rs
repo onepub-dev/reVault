@@ -20,6 +20,11 @@ thread_local! {
     };
 }
 
+/// Runs `f` inside a thread-local secure-memory read scope.
+///
+/// Pages touched through the supplied [`SecureReadAccess`] are readable only
+/// until the outermost nested scope returns. Nested calls reuse the same guard.
+/// The guard is deliberately neither `Send` nor `Sync`.
 pub fn read_access<R>(f: impl FnOnce(&SecureReadAccess<'_>) -> R) -> R {
     ACTIVE_READ_ACCESS.with(|active| {
         if active.borrow().is_some() {
@@ -72,6 +77,9 @@ pub(crate) fn defer_free_until_read_access_exits(allocation: Allocation) -> bool
     })
 }
 
+/// Capability object that grants callback-scoped access to protected secrets.
+///
+/// Obtain a guard with [`read_access`]; callers cannot construct or retain one.
 pub struct SecureReadAccess<'a> {
     pool: RefCell<MutexGuard<'a, SecureHeap>>,
     touched: RefCell<Vec<TouchedPage>>,
@@ -79,10 +87,12 @@ pub struct SecureReadAccess<'a> {
 }
 
 impl SecureReadAccess<'_> {
+    /// Exposes `value` as bytes for the duration of `f`.
     pub fn with_bytes<R>(&self, value: &SecureVec, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
         value.with_bytes_in(self, f)
     }
 
+    /// Exposes `value` as UTF-8 text for the duration of `f`.
     pub fn with_str<R>(&self, value: &SecureString, f: impl FnOnce(&str) -> R) -> Result<R> {
         value.with_str_in(self, f)
     }

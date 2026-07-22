@@ -18,6 +18,7 @@ use super::helpers::{
 use super::http::{topology_url_from_publish_url, topology_urls_from_servers};
 
 impl PublishClientPool<HttpTransport> {
+    /// Creates a value from the supplied data.
     pub fn new<I, S>(server_urls: I) -> Result<Self, ClientError>
     where
         I: IntoIterator<Item = S>,
@@ -30,6 +31,7 @@ impl PublishClientPool<HttpTransport> {
         Self::from_clients(clients)
     }
 
+    /// Returns the with timeout.
     pub fn with_timeout(self, timeout: Duration) -> Self {
         if let Ok(mut state) = self.state.lock() {
             for client in &mut state.clients {
@@ -39,6 +41,7 @@ impl PublishClientPool<HttpTransport> {
         self
     }
 
+    /// Returns the with retry policy.
     pub fn with_retry_policy(
         self,
         attempts: usize,
@@ -57,6 +60,7 @@ impl PublishClientPool<HttpTransport> {
         self
     }
 
+    /// Returns the from topology.
     pub fn from_topology(topology: &ClusterTopology) -> Result<Self, ClientError> {
         topology.validate()?;
         let topology = dedupe_topology(topology.clone());
@@ -82,17 +86,44 @@ impl PublishClientPool<HttpTransport> {
         })
     }
 
+    /// Returns the discover.
     pub fn discover(topology_url: &str) -> Result<Self, ClientError> {
-        let bytes = HttpTransport::get_topology(topology_url).ok_or_else(|| {
-            ClientError::Topology(format!("topology discovery failed for {topology_url}"))
-        })?;
+        Self::discover_from_urls([topology_url])
+    }
+
+    /// Returns the discover from urls.
+    pub fn discover_from_urls<I, S>(topology_urls: I) -> Result<Self, ClientError>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let topology_urls = topology_urls
+            .into_iter()
+            .map(|url| url.as_ref().to_string())
+            .collect::<Vec<_>>();
+        if topology_urls.is_empty() {
+            return Err(ClientError::Topology(
+                "at least one topology discovery url is required".to_string(),
+            ));
+        }
+        let bytes = topology_urls
+            .iter()
+            .find_map(|url| HttpTransport::get_topology(url))
+            .ok_or_else(|| {
+                ClientError::Topology(format!(
+                    "topology discovery failed for {}",
+                    topology_urls.join(", ")
+                ))
+            })?;
         let topology = topology::decode_topology(&bytes)?;
         let pool = Self::from_topology(&topology)?;
         {
             let mut state = pool.state.lock().map_err(publish_state_poisoned)?;
             let mut topology_server_urls = topology_urls_from_servers(&topology.servers);
-            if let Some(topology_url) = topology_url_from_publish_url(topology_url) {
-                topology_server_urls.push(topology_url);
+            for bootstrap_url in &topology_urls {
+                if let Some(topology_url) = topology_url_from_publish_url(bootstrap_url) {
+                    topology_server_urls.push(topology_url);
+                }
             }
             state.topology_server_urls = dedupe_urls(topology_server_urls);
             state.topology_refreshed_ms = unix_ms_now();
@@ -102,6 +133,7 @@ impl PublishClientPool<HttpTransport> {
 }
 
 impl<T: Transport> PublishClientPool<T> {
+    /// Returns the from clients.
     pub fn from_clients(clients: Vec<PublishClient<T>>) -> Result<Self, ClientError> {
         let server_ids = (0..clients.len())
             .map(|index| index as u8)
@@ -109,6 +141,7 @@ impl<T: Transport> PublishClientPool<T> {
         Self::from_clients_with_ids(clients, server_ids, Vec::new())
     }
 
+    /// Returns the from clients with ids.
     pub fn from_clients_with_ids(
         clients: Vec<PublishClient<T>>,
         server_ids: Vec<u8>,
@@ -152,6 +185,7 @@ impl<T: Transport> PublishClientPool<T> {
         })
     }
 
+    /// Returns the from transports.
     pub fn from_transports(transports: Vec<T>) -> Result<Self, ClientError> {
         let clients = transports
             .into_iter()
@@ -160,6 +194,7 @@ impl<T: Transport> PublishClientPool<T> {
         Self::from_clients(clients)
     }
 
+    /// Returns the with max response bytes.
     pub fn with_max_response_bytes(self, max_response_bytes: usize) -> Self {
         if let Ok(mut state) = self.state.lock() {
             for client in &mut state.clients {
@@ -169,6 +204,7 @@ impl<T: Transport> PublishClientPool<T> {
         self
     }
 
+    /// Returns the with sticky server.
     pub fn with_sticky_server(
         self,
         server_id: u8,
@@ -178,6 +214,7 @@ impl<T: Transport> PublishClientPool<T> {
         Ok(self)
     }
 
+    /// Sets sticky server.
     pub fn set_sticky_server(
         &self,
         server_id: u8,
@@ -194,6 +231,7 @@ impl<T: Transport> PublishClientPool<T> {
         Ok(())
     }
 
+    /// Returns the sticky server.
     pub fn sticky_server(&self) -> Result<Option<StickyPublishServer>, ClientError> {
         let snapshot = self.snapshot()?;
         let now = unix_ms_now();
@@ -210,6 +248,7 @@ impl<T: Transport> PublishClientPool<T> {
         }
     }
 
+    /// Returns the ensure sticky server.
     pub fn ensure_sticky_server(&self) -> Result<Option<StickyPublishServer>, ClientError> {
         if self.sticky_server()?.is_none() {
             let _ = self.selection_offset();
@@ -217,6 +256,7 @@ impl<T: Transport> PublishClientPool<T> {
         self.sticky_server()
     }
 
+    /// Returns the publish payload.
     pub fn publish_payload(
         &self,
         ttl_seconds: u32,
@@ -226,6 +266,7 @@ impl<T: Transport> PublishClientPool<T> {
         self.publish_payload_with_email(ttl_seconds, max_receives, payload, None)
     }
 
+    /// Returns the publish payload with email.
     pub fn publish_payload_with_email(
         &self,
         ttl_seconds: u32,
@@ -311,6 +352,7 @@ impl<T: Transport> PublishClientPool<T> {
         ))
     }
 
+    /// Returns the publish contact.
     pub fn publish_contact(
         &self,
         ttl_seconds: u32,
@@ -318,7 +360,7 @@ impl<T: Transport> PublishClientPool<T> {
         contact: ContactPublish<'_>,
     ) -> Result<PublishResult, ClientError> {
         let payload = payload::encode_contact_publish(
-            contact.identity,
+            contact.profile,
             contact.public_key,
             contact.signing_public_key,
             contact.fingerprint,
@@ -334,6 +376,7 @@ impl<T: Transport> PublishClientPool<T> {
         )
     }
 
+    /// Returns the receive.
     pub fn receive(&self, publish_code: &str) -> Result<ReceivedPublish, ClientError> {
         self.try_clients_for_code(
             publish_code,
@@ -342,6 +385,7 @@ impl<T: Transport> PublishClientPool<T> {
         )
     }
 
+    /// Removes delete.
     pub fn delete(&self, publish_code: &str, delete_token: &[u8]) -> Result<bool, ClientError> {
         let snapshot = self.snapshot()?;
         if snapshot.clients.is_empty() {

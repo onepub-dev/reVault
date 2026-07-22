@@ -1,0 +1,15 @@
+[package]
+name = "revault-api"
+version = "0.2.0"
+edition = "2021"
+rust-version = "1.95"
+description = "Complete Rust API for reVault lockboxes and vaults"
+keywords = ["encryption", "credentials", "archive", "security", "vault"]
+categories = ["cryptography", "filesystem"]
+license-file = "LICENSE"
+repository = "https://github.com/onepub-dev/reVault"
+readme = "README.md"
+
+[dependencies]
+revault_lockbox_api = { version = "0.0.4", path = "../../rust/revault_lockbox_api", features = ["bindings"] }
+revault_vault_api = { version = "0.0.4", path = "../../rust/revault_vault_api" }

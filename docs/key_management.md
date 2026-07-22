@@ -134,7 +134,7 @@ itself is never stored in cleartext.
 
 The key directory is intentionally not a recipient directory. It must not store
 recipient names, local vault aliases, email addresses, public keys, public-key
-fingerprints, or other stable identity hints. A user who can open multiple
+fingerprints, or other stable profile hints. A user who can open multiple
 lockboxes should not be able to prove that the same named recipient has access
 to each lockbox from key-directory metadata alone.
 
@@ -240,7 +240,7 @@ Transport requirements:
 - Windows: named pipe with current-user SID validation. The production version
   should also set an explicit current-user-only DACL on the pipe.
 - No TCP localhost listener by default.
-- The agent should validate the caller's OS identity where the platform exposes
+- The agent should validate the caller's OS profile where the platform exposes
   peer credentials.
 
 The reusable Rust implementation lives in the `revault_vault_api` crate. It exposes

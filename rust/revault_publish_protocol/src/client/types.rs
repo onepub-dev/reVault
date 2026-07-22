@@ -10,6 +10,7 @@ use crate::protocol;
 use crate::topology::{ClusterTopology, TopologyRoute};
 
 #[derive(Clone, Debug)]
+/// Represents publish client.
 pub struct PublishClient<T = super::HttpTransport> {
     pub(crate) transport: T,
     pub(crate) max_response_bytes: usize,
@@ -17,6 +18,7 @@ pub struct PublishClient<T = super::HttpTransport> {
 }
 
 #[derive(Clone, Debug)]
+/// Represents publish client pool.
 pub struct PublishClientPool<T = super::HttpTransport> {
     pub(crate) state: Arc<Mutex<PublishTopologyState<T>>>,
 }
@@ -36,8 +38,11 @@ pub(crate) struct PublishTopologyState<T> {
 }
 
 #[derive(Clone, Debug)]
+/// Represents topology aware response.
 pub struct TopologyAwareResponse<R> {
+    /// Represents the value carried by this record case.
     pub value: R,
+    /// Represents the topology carried by this record case.
     pub topology: Option<ClusterTopology>,
 }
 
@@ -56,8 +61,11 @@ pub(crate) struct TopologyStateSnapshot<T> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Represents sticky publish server.
 pub struct StickyPublishServer {
+    /// Represents the server id carried by this record case.
     pub server_id: u8,
+    /// Represents the expires at unix ms carried by this record case.
     pub expires_at_unix_ms: u64,
 }
 
@@ -79,6 +87,7 @@ impl<T: Clone> PublishTopologyState<T> {
 }
 
 #[derive(Clone, Debug)]
+/// Represents http transport.
 pub struct HttpTransport {
     pub(crate) endpoint: Endpoint,
     pub(crate) timeout: Duration,
@@ -116,34 +125,51 @@ pub(crate) enum Scheme {
 }
 
 #[derive(Clone, Debug)]
+/// Represents publish result.
 pub struct PublishResult {
+    /// Represents the publish code carried by this record case.
     pub publish_code: String,
+    /// Represents the delete token carried by this record case.
     pub delete_token: Vec<u8>,
+    /// Represents the expires at unix ms carried by this record case.
     pub expires_at_unix_ms: u64,
+    /// Represents the max receives carried by this record case.
     pub max_receives: u16,
+    /// Represents the verification url carried by this record case.
     pub verification_url: Option<String>,
 }
 
 #[derive(Clone, Debug)]
+/// Represents received publish.
 pub struct ReceivedPublish {
+    /// Represents the payload carried by this record case.
     pub payload: Vec<u8>,
+    /// Represents the payload type carried by this record case.
     pub payload_type: PayloadType,
+    /// Represents the expires at unix ms carried by this record case.
     pub expires_at_unix_ms: u64,
+    /// Represents the remaining receives carried by this record case.
     pub remaining_receives: u16,
+    /// Represents the email verification carried by this record case.
     pub email_verification: Option<protocol::EmailVerification>,
 }
 
+/// Represents transport.
 pub trait Transport: Clone {
+    /// Returns the post binary.
     fn post_binary(&self, body: &[u8]) -> Result<Vec<u8>, super::ClientError>;
 
+    /// Returns topology.
     fn get_topology(_url: &str) -> Option<Vec<u8>> {
         None
     }
 
+    /// Returns the from url.
     fn from_url(_url: &str) -> Option<Self> {
         None
     }
 
+    /// Returns the post binary with topology.
     fn post_binary_with_topology(
         &self,
         body: &[u8],
@@ -156,6 +182,7 @@ pub trait Transport: Clone {
         }
     }
 
+    /// Returns the post binary with header.
     fn post_binary_with_header(
         &self,
         body: &[u8],
@@ -167,14 +194,23 @@ pub trait Transport: Clone {
 }
 
 #[derive(Clone, Copy, Debug)]
+/// Represents contact publish.
 pub struct ContactPublish<'a> {
-    pub identity: &'a str,
+    /// Represents the profile carried by this record case.
+    pub profile: &'a str,
+    /// Represents the public key carried by this record case.
     pub public_key: &'a [u8],
+    /// Represents the signing public key carried by this record case.
     pub signing_public_key: &'a [u8],
+    /// Represents the fingerprint carried by this record case.
     pub fingerprint: &'a [u8],
+    /// Represents the publish nonce carried by this record case.
     pub publish_nonce: &'a [u8],
+    /// Represents the created at unix ms carried by this record case.
     pub created_at_unix_ms: u64,
+    /// Represents the expires at unix ms carried by this record case.
     pub expires_at_unix_ms: u64,
+    /// Represents the verification email carried by this record case.
     pub verification_email: Option<&'a str>,
 }
 

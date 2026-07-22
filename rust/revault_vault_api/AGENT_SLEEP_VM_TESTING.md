@@ -13,11 +13,11 @@ The invariant under test is:
 5. verify `lockbox session --format tsv` reports no open lockboxes;
 6. verify the agent log contains `suspend requested; cleared`.
 
-The helper scripts are:
+The workspace task runner provides these helpers:
 
-- `tools/agent_sleep_unix_vm_test.sh`
-- `tools/agent_sleep_windows_vm_test.ps1`
-- `tools/agent_sleep_windows_libvirt_host_test.sh`
+- `cargo xtask agent-sleep-unix`
+- `cargo xtask agent-sleep-windows-vm`
+- `cargo xtask agent-sleep-windows-host`
 
 The Windows VM setup is materially different from Linux and macOS. Windows only
 reported S3 as available when the VM had no virtual video adapter attached.
@@ -57,7 +57,7 @@ cargo build -p revault_cli
 Run the no-sleep readiness test in the guest:
 
 ```sh
-tools/agent_sleep_unix_vm_test.sh \
+cargo xtask agent-sleep-unix \
   --bin target/debug/lockbox \
   --no-sleep
 ```
@@ -71,7 +71,7 @@ prepared: cache is populated and sleep watcher is active
 Run the real sleep test in the guest:
 
 ```sh
-tools/agent_sleep_unix_vm_test.sh \
+cargo xtask agent-sleep-unix \
   --bin target/debug/lockbox \
   --work-dir /tmp/lockbox-agent-sleep-test-full
 ```
@@ -193,8 +193,8 @@ fi
 cd "$WORK"
 cargo build -p revault_cli
 
-tools/agent_sleep_unix_vm_test.sh --bin target/debug/lockbox --no-sleep
-tools/agent_sleep_unix_vm_test.sh \
+cargo xtask agent-sleep-unix --bin target/debug/lockbox --no-sleep
+cargo xtask agent-sleep-unix \
   --bin target/debug/lockbox \
   --work-dir /tmp/lockbox-agent-sleep-test-full
 
@@ -265,15 +265,15 @@ The following sleep states are available on this system:
 ### Build the Windows CLI
 
 ```sh
-cargo build -p revault_cli --target x86_64-pc-windows-gnu
+cargo build -p revault_cli -p xtask --target x86_64-pc-windows-gnu
 ```
 
-Stage the executable and script:
+Stage the executables:
 
 ```sh
 mkdir -p target/vm/windows/share
 cp target/x86_64-pc-windows-gnu/debug/lockbox.exe target/vm/windows/share/LOCKBOX.EXE
-cp tools/agent_sleep_windows_vm_test.ps1 target/vm/windows/share/TEST.PS1
+cp target/x86_64-pc-windows-gnu/debug/xtask.exe target/vm/windows/share/XTASK.EXE
 genisoimage -V LOCKBOX -r -J \
   -o target/vm/windows/lockbox-transfer.iso \
   target/vm/windows/share
@@ -404,7 +404,7 @@ The following sleep states are available on this system:
 The preferred host-side runner is:
 
 ```sh
-tools/agent_sleep_windows_libvirt_host_test.sh --force-destroy
+cargo xtask agent-sleep-windows-host --force-destroy
 ```
 
 The runner builds the Windows binary, refreshes `lockbox-transfer.iso`, mounts
@@ -426,7 +426,7 @@ runner will refuse to write to a read-only fallback mount. For the disposable
 copied qcow2 disk, rerun with:
 
 ```sh
-tools/agent_sleep_windows_libvirt_host_test.sh --force-destroy --recover-ntfs
+cargo xtask agent-sleep-windows-host --force-destroy --recover-ntfs
 ```
 
 Do not use `--recover-ntfs` against the original downloaded VHDX.
@@ -436,7 +436,7 @@ previous proof run has deleted the boot task. Start a temporary visible setup
 VM:
 
 ```sh
-tools/agent_sleep_windows_setup_task_domain.sh --force-destroy --launch-manager
+cargo xtask agent-sleep-windows-setup --force-destroy --launch-manager
 ```
 
 Open `lockbox-win-task-setup` in `virt-manager`, then run this as
@@ -450,17 +450,17 @@ shutdown /s /t 0
 Then rerun:
 
 ```sh
-tools/agent_sleep_windows_libvirt_host_test.sh --force-destroy
+cargo xtask agent-sleep-windows-host --force-destroy
 ```
 
-For the full Windows agent test, run `tools/agent_sleep_windows_vm_test.ps1` as
-a boot-time SYSTEM task in the headless VM. The command inside the guest is:
+For the full Windows agent test, run the cross-compiled `xtask.exe` as a
+boot-time SYSTEM task in the headless VM. The command inside the guest is:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File D:\TEST.PS1 -LockboxBin D:\LOCKBOX.EXE
+```bat
+D:\XTASK.EXE agent-sleep-windows-vm --bin D:\LOCKBOX.EXE
 ```
 
-The script:
+The task:
 
 1. runs `powercfg /hibernate off`;
 2. verifies `powercfg /a` reports S0/S1/S2/S3 availability;

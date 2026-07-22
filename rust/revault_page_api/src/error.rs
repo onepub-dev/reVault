@@ -1,17 +1,28 @@
 use std::fmt;
 
+/// Result type returned by secure-memory operations.
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+/// Failure produced while allocating, protecting, or accessing secret memory.
 pub enum Error {
+    /// The operating system or secure heap could not allocate memory.
     AllocationFailed,
+    /// A requested size or range overflowed the supported address space.
     CapacityOverflow,
+    /// Allocation metadata or a memory canary failed validation.
     CorruptAllocation,
+    /// Bytes supplied for a [`crate::SecureString`] were not valid UTF-8.
     InvalidUtf8,
+    /// The operating system refused to lock secret pages in physical memory.
     LockFailed,
+    /// Applying or removing page protections failed.
     ProtectionFailed,
+    /// The platform cryptographic random source failed.
     RandomFailed,
+    /// A mutation was attempted while a scoped read was active.
     ReadAccessActive,
+    /// The target requires weakened allocation and the caller has not opted in.
     WeakAllocationDisabled,
 }
 

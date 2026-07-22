@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "preserveSymlinks": true,
+    "strict": false,
+    "noEmit": true,
+    "types": ["node"],
+    "typeRoots": ["/opt/revault-ts-consumer/node_modules/@types"],
+    "skipLibCheck": false
+  },
+  "include": ["conformance.ts"]
+}

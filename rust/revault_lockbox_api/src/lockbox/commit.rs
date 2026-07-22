@@ -15,18 +15,22 @@ use crate::key_directory::encode_key_directory;
 use crate::page::{page_size_for_encoded_objects, PageObject, PageObjectKind};
 use crate::storage::{Storage, StorageBackend};
 use crate::{Error, LockboxOptions, Result};
-#[cfg(test)]
+#[cfg(any(test, feature = "migration"))]
 use std::fs;
 use std::path::Path;
 
 const KEY_DIRECTORY_MIRROR_PREFERRED_MIN_DISTANCE: u64 = 1024 * 1024;
 
 impl Lockbox<crate::Writable> {
+    /// Commits pending mutations and serializes the complete lockbox.
+    ///
+    /// File-backed lockboxes should normally use [`Lockbox::commit`] instead.
     pub fn try_to_bytes(&self) -> Result<Vec<u8>> {
         self.bytes()
     }
 
     #[cfg(test)]
+    /// Serializes the lockbox for tests, panicking if materialization fails.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.try_to_bytes()
             .expect("failed to materialize lockbox bytes")
@@ -145,7 +149,7 @@ impl Lockbox<crate::Writable> {
     ///
     /// Returns `Error::Io` if the host write fails. Returns storage or
     /// serialization errors if pending lockbox state cannot be materialized.
-    #[cfg(test)]
+    #[cfg(any(test, feature = "migration"))]
     pub fn write_to_path(&self, path: impl AsRef<Path>) -> Result<()> {
         let path = HostPath::new(path);
         fs::write(path.as_path(), self.bytes()?).map_err(|err| Error::Io(err.to_string()))

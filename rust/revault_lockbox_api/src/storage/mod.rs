@@ -2,7 +2,6 @@ pub(crate) mod cache_options;
 pub(crate) mod file_lock;
 pub(crate) mod free_index;
 pub(crate) mod free_slot;
-pub(crate) mod memory_pressure;
 pub(crate) mod page_cache;
 
 use crate::secret_vec::SecureVec;

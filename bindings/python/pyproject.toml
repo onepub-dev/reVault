@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "revault-api"
+version = "0.2.0"
+description = "Python ctypes bindings for reVault"
+requires-python = ">=3.10"
+dependencies = ["flatbuffers>=25.2.10,<26"]
+license-files = ["LICENSE"]
+license = "LicenseRef-reVault-Source-Available-1.0"
+readme = "README.md"
+authors = [{ name = "OnePub", email = "bsutton@onepub.dev" }]
+keywords = ["encryption", "credentials", "archive", "security", "vault"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: Security :: Cryptography",
+]
+
+[project.urls]
+Documentation = "https://github.com/onepub-dev/reVault/tree/master/docs"
+Repository = "https://github.com/onepub-dev/reVault"
+Issues = "https://github.com/onepub-dev/reVault/issues"
+Changelog = "https://github.com/onepub-dev/reVault/blob/master/bindings/CHANGELOG.md"
+Security = "https://github.com/onepub-dev/reVault/blob/master/SECURITY.md"
+
+[tool.setuptools.packages.find]
+include = ["revault_api*"]
+
+[tool.setuptools.package-data]
+revault_api = ["_native/**/*"]
+
+[tool.ruff]
+target-version = "py310"
+extend-exclude = ["**/_flatbuffers/**"]
+
+[tool.ruff.lint]
+select = ["D100", "D101", "D102", "D103", "E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/facade.py" = ["E701", "E702", "F401"]
+"**/_revault_native.py" = ["D100", "D103"]

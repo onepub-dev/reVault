@@ -2,7 +2,7 @@
 name = "revault_key_server"
 version = "0.0.5"
 edition = "2021"
-rust-version = "1.88"
+rust-version = "1.95"
 license-file = "LICENSE"
 description = "High-throughput reVault key rendezvous server"
 repository = "https://github.com/onepub-dev/reVault"
@@ -37,15 +37,15 @@ lettre = { version = "0.11", default-features = false, features = [
     "smtp-transport",
     "rustls-tls",
 ] }
-revault_publish_protocol = { version = "0.0.2", path = "../revault_publish_protocol" }
+revault_publish_protocol = { version = "0.0.3", path = "../revault_publish_protocol" }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"
 time = { version = "0.3", features = ["formatting"] }
 tokio = { version = "1", features = ["net", "rt-multi-thread", "time"] }
-toml = "0.9"
+toml = "1.1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.59", features = ["Win32_System_EventLog"] }
+windows-sys = { version = "0.61", features = ["Win32_System_EventLog"] }

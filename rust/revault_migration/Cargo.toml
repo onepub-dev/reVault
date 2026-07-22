@@ -1,0 +1,26 @@
+[package]
+name = "revault_migration"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.95"
+license-file = "LICENSE"
+description = "Encrypted streaming migration artifacts for reVault vaults and archives"
+repository = "https://github.com/onepub-dev/reVault"
+readme = "README.md"
+
+[dependencies]
+getrandom = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+zeroize = "1.9"
+revault_migration_format = { version = "0.0.1", path = "../revault_migration_format" }
+revault_lockbox_api = { version = "0.0.4", path = "../revault_lockbox_api", features = ["migration"] }
+revault_vault_api = { version = "0.0.4", path = "../revault_vault_api" }
+
+[dev-dependencies]
+tempfile = "3"
+revault_migrate_vault_v1 = { path = "../revault_migrate_vault_v1" }
+revault_migrate_archive_v1 = { path = "../revault_migrate_archive_v1" }
+revault_vault_api_v1 = { package = "revault_vault_api", version = "=0.0.2" }
+revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.2" }

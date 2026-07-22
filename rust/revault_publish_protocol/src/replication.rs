@@ -10,45 +10,73 @@ const EVENT_TOMBSTONE: u16 = 3;
 const EVENT_RATE_LIMIT_BLOCK: u16 = 4;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents replication request.
 pub struct ReplicationRequest {
+    /// Represents the authentication carried by this record case.
     pub authentication: Vec<u8>,
+    /// Represents the event carried by this record case.
     pub event: ReplicationEvent,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents replication event.
 pub struct ReplicationEvent {
+    /// Represents the origin server id carried by this record case.
     pub origin_server_id: u8,
+    /// Represents the origin epoch carried by this record case.
     pub origin_epoch: u64,
+    /// Represents the origin sequence carried by this record case.
     pub origin_sequence: u64,
+    /// Represents the kind carried by this record case.
     pub kind: ReplicationEventKind,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents replication event kind.
 pub enum ReplicationEventKind {
+    /// Represents the put publish case.
     PutPublish {
+        /// Represents the publish code carried by this record case.
         publish_code: String,
+        /// Represents the delete token hash carried by this record case.
         delete_token_hash: Vec<u8>,
+        /// Represents the payload carried by this record case.
         payload: Vec<u8>,
+        /// Represents the contact email carried by this record case.
         contact_email: Option<String>,
+        /// Represents the expires at unix ms carried by this record case.
         expires_at_unix_ms: u64,
+        /// Represents the receive ttl ms carried by this record case.
         receive_ttl_ms: u64,
+        /// Represents the email verified at unix ms carried by this record case.
         email_verified_at_unix_ms: u64,
+        /// Represents the max receives carried by this record case.
         max_receives: u16,
+        /// Represents the receives carried by this record case.
         receives: u16,
     },
+    /// Represents the receive count case.
     ReceiveCount {
+        /// Represents the publish code carried by this record case.
         publish_code: String,
+        /// Represents the receives carried by this record case.
         receives: u16,
     },
+    /// Represents the tombstone case.
     Tombstone {
+        /// Represents the publish code carried by this record case.
         publish_code: String,
     },
+    /// Represents the rate limit block case.
     RateLimitBlock {
+        /// Represents the client ip carried by this record case.
         client_ip: String,
+        /// Represents the expires at unix ms carried by this record case.
         expires_at_unix_ms: u64,
     },
 }
 
+/// Encodes replication request.
 pub fn encode_replication_request(request: &ReplicationRequest) -> Vec<u8> {
     let mut payload = Vec::new();
     payload.extend_from_slice(REPLICATION_MAGIC);
@@ -58,6 +86,7 @@ pub fn encode_replication_request(request: &ReplicationRequest) -> Vec<u8> {
     protocol::encode_request(protocol::Operation::Replicate, &payload)
 }
 
+/// Returns the sign replication event.
 pub fn sign_replication_event(token: &[u8], event: &ReplicationEvent) -> Vec<u8> {
     let mut event_body = Vec::new();
     encode_event_body(&mut event_body, event);
@@ -120,6 +149,7 @@ fn encode_event_body(out: &mut Vec<u8>, event: &ReplicationEvent) {
     }
 }
 
+/// Decodes replication request.
 pub fn decode_replication_request(bytes: &[u8]) -> Result<ReplicationRequest, ClientError> {
     let mut reader = Reader::new(bytes);
     let magic = reader

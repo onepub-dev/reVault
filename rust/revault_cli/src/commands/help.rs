@@ -1,4 +1,7 @@
 use clap::{Arg, ArgAction, Command};
+use clap_complete::engine::ArgValueCompleter;
+
+use super::completion;
 
 const ABOUT: &str =
     "Create encrypted file archives, store secrets safely, and grant access with public keys.";
@@ -13,7 +16,7 @@ const VERBOSE_HELP_TEMPLATE: &str = "\
 pub(crate) fn command(verbose: bool) -> Command {
     let command = Command::new("lockbox")
         .about(ABOUT)
-        .disable_version_flag(true)
+        .version(env!("CARGO_PKG_VERSION"))
         .disable_help_subcommand(true)
         .arg_required_else_help(true)
         .subcommand_required(true)
@@ -40,7 +43,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault init\n  lockbox create secrets.lbox\n  lockbox create --password secrets.lbox\n  lockbox create --for alice secrets.lbox",
-                    "Context:\n  Use create when starting a new encrypted archive. By default it creates a lockbox for the vault's default identity. Use --password when you need a password-protected lockbox.",
+                    "Context:\n  Use create when starting a new encrypted archive. By default it creates a lockbox for the vault's default profile. Use --password when you need a password-protected lockbox.",
                 ))
                 .arg(
                     Arg::new("password")
@@ -53,8 +56,9 @@ pub(crate) fn command(verbose: bool) -> Command {
                     Arg::new("for")
                         .long("for")
                         .conflicts_with("password")
-                        .value_name("IDENTITY_OR_CONTACT")
-                        .help("Create the lockbox for one of your identities or a saved contact."),
+                        .value_name("PROFILE_OR_CONTACT")
+                        .help("Create the lockbox for one of your profiles or a saved contact.")
+                        .add(ArgValueCompleter::new(completion::named_candidates)),
                 )
                 .arg(required("lockbox", "Lockbox path.")),
             archive_command("open", "Open the lockbox for later commands.")
@@ -197,7 +201,8 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH DESTINATION | PATH DESTINATION")
                         .num_args(0..=3)
                         .action(ArgAction::Append)
-                        .help("With a session default lockbox, pass path and destination. Otherwise pass lockbox, path, and destination."),
+                        .help("With a session default lockbox, pass path and destination. Otherwise pass lockbox, path, and destination.")
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
             file_command("cat", "Write a stored file to stdout.")
                 .after_help(verbose_help(
@@ -210,7 +215,8 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH | PATH")
                         .num_args(1..=2)
                         .action(ArgAction::Append)
-                        .help("With a session default lockbox, pass only the stored path."),
+                        .help("With a session default lockbox, pass only the stored path.")
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
             file_command("list", "List stored entries.")
                 .visible_alias("ls")
@@ -232,7 +238,8 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH | PATH")
                         .num_args(0..=2)
                         .action(ArgAction::Append)
-                        .help("With a session default lockbox, pass only the optional stored path or glob."),
+                        .help("With a session default lockbox, pass only the optional stored path or glob.")
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
             file_command("rm", "Remove a stored entry.")
                 .after_help(verbose_help(
@@ -251,7 +258,8 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH | PATH")
                         .num_args(1..=2)
                         .action(ArgAction::Append)
-                        .help("With a session default lockbox, pass only the stored path."),
+                        .help("With a session default lockbox, pass only the stored path.")
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
             file_command("rename", "Rename a stored entry.")
                 .visible_alias("mv")
@@ -265,11 +273,14 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("LOCKBOX FROM TO | FROM TO")
                         .num_args(2..=3)
                         .action(ArgAction::Append)
-                        .help("With a session default lockbox, pass only the stored source and destination paths."),
+                        .help("With a session default lockbox, pass only the stored source and destination paths.")
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
             variables_command(verbose),
             form_command(verbose),
             session_command(verbose),
+            completion_command(),
+            migration_command(verbose),
             access_command(verbose),
             archive_command("doctor", "Show vault, agent, or lockbox diagnostics.")
                 .after_help(verbose_help(
@@ -337,6 +348,9 @@ Data
 Session
   session         Manage the default lockbox and open lockbox sessions.
 
+Completion
+  completion      Generate or install dynamic shell completion.
+
 Sharing
   access          Grant or revoke who can open a lockbox.
 
@@ -344,7 +358,7 @@ Diagnostics
   doctor          Show vault, agent, or lockbox diagnostics.
 
 Vault
-  vault           Manage identities, contacts, and reusable forms."
+  vault           Manage profiles, contacts, and reusable forms."
     );
 
     if verbose {
@@ -360,6 +374,9 @@ Developer and compatibility commands:
   keygen          Generate raw keypair files.
   open-key        Open a lockbox using a vault private key.
   visualize       Print internal lockbox structure.
+
+Migration commands:
+  migrate         Migrate vaults and archives between native format versions.
 
 Process variables:
   LOCKBOX_KEY=<raw-content-key> lockbox <command> ...
@@ -549,6 +566,24 @@ fn variables_command(verbose: bool) -> Command {
                     .num_args(0..=2)
                     .action(ArgAction::Append)
                     .help("With a session default lockbox, pass only the optional pattern."),
+            ),
+    )
+    .subcommand(
+        Command::new("move")
+            .visible_alias("mv")
+            .about("Move matching variables into another path.")
+            .after_help(verbose_help(
+                verbose,
+                "Examples:\n  lockbox variable move secrets.lbox '/*' /dev\n  lockbox variable mv secrets.lbox '/production/*' /archive",
+                "Context:\n  Move treats the destination as a variable group. Every match keeps its path relative to the non-glob source prefix. Existing destination variables are never overwritten. Quote glob patterns so the shell does not expand them.",
+            ))
+            .arg(
+                Arg::new("args")
+                    .value_name("LOCKBOX SOURCE DESTINATION | SOURCE DESTINATION")
+                    .num_args(2..=3)
+                    .required(true)
+                    .action(ArgAction::Append)
+                    .help("With a session default lockbox, pass only source and destination."),
             ),
     )
     .subcommand(
@@ -852,6 +887,24 @@ fn form_command(verbose: bool) -> Command {
                 ),
         )
         .subcommand(
+            Command::new("move")
+                .visible_alias("mv")
+                .about("Move matching form records into another path.")
+                .after_help(verbose_help(
+                    verbose,
+                    "Examples:\n  lockbox form move secrets.lbox '/work/*' /archive\n  lockbox form mv secrets.lbox '/dev/*' /production",
+                    "Context:\n  Move treats the destination as a form-record directory. Every match keeps its path relative to the non-glob source prefix. Existing destination records are never overwritten. Quote glob patterns so the shell does not expand them.",
+                ))
+                .arg(
+                    Arg::new("args")
+                        .value_name("LOCKBOX SOURCE DESTINATION | SOURCE DESTINATION")
+                        .num_args(2..=3)
+                        .required(true)
+                        .action(ArgAction::Append)
+                        .help("With a session default lockbox, pass only source and destination."),
+                ),
+        )
+        .subcommand(
             Command::new("remove")
                 .about("Remove one form record.")
                 .arg(
@@ -953,24 +1006,24 @@ fn access_command(verbose: bool) -> Command {
         .after_help(verbose_help(
             verbose,
             "Examples:\n  lockbox access list secrets.lbox\n  lockbox access grant secrets.lbox alice\n  lockbox access revoke secrets.lbox alice\n  lockbox access revoke secrets.lbox 2",
-            "Context:\n  Access entries are stored on a lockbox and describe which identities or contacts may open it. Use this command when sharing a lockbox or rotating/revoking access.",
+            "Context:\n  Access entries are stored on a lockbox and describe which profiles or contacts may open it. Use this command when sharing a lockbox or rotating/revoking access.",
         ))
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
             Command::new("grant")
-                .about("Allow an identity or contact to open a lockbox.")
+                .about("Allow a profile or contact to open a lockbox.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox access grant secrets.lbox alice\n  lockbox access grant secrets.lbox identity:alice\n  lockbox access grant secrets.lbox contact:alice\n  lockbox access grant secrets.lbox alice ./alice.pub",
-                    "Context:\n  Access grant allows an identity or contact to open the lockbox. A bare name can refer to one of your saved identities or saved contacts. If both use the same name, use identity:name or contact:name. For a public key file, provide the contact name first so the lockbox can record who the access entry belongs to.",
+                    "Examples:\n  lockbox access grant secrets.lbox alice\n  lockbox access grant secrets.lbox profile:alice\n  lockbox access grant secrets.lbox contact:alice\n  lockbox access grant secrets.lbox alice ./alice.pub",
+                    "Context:\n  Access grant allows a profile or contact to open the lockbox. A bare name can refer to one of your saved profiles or saved contacts. If both use the same name, use profile:name or contact:name. For a public key file, provide the contact name first so the lockbox can record who the access entry belongs to.",
                 ))
                 .arg(
                     Arg::new("args")
-                        .value_name("LOCKBOX IDENTITY PUBLIC_KEY | IDENTITY PUBLIC_KEY")
+                        .value_name("LOCKBOX PROFILE PUBLIC_KEY | PROFILE PUBLIC_KEY")
                         .num_args(1..=3)
                         .action(ArgAction::Append)
-                        .help("With a session default lockbox, pass identity/contact and optional public key. Identity name, contact name, identity:name, contact:name, or contact name plus a public key file. Public key path."),
+                        .help("With a session default lockbox, pass profile/contact and optional public key. Profile name, contact name, profile:name, contact:name, or contact name plus a public key file. Public key path."),
                 ),
         )
         .subcommand(
@@ -997,7 +1050,7 @@ fn access_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox access revoke secrets.lbox alice\n  lockbox access revoke secrets.lbox 2\n  lockbox access revoke secrets.lbox alice bob 7",
-                    "Context:\n  Access revoke removes one or more open slots and rewrites the archive with a fresh content key. Pass local identity/contact names when this vault remembers which slots were granted for those names, or pass the slot id from access list. reVault fails safely if retained access cannot be reconstructed.",
+                    "Context:\n  Access revoke removes one or more open slots and rewrites the archive with a fresh content key. Pass local profile/contact names when this vault remembers which slots were granted for those names, or pass the slot id from access list. reVault fails safely if retained access cannot be reconstructed.",
                 ))
                 .arg(
                     Arg::new("args")
@@ -1013,7 +1066,7 @@ fn access_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox access refresh project.lbox alice\n  lockbox access refresh --all alice\n  lockbox access refresh --all --dry-run",
-                    "Context:\n  Access refresh checks named contact access entries and rewrites matching entries to the current vault identity key. Use --dry-run first to see the planned changes and missing known lockboxes.",
+                    "Context:\n  Access refresh checks named contact access entries and rewrites matching entries to the current vault profile key. Use --dry-run first to see the planned changes and missing known lockboxes.",
                 ))
                 .arg(
                     Arg::new("all")
@@ -1023,10 +1076,10 @@ fn access_command(verbose: bool) -> Command {
                 )
                 .arg(
                     Arg::new("args")
-                        .value_name("LOCKBOX IDENTITY | IDENTITY")
+                        .value_name("LOCKBOX PROFILE | PROFILE")
                         .num_args(0..=2)
                         .action(ArgAction::Append)
-                        .help("Without --all, pass lockbox and identity. With --all, optionally pass one identity."),
+                        .help("Without --all, pass lockbox and profile. With --all, optionally pass one profile."),
                 )
                 .arg(
                     Arg::new("dry-run")
@@ -1044,7 +1097,7 @@ fn access_command(verbose: bool) -> Command {
 }
 
 fn vault_command(verbose: bool) -> Command {
-    base_command("vault", "Manage identities, contacts, and reusable forms.")
+    base_command("vault", "Manage profiles, contacts, and reusable forms.")
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
@@ -1053,7 +1106,7 @@ fn vault_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "If the vault already exists, init reports the path and makes no changes. Use --verify to validate the pass phrase, or --overwrite only when replacing the vault and losing records stored only there.",
-                    "Context:\n  The local vault stores identities, contacts, and key-directory backups. New vault pass phrases must be at least 15 characters. A new vault also gets a default identity. Store the vault pass phrase safely; reVault cannot recover the vault without it.",
+                    "Context:\n  The local vault stores profiles, contacts, and key-directory backups. New vault pass phrases must be at least 15 characters. A new vault also gets a default profile. Store the vault pass phrase safely; reVault cannot recover the vault without it.",
                 ))
                 .arg(
                     Arg::new("verify")
@@ -1111,7 +1164,7 @@ fn vault_command(verbose: bool) -> Command {
                 )
                 .arg(required("backup", "Backup archive input path.")),
         )
-        .subcommand(vault_identity_command(verbose))
+        .subcommand(vault_profile_command(verbose))
         .subcommand(
             Command::new("form")
                 .about("Manage reusable form definitions.")
@@ -1176,7 +1229,7 @@ fn vault_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault contact list\n  lockbox vault contact receive <publish-code> alice\n  lockbox vault contact import alice ./alice.pub --fingerprint <fingerprint-code> --fingerprint-channel phone-call-to-owner\n  lockbox vault contact remove alice",
-                    "Context:\n  Contacts are saved public keys for other people or systems. A contact can be added to a lockbox access list, but cannot open a lockbox by itself; opening requires the matching private identity.",
+                    "Context:\n  Contacts are saved public keys for other people or systems. A contact can be added to a lockbox access list, but cannot open a lockbox by itself; opening requires the matching private profile.",
                 ))
                 .subcommand_required(true)
                 .arg_required_else_help(true)
@@ -1187,7 +1240,7 @@ fn vault_command(verbose: bool) -> Command {
                         .after_help(verbose_help(
                             verbose,
                             "Examples:\n  lockbox vault contact list\n  lockbox vault contact list --format json",
-                            "Context:\n  Contact list shows public keys you have saved for other identities. Saved contacts have already passed fingerprint verification during import or receive; there is no separate trust-state that changes over time. Use these names with access grant when granting lockbox access.",
+                            "Context:\n  Contact list shows public keys you have saved for other profiles. Saved contacts have already passed fingerprint verification during import or receive; there is no separate trust-state that changes over time. Use these names with access grant when granting lockbox access.",
                         ))
                         .arg(output_format_arg()),
                 )
@@ -1223,7 +1276,7 @@ fn vault_command(verbose: bool) -> Command {
                 )
                 .subcommand(
                     Command::new("receive")
-                        .about("Receive a published identity and save it as a contact.")
+                        .about("Receive a published profile and save it as a contact.")
                         .after_help(verbose_help(
                             verbose,
                             "Examples:\n  lockbox vault contact receive <publish-code>\n  lockbox vault contact receive <publish-code> alice",
@@ -1268,7 +1321,10 @@ fn vault_command(verbose: bool) -> Command {
                             "Examples:\n  lockbox vault contact remove alice",
                             "Context:\n  Contact remove deletes the saved public key from your vault. It does not remove access already written into any lockbox; use access revoke for that.",
                         ))
-                        .arg(required("name", "Contact name.")),
+                        .arg(
+                            required("name", "Contact name.")
+                                .add(ArgValueCompleter::new(completion::contact_candidates)),
+                        ),
                 ),
         )
         .subcommand(
@@ -1334,89 +1390,95 @@ fn publish_topology_arg() -> Arg {
         .help("Key server /v1/topology URL.")
 }
 
-fn vault_identity_command(verbose: bool) -> Command {
-    Command::new("identity")
-        .about("Manage your lockbox open identities.")
+fn vault_profile_command(verbose: bool) -> Command {
+    Command::new("profile")
+        .about("Manage your lockbox open profiles.")
         .disable_help_subcommand(true)
         .after_help(verbose_help(
             verbose,
-            "Examples:\n  lockbox vault identity list\n  lockbox vault identity create laptop\n  lockbox vault identity publish laptop\n  lockbox vault identity fingerprint laptop\n  lockbox vault identity backup ./default.identity-backup",
-            "Context:\n  An identity has a public key, private open key, and owner signing key. Publish or export the public key so someone else can grant you access to a lockbox. Use identity backup and restore for emergency recovery of one identity.",
+            "Examples:\n  lockbox vault profile list\n  lockbox vault profile create laptop\n  lockbox vault profile publish laptop\n  lockbox vault profile fingerprint laptop\n  lockbox vault profile backup ./default.profile-backup",
+            "Context:\n  A profile has a public key, private open key, and owner signing key. Publish or export the public key so someone else can grant you access to a lockbox. Use profile backup and restore for emergency recovery of one profile.",
         ))
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(
             Command::new("list")
-                .about("List local identities.")
+                .about("List local profiles.")
                 .visible_alias("ls")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity list\n  lockbox vault identity list --format json",
-                    "Context:\n  Identity list shows the private open identities stored in your vault. These are the identities reVault can use when opening lockboxes granted to you.",
+                    "Examples:\n  lockbox vault profile list\n  lockbox vault profile list --format json",
+                    "Context:\n  Profile list shows the private open profiles stored in your vault. These are the profiles reVault can use when opening lockboxes granted to you.",
                 ))
                 .arg(output_format_arg()),
         )
         .subcommand(
             Command::new("create")
-                .about("Create one of your identities.")
+                .about("Create one of your profiles.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity create\n  lockbox vault identity create laptop\n  lockbox vault identity export ./laptop.pub --name laptop",
-                    "Context:\n  Identity create generates a new identity in your vault. With no name, reVault creates the `default` identity. To publish the identity, create it first and then run `lockbox vault identity publish` or `lockbox vault identity export <path>`.",
+                    "Examples:\n  lockbox vault profile create\n  lockbox vault profile create laptop\n  lockbox vault profile export ./laptop.pub --name laptop",
+                    "Context:\n  Profile create generates a new profile in your vault. With no name, reVault creates the `default` profile. To publish the profile, create it first and then run `lockbox vault profile publish` or `lockbox vault profile export <path>`.",
                 ))
                 .arg(
                     Arg::new("overwrite")
                         .long("overwrite")
                         .hide(!verbose)
                         .action(ArgAction::SetTrue)
-                        .help("Replace an existing identity."),
+                        .help("Replace an existing profile."),
                 )
-                .arg(optional("name", "Identity name."))
+                .arg(optional("name", "Profile name."))
         )
         .subcommand(
             Command::new("history")
-                .about("Show identity key generations.")
+                .about("Show profile key generations.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity history\n  lockbox vault identity history laptop --format json",
-                    "Context:\n  Identity history shows the active and retired key generations for one vault identity. Retired generations are retained so older lockboxes can still be opened until their access entries are refreshed.",
+                    "Examples:\n  lockbox vault profile history\n  lockbox vault profile history laptop --format json",
+                    "Context:\n  Profile history shows the active and retired key generations for one vault profile. Retired generations are retained so older lockboxes can still be opened until their access entries are refreshed.",
                 ))
                 .arg(output_format_arg())
-                .arg(optional("name", "Identity name.")),
+                .arg(
+                    optional("name", "Profile name.")
+                        .add(ArgValueCompleter::new(completion::profile_candidates)),
+                ),
         )
         .subcommand(
             Command::new("email")
-                .about("Set the email address associated with an identity.")
+                .about("Set the email address associated with a profile.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity email alice@example.com\n  lockbox vault identity email laptop alice@example.com",
-                    "Context:\n  Publish requires an identity email address. The key server sends a verification link to this address before receivers can receive the public key by email.",
+                    "Examples:\n  lockbox vault profile email alice@example.com\n  lockbox vault profile email laptop alice@example.com",
+                    "Context:\n  Publish requires a profile email address. The key server sends a verification link to this address before receivers can receive the public key by email.",
                 ))
                 .arg(
                     Arg::new("args")
-                        .value_names(["identity", "email"])
+                        .value_names(["profile", "email"])
                         .num_args(1..=2)
                         .required(true)
-                        .help("Optional identity name followed by the identity email address."),
+                        .help("Optional profile name followed by the profile email address."),
                 ),
         )
         .subcommand(
             Command::new("fingerprint")
-                .about("Show the publish fingerprint for one identity.")
+                .about("Show the publish fingerprint for one profile.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity fingerprint\n  lockbox vault identity fingerprint laptop",
+                    "Examples:\n  lockbox vault profile fingerprint\n  lockbox vault profile fingerprint laptop",
                     "Context:\n  Fingerprint prints the same 96-bit Crockford contact fingerprint code shown by publish. The receiver must ask you for this code through a trusted second channel before saving the contact.",
                 ))
-                .arg(optional("name", "Identity name. Defaults to default.")),
+                .arg(
+                    optional("name", "Profile name. Defaults to default.")
+                        .add(ArgValueCompleter::new(completion::profile_candidates)),
+                ),
         )
         .subcommand(
             Command::new("publish")
-                .about("Publish one identity public key by verified email.")
+                .about("Publish one profile public key by verified email.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity publish\n  lockbox vault identity publish laptop",
-                    "Context:\n  Publish sends one identity public key to the key server and prints a 96-bit Crockford fingerprint code. The receiver must ask you for that code through a trusted second channel before saving the contact.",
+                    "Examples:\n  lockbox vault profile publish\n  lockbox vault profile publish laptop",
+                    "Context:\n  Publish sends one profile public key to the key server and prints a 96-bit Crockford fingerprint code. The receiver must ask you for that code through a trusted second channel before saving the contact.",
                 ))
                 .arg(key_server_arg())
                 .arg(publish_topology_arg())
@@ -1432,15 +1494,18 @@ fn vault_identity_command(verbose: bool) -> Command {
                         .value_name("N")
                         .help("Maximum successful receives."),
                 )
-                .arg(optional("name", "Identity name. Defaults to default.")),
+                .arg(
+                    optional("name", "Profile name. Defaults to default.")
+                        .add(ArgValueCompleter::new(completion::profile_candidates)),
+                ),
         )
         .subcommand(
             Command::new("backup")
-                .about("Back up one identity to a text recovery file.")
+                .about("Back up one profile to a text recovery file.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity backup ./default.identity-backup\n  lockbox vault identity backup ./laptop.identity-backup --name laptop",
-                    "Context:\n  Identity backup writes the same text recovery block printed by vault init. It contains the identity name, fingerprint, identity private key, and owner signing private key.",
+                    "Examples:\n  lockbox vault profile backup ./default.profile-backup\n  lockbox vault profile backup ./laptop.profile-backup --name laptop",
+                    "Context:\n  Profile backup writes the same text recovery block printed by vault init. It contains the profile name, fingerprint, profile private key, and owner signing private key.",
                 ))
                 .arg(
                     Arg::new("overwrite")
@@ -1451,57 +1516,59 @@ fn vault_identity_command(verbose: bool) -> Command {
                 .arg(
                     Arg::new("name")
                         .long("name")
-                        .value_name("IDENTITY")
-                        .help("Identity name. Defaults to default."),
+                        .value_name("PROFILE")
+                        .help("Profile name. Defaults to default.")
+                        .add(ArgValueCompleter::new(completion::profile_candidates)),
                 )
-                .arg(required("output", "Identity backup output path.")),
+                .arg(required("output", "Profile backup output path.")),
         )
         .subcommand(
             Command::new("restore")
-                .about("Restore one identity from a text recovery file.")
+                .about("Restore one profile from a text recovery file.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity restore ./default.identity-backup\n  lockbox vault identity restore ./default.identity-backup --name laptop --overwrite",
-                    "Context:\n  Identity restore reads one identity backup text file, derives the public key from the private key, and restores the required owner signing key. If the identity already exists, use --overwrite; reVault backs up the current vault before replacing it.",
+                    "Examples:\n  lockbox vault profile restore ./default.profile-backup\n  lockbox vault profile restore ./default.profile-backup --name laptop --overwrite",
+                    "Context:\n  Profile restore reads one profile backup text file, derives the public key from the private key, and restores the required owner signing key. If the profile already exists, use --overwrite; reVault backs up the current vault before replacing it.",
                 ))
                 .arg(
                     Arg::new("overwrite")
                         .long("overwrite")
                         .action(ArgAction::SetTrue)
-                        .help("Replace an existing identity after backing up the current vault."),
+                        .help("Replace an existing profile after backing up the current vault."),
                 )
                 .arg(
                     Arg::new("name")
                         .long("name")
-                        .value_name("IDENTITY")
-                        .help("Restore to this identity name instead of the name in the backup."),
+                        .value_name("PROFILE")
+                        .help("Restore to this profile name instead of the name in the backup."),
                 )
-                .arg(required("input", "Identity backup input path.")),
+                .arg(required("input", "Profile backup input path.")),
         )
         .subcommand(
             Command::new("export")
-                .about("Export one identity public key.")
+                .about("Export one profile public key.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity export ./default.pub\n  lockbox vault identity export ./laptop.pub --name laptop",
-                    "Context:\n  Identity export writes the public key for sharing with someone who needs to grant you access to a lockbox. Use identity backup, not export, for private recovery material.",
+                    "Examples:\n  lockbox vault profile export ./default.pub\n  lockbox vault profile export ./laptop.pub --name laptop",
+                    "Context:\n  Profile export writes the public key for sharing with someone who needs to grant you access to a lockbox. Use profile backup, not export, for private recovery material.",
                 ))
                 .arg(format_arg(verbose))
                 .arg(
                     Arg::new("name")
                         .long("name")
-                        .value_name("IDENTITY")
-                        .help("Identity name. Defaults to default."),
+                        .value_name("PROFILE")
+                        .help("Profile name. Defaults to default.")
+                        .add(ArgValueCompleter::new(completion::profile_candidates)),
                 )
                 .arg(required("output", "Public key output path.")),
         )
         .subcommand(
             Command::new("remove")
-                .about("Remove an identity.")
+                .about("Remove a profile.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity remove laptop\n  lockbox vault identity remove --force laptop",
-                    "Context:\n  Identity remove deletes an identity from your vault. Lockboxes that only grant access to that identity may become inaccessible from this vault.",
+                    "Examples:\n  lockbox vault profile remove laptop\n  lockbox vault profile remove --force laptop",
+                    "Context:\n  Profile remove deletes a profile from your vault. Lockboxes that only grant access to that profile may become inaccessible from this vault.",
                 ))
                 .arg(
                     Arg::new("force")
@@ -1509,17 +1576,23 @@ fn vault_identity_command(verbose: bool) -> Command {
                         .action(ArgAction::SetTrue)
                         .help("Remove the key without an interactive confirmation."),
                 )
-                .arg(optional("name", "Identity name.")),
+                .arg(
+                    optional("name", "Profile name.")
+                        .add(ArgValueCompleter::new(completion::profile_candidates)),
+                ),
         )
         .subcommand(
             Command::new("rotate")
-                .about("Rotate an identity to a new key generation.")
+                .about("Rotate a profile to a new key generation.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault identity rotate\n  lockbox vault identity rotate laptop",
-                    "Context:\n  Identity rotate creates a new active private key generation and retires the previous active generation. Refresh remembered lockboxes afterward so they grant access to the new key.",
+                    "Examples:\n  lockbox vault profile rotate\n  lockbox vault profile rotate laptop",
+                    "Context:\n  Profile rotate creates a new active private key generation and retires the previous active generation. Refresh remembered lockboxes afterward so they grant access to the new key.",
                 ))
-                .arg(optional("name", "Identity name.")),
+                .arg(
+                    optional("name", "Profile name.")
+                        .add(ArgValueCompleter::new(completion::profile_candidates)),
+                ),
         )
 }
 
@@ -1540,11 +1613,174 @@ fn output_format_arg() -> Arg {
 }
 
 fn required(name: &'static str, help: &'static str) -> Arg {
-    Arg::new(name).value_name(name).required(true).help(help)
+    dynamic_completion_arg(Arg::new(name), name)
+        .value_name(name)
+        .required(true)
+        .help(help)
 }
 
 fn optional(name: &'static str, help: &'static str) -> Arg {
-    Arg::new(name).value_name(name).required(false).help(help)
+    dynamic_completion_arg(Arg::new(name), name)
+        .value_name(name)
+        .required(false)
+        .help(help)
+}
+
+fn dynamic_completion_arg(arg: Arg, name: &str) -> Arg {
+    match name {
+        "form" => arg.add(ArgValueCompleter::new(completion::form_candidates)),
+        _ => arg,
+    }
+}
+
+fn completion_command() -> Command {
+    Command::new("completion")
+        .about("Generate, install, or remove dynamic shell completion.")
+        .disable_help_subcommand(true)
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .subcommands([
+            Command::new("generate")
+                .about("Write a completion registration script to stdout or a file.")
+                .arg(completion_shell_arg())
+                .arg(
+                    Arg::new("output")
+                        .long("output")
+                        .short('o')
+                        .value_name("FILE")
+                        .help("Write the script to this file."),
+                ),
+            Command::new("install")
+                .about("Install completion in a standard per-user completion directory.")
+                .arg(completion_shell_arg())
+                .arg(
+                    Arg::new("path")
+                        .long("path")
+                        .value_name("FILE")
+                        .help("Override the standard per-user installation path."),
+                ),
+            Command::new("uninstall")
+                .about("Remove a completion installed by revault.")
+                .arg(completion_shell_arg())
+                .arg(
+                    Arg::new("path")
+                        .long("path")
+                        .value_name("FILE")
+                        .help("Override the standard per-user installation path."),
+                ),
+        ])
+}
+
+fn migration_command(verbose: bool) -> Command {
+    Command::new("migrate")
+        .about("Migrate vaults and archives between native format versions.")
+        .hide(!verbose)
+        .disable_help_subcommand(true)
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .subcommands([
+            migration_vault_command(verbose),
+            migration_archive_command(verbose),
+        ])
+}
+
+fn migration_vault_command(verbose: bool) -> Command {
+    Command::new("vault")
+        .about("Migrate the configured vault to the latest format.")
+        .arg(migration_output_arg())
+        .arg(migration_replace_arg())
+        .arg(migration_exporter_arg())
+        .subcommands([
+            Command::new("export")
+                .about("Export the configured vault to a migration artifact.")
+                .hide(!verbose)
+                .arg(migration_output_arg().required(true))
+                .arg(hidden_secret_stdin_arg("vault-password-stdin"))
+                .arg(hidden_secret_stdin_arg("migration-password-stdin")),
+            Command::new("upgrade")
+                .about("Upgrade a vault migration artifact to the latest schema.")
+                .hide(!verbose)
+                .arg(required("artifact", "Input migration artifact."))
+                .arg(migration_output_arg().required(true)),
+            Command::new("import")
+                .about("Import a vault migration artifact into a new vault.")
+                .hide(!verbose)
+                .arg(required("artifact", "Input migration artifact."))
+                .arg(migration_output_arg().required(true)),
+            Command::new("verify")
+                .about("Verify a vault migration artifact.")
+                .hide(!verbose)
+                .arg(required("artifact", "Migration artifact to verify.")),
+        ])
+}
+
+fn migration_archive_command(verbose: bool) -> Command {
+    Command::new("archive")
+        .about("Migrate an archive to the latest format.")
+        .arg(optional("lockbox", "Archive to migrate."))
+        .arg(migration_output_arg())
+        .arg(migration_replace_arg())
+        .arg(migration_exporter_arg())
+        .subcommands([
+            Command::new("export")
+                .about("Export an archive to a migration artifact.")
+                .hide(!verbose)
+                .arg(required("lockbox", "Archive to export."))
+                .arg(migration_output_arg().required(true))
+                .arg(hidden_secret_stdin_arg("migration-password-stdin")),
+            Command::new("upgrade")
+                .about("Upgrade an archive migration artifact to the latest schema.")
+                .hide(!verbose)
+                .arg(required("artifact", "Input migration artifact."))
+                .arg(migration_output_arg().required(true)),
+            Command::new("import")
+                .about("Import an archive migration artifact.")
+                .hide(!verbose)
+                .arg(required("artifact", "Input migration artifact."))
+                .arg(migration_output_arg().required(true)),
+            Command::new("verify")
+                .about("Verify an archive migration artifact.")
+                .hide(!verbose)
+                .arg(required("artifact", "Migration artifact to verify.")),
+        ])
+}
+
+fn migration_output_arg() -> Arg {
+    Arg::new("output")
+        .long("output")
+        .short('o')
+        .value_name("PATH")
+        .help("Write the migrated artifact to this path.")
+}
+
+fn migration_replace_arg() -> Arg {
+    Arg::new("replace")
+        .long("replace")
+        .action(ArgAction::SetTrue)
+        .conflicts_with("output")
+        .help("Replace the source after retaining a versioned backup.")
+}
+
+fn migration_exporter_arg() -> Arg {
+    Arg::new("exporter")
+        .long("exporter")
+        .value_name("PATH")
+        .hide(true)
+        .help("Use this historical reVault exporter executable.")
+}
+
+fn hidden_secret_stdin_arg(name: &'static str) -> Arg {
+    Arg::new(name)
+        .long(name)
+        .hide(true)
+        .action(ArgAction::SetTrue)
+}
+
+fn completion_shell_arg() -> Arg {
+    Arg::new("shell")
+        .long("shell")
+        .value_name("bash|zsh|fish|powershell|elvish")
+        .help("Shell override; otherwise detect SHELL or PowerShell.")
 }
 
 fn verbose_help(verbose: bool, normal: &'static str, context: &'static str) -> String {
@@ -1568,4 +1804,73 @@ fn apply_verbose_help_template(mut command: Command) -> Command {
     command
         .help_template(VERBOSE_HELP_TEMPLATE)
         .mut_subcommands(apply_verbose_help_template)
+}
+
+#[cfg(test)]
+mod migration_inventory_tests {
+    use super::*;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn migration_command_and_option_inventory_is_explicit() {
+        let command = migration_command(true);
+        let mut actual = BTreeMap::new();
+        collect(&command, "migrate", &mut actual);
+        let expected = BTreeMap::from([
+            (
+                "migrate/archive".to_string(),
+                strings(&["exporter", "lockbox", "output", "replace"]),
+            ),
+            (
+                "migrate/archive/export".to_string(),
+                strings(&["lockbox", "migration-password-stdin", "output"]),
+            ),
+            (
+                "migrate/archive/import".to_string(),
+                strings(&["artifact", "output"]),
+            ),
+            (
+                "migrate/archive/upgrade".to_string(),
+                strings(&["artifact", "output"]),
+            ),
+            ("migrate/archive/verify".to_string(), strings(&["artifact"])),
+            (
+                "migrate/vault".to_string(),
+                strings(&["exporter", "output", "replace"]),
+            ),
+            (
+                "migrate/vault/export".to_string(),
+                strings(&["migration-password-stdin", "output", "vault-password-stdin"]),
+            ),
+            (
+                "migrate/vault/import".to_string(),
+                strings(&["artifact", "output"]),
+            ),
+            (
+                "migrate/vault/upgrade".to_string(),
+                strings(&["artifact", "output"]),
+            ),
+            ("migrate/vault/verify".to_string(), strings(&["artifact"])),
+        ]);
+        assert_eq!(actual, expected);
+    }
+
+    fn strings(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    fn collect(command: &Command, path: &str, output: &mut BTreeMap<String, Vec<String>>) {
+        if path != "migrate" {
+            let mut arguments = command
+                .get_arguments()
+                .map(|argument| argument.get_id().as_str().to_string())
+                .filter(|id| id != "help")
+                .collect::<Vec<_>>();
+            arguments.sort_unstable();
+            output.insert(path.to_string(), arguments);
+        }
+        for child in command.get_subcommands() {
+            collect(child, &format!("{path}/{}", child.get_name()), output);
+        }
+    }
 }

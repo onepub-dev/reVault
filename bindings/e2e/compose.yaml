@@ -1,0 +1,132 @@
+services:
+  c:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/c/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  python:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/python/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  cpp:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/cpp/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  go:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/go/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  java:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/java/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  csharp:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/csharp/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  dart:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/dart/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  php:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/php/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  ruby:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/ruby/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  javascript:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/javascript/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  typescript:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/typescript/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  kotlin:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/kotlin/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  rust:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/rust/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  lua:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/lua/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  swift:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/swift/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+  wasm:
+    build:
+      context: ../..
+      dockerfile: bindings/e2e/containers/wasm/Dockerfile
+    environment:
+      REVAULT_E2E_ARTIFACT_DIR: /artifacts
+    volumes:
+      - artifacts:/artifacts
+
+volumes:
+  artifacts:

@@ -1,0 +1,7 @@
+{
+  "name": "onepub/revault-api-conformance",
+  "repositories": [{"type": "path", "url": "../../php", "options": {"symlink": false}}],
+  "require": {"onepub/revault-api": "0.2.0"},
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

@@ -1,4 +1,4 @@
-use revault_lockbox_api::{Error, LockboxId, Result, SecretVec};
+use revault_lockbox_api::{Error, LockboxId, OwnerSigningKeyPair, Result, SecretString, SecretVec};
 use std::io;
 use std::path::Path;
 
@@ -31,8 +31,24 @@ mod platform {
         Ok(None)
     }
 
+    pub(crate) fn get_named(_identifier: &str) -> io::Result<Option<SecretVec>> {
+        Ok(None)
+    }
+
     pub(crate) fn put(
         _lockbox_id: LockboxId,
+        _key: &SecretVec,
+        _path: Option<&str>,
+        _ttl_seconds: Option<u64>,
+    ) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "lockbox session agent is not supported on this platform",
+        ))
+    }
+
+    pub(crate) fn put_named(
+        _identifier: &str,
         _key: &SecretVec,
         _path: Option<&str>,
         _ttl_seconds: Option<u64>,
@@ -47,8 +63,19 @@ mod platform {
         Ok(())
     }
 
+    pub(crate) fn forget_named(_identifier: &str) -> io::Result<()> {
+        Ok(())
+    }
+
     pub(crate) fn forget_all() -> io::Result<()> {
         Ok(())
+    }
+
+    pub(crate) fn start() -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "lockbox session agent is not supported on this platform",
+        ))
     }
 
     pub(crate) fn stop() -> io::Result<()> {
@@ -151,6 +178,105 @@ pub fn get(lockbox_id: LockboxId) -> io::Result<Option<SecretVec>> {
     platform::get(lockbox_id)
 }
 
+const VAULT_KEY_PREFIX: &str = "vault-unlock:";
+const OWNER_KEY_PREFIX: &str = "owner-signing:";
+
+fn vault_key_identifier(vault_id: &str) -> String {
+    format!("{VAULT_KEY_PREFIX}{vault_id}")
+}
+
+fn owner_key_identifier(vault_id: &str, profile: &str) -> String {
+    format!("{OWNER_KEY_PREFIX}{vault_id}\0{profile}")
+}
+
+fn typed_secret_cache_enabled() -> bool {
+    matches!(
+        crate::auto_open_scope(),
+        Ok(crate::AutoOpenScope::Vault | crate::AutoOpenScope::Lockboxes)
+    )
+}
+
+/// Reads the cached vault unlock secret for a specific vault profile.
+///
+/// This is intentionally scoped to one vault and does not expose cache
+/// enumeration or arbitrary key lookup.
+pub fn get_vault_unlock_key(vault_id: &str) -> io::Result<Option<SecretString>> {
+    if !typed_secret_cache_enabled() {
+        return Ok(None);
+    }
+    platform::get_named(&vault_key_identifier(vault_id))
+        .map(|value| value.map(SecretString::from_secure_vec))
+}
+
+/// Caches a vault unlock secret obtained through the normal vault flow.
+pub fn put_vault_unlock_key(
+    vault_id: &str,
+    key: SecretString,
+    ttl_seconds: Option<u64>,
+) -> io::Result<()> {
+    if !typed_secret_cache_enabled() {
+        return Ok(());
+    }
+    let mut secure_key = SecretVec::new();
+    key.append_to_secure_vec(&mut secure_key)
+        .map_err(io::Error::other)?;
+    platform::put_named(
+        &vault_key_identifier(vault_id),
+        &secure_key,
+        None,
+        ttl_seconds,
+    )
+}
+
+/// Removes the cached vault unlock secret for one vault.
+pub fn forget_vault_unlock_key(vault_id: &str) -> io::Result<()> {
+    platform::forget_named(&vault_key_identifier(vault_id))
+}
+
+/// Reads one cached owner-signing key for a specific vault profile.
+pub fn get_owner_signing_key(
+    vault_id: &str,
+    profile: &str,
+) -> io::Result<Option<OwnerSigningKeyPair>> {
+    if !typed_secret_cache_enabled() {
+        return Ok(None);
+    }
+    let Some(key) = platform::get_named(&owner_key_identifier(vault_id, profile))? else {
+        return Ok(None);
+    };
+    OwnerSigningKeyPair::from_private_key_record(key)
+        .map(Some)
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))
+}
+
+/// Caches an owner-signing key that was already loaded by the normal vault
+/// flow. The key remains in secure memory while it crosses the local IPC
+/// boundary and inside the agent cache.
+pub fn put_owner_signing_key(
+    vault_id: &str,
+    profile: &str,
+    key: OwnerSigningKeyPair,
+    ttl_seconds: Option<u64>,
+) -> io::Result<()> {
+    if !typed_secret_cache_enabled() {
+        return Ok(());
+    }
+    let private_record = key
+        .private_key_record()
+        .map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))?;
+    platform::put_named(
+        &owner_key_identifier(vault_id, profile),
+        &private_record,
+        None,
+        ttl_seconds,
+    )
+}
+
+/// Removes one cached owner-signing key.
+pub fn forget_owner_signing_key(vault_id: &str, profile: &str) -> io::Result<()> {
+    platform::forget_named(&owner_key_identifier(vault_id, profile))
+}
+
 /// Stores a content key in the platform agent.
 pub fn put(lockbox_id: LockboxId, key: &[u8]) -> io::Result<()> {
     let key = SecretVec::try_from_slice(key).map_err(io::Error::other)?;
@@ -180,6 +306,15 @@ pub fn list() -> io::Result<Vec<CachedLockbox>> {
 /// Returns true when the platform agent transport is currently reachable.
 pub fn is_running() -> bool {
     platform::is_running()
+}
+
+/// Starts the session agent if it is not already running.
+///
+/// Callers must only invoke this after checking the user's auto-open policy.
+/// Secret-cache writes deliberately do not start the agent themselves because
+/// they may occur while a vault file lock is held.
+pub fn start() -> io::Result<()> {
+    platform::start()
 }
 
 /// Registration guard for a command that may hold decrypted secrets in memory.

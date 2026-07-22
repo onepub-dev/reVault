@@ -71,54 +71,100 @@ struct ReplicationOriginState {
 }
 
 #[derive(Clone, Debug)]
+/// Represents server config.
 pub struct ServerConfig {
+    /// Represents the bind addr carried by this record case.
     pub bind_addr: String,
+    /// Represents the state dir carried by this record case.
     pub state_dir: PathBuf,
+    /// Represents the server id carried by this record case.
     pub server_id: u8,
+    /// Represents the cluster id carried by this record case.
     pub cluster_id: String,
+    /// Represents the public url carried by this record case.
     pub public_url: Option<String>,
+    /// Represents the topology version carried by this record case.
     pub topology_version: u64,
+    /// Represents the topology servers carried by this record case.
     pub topology_servers: Vec<TopologyServer>,
+    /// Represents the topology routes carried by this record case.
     pub topology_routes: Vec<TopologyRoute>,
+    /// Represents the replication token carried by this record case.
     pub replication_token: Option<String>,
+    /// Represents the replication peer urls carried by this record case.
     pub replication_peer_urls: Vec<String>,
+    /// Represents the origin epoch carried by this record case.
     pub origin_epoch: u64,
+    /// Represents the promoted owner ids carried by this record case.
     pub promoted_owner_ids: Vec<u8>,
+    /// Represents the max payload bytes carried by this record case.
     pub max_payload_bytes: usize,
+    /// Represents the verification ttl carried by this record case.
     pub verification_ttl: Duration,
+    /// Represents the default receive ttl carried by this record case.
     pub default_receive_ttl: Duration,
+    /// Represents the max receive ttl carried by this record case.
     pub max_receive_ttl: Duration,
+    /// Represents the shard count carried by this record case.
     pub shard_count: usize,
+    /// Represents the developer mode carried by this record case.
     pub developer_mode: bool,
+    /// Represents the benchmark requests carried by this record case.
     pub benchmark_requests: usize,
+    /// Represents the benchmark payload bytes carried by this record case.
     pub benchmark_payload_bytes: usize,
+    /// Represents the benchmark concurrency carried by this record case.
     pub benchmark_concurrency: usize,
+    /// Represents the benchmark preload published payloads carried by this record case.
     pub benchmark_preload_published_payloads: usize,
+    /// Represents the max receives per publish carried by this record case.
     pub max_receives_per_publish: u16,
+    /// Represents the compact min bytes carried by this record case.
     pub compact_min_bytes: u64,
+    /// Represents the index cache entries carried by this record case.
     pub index_cache_entries: usize,
+    /// Represents the rate limit per minute carried by this record case.
     pub rate_limit_per_minute: u32,
+    /// Represents the rate limit burst carried by this record case.
     pub rate_limit_burst: u32,
+    /// Represents the smtp host carried by this record case.
     pub smtp_host: Option<String>,
+    /// Represents the smtp port carried by this record case.
     pub smtp_port: u16,
+    /// Represents the smtp username carried by this record case.
     pub smtp_username: Option<String>,
+    /// Represents the smtp password carried by this record case.
     pub smtp_password: Option<String>,
+    /// Represents the smtp from carried by this record case.
     pub smtp_from: Option<String>,
+    /// Represents the smtp tls carried by this record case.
     pub smtp_tls: SmtpTlsMode,
+    /// Represents the smtp timeout carried by this record case.
     pub smtp_timeout: Duration,
+    /// Represents the verification email subject carried by this record case.
     pub verification_email_subject: String,
+    /// Represents the verification email template carried by this record case.
     pub verification_email_template: String,
+    /// Represents the verification email rate limit per hour carried by this record case.
     pub verification_email_rate_limit_per_hour: u32,
+    /// Represents the verification email ip rate limit per hour carried by this record case.
     pub verification_email_ip_rate_limit_per_hour: u32,
+    /// Represents the topology token carried by this record case.
     pub topology_token: Option<String>,
+    /// Represents the topology stale after ms carried by this record case.
     pub topology_stale_after_ms: u64,
+    /// Represents the topology heartbeat interval ms carried by this record case.
     pub topology_heartbeat_interval_ms: u64,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Represents smtp tls mode.
 pub enum SmtpTlsMode {
+    /// Represents the start tls case.
     StartTls,
+    /// Represents the tls case.
     Tls,
+    /// Represents the none case.
     None,
 }
 
@@ -172,18 +218,31 @@ impl Default for ServerConfig {
 }
 
 #[derive(Debug)]
+/// Represents store error.
 pub enum StoreError {
+    /// Represents the io case.
     Io(std::io::Error),
+    /// Represents the protocol case.
     Protocol(protocol::ProtocolError),
+    /// Represents the payload too large case.
     PayloadTooLarge,
+    /// Represents the not found case.
     NotFound,
+    /// Represents the expired case.
     Expired,
+    /// Represents the exhausted case.
     Exhausted,
+    /// Represents the delete token invalid case.
     DeleteTokenInvalid,
+    /// Represents the payload invalid case.
     PayloadInvalid(String),
+    /// Represents the config case.
     Config(String),
+    /// Represents the replication unauthorized case.
     ReplicationUnauthorized,
+    /// Represents the rate limited case.
     RateLimited,
+    /// Represents the email unverified case.
     EmailUnverified,
 }
 
@@ -285,6 +344,7 @@ struct Shard {
     expiry_buckets: Mutex<VecDeque<ExpiryBucket>>,
 }
 
+/// Represents publish store.
 pub struct PublishStore {
     config: ServerConfig,
     auto_routes: bool,
@@ -311,18 +371,29 @@ pub struct PublishStore {
     topology: Mutex<ClusterTopology>,
 }
 
+/// Represents created publish.
 pub struct CreatedPublish {
+    /// Represents the publish code carried by this record case.
     pub publish_code: String,
+    /// Represents the delete token carried by this record case.
     pub delete_token: Vec<u8>,
+    /// Represents the expires at ms carried by this record case.
     pub expires_at_ms: u64,
+    /// Represents the max receives carried by this record case.
     pub max_receives: u16,
+    /// Represents the verification url carried by this record case.
     pub verification_url: Option<String>,
 }
 
+/// Represents received publish.
 pub struct ReceivedPublish {
+    /// Represents the payload carried by this record case.
     pub payload: Vec<u8>,
+    /// Represents the expires at ms carried by this record case.
     pub expires_at_ms: u64,
+    /// Represents the remaining receives carried by this record case.
     pub remaining_receives: u16,
+    /// Represents the email verification carried by this record case.
     pub email_verification: Option<protocol::EmailVerification>,
 }
 
@@ -351,10 +422,15 @@ struct EmailRateLimits {
 }
 
 #[derive(Clone, Debug)]
+/// Represents verification page.
 pub struct VerificationPage {
+    /// Represents the success carried by this record case.
     pub success: bool,
+    /// Represents the title carried by this record case.
     pub title: String,
+    /// Represents the message carried by this record case.
     pub message: String,
+    /// Represents the email carried by this record case.
     pub email: Option<String>,
 }
 
@@ -419,6 +495,7 @@ impl PublishStore {
         protocol::put_string(&mut payload, &err.to_string());
         self.encode_response_with_topology(operation, status, &payload)
     }
+    /// Opens an existing lockbox.
     pub fn open(mut config: ServerConfig) -> Result<Self, StoreError> {
         const MAX_SERVER_ID: u8 = 35;
         if config.developer_mode
@@ -483,7 +560,8 @@ impl PublishStore {
             let mut file = OpenOptions::new()
                 .create(true)
                 .read(true)
-                .append(true)
+                .write(true)
+                .truncate(false)
                 .open(&path)?;
             let mut index = replay(&mut file)?;
             live += index.len();
@@ -526,10 +604,12 @@ impl PublishStore {
         })
     }
 
+    /// Returns the handle.
     pub fn handle(&self, operation: Operation, payload: &[u8]) -> Vec<u8> {
         self.handle_with_peer(operation, payload, None)
     }
 
+    /// Returns the handle with peer.
     pub fn handle_with_peer(
         &self,
         operation: Operation,
@@ -544,18 +624,22 @@ impl PublishStore {
         }
     }
 
+    /// Returns the max payload bytes.
     pub fn max_payload_bytes(&self) -> usize {
         self.config.max_payload_bytes
     }
 
+    /// Returns the rate limit per minute.
     pub fn rate_limit_per_minute(&self) -> u32 {
         self.config.rate_limit_per_minute
     }
 
+    /// Returns the rate limit burst.
     pub fn rate_limit_burst(&self) -> u32 {
         self.config.rate_limit_burst
     }
 
+    /// Reports whether rate limit blocked.
     pub fn is_rate_limit_blocked(&self, peer_ip: Option<IpAddr>) -> bool {
         let Some(peer_ip) = peer_ip else {
             return false;
@@ -574,6 +658,7 @@ impl PublishStore {
         }
     }
 
+    /// Reports whether verification email blocked.
     pub fn is_verification_email_blocked(&self, email: &str) -> bool {
         let Ok(email) = normalize_verification_email(email) else {
             return true;
@@ -592,6 +677,7 @@ impl PublishStore {
         }
     }
 
+    /// Returns the block rate limited client until.
     pub fn block_rate_limited_client_until(
         &self,
         peer_ip: IpAddr,
@@ -607,10 +693,12 @@ impl PublishStore {
         Ok(applied)
     }
 
+    /// Returns the topology token matches.
     pub fn topology_token_matches(&self, token: &str) -> bool {
         self.config.topology_token.as_deref() == Some(token)
     }
 
+    /// Starts topology background.
     pub fn start_topology_background(self: &Arc<Self>) {
         if self.config.topology_token.is_none() {
             return;
@@ -636,6 +724,7 @@ impl PublishStore {
         }
     }
 
+    /// Returns the topology.
     pub fn topology(&self) -> ClusterTopology {
         let mut topology = match self.topology.lock() {
             Ok(topology) => topology.clone(),
@@ -651,6 +740,7 @@ impl PublishStore {
         topology
     }
 
+    /// Returns the register topology server.
     pub fn register_topology_server(
         &self,
         registration: TopologyRegistration,
@@ -701,6 +791,7 @@ impl PublishStore {
         Ok(topology)
     }
 
+    /// Returns the handle topology registration.
     pub fn handle_topology_registration(&self, payload: &[u8]) -> Result<Vec<u8>, StoreError> {
         let registration =
             decode_topology_registration(payload).map_err(store_error_from_client_error)?;
@@ -914,10 +1005,12 @@ impl PublishStore {
         }
     }
 
+    /// Creates from payload.
     pub fn create_from_payload(&self, payload: &[u8]) -> Result<CreatedPublish, StoreError> {
         self.create_from_payload_with_peer(payload, None)
     }
 
+    /// Creates from payload with peer.
     pub fn create_from_payload_with_peer(
         &self,
         payload: &[u8],
@@ -1393,6 +1486,7 @@ impl PublishStore {
         Ok(())
     }
 
+    /// Returns the receive.
     pub fn receive(&self, publish_code: &str) -> Result<ReceivedPublish, StoreError> {
         if !self.can_serve_publish_code(publish_code) {
             self.misses.fetch_add(1, Ordering::Relaxed);
@@ -1483,11 +1577,13 @@ impl PublishStore {
         })
     }
 
+    /// Returns the receive by lookup.
     pub fn receive_by_lookup(&self, lookup: &str) -> Result<ReceivedPublish, StoreError> {
         let publish_code = self.resolve_publish_lookup(lookup)?;
         self.receive(&publish_code)
     }
 
+    /// Verifies email.
     pub fn verify_email(&self, publish_code: &str, token: &str) -> VerificationPage {
         match self.verify_email_inner(publish_code, token) {
             Ok(email) => VerificationPage {
@@ -1505,6 +1601,7 @@ impl PublishStore {
         }
     }
 
+    /// Removes delete.
     pub fn delete(&self, publish_code: &str, delete_token: &[u8]) -> Result<bool, StoreError> {
         if !self.can_serve_publish_code(publish_code) {
             self.misses.fetch_add(1, Ordering::Relaxed);
@@ -1540,10 +1637,12 @@ impl PublishStore {
         Ok(true)
     }
 
+    /// Removes by lookup.
     pub fn delete_by_lookup(&self, lookup: &str, delete_token: &[u8]) -> Result<bool, StoreError> {
         self.delete(lookup, delete_token)
     }
 
+    /// Returns the apply replication payload.
     pub fn apply_replication_payload(&self, payload: &[u8]) -> Result<bool, StoreError> {
         let request = revault_publish_protocol::decode_replication_request(payload)
             .map_err(|err| StoreError::PayloadInvalid(err.to_string()))?;
@@ -1551,6 +1650,7 @@ impl PublishStore {
         self.apply_replication_event(request.event)
     }
 
+    /// Returns the apply replication event.
     pub fn apply_replication_event(&self, event: ReplicationEvent) -> Result<bool, StoreError> {
         if !self.reserve_replication_event(
             event.origin_server_id,
@@ -1778,6 +1878,7 @@ impl PublishStore {
         }
     }
 
+    /// Returns the purge expired.
     pub fn purge_expired(&self) -> usize {
         let now_ms = unix_ms(SystemTime::now());
         let mut purged = 0;
@@ -1833,6 +1934,7 @@ impl PublishStore {
         purged
     }
 
+    /// Returns the stats.
     pub fn stats(&self) -> StoreStats {
         StoreStats {
             created: self.created.load(Ordering::Relaxed),
@@ -1850,6 +1952,7 @@ impl PublishStore {
         }
     }
 
+    /// Returns the status document.
     pub fn status_document(&self) -> revault_publish_protocol::KeyServerStatus {
         let now = Instant::now();
         if let Ok(cache) = self.status_cache.lock() {
@@ -1880,6 +1983,7 @@ impl PublishStore {
         document
     }
 
+    /// Returns the resync peer.
     pub fn resync_peer(&self, peer_url: &str) -> Result<usize, StoreError> {
         let token = self.config.replication_token.as_ref().ok_or_else(|| {
             StoreError::Config("replication_token is required for resync".to_string())
@@ -1940,6 +2044,7 @@ impl PublishStore {
         Ok(sent)
     }
 
+    /// Returns the segment bytes.
     pub fn segment_bytes(&self) -> u64 {
         self.shards
             .iter()
@@ -1948,6 +2053,7 @@ impl PublishStore {
             .sum()
     }
 
+    /// Returns the compact if needed.
     pub fn compact_if_needed(&self) -> Result<CompactionReport, StoreError> {
         if self.live.load(Ordering::Relaxed) > self.config.index_cache_entries {
             return Ok(CompactionReport::default());
@@ -1969,6 +2075,7 @@ impl PublishStore {
         Ok(report)
     }
 
+    /// Returns the compact.
     pub fn compact(&self) -> Result<CompactionReport, StoreError> {
         if self.live.load(Ordering::Relaxed) > self.config.index_cache_entries {
             return Ok(CompactionReport::default());
@@ -2184,23 +2291,38 @@ fn bucket_for_hash(code_hash: &RecordHash) -> usize {
 }
 
 #[derive(Debug)]
+/// Represents store stats.
 pub struct StoreStats {
+    /// Represents the created carried by this record case.
     pub created: u64,
+    /// Represents the received carried by this record case.
     pub received: u64,
+    /// Represents the deleted carried by this record case.
     pub deleted: u64,
+    /// Represents the expired carried by this record case.
     pub expired: u64,
+    /// Represents the misses carried by this record case.
     pub misses: u64,
+    /// Represents the live carried by this record case.
     pub live: usize,
+    /// Represents the segment bytes carried by this record case.
     pub segment_bytes: u64,
+    /// Represents the replication pending carried by this record case.
     pub replication_pending: usize,
+    /// Represents the replication last sequence carried by this record case.
     pub replication_last_sequence: u64,
 }
 
 #[derive(Debug, Default)]
+/// Represents compaction report.
 pub struct CompactionReport {
+    /// Represents the shards compacted carried by this record case.
     pub shards_compacted: usize,
+    /// Represents the bytes before carried by this record case.
     pub bytes_before: u64,
+    /// Represents the bytes after carried by this record case.
     pub bytes_after: u64,
+    /// Represents the live records carried by this record case.
     pub live_records: usize,
 }
 
@@ -2976,11 +3098,14 @@ fn compact_shard(shard: &Shard) -> Result<CompactionReport, StoreError> {
     compacted.flush()?;
     compacted.sync_data()?;
     fs::rename(&tmp_path, &shard.path)?;
-    *file = OpenOptions::new()
+    let mut reopened = OpenOptions::new()
         .create(true)
         .read(true)
-        .append(true)
+        .write(true)
+        .truncate(false)
         .open(&shard.path)?;
+    reopened.seek(SeekFrom::End(0))?;
+    *file = reopened;
     let bytes_after = shard.path.metadata().map(|m| m.len()).unwrap_or(0);
     Ok(CompactionReport {
         shards_compacted: 1,
@@ -3024,6 +3149,7 @@ fn verification_abuse_block_expires_at_ms() -> u64 {
     )
 }
 
+/// Returns the bench store.
 pub fn bench_store(config: ServerConfig) -> Result<(), StoreError> {
     let requests = config.benchmark_requests;
     let payload_bytes = config.benchmark_payload_bytes;

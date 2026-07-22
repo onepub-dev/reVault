@@ -1,0 +1,41 @@
+class RevaultApi < Formula
+  desc "Stable native API for reVault lockboxes and vaults"
+  homepage "https://github.com/onepub-dev/reVault"
+  version "@VERSION@"
+  license :cannot_represent
+
+  on_macos do
+    if Hardware::CPU.arm?
+      url "@MACOS_ARM64_URL@"
+      sha256 "@MACOS_ARM64_SHA256@"
+    else
+      url "@MACOS_X86_64_URL@"
+      sha256 "@MACOS_X86_64_SHA256@"
+    end
+  end
+
+  on_linux do
+    depends_on "dbus"
+    if Hardware::CPU.arm?
+      url "@LINUX_ARM64_URL@"
+      sha256 "@LINUX_ARM64_SHA256@"
+    else
+      url "@LINUX_X86_64_URL@"
+      sha256 "@LINUX_X86_64_SHA256@"
+    end
+  end
+
+  def install
+    include.install "include/revault_api.h"
+    lib.install Dir["lib/*revault_api*"]
+  end
+
+  test do
+    (testpath/"abi.c").write <<~EOS
+      #include <revault_api.h>
+      int main(void) { return api_abi_version() == 3 ? 0 : 1; }
+    EOS
+    system ENV.cc, "abi.c", "-I#{include}", "-L#{lib}", "-lrevault_api", "-o", "abi"
+    system "./abi"
+  end
+end

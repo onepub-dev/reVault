@@ -11,6 +11,7 @@ const REQ_FORGET: u8 = 0x03;
 const REQ_FORGET_ALL: u8 = 0x04;
 const REQ_STOP: u8 = 0x05;
 const REQ_LIST: u8 = 0x06;
+const REQ_INFO: u8 = 0x07;
 const REQ_REGISTER_SECRET_ACTIVITY: u8 = 0x10;
 const REQ_UNREGISTER_SECRET_ACTIVITY: u8 = 0x11;
 
@@ -19,27 +20,41 @@ const RESP_OK: u8 = 0x81;
 const RESP_MISS: u8 = 0x82;
 const RESP_KEY: u8 = 0x83;
 const RESP_LIST: u8 = 0x84;
+const RESP_INFO: u8 = 0x85;
 const RESP_ERR: u8 = 0xff;
 
 pub(crate) const DEFAULT_TTL_SECONDS: u64 = 15 * 60;
+pub(crate) const AGENT_PROTOCOL_VERSION: u32 = 1;
+pub(crate) const AGENT_IMPLEMENTATION_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// Metadata describing a lockbox whose content key is cached by the agent.
 pub struct CachedLockbox {
+    /// Canonical lockbox identifier used as the cache key.
     pub id: String,
+    /// Last known filesystem path, when the client supplied one.
     pub path: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+/// Category of an operation that temporarily requires secret access.
 pub enum SecretActivityKind {
+    /// Opening or unlocking a lockbox.
     Open,
+    /// Closing or locking a lockbox.
     Close,
+    /// Reading or changing variables.
     Variables,
+    /// Reading or changing form records.
     Form,
+    /// Performing a recovery operation.
     Recovery,
+    /// Accessing the local vault.
     Vault,
 }
 
 impl SecretActivityKind {
+    /// Returns the stable lowercase name used in logs and diagnostics.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Open => "open",
@@ -70,6 +85,7 @@ pub(crate) enum AgentRequest {
     ForgetAll,
     Stop,
     List,
+    Info,
 }
 
 pub(crate) enum AgentResponse {
@@ -77,6 +93,7 @@ pub(crate) enum AgentResponse {
     Miss,
     Key(SecretVec),
     List(Vec<CachedLockbox>),
+    Info(u32, String),
     Err(String),
 }
 
@@ -91,10 +108,16 @@ pub(crate) enum ControlResponse {
     Err(String),
 }
 
+#[allow(dead_code)]
 pub(crate) fn encode_get(lockbox_id: LockboxId) -> io::Result<SecretVec> {
-    encode_frame(REQ_GET, lockbox_id.to_string().as_bytes())
+    encode_get_identifier(&lockbox_id.to_string())
 }
 
+pub(crate) fn encode_get_identifier(identifier: &str) -> io::Result<SecretVec> {
+    encode_frame(REQ_GET, identifier.as_bytes())
+}
+
+#[allow(dead_code)]
 pub(crate) fn encode_put(
     lockbox_id: LockboxId,
     key: &SecretVec,
@@ -102,10 +125,19 @@ pub(crate) fn encode_put(
     ttl_seconds: Option<u64>,
 ) -> io::Result<SecretVec> {
     let lockbox_id = lockbox_id.to_string();
+    encode_put_identifier(&lockbox_id, key, path, ttl_seconds)
+}
+
+pub(crate) fn encode_put_identifier(
+    identifier: &str,
+    key: &SecretVec,
+    path: Option<&str>,
+    ttl_seconds: Option<u64>,
+) -> io::Result<SecretVec> {
     let path = path.unwrap_or("");
     let ttl_seconds = ttl_seconds.unwrap_or(DEFAULT_TTL_SECONDS);
     let mut payload = SecretVec::new();
-    push_string(&mut payload, &lockbox_id)?;
+    push_string(&mut payload, identifier)?;
     push_u32(&mut payload, key.len() as u32)?;
     push_u32(&mut payload, path.len() as u32)?;
     push_u64(&mut payload, ttl_seconds)?;
@@ -118,8 +150,13 @@ pub(crate) fn encode_put(
     encode_frame_secure(REQ_PUT, &payload)
 }
 
+#[allow(dead_code)]
 pub(crate) fn encode_forget(lockbox_id: LockboxId) -> io::Result<SecretVec> {
-    encode_frame(REQ_FORGET, lockbox_id.to_string().as_bytes())
+    encode_forget_identifier(&lockbox_id.to_string())
+}
+
+pub(crate) fn encode_forget_identifier(identifier: &str) -> io::Result<SecretVec> {
+    encode_frame(REQ_FORGET, identifier.as_bytes())
 }
 
 pub(crate) fn encode_forget_all() -> io::Result<SecretVec> {
@@ -132,6 +169,10 @@ pub(crate) fn encode_stop() -> io::Result<SecretVec> {
 
 pub(crate) fn encode_list() -> io::Result<SecretVec> {
     encode_frame(REQ_LIST, &[])
+}
+
+pub(crate) fn encode_info() -> io::Result<SecretVec> {
+    encode_frame(REQ_INFO, &[])
 }
 
 pub(crate) fn encode_register_secret_activity(
@@ -195,6 +236,13 @@ pub(crate) fn encode_list_response(
     encode_frame_secure(RESP_LIST, &payload)
 }
 
+pub(crate) fn encode_info_response() -> io::Result<SecretVec> {
+    let mut payload = SecretVec::new();
+    push_u32(&mut payload, AGENT_PROTOCOL_VERSION)?;
+    push_string(&mut payload, AGENT_IMPLEMENTATION_VERSION)?;
+    encode_frame_secure(RESP_INFO, &payload)
+}
+
 pub(crate) fn parse_request(request: &SecretVec) -> io::Result<AgentRequest> {
     let parsed = request
         .with_bytes(parse_request_bytes)
@@ -242,6 +290,7 @@ fn parse_request_bytes(bytes: &[u8]) -> io::Result<ParsedRequest> {
         }
         REQ_STOP if frame.payload.is_empty() => Ok(ParsedRequest::Ready(AgentRequest::Stop)),
         REQ_LIST if frame.payload.is_empty() => Ok(ParsedRequest::Ready(AgentRequest::List)),
+        REQ_INFO if frame.payload.is_empty() => Ok(ParsedRequest::Ready(AgentRequest::Info)),
         _ => invalid_data("invalid binary agent request"),
     }
 }
@@ -276,6 +325,7 @@ fn parse_response_bytes(bytes: &[u8]) -> io::Result<ParsedResponse> {
             len: frame.payload.len(),
         }),
         RESP_LIST => parse_list_response(frame.payload),
+        RESP_INFO => parse_info_response(frame.payload),
         RESP_ERR => Ok(ParsedResponse::Ready(AgentResponse::Err(
             read_utf8(frame.payload)?.to_string(),
         ))),
@@ -476,6 +526,19 @@ fn parse_list_response(payload: &[u8]) -> io::Result<ParsedResponse> {
     Ok(ParsedResponse::Ready(AgentResponse::List(lockboxes)))
 }
 
+fn parse_info_response(payload: &[u8]) -> io::Result<ParsedResponse> {
+    let mut cursor = Cursor::new(payload);
+    let protocol = cursor.read_u32()?;
+    let implementation = cursor.read_string()?.to_string();
+    if !cursor.is_finished() {
+        return invalid_data("agent info response has trailing bytes");
+    }
+    Ok(ParsedResponse::Ready(AgentResponse::Info(
+        protocol,
+        implementation,
+    )))
+}
+
 struct Cursor<'a> {
     bytes: &'a [u8],
     position: usize,
@@ -646,6 +709,10 @@ mod tests {
             parse_request(&encode_list().unwrap()).unwrap(),
             AgentRequest::List
         ));
+        assert!(matches!(
+            parse_request(&encode_info().unwrap()).unwrap(),
+            AgentRequest::Info
+        ));
     }
 
     #[test]
@@ -684,5 +751,16 @@ mod tests {
             parse_control_response(&response).unwrap(),
             ControlResponse::Registered(123)
         ));
+    }
+
+    #[test]
+    fn protocol_reports_agent_compatibility() {
+        match parse_response(encode_info_response().unwrap()).unwrap() {
+            AgentResponse::Info(protocol, implementation) => {
+                assert_eq!(protocol, AGENT_PROTOCOL_VERSION);
+                assert_eq!(implementation, AGENT_IMPLEMENTATION_VERSION);
+            }
+            _ => panic!("expected agent info response"),
+        }
     }
 }

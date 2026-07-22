@@ -1,0 +1,94 @@
+# PGP-Signed reVault Key Claims
+
+This is a proposal under consideration.
+
+## Purpose
+
+A PGP-signed reVault key claim lets a user bind an existing OpenPGP identity to
+a reVault public key.
+
+This can remove the need for person-to-person verification of the reVault key
+when the contact already trusts the signer's PGP identity.
+
+## Trust Model
+
+PGP signing shifts the trust decision. It does not remove it.
+
+Without PGP:
+
+```text
+Verify Alice's reVault public key directly.
+```
+
+With PGP:
+
+```text
+Verify Alice's PGP key, then trust the reVault key it signs.
+```
+
+This is useful when one of these is true:
+
+- Bob already trusts Alice's PGP fingerprint.
+- Alice's PGP key is published through a company WKD and Bob trusts that domain.
+- Alice's PGP key is signed by a trusted organization or introducer.
+- Enterprise policy says keys from a specific domain directory are authoritative.
+
+If Bob does not already trust Alice's PGP key, the signature only proves that the
+reVault key was signed by the received PGP key. It does not prove that the PGP key
+belongs to Alice.
+
+## Proposed CLI
+
+Alice creates a signed claim:
+
+```bash
+lockbox contact claim alice@example.com --lockbox-key alice.pub --sign-with-pgp
+```
+
+The claim contains:
+
+```text
+identity: alice@example.com
+lockbox_public_key: ...
+lockbox_fingerprint: ...
+pgp_fingerprint: ...
+created_at: ...
+signature: ...
+```
+
+Bob imports the claim:
+
+```bash
+lockbox vault contact import alice@example.com ./alice.pub --fingerprint <hex>
+```
+
+reVault should:
+
+1. Receive Alice's PGP public key from WKD, a configured keyserver, or a supplied
+   local key file.
+2. Verify the signed reVault-key claim.
+3. Check whether the PGP key is trusted by local policy or prior verification.
+4. Store Alice's reVault public key with an appropriate trust state.
+
+## Trust States
+
+If the PGP key is trusted:
+
+```text
+trust: pgp-validated
+```
+
+If the PGP key is not trusted:
+
+```text
+trust: unverified
+reason: lockbox key is signed, but the signing PGP identity is not trusted
+```
+
+In the untrusted case, reVault should still require an explicit verification
+step before using the key without warnings.
+
+## Key Point
+
+A PGP-signed claim can avoid manual verification of the reVault key only when
+the PGP identity is already trusted through another mechanism.

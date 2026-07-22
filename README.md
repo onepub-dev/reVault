@@ -45,7 +45,7 @@ lockboxes with other people.
 
 > **Pre-release:** the Rust implementation is currently alpha software. The
 > archive format and public APIs may change between releases. Do not use it as
-> the only copy of important data, and keep vault backups and identity recovery
+> the only copy of important data, and keep vault backups and profile recovery
 > material offline.
 
 ## Installation
@@ -68,7 +68,7 @@ You can also install the CLI by cloning the github repo.
 ```bash
 git clone https://github.com/onepub-dev/reVault.git
 cd reVault/rust
-cargo install --path revault_cli
+cargo xtask install-cli
 ```
 
 # Initialise your vault
@@ -94,15 +94,15 @@ keys safely.
 
 ## CLI Quick Start
 
-Create a lockbox for the default vault identity: (recommended)
+Create a lockbox for the default vault profile: (recommended)
 
 ```bash
 lockbox create secrets.lbox
 ```
 
-For a lockbox protected by a passphrase instead of a vault identity:
+For a lockbox protected by a passphrase instead of a vault profile:
 
-This form is less secure than using an identity.
+This form is less secure than using a profile.
 
 ```bash
 lockbox create --password secrets.lbox
@@ -138,19 +138,19 @@ lockbox extract secrets.lbox /project/README.md ./out/README.md
 
 See [docs/cli_how_to.md](docs/cli_how_to.md) for command-focused examples.
 
-## Identities And Sharing
+## Profiles And Sharing
 
-Create another local identity:
+Create another local profile:
 
 ```bash
-lockbox vault identity create laptop
+lockbox vault profile create laptop
 ```
 
-List identities and export a public key:
+List profiles and export a public key:
 
 ```bash
-lockbox vault identity list
-lockbox vault identity export ./laptop.pub --name laptop
+lockbox vault profile list
+lockbox vault profile export ./laptop.pub --name laptop
 ```
 
 Import a contact public key after independently verifying its fingerprint:
@@ -179,12 +179,12 @@ Exporting a private key is supported for backup and migration, but treat the
 output as a secret:
 
 ```bash
-lockbox vault identity backup ./default.identity-backup
+lockbox vault profile backup ./default.profile-backup
 ```
 
 Private vault keys are stored inside the local vault as secret variable records,
 not as normal files in the vault lockbox. See the CLI help and
-[CLI how-to](docs/cli_how_to.md) for vault backup and identity recovery.
+[CLI how-to](docs/cli_how_to.md) for vault backup and profile recovery.
 
 ## Variables
 
@@ -254,7 +254,7 @@ log, or process environment controlled by other tooling.
 contact public keys. A publisher uploads a payload, verifies their email, and
 shares the resulting publish code with the recipient. The recipient uses that
 code to receive the candidate key, then verifies its fingerprint independently
-before trusting it. The server does not establish identity trust and is not a
+before trusting it. The server does not establish profile trust and is not a
 store for private keys.
 
 ### Single server
@@ -269,7 +269,8 @@ deployment later gains standby servers.
 Servers publish a topology document containing the known server URLs and the
 primary/failover route for each publish-code owner id. Clients use it as follows:
 
-- For a publish, select a topology server and keep that choice sticky locally.
+- For a publish, discover the cluster through a topology endpoint, select a
+  key-server member, and keep that choice sticky locally.
 - For receive and delete, read the publish code's first digit, contact that
   owner id's primary server, then use only its configured failovers.
 - Do not fail over after a rate-limit response; hopping servers must not bypass
@@ -340,6 +341,8 @@ lockbox.commit()?;
 ## Documentation
 
 - [CLI how-to](docs/cli_how_to.md): command examples.
+- [CI/CD with reVault](docs/ci_cd.md): proposed bootstrap and ephemeral CI
+  workflow for encrypted deployment secrets.
 - [Lockbox Session Agent](docs/lockbox_session_agent.md): local open cache
   lifecycle, protocol, and security model.
 - [Archive format](rust/revault_lockbox_api/ARCHIVE_FORMAT.md): lockbox archive details and page
@@ -364,7 +367,7 @@ Generate Rust API docs:
 
 ```bash
 cd rust
-tools/generate_api_docs.sh
+cargo xtask generate-api-docs
 ```
 
 ## License

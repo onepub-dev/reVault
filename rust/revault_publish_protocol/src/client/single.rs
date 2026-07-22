@@ -12,6 +12,7 @@ use super::helpers::{next_backoff, retry_single_client_error, topology_from_tail
 use super::types::RetryPolicy;
 
 impl PublishClient<HttpTransport> {
+    /// Creates a value from the supplied data.
     pub fn new(server_url: &str) -> Result<Self, ClientError> {
         Ok(Self {
             transport: HttpTransport::new(server_url)?,
@@ -20,6 +21,7 @@ impl PublishClient<HttpTransport> {
         })
     }
 
+    /// Returns the with timeout.
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.transport.timeout = timeout;
         self
@@ -27,15 +29,18 @@ impl PublishClient<HttpTransport> {
 }
 
 impl<T: Transport> PublishClient<T> {
+    /// Returns the from transport.
     pub fn from_transport(transport: T) -> Self {
         Self::new_inner(transport)
     }
 
+    /// Returns the with max response bytes.
     pub fn with_max_response_bytes(mut self, max_response_bytes: usize) -> Self {
         self.max_response_bytes = max_response_bytes;
         self
     }
 
+    /// Returns the with retry policy.
     pub fn with_retry_policy(
         mut self,
         attempts: usize,
@@ -50,6 +55,7 @@ impl<T: Transport> PublishClient<T> {
         self
     }
 
+    /// Returns the publish payload.
     pub fn publish_payload(
         &self,
         ttl_seconds: u32,
@@ -59,6 +65,7 @@ impl<T: Transport> PublishClient<T> {
         self.publish_payload_with_email(ttl_seconds, max_receives, payload, None)
     }
 
+    /// Returns the publish payload with email.
     pub fn publish_payload_with_email(
         &self,
         ttl_seconds: u32,
@@ -77,6 +84,7 @@ impl<T: Transport> PublishClient<T> {
             .value)
     }
 
+    /// Returns the publish payload with email with version.
     pub fn publish_payload_with_email_with_version(
         &self,
         ttl_seconds: u32,
@@ -111,6 +119,7 @@ impl<T: Transport> PublishClient<T> {
         })
     }
 
+    /// Returns the publish contact.
     pub fn publish_contact(
         &self,
         ttl_seconds: u32,
@@ -118,7 +127,7 @@ impl<T: Transport> PublishClient<T> {
         contact: ContactPublish<'_>,
     ) -> Result<PublishResult, ClientError> {
         let payload = payload::encode_contact_publish(
-            contact.identity,
+            contact.profile,
             contact.public_key,
             contact.signing_public_key,
             contact.fingerprint,
@@ -134,10 +143,12 @@ impl<T: Transport> PublishClient<T> {
         )
     }
 
+    /// Returns the receive.
     pub fn receive(&self, publish_code: &str) -> Result<ReceivedPublish, ClientError> {
         Ok(self.receive_with_version(publish_code, None)?.value)
     }
 
+    /// Returns the receive with version.
     pub fn receive_with_version(
         &self,
         publish_code: &str,
@@ -164,12 +175,14 @@ impl<T: Transport> PublishClient<T> {
         })
     }
 
+    /// Removes delete.
     pub fn delete(&self, publish_code: &str, delete_token: &[u8]) -> Result<bool, ClientError> {
         Ok(self
             .delete_with_version(publish_code, delete_token, None)?
             .value)
     }
 
+    /// Removes with version.
     pub fn delete_with_version(
         &self,
         publish_code: &str,

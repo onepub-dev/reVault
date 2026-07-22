@@ -1368,12 +1368,12 @@ max_receives_per_publish = 3
 
 [[topology_server]]
 id = 0
-url = "https://keypublish0.example.com/v1/publish"
+url = "https://keyshare0.example.com/v1/publish"
 status = "active"
 
 [[topology_server]]
 id = 1
-url = "https://keypublish1.example.com/v1/publish"
+url = "https://keyshare1.example.com/v1/publish"
 status = "standby"
 
 [[route]]
@@ -1399,7 +1399,7 @@ failover = [0]
         assert_eq!(config.topology_servers[0].id, 0);
         assert_eq!(
             config.topology_servers[0].url,
-            "https://keypublish0.example.com/v1/publish"
+            "https://keyshare0.example.com/v1/publish"
         );
         assert_eq!(config.topology_servers[0].status, ServerStatus::Active);
         assert_eq!(config.topology_servers[1].id, 1);

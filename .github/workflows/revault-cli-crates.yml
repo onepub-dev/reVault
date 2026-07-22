@@ -1,0 +1,32 @@
+name: Publish revault CLI crates
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        description: The cargo-dist release plan
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish-crates:
+    name: Publish CLI crates to crates.io
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - id: crates
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish CLI dependency chain
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml
+          -p revault_tooling -- publish-cli --repository . --publish

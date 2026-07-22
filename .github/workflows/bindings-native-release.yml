@@ -1,0 +1,796 @@
+name: bindings native release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without a leading v
+        required: true
+        type: string
+      targets:
+        description: Comma-separated publication targets to retry
+        required: true
+        default: python,ruby,git
+        type: string
+  push:
+    tags:
+      - revault-api-v*
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_VERSION: ${{ inputs.version }}
+
+jobs:
+  binding-lint:
+    uses: ./.github/workflows/bindings-lint.yml
+
+  package-matrix:
+    name: define 94 claimed package combinations
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - id: matrix
+        shell: bash
+        run: echo "value=$(cargo run --locked --quiet --manifest-path rust/Cargo.toml -p revault_tooling -- e2e matrix-json)" >> "$GITHUB_OUTPUT"
+
+  conformance:
+    needs: binding-lint
+    name: 16 installed Linux APIs and 480 interoperability paths
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run exhaustive package E2E matrix
+        working-directory: rust
+        run: cargo run --locked -p revault_tooling -- e2e matrix --compose ../bindings/e2e/compose.yaml
+
+  native:
+    needs: binding-lint
+    name: native ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64-gnu
+            runner: ubuntu-24.04
+            rust_target: x86_64-unknown-linux-gnu
+            library: librevault_api.so
+            static_library: librevault_api.a
+          - target: linux-aarch64-gnu
+            runner: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+            library: librevault_api.so
+            static_library: librevault_api.a
+          - target: macos-x86_64
+            runner: macos-15-intel
+            rust_target: x86_64-apple-darwin
+            library: librevault_api.dylib
+            static_library: librevault_api.a
+          - target: macos-aarch64
+            runner: macos-15
+            rust_target: aarch64-apple-darwin
+            library: librevault_api.dylib
+            static_library: librevault_api.a
+          - target: windows-x86_64-msvc
+            runner: windows-2025
+            rust_target: x86_64-pc-windows-msvc
+            library: revault_api.dll
+            static_library: revault_api.lib
+          - target: windows-aarch64-msvc
+            runner: windows-11-arm
+            rust_target: aarch64-pc-windows-msvc
+            library: revault_api.dll
+            static_library: revault_api.lib
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: ${{ matrix.rust_target }}
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+        with:
+          arch: ${{ matrix.target == 'windows-aarch64-msvc' && 'arm64' || 'x64' }}
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          dbus-x11 gnome-keyring libsecret-tools libdbus-1-dev
+          pkg-config protobuf-compiler
+      - name: Install macOS build dependencies
+        if: runner.os == 'macOS'
+        run: brew install protobuf
+      - name: Install Windows build dependencies
+        if: runner.os == 'Windows'
+        run: choco install protoc --yes --no-progress
+      - name: Build release library
+        working-directory: rust
+        run: cargo build --locked --release --target ${{ matrix.rust_target }} -p revault_bindings
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "value=${GITHUB_REF_NAME#revault-api-v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Package native ABI
+        shell: bash
+        env:
+          RUSTFLAGS: ${{ runner.os == 'Windows' && '-Clinker=lld-link.exe' || '' }}
+        run: |
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling -- release package-native \
+            --repository . \
+            --version "${{ steps.version.outputs.value }}" \
+            --target "${{ matrix.target }}" \
+            --library "rust/target/${{ matrix.rust_target }}/release/${{ matrix.library }}" \
+            --static-library "rust/target/${{ matrix.rust_target }}/release/${{ matrix.static_library }}" \
+            --output dist
+      - name: Install archive and run all 217 native operations
+        shell: bash
+        env:
+          RUSTFLAGS: ${{ runner.os == 'Windows' && '-Clinker=lld-link.exe' || '' }}
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          e2e native-conformance
+          --archive "dist/revault-api-native-${{ steps.version.outputs.value }}-${{ matrix.target }}.${{ startsWith(matrix.target, 'windows-') && 'zip' || 'tar.gz' }}"
+          --repository .
+          --work native-conformance
+      - name: Attest native archives
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  macos-xcframework:
+    needs: native
+    runs-on: macos-15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-macos-*
+          path: native
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - name: Build universal Swift binary target
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release package-xcframework
+          --x86-64-archive native/native-macos-x86_64/revault-api-native-*-macos-x86_64.tar.gz
+          --aarch64-archive native/native-macos-aarch64/revault-api-native-*-macos-aarch64.tar.gz
+          --output dist
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/RevaultC.xcframework.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swift-macos-xcframework
+          path: dist/RevaultC.xcframework.zip*
+          if-no-files-found: error
+
+  package-conformance:
+    name: ${{ matrix.language }} installed package on ${{ matrix.target }}
+    needs: [package-matrix, native, ecosystem-layouts]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.package-matrix.outputs.matrix) }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-${{ matrix.target }}
+          path: native
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: actions/setup-node@v4
+        if: contains(fromJSON('["javascript","typescript","wasm"]'), matrix.language)
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        if: matrix.language == 'python'
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-java@v4
+        if: contains(fromJSON('["java","kotlin"]'), matrix.language)
+        with:
+          distribution: temurin
+          java-version: '22'
+      - uses: gradle/actions/setup-gradle@v4
+        if: contains(fromJSON('["java","kotlin"]'), matrix.language)
+        with:
+          gradle-version: '8.13'
+      - uses: actions/setup-dotnet@v4
+        if: matrix.language == 'csharp'
+        with:
+          dotnet-version: '8.0.x'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows' && contains(fromJSON('["c","cpp"]'), matrix.language)
+        with:
+          arch: ${{ matrix.target == 'windows-aarch64-msvc' && 'arm64' || 'x64' }}
+      - uses: dart-lang/setup-dart@v1
+        if: matrix.language == 'dart'
+      - uses: actions/setup-go@v5
+        if: matrix.language == 'go'
+        with:
+          go-version: '1.24.x'
+      - uses: ruby/setup-ruby@v1
+        if: matrix.language == 'ruby'
+        with:
+          ruby-version: '3.3'
+      - uses: shivammathur/setup-php@v2
+        if: matrix.language == 'php'
+        with:
+          php-version: '8.3'
+          extensions: ffi
+          tools: composer:v2
+      - uses: leafo/gh-actions-lua@v11
+        if: matrix.language == 'lua'
+        with:
+          luaVersion: luajit-2.1
+      - uses: leafo/gh-actions-luarocks@v5
+        if: matrix.language == 'lua' && runner.os != 'Windows'
+      - name: Install Windows LuaRocks
+        if: matrix.language == 'lua' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'luarocks-3.11.1-windows-64.zip'
+          $root = Join-Path $env:RUNNER_TEMP 'luarocks'
+          Invoke-WebRequest `
+            -Uri 'https://luarocks.github.io/luarocks/releases/luarocks-3.11.1-windows-64.zip' `
+            -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          $expected = 'c71dba3d03e12305e9ccd022c621c8869aba3d124d9249e214aed5c16f3682a3'
+          if ($actual -ne $expected) {
+            throw "LuaRocks archive checksum mismatch: $actual"
+          }
+          Expand-Archive -Path $archive -DestinationPath $root
+          Join-Path $root 'luarocks-3.11.1-windows-64' |
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - uses: swift-actions/setup-swift@v2
+        if: matrix.language == 'swift' && runner.os == 'Linux'
+        with:
+          swift-version: '6.1'
+      - name: Install Linux service and build dependencies
+        if: runner.os == 'Linux' && matrix.language != 'rust'
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 libprotobuf-dev protobuf-compiler
+      - name: Install macOS C++ dependencies
+        if: runner.os == 'macOS' && matrix.language == 'cpp'
+        run: brew install protobuf
+      - name: Install Windows x64 C++ dependencies
+        if: runner.os == 'Windows' && matrix.language == 'cpp' && matrix.target == 'windows-x86_64-msvc'
+        shell: pwsh
+        run: |
+          vcpkg install protobuf:x64-windows
+          "CMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
+      - name: Install Windows ARM64 C++ dependencies
+        if: runner.os == 'Windows' && matrix.language == 'cpp' && matrix.target == 'windows-aarch64-msvc'
+        shell: pwsh
+        run: |
+          vcpkg install protobuf:arm64-windows
+          "CMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
+      - name: Install Lua Protobuf dependency
+        if: matrix.language == 'lua'
+        run: luarocks install lua-protobuf
+      - name: Install Ruby Protobuf dependency
+        if: matrix.language == 'ruby'
+        run: gem install google-protobuf -v '~> 3.25' --no-document
+      - name: Install, unpack and exercise the claimed package
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          e2e package-conformance
+          --language "${{ matrix.language }}"
+          --target "${{ matrix.target }}"
+          --archive native
+          --packages packages
+          --repository .
+          --work "package-conformance-${{ matrix.language }}-${{ matrix.target }}"
+
+  github-release:
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
+    needs: [native, macos-xcframework, ecosystem-layouts, conformance, package-conformance]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        if: github.ref_type == 'tag'
+        with:
+          pattern: native-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: github.ref_type == 'tag'
+        with:
+          name: swift-macos-xcframework
+          path: dist
+      - name: Publish immutable native archives
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*
+      - name: Verify immutable release for publication retry
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release view "revault-api-v${RELEASE_VERSION}" --repo onepub-dev/reVault
+
+  ecosystem-layouts:
+    needs: native
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: native
+          merge-multiple: true
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "value=${GITHUB_REF_NAME#revault-api-v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Stage registry-native layouts
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release stage-ecosystems --repository .
+          --version "${{ steps.version.outputs.value }}"
+          --output ecosystem
+          native/revault-api-native-*.tar.gz
+          native/revault-api-native-*.zip
+      - name: Assemble complete registry packages
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release assemble-packages
+          --version "${{ steps.version.outputs.value }}"
+          --layout ecosystem
+          --source .
+          --output packages
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ecosystem-native-layouts
+          path: ecosystem
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+          if-no-files-found: error
+
+  publish-npm-native:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'npm'))
+    needs: [github-release, ecosystem-layouts]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - run: npm install --global npm@latest
+      - name: Publish native carrier packages first
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem npm-native --publish
+
+  publish-npm:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'npm'))
+    needs: [publish-npm-native]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - run: npm install --global npm@latest
+      - name: Publish JavaScript and TypeScript facade
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem npm --publish
+      - name: Publish hosted WebAssembly package last
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem wasm --publish
+
+  build-python-wheels:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'python'))
+    needs: [github-release, ecosystem-layouts]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x86_64-gnu, runner: ubuntu-24.04, architecture: x64 }
+          - { target: linux-aarch64-gnu, runner: ubuntu-24.04-arm, architecture: arm64 }
+          - { target: macos-x86_64, runner: macos-15-intel, architecture: x64 }
+          - { target: macos-aarch64, runner: macos-15, architecture: arm64 }
+          - { target: windows-x86_64-msvc, runner: windows-2025, architecture: x64 }
+          - { target: windows-aarch64-msvc, runner: windows-11-arm, architecture: arm64 }
+    runs-on: ${{ matrix.runner }}
+    env:
+      RUSTUP_TOOLCHAIN: 1.95.0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: ${{ matrix.architecture }}
+      - name: Update Linux package index
+        if: runner.os == 'Linux'
+        run: sudo apt-get update
+      - name: Install Linux wheel repair tooling
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y libdbus-1-3 patchelf
+      - name: Install auditwheel
+        if: runner.os == 'Linux'
+        run: python -m pip install auditwheel
+      - run: python -m pip install build twine
+      - name: Build and verify platform wheel
+        shell: bash
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem python --target "${{ matrix.target }}" --output dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-wheel-${{ matrix.target }}
+          path: dist/python/*.whl
+          if-no-files-found: error
+
+  publish-python:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'python'))
+    needs: [build-python-wheels]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: python-wheel-*
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1
+
+  publish-maven:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'maven'))
+    needs: [github-release, ecosystem-layouts]
+    runs-on: ubuntu-24.04
+    environment: release
+    env:
+      ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+      ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+      ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_SIGNING_KEY }}
+      ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '22'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Publish Java
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem maven-java --publish
+      - name: Make Java immediately available to the Kotlin build
+        run: gradle -p packages/maven/java --no-daemon publishToMavenLocal
+      - name: Publish Kotlin
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem maven-kotlin --publish
+
+  publish-nuget:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'nuget'))
+    needs: [github-release, ecosystem-layouts]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - id: nuget
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+      - name: Publish NuGet package
+        env:
+          NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem nuget --output dist --publish
+
+  publish-dart:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'dart'))
+    needs: [github-release, ecosystem-layouts]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dart-lang/setup-dart@v1
+      - name: Publish pub.dev package
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem dart --publish
+
+  publish-ruby:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'ruby'))
+    needs: [github-release, ecosystem-layouts]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - uses: rubygems/configure-rubygems-credentials@v1.0.0
+      - name: Publish all platform gems
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem ruby --output dist --publish
+
+  publish-lua:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'lua'))
+    needs: [github-release, ecosystem-layouts]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: linux-x86_64-gnu, runner: ubuntu-24.04 }
+          - { target: linux-aarch64-gnu, runner: ubuntu-24.04-arm }
+          - { target: macos-x86_64, runner: macos-15-intel }
+          - { target: macos-aarch64, runner: macos-15 }
+          - { target: windows-x86_64-msvc, runner: windows-2025 }
+          - { target: windows-aarch64-msvc, runner: windows-11-arm }
+    runs-on: ${{ matrix.runner }}
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: leafo/gh-actions-lua@v11
+        with:
+          luaVersion: luajit-2.1
+      - uses: leafo/gh-actions-luarocks@v5
+        if: runner.os != 'Windows'
+      - name: Install Windows LuaRocks
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP 'luarocks-3.11.1-windows-64.zip'
+          $root = Join-Path $env:RUNNER_TEMP 'luarocks'
+          Invoke-WebRequest `
+            -Uri 'https://luarocks.github.io/luarocks/releases/luarocks-3.11.1-windows-64.zip' `
+            -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          $expected = 'c71dba3d03e12305e9ccd022c621c8869aba3d124d9249e214aed5c16f3682a3'
+          if ($actual -ne $expected) {
+            throw "LuaRocks archive checksum mismatch: $actual"
+          }
+          Expand-Archive -Path $archive -DestinationPath $root
+          Join-Path $root 'luarocks-3.11.1-windows-64' |
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Publish platform binary rock
+        env:
+          LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
+        shell: bash
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem lua --target "${{ matrix.target }}" --output dist --publish
+
+  publish-rust:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'rust'))
+    needs: [github-release, ecosystem-layouts]
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - name: Check crates.io publication state
+        id: crates-state
+        shell: bash
+        run: |
+          needs_publish=false
+          for package in \
+            revault_page_api@0.0.3 \
+            revault_lockbox_api@0.0.4 \
+            revault_vault_api@0.0.4 \
+            "revault-api@${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          do
+            if ! cargo info --registry crates-io "$package" >/dev/null 2>&1; then
+              needs_publish=true
+            fi
+          done
+          echo "needs-publish=$needs_publish" >> "$GITHUB_OUTPUT"
+      - id: crates
+        if: steps.crates-state.outputs.needs-publish == 'true'
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish the final page, lockbox, and vault APIs in dependency order
+        if: steps.crates-state.outputs.needs-publish == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem rust-foundation --publish
+      - name: Publish crates.io facade
+        if: steps.crates-state.outputs.needs-publish == 'true'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --ecosystem rust --publish
+
+  promote-api-repository:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'git'))
+    needs: [github-release, ecosystem-layouts]
+    runs-on: ubuntu-24.04
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: onepub-dev/revault-api
+          token: ${{ secrets.REVAULT_BINDING_APIS_RELEASE_TOKEN }}
+          path: destination
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: swift-macos-xcframework
+          path: release-assets
+      - name: Promote combined Go, Swift, and PHP package tag
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release promote-git --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --destination destination --package api
+          --release-assets release-assets --publish
+
+  promote-homebrew:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'git'))
+    needs: [github-release, ecosystem-layouts]
+    runs-on: ubuntu-24.04
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: onepub-dev/revault-homebrew
+          token: ${{ secrets.REVAULT_BINDING_APIS_RELEASE_TOKEN }}
+          path: destination
+      - uses: actions/download-artifact@v4
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: swift-macos-xcframework
+          path: release-assets
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - name: Generate checksummed package metadata and promote tag
+        run: >-
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          release promote-git --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          --packages packages --destination destination --package homebrew
+          --release-assets release-assets --publish

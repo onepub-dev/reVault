@@ -24,7 +24,7 @@ use revault_vault_api::{
     format_fingerprint_crockford_96_reading as format_fingerprint_reading,
     format_fingerprint_hex_pairs as format_hex_pairs, import_private_key, import_public_key,
     local_vault, public_key_fingerprint, restore_default_vault, set_auto_open_scope, AutoOpenScope,
-    IdentityGenerationStatus, KeyFormat, VaultDirectory,
+    KeyFormat, ProfileGenerationStatus, VaultDirectory,
 };
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -62,7 +62,7 @@ pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
         "restore" => restore_options(required_value(sub, "backup"), sub.get_flag("overwrite")),
         "passphrase" => change_passphrase(&[]),
         "form" => vault_form_matches(sub),
-        "identity" => vault_identity_matches(sub),
+        "profile" => vault_profile_matches(sub),
         "contact" => vault_contact_matches(sub),
         "lockbox" => vault_lockbox_matches(sub),
         _ => Err(Error::InvalidInput(format!("unknown vault command: {command}")).into()),
@@ -98,29 +98,29 @@ fn vault_form_matches(matches: &ArgMatches) -> CliResult<()> {
     }
 }
 
-fn vault_identity_matches(matches: &ArgMatches) -> CliResult<()> {
+fn vault_profile_matches(matches: &ArgMatches) -> CliResult<()> {
     let (command, sub) = matches
         .subcommand()
-        .ok_or_else(|| Error::InvalidInput("missing vault identity command".to_string()))?;
+        .ok_or_else(|| Error::InvalidInput("missing vault profile command".to_string()))?;
     match command {
-        "list" | "ls" => list_identities_with_format(output_format_from_matches(sub)?),
+        "list" | "ls" => list_profiles_with_format(output_format_from_matches(sub)?),
         "create" => keygen_options(optional_value(sub, "name"), sub.get_flag("overwrite")),
-        "email" => identity_email_values(&string_values(sub, "args")),
-        "fingerprint" => identity_fingerprint(&optional_string_arg(sub, "name")),
-        "history" => identity_history_with_format(
+        "email" => profile_email_values(&string_values(sub, "args")),
+        "fingerprint" => profile_fingerprint(&optional_string_arg(sub, "name")),
+        "history" => profile_history_with_format(
             optional_value(sub, "name").unwrap_or(VaultDirectory::DEFAULT_KEY_NAME),
             output_format_from_matches(sub)?,
         ),
-        "publish" => publish_identity_options(PublishCliOptions::from_publish_matches(sub)?),
-        "backup" => identity_backup_options(IdentityBackupArgs::from_matches(sub)),
-        "restore" => identity_restore_options(IdentityRestoreArgs::from_matches(sub)),
+        "publish" => publish_profile_options(PublishCliOptions::from_publish_matches(sub)?),
+        "backup" => profile_backup_options(ProfileBackupArgs::from_matches(sub)),
+        "restore" => profile_restore_options(ProfileRestoreArgs::from_matches(sub)),
         "export" => export_public_options(
-            IdentityExportArgs::from_matches(sub),
+            ProfileExportArgs::from_matches(sub),
             KeyFormat::parse(optional_value(sub, "format").unwrap_or("lockbox"))?,
         ),
         "remove" => remove_key_options(optional_value(sub, "name"), sub.get_flag("force")),
         "rotate" => rotate_key(&optional_string_arg(sub, "name")),
-        _ => Err(Error::InvalidInput(format!("unknown vault identity command: {command}")).into()),
+        _ => Err(Error::InvalidInput(format!("unknown vault profile command: {command}")).into()),
     }
 }
 
@@ -307,7 +307,7 @@ fn init_options(overwrite: bool, verify: bool) -> CliResult<()> {
         println!("Path: {}", path.display());
         if overwrite {
             println!(
-                "WARNING: replacing it will remove identities, contacts and \
+                "WARNING: replacing it will remove profiles, contacts and \
 key-directory backups stored in this vault."
             );
             let password = read_new_vault_password()?;
@@ -322,7 +322,7 @@ key-directory backups stored in this vault."
             println!("Vault replaced successfully.");
             if generated {
                 println!(
-                    "Created default identity: {}",
+                    "Created default profile: {}",
                     VaultDirectory::DEFAULT_KEY_NAME
                 );
             }
@@ -330,7 +330,7 @@ key-directory backups stored in this vault."
                 println!("Default forms: {default_forms}");
             }
             if generated {
-                print_default_identity_backup(&vault)?;
+                print_default_profile_backup(&vault)?;
             }
             return Ok(());
         }
@@ -351,7 +351,7 @@ key-directory backups stored in this vault."
         println!("Create the local reVault vault.");
         println!();
         println!("Stores:");
-        println!("  - identities and contacts");
+        println!("  - profiles and contacts");
         println!("  - key-directory backups for published lockboxes");
         println!();
     }
@@ -367,13 +367,13 @@ key-directory backups stored in this vault."
     println!("  {}", vault.root().display());
     if generated {
         println!();
-        println!("Identity: {}", VaultDirectory::DEFAULT_KEY_NAME);
+        println!("Profile: {}", VaultDirectory::DEFAULT_KEY_NAME);
     }
     if default_forms > 0 {
         println!("Default forms: {default_forms}");
     }
     if generated {
-        print_default_identity_backup(&vault)?;
+        print_default_profile_backup(&vault)?;
     }
     println!();
     println!("Pass phrase reminder:");
@@ -421,7 +421,7 @@ fn restore_backup_path() -> CliResult<PathBuf> {
     )))
 }
 
-fn identity_restore_backup_path(name: &str) -> CliResult<PathBuf> {
+fn profile_restore_backup_path(name: &str) -> CliResult<PathBuf> {
     let safe_name = name
         .chars()
         .map(|ch| {
@@ -433,7 +433,7 @@ fn identity_restore_backup_path(name: &str) -> CliResult<PathBuf> {
         })
         .collect::<String>();
     Ok(default_vault_dir()?.join(format!(
-        "local-vault-before-identity-restore-{safe_name}-{}.lockbox-backup",
+        "local-vault-before-profile-restore-{safe_name}-{}.lockbox-backup",
         unix_ms_now()
     )))
 }
@@ -468,17 +468,17 @@ fn keygen_options(name: Option<&str>, overwrite: bool) -> CliResult<()> {
     let name = name.unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
     let vault = default_vault()?;
     if vault.private_key_exists(name)? && !overwrite {
-        return Err(Error::AlreadyExists(format!("vault identity {name}")).into());
+        return Err(Error::AlreadyExists(format!("vault profile {name}")).into());
     }
 
     let keypair = ContactKeyPair::generate()?;
     vault.store_private_key(name, &keypair)?;
     if defaulted_name {
-        println!("Using default identity name: {name}");
+        println!("Using default profile name: {name}");
     }
-    println!("Created vault identity: {name}");
+    println!("Created vault profile: {name}");
     println!(
-        "Export its public key with: lockbox vault identity export <public-key-output> --name {name}"
+        "Export its public key with: lockbox vault profile export <public-key-output> --name {name}"
     );
     Ok(())
 }
@@ -536,36 +536,36 @@ impl ContactImportOptions {
     }
 }
 
-fn publish_identity_options(options: PublishCliOptions) -> CliResult<()> {
-    let identity = options
+fn publish_profile_options(options: PublishCliOptions) -> CliResult<()> {
+    let profile = options
         .positionals
         .first()
         .map(String::as_str)
         .unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
     let vault = default_vault()?;
-    let keypair = vault.load_private_key(identity)?;
+    let keypair = vault.load_private_key(profile)?;
     let public_key = keypair.public_key().to_bytes();
     let signing_public_key = vault
-        .load_owner_signing_key(identity)?
+        .load_owner_signing_key(profile)?
         .public_key()
         .to_bytes();
     let now = unix_ms_now();
     let ttl_seconds = options.ttl_seconds.unwrap_or(900);
     let expires_at = now.saturating_add(ttl_seconds as u64 * 1000);
-    let nonce = publish_nonce(identity, &public_key, now);
+    let nonce = publish_nonce(profile, &public_key, now);
     if options.email.is_some() {
         return Err(Error::InvalidInput(
-            "set the identity email with `lockbox vault identity email [identity] <email>` before publishing".to_string(),
+            "set the profile email with `lockbox vault profile email [profile] <email>` before publishing".to_string(),
         )
         .into());
     }
-    let email = vault.identity_email(identity)?.ok_or_else(|| {
+    let email = vault.profile_email(profile)?.ok_or_else(|| {
         cli_error(format!(
-            "You may not publish a public key for an Identity that does not have an email address.\nThe identity `{identity}` has no email address.\nRun `lockbox vault identity email {identity} <email>`.\nThen run this command again."
+            "You may not publish a public key for a Profile that does not have an email address.\nThe profile `{profile}` has no email address.\nRun `lockbox vault profile email {profile} <email>`.\nThen run this command again."
         ))
     })?;
     let email = normalize_contact_email(&email)
-        .map_err(|_| Error::InvalidInput("invalid identity email address".to_string()))?;
+        .map_err(|_| Error::InvalidInput("invalid profile email address".to_string()))?;
     let fingerprint = contact_fingerprint(&email, &public_key, &signing_public_key)
         .map_err(|_| Error::InvalidInput("invalid contact fingerprint fields".to_string()))?;
     let pool = publish_client_pool(&options)?;
@@ -574,7 +574,7 @@ fn publish_identity_options(options: PublishCliOptions) -> CliResult<()> {
             ttl_seconds,
             options.max_receives.unwrap_or(1),
             ContactPublish {
-                identity,
+                profile,
                 public_key: &public_key,
                 signing_public_key: &signing_public_key,
                 fingerprint: &fingerprint,
@@ -677,7 +677,7 @@ fn receive_publish_options(options: PublishCliOptions) -> CliResult<()> {
     vault.store_contact(&contact_name, &contact_public_key)?;
     vault.store_contact_signing_key(&contact_name, &signing_public)?;
     println!("contact={contact_name}");
-    println!("identity={}", published_contact.identity);
+    println!("profile={}", published_contact.profile);
     println!("publish_code={publish_code}");
     println!("email={}", verification.email);
     print_fingerprint_lines("contact_fingerprint", &computed_fingerprint);
@@ -762,13 +762,18 @@ fn publish_client_pool(options: &PublishCliOptions) -> CliResult<PublishClientPo
         let pool = PublishClientPool::discover(&normalize_topology_url(&topology_url))?;
         return with_persisted_publish_sticky(pool);
     }
-    Ok(PublishClientPool::new([normalize_publish_url(
-        config
-            .server
-            .as_deref()
-            .unwrap_or("https://keypublish.revault.onepub.dev/v1/publish"),
-    )])?)
+    if let Some(server) = config.server {
+        return Ok(PublishClientPool::new([normalize_publish_url(&server)])?);
+    }
+    let topology_urls = DEFAULT_PUBLISH_TOPOLOGY_URLS.map(normalize_topology_url);
+    let pool = PublishClientPool::discover_from_urls(topology_urls)?;
+    with_persisted_publish_sticky(pool)
 }
+
+const DEFAULT_PUBLISH_TOPOLOGY_URLS: [&str; 2] = [
+    "https://keyshare0.revault.onepub.dev/v1/topology",
+    "https://keyshare1.revault.onepub.dev/v1/topology",
+];
 
 #[derive(Default)]
 struct PublishConfig {
@@ -904,9 +909,9 @@ fn normalize_topology_url(value: &str) -> String {
     }
 }
 
-fn publish_nonce(identity: &str, public_key: &[u8], now: u64) -> Vec<u8> {
+fn publish_nonce(profile: &str, public_key: &[u8], now: u64) -> Vec<u8> {
     let mut hasher = Sha256::new();
-    hasher.update(identity.as_bytes());
+    hasher.update(profile.as_bytes());
     hasher.update(public_key);
     hasher.update(now.to_be_bytes());
     hasher.update(std::process::id().to_be_bytes());
@@ -1043,9 +1048,9 @@ fn hex_digit(byte: u8) -> CliResult<u8> {
     }
 }
 
-fn identity_restore_options(options: IdentityRestoreArgs) -> CliResult<()> {
+fn profile_restore_options(options: ProfileRestoreArgs) -> CliResult<()> {
     let vault = default_vault()?;
-    let backup = read_identity_backup(&options.input_path)?;
+    let backup = read_profile_backup(&options.input_path)?;
     let name = options.name.unwrap_or(backup.name);
     let keypair = import_private_key(SecretVec::try_from_slice(
         backup.private_key_pem.as_bytes(),
@@ -1053,7 +1058,7 @@ fn identity_restore_options(options: IdentityRestoreArgs) -> CliResult<()> {
     let signing_key = owner_signing_key_from_hex_text(&backup.signing_private_hex)?;
     let existed = vault.private_key_exists(&name)?;
     let backup_path = if existed && options.overwrite {
-        let backup_path = identity_restore_backup_path(&name)?;
+        let backup_path = profile_restore_backup_path(&name)?;
         backup_default_vault(&backup_path, false)?;
         Some(backup_path)
     } else {
@@ -1063,26 +1068,26 @@ fn identity_restore_options(options: IdentityRestoreArgs) -> CliResult<()> {
     let public_key = keypair.public_key();
     let fingerprint = public_key_fingerprint(&public_key);
     if existed && options.overwrite {
-        println!("WARNING: replacing vault identity: {name}");
-        println!("Existing vault backed up before identity restore.");
+        println!("WARNING: replacing vault profile: {name}");
+        println!("Existing vault backed up before profile restore.");
         if let Some(backup_path) = backup_path {
             println!("Backup:");
             println!("  {}", backup_path.display());
         }
     }
-    println!("identity={name}");
+    println!("profile={name}");
     println!("public_key_fingerprint={}", format_hex_pairs(&fingerprint));
     println!("owner_signing_key=restored");
     Ok(())
 }
 
-fn identity_backup_options(options: IdentityBackupArgs) -> CliResult<()> {
+fn profile_backup_options(options: ProfileBackupArgs) -> CliResult<()> {
     let vault = default_vault()?;
     let mut output = Vec::new();
-    write_identity_backup(&mut output, &vault, &options.name)?;
+    write_profile_backup(&mut output, &vault, &options.name)?;
     write_output_file(&options.output_path, &output, options.overwrite)?;
-    println!("Identity backup completed successfully.");
-    println!("identity={}", options.name);
+    println!("Profile backup completed successfully.");
+    println!("profile={}", options.name);
     println!(
         "Backup path: {}",
         absolute_path(&PathBuf::from(&options.output_path))?.display()
@@ -1103,32 +1108,32 @@ fn write_output_file(path: &str, bytes: &[u8], overwrite: bool) -> CliResult<()>
     Ok(())
 }
 
-struct ParsedIdentityBackup {
+struct ParsedProfileBackup {
     name: String,
     private_key_pem: String,
     signing_private_hex: String,
 }
 
-fn read_identity_backup(path: &str) -> CliResult<ParsedIdentityBackup> {
-    parse_identity_backup(&fs::read_to_string(path)?)
+fn read_profile_backup(path: &str) -> CliResult<ParsedProfileBackup> {
+    parse_profile_backup(&fs::read_to_string(path)?)
 }
 
-fn parse_identity_backup(text: &str) -> CliResult<ParsedIdentityBackup> {
+fn parse_profile_backup(text: &str) -> CliResult<ParsedProfileBackup> {
     let name = text
         .lines()
         .map(str::trim)
-        .find_map(|line| line.strip_prefix("Identity:").map(str::trim))
+        .find_map(|line| line.strip_prefix("Profile:").map(str::trim))
         .filter(|name| !name.is_empty())
-        .ok_or_else(|| Error::InvalidInput("identity backup is missing Identity".to_string()))?
+        .ok_or_else(|| Error::InvalidInput("profile backup is missing Profile".to_string()))?
         .to_string();
     let private_key_pem = extract_labeled_block(
         text,
         "BEGIN LOCKBOX PRIVATE KEY",
         "END LOCKBOX PRIVATE KEY",
-        "identity backup is missing identity private key",
+        "profile backup is missing profile private key",
     )?;
     let signing_private_hex = extract_owner_signing_hex(text)?;
-    Ok(ParsedIdentityBackup {
+    Ok(ParsedProfileBackup {
         name,
         private_key_pem,
         signing_private_hex,
@@ -1159,7 +1164,7 @@ fn extract_labeled_block(
 fn extract_owner_signing_hex(text: &str) -> CliResult<String> {
     let Some((_, rest)) = text.split_once("Owner signing private key record (hex):") else {
         return Err(Error::InvalidInput(
-            "identity backup is missing owner signing private key".to_string(),
+            "profile backup is missing owner signing private key".to_string(),
         )
         .into());
     };
@@ -1171,7 +1176,7 @@ fn extract_owner_signing_hex(text: &str) -> CliResult<String> {
         .collect::<String>();
     if hex.is_empty() {
         return Err(Error::InvalidInput(
-            "identity backup is missing owner signing private key".to_string(),
+            "profile backup is missing owner signing private key".to_string(),
         )
         .into());
     }
@@ -1198,11 +1203,11 @@ fn owner_signing_key_from_hex_text(text: &str) -> CliResult<OwnerSigningKeyPair>
 fn remove_key_options(name: Option<&str>, force: bool) -> CliResult<()> {
     let name = name.unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
     if !force && !confirm_private_key_removal(name)? {
-        println!("Vault identity not removed: {name}");
+        println!("Vault profile not removed: {name}");
         return Ok(());
     }
     default_vault()?.delete_private_key(name)?;
-    println!("Vault identity removed: {name}");
+    println!("Vault profile removed: {name}");
     Ok(())
 }
 
@@ -1212,10 +1217,10 @@ fn rotate_key(args: &[String]) -> CliResult<()> {
         .map(String::as_str)
         .unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
     let history = default_vault()?.rotate_private_key(name)?;
-    println!("Rotated vault identity: {name}");
+    println!("Rotated vault profile: {name}");
     println!("Active generation: {}", history.active_generation);
     println!(
-        "Run `lockbox access refresh --all {name}` to update remembered lockboxes that use this identity."
+        "Run `lockbox access refresh --all {name}` to update remembered lockboxes that use this profile."
     );
     Ok(())
 }
@@ -1225,12 +1230,12 @@ fn remove_contact_name(name: &str) -> CliResult<()> {
     Ok(())
 }
 
-fn list_identities_with_format(format: OutputFormat) -> CliResult<()> {
+fn list_profiles_with_format(format: OutputFormat) -> CliResult<()> {
     let vault = default_vault()?;
     let mut rows = Vec::new();
     for name in vault.list_private_keys()? {
         let email = vault
-            .identity_email(&name)?
+            .profile_email(&name)?
             .unwrap_or_else(|| "-".to_string());
         rows.push(vec![name, email]);
     }
@@ -1238,24 +1243,24 @@ fn list_identities_with_format(format: OutputFormat) -> CliResult<()> {
     Ok(())
 }
 
-fn identity_email_values(args: &[String]) -> CliResult<()> {
+fn profile_email_values(args: &[String]) -> CliResult<()> {
     let (name, email) = match args {
         [email] => (VaultDirectory::DEFAULT_KEY_NAME, email.as_str()),
         [name, email, ..] => (name.as_str(), email.as_str()),
         [] => {
-            return Err(Error::InvalidInput("missing identity email address".to_string()).into());
+            return Err(Error::InvalidInput("missing profile email address".to_string()).into());
         }
     };
     let email = normalize_contact_email(email)
-        .map_err(|_| Error::InvalidInput("invalid identity email address".to_string()))?;
-    default_vault()?.store_identity_email(name, &email)?;
-    println!("identity={name}");
+        .map_err(|_| Error::InvalidInput("invalid profile email address".to_string()))?;
+    default_vault()?.store_profile_email(name, &email)?;
+    println!("profile={name}");
     println!("email={email}");
     Ok(())
 }
 
-fn identity_history_with_format(name: &str, format: OutputFormat) -> CliResult<()> {
-    let history = default_vault()?.list_identity_generations(name)?;
+fn profile_history_with_format(name: &str, format: OutputFormat) -> CliResult<()> {
+    let history = default_vault()?.list_profile_generations(name)?;
     let rows = history
         .generations
         .into_iter()
@@ -1263,7 +1268,7 @@ fn identity_history_with_format(name: &str, format: OutputFormat) -> CliResult<(
             vec![
                 history.name.clone(),
                 generation.index.to_string(),
-                identity_generation_status(generation.status).to_string(),
+                profile_generation_status(generation.status).to_string(),
                 encode_hex(&generation.contact_fingerprint),
                 generation.created_at_unix_ms.to_string(),
                 generation
@@ -1275,7 +1280,7 @@ fn identity_history_with_format(name: &str, format: OutputFormat) -> CliResult<(
         .collect::<Vec<_>>();
     print_records(
         &[
-            "identity",
+            "profile",
             "generation",
             "status",
             "fingerprint",
@@ -1288,35 +1293,35 @@ fn identity_history_with_format(name: &str, format: OutputFormat) -> CliResult<(
     Ok(())
 }
 
-fn identity_fingerprint(args: &[String]) -> CliResult<()> {
+fn profile_fingerprint(args: &[String]) -> CliResult<()> {
     if args.len() > 1 {
         return Err(Error::InvalidInput(
-            "vault identity fingerprint accepts at most one identity name".to_string(),
+            "vault profile fingerprint accepts at most one profile name".to_string(),
         )
         .into());
     }
-    let identity = args
+    let profile = args
         .first()
         .map(String::as_str)
         .unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
     let vault = default_vault()?;
-    let keypair = vault.load_private_key(identity)?;
+    let keypair = vault.load_private_key(profile)?;
     let public_key = keypair.public_key().to_bytes();
     let signing_public_key = vault
-        .load_owner_signing_key(identity)?
+        .load_owner_signing_key(profile)?
         .public_key()
         .to_bytes();
-    let email = vault.identity_email(identity)?.ok_or_else(|| {
+    let email = vault.profile_email(profile)?.ok_or_else(|| {
         cli_error(format!(
-            "Cannot calculate the publish fingerprint for `{identity}` because it has no email address.\nRun `lockbox vault identity email {identity} <email>`.\nThen run this command again."
+            "Cannot calculate the publish fingerprint for `{profile}` because it has no email address.\nRun `lockbox vault profile email {profile} <email>`.\nThen run this command again."
         ))
     })?;
     let email = normalize_contact_email(&email)
-        .map_err(|_| Error::InvalidInput("invalid identity email address".to_string()))?;
+        .map_err(|_| Error::InvalidInput("invalid profile email address".to_string()))?;
     let fingerprint = contact_fingerprint(&email, &public_key, &signing_public_key)
         .map_err(|_| Error::InvalidInput("invalid contact fingerprint fields".to_string()))?;
 
-    println!("identity={identity}");
+    println!("profile={profile}");
     println!("email={email}");
     print_fingerprint_lines("contact_fingerprint", &fingerprint);
     println!(
@@ -1537,11 +1542,11 @@ fn move_known_lockbox(source: &str, destination: &str) -> CliResult<()> {
     Ok(())
 }
 
-fn identity_generation_status(status: IdentityGenerationStatus) -> &'static str {
+fn profile_generation_status(status: ProfileGenerationStatus) -> &'static str {
     match status {
-        IdentityGenerationStatus::Active => "active",
-        IdentityGenerationStatus::Retired => "retired",
-        IdentityGenerationStatus::Compromised => "compromised",
+        ProfileGenerationStatus::Active => "active",
+        ProfileGenerationStatus::Retired => "retired",
+        ProfileGenerationStatus::Compromised => "compromised",
     }
 }
 
@@ -1556,20 +1561,20 @@ fn ensure_default_private_key(vault: &VaultDirectory) -> CliResult<bool> {
     Ok(true)
 }
 
-fn print_default_identity_backup(vault: &VaultDirectory) -> CliResult<()> {
+fn print_default_profile_backup(vault: &VaultDirectory) -> CliResult<()> {
     println!();
-    write_identity_backup(&mut io::stdout(), vault, VaultDirectory::DEFAULT_KEY_NAME)
+    write_profile_backup(&mut io::stdout(), vault, VaultDirectory::DEFAULT_KEY_NAME)
 }
 
-fn write_identity_backup(
+fn write_profile_backup(
     writer: &mut impl Write,
     vault: &VaultDirectory,
-    identity: &str,
+    profile: &str,
 ) -> CliResult<()> {
-    let keypair = vault.load_private_key(identity)?;
+    let keypair = vault.load_private_key(profile)?;
     let public_key = keypair.public_key();
     let private_bytes = export_private_key(&keypair, KeyFormat::LockboxPem)?;
-    let signing_key = vault.load_owner_signing_key(identity)?;
+    let signing_key = vault.load_owner_signing_key(profile)?;
     let signing_private_record = signing_key.private_key_record()?;
     let fingerprint = public_key_fingerprint(&public_key);
 
@@ -1579,22 +1584,22 @@ fn write_identity_backup(
     )?;
     writeln!(
         writer,
-        "Anyone with the identity private key can open lockboxes granted to this identity."
+        "Anyone with the profile private key can open lockboxes granted to this profile."
     )?;
     writeln!(
         writer,
-        "Anyone with the signing private key can sign lockbox changes as this identity."
+        "Anyone with the signing private key can sign lockbox changes as this profile."
     )?;
     writeln!(writer)?;
-    writeln!(writer, "Identity backup:")?;
-    writeln!(writer, "  Identity: {identity}")?;
+    writeln!(writer, "Profile backup:")?;
+    writeln!(writer, "  Profile: {profile}")?;
     writeln!(
         writer,
         "  Public key fingerprint: {}",
         format_hex_pairs(&fingerprint)
     )?;
     writeln!(writer)?;
-    writeln!(writer, "Identity private key:")?;
+    writeln!(writer, "Profile private key:")?;
     private_bytes.with_bytes(|bytes| writer.write_all(bytes))??;
     private_bytes.with_bytes(|bytes| {
         if !bytes.ends_with(b"\n") {
@@ -1619,7 +1624,7 @@ fn write_wrapped_hex(writer: &mut impl Write, bytes: &[u8]) -> io::Result<()> {
     Ok(())
 }
 
-fn export_public_options(options: IdentityExportArgs, format: KeyFormat) -> CliResult<()> {
+fn export_public_options(options: ProfileExportArgs, format: KeyFormat) -> CliResult<()> {
     let vault = default_vault()?;
     let keypair = vault.load_private_key(&options.name)?;
     let public_key = keypair.public_key();
@@ -1628,13 +1633,13 @@ fn export_public_options(options: IdentityExportArgs, format: KeyFormat) -> CliR
         &options.output_path,
         export_public_key(&public_key, format)?,
     )?;
-    println!("identity={}", options.name);
+    println!("profile={}", options.name);
     print_fingerprint_lines("public_key_fingerprint", &fingerprint);
     Ok(())
 }
 
 fn confirm_private_key_removal(name: &str) -> CliResult<bool> {
-    eprintln!("Remove vault identity '{name}'?");
+    eprintln!("Remove vault profile '{name}'?");
     eprintln!(
         "Lockboxes that only this private key can open may become inaccessible from this vault."
     );
@@ -1645,24 +1650,24 @@ fn confirm_private_key_removal(name: &str) -> CliResult<bool> {
     Ok(answer.trim() == "yes")
 }
 
-struct IdentityBackupArgs {
+struct ProfileBackupArgs {
     name: String,
     output_path: String,
     overwrite: bool,
 }
 
-struct IdentityRestoreArgs {
+struct ProfileRestoreArgs {
     name: Option<String>,
     input_path: String,
     overwrite: bool,
 }
 
-struct IdentityExportArgs {
+struct ProfileExportArgs {
     name: String,
     output_path: String,
 }
 
-impl IdentityBackupArgs {
+impl ProfileBackupArgs {
     fn from_matches(matches: &ArgMatches) -> Self {
         Self {
             name: matches
@@ -1675,7 +1680,7 @@ impl IdentityBackupArgs {
     }
 }
 
-impl IdentityRestoreArgs {
+impl ProfileRestoreArgs {
     fn from_matches(matches: &ArgMatches) -> Self {
         Self {
             name: matches.get_one::<String>("name").cloned(),
@@ -1685,7 +1690,7 @@ impl IdentityRestoreArgs {
     }
 }
 
-impl IdentityExportArgs {
+impl ProfileExportArgs {
     fn from_matches(matches: &ArgMatches) -> Self {
         Self {
             name: matches
@@ -1703,10 +1708,22 @@ mod tests {
         clean_publish_error, contact_name_from_email, decode_fingerprint_crockford_96,
         decode_fingerprint_hex, fingerprint_input_matches, format_fingerprint_code,
         format_fingerprint_reading, format_hex_pairs, format_unix_ms_utc,
-        verify_fingerprint_channel, PUBLISH_RECEIVE_VERIFICATION_ADVICE,
+        verify_fingerprint_channel, DEFAULT_PUBLISH_TOPOLOGY_URLS,
+        PUBLISH_RECEIVE_VERIFICATION_ADVICE,
     };
     use revault_publish_protocol::protocol::Status;
     use revault_publish_protocol::ClientError;
+
+    #[test]
+    fn publish_defaults_to_redundant_topology_bootstrap() {
+        assert_eq!(
+            DEFAULT_PUBLISH_TOPOLOGY_URLS,
+            [
+                "https://keyshare0.revault.onepub.dev/v1/topology",
+                "https://keyshare1.revault.onepub.dev/v1/topology",
+            ]
+        );
+    }
 
     #[test]
     fn publish_expiry_uses_human_readable_utc_time() {
