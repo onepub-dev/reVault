@@ -165,11 +165,23 @@ static const char *artifact_directory(void) {
 
 static void artifact_path(char *out, size_t out_len, const char *name) {
   const char *base = artifact_directory();
+  const char *binding = language_name();
+  size_t base_len = strlen(base);
+  size_t binding_len = strlen(binding);
+  size_t name_len = strlen(name);
   (void)mkdir(base, 0700);
   char language[512];
-  snprintf(language, sizeof(language), "%s/%s", base, language_name());
+  CHECK(base_len + 1 + binding_len < sizeof(language),
+        "artifact language path is too long");
+  memcpy(language, base, base_len);
+  language[base_len] = '/';
+  memcpy(language + base_len + 1, binding, binding_len + 1);
   (void)mkdir(language, 0700);
-  snprintf(out, out_len, "%s/%s", language, name);
+  CHECK(base_len + 1 + binding_len + 1 + name_len < out_len,
+        "artifact path is too long");
+  memcpy(out, language, base_len + 1 + binding_len);
+  out[base_len + 1 + binding_len] = '/';
+  memcpy(out + base_len + 1 + binding_len + 1, name, name_len + 1);
 }
 
 static uint8_t *read_artifact(const char *path, size_t *length) {
