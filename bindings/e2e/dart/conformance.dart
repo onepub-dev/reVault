@@ -473,7 +473,7 @@ void vaultLifecycle() {
   pass('vault_directory_load_private_key');
   pass('vault_directory_load_private_key_generation');
   vault.storeProfileEmail('alice', 'alice@example.test');
-  check(vault.profileEmail('alice') == 'alice@example.com', 'email');
+  check(vault.profileEmail('alice') == 'alice@example.test', 'email');
   pass('vault_directory_store_profile_email');
   pass('vault_directory_profile_email', 3);
   check(
