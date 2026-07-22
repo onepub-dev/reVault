@@ -4,16 +4,22 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <PackageId>Revault.Api</PackageId>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>OnePub</Authors>
     <Description>Complete class-based reVault lockbox and vault API.</Description>
+    <PackageProjectUrl>https://github.com/onepub-dev/reVault</PackageProjectUrl>
+    <PackageTags>encryption;credentials;archive;security;vault</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
     <RepositoryUrl>https://github.com/onepub-dev/reVault</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Google.Protobuf" Version="3.21.12" />
+    <PackageReference Include="Google.FlatBuffers" Version="25.2.10" />
     <None Include="LICENSE" Pack="true" PackagePath="" />
     <None Include="README.md" Pack="true" PackagePath="" />
     <None Include="runtimes/**/*" Pack="true" PackagePath="runtimes/%(RecursiveDir)%(Filename)%(Extension)" Condition="Exists('runtimes')" />

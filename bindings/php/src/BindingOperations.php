@@ -7,10 +7,14 @@ use FFI;
 use FFI\CData;
 use RuntimeException;
 
-/** Complete binary operation layer generated from revault_api.h. */
+/**
+ * Complete binary operation layer generated from revault_api.h.
+ *
+ * @internal Use {@see Vault} from application code.
+ */
 final class BindingOperations
 {
-    public function __construct(private readonly FFI $ffi) { if ($ffi->api_abi_version() !== 1) { throw new RuntimeException('revault-api native ABI mismatch; expected 1'); } }
+    public function __construct(private readonly FFI $ffi) { if ($ffi->api_abi_version() !== 3) { throw new RuntimeException('revault-api native ABI mismatch; expected 3'); } }
 
     public static function load(string $library): self
     {
@@ -41,18 +45,10 @@ final class BindingOperations
         finally { $this->ffi->buffer_free($value); }
     }
 
-    private function payload(CData $value): string
-    {
-        $frame = $this->take($value);
-        if (strlen($frame) < 12 || substr($frame, 0, 4) !== 'LBWF') { throw new RuntimeException('invalid reVault binding frame'); }
-        $length = unpack('Nlength', substr($frame, 8, 4))['length'];
-        if ($length !== strlen($frame) - 12) { throw new RuntimeException('invalid reVault binding frame length'); }
-        return substr($frame, 12);
-    }
-
     private function decode(string $class, CData $value): object
     {
-        $result = new $class(); $result->mergeFromString($this->payload($value)); return $result;
+        $decoder = 'decode' . substr($class, strrpos($class, '\\') + 1);
+        return DomainCodec::$decoder($this->take($value));
     }
 
     private function withBytes(string $value, callable $callback): mixed
@@ -69,11 +65,36 @@ final class BindingOperations
         return $callback($bytes, $length);
     }
 
+    private function withSecretInput(string $value, callable $callback): mixed
+    {
+        return $this->withBytes($value, function (CData $bytes, int $length) use ($callback): mixed {
+            try { return $callback($bytes, $length); }
+            finally { FFI::memset($bytes, 0, max(1, $length)); }
+        });
+    }
+
+    /** The callback receives mutable C bytes valid only for the duration of the call. */
+    private function withSecret(callable $getter, callable $callback): mixed
+    {
+        $output = $this->ffi->new('void *');
+        $this->requireBool((bool) $getter(FFI::addr($output)));
+        if (FFI::isNull($output)) { return null; }
+        try {
+            $length = $this->ffi->new('size_t');
+            $this->requireBool((bool) $this->ffi->secret_len($output, FFI::addr($length)));
+            $bytes = $this->ffi->new('uint8_t[' . max(1, (int) $length->cdata) . ']');
+            try {
+                $this->requireBool((bool) $this->ffi->secret_copy($output, $bytes, $length->cdata));
+                return $callback($bytes, (int) $length->cdata);
+            } finally { FFI::memset($bytes, 0, max(1, (int) $length->cdata)); }
+        } finally { $this->ffi->secret_free($output); }
+    }
+
     public function freeBuffer(CData $value): void { $this->ffi->buffer_free($value); }
 
-    public function bufferLastErrorDetails(): \Revault\Bindings\ErrorDetails
+    public function bufferLastErrorDetails(): \Revault\ErrorDetails
     {
-        return $this->decode(\Revault\Bindings\ErrorDetails::class, $this->ffi->buffer_last_error_details());
+        return $this->decode(\Revault\ErrorDetails::class, $this->ffi->buffer_last_error_details());
     }
 
     public function lockboxFormatVersion(): int
@@ -156,19 +177,19 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->lockbox_extract_directory($handle, $destination, strlen($destination), $maxFileBytes, $maxTotalBytes, $maxFiles, $restoreSymlinks, $restorePermissions, $overwrite)));
     }
 
-    public function lockboxStreamContent(CData $handle, bool $physical): \Revault\Bindings\StreamChunkList
+    public function lockboxStreamContent(CData $handle, bool $physical): \Revault\StreamChunkList
     {
-        return $this->decode(\Revault\Bindings\StreamChunkList::class, $this->ffi->lockbox_stream_content($handle, $physical));
+        return $this->decode(\Revault\StreamChunkList::class, $this->ffi->lockbox_stream_content($handle, $physical));
     }
 
-    public function lockboxCacheStats(CData $handle): \Revault\Bindings\CacheStats
+    public function lockboxCacheStats(CData $handle): \Revault\CacheStats
     {
-        return $this->decode(\Revault\Bindings\CacheStats::class, $this->ffi->lockbox_cache_stats($handle));
+        return $this->decode(\Revault\CacheStats::class, $this->ffi->lockbox_cache_stats($handle));
     }
 
-    public function lockboxImportStats(CData $handle): \Revault\Bindings\ImportStats
+    public function lockboxImportStats(CData $handle): \Revault\ImportStats
     {
-        return $this->decode(\Revault\Bindings\ImportStats::class, $this->ffi->lockbox_import_stats($handle));
+        return $this->decode(\Revault\ImportStats::class, $this->ffi->lockbox_import_stats($handle));
     }
 
     public function lockboxResetImportStats(CData $handle): bool
@@ -176,19 +197,19 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->lockbox_reset_import_stats($handle)));
     }
 
-    public function lockboxInspectFile(string $path): \Revault\Bindings\FileInspection
+    public function lockboxInspectFile(string $path): \Revault\FileInspection
     {
-        return $this->decode(\Revault\Bindings\FileInspection::class, $this->ffi->lockbox_inspect_file($path, strlen($path)));
+        return $this->decode(\Revault\FileInspection::class, $this->ffi->lockbox_inspect_file($path, strlen($path)));
     }
 
-    public function lockboxPageInspection(CData $handle): \Revault\Bindings\PageInspectionList
+    public function lockboxPageInspection(CData $handle): \Revault\PageInspectionList
     {
-        return $this->decode(\Revault\Bindings\PageInspectionList::class, $this->ffi->lockbox_page_inspection($handle));
+        return $this->decode(\Revault\PageInspectionList::class, $this->ffi->lockbox_page_inspection($handle));
     }
 
-    public function lockboxRecoveryReport(CData $handle): \Revault\Bindings\RecoveryReport
+    public function lockboxRecoveryReport(CData $handle): \Revault\RecoveryReport
     {
-        return $this->decode(\Revault\Bindings\RecoveryReport::class, $this->ffi->lockbox_recovery_report($handle));
+        return $this->decode(\Revault\RecoveryReport::class, $this->ffi->lockbox_recovery_report($handle));
     }
 
     public function lockboxRecoveryReportRender(CData $handle, bool $verbose, int $maxEntries): string
@@ -196,9 +217,9 @@ final class BindingOperations
         return $this->take($this->ffi->lockbox_recovery_report_render($handle, $verbose, $maxEntries));
     }
 
-    public function lockboxRecoveryScanPath(string $path, string $key): \Revault\Bindings\RecoveryReport
+    public function lockboxRecoveryScanPath(string $path, string $key): \Revault\RecoveryReport
     {
-        return $this->withBytes($key, fn(CData $keyPointer, int $keyLength) => $this->decode(\Revault\Bindings\RecoveryReport::class, $this->ffi->lockbox_recovery_scan_path($path, strlen($path), $keyPointer, $keyLength)));
+        return $this->withBytes($key, fn(CData $keyPointer, int $keyLength) => $this->decode(\Revault\RecoveryReport::class, $this->ffi->lockbox_recovery_scan_path($path, strlen($path), $keyPointer, $keyLength)));
     }
 
     public function lockboxStorageLen(CData $handle): int
@@ -216,9 +237,9 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->lockbox_set_worker_policy($handle, $mode, strlen($mode), $jobs)));
     }
 
-    public function lockboxRuntimeOptions(CData $handle): \Revault\Bindings\RuntimeOptions
+    public function lockboxRuntimeOptions(CData $handle): \Revault\RuntimeOptions
     {
-        return $this->decode(\Revault\Bindings\RuntimeOptions::class, $this->ffi->lockbox_runtime_options($handle));
+        return $this->decode(\Revault\RuntimeOptions::class, $this->ffi->lockbox_runtime_options($handle));
     }
 
     public function lockboxCommit(CData $handle): bool
@@ -251,29 +272,39 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->lockbox_rename($handle, $from, strlen($from), $to, strlen($to))));
     }
 
-    public function lockboxList(CData $handle, string $path, bool $recursive): \Revault\Bindings\LockboxEntryList
+    public function lockboxList(CData $handle, string $path, bool $recursive): \Revault\LockboxEntryList
     {
-        return $this->decode(\Revault\Bindings\LockboxEntryList::class, $this->ffi->lockbox_list($handle, $path, strlen($path), $recursive));
+        return $this->decode(\Revault\LockboxEntryList::class, $this->ffi->lockbox_list($handle, $path, strlen($path), $recursive));
     }
 
-    public function lockboxListWithOptions(CData $handle, string $path, string $glob, bool $recursive, bool $includeFiles, bool $includeSymlinks, bool $includeDirectories, int $limit): \Revault\Bindings\LockboxEntryList
+    public function lockboxListWithOptions(CData $handle, string $path, string $glob, bool $recursive, bool $includeFiles, bool $includeSymlinks, bool $includeDirectories, int $limit): \Revault\LockboxEntryList
     {
-        return $this->decode(\Revault\Bindings\LockboxEntryList::class, $this->ffi->lockbox_list_with_options($handle, $path, strlen($path), $glob, strlen($glob), $recursive, $includeFiles, $includeSymlinks, $includeDirectories, $limit));
+        return $this->decode(\Revault\LockboxEntryList::class, $this->ffi->lockbox_list_with_options($handle, $path, strlen($path), $glob, strlen($glob), $recursive, $includeFiles, $includeSymlinks, $includeDirectories, $limit));
     }
 
-    public function lockboxStat(CData $handle, string $path): \Revault\Bindings\OptionalLockboxEntry
+    public function lockboxStat(CData $handle, string $path): \Revault\OptionalLockboxEntry
     {
-        return $this->decode(\Revault\Bindings\OptionalLockboxEntry::class, $this->ffi->lockbox_stat($handle, $path, strlen($path)));
+        return $this->decode(\Revault\OptionalLockboxEntry::class, $this->ffi->lockbox_stat($handle, $path, strlen($path)));
     }
 
-    public function lockboxSetVariable(CData $handle, string $name, string $value, bool $secret): bool
+    public function lockboxSetVariable(CData $handle, string $name, string $value): bool
     {
-        return $this->requireBool((bool) ($this->ffi->lockbox_set_variable($handle, $name, strlen($name), $value, strlen($value), $secret)));
+        return $this->requireBool((bool) ($this->ffi->lockbox_set_variable($handle, $name, strlen($name), $value, strlen($value))));
     }
 
-    public function lockboxGetVariable(CData $handle, string $name): string
+    public function lockboxSetSecretVariable(CData $handle, string $name, string $value): bool
     {
-        return $this->take($this->ffi->lockbox_get_variable($handle, $name, strlen($name)));
+        return $this->withSecretInput($value, fn(CData $bytes, int $length): bool => $this->requireBool((bool) $this->ffi->lockbox_set_secret_variable($handle, $name, strlen($name), $bytes, $length)));
+    }
+
+    public function lockboxGetVariable(CData $handle, string $name): \Revault\OptionalString
+    {
+        return $this->decode(\Revault\OptionalString::class, $this->ffi->lockbox_get_variable($handle, $name, strlen($name)));
+    }
+
+    public function lockboxWithSecretVariable(CData $handle, string $name, callable $callback): mixed
+    {
+        return $this->withSecret(fn(CData $output): bool => (bool) $this->ffi->lockbox_get_secret_variable($handle, $name, strlen($name), $output), $callback);
     }
 
     public function lockboxDeleteVariable(CData $handle, string $name): bool
@@ -281,19 +312,19 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->lockbox_delete_variable($handle, $name, strlen($name))));
     }
 
-    public function lockboxMoveVariables(CData $handle, string $movesProto): bool
+    public function lockboxMoveVariables(CData $handle, string $movesFlatbuffer): bool
     {
-        return $this->withBytes($movesProto, fn(CData $movesProtoPointer, int $movesProtoLength) => $this->requireBool((bool) ($this->ffi->lockbox_move_variables($handle, $movesProtoPointer, $movesProtoLength))));
+        return $this->withBytes($movesFlatbuffer, fn(CData $pointer, int $length) => $this->requireBool((bool) ($this->ffi->lockbox_move_variables($handle, $pointer, $length))));
     }
 
-    public function lockboxListVariables(CData $handle): \Revault\Bindings\VariableList
+    public function lockboxListVariables(CData $handle): \Revault\VariableList
     {
-        return $this->decode(\Revault\Bindings\VariableList::class, $this->ffi->lockbox_list_variables($handle));
+        return $this->decode(\Revault\VariableList::class, $this->ffi->lockbox_list_variables($handle));
     }
 
-    public function lockboxVariableSensitivity(CData $handle, string $name): \Revault\Bindings\OptionalString
+    public function lockboxVariableSensitivity(CData $handle, string $name): \Revault\OptionalString
     {
-        return $this->decode(\Revault\Bindings\OptionalString::class, $this->ffi->lockbox_variable_sensitivity($handle, $name, strlen($name)));
+        return $this->decode(\Revault\OptionalString::class, $this->ffi->lockbox_variable_sensitivity($handle, $name, strlen($name)));
     }
 
     public function lockboxAddSymlink(CData $handle, string $path, string $target, bool $replace): bool
@@ -336,9 +367,9 @@ final class BindingOperations
         return $this->take($this->ffi->lockbox_read_range($handle, $path, strlen($path), $offset, $len));
     }
 
-    public function lockboxRecoveryScan(string $bytes, string $key): \Revault\Bindings\RecoveryReport
+    public function lockboxRecoveryScan(string $bytes, string $key): \Revault\RecoveryReport
     {
-        return $this->withBytes($bytes, fn(CData $bytesPointer, int $bytesLength) => $this->withBytes($key, fn(CData $keyPointer, int $keyLength) => $this->decode(\Revault\Bindings\RecoveryReport::class, $this->ffi->lockbox_recovery_scan($bytesPointer, $bytesLength, $keyPointer, $keyLength))));
+        return $this->withBytes($bytes, fn(CData $bytesPointer, int $bytesLength) => $this->withBytes($key, fn(CData $keyPointer, int $keyLength) => $this->decode(\Revault\RecoveryReport::class, $this->ffi->lockbox_recovery_scan($bytesPointer, $bytesLength, $keyPointer, $keyLength))));
     }
 
     public function lockboxRecoverySalvage(string $bytes, string $key, CData $signingKey): CData
@@ -361,9 +392,9 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->lockbox_delete_key($handle, $id)));
     }
 
-    public function lockboxListKeySlots(CData $handle): \Revault\Bindings\KeySlotList
+    public function lockboxListKeySlots(CData $handle): \Revault\KeySlotList
     {
-        return $this->decode(\Revault\Bindings\KeySlotList::class, $this->ffi->lockbox_list_key_slots($handle));
+        return $this->decode(\Revault\KeySlotList::class, $this->ffi->lockbox_list_key_slots($handle));
     }
 
     public function lockboxSetOwnerSigningKey(CData $handle, CData $key): bool
@@ -371,49 +402,54 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->lockbox_set_owner_signing_key($handle, $key)));
     }
 
-    public function lockboxOwnerInspection(CData $handle): \Revault\Bindings\OwnerInspection
+    public function lockboxOwnerInspection(CData $handle): \Revault\OwnerInspection
     {
-        return $this->decode(\Revault\Bindings\OwnerInspection::class, $this->ffi->lockbox_owner_inspection($handle));
+        return $this->decode(\Revault\OwnerInspection::class, $this->ffi->lockbox_owner_inspection($handle));
     }
 
-    public function lockboxDefineForm(CData $handle, string $alias, string $name, string $description, string $fieldsProto): \Revault\Bindings\FormDefinition
+    public function lockboxDefineForm(CData $handle, string $alias, string $name, string $description, string $fieldsFlatbuffer): \Revault\FormDefinition
     {
-        return $this->withBytes($fieldsProto, fn(CData $fieldsProtoPointer, int $fieldsProtoLength) => $this->decode(\Revault\Bindings\FormDefinition::class, $this->ffi->lockbox_define_form($handle, $alias, strlen($alias), $name, strlen($name), $description, strlen($description), $fieldsProtoPointer, $fieldsProtoLength)));
+        return $this->withBytes($fieldsFlatbuffer, fn(CData $pointer, int $length) => $this->decode(\Revault\FormDefinition::class, $this->ffi->lockbox_define_form($handle, $alias, strlen($alias), $name, strlen($name), $description, strlen($description), $pointer, $length)));
     }
 
-    public function lockboxListFormDefinitions(CData $handle): \Revault\Bindings\FormDefinitionList
+    public function lockboxListFormDefinitions(CData $handle): \Revault\FormDefinitionList
     {
-        return $this->decode(\Revault\Bindings\FormDefinitionList::class, $this->ffi->lockbox_list_form_definitions($handle));
+        return $this->decode(\Revault\FormDefinitionList::class, $this->ffi->lockbox_list_form_definitions($handle));
     }
 
-    public function lockboxResolveForm(CData $handle, string $reference): \Revault\Bindings\FormDefinition
+    public function lockboxResolveForm(CData $handle, string $reference): \Revault\FormDefinition
     {
-        return $this->decode(\Revault\Bindings\FormDefinition::class, $this->ffi->lockbox_resolve_form($handle, $reference, strlen($reference)));
+        return $this->decode(\Revault\FormDefinition::class, $this->ffi->lockbox_resolve_form($handle, $reference, strlen($reference)));
     }
 
-    public function lockboxListFormRevisions(CData $handle, string $typeId): \Revault\Bindings\FormDefinitionList
+    public function lockboxListFormRevisions(CData $handle, string $typeId): \Revault\FormDefinitionList
     {
-        return $this->decode(\Revault\Bindings\FormDefinitionList::class, $this->ffi->lockbox_list_form_revisions($handle, $typeId, strlen($typeId)));
+        return $this->decode(\Revault\FormDefinitionList::class, $this->ffi->lockbox_list_form_revisions($handle, $typeId, strlen($typeId)));
     }
 
-    public function lockboxCreateFormRecord(CData $handle, string $path, string $typeReference, string $name): \Revault\Bindings\FormRecord
+    public function lockboxCreateFormRecord(CData $handle, string $path, string $typeReference, string $name): \Revault\FormRecord
     {
-        return $this->decode(\Revault\Bindings\FormRecord::class, $this->ffi->lockbox_create_form_record($handle, $path, strlen($path), $typeReference, strlen($typeReference), $name, strlen($name)));
+        return $this->decode(\Revault\FormRecord::class, $this->ffi->lockbox_create_form_record($handle, $path, strlen($path), $typeReference, strlen($typeReference), $name, strlen($name)));
     }
 
-    public function lockboxSetFormField(CData $handle, string $path, string $field, string $value, bool $secret): bool
+    public function lockboxSetFormField(CData $handle, string $path, string $field, string $value): bool
     {
-        return $this->requireBool((bool) ($this->ffi->lockbox_set_form_field($handle, $path, strlen($path), $field, strlen($field), $value, strlen($value), $secret)));
+        return $this->requireBool((bool) ($this->ffi->lockbox_set_form_field($handle, $path, strlen($path), $field, strlen($field), $value, strlen($value))));
     }
 
-    public function lockboxListFormRecords(CData $handle): \Revault\Bindings\FormRecordList
+    public function lockboxSetSecretFormField(CData $handle, string $path, string $field, string $value): bool
     {
-        return $this->decode(\Revault\Bindings\FormRecordList::class, $this->ffi->lockbox_list_form_records($handle));
+        return $this->withSecretInput($value, fn(CData $bytes, int $length): bool => $this->requireBool((bool) $this->ffi->lockbox_set_secret_form_field($handle, $path, strlen($path), $field, strlen($field), $bytes, $length)));
     }
 
-    public function lockboxGetFormRecord(CData $handle, string $path): \Revault\Bindings\FormRecord
+    public function lockboxListFormRecords(CData $handle): \Revault\FormRecordList
     {
-        return $this->decode(\Revault\Bindings\FormRecord::class, $this->ffi->lockbox_get_form_record($handle, $path, strlen($path)));
+        return $this->decode(\Revault\FormRecordList::class, $this->ffi->lockbox_list_form_records($handle));
+    }
+
+    public function lockboxGetFormRecord(CData $handle, string $path): \Revault\OptionalFormRecord
+    {
+        return $this->decode(\Revault\OptionalFormRecord::class, $this->ffi->lockbox_get_form_record($handle, $path, strlen($path)));
     }
 
     public function lockboxDeleteFormRecord(CData $handle, string $path): bool
@@ -421,14 +457,19 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->lockbox_delete_form_record($handle, $path, strlen($path))));
     }
 
-    public function lockboxMoveFormRecords(CData $handle, string $movesProto): bool
+    public function lockboxMoveFormRecords(CData $handle, string $movesFlatbuffer): bool
     {
-        return $this->withBytes($movesProto, fn(CData $movesProtoPointer, int $movesProtoLength) => $this->requireBool((bool) ($this->ffi->lockbox_move_form_records($handle, $movesProtoPointer, $movesProtoLength))));
+        return $this->withBytes($movesFlatbuffer, fn(CData $pointer, int $length) => $this->requireBool((bool) ($this->ffi->lockbox_move_form_records($handle, $pointer, $length))));
     }
 
-    public function lockboxGetFormField(CData $handle, string $path, string $field): \Revault\Bindings\FormValue
+    public function lockboxGetFormField(CData $handle, string $path, string $field): \Revault\OptionalFormValue
     {
-        return $this->decode(\Revault\Bindings\FormValue::class, $this->ffi->lockbox_get_form_field($handle, $path, strlen($path), $field, strlen($field)));
+        return $this->decode(\Revault\OptionalFormValue::class, $this->ffi->lockbox_get_form_field($handle, $path, strlen($path), $field, strlen($field)));
+    }
+
+    public function lockboxWithSecretFormField(CData $handle, string $path, string $field, callable $callback): mixed
+    {
+        return $this->withSecret(fn(CData $output): bool => (bool) $this->ffi->lockbox_get_secret_form_field($handle, $path, strlen($path), $field, strlen($field), $output), $callback);
     }
 
     public function lockboxToBytes(CData $handle): string
@@ -666,24 +707,24 @@ final class BindingOperations
         return $this->ffi->vault_directory_structure_version($handle);
     }
 
-    public function vaultDirectoryListPrivateKeys(CData $handle): \Revault\Bindings\StringList
+    public function vaultDirectoryListPrivateKeys(CData $handle): \Revault\StringList
     {
-        return $this->decode(\Revault\Bindings\StringList::class, $this->ffi->vault_directory_list_private_keys($handle));
+        return $this->decode(\Revault\StringList::class, $this->ffi->vault_directory_list_private_keys($handle));
     }
 
-    public function vaultDirectoryListPrivateKeyNames(CData $handle): \Revault\Bindings\StringList
+    public function vaultDirectoryListPrivateKeyNames(CData $handle): \Revault\StringList
     {
-        return $this->decode(\Revault\Bindings\StringList::class, $this->ffi->vault_directory_list_private_key_names($handle));
+        return $this->decode(\Revault\StringList::class, $this->ffi->vault_directory_list_private_key_names($handle));
     }
 
-    public function vaultDirectoryListContactNames(CData $handle): \Revault\Bindings\StringList
+    public function vaultDirectoryListContactNames(CData $handle): \Revault\StringList
     {
-        return $this->decode(\Revault\Bindings\StringList::class, $this->ffi->vault_directory_list_contact_names($handle));
+        return $this->decode(\Revault\StringList::class, $this->ffi->vault_directory_list_contact_names($handle));
     }
 
-    public function vaultDirectoryListFormAliases(CData $handle): \Revault\Bindings\StringList
+    public function vaultDirectoryListFormAliases(CData $handle): \Revault\StringList
     {
-        return $this->decode(\Revault\Bindings\StringList::class, $this->ffi->vault_directory_list_form_aliases($handle));
+        return $this->decode(\Revault\StringList::class, $this->ffi->vault_directory_list_form_aliases($handle));
     }
 
     public function vaultDirectoryPrivateKeyExists(CData $handle, string $name): bool
@@ -731,9 +772,9 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->vault_directory_delete_contact($handle, $name, strlen($name))));
     }
 
-    public function vaultDirectoryListContacts(CData $handle): \Revault\Bindings\ContactList
+    public function vaultDirectoryListContacts(CData $handle): \Revault\ContactList
     {
-        return $this->decode(\Revault\Bindings\ContactList::class, $this->ffi->vault_directory_list_contacts($handle));
+        return $this->decode(\Revault\ContactList::class, $this->ffi->vault_directory_list_contacts($handle));
     }
 
     public function vaultDirectoryStoreProfileEmail(CData $handle, string $name, string $email): bool
@@ -741,9 +782,9 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->vault_directory_store_profile_email($handle, $name, strlen($name), $email, strlen($email))));
     }
 
-    public function vaultDirectoryProfileEmail(CData $handle, string $name): \Revault\Bindings\OptionalString
+    public function vaultDirectoryProfileEmail(CData $handle, string $name): \Revault\OptionalString
     {
-        return $this->decode(\Revault\Bindings\OptionalString::class, $this->ffi->vault_directory_profile_email($handle, $name, strlen($name)));
+        return $this->decode(\Revault\OptionalString::class, $this->ffi->vault_directory_profile_email($handle, $name, strlen($name)));
     }
 
     public function vaultDirectoryStoreBackup(CData $handle, string $id, string $bytes): bool
@@ -786,14 +827,14 @@ final class BindingOperations
         return $this->requireHandle($this->ffi->vault_directory_load_contact_signing_key($handle, $name, strlen($name)));
     }
 
-    public function vaultDirectoryListProfileGenerations(CData $handle, string $name): \Revault\Bindings\ProfileHistory
+    public function vaultDirectoryListProfileGenerations(CData $handle, string $name): \Revault\ProfileHistory
     {
-        return $this->decode(\Revault\Bindings\ProfileHistory::class, $this->ffi->vault_directory_list_profile_generations($handle, $name, strlen($name)));
+        return $this->decode(\Revault\ProfileHistory::class, $this->ffi->vault_directory_list_profile_generations($handle, $name, strlen($name)));
     }
 
-    public function vaultDirectoryRotatePrivateKey(CData $handle, string $name): \Revault\Bindings\ProfileHistory
+    public function vaultDirectoryRotatePrivateKey(CData $handle, string $name): \Revault\ProfileHistory
     {
-        return $this->decode(\Revault\Bindings\ProfileHistory::class, $this->ffi->vault_directory_rotate_private_key($handle, $name, strlen($name)));
+        return $this->decode(\Revault\ProfileHistory::class, $this->ffi->vault_directory_rotate_private_key($handle, $name, strlen($name)));
     }
 
     public function vaultDirectoryRememberLockbox(CData $handle, string $id, string $path): bool
@@ -801,9 +842,9 @@ final class BindingOperations
         return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->requireBool((bool) ($this->ffi->vault_directory_remember_lockbox($handle, $idPointer, $idLength, $path, strlen($path)))));
     }
 
-    public function vaultDirectoryListKnownLockboxes(CData $handle): \Revault\Bindings\KnownLockboxList
+    public function vaultDirectoryListKnownLockboxes(CData $handle): \Revault\KnownLockboxList
     {
-        return $this->decode(\Revault\Bindings\KnownLockboxList::class, $this->ffi->vault_directory_list_known_lockboxes($handle));
+        return $this->decode(\Revault\KnownLockboxList::class, $this->ffi->vault_directory_list_known_lockboxes($handle));
     }
 
     public function vaultDirectoryForgetLockbox(CData $handle, string $path): bool
@@ -816,14 +857,14 @@ final class BindingOperations
         return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->requireBool((bool) ($this->ffi->vault_directory_remember_access_slot_label($handle, $idPointer, $idLength, $slotId, $name, strlen($name)))));
     }
 
-    public function vaultDirectoryListAccessSlotLabels(CData $handle, string $id): \Revault\Bindings\AccessSlotLabelList
+    public function vaultDirectoryListAccessSlotLabels(CData $handle, string $id): \Revault\AccessSlotLabelList
     {
-        return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->decode(\Revault\Bindings\AccessSlotLabelList::class, $this->ffi->vault_directory_list_access_slot_labels($handle, $idPointer, $idLength)));
+        return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->decode(\Revault\AccessSlotLabelList::class, $this->ffi->vault_directory_list_access_slot_labels($handle, $idPointer, $idLength)));
     }
 
-    public function vaultDirectoryFindAccessSlotLabels(CData $handle, string $id, string $name): \Revault\Bindings\AccessSlotLabelList
+    public function vaultDirectoryFindAccessSlotLabels(CData $handle, string $id, string $name): \Revault\AccessSlotLabelList
     {
-        return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->decode(\Revault\Bindings\AccessSlotLabelList::class, $this->ffi->vault_directory_find_access_slot_labels($handle, $idPointer, $idLength, $name, strlen($name))));
+        return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->decode(\Revault\AccessSlotLabelList::class, $this->ffi->vault_directory_find_access_slot_labels($handle, $idPointer, $idLength, $name, strlen($name))));
     }
 
     public function vaultDirectoryForgetAccessSlotLabel(CData $handle, string $id, int $slotId): bool
@@ -831,24 +872,24 @@ final class BindingOperations
         return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->requireBool((bool) ($this->ffi->vault_directory_forget_access_slot_label($handle, $idPointer, $idLength, $slotId))));
     }
 
-    public function vaultDirectoryDefineForm(CData $handle, string $alias, string $name, string $description, string $fieldsProto): \Revault\Bindings\FormDefinition
+    public function vaultDirectoryDefineForm(CData $handle, string $alias, string $name, string $description, string $fieldsFlatbuffer): \Revault\FormDefinition
     {
-        return $this->withBytes($fieldsProto, fn(CData $fieldsProtoPointer, int $fieldsProtoLength) => $this->decode(\Revault\Bindings\FormDefinition::class, $this->ffi->vault_directory_define_form($handle, $alias, strlen($alias), $name, strlen($name), $description, strlen($description), $fieldsProtoPointer, $fieldsProtoLength)));
+        return $this->withBytes($fieldsFlatbuffer, fn(CData $pointer, int $length) => $this->decode(\Revault\FormDefinition::class, $this->ffi->vault_directory_define_form($handle, $alias, strlen($alias), $name, strlen($name), $description, strlen($description), $pointer, $length)));
     }
 
-    public function vaultDirectoryResolveForm(CData $handle, string $reference): \Revault\Bindings\FormDefinition
+    public function vaultDirectoryResolveForm(CData $handle, string $reference): \Revault\FormDefinition
     {
-        return $this->decode(\Revault\Bindings\FormDefinition::class, $this->ffi->vault_directory_resolve_form($handle, $reference, strlen($reference)));
+        return $this->decode(\Revault\FormDefinition::class, $this->ffi->vault_directory_resolve_form($handle, $reference, strlen($reference)));
     }
 
-    public function vaultDirectoryListForms(CData $handle): \Revault\Bindings\FormDefinitionList
+    public function vaultDirectoryListForms(CData $handle): \Revault\FormDefinitionList
     {
-        return $this->decode(\Revault\Bindings\FormDefinitionList::class, $this->ffi->vault_directory_list_forms($handle));
+        return $this->decode(\Revault\FormDefinitionList::class, $this->ffi->vault_directory_list_forms($handle));
     }
 
-    public function vaultDirectoryListFormRevisions(CData $handle, string $typeId): \Revault\Bindings\FormDefinitionList
+    public function vaultDirectoryListFormRevisions(CData $handle, string $typeId): \Revault\FormDefinitionList
     {
-        return $this->decode(\Revault\Bindings\FormDefinitionList::class, $this->ffi->vault_directory_list_form_revisions($handle, $typeId, strlen($typeId)));
+        return $this->decode(\Revault\FormDefinitionList::class, $this->ffi->vault_directory_list_form_revisions($handle, $typeId, strlen($typeId)));
     }
 
     public function vaultDirectorySeedForms(CData $handle): int
@@ -866,14 +907,14 @@ final class BindingOperations
         return $this->withBytes($id, fn(CData $idPointer, int $idLength) => $this->take($this->ffi->vault_directory_remembered_password($handle, $idPointer, $idLength)));
     }
 
-    public function vaultBackupDefault(string $path, bool $overwrite): \Revault\Bindings\VaultBackupManifest
+    public function vaultBackupDefault(string $path, bool $overwrite): \Revault\VaultBackupManifest
     {
-        return $this->decode(\Revault\Bindings\VaultBackupManifest::class, $this->ffi->vault_backup_default($path, strlen($path), $overwrite));
+        return $this->decode(\Revault\VaultBackupManifest::class, $this->ffi->vault_backup_default($path, strlen($path), $overwrite));
     }
 
-    public function vaultRestoreDefault(string $path, bool $overwrite): \Revault\Bindings\VaultBackupManifest
+    public function vaultRestoreDefault(string $path, bool $overwrite): \Revault\VaultBackupManifest
     {
-        return $this->decode(\Revault\Bindings\VaultBackupManifest::class, $this->ffi->vault_restore_default($path, strlen($path), $overwrite));
+        return $this->decode(\Revault\VaultBackupManifest::class, $this->ffi->vault_restore_default($path, strlen($path), $overwrite));
     }
 
     public function vaultDirectoryFree(CData $handle): void
@@ -891,24 +932,24 @@ final class BindingOperations
         return $this->withBytes($password, fn(CData $passwordPointer, int $passwordLength) => $this->requireHandle($this->ffi->vault_read_only_open_default($passwordPointer, $passwordLength)));
     }
 
-    public function vaultReadOnlyListProfileNames(CData $handle): \Revault\Bindings\StringList
+    public function vaultReadOnlyListProfileNames(CData $handle): \Revault\StringList
     {
-        return $this->decode(\Revault\Bindings\StringList::class, $this->ffi->vault_read_only_list_profile_names($handle));
+        return $this->decode(\Revault\StringList::class, $this->ffi->vault_read_only_list_profile_names($handle));
     }
 
-    public function vaultReadOnlyListContactNames(CData $handle): \Revault\Bindings\StringList
+    public function vaultReadOnlyListContactNames(CData $handle): \Revault\StringList
     {
-        return $this->decode(\Revault\Bindings\StringList::class, $this->ffi->vault_read_only_list_contact_names($handle));
+        return $this->decode(\Revault\StringList::class, $this->ffi->vault_read_only_list_contact_names($handle));
     }
 
-    public function vaultReadOnlyListFormAliases(CData $handle): \Revault\Bindings\StringList
+    public function vaultReadOnlyListFormAliases(CData $handle): \Revault\StringList
     {
-        return $this->decode(\Revault\Bindings\StringList::class, $this->ffi->vault_read_only_list_form_aliases($handle));
+        return $this->decode(\Revault\StringList::class, $this->ffi->vault_read_only_list_form_aliases($handle));
     }
 
-    public function vaultReadOnlyListKnownLockboxes(CData $handle): \Revault\Bindings\KnownLockboxList
+    public function vaultReadOnlyListKnownLockboxes(CData $handle): \Revault\KnownLockboxList
     {
-        return $this->decode(\Revault\Bindings\KnownLockboxList::class, $this->ffi->vault_read_only_list_known_lockboxes($handle));
+        return $this->decode(\Revault\KnownLockboxList::class, $this->ffi->vault_read_only_list_known_lockboxes($handle));
     }
 
     public function vaultReadOnlyFree(CData $handle): void
@@ -951,19 +992,19 @@ final class BindingOperations
         return $this->requireBool((bool) ($this->ffi->vault_agent_start()));
     }
 
-    public function vaultAgentList(): \Revault\Bindings\AgentEntryList
+    public function vaultAgentList(): \Revault\AgentEntryList
     {
-        return $this->decode(\Revault\Bindings\AgentEntryList::class, $this->ffi->vault_agent_list());
+        return $this->decode(\Revault\AgentEntryList::class, $this->ffi->vault_agent_list());
     }
 
-    public function vaultAgentSleepSupport(): \Revault\Bindings\SleepSupport
+    public function vaultAgentSleepSupport(): \Revault\SleepSupport
     {
-        return $this->decode(\Revault\Bindings\SleepSupport::class, $this->ffi->vault_agent_sleep_support());
+        return $this->decode(\Revault\SleepSupport::class, $this->ffi->vault_agent_sleep_support());
     }
 
-    public function vaultPlatformStatus(): \Revault\Bindings\PlatformStatus
+    public function vaultPlatformStatus(): \Revault\PlatformStatus
     {
-        return $this->decode(\Revault\Bindings\PlatformStatus::class, $this->ffi->vault_platform_status());
+        return $this->decode(\Revault\PlatformStatus::class, $this->ffi->vault_platform_status());
     }
 
     public function vaultPlatformSetScope(string $scope): bool

@@ -5,7 +5,6 @@ from __future__ import annotations
 import ctypes
 import os
 from pathlib import Path
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,33 +13,43 @@ import time
 ROOT = Path(__file__).resolve().parents[3]
 if os.environ.get("REVAULT_E2E_INSTALLED") != "1":
     sys.path.insert(0, str(ROOT / "bindings/python"))
-import revault_api as binding
+import revault_api as binding  # noqa: E402
+from revault_api._domain import (  # noqa: E402
+    FormField, PathMove, decode, encode_form_fields, encode_path_moves,
+)
 
 LANGUAGE = "python"
 
 
 def passed(symbol: str, assertions: int) -> None:
+    """Report a successfully exercised ABI symbol and assertion count."""
     print(f"PASS\t{LANGUAGE}\t{symbol}\t{assertions}", flush=True)
 
 
 def check(condition: bool, message: str) -> None:
+    """Raise an assertion failure with context when a conformance check fails."""
     if not condition:
         raise AssertionError(message)
 
 
 def data(value: bytes) -> ctypes.Array[ctypes.c_char]:
+    """Copy bytes into a stable mutable buffer suitable for native calls."""
     return ctypes.create_string_buffer(value, len(value))
 
 
 class Runtime:
+    """Own the loaded native library and decode its ABI return conventions."""
+
     def __init__(self) -> None:
         library = os.environ.get("REVAULT_LIBRARY")
         self.lib = binding.load(library) if library else binding.load()
 
     def error(self) -> str:
+        """Return the most recent native error message."""
         return self.lib.buffer_last_error().decode()
 
     def raw(self, result, expected: bytes | None = None) -> bytes:
+        """Copy and free a native buffer, optionally validating its payload."""
         check(bool(result.ptr), f"expected returned buffer: {self.error()}")
         value = ctypes.string_at(result.ptr, result.len)
         self.lib.buffer_free(result)
@@ -50,17 +59,16 @@ class Runtime:
         return value
 
     def frame(self, result) -> bytes:
-        value = self.raw(result)
-        check(len(value) >= 12 and value[:4] == b"LBWF", "binding frame magic")
-        length = int.from_bytes(value[8:12], "big")
-        check(length + 12 == len(value), "binding frame length")
-        return value[12:]
+        """Return a private structured-result buffer."""
+        return self.raw(result)
 
     def bool(self, value: bool, operation: str) -> None:
+        """Validate a native Boolean success result for an operation."""
         check(bool(value), f"{operation}: {self.error()}")
 
 
 def archive_lifecycle(runtime: Runtime) -> None:
+    """Exercise the core lockbox archive lifecycle."""
     lib = runtime.lib
     key = data(b"K" * 32)
     hello = data(b"hello from python conformance")
@@ -108,25 +116,35 @@ def archive_lifecycle(runtime: Runtime) -> None:
     passed("lockbox_read_range", 3)
 
     normal, value = data(b"normal"), data(b"value")
-    runtime.bool(lib.lockbox_set_variable(box, normal, 6, value, 5, False), "set variable")
-    runtime.raw(lib.lockbox_get_variable(box, normal, 6), b"value")
+    runtime.bool(lib.lockbox_set_variable(box, normal, 6, value, 5), "set variable")
+    check(b"value" in runtime.frame(lib.lockbox_get_variable(box, normal, 6)), "variable value")
     passed("lockbox_set_variable", 1)
     passed("lockbox_get_variable", 3)
-    moves = binding.messages.PathMoveList(values=[
-        binding.messages.PathMove(source="normal", destination="moved")
-    ]).SerializeToString()
+    moves = encode_path_moves([PathMove(source="normal", destination="moved")])
     moves_data = data(moves)
     runtime.bool(lib.lockbox_move_variables(box, moves_data, len(moves)), "move variable")
     moved = data(b"moved")
-    runtime.raw(lib.lockbox_get_variable(box, moved, 5), b"value")
-    moves = binding.messages.PathMoveList(values=[
-        binding.messages.PathMove(source="moved", destination="normal")
-    ]).SerializeToString()
+    check(b"value" in runtime.frame(lib.lockbox_get_variable(box, moved, 5)), "moved variable")
+    moves = encode_path_moves([PathMove(source="moved", destination="normal")])
     moves_data = data(moves)
     runtime.bool(lib.lockbox_move_variables(box, moves_data, len(moves)), "move variable back")
     passed("lockbox_move_variables", 3)
     secret, hidden = data(b"secret"), data(b"hidden")
-    runtime.bool(lib.lockbox_set_variable(box, secret, 6, hidden, 6, True), "set secret")
+    runtime.bool(lib.lockbox_set_secret_variable(box, secret, 6, hidden, 6), "set secret")
+    passed("lockbox_set_secret_variable", 1)
+    secret_handle = ctypes.c_void_p()
+    runtime.bool(lib.lockbox_get_secret_variable(box, secret, 6, ctypes.byref(secret_handle)), "get secret")
+    secret_length = ctypes.c_size_t()
+    runtime.bool(lib.secret_len(secret_handle, ctypes.byref(secret_length)), "secret length")
+    secret_bytes = (ctypes.c_ubyte * secret_length.value)()
+    runtime.bool(lib.secret_copy(secret_handle, secret_bytes, secret_length.value), "secret copy")
+    check(bytes(secret_bytes) == b"hidden", "secret value")
+    ctypes.memset(secret_bytes, 0, secret_length.value)
+    lib.secret_free(secret_handle)
+    passed("lockbox_get_secret_variable", 1)
+    passed("secret_len", 1)
+    passed("secret_copy", 1)
+    passed("secret_free", 1)
     sensitivity = runtime.frame(lib.lockbox_variable_sensitivity(box, secret, 6))
     check(b"secret" in sensitivity, "secret sensitivity")
     passed("lockbox_variable_sensitivity", 2)
@@ -142,7 +160,11 @@ def archive_lifecycle(runtime: Runtime) -> None:
     passed("lockbox_get_symlink_target", 3)
     root = data(b"/")
     check(runtime.frame(lib.lockbox_list(box, root, 1, True)), "listing")
-    check(runtime.frame(lib.lockbox_stat(box, renamed, 12)), "stat")
+    stat = decode("OptionalLockboxEntry", runtime.frame(lib.lockbox_stat(box, renamed, 12)))
+    check(stat is not None, "present stat value")
+    missing = data(b"/missing")
+    missing_stat = decode("OptionalLockboxEntry", runtime.frame(lib.lockbox_stat(box, missing, 8)))
+    check(missing_stat is None, "missing stat value")
     passed("lockbox_list", 2)
     passed("lockbox_stat", 2)
 
@@ -169,7 +191,7 @@ def archive_lifecycle(runtime: Runtime) -> None:
     passed("lockbox_probe_format_version", 2)
     invalid = data(b"bad")
     check(lib.lockbox_probe_format_version(invalid, 3) == 0, "invalid format probe")
-    details = binding.messages.ErrorDetails.FromString(runtime.frame(lib.buffer_last_error_details()))
+    details = decode("ErrorDetails", runtime.frame(lib.buffer_last_error_details()))
     check(bool(details.message), "structured error details")
     passed("buffer_last_error_details", 2)
     artifact_dir = Path(os.environ.get("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts")) / LANGUAGE
@@ -195,6 +217,7 @@ def archive_lifecycle(runtime: Runtime) -> None:
 
 
 def key_lifecycle(runtime: Runtime) -> None:
+    """Exercise contact, signing, wrapping, and key-format operations."""
     lib = runtime.lib
     content = bytes(range(32))
     content_data = data(content)
@@ -302,6 +325,7 @@ def key_lifecycle(runtime: Runtime) -> None:
 
 
 def advanced_archive(runtime: Runtime) -> None:
+    """Exercise forms, recovery, ownership, and advanced lockbox operations."""
     lib = runtime.lib
     key_bytes = b"1" * 32
     key = data(key_bytes)
@@ -319,16 +343,16 @@ def advanced_archive(runtime: Runtime) -> None:
     check(runtime.frame(lib.lockbox_list_with_options(box, root, 1, glob, 5, True, True, False, False, 10)), "filtered list")
     passed("lockbox_list_with_options", 2)
 
-    fields = bytes([
-        0x0A, 0x1C, 0x0A, 0x08, *b"username", 0x12, 0x08, *b"Username",
-        0x1A, 0x04, *b"text", 0x20, 0x01,
+    fields = encode_form_fields([
+        FormField(id="username", label="Username", kind="text", required=True),
+        FormField(id="password", label="Password", kind="secret", required=True),
     ])
     fields_data = data(fields)
     alias, name, description = data(b"account"), data(b"Account"), data(b"Account form")
     definition_payload = runtime.frame(lib.lockbox_define_form(
         box, alias, 7, name, 7, description, 12, fields_data, len(fields)
     ))
-    definition = binding.messages.FormDefinition.FromString(definition_payload)
+    definition = decode("FormDefinition", definition_payload)
     type_id = definition.type_id.encode()
     check(type_id, "form type identifier")
     passed("lockbox_define_form", 2)
@@ -343,24 +367,40 @@ def advanced_archive(runtime: Runtime) -> None:
     check(runtime.frame(lib.lockbox_create_form_record(box, record_path, 13, alias, 7, record_name, 15)), "form record")
     passed("lockbox_create_form_record", 1)
     field, field_value = data(b"username"), data(b"alice")
-    runtime.bool(lib.lockbox_set_form_field(box, record_path, 13, field, 8, field_value, 5, False), "set form field")
+    runtime.bool(lib.lockbox_set_form_field(box, record_path, 13, field, 8, field_value, 5), "set form field")
     passed("lockbox_set_form_field", 1)
-    check(runtime.frame(lib.lockbox_get_form_record(box, record_path, 13)), "get form record")
-    check(runtime.frame(lib.lockbox_get_form_field(box, record_path, 13, field, 8)), "get form field")
+    password_field, password_value = data(b"password"), data(b"hidden")
+    runtime.bool(lib.lockbox_set_secret_form_field(box, record_path, 13, password_field, 8, password_value, 6), "set secret form field")
+    passed("lockbox_set_secret_form_field", 1)
+    secret_handle = ctypes.c_void_p()
+    runtime.bool(lib.lockbox_get_secret_form_field(box, record_path, 13, password_field, 8, ctypes.byref(secret_handle)), "get secret form field")
+    secret_length = ctypes.c_size_t()
+    runtime.bool(lib.secret_len(secret_handle, ctypes.byref(secret_length)), "secret form length")
+    secret_bytes = (ctypes.c_ubyte * secret_length.value)()
+    runtime.bool(lib.secret_copy(secret_handle, secret_bytes, secret_length.value), "secret form copy")
+    check(bytes(secret_bytes) == b"hidden", "secret form value")
+    ctypes.memset(secret_bytes, 0, secret_length.value)
+    lib.secret_free(secret_handle)
+    passed("lockbox_get_secret_form_field", 1)
+    record = decode("OptionalFormRecord", runtime.frame(lib.lockbox_get_form_record(box, record_path, 13)))
+    form_value = decode("OptionalFormValue", runtime.frame(lib.lockbox_get_form_field(box, record_path, 13, field, 8)))
+    check(record is not None, "present form record")
+    check(form_value is not None, "present form field")
+    missing_record = data(b"/missing.form")
+    absent_record = decode("OptionalFormRecord", runtime.frame(lib.lockbox_get_form_record(box, missing_record, 13)))
+    absent_field = decode("OptionalFormValue", runtime.frame(lib.lockbox_get_form_field(box, missing_record, 13, field, 8)))
+    check(absent_record is None, "missing form record")
+    check(absent_field is None, "missing form field")
     check(runtime.frame(lib.lockbox_list_form_records(box)), "list form records")
     passed("lockbox_get_form_record", 1)
     passed("lockbox_get_form_field", 1)
     passed("lockbox_list_form_records", 1)
-    moves = binding.messages.PathMoveList(values=[
-        binding.messages.PathMove(source="/account.form", destination="/moved.form")
-    ]).SerializeToString()
+    moves = encode_path_moves([PathMove(source="/account.form", destination="/moved.form")])
     moves_data = data(moves)
     runtime.bool(lib.lockbox_move_form_records(box, moves_data, len(moves)), "move form record")
     moved_record = data(b"/moved.form")
     check(runtime.frame(lib.lockbox_get_form_record(box, moved_record, 11)), "moved form record")
-    moves = binding.messages.PathMoveList(values=[
-        binding.messages.PathMove(source="/moved.form", destination="/account.form")
-    ]).SerializeToString()
+    moves = encode_path_moves([PathMove(source="/moved.form", destination="/account.form")])
     moves_data = data(moves)
     runtime.bool(lib.lockbox_move_form_records(box, moves_data, len(moves)), "move form record back")
     passed("lockbox_move_form_records", 3)
@@ -389,7 +429,7 @@ def advanced_archive(runtime: Runtime) -> None:
 
     runtime.bool(lib.lockbox_commit(box), "advanced commit")
     owner = runtime.frame(lib.lockbox_owner_inspection(box))
-    check(binding.messages.OwnerInspection.FromString(owner).signed, "signed owner inspection")
+    check(decode("OwnerInspection", owner).signed, "signed owner inspection")
     passed("lockbox_owner_inspection", 2)
     check(runtime.frame(lib.lockbox_cache_stats(box)) is not None, "cache stats")
     check(runtime.frame(lib.lockbox_import_stats(box)) is not None, "import stats")
@@ -467,9 +507,7 @@ def advanced_archive(runtime: Runtime) -> None:
     signed_box = lib.lockbox_create_with_signing_key(key, 32, signing)
     check(bool(signed_box), runtime.error())
     runtime.bool(lib.lockbox_commit(signed_box), "signed commit")
-    signed_owner = binding.messages.OwnerInspection.FromString(
-        runtime.frame(lib.lockbox_owner_inspection(signed_box))
-    )
+    signed_owner = decode("OwnerInspection", runtime.frame(lib.lockbox_owner_inspection(signed_box)))
     check(signed_owner.signed, "signed box")
     passed("lockbox_create_with_signing_key", 2)
     lib.lockbox_free(signed_box)
@@ -477,7 +515,8 @@ def advanced_archive(runtime: Runtime) -> None:
     extract_root = artifact_dir / "extract"
     extract_root.mkdir(exist_ok=True)
     extracted_file = extract_root / "file.txt"
-    if extracted_file.exists(): extracted_file.unlink()
+    if extracted_file.exists():
+        extracted_file.unlink()
     extracted_file_data = data(str(extracted_file).encode())
     runtime.bool(lib.lockbox_extract_file(box, advanced_path, 13, extracted_file_data, len(str(extracted_file)), False), "extract file")
     check(extracted_file.read_bytes() == payload_bytes, "extracted bytes")
@@ -499,6 +538,7 @@ def advanced_archive(runtime: Runtime) -> None:
 
 
 def vault_lifecycle(runtime: Runtime) -> None:
+    """Exercise persistent vault-directory operations."""
     lib = runtime.lib
     artifact_dir = Path(os.environ.get("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts")) / LANGUAGE
     artifact_dir.mkdir(parents=True, exist_ok=True)
@@ -612,12 +652,14 @@ def vault_lifecycle(runtime: Runtime) -> None:
     passed("vault_directory_remember_password", 1)
     passed("vault_directory_remembered_password", 3)
 
-    fields = bytes([0x0A, 0x1C, 0x0A, 0x08, *b"username", 0x12, 0x08, *b"Username", 0x1A, 0x04, *b"text", 0x20, 0x01])
+    fields = encode_form_fields([
+        FormField(id="username", label="Username", kind="text", required=True),
+    ])
     fields_data = data(fields)
     alias, form_name, description = data(b"login"), data(b"Login"), data(b"Login form")
     vault_definition_payload = runtime.frame(lib.vault_directory_define_form(vault, alias, 5, form_name, 5, description, 10, fields_data, len(fields)))
     check(vault_definition_payload, "define vault form")
-    vault_definition = binding.messages.FormDefinition.FromString(vault_definition_payload)
+    vault_definition = decode("FormDefinition", vault_definition_payload)
     check(runtime.frame(lib.vault_directory_resolve_form(vault, alias, 5)), "resolve vault form")
     check(runtime.frame(lib.vault_directory_list_forms(vault)), "vault forms")
     passed("vault_directory_define_form", 1)
@@ -687,6 +729,7 @@ def vault_lifecycle(runtime: Runtime) -> None:
 
 
 def default_vault_lifecycle(runtime: Runtime) -> None:
+    """Exercise operations on the platform default vault directory."""
     lib = runtime.lib
     base = Path(os.environ.get("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts")) / LANGUAGE
     root = base / "default-vault"
@@ -714,7 +757,8 @@ def default_vault_lifecycle(runtime: Runtime) -> None:
     runtime.bool(lib.vault_directory_change_default_password(password, len(password_bytes), changed, len(changed_bytes)), "change default password")
     passed("vault_directory_change_default_password", 1)
     backup = base / "default-vault.backup"
-    if backup.exists(): backup.unlink()
+    if backup.exists():
+        backup.unlink()
     backup_data = data(str(backup).encode())
     check(runtime.frame(lib.vault_backup_default(backup_data, len(str(backup)), False)), "default backup")
     passed("vault_backup_default", 1)
@@ -723,6 +767,7 @@ def default_vault_lifecycle(runtime: Runtime) -> None:
 
 
 def platform_secret_store(runtime: Runtime) -> None:
+    """Exercise the platform-backed vault password store."""
     lib = runtime.lib
     base = Path(os.environ.get("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts")) / LANGUAGE / "platform-vault"
     base.mkdir(parents=True, exist_ok=True)
@@ -753,6 +798,7 @@ def platform_secret_store(runtime: Runtime) -> None:
 
 
 def interop_open(runtime: Runtime, producer: str) -> None:
+    """Open and validate artifacts produced by another language binding."""
     base = Path(os.environ.get("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts")) / producer
     archive = (base / "archive.lbox").read_bytes()
     archive_data, key = data(archive), data(b"K" * 32)
@@ -773,6 +819,7 @@ def interop_open(runtime: Runtime, producer: str) -> None:
 
 
 def agent_and_local_vault(runtime: Runtime) -> None:
+    """Exercise the session agent and local-vault convenience API."""
     lib = runtime.lib
     agent_dir = Path(tempfile.mkdtemp(prefix="revault-python-agent-"))
     agent_vault_dir = Path(tempfile.mkdtemp(prefix="revault-python-agent-vault-"))
@@ -923,6 +970,7 @@ def agent_and_local_vault(runtime: Runtime) -> None:
 
 
 def main() -> None:
+    """Run the requested Python ABI conformance scenario."""
     runtime = Runtime()
     if len(sys.argv) == 3 and sys.argv[1] == "--interop":
         interop_open(runtime, sys.argv[2])

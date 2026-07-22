@@ -53,10 +53,13 @@ function wrap(value) {
   });
 }
 
+/** Primary browser API for creating and opening encrypted lockboxes in memory.
+ * Instantiate it with the loaded WebAssembly module, then use the inherited
+ * facade methods for keys, lockbox contents, and recovery operations supported
+ * in a browser. */
 export class Vault {
+  /** Creates a facade whose binding calls are dispatched through the WASM runtime. */
   constructor() { return wrap(new host.Vault()); }
 }
-export const createMessage = host.createMessage;
-export const encodeMessage = host.encodeMessage;
-export const revault = host.revault;
+/** Returns the number of binding calls dispatched through the WASM runtime. */
 export function wasmDispatchCount() { return runtime.calls; }

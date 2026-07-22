@@ -45,7 +45,9 @@ pub enum LockboxProtection<'a> {
     ///
     /// This is the public half of a hybrid contact keypair.
     ContactPublicKey {
+        /// Optional human-readable recipient label stored with the key slot.
         name: Option<String>,
+        /// Recipient public key used to wrap the generated content key.
         contact: ContactPublicKey,
     },
 }
@@ -499,6 +501,10 @@ impl Lockbox {
     }
 
     #[cfg(any(test, feature = "bindings"))]
+    /// Creates an uncommitted in-memory lockbox protected by `password`.
+    ///
+    /// A random content key is generated and wrapped in a password key slot.
+    /// Call [`Lockbox::commit`] before serializing the lockbox.
     pub fn create_with_password(password: &SecretString) -> Result<Self> {
         let content_key = random_content_key()?;
         let mut lockbox = Self::create(content_key);
@@ -567,6 +573,10 @@ impl Lockbox {
     }
 
     #[cfg(any(test, feature = "bindings"))]
+    /// Creates an uncommitted in-memory lockbox for a contact public key.
+    ///
+    /// A random content key is generated and wrapped to `contact`. The contact
+    /// recipient receives read-only access unless an owner signing key is set.
     pub fn create_with_contact(contact: &ContactPublicKey) -> Result<Self> {
         let content_key = random_content_key()?;
         let mut lockbox = Self::create(content_key);
@@ -575,12 +585,19 @@ impl Lockbox {
     }
 
     #[cfg(any(test, feature = "bindings"))]
+    /// Opens in-memory lockbox bytes for writing using a password key slot.
+    ///
+    /// Returns [`Error::InvalidKey`] when no password slot can be unwrapped.
     pub fn open_with_password(bytes: Vec<u8>, password: &SecretString) -> Result<Self> {
         let opened = Self::open_bytes_with_password(&bytes, password)?;
         opened.open_bytes_opened(bytes)
     }
 
     #[cfg(any(test, feature = "bindings"))]
+    /// Opens in-memory lockbox bytes using the matching contact private key.
+    ///
+    /// Contact recipients open read-only unless the caller subsequently
+    /// supplies the owner signing key through the supported binding API.
     pub fn open_with_contact(bytes: Vec<u8>, contact: &ContactKeyPair) -> Result<Self> {
         let opened = Self::open_bytes_with_contact(&bytes, contact)?;
         opened.open_bytes_opened(bytes)

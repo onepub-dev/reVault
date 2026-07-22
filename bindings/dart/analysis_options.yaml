@@ -1,0 +1,9 @@
+include: package:lints/core.yaml
+
+analyzer:
+  exclude:
+    - lib/src/generated/**
+
+linter:
+  rules:
+    public_member_api_docs: true

@@ -1,15 +1,13 @@
 package com.onepub.revault.e2e;
 
 import com.onepub.revault.Revault;
+import com.onepub.revault.FormField;
+import com.onepub.revault.PathMove;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
-import revault.bindings.RevaultBindings.FormField;
-import revault.bindings.RevaultBindings.FormFieldList;
-import revault.bindings.RevaultBindings.PathMove;
-import revault.bindings.RevaultBindings.PathMoveList;
 
 /** Full Java end-to-end conformance runner. Every PASS follows a real API call. */
 public final class Conformance {
@@ -29,9 +27,10 @@ public final class Conformance {
     var base = Path.of(System.getenv().getOrDefault("REVAULT_E2E_ARTIFACT_DIR", "/tmp/revault-e2e-artifacts"));
     var result = base.resolve(LANGUAGE); Files.createDirectories(result); return result;
   }
-  private static FormFieldList formFields() {
-    return FormFieldList.newBuilder().addValues(FormField.newBuilder()
-        .setId("username").setLabel("Username").setKind("text").setRequired(true)).build();
+  private static java.util.List<FormField> formFields() {
+    return java.util.List.of(
+        new FormField("username", "Username", "text", true),
+        new FormField("password", "Password", "secret", true));
   }
   private static void deleteTree(Path root) throws IOException {
     if (!Files.exists(root)) return;
@@ -63,27 +62,27 @@ public final class Conformance {
       pass("lockbox_set_permissions", 2);
       check(Arrays.equals(box.readRange("/renamed.txt", 0, 11), "replacement".getBytes()), "range");
       pass("lockbox_read_range", 3);
-      box.setVariable("normal", "value", false); check(box.getVariable("normal").equals("value"), "variable");
+      box.setVariable("normal", "value"); check(box.getVariable("normal").equals("value"), "variable");
       pass("lockbox_set_variable"); pass("lockbox_get_variable", 3);
-      box.moveVariables(PathMoveList.newBuilder().addValues(PathMove.newBuilder()
-          .setSource("normal").setDestination("moved")).build());
+      box.moveVariables(java.util.List.of(new PathMove("normal", "moved")));
       check(box.getVariable("moved").equals("value"), "moved variable");
-      box.moveVariables(PathMoveList.newBuilder().addValues(PathMove.newBuilder()
-          .setSource("moved").setDestination("normal")).build());
+      box.moveVariables(java.util.List.of(new PathMove("moved", "normal")));
       pass("lockbox_move_variables", 3);
-      box.setVariable("secret", "hidden", true);
-      check(box.variableSensitivity("secret").getPresent(), "sensitivity");
+      box.setSecretVariable("secret", "hidden".getBytes()); pass("lockbox_set_secret_variable");
+      check(box.withSecretVariable("secret", value -> new String(value)).equals("hidden"), "secret variable");
+      pass("lockbox_get_secret_variable"); pass("secret_len"); pass("secret_copy"); pass("secret_free");
+      check(box.variableSensitivity("secret") != null, "sensitivity");
       pass("lockbox_variable_sensitivity", 2);
-      check(box.listVariables().getValuesCount() == 2, "variables"); pass("lockbox_list_variables");
+      check(box.listVariables().size() == 2, "variables"); pass("lockbox_list_variables");
       box.deleteVariable("normal"); pass("lockbox_delete_variable");
       box.addSymlink("/link", "/renamed.txt", false);
       check(box.symlinkTarget("/link").equals("/renamed.txt"), "symlink");
       pass("lockbox_add_symlink"); pass("lockbox_get_symlink_target", 3);
-      check(box.list("/", true).getEntriesCount() > 0, "list");
-      check(box.stat("/renamed.txt").hasValue(), "stat");
+      check(!box.list("/", true).isEmpty(), "list");
+      check(box.stat("/renamed.txt") != null, "stat");
       pass("lockbox_list", 2); pass("lockbox_stat", 2);
       box.setWorkloadProfile("read-mostly"); box.setWorkerPolicy("single", 1);
-      check(!box.runtimeOptions().getWorkloadProfile().isEmpty(), "runtime");
+      check(!box.runtimeOptions().workloadProfile().isEmpty(), "runtime");
       pass("lockbox_set_workload_profile"); pass("lockbox_set_worker_policy"); pass("lockbox_runtime_options");
       box.commit(); check(box.storageLength() > 0, "storage");
       pass("lockbox_commit"); pass("lockbox_storage_len");
@@ -93,7 +92,7 @@ public final class Conformance {
       check(API.probeLockboxFormatVersion(archive) == formatVersion, "format probe");
       pass("lockbox_format_version", 2); pass("lockbox_probe_format_version", 2);
       check(API.probeLockboxFormatVersion(new byte[] {1, 2, 3}) == 0, "invalid format probe");
-      check(!API.lastErrorDetails().getMessage().isEmpty(), "error details");
+      check(!API.lastErrorDetails().message().isEmpty(), "error details");
       pass("buffer_last_error_details", 2);
       var path = artifactRoot().resolve("archive.lbox"); Files.write(path, archive);
       System.out.printf("ARTIFACT\t%s\tarchive-created\t%s%n", LANGUAGE, path);
@@ -170,26 +169,26 @@ public final class Conformance {
     try (var box = API.createLockbox(key, options)) {
       pass("lockbox_create_with_options");
       box.addFile("/account.txt", "account data".getBytes(), false);
-      check(box.list("/", "*.txt", true, true, false, false, 20).getEntriesCount() == 1, "filtered list");
+      check(box.list("/", "*.txt", true, true, false, false, 20).size() == 1, "filtered list");
       pass("lockbox_list_with_options", 2);
       var definition = box.defineForm("account", "Account", "Account form", formFields());
-      check(!definition.getTypeId().isEmpty(), "form type"); pass("lockbox_define_form", 2);
-      check(box.listFormDefinitions().getValuesCount() == 1, "definitions");
-      check(box.resolveForm("account").getTypeId().equals(definition.getTypeId()), "resolve");
-      check(box.listFormRevisions(definition.getTypeId()).getValuesCount() == 1, "revisions");
+      check(!definition.typeId().isEmpty(), "form type"); pass("lockbox_define_form", 2);
+      check(box.listFormDefinitions().size() == 1, "definitions");
+      check(box.resolveForm("account").typeId().equals(definition.typeId()), "resolve");
+      check(box.listFormRevisions(definition.typeId()).size() == 1, "revisions");
       pass("lockbox_list_form_definitions"); pass("lockbox_resolve_form"); pass("lockbox_list_form_revisions");
       var record = box.createFormRecord("/account.form", "account", "Primary");
-      check(record.getPath().equals("/account.form"), "record"); pass("lockbox_create_form_record");
-      box.setFormField("/account.form", "username", "alice", false); pass("lockbox_set_form_field");
-      check(box.getFormRecord("/account.form").getValuesCount() == 1, "record values");
-      check(box.getFormField("/account.form", "username").getValue().equals("alice"), "field");
-      check(box.listFormRecords().getValuesCount() == 1, "records");
+      check(record.path().equals("/account.form"), "record"); pass("lockbox_create_form_record");
+      box.setFormField("/account.form", "username", "alice"); pass("lockbox_set_form_field");
+      box.setSecretFormField("/account.form", "password", "hidden".getBytes()); pass("lockbox_set_secret_form_field");
+      check(box.withSecretFormField("/account.form", "password", value -> new String(value)).equals("hidden"), "secret form field"); pass("lockbox_get_secret_form_field");
+      check(box.getFormRecord("/account.form").values().size() == 2, "record values");
+      check(box.getFormField("/account.form", "username").value().equals("alice"), "field");
+      check(box.listFormRecords().size() == 1, "records");
       pass("lockbox_get_form_record"); pass("lockbox_get_form_field"); pass("lockbox_list_form_records");
-      box.moveFormRecords(PathMoveList.newBuilder().addValues(PathMove.newBuilder()
-          .setSource("/account.form").setDestination("/moved.form")).build());
-      check(box.getFormRecord("/moved.form").getValuesCount() == 1, "moved record");
-      box.moveFormRecords(PathMoveList.newBuilder().addValues(PathMove.newBuilder()
-          .setSource("/moved.form").setDestination("/account.form")).build());
+      box.moveFormRecords(java.util.List.of(new PathMove("/account.form", "/moved.form")));
+      check(box.getFormRecord("/moved.form").values().size() == 1, "moved record");
+      box.moveFormRecords(java.util.List.of(new PathMove("/moved.form", "/account.form")));
       pass("lockbox_move_form_records", 3);
       try (var signing = API.generateSigningKeyPair(); var contact = API.generateContactKeyPair();
            var publicKey = contact.publicKey()) {
@@ -198,22 +197,22 @@ public final class Conformance {
         check(passwordSlot != -1L, "password slot"); pass("lockbox_add_password");
         long contactSlot = box.addContact(publicKey, "recipient");
         check(contactSlot != -1L, "contact slot"); pass("lockbox_add_contact");
-        check(box.listKeySlots().getValuesCount() >= 2, "slots"); pass("lockbox_list_key_slots");
+        check(box.listKeySlots().size() >= 2, "slots"); pass("lockbox_list_key_slots");
         box.deleteKey(passwordSlot); pass("lockbox_delete_key");
-        box.commit(); check(box.ownerInspection().getSigned(), "owner"); pass("lockbox_owner_inspection", 2);
-        check(box.cacheStats().getLimitBytes() > 0, "cache");
-        check(!box.importStats().getHostReadNanos().isEmpty(), "import");
-        box.resetImportStats(); check(box.pageInspection().getValuesCount() > 0, "pages");
-        check(box.recoveryReport().getIntactFileCount() > 0, "recovery");
+        box.commit(); check(box.ownerInspection().signed(), "owner"); pass("lockbox_owner_inspection", 2);
+        check(box.cacheStats().limitBytes() > 0, "cache");
+        check(!box.importStats().hostReadNanos().isEmpty(), "import");
+        box.resetImportStats(); check(box.pageInspection().size() > 0, "pages");
+        check(box.recoveryReport().intactFileCount() > 0, "recovery");
         check(!box.renderRecoveryReport(true, 100).isEmpty(), "render");
-        check(box.streamContent(false).getValuesCount() > 0, "stream"); check(box.id().length > 0, "id");
+        check(box.streamContent(false).size() > 0, "stream"); check(box.id().length > 0, "id");
         pass("lockbox_cache_stats"); pass("lockbox_import_stats"); pass("lockbox_reset_import_stats");
         pass("lockbox_page_inspection"); pass("lockbox_recovery_report");
         pass("lockbox_recovery_report_render", 2); pass("lockbox_stream_content"); pass("lockbox_id", 2);
         var archive = box.bytes(); var path = artifactRoot().resolve("advanced.lbox"); Files.write(path, archive);
-        check(API.inspectLockboxFile(path.toString()).getHeaderReadable(), "inspect");
-        check(API.scanLockboxPath(path.toString(), key).getIntactFileCount() > 0, "scan path");
-        check(API.scanLockbox(archive, key).getIntactFileCount() > 0, "scan");
+        check(API.inspectLockboxFile(path.toString()).headerReadable(), "inspect");
+        check(API.scanLockboxPath(path.toString(), key).intactFileCount() > 0, "scan path");
+        check(API.scanLockbox(archive, key).intactFileCount() > 0, "scan");
         pass("lockbox_inspect_file"); pass("lockbox_recovery_scan_path"); pass("lockbox_recovery_scan");
         var damaged = Arrays.copyOf(archive, archive.length - 32);
         try (var salvaged = API.salvageLockbox(damaged, key, signing)) {
@@ -241,7 +240,7 @@ public final class Conformance {
           pass("lockbox_open_contact", 2);
         }
         try (var signed = API.createSignedLockbox(key, signing)) {
-          signed.commit(); check(signed.ownerInspection().getSigned(), "signed box");
+          signed.commit(); check(signed.ownerInspection().signed(), "signed box");
         }
         pass("lockbox_create_with_signing_key", 2);
       }
@@ -279,10 +278,10 @@ public final class Conformance {
         pass("vault_directory_store_private_key"); pass("vault_directory_private_key_exists");
         pass("vault_directory_load_private_key"); pass("vault_directory_load_private_key_generation");
         vault.storeProfileEmail("alice", "alice@example.test");
-        var email = vault.profileEmail("alice"); check(email.getPresent() && email.getValue().equals("alice@example.test"), "email");
+        var email = vault.profileEmail("alice"); check("alice@example.test".equals(email), "email");
         pass("vault_directory_store_profile_email"); pass("vault_directory_profile_email", 3);
-        check(vault.listProfileGenerations("alice").getGenerationsCount() == 1, "history");
-        check(vault.rotatePrivateKey("alice").getGenerationsCount() == 2, "rotation");
+        check(vault.listProfileGenerations("alice").generations().size() == 1, "history");
+        check(vault.rotatePrivateKey("alice").generations().size() == 2, "rotation");
         pass("vault_directory_list_profile_generations"); pass("vault_directory_rotate_private_key");
         try (var loaded = vault.loadOwnerSigningKey("alice");
              var generation = vault.loadOwnerSigningKeyGeneration("alice", 1)) {
@@ -291,39 +290,39 @@ public final class Conformance {
         pass("vault_directory_load_owner_signing_key"); pass("vault_directory_load_owner_signing_key_generation");
         vault.storeContact("bob", contactPublic); check(vault.contactExists("bob"), "contact");
         try (var loaded = vault.loadContact("bob")) { check(loaded.fingerprint().length > 0, "loaded contact"); }
-        check(vault.listContacts().getValuesCount() == 1, "contacts");
+        check(vault.listContacts().size() == 1, "contacts");
         pass("vault_directory_store_contact"); pass("vault_directory_contact_exists");
         pass("vault_directory_load_contact"); pass("vault_directory_list_contacts");
         vault.storeContactSigningKey("bob", ownerPublic);
         try (var loaded = vault.loadContactSigningKey("bob")) { check(loaded != null, "contact signing"); }
         pass("vault_directory_store_contact_signing_key"); pass("vault_directory_load_contact_signing_key");
-        check(vault.listPrivateKeys().getValuesCount() > 0, "keys");
-        check(vault.listPrivateKeyNames().getValuesCount() > 0, "names");
-        check(vault.listContactNames().getValuesCount() > 0, "contacts");
+        check(vault.listPrivateKeys().size() > 0, "keys");
+        check(vault.listPrivateKeyNames().size() > 0, "names");
+        check(vault.listContactNames().size() > 0, "contacts");
         pass("vault_directory_list_private_keys"); pass("vault_directory_list_private_key_names");
         pass("vault_directory_list_contact_names");
         vault.storeBackup(id, "encrypted backup bytes".getBytes()); check(vault.backupCount() == 1, "count");
         check(Arrays.equals(vault.loadBackup(id), "encrypted backup bytes".getBytes()), "backup");
         pass("vault_directory_store_backup"); pass("vault_directory_backup_count"); pass("vault_directory_load_backup", 3);
         vault.rememberLockbox(id, "/tmp/example.lbox");
-        check(vault.listKnownLockboxes().getValuesCount() == 1, "known");
+        check(vault.listKnownLockboxes().size() == 1, "known");
         pass("vault_directory_remember_lockbox"); pass("vault_directory_list_known_lockboxes");
         vault.rememberAccessSlotLabel(id, 7, "primary");
-        check(vault.listAccessSlotLabels(id).getValuesCount() == 1, "labels");
-        check(vault.findAccessSlotLabels(id, "primary").getValuesCount() == 1, "find");
+        check(vault.listAccessSlotLabels(id).size() == 1, "labels");
+        check(vault.findAccessSlotLabels(id, "primary").size() == 1, "find");
         pass("vault_directory_remember_access_slot_label"); pass("vault_directory_list_access_slot_labels");
         pass("vault_directory_find_access_slot_labels");
         vault.rememberPassword(id, password); check(Arrays.equals(vault.rememberedPassword(id), password), "remember");
         pass("vault_directory_remember_password"); pass("vault_directory_remembered_password", 3);
         var vaultForm = vault.defineForm("login", "Login", "Login form", formFields());
-        check(!vaultForm.getTypeId().isEmpty(), "define");
-        check(!vault.resolveForm("login").getTypeId().isEmpty(), "resolve");
-        check(vault.listForms().getValuesCount() > 0, "forms");
+        check(!vaultForm.typeId().isEmpty(), "define");
+        check(!vault.resolveForm("login").typeId().isEmpty(), "resolve");
+        check(vault.listForms().size() > 0, "forms");
         pass("vault_directory_define_form"); pass("vault_directory_resolve_form"); pass("vault_directory_list_forms");
-        check(vault.listFormRevisions(vaultForm.getTypeId()).getValuesCount() > 0, "vault revisions");
+        check(vault.listFormRevisions(vaultForm.typeId()).size() > 0, "vault revisions");
         pass("vault_directory_list_form_revisions", 2);
         check(vault.seedForms() > 0, "seed"); pass("vault_directory_seed_forms");
-        check(vault.listFormAliases().getValuesCount() > 0, "aliases"); pass("vault_directory_list_form_aliases");
+        check(vault.listFormAliases().size() > 0, "aliases"); pass("vault_directory_list_form_aliases");
         vault.forgetAccessSlotLabel(id, 7); vault.forgetLockbox("/tmp/example.lbox"); vault.deleteContact("bob");
         pass("vault_directory_forget_access_slot_label"); pass("vault_directory_forget_lockbox");
         pass("vault_directory_delete_contact");
@@ -333,9 +332,9 @@ public final class Conformance {
       }
       pass("vault_directory_free");
       try (var readonly = API.openReadOnlyVaultDirectory(root.toString(), password)) {
-        check(readonly.listProfileNames().getValuesCount() > 0, "read-only profiles");
+        check(readonly.listProfileNames().size() > 0, "read-only profiles");
         readonly.listContactNames();
-        check(readonly.listFormAliases().getValuesCount() > 0, "read-only forms");
+        check(readonly.listFormAliases().size() > 0, "read-only forms");
         readonly.listKnownLockboxes();
         pass("vault_read_only_open"); pass("vault_read_only_list_profile_names", 2);
         pass("vault_read_only_list_contact_names"); pass("vault_read_only_list_form_aliases", 2);
@@ -356,20 +355,26 @@ public final class Conformance {
 
   private static void defaultVaultLifecycle() throws Exception {
     var expectedRoot = Path.of(System.getenv("LOCKBOX_VAULT_DIR")); Files.createDirectories(expectedRoot);
-    try (var vault = API.replaceDefaultVaultDirectory("default password".getBytes())) {}
+    try (var vault = API.replaceDefaultVaultDirectory("default password".getBytes())) {
+      check(vault != null, "replace default vault");
+    }
     pass("vault_directory_replace_default");
-    try (var vault = API.openDefaultReadOnlyVaultDirectory("default password".getBytes())) {}
+    try (var vault = API.openDefaultReadOnlyVaultDirectory("default password".getBytes())) {
+      check(vault != null, "open default read-only vault");
+    }
     pass("vault_read_only_open_default");
     check(API.defaultVaultDirectory().equals(expectedRoot.toString()), "default dir");
     check(Path.of(API.defaultVaultPath()).getParent().equals(expectedRoot), "default path");
     pass("vault_default_directory", 3); pass("vault_default_path", 2);
-    try (var vault = API.openOrCreateDefaultVaultDirectory("default password".getBytes())) {}
+    try (var vault = API.openOrCreateDefaultVaultDirectory("default password".getBytes())) {
+      check(vault != null, "open default vault");
+    }
     pass("vault_directory_open_or_create_default");
     API.changeDefaultVaultDirectoryPassword("default password".getBytes(), "changed default password".getBytes());
     pass("vault_directory_change_default_password");
     var backup = artifactRoot().resolve("default-vault.backup"); Files.deleteIfExists(backup);
-    check(API.backupDefaultVault(backup.toString(), false).getVaultSize() > 0, "backup default");
-    check(API.restoreDefaultVault(backup.toString(), true).getVaultSize() > 0, "restore default");
+    check(API.backupDefaultVault(backup.toString(), false).vaultSize() > 0, "backup default");
+    check(API.restoreDefaultVault(backup.toString(), true).vaultSize() > 0, "restore default");
     pass("vault_backup_default"); pass("vault_restore_default");
   }
 
@@ -401,7 +406,7 @@ public final class Conformance {
     for (int i = 0; i < id.length; i++) id[i] = (byte) (0xc0 + i);
     for (int i = 0; i < key.length; i++) key[i] = (byte) (0x20 + i);
     API.putAgentKey(id, key); check(Arrays.equals(API.getAgentKey(id), key), "agent key");
-    check(API.listAgentKeys().getValuesCount() > 0, "agent list");
+    check(API.listAgentKeys().size() > 0, "agent list");
     pass("vault_agent_put"); pass("vault_agent_get", 3); pass("vault_agent_list");
     API.putAgentVaultUnlockKey("vault-id", key, 120); check(Arrays.equals(API.getAgentVaultUnlockKey("vault-id"), key), "vault key");
     pass("vault_agent_put_vault_unlock_key"); pass("vault_agent_get_vault_unlock_key", 3);
@@ -411,7 +416,10 @@ public final class Conformance {
         check(loaded.publicBytes().length > 0, "owner key");
       }
       pass("vault_agent_put_owner_signing_key"); pass("vault_agent_get_owner_signing_key");
-      try (var activity = API.beginAgentActivity("open")) { pass("vault_agent_begin_activity"); }
+      try (var activity = API.beginAgentActivity("open")) {
+        check(activity != null, "agent activity");
+        pass("vault_agent_begin_activity");
+      }
       pass("vault_agent_end_activity");
       check(API.agentSleepSupport() != null, "sleep"); pass("vault_agent_sleep_support");
       check(!API.agentLogPath().isEmpty(), "log path"); check(!API.agentLogDestination().isEmpty(), "log destination");

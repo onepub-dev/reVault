@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Text;
 using Revault;
-using Revault.Bindings;
 
 static class Conformance
 {
@@ -15,7 +14,10 @@ static class Conformance
         var path = Path.Combine(Environment.GetEnvironmentVariable("REVAULT_E2E_ARTIFACT_DIR") ?? "/tmp/revault-e2e-artifacts", "csharp");
         Directory.CreateDirectory(path); return path;
     }
-    static FormFieldList Fields() => new() { Values = { new FormField { Id = "username", Label = "Username", Kind = "text", Required = true } } };
+    static IReadOnlyList<FormField> Fields() => new[] {
+        new FormField("username", "Username", "text", true),
+        new FormField("password", "Password", "secret", true)
+    };
 
     static void ArchiveLifecycle()
     {
@@ -34,12 +36,15 @@ static class Conformance
             box.SetPermissions("/renamed.txt", 0x180); Check(box.Permissions("/renamed.txt") == 0x180, "set mode"); Pass("lockbox_set_permissions", 2);
             Check(box.ReadRange("/renamed.txt", 0, 11).SequenceEqual(Bytes("replacement")), "range"); Pass("lockbox_read_range", 3);
             box.SetVariable("normal", "value"); Check(box.GetVariable("normal") == "value", "variable"); Pass("lockbox_set_variable"); Pass("lockbox_get_variable", 3);
-            box.MoveVariables(new PathMoveList { Values = { new PathMove { Source = "normal", Destination = "moved" } } }); Check(box.GetVariable("moved") == "value", "moved variable");
-            box.MoveVariables(new PathMoveList { Values = { new PathMove { Source = "moved", Destination = "normal" } } }); Pass("lockbox_move_variables", 3);
-            box.SetVariable("secret", "hidden", true); Check(box.VariableSensitivity("secret").Present, "secret"); Pass("lockbox_variable_sensitivity", 2);
-            Check(box.ListVariables().Values.Count == 2, "variables"); Pass("lockbox_list_variables"); box.DeleteVariable("normal"); Pass("lockbox_delete_variable");
+            box.MoveVariables(new[] { new PathMove("normal", "moved") }); Check(box.GetVariable("moved") == "value", "moved variable");
+            box.MoveVariables(new[] { new PathMove("moved", "normal") }); Pass("lockbox_move_variables", 3);
+            box.SetSecretVariable("secret", Bytes("hidden")); Pass("lockbox_set_secret_variable");
+            Check(box.WithSecretVariable("secret", value => Encoding.UTF8.GetString(value)) == "hidden", "secret variable");
+            Pass("lockbox_get_secret_variable"); Pass("secret_len"); Pass("secret_copy"); Pass("secret_free");
+            Check(box.VariableSensitivity("secret") != null, "secret"); Pass("lockbox_variable_sensitivity", 2);
+            Check(box.ListVariables().Count == 2, "variables"); Pass("lockbox_list_variables"); box.DeleteVariable("normal"); Pass("lockbox_delete_variable");
             box.AddSymlink("/link", "/renamed.txt"); Check(box.SymlinkTarget("/link") == "/renamed.txt", "link"); Pass("lockbox_add_symlink"); Pass("lockbox_get_symlink_target", 3);
-            Check(box.List("/", true).Entries.Count > 0, "list"); Check(box.Stat("/renamed.txt").Value != null, "stat"); Pass("lockbox_list", 2); Pass("lockbox_stat", 2);
+            Check(box.List("/", true).Count > 0, "list"); Check(box.Stat("/renamed.txt") != null, "stat"); Pass("lockbox_list", 2); Pass("lockbox_stat", 2);
             box.SetWorkloadProfile("read-mostly"); box.SetWorkerPolicy("single", 1); Check(box.RuntimeOptions().WorkloadProfile.Length > 0, "runtime");
             Pass("lockbox_set_workload_profile"); Pass("lockbox_set_worker_policy"); Pass("lockbox_runtime_options");
             box.Commit(); Check(box.StorageLength > 0, "storage"); Pass("lockbox_commit"); Pass("lockbox_storage_len");
@@ -99,23 +104,26 @@ static class Conformance
     {
         var key = Repeat('A', 32); var options = new Vault.LockboxOptions("bytes", 4UL << 20, "bulk-import", "single", 1);
         using var box = Api.CreateLockbox(key, options); Pass("lockbox_create_with_options"); box.AddFile("/account.txt", Bytes("account data"));
-        Check(box.List("/", "*.txt", true, true, false, false, 20).Entries.Count == 1, "filter"); Pass("lockbox_list_with_options", 2);
+        Check(box.List("/", "*.txt", true, true, false, false, 20).Count == 1, "filter"); Pass("lockbox_list_with_options", 2);
         var definition = box.DefineForm("account", "Account", "Account form", Fields()); Check(definition.TypeId.Length > 0, "form"); Pass("lockbox_define_form", 2);
-        Check(box.ListFormDefinitions().Values.Count == 1, "defs"); Check(box.ResolveForm("account").TypeId == definition.TypeId, "resolve"); Check(box.ListFormRevisions(definition.TypeId).Values.Count == 1, "revs");
+        Check(box.ListFormDefinitions().Count == 1, "defs"); Check(box.ResolveForm("account").TypeId == definition.TypeId, "resolve"); Check(box.ListFormRevisions(definition.TypeId).Count == 1, "revs");
         Pass("lockbox_list_form_definitions"); Pass("lockbox_resolve_form"); Pass("lockbox_list_form_revisions");
         Check(box.CreateFormRecord("/account.form", "account", "Primary").Path == "/account.form", "record"); Pass("lockbox_create_form_record");
-        box.SetFormField("/account.form", "username", "alice"); Pass("lockbox_set_form_field"); Check(box.GetFormRecord("/account.form").Values.Count == 1, "values");
-        Check(box.GetFormField("/account.form", "username").Value == "alice", "field"); Check(box.ListFormRecords().Values.Count == 1, "records");
+        box.SetFormField("/account.form", "username", "alice"); Pass("lockbox_set_form_field");
+        box.SetSecretFormField("/account.form", "password", Bytes("hidden")); Pass("lockbox_set_secret_form_field");
+        Check(box.WithSecretFormField("/account.form", "password", value => Encoding.UTF8.GetString(value)) == "hidden", "secret form field"); Pass("lockbox_get_secret_form_field");
+        Check(box.GetFormRecord("/account.form")!.Values.Count == 2, "values");
+        Check(box.GetFormField("/account.form", "username")!.Value == "alice", "field"); Check(box.ListFormRecords().Count == 1, "records");
         Pass("lockbox_get_form_record"); Pass("lockbox_get_form_field"); Pass("lockbox_list_form_records");
-        box.MoveFormRecords(new PathMoveList { Values = { new PathMove { Source = "/account.form", Destination = "/moved.form" } } }); Check(box.GetFormRecord("/moved.form").Values.Count == 1, "moved record");
-        box.MoveFormRecords(new PathMoveList { Values = { new PathMove { Source = "/moved.form", Destination = "/account.form" } } }); Pass("lockbox_move_form_records", 3);
+        box.MoveFormRecords(new[] { new PathMove("/account.form", "/moved.form") }); Check(box.GetFormRecord("/moved.form")!.Values.Count == 1, "moved record");
+        box.MoveFormRecords(new[] { new PathMove("/moved.form", "/account.form") }); Pass("lockbox_move_form_records", 3);
         using var signing = Api.GenerateSigningKeyPair(); using var contact = Api.GenerateContactKeyPair(); using var publicKey = contact.PublicKey();
         box.SetOwnerSigningKey(signing); Pass("lockbox_set_owner_signing_key"); var passwordSlot = box.AddPassword(Bytes("archive password")); Pass("lockbox_add_password");
-        var contactSlot = box.AddContact(publicKey, "recipient"); Check(contactSlot != ulong.MaxValue, "slot"); Pass("lockbox_add_contact"); Check(box.ListKeySlots().Values.Count >= 2, "slots"); Pass("lockbox_list_key_slots");
+        var contactSlot = box.AddContact(publicKey, "recipient"); Check(contactSlot != ulong.MaxValue, "slot"); Pass("lockbox_add_contact"); Check(box.ListKeySlots().Count >= 2, "slots"); Pass("lockbox_list_key_slots");
         box.DeleteKey(passwordSlot); Pass("lockbox_delete_key"); box.Commit(); Check(box.OwnerInspection().Signed, "owner"); Pass("lockbox_owner_inspection", 2);
         Check(box.CacheStats().LimitBytes > 0, "cache"); Check(box.ImportStats().HostReadNanos.Length > 0, "import"); box.ResetImportStats();
-        Check(box.PageInspection().Values.Count > 0, "pages"); Check(box.RecoveryReport().IntactFileCount > 0, "recovery"); Check(box.RenderRecoveryReport(true, 100).Length > 0, "render");
-        Check(box.StreamContent().Values.Count > 0, "stream"); Check(box.Id.Length > 0, "id"); Pass("lockbox_cache_stats"); Pass("lockbox_import_stats"); Pass("lockbox_reset_import_stats");
+        Check(box.PageInspection().Count > 0, "pages"); Check(box.RecoveryReport().IntactFileCount > 0, "recovery"); Check(box.RenderRecoveryReport(true, 100).Length > 0, "render");
+        Check(box.StreamContent().Count > 0, "stream"); Check(box.Id.Length > 0, "id"); Pass("lockbox_cache_stats"); Pass("lockbox_import_stats"); Pass("lockbox_reset_import_stats");
         Pass("lockbox_page_inspection"); Pass("lockbox_recovery_report"); Pass("lockbox_recovery_report_render", 2); Pass("lockbox_stream_content"); Pass("lockbox_id", 2);
         var archive = box.Bytes; var path = Path.Combine(Root(), "advanced.lbox"); File.WriteAllBytes(path, archive); Check(Api.InspectLockboxFile(path).HeaderReadable, "inspect");
         Check(Api.ScanLockboxPath(path, key).IntactFileCount > 0, "scan path"); Check(Api.ScanLockbox(archive, key).IntactFileCount > 0, "scan"); Pass("lockbox_inspect_file"); Pass("lockbox_recovery_scan_path"); Pass("lockbox_recovery_scan");
@@ -143,24 +151,24 @@ static class Conformance
             var currentVersion = Api.CurrentVaultStructureVersion; Check(currentVersion == vault.StructureVersion && Api.ProbeVaultStructureVersion(root, password) == currentVersion, "vault probe"); Pass("vault_structure_version_current", 2); Pass("vault_directory_probe_structure_version", 2);
             vault.StorePrivateKey("alice", profile); Check(vault.PrivateKeyExists("alice"), "profile"); using (var loaded = vault.LoadPrivateKey("alice")) Check(loaded.PublicBytes().Length > 0, "load"); using (var loaded = vault.LoadPrivateKeyGeneration("alice", 1)) Check(loaded.PublicBytes().Length > 0, "generation");
             Pass("vault_directory_store_private_key"); Pass("vault_directory_private_key_exists"); Pass("vault_directory_load_private_key"); Pass("vault_directory_load_private_key_generation");
-            vault.StoreProfileEmail("alice", "alice@example.test"); Check(vault.ProfileEmail("alice").Present, "email"); Pass("vault_directory_store_profile_email"); Pass("vault_directory_profile_email", 3);
+            vault.StoreProfileEmail("alice", "alice@example.test"); Check(vault.ProfileEmail("alice") != null, "email"); Pass("vault_directory_store_profile_email"); Pass("vault_directory_profile_email", 3);
             Check(vault.ListProfileGenerations("alice").Generations.Count == 1, "history"); Check(vault.RotatePrivateKey("alice").Generations.Count == 2, "rotate"); Pass("vault_directory_list_profile_generations"); Pass("vault_directory_rotate_private_key");
             using (var loaded = vault.LoadOwnerSigningKey("alice")) Check(loaded.PublicBytes().Length > 0, "owner"); using (var loaded = vault.LoadOwnerSigningKeyGeneration("alice", 1)) Check(loaded.PublicBytes().Length > 0, "owner gen"); Pass("vault_directory_load_owner_signing_key"); Pass("vault_directory_load_owner_signing_key_generation");
-            vault.StoreContact("bob", contactPublic); Check(vault.ContactExists("bob"), "contact"); using (var loaded = vault.LoadContact("bob")) Check(loaded.Fingerprint().Length > 0, "load contact"); Check(vault.ListContacts().Values.Count == 1, "contacts");
+            vault.StoreContact("bob", contactPublic); Check(vault.ContactExists("bob"), "contact"); using (var loaded = vault.LoadContact("bob")) Check(loaded.Fingerprint().Length > 0, "load contact"); Check(vault.ListContacts().Count == 1, "contacts");
             Pass("vault_directory_store_contact"); Pass("vault_directory_contact_exists"); Pass("vault_directory_load_contact"); Pass("vault_directory_list_contacts");
             vault.StoreContactSigningKey("bob", ownerPublic); using (var loaded = vault.LoadContactSigningKey("bob")) Check(loaded != null, "signing contact"); Pass("vault_directory_store_contact_signing_key"); Pass("vault_directory_load_contact_signing_key");
-            Check(vault.ListPrivateKeys().Values.Count > 0 && vault.ListPrivateKeyNames().Values.Count > 0 && vault.ListContactNames().Values.Count > 0, "lists"); Pass("vault_directory_list_private_keys"); Pass("vault_directory_list_private_key_names"); Pass("vault_directory_list_contact_names");
+            Check(vault.ListPrivateKeys().Count > 0 && vault.ListPrivateKeyNames().Count > 0 && vault.ListContactNames().Count > 0, "lists"); Pass("vault_directory_list_private_keys"); Pass("vault_directory_list_private_key_names"); Pass("vault_directory_list_contact_names");
             vault.StoreBackup(id, Bytes("encrypted backup bytes")); Check(vault.BackupCount == 1 && vault.LoadBackup(id).SequenceEqual(Bytes("encrypted backup bytes")), "backup"); Pass("vault_directory_store_backup"); Pass("vault_directory_backup_count"); Pass("vault_directory_load_backup", 3);
-            vault.RememberLockbox(id, "/tmp/example.lbox"); Check(vault.ListKnownLockboxes().Values.Count == 1, "known"); Pass("vault_directory_remember_lockbox"); Pass("vault_directory_list_known_lockboxes");
-            vault.RememberAccessSlotLabel(id, 7, "primary"); Check(vault.ListAccessSlotLabels(id).Values.Count == 1 && vault.FindAccessSlotLabels(id, "primary").Values.Count == 1, "labels"); Pass("vault_directory_remember_access_slot_label"); Pass("vault_directory_list_access_slot_labels"); Pass("vault_directory_find_access_slot_labels");
+            vault.RememberLockbox(id, "/tmp/example.lbox"); Check(vault.ListKnownLockboxes().Count == 1, "known"); Pass("vault_directory_remember_lockbox"); Pass("vault_directory_list_known_lockboxes");
+            vault.RememberAccessSlotLabel(id, 7, "primary"); Check(vault.ListAccessSlotLabels(id).Count == 1 && vault.FindAccessSlotLabels(id, "primary").Count == 1, "labels"); Pass("vault_directory_remember_access_slot_label"); Pass("vault_directory_list_access_slot_labels"); Pass("vault_directory_find_access_slot_labels");
             vault.RememberPassword(id, password); Check(vault.RememberedPassword(id).SequenceEqual(password), "remember"); Pass("vault_directory_remember_password"); Pass("vault_directory_remembered_password", 3);
-            var vaultForm = vault.DefineForm("login", "Login", "Login form", Fields()); Check(vaultForm.TypeId.Length > 0 && vault.ResolveForm("login").TypeId.Length > 0 && vault.ListForms().Values.Count > 0, "forms"); Pass("vault_directory_define_form"); Pass("vault_directory_resolve_form"); Pass("vault_directory_list_forms");
-            Check(vault.ListFormRevisions(vaultForm.TypeId).Values.Count > 0, "vault revisions"); Pass("vault_directory_list_form_revisions", 2);
-            Check(vault.SeedForms() > 0, "seed"); Pass("vault_directory_seed_forms"); Check(vault.ListFormAliases().Values.Count > 0, "aliases"); Pass("vault_directory_list_form_aliases");
+            var vaultForm = vault.DefineForm("login", "Login", "Login form", Fields()); Check(vaultForm.TypeId.Length > 0 && vault.ResolveForm("login").TypeId.Length > 0 && vault.ListForms().Count > 0, "forms"); Pass("vault_directory_define_form"); Pass("vault_directory_resolve_form"); Pass("vault_directory_list_forms");
+            Check(vault.ListFormRevisions(vaultForm.TypeId).Count > 0, "vault revisions"); Pass("vault_directory_list_form_revisions", 2);
+            Check(vault.SeedForms() > 0, "seed"); Pass("vault_directory_seed_forms"); Check(vault.ListFormAliases().Count > 0, "aliases"); Pass("vault_directory_list_form_aliases");
             vault.ForgetAccessSlotLabel(id, 7); vault.ForgetLockbox("/tmp/example.lbox"); vault.DeleteContact("bob"); Pass("vault_directory_forget_access_slot_label"); Pass("vault_directory_forget_lockbox"); Pass("vault_directory_delete_contact");
             vault.DeletePrivateKey("alice"); Check(!vault.PrivateKeyExists("alice"), "deleted"); vault.RestorePrivateKey("alice", profile, owner, true); Check(vault.PrivateKeyExists("alice"), "restored"); Pass("vault_directory_delete_private_key", 2); Pass("vault_directory_restore_private_key", 2);
         }
-        Pass("vault_directory_free"); using (var readOnlyVault = Api.OpenReadOnlyVaultDirectory(root, password)) { Check(readOnlyVault.ListProfileNames().Values.Count > 0, "readonly profiles"); _ = readOnlyVault.ListContactNames(); Check(readOnlyVault.ListFormAliases().Values.Count > 0, "readonly forms"); _ = readOnlyVault.ListKnownLockboxes(); Pass("vault_read_only_open"); Pass("vault_read_only_list_profile_names", 2); Pass("vault_read_only_list_contact_names"); Pass("vault_read_only_list_form_aliases", 2); Pass("vault_read_only_list_known_lockboxes"); } Pass("vault_read_only_free");
+        Pass("vault_directory_free"); using (var readOnlyVault = Api.OpenReadOnlyVaultDirectory(root, password)) { Check(readOnlyVault.ListProfileNames().Count > 0, "readonly profiles"); _ = readOnlyVault.ListContactNames(); Check(readOnlyVault.ListFormAliases().Count > 0, "readonly forms"); _ = readOnlyVault.ListKnownLockboxes(); Pass("vault_read_only_open"); Pass("vault_read_only_list_profile_names", 2); Pass("vault_read_only_list_contact_names"); Pass("vault_read_only_list_form_aliases", 2); Pass("vault_read_only_list_known_lockboxes"); } Pass("vault_read_only_free");
         Api.ChangeVaultDirectoryPassword(root, password, changed); Pass("vault_directory_change_password"); using (var opened = Api.OpenVaultDirectory(root, changed)) Check(opened.StructureVersion > 0, "reopen"); Pass("vault_directory_open"); Console.WriteLine($"ARTIFACT\tcsharp\tvault-opened\t{root}");
         using (var opened = Api.OpenOrCreateVaultDirectory(root, changed)) Check(opened.StructureVersion > 0, "open create"); Pass("vault_directory_open_or_create");
     }
@@ -183,7 +191,7 @@ static class Conformance
         Api.ForgetAllAgentSecrets(); Pass("vault_forget_all"); using var child = StartAgent(); var running = false; for (var i = 0; i < 200; i++) { if (Api.AgentIsRunning) { running = true; break; } Thread.Sleep(50); }
         Check(running, "agent"); Pass("vault_agent_serve"); Pass("vault_is_running"); Api.StartAgent(); Pass("vault_agent_start"); Api.VerifyAgentTransport(); Pass("vault_agent_verify_transport");
         var id = Enumerable.Range(0, 16).Select(i => (byte)(0xc0 + i)).ToArray(); var key = Enumerable.Range(0, 32).Select(i => (byte)(0x20 + i)).ToArray();
-        Api.PutAgentKey(id, key); Check(Api.GetAgentKey(id).SequenceEqual(key) && Api.ListAgentKeys().Values.Count > 0, "agent key"); Pass("vault_agent_put"); Pass("vault_agent_get", 3); Pass("vault_agent_list");
+        Api.PutAgentKey(id, key); Check(Api.GetAgentKey(id).SequenceEqual(key) && Api.ListAgentKeys().Count > 0, "agent key"); Pass("vault_agent_put"); Pass("vault_agent_get", 3); Pass("vault_agent_list");
         Api.PutAgentVaultUnlockKey("vault-id", key, 120); Check(Api.GetAgentVaultUnlockKey("vault-id").SequenceEqual(key), "vault key"); Pass("vault_agent_put_vault_unlock_key"); Pass("vault_agent_get_vault_unlock_key", 3);
         using (var owner = Api.GenerateSigningKeyPair())
         {

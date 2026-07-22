@@ -1,28 +1,50 @@
 // Generated complete binary operation layer. Do not edit.
 import koffi from 'koffi';
-import { revault } from './generated/messages.js';
+import { Builder, ByteBuffer } from 'flatbuffers';
+import * as transport from './generated/flatbuffers.js';
 import { nativeLibraryPath } from './native-loader.js';
 
-const messages = revault.bindings;
 const library = koffi.load(nativeLibraryPath());
 const api_abi_version = library.func('uint32_t api_abi_version(void)');
-if (api_abi_version() !== 1) throw new Error('revault-api native ABI mismatch; expected 1');
+if (api_abi_version() !== 3) throw new Error('revault-api native ABI mismatch; expected 3');
 const RevaultBuffer = koffi.struct('RevaultBuffer', { ptr: 'uint8_t *', len: 'size_t' });
 
 export function createMessage(name, fields = {}) {
-  const Message = messages[name];
-  if (Message == null) throw new TypeError(`unknown protobuf message: ${name}`);
-  return new Message(fields);
+  if (transport[name] == null) throw new TypeError(`unknown reVault domain type: ${name}`);
+  return Object.freeze({ type: name, ...fields });
 }
 export function encodeMessage(message) {
-  const Message = message?.constructor;
-  if (typeof Message?.encode !== 'function') throw new TypeError('a concrete protobuf message is required');
-  return Buffer.from(Message.encode(message).finish());
+  const builder = new Builder(256);
+  const table = transport[message?.type];
+  if (message?.type === 'PathMoveList') {
+    const offsets = (message.values ?? []).map((value) => {
+      const source = builder.createString(value.source ?? '');
+      const destination = builder.createString(value.destination ?? '');
+      return transport.PathMove.createPathMove(builder, source, destination);
+    });
+    const values = transport.PathMoveList.createValuesVector(builder, offsets);
+    builder.finish(transport.PathMoveList.createPathMoveList(builder, values));
+  } else if (message?.type === 'FormFieldList') {
+    const offsets = (message.values ?? []).map((value) => {
+      const id = builder.createString(value.id ?? '');
+      const label = builder.createString(value.label ?? '');
+      const kind = builder.createString(value.kind ?? '');
+      return transport.FormField.createFormField(builder, id, label, kind, value.required === true);
+    });
+    const values = transport.FormFieldList.createValuesVector(builder, offsets);
+    builder.finish(transport.FormFieldList.createFormFieldList(builder, values));
+  } else {
+    throw new TypeError(`encoding ${message?.type ?? typeof message} is not a supported API input`);
+  }
+  return Buffer.from(builder.asUint8Array());
 }
 
 const buffer_last_error = library.func('const char * buffer_last_error(void)');
 const buffer_last_error_details = library.func('RevaultBuffer buffer_last_error_details(void)');
 const buffer_free = library.func('void buffer_free(RevaultBuffer)');
+const secret_len = library.func('bool secret_len(void *, _Out_ size_t *)');
+const secret_copy = library.func('bool secret_copy(void *, void *, size_t)');
+const secret_free = library.func('void secret_free(void *)');
 const lockbox_format_version = library.func('uint16_t lockbox_format_version(void)');
 const lockbox_probe_format_version = library.func('uint16_t lockbox_probe_format_version(void *, size_t)');
 const lockbox_create = library.func('void * lockbox_create(void *, size_t)');
@@ -61,8 +83,10 @@ const lockbox_rename = library.func('bool lockbox_rename(void *, const char *, s
 const lockbox_list = library.func('RevaultBuffer lockbox_list(void *, const char *, size_t, bool)');
 const lockbox_list_with_options = library.func('RevaultBuffer lockbox_list_with_options(void *, const char *, size_t, const char *, size_t, bool, bool, bool, bool, size_t)');
 const lockbox_stat = library.func('RevaultBuffer lockbox_stat(void *, const char *, size_t)');
-const lockbox_set_variable = library.func('bool lockbox_set_variable(void *, const char *, size_t, const char *, size_t, bool)');
+const lockbox_set_variable = library.func('bool lockbox_set_variable(void *, const char *, size_t, const char *, size_t)');
+const lockbox_set_secret_variable = library.func('bool lockbox_set_secret_variable(void *, const char *, size_t, void *, size_t)');
 const lockbox_get_variable = library.func('RevaultBuffer lockbox_get_variable(void *, const char *, size_t)');
+const lockbox_get_secret_variable = library.func('bool lockbox_get_secret_variable(void *, const char *, size_t, _Out_ void **)');
 const lockbox_delete_variable = library.func('bool lockbox_delete_variable(void *, const char *, size_t)');
 const lockbox_move_variables = library.func('bool lockbox_move_variables(void *, void *, size_t)');
 const lockbox_list_variables = library.func('RevaultBuffer lockbox_list_variables(void *)');
@@ -88,12 +112,14 @@ const lockbox_list_form_definitions = library.func('RevaultBuffer lockbox_list_f
 const lockbox_resolve_form = library.func('RevaultBuffer lockbox_resolve_form(void *, const char *, size_t)');
 const lockbox_list_form_revisions = library.func('RevaultBuffer lockbox_list_form_revisions(void *, const char *, size_t)');
 const lockbox_create_form_record = library.func('RevaultBuffer lockbox_create_form_record(void *, const char *, size_t, const char *, size_t, const char *, size_t)');
-const lockbox_set_form_field = library.func('bool lockbox_set_form_field(void *, const char *, size_t, const char *, size_t, const char *, size_t, bool)');
+const lockbox_set_form_field = library.func('bool lockbox_set_form_field(void *, const char *, size_t, const char *, size_t, const char *, size_t)');
+const lockbox_set_secret_form_field = library.func('bool lockbox_set_secret_form_field(void *, const char *, size_t, const char *, size_t, void *, size_t)');
 const lockbox_list_form_records = library.func('RevaultBuffer lockbox_list_form_records(void *)');
 const lockbox_get_form_record = library.func('RevaultBuffer lockbox_get_form_record(void *, const char *, size_t)');
 const lockbox_delete_form_record = library.func('bool lockbox_delete_form_record(void *, const char *, size_t)');
 const lockbox_move_form_records = library.func('bool lockbox_move_form_records(void *, void *, size_t)');
 const lockbox_get_form_field = library.func('RevaultBuffer lockbox_get_form_field(void *, const char *, size_t, const char *, size_t)');
+const lockbox_get_secret_form_field = library.func('bool lockbox_get_secret_form_field(void *, const char *, size_t, const char *, size_t, _Out_ void **)');
 const lockbox_to_bytes = library.func('RevaultBuffer lockbox_to_bytes(void *)');
 const lockbox_free = library.func('void lockbox_free(void *)');
 const vault_is_running = library.func('bool vault_is_running(void)');
@@ -235,16 +261,54 @@ function take(value) {
   if (value.ptr == null) throw new Error(lastError());
   try { return Buffer.from(koffi.decode(value.ptr, 'uint8_t', Number(value.len))); } finally { buffer_free(value); }
 }
-function payload(value) {
-  const frame = take(value);
-  if (frame.length < 12 || frame.subarray(0, 4).toString() !== 'LBWF') throw new Error('invalid reVault binding frame');
-  if (frame.readUInt32BE(8) !== frame.length - 12) throw new Error('invalid reVault binding frame length');
-  return frame.subarray(12);
+function domainView(view) {
+  if (view == null || typeof view !== 'object') return view;
+  return new Proxy(Object.create(null), {
+    get(_target, property) {
+      if (property === Symbol.toStringTag) return view.constructor.name;
+      if (typeof property !== 'string' || property.startsWith('__') || property === 'bb' || property === 'bb_pos') return undefined;
+      const array = view[`${property}Array`];
+      if (typeof array === 'function') return array.call(view) ?? new Uint8Array();
+      const length = view[`${property}Length`];
+      const getter = view[property];
+      if (typeof length === 'function' && typeof getter === 'function') {
+        return Array.from({ length: length.call(view) }, (_, index) => domainView(getter.call(view, index)));
+      }
+      if (typeof getter === 'function') return domainView(getter.call(view));
+      return undefined;
+    },
+  });
 }
-function decode(name, value) { return messages[name].decode(payload(value)); }
+function decode(name, value) {
+  const bytes = take(value);
+  const Table = transport[name];
+  const root = Table?.[`getRootAs${name}`];
+  if (typeof root !== 'function') throw new TypeError(`unknown native result type: ${name}`);
+  const result = domainView(root.call(Table, new ByteBuffer(bytes)));
+  if (name === 'LockboxEntryList') return result.entries;
+  if (name.endsWith('List')) return result.values;
+  if (name === 'OptionalString') return result.present ? result.value : undefined;
+  if (name === 'OptionalLockboxEntry' || name === 'OptionalFormRecord' || name === 'OptionalFormValue') return result.value ?? undefined;
+  return result;
+}
 function lastError() { return buffer_last_error(); }
 function requireValue(value) { if (!value) throw new Error(lastError()); return value; }
 function requireHandle(value) { if (value == null) throw new Error(lastError()); return value; }
+function withSecret(getter, callback) {
+  const output = [null];
+  requireValue(getter(output));
+  const handle = output[0];
+  if (handle == null) return undefined;
+  try {
+    const length = [0];
+    requireValue(secret_len(handle, length));
+    const bytes = Buffer.alloc(Number(length[0]));
+    try {
+      requireValue(secret_copy(handle, bytes, bytes.length));
+      return callback(bytes);
+    } finally { bytes.fill(0); }
+  } finally { secret_free(handle); }
+}
 
 export class BindingOperations {
   lastErrorMessage() { return lastError(); }
@@ -327,13 +391,25 @@ export class BindingOperations {
 
   lockboxStat(handle, path) { return decode('OptionalLockboxEntry', lockbox_stat(handle, Buffer.from(path), Buffer.byteLength(path))); }
 
-  lockboxSetVariable(handle, name, value, secret) { return requireValue(lockbox_set_variable(handle, Buffer.from(name), Buffer.byteLength(name), Buffer.from(value), Buffer.byteLength(value), secret)); }
+  lockboxSetVariable(handle, name, value) { return requireValue(lockbox_set_variable(handle, Buffer.from(name), Buffer.byteLength(name), Buffer.from(value), Buffer.byteLength(value))); }
 
-  lockboxGetVariable(handle, name) { return take(lockbox_get_variable(handle, Buffer.from(name), Buffer.byteLength(name))).toString(); }
+  lockboxSetSecretVariable(handle, name, value) {
+    const secret = Buffer.from(value);
+    try { return requireValue(lockbox_set_secret_variable(handle, Buffer.from(name), Buffer.byteLength(name), secret, secret.length)); }
+    finally { secret.fill(0); }
+  }
+
+  lockboxGetVariable(handle, name) {
+    return decode('OptionalString', lockbox_get_variable(handle, Buffer.from(name), Buffer.byteLength(name)));
+  }
+
+  lockboxWithSecretVariable(handle, name, callback) {
+    return withSecret(output => lockbox_get_secret_variable(handle, Buffer.from(name), Buffer.byteLength(name), output), callback);
+  }
 
   lockboxDeleteVariable(handle, name) { return requireValue(lockbox_delete_variable(handle, Buffer.from(name), Buffer.byteLength(name))); }
 
-  lockboxMoveVariables(handle, movesProto) { return requireValue(lockbox_move_variables(handle, Buffer.from(movesProto), Buffer.byteLength(movesProto))); }
+  lockboxMoveVariables(handle, movesFlatbuffer) { return requireValue(lockbox_move_variables(handle, Buffer.from(movesFlatbuffer), Buffer.byteLength(movesFlatbuffer))); }
 
   lockboxListVariables(handle) { return decode('VariableList', lockbox_list_variables(handle)); }
 
@@ -371,7 +447,7 @@ export class BindingOperations {
 
   lockboxOwnerInspection(handle) { return decode('OwnerInspection', lockbox_owner_inspection(handle)); }
 
-  lockboxDefineForm(handle, alias, name, description, fieldsProto) { return decode('FormDefinition', lockbox_define_form(handle, Buffer.from(alias), Buffer.byteLength(alias), Buffer.from(name), Buffer.byteLength(name), Buffer.from(description), Buffer.byteLength(description), Buffer.from(fieldsProto), Buffer.byteLength(fieldsProto))); }
+  lockboxDefineForm(handle, alias, name, description, fieldsFlatbuffer) { return decode('FormDefinition', lockbox_define_form(handle, Buffer.from(alias), Buffer.byteLength(alias), Buffer.from(name), Buffer.byteLength(name), Buffer.from(description), Buffer.byteLength(description), Buffer.from(fieldsFlatbuffer), Buffer.byteLength(fieldsFlatbuffer))); }
 
   lockboxListFormDefinitions(handle) { return decode('FormDefinitionList', lockbox_list_form_definitions(handle)); }
 
@@ -381,17 +457,27 @@ export class BindingOperations {
 
   lockboxCreateFormRecord(handle, path, typeReference, name) { return decode('FormRecord', lockbox_create_form_record(handle, Buffer.from(path), Buffer.byteLength(path), Buffer.from(typeReference), Buffer.byteLength(typeReference), Buffer.from(name), Buffer.byteLength(name))); }
 
-  lockboxSetFormField(handle, path, field, value, secret) { return requireValue(lockbox_set_form_field(handle, Buffer.from(path), Buffer.byteLength(path), Buffer.from(field), Buffer.byteLength(field), Buffer.from(value), Buffer.byteLength(value), secret)); }
+  lockboxSetFormField(handle, path, field, value) { return requireValue(lockbox_set_form_field(handle, Buffer.from(path), Buffer.byteLength(path), Buffer.from(field), Buffer.byteLength(field), Buffer.from(value), Buffer.byteLength(value))); }
+
+  lockboxSetSecretFormField(handle, path, field, value) {
+    const secret = Buffer.from(value);
+    try { return requireValue(lockbox_set_secret_form_field(handle, Buffer.from(path), Buffer.byteLength(path), Buffer.from(field), Buffer.byteLength(field), secret, secret.length)); }
+    finally { secret.fill(0); }
+  }
 
   lockboxListFormRecords(handle) { return decode('FormRecordList', lockbox_list_form_records(handle)); }
 
-  lockboxGetFormRecord(handle, path) { return decode('FormRecord', lockbox_get_form_record(handle, Buffer.from(path), Buffer.byteLength(path))); }
+  lockboxGetFormRecord(handle, path) { return decode('OptionalFormRecord', lockbox_get_form_record(handle, Buffer.from(path), Buffer.byteLength(path))); }
 
   lockboxDeleteFormRecord(handle, path) { return requireValue(lockbox_delete_form_record(handle, Buffer.from(path), Buffer.byteLength(path))); }
 
-  lockboxMoveFormRecords(handle, movesProto) { return requireValue(lockbox_move_form_records(handle, Buffer.from(movesProto), Buffer.byteLength(movesProto))); }
+  lockboxMoveFormRecords(handle, movesFlatbuffer) { return requireValue(lockbox_move_form_records(handle, Buffer.from(movesFlatbuffer), Buffer.byteLength(movesFlatbuffer))); }
 
-  lockboxGetFormField(handle, path, field) { return decode('FormValue', lockbox_get_form_field(handle, Buffer.from(path), Buffer.byteLength(path), Buffer.from(field), Buffer.byteLength(field))); }
+  lockboxGetFormField(handle, path, field) { return decode('OptionalFormValue', lockbox_get_form_field(handle, Buffer.from(path), Buffer.byteLength(path), Buffer.from(field), Buffer.byteLength(field))); }
+
+  lockboxWithSecretFormField(handle, path, field, callback) {
+    return withSecret(output => lockbox_get_secret_form_field(handle, Buffer.from(path), Buffer.byteLength(path), Buffer.from(field), Buffer.byteLength(field), output), callback);
+  }
 
   lockboxToBytes(handle) { return take(lockbox_to_bytes(handle)); }
 
@@ -553,7 +639,7 @@ export class BindingOperations {
 
   vaultDirectoryForgetAccessSlotLabel(handle, id, slotId) { return requireValue(vault_directory_forget_access_slot_label(handle, Buffer.from(id), Buffer.byteLength(id), slotId)); }
 
-  vaultDirectoryDefineForm(handle, alias, name, description, fieldsProto) { return decode('FormDefinition', vault_directory_define_form(handle, Buffer.from(alias), Buffer.byteLength(alias), Buffer.from(name), Buffer.byteLength(name), Buffer.from(description), Buffer.byteLength(description), Buffer.from(fieldsProto), Buffer.byteLength(fieldsProto))); }
+  vaultDirectoryDefineForm(handle, alias, name, description, fieldsFlatbuffer) { return decode('FormDefinition', vault_directory_define_form(handle, Buffer.from(alias), Buffer.byteLength(alias), Buffer.from(name), Buffer.byteLength(name), Buffer.from(description), Buffer.byteLength(description), Buffer.from(fieldsFlatbuffer), Buffer.byteLength(fieldsFlatbuffer))); }
 
   vaultDirectoryResolveForm(handle, reference) { return decode('FormDefinition', vault_directory_resolve_form(handle, Buffer.from(reference), Buffer.byteLength(reference))); }
 

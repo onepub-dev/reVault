@@ -9,12 +9,17 @@ use crate::{
     secure_heap::{lock_secure_heap, lock_secure_heap_for_mutation},
 };
 
+/// Variable-length byte sequence stored in guarded, zeroizing memory.
+///
+/// Secret bytes are deliberately unavailable through `Deref` or indexing. Use
+/// a callback-scoped read method and avoid retaining ordinary-memory copies.
 pub struct SecureVec {
     allocation: Option<Allocation>,
     len: usize,
 }
 
 impl SecureVec {
+    /// Creates an empty secure vector without allocating secret pages.
     pub fn new() -> Self {
         Self {
             allocation: None,
@@ -22,12 +27,14 @@ impl SecureVec {
         }
     }
 
+    /// Moves bytes into secure memory and zeroizes the input vector.
     pub fn try_from_vec(mut bytes: Vec<u8>) -> Result<Self> {
         let result = Self::try_from_slice(&bytes);
         bytes.zeroize();
         result
     }
 
+    /// Copies a byte slice into secure memory.
     pub fn try_from_slice(bytes: &[u8]) -> Result<Self> {
         let mut secure = Self::new();
         if !bytes.is_empty() {
@@ -36,6 +43,7 @@ impl SecureVec {
         Ok(secure)
     }
 
+    /// Creates an independent secure copy without exposing plaintext bytes.
     pub fn try_clone(&self) -> Result<Self> {
         let Some(allocation) = self.allocation else {
             return Ok(Self::new());
@@ -48,10 +56,12 @@ impl SecureVec {
         })
     }
 
+    /// Exposes the bytes only for the duration of `f`.
     pub fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
         read_access(|access| self.with_bytes_in(access, f))
     }
 
+    /// Exposes bytes using an existing secure read scope.
     pub fn with_bytes_in<R>(
         &self,
         access: &SecureReadAccess<'_>,
@@ -66,6 +76,7 @@ impl SecureVec {
         }
     }
 
+    /// Appends one byte, growing the secure allocation when required.
     pub fn try_push(&mut self, byte: u8) -> Result<()> {
         self.ensure_capacity(1)?;
         let allocation = self.allocation.ok_or(Error::CorruptAllocation)?;
@@ -75,6 +86,7 @@ impl SecureVec {
         Ok(())
     }
 
+    /// Appends ordinary bytes to this secure allocation.
     pub fn try_extend_from_slice(&mut self, bytes: &[u8]) -> Result<()> {
         if bytes.is_empty() {
             return Ok(());
@@ -87,10 +99,14 @@ impl SecureVec {
         Ok(())
     }
 
+    /// Appends all bytes from another secure vector without normal-heap copies.
     pub fn try_extend_from_secure(&mut self, source: &Self) -> Result<()> {
         self.try_extend_secure_range(source, 0, source.len)
     }
 
+    /// Appends a validated range from another secure vector.
+    ///
+    /// Returns [`Error::CapacityOverflow`] if the range is outside `source`.
     pub fn try_extend_secure_range(
         &mut self,
         source: &Self,
@@ -120,6 +136,7 @@ impl SecureVec {
         Ok(())
     }
 
+    /// Creates a secure copy of a validated byte range.
     pub fn try_clone_range(&self, offset: usize, len: usize) -> Result<Self> {
         let end = offset.checked_add(len).ok_or(Error::CapacityOverflow)?;
         if end > self.len {
@@ -130,6 +147,7 @@ impl SecureVec {
         Ok(out)
     }
 
+    /// Changes the logical length, zero-filling growth and wiping truncation.
     pub fn resize_zeroed(&mut self, len: usize) -> Result<()> {
         if len <= self.len {
             if len < self.len {
@@ -151,6 +169,7 @@ impl SecureVec {
         Ok(())
     }
 
+    /// Shortens the vector and wipes the removed range.
     pub fn truncate(&mut self, len: usize) -> Result<()> {
         if len >= self.len {
             return Ok(());
@@ -163,6 +182,9 @@ impl SecureVec {
         Ok(())
     }
 
+    /// Grants mutable access for the duration of `f` and restores protection.
+    ///
+    /// Mutation fails with [`Error::ReadAccessActive`] during any read scope.
     pub fn with_mut_bytes<R>(&mut self, f: impl FnOnce(&mut [u8]) -> R) -> Result<R> {
         match self.allocation {
             Some(allocation) if self.len != 0 => {
@@ -176,6 +198,7 @@ impl SecureVec {
         }
     }
 
+    /// Removes and wipes the final byte, returning `None` when empty.
     pub fn try_pop(&mut self) -> Result<Option<u8>> {
         if self.len == 0 {
             return Ok(None);
@@ -189,14 +212,17 @@ impl SecureVec {
         Ok(Some(byte))
     }
 
+    /// Returns the number of initialized secret bytes.
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Returns `true` when no secret bytes are initialized.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Wipes the full backing allocation and resets the logical length.
     pub fn zeroize(&mut self) -> Result<()> {
         if let Some(allocation) = self.allocation {
             let mut pool = lock_secure_heap_for_mutation()?;

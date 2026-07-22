@@ -21,12 +21,16 @@ const MODE_ENV: &str = "LOCKBOX_PLATFORM_SECRET_STORE";
 /// Scope controlled by the session auto-open setting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AutoOpenScope {
+    /// Do not use the platform secret store for automatic opening.
     Off,
+    /// Automatically open only the local metadata vault.
     Vault,
+    /// Automatically open the vault and remembered lockboxes.
     Lockboxes,
 }
 
 impl AutoOpenScope {
+    /// Returns the stable lowercase name persisted in vault configuration.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Off => "off",
@@ -84,6 +88,10 @@ pub fn platform_secret_store_disabled() -> Result<bool> {
     Ok(auto_open_scope()? == AutoOpenScope::Off)
 }
 
+/// Returns the effective automatic-open scope for the default local vault.
+///
+/// `LOCKBOX_PLATFORM_SECRET_STORE` takes precedence over the persisted scope.
+/// In the absence of either setting, the scope defaults to [`AutoOpenScope::Vault`].
 pub fn auto_open_scope() -> Result<AutoOpenScope> {
     if let Ok(value) = env::var(MODE_ENV) {
         return Ok(if parse_disabled_mode(&value)? {
@@ -106,6 +114,10 @@ pub fn auto_open_scope() -> Result<AutoOpenScope> {
     parse_auto_open_scope(value.trim())
 }
 
+/// Persists the automatic-open scope for the default local vault.
+///
+/// Selecting [`AutoOpenScope::Off`] also removes the stored vault password and
+/// cached vault keys. Enabling a scope removes the disabled marker.
 pub fn set_auto_open_scope(scope: AutoOpenScope) -> Result<()> {
     match scope {
         AutoOpenScope::Off => {

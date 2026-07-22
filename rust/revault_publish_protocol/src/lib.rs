@@ -1,8 +1,18 @@
+#![deny(missing_docs)]
+
+//! Client and wire primitives for publishing encrypted reVault payloads.
+
+/// Publish-client transports and retry behavior.
 pub mod client;
+/// Represents payload.
 pub mod payload;
+/// Represents protocol.
 pub mod protocol;
+/// Represents replication.
 pub mod replication;
+/// Represents status.
 pub mod status;
+/// Represents topology.
 pub mod topology;
 
 pub use client::{

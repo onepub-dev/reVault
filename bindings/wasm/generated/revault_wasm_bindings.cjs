@@ -528,6 +528,34 @@ class WasmLockbox {
         return v1;
     }
     /**
+     * @param {string} source
+     * @param {string} destination
+     */
+    move_form_record(source, destination) {
+        const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(destination, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmlockbox_move_form_record(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @param {string} source
+     * @param {string} destination
+     */
+    move_variable(source, destination) {
+        const ptr0 = passStringToWasm0(source, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(destination, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmlockbox_move_variable(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
      * @param {Uint8Array} bytes
      * @param {Uint8Array} key
      * @returns {WasmLockbox}
@@ -629,12 +657,12 @@ class WasmLockbox {
     }
     /**
      * @param {string} name
-     * @param {string} value
+     * @param {Uint8Array} value
      */
     set_secret_variable(name, value) {
         const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
-        const ptr1 = passStringToWasm0(value, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const ptr1 = passArray8ToWasm0(value, wasm.__wbindgen_malloc);
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.wasmlockbox_set_secret_variable(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         if (ret[1]) {
@@ -720,6 +748,20 @@ class WasmLockbox {
             wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
         }
         return v2;
+    }
+    /**
+     * @param {string} name
+     * @param {Function} callback
+     * @returns {any}
+     */
+    with_secret_variable(name, callback) {
+        const ptr0 = passStringToWasm0(name, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmlockbox_with_secret_variable(this.__wbg_ptr, ptr0, len0, callback);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return takeFromExternrefTable0(ret[0]);
     }
 }
 if (Symbol.dispose) WasmLockbox.prototype[Symbol.dispose] = WasmLockbox.prototype.free;
@@ -812,22 +854,85 @@ function encode_hex(bytes) {
     }
 }
 exports.encode_hex = encode_hex;
+
+/**
+ * @returns {number}
+ */
+function lockbox_format_version() {
+    const ret = wasm.lockbox_format_version();
+    return ret;
+}
+exports.lockbox_format_version = lockbox_format_version;
+
+/**
+ * @param {Uint8Array} bytes
+ * @returns {number}
+ */
+function probe_lockbox_format_version(bytes) {
+    const ptr0 = passArray8ToWasm0(bytes, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.probe_lockbox_format_version(ptr0, len0);
+    if (ret[2]) {
+        throw takeFromExternrefTable0(ret[1]);
+    }
+    return ret[0];
+}
+exports.probe_lockbox_format_version = probe_lockbox_format_version;
+
+/**
+ * Explicitly permits or rejects the weakened secure-memory implementation
+ * required by WebAssembly runtimes.
+ *
+ * The default is `false`, so callers must acknowledge that browsers cannot
+ * provide locked pages, guard pages, or dump/fork exclusion before creating
+ * keys or lockboxes.
+ * @param {boolean} allowed
+ */
+function set_weakened_allocation_allowed(allowed) {
+    wasm.set_weakened_allocation_allowed(allowed);
+}
+exports.set_weakened_allocation_allowed = set_weakened_allocation_allowed;
+
+/**
+ * Returns whether the caller has explicitly enabled weakened secure memory.
+ * @returns {boolean}
+ */
+function weakened_allocation_allowed() {
+    const ret = wasm.weakened_allocation_allowed();
+    return ret !== 0;
+}
+exports.weakened_allocation_allowed = weakened_allocation_allowed;
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
         __wbg___wbindgen_throw_9c31b086c2b26051: function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         },
+        __wbg_call_dfde26266607c996: function() { return handleError(function (arg0, arg1, arg2) {
+            const ret = arg0.call(arg1, arg2);
+            return ret;
+        }, arguments); },
         __wbg_getRandomValues_cc7f052a444bb2ce: function() { return handleError(function (arg0, arg1) {
             globalThis.crypto.getRandomValues(getArrayU8FromWasm0(arg0, arg1));
         }, arguments); },
+        __wbg_length_56fcd3e2b7e0299d: function(arg0) {
+            const ret = arg0.length;
+            return ret;
+        },
         __wbg_new_310879b66b6e95e1: function() {
             const ret = new Array();
+            return ret;
+        },
+        __wbg_new_from_slice_269e35316ed2d061: function(arg0, arg1) {
+            const ret = new Uint8Array(getArrayU8FromWasm0(arg0, arg1));
             return ret;
         },
         __wbg_push_b77c476b01548d0a: function(arg0, arg1) {
             const ret = arg0.push(arg1);
             return ret;
+        },
+        __wbg_set_index_6216eb6926d2fbc6: function(arg0, arg1, arg2) {
+            arg0[arg1 >>> 0] = arg2;
         },
         __wbg_wasmentry_new: function(arg0) {
             const ret = WasmEntry.__wrap(arg0);

@@ -26,6 +26,9 @@ type FormTreeDecodeResult = (
 );
 
 impl<State> Lockbox<State> {
+    /// Creates a form definition, or creates a new revision of its alias.
+    ///
+    /// New definitions receive a random stable type id and an empty description.
     pub fn define_form(
         &mut self,
         alias: &str,
@@ -38,6 +41,10 @@ impl<State> Lockbox<State> {
         self.define_form_with_description(alias, name, "", fields)
     }
 
+    /// Creates or revises a form definition with descriptive text.
+    ///
+    /// Aliases are convenient names but may become ambiguous after imported
+    /// definitions; use a type id when deterministic resolution is required.
     pub fn define_form_with_description(
         &mut self,
         alias: &str,
@@ -67,6 +74,10 @@ impl<State> Lockbox<State> {
         }
     }
 
+    /// Creates or revises a definition using a caller-supplied stable type id.
+    ///
+    /// This is intended for synchronization and migration code that must
+    /// preserve identity across lockboxes.
     pub fn define_form_with_type_id(
         &mut self,
         type_id: FormTypeId,
@@ -80,6 +91,7 @@ impl<State> Lockbox<State> {
         self.define_form_with_type_id_and_description(type_id, alias, name, "", fields)
     }
 
+    /// Creates or revises a fully identified and described form definition.
     pub fn define_form_with_type_id_and_description(
         &mut self,
         type_id: FormTypeId,
@@ -111,6 +123,10 @@ impl<State> Lockbox<State> {
         Ok(definition)
     }
 
+    /// Appends the next revision for an existing form type.
+    ///
+    /// Existing records keep their captured labels and revision until a field
+    /// is next updated.
     pub fn revise_form_definition(
         &mut self,
         type_id: &FormTypeId,
@@ -146,6 +162,7 @@ impl<State> Lockbox<State> {
         Ok(definition)
     }
 
+    /// Resolves the newest form definition by type id or unambiguous alias.
     pub fn resolve_form_definition(&self, reference: &str) -> Result<FormDefinition> {
         self.ensure_forms_loaded()?;
         if let Ok(type_id) = FormTypeId::new(reference) {
@@ -168,10 +185,12 @@ impl<State> Lockbox<State> {
         }
     }
 
+    /// Lists the newest revision of every form type in stable order.
     pub fn list_form_definitions(&self) -> Result<Vec<FormDefinition>> {
         self.latest_form_definitions()
     }
 
+    /// Lists every stored revision for `type_id`, oldest first.
     pub fn list_form_definition_revisions(
         &self,
         type_id: &FormTypeId,
@@ -190,6 +209,10 @@ impl<State> Lockbox<State> {
         Ok(definitions)
     }
 
+    /// Imports an exact definition revision without renumbering it.
+    ///
+    /// Re-importing identical content is idempotent; conflicting content for
+    /// the same type id and revision is rejected.
     pub fn import_form_definition(&mut self, definition: FormDefinition) -> Result<FormDefinition>
     where
         State: crate::WritableLockboxState,
@@ -226,6 +249,10 @@ impl<State> Lockbox<State> {
         Ok(definition)
     }
 
+    /// Creates an empty record from the newest matching form definition.
+    ///
+    /// `type_reference` may be a type id or unambiguous alias. The record path
+    /// must not already exist.
     pub fn create_form_record(
         &mut self,
         path: &LockboxPath,
@@ -335,6 +362,9 @@ impl<State> Lockbox<State> {
         self.set_form_record_value(path, record)
     }
 
+    /// Returns a cloned form record, or `None` when `path` has no record.
+    ///
+    /// Secret field values remain in secure-memory containers.
     pub fn get_form_record(&self, path: &LockboxPath) -> Result<Option<FormRecord>> {
         self.ensure_forms_loaded()?;
         Ok(self
@@ -346,6 +376,7 @@ impl<State> Lockbox<State> {
             .cloned())
     }
 
+    /// Lists all form records in lockbox path order.
     pub fn list_form_records(&self) -> Result<Vec<FormRecord>> {
         self.ensure_forms_loaded()?;
         Ok(self
@@ -358,6 +389,7 @@ impl<State> Lockbox<State> {
             .collect())
     }
 
+    /// Deletes the form record at `path` without deleting its definition.
     pub fn delete_form_record(&mut self, path: &LockboxPath) -> Result<()>
     where
         State: crate::WritableLockboxState,
@@ -434,6 +466,7 @@ impl<State> Lockbox<State> {
         Ok(())
     }
 
+    /// Sets a non-secret field after validating it against the latest definition.
     pub fn set_form_field_normal(
         &mut self,
         path: &LockboxPath,
@@ -446,6 +479,10 @@ impl<State> Lockbox<State> {
         self.set_form_field(path, field_id, FormValue::Normal(value.to_string()))
     }
 
+    /// Copies a secret into the named secret field.
+    ///
+    /// The supplied [`SecretString`] remains owned by the caller; the lockbox
+    /// stores an independent secure clone.
     pub fn set_form_field_secret(
         &mut self,
         path: &LockboxPath,
@@ -462,6 +499,10 @@ impl<State> Lockbox<State> {
         )
     }
 
+    /// Sets a normal or secret field and captures its current label and revision.
+    ///
+    /// Prefer [`Lockbox::set_form_field_normal`] and
+    /// [`Lockbox::set_form_field_secret`] when the sensitivity is known.
     pub fn set_form_field(
         &mut self,
         path: &LockboxPath,
@@ -517,6 +558,7 @@ impl<State> Lockbox<State> {
         Ok(())
     }
 
+    /// Returns a cloned field value, or `None` when the record or field is absent.
     pub fn get_form_field(
         &self,
         path: &LockboxPath,

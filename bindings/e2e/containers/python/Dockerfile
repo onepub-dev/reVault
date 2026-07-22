@@ -2,7 +2,7 @@ FROM rust:1.95-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus-x11 gnome-keyring libsecret-tools libdbus-1-dev pkg-config \
-    protobuf-compiler python3 python3-pip python3-protobuf \
+    python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
@@ -10,12 +10,12 @@ COPY . .
 RUN cd rust && cargo build --locked --release -p revault_bindings -p revault_tooling
 RUN install -m 0755 rust/target/release/revault-tool /usr/local/bin/revault-tool \
     && revault-tool release package-native --repository . \
-      --version 0.1.0 --target linux-x86_64-gnu \
+      --version 0.2.0 --target linux-x86_64-gnu \
       --library rust/target/release/librevault_api.so \
       --static-library rust/target/release/librevault_api.a --output /tmp/native \
     && revault-tool release stage-ecosystems --allow-partial --repository . \
-      --version 0.1.0 --output /tmp/ecosystem /tmp/native/*.tar.gz \
-    && revault-tool release assemble-packages --allow-partial --version 0.1.0 \
+      --version 0.2.0 --output /tmp/ecosystem /tmp/native/*.tar.gz \
+    && revault-tool release assemble-packages --allow-partial --version 0.2.0 \
       --layout /tmp/ecosystem --source . --output /tmp/packages
 RUN python3 -m pip install --break-system-packages /tmp/packages/python/linux-x86_64-gnu
 

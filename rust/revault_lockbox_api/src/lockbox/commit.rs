@@ -22,11 +22,15 @@ use std::path::Path;
 const KEY_DIRECTORY_MIRROR_PREFERRED_MIN_DISTANCE: u64 = 1024 * 1024;
 
 impl Lockbox<crate::Writable> {
+    /// Commits pending mutations and serializes the complete lockbox.
+    ///
+    /// File-backed lockboxes should normally use [`Lockbox::commit`] instead.
     pub fn try_to_bytes(&self) -> Result<Vec<u8>> {
         self.bytes()
     }
 
     #[cfg(test)]
+    /// Serializes the lockbox for tests, panicking if materialization fails.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.try_to_bytes()
             .expect("failed to materialize lockbox bytes")

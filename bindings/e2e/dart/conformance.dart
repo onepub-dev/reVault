@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:revault_api/vault.dart';
-import 'package:revault_api/src/generated/revault_bindings.pb.dart' as pb;
 
 late final Vault api;
 void pass(String symbol, [int assertions = 1]) =>
@@ -22,16 +21,10 @@ String artifactRoot() {
   return path;
 }
 
-pb.FormFieldList fields() => pb.FormFieldList(
-      values: [
-        pb.FormField(
-          id: 'username',
-          label: 'Username',
-          kind: 'text',
-          required: true,
-        ),
-      ],
-    );
+List<FormField> fields() => [
+  FormField(id: 'username', label: 'Username', kind: 'text', required: true),
+  FormField(id: 'password', label: 'Password', kind: 'secret', required: true),
+];
 
 void archiveLifecycle() {
   final key = repeat('K'.codeUnitAt(0), 32);
@@ -78,22 +71,24 @@ void archiveLifecycle() {
   check(box.getVariable('normal') == 'value', 'variable');
   pass('lockbox_set_variable');
   pass('lockbox_get_variable', 3);
-  box.moveVariables(
-    pb.PathMoveList(
-      values: [pb.PathMove(source: 'normal', destination: 'moved')],
-    ),
-  );
+  box.moveVariables([PathMove(source: 'normal', destination: 'moved')]);
   check(box.getVariable('moved') == 'value', 'moved variable');
-  box.moveVariables(
-    pb.PathMoveList(
-      values: [pb.PathMove(source: 'moved', destination: 'normal')],
-    ),
-  );
+  box.moveVariables([PathMove(source: 'moved', destination: 'normal')]);
   pass('lockbox_move_variables', 3);
-  box.setVariable('secret', 'hidden', secret: true);
-  check(box.variableSensitivity('secret').present, 'secret');
+  box.setSecretVariable('secret', text('hidden'));
+  pass('lockbox_set_secret_variable');
+  check(
+    box.withSecretVariable('secret', (value) => String.fromCharCodes(value)) ==
+        'hidden',
+    'secret variable',
+  );
+  pass('lockbox_get_secret_variable');
+  pass('secret_len');
+  pass('secret_copy');
+  pass('secret_free');
+  check(box.variableSensitivity('secret') == 'secret', 'secret');
   pass('lockbox_variable_sensitivity', 2);
-  check(box.listVariables().values.length == 2, 'variables');
+  check(box.listVariables().length == 2, 'variables');
   pass('lockbox_list_variables');
   box.deleteVariable('normal');
   pass('lockbox_delete_variable');
@@ -101,8 +96,8 @@ void archiveLifecycle() {
   check(box.symlinkTarget('/link') == '/renamed.txt', 'link');
   pass('lockbox_add_symlink');
   pass('lockbox_get_symlink_target', 3);
-  check(box.list('/', recursive: true).entries.isNotEmpty, 'list');
-  check(box.stat('/renamed.txt').hasValue(), 'stat');
+  check(box.list('/', recursive: true).isNotEmpty, 'list');
+  check(box.stat('/renamed.txt') != null, 'stat');
   pass('lockbox_list', 2);
   pass('lockbox_stat', 2);
   box.setWorkloadProfile('read-mostly');
@@ -127,8 +122,10 @@ void archiveLifecycle() {
   );
   pass('lockbox_format_version', 2);
   pass('lockbox_probe_format_version', 2);
-  check(api.probeLockboxFormatVersion(Uint8List.fromList([1, 2, 3])) == 0,
-      'invalid format probe');
+  check(
+    api.probeLockboxFormatVersion(Uint8List.fromList([1, 2, 3])) == 0,
+    'invalid format probe',
+  );
   check(api.lastErrorDetails.message.isNotEmpty, 'structured error details');
   pass('buffer_last_error_details', 2);
   final path = '${artifactRoot()}/archive.lbox';
@@ -264,7 +261,6 @@ void advancedArchive() {
               includeDirectories: false,
               limit: 20,
             )
-            .entries
             .length ==
         1,
     'filter',
@@ -278,12 +274,9 @@ void advancedArchive() {
   );
   check(definition.typeId.isNotEmpty, 'form');
   pass('lockbox_define_form', 2);
-  check(box.listFormDefinitions().values.length == 1, 'defs');
+  check(box.listFormDefinitions().length == 1, 'defs');
   check(box.resolveForm('account').typeId == definition.typeId, 'resolve');
-  check(
-    box.listFormRevisions(definition.typeId).values.length == 1,
-    'revisions',
-  );
+  check(box.listFormRevisions(definition.typeId).length == 1, 'revisions');
   pass('lockbox_list_form_definitions');
   pass('lockbox_resolve_form');
   pass('lockbox_list_form_revisions');
@@ -295,30 +288,34 @@ void advancedArchive() {
   pass('lockbox_create_form_record');
   box.setFormField('/account.form', 'username', 'alice');
   pass('lockbox_set_form_field');
-  check(box.getFormRecord('/account.form').values.length == 1, 'values');
+  box.setSecretFormField('/account.form', 'password', text('hidden'));
+  pass('lockbox_set_secret_form_field');
   check(
-    box.getFormField('/account.form', 'username').value == 'alice',
+    box.withSecretFormField(
+          '/account.form',
+          'password',
+          (value) => String.fromCharCodes(value),
+        ) ==
+        'hidden',
+    'secret form field',
+  );
+  pass('lockbox_get_secret_form_field');
+  check(box.getFormRecord('/account.form')!.values.length == 2, 'values');
+  check(
+    box.getFormField('/account.form', 'username')!.value == 'alice',
     'field',
   );
-  check(box.listFormRecords().values.length == 1, 'records');
+  check(box.listFormRecords().length == 1, 'records');
   pass('lockbox_get_form_record');
   pass('lockbox_get_form_field');
   pass('lockbox_list_form_records');
-  box.moveFormRecords(
-    pb.PathMoveList(
-      values: [
-        pb.PathMove(source: '/account.form', destination: '/moved.form'),
-      ],
-    ),
-  );
-  check(box.getFormRecord('/moved.form').values.length == 1, 'moved record');
-  box.moveFormRecords(
-    pb.PathMoveList(
-      values: [
-        pb.PathMove(source: '/moved.form', destination: '/account.form'),
-      ],
-    ),
-  );
+  box.moveFormRecords([
+    PathMove(source: '/account.form', destination: '/moved.form'),
+  ]);
+  check(box.getFormRecord('/moved.form')!.values.length == 1, 'moved record');
+  box.moveFormRecords([
+    PathMove(source: '/moved.form', destination: '/account.form'),
+  ]);
   pass('lockbox_move_form_records', 3);
   final signing = api.generateSigningKeyPair();
   final contact = api.generateContactKeyPair();
@@ -329,20 +326,20 @@ void advancedArchive() {
   pass('lockbox_add_password');
   check(box.addContact(publicKey, 'recipient') >= 0, 'slot');
   pass('lockbox_add_contact');
-  check(box.listKeySlots().values.length >= 2, 'slots');
+  check(box.listKeySlots().length >= 2, 'slots');
   pass('lockbox_list_key_slots');
   box.deleteKey(passwordSlot);
   pass('lockbox_delete_key');
   box.commit();
   check(box.ownerInspection().signed, 'owner');
   pass('lockbox_owner_inspection', 2);
-  check(box.cacheStats().limitBytes.toInt() > 0, 'cache');
+  check(box.cacheStats().limitBytes > 0, 'cache');
   check(box.importStats().hostReadNanos.isNotEmpty, 'import');
   box.resetImportStats();
-  check(box.pageInspection().values.isNotEmpty, 'pages');
-  check(box.recoveryReport().intactFileCount.toInt() > 0, 'recovery');
+  check(box.pageInspection().isNotEmpty, 'pages');
+  check(box.recoveryReport().intactFileCount > 0, 'recovery');
   check(box.renderRecoveryReport(verbose: true).isNotEmpty, 'render');
-  check(box.streamContent().values.isNotEmpty, 'stream');
+  check(box.streamContent().isNotEmpty, 'stream');
   check(box.id.isNotEmpty, 'id');
   pass('lockbox_cache_stats');
   pass('lockbox_import_stats');
@@ -355,11 +352,8 @@ void advancedArchive() {
   final archive = box.bytes, path = '${artifactRoot()}/advanced.lbox';
   File(path).writeAsBytesSync(archive);
   check(api.inspectLockboxFile(path).headerReadable, 'inspect');
-  check(
-    api.scanLockboxPath(path, key).intactFileCount.toInt() > 0,
-    'scan path',
-  );
-  check(api.scanLockbox(archive, key).intactFileCount.toInt() > 0, 'scan');
+  check(api.scanLockboxPath(path, key).intactFileCount > 0, 'scan path');
+  check(api.scanLockbox(archive, key).intactFileCount > 0, 'scan');
   pass('lockbox_inspect_file');
   pass('lockbox_recovery_scan_path');
   pass('lockbox_recovery_scan');
@@ -479,7 +473,7 @@ void vaultLifecycle() {
   pass('vault_directory_load_private_key');
   pass('vault_directory_load_private_key_generation');
   vault.storeProfileEmail('alice', 'alice@example.test');
-  check(vault.profileEmail('alice').present, 'email');
+  check(vault.profileEmail('alice') == 'alice@example.com', 'email');
   pass('vault_directory_store_profile_email');
   pass('vault_directory_profile_email', 3);
   check(
@@ -496,7 +490,7 @@ void vaultLifecycle() {
   vault.storeContact('bob', contactPublic);
   check(vault.contactExists('bob'), 'contact');
   vault.loadContact('bob').dispose();
-  check(vault.listContacts().values.length == 1, 'contacts');
+  check(vault.listContacts().length == 1, 'contacts');
   pass('vault_directory_store_contact');
   pass('vault_directory_contact_exists');
   pass('vault_directory_load_contact');
@@ -506,9 +500,9 @@ void vaultLifecycle() {
   pass('vault_directory_store_contact_signing_key');
   pass('vault_directory_load_contact_signing_key');
   check(
-    vault.listPrivateKeys().values.isNotEmpty &&
-        vault.listPrivateKeyNames().values.isNotEmpty &&
-        vault.listContactNames().values.isNotEmpty,
+    vault.listPrivateKeys().isNotEmpty &&
+        vault.listPrivateKeyNames().isNotEmpty &&
+        vault.listContactNames().isNotEmpty,
     'lists',
   );
   pass('vault_directory_list_private_keys');
@@ -524,13 +518,13 @@ void vaultLifecycle() {
   pass('vault_directory_backup_count');
   pass('vault_directory_load_backup', 3);
   vault.rememberLockbox(id, '/tmp/example.lbox');
-  check(vault.listKnownLockboxes().values.length == 1, 'known');
+  check(vault.listKnownLockboxes().length == 1, 'known');
   pass('vault_directory_remember_lockbox');
   pass('vault_directory_list_known_lockboxes');
   vault.rememberAccessSlotLabel(id, 7, 'primary');
   check(
-    vault.listAccessSlotLabels(id).values.length == 1 &&
-        vault.findAccessSlotLabels(id, 'primary').values.length == 1,
+    vault.listAccessSlotLabels(id).length == 1 &&
+        vault.findAccessSlotLabels(id, 'primary').length == 1,
     'labels',
   );
   pass('vault_directory_remember_access_slot_label');
@@ -544,20 +538,20 @@ void vaultLifecycle() {
   check(
     vaultForm.typeId.isNotEmpty &&
         vault.resolveForm('login').typeId.isNotEmpty &&
-        vault.listForms().values.isNotEmpty,
+        vault.listForms().isNotEmpty,
     'forms',
   );
   pass('vault_directory_define_form');
   pass('vault_directory_resolve_form');
   pass('vault_directory_list_forms');
   check(
-    vault.listFormRevisions(vaultForm.typeId).values.isNotEmpty,
+    vault.listFormRevisions(vaultForm.typeId).isNotEmpty,
     'vault form revisions',
   );
   pass('vault_directory_list_form_revisions', 2);
   check(vault.seedForms() > 0, 'seed');
   pass('vault_directory_seed_forms');
-  check(vault.listFormAliases().values.isNotEmpty, 'aliases');
+  check(vault.listFormAliases().isNotEmpty, 'aliases');
   pass('vault_directory_list_form_aliases');
   vault.forgetAccessSlotLabel(id, 7);
   vault.forgetLockbox('/tmp/example.lbox');
@@ -574,9 +568,9 @@ void vaultLifecycle() {
   vault.dispose();
   pass('vault_directory_free');
   final readonly = api.openReadOnlyVaultDirectory(root, password);
-  check(readonly.listProfileNames().values.isNotEmpty, 'read-only profiles');
+  check(readonly.listProfileNames().isNotEmpty, 'read-only profiles');
   readonly.listContactNames();
-  check(readonly.listFormAliases().values.isNotEmpty, 'read-only forms');
+  check(readonly.listFormAliases().isNotEmpty, 'read-only forms');
   readonly.listKnownLockboxes();
   pass('vault_read_only_open');
   pass('vault_read_only_list_profile_names', 2);
@@ -626,9 +620,9 @@ void defaultVault() {
   pass('vault_directory_change_default_password');
   final backup = File('${artifactRoot()}/default-vault.backup');
   if (backup.existsSync()) backup.deleteSync();
-  check(api.backupDefaultVault(backup.path).vaultSize.toInt() > 0, 'backup');
+  check(api.backupDefaultVault(backup.path).vaultSize > 0, 'backup');
   check(
-    api.restoreDefaultVault(backup.path, overwrite: true).vaultSize.toInt() > 0,
+    api.restoreDefaultVault(backup.path, overwrite: true).vaultSize > 0,
     'restore',
   );
   pass('vault_backup_default');
@@ -674,12 +668,9 @@ Future<void> agentAndLocal() async {
   directory.dispose();
   api.forgetAllAgentSecrets();
   pass('vault_forget_all');
-  final child = await Process.start(
-      Platform.resolvedExecutable,
-      [
-        '--serve-agent',
-      ],
-      mode: ProcessStartMode.inheritStdio);
+  final child = await Process.start(Platform.resolvedExecutable, [
+    '--serve-agent',
+  ], mode: ProcessStartMode.inheritStdio);
   var running = false;
   for (var attempt = 0; attempt < 200; attempt++) {
     if (api.agentIsRunning) {
@@ -699,7 +690,7 @@ Future<void> agentAndLocal() async {
   final key = Uint8List.fromList(List.generate(32, (i) => 0x20 + i));
   api.putAgentKey(id, key);
   check(
-    _equal(api.getAgentKey(id), key) && api.listAgentKeys().values.isNotEmpty,
+    _equal(api.getAgentKey(id), key) && api.listAgentKeys().isNotEmpty,
     'agent key',
   );
   pass('vault_agent_put');
@@ -720,7 +711,7 @@ Future<void> agentAndLocal() async {
   pass('vault_agent_begin_activity');
   activity.dispose();
   pass('vault_agent_end_activity');
-  check(api.agentSleepSupport().runtimeType == pb.SleepSupport, 'sleep');
+  check(api.agentSleepSupport() is SleepSupport, 'sleep');
   pass('vault_agent_sleep_support');
   check(
     api.agentLogPath.isNotEmpty && api.agentLogDestination.isNotEmpty,
@@ -792,7 +783,8 @@ Future<void> agentAndLocal() async {
 }
 
 void interop(String producer) {
-  final root = Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
+  final root =
+      Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
       '/tmp/revault-e2e-artifacts';
   final box = api.openLockbox(
     Uint8List.fromList(File('$root/$producer/archive.lbox').readAsBytesSync()),

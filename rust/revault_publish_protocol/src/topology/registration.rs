@@ -5,6 +5,7 @@ use crate::topology::{
     TOPOLOGY_REGISTRATION_MAGIC, TOPOLOGY_REGISTRATION_VERSION,
 };
 
+/// Encodes topology registration.
 pub fn encode_topology_registration(
     registration: &TopologyRegistration,
 ) -> Result<Vec<u8>, ClientError> {
@@ -19,6 +20,7 @@ pub fn encode_topology_registration(
     Ok(out)
 }
 
+/// Decodes topology registration.
 pub fn decode_topology_registration(bytes: &[u8]) -> Result<TopologyRegistration, ClientError> {
     let mut reader = Reader::new(bytes);
     let magic = reader
