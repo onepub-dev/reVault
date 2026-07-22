@@ -22,19 +22,9 @@ String artifactRoot() {
 }
 
 List<FormField> fields() => [
-      FormField(
-        id: 'username',
-        label: 'Username',
-        kind: 'text',
-        required: true,
-      ),
-      FormField(
-        id: 'password',
-        label: 'Password',
-        kind: 'secret',
-        required: true,
-      ),
-    ];
+  FormField(id: 'username', label: 'Username', kind: 'text', required: true),
+  FormField(id: 'password', label: 'Password', kind: 'secret', required: true),
+];
 
 void archiveLifecycle() {
   final key = repeat('K'.codeUnitAt(0), 32);
@@ -81,13 +71,9 @@ void archiveLifecycle() {
   check(box.getVariable('normal') == 'value', 'variable');
   pass('lockbox_set_variable');
   pass('lockbox_get_variable', 3);
-  box.moveVariables(
-    [PathMove(source: 'normal', destination: 'moved')],
-  );
+  box.moveVariables([PathMove(source: 'normal', destination: 'moved')]);
   check(box.getVariable('moved') == 'value', 'moved variable');
-  box.moveVariables(
-    [PathMove(source: 'moved', destination: 'normal')],
-  );
+  box.moveVariables([PathMove(source: 'moved', destination: 'normal')]);
   pass('lockbox_move_variables', 3);
   box.setSecretVariable('secret', text('hidden'));
   pass('lockbox_set_secret_variable');
@@ -290,10 +276,7 @@ void advancedArchive() {
   pass('lockbox_define_form', 2);
   check(box.listFormDefinitions().length == 1, 'defs');
   check(box.resolveForm('account').typeId == definition.typeId, 'resolve');
-  check(
-    box.listFormRevisions(definition.typeId).length == 1,
-    'revisions',
-  );
+  check(box.listFormRevisions(definition.typeId).length == 1, 'revisions');
   pass('lockbox_list_form_definitions');
   pass('lockbox_resolve_form');
   pass('lockbox_list_form_revisions');
@@ -326,16 +309,13 @@ void advancedArchive() {
   pass('lockbox_get_form_record');
   pass('lockbox_get_form_field');
   pass('lockbox_list_form_records');
-  box.moveFormRecords(
-    [PathMove(source: '/account.form', destination: '/moved.form')],
-  );
-  check(
-    box.getFormRecord('/moved.form')!.values.length == 1,
-    'moved record',
-  );
-  box.moveFormRecords(
-    [PathMove(source: '/moved.form', destination: '/account.form')],
-  );
+  box.moveFormRecords([
+    PathMove(source: '/account.form', destination: '/moved.form'),
+  ]);
+  check(box.getFormRecord('/moved.form')!.values.length == 1, 'moved record');
+  box.moveFormRecords([
+    PathMove(source: '/moved.form', destination: '/account.form'),
+  ]);
   pass('lockbox_move_form_records', 3);
   final signing = api.generateSigningKeyPair();
   final contact = api.generateContactKeyPair();
@@ -372,10 +352,7 @@ void advancedArchive() {
   final archive = box.bytes, path = '${artifactRoot()}/advanced.lbox';
   File(path).writeAsBytesSync(archive);
   check(api.inspectLockboxFile(path).headerReadable, 'inspect');
-  check(
-    api.scanLockboxPath(path, key).intactFileCount > 0,
-    'scan path',
-  );
+  check(api.scanLockboxPath(path, key).intactFileCount > 0, 'scan path');
   check(api.scanLockbox(archive, key).intactFileCount > 0, 'scan');
   pass('lockbox_inspect_file');
   pass('lockbox_recovery_scan_path');
@@ -691,12 +668,9 @@ Future<void> agentAndLocal() async {
   directory.dispose();
   api.forgetAllAgentSecrets();
   pass('vault_forget_all');
-  final child = await Process.start(
-      Platform.resolvedExecutable,
-      [
-        '--serve-agent',
-      ],
-      mode: ProcessStartMode.inheritStdio);
+  final child = await Process.start(Platform.resolvedExecutable, [
+    '--serve-agent',
+  ], mode: ProcessStartMode.inheritStdio);
   var running = false;
   for (var attempt = 0; attempt < 200; attempt++) {
     if (api.agentIsRunning) {
@@ -809,7 +783,8 @@ Future<void> agentAndLocal() async {
 }
 
 void interop(String producer) {
-  final root = Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
+  final root =
+      Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
       '/tmp/revault-e2e-artifacts';
   final box = api.openLockbox(
     Uint8List.fromList(File('$root/$producer/archive.lbox').readAsBytesSync()),

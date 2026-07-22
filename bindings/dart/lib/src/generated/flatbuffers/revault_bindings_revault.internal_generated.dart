@@ -6,7 +6,6 @@ library revault.internal;
 import 'dart:typed_data' show Uint8List;
 import 'package:flat_buffers/flat_buffers.dart' as fb;
 
-
 enum LockboxEntryKind {
   KIND_UNSPECIFIED(0),
   FILE(1),
@@ -18,11 +17,16 @@ enum LockboxEntryKind {
 
   factory LockboxEntryKind.fromValue(int value) {
     switch (value) {
-      case 0: return LockboxEntryKind.KIND_UNSPECIFIED;
-      case 1: return LockboxEntryKind.FILE;
-      case 2: return LockboxEntryKind.SYMLINK;
-      case 3: return LockboxEntryKind.DIRECTORY;
-      default: throw StateError('Invalid value $value for bit flag enum');
+      case 0:
+        return LockboxEntryKind.KIND_UNSPECIFIED;
+      case 1:
+        return LockboxEntryKind.FILE;
+      case 2:
+        return LockboxEntryKind.SYMLINK;
+      case 3:
+        return LockboxEntryKind.DIRECTORY;
+      default:
+        throw StateError('Invalid value $value for bit flag enum');
     }
   }
 
@@ -57,10 +61,14 @@ class LockboxEntry {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get path => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  LockboxEntryKind get kind => LockboxEntryKind.fromValue(const fb.Int32Reader().vTableGet(_bc, _bcOffset, 6, 0));
+  String? get path =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  LockboxEntryKind get kind => LockboxEntryKind.fromValue(
+    const fb.Int32Reader().vTableGet(_bc, _bcOffset, 6, 0),
+  );
   int get length => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
-  int get permissions => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 10, 0);
+  int get permissions =>
+      const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 10, 0);
 
   @override
   String toString() {
@@ -68,10 +76,11 @@ class LockboxEntry {
   }
 
   LockboxEntryT unpack() => LockboxEntryT(
-      path: path,
-      kind: kind,
-      length: length,
-      permissions: permissions);
+    path: path,
+    kind: kind,
+    length: length,
+    permissions: permissions,
+  );
 
   static int pack(fb.Builder fbBuilder, LockboxEntryT? object) {
     if (object == null) return 0;
@@ -86,15 +95,15 @@ class LockboxEntryT implements fb.Packable {
   int permissions;
 
   LockboxEntryT({
-      this.path,
-      this.kind = LockboxEntryKind.KIND_UNSPECIFIED,
-      this.length = 0,
-      this.permissions = 0});
+    this.path,
+    this.kind = LockboxEntryKind.KIND_UNSPECIFIED,
+    this.length = 0,
+    this.permissions = 0,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? pathOffset = path == null ? null
-        : fbBuilder.writeString(path!);
+    final int? pathOffset = path == null ? null : fbBuilder.writeString(path!);
     fbBuilder.startTable(4);
     fbBuilder.addOffset(0, pathOffset);
     fbBuilder.addInt32(1, kind.value);
@@ -114,7 +123,7 @@ class _LockboxEntryReader extends fb.TableReader<LockboxEntry> {
 
   @override
   LockboxEntry createObject(fb.BufferContext bc, int offset) =>
-    LockboxEntry._(bc, offset);
+      LockboxEntry._(bc, offset);
 }
 
 class LockboxEntryBuilder {
@@ -130,14 +139,17 @@ class LockboxEntryBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addKind(LockboxEntryKind? kind) {
     fbBuilder.addInt32(1, kind?.value);
     return fbBuilder.offset;
   }
+
   int addLength(int? length) {
     fbBuilder.addUint64(2, length);
     return fbBuilder.offset;
   }
+
   int addPermissions(int? permissions) {
     fbBuilder.addUint32(3, permissions);
     return fbBuilder.offset;
@@ -159,16 +171,16 @@ class LockboxEntryObjectBuilder extends fb.ObjectBuilder {
     LockboxEntryKind? kind,
     int? length,
     int? permissions,
-  })
-      : _path = path,
-        _kind = kind,
-        _length = length,
-        _permissions = permissions;
+  }) : _path = path,
+       _kind = kind,
+       _length = length,
+       _permissions = permissions;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? pathOffset = _path == null ? null
+    final int? pathOffset = _path == null
+        ? null
         : fbBuilder.writeString(_path!);
     fbBuilder.startTable(4);
     fbBuilder.addOffset(0, pathOffset);
@@ -186,6 +198,7 @@ class LockboxEntryObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class LockboxEntryList {
   LockboxEntryList._(this._bc, this._bcOffset);
   factory LockboxEntryList(List<int> bytes) {
@@ -198,15 +211,17 @@ class LockboxEntryList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<LockboxEntry>? get entries => const fb.ListReader<LockboxEntry>(LockboxEntry.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<LockboxEntry>? get entries => const fb.ListReader<LockboxEntry>(
+    LockboxEntry.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'LockboxEntryList{entries: ${entries}}';
   }
 
-  LockboxEntryListT unpack() => LockboxEntryListT(
-      entries: entries?.map((e) => e.unpack()).toList());
+  LockboxEntryListT unpack() =>
+      LockboxEntryListT(entries: entries?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, LockboxEntryListT? object) {
     if (object == null) return 0;
@@ -217,12 +232,12 @@ class LockboxEntryList {
 class LockboxEntryListT implements fb.Packable {
   List<LockboxEntryT>? entries;
 
-  LockboxEntryListT({
-      this.entries});
+  LockboxEntryListT({this.entries});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? entriesOffset = entries == null ? null
+    final int? entriesOffset = entries == null
+        ? null
         : fbBuilder.writeList(entries!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, entriesOffset);
@@ -240,7 +255,7 @@ class _LockboxEntryListReader extends fb.TableReader<LockboxEntryList> {
 
   @override
   LockboxEntryList createObject(fb.BufferContext bc, int offset) =>
-    LockboxEntryList._(bc, offset);
+      LockboxEntryList._(bc, offset);
 }
 
 class LockboxEntryListBuilder {
@@ -265,16 +280,17 @@ class LockboxEntryListBuilder {
 class LockboxEntryListObjectBuilder extends fb.ObjectBuilder {
   final List<LockboxEntryObjectBuilder>? _entries;
 
-  LockboxEntryListObjectBuilder({
-    List<LockboxEntryObjectBuilder>? entries,
-  })
-      : _entries = entries;
+  LockboxEntryListObjectBuilder({List<LockboxEntryObjectBuilder>? entries})
+    : _entries = entries;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? entriesOffset = _entries == null ? null
-        : fbBuilder.writeList(_entries!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? entriesOffset = _entries == null
+        ? null
+        : fbBuilder.writeList(
+            _entries!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, entriesOffset);
     return fbBuilder.endTable();
@@ -288,6 +304,7 @@ class LockboxEntryListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class OptionalLockboxEntry {
   OptionalLockboxEntry._(this._bc, this._bcOffset);
   factory OptionalLockboxEntry(List<int> bytes) {
@@ -295,20 +312,22 @@ class OptionalLockboxEntry {
     return reader.read(rootRef, 0);
   }
 
-  static const fb.Reader<OptionalLockboxEntry> reader = _OptionalLockboxEntryReader();
+  static const fb.Reader<OptionalLockboxEntry> reader =
+      _OptionalLockboxEntryReader();
 
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  LockboxEntry? get value => LockboxEntry.reader.vTableGetNullable(_bc, _bcOffset, 4);
+  LockboxEntry? get value =>
+      LockboxEntry.reader.vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'OptionalLockboxEntry{value: ${value}}';
   }
 
-  OptionalLockboxEntryT unpack() => OptionalLockboxEntryT(
-      value: value?.unpack());
+  OptionalLockboxEntryT unpack() =>
+      OptionalLockboxEntryT(value: value?.unpack());
 
   static int pack(fb.Builder fbBuilder, OptionalLockboxEntryT? object) {
     if (object == null) return 0;
@@ -319,8 +338,7 @@ class OptionalLockboxEntry {
 class OptionalLockboxEntryT implements fb.Packable {
   LockboxEntryT? value;
 
-  OptionalLockboxEntryT({
-      this.value});
+  OptionalLockboxEntryT({this.value});
 
   @override
   int pack(fb.Builder fbBuilder) {
@@ -341,7 +359,7 @@ class _OptionalLockboxEntryReader extends fb.TableReader<OptionalLockboxEntry> {
 
   @override
   OptionalLockboxEntry createObject(fb.BufferContext bc, int offset) =>
-    OptionalLockboxEntry._(bc, offset);
+      OptionalLockboxEntry._(bc, offset);
 }
 
 class OptionalLockboxEntryBuilder {
@@ -366,10 +384,8 @@ class OptionalLockboxEntryBuilder {
 class OptionalLockboxEntryObjectBuilder extends fb.ObjectBuilder {
   final LockboxEntryObjectBuilder? _value;
 
-  OptionalLockboxEntryObjectBuilder({
-    LockboxEntryObjectBuilder? value,
-  })
-      : _value = value;
+  OptionalLockboxEntryObjectBuilder({LockboxEntryObjectBuilder? value})
+    : _value = value;
 
   /// Finish building, and store into the [fbBuilder].
   @override
@@ -388,6 +404,7 @@ class OptionalLockboxEntryObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class StringList {
   StringList._(this._bc, this._bcOffset);
   factory StringList(List<int> bytes) {
@@ -400,7 +417,9 @@ class StringList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<String>? get values => const fb.ListReader<String>(fb.StringReader()).vTableGetNullable(_bc, _bcOffset, 4);
+  List<String>? get values => const fb.ListReader<String>(
+    fb.StringReader(),
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
@@ -408,7 +427,11 @@ class StringList {
   }
 
   StringListT unpack() => StringListT(
-      values: const fb.ListReader<String>(fb.StringReader(), lazy: false).vTableGetNullable(_bc, _bcOffset, 4));
+    values: const fb.ListReader<String>(
+      fb.StringReader(),
+      lazy: false,
+    ).vTableGetNullable(_bc, _bcOffset, 4),
+  );
 
   static int pack(fb.Builder fbBuilder, StringListT? object) {
     if (object == null) return 0;
@@ -419,12 +442,12 @@ class StringList {
 class StringListT implements fb.Packable {
   List<String>? values;
 
-  StringListT({
-      this.values});
+  StringListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map(fbBuilder.writeString).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -442,7 +465,7 @@ class _StringListReader extends fb.TableReader<StringList> {
 
   @override
   StringList createObject(fb.BufferContext bc, int offset) =>
-    StringList._(bc, offset);
+      StringList._(bc, offset);
 }
 
 class StringListBuilder {
@@ -467,15 +490,13 @@ class StringListBuilder {
 class StringListObjectBuilder extends fb.ObjectBuilder {
   final List<String>? _values;
 
-  StringListObjectBuilder({
-    List<String>? values,
-  })
-      : _values = values;
+  StringListObjectBuilder({List<String>? values}) : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
+    final int? valuesOffset = _values == null
+        ? null
         : fbBuilder.writeList(_values!.map(fbBuilder.writeString).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -490,6 +511,7 @@ class StringListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class PathMove {
   PathMove._(this._bc, this._bcOffset);
   factory PathMove(List<int> bytes) {
@@ -502,17 +524,17 @@ class PathMove {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get source => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get destination => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get source =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get destination =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
 
   @override
   String toString() {
     return 'PathMove{source: ${source}, destination: ${destination}}';
   }
 
-  PathMoveT unpack() => PathMoveT(
-      source: source,
-      destination: destination);
+  PathMoveT unpack() => PathMoveT(source: source, destination: destination);
 
   static int pack(fb.Builder fbBuilder, PathMoveT? object) {
     if (object == null) return 0;
@@ -524,15 +546,15 @@ class PathMoveT implements fb.Packable {
   String? source;
   String? destination;
 
-  PathMoveT({
-      this.source,
-      this.destination});
+  PathMoveT({this.source, this.destination});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? sourceOffset = source == null ? null
+    final int? sourceOffset = source == null
+        ? null
         : fbBuilder.writeString(source!);
-    final int? destinationOffset = destination == null ? null
+    final int? destinationOffset = destination == null
+        ? null
         : fbBuilder.writeString(destination!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, sourceOffset);
@@ -551,7 +573,7 @@ class _PathMoveReader extends fb.TableReader<PathMove> {
 
   @override
   PathMove createObject(fb.BufferContext bc, int offset) =>
-    PathMove._(bc, offset);
+      PathMove._(bc, offset);
 }
 
 class PathMoveBuilder {
@@ -567,6 +589,7 @@ class PathMoveBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addDestinationOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
@@ -581,19 +604,18 @@ class PathMoveObjectBuilder extends fb.ObjectBuilder {
   final String? _source;
   final String? _destination;
 
-  PathMoveObjectBuilder({
-    String? source,
-    String? destination,
-  })
-      : _source = source,
-        _destination = destination;
+  PathMoveObjectBuilder({String? source, String? destination})
+    : _source = source,
+      _destination = destination;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? sourceOffset = _source == null ? null
+    final int? sourceOffset = _source == null
+        ? null
         : fbBuilder.writeString(_source!);
-    final int? destinationOffset = _destination == null ? null
+    final int? destinationOffset = _destination == null
+        ? null
         : fbBuilder.writeString(_destination!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, sourceOffset);
@@ -609,6 +631,7 @@ class PathMoveObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class PathMoveList {
   PathMoveList._(this._bc, this._bcOffset);
   factory PathMoveList(List<int> bytes) {
@@ -621,15 +644,17 @@ class PathMoveList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<PathMove>? get values => const fb.ListReader<PathMove>(PathMove.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<PathMove>? get values => const fb.ListReader<PathMove>(
+    PathMove.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'PathMoveList{values: ${values}}';
   }
 
-  PathMoveListT unpack() => PathMoveListT(
-      values: values?.map((e) => e.unpack()).toList());
+  PathMoveListT unpack() =>
+      PathMoveListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, PathMoveListT? object) {
     if (object == null) return 0;
@@ -640,12 +665,12 @@ class PathMoveList {
 class PathMoveListT implements fb.Packable {
   List<PathMoveT>? values;
 
-  PathMoveListT({
-      this.values});
+  PathMoveListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -663,7 +688,7 @@ class _PathMoveListReader extends fb.TableReader<PathMoveList> {
 
   @override
   PathMoveList createObject(fb.BufferContext bc, int offset) =>
-    PathMoveList._(bc, offset);
+      PathMoveList._(bc, offset);
 }
 
 class PathMoveListBuilder {
@@ -688,16 +713,17 @@ class PathMoveListBuilder {
 class PathMoveListObjectBuilder extends fb.ObjectBuilder {
   final List<PathMoveObjectBuilder>? _values;
 
-  PathMoveListObjectBuilder({
-    List<PathMoveObjectBuilder>? values,
-  })
-      : _values = values;
+  PathMoveListObjectBuilder({List<PathMoveObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -711,6 +737,7 @@ class PathMoveListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class FormField {
   FormField._(this._bc, this._bcOffset);
   factory FormField(List<int> bytes) {
@@ -723,21 +750,22 @@ class FormField {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get id => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get label => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
-  String? get kind => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
-  bool get $required => const fb.BoolReader().vTableGet(_bc, _bcOffset, 10, false);
+  String? get id =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get label =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get kind =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  bool get $required =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 10, false);
 
   @override
   String toString() {
     return 'FormField{id: ${id}, label: ${label}, kind: ${kind}, \$required: ${$required}}';
   }
 
-  FormFieldT unpack() => FormFieldT(
-      id: id,
-      label: label,
-      kind: kind,
-      $required: $required);
+  FormFieldT unpack() =>
+      FormFieldT(id: id, label: label, kind: kind, $required: $required);
 
   static int pack(fb.Builder fbBuilder, FormFieldT? object) {
     if (object == null) return 0;
@@ -751,20 +779,15 @@ class FormFieldT implements fb.Packable {
   String? kind;
   bool $required;
 
-  FormFieldT({
-      this.id,
-      this.label,
-      this.kind,
-      this.$required = false});
+  FormFieldT({this.id, this.label, this.kind, this.$required = false});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? idOffset = id == null ? null
-        : fbBuilder.writeString(id!);
-    final int? labelOffset = label == null ? null
+    final int? idOffset = id == null ? null : fbBuilder.writeString(id!);
+    final int? labelOffset = label == null
+        ? null
         : fbBuilder.writeString(label!);
-    final int? kindOffset = kind == null ? null
-        : fbBuilder.writeString(kind!);
+    final int? kindOffset = kind == null ? null : fbBuilder.writeString(kind!);
     fbBuilder.startTable(4);
     fbBuilder.addOffset(0, idOffset);
     fbBuilder.addOffset(1, labelOffset);
@@ -784,7 +807,7 @@ class _FormFieldReader extends fb.TableReader<FormField> {
 
   @override
   FormField createObject(fb.BufferContext bc, int offset) =>
-    FormField._(bc, offset);
+      FormField._(bc, offset);
 }
 
 class FormFieldBuilder {
@@ -800,14 +823,17 @@ class FormFieldBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addLabelOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addKindOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
   }
+
   int addRequired(bool? $required) {
     fbBuilder.addBool(3, $required);
     return fbBuilder.offset;
@@ -829,20 +855,20 @@ class FormFieldObjectBuilder extends fb.ObjectBuilder {
     String? label,
     String? kind,
     bool? $required,
-  })
-      : _id = id,
-        _label = label,
-        _kind = kind,
-        _$required = $required;
+  }) : _id = id,
+       _label = label,
+       _kind = kind,
+       _$required = $required;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? idOffset = _id == null ? null
-        : fbBuilder.writeString(_id!);
-    final int? labelOffset = _label == null ? null
+    final int? idOffset = _id == null ? null : fbBuilder.writeString(_id!);
+    final int? labelOffset = _label == null
+        ? null
         : fbBuilder.writeString(_label!);
-    final int? kindOffset = _kind == null ? null
+    final int? kindOffset = _kind == null
+        ? null
         : fbBuilder.writeString(_kind!);
     fbBuilder.startTable(4);
     fbBuilder.addOffset(0, idOffset);
@@ -860,6 +886,7 @@ class FormFieldObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class FormFieldList {
   FormFieldList._(this._bc, this._bcOffset);
   factory FormFieldList(List<int> bytes) {
@@ -872,15 +899,17 @@ class FormFieldList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<FormField>? get values => const fb.ListReader<FormField>(FormField.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<FormField>? get values => const fb.ListReader<FormField>(
+    FormField.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'FormFieldList{values: ${values}}';
   }
 
-  FormFieldListT unpack() => FormFieldListT(
-      values: values?.map((e) => e.unpack()).toList());
+  FormFieldListT unpack() =>
+      FormFieldListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, FormFieldListT? object) {
     if (object == null) return 0;
@@ -891,12 +920,12 @@ class FormFieldList {
 class FormFieldListT implements fb.Packable {
   List<FormFieldT>? values;
 
-  FormFieldListT({
-      this.values});
+  FormFieldListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -914,7 +943,7 @@ class _FormFieldListReader extends fb.TableReader<FormFieldList> {
 
   @override
   FormFieldList createObject(fb.BufferContext bc, int offset) =>
-    FormFieldList._(bc, offset);
+      FormFieldList._(bc, offset);
 }
 
 class FormFieldListBuilder {
@@ -939,16 +968,17 @@ class FormFieldListBuilder {
 class FormFieldListObjectBuilder extends fb.ObjectBuilder {
   final List<FormFieldObjectBuilder>? _values;
 
-  FormFieldListObjectBuilder({
-    List<FormFieldObjectBuilder>? values,
-  })
-      : _values = values;
+  FormFieldListObjectBuilder({List<FormFieldObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -962,6 +992,7 @@ class FormFieldListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class FormDefinition {
   FormDefinition._(this._bc, this._bcOffset);
   factory FormDefinition(List<int> bytes) {
@@ -974,12 +1005,18 @@ class FormDefinition {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get typeId => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get alias => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get typeId =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get alias =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
   int get revision => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 8, 0);
-  String? get name => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
-  String? get description => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
-  List<FormField>? get fields => const fb.ListReader<FormField>(FormField.reader).vTableGetNullable(_bc, _bcOffset, 14);
+  String? get name =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
+  String? get description =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
+  List<FormField>? get fields => const fb.ListReader<FormField>(
+    FormField.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 14);
 
   @override
   String toString() {
@@ -987,12 +1024,13 @@ class FormDefinition {
   }
 
   FormDefinitionT unpack() => FormDefinitionT(
-      typeId: typeId,
-      alias: alias,
-      revision: revision,
-      name: name,
-      description: description,
-      fields: fields?.map((e) => e.unpack()).toList());
+    typeId: typeId,
+    alias: alias,
+    revision: revision,
+    name: name,
+    description: description,
+    fields: fields?.map((e) => e.unpack()).toList(),
+  );
 
   static int pack(fb.Builder fbBuilder, FormDefinitionT? object) {
     if (object == null) return 0;
@@ -1009,24 +1047,28 @@ class FormDefinitionT implements fb.Packable {
   List<FormFieldT>? fields;
 
   FormDefinitionT({
-      this.typeId,
-      this.alias,
-      this.revision = 0,
-      this.name,
-      this.description,
-      this.fields});
+    this.typeId,
+    this.alias,
+    this.revision = 0,
+    this.name,
+    this.description,
+    this.fields,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? typeIdOffset = typeId == null ? null
+    final int? typeIdOffset = typeId == null
+        ? null
         : fbBuilder.writeString(typeId!);
-    final int? aliasOffset = alias == null ? null
+    final int? aliasOffset = alias == null
+        ? null
         : fbBuilder.writeString(alias!);
-    final int? nameOffset = name == null ? null
-        : fbBuilder.writeString(name!);
-    final int? descriptionOffset = description == null ? null
+    final int? nameOffset = name == null ? null : fbBuilder.writeString(name!);
+    final int? descriptionOffset = description == null
+        ? null
         : fbBuilder.writeString(description!);
-    final int? fieldsOffset = fields == null ? null
+    final int? fieldsOffset = fields == null
+        ? null
         : fbBuilder.writeList(fields!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, typeIdOffset);
@@ -1049,7 +1091,7 @@ class _FormDefinitionReader extends fb.TableReader<FormDefinition> {
 
   @override
   FormDefinition createObject(fb.BufferContext bc, int offset) =>
-    FormDefinition._(bc, offset);
+      FormDefinition._(bc, offset);
 }
 
 class FormDefinitionBuilder {
@@ -1065,22 +1107,27 @@ class FormDefinitionBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addAliasOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addRevision(int? revision) {
     fbBuilder.addUint32(2, revision);
     return fbBuilder.offset;
   }
+
   int addNameOffset(int? offset) {
     fbBuilder.addOffset(3, offset);
     return fbBuilder.offset;
   }
+
   int addDescriptionOffset(int? offset) {
     fbBuilder.addOffset(4, offset);
     return fbBuilder.offset;
   }
+
   int addFieldsOffset(int? offset) {
     fbBuilder.addOffset(5, offset);
     return fbBuilder.offset;
@@ -1106,27 +1153,33 @@ class FormDefinitionObjectBuilder extends fb.ObjectBuilder {
     String? name,
     String? description,
     List<FormFieldObjectBuilder>? fields,
-  })
-      : _typeId = typeId,
-        _alias = alias,
-        _revision = revision,
-        _name = name,
-        _description = description,
-        _fields = fields;
+  }) : _typeId = typeId,
+       _alias = alias,
+       _revision = revision,
+       _name = name,
+       _description = description,
+       _fields = fields;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? typeIdOffset = _typeId == null ? null
+    final int? typeIdOffset = _typeId == null
+        ? null
         : fbBuilder.writeString(_typeId!);
-    final int? aliasOffset = _alias == null ? null
+    final int? aliasOffset = _alias == null
+        ? null
         : fbBuilder.writeString(_alias!);
-    final int? nameOffset = _name == null ? null
+    final int? nameOffset = _name == null
+        ? null
         : fbBuilder.writeString(_name!);
-    final int? descriptionOffset = _description == null ? null
+    final int? descriptionOffset = _description == null
+        ? null
         : fbBuilder.writeString(_description!);
-    final int? fieldsOffset = _fields == null ? null
-        : fbBuilder.writeList(_fields!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? fieldsOffset = _fields == null
+        ? null
+        : fbBuilder.writeList(
+            _fields!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, typeIdOffset);
     fbBuilder.addOffset(1, aliasOffset);
@@ -1145,6 +1198,7 @@ class FormDefinitionObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class FormDefinitionList {
   FormDefinitionList._(this._bc, this._bcOffset);
   factory FormDefinitionList(List<int> bytes) {
@@ -1152,20 +1206,23 @@ class FormDefinitionList {
     return reader.read(rootRef, 0);
   }
 
-  static const fb.Reader<FormDefinitionList> reader = _FormDefinitionListReader();
+  static const fb.Reader<FormDefinitionList> reader =
+      _FormDefinitionListReader();
 
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<FormDefinition>? get values => const fb.ListReader<FormDefinition>(FormDefinition.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<FormDefinition>? get values => const fb.ListReader<FormDefinition>(
+    FormDefinition.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'FormDefinitionList{values: ${values}}';
   }
 
-  FormDefinitionListT unpack() => FormDefinitionListT(
-      values: values?.map((e) => e.unpack()).toList());
+  FormDefinitionListT unpack() =>
+      FormDefinitionListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, FormDefinitionListT? object) {
     if (object == null) return 0;
@@ -1176,12 +1233,12 @@ class FormDefinitionList {
 class FormDefinitionListT implements fb.Packable {
   List<FormDefinitionT>? values;
 
-  FormDefinitionListT({
-      this.values});
+  FormDefinitionListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -1199,7 +1256,7 @@ class _FormDefinitionListReader extends fb.TableReader<FormDefinitionList> {
 
   @override
   FormDefinitionList createObject(fb.BufferContext bc, int offset) =>
-    FormDefinitionList._(bc, offset);
+      FormDefinitionList._(bc, offset);
 }
 
 class FormDefinitionListBuilder {
@@ -1224,16 +1281,17 @@ class FormDefinitionListBuilder {
 class FormDefinitionListObjectBuilder extends fb.ObjectBuilder {
   final List<FormDefinitionObjectBuilder>? _values;
 
-  FormDefinitionListObjectBuilder({
-    List<FormDefinitionObjectBuilder>? values,
-  })
-      : _values = values;
+  FormDefinitionListObjectBuilder({List<FormDefinitionObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -1247,6 +1305,7 @@ class FormDefinitionListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class FormValue {
   FormValue._(this._bc, this._bcOffset);
   factory FormValue(List<int> bytes) {
@@ -1259,10 +1318,14 @@ class FormValue {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get fieldId => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get label => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
-  String? get kind => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
-  String? get value => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
+  String? get fieldId =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get label =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get kind =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  String? get value =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
   bool get secret => const fb.BoolReader().vTableGet(_bc, _bcOffset, 12, false);
 
   @override
@@ -1271,11 +1334,12 @@ class FormValue {
   }
 
   FormValueT unpack() => FormValueT(
-      fieldId: fieldId,
-      label: label,
-      kind: kind,
-      value: value,
-      secret: secret);
+    fieldId: fieldId,
+    label: label,
+    kind: kind,
+    value: value,
+    secret: secret,
+  );
 
   static int pack(fb.Builder fbBuilder, FormValueT? object) {
     if (object == null) return 0;
@@ -1291,21 +1355,24 @@ class FormValueT implements fb.Packable {
   bool secret;
 
   FormValueT({
-      this.fieldId,
-      this.label,
-      this.kind,
-      this.value,
-      this.secret = false});
+    this.fieldId,
+    this.label,
+    this.kind,
+    this.value,
+    this.secret = false,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? fieldIdOffset = fieldId == null ? null
+    final int? fieldIdOffset = fieldId == null
+        ? null
         : fbBuilder.writeString(fieldId!);
-    final int? labelOffset = label == null ? null
+    final int? labelOffset = label == null
+        ? null
         : fbBuilder.writeString(label!);
-    final int? kindOffset = kind == null ? null
-        : fbBuilder.writeString(kind!);
-    final int? valueOffset = value == null ? null
+    final int? kindOffset = kind == null ? null : fbBuilder.writeString(kind!);
+    final int? valueOffset = value == null
+        ? null
         : fbBuilder.writeString(value!);
     fbBuilder.startTable(5);
     fbBuilder.addOffset(0, fieldIdOffset);
@@ -1327,7 +1394,7 @@ class _FormValueReader extends fb.TableReader<FormValue> {
 
   @override
   FormValue createObject(fb.BufferContext bc, int offset) =>
-    FormValue._(bc, offset);
+      FormValue._(bc, offset);
 }
 
 class FormValueBuilder {
@@ -1343,18 +1410,22 @@ class FormValueBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addLabelOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addKindOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
   }
+
   int addValueOffset(int? offset) {
     fbBuilder.addOffset(3, offset);
     return fbBuilder.offset;
   }
+
   int addSecret(bool? secret) {
     fbBuilder.addBool(4, secret);
     return fbBuilder.offset;
@@ -1378,23 +1449,26 @@ class FormValueObjectBuilder extends fb.ObjectBuilder {
     String? kind,
     String? value,
     bool? secret,
-  })
-      : _fieldId = fieldId,
-        _label = label,
-        _kind = kind,
-        _value = value,
-        _secret = secret;
+  }) : _fieldId = fieldId,
+       _label = label,
+       _kind = kind,
+       _value = value,
+       _secret = secret;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? fieldIdOffset = _fieldId == null ? null
+    final int? fieldIdOffset = _fieldId == null
+        ? null
         : fbBuilder.writeString(_fieldId!);
-    final int? labelOffset = _label == null ? null
+    final int? labelOffset = _label == null
+        ? null
         : fbBuilder.writeString(_label!);
-    final int? kindOffset = _kind == null ? null
+    final int? kindOffset = _kind == null
+        ? null
         : fbBuilder.writeString(_kind!);
-    final int? valueOffset = _value == null ? null
+    final int? valueOffset = _value == null
+        ? null
         : fbBuilder.writeString(_value!);
     fbBuilder.startTable(5);
     fbBuilder.addOffset(0, fieldIdOffset);
@@ -1413,6 +1487,7 @@ class FormValueObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class FormRecord {
   FormRecord._(this._bc, this._bcOffset);
   factory FormRecord(List<int> bytes) {
@@ -1425,12 +1500,19 @@ class FormRecord {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get path => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get name => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
-  String? get typeId => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
-  String? get definitionAlias => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
-  int get definitionRevision => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 12, 0);
-  List<FormValue>? get values => const fb.ListReader<FormValue>(FormValue.reader).vTableGetNullable(_bc, _bcOffset, 14);
+  String? get path =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get name =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get typeId =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  String? get definitionAlias =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
+  int get definitionRevision =>
+      const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 12, 0);
+  List<FormValue>? get values => const fb.ListReader<FormValue>(
+    FormValue.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 14);
 
   @override
   String toString() {
@@ -1438,12 +1520,13 @@ class FormRecord {
   }
 
   FormRecordT unpack() => FormRecordT(
-      path: path,
-      name: name,
-      typeId: typeId,
-      definitionAlias: definitionAlias,
-      definitionRevision: definitionRevision,
-      values: values?.map((e) => e.unpack()).toList());
+    path: path,
+    name: name,
+    typeId: typeId,
+    definitionAlias: definitionAlias,
+    definitionRevision: definitionRevision,
+    values: values?.map((e) => e.unpack()).toList(),
+  );
 
   static int pack(fb.Builder fbBuilder, FormRecordT? object) {
     if (object == null) return 0;
@@ -1460,24 +1543,26 @@ class FormRecordT implements fb.Packable {
   List<FormValueT>? values;
 
   FormRecordT({
-      this.path,
-      this.name,
-      this.typeId,
-      this.definitionAlias,
-      this.definitionRevision = 0,
-      this.values});
+    this.path,
+    this.name,
+    this.typeId,
+    this.definitionAlias,
+    this.definitionRevision = 0,
+    this.values,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? pathOffset = path == null ? null
-        : fbBuilder.writeString(path!);
-    final int? nameOffset = name == null ? null
-        : fbBuilder.writeString(name!);
-    final int? typeIdOffset = typeId == null ? null
+    final int? pathOffset = path == null ? null : fbBuilder.writeString(path!);
+    final int? nameOffset = name == null ? null : fbBuilder.writeString(name!);
+    final int? typeIdOffset = typeId == null
+        ? null
         : fbBuilder.writeString(typeId!);
-    final int? definitionAliasOffset = definitionAlias == null ? null
+    final int? definitionAliasOffset = definitionAlias == null
+        ? null
         : fbBuilder.writeString(definitionAlias!);
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, pathOffset);
@@ -1500,7 +1585,7 @@ class _FormRecordReader extends fb.TableReader<FormRecord> {
 
   @override
   FormRecord createObject(fb.BufferContext bc, int offset) =>
-    FormRecord._(bc, offset);
+      FormRecord._(bc, offset);
 }
 
 class FormRecordBuilder {
@@ -1516,22 +1601,27 @@ class FormRecordBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addNameOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addTypeIdOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
   }
+
   int addDefinitionAliasOffset(int? offset) {
     fbBuilder.addOffset(3, offset);
     return fbBuilder.offset;
   }
+
   int addDefinitionRevision(int? definitionRevision) {
     fbBuilder.addUint32(4, definitionRevision);
     return fbBuilder.offset;
   }
+
   int addValuesOffset(int? offset) {
     fbBuilder.addOffset(5, offset);
     return fbBuilder.offset;
@@ -1557,27 +1647,33 @@ class FormRecordObjectBuilder extends fb.ObjectBuilder {
     String? definitionAlias,
     int? definitionRevision,
     List<FormValueObjectBuilder>? values,
-  })
-      : _path = path,
-        _name = name,
-        _typeId = typeId,
-        _definitionAlias = definitionAlias,
-        _definitionRevision = definitionRevision,
-        _values = values;
+  }) : _path = path,
+       _name = name,
+       _typeId = typeId,
+       _definitionAlias = definitionAlias,
+       _definitionRevision = definitionRevision,
+       _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? pathOffset = _path == null ? null
+    final int? pathOffset = _path == null
+        ? null
         : fbBuilder.writeString(_path!);
-    final int? nameOffset = _name == null ? null
+    final int? nameOffset = _name == null
+        ? null
         : fbBuilder.writeString(_name!);
-    final int? typeIdOffset = _typeId == null ? null
+    final int? typeIdOffset = _typeId == null
+        ? null
         : fbBuilder.writeString(_typeId!);
-    final int? definitionAliasOffset = _definitionAlias == null ? null
+    final int? definitionAliasOffset = _definitionAlias == null
+        ? null
         : fbBuilder.writeString(_definitionAlias!);
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, pathOffset);
     fbBuilder.addOffset(1, nameOffset);
@@ -1596,6 +1692,7 @@ class FormRecordObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class FormRecordList {
   FormRecordList._(this._bc, this._bcOffset);
   factory FormRecordList(List<int> bytes) {
@@ -1608,15 +1705,17 @@ class FormRecordList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<FormRecord>? get values => const fb.ListReader<FormRecord>(FormRecord.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<FormRecord>? get values => const fb.ListReader<FormRecord>(
+    FormRecord.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'FormRecordList{values: ${values}}';
   }
 
-  FormRecordListT unpack() => FormRecordListT(
-      values: values?.map((e) => e.unpack()).toList());
+  FormRecordListT unpack() =>
+      FormRecordListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, FormRecordListT? object) {
     if (object == null) return 0;
@@ -1627,12 +1726,12 @@ class FormRecordList {
 class FormRecordListT implements fb.Packable {
   List<FormRecordT>? values;
 
-  FormRecordListT({
-      this.values});
+  FormRecordListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -1650,7 +1749,7 @@ class _FormRecordListReader extends fb.TableReader<FormRecordList> {
 
   @override
   FormRecordList createObject(fb.BufferContext bc, int offset) =>
-    FormRecordList._(bc, offset);
+      FormRecordList._(bc, offset);
 }
 
 class FormRecordListBuilder {
@@ -1675,16 +1774,17 @@ class FormRecordListBuilder {
 class FormRecordListObjectBuilder extends fb.ObjectBuilder {
   final List<FormRecordObjectBuilder>? _values;
 
-  FormRecordListObjectBuilder({
-    List<FormRecordObjectBuilder>? values,
-  })
-      : _values = values;
+  FormRecordListObjectBuilder({List<FormRecordObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -1698,6 +1798,7 @@ class FormRecordListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class OptionalFormRecord {
   OptionalFormRecord._(this._bc, this._bcOffset);
   factory OptionalFormRecord(List<int> bytes) {
@@ -1705,20 +1806,21 @@ class OptionalFormRecord {
     return reader.read(rootRef, 0);
   }
 
-  static const fb.Reader<OptionalFormRecord> reader = _OptionalFormRecordReader();
+  static const fb.Reader<OptionalFormRecord> reader =
+      _OptionalFormRecordReader();
 
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  FormRecord? get value => FormRecord.reader.vTableGetNullable(_bc, _bcOffset, 4);
+  FormRecord? get value =>
+      FormRecord.reader.vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'OptionalFormRecord{value: ${value}}';
   }
 
-  OptionalFormRecordT unpack() => OptionalFormRecordT(
-      value: value?.unpack());
+  OptionalFormRecordT unpack() => OptionalFormRecordT(value: value?.unpack());
 
   static int pack(fb.Builder fbBuilder, OptionalFormRecordT? object) {
     if (object == null) return 0;
@@ -1729,8 +1831,7 @@ class OptionalFormRecord {
 class OptionalFormRecordT implements fb.Packable {
   FormRecordT? value;
 
-  OptionalFormRecordT({
-      this.value});
+  OptionalFormRecordT({this.value});
 
   @override
   int pack(fb.Builder fbBuilder) {
@@ -1751,7 +1852,7 @@ class _OptionalFormRecordReader extends fb.TableReader<OptionalFormRecord> {
 
   @override
   OptionalFormRecord createObject(fb.BufferContext bc, int offset) =>
-    OptionalFormRecord._(bc, offset);
+      OptionalFormRecord._(bc, offset);
 }
 
 class OptionalFormRecordBuilder {
@@ -1776,10 +1877,8 @@ class OptionalFormRecordBuilder {
 class OptionalFormRecordObjectBuilder extends fb.ObjectBuilder {
   final FormRecordObjectBuilder? _value;
 
-  OptionalFormRecordObjectBuilder({
-    FormRecordObjectBuilder? value,
-  })
-      : _value = value;
+  OptionalFormRecordObjectBuilder({FormRecordObjectBuilder? value})
+    : _value = value;
 
   /// Finish building, and store into the [fbBuilder].
   @override
@@ -1798,6 +1897,7 @@ class OptionalFormRecordObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class OptionalFormValue {
   OptionalFormValue._(this._bc, this._bcOffset);
   factory OptionalFormValue(List<int> bytes) {
@@ -1817,8 +1917,7 @@ class OptionalFormValue {
     return 'OptionalFormValue{value: ${value}}';
   }
 
-  OptionalFormValueT unpack() => OptionalFormValueT(
-      value: value?.unpack());
+  OptionalFormValueT unpack() => OptionalFormValueT(value: value?.unpack());
 
   static int pack(fb.Builder fbBuilder, OptionalFormValueT? object) {
     if (object == null) return 0;
@@ -1829,8 +1928,7 @@ class OptionalFormValue {
 class OptionalFormValueT implements fb.Packable {
   FormValueT? value;
 
-  OptionalFormValueT({
-      this.value});
+  OptionalFormValueT({this.value});
 
   @override
   int pack(fb.Builder fbBuilder) {
@@ -1851,7 +1949,7 @@ class _OptionalFormValueReader extends fb.TableReader<OptionalFormValue> {
 
   @override
   OptionalFormValue createObject(fb.BufferContext bc, int offset) =>
-    OptionalFormValue._(bc, offset);
+      OptionalFormValue._(bc, offset);
 }
 
 class OptionalFormValueBuilder {
@@ -1876,10 +1974,8 @@ class OptionalFormValueBuilder {
 class OptionalFormValueObjectBuilder extends fb.ObjectBuilder {
   final FormValueObjectBuilder? _value;
 
-  OptionalFormValueObjectBuilder({
-    FormValueObjectBuilder? value,
-  })
-      : _value = value;
+  OptionalFormValueObjectBuilder({FormValueObjectBuilder? value})
+    : _value = value;
 
   /// Finish building, and store into the [fbBuilder].
   @override
@@ -1898,6 +1994,7 @@ class OptionalFormValueObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class RecoveryReport {
   RecoveryReport._(this._bc, this._bcOffset);
   factory RecoveryReport(List<int> bytes) {
@@ -1910,16 +2007,27 @@ class RecoveryReport {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<LockboxEntry>? get intactFiles => const fb.ListReader<LockboxEntry>(LockboxEntry.reader).vTableGetNullable(_bc, _bcOffset, 4);
-  int get intactFileCount => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
-  int get partialFiles => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
-  int get corruptRecords => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
-  bool get tocRecovered => const fb.BoolReader().vTableGet(_bc, _bcOffset, 12, false);
-  bool get variablesRecovered => const fb.BoolReader().vTableGet(_bc, _bcOffset, 14, false);
-  int get variableCount => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 16, 0);
-  bool get formsRecovered => const fb.BoolReader().vTableGet(_bc, _bcOffset, 18, false);
-  int get formDefinitionCount => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 20, 0);
-  int get formRecordCount => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 22, 0);
+  List<LockboxEntry>? get intactFiles => const fb.ListReader<LockboxEntry>(
+    LockboxEntry.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
+  int get intactFileCount =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
+  int get partialFiles =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
+  int get corruptRecords =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
+  bool get tocRecovered =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 12, false);
+  bool get variablesRecovered =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 14, false);
+  int get variableCount =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 16, 0);
+  bool get formsRecovered =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 18, false);
+  int get formDefinitionCount =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 20, 0);
+  int get formRecordCount =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 22, 0);
 
   @override
   String toString() {
@@ -1927,16 +2035,17 @@ class RecoveryReport {
   }
 
   RecoveryReportT unpack() => RecoveryReportT(
-      intactFiles: intactFiles?.map((e) => e.unpack()).toList(),
-      intactFileCount: intactFileCount,
-      partialFiles: partialFiles,
-      corruptRecords: corruptRecords,
-      tocRecovered: tocRecovered,
-      variablesRecovered: variablesRecovered,
-      variableCount: variableCount,
-      formsRecovered: formsRecovered,
-      formDefinitionCount: formDefinitionCount,
-      formRecordCount: formRecordCount);
+    intactFiles: intactFiles?.map((e) => e.unpack()).toList(),
+    intactFileCount: intactFileCount,
+    partialFiles: partialFiles,
+    corruptRecords: corruptRecords,
+    tocRecovered: tocRecovered,
+    variablesRecovered: variablesRecovered,
+    variableCount: variableCount,
+    formsRecovered: formsRecovered,
+    formDefinitionCount: formDefinitionCount,
+    formRecordCount: formRecordCount,
+  );
 
   static int pack(fb.Builder fbBuilder, RecoveryReportT? object) {
     if (object == null) return 0;
@@ -1957,21 +2066,25 @@ class RecoveryReportT implements fb.Packable {
   int formRecordCount;
 
   RecoveryReportT({
-      this.intactFiles,
-      this.intactFileCount = 0,
-      this.partialFiles = 0,
-      this.corruptRecords = 0,
-      this.tocRecovered = false,
-      this.variablesRecovered = false,
-      this.variableCount = 0,
-      this.formsRecovered = false,
-      this.formDefinitionCount = 0,
-      this.formRecordCount = 0});
+    this.intactFiles,
+    this.intactFileCount = 0,
+    this.partialFiles = 0,
+    this.corruptRecords = 0,
+    this.tocRecovered = false,
+    this.variablesRecovered = false,
+    this.variableCount = 0,
+    this.formsRecovered = false,
+    this.formDefinitionCount = 0,
+    this.formRecordCount = 0,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? intactFilesOffset = intactFiles == null ? null
-        : fbBuilder.writeList(intactFiles!.map((b) => b.pack(fbBuilder)).toList());
+    final int? intactFilesOffset = intactFiles == null
+        ? null
+        : fbBuilder.writeList(
+            intactFiles!.map((b) => b.pack(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(10);
     fbBuilder.addOffset(0, intactFilesOffset);
     fbBuilder.addUint64(1, intactFileCount);
@@ -1997,7 +2110,7 @@ class _RecoveryReportReader extends fb.TableReader<RecoveryReport> {
 
   @override
   RecoveryReport createObject(fb.BufferContext bc, int offset) =>
-    RecoveryReport._(bc, offset);
+      RecoveryReport._(bc, offset);
 }
 
 class RecoveryReportBuilder {
@@ -2013,38 +2126,47 @@ class RecoveryReportBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addIntactFileCount(int? intactFileCount) {
     fbBuilder.addUint64(1, intactFileCount);
     return fbBuilder.offset;
   }
+
   int addPartialFiles(int? partialFiles) {
     fbBuilder.addUint64(2, partialFiles);
     return fbBuilder.offset;
   }
+
   int addCorruptRecords(int? corruptRecords) {
     fbBuilder.addUint64(3, corruptRecords);
     return fbBuilder.offset;
   }
+
   int addTocRecovered(bool? tocRecovered) {
     fbBuilder.addBool(4, tocRecovered);
     return fbBuilder.offset;
   }
+
   int addVariablesRecovered(bool? variablesRecovered) {
     fbBuilder.addBool(5, variablesRecovered);
     return fbBuilder.offset;
   }
+
   int addVariableCount(int? variableCount) {
     fbBuilder.addUint64(6, variableCount);
     return fbBuilder.offset;
   }
+
   int addFormsRecovered(bool? formsRecovered) {
     fbBuilder.addBool(7, formsRecovered);
     return fbBuilder.offset;
   }
+
   int addFormDefinitionCount(int? formDefinitionCount) {
     fbBuilder.addUint64(8, formDefinitionCount);
     return fbBuilder.offset;
   }
+
   int addFormRecordCount(int? formRecordCount) {
     fbBuilder.addUint64(9, formRecordCount);
     return fbBuilder.offset;
@@ -2078,23 +2200,25 @@ class RecoveryReportObjectBuilder extends fb.ObjectBuilder {
     bool? formsRecovered,
     int? formDefinitionCount,
     int? formRecordCount,
-  })
-      : _intactFiles = intactFiles,
-        _intactFileCount = intactFileCount,
-        _partialFiles = partialFiles,
-        _corruptRecords = corruptRecords,
-        _tocRecovered = tocRecovered,
-        _variablesRecovered = variablesRecovered,
-        _variableCount = variableCount,
-        _formsRecovered = formsRecovered,
-        _formDefinitionCount = formDefinitionCount,
-        _formRecordCount = formRecordCount;
+  }) : _intactFiles = intactFiles,
+       _intactFileCount = intactFileCount,
+       _partialFiles = partialFiles,
+       _corruptRecords = corruptRecords,
+       _tocRecovered = tocRecovered,
+       _variablesRecovered = variablesRecovered,
+       _variableCount = variableCount,
+       _formsRecovered = formsRecovered,
+       _formDefinitionCount = formDefinitionCount,
+       _formRecordCount = formRecordCount;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? intactFilesOffset = _intactFiles == null ? null
-        : fbBuilder.writeList(_intactFiles!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? intactFilesOffset = _intactFiles == null
+        ? null
+        : fbBuilder.writeList(
+            _intactFiles!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(10);
     fbBuilder.addOffset(0, intactFilesOffset);
     fbBuilder.addUint64(1, _intactFileCount);
@@ -2117,6 +2241,7 @@ class RecoveryReportObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class KeySlot {
   KeySlot._(this._bc, this._bcOffset);
   factory KeySlot(List<int> bytes) {
@@ -2130,18 +2255,18 @@ class KeySlot {
   final int _bcOffset;
 
   int get id => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 4, 0);
-  String? get protection => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
-  String? get algorithm => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  String? get protection =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get algorithm =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
 
   @override
   String toString() {
     return 'KeySlot{id: ${id}, protection: ${protection}, algorithm: ${algorithm}}';
   }
 
-  KeySlotT unpack() => KeySlotT(
-      id: id,
-      protection: protection,
-      algorithm: algorithm);
+  KeySlotT unpack() =>
+      KeySlotT(id: id, protection: protection, algorithm: algorithm);
 
   static int pack(fb.Builder fbBuilder, KeySlotT? object) {
     if (object == null) return 0;
@@ -2154,16 +2279,15 @@ class KeySlotT implements fb.Packable {
   String? protection;
   String? algorithm;
 
-  KeySlotT({
-      this.id = 0,
-      this.protection,
-      this.algorithm});
+  KeySlotT({this.id = 0, this.protection, this.algorithm});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? protectionOffset = protection == null ? null
+    final int? protectionOffset = protection == null
+        ? null
         : fbBuilder.writeString(protection!);
-    final int? algorithmOffset = algorithm == null ? null
+    final int? algorithmOffset = algorithm == null
+        ? null
         : fbBuilder.writeString(algorithm!);
     fbBuilder.startTable(3);
     fbBuilder.addUint64(0, id);
@@ -2183,7 +2307,7 @@ class _KeySlotReader extends fb.TableReader<KeySlot> {
 
   @override
   KeySlot createObject(fb.BufferContext bc, int offset) =>
-    KeySlot._(bc, offset);
+      KeySlot._(bc, offset);
 }
 
 class KeySlotBuilder {
@@ -2199,10 +2323,12 @@ class KeySlotBuilder {
     fbBuilder.addUint64(0, id);
     return fbBuilder.offset;
   }
+
   int addProtectionOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addAlgorithmOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
@@ -2218,21 +2344,19 @@ class KeySlotObjectBuilder extends fb.ObjectBuilder {
   final String? _protection;
   final String? _algorithm;
 
-  KeySlotObjectBuilder({
-    int? id,
-    String? protection,
-    String? algorithm,
-  })
-      : _id = id,
-        _protection = protection,
-        _algorithm = algorithm;
+  KeySlotObjectBuilder({int? id, String? protection, String? algorithm})
+    : _id = id,
+      _protection = protection,
+      _algorithm = algorithm;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? protectionOffset = _protection == null ? null
+    final int? protectionOffset = _protection == null
+        ? null
         : fbBuilder.writeString(_protection!);
-    final int? algorithmOffset = _algorithm == null ? null
+    final int? algorithmOffset = _algorithm == null
+        ? null
         : fbBuilder.writeString(_algorithm!);
     fbBuilder.startTable(3);
     fbBuilder.addUint64(0, _id);
@@ -2249,6 +2373,7 @@ class KeySlotObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class KeySlotList {
   KeySlotList._(this._bc, this._bcOffset);
   factory KeySlotList(List<int> bytes) {
@@ -2261,15 +2386,17 @@ class KeySlotList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<KeySlot>? get values => const fb.ListReader<KeySlot>(KeySlot.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<KeySlot>? get values => const fb.ListReader<KeySlot>(
+    KeySlot.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'KeySlotList{values: ${values}}';
   }
 
-  KeySlotListT unpack() => KeySlotListT(
-      values: values?.map((e) => e.unpack()).toList());
+  KeySlotListT unpack() =>
+      KeySlotListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, KeySlotListT? object) {
     if (object == null) return 0;
@@ -2280,12 +2407,12 @@ class KeySlotList {
 class KeySlotListT implements fb.Packable {
   List<KeySlotT>? values;
 
-  KeySlotListT({
-      this.values});
+  KeySlotListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -2303,7 +2430,7 @@ class _KeySlotListReader extends fb.TableReader<KeySlotList> {
 
   @override
   KeySlotList createObject(fb.BufferContext bc, int offset) =>
-    KeySlotList._(bc, offset);
+      KeySlotList._(bc, offset);
 }
 
 class KeySlotListBuilder {
@@ -2328,16 +2455,17 @@ class KeySlotListBuilder {
 class KeySlotListObjectBuilder extends fb.ObjectBuilder {
   final List<KeySlotObjectBuilder>? _values;
 
-  KeySlotListObjectBuilder({
-    List<KeySlotObjectBuilder>? values,
-  })
-      : _values = values;
+  KeySlotListObjectBuilder({List<KeySlotObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -2351,6 +2479,7 @@ class KeySlotListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class CacheStats {
   CacheStats._(this._bc, this._bcOffset);
   factory CacheStats(List<int> bytes) {
@@ -2375,11 +2504,12 @@ class CacheStats {
   }
 
   CacheStatsT unpack() => CacheStatsT(
-      limitBytes: limitBytes,
-      usedBytes: usedBytes,
-      entries: entries,
-      hits: hits,
-      misses: misses);
+    limitBytes: limitBytes,
+    usedBytes: usedBytes,
+    entries: entries,
+    hits: hits,
+    misses: misses,
+  );
 
   static int pack(fb.Builder fbBuilder, CacheStatsT? object) {
     if (object == null) return 0;
@@ -2395,11 +2525,12 @@ class CacheStatsT implements fb.Packable {
   int misses;
 
   CacheStatsT({
-      this.limitBytes = 0,
-      this.usedBytes = 0,
-      this.entries = 0,
-      this.hits = 0,
-      this.misses = 0});
+    this.limitBytes = 0,
+    this.usedBytes = 0,
+    this.entries = 0,
+    this.hits = 0,
+    this.misses = 0,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
@@ -2423,7 +2554,7 @@ class _CacheStatsReader extends fb.TableReader<CacheStats> {
 
   @override
   CacheStats createObject(fb.BufferContext bc, int offset) =>
-    CacheStats._(bc, offset);
+      CacheStats._(bc, offset);
 }
 
 class CacheStatsBuilder {
@@ -2439,18 +2570,22 @@ class CacheStatsBuilder {
     fbBuilder.addUint64(0, limitBytes);
     return fbBuilder.offset;
   }
+
   int addUsedBytes(int? usedBytes) {
     fbBuilder.addUint64(1, usedBytes);
     return fbBuilder.offset;
   }
+
   int addEntries(int? entries) {
     fbBuilder.addUint64(2, entries);
     return fbBuilder.offset;
   }
+
   int addHits(int? hits) {
     fbBuilder.addUint64(3, hits);
     return fbBuilder.offset;
   }
+
   int addMisses(int? misses) {
     fbBuilder.addUint64(4, misses);
     return fbBuilder.offset;
@@ -2474,12 +2609,11 @@ class CacheStatsObjectBuilder extends fb.ObjectBuilder {
     int? entries,
     int? hits,
     int? misses,
-  })
-      : _limitBytes = limitBytes,
-        _usedBytes = usedBytes,
-        _entries = entries,
-        _hits = hits,
-        _misses = misses;
+  }) : _limitBytes = limitBytes,
+       _usedBytes = usedBytes,
+       _entries = entries,
+       _hits = hits,
+       _misses = misses;
 
   /// Finish building, and store into the [fbBuilder].
   @override
@@ -2501,6 +2635,7 @@ class CacheStatsObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class ImportStats {
   ImportStats._(this._bc, this._bcOffset);
   factory ImportStats(List<int> bytes) {
@@ -2513,10 +2648,14 @@ class ImportStats {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get hostStatNanos => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get hostReadNanos => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
-  String? get framePrepareNanos => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
-  String? get pageWriteNanos => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
+  String? get hostStatNanos =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get hostReadNanos =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get framePrepareNanos =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  String? get pageWriteNanos =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
 
   @override
   String toString() {
@@ -2524,10 +2663,11 @@ class ImportStats {
   }
 
   ImportStatsT unpack() => ImportStatsT(
-      hostStatNanos: hostStatNanos,
-      hostReadNanos: hostReadNanos,
-      framePrepareNanos: framePrepareNanos,
-      pageWriteNanos: pageWriteNanos);
+    hostStatNanos: hostStatNanos,
+    hostReadNanos: hostReadNanos,
+    framePrepareNanos: framePrepareNanos,
+    pageWriteNanos: pageWriteNanos,
+  );
 
   static int pack(fb.Builder fbBuilder, ImportStatsT? object) {
     if (object == null) return 0;
@@ -2542,20 +2682,25 @@ class ImportStatsT implements fb.Packable {
   String? pageWriteNanos;
 
   ImportStatsT({
-      this.hostStatNanos,
-      this.hostReadNanos,
-      this.framePrepareNanos,
-      this.pageWriteNanos});
+    this.hostStatNanos,
+    this.hostReadNanos,
+    this.framePrepareNanos,
+    this.pageWriteNanos,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? hostStatNanosOffset = hostStatNanos == null ? null
+    final int? hostStatNanosOffset = hostStatNanos == null
+        ? null
         : fbBuilder.writeString(hostStatNanos!);
-    final int? hostReadNanosOffset = hostReadNanos == null ? null
+    final int? hostReadNanosOffset = hostReadNanos == null
+        ? null
         : fbBuilder.writeString(hostReadNanos!);
-    final int? framePrepareNanosOffset = framePrepareNanos == null ? null
+    final int? framePrepareNanosOffset = framePrepareNanos == null
+        ? null
         : fbBuilder.writeString(framePrepareNanos!);
-    final int? pageWriteNanosOffset = pageWriteNanos == null ? null
+    final int? pageWriteNanosOffset = pageWriteNanos == null
+        ? null
         : fbBuilder.writeString(pageWriteNanos!);
     fbBuilder.startTable(4);
     fbBuilder.addOffset(0, hostStatNanosOffset);
@@ -2576,7 +2721,7 @@ class _ImportStatsReader extends fb.TableReader<ImportStats> {
 
   @override
   ImportStats createObject(fb.BufferContext bc, int offset) =>
-    ImportStats._(bc, offset);
+      ImportStats._(bc, offset);
 }
 
 class ImportStatsBuilder {
@@ -2592,14 +2737,17 @@ class ImportStatsBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addHostReadNanosOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addFramePrepareNanosOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
   }
+
   int addPageWriteNanosOffset(int? offset) {
     fbBuilder.addOffset(3, offset);
     return fbBuilder.offset;
@@ -2621,22 +2769,25 @@ class ImportStatsObjectBuilder extends fb.ObjectBuilder {
     String? hostReadNanos,
     String? framePrepareNanos,
     String? pageWriteNanos,
-  })
-      : _hostStatNanos = hostStatNanos,
-        _hostReadNanos = hostReadNanos,
-        _framePrepareNanos = framePrepareNanos,
-        _pageWriteNanos = pageWriteNanos;
+  }) : _hostStatNanos = hostStatNanos,
+       _hostReadNanos = hostReadNanos,
+       _framePrepareNanos = framePrepareNanos,
+       _pageWriteNanos = pageWriteNanos;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? hostStatNanosOffset = _hostStatNanos == null ? null
+    final int? hostStatNanosOffset = _hostStatNanos == null
+        ? null
         : fbBuilder.writeString(_hostStatNanos!);
-    final int? hostReadNanosOffset = _hostReadNanos == null ? null
+    final int? hostReadNanosOffset = _hostReadNanos == null
+        ? null
         : fbBuilder.writeString(_hostReadNanos!);
-    final int? framePrepareNanosOffset = _framePrepareNanos == null ? null
+    final int? framePrepareNanosOffset = _framePrepareNanos == null
+        ? null
         : fbBuilder.writeString(_framePrepareNanos!);
-    final int? pageWriteNanosOffset = _pageWriteNanos == null ? null
+    final int? pageWriteNanosOffset = _pageWriteNanos == null
+        ? null
         : fbBuilder.writeString(_pageWriteNanos!);
     fbBuilder.startTable(4);
     fbBuilder.addOffset(0, hostStatNanosOffset);
@@ -2654,6 +2805,7 @@ class ImportStatsObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class PageObject {
   PageObject._(this._bc, this._bcOffset);
   factory PageObject(List<int> bytes) {
@@ -2667,7 +2819,8 @@ class PageObject {
   final int _bcOffset;
 
   int get id => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 4, 0);
-  String? get kind => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get kind =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
   int get payloadLen => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
 
   @override
@@ -2675,10 +2828,8 @@ class PageObject {
     return 'PageObject{id: ${id}, kind: ${kind}, payloadLen: ${payloadLen}}';
   }
 
-  PageObjectT unpack() => PageObjectT(
-      id: id,
-      kind: kind,
-      payloadLen: payloadLen);
+  PageObjectT unpack() =>
+      PageObjectT(id: id, kind: kind, payloadLen: payloadLen);
 
   static int pack(fb.Builder fbBuilder, PageObjectT? object) {
     if (object == null) return 0;
@@ -2691,15 +2842,11 @@ class PageObjectT implements fb.Packable {
   String? kind;
   int payloadLen;
 
-  PageObjectT({
-      this.id = 0,
-      this.kind,
-      this.payloadLen = 0});
+  PageObjectT({this.id = 0, this.kind, this.payloadLen = 0});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? kindOffset = kind == null ? null
-        : fbBuilder.writeString(kind!);
+    final int? kindOffset = kind == null ? null : fbBuilder.writeString(kind!);
     fbBuilder.startTable(3);
     fbBuilder.addUint64(0, id);
     fbBuilder.addOffset(1, kindOffset);
@@ -2718,7 +2865,7 @@ class _PageObjectReader extends fb.TableReader<PageObject> {
 
   @override
   PageObject createObject(fb.BufferContext bc, int offset) =>
-    PageObject._(bc, offset);
+      PageObject._(bc, offset);
 }
 
 class PageObjectBuilder {
@@ -2734,10 +2881,12 @@ class PageObjectBuilder {
     fbBuilder.addUint64(0, id);
     return fbBuilder.offset;
   }
+
   int addKindOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addPayloadLen(int? payloadLen) {
     fbBuilder.addUint64(2, payloadLen);
     return fbBuilder.offset;
@@ -2753,19 +2902,16 @@ class PageObjectObjectBuilder extends fb.ObjectBuilder {
   final String? _kind;
   final int? _payloadLen;
 
-  PageObjectObjectBuilder({
-    int? id,
-    String? kind,
-    int? payloadLen,
-  })
-      : _id = id,
-        _kind = kind,
-        _payloadLen = payloadLen;
+  PageObjectObjectBuilder({int? id, String? kind, int? payloadLen})
+    : _id = id,
+      _kind = kind,
+      _payloadLen = payloadLen;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? kindOffset = _kind == null ? null
+    final int? kindOffset = _kind == null
+        ? null
         : fbBuilder.writeString(_kind!);
     fbBuilder.startTable(3);
     fbBuilder.addUint64(0, _id);
@@ -2782,6 +2928,7 @@ class PageObjectObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class PageInspection {
   PageInspection._(this._bc, this._bcOffset);
   factory PageInspection(List<int> bytes) {
@@ -2798,10 +2945,15 @@ class PageInspection {
   int get pageId => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
   int get sequence => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
   int get pageSize => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
-  int get encryptedBodyLen => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 12, 0);
-  int get unusedBytes => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 14, 0);
-  int get objectCount => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 16, 0);
-  List<PageObject>? get objects => const fb.ListReader<PageObject>(PageObject.reader).vTableGetNullable(_bc, _bcOffset, 18);
+  int get encryptedBodyLen =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 12, 0);
+  int get unusedBytes =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 14, 0);
+  int get objectCount =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 16, 0);
+  List<PageObject>? get objects => const fb.ListReader<PageObject>(
+    PageObject.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 18);
 
   @override
   String toString() {
@@ -2809,14 +2961,15 @@ class PageInspection {
   }
 
   PageInspectionT unpack() => PageInspectionT(
-      offset: offset,
-      pageId: pageId,
-      sequence: sequence,
-      pageSize: pageSize,
-      encryptedBodyLen: encryptedBodyLen,
-      unusedBytes: unusedBytes,
-      objectCount: objectCount,
-      objects: objects?.map((e) => e.unpack()).toList());
+    offset: offset,
+    pageId: pageId,
+    sequence: sequence,
+    pageSize: pageSize,
+    encryptedBodyLen: encryptedBodyLen,
+    unusedBytes: unusedBytes,
+    objectCount: objectCount,
+    objects: objects?.map((e) => e.unpack()).toList(),
+  );
 
   static int pack(fb.Builder fbBuilder, PageInspectionT? object) {
     if (object == null) return 0;
@@ -2835,18 +2988,20 @@ class PageInspectionT implements fb.Packable {
   List<PageObjectT>? objects;
 
   PageInspectionT({
-      this.offset = 0,
-      this.pageId = 0,
-      this.sequence = 0,
-      this.pageSize = 0,
-      this.encryptedBodyLen = 0,
-      this.unusedBytes = 0,
-      this.objectCount = 0,
-      this.objects});
+    this.offset = 0,
+    this.pageId = 0,
+    this.sequence = 0,
+    this.pageSize = 0,
+    this.encryptedBodyLen = 0,
+    this.unusedBytes = 0,
+    this.objectCount = 0,
+    this.objects,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? objectsOffset = objects == null ? null
+    final int? objectsOffset = objects == null
+        ? null
         : fbBuilder.writeList(objects!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(8);
     fbBuilder.addUint64(0, offset);
@@ -2871,7 +3026,7 @@ class _PageInspectionReader extends fb.TableReader<PageInspection> {
 
   @override
   PageInspection createObject(fb.BufferContext bc, int offset) =>
-    PageInspection._(bc, offset);
+      PageInspection._(bc, offset);
 }
 
 class PageInspectionBuilder {
@@ -2887,30 +3042,37 @@ class PageInspectionBuilder {
     fbBuilder.addUint64(0, offset);
     return fbBuilder.offset;
   }
+
   int addPageId(int? pageId) {
     fbBuilder.addUint64(1, pageId);
     return fbBuilder.offset;
   }
+
   int addSequence(int? sequence) {
     fbBuilder.addUint64(2, sequence);
     return fbBuilder.offset;
   }
+
   int addPageSize(int? pageSize) {
     fbBuilder.addUint64(3, pageSize);
     return fbBuilder.offset;
   }
+
   int addEncryptedBodyLen(int? encryptedBodyLen) {
     fbBuilder.addUint64(4, encryptedBodyLen);
     return fbBuilder.offset;
   }
+
   int addUnusedBytes(int? unusedBytes) {
     fbBuilder.addUint64(5, unusedBytes);
     return fbBuilder.offset;
   }
+
   int addObjectCount(int? objectCount) {
     fbBuilder.addUint64(6, objectCount);
     return fbBuilder.offset;
   }
+
   int addObjectsOffset(int? offset) {
     fbBuilder.addOffset(7, offset);
     return fbBuilder.offset;
@@ -2940,21 +3102,23 @@ class PageInspectionObjectBuilder extends fb.ObjectBuilder {
     int? unusedBytes,
     int? objectCount,
     List<PageObjectObjectBuilder>? objects,
-  })
-      : _offset = offset,
-        _pageId = pageId,
-        _sequence = sequence,
-        _pageSize = pageSize,
-        _encryptedBodyLen = encryptedBodyLen,
-        _unusedBytes = unusedBytes,
-        _objectCount = objectCount,
-        _objects = objects;
+  }) : _offset = offset,
+       _pageId = pageId,
+       _sequence = sequence,
+       _pageSize = pageSize,
+       _encryptedBodyLen = encryptedBodyLen,
+       _unusedBytes = unusedBytes,
+       _objectCount = objectCount,
+       _objects = objects;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? objectsOffset = _objects == null ? null
-        : fbBuilder.writeList(_objects!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? objectsOffset = _objects == null
+        ? null
+        : fbBuilder.writeList(
+            _objects!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(8);
     fbBuilder.addUint64(0, _offset);
     fbBuilder.addUint64(1, _pageId);
@@ -2975,6 +3139,7 @@ class PageInspectionObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class PageInspectionList {
   PageInspectionList._(this._bc, this._bcOffset);
   factory PageInspectionList(List<int> bytes) {
@@ -2982,20 +3147,23 @@ class PageInspectionList {
     return reader.read(rootRef, 0);
   }
 
-  static const fb.Reader<PageInspectionList> reader = _PageInspectionListReader();
+  static const fb.Reader<PageInspectionList> reader =
+      _PageInspectionListReader();
 
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<PageInspection>? get values => const fb.ListReader<PageInspection>(PageInspection.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<PageInspection>? get values => const fb.ListReader<PageInspection>(
+    PageInspection.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'PageInspectionList{values: ${values}}';
   }
 
-  PageInspectionListT unpack() => PageInspectionListT(
-      values: values?.map((e) => e.unpack()).toList());
+  PageInspectionListT unpack() =>
+      PageInspectionListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, PageInspectionListT? object) {
     if (object == null) return 0;
@@ -3006,12 +3174,12 @@ class PageInspectionList {
 class PageInspectionListT implements fb.Packable {
   List<PageInspectionT>? values;
 
-  PageInspectionListT({
-      this.values});
+  PageInspectionListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -3029,7 +3197,7 @@ class _PageInspectionListReader extends fb.TableReader<PageInspectionList> {
 
   @override
   PageInspectionList createObject(fb.BufferContext bc, int offset) =>
-    PageInspectionList._(bc, offset);
+      PageInspectionList._(bc, offset);
 }
 
 class PageInspectionListBuilder {
@@ -3054,16 +3222,17 @@ class PageInspectionListBuilder {
 class PageInspectionListObjectBuilder extends fb.ObjectBuilder {
   final List<PageInspectionObjectBuilder>? _values;
 
-  PageInspectionListObjectBuilder({
-    List<PageInspectionObjectBuilder>? values,
-  })
-      : _values = values;
+  PageInspectionListObjectBuilder({List<PageInspectionObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -3077,6 +3246,7 @@ class PageInspectionListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class FileInspection {
   FileInspection._(this._bc, this._bcOffset);
   factory FileInspection(List<int> bytes) {
@@ -3089,12 +3259,19 @@ class FileInspection {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<int>? get lockboxId => const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 4);
-  bool get headerReadable => const fb.BoolReader().vTableGet(_bc, _bcOffset, 6, false);
-  int get keyDirectoryGeneration => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
-  int get keyDirectoryCopyCount => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
-  bool get ownerSigned => const fb.BoolReader().vTableGet(_bc, _bcOffset, 12, false);
-  List<KeySlot>? get keySlots => const fb.ListReader<KeySlot>(KeySlot.reader).vTableGetNullable(_bc, _bcOffset, 14);
+  List<int>? get lockboxId =>
+      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 4);
+  bool get headerReadable =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 6, false);
+  int get keyDirectoryGeneration =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
+  int get keyDirectoryCopyCount =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
+  bool get ownerSigned =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 12, false);
+  List<KeySlot>? get keySlots => const fb.ListReader<KeySlot>(
+    KeySlot.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 14);
 
   @override
   String toString() {
@@ -3102,12 +3279,15 @@ class FileInspection {
   }
 
   FileInspectionT unpack() => FileInspectionT(
-      lockboxId: const fb.Uint8ListReader(lazy: false).vTableGetNullable(_bc, _bcOffset, 4),
-      headerReadable: headerReadable,
-      keyDirectoryGeneration: keyDirectoryGeneration,
-      keyDirectoryCopyCount: keyDirectoryCopyCount,
-      ownerSigned: ownerSigned,
-      keySlots: keySlots?.map((e) => e.unpack()).toList());
+    lockboxId: const fb.Uint8ListReader(
+      lazy: false,
+    ).vTableGetNullable(_bc, _bcOffset, 4),
+    headerReadable: headerReadable,
+    keyDirectoryGeneration: keyDirectoryGeneration,
+    keyDirectoryCopyCount: keyDirectoryCopyCount,
+    ownerSigned: ownerSigned,
+    keySlots: keySlots?.map((e) => e.unpack()).toList(),
+  );
 
   static int pack(fb.Builder fbBuilder, FileInspectionT? object) {
     if (object == null) return 0;
@@ -3124,18 +3304,21 @@ class FileInspectionT implements fb.Packable {
   List<KeySlotT>? keySlots;
 
   FileInspectionT({
-      this.lockboxId,
-      this.headerReadable = false,
-      this.keyDirectoryGeneration = 0,
-      this.keyDirectoryCopyCount = 0,
-      this.ownerSigned = false,
-      this.keySlots});
+    this.lockboxId,
+    this.headerReadable = false,
+    this.keyDirectoryGeneration = 0,
+    this.keyDirectoryCopyCount = 0,
+    this.ownerSigned = false,
+    this.keySlots,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? lockboxIdOffset = lockboxId == null ? null
+    final int? lockboxIdOffset = lockboxId == null
+        ? null
         : fbBuilder.writeListUint8(lockboxId!);
-    final int? keySlotsOffset = keySlots == null ? null
+    final int? keySlotsOffset = keySlots == null
+        ? null
         : fbBuilder.writeList(keySlots!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, lockboxIdOffset);
@@ -3158,7 +3341,7 @@ class _FileInspectionReader extends fb.TableReader<FileInspection> {
 
   @override
   FileInspection createObject(fb.BufferContext bc, int offset) =>
-    FileInspection._(bc, offset);
+      FileInspection._(bc, offset);
 }
 
 class FileInspectionBuilder {
@@ -3174,22 +3357,27 @@ class FileInspectionBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addHeaderReadable(bool? headerReadable) {
     fbBuilder.addBool(1, headerReadable);
     return fbBuilder.offset;
   }
+
   int addKeyDirectoryGeneration(int? keyDirectoryGeneration) {
     fbBuilder.addUint64(2, keyDirectoryGeneration);
     return fbBuilder.offset;
   }
+
   int addKeyDirectoryCopyCount(int? keyDirectoryCopyCount) {
     fbBuilder.addUint64(3, keyDirectoryCopyCount);
     return fbBuilder.offset;
   }
+
   int addOwnerSigned(bool? ownerSigned) {
     fbBuilder.addBool(4, ownerSigned);
     return fbBuilder.offset;
   }
+
   int addKeySlotsOffset(int? offset) {
     fbBuilder.addOffset(5, offset);
     return fbBuilder.offset;
@@ -3215,21 +3403,24 @@ class FileInspectionObjectBuilder extends fb.ObjectBuilder {
     int? keyDirectoryCopyCount,
     bool? ownerSigned,
     List<KeySlotObjectBuilder>? keySlots,
-  })
-      : _lockboxId = lockboxId,
-        _headerReadable = headerReadable,
-        _keyDirectoryGeneration = keyDirectoryGeneration,
-        _keyDirectoryCopyCount = keyDirectoryCopyCount,
-        _ownerSigned = ownerSigned,
-        _keySlots = keySlots;
+  }) : _lockboxId = lockboxId,
+       _headerReadable = headerReadable,
+       _keyDirectoryGeneration = keyDirectoryGeneration,
+       _keyDirectoryCopyCount = keyDirectoryCopyCount,
+       _ownerSigned = ownerSigned,
+       _keySlots = keySlots;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? lockboxIdOffset = _lockboxId == null ? null
+    final int? lockboxIdOffset = _lockboxId == null
+        ? null
         : fbBuilder.writeListUint8(_lockboxId!);
-    final int? keySlotsOffset = _keySlots == null ? null
-        : fbBuilder.writeList(_keySlots!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? keySlotsOffset = _keySlots == null
+        ? null
+        : fbBuilder.writeList(
+            _keySlots!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, lockboxIdOffset);
     fbBuilder.addBool(1, _headerReadable);
@@ -3248,6 +3439,7 @@ class FileInspectionObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class ProfileGeneration {
   ProfileGeneration._(this._bc, this._bcOffset);
   factory ProfileGeneration(List<int> bytes) {
@@ -3261,11 +3453,16 @@ class ProfileGeneration {
   final int _bcOffset;
 
   int get index => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 4, 0);
-  String? get status => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
-  List<int>? get contactFingerprint => const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 8);
-  int get createdAtUnixMs => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
-  int get retiredAtUnixMs => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 12, 0);
-  bool get hasRetiredAt => const fb.BoolReader().vTableGet(_bc, _bcOffset, 14, false);
+  String? get status =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  List<int>? get contactFingerprint =>
+      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 8);
+  int get createdAtUnixMs =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
+  int get retiredAtUnixMs =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 12, 0);
+  bool get hasRetiredAt =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 14, false);
 
   @override
   String toString() {
@@ -3273,12 +3470,15 @@ class ProfileGeneration {
   }
 
   ProfileGenerationT unpack() => ProfileGenerationT(
-      index: index,
-      status: status,
-      contactFingerprint: const fb.Uint8ListReader(lazy: false).vTableGetNullable(_bc, _bcOffset, 8),
-      createdAtUnixMs: createdAtUnixMs,
-      retiredAtUnixMs: retiredAtUnixMs,
-      hasRetiredAt: hasRetiredAt);
+    index: index,
+    status: status,
+    contactFingerprint: const fb.Uint8ListReader(
+      lazy: false,
+    ).vTableGetNullable(_bc, _bcOffset, 8),
+    createdAtUnixMs: createdAtUnixMs,
+    retiredAtUnixMs: retiredAtUnixMs,
+    hasRetiredAt: hasRetiredAt,
+  );
 
   static int pack(fb.Builder fbBuilder, ProfileGenerationT? object) {
     if (object == null) return 0;
@@ -3295,18 +3495,21 @@ class ProfileGenerationT implements fb.Packable {
   bool hasRetiredAt;
 
   ProfileGenerationT({
-      this.index = 0,
-      this.status,
-      this.contactFingerprint,
-      this.createdAtUnixMs = 0,
-      this.retiredAtUnixMs = 0,
-      this.hasRetiredAt = false});
+    this.index = 0,
+    this.status,
+    this.contactFingerprint,
+    this.createdAtUnixMs = 0,
+    this.retiredAtUnixMs = 0,
+    this.hasRetiredAt = false,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? statusOffset = status == null ? null
+    final int? statusOffset = status == null
+        ? null
         : fbBuilder.writeString(status!);
-    final int? contactFingerprintOffset = contactFingerprint == null ? null
+    final int? contactFingerprintOffset = contactFingerprint == null
+        ? null
         : fbBuilder.writeListUint8(contactFingerprint!);
     fbBuilder.startTable(6);
     fbBuilder.addUint32(0, index);
@@ -3329,7 +3532,7 @@ class _ProfileGenerationReader extends fb.TableReader<ProfileGeneration> {
 
   @override
   ProfileGeneration createObject(fb.BufferContext bc, int offset) =>
-    ProfileGeneration._(bc, offset);
+      ProfileGeneration._(bc, offset);
 }
 
 class ProfileGenerationBuilder {
@@ -3345,22 +3548,27 @@ class ProfileGenerationBuilder {
     fbBuilder.addUint32(0, index);
     return fbBuilder.offset;
   }
+
   int addStatusOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addContactFingerprintOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
   }
+
   int addCreatedAtUnixMs(int? createdAtUnixMs) {
     fbBuilder.addUint64(3, createdAtUnixMs);
     return fbBuilder.offset;
   }
+
   int addRetiredAtUnixMs(int? retiredAtUnixMs) {
     fbBuilder.addUint64(4, retiredAtUnixMs);
     return fbBuilder.offset;
   }
+
   int addHasRetiredAt(bool? hasRetiredAt) {
     fbBuilder.addBool(5, hasRetiredAt);
     return fbBuilder.offset;
@@ -3386,20 +3594,21 @@ class ProfileGenerationObjectBuilder extends fb.ObjectBuilder {
     int? createdAtUnixMs,
     int? retiredAtUnixMs,
     bool? hasRetiredAt,
-  })
-      : _index = index,
-        _status = status,
-        _contactFingerprint = contactFingerprint,
-        _createdAtUnixMs = createdAtUnixMs,
-        _retiredAtUnixMs = retiredAtUnixMs,
-        _hasRetiredAt = hasRetiredAt;
+  }) : _index = index,
+       _status = status,
+       _contactFingerprint = contactFingerprint,
+       _createdAtUnixMs = createdAtUnixMs,
+       _retiredAtUnixMs = retiredAtUnixMs,
+       _hasRetiredAt = hasRetiredAt;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? statusOffset = _status == null ? null
+    final int? statusOffset = _status == null
+        ? null
         : fbBuilder.writeString(_status!);
-    final int? contactFingerprintOffset = _contactFingerprint == null ? null
+    final int? contactFingerprintOffset = _contactFingerprint == null
+        ? null
         : fbBuilder.writeListUint8(_contactFingerprint!);
     fbBuilder.startTable(6);
     fbBuilder.addUint32(0, _index);
@@ -3419,6 +3628,7 @@ class ProfileGenerationObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class ProfileHistory {
   ProfileHistory._(this._bc, this._bcOffset);
   factory ProfileHistory(List<int> bytes) {
@@ -3431,9 +3641,14 @@ class ProfileHistory {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get name => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  int get activeGeneration => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 6, 0);
-  List<ProfileGeneration>? get generations => const fb.ListReader<ProfileGeneration>(ProfileGeneration.reader).vTableGetNullable(_bc, _bcOffset, 8);
+  String? get name =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  int get activeGeneration =>
+      const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 6, 0);
+  List<ProfileGeneration>? get generations =>
+      const fb.ListReader<ProfileGeneration>(
+        ProfileGeneration.reader,
+      ).vTableGetNullable(_bc, _bcOffset, 8);
 
   @override
   String toString() {
@@ -3441,9 +3656,10 @@ class ProfileHistory {
   }
 
   ProfileHistoryT unpack() => ProfileHistoryT(
-      name: name,
-      activeGeneration: activeGeneration,
-      generations: generations?.map((e) => e.unpack()).toList());
+    name: name,
+    activeGeneration: activeGeneration,
+    generations: generations?.map((e) => e.unpack()).toList(),
+  );
 
   static int pack(fb.Builder fbBuilder, ProfileHistoryT? object) {
     if (object == null) return 0;
@@ -3456,17 +3672,16 @@ class ProfileHistoryT implements fb.Packable {
   int activeGeneration;
   List<ProfileGenerationT>? generations;
 
-  ProfileHistoryT({
-      this.name,
-      this.activeGeneration = 0,
-      this.generations});
+  ProfileHistoryT({this.name, this.activeGeneration = 0, this.generations});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? nameOffset = name == null ? null
-        : fbBuilder.writeString(name!);
-    final int? generationsOffset = generations == null ? null
-        : fbBuilder.writeList(generations!.map((b) => b.pack(fbBuilder)).toList());
+    final int? nameOffset = name == null ? null : fbBuilder.writeString(name!);
+    final int? generationsOffset = generations == null
+        ? null
+        : fbBuilder.writeList(
+            generations!.map((b) => b.pack(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(3);
     fbBuilder.addOffset(0, nameOffset);
     fbBuilder.addUint32(1, activeGeneration);
@@ -3485,7 +3700,7 @@ class _ProfileHistoryReader extends fb.TableReader<ProfileHistory> {
 
   @override
   ProfileHistory createObject(fb.BufferContext bc, int offset) =>
-    ProfileHistory._(bc, offset);
+      ProfileHistory._(bc, offset);
 }
 
 class ProfileHistoryBuilder {
@@ -3501,10 +3716,12 @@ class ProfileHistoryBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addActiveGeneration(int? activeGeneration) {
     fbBuilder.addUint32(1, activeGeneration);
     return fbBuilder.offset;
   }
+
   int addGenerationsOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
@@ -3524,18 +3741,21 @@ class ProfileHistoryObjectBuilder extends fb.ObjectBuilder {
     String? name,
     int? activeGeneration,
     List<ProfileGenerationObjectBuilder>? generations,
-  })
-      : _name = name,
-        _activeGeneration = activeGeneration,
-        _generations = generations;
+  }) : _name = name,
+       _activeGeneration = activeGeneration,
+       _generations = generations;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? nameOffset = _name == null ? null
+    final int? nameOffset = _name == null
+        ? null
         : fbBuilder.writeString(_name!);
-    final int? generationsOffset = _generations == null ? null
-        : fbBuilder.writeList(_generations!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? generationsOffset = _generations == null
+        ? null
+        : fbBuilder.writeList(
+            _generations!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(3);
     fbBuilder.addOffset(0, nameOffset);
     fbBuilder.addUint32(1, _activeGeneration);
@@ -3551,6 +3771,7 @@ class ProfileHistoryObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class KnownLockbox {
   KnownLockbox._(this._bc, this._bcOffset);
   factory KnownLockbox(List<int> bytes) {
@@ -3563,9 +3784,12 @@ class KnownLockbox {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<int>? get lockboxId => const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get path => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
-  int get lastSeenUnixMs => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
+  List<int>? get lockboxId =>
+      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get path =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  int get lastSeenUnixMs =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
 
   @override
   String toString() {
@@ -3573,9 +3797,12 @@ class KnownLockbox {
   }
 
   KnownLockboxT unpack() => KnownLockboxT(
-      lockboxId: const fb.Uint8ListReader(lazy: false).vTableGetNullable(_bc, _bcOffset, 4),
-      path: path,
-      lastSeenUnixMs: lastSeenUnixMs);
+    lockboxId: const fb.Uint8ListReader(
+      lazy: false,
+    ).vTableGetNullable(_bc, _bcOffset, 4),
+    path: path,
+    lastSeenUnixMs: lastSeenUnixMs,
+  );
 
   static int pack(fb.Builder fbBuilder, KnownLockboxT? object) {
     if (object == null) return 0;
@@ -3588,17 +3815,14 @@ class KnownLockboxT implements fb.Packable {
   String? path;
   int lastSeenUnixMs;
 
-  KnownLockboxT({
-      this.lockboxId,
-      this.path,
-      this.lastSeenUnixMs = 0});
+  KnownLockboxT({this.lockboxId, this.path, this.lastSeenUnixMs = 0});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? lockboxIdOffset = lockboxId == null ? null
+    final int? lockboxIdOffset = lockboxId == null
+        ? null
         : fbBuilder.writeListUint8(lockboxId!);
-    final int? pathOffset = path == null ? null
-        : fbBuilder.writeString(path!);
+    final int? pathOffset = path == null ? null : fbBuilder.writeString(path!);
     fbBuilder.startTable(3);
     fbBuilder.addOffset(0, lockboxIdOffset);
     fbBuilder.addOffset(1, pathOffset);
@@ -3617,7 +3841,7 @@ class _KnownLockboxReader extends fb.TableReader<KnownLockbox> {
 
   @override
   KnownLockbox createObject(fb.BufferContext bc, int offset) =>
-    KnownLockbox._(bc, offset);
+      KnownLockbox._(bc, offset);
 }
 
 class KnownLockboxBuilder {
@@ -3633,10 +3857,12 @@ class KnownLockboxBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addPathOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addLastSeenUnixMs(int? lastSeenUnixMs) {
     fbBuilder.addUint64(2, lastSeenUnixMs);
     return fbBuilder.offset;
@@ -3656,17 +3882,18 @@ class KnownLockboxObjectBuilder extends fb.ObjectBuilder {
     List<int>? lockboxId,
     String? path,
     int? lastSeenUnixMs,
-  })
-      : _lockboxId = lockboxId,
-        _path = path,
-        _lastSeenUnixMs = lastSeenUnixMs;
+  }) : _lockboxId = lockboxId,
+       _path = path,
+       _lastSeenUnixMs = lastSeenUnixMs;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? lockboxIdOffset = _lockboxId == null ? null
+    final int? lockboxIdOffset = _lockboxId == null
+        ? null
         : fbBuilder.writeListUint8(_lockboxId!);
-    final int? pathOffset = _path == null ? null
+    final int? pathOffset = _path == null
+        ? null
         : fbBuilder.writeString(_path!);
     fbBuilder.startTable(3);
     fbBuilder.addOffset(0, lockboxIdOffset);
@@ -3683,6 +3910,7 @@ class KnownLockboxObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class KnownLockboxList {
   KnownLockboxList._(this._bc, this._bcOffset);
   factory KnownLockboxList(List<int> bytes) {
@@ -3695,15 +3923,17 @@ class KnownLockboxList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<KnownLockbox>? get values => const fb.ListReader<KnownLockbox>(KnownLockbox.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<KnownLockbox>? get values => const fb.ListReader<KnownLockbox>(
+    KnownLockbox.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'KnownLockboxList{values: ${values}}';
   }
 
-  KnownLockboxListT unpack() => KnownLockboxListT(
-      values: values?.map((e) => e.unpack()).toList());
+  KnownLockboxListT unpack() =>
+      KnownLockboxListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, KnownLockboxListT? object) {
     if (object == null) return 0;
@@ -3714,12 +3944,12 @@ class KnownLockboxList {
 class KnownLockboxListT implements fb.Packable {
   List<KnownLockboxT>? values;
 
-  KnownLockboxListT({
-      this.values});
+  KnownLockboxListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -3737,7 +3967,7 @@ class _KnownLockboxListReader extends fb.TableReader<KnownLockboxList> {
 
   @override
   KnownLockboxList createObject(fb.BufferContext bc, int offset) =>
-    KnownLockboxList._(bc, offset);
+      KnownLockboxList._(bc, offset);
 }
 
 class KnownLockboxListBuilder {
@@ -3762,16 +3992,17 @@ class KnownLockboxListBuilder {
 class KnownLockboxListObjectBuilder extends fb.ObjectBuilder {
   final List<KnownLockboxObjectBuilder>? _values;
 
-  KnownLockboxListObjectBuilder({
-    List<KnownLockboxObjectBuilder>? values,
-  })
-      : _values = values;
+  KnownLockboxListObjectBuilder({List<KnownLockboxObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -3785,6 +4016,7 @@ class KnownLockboxListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class AccessSlotLabel {
   AccessSlotLabel._(this._bc, this._bcOffset);
   factory AccessSlotLabel(List<int> bytes) {
@@ -3797,10 +4029,13 @@ class AccessSlotLabel {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<int>? get lockboxId => const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 4);
+  List<int>? get lockboxId =>
+      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 4);
   int get slotId => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
-  String? get name => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
-  int get updatedAtUnixMs => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
+  String? get name =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  int get updatedAtUnixMs =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
 
   @override
   String toString() {
@@ -3808,10 +4043,13 @@ class AccessSlotLabel {
   }
 
   AccessSlotLabelT unpack() => AccessSlotLabelT(
-      lockboxId: const fb.Uint8ListReader(lazy: false).vTableGetNullable(_bc, _bcOffset, 4),
-      slotId: slotId,
-      name: name,
-      updatedAtUnixMs: updatedAtUnixMs);
+    lockboxId: const fb.Uint8ListReader(
+      lazy: false,
+    ).vTableGetNullable(_bc, _bcOffset, 4),
+    slotId: slotId,
+    name: name,
+    updatedAtUnixMs: updatedAtUnixMs,
+  );
 
   static int pack(fb.Builder fbBuilder, AccessSlotLabelT? object) {
     if (object == null) return 0;
@@ -3826,17 +4064,18 @@ class AccessSlotLabelT implements fb.Packable {
   int updatedAtUnixMs;
 
   AccessSlotLabelT({
-      this.lockboxId,
-      this.slotId = 0,
-      this.name,
-      this.updatedAtUnixMs = 0});
+    this.lockboxId,
+    this.slotId = 0,
+    this.name,
+    this.updatedAtUnixMs = 0,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? lockboxIdOffset = lockboxId == null ? null
+    final int? lockboxIdOffset = lockboxId == null
+        ? null
         : fbBuilder.writeListUint8(lockboxId!);
-    final int? nameOffset = name == null ? null
-        : fbBuilder.writeString(name!);
+    final int? nameOffset = name == null ? null : fbBuilder.writeString(name!);
     fbBuilder.startTable(4);
     fbBuilder.addOffset(0, lockboxIdOffset);
     fbBuilder.addUint64(1, slotId);
@@ -3856,7 +4095,7 @@ class _AccessSlotLabelReader extends fb.TableReader<AccessSlotLabel> {
 
   @override
   AccessSlotLabel createObject(fb.BufferContext bc, int offset) =>
-    AccessSlotLabel._(bc, offset);
+      AccessSlotLabel._(bc, offset);
 }
 
 class AccessSlotLabelBuilder {
@@ -3872,14 +4111,17 @@ class AccessSlotLabelBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addSlotId(int? slotId) {
     fbBuilder.addUint64(1, slotId);
     return fbBuilder.offset;
   }
+
   int addNameOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
   }
+
   int addUpdatedAtUnixMs(int? updatedAtUnixMs) {
     fbBuilder.addUint64(3, updatedAtUnixMs);
     return fbBuilder.offset;
@@ -3901,18 +4143,19 @@ class AccessSlotLabelObjectBuilder extends fb.ObjectBuilder {
     int? slotId,
     String? name,
     int? updatedAtUnixMs,
-  })
-      : _lockboxId = lockboxId,
-        _slotId = slotId,
-        _name = name,
-        _updatedAtUnixMs = updatedAtUnixMs;
+  }) : _lockboxId = lockboxId,
+       _slotId = slotId,
+       _name = name,
+       _updatedAtUnixMs = updatedAtUnixMs;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? lockboxIdOffset = _lockboxId == null ? null
+    final int? lockboxIdOffset = _lockboxId == null
+        ? null
         : fbBuilder.writeListUint8(_lockboxId!);
-    final int? nameOffset = _name == null ? null
+    final int? nameOffset = _name == null
+        ? null
         : fbBuilder.writeString(_name!);
     fbBuilder.startTable(4);
     fbBuilder.addOffset(0, lockboxIdOffset);
@@ -3930,6 +4173,7 @@ class AccessSlotLabelObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class AccessSlotLabelList {
   AccessSlotLabelList._(this._bc, this._bcOffset);
   factory AccessSlotLabelList(List<int> bytes) {
@@ -3937,20 +4181,23 @@ class AccessSlotLabelList {
     return reader.read(rootRef, 0);
   }
 
-  static const fb.Reader<AccessSlotLabelList> reader = _AccessSlotLabelListReader();
+  static const fb.Reader<AccessSlotLabelList> reader =
+      _AccessSlotLabelListReader();
 
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<AccessSlotLabel>? get values => const fb.ListReader<AccessSlotLabel>(AccessSlotLabel.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<AccessSlotLabel>? get values => const fb.ListReader<AccessSlotLabel>(
+    AccessSlotLabel.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'AccessSlotLabelList{values: ${values}}';
   }
 
-  AccessSlotLabelListT unpack() => AccessSlotLabelListT(
-      values: values?.map((e) => e.unpack()).toList());
+  AccessSlotLabelListT unpack() =>
+      AccessSlotLabelListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, AccessSlotLabelListT? object) {
     if (object == null) return 0;
@@ -3961,12 +4208,12 @@ class AccessSlotLabelList {
 class AccessSlotLabelListT implements fb.Packable {
   List<AccessSlotLabelT>? values;
 
-  AccessSlotLabelListT({
-      this.values});
+  AccessSlotLabelListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -3984,7 +4231,7 @@ class _AccessSlotLabelListReader extends fb.TableReader<AccessSlotLabelList> {
 
   @override
   AccessSlotLabelList createObject(fb.BufferContext bc, int offset) =>
-    AccessSlotLabelList._(bc, offset);
+      AccessSlotLabelList._(bc, offset);
 }
 
 class AccessSlotLabelListBuilder {
@@ -4009,16 +4256,17 @@ class AccessSlotLabelListBuilder {
 class AccessSlotLabelListObjectBuilder extends fb.ObjectBuilder {
   final List<AccessSlotLabelObjectBuilder>? _values;
 
-  AccessSlotLabelListObjectBuilder({
-    List<AccessSlotLabelObjectBuilder>? values,
-  })
-      : _values = values;
+  AccessSlotLabelListObjectBuilder({List<AccessSlotLabelObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -4032,6 +4280,7 @@ class AccessSlotLabelListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class StreamChunk {
   StreamChunk._(this._bc, this._bcOffset);
   factory StreamChunk(List<int> bytes) {
@@ -4044,12 +4293,15 @@ class StreamChunk {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get path => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get path =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
   int get fileOffset => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
   int get length => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 8, 0);
-  int get physicalOffset => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
+  int get physicalOffset =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
   bool get sparse => const fb.BoolReader().vTableGet(_bc, _bcOffset, 12, false);
-  List<int>? get data => const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 14);
+  List<int>? get data =>
+      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 14);
 
   @override
   String toString() {
@@ -4057,12 +4309,15 @@ class StreamChunk {
   }
 
   StreamChunkT unpack() => StreamChunkT(
-      path: path,
-      fileOffset: fileOffset,
-      length: length,
-      physicalOffset: physicalOffset,
-      sparse: sparse,
-      data: const fb.Uint8ListReader(lazy: false).vTableGetNullable(_bc, _bcOffset, 14));
+    path: path,
+    fileOffset: fileOffset,
+    length: length,
+    physicalOffset: physicalOffset,
+    sparse: sparse,
+    data: const fb.Uint8ListReader(
+      lazy: false,
+    ).vTableGetNullable(_bc, _bcOffset, 14),
+  );
 
   static int pack(fb.Builder fbBuilder, StreamChunkT? object) {
     if (object == null) return 0;
@@ -4079,18 +4334,19 @@ class StreamChunkT implements fb.Packable {
   List<int>? data;
 
   StreamChunkT({
-      this.path,
-      this.fileOffset = 0,
-      this.length = 0,
-      this.physicalOffset = 0,
-      this.sparse = false,
-      this.data});
+    this.path,
+    this.fileOffset = 0,
+    this.length = 0,
+    this.physicalOffset = 0,
+    this.sparse = false,
+    this.data,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? pathOffset = path == null ? null
-        : fbBuilder.writeString(path!);
-    final int? dataOffset = data == null ? null
+    final int? pathOffset = path == null ? null : fbBuilder.writeString(path!);
+    final int? dataOffset = data == null
+        ? null
         : fbBuilder.writeListUint8(data!);
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, pathOffset);
@@ -4113,7 +4369,7 @@ class _StreamChunkReader extends fb.TableReader<StreamChunk> {
 
   @override
   StreamChunk createObject(fb.BufferContext bc, int offset) =>
-    StreamChunk._(bc, offset);
+      StreamChunk._(bc, offset);
 }
 
 class StreamChunkBuilder {
@@ -4129,22 +4385,27 @@ class StreamChunkBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addFileOffset(int? fileOffset) {
     fbBuilder.addUint64(1, fileOffset);
     return fbBuilder.offset;
   }
+
   int addLength(int? length) {
     fbBuilder.addUint64(2, length);
     return fbBuilder.offset;
   }
+
   int addPhysicalOffset(int? physicalOffset) {
     fbBuilder.addUint64(3, physicalOffset);
     return fbBuilder.offset;
   }
+
   int addSparse(bool? sparse) {
     fbBuilder.addBool(4, sparse);
     return fbBuilder.offset;
   }
+
   int addDataOffset(int? offset) {
     fbBuilder.addOffset(5, offset);
     return fbBuilder.offset;
@@ -4170,20 +4431,21 @@ class StreamChunkObjectBuilder extends fb.ObjectBuilder {
     int? physicalOffset,
     bool? sparse,
     List<int>? data,
-  })
-      : _path = path,
-        _fileOffset = fileOffset,
-        _length = length,
-        _physicalOffset = physicalOffset,
-        _sparse = sparse,
-        _data = data;
+  }) : _path = path,
+       _fileOffset = fileOffset,
+       _length = length,
+       _physicalOffset = physicalOffset,
+       _sparse = sparse,
+       _data = data;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? pathOffset = _path == null ? null
+    final int? pathOffset = _path == null
+        ? null
         : fbBuilder.writeString(_path!);
-    final int? dataOffset = _data == null ? null
+    final int? dataOffset = _data == null
+        ? null
         : fbBuilder.writeListUint8(_data!);
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, pathOffset);
@@ -4203,6 +4465,7 @@ class StreamChunkObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class StreamChunkList {
   StreamChunkList._(this._bc, this._bcOffset);
   factory StreamChunkList(List<int> bytes) {
@@ -4215,15 +4478,17 @@ class StreamChunkList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<StreamChunk>? get values => const fb.ListReader<StreamChunk>(StreamChunk.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<StreamChunk>? get values => const fb.ListReader<StreamChunk>(
+    StreamChunk.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'StreamChunkList{values: ${values}}';
   }
 
-  StreamChunkListT unpack() => StreamChunkListT(
-      values: values?.map((e) => e.unpack()).toList());
+  StreamChunkListT unpack() =>
+      StreamChunkListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, StreamChunkListT? object) {
     if (object == null) return 0;
@@ -4234,12 +4499,12 @@ class StreamChunkList {
 class StreamChunkListT implements fb.Packable {
   List<StreamChunkT>? values;
 
-  StreamChunkListT({
-      this.values});
+  StreamChunkListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -4257,7 +4522,7 @@ class _StreamChunkListReader extends fb.TableReader<StreamChunkList> {
 
   @override
   StreamChunkList createObject(fb.BufferContext bc, int offset) =>
-    StreamChunkList._(bc, offset);
+      StreamChunkList._(bc, offset);
 }
 
 class StreamChunkListBuilder {
@@ -4282,16 +4547,17 @@ class StreamChunkListBuilder {
 class StreamChunkListObjectBuilder extends fb.ObjectBuilder {
   final List<StreamChunkObjectBuilder>? _values;
 
-  StreamChunkListObjectBuilder({
-    List<StreamChunkObjectBuilder>? values,
-  })
-      : _values = values;
+  StreamChunkListObjectBuilder({List<StreamChunkObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -4305,6 +4571,7 @@ class StreamChunkListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class RuntimeOptions {
   RuntimeOptions._(this._bc, this._bcOffset);
   factory RuntimeOptions(List<int> bytes) {
@@ -4317,8 +4584,10 @@ class RuntimeOptions {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get workloadProfile => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get workerPolicy => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get workloadProfile =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get workerPolicy =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
 
   @override
   String toString() {
@@ -4326,8 +4595,9 @@ class RuntimeOptions {
   }
 
   RuntimeOptionsT unpack() => RuntimeOptionsT(
-      workloadProfile: workloadProfile,
-      workerPolicy: workerPolicy);
+    workloadProfile: workloadProfile,
+    workerPolicy: workerPolicy,
+  );
 
   static int pack(fb.Builder fbBuilder, RuntimeOptionsT? object) {
     if (object == null) return 0;
@@ -4339,15 +4609,15 @@ class RuntimeOptionsT implements fb.Packable {
   String? workloadProfile;
   String? workerPolicy;
 
-  RuntimeOptionsT({
-      this.workloadProfile,
-      this.workerPolicy});
+  RuntimeOptionsT({this.workloadProfile, this.workerPolicy});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? workloadProfileOffset = workloadProfile == null ? null
+    final int? workloadProfileOffset = workloadProfile == null
+        ? null
         : fbBuilder.writeString(workloadProfile!);
-    final int? workerPolicyOffset = workerPolicy == null ? null
+    final int? workerPolicyOffset = workerPolicy == null
+        ? null
         : fbBuilder.writeString(workerPolicy!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, workloadProfileOffset);
@@ -4366,7 +4636,7 @@ class _RuntimeOptionsReader extends fb.TableReader<RuntimeOptions> {
 
   @override
   RuntimeOptions createObject(fb.BufferContext bc, int offset) =>
-    RuntimeOptions._(bc, offset);
+      RuntimeOptions._(bc, offset);
 }
 
 class RuntimeOptionsBuilder {
@@ -4382,6 +4652,7 @@ class RuntimeOptionsBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addWorkerPolicyOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
@@ -4396,19 +4667,18 @@ class RuntimeOptionsObjectBuilder extends fb.ObjectBuilder {
   final String? _workloadProfile;
   final String? _workerPolicy;
 
-  RuntimeOptionsObjectBuilder({
-    String? workloadProfile,
-    String? workerPolicy,
-  })
-      : _workloadProfile = workloadProfile,
-        _workerPolicy = workerPolicy;
+  RuntimeOptionsObjectBuilder({String? workloadProfile, String? workerPolicy})
+    : _workloadProfile = workloadProfile,
+      _workerPolicy = workerPolicy;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? workloadProfileOffset = _workloadProfile == null ? null
+    final int? workloadProfileOffset = _workloadProfile == null
+        ? null
         : fbBuilder.writeString(_workloadProfile!);
-    final int? workerPolicyOffset = _workerPolicy == null ? null
+    final int? workerPolicyOffset = _workerPolicy == null
+        ? null
         : fbBuilder.writeString(_workerPolicy!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, workloadProfileOffset);
@@ -4424,6 +4694,7 @@ class RuntimeOptionsObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class Variable {
   Variable._(this._bc, this._bcOffset);
   factory Variable(List<int> bytes) {
@@ -4436,17 +4707,17 @@ class Variable {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get name => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get sensitivity => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get name =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get sensitivity =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
 
   @override
   String toString() {
     return 'Variable{name: ${name}, sensitivity: ${sensitivity}}';
   }
 
-  VariableT unpack() => VariableT(
-      name: name,
-      sensitivity: sensitivity);
+  VariableT unpack() => VariableT(name: name, sensitivity: sensitivity);
 
   static int pack(fb.Builder fbBuilder, VariableT? object) {
     if (object == null) return 0;
@@ -4458,15 +4729,13 @@ class VariableT implements fb.Packable {
   String? name;
   String? sensitivity;
 
-  VariableT({
-      this.name,
-      this.sensitivity});
+  VariableT({this.name, this.sensitivity});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? nameOffset = name == null ? null
-        : fbBuilder.writeString(name!);
-    final int? sensitivityOffset = sensitivity == null ? null
+    final int? nameOffset = name == null ? null : fbBuilder.writeString(name!);
+    final int? sensitivityOffset = sensitivity == null
+        ? null
         : fbBuilder.writeString(sensitivity!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, nameOffset);
@@ -4485,7 +4754,7 @@ class _VariableReader extends fb.TableReader<Variable> {
 
   @override
   Variable createObject(fb.BufferContext bc, int offset) =>
-    Variable._(bc, offset);
+      Variable._(bc, offset);
 }
 
 class VariableBuilder {
@@ -4501,6 +4770,7 @@ class VariableBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addSensitivityOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
@@ -4515,19 +4785,18 @@ class VariableObjectBuilder extends fb.ObjectBuilder {
   final String? _name;
   final String? _sensitivity;
 
-  VariableObjectBuilder({
-    String? name,
-    String? sensitivity,
-  })
-      : _name = name,
-        _sensitivity = sensitivity;
+  VariableObjectBuilder({String? name, String? sensitivity})
+    : _name = name,
+      _sensitivity = sensitivity;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? nameOffset = _name == null ? null
+    final int? nameOffset = _name == null
+        ? null
         : fbBuilder.writeString(_name!);
-    final int? sensitivityOffset = _sensitivity == null ? null
+    final int? sensitivityOffset = _sensitivity == null
+        ? null
         : fbBuilder.writeString(_sensitivity!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, nameOffset);
@@ -4543,6 +4812,7 @@ class VariableObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class VariableList {
   VariableList._(this._bc, this._bcOffset);
   factory VariableList(List<int> bytes) {
@@ -4555,15 +4825,17 @@ class VariableList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<Variable>? get values => const fb.ListReader<Variable>(Variable.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<Variable>? get values => const fb.ListReader<Variable>(
+    Variable.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'VariableList{values: ${values}}';
   }
 
-  VariableListT unpack() => VariableListT(
-      values: values?.map((e) => e.unpack()).toList());
+  VariableListT unpack() =>
+      VariableListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, VariableListT? object) {
     if (object == null) return 0;
@@ -4574,12 +4846,12 @@ class VariableList {
 class VariableListT implements fb.Packable {
   List<VariableT>? values;
 
-  VariableListT({
-      this.values});
+  VariableListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -4597,7 +4869,7 @@ class _VariableListReader extends fb.TableReader<VariableList> {
 
   @override
   VariableList createObject(fb.BufferContext bc, int offset) =>
-    VariableList._(bc, offset);
+      VariableList._(bc, offset);
 }
 
 class VariableListBuilder {
@@ -4622,16 +4894,17 @@ class VariableListBuilder {
 class VariableListObjectBuilder extends fb.ObjectBuilder {
   final List<VariableObjectBuilder>? _values;
 
-  VariableListObjectBuilder({
-    List<VariableObjectBuilder>? values,
-  })
-      : _values = values;
+  VariableListObjectBuilder({List<VariableObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -4645,6 +4918,7 @@ class VariableListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class OptionalString {
   OptionalString._(this._bc, this._bcOffset);
   factory OptionalString(List<int> bytes) {
@@ -4658,16 +4932,15 @@ class OptionalString {
   final int _bcOffset;
 
   bool get present => const fb.BoolReader().vTableGet(_bc, _bcOffset, 4, false);
-  String? get value => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get value =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
 
   @override
   String toString() {
     return 'OptionalString{present: ${present}, value: ${value}}';
   }
 
-  OptionalStringT unpack() => OptionalStringT(
-      present: present,
-      value: value);
+  OptionalStringT unpack() => OptionalStringT(present: present, value: value);
 
   static int pack(fb.Builder fbBuilder, OptionalStringT? object) {
     if (object == null) return 0;
@@ -4679,13 +4952,12 @@ class OptionalStringT implements fb.Packable {
   bool present;
   String? value;
 
-  OptionalStringT({
-      this.present = false,
-      this.value});
+  OptionalStringT({this.present = false, this.value});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valueOffset = value == null ? null
+    final int? valueOffset = value == null
+        ? null
         : fbBuilder.writeString(value!);
     fbBuilder.startTable(2);
     fbBuilder.addBool(0, present);
@@ -4704,7 +4976,7 @@ class _OptionalStringReader extends fb.TableReader<OptionalString> {
 
   @override
   OptionalString createObject(fb.BufferContext bc, int offset) =>
-    OptionalString._(bc, offset);
+      OptionalString._(bc, offset);
 }
 
 class OptionalStringBuilder {
@@ -4720,6 +4992,7 @@ class OptionalStringBuilder {
     fbBuilder.addBool(0, present);
     return fbBuilder.offset;
   }
+
   int addValueOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
@@ -4734,17 +5007,15 @@ class OptionalStringObjectBuilder extends fb.ObjectBuilder {
   final bool? _present;
   final String? _value;
 
-  OptionalStringObjectBuilder({
-    bool? present,
-    String? value,
-  })
-      : _present = present,
-        _value = value;
+  OptionalStringObjectBuilder({bool? present, String? value})
+    : _present = present,
+      _value = value;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valueOffset = _value == null ? null
+    final int? valueOffset = _value == null
+        ? null
         : fbBuilder.writeString(_value!);
     fbBuilder.startTable(2);
     fbBuilder.addBool(0, _present);
@@ -4760,6 +5031,7 @@ class OptionalStringObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class OwnerInspection {
   OwnerInspection._(this._bc, this._bcOffset);
   factory OwnerInspection(List<int> bytes) {
@@ -4773,8 +5045,10 @@ class OwnerInspection {
   final int _bcOffset;
 
   bool get signed => const fb.BoolReader().vTableGet(_bc, _bcOffset, 4, false);
-  String? get fingerprint => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
-  bool get hasFingerprint => const fb.BoolReader().vTableGet(_bc, _bcOffset, 8, false);
+  String? get fingerprint =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  bool get hasFingerprint =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 8, false);
 
   @override
   String toString() {
@@ -4782,9 +5056,10 @@ class OwnerInspection {
   }
 
   OwnerInspectionT unpack() => OwnerInspectionT(
-      signed: signed,
-      fingerprint: fingerprint,
-      hasFingerprint: hasFingerprint);
+    signed: signed,
+    fingerprint: fingerprint,
+    hasFingerprint: hasFingerprint,
+  );
 
   static int pack(fb.Builder fbBuilder, OwnerInspectionT? object) {
     if (object == null) return 0;
@@ -4798,13 +5073,15 @@ class OwnerInspectionT implements fb.Packable {
   bool hasFingerprint;
 
   OwnerInspectionT({
-      this.signed = false,
-      this.fingerprint,
-      this.hasFingerprint = false});
+    this.signed = false,
+    this.fingerprint,
+    this.hasFingerprint = false,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? fingerprintOffset = fingerprint == null ? null
+    final int? fingerprintOffset = fingerprint == null
+        ? null
         : fbBuilder.writeString(fingerprint!);
     fbBuilder.startTable(3);
     fbBuilder.addBool(0, signed);
@@ -4824,7 +5101,7 @@ class _OwnerInspectionReader extends fb.TableReader<OwnerInspection> {
 
   @override
   OwnerInspection createObject(fb.BufferContext bc, int offset) =>
-    OwnerInspection._(bc, offset);
+      OwnerInspection._(bc, offset);
 }
 
 class OwnerInspectionBuilder {
@@ -4840,10 +5117,12 @@ class OwnerInspectionBuilder {
     fbBuilder.addBool(0, signed);
     return fbBuilder.offset;
   }
+
   int addFingerprintOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addHasFingerprint(bool? hasFingerprint) {
     fbBuilder.addBool(2, hasFingerprint);
     return fbBuilder.offset;
@@ -4863,15 +5142,15 @@ class OwnerInspectionObjectBuilder extends fb.ObjectBuilder {
     bool? signed,
     String? fingerprint,
     bool? hasFingerprint,
-  })
-      : _signed = signed,
-        _fingerprint = fingerprint,
-        _hasFingerprint = hasFingerprint;
+  }) : _signed = signed,
+       _fingerprint = fingerprint,
+       _hasFingerprint = hasFingerprint;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? fingerprintOffset = _fingerprint == null ? null
+    final int? fingerprintOffset = _fingerprint == null
+        ? null
         : fbBuilder.writeString(_fingerprint!);
     fbBuilder.startTable(3);
     fbBuilder.addBool(0, _signed);
@@ -4888,6 +5167,7 @@ class OwnerInspectionObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class Contact {
   Contact._(this._bc, this._bcOffset);
   factory Contact(List<int> bytes) {
@@ -4900,8 +5180,10 @@ class Contact {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get name => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  List<int>? get key => const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get name =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  List<int>? get key =>
+      const fb.Uint8ListReader().vTableGetNullable(_bc, _bcOffset, 6);
 
   @override
   String toString() {
@@ -4909,8 +5191,11 @@ class Contact {
   }
 
   ContactT unpack() => ContactT(
-      name: name,
-      key: const fb.Uint8ListReader(lazy: false).vTableGetNullable(_bc, _bcOffset, 6));
+    name: name,
+    key: const fb.Uint8ListReader(
+      lazy: false,
+    ).vTableGetNullable(_bc, _bcOffset, 6),
+  );
 
   static int pack(fb.Builder fbBuilder, ContactT? object) {
     if (object == null) return 0;
@@ -4922,16 +5207,12 @@ class ContactT implements fb.Packable {
   String? name;
   List<int>? key;
 
-  ContactT({
-      this.name,
-      this.key});
+  ContactT({this.name, this.key});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? nameOffset = name == null ? null
-        : fbBuilder.writeString(name!);
-    final int? keyOffset = key == null ? null
-        : fbBuilder.writeListUint8(key!);
+    final int? nameOffset = name == null ? null : fbBuilder.writeString(name!);
+    final int? keyOffset = key == null ? null : fbBuilder.writeListUint8(key!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, nameOffset);
     fbBuilder.addOffset(1, keyOffset);
@@ -4949,7 +5230,7 @@ class _ContactReader extends fb.TableReader<Contact> {
 
   @override
   Contact createObject(fb.BufferContext bc, int offset) =>
-    Contact._(bc, offset);
+      Contact._(bc, offset);
 }
 
 class ContactBuilder {
@@ -4965,6 +5246,7 @@ class ContactBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addKeyOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
@@ -4979,19 +5261,18 @@ class ContactObjectBuilder extends fb.ObjectBuilder {
   final String? _name;
   final List<int>? _key;
 
-  ContactObjectBuilder({
-    String? name,
-    List<int>? key,
-  })
-      : _name = name,
-        _key = key;
+  ContactObjectBuilder({String? name, List<int>? key})
+    : _name = name,
+      _key = key;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? nameOffset = _name == null ? null
+    final int? nameOffset = _name == null
+        ? null
         : fbBuilder.writeString(_name!);
-    final int? keyOffset = _key == null ? null
+    final int? keyOffset = _key == null
+        ? null
         : fbBuilder.writeListUint8(_key!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, nameOffset);
@@ -5007,6 +5288,7 @@ class ContactObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class ContactList {
   ContactList._(this._bc, this._bcOffset);
   factory ContactList(List<int> bytes) {
@@ -5019,15 +5301,17 @@ class ContactList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<Contact>? get values => const fb.ListReader<Contact>(Contact.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<Contact>? get values => const fb.ListReader<Contact>(
+    Contact.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'ContactList{values: ${values}}';
   }
 
-  ContactListT unpack() => ContactListT(
-      values: values?.map((e) => e.unpack()).toList());
+  ContactListT unpack() =>
+      ContactListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, ContactListT? object) {
     if (object == null) return 0;
@@ -5038,12 +5322,12 @@ class ContactList {
 class ContactListT implements fb.Packable {
   List<ContactT>? values;
 
-  ContactListT({
-      this.values});
+  ContactListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -5061,7 +5345,7 @@ class _ContactListReader extends fb.TableReader<ContactList> {
 
   @override
   ContactList createObject(fb.BufferContext bc, int offset) =>
-    ContactList._(bc, offset);
+      ContactList._(bc, offset);
 }
 
 class ContactListBuilder {
@@ -5086,16 +5370,17 @@ class ContactListBuilder {
 class ContactListObjectBuilder extends fb.ObjectBuilder {
   final List<ContactObjectBuilder>? _values;
 
-  ContactListObjectBuilder({
-    List<ContactObjectBuilder>? values,
-  })
-      : _values = values;
+  ContactListObjectBuilder({List<ContactObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -5109,6 +5394,7 @@ class ContactListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class ProfileHistoryList {
   ProfileHistoryList._(this._bc, this._bcOffset);
   factory ProfileHistoryList(List<int> bytes) {
@@ -5116,20 +5402,23 @@ class ProfileHistoryList {
     return reader.read(rootRef, 0);
   }
 
-  static const fb.Reader<ProfileHistoryList> reader = _ProfileHistoryListReader();
+  static const fb.Reader<ProfileHistoryList> reader =
+      _ProfileHistoryListReader();
 
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<ProfileHistory>? get values => const fb.ListReader<ProfileHistory>(ProfileHistory.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<ProfileHistory>? get values => const fb.ListReader<ProfileHistory>(
+    ProfileHistory.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'ProfileHistoryList{values: ${values}}';
   }
 
-  ProfileHistoryListT unpack() => ProfileHistoryListT(
-      values: values?.map((e) => e.unpack()).toList());
+  ProfileHistoryListT unpack() =>
+      ProfileHistoryListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, ProfileHistoryListT? object) {
     if (object == null) return 0;
@@ -5140,12 +5429,12 @@ class ProfileHistoryList {
 class ProfileHistoryListT implements fb.Packable {
   List<ProfileHistoryT>? values;
 
-  ProfileHistoryListT({
-      this.values});
+  ProfileHistoryListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -5163,7 +5452,7 @@ class _ProfileHistoryListReader extends fb.TableReader<ProfileHistoryList> {
 
   @override
   ProfileHistoryList createObject(fb.BufferContext bc, int offset) =>
-    ProfileHistoryList._(bc, offset);
+      ProfileHistoryList._(bc, offset);
 }
 
 class ProfileHistoryListBuilder {
@@ -5188,16 +5477,17 @@ class ProfileHistoryListBuilder {
 class ProfileHistoryListObjectBuilder extends fb.ObjectBuilder {
   final List<ProfileHistoryObjectBuilder>? _values;
 
-  ProfileHistoryListObjectBuilder({
-    List<ProfileHistoryObjectBuilder>? values,
-  })
-      : _values = values;
+  ProfileHistoryListObjectBuilder({List<ProfileHistoryObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -5211,6 +5501,7 @@ class ProfileHistoryListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class AgentEntry {
   AgentEntry._(this._bc, this._bcOffset);
   factory AgentEntry(List<int> bytes) {
@@ -5223,17 +5514,17 @@ class AgentEntry {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get id => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get path => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  String? get id =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get path =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
 
   @override
   String toString() {
     return 'AgentEntry{id: ${id}, path: ${path}}';
   }
 
-  AgentEntryT unpack() => AgentEntryT(
-      id: id,
-      path: path);
+  AgentEntryT unpack() => AgentEntryT(id: id, path: path);
 
   static int pack(fb.Builder fbBuilder, AgentEntryT? object) {
     if (object == null) return 0;
@@ -5245,16 +5536,12 @@ class AgentEntryT implements fb.Packable {
   String? id;
   String? path;
 
-  AgentEntryT({
-      this.id,
-      this.path});
+  AgentEntryT({this.id, this.path});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? idOffset = id == null ? null
-        : fbBuilder.writeString(id!);
-    final int? pathOffset = path == null ? null
-        : fbBuilder.writeString(path!);
+    final int? idOffset = id == null ? null : fbBuilder.writeString(id!);
+    final int? pathOffset = path == null ? null : fbBuilder.writeString(path!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, idOffset);
     fbBuilder.addOffset(1, pathOffset);
@@ -5272,7 +5559,7 @@ class _AgentEntryReader extends fb.TableReader<AgentEntry> {
 
   @override
   AgentEntry createObject(fb.BufferContext bc, int offset) =>
-    AgentEntry._(bc, offset);
+      AgentEntry._(bc, offset);
 }
 
 class AgentEntryBuilder {
@@ -5288,6 +5575,7 @@ class AgentEntryBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addPathOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
@@ -5302,19 +5590,14 @@ class AgentEntryObjectBuilder extends fb.ObjectBuilder {
   final String? _id;
   final String? _path;
 
-  AgentEntryObjectBuilder({
-    String? id,
-    String? path,
-  })
-      : _id = id,
-        _path = path;
+  AgentEntryObjectBuilder({String? id, String? path}) : _id = id, _path = path;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? idOffset = _id == null ? null
-        : fbBuilder.writeString(_id!);
-    final int? pathOffset = _path == null ? null
+    final int? idOffset = _id == null ? null : fbBuilder.writeString(_id!);
+    final int? pathOffset = _path == null
+        ? null
         : fbBuilder.writeString(_path!);
     fbBuilder.startTable(2);
     fbBuilder.addOffset(0, idOffset);
@@ -5330,6 +5613,7 @@ class AgentEntryObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class AgentEntryList {
   AgentEntryList._(this._bc, this._bcOffset);
   factory AgentEntryList(List<int> bytes) {
@@ -5342,15 +5626,17 @@ class AgentEntryList {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  List<AgentEntry>? get values => const fb.ListReader<AgentEntry>(AgentEntry.reader).vTableGetNullable(_bc, _bcOffset, 4);
+  List<AgentEntry>? get values => const fb.ListReader<AgentEntry>(
+    AgentEntry.reader,
+  ).vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'AgentEntryList{values: ${values}}';
   }
 
-  AgentEntryListT unpack() => AgentEntryListT(
-      values: values?.map((e) => e.unpack()).toList());
+  AgentEntryListT unpack() =>
+      AgentEntryListT(values: values?.map((e) => e.unpack()).toList());
 
   static int pack(fb.Builder fbBuilder, AgentEntryListT? object) {
     if (object == null) return 0;
@@ -5361,12 +5647,12 @@ class AgentEntryList {
 class AgentEntryListT implements fb.Packable {
   List<AgentEntryT>? values;
 
-  AgentEntryListT({
-      this.values});
+  AgentEntryListT({this.values});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valuesOffset = values == null ? null
+    final int? valuesOffset = values == null
+        ? null
         : fbBuilder.writeList(values!.map((b) => b.pack(fbBuilder)).toList());
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
@@ -5384,7 +5670,7 @@ class _AgentEntryListReader extends fb.TableReader<AgentEntryList> {
 
   @override
   AgentEntryList createObject(fb.BufferContext bc, int offset) =>
-    AgentEntryList._(bc, offset);
+      AgentEntryList._(bc, offset);
 }
 
 class AgentEntryListBuilder {
@@ -5409,16 +5695,17 @@ class AgentEntryListBuilder {
 class AgentEntryListObjectBuilder extends fb.ObjectBuilder {
   final List<AgentEntryObjectBuilder>? _values;
 
-  AgentEntryListObjectBuilder({
-    List<AgentEntryObjectBuilder>? values,
-  })
-      : _values = values;
+  AgentEntryListObjectBuilder({List<AgentEntryObjectBuilder>? values})
+    : _values = values;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valuesOffset = _values == null ? null
-        : fbBuilder.writeList(_values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList());
+    final int? valuesOffset = _values == null
+        ? null
+        : fbBuilder.writeList(
+            _values!.map((b) => b.getOrCreateOffset(fbBuilder)).toList(),
+          );
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valuesOffset);
     return fbBuilder.endTable();
@@ -5432,6 +5719,7 @@ class AgentEntryListObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class SleepSupport {
   SleepSupport._(this._bc, this._bcOffset);
   factory SleepSupport(List<int> bytes) {
@@ -5444,9 +5732,12 @@ class SleepSupport {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  bool get suspendNotifications => const fb.BoolReader().vTableGet(_bc, _bcOffset, 4, false);
-  bool get sleepInhibition => const fb.BoolReader().vTableGet(_bc, _bcOffset, 6, false);
-  bool get supported => const fb.BoolReader().vTableGet(_bc, _bcOffset, 8, false);
+  bool get suspendNotifications =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 4, false);
+  bool get sleepInhibition =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 6, false);
+  bool get supported =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 8, false);
 
   @override
   String toString() {
@@ -5454,9 +5745,10 @@ class SleepSupport {
   }
 
   SleepSupportT unpack() => SleepSupportT(
-      suspendNotifications: suspendNotifications,
-      sleepInhibition: sleepInhibition,
-      supported: supported);
+    suspendNotifications: suspendNotifications,
+    sleepInhibition: sleepInhibition,
+    supported: supported,
+  );
 
   static int pack(fb.Builder fbBuilder, SleepSupportT? object) {
     if (object == null) return 0;
@@ -5470,9 +5762,10 @@ class SleepSupportT implements fb.Packable {
   bool supported;
 
   SleepSupportT({
-      this.suspendNotifications = false,
-      this.sleepInhibition = false,
-      this.supported = false});
+    this.suspendNotifications = false,
+    this.sleepInhibition = false,
+    this.supported = false,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
@@ -5494,7 +5787,7 @@ class _SleepSupportReader extends fb.TableReader<SleepSupport> {
 
   @override
   SleepSupport createObject(fb.BufferContext bc, int offset) =>
-    SleepSupport._(bc, offset);
+      SleepSupport._(bc, offset);
 }
 
 class SleepSupportBuilder {
@@ -5510,10 +5803,12 @@ class SleepSupportBuilder {
     fbBuilder.addBool(0, suspendNotifications);
     return fbBuilder.offset;
   }
+
   int addSleepInhibition(bool? sleepInhibition) {
     fbBuilder.addBool(1, sleepInhibition);
     return fbBuilder.offset;
   }
+
   int addSupported(bool? supported) {
     fbBuilder.addBool(2, supported);
     return fbBuilder.offset;
@@ -5533,10 +5828,9 @@ class SleepSupportObjectBuilder extends fb.ObjectBuilder {
     bool? suspendNotifications,
     bool? sleepInhibition,
     bool? supported,
-  })
-      : _suspendNotifications = suspendNotifications,
-        _sleepInhibition = sleepInhibition,
-        _supported = supported;
+  }) : _suspendNotifications = suspendNotifications,
+       _sleepInhibition = sleepInhibition,
+       _supported = supported;
 
   /// Finish building, and store into the [fbBuilder].
   @override
@@ -5556,6 +5850,7 @@ class SleepSupportObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class PlatformStatus {
   PlatformStatus._(this._bc, this._bcOffset);
   factory PlatformStatus(List<int> bytes) {
@@ -5568,11 +5863,16 @@ class PlatformStatus {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  bool get supported => const fb.BoolReader().vTableGet(_bc, _bcOffset, 4, false);
-  bool get disabled => const fb.BoolReader().vTableGet(_bc, _bcOffset, 6, false);
-  String? get scope => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
-  String? get backend => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
-  String? get item => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
+  bool get supported =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 4, false);
+  bool get disabled =>
+      const fb.BoolReader().vTableGet(_bc, _bcOffset, 6, false);
+  String? get scope =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  String? get backend =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 10);
+  String? get item =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
 
   @override
   String toString() {
@@ -5580,11 +5880,12 @@ class PlatformStatus {
   }
 
   PlatformStatusT unpack() => PlatformStatusT(
-      supported: supported,
-      disabled: disabled,
-      scope: scope,
-      backend: backend,
-      item: item);
+    supported: supported,
+    disabled: disabled,
+    scope: scope,
+    backend: backend,
+    item: item,
+  );
 
   static int pack(fb.Builder fbBuilder, PlatformStatusT? object) {
     if (object == null) return 0;
@@ -5600,20 +5901,22 @@ class PlatformStatusT implements fb.Packable {
   String? item;
 
   PlatformStatusT({
-      this.supported = false,
-      this.disabled = false,
-      this.scope,
-      this.backend,
-      this.item});
+    this.supported = false,
+    this.disabled = false,
+    this.scope,
+    this.backend,
+    this.item,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? scopeOffset = scope == null ? null
+    final int? scopeOffset = scope == null
+        ? null
         : fbBuilder.writeString(scope!);
-    final int? backendOffset = backend == null ? null
+    final int? backendOffset = backend == null
+        ? null
         : fbBuilder.writeString(backend!);
-    final int? itemOffset = item == null ? null
-        : fbBuilder.writeString(item!);
+    final int? itemOffset = item == null ? null : fbBuilder.writeString(item!);
     fbBuilder.startTable(5);
     fbBuilder.addBool(0, supported);
     fbBuilder.addBool(1, disabled);
@@ -5634,7 +5937,7 @@ class _PlatformStatusReader extends fb.TableReader<PlatformStatus> {
 
   @override
   PlatformStatus createObject(fb.BufferContext bc, int offset) =>
-    PlatformStatus._(bc, offset);
+      PlatformStatus._(bc, offset);
 }
 
 class PlatformStatusBuilder {
@@ -5650,18 +5953,22 @@ class PlatformStatusBuilder {
     fbBuilder.addBool(0, supported);
     return fbBuilder.offset;
   }
+
   int addDisabled(bool? disabled) {
     fbBuilder.addBool(1, disabled);
     return fbBuilder.offset;
   }
+
   int addScopeOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
   }
+
   int addBackendOffset(int? offset) {
     fbBuilder.addOffset(3, offset);
     return fbBuilder.offset;
   }
+
   int addItemOffset(int? offset) {
     fbBuilder.addOffset(4, offset);
     return fbBuilder.offset;
@@ -5685,21 +5992,23 @@ class PlatformStatusObjectBuilder extends fb.ObjectBuilder {
     String? scope,
     String? backend,
     String? item,
-  })
-      : _supported = supported,
-        _disabled = disabled,
-        _scope = scope,
-        _backend = backend,
-        _item = item;
+  }) : _supported = supported,
+       _disabled = disabled,
+       _scope = scope,
+       _backend = backend,
+       _item = item;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? scopeOffset = _scope == null ? null
+    final int? scopeOffset = _scope == null
+        ? null
         : fbBuilder.writeString(_scope!);
-    final int? backendOffset = _backend == null ? null
+    final int? backendOffset = _backend == null
+        ? null
         : fbBuilder.writeString(_backend!);
-    final int? itemOffset = _item == null ? null
+    final int? itemOffset = _item == null
+        ? null
         : fbBuilder.writeString(_item!);
     fbBuilder.startTable(5);
     fbBuilder.addBool(0, _supported);
@@ -5718,6 +6027,7 @@ class PlatformStatusObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class StringValue {
   StringValue._(this._bc, this._bcOffset);
   factory StringValue(List<int> bytes) {
@@ -5730,15 +6040,15 @@ class StringValue {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get value => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get value =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
 
   @override
   String toString() {
     return 'StringValue{value: ${value}}';
   }
 
-  StringValueT unpack() => StringValueT(
-      value: value);
+  StringValueT unpack() => StringValueT(value: value);
 
   static int pack(fb.Builder fbBuilder, StringValueT? object) {
     if (object == null) return 0;
@@ -5749,12 +6059,12 @@ class StringValue {
 class StringValueT implements fb.Packable {
   String? value;
 
-  StringValueT({
-      this.value});
+  StringValueT({this.value});
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? valueOffset = value == null ? null
+    final int? valueOffset = value == null
+        ? null
         : fbBuilder.writeString(value!);
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valueOffset);
@@ -5772,7 +6082,7 @@ class _StringValueReader extends fb.TableReader<StringValue> {
 
   @override
   StringValue createObject(fb.BufferContext bc, int offset) =>
-    StringValue._(bc, offset);
+      StringValue._(bc, offset);
 }
 
 class StringValueBuilder {
@@ -5797,15 +6107,13 @@ class StringValueBuilder {
 class StringValueObjectBuilder extends fb.ObjectBuilder {
   final String? _value;
 
-  StringValueObjectBuilder({
-    String? value,
-  })
-      : _value = value;
+  StringValueObjectBuilder({String? value}) : _value = value;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? valueOffset = _value == null ? null
+    final int? valueOffset = _value == null
+        ? null
         : fbBuilder.writeString(_value!);
     fbBuilder.startTable(1);
     fbBuilder.addOffset(0, valueOffset);
@@ -5820,6 +6128,7 @@ class StringValueObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class VaultBackupManifest {
   VaultBackupManifest._(this._bc, this._bcOffset);
   factory VaultBackupManifest(List<int> bytes) {
@@ -5827,16 +6136,21 @@ class VaultBackupManifest {
     return reader.read(rootRef, 0);
   }
 
-  static const fb.Reader<VaultBackupManifest> reader = _VaultBackupManifestReader();
+  static const fb.Reader<VaultBackupManifest> reader =
+      _VaultBackupManifestReader();
 
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  int get formatVersion => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 4, 0);
-  int get createdAtUnixMs => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
-  String? get vaultFileName => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
+  int get formatVersion =>
+      const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 4, 0);
+  int get createdAtUnixMs =>
+      const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 6, 0);
+  String? get vaultFileName =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 8);
   int get vaultSize => const fb.Uint64Reader().vTableGet(_bc, _bcOffset, 10, 0);
-  String? get vaultSha256 => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
+  String? get vaultSha256 =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
 
   @override
   String toString() {
@@ -5844,11 +6158,12 @@ class VaultBackupManifest {
   }
 
   VaultBackupManifestT unpack() => VaultBackupManifestT(
-      formatVersion: formatVersion,
-      createdAtUnixMs: createdAtUnixMs,
-      vaultFileName: vaultFileName,
-      vaultSize: vaultSize,
-      vaultSha256: vaultSha256);
+    formatVersion: formatVersion,
+    createdAtUnixMs: createdAtUnixMs,
+    vaultFileName: vaultFileName,
+    vaultSize: vaultSize,
+    vaultSha256: vaultSha256,
+  );
 
   static int pack(fb.Builder fbBuilder, VaultBackupManifestT? object) {
     if (object == null) return 0;
@@ -5864,17 +6179,20 @@ class VaultBackupManifestT implements fb.Packable {
   String? vaultSha256;
 
   VaultBackupManifestT({
-      this.formatVersion = 0,
-      this.createdAtUnixMs = 0,
-      this.vaultFileName,
-      this.vaultSize = 0,
-      this.vaultSha256});
+    this.formatVersion = 0,
+    this.createdAtUnixMs = 0,
+    this.vaultFileName,
+    this.vaultSize = 0,
+    this.vaultSha256,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? vaultFileNameOffset = vaultFileName == null ? null
+    final int? vaultFileNameOffset = vaultFileName == null
+        ? null
         : fbBuilder.writeString(vaultFileName!);
-    final int? vaultSha256Offset = vaultSha256 == null ? null
+    final int? vaultSha256Offset = vaultSha256 == null
+        ? null
         : fbBuilder.writeString(vaultSha256!);
     fbBuilder.startTable(5);
     fbBuilder.addUint32(0, formatVersion);
@@ -5896,7 +6214,7 @@ class _VaultBackupManifestReader extends fb.TableReader<VaultBackupManifest> {
 
   @override
   VaultBackupManifest createObject(fb.BufferContext bc, int offset) =>
-    VaultBackupManifest._(bc, offset);
+      VaultBackupManifest._(bc, offset);
 }
 
 class VaultBackupManifestBuilder {
@@ -5912,18 +6230,22 @@ class VaultBackupManifestBuilder {
     fbBuilder.addUint32(0, formatVersion);
     return fbBuilder.offset;
   }
+
   int addCreatedAtUnixMs(int? createdAtUnixMs) {
     fbBuilder.addUint64(1, createdAtUnixMs);
     return fbBuilder.offset;
   }
+
   int addVaultFileNameOffset(int? offset) {
     fbBuilder.addOffset(2, offset);
     return fbBuilder.offset;
   }
+
   int addVaultSize(int? vaultSize) {
     fbBuilder.addUint64(3, vaultSize);
     return fbBuilder.offset;
   }
+
   int addVaultSha256Offset(int? offset) {
     fbBuilder.addOffset(4, offset);
     return fbBuilder.offset;
@@ -5947,19 +6269,20 @@ class VaultBackupManifestObjectBuilder extends fb.ObjectBuilder {
     String? vaultFileName,
     int? vaultSize,
     String? vaultSha256,
-  })
-      : _formatVersion = formatVersion,
-        _createdAtUnixMs = createdAtUnixMs,
-        _vaultFileName = vaultFileName,
-        _vaultSize = vaultSize,
-        _vaultSha256 = vaultSha256;
+  }) : _formatVersion = formatVersion,
+       _createdAtUnixMs = createdAtUnixMs,
+       _vaultFileName = vaultFileName,
+       _vaultSize = vaultSize,
+       _vaultSha256 = vaultSha256;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? vaultFileNameOffset = _vaultFileName == null ? null
+    final int? vaultFileNameOffset = _vaultFileName == null
+        ? null
         : fbBuilder.writeString(_vaultFileName!);
-    final int? vaultSha256Offset = _vaultSha256 == null ? null
+    final int? vaultSha256Offset = _vaultSha256 == null
+        ? null
         : fbBuilder.writeString(_vaultSha256!);
     fbBuilder.startTable(5);
     fbBuilder.addUint32(0, _formatVersion);
@@ -5978,6 +6301,7 @@ class VaultBackupManifestObjectBuilder extends fb.ObjectBuilder {
     return fbBuilder.buffer;
   }
 }
+
 class ErrorDetails {
   ErrorDetails._(this._bc, this._bcOffset);
   factory ErrorDetails(List<int> bytes) {
@@ -5990,12 +6314,18 @@ class ErrorDetails {
   final fb.BufferContext _bc;
   final int _bcOffset;
 
-  String? get category => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
-  String? get artifactKind => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
-  int get foundVersion => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 8, 0);
-  int get supportedVersion => const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 10, 0);
-  String? get message => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
-  String? get guidance => const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 14);
+  String? get category =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 4);
+  String? get artifactKind =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 6);
+  int get foundVersion =>
+      const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 8, 0);
+  int get supportedVersion =>
+      const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 10, 0);
+  String? get message =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 12);
+  String? get guidance =>
+      const fb.StringReader().vTableGetNullable(_bc, _bcOffset, 14);
 
   @override
   String toString() {
@@ -6003,12 +6333,13 @@ class ErrorDetails {
   }
 
   ErrorDetailsT unpack() => ErrorDetailsT(
-      category: category,
-      artifactKind: artifactKind,
-      foundVersion: foundVersion,
-      supportedVersion: supportedVersion,
-      message: message,
-      guidance: guidance);
+    category: category,
+    artifactKind: artifactKind,
+    foundVersion: foundVersion,
+    supportedVersion: supportedVersion,
+    message: message,
+    guidance: guidance,
+  );
 
   static int pack(fb.Builder fbBuilder, ErrorDetailsT? object) {
     if (object == null) return 0;
@@ -6025,22 +6356,27 @@ class ErrorDetailsT implements fb.Packable {
   String? guidance;
 
   ErrorDetailsT({
-      this.category,
-      this.artifactKind,
-      this.foundVersion = 0,
-      this.supportedVersion = 0,
-      this.message,
-      this.guidance});
+    this.category,
+    this.artifactKind,
+    this.foundVersion = 0,
+    this.supportedVersion = 0,
+    this.message,
+    this.guidance,
+  });
 
   @override
   int pack(fb.Builder fbBuilder) {
-    final int? categoryOffset = category == null ? null
+    final int? categoryOffset = category == null
+        ? null
         : fbBuilder.writeString(category!);
-    final int? artifactKindOffset = artifactKind == null ? null
+    final int? artifactKindOffset = artifactKind == null
+        ? null
         : fbBuilder.writeString(artifactKind!);
-    final int? messageOffset = message == null ? null
+    final int? messageOffset = message == null
+        ? null
         : fbBuilder.writeString(message!);
-    final int? guidanceOffset = guidance == null ? null
+    final int? guidanceOffset = guidance == null
+        ? null
         : fbBuilder.writeString(guidance!);
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, categoryOffset);
@@ -6063,7 +6399,7 @@ class _ErrorDetailsReader extends fb.TableReader<ErrorDetails> {
 
   @override
   ErrorDetails createObject(fb.BufferContext bc, int offset) =>
-    ErrorDetails._(bc, offset);
+      ErrorDetails._(bc, offset);
 }
 
 class ErrorDetailsBuilder {
@@ -6079,22 +6415,27 @@ class ErrorDetailsBuilder {
     fbBuilder.addOffset(0, offset);
     return fbBuilder.offset;
   }
+
   int addArtifactKindOffset(int? offset) {
     fbBuilder.addOffset(1, offset);
     return fbBuilder.offset;
   }
+
   int addFoundVersion(int? foundVersion) {
     fbBuilder.addUint32(2, foundVersion);
     return fbBuilder.offset;
   }
+
   int addSupportedVersion(int? supportedVersion) {
     fbBuilder.addUint32(3, supportedVersion);
     return fbBuilder.offset;
   }
+
   int addMessageOffset(int? offset) {
     fbBuilder.addOffset(4, offset);
     return fbBuilder.offset;
   }
+
   int addGuidanceOffset(int? offset) {
     fbBuilder.addOffset(5, offset);
     return fbBuilder.offset;
@@ -6120,24 +6461,27 @@ class ErrorDetailsObjectBuilder extends fb.ObjectBuilder {
     int? supportedVersion,
     String? message,
     String? guidance,
-  })
-      : _category = category,
-        _artifactKind = artifactKind,
-        _foundVersion = foundVersion,
-        _supportedVersion = supportedVersion,
-        _message = message,
-        _guidance = guidance;
+  }) : _category = category,
+       _artifactKind = artifactKind,
+       _foundVersion = foundVersion,
+       _supportedVersion = supportedVersion,
+       _message = message,
+       _guidance = guidance;
 
   /// Finish building, and store into the [fbBuilder].
   @override
   int finish(fb.Builder fbBuilder) {
-    final int? categoryOffset = _category == null ? null
+    final int? categoryOffset = _category == null
+        ? null
         : fbBuilder.writeString(_category!);
-    final int? artifactKindOffset = _artifactKind == null ? null
+    final int? artifactKindOffset = _artifactKind == null
+        ? null
         : fbBuilder.writeString(_artifactKind!);
-    final int? messageOffset = _message == null ? null
+    final int? messageOffset = _message == null
+        ? null
         : fbBuilder.writeString(_message!);
-    final int? guidanceOffset = _guidance == null ? null
+    final int? guidanceOffset = _guidance == null
+        ? null
         : fbBuilder.writeString(_guidance!);
     fbBuilder.startTable(6);
     fbBuilder.addOffset(0, categoryOffset);
