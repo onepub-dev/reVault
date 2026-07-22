@@ -2,6 +2,7 @@
 
 from pathlib import Path
 import re
+import subprocess
 from model_docs import description, field_description
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -135,3 +136,4 @@ lines += [
 ]
 
 OUTPUT.write_text("\n".join(lines) + "\n")
+subprocess.run(["gofmt", "-w", str(OUTPUT)], check=True)

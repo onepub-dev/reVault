@@ -2,776 +2,946 @@
 package revault
 
 import (
-  "github.com/google/flatbuffers/go"
-  transport "github.com/onepub-dev/revault-api/internal/transport"
+	"github.com/google/flatbuffers/go"
+	transport "github.com/onepub-dev/revault-api/internal/transport"
 )
 
 // LockboxEntryKind identifies the filesystem object stored at a lockbox path.
 type LockboxEntryKind int32
+
 const (
-  // LockboxEntryKindUnspecified means no recognized kind was reported.
-  LockboxEntryKindUnspecified LockboxEntryKind = iota
-  // LockboxEntryKindFile is a regular file.
-  LockboxEntryKindFile
-  // LockboxEntryKindSymlink is a symbolic link.
-  LockboxEntryKindSymlink
-  // LockboxEntryKindDirectory is a directory.
-  LockboxEntryKindDirectory
+	// LockboxEntryKindUnspecified means no recognized kind was reported.
+	LockboxEntryKindUnspecified LockboxEntryKind = iota
+	// LockboxEntryKindFile is a regular file.
+	LockboxEntryKindFile
+	// LockboxEntryKindSymlink is a symbolic link.
+	LockboxEntryKindSymlink
+	// LockboxEntryKindDirectory is a directory.
+	LockboxEntryKindDirectory
 )
 
 // LockboxEntry represents metadata for one file, directory, or symbolic link stored at a lockbox path.
 type LockboxEntry struct {
-  // Path: Absolute lockbox path of the stored entry.
-  Path string
-  // Kind: Filesystem kind: file, directory, or symbolic link.
-  Kind LockboxEntryKind
-  // Length: Logical file length in bytes; zero for directories.
-  Length uint64
-  // Permissions: Portable Unix permission bits stored with the entry.
-  Permissions uint32
+	// Path: Absolute lockbox path of the stored entry.
+	Path string
+	// Kind: Filesystem kind: file, directory, or symbolic link.
+	Kind LockboxEntryKind
+	// Length: Logical file length in bytes; zero for directories.
+	Length uint64
+	// Permissions: Portable Unix permission bits stored with the entry.
+	Permissions uint32
 }
 
 // PathMove represents a source and destination pair used to rename a variable or form record atomically.
 type PathMove struct {
-  // Source: Existing variable name or form-record path to rename.
-  Source string
-  // Destination: New variable name or form-record path.
-  Destination string
+	// Source: Existing variable name or form-record path to rename.
+	Source string
+	// Destination: New variable name or form-record path.
+	Destination string
 }
 
 // FormField represents one named input in a reusable form definition, including its display label and sensitivity kind.
 type FormField struct {
-  // Id: Stable field identifier used when reading and writing records.
-  Id string
-  // Label: Human-readable label presented to a person entering data.
-  Label string
-  // Kind: Field kind that determines validation and secret handling.
-  Kind string
-  // Required: Whether a record must provide a value for this field.
-  Required bool
+	// Id: Stable field identifier used when reading and writing records.
+	Id string
+	// Label: Human-readable label presented to a person entering data.
+	Label string
+	// Kind: Field kind that determines validation and secret handling.
+	Kind string
+	// Required: Whether a record must provide a value for this field.
+	Required bool
 }
 
 // FormDefinition represents a versioned form schema used to validate and label structured records in a lockbox.
 type FormDefinition struct {
-  // TypeId: Stable identifier shared by every revision of this form type.
-  TypeId string
-  // Alias: Short name used to resolve the current form revision.
-  Alias string
-  // Revision: Monotonically increasing revision number.
-  Revision uint32
-  // Name: Human-readable name shown for this form.
-  Name string
-  // Description: Explanation shown to people completing the form.
-  Description string
-  // Fields: Ordered inputs accepted by this form revision.
-  Fields []FormField
+	// TypeId: Stable identifier shared by every revision of this form type.
+	TypeId string
+	// Alias: Short name used to resolve the current form revision.
+	Alias string
+	// Revision: Monotonically increasing revision number.
+	Revision uint32
+	// Name: Human-readable name shown for this form.
+	Name string
+	// Description: Explanation shown to people completing the form.
+	Description string
+	// Fields: Ordered inputs accepted by this form revision.
+	Fields []FormField
 }
 
 // FormValue represents the current value and sensitivity metadata for one field in a stored form record.
 type FormValue struct {
-  // FieldId: Identifier of the form field that owns this value.
-  FieldId string
-  // Label: Display label captured from the form revision.
-  Label string
-  // Kind: Field kind captured from the form revision.
-  Kind string
-  // Value: Plain value, or an empty string when the field is secret.
-  Value string
-  // Secret: Whether the value must be read through a scoped secret callback.
-  Secret bool
+	// FieldId: Identifier of the form field that owns this value.
+	FieldId string
+	// Label: Display label captured from the form revision.
+	Label string
+	// Kind: Field kind captured from the form revision.
+	Kind string
+	// Value: Plain value, or an empty string when the field is secret.
+	Value string
+	// Secret: Whether the value must be read through a scoped secret callback.
+	Secret bool
 }
 
 // FormRecord represents a named structured record stored at a lockbox path and tied to a form-definition revision.
 type FormRecord struct {
-  // Path: Absolute lockbox path that identifies the record.
-  Path string
-  // Name: Human-readable name assigned to this record.
-  Name string
-  // TypeId: Stable identifier of the record's form type.
-  TypeId string
-  // DefinitionAlias: Alias of the form definition used by the record.
-  DefinitionAlias string
-  // DefinitionRevision: Exact form revision against which the record was created.
-  DefinitionRevision uint32
-  // Values: Ordered non-secret field metadata and values.
-  Values []FormValue
+	// Path: Absolute lockbox path that identifies the record.
+	Path string
+	// Name: Human-readable name assigned to this record.
+	Name string
+	// TypeId: Stable identifier of the record's form type.
+	TypeId string
+	// DefinitionAlias: Alias of the form definition used by the record.
+	DefinitionAlias string
+	// DefinitionRevision: Exact form revision against which the record was created.
+	DefinitionRevision uint32
+	// Values: Ordered non-secret field metadata and values.
+	Values []FormValue
 }
 
 // RecoveryReport represents the files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox.
 type RecoveryReport struct {
-  // IntactFiles: Files whose complete contents remain recoverable.
-  IntactFiles []LockboxEntry
-  // IntactFileCount: Number of completely recoverable files.
-  IntactFileCount uint64
-  // PartialFiles: Number of files for which only some content is recoverable.
-  PartialFiles uint64
-  // CorruptRecords: Number of encrypted records that failed validation.
-  CorruptRecords uint64
-  // TocRecovered: Whether a usable table of contents was recovered.
-  TocRecovered bool
-  // VariablesRecovered: Whether variable metadata was recovered.
-  VariablesRecovered bool
-  // VariableCount: Number of recovered variables.
-  VariableCount uint64
-  // FormsRecovered: Whether form definitions and records were recovered.
-  FormsRecovered bool
-  // FormDefinitionCount: Number of recovered form definitions.
-  FormDefinitionCount uint64
-  // FormRecordCount: Number of recovered form records.
-  FormRecordCount uint64
+	// IntactFiles: Files whose complete contents remain recoverable.
+	IntactFiles []LockboxEntry
+	// IntactFileCount: Number of completely recoverable files.
+	IntactFileCount uint64
+	// PartialFiles: Number of files for which only some content is recoverable.
+	PartialFiles uint64
+	// CorruptRecords: Number of encrypted records that failed validation.
+	CorruptRecords uint64
+	// TocRecovered: Whether a usable table of contents was recovered.
+	TocRecovered bool
+	// VariablesRecovered: Whether variable metadata was recovered.
+	VariablesRecovered bool
+	// VariableCount: Number of recovered variables.
+	VariableCount uint64
+	// FormsRecovered: Whether form definitions and records were recovered.
+	FormsRecovered bool
+	// FormDefinitionCount: Number of recovered form definitions.
+	FormDefinitionCount uint64
+	// FormRecordCount: Number of recovered form records.
+	FormRecordCount uint64
 }
 
 // KeySlot represents one password or contact credential that can unlock a lockbox content key.
 type KeySlot struct {
-  // Id: Stable slot identifier used when removing this access method.
-  Id uint64
-  // Protection: Access method, such as password or contact key.
-  Protection string
-  // Algorithm: Cryptographic algorithm protecting the content key.
-  Algorithm string
+	// Id: Stable slot identifier used when removing this access method.
+	Id uint64
+	// Protection: Access method, such as password or contact key.
+	Protection string
+	// Algorithm: Cryptographic algorithm protecting the content key.
+	Algorithm string
 }
 
 // CacheStats represents current capacity, occupancy, hit, and miss counters for an open lockbox cache.
 type CacheStats struct {
-  // LimitBytes: Maximum decoded-page memory permitted for the cache.
-  LimitBytes uint64
-  // UsedBytes: Decoded-page memory currently held by the cache.
-  UsedBytes uint64
-  // Entries: Number of decoded pages currently cached.
-  Entries uint64
-  // Hits: Reads served by an already decoded page.
-  Hits uint64
-  // Misses: Reads that required decoding another page.
-  Misses uint64
+	// LimitBytes: Maximum decoded-page memory permitted for the cache.
+	LimitBytes uint64
+	// UsedBytes: Decoded-page memory currently held by the cache.
+	UsedBytes uint64
+	// Entries: Number of decoded pages currently cached.
+	Entries uint64
+	// Hits: Reads served by an already decoded page.
+	Hits uint64
+	// Misses: Reads that required decoding another page.
+	Misses uint64
 }
 
 // ImportStats represents time spent reading host files and preparing encrypted pages during the latest import work.
 type ImportStats struct {
-  // HostStatNanos: Nanoseconds spent reading host filesystem metadata, as decimal text.
-  HostStatNanos string
-  // HostReadNanos: Nanoseconds spent reading host file content, as decimal text.
-  HostReadNanos string
-  // FramePrepareNanos: Nanoseconds spent preparing encrypted records, as decimal text.
-  FramePrepareNanos string
-  // PageWriteNanos: Nanoseconds spent writing encrypted pages, as decimal text.
-  PageWriteNanos string
+	// HostStatNanos: Nanoseconds spent reading host filesystem metadata, as decimal text.
+	HostStatNanos string
+	// HostReadNanos: Nanoseconds spent reading host file content, as decimal text.
+	HostReadNanos string
+	// FramePrepareNanos: Nanoseconds spent preparing encrypted records, as decimal text.
+	FramePrepareNanos string
+	// PageWriteNanos: Nanoseconds spent writing encrypted pages, as decimal text.
+	PageWriteNanos string
 }
 
 // PageObject represents one logical object recorded inside an inspected encrypted lockbox page.
 type PageObject struct {
-  // Id: Object identifier recorded in the encrypted page.
-  Id uint64
-  // Kind: Kind of logical object stored in the page.
-  Kind string
-  // PayloadLen: Encrypted object payload length in bytes.
-  PayloadLen uint64
+	// Id: Object identifier recorded in the encrypted page.
+	Id uint64
+	// Kind: Kind of logical object stored in the page.
+	Kind string
+	// PayloadLen: Encrypted object payload length in bytes.
+	PayloadLen uint64
 }
 
 // PageInspection represents layout and utilization details for one encrypted page in a lockbox archive.
 type PageInspection struct {
-  // Offset: Byte offset at which the page begins in the archive.
-  Offset uint64
-  // PageId: Identifier stored in the page header.
-  PageId uint64
-  // Sequence: Commit sequence that wrote this page.
-  Sequence uint64
-  // PageSize: Total encoded page size in bytes.
-  PageSize uint64
-  // EncryptedBodyLen: Encrypted body length in bytes.
-  EncryptedBodyLen uint64
-  // UnusedBytes: Unused capacity remaining in the page.
-  UnusedBytes uint64
-  // ObjectCount: Number of logical objects stored in the page.
-  ObjectCount uint64
-  // Objects: Logical objects discovered in the page.
-  Objects []PageObject
+	// Offset: Byte offset at which the page begins in the archive.
+	Offset uint64
+	// PageId: Identifier stored in the page header.
+	PageId uint64
+	// Sequence: Commit sequence that wrote this page.
+	Sequence uint64
+	// PageSize: Total encoded page size in bytes.
+	PageSize uint64
+	// EncryptedBodyLen: Encrypted body length in bytes.
+	EncryptedBodyLen uint64
+	// UnusedBytes: Unused capacity remaining in the page.
+	UnusedBytes uint64
+	// ObjectCount: Number of logical objects stored in the page.
+	ObjectCount uint64
+	// Objects: Logical objects discovered in the page.
+	Objects []PageObject
 }
 
 // FileInspection represents header, owner-signature, and key-slot information read from a lockbox file without opening its contents.
 type FileInspection struct {
-  // LockboxId: Stable binary identifier read from the lockbox header.
-  LockboxId []byte
-  // HeaderReadable: Whether the archive header passed structural validation.
-  HeaderReadable bool
-  // KeyDirectoryGeneration: Latest readable access-key directory generation.
-  KeyDirectoryGeneration uint64
-  // KeyDirectoryCopyCount: Number of readable redundant key-directory copies.
-  KeyDirectoryCopyCount uint64
-  // OwnerSigned: Whether commits require an owner signature.
-  OwnerSigned bool
-  // KeySlots: Password and contact access methods found in the header.
-  KeySlots []KeySlot
+	// LockboxId: Stable binary identifier read from the lockbox header.
+	LockboxId []byte
+	// HeaderReadable: Whether the archive header passed structural validation.
+	HeaderReadable bool
+	// KeyDirectoryGeneration: Latest readable access-key directory generation.
+	KeyDirectoryGeneration uint64
+	// KeyDirectoryCopyCount: Number of readable redundant key-directory copies.
+	KeyDirectoryCopyCount uint64
+	// OwnerSigned: Whether commits require an owner signature.
+	OwnerSigned bool
+	// KeySlots: Password and contact access methods found in the header.
+	KeySlots []KeySlot
 }
 
 // ProfileGeneration represents one active or retired generation of the contact keys belonging to a named vault profile.
 type ProfileGeneration struct {
-  // Index: Generation number used to address this key version.
-  Index uint32
-  // Status: Lifecycle state, such as active or retired.
-  Status string
-  // ContactFingerprint: Fingerprint of this generation's contact public key.
-  ContactFingerprint []byte
-  // CreatedAtUnixMs: Creation time in Unix milliseconds.
-  CreatedAtUnixMs uint64
-  // RetiredAtUnixMs: Retirement time in Unix milliseconds when retired.
-  RetiredAtUnixMs uint64
-  // HasRetiredAt: Whether a retirement time is present.
-  HasRetiredAt bool
+	// Index: Generation number used to address this key version.
+	Index uint32
+	// Status: Lifecycle state, such as active or retired.
+	Status string
+	// ContactFingerprint: Fingerprint of this generation's contact public key.
+	ContactFingerprint []byte
+	// CreatedAtUnixMs: Creation time in Unix milliseconds.
+	CreatedAtUnixMs uint64
+	// RetiredAtUnixMs: Retirement time in Unix milliseconds when retired.
+	RetiredAtUnixMs uint64
+	// HasRetiredAt: Whether a retirement time is present.
+	HasRetiredAt bool
 }
 
 // ProfileHistory represents the active generation and rotation history for a named vault profile.
 type ProfileHistory struct {
-  // Name: Vault profile name whose generations are listed.
-  Name string
-  // ActiveGeneration: Generation number currently used for new access grants.
-  ActiveGeneration uint32
-  // Generations: Active and retired contact-key generations.
-  Generations []ProfileGeneration
+	// Name: Vault profile name whose generations are listed.
+	Name string
+	// ActiveGeneration: Generation number currently used for new access grants.
+	ActiveGeneration uint32
+	// Generations: Active and retired contact-key generations.
+	Generations []ProfileGeneration
 }
 
 // KnownLockbox represents a lockbox identifier and host path remembered by the local vault for later discovery.
 type KnownLockbox struct {
-  // LockboxId: Stable binary identifier of the remembered lockbox.
-  LockboxId []byte
-  // Path: Last known host filesystem path of the lockbox.
-  Path string
-  // LastSeenUnixMs: Most recent observation time in Unix milliseconds.
-  LastSeenUnixMs uint64
+	// LockboxId: Stable binary identifier of the remembered lockbox.
+	LockboxId []byte
+	// Path: Last known host filesystem path of the lockbox.
+	Path string
+	// LastSeenUnixMs: Most recent observation time in Unix milliseconds.
+	LastSeenUnixMs uint64
 }
 
 // AccessSlotLabel represents a local human-readable label attached to one lockbox access slot.
 type AccessSlotLabel struct {
-  // LockboxId: Lockbox whose access slot is labelled.
-  LockboxId []byte
-  // SlotId: Stable identifier of the labelled access slot.
-  SlotId uint64
-  // Name: Local human-readable label for the access slot.
-  Name string
-  // UpdatedAtUnixMs: Last label update time in Unix milliseconds.
-  UpdatedAtUnixMs uint64
+	// LockboxId: Lockbox whose access slot is labelled.
+	LockboxId []byte
+	// SlotId: Stable identifier of the labelled access slot.
+	SlotId uint64
+	// Name: Local human-readable label for the access slot.
+	Name string
+	// UpdatedAtUnixMs: Last label update time in Unix milliseconds.
+	UpdatedAtUnixMs uint64
 }
 
 // StreamChunk represents a logical or physical byte range emitted while walking the contents of a lockbox.
 type StreamChunk struct {
-  // Path: Lockbox file path to which this byte range belongs.
-  Path string
-  // FileOffset: Logical byte offset within the file.
-  FileOffset uint64
-  // Length: Logical range length in bytes.
-  Length uint64
-  // PhysicalOffset: Archive byte offset, when physical streaming is requested.
-  PhysicalOffset uint64
-  // Sparse: Whether the range represents a sparse zero-filled extent.
-  Sparse bool
-  // Data: File bytes for a populated logical range.
-  Data []byte
+	// Path: Lockbox file path to which this byte range belongs.
+	Path string
+	// FileOffset: Logical byte offset within the file.
+	FileOffset uint64
+	// Length: Logical range length in bytes.
+	Length uint64
+	// PhysicalOffset: Archive byte offset, when physical streaming is requested.
+	PhysicalOffset uint64
+	// Sparse: Whether the range represents a sparse zero-filled extent.
+	Sparse bool
+	// Data: File bytes for a populated logical range.
+	Data []byte
 }
 
 // RuntimeOptions represents the workload and worker policies currently applied to an open lockbox.
 type RuntimeOptions struct {
-  // WorkloadProfile: I/O workload policy used to tune page access.
-  WorkloadProfile string
-  // WorkerPolicy: Worker scheduling policy and effective parallelism.
-  WorkerPolicy string
+	// WorkloadProfile: I/O workload policy used to tune page access.
+	WorkloadProfile string
+	// WorkerPolicy: Worker scheduling policy and effective parallelism.
+	WorkerPolicy string
 }
 
 // Variable represents the name and sensitivity classification of a variable stored in a lockbox.
 type Variable struct {
-  // Name: Name used to address the variable in the lockbox.
-  Name string
-  // Sensitivity: Whether the value is ordinary text or a protected secret.
-  Sensitivity string
+	// Name: Name used to address the variable in the lockbox.
+	Name string
+	// Sensitivity: Whether the value is ordinary text or a protected secret.
+	Sensitivity string
 }
 
 // OwnerInspection represents whether a lockbox is owner-signed and, when available, the signing-key fingerprint.
 type OwnerInspection struct {
-  // Signed: Whether the lockbox requires owner-signed commits.
-  Signed bool
-  // Fingerprint: Owner signing-key fingerprint when one is configured.
-  Fingerprint string
-  // HasFingerprint: Whether an owner fingerprint is available.
-  HasFingerprint bool
+	// Signed: Whether the lockbox requires owner-signed commits.
+	Signed bool
+	// Fingerprint: Owner signing-key fingerprint when one is configured.
+	Fingerprint string
+	// HasFingerprint: Whether an owner fingerprint is available.
+	HasFingerprint bool
 }
 
 // Contact represents a named recipient public key stored in the local vault address book.
 type Contact struct {
-  // Name: Local address-book name of the contact.
-  Name string
-  // Key: Serialized contact public key used to grant lockbox access.
-  Key []byte
+	// Name: Local address-book name of the contact.
+	Name string
+	// Key: Serialized contact public key used to grant lockbox access.
+	Key []byte
 }
 
 // AgentEntry represents a lockbox key currently held by the local session agent, identified by lockbox and path.
 type AgentEntry struct {
-  // Id: Stable lockbox identifier for the cached key.
-  Id string
-  // Path: Host path associated with the cached lockbox key.
-  Path string
+	// Id: Stable lockbox identifier for the cached key.
+	Id string
+	// Path: Host path associated with the cached lockbox key.
+	Path string
 }
 
 // SleepSupport represents the host capabilities used to protect cached secrets across suspend and sleep.
 type SleepSupport struct {
-  // SuspendNotifications: Whether the host reports impending system suspend.
-  SuspendNotifications bool
-  // SleepInhibition: Whether the agent can delay sleep while handling secrets.
-  SleepInhibition bool
-  // Supported: Whether the host supplies enough integration for safe caching.
-  Supported bool
+	// SuspendNotifications: Whether the host reports impending system suspend.
+	SuspendNotifications bool
+	// SleepInhibition: Whether the agent can delay sleep while handling secrets.
+	SleepInhibition bool
+	// Supported: Whether the host supplies enough integration for safe caching.
+	Supported bool
 }
 
 // PlatformCredentialStatus represents availability and configuration of the operating-system credential store used for the vault password.
 type PlatformCredentialStatus struct {
-  // Supported: Whether a usable operating-system credential store exists.
-  Supported bool
-  // Disabled: Whether the user disabled credential-store integration.
-  Disabled bool
-  // Scope: Application-specific scope used to isolate the stored password.
-  Scope string
-  // Backend: Operating-system credential-store backend in use.
-  Backend string
-  // Item: Credential item name used by the backend.
-  Item string
+	// Supported: Whether a usable operating-system credential store exists.
+	Supported bool
+	// Disabled: Whether the user disabled credential-store integration.
+	Disabled bool
+	// Scope: Application-specific scope used to isolate the stored password.
+	Scope string
+	// Backend: Operating-system credential-store backend in use.
+	Backend string
+	// Item: Credential item name used by the backend.
+	Item string
 }
 
 // VaultBackupManifest represents the version, size, checksum, and creation time of an exported local-vault backup.
 type VaultBackupManifest struct {
-  // FormatVersion: Backup container format version.
-  FormatVersion uint32
-  // CreatedAtUnixMs: Backup creation time in Unix milliseconds.
-  CreatedAtUnixMs uint64
-  // VaultFileName: Metadata-vault filename stored in the backup.
-  VaultFileName string
-  // VaultSize: Encrypted vault payload size in bytes.
-  VaultSize uint64
-  // VaultSha256: Lowercase SHA-256 digest of the encrypted vault payload.
-  VaultSha256 string
+	// FormatVersion: Backup container format version.
+	FormatVersion uint32
+	// CreatedAtUnixMs: Backup creation time in Unix milliseconds.
+	CreatedAtUnixMs uint64
+	// VaultFileName: Metadata-vault filename stored in the backup.
+	VaultFileName string
+	// VaultSize: Encrypted vault payload size in bytes.
+	VaultSize uint64
+	// VaultSha256: Lowercase SHA-256 digest of the encrypted vault payload.
+	VaultSha256 string
 }
 
 // ErrorDetails represents structured category, version, guidance, and artifact context for the most recent native failure.
 type ErrorDetails struct {
-  // Category: Stable error category suitable for programmatic handling.
-  Category string
-  // ArtifactKind: Kind of archive or vault artifact involved in the failure.
-  ArtifactKind string
-  // FoundVersion: Format version read from the failing artifact.
-  FoundVersion uint32
-  // SupportedVersion: Newest format version supported by this library.
-  SupportedVersion uint32
-  // Message: Human-readable explanation of the failure.
-  Message string
-  // Guidance: Suggested corrective action for the caller or user.
-  Guidance string
+	// Category: Stable error category suitable for programmatic handling.
+	Category string
+	// ArtifactKind: Kind of archive or vault artifact involved in the failure.
+	ArtifactKind string
+	// FoundVersion: Format version read from the failing artifact.
+	FoundVersion uint32
+	// SupportedVersion: Newest format version supported by this library.
+	SupportedVersion uint32
+	// Message: Human-readable explanation of the failure.
+	Message string
+	// Guidance: Suggested corrective action for the caller or user.
+	Guidance string
 }
 
 func domainLockboxEntry(value *transport.LockboxEntryT) *LockboxEntry {
-  if value == nil { return nil }
-  result := &LockboxEntry{}
-  result.Path = value.Path
-  result.Kind = LockboxEntryKind(value.Kind)
-  result.Length = value.Length
-  result.Permissions = value.Permissions
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &LockboxEntry{}
+	result.Path = value.Path
+	result.Kind = LockboxEntryKind(value.Kind)
+	result.Length = value.Length
+	result.Permissions = value.Permissions
+	return result
 }
-func decodeLockboxEntry(bytes []byte) *LockboxEntry { return domainLockboxEntry(transport.GetRootAsLockboxEntry(bytes, 0).UnPack()) }
+func decodeLockboxEntry(bytes []byte) *LockboxEntry {
+	return domainLockboxEntry(transport.GetRootAsLockboxEntry(bytes, 0).UnPack())
+}
 
 func domainPathMove(value *transport.PathMoveT) *PathMove {
-  if value == nil { return nil }
-  result := &PathMove{}
-  result.Source = value.Source
-  result.Destination = value.Destination
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &PathMove{}
+	result.Source = value.Source
+	result.Destination = value.Destination
+	return result
 }
-func decodePathMove(bytes []byte) *PathMove { return domainPathMove(transport.GetRootAsPathMove(bytes, 0).UnPack()) }
+func decodePathMove(bytes []byte) *PathMove {
+	return domainPathMove(transport.GetRootAsPathMove(bytes, 0).UnPack())
+}
 
 func domainFormField(value *transport.FormFieldT) *FormField {
-  if value == nil { return nil }
-  result := &FormField{}
-  result.Id = value.Id
-  result.Label = value.Label
-  result.Kind = value.Kind
-  result.Required = value.Required
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &FormField{}
+	result.Id = value.Id
+	result.Label = value.Label
+	result.Kind = value.Kind
+	result.Required = value.Required
+	return result
 }
-func decodeFormField(bytes []byte) *FormField { return domainFormField(transport.GetRootAsFormField(bytes, 0).UnPack()) }
+func decodeFormField(bytes []byte) *FormField {
+	return domainFormField(transport.GetRootAsFormField(bytes, 0).UnPack())
+}
 
 func domainFormDefinition(value *transport.FormDefinitionT) *FormDefinition {
-  if value == nil { return nil }
-  result := &FormDefinition{}
-  result.TypeId = value.TypeId
-  result.Alias = value.Alias
-  result.Revision = value.Revision
-  result.Name = value.Name
-  result.Description = value.Description
-  result.Fields = make([]FormField, 0, len(value.Fields))
-  for _, item := range value.Fields { result.Fields = append(result.Fields, *domainFormField(item)) }
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &FormDefinition{}
+	result.TypeId = value.TypeId
+	result.Alias = value.Alias
+	result.Revision = value.Revision
+	result.Name = value.Name
+	result.Description = value.Description
+	result.Fields = make([]FormField, 0, len(value.Fields))
+	for _, item := range value.Fields {
+		result.Fields = append(result.Fields, *domainFormField(item))
+	}
+	return result
 }
-func decodeFormDefinition(bytes []byte) *FormDefinition { return domainFormDefinition(transport.GetRootAsFormDefinition(bytes, 0).UnPack()) }
+func decodeFormDefinition(bytes []byte) *FormDefinition {
+	return domainFormDefinition(transport.GetRootAsFormDefinition(bytes, 0).UnPack())
+}
 
 func domainFormValue(value *transport.FormValueT) *FormValue {
-  if value == nil { return nil }
-  result := &FormValue{}
-  result.FieldId = value.FieldId
-  result.Label = value.Label
-  result.Kind = value.Kind
-  result.Value = value.Value
-  result.Secret = value.Secret
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &FormValue{}
+	result.FieldId = value.FieldId
+	result.Label = value.Label
+	result.Kind = value.Kind
+	result.Value = value.Value
+	result.Secret = value.Secret
+	return result
 }
-func decodeFormValue(bytes []byte) *FormValue { return domainFormValue(transport.GetRootAsFormValue(bytes, 0).UnPack()) }
+func decodeFormValue(bytes []byte) *FormValue {
+	return domainFormValue(transport.GetRootAsFormValue(bytes, 0).UnPack())
+}
 
 func domainFormRecord(value *transport.FormRecordT) *FormRecord {
-  if value == nil { return nil }
-  result := &FormRecord{}
-  result.Path = value.Path
-  result.Name = value.Name
-  result.TypeId = value.TypeId
-  result.DefinitionAlias = value.DefinitionAlias
-  result.DefinitionRevision = value.DefinitionRevision
-  result.Values = make([]FormValue, 0, len(value.Values))
-  for _, item := range value.Values { result.Values = append(result.Values, *domainFormValue(item)) }
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &FormRecord{}
+	result.Path = value.Path
+	result.Name = value.Name
+	result.TypeId = value.TypeId
+	result.DefinitionAlias = value.DefinitionAlias
+	result.DefinitionRevision = value.DefinitionRevision
+	result.Values = make([]FormValue, 0, len(value.Values))
+	for _, item := range value.Values {
+		result.Values = append(result.Values, *domainFormValue(item))
+	}
+	return result
 }
-func decodeFormRecord(bytes []byte) *FormRecord { return domainFormRecord(transport.GetRootAsFormRecord(bytes, 0).UnPack()) }
+func decodeFormRecord(bytes []byte) *FormRecord {
+	return domainFormRecord(transport.GetRootAsFormRecord(bytes, 0).UnPack())
+}
 
 func domainRecoveryReport(value *transport.RecoveryReportT) *RecoveryReport {
-  if value == nil { return nil }
-  result := &RecoveryReport{}
-  result.IntactFiles = make([]LockboxEntry, 0, len(value.IntactFiles))
-  for _, item := range value.IntactFiles { result.IntactFiles = append(result.IntactFiles, *domainLockboxEntry(item)) }
-  result.IntactFileCount = value.IntactFileCount
-  result.PartialFiles = value.PartialFiles
-  result.CorruptRecords = value.CorruptRecords
-  result.TocRecovered = value.TocRecovered
-  result.VariablesRecovered = value.VariablesRecovered
-  result.VariableCount = value.VariableCount
-  result.FormsRecovered = value.FormsRecovered
-  result.FormDefinitionCount = value.FormDefinitionCount
-  result.FormRecordCount = value.FormRecordCount
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &RecoveryReport{}
+	result.IntactFiles = make([]LockboxEntry, 0, len(value.IntactFiles))
+	for _, item := range value.IntactFiles {
+		result.IntactFiles = append(result.IntactFiles, *domainLockboxEntry(item))
+	}
+	result.IntactFileCount = value.IntactFileCount
+	result.PartialFiles = value.PartialFiles
+	result.CorruptRecords = value.CorruptRecords
+	result.TocRecovered = value.TocRecovered
+	result.VariablesRecovered = value.VariablesRecovered
+	result.VariableCount = value.VariableCount
+	result.FormsRecovered = value.FormsRecovered
+	result.FormDefinitionCount = value.FormDefinitionCount
+	result.FormRecordCount = value.FormRecordCount
+	return result
 }
-func decodeRecoveryReport(bytes []byte) *RecoveryReport { return domainRecoveryReport(transport.GetRootAsRecoveryReport(bytes, 0).UnPack()) }
+func decodeRecoveryReport(bytes []byte) *RecoveryReport {
+	return domainRecoveryReport(transport.GetRootAsRecoveryReport(bytes, 0).UnPack())
+}
 
 func domainKeySlot(value *transport.KeySlotT) *KeySlot {
-  if value == nil { return nil }
-  result := &KeySlot{}
-  result.Id = value.Id
-  result.Protection = value.Protection
-  result.Algorithm = value.Algorithm
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &KeySlot{}
+	result.Id = value.Id
+	result.Protection = value.Protection
+	result.Algorithm = value.Algorithm
+	return result
 }
-func decodeKeySlot(bytes []byte) *KeySlot { return domainKeySlot(transport.GetRootAsKeySlot(bytes, 0).UnPack()) }
+func decodeKeySlot(bytes []byte) *KeySlot {
+	return domainKeySlot(transport.GetRootAsKeySlot(bytes, 0).UnPack())
+}
 
 func domainCacheStats(value *transport.CacheStatsT) *CacheStats {
-  if value == nil { return nil }
-  result := &CacheStats{}
-  result.LimitBytes = value.LimitBytes
-  result.UsedBytes = value.UsedBytes
-  result.Entries = value.Entries
-  result.Hits = value.Hits
-  result.Misses = value.Misses
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &CacheStats{}
+	result.LimitBytes = value.LimitBytes
+	result.UsedBytes = value.UsedBytes
+	result.Entries = value.Entries
+	result.Hits = value.Hits
+	result.Misses = value.Misses
+	return result
 }
-func decodeCacheStats(bytes []byte) *CacheStats { return domainCacheStats(transport.GetRootAsCacheStats(bytes, 0).UnPack()) }
+func decodeCacheStats(bytes []byte) *CacheStats {
+	return domainCacheStats(transport.GetRootAsCacheStats(bytes, 0).UnPack())
+}
 
 func domainImportStats(value *transport.ImportStatsT) *ImportStats {
-  if value == nil { return nil }
-  result := &ImportStats{}
-  result.HostStatNanos = value.HostStatNanos
-  result.HostReadNanos = value.HostReadNanos
-  result.FramePrepareNanos = value.FramePrepareNanos
-  result.PageWriteNanos = value.PageWriteNanos
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &ImportStats{}
+	result.HostStatNanos = value.HostStatNanos
+	result.HostReadNanos = value.HostReadNanos
+	result.FramePrepareNanos = value.FramePrepareNanos
+	result.PageWriteNanos = value.PageWriteNanos
+	return result
 }
-func decodeImportStats(bytes []byte) *ImportStats { return domainImportStats(transport.GetRootAsImportStats(bytes, 0).UnPack()) }
+func decodeImportStats(bytes []byte) *ImportStats {
+	return domainImportStats(transport.GetRootAsImportStats(bytes, 0).UnPack())
+}
 
 func domainPageObject(value *transport.PageObjectT) *PageObject {
-  if value == nil { return nil }
-  result := &PageObject{}
-  result.Id = value.Id
-  result.Kind = value.Kind
-  result.PayloadLen = value.PayloadLen
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &PageObject{}
+	result.Id = value.Id
+	result.Kind = value.Kind
+	result.PayloadLen = value.PayloadLen
+	return result
 }
-func decodePageObject(bytes []byte) *PageObject { return domainPageObject(transport.GetRootAsPageObject(bytes, 0).UnPack()) }
+func decodePageObject(bytes []byte) *PageObject {
+	return domainPageObject(transport.GetRootAsPageObject(bytes, 0).UnPack())
+}
 
 func domainPageInspection(value *transport.PageInspectionT) *PageInspection {
-  if value == nil { return nil }
-  result := &PageInspection{}
-  result.Offset = value.Offset
-  result.PageId = value.PageId
-  result.Sequence = value.Sequence
-  result.PageSize = value.PageSize
-  result.EncryptedBodyLen = value.EncryptedBodyLen
-  result.UnusedBytes = value.UnusedBytes
-  result.ObjectCount = value.ObjectCount
-  result.Objects = make([]PageObject, 0, len(value.Objects))
-  for _, item := range value.Objects { result.Objects = append(result.Objects, *domainPageObject(item)) }
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &PageInspection{}
+	result.Offset = value.Offset
+	result.PageId = value.PageId
+	result.Sequence = value.Sequence
+	result.PageSize = value.PageSize
+	result.EncryptedBodyLen = value.EncryptedBodyLen
+	result.UnusedBytes = value.UnusedBytes
+	result.ObjectCount = value.ObjectCount
+	result.Objects = make([]PageObject, 0, len(value.Objects))
+	for _, item := range value.Objects {
+		result.Objects = append(result.Objects, *domainPageObject(item))
+	}
+	return result
 }
-func decodePageInspection(bytes []byte) *PageInspection { return domainPageInspection(transport.GetRootAsPageInspection(bytes, 0).UnPack()) }
+func decodePageInspection(bytes []byte) *PageInspection {
+	return domainPageInspection(transport.GetRootAsPageInspection(bytes, 0).UnPack())
+}
 
 func domainFileInspection(value *transport.FileInspectionT) *FileInspection {
-  if value == nil { return nil }
-  result := &FileInspection{}
-  result.LockboxId = append([]byte(nil), value.LockboxId...)
-  result.HeaderReadable = value.HeaderReadable
-  result.KeyDirectoryGeneration = value.KeyDirectoryGeneration
-  result.KeyDirectoryCopyCount = value.KeyDirectoryCopyCount
-  result.OwnerSigned = value.OwnerSigned
-  result.KeySlots = make([]KeySlot, 0, len(value.KeySlots))
-  for _, item := range value.KeySlots { result.KeySlots = append(result.KeySlots, *domainKeySlot(item)) }
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &FileInspection{}
+	result.LockboxId = append([]byte(nil), value.LockboxId...)
+	result.HeaderReadable = value.HeaderReadable
+	result.KeyDirectoryGeneration = value.KeyDirectoryGeneration
+	result.KeyDirectoryCopyCount = value.KeyDirectoryCopyCount
+	result.OwnerSigned = value.OwnerSigned
+	result.KeySlots = make([]KeySlot, 0, len(value.KeySlots))
+	for _, item := range value.KeySlots {
+		result.KeySlots = append(result.KeySlots, *domainKeySlot(item))
+	}
+	return result
 }
-func decodeFileInspection(bytes []byte) *FileInspection { return domainFileInspection(transport.GetRootAsFileInspection(bytes, 0).UnPack()) }
+func decodeFileInspection(bytes []byte) *FileInspection {
+	return domainFileInspection(transport.GetRootAsFileInspection(bytes, 0).UnPack())
+}
 
 func domainProfileGeneration(value *transport.ProfileGenerationT) *ProfileGeneration {
-  if value == nil { return nil }
-  result := &ProfileGeneration{}
-  result.Index = value.Index
-  result.Status = value.Status
-  result.ContactFingerprint = append([]byte(nil), value.ContactFingerprint...)
-  result.CreatedAtUnixMs = value.CreatedAtUnixMs
-  result.RetiredAtUnixMs = value.RetiredAtUnixMs
-  result.HasRetiredAt = value.HasRetiredAt
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &ProfileGeneration{}
+	result.Index = value.Index
+	result.Status = value.Status
+	result.ContactFingerprint = append([]byte(nil), value.ContactFingerprint...)
+	result.CreatedAtUnixMs = value.CreatedAtUnixMs
+	result.RetiredAtUnixMs = value.RetiredAtUnixMs
+	result.HasRetiredAt = value.HasRetiredAt
+	return result
 }
-func decodeProfileGeneration(bytes []byte) *ProfileGeneration { return domainProfileGeneration(transport.GetRootAsProfileGeneration(bytes, 0).UnPack()) }
+func decodeProfileGeneration(bytes []byte) *ProfileGeneration {
+	return domainProfileGeneration(transport.GetRootAsProfileGeneration(bytes, 0).UnPack())
+}
 
 func domainProfileHistory(value *transport.ProfileHistoryT) *ProfileHistory {
-  if value == nil { return nil }
-  result := &ProfileHistory{}
-  result.Name = value.Name
-  result.ActiveGeneration = value.ActiveGeneration
-  result.Generations = make([]ProfileGeneration, 0, len(value.Generations))
-  for _, item := range value.Generations { result.Generations = append(result.Generations, *domainProfileGeneration(item)) }
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &ProfileHistory{}
+	result.Name = value.Name
+	result.ActiveGeneration = value.ActiveGeneration
+	result.Generations = make([]ProfileGeneration, 0, len(value.Generations))
+	for _, item := range value.Generations {
+		result.Generations = append(result.Generations, *domainProfileGeneration(item))
+	}
+	return result
 }
-func decodeProfileHistory(bytes []byte) *ProfileHistory { return domainProfileHistory(transport.GetRootAsProfileHistory(bytes, 0).UnPack()) }
+func decodeProfileHistory(bytes []byte) *ProfileHistory {
+	return domainProfileHistory(transport.GetRootAsProfileHistory(bytes, 0).UnPack())
+}
 
 func domainKnownLockbox(value *transport.KnownLockboxT) *KnownLockbox {
-  if value == nil { return nil }
-  result := &KnownLockbox{}
-  result.LockboxId = append([]byte(nil), value.LockboxId...)
-  result.Path = value.Path
-  result.LastSeenUnixMs = value.LastSeenUnixMs
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &KnownLockbox{}
+	result.LockboxId = append([]byte(nil), value.LockboxId...)
+	result.Path = value.Path
+	result.LastSeenUnixMs = value.LastSeenUnixMs
+	return result
 }
-func decodeKnownLockbox(bytes []byte) *KnownLockbox { return domainKnownLockbox(transport.GetRootAsKnownLockbox(bytes, 0).UnPack()) }
+func decodeKnownLockbox(bytes []byte) *KnownLockbox {
+	return domainKnownLockbox(transport.GetRootAsKnownLockbox(bytes, 0).UnPack())
+}
 
 func domainAccessSlotLabel(value *transport.AccessSlotLabelT) *AccessSlotLabel {
-  if value == nil { return nil }
-  result := &AccessSlotLabel{}
-  result.LockboxId = append([]byte(nil), value.LockboxId...)
-  result.SlotId = value.SlotId
-  result.Name = value.Name
-  result.UpdatedAtUnixMs = value.UpdatedAtUnixMs
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &AccessSlotLabel{}
+	result.LockboxId = append([]byte(nil), value.LockboxId...)
+	result.SlotId = value.SlotId
+	result.Name = value.Name
+	result.UpdatedAtUnixMs = value.UpdatedAtUnixMs
+	return result
 }
-func decodeAccessSlotLabel(bytes []byte) *AccessSlotLabel { return domainAccessSlotLabel(transport.GetRootAsAccessSlotLabel(bytes, 0).UnPack()) }
+func decodeAccessSlotLabel(bytes []byte) *AccessSlotLabel {
+	return domainAccessSlotLabel(transport.GetRootAsAccessSlotLabel(bytes, 0).UnPack())
+}
 
 func domainStreamChunk(value *transport.StreamChunkT) *StreamChunk {
-  if value == nil { return nil }
-  result := &StreamChunk{}
-  result.Path = value.Path
-  result.FileOffset = value.FileOffset
-  result.Length = value.Length
-  result.PhysicalOffset = value.PhysicalOffset
-  result.Sparse = value.Sparse
-  result.Data = append([]byte(nil), value.Data...)
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &StreamChunk{}
+	result.Path = value.Path
+	result.FileOffset = value.FileOffset
+	result.Length = value.Length
+	result.PhysicalOffset = value.PhysicalOffset
+	result.Sparse = value.Sparse
+	result.Data = append([]byte(nil), value.Data...)
+	return result
 }
-func decodeStreamChunk(bytes []byte) *StreamChunk { return domainStreamChunk(transport.GetRootAsStreamChunk(bytes, 0).UnPack()) }
+func decodeStreamChunk(bytes []byte) *StreamChunk {
+	return domainStreamChunk(transport.GetRootAsStreamChunk(bytes, 0).UnPack())
+}
 
 func domainRuntimeOptions(value *transport.RuntimeOptionsT) *RuntimeOptions {
-  if value == nil { return nil }
-  result := &RuntimeOptions{}
-  result.WorkloadProfile = value.WorkloadProfile
-  result.WorkerPolicy = value.WorkerPolicy
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &RuntimeOptions{}
+	result.WorkloadProfile = value.WorkloadProfile
+	result.WorkerPolicy = value.WorkerPolicy
+	return result
 }
-func decodeRuntimeOptions(bytes []byte) *RuntimeOptions { return domainRuntimeOptions(transport.GetRootAsRuntimeOptions(bytes, 0).UnPack()) }
+func decodeRuntimeOptions(bytes []byte) *RuntimeOptions {
+	return domainRuntimeOptions(transport.GetRootAsRuntimeOptions(bytes, 0).UnPack())
+}
 
 func domainVariable(value *transport.VariableT) *Variable {
-  if value == nil { return nil }
-  result := &Variable{}
-  result.Name = value.Name
-  result.Sensitivity = value.Sensitivity
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &Variable{}
+	result.Name = value.Name
+	result.Sensitivity = value.Sensitivity
+	return result
 }
-func decodeVariable(bytes []byte) *Variable { return domainVariable(transport.GetRootAsVariable(bytes, 0).UnPack()) }
+func decodeVariable(bytes []byte) *Variable {
+	return domainVariable(transport.GetRootAsVariable(bytes, 0).UnPack())
+}
 
 func domainOwnerInspection(value *transport.OwnerInspectionT) *OwnerInspection {
-  if value == nil { return nil }
-  result := &OwnerInspection{}
-  result.Signed = value.Signed
-  result.Fingerprint = value.Fingerprint
-  result.HasFingerprint = value.HasFingerprint
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &OwnerInspection{}
+	result.Signed = value.Signed
+	result.Fingerprint = value.Fingerprint
+	result.HasFingerprint = value.HasFingerprint
+	return result
 }
-func decodeOwnerInspection(bytes []byte) *OwnerInspection { return domainOwnerInspection(transport.GetRootAsOwnerInspection(bytes, 0).UnPack()) }
+func decodeOwnerInspection(bytes []byte) *OwnerInspection {
+	return domainOwnerInspection(transport.GetRootAsOwnerInspection(bytes, 0).UnPack())
+}
 
 func domainContact(value *transport.ContactT) *Contact {
-  if value == nil { return nil }
-  result := &Contact{}
-  result.Name = value.Name
-  result.Key = append([]byte(nil), value.Key...)
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &Contact{}
+	result.Name = value.Name
+	result.Key = append([]byte(nil), value.Key...)
+	return result
 }
-func decodeContact(bytes []byte) *Contact { return domainContact(transport.GetRootAsContact(bytes, 0).UnPack()) }
+func decodeContact(bytes []byte) *Contact {
+	return domainContact(transport.GetRootAsContact(bytes, 0).UnPack())
+}
 
 func domainAgentEntry(value *transport.AgentEntryT) *AgentEntry {
-  if value == nil { return nil }
-  result := &AgentEntry{}
-  result.Id = value.Id
-  result.Path = value.Path
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &AgentEntry{}
+	result.Id = value.Id
+	result.Path = value.Path
+	return result
 }
-func decodeAgentEntry(bytes []byte) *AgentEntry { return domainAgentEntry(transport.GetRootAsAgentEntry(bytes, 0).UnPack()) }
+func decodeAgentEntry(bytes []byte) *AgentEntry {
+	return domainAgentEntry(transport.GetRootAsAgentEntry(bytes, 0).UnPack())
+}
 
 func domainSleepSupport(value *transport.SleepSupportT) *SleepSupport {
-  if value == nil { return nil }
-  result := &SleepSupport{}
-  result.SuspendNotifications = value.SuspendNotifications
-  result.SleepInhibition = value.SleepInhibition
-  result.Supported = value.Supported
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &SleepSupport{}
+	result.SuspendNotifications = value.SuspendNotifications
+	result.SleepInhibition = value.SleepInhibition
+	result.Supported = value.Supported
+	return result
 }
-func decodeSleepSupport(bytes []byte) *SleepSupport { return domainSleepSupport(transport.GetRootAsSleepSupport(bytes, 0).UnPack()) }
+func decodeSleepSupport(bytes []byte) *SleepSupport {
+	return domainSleepSupport(transport.GetRootAsSleepSupport(bytes, 0).UnPack())
+}
 
 func domainPlatformStatus(value *transport.PlatformStatusT) *PlatformCredentialStatus {
-  if value == nil { return nil }
-  result := &PlatformCredentialStatus{}
-  result.Supported = value.Supported
-  result.Disabled = value.Disabled
-  result.Scope = value.Scope
-  result.Backend = value.Backend
-  result.Item = value.Item
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &PlatformCredentialStatus{}
+	result.Supported = value.Supported
+	result.Disabled = value.Disabled
+	result.Scope = value.Scope
+	result.Backend = value.Backend
+	result.Item = value.Item
+	return result
 }
-func decodePlatformStatus(bytes []byte) *PlatformCredentialStatus { return domainPlatformStatus(transport.GetRootAsPlatformStatus(bytes, 0).UnPack()) }
+func decodePlatformStatus(bytes []byte) *PlatformCredentialStatus {
+	return domainPlatformStatus(transport.GetRootAsPlatformStatus(bytes, 0).UnPack())
+}
 
 func domainVaultBackupManifest(value *transport.VaultBackupManifestT) *VaultBackupManifest {
-  if value == nil { return nil }
-  result := &VaultBackupManifest{}
-  result.FormatVersion = value.FormatVersion
-  result.CreatedAtUnixMs = value.CreatedAtUnixMs
-  result.VaultFileName = value.VaultFileName
-  result.VaultSize = value.VaultSize
-  result.VaultSha256 = value.VaultSha256
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &VaultBackupManifest{}
+	result.FormatVersion = value.FormatVersion
+	result.CreatedAtUnixMs = value.CreatedAtUnixMs
+	result.VaultFileName = value.VaultFileName
+	result.VaultSize = value.VaultSize
+	result.VaultSha256 = value.VaultSha256
+	return result
 }
-func decodeVaultBackupManifest(bytes []byte) *VaultBackupManifest { return domainVaultBackupManifest(transport.GetRootAsVaultBackupManifest(bytes, 0).UnPack()) }
+func decodeVaultBackupManifest(bytes []byte) *VaultBackupManifest {
+	return domainVaultBackupManifest(transport.GetRootAsVaultBackupManifest(bytes, 0).UnPack())
+}
 
 func domainErrorDetails(value *transport.ErrorDetailsT) *ErrorDetails {
-  if value == nil { return nil }
-  result := &ErrorDetails{}
-  result.Category = value.Category
-  result.ArtifactKind = value.ArtifactKind
-  result.FoundVersion = value.FoundVersion
-  result.SupportedVersion = value.SupportedVersion
-  result.Message = value.Message
-  result.Guidance = value.Guidance
-  return result
+	if value == nil {
+		return nil
+	}
+	result := &ErrorDetails{}
+	result.Category = value.Category
+	result.ArtifactKind = value.ArtifactKind
+	result.FoundVersion = value.FoundVersion
+	result.SupportedVersion = value.SupportedVersion
+	result.Message = value.Message
+	result.Guidance = value.Guidance
+	return result
 }
-func decodeErrorDetails(bytes []byte) *ErrorDetails { return domainErrorDetails(transport.GetRootAsErrorDetails(bytes, 0).UnPack()) }
+func decodeErrorDetails(bytes []byte) *ErrorDetails {
+	return domainErrorDetails(transport.GetRootAsErrorDetails(bytes, 0).UnPack())
+}
 
 func decodeStreamChunkList(bytes []byte) []StreamChunk {
-  source := transport.GetRootAsStreamChunkList(bytes, 0).UnPack().Values
-  result := make([]StreamChunk, 0, len(source))
-  for _, value := range source { result = append(result, *domainStreamChunk(value)) }
-  return result
+	source := transport.GetRootAsStreamChunkList(bytes, 0).UnPack().Values
+	result := make([]StreamChunk, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainStreamChunk(value))
+	}
+	return result
 }
 
 func decodePageInspectionList(bytes []byte) []PageInspection {
-  source := transport.GetRootAsPageInspectionList(bytes, 0).UnPack().Values
-  result := make([]PageInspection, 0, len(source))
-  for _, value := range source { result = append(result, *domainPageInspection(value)) }
-  return result
+	source := transport.GetRootAsPageInspectionList(bytes, 0).UnPack().Values
+	result := make([]PageInspection, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainPageInspection(value))
+	}
+	return result
 }
 
 func decodeLockboxEntryList(bytes []byte) []LockboxEntry {
-  source := transport.GetRootAsLockboxEntryList(bytes, 0).UnPack().Entries
-  result := make([]LockboxEntry, 0, len(source))
-  for _, value := range source { result = append(result, *domainLockboxEntry(value)) }
-  return result
+	source := transport.GetRootAsLockboxEntryList(bytes, 0).UnPack().Entries
+	result := make([]LockboxEntry, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainLockboxEntry(value))
+	}
+	return result
 }
 
 func decodeVariableList(bytes []byte) []Variable {
-  source := transport.GetRootAsVariableList(bytes, 0).UnPack().Values
-  result := make([]Variable, 0, len(source))
-  for _, value := range source { result = append(result, *domainVariable(value)) }
-  return result
+	source := transport.GetRootAsVariableList(bytes, 0).UnPack().Values
+	result := make([]Variable, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainVariable(value))
+	}
+	return result
 }
 
 func decodeKeySlotList(bytes []byte) []KeySlot {
-  source := transport.GetRootAsKeySlotList(bytes, 0).UnPack().Values
-  result := make([]KeySlot, 0, len(source))
-  for _, value := range source { result = append(result, *domainKeySlot(value)) }
-  return result
+	source := transport.GetRootAsKeySlotList(bytes, 0).UnPack().Values
+	result := make([]KeySlot, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainKeySlot(value))
+	}
+	return result
 }
 
 func decodeFormDefinitionList(bytes []byte) []FormDefinition {
-  source := transport.GetRootAsFormDefinitionList(bytes, 0).UnPack().Values
-  result := make([]FormDefinition, 0, len(source))
-  for _, value := range source { result = append(result, *domainFormDefinition(value)) }
-  return result
+	source := transport.GetRootAsFormDefinitionList(bytes, 0).UnPack().Values
+	result := make([]FormDefinition, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainFormDefinition(value))
+	}
+	return result
 }
 
 func decodeFormRecordList(bytes []byte) []FormRecord {
-  source := transport.GetRootAsFormRecordList(bytes, 0).UnPack().Values
-  result := make([]FormRecord, 0, len(source))
-  for _, value := range source { result = append(result, *domainFormRecord(value)) }
-  return result
+	source := transport.GetRootAsFormRecordList(bytes, 0).UnPack().Values
+	result := make([]FormRecord, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainFormRecord(value))
+	}
+	return result
 }
 
 func decodeContactList(bytes []byte) []Contact {
-  source := transport.GetRootAsContactList(bytes, 0).UnPack().Values
-  result := make([]Contact, 0, len(source))
-  for _, value := range source { result = append(result, *domainContact(value)) }
-  return result
+	source := transport.GetRootAsContactList(bytes, 0).UnPack().Values
+	result := make([]Contact, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainContact(value))
+	}
+	return result
 }
 
 func decodeKnownLockboxList(bytes []byte) []KnownLockbox {
-  source := transport.GetRootAsKnownLockboxList(bytes, 0).UnPack().Values
-  result := make([]KnownLockbox, 0, len(source))
-  for _, value := range source { result = append(result, *domainKnownLockbox(value)) }
-  return result
+	source := transport.GetRootAsKnownLockboxList(bytes, 0).UnPack().Values
+	result := make([]KnownLockbox, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainKnownLockbox(value))
+	}
+	return result
 }
 
 func decodeAccessSlotLabelList(bytes []byte) []AccessSlotLabel {
-  source := transport.GetRootAsAccessSlotLabelList(bytes, 0).UnPack().Values
-  result := make([]AccessSlotLabel, 0, len(source))
-  for _, value := range source { result = append(result, *domainAccessSlotLabel(value)) }
-  return result
+	source := transport.GetRootAsAccessSlotLabelList(bytes, 0).UnPack().Values
+	result := make([]AccessSlotLabel, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainAccessSlotLabel(value))
+	}
+	return result
 }
 
 func decodeAgentEntryList(bytes []byte) []AgentEntry {
-  source := transport.GetRootAsAgentEntryList(bytes, 0).UnPack().Values
-  result := make([]AgentEntry, 0, len(source))
-  for _, value := range source { result = append(result, *domainAgentEntry(value)) }
-  return result
+	source := transport.GetRootAsAgentEntryList(bytes, 0).UnPack().Values
+	result := make([]AgentEntry, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainAgentEntry(value))
+	}
+	return result
 }
 
 func decodeProfileHistoryList(bytes []byte) []ProfileHistory {
-  source := transport.GetRootAsProfileHistoryList(bytes, 0).UnPack().Values
-  result := make([]ProfileHistory, 0, len(source))
-  for _, value := range source { result = append(result, *domainProfileHistory(value)) }
-  return result
+	source := transport.GetRootAsProfileHistoryList(bytes, 0).UnPack().Values
+	result := make([]ProfileHistory, 0, len(source))
+	for _, value := range source {
+		result = append(result, *domainProfileHistory(value))
+	}
+	return result
 }
 
-func decodeStringList(bytes []byte) []string { return append([]string(nil), transport.GetRootAsStringList(bytes, 0).UnPack().Values...) }
-func decodeOptionalLockboxEntry(bytes []byte) *LockboxEntry { return domainLockboxEntry(transport.GetRootAsOptionalLockboxEntry(bytes, 0).UnPack().Value) }
-func decodeOptionalFormRecord(bytes []byte) *FormRecord { return domainFormRecord(transport.GetRootAsOptionalFormRecord(bytes, 0).UnPack().Value) }
-func decodeOptionalFormValue(bytes []byte) *FormValue { return domainFormValue(transport.GetRootAsOptionalFormValue(bytes, 0).UnPack().Value) }
-func decodeOptionalString(bytes []byte) *string { value := transport.GetRootAsOptionalString(bytes, 0).UnPack(); if !value.Present { return nil }; result := value.Value; return &result }
+func decodeStringList(bytes []byte) []string {
+	return append([]string(nil), transport.GetRootAsStringList(bytes, 0).UnPack().Values...)
+}
+func decodeOptionalLockboxEntry(bytes []byte) *LockboxEntry {
+	return domainLockboxEntry(transport.GetRootAsOptionalLockboxEntry(bytes, 0).UnPack().Value)
+}
+func decodeOptionalFormRecord(bytes []byte) *FormRecord {
+	return domainFormRecord(transport.GetRootAsOptionalFormRecord(bytes, 0).UnPack().Value)
+}
+func decodeOptionalFormValue(bytes []byte) *FormValue {
+	return domainFormValue(transport.GetRootAsOptionalFormValue(bytes, 0).UnPack().Value)
+}
+func decodeOptionalString(bytes []byte) *string {
+	value := transport.GetRootAsOptionalString(bytes, 0).UnPack()
+	if !value.Present {
+		return nil
+	}
+	result := value.Value
+	return &result
+}
 func encodePathMoves(values []PathMove) []byte {
-  items := make([]*transport.PathMoveT, 0, len(values))
-  for _, value := range values { items = append(items, &transport.PathMoveT{Source: value.Source, Destination: value.Destination}) }
-  builder := flatbuffers.NewBuilder(256); root := (&transport.PathMoveListT{Values: items}).Pack(builder); builder.Finish(root); return append([]byte(nil), builder.FinishedBytes()...)
+	items := make([]*transport.PathMoveT, 0, len(values))
+	for _, value := range values {
+		items = append(items, &transport.PathMoveT{Source: value.Source, Destination: value.Destination})
+	}
+	builder := flatbuffers.NewBuilder(256)
+	root := (&transport.PathMoveListT{Values: items}).Pack(builder)
+	builder.Finish(root)
+	return append([]byte(nil), builder.FinishedBytes()...)
 }
 func encodeFormFields(values []FormField) []byte {
-  items := make([]*transport.FormFieldT, 0, len(values))
-  for _, value := range values { items = append(items, &transport.FormFieldT{Id: value.Id, Label: value.Label, Kind: value.Kind, Required: value.Required}) }
-  builder := flatbuffers.NewBuilder(256); root := (&transport.FormFieldListT{Values: items}).Pack(builder); builder.Finish(root); return append([]byte(nil), builder.FinishedBytes()...)
+	items := make([]*transport.FormFieldT, 0, len(values))
+	for _, value := range values {
+		items = append(items, &transport.FormFieldT{Id: value.Id, Label: value.Label, Kind: value.Kind, Required: value.Required})
+	}
+	builder := flatbuffers.NewBuilder(256)
+	root := (&transport.FormFieldListT{Values: items}).Pack(builder)
+	builder.Finish(root)
+	return append([]byte(nil), builder.FinishedBytes()...)
 }
