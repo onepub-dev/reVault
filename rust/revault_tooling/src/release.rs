@@ -243,7 +243,7 @@ fn install_native(args: InstallNative) -> Result {
     install_archive(&args.archive, &args.prefix).map(|_| ())
 }
 
-fn msvc_path(path: &Path) -> String {
+pub(crate) fn msvc_path(path: &Path) -> String {
     let value = path.to_string_lossy();
     if let Some(tail) = value.strip_prefix(r"\\?\UNC\") {
         format!(r"\\{tail}")

@@ -506,16 +506,21 @@ fn native_conformance(args: NativeConformance) -> Result {
     run_status(
         Command::new("cmake")
             .arg("-S")
-            .arg(repository.join("bindings/e2e/c"))
+            .arg(crate::release::msvc_path(
+                &repository.join("bindings/e2e/c"),
+            ))
             .arg("-B")
-            .arg(&build)
+            .arg(crate::release::msvc_path(&build))
             .arg("-DCMAKE_BUILD_TYPE=Release")
-            .arg(format!("-DCMAKE_PREFIX_PATH={}", install.prefix.display())),
+            .arg(format!(
+                "-DCMAKE_PREFIX_PATH={}",
+                crate::release::msvc_path(&install.prefix)
+            )),
     )?;
     run_status(
         Command::new("cmake")
             .arg("--build")
-            .arg(&build)
+            .arg(crate::release::msvc_path(&build))
             .args(["--config", "Release"]),
     )?;
     let executable = if cfg!(windows) {
