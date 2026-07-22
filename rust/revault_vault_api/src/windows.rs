@@ -28,8 +28,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use windows_sys::Win32::Foundation::{
-    CloseHandle, GetLastError, LocalFree, ERROR_FILE_NOT_FOUND, ERROR_NO_TOKEN, ERROR_PIPE_BUSY,
-    ERROR_PIPE_CONNECTED, GENERIC_READ, GENERIC_WRITE, HANDLE, INVALID_HANDLE_VALUE,
+    CloseHandle, GetLastError, LocalFree, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND,
+    ERROR_NO_TOKEN, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GENERIC_READ, GENERIC_WRITE, HANDLE,
+    INVALID_HANDLE_VALUE,
 };
 use windows_sys::Win32::Security::Authorization::{
     ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
@@ -46,7 +47,7 @@ use windows_sys::Win32::System::Pipes::{
     WaitNamedPipeW, PIPE_READMODE_BYTE, PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
 };
 use windows_sys::Win32::System::Threading::{
-    GetCurrentProcess, GetCurrentThread, OpenProcessToken, OpenThreadToken,
+    CreateMutexW, GetCurrentProcess, GetCurrentThread, OpenProcessToken, OpenThreadToken,
 };
 
 const IDLE_EXIT_SECONDS: u64 = 10 * 60;
@@ -61,6 +62,10 @@ struct CacheEntry {
 }
 
 pub(crate) fn serve_agent() -> io::Result<()> {
+    let Some(_singleton) = acquire_agent_singleton()? else {
+        log_agent_event("agent already running");
+        return Ok(());
+    };
     log_agent_event("agent starting");
     let current_user_sid = current_process_user_sid()?;
     let cache = Arc::new(Mutex::new(BTreeMap::<String, CacheEntry>::new()));
@@ -360,10 +365,10 @@ fn start_agent() -> io::Result<()> {
 }
 
 fn ensure_agent() -> io::Result<()> {
+    if existing_agent_is_compatible()? {
+        return Ok(());
+    }
     if open_pipe(&wide_pipe_name()).is_ok() {
-        if existing_agent_is_compatible()? {
-            return Ok(());
-        }
         stop_incompatible_agent()?;
     }
     start_agent()?;
@@ -378,6 +383,25 @@ fn ensure_agent() -> io::Result<()> {
         io::ErrorKind::TimedOut,
         "lockbox session agent did not start",
     ))
+}
+
+fn acquire_agent_singleton() -> io::Result<Option<OwnedHandle>> {
+    let name = wide_mutex_name();
+    let mut security = PipeSecurity::current_owner_only()?;
+    // SAFETY: `name` is a null-terminated UTF-16 string and `security` owns a
+    // valid descriptor for the duration of the call. The returned handle is
+    // either transferred to `OwnedHandle` or reported as an OS error.
+    let handle = unsafe { CreateMutexW(security.as_mut_ptr(), 0, name.as_ptr()) };
+    if handle.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+    let already_exists = last_error() == ERROR_ALREADY_EXISTS;
+    let handle = OwnedHandle::new(handle);
+    if already_exists {
+        Ok(None)
+    } else {
+        Ok(Some(handle))
+    }
 }
 
 fn existing_agent_is_compatible() -> io::Result<bool> {
@@ -1050,6 +1074,10 @@ fn invalid_control_response<T>(response: ControlResponse) -> io::Result<T> {
 
 fn wide_pipe_name() -> Vec<u16> {
     to_wide(&format!(r"\\.\pipe\lockbox-agent-{}", pipe_scope()))
+}
+
+fn wide_mutex_name() -> Vec<u16> {
+    to_wide(&format!(r"Local\lockbox-agent-{}", pipe_scope()))
 }
 
 fn pipe_scope() -> String {
