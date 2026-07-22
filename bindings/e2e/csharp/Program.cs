@@ -115,7 +115,7 @@ static class Conformance
         Check(box.GetFormRecord("/account.form")!.Values.Count == 2, "values");
         Check(box.GetFormField("/account.form", "username")!.Value == "alice", "field"); Check(box.ListFormRecords().Count == 1, "records");
         Pass("lockbox_get_form_record"); Pass("lockbox_get_form_field"); Pass("lockbox_list_form_records");
-        box.MoveFormRecords(new[] { new PathMove("/account.form", "/moved.form") }); Check(box.GetFormRecord("/moved.form")!.Values.Count == 1, "moved record");
+        box.MoveFormRecords(new[] { new PathMove("/account.form", "/moved.form") }); Check(box.GetFormRecord("/moved.form")!.Values.Count == 2, "moved record");
         box.MoveFormRecords(new[] { new PathMove("/moved.form", "/account.form") }); Pass("lockbox_move_form_records", 3);
         using var signing = Api.GenerateSigningKeyPair(); using var contact = Api.GenerateContactKeyPair(); using var publicKey = contact.PublicKey();
         box.SetOwnerSigningKey(signing); Pass("lockbox_set_owner_signing_key"); var passwordSlot = box.AddPassword(Bytes("archive password")); Pass("lockbox_add_password");

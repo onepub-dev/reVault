@@ -268,7 +268,7 @@ func advancedArchive() {
 	pass("lockbox_get_form_field")
 	pass("lockbox_list_form_records")
 	must(box.MoveFormRecords([]revault.PathMove{{Source: "/account.form", Destination: "/moved.form"}}))
-	check(len(mustValue(box.GetFormRecord("/moved.form")).Values) == 1, "moved form record")
+	check(len(mustValue(box.GetFormRecord("/moved.form")).Values) == 2, "moved form record")
 	must(box.MoveFormRecords([]revault.PathMove{{Source: "/moved.form", Destination: "/account.form"}}))
 	pass("lockbox_move_form_records", 3)
 	signing := mustValue(revault.GenerateSigningKeyPair())

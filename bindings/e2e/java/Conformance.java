@@ -187,7 +187,7 @@ public final class Conformance {
       check(box.listFormRecords().size() == 1, "records");
       pass("lockbox_get_form_record"); pass("lockbox_get_form_field"); pass("lockbox_list_form_records");
       box.moveFormRecords(java.util.List.of(new PathMove("/account.form", "/moved.form")));
-      check(box.getFormRecord("/moved.form").values().size() == 1, "moved record");
+      check(box.getFormRecord("/moved.form").values().size() == 2, "moved record");
       box.moveFormRecords(java.util.List.of(new PathMove("/moved.form", "/account.form")));
       pass("lockbox_move_form_records", 3);
       try (var signing = API.generateSigningKeyPair(); var contact = API.generateContactKeyPair();
