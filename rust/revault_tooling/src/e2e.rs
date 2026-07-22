@@ -5,7 +5,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 use walkdir::WalkDir;
 
 const LANGUAGES: [&str; 16] = [
@@ -528,35 +530,58 @@ fn native_conformance(args: NativeConformance) -> Result {
     } else {
         build.join("revault_c_conformance")
     };
-    let mut command = Command::new(&executable);
     let library_dir = install.prefix.join("lib");
-    if cfg!(target_os = "linux") {
-        command.env("LD_LIBRARY_PATH", &library_dir);
-    }
-    if cfg!(target_os = "macos") {
-        command.env("DYLD_LIBRARY_PATH", &library_dir);
-    }
-    if cfg!(windows) {
-        let mut paths = vec![library_dir.clone()];
-        paths.extend(std::env::split_paths(
-            &std::env::var_os("PATH").unwrap_or_default(),
-        ));
-        command.env("PATH", std::env::join_paths(paths)?);
-    }
-    command.env_remove("REVAULT_LIBRARY");
-    command.envs(service_env);
-    command.env("REVAULT_E2E_LANGUAGE", "c");
-    command.env("REVAULT_E2E_ARTIFACT_DIR", work.join("artifacts"));
-    let output = command.output()?;
-    if !output.status.success() {
-        return Err(format!(
-            "native conformance failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
+    let mut combined = Vec::new();
+    for phase in ["--core", "--agent", "--platform", "--last-error"] {
+        println!("running native conformance phase {phase}");
+        let mut command = Command::new(&executable);
+        command
+            .arg(phase)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::inherit());
+        if cfg!(target_os = "linux") {
+            command.env("LD_LIBRARY_PATH", &library_dir);
+        }
+        if cfg!(target_os = "macos") {
+            command.env("DYLD_LIBRARY_PATH", &library_dir);
+        }
+        if cfg!(windows) {
+            let mut paths = vec![library_dir.clone()];
+            paths.extend(std::env::split_paths(
+                &std::env::var_os("PATH").unwrap_or_default(),
+            ));
+            command.env("PATH", std::env::join_paths(paths)?);
+        }
+        command.env_remove("REVAULT_LIBRARY");
+        command.envs(&service_env);
+        command.env("REVAULT_E2E_LANGUAGE", "c");
+        command.env("REVAULT_E2E_ARTIFACT_DIR", work.join("artifacts"));
+        let mut child = command.spawn()?;
+        let deadline = Instant::now() + Duration::from_secs(120);
+        let status = loop {
+            if let Some(status) = child.try_wait()? {
+                break status;
+            }
+            if Instant::now() >= deadline {
+                child.kill()?;
+                child.wait()?;
+                return Err(format!("native conformance phase {phase} timed out").into());
+            }
+            thread::sleep(Duration::from_millis(50));
+        };
+        let mut stdout = Vec::new();
+        child
+            .stdout
+            .take()
+            .ok_or("native conformance stdout was not captured")?
+            .read_to_end(&mut stdout)?;
+        if !status.success() {
+            return Err(format!("native conformance phase {phase} failed with {status}").into());
+        }
+        combined.extend_from_slice(&stdout);
     }
     let results = work.join("results.tsv");
-    fs::write(&results, output.stdout)?;
+    fs::write(&results, combined)?;
     let evidence_path = library_dir.join(&install.library);
     let native = work.join("native.tsv");
     let evidence_output = Command::new(std::env::current_exe()?)
