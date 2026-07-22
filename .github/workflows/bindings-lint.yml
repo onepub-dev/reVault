@@ -121,7 +121,10 @@ jobs:
         working-directory: bindings/dart
         run: |
           dart pub global activate pana 0.23.14
-          pana --exit-code-threshold 10 .
+          pana_root="$(mktemp -d)"
+          mkdir "$pana_root/revault_api"
+          cp -R . "$pana_root/revault_api"
+          pana --exit-code-threshold 10 "$pana_root/revault_api"
           dart pub publish --dry-run
       - name: Go formatting and vet
         working-directory: bindings/go

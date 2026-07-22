@@ -849,7 +849,14 @@ fn generate_flatbuffers(repository: &Path) -> Result {
         if !status.success() {
             return Err(format!("flatc {language} failed with {status}").into());
         }
-        if language == "--csharp" {
+        if language == "--dart" {
+            let generated = output.join("revault_bindings_revault.internal_generated.dart");
+            let source = fs::read_to_string(&generated)?.replace(
+                "constant_identifier_names",
+                "constant_identifier_names, unnecessary_non_null_assertion, public_member_api_docs",
+            );
+            fs::write(generated, source)?;
+        } else if language == "--csharp" {
             let generated = output.join("revault_bindings_generated.cs");
             let source = fs::read_to_string(&generated)?
                 .replace("revault.internal", "Revault.Internal.Transport");
