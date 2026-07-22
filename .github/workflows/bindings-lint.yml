@@ -179,8 +179,8 @@ jobs:
       - name: Registry-native package validation
         run: |
           mkdir -p build/registry/python build/registry/nuget
-          npm pack --dry-run --json --workspace @onepub-dev/revault-api > build/registry/npm.json
-          npm pack --dry-run --json --workspace @onepub-dev/revault-api-wasm > build/registry/npm-wasm.json
+          npm pack --dry-run --json ./bindings/javascript > build/registry/npm.json
+          npm pack --dry-run --json ./bindings/wasm > build/registry/npm-wasm.json
           python -m pip install build twine
           python -m build bindings/python --outdir build/registry/python
           python -m twine check build/registry/python/*
