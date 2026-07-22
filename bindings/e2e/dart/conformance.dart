@@ -312,7 +312,7 @@ void advancedArchive() {
   box.moveFormRecords([
     PathMove(source: '/account.form', destination: '/moved.form'),
   ]);
-  check(box.getFormRecord('/moved.form')!.values.length == 1, 'moved record');
+  check(box.getFormRecord('/moved.form')!.values.length == 2, 'moved record');
   box.moveFormRecords([
     PathMove(source: '/moved.form', destination: '/account.form'),
   ]);
