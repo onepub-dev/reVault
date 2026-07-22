@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #define _GNU_SOURCE
 #include <inttypes.h>
 #include <stdbool.h>
@@ -12,6 +16,7 @@
 #include <process.h>
 #include <windows.h>
 #define access _access
+#define F_OK 0
 #define mkdir(path, mode) _mkdir(path)
 #define unlink _unlink
 #define PATH_SEPARATOR "\\"
