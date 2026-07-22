@@ -1503,7 +1503,9 @@ static void archive_advanced(void) {
 int main(int argc, char **argv) {
   CHECK(api_abi_version() == 3, "revault-api ABI version");
   executable_path = argv[0];
-  if (argc == 2 && strcmp(argv[1], "--serve-agent") == 0) {
+  if (argc == 2 &&
+      (strcmp(argv[1], "--serve-agent") == 0 ||
+       strcmp(argv[1], "__agent") == 0)) {
     if (vault_agent_serve()) return 0;
     fprintf(stderr, "agent server failed: %s\n", buffer_last_error());
     return 1;
