@@ -15,14 +15,14 @@ func artifactRoot() throws -> String {
     let path = (ProcessInfo.processInfo.environment["REVAULT_E2E_ARTIFACT_DIR"] ?? "/tmp/revault-e2e-artifacts") + "/swift"
     try makeDirectory(path); return path
 }
-func fields() throws -> Data {
-    var field = Revault_Bindings_FormField(); field.id = "username"; field.label = "Username"; field.kind = "text"; field.required = true
-    var password = Revault_Bindings_FormField(); password.id = "password"; password.label = "Password"; password.kind = "secret"; password.required = true
-    var list = Revault_Bindings_FormFieldList(); list.values = [field, password]; return try list.serializedData()
+func fields() -> [FormField] {
+    [
+        FormField(id: "username", label: "Username", kind: "text", required: true),
+        FormField(id: "password", label: "Password", kind: "secret", required: true),
+    ]
 }
-func moves(_ source: String, _ destination: String) throws -> Data {
-    var move = Revault_Bindings_PathMove(); move.source = source; move.destination = destination
-    var list = Revault_Bindings_PathMoveList(); list.values = [move]; return try list.serializedData()
+func moves(_ source: String, _ destination: String) -> [PathMove] {
+    [PathMove(source: source, destination: destination)]
 }
 
 func archiveLifecycle() throws {
@@ -47,11 +47,11 @@ func archiveLifecycle() throws {
     try check(try box.withSecretVariable("secret") { Data($0) } == data("hidden"), "secret variable")
     pass("lockbox_get_secret_variable"); pass("secret_len"); pass("secret_copy"); pass("secret_free")
     _ = try box.variableSensitivity("secret"); pass("lockbox_variable_sensitivity", 2)
-    try check(try box.listVariables().values.count == 2, "variables"); pass("lockbox_list_variables")
+    try check(try box.listVariables().count == 2, "variables"); pass("lockbox_list_variables")
     try box.deleteVariable("normal"); pass("lockbox_delete_variable")
     try box.addSymlink("/link", "/renamed.txt", false); pass("lockbox_add_symlink")
     try check(try box.getSymlinkTarget("/link") == "/renamed.txt", "symlink"); pass("lockbox_get_symlink_target", 3)
-    try check(try !box.list("/", true).entries.isEmpty, "list"); _ = try box.stat("/renamed.txt"); pass("lockbox_list", 2); pass("lockbox_stat", 2)
+    try check(try !box.list("/", true).isEmpty, "list"); _ = try box.stat("/renamed.txt"); pass("lockbox_list", 2); pass("lockbox_stat", 2)
     try box.setWorkloadProfile("read-mostly"); try box.setWorkerPolicy("single", 1); _ = try box.runtimeOptions()
     pass("lockbox_set_workload_profile"); pass("lockbox_set_worker_policy"); pass("lockbox_runtime_options")
     try box.commit(); pass("lockbox_commit"); try check(try box.storageLen() > 0, "storage"); pass("lockbox_storage_len")
@@ -101,7 +101,7 @@ func advancedArchive() throws {
     try box.addFile("/account.txt", data("account data"), false)
     _ = try box.listWithOptions("/", "*.txt", true, true, false, false, 20); pass("lockbox_list_with_options", 2)
     let definition = try box.defineForm("account", "Account", "Account form", fields()); pass("lockbox_define_form", 2)
-    _ = try box.listFormDefinitions(); _ = try box.resolveForm("account"); _ = try box.listFormRevisions(definition.typeID)
+    _ = try box.listFormDefinitions(); _ = try box.resolveForm("account"); _ = try box.listFormRevisions(definition.typeId)
     pass("lockbox_list_form_definitions"); pass("lockbox_resolve_form"); pass("lockbox_list_form_revisions")
     _ = try box.createFormRecord("/account.form", "account", "Primary"); pass("lockbox_create_form_record")
     try box.setFormField("/account.form", "username", "alice"); pass("lockbox_set_form_field")
@@ -163,7 +163,7 @@ func vaultLifecycle() throws {
     try vault.rememberAccessSlotLabel(id, 7, "primary"); _ = try vault.listAccessSlotLabels(id); _ = try vault.findAccessSlotLabels(id, "primary"); pass("vault_directory_remember_access_slot_label"); pass("vault_directory_list_access_slot_labels"); pass("vault_directory_find_access_slot_labels")
     try vault.rememberPassword(id, password); _ = try vault.rememberedPassword(id); pass("vault_directory_remember_password"); pass("vault_directory_remembered_password", 3)
     let vaultForm = try vault.defineForm("login", "Login", "Login form", fields()); _ = try vault.resolveForm("login"); _ = try vault.listForms(); pass("vault_directory_define_form"); pass("vault_directory_resolve_form"); pass("vault_directory_list_forms")
-    _ = try vault.listFormRevisions(vaultForm.typeID); pass("vault_directory_list_form_revisions", 2)
+    _ = try vault.listFormRevisions(vaultForm.typeId); pass("vault_directory_list_form_revisions", 2)
     _ = try vault.seedForms(); pass("vault_directory_seed_forms"); _ = try vault.listFormAliases(); pass("vault_directory_list_form_aliases")
     try vault.forgetAccessSlotLabel(id, 7); try vault.forgetLockbox("/tmp/example.lbox"); try vault.deleteContact("bob"); pass("vault_directory_forget_access_slot_label"); pass("vault_directory_forget_lockbox"); pass("vault_directory_delete_contact")
     try vault.deletePrivateKey("alice"); try vault.restorePrivateKey("alice", profile, owner, true); pass("vault_directory_delete_private_key", 2); pass("vault_directory_restore_private_key", 2)

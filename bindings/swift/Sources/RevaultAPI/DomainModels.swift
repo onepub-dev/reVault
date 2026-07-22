@@ -561,13 +561,13 @@ enum DomainCodec {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__PathMove = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__FormFieldT) -> FormField {
-        FormField(id: value.id ?? "", label: value.label ?? "", kind: value.kind ?? "", required: value.required)
+        FormField(id: value.id ?? "", label: value.label ?? "", kind: value.kind ?? "", required: value.required_)
     }
     static func formField(_ data: Data) -> FormField {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__FormField = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__FormDefinitionT) -> FormDefinition {
-        FormDefinition(typeId: value.typeId ?? "", alias: value.alias ?? "", revision: value.revision, name: value.name ?? "", description: value.description ?? "", fields: (value.fields ?? []).map(convert))
+        FormDefinition(typeId: value.typeId ?? "", alias: value.alias ?? "", revision: value.revision, name: value.name ?? "", description: value.description ?? "", fields: value.fields.compactMap { $0 }.map(convert))
     }
     static func formDefinition(_ data: Data) -> FormDefinition {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__FormDefinition = getRoot(byteBuffer: &buffer); return convert(root.unpack())
@@ -579,13 +579,13 @@ enum DomainCodec {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__FormValue = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__FormRecordT) -> FormRecord {
-        FormRecord(path: value.path ?? "", name: value.name ?? "", typeId: value.typeId ?? "", definitionAlias: value.definitionAlias ?? "", definitionRevision: value.definitionRevision, values: (value.values ?? []).map(convert))
+        FormRecord(path: value.path ?? "", name: value.name ?? "", typeId: value.typeId ?? "", definitionAlias: value.definitionAlias ?? "", definitionRevision: value.definitionRevision, values: value.values.compactMap { $0 }.map(convert))
     }
     static func formRecord(_ data: Data) -> FormRecord {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__FormRecord = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__RecoveryReportT) -> RecoveryReport {
-        RecoveryReport(intactFiles: (value.intactFiles ?? []).map(convert), intactFileCount: value.intactFileCount, partialFiles: value.partialFiles, corruptRecords: value.corruptRecords, tocRecovered: value.tocRecovered, variablesRecovered: value.variablesRecovered, variableCount: value.variableCount, formsRecovered: value.formsRecovered, formDefinitionCount: value.formDefinitionCount, formRecordCount: value.formRecordCount)
+        RecoveryReport(intactFiles: value.intactFiles.compactMap { $0 }.map(convert), intactFileCount: value.intactFileCount, partialFiles: value.partialFiles, corruptRecords: value.corruptRecords, tocRecovered: value.tocRecovered, variablesRecovered: value.variablesRecovered, variableCount: value.variableCount, formsRecovered: value.formsRecovered, formDefinitionCount: value.formDefinitionCount, formRecordCount: value.formRecordCount)
     }
     static func recoveryReport(_ data: Data) -> RecoveryReport {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__RecoveryReport = getRoot(byteBuffer: &buffer); return convert(root.unpack())
@@ -615,43 +615,43 @@ enum DomainCodec {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__PageObject = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__PageInspectionT) -> PageInspection {
-        PageInspection(offset: value.offset, pageId: value.pageId, sequence: value.sequence, pageSize: value.pageSize, encryptedBodyLen: value.encryptedBodyLen, unusedBytes: value.unusedBytes, objectCount: value.objectCount, objects: (value.objects ?? []).map(convert))
+        PageInspection(offset: value.offset, pageId: value.pageId, sequence: value.sequence, pageSize: value.pageSize, encryptedBodyLen: value.encryptedBodyLen, unusedBytes: value.unusedBytes, objectCount: value.objectCount, objects: value.objects.compactMap { $0 }.map(convert))
     }
     static func pageInspection(_ data: Data) -> PageInspection {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__PageInspection = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__FileInspectionT) -> FileInspection {
-        FileInspection(lockboxId: value.lockboxId ?? [], headerReadable: value.headerReadable, keyDirectoryGeneration: value.keyDirectoryGeneration, keyDirectoryCopyCount: value.keyDirectoryCopyCount, ownerSigned: value.ownerSigned, keySlots: (value.keySlots ?? []).map(convert))
+        FileInspection(lockboxId: value.lockboxId, headerReadable: value.headerReadable, keyDirectoryGeneration: value.keyDirectoryGeneration, keyDirectoryCopyCount: value.keyDirectoryCopyCount, ownerSigned: value.ownerSigned, keySlots: value.keySlots.compactMap { $0 }.map(convert))
     }
     static func fileInspection(_ data: Data) -> FileInspection {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__FileInspection = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__ProfileGenerationT) -> ProfileGeneration {
-        ProfileGeneration(index: value.index, status: value.status ?? "", contactFingerprint: value.contactFingerprint ?? [], createdAtUnixMs: value.createdAtUnixMs, retiredAtUnixMs: value.retiredAtUnixMs, hasRetiredAt: value.hasRetiredAt)
+        ProfileGeneration(index: value.index, status: value.status ?? "", contactFingerprint: value.contactFingerprint, createdAtUnixMs: value.createdAtUnixMs, retiredAtUnixMs: value.retiredAtUnixMs, hasRetiredAt: value.hasRetiredAt)
     }
     static func profileGeneration(_ data: Data) -> ProfileGeneration {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ProfileGeneration = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__ProfileHistoryT) -> ProfileHistory {
-        ProfileHistory(name: value.name ?? "", activeGeneration: value.activeGeneration, generations: (value.generations ?? []).map(convert))
+        ProfileHistory(name: value.name ?? "", activeGeneration: value.activeGeneration, generations: value.generations.compactMap { $0 }.map(convert))
     }
     static func profileHistory(_ data: Data) -> ProfileHistory {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ProfileHistory = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__KnownLockboxT) -> KnownLockbox {
-        KnownLockbox(lockboxId: value.lockboxId ?? [], path: value.path ?? "", lastSeenUnixMs: value.lastSeenUnixMs)
+        KnownLockbox(lockboxId: value.lockboxId, path: value.path ?? "", lastSeenUnixMs: value.lastSeenUnixMs)
     }
     static func knownLockbox(_ data: Data) -> KnownLockbox {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__KnownLockbox = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__AccessSlotLabelT) -> AccessSlotLabel {
-        AccessSlotLabel(lockboxId: value.lockboxId ?? [], slotId: value.slotId, name: value.name ?? "", updatedAtUnixMs: value.updatedAtUnixMs)
+        AccessSlotLabel(lockboxId: value.lockboxId, slotId: value.slotId, name: value.name ?? "", updatedAtUnixMs: value.updatedAtUnixMs)
     }
     static func accessSlotLabel(_ data: Data) -> AccessSlotLabel {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__AccessSlotLabel = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__StreamChunkT) -> StreamChunk {
-        StreamChunk(path: value.path ?? "", fileOffset: value.fileOffset, length: value.length, physicalOffset: value.physicalOffset, sparse: value.sparse, data: value.data ?? [])
+        StreamChunk(path: value.path ?? "", fileOffset: value.fileOffset, length: value.length, physicalOffset: value.physicalOffset, sparse: value.sparse, data: value.data)
     }
     static func streamChunk(_ data: Data) -> StreamChunk {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__StreamChunk = getRoot(byteBuffer: &buffer); return convert(root.unpack())
@@ -675,7 +675,7 @@ enum DomainCodec {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__OwnerInspection = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     private static func convert(_ value: revault_internal__ContactT) -> Contact {
-        Contact(name: value.name ?? "", key: value.key ?? [])
+        Contact(name: value.name ?? "", key: value.key)
     }
     static func contact(_ data: Data) -> Contact {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__Contact = getRoot(byteBuffer: &buffer); return convert(root.unpack())
@@ -711,46 +711,46 @@ enum DomainCodec {
         var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ErrorDetails = getRoot(byteBuffer: &buffer); return convert(root.unpack())
     }
     static func streamChunkList(_ data: Data) -> [StreamChunk] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__StreamChunkList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__StreamChunkList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func pageInspectionList(_ data: Data) -> [PageInspection] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__PageInspectionList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__PageInspectionList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func lockboxEntryList(_ data: Data) -> [LockboxEntry] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__LockboxEntryList = getRoot(byteBuffer: &buffer); return (root.unpack().entries ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__LockboxEntryList = getRoot(byteBuffer: &buffer); return root.unpack().entries.compactMap { $0 }.map(convert)
     }
     static func variableList(_ data: Data) -> [Variable] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__VariableList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__VariableList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func keySlotList(_ data: Data) -> [KeySlot] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__KeySlotList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__KeySlotList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func formDefinitionList(_ data: Data) -> [FormDefinition] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__FormDefinitionList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__FormDefinitionList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func formRecordList(_ data: Data) -> [FormRecord] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__FormRecordList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__FormRecordList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func contactList(_ data: Data) -> [Contact] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ContactList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ContactList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func knownLockboxList(_ data: Data) -> [KnownLockbox] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__KnownLockboxList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__KnownLockboxList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func accessSlotLabelList(_ data: Data) -> [AccessSlotLabel] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__AccessSlotLabelList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__AccessSlotLabelList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func agentEntryList(_ data: Data) -> [AgentEntry] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__AgentEntryList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__AgentEntryList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
     static func profileHistoryList(_ data: Data) -> [ProfileHistory] {
-        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ProfileHistoryList = getRoot(byteBuffer: &buffer); return (root.unpack().values ?? []).map(convert)
+        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__ProfileHistoryList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 }.map(convert)
     }
-    static func stringList(_ data: Data) -> [String] { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__StringList = getRoot(byteBuffer: &buffer); return root.unpack().values ?? [] }
+    static func stringList(_ data: Data) -> [String] { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__StringList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 } }
     static func optionalString(_ data: Data) -> String? { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__OptionalString = getRoot(byteBuffer: &buffer); let value = root.unpack(); return value.present ? value.value : nil }
     static func optionalLockboxEntry(_ data: Data) -> LockboxEntry? { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__OptionalLockboxEntry = getRoot(byteBuffer: &buffer); return root.unpack().value.map(convert) }
     static func optionalFormRecord(_ data: Data) -> FormRecord? { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__OptionalFormRecord = getRoot(byteBuffer: &buffer); return root.unpack().value.map(convert) }
     static func optionalFormValue(_ data: Data) -> FormValue? { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__OptionalFormValue = getRoot(byteBuffer: &buffer); return root.unpack().value.map(convert) }
     static func encodePathMoves(_ values: [PathMove]) -> Data { var builder = FlatBufferBuilder(initialSize: 256); var offsets: [Offset] = []; for value in values { let source = builder.create(string: value.source); let destination = builder.create(string: value.destination); offsets.append(revault_internal__PathMove.createPathMove(&builder, sourceOffset: source, destinationOffset: destination)) }; let vector = builder.createVector(ofOffsets: offsets); let root = revault_internal__PathMoveList.createPathMoveList(&builder, valuesVectorOffset: vector); builder.finish(offset: root); return Data(builder.sizedByteArray) }
-    static func encodeFormFields(_ values: [FormField]) -> Data { var builder = FlatBufferBuilder(initialSize: 256); var offsets: [Offset] = []; for value in values { let id = builder.create(string: value.id); let label = builder.create(string: value.label); let kind = builder.create(string: value.kind); offsets.append(revault_internal__FormField.createFormField(&builder, idOffset: id, labelOffset: label, kindOffset: kind, required: value.required)) }; let vector = builder.createVector(ofOffsets: offsets); let root = revault_internal__FormFieldList.createFormFieldList(&builder, valuesVectorOffset: vector); builder.finish(offset: root); return Data(builder.sizedByteArray) }
+    static func encodeFormFields(_ values: [FormField]) -> Data { var builder = FlatBufferBuilder(initialSize: 256); var offsets: [Offset] = []; for value in values { let id = builder.create(string: value.id); let label = builder.create(string: value.label); let kind = builder.create(string: value.kind); offsets.append(revault_internal__FormField.createFormField(&builder, idOffset: id, labelOffset: label, kindOffset: kind, required_: value.required)) }; let vector = builder.createVector(ofOffsets: offsets); let root = revault_internal__FormFieldList.createFormFieldList(&builder, valuesVectorOffset: vector); builder.finish(offset: root); return Data(builder.sizedByteArray) }
 }

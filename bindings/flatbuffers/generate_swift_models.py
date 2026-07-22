@@ -10,6 +10,8 @@ SCALARS = {"string":"String", "bool":"Bool", "uint":"UInt32", "ulong":"UInt64", 
 
 def camel(name):
     parts=name.split("_"); return parts[0]+"".join(p.title() for p in parts[1:])
+def transport_prop(name):
+    return "required_" if name == "required" else camel(name)
 def stype(value):
     if value.startswith("["):
         inner=value[1:-1].split(".")[-1]; return f"[{SCALARS.get(inner, inner)}]"
@@ -36,26 +38,29 @@ out += ["enum DomainCodec {"]
 for name in base:
     args=[]
     for field,value in tables[name]:
-        prop=camel(field); raw=value.split(".")[-1]
+        prop=camel(field); source=transport_prop(field); raw=value.split(".")[-1]
         if value.startswith("["):
             inner=value[1:-1].split(".")[-1]
-            expr=f"value.{prop} ?? []" if inner in SCALARS else f"(value.{prop} ?? []).map(convert)"
-        elif raw=="LockboxEntryKind": expr=f"LockboxEntryKind(rawValue: Int(value.{prop}.rawValue)) ?? .unspecified"
-        elif raw=="string": expr=f"value.{prop} ?? \"\""
-        elif raw in SCALARS: expr=f"value.{prop}"
-        else: expr=f"convert(value.{prop}!)"
+            if inner == "ubyte": expr=f"value.{source}"
+            elif inner == "string": expr=f"value.{source}.compactMap {{ $0 }}"
+            elif inner in SCALARS: expr=f"value.{source}"
+            else: expr=f"value.{source}.compactMap {{ $0 }}.map(convert)"
+        elif raw=="LockboxEntryKind": expr=f"LockboxEntryKind(rawValue: Int(value.{source}.rawValue)) ?? .unspecified"
+        elif raw=="string": expr=f"value.{source} ?? \"\""
+        elif raw in SCALARS: expr=f"value.{source}"
+        else: expr=f"convert(value.{source}!)"
         args.append(f"{prop}: {expr}")
     out += [f"    private static func convert(_ value: revault_internal__{name}T) -> {name} {{",f"        {name}({', '.join(args)})","    }",f"    static func {name[0].lower()+name[1:]}(_ data: Data) -> {name} {{",f"        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__{name} = getRoot(byteBuffer: &buffer); return convert(root.unpack())","    }"]
 for wrapper,item in lists.items():
     field="entries" if wrapper=="LockboxEntryList" else "values"; method=wrapper[0].lower()+wrapper[1:]
-    out += [f"    static func {method}(_ data: Data) -> [{item}] {{",f"        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__{wrapper} = getRoot(byteBuffer: &buffer); return (root.unpack().{field} ?? []).map(convert)","    }"]
+    out += [f"    static func {method}(_ data: Data) -> [{item}] {{",f"        var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__{wrapper} = getRoot(byteBuffer: &buffer); return root.unpack().{field}.compactMap {{ $0 }}.map(convert)","    }"]
 out += [
-"    static func stringList(_ data: Data) -> [String] { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__StringList = getRoot(byteBuffer: &buffer); return root.unpack().values ?? [] }",
+"    static func stringList(_ data: Data) -> [String] { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__StringList = getRoot(byteBuffer: &buffer); return root.unpack().values.compactMap { $0 } }",
 "    static func optionalString(_ data: Data) -> String? { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__OptionalString = getRoot(byteBuffer: &buffer); let value = root.unpack(); return value.present ? value.value : nil }",
 "    static func optionalLockboxEntry(_ data: Data) -> LockboxEntry? { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__OptionalLockboxEntry = getRoot(byteBuffer: &buffer); return root.unpack().value.map(convert) }",
 "    static func optionalFormRecord(_ data: Data) -> FormRecord? { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__OptionalFormRecord = getRoot(byteBuffer: &buffer); return root.unpack().value.map(convert) }",
 "    static func optionalFormValue(_ data: Data) -> FormValue? { var buffer = ByteBuffer(bytes: [UInt8](data)); var root: revault_internal__OptionalFormValue = getRoot(byteBuffer: &buffer); return root.unpack().value.map(convert) }",
 "    static func encodePathMoves(_ values: [PathMove]) -> Data { var builder = FlatBufferBuilder(initialSize: 256); var offsets: [Offset] = []; for value in values { let source = builder.create(string: value.source); let destination = builder.create(string: value.destination); offsets.append(revault_internal__PathMove.createPathMove(&builder, sourceOffset: source, destinationOffset: destination)) }; let vector = builder.createVector(ofOffsets: offsets); let root = revault_internal__PathMoveList.createPathMoveList(&builder, valuesVectorOffset: vector); builder.finish(offset: root); return Data(builder.sizedByteArray) }",
-"    static func encodeFormFields(_ values: [FormField]) -> Data { var builder = FlatBufferBuilder(initialSize: 256); var offsets: [Offset] = []; for value in values { let id = builder.create(string: value.id); let label = builder.create(string: value.label); let kind = builder.create(string: value.kind); offsets.append(revault_internal__FormField.createFormField(&builder, idOffset: id, labelOffset: label, kindOffset: kind, required: value.required)) }; let vector = builder.createVector(ofOffsets: offsets); let root = revault_internal__FormFieldList.createFormFieldList(&builder, valuesVectorOffset: vector); builder.finish(offset: root); return Data(builder.sizedByteArray) }",
+"    static func encodeFormFields(_ values: [FormField]) -> Data { var builder = FlatBufferBuilder(initialSize: 256); var offsets: [Offset] = []; for value in values { let id = builder.create(string: value.id); let label = builder.create(string: value.label); let kind = builder.create(string: value.kind); offsets.append(revault_internal__FormField.createFormField(&builder, idOffset: id, labelOffset: label, kindOffset: kind, required_: value.required)) }; let vector = builder.createVector(ofOffsets: offsets); let root = revault_internal__FormFieldList.createFormFieldList(&builder, valuesVectorOffset: vector); builder.finish(offset: root); return Data(builder.sizedByteArray) }",
 "}",""]
 OUTPUT.write_text("\n".join(out))
