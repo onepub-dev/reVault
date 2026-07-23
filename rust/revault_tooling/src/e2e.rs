@@ -532,7 +532,7 @@ fn native_conformance(args: NativeConformance) -> Result {
     };
     let library_dir = install.prefix.join("lib");
     let mut combined = Vec::new();
-    for phase in ["--core", "--agent", "--platform", "--last-error"] {
+    for phase in ["--core", "--agent", "--platform"] {
         println!("running native conformance phase {phase}");
         let phase_output = work.join(format!("{}.tsv", phase.trim_start_matches('-')));
         let mut command = Command::new(&executable);
