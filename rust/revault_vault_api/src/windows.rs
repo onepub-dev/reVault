@@ -275,7 +275,7 @@ pub(crate) fn unregister_secret_activity(pid: u32, token: u64) -> io::Result<()>
 }
 
 pub(crate) fn is_running() -> bool {
-    existing_agent_is_compatible().unwrap_or(false)
+    matches!(agent_compatibility(), Ok(AgentCompatibility::Compatible))
 }
 
 pub(crate) fn start() -> io::Result<()> {
@@ -365,19 +365,31 @@ fn start_agent() -> io::Result<()> {
 }
 
 fn ensure_agent() -> io::Result<()> {
-    if existing_agent_is_compatible()? {
-        return Ok(());
-    }
-    if open_pipe(&wide_pipe_name()).is_ok() {
-        stop_incompatible_agent()?;
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        match agent_compatibility()? {
+            AgentCompatibility::Compatible => return Ok(()),
+            AgentCompatibility::Incompatible => {
+                stop_incompatible_agent()?;
+                break;
+            }
+            AgentCompatibility::Unavailable if Instant::now() >= deadline => break,
+            AgentCompatibility::Unavailable => thread::sleep(Duration::from_millis(25)),
+        }
     }
     start_agent()?;
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline {
-        if existing_agent_is_compatible()? {
-            return Ok(());
+        match agent_compatibility()? {
+            AgentCompatibility::Compatible => return Ok(()),
+            AgentCompatibility::Incompatible => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "incompatible lockbox session agent remained after restart",
+                ));
+            }
+            AgentCompatibility::Unavailable => thread::sleep(Duration::from_millis(25)),
         }
-        thread::sleep(Duration::from_millis(25));
     }
     Err(io::Error::new(
         io::ErrorKind::TimedOut,
@@ -407,16 +419,26 @@ fn acquire_agent_singleton() -> io::Result<Option<OwnedHandle>> {
     }
 }
 
-fn existing_agent_is_compatible() -> io::Result<bool> {
+enum AgentCompatibility {
+    Unavailable,
+    Compatible,
+    Incompatible,
+}
+
+fn agent_compatibility() -> io::Result<AgentCompatibility> {
     let Ok(handle) = open_pipe(&wide_pipe_name()) else {
-        return Ok(false);
+        return Ok(AgentCompatibility::Unavailable);
     };
-    Ok(matches!(
-        request_with_handle(handle, &encode_info()?),
+    match request_with_handle(handle, &encode_info()?) {
         Ok(AgentResponse::Info(protocol, implementation))
             if protocol == AGENT_PROTOCOL_VERSION
-                && implementation == AGENT_IMPLEMENTATION_VERSION
-    ))
+                && implementation == AGENT_IMPLEMENTATION_VERSION =>
+        {
+            Ok(AgentCompatibility::Compatible)
+        }
+        Ok(_) => Ok(AgentCompatibility::Incompatible),
+        Err(_) => Ok(AgentCompatibility::Unavailable),
+    }
 }
 
 fn stop_incompatible_agent() -> io::Result<()> {
