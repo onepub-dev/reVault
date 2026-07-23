@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class StringValue extends Table
 {
@@ -39,19 +39,19 @@ class StringValue extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startStringValue(FlatBufferBuilder $builder)
+    public static function startStringValue(FlatbufferBuilder $builder)
     {
         $builder->StartObject(1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return StringValue
      */
-    public static function createStringValue(FlatBufferBuilder $builder, $value)
+    public static function createStringValue(FlatbufferBuilder $builder, $value)
     {
         $builder->startObject(1);
         self::addValue($builder, $value);
@@ -60,20 +60,20 @@ class StringValue extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addValue(FlatBufferBuilder $builder, $value)
+    public static function addValue(FlatbufferBuilder $builder, $value)
     {
         $builder->addOffsetX(0, $value, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endStringValue(FlatBufferBuilder $builder)
+    public static function endStringValue(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

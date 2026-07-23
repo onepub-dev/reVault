@@ -31,14 +31,24 @@ models = [name for name in tables if name not in wrappers]
 lines = [
     "<?php", "declare(strict_types=1);", "", "namespace Revault;", "",
     "use Google\\FlatBuffers\\ByteBuffer;",
-    "use Google\\FlatBuffers\\FlatBufferBuilder;", "",
+    "use Google\\FlatBuffers\\FlatbufferBuilder;", "",
 ]
 for name in models:
     lines += [f"/** {description(name)} */", f"final class {name}", "{"]
     params = []
     for field, value in tables[name]:
         raw = value.strip("[]").split(".")[-1]
-        kind = "array" if value.startswith("[") else ("string" if raw == "string" else "bool" if raw == "bool" else "int")
+        kind = (
+            "string"
+            if value.startswith("[") and raw == "ubyte"
+            else "array"
+            if value.startswith("[")
+            else "string"
+            if raw == "string"
+            else "bool"
+            if raw == "bool"
+            else "int"
+        )
         params.append(f"public readonly {kind} ${field}")
     lines += ["    /** Creates a value from fields returned by the reVault API. */", f"    public function __construct({', '.join(params)}) {{}}"]
     for field, _ in tables[name]:

@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class ErrorDetails extends Table
 {
@@ -75,19 +75,19 @@ class ErrorDetails extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startErrorDetails(FlatBufferBuilder $builder)
+    public static function startErrorDetails(FlatbufferBuilder $builder)
     {
         $builder->StartObject(6);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return ErrorDetails
      */
-    public static function createErrorDetails(FlatBufferBuilder $builder, $category, $artifact_kind, $found_version, $supported_version, $message, $guidance)
+    public static function createErrorDetails(FlatbufferBuilder $builder, $category, $artifact_kind, $found_version, $supported_version, $message, $guidance)
     {
         $builder->startObject(6);
         self::addCategory($builder, $category);
@@ -101,70 +101,70 @@ class ErrorDetails extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addCategory(FlatBufferBuilder $builder, $category)
+    public static function addCategory(FlatbufferBuilder $builder, $category)
     {
         $builder->addOffsetX(0, $category, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addArtifactKind(FlatBufferBuilder $builder, $artifactKind)
+    public static function addArtifactKind(FlatbufferBuilder $builder, $artifactKind)
     {
         $builder->addOffsetX(1, $artifactKind, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param uint
      * @return void
      */
-    public static function addFoundVersion(FlatBufferBuilder $builder, $foundVersion)
+    public static function addFoundVersion(FlatbufferBuilder $builder, $foundVersion)
     {
         $builder->addUintX(2, $foundVersion, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param uint
      * @return void
      */
-    public static function addSupportedVersion(FlatBufferBuilder $builder, $supportedVersion)
+    public static function addSupportedVersion(FlatbufferBuilder $builder, $supportedVersion)
     {
         $builder->addUintX(3, $supportedVersion, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addMessage(FlatBufferBuilder $builder, $message)
+    public static function addMessage(FlatbufferBuilder $builder, $message)
     {
         $builder->addOffsetX(4, $message, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addGuidance(FlatBufferBuilder $builder, $guidance)
+    public static function addGuidance(FlatbufferBuilder $builder, $guidance)
     {
         $builder->addOffsetX(5, $guidance, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endErrorDetails(FlatBufferBuilder $builder)
+    public static function endErrorDetails(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

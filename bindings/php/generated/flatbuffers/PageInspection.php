@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class PageInspection extends Table
 {
@@ -115,19 +115,19 @@ class PageInspection extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startPageInspection(FlatBufferBuilder $builder)
+    public static function startPageInspection(FlatbufferBuilder $builder)
     {
         $builder->StartObject(8);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return PageInspection
      */
-    public static function createPageInspection(FlatBufferBuilder $builder, $offset, $page_id, $sequence, $page_size, $encrypted_body_len, $unused_bytes, $object_count, $objects)
+    public static function createPageInspection(FlatbufferBuilder $builder, $offset, $page_id, $sequence, $page_size, $encrypted_body_len, $unused_bytes, $object_count, $objects)
     {
         $builder->startObject(8);
         self::addOffset($builder, $offset);
@@ -143,91 +143,91 @@ class PageInspection extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addOffset(FlatBufferBuilder $builder, $offset)
+    public static function addOffset(FlatbufferBuilder $builder, $offset)
     {
         $builder->addUlongX(0, $offset, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addPageId(FlatBufferBuilder $builder, $pageId)
+    public static function addPageId(FlatbufferBuilder $builder, $pageId)
     {
         $builder->addUlongX(1, $pageId, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addSequence(FlatBufferBuilder $builder, $sequence)
+    public static function addSequence(FlatbufferBuilder $builder, $sequence)
     {
         $builder->addUlongX(2, $sequence, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addPageSize(FlatBufferBuilder $builder, $pageSize)
+    public static function addPageSize(FlatbufferBuilder $builder, $pageSize)
     {
         $builder->addUlongX(3, $pageSize, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addEncryptedBodyLen(FlatBufferBuilder $builder, $encryptedBodyLen)
+    public static function addEncryptedBodyLen(FlatbufferBuilder $builder, $encryptedBodyLen)
     {
         $builder->addUlongX(4, $encryptedBodyLen, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addUnusedBytes(FlatBufferBuilder $builder, $unusedBytes)
+    public static function addUnusedBytes(FlatbufferBuilder $builder, $unusedBytes)
     {
         $builder->addUlongX(5, $unusedBytes, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addObjectCount(FlatBufferBuilder $builder, $objectCount)
+    public static function addObjectCount(FlatbufferBuilder $builder, $objectCount)
     {
         $builder->addUlongX(6, $objectCount, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addObjects(FlatBufferBuilder $builder, $objects)
+    public static function addObjects(FlatbufferBuilder $builder, $objects)
     {
         $builder->addOffsetX(7, $objects, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createObjectsVector(FlatBufferBuilder $builder, array $data)
+    public static function createObjectsVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(4, count($data), 4);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -237,20 +237,20 @@ class PageInspection extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startObjectsVector(FlatBufferBuilder $builder, $numElems)
+    public static function startObjectsVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(4, $numElems, 4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endPageInspection(FlatBufferBuilder $builder)
+    public static function endPageInspection(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

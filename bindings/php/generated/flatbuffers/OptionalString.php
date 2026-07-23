@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class OptionalString extends Table
 {
@@ -48,19 +48,19 @@ class OptionalString extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startOptionalString(FlatBufferBuilder $builder)
+    public static function startOptionalString(FlatbufferBuilder $builder)
     {
         $builder->StartObject(2);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return OptionalString
      */
-    public static function createOptionalString(FlatBufferBuilder $builder, $present, $value)
+    public static function createOptionalString(FlatbufferBuilder $builder, $present, $value)
     {
         $builder->startObject(2);
         self::addPresent($builder, $present);
@@ -70,30 +70,30 @@ class OptionalString extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addPresent(FlatBufferBuilder $builder, $present)
+    public static function addPresent(FlatbufferBuilder $builder, $present)
     {
         $builder->addBoolX(0, $present, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addValue(FlatBufferBuilder $builder, $value)
+    public static function addValue(FlatbufferBuilder $builder, $value)
     {
         $builder->addOffsetX(1, $value, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endOptionalString(FlatBufferBuilder $builder)
+    public static function endOptionalString(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

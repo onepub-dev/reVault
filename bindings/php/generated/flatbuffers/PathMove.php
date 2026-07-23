@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class PathMove extends Table
 {
@@ -45,19 +45,19 @@ class PathMove extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startPathMove(FlatBufferBuilder $builder)
+    public static function startPathMove(FlatbufferBuilder $builder)
     {
         $builder->StartObject(2);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return PathMove
      */
-    public static function createPathMove(FlatBufferBuilder $builder, $source, $destination)
+    public static function createPathMove(FlatbufferBuilder $builder, $source, $destination)
     {
         $builder->startObject(2);
         self::addSource($builder, $source);
@@ -67,30 +67,30 @@ class PathMove extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addSource(FlatBufferBuilder $builder, $source)
+    public static function addSource(FlatbufferBuilder $builder, $source)
     {
         $builder->addOffsetX(0, $source, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addDestination(FlatBufferBuilder $builder, $destination)
+    public static function addDestination(FlatbufferBuilder $builder, $destination)
     {
         $builder->addOffsetX(1, $destination, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endPathMove(FlatBufferBuilder $builder)
+    public static function endPathMove(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

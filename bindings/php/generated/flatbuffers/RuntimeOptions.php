@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class RuntimeOptions extends Table
 {
@@ -45,19 +45,19 @@ class RuntimeOptions extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startRuntimeOptions(FlatBufferBuilder $builder)
+    public static function startRuntimeOptions(FlatbufferBuilder $builder)
     {
         $builder->StartObject(2);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return RuntimeOptions
      */
-    public static function createRuntimeOptions(FlatBufferBuilder $builder, $workload_profile, $worker_policy)
+    public static function createRuntimeOptions(FlatbufferBuilder $builder, $workload_profile, $worker_policy)
     {
         $builder->startObject(2);
         self::addWorkloadProfile($builder, $workload_profile);
@@ -67,30 +67,30 @@ class RuntimeOptions extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addWorkloadProfile(FlatBufferBuilder $builder, $workloadProfile)
+    public static function addWorkloadProfile(FlatbufferBuilder $builder, $workloadProfile)
     {
         $builder->addOffsetX(0, $workloadProfile, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addWorkerPolicy(FlatBufferBuilder $builder, $workerPolicy)
+    public static function addWorkerPolicy(FlatbufferBuilder $builder, $workerPolicy)
     {
         $builder->addOffsetX(1, $workerPolicy, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endRuntimeOptions(FlatBufferBuilder $builder)
+    public static function endRuntimeOptions(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

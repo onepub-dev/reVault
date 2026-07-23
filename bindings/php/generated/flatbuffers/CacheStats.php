@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class CacheStats extends Table
 {
@@ -78,19 +78,19 @@ class CacheStats extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startCacheStats(FlatBufferBuilder $builder)
+    public static function startCacheStats(FlatbufferBuilder $builder)
     {
         $builder->StartObject(5);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return CacheStats
      */
-    public static function createCacheStats(FlatBufferBuilder $builder, $limit_bytes, $used_bytes, $entries, $hits, $misses)
+    public static function createCacheStats(FlatbufferBuilder $builder, $limit_bytes, $used_bytes, $entries, $hits, $misses)
     {
         $builder->startObject(5);
         self::addLimitBytes($builder, $limit_bytes);
@@ -103,60 +103,60 @@ class CacheStats extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addLimitBytes(FlatBufferBuilder $builder, $limitBytes)
+    public static function addLimitBytes(FlatbufferBuilder $builder, $limitBytes)
     {
         $builder->addUlongX(0, $limitBytes, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addUsedBytes(FlatBufferBuilder $builder, $usedBytes)
+    public static function addUsedBytes(FlatbufferBuilder $builder, $usedBytes)
     {
         $builder->addUlongX(1, $usedBytes, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addEntries(FlatBufferBuilder $builder, $entries)
+    public static function addEntries(FlatbufferBuilder $builder, $entries)
     {
         $builder->addUlongX(2, $entries, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addHits(FlatBufferBuilder $builder, $hits)
+    public static function addHits(FlatbufferBuilder $builder, $hits)
     {
         $builder->addUlongX(3, $hits, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addMisses(FlatBufferBuilder $builder, $misses)
+    public static function addMisses(FlatbufferBuilder $builder, $misses)
     {
         $builder->addUlongX(4, $misses, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endCacheStats(FlatBufferBuilder $builder)
+    public static function endCacheStats(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

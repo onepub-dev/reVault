@@ -890,7 +890,11 @@ fn generate_flatbuffers(repository: &Path) -> Result {
                             "namespace revault\\internal;",
                             "namespace Revault\\Internal\\Transport;",
                         )
-                        .replace("\\revault\\internal\\", "\\Revault\\Internal\\Transport\\");
+                        .replace("\\revault\\internal\\", "\\Revault\\Internal\\Transport\\")
+                        // Composer's FlatBuffers runtime classmap uses this casing.
+                        // PHP class names are case-insensitive after loading, but
+                        // Composer's classmap lookup is case-sensitive on Linux.
+                        .replace("FlatBufferBuilder", "FlatbufferBuilder");
                     fs::write(path, source)?;
                 }
             }

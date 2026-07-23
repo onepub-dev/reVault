@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class ImportStats extends Table
 {
@@ -57,19 +57,19 @@ class ImportStats extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startImportStats(FlatBufferBuilder $builder)
+    public static function startImportStats(FlatbufferBuilder $builder)
     {
         $builder->StartObject(4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return ImportStats
      */
-    public static function createImportStats(FlatBufferBuilder $builder, $host_stat_nanos, $host_read_nanos, $frame_prepare_nanos, $page_write_nanos)
+    public static function createImportStats(FlatbufferBuilder $builder, $host_stat_nanos, $host_read_nanos, $frame_prepare_nanos, $page_write_nanos)
     {
         $builder->startObject(4);
         self::addHostStatNanos($builder, $host_stat_nanos);
@@ -81,50 +81,50 @@ class ImportStats extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addHostStatNanos(FlatBufferBuilder $builder, $hostStatNanos)
+    public static function addHostStatNanos(FlatbufferBuilder $builder, $hostStatNanos)
     {
         $builder->addOffsetX(0, $hostStatNanos, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addHostReadNanos(FlatBufferBuilder $builder, $hostReadNanos)
+    public static function addHostReadNanos(FlatbufferBuilder $builder, $hostReadNanos)
     {
         $builder->addOffsetX(1, $hostReadNanos, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addFramePrepareNanos(FlatBufferBuilder $builder, $framePrepareNanos)
+    public static function addFramePrepareNanos(FlatbufferBuilder $builder, $framePrepareNanos)
     {
         $builder->addOffsetX(2, $framePrepareNanos, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addPageWriteNanos(FlatBufferBuilder $builder, $pageWriteNanos)
+    public static function addPageWriteNanos(FlatbufferBuilder $builder, $pageWriteNanos)
     {
         $builder->addOffsetX(3, $pageWriteNanos, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endImportStats(FlatBufferBuilder $builder)
+    public static function endImportStats(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

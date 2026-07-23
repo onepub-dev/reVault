@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class KnownLockbox extends Table
 {
@@ -75,19 +75,19 @@ class KnownLockbox extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startKnownLockbox(FlatBufferBuilder $builder)
+    public static function startKnownLockbox(FlatbufferBuilder $builder)
     {
         $builder->StartObject(3);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return KnownLockbox
      */
-    public static function createKnownLockbox(FlatBufferBuilder $builder, $lockbox_id, $path, $last_seen_unix_ms)
+    public static function createKnownLockbox(FlatbufferBuilder $builder, $lockbox_id, $path, $last_seen_unix_ms)
     {
         $builder->startObject(3);
         self::addLockboxId($builder, $lockbox_id);
@@ -98,21 +98,21 @@ class KnownLockbox extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addLockboxId(FlatBufferBuilder $builder, $lockboxId)
+    public static function addLockboxId(FlatbufferBuilder $builder, $lockboxId)
     {
         $builder->addOffsetX(0, $lockboxId, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createLockboxIdVector(FlatBufferBuilder $builder, array $data)
+    public static function createLockboxIdVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(1, count($data), 1);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -122,40 +122,40 @@ class KnownLockbox extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startLockboxIdVector(FlatBufferBuilder $builder, $numElems)
+    public static function startLockboxIdVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(1, $numElems, 1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addPath(FlatBufferBuilder $builder, $path)
+    public static function addPath(FlatbufferBuilder $builder, $path)
     {
         $builder->addOffsetX(1, $path, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addLastSeenUnixMs(FlatBufferBuilder $builder, $lastSeenUnixMs)
+    public static function addLastSeenUnixMs(FlatbufferBuilder $builder, $lastSeenUnixMs)
     {
         $builder->addUlongX(2, $lastSeenUnixMs, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endKnownLockbox(FlatBufferBuilder $builder)
+    public static function endKnownLockbox(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

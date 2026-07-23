@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class OwnerInspection extends Table
 {
@@ -57,19 +57,19 @@ class OwnerInspection extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startOwnerInspection(FlatBufferBuilder $builder)
+    public static function startOwnerInspection(FlatbufferBuilder $builder)
     {
         $builder->StartObject(3);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return OwnerInspection
      */
-    public static function createOwnerInspection(FlatBufferBuilder $builder, $signed, $fingerprint, $has_fingerprint)
+    public static function createOwnerInspection(FlatbufferBuilder $builder, $signed, $fingerprint, $has_fingerprint)
     {
         $builder->startObject(3);
         self::addSigned($builder, $signed);
@@ -80,40 +80,40 @@ class OwnerInspection extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addSigned(FlatBufferBuilder $builder, $signed)
+    public static function addSigned(FlatbufferBuilder $builder, $signed)
     {
         $builder->addBoolX(0, $signed, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addFingerprint(FlatBufferBuilder $builder, $fingerprint)
+    public static function addFingerprint(FlatbufferBuilder $builder, $fingerprint)
     {
         $builder->addOffsetX(1, $fingerprint, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addHasFingerprint(FlatBufferBuilder $builder, $hasFingerprint)
+    public static function addHasFingerprint(FlatbufferBuilder $builder, $hasFingerprint)
     {
         $builder->addBoolX(2, $hasFingerprint, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endOwnerInspection(FlatBufferBuilder $builder)
+    public static function endOwnerInspection(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

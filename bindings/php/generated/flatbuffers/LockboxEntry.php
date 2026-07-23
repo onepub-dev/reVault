@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class LockboxEntry extends Table
 {
@@ -66,19 +66,19 @@ class LockboxEntry extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startLockboxEntry(FlatBufferBuilder $builder)
+    public static function startLockboxEntry(FlatbufferBuilder $builder)
     {
         $builder->StartObject(4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return LockboxEntry
      */
-    public static function createLockboxEntry(FlatBufferBuilder $builder, $path, $kind, $length, $permissions)
+    public static function createLockboxEntry(FlatbufferBuilder $builder, $path, $kind, $length, $permissions)
     {
         $builder->startObject(4);
         self::addPath($builder, $path);
@@ -90,50 +90,50 @@ class LockboxEntry extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addPath(FlatBufferBuilder $builder, $path)
+    public static function addPath(FlatbufferBuilder $builder, $path)
     {
         $builder->addOffsetX(0, $path, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int
      * @return void
      */
-    public static function addKind(FlatBufferBuilder $builder, $kind)
+    public static function addKind(FlatbufferBuilder $builder, $kind)
     {
         $builder->addIntX(1, $kind, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addLength(FlatBufferBuilder $builder, $length)
+    public static function addLength(FlatbufferBuilder $builder, $length)
     {
         $builder->addUlongX(2, $length, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param uint
      * @return void
      */
-    public static function addPermissions(FlatBufferBuilder $builder, $permissions)
+    public static function addPermissions(FlatbufferBuilder $builder, $permissions)
     {
         $builder->addUintX(3, $permissions, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endLockboxEntry(FlatBufferBuilder $builder)
+    public static function endLockboxEntry(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

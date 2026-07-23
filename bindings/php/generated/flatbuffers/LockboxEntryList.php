@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class LockboxEntryList extends Table
 {
@@ -52,19 +52,19 @@ class LockboxEntryList extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startLockboxEntryList(FlatBufferBuilder $builder)
+    public static function startLockboxEntryList(FlatbufferBuilder $builder)
     {
         $builder->StartObject(1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return LockboxEntryList
      */
-    public static function createLockboxEntryList(FlatBufferBuilder $builder, $entries)
+    public static function createLockboxEntryList(FlatbufferBuilder $builder, $entries)
     {
         $builder->startObject(1);
         self::addEntries($builder, $entries);
@@ -73,21 +73,21 @@ class LockboxEntryList extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addEntries(FlatBufferBuilder $builder, $entries)
+    public static function addEntries(FlatbufferBuilder $builder, $entries)
     {
         $builder->addOffsetX(0, $entries, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createEntriesVector(FlatBufferBuilder $builder, array $data)
+    public static function createEntriesVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(4, count($data), 4);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -97,20 +97,20 @@ class LockboxEntryList extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startEntriesVector(FlatBufferBuilder $builder, $numElems)
+    public static function startEntriesVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(4, $numElems, 4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endLockboxEntryList(FlatBufferBuilder $builder)
+    public static function endLockboxEntryList(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class FormRecord extends Table
 {
@@ -85,19 +85,19 @@ class FormRecord extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startFormRecord(FlatBufferBuilder $builder)
+    public static function startFormRecord(FlatbufferBuilder $builder)
     {
         $builder->StartObject(6);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return FormRecord
      */
-    public static function createFormRecord(FlatBufferBuilder $builder, $path, $name, $type_id, $definition_alias, $definition_revision, $values)
+    public static function createFormRecord(FlatbufferBuilder $builder, $path, $name, $type_id, $definition_alias, $definition_revision, $values)
     {
         $builder->startObject(6);
         self::addPath($builder, $path);
@@ -111,71 +111,71 @@ class FormRecord extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addPath(FlatBufferBuilder $builder, $path)
+    public static function addPath(FlatbufferBuilder $builder, $path)
     {
         $builder->addOffsetX(0, $path, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addName(FlatBufferBuilder $builder, $name)
+    public static function addName(FlatbufferBuilder $builder, $name)
     {
         $builder->addOffsetX(1, $name, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addTypeId(FlatBufferBuilder $builder, $typeId)
+    public static function addTypeId(FlatbufferBuilder $builder, $typeId)
     {
         $builder->addOffsetX(2, $typeId, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addDefinitionAlias(FlatBufferBuilder $builder, $definitionAlias)
+    public static function addDefinitionAlias(FlatbufferBuilder $builder, $definitionAlias)
     {
         $builder->addOffsetX(3, $definitionAlias, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param uint
      * @return void
      */
-    public static function addDefinitionRevision(FlatBufferBuilder $builder, $definitionRevision)
+    public static function addDefinitionRevision(FlatbufferBuilder $builder, $definitionRevision)
     {
         $builder->addUintX(4, $definitionRevision, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addValues(FlatBufferBuilder $builder, $values)
+    public static function addValues(FlatbufferBuilder $builder, $values)
     {
         $builder->addOffsetX(5, $values, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createValuesVector(FlatBufferBuilder $builder, array $data)
+    public static function createValuesVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(4, count($data), 4);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -185,20 +185,20 @@ class FormRecord extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startValuesVector(FlatBufferBuilder $builder, $numElems)
+    public static function startValuesVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(4, $numElems, 4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endFormRecord(FlatBufferBuilder $builder)
+    public static function endFormRecord(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

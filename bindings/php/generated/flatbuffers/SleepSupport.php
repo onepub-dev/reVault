@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class SleepSupport extends Table
 {
@@ -60,19 +60,19 @@ class SleepSupport extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startSleepSupport(FlatBufferBuilder $builder)
+    public static function startSleepSupport(FlatbufferBuilder $builder)
     {
         $builder->StartObject(3);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return SleepSupport
      */
-    public static function createSleepSupport(FlatBufferBuilder $builder, $suspend_notifications, $sleep_inhibition, $supported)
+    public static function createSleepSupport(FlatbufferBuilder $builder, $suspend_notifications, $sleep_inhibition, $supported)
     {
         $builder->startObject(3);
         self::addSuspendNotifications($builder, $suspend_notifications);
@@ -83,40 +83,40 @@ class SleepSupport extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addSuspendNotifications(FlatBufferBuilder $builder, $suspendNotifications)
+    public static function addSuspendNotifications(FlatbufferBuilder $builder, $suspendNotifications)
     {
         $builder->addBoolX(0, $suspendNotifications, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addSleepInhibition(FlatBufferBuilder $builder, $sleepInhibition)
+    public static function addSleepInhibition(FlatbufferBuilder $builder, $sleepInhibition)
     {
         $builder->addBoolX(1, $sleepInhibition, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addSupported(FlatBufferBuilder $builder, $supported)
+    public static function addSupported(FlatbufferBuilder $builder, $supported)
     {
         $builder->addBoolX(2, $supported, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endSleepSupport(FlatBufferBuilder $builder)
+    public static function endSleepSupport(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Revault;
 
 use Google\FlatBuffers\ByteBuffer;
-use Google\FlatBuffers\FlatBufferBuilder;
+use Google\FlatBuffers\FlatbufferBuilder;
 
 /** Metadata for one file, directory, or symbolic link stored at a lockbox path. */
 final class LockboxEntry
@@ -214,7 +214,7 @@ final class PageInspection
 final class FileInspection
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly array $lockbox_id, public readonly bool $header_readable, public readonly int $key_directory_generation, public readonly int $key_directory_copy_count, public readonly bool $owner_signed, public readonly array $key_slots) {}
+    public function __construct(public readonly string $lockbox_id, public readonly bool $header_readable, public readonly int $key_directory_generation, public readonly int $key_directory_copy_count, public readonly bool $owner_signed, public readonly array $key_slots) {}
     /** Stable binary identifier read from the lockbox header. */
     public function getLockboxId(): mixed { return $this->lockbox_id; }
     /** Whether the archive header passed structural validation. */
@@ -233,7 +233,7 @@ final class FileInspection
 final class ProfileGeneration
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly int $index, public readonly string $status, public readonly array $contact_fingerprint, public readonly int $created_at_unix_ms, public readonly int $retired_at_unix_ms, public readonly bool $has_retired_at) {}
+    public function __construct(public readonly int $index, public readonly string $status, public readonly string $contact_fingerprint, public readonly int $created_at_unix_ms, public readonly int $retired_at_unix_ms, public readonly bool $has_retired_at) {}
     /** Generation number used to address this key version. */
     public function getIndex(): mixed { return $this->index; }
     /** Lifecycle state, such as active or retired. */
@@ -265,7 +265,7 @@ final class ProfileHistory
 final class KnownLockbox
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly array $lockbox_id, public readonly string $path, public readonly int $last_seen_unix_ms) {}
+    public function __construct(public readonly string $lockbox_id, public readonly string $path, public readonly int $last_seen_unix_ms) {}
     /** Stable binary identifier of the remembered lockbox. */
     public function getLockboxId(): mixed { return $this->lockbox_id; }
     /** Last known host filesystem path of the lockbox. */
@@ -278,7 +278,7 @@ final class KnownLockbox
 final class AccessSlotLabel
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly array $lockbox_id, public readonly int $slot_id, public readonly string $name, public readonly int $updated_at_unix_ms) {}
+    public function __construct(public readonly string $lockbox_id, public readonly int $slot_id, public readonly string $name, public readonly int $updated_at_unix_ms) {}
     /** Lockbox whose access slot is labelled. */
     public function getLockboxId(): mixed { return $this->lockbox_id; }
     /** Stable identifier of the labelled access slot. */
@@ -293,7 +293,7 @@ final class AccessSlotLabel
 final class StreamChunk
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly string $path, public readonly int $file_offset, public readonly int $length, public readonly int $physical_offset, public readonly bool $sparse, public readonly array $data) {}
+    public function __construct(public readonly string $path, public readonly int $file_offset, public readonly int $length, public readonly int $physical_offset, public readonly bool $sparse, public readonly string $data) {}
     /** Lockbox file path to which this byte range belongs. */
     public function getPath(): mixed { return $this->path; }
     /** Logical byte offset within the file. */
@@ -347,7 +347,7 @@ final class OwnerInspection
 final class Contact
 {
     /** Creates a value from fields returned by the reVault API. */
-    public function __construct(public readonly string $name, public readonly array $key) {}
+    public function __construct(public readonly string $name, public readonly string $key) {}
     /** Local address-book name of the contact. */
     public function getName(): mixed { return $this->name; }
     /** Serialized contact public key used to grant lockbox access. */

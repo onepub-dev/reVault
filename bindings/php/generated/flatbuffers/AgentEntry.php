@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class AgentEntry extends Table
 {
@@ -45,19 +45,19 @@ class AgentEntry extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startAgentEntry(FlatBufferBuilder $builder)
+    public static function startAgentEntry(FlatbufferBuilder $builder)
     {
         $builder->StartObject(2);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return AgentEntry
      */
-    public static function createAgentEntry(FlatBufferBuilder $builder, $id, $path)
+    public static function createAgentEntry(FlatbufferBuilder $builder, $id, $path)
     {
         $builder->startObject(2);
         self::addId($builder, $id);
@@ -67,30 +67,30 @@ class AgentEntry extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addId(FlatBufferBuilder $builder, $id)
+    public static function addId(FlatbufferBuilder $builder, $id)
     {
         $builder->addOffsetX(0, $id, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addPath(FlatBufferBuilder $builder, $path)
+    public static function addPath(FlatbufferBuilder $builder, $path)
     {
         $builder->addOffsetX(1, $path, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endAgentEntry(FlatBufferBuilder $builder)
+    public static function endAgentEntry(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;
