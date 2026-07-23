@@ -474,9 +474,6 @@ static void archive_lifecycle(void) {
   PASS(lockbox_format_version, 1);
   PASS(lockbox_probe_format_version, 2);
   (void)lockbox_probe_format_version(NULL, 1);
-  const char *error = buffer_last_error();
-  CHECK(error != NULL && error[0] != '\0', "last-error message");
-  PASS(buffer_last_error, 1);
   RevaultBuffer error_details = buffer_last_error_details();
   CHECK(error_details.ptr != NULL && error_details.len > 12, "typed error details");
   buffer_free(error_details);
@@ -1543,6 +1540,13 @@ int main(int argc, char **argv) {
     default_vault_lifecycle();
     return 0;
   }
+  if (argc == 2 && strcmp(argv[1], "--last-error") == 0) {
+    (void)lockbox_probe_format_version(NULL, 1);
+    const char *error = buffer_last_error();
+    CHECK(error != NULL && error[0] != '\0', "last-error message");
+    PASS(buffer_last_error, 1);
+    return 0;
+  }
   trace_phase("archive lifecycle");
   archive_lifecycle();
   trace_phase("key lifecycle");
@@ -1557,5 +1561,8 @@ int main(int argc, char **argv) {
   agent_and_local_vault();
   trace_phase("platform secret store");
   platform_secret_store();
+  const char *error = buffer_last_error();
+  CHECK(error != NULL, "last-error pointer");
+  PASS(buffer_last_error, 1);
   return 0;
 }
