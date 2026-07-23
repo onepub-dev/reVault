@@ -28,7 +28,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use windows_sys::Win32::Foundation::{
-    CloseHandle, GetLastError, LocalFree, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND,
+    CloseHandle, GetLastError, LocalFree, SetLastError, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND,
     ERROR_NO_TOKEN, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GENERIC_READ, GENERIC_WRITE, HANDLE,
     INVALID_HANDLE_VALUE,
 };
@@ -391,7 +391,10 @@ fn acquire_agent_singleton() -> io::Result<Option<OwnedHandle>> {
     // SAFETY: `name` is a null-terminated UTF-16 string and `security` owns a
     // valid descriptor for the duration of the call. The returned handle is
     // either transferred to `OwnedHandle` or reported as an OS error.
-    let handle = unsafe { CreateMutexW(security.as_mut_ptr(), 0, name.as_ptr()) };
+    let handle = unsafe {
+        SetLastError(0);
+        CreateMutexW(security.as_mut_ptr(), 0, name.as_ptr())
+    };
     if handle.is_null() {
         return Err(io::Error::last_os_error());
     }
