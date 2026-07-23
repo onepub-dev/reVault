@@ -50,11 +50,15 @@ local schema = {
 }
 
 local function u16(bytes, position)
+  assert(position >= 1 and position + 1 <= #bytes,
+    string.format('invalid FlatBuffer u16 at byte %d of %d', position, #bytes))
   local a, b = bytes:byte(position, position + 1)
   return a + b * 256
 end
 
 local function u32(bytes, position)
+  assert(position >= 1 and position + 3 <= #bytes,
+    string.format('invalid FlatBuffer u32 at byte %d of %d', position, #bytes))
   local a, b, c, d = bytes:byte(position, position + 3)
   return a + b * 256 + c * 65536 + d * 16777216
 end
@@ -63,9 +67,14 @@ local function u64(bytes, position)
   return u32(bytes, position) + u32(bytes, position + 4) * 4294967296
 end
 
+local function i32(bytes, position)
+  local value = u32(bytes, position)
+  return value >= 2147483648 and value - 4294967296 or value
+end
+
 local decode_table
 local function field_location(bytes, position, index)
-  local vtable = position - u32(bytes, position)
+  local vtable = position - i32(bytes, position)
   local entry = vtable + 4 + index * 2
   if entry + 1 >= vtable + u16(bytes, vtable) then return nil end
   local offset = u16(bytes, entry)
