@@ -12,7 +12,7 @@ RUN rust/target/release/revault-tool release package-native --repository . \
       --library rust/target/release/librevault_api.so \
       --static-library rust/target/release/librevault_api.a --output /tmp/native
 
-FROM gradle:8.10-jdk22
+FROM gradle:8.13-jdk22
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 python3 \
