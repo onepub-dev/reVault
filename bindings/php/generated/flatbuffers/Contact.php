@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class Contact extends Table
 {
@@ -66,19 +66,19 @@ class Contact extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startContact(FlatBufferBuilder $builder)
+    public static function startContact(FlatbufferBuilder $builder)
     {
         $builder->StartObject(2);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return Contact
      */
-    public static function createContact(FlatBufferBuilder $builder, $name, $key)
+    public static function createContact(FlatbufferBuilder $builder, $name, $key)
     {
         $builder->startObject(2);
         self::addName($builder, $name);
@@ -88,31 +88,31 @@ class Contact extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addName(FlatBufferBuilder $builder, $name)
+    public static function addName(FlatbufferBuilder $builder, $name)
     {
         $builder->addOffsetX(0, $name, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addKey(FlatBufferBuilder $builder, $key)
+    public static function addKey(FlatbufferBuilder $builder, $key)
     {
         $builder->addOffsetX(1, $key, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createKeyVector(FlatBufferBuilder $builder, array $data)
+    public static function createKeyVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(1, count($data), 1);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -122,20 +122,20 @@ class Contact extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startKeyVector(FlatBufferBuilder $builder, $numElems)
+    public static function startKeyVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(1, $numElems, 1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endContact(FlatBufferBuilder $builder)
+    public static function endContact(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

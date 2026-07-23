@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class PlatformStatus extends Table
 {
@@ -69,19 +69,19 @@ class PlatformStatus extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startPlatformStatus(FlatBufferBuilder $builder)
+    public static function startPlatformStatus(FlatbufferBuilder $builder)
     {
         $builder->StartObject(5);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return PlatformStatus
      */
-    public static function createPlatformStatus(FlatBufferBuilder $builder, $supported, $disabled, $scope, $backend, $item)
+    public static function createPlatformStatus(FlatbufferBuilder $builder, $supported, $disabled, $scope, $backend, $item)
     {
         $builder->startObject(5);
         self::addSupported($builder, $supported);
@@ -94,60 +94,60 @@ class PlatformStatus extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addSupported(FlatBufferBuilder $builder, $supported)
+    public static function addSupported(FlatbufferBuilder $builder, $supported)
     {
         $builder->addBoolX(0, $supported, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addDisabled(FlatBufferBuilder $builder, $disabled)
+    public static function addDisabled(FlatbufferBuilder $builder, $disabled)
     {
         $builder->addBoolX(1, $disabled, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addScope(FlatBufferBuilder $builder, $scope)
+    public static function addScope(FlatbufferBuilder $builder, $scope)
     {
         $builder->addOffsetX(2, $scope, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addBackend(FlatBufferBuilder $builder, $backend)
+    public static function addBackend(FlatbufferBuilder $builder, $backend)
     {
         $builder->addOffsetX(3, $backend, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addItem(FlatBufferBuilder $builder, $item)
+    public static function addItem(FlatbufferBuilder $builder, $item)
     {
         $builder->addOffsetX(4, $item, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endPlatformStatus(FlatBufferBuilder $builder)
+    public static function endPlatformStatus(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

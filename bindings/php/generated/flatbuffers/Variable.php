@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class Variable extends Table
 {
@@ -45,19 +45,19 @@ class Variable extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startVariable(FlatBufferBuilder $builder)
+    public static function startVariable(FlatbufferBuilder $builder)
     {
         $builder->StartObject(2);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return Variable
      */
-    public static function createVariable(FlatBufferBuilder $builder, $name, $sensitivity)
+    public static function createVariable(FlatbufferBuilder $builder, $name, $sensitivity)
     {
         $builder->startObject(2);
         self::addName($builder, $name);
@@ -67,30 +67,30 @@ class Variable extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addName(FlatBufferBuilder $builder, $name)
+    public static function addName(FlatbufferBuilder $builder, $name)
     {
         $builder->addOffsetX(0, $name, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addSensitivity(FlatBufferBuilder $builder, $sensitivity)
+    public static function addSensitivity(FlatbufferBuilder $builder, $sensitivity)
     {
         $builder->addOffsetX(1, $sensitivity, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endVariable(FlatBufferBuilder $builder)
+    public static function endVariable(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class VaultBackupManifest extends Table
 {
@@ -72,19 +72,19 @@ class VaultBackupManifest extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startVaultBackupManifest(FlatBufferBuilder $builder)
+    public static function startVaultBackupManifest(FlatbufferBuilder $builder)
     {
         $builder->StartObject(5);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return VaultBackupManifest
      */
-    public static function createVaultBackupManifest(FlatBufferBuilder $builder, $format_version, $created_at_unix_ms, $vault_file_name, $vault_size, $vault_sha256)
+    public static function createVaultBackupManifest(FlatbufferBuilder $builder, $format_version, $created_at_unix_ms, $vault_file_name, $vault_size, $vault_sha256)
     {
         $builder->startObject(5);
         self::addFormatVersion($builder, $format_version);
@@ -97,60 +97,60 @@ class VaultBackupManifest extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param uint
      * @return void
      */
-    public static function addFormatVersion(FlatBufferBuilder $builder, $formatVersion)
+    public static function addFormatVersion(FlatbufferBuilder $builder, $formatVersion)
     {
         $builder->addUintX(0, $formatVersion, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addCreatedAtUnixMs(FlatBufferBuilder $builder, $createdAtUnixMs)
+    public static function addCreatedAtUnixMs(FlatbufferBuilder $builder, $createdAtUnixMs)
     {
         $builder->addUlongX(1, $createdAtUnixMs, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addVaultFileName(FlatBufferBuilder $builder, $vaultFileName)
+    public static function addVaultFileName(FlatbufferBuilder $builder, $vaultFileName)
     {
         $builder->addOffsetX(2, $vaultFileName, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addVaultSize(FlatBufferBuilder $builder, $vaultSize)
+    public static function addVaultSize(FlatbufferBuilder $builder, $vaultSize)
     {
         $builder->addUlongX(3, $vaultSize, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addVaultSha256(FlatBufferBuilder $builder, $vaultSha256)
+    public static function addVaultSha256(FlatbufferBuilder $builder, $vaultSha256)
     {
         $builder->addOffsetX(4, $vaultSha256, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endVaultBackupManifest(FlatBufferBuilder $builder)
+    public static function endVaultBackupManifest(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class ProfileGeneration extends Table
 {
@@ -102,19 +102,19 @@ class ProfileGeneration extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startProfileGeneration(FlatBufferBuilder $builder)
+    public static function startProfileGeneration(FlatbufferBuilder $builder)
     {
         $builder->StartObject(6);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return ProfileGeneration
      */
-    public static function createProfileGeneration(FlatBufferBuilder $builder, $index, $status, $contact_fingerprint, $created_at_unix_ms, $retired_at_unix_ms, $has_retired_at)
+    public static function createProfileGeneration(FlatbufferBuilder $builder, $index, $status, $contact_fingerprint, $created_at_unix_ms, $retired_at_unix_ms, $has_retired_at)
     {
         $builder->startObject(6);
         self::addIndex($builder, $index);
@@ -128,41 +128,41 @@ class ProfileGeneration extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param uint
      * @return void
      */
-    public static function addIndex(FlatBufferBuilder $builder, $index)
+    public static function addIndex(FlatbufferBuilder $builder, $index)
     {
         $builder->addUintX(0, $index, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addStatus(FlatBufferBuilder $builder, $status)
+    public static function addStatus(FlatbufferBuilder $builder, $status)
     {
         $builder->addOffsetX(1, $status, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addContactFingerprint(FlatBufferBuilder $builder, $contactFingerprint)
+    public static function addContactFingerprint(FlatbufferBuilder $builder, $contactFingerprint)
     {
         $builder->addOffsetX(2, $contactFingerprint, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createContactFingerprintVector(FlatBufferBuilder $builder, array $data)
+    public static function createContactFingerprintVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(1, count($data), 1);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -172,50 +172,50 @@ class ProfileGeneration extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startContactFingerprintVector(FlatBufferBuilder $builder, $numElems)
+    public static function startContactFingerprintVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(1, $numElems, 1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addCreatedAtUnixMs(FlatBufferBuilder $builder, $createdAtUnixMs)
+    public static function addCreatedAtUnixMs(FlatbufferBuilder $builder, $createdAtUnixMs)
     {
         $builder->addUlongX(3, $createdAtUnixMs, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addRetiredAtUnixMs(FlatBufferBuilder $builder, $retiredAtUnixMs)
+    public static function addRetiredAtUnixMs(FlatbufferBuilder $builder, $retiredAtUnixMs)
     {
         $builder->addUlongX(4, $retiredAtUnixMs, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addHasRetiredAt(FlatBufferBuilder $builder, $hasRetiredAt)
+    public static function addHasRetiredAt(FlatbufferBuilder $builder, $hasRetiredAt)
     {
         $builder->addBoolX(5, $hasRetiredAt, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endProfileGeneration(FlatBufferBuilder $builder)
+    public static function endProfileGeneration(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

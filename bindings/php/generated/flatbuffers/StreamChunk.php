@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class StreamChunk extends Table
 {
@@ -102,19 +102,19 @@ class StreamChunk extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startStreamChunk(FlatBufferBuilder $builder)
+    public static function startStreamChunk(FlatbufferBuilder $builder)
     {
         $builder->StartObject(6);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return StreamChunk
      */
-    public static function createStreamChunk(FlatBufferBuilder $builder, $path, $file_offset, $length, $physical_offset, $sparse, $data)
+    public static function createStreamChunk(FlatbufferBuilder $builder, $path, $file_offset, $length, $physical_offset, $sparse, $data)
     {
         $builder->startObject(6);
         self::addPath($builder, $path);
@@ -128,71 +128,71 @@ class StreamChunk extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addPath(FlatBufferBuilder $builder, $path)
+    public static function addPath(FlatbufferBuilder $builder, $path)
     {
         $builder->addOffsetX(0, $path, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addFileOffset(FlatBufferBuilder $builder, $fileOffset)
+    public static function addFileOffset(FlatbufferBuilder $builder, $fileOffset)
     {
         $builder->addUlongX(1, $fileOffset, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addLength(FlatBufferBuilder $builder, $length)
+    public static function addLength(FlatbufferBuilder $builder, $length)
     {
         $builder->addUlongX(2, $length, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addPhysicalOffset(FlatBufferBuilder $builder, $physicalOffset)
+    public static function addPhysicalOffset(FlatbufferBuilder $builder, $physicalOffset)
     {
         $builder->addUlongX(3, $physicalOffset, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addSparse(FlatBufferBuilder $builder, $sparse)
+    public static function addSparse(FlatbufferBuilder $builder, $sparse)
     {
         $builder->addBoolX(4, $sparse, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addData(FlatBufferBuilder $builder, $data)
+    public static function addData(FlatbufferBuilder $builder, $data)
     {
         $builder->addOffsetX(5, $data, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createDataVector(FlatBufferBuilder $builder, array $data)
+    public static function createDataVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(1, count($data), 1);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -202,20 +202,20 @@ class StreamChunk extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startDataVector(FlatBufferBuilder $builder, $numElems)
+    public static function startDataVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(1, $numElems, 1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endStreamChunk(FlatBufferBuilder $builder)
+    public static function endStreamChunk(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

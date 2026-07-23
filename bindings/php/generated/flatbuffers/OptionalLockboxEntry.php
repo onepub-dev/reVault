@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class OptionalLockboxEntry extends Table
 {
@@ -40,19 +40,19 @@ class OptionalLockboxEntry extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startOptionalLockboxEntry(FlatBufferBuilder $builder)
+    public static function startOptionalLockboxEntry(FlatbufferBuilder $builder)
     {
         $builder->StartObject(1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return OptionalLockboxEntry
      */
-    public static function createOptionalLockboxEntry(FlatBufferBuilder $builder, $value)
+    public static function createOptionalLockboxEntry(FlatbufferBuilder $builder, $value)
     {
         $builder->startObject(1);
         self::addValue($builder, $value);
@@ -61,20 +61,20 @@ class OptionalLockboxEntry extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addValue(FlatBufferBuilder $builder, $value)
+    public static function addValue(FlatbufferBuilder $builder, $value)
     {
         $builder->addOffsetX(0, $value, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endOptionalLockboxEntry(FlatBufferBuilder $builder)
+    public static function endOptionalLockboxEntry(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

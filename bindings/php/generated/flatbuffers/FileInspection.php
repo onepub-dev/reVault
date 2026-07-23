@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class FileInspection extends Table
 {
@@ -115,19 +115,19 @@ class FileInspection extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startFileInspection(FlatBufferBuilder $builder)
+    public static function startFileInspection(FlatbufferBuilder $builder)
     {
         $builder->StartObject(6);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return FileInspection
      */
-    public static function createFileInspection(FlatBufferBuilder $builder, $lockbox_id, $header_readable, $key_directory_generation, $key_directory_copy_count, $owner_signed, $key_slots)
+    public static function createFileInspection(FlatbufferBuilder $builder, $lockbox_id, $header_readable, $key_directory_generation, $key_directory_copy_count, $owner_signed, $key_slots)
     {
         $builder->startObject(6);
         self::addLockboxId($builder, $lockbox_id);
@@ -141,21 +141,21 @@ class FileInspection extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addLockboxId(FlatBufferBuilder $builder, $lockboxId)
+    public static function addLockboxId(FlatbufferBuilder $builder, $lockboxId)
     {
         $builder->addOffsetX(0, $lockboxId, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createLockboxIdVector(FlatBufferBuilder $builder, array $data)
+    public static function createLockboxIdVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(1, count($data), 1);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -165,71 +165,71 @@ class FileInspection extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startLockboxIdVector(FlatBufferBuilder $builder, $numElems)
+    public static function startLockboxIdVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(1, $numElems, 1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addHeaderReadable(FlatBufferBuilder $builder, $headerReadable)
+    public static function addHeaderReadable(FlatbufferBuilder $builder, $headerReadable)
     {
         $builder->addBoolX(1, $headerReadable, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addKeyDirectoryGeneration(FlatBufferBuilder $builder, $keyDirectoryGeneration)
+    public static function addKeyDirectoryGeneration(FlatbufferBuilder $builder, $keyDirectoryGeneration)
     {
         $builder->addUlongX(2, $keyDirectoryGeneration, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addKeyDirectoryCopyCount(FlatBufferBuilder $builder, $keyDirectoryCopyCount)
+    public static function addKeyDirectoryCopyCount(FlatbufferBuilder $builder, $keyDirectoryCopyCount)
     {
         $builder->addUlongX(3, $keyDirectoryCopyCount, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addOwnerSigned(FlatBufferBuilder $builder, $ownerSigned)
+    public static function addOwnerSigned(FlatbufferBuilder $builder, $ownerSigned)
     {
         $builder->addBoolX(4, $ownerSigned, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addKeySlots(FlatBufferBuilder $builder, $keySlots)
+    public static function addKeySlots(FlatbufferBuilder $builder, $keySlots)
     {
         $builder->addOffsetX(5, $keySlots, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createKeySlotsVector(FlatBufferBuilder $builder, array $data)
+    public static function createKeySlotsVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(4, count($data), 4);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -239,20 +239,20 @@ class FileInspection extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startKeySlotsVector(FlatBufferBuilder $builder, $numElems)
+    public static function startKeySlotsVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(4, $numElems, 4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endFileInspection(FlatBufferBuilder $builder)
+    public static function endFileInspection(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class RecoveryReport extends Table
 {
@@ -133,19 +133,19 @@ class RecoveryReport extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startRecoveryReport(FlatBufferBuilder $builder)
+    public static function startRecoveryReport(FlatbufferBuilder $builder)
     {
         $builder->StartObject(10);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return RecoveryReport
      */
-    public static function createRecoveryReport(FlatBufferBuilder $builder, $intact_files, $intact_file_count, $partial_files, $corrupt_records, $toc_recovered, $variables_recovered, $variable_count, $forms_recovered, $form_definition_count, $form_record_count)
+    public static function createRecoveryReport(FlatbufferBuilder $builder, $intact_files, $intact_file_count, $partial_files, $corrupt_records, $toc_recovered, $variables_recovered, $variable_count, $forms_recovered, $form_definition_count, $form_record_count)
     {
         $builder->startObject(10);
         self::addIntactFiles($builder, $intact_files);
@@ -163,21 +163,21 @@ class RecoveryReport extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addIntactFiles(FlatBufferBuilder $builder, $intactFiles)
+    public static function addIntactFiles(FlatbufferBuilder $builder, $intactFiles)
     {
         $builder->addOffsetX(0, $intactFiles, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createIntactFilesVector(FlatBufferBuilder $builder, array $data)
+    public static function createIntactFilesVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(4, count($data), 4);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -187,110 +187,110 @@ class RecoveryReport extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startIntactFilesVector(FlatBufferBuilder $builder, $numElems)
+    public static function startIntactFilesVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(4, $numElems, 4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addIntactFileCount(FlatBufferBuilder $builder, $intactFileCount)
+    public static function addIntactFileCount(FlatbufferBuilder $builder, $intactFileCount)
     {
         $builder->addUlongX(1, $intactFileCount, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addPartialFiles(FlatBufferBuilder $builder, $partialFiles)
+    public static function addPartialFiles(FlatbufferBuilder $builder, $partialFiles)
     {
         $builder->addUlongX(2, $partialFiles, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addCorruptRecords(FlatBufferBuilder $builder, $corruptRecords)
+    public static function addCorruptRecords(FlatbufferBuilder $builder, $corruptRecords)
     {
         $builder->addUlongX(3, $corruptRecords, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addTocRecovered(FlatBufferBuilder $builder, $tocRecovered)
+    public static function addTocRecovered(FlatbufferBuilder $builder, $tocRecovered)
     {
         $builder->addBoolX(4, $tocRecovered, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addVariablesRecovered(FlatBufferBuilder $builder, $variablesRecovered)
+    public static function addVariablesRecovered(FlatbufferBuilder $builder, $variablesRecovered)
     {
         $builder->addBoolX(5, $variablesRecovered, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addVariableCount(FlatBufferBuilder $builder, $variableCount)
+    public static function addVariableCount(FlatbufferBuilder $builder, $variableCount)
     {
         $builder->addUlongX(6, $variableCount, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addFormsRecovered(FlatBufferBuilder $builder, $formsRecovered)
+    public static function addFormsRecovered(FlatbufferBuilder $builder, $formsRecovered)
     {
         $builder->addBoolX(7, $formsRecovered, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addFormDefinitionCount(FlatBufferBuilder $builder, $formDefinitionCount)
+    public static function addFormDefinitionCount(FlatbufferBuilder $builder, $formDefinitionCount)
     {
         $builder->addUlongX(8, $formDefinitionCount, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addFormRecordCount(FlatBufferBuilder $builder, $formRecordCount)
+    public static function addFormRecordCount(FlatbufferBuilder $builder, $formRecordCount)
     {
         $builder->addUlongX(9, $formRecordCount, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endRecoveryReport(FlatBufferBuilder $builder)
+    public static function endRecoveryReport(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

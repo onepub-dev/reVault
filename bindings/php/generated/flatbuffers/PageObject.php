@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class PageObject extends Table
 {
@@ -57,19 +57,19 @@ class PageObject extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startPageObject(FlatBufferBuilder $builder)
+    public static function startPageObject(FlatbufferBuilder $builder)
     {
         $builder->StartObject(3);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return PageObject
      */
-    public static function createPageObject(FlatBufferBuilder $builder, $id, $kind, $payload_len)
+    public static function createPageObject(FlatbufferBuilder $builder, $id, $kind, $payload_len)
     {
         $builder->startObject(3);
         self::addId($builder, $id);
@@ -80,40 +80,40 @@ class PageObject extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addId(FlatBufferBuilder $builder, $id)
+    public static function addId(FlatbufferBuilder $builder, $id)
     {
         $builder->addUlongX(0, $id, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addKind(FlatBufferBuilder $builder, $kind)
+    public static function addKind(FlatbufferBuilder $builder, $kind)
     {
         $builder->addOffsetX(1, $kind, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addPayloadLen(FlatBufferBuilder $builder, $payloadLen)
+    public static function addPayloadLen(FlatbufferBuilder $builder, $payloadLen)
     {
         $builder->addUlongX(2, $payloadLen, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endPageObject(FlatBufferBuilder $builder)
+    public static function endPageObject(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

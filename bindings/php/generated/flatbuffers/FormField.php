@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class FormField extends Table
 {
@@ -60,19 +60,19 @@ class FormField extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startFormField(FlatBufferBuilder $builder)
+    public static function startFormField(FlatbufferBuilder $builder)
     {
         $builder->StartObject(4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return FormField
      */
-    public static function createFormField(FlatBufferBuilder $builder, $id, $label, $kind, $required)
+    public static function createFormField(FlatbufferBuilder $builder, $id, $label, $kind, $required)
     {
         $builder->startObject(4);
         self::addId($builder, $id);
@@ -84,50 +84,50 @@ class FormField extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addId(FlatBufferBuilder $builder, $id)
+    public static function addId(FlatbufferBuilder $builder, $id)
     {
         $builder->addOffsetX(0, $id, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addLabel(FlatBufferBuilder $builder, $label)
+    public static function addLabel(FlatbufferBuilder $builder, $label)
     {
         $builder->addOffsetX(1, $label, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addKind(FlatBufferBuilder $builder, $kind)
+    public static function addKind(FlatbufferBuilder $builder, $kind)
     {
         $builder->addOffsetX(2, $kind, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param bool
      * @return void
      */
-    public static function addRequired(FlatBufferBuilder $builder, $required)
+    public static function addRequired(FlatbufferBuilder $builder, $required)
     {
         $builder->addBoolX(3, $required, false);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endFormField(FlatBufferBuilder $builder)
+    public static function endFormField(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

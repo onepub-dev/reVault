@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class FormDefinition extends Table
 {
@@ -85,19 +85,19 @@ class FormDefinition extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startFormDefinition(FlatBufferBuilder $builder)
+    public static function startFormDefinition(FlatbufferBuilder $builder)
     {
         $builder->StartObject(6);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return FormDefinition
      */
-    public static function createFormDefinition(FlatBufferBuilder $builder, $type_id, $alias, $revision, $name, $description, $fields)
+    public static function createFormDefinition(FlatbufferBuilder $builder, $type_id, $alias, $revision, $name, $description, $fields)
     {
         $builder->startObject(6);
         self::addTypeId($builder, $type_id);
@@ -111,71 +111,71 @@ class FormDefinition extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addTypeId(FlatBufferBuilder $builder, $typeId)
+    public static function addTypeId(FlatbufferBuilder $builder, $typeId)
     {
         $builder->addOffsetX(0, $typeId, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addAlias(FlatBufferBuilder $builder, $alias)
+    public static function addAlias(FlatbufferBuilder $builder, $alias)
     {
         $builder->addOffsetX(1, $alias, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param uint
      * @return void
      */
-    public static function addRevision(FlatBufferBuilder $builder, $revision)
+    public static function addRevision(FlatbufferBuilder $builder, $revision)
     {
         $builder->addUintX(2, $revision, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addName(FlatBufferBuilder $builder, $name)
+    public static function addName(FlatbufferBuilder $builder, $name)
     {
         $builder->addOffsetX(3, $name, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addDescription(FlatBufferBuilder $builder, $description)
+    public static function addDescription(FlatbufferBuilder $builder, $description)
     {
         $builder->addOffsetX(4, $description, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addFields(FlatBufferBuilder $builder, $fields)
+    public static function addFields(FlatbufferBuilder $builder, $fields)
     {
         $builder->addOffsetX(5, $fields, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createFieldsVector(FlatBufferBuilder $builder, array $data)
+    public static function createFieldsVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(4, count($data), 4);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -185,20 +185,20 @@ class FormDefinition extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startFieldsVector(FlatBufferBuilder $builder, $numElems)
+    public static function startFieldsVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(4, $numElems, 4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endFormDefinition(FlatBufferBuilder $builder)
+    public static function endFormDefinition(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

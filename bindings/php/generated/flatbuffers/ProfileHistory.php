@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class ProfileHistory extends Table
 {
@@ -67,19 +67,19 @@ class ProfileHistory extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startProfileHistory(FlatBufferBuilder $builder)
+    public static function startProfileHistory(FlatbufferBuilder $builder)
     {
         $builder->StartObject(3);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return ProfileHistory
      */
-    public static function createProfileHistory(FlatBufferBuilder $builder, $name, $active_generation, $generations)
+    public static function createProfileHistory(FlatbufferBuilder $builder, $name, $active_generation, $generations)
     {
         $builder->startObject(3);
         self::addName($builder, $name);
@@ -90,41 +90,41 @@ class ProfileHistory extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addName(FlatBufferBuilder $builder, $name)
+    public static function addName(FlatbufferBuilder $builder, $name)
     {
         $builder->addOffsetX(0, $name, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param uint
      * @return void
      */
-    public static function addActiveGeneration(FlatBufferBuilder $builder, $activeGeneration)
+    public static function addActiveGeneration(FlatbufferBuilder $builder, $activeGeneration)
     {
         $builder->addUintX(1, $activeGeneration, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addGenerations(FlatBufferBuilder $builder, $generations)
+    public static function addGenerations(FlatbufferBuilder $builder, $generations)
     {
         $builder->addOffsetX(2, $generations, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createGenerationsVector(FlatBufferBuilder $builder, array $data)
+    public static function createGenerationsVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(4, count($data), 4);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -134,20 +134,20 @@ class ProfileHistory extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startGenerationsVector(FlatBufferBuilder $builder, $numElems)
+    public static function startGenerationsVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(4, $numElems, 4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endProfileHistory(FlatBufferBuilder $builder)
+    public static function endProfileHistory(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class KeySlot extends Table
 {
@@ -54,19 +54,19 @@ class KeySlot extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startKeySlot(FlatBufferBuilder $builder)
+    public static function startKeySlot(FlatbufferBuilder $builder)
     {
         $builder->StartObject(3);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return KeySlot
      */
-    public static function createKeySlot(FlatBufferBuilder $builder, $id, $protection, $algorithm)
+    public static function createKeySlot(FlatbufferBuilder $builder, $id, $protection, $algorithm)
     {
         $builder->startObject(3);
         self::addId($builder, $id);
@@ -77,40 +77,40 @@ class KeySlot extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addId(FlatBufferBuilder $builder, $id)
+    public static function addId(FlatbufferBuilder $builder, $id)
     {
         $builder->addUlongX(0, $id, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addProtection(FlatBufferBuilder $builder, $protection)
+    public static function addProtection(FlatbufferBuilder $builder, $protection)
     {
         $builder->addOffsetX(1, $protection, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addAlgorithm(FlatBufferBuilder $builder, $algorithm)
+    public static function addAlgorithm(FlatbufferBuilder $builder, $algorithm)
     {
         $builder->addOffsetX(2, $algorithm, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endKeySlot(FlatBufferBuilder $builder)
+    public static function endKeySlot(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

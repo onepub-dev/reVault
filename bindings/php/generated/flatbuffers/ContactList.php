@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class ContactList extends Table
 {
@@ -52,19 +52,19 @@ class ContactList extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startContactList(FlatBufferBuilder $builder)
+    public static function startContactList(FlatbufferBuilder $builder)
     {
         $builder->StartObject(1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return ContactList
      */
-    public static function createContactList(FlatBufferBuilder $builder, $values)
+    public static function createContactList(FlatbufferBuilder $builder, $values)
     {
         $builder->startObject(1);
         self::addValues($builder, $values);
@@ -73,21 +73,21 @@ class ContactList extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addValues(FlatBufferBuilder $builder, $values)
+    public static function addValues(FlatbufferBuilder $builder, $values)
     {
         $builder->addOffsetX(0, $values, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createValuesVector(FlatBufferBuilder $builder, array $data)
+    public static function createValuesVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(4, count($data), 4);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -97,20 +97,20 @@ class ContactList extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startValuesVector(FlatBufferBuilder $builder, $numElems)
+    public static function startValuesVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(4, $numElems, 4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endContactList(FlatBufferBuilder $builder)
+    public static function endContactList(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;

@@ -6,7 +6,7 @@ namespace Revault\Internal\Transport;
 use \Google\FlatBuffers\Struct;
 use \Google\FlatBuffers\Table;
 use \Google\FlatBuffers\ByteBuffer;
-use \Google\FlatBuffers\FlatBufferBuilder;
+use \Google\FlatBuffers\FlatbufferBuilder;
 
 class AccessSlotLabel extends Table
 {
@@ -84,19 +84,19 @@ class AccessSlotLabel extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return void
      */
-    public static function startAccessSlotLabel(FlatBufferBuilder $builder)
+    public static function startAccessSlotLabel(FlatbufferBuilder $builder)
     {
         $builder->StartObject(4);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return AccessSlotLabel
      */
-    public static function createAccessSlotLabel(FlatBufferBuilder $builder, $lockbox_id, $slot_id, $name, $updated_at_unix_ms)
+    public static function createAccessSlotLabel(FlatbufferBuilder $builder, $lockbox_id, $slot_id, $name, $updated_at_unix_ms)
     {
         $builder->startObject(4);
         self::addLockboxId($builder, $lockbox_id);
@@ -108,21 +108,21 @@ class AccessSlotLabel extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param VectorOffset
      * @return void
      */
-    public static function addLockboxId(FlatBufferBuilder $builder, $lockboxId)
+    public static function addLockboxId(FlatbufferBuilder $builder, $lockboxId)
     {
         $builder->addOffsetX(0, $lockboxId, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param array offset array
      * @return int vector offset
      */
-    public static function createLockboxIdVector(FlatBufferBuilder $builder, array $data)
+    public static function createLockboxIdVector(FlatbufferBuilder $builder, array $data)
     {
         $builder->startVector(1, count($data), 1);
         for ($i = count($data) - 1; $i >= 0; $i--) {
@@ -132,50 +132,50 @@ class AccessSlotLabel extends Table
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param int $numElems
      * @return void
      */
-    public static function startLockboxIdVector(FlatBufferBuilder $builder, $numElems)
+    public static function startLockboxIdVector(FlatbufferBuilder $builder, $numElems)
     {
         $builder->startVector(1, $numElems, 1);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addSlotId(FlatBufferBuilder $builder, $slotId)
+    public static function addSlotId(FlatbufferBuilder $builder, $slotId)
     {
         $builder->addUlongX(1, $slotId, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param StringOffset
      * @return void
      */
-    public static function addName(FlatBufferBuilder $builder, $name)
+    public static function addName(FlatbufferBuilder $builder, $name)
     {
         $builder->addOffsetX(2, $name, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @param ulong
      * @return void
      */
-    public static function addUpdatedAtUnixMs(FlatBufferBuilder $builder, $updatedAtUnixMs)
+    public static function addUpdatedAtUnixMs(FlatbufferBuilder $builder, $updatedAtUnixMs)
     {
         $builder->addUlongX(3, $updatedAtUnixMs, 0);
     }
 
     /**
-     * @param FlatBufferBuilder $builder
+     * @param FlatbufferBuilder $builder
      * @return int table offset
      */
-    public static function endAccessSlotLabel(FlatBufferBuilder $builder)
+    public static function endAccessSlotLabel(FlatbufferBuilder $builder)
     {
         $o = $builder->endObject();
         return $o;
