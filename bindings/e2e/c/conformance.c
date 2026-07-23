@@ -1541,7 +1541,9 @@ int main(int argc, char **argv) {
     return 0;
   }
   if (argc == 2 && strcmp(argv[1], "--last-error") == 0) {
-    CHECK(buffer_last_error() != NULL, "last-error pointer");
+    (void)lockbox_probe_format_version(NULL, 1);
+    const char *error = buffer_last_error();
+    CHECK(error != NULL && error[0] != '\0', "last-error message");
     PASS(buffer_last_error, 1);
     return 0;
   }
