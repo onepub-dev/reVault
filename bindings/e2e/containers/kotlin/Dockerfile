@@ -12,11 +12,19 @@ RUN rust/target/release/revault-tool release package-native --repository . \
       --library rust/target/release/librevault_api.so \
       --static-library rust/target/release/librevault_api.a --output /tmp/native
 
-FROM gradle:8.13-jdk22
+FROM gradle:8.10-jdk22
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 python3 \
+    curl dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 python3 unzip \
     && rm -rf /var/lib/apt/lists/*
+RUN curl --fail --location --show-error \
+      https://services.gradle.org/distributions/gradle-8.13-bin.zip \
+      --output /tmp/gradle-8.13-bin.zip \
+    && echo '20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78  /tmp/gradle-8.13-bin.zip' \
+      | sha256sum --check \
+    && unzip -q /tmp/gradle-8.13-bin.zip -d /opt \
+    && rm /tmp/gradle-8.13-bin.zip
+ENV PATH="/opt/gradle-8.13/bin:${PATH}"
 WORKDIR /workspace
 COPY . .
 COPY --from=native /tmp/native /tmp/native
