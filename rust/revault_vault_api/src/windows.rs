@@ -630,7 +630,15 @@ fn open_pipe(pipe_name: &[u16]) -> io::Result<OwnedHandle> {
         // duration of the wait call.
         let waited = unsafe { WaitNamedPipeW(pipe_name.as_ptr(), 3000) };
         if waited == 0 {
-            return Err(io::Error::last_os_error());
+            let err = io::Error::last_os_error();
+            // The one-request server disconnects the busy instance before it
+            // creates the next one. `WaitNamedPipeW` returns immediately if
+            // that short gap contains no instances, so retry until the same
+            // overall deadline instead of turning a cache hit into a miss.
+            if Instant::now() >= deadline {
+                return Err(err);
+            }
+            thread::sleep(Duration::from_millis(25));
         }
     }
 }
