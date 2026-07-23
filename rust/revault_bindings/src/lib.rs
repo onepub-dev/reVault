@@ -35,7 +35,7 @@ use revault_lockbox_api::{
     OwnerSigningKeyPair, OwnerSigningPublicKey, SecretString, VariableName,
 };
 use std::cell::RefCell;
-use std::ffi::{c_char, c_void, CString};
+use std::ffi::{c_char, c_void};
 use std::ptr;
 use zeroize::Zeroize;
 
@@ -94,17 +94,42 @@ unsafe fn lockbox_mut<'a>(handle: *mut c_void) -> Option<&'a mut LockboxHandle> 
     (!handle.is_null()).then(|| unsafe { &mut *handle.cast::<LockboxHandle>() })
 }
 
+const LAST_ERROR_CAPACITY: usize = 4096;
+
 thread_local! {
-    static LAST_ERROR: RefCell<CString> = RefCell::new(CString::new("").unwrap());
+    // A fixed buffer has no destructor. That matters for the Windows cdylib:
+    // destroying a heap-owning TLS value while the DLL is detaching can
+    // recursively re-enter the runtime and overflow the process stack.
+    static LAST_ERROR: RefCell<[u8; LAST_ERROR_CAPACITY]> =
+        const { RefCell::new([0; LAST_ERROR_CAPACITY]) };
 }
 
 fn set_error(error: impl std::fmt::Display) {
     let message = error.to_string().replace('\0', "\\0");
-    LAST_ERROR.with(|slot| *slot.borrow_mut() = CString::new(message).unwrap());
+    LAST_ERROR.with(|slot| {
+        let mut output = slot.borrow_mut();
+        let mut length = message.len().min(LAST_ERROR_CAPACITY - 1);
+        while !message.is_char_boundary(length) {
+            length -= 1;
+        }
+        output[..length].copy_from_slice(&message.as_bytes()[..length]);
+        output[length] = 0;
+    });
 }
 
 fn clear_error() {
-    LAST_ERROR.with(|slot| *slot.borrow_mut() = CString::new("").unwrap());
+    LAST_ERROR.with(|slot| slot.borrow_mut()[0] = 0);
+}
+
+fn last_error_message() -> String {
+    LAST_ERROR.with(|slot| {
+        let input = slot.borrow();
+        let length = input
+            .iter()
+            .position(|value| *value == 0)
+            .unwrap_or(input.len());
+        String::from_utf8_lossy(&input[..length]).into_owned()
+    })
 }
 
 unsafe fn input<'a>(ptr: *const u8, len: usize) -> Option<&'a [u8]> {
@@ -485,13 +510,13 @@ fn contact_list_transport(
 #[no_mangle]
 /// Returns the last error.
 pub extern "C" fn buffer_last_error() -> *const c_char {
-    LAST_ERROR.with(|slot| slot.borrow().as_ptr())
+    LAST_ERROR.with(|slot| slot.borrow().as_ptr().cast())
 }
 
 #[no_mangle]
 /// Returns the last error details.
 pub extern "C" fn buffer_last_error_details() -> RevaultBuffer {
-    let message = LAST_ERROR.with(|slot| slot.borrow().to_string_lossy().into_owned());
+    let message = last_error_message();
     let guidance = message
         .split_once(". ")
         .map(|(_, value)| value.to_string())
@@ -7935,6 +7960,25 @@ pub extern "C" fn vault_forget_all() -> bool {
 mod tests {
     use super::*;
     use std::ffi::CStr;
+
+    #[test]
+    fn last_error_storage_is_nul_terminated_and_utf8_safe() {
+        assert!(!std::mem::needs_drop::<RefCell<[u8; LAST_ERROR_CAPACITY]>>());
+        let message = "é".repeat(LAST_ERROR_CAPACITY);
+        set_error(&message);
+        let stored = unsafe { CStr::from_ptr(buffer_last_error()) }
+            .to_str()
+            .expect("last error remains valid UTF-8");
+        assert!(!stored.is_empty());
+        assert!(stored.len() < LAST_ERROR_CAPACITY);
+        assert!(message.starts_with(stored));
+
+        clear_error();
+        assert_eq!(
+            unsafe { CStr::from_ptr(buffer_last_error()) }.to_bytes(),
+            b""
+        );
+    }
 
     #[test]
     fn c_abi_covers_core_object_operations() {
