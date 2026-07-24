@@ -1,0 +1,51 @@
+Metadata-Version: 2.4
+Name: revault-api
+Version: 0.2.0
+Summary: Python ctypes bindings for reVault
+Author-email: OnePub <bsutton@onepub.dev>
+License-Expression: LicenseRef-reVault-Source-Available-1.0
+Project-URL: Documentation, https://github.com/onepub-dev/reVault/tree/master/docs
+Project-URL: Repository, https://github.com/onepub-dev/reVault
+Project-URL: Issues, https://github.com/onepub-dev/reVault/issues
+Project-URL: Changelog, https://github.com/onepub-dev/reVault/blob/master/bindings/CHANGELOG.md
+Project-URL: Security, https://github.com/onepub-dev/reVault/blob/master/SECURITY.md
+Keywords: encryption,credentials,archive,security,vault
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Topic :: Security :: Cryptography
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: flatbuffers<26,>=25.2.10
+Dynamic: license-file
+
+# reVault for Python
+
+reVault is an encrypted archive and local-vault library for files, credentials,
+keys, and typed records. Platform wheels include the native library and expose
+typed Protobuf results. See the
+[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
+
+```shell
+python -m pip install revault-api==0.2.0
+```
+
+```python
+from revault_api import Vault
+
+vault = Vault()
+with vault.lockbox_create(bytes(32)) as box:  # load a real key securely
+    box.add_file("/hello.txt", b"hello\n", False)
+    box.set_variable("owner", "alice")
+    box.set_secret_variable("token", bytearray(b"secret"))
+    size = box.with_secret_variable("token", lambda token: len(token))
+    box.commit()
+```
+
+The value passed to a secret callback is a temporary `bytearray`; it is
+cleared after the callback. Do not convert it to a retained `str` or `bytes`.

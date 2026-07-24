@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="API docs for the VaultDirectory class from the vault library, for the Dart programming language.">
+  <title>VaultDirectory class - vault library - Dart API</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="../static-assets/github.css?v1">
+  <link rel="stylesheet" href="../static-assets/styles.css?v1">
+  <link rel="icon" href="../static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="../" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="../index.html">revault_api</a></li>
+    <li><a href="../vault/">vault.dart</a></li>
+    <li class="self-crumb">VaultDirectory class</li>
+  </ol>
+  <div class="self-name">VaultDirectory</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+<div
+    id="dartdoc-main-content"
+    class="main-content"
+    data-above-sidebar="vault&#47;vault-library-sidebar.html"
+    data-below-sidebar="vault&#47;VaultDirectory-class-sidebar.html">
+    <div>
+<h1><span class="kind-class">VaultDirectory</span> class 
+    <a href="https://dart.dev/language/class-modifiers#final" class="feature feature-final" title="This class can neither be extended, implemented, nor mixed in.">final</a>
+ 
+</h1></div>
+
+    
+<section class="desc markdown">
+  <p>A writable, password-protected metadata store for one reVault installation.</p>
+<p>Open or create it through <a href="../vault/Vault-class.html">Vault</a> to manage profile keys, contacts, form
+definitions, encrypted key backups, remembered lockbox paths, and local
+access-slot labels. Lockbox file contents are stored separately.</p>
+</section>
+
+
+
+    
+    
+  <section
+      class="summary offset-anchor"
+      id="instance-properties">
+    <h2>Properties</h2>
+    <dl class="properties">
+        <dt id="backupCount" class="property">
+  <span class="name"><a href="../vault/VaultDirectory/backupCount.html">backupCount</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  
+
+</dt>
+<dd>
+  Returns the number of stored key-directory backups.
+  <div class="features"><span class="feature">no setter</span></div>
+
+</dd>
+
+        <dt id="disposed" class="property inherited">
+  <span class="name"><a href="../vault/VaultDirectory/disposed.html">disposed</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  
+  <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="hashCode" class="property inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/hashCode.html">hashCode</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  The hash code for this object.
+  <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="root" class="property">
+  <span class="name"><a href="../vault/VaultDirectory/root.html">root</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  
+
+</dt>
+<dd>
+  Returns the canonical root directory of this metadata vault.
+  <div class="features"><span class="feature">no setter</span></div>
+
+</dd>
+
+        <dt id="runtimeType" class="property inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/runtimeType.html">runtimeType</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Type-class.html">Type</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  A representation of the runtime type of the object.
+  <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="structureVersion" class="property">
+  <span class="name"><a href="../vault/VaultDirectory/structureVersion.html">structureVersion</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  
+
+</dt>
+<dd>
+  Returns the on-disk metadata-vault structure version.
+  <div class="features"><span class="feature">no setter</span></div>
+
+</dd>
+
+        <dt id="vault" class="property inherited">
+  <span class="name"><a href="../vault/VaultDirectory/vault.html">vault</a></span>
+  <span class="signature">&#8594; <a href="../vault/Vault-class.html">Vault</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  
+  <div class="features"><span class="feature">final</span><span class="feature">inherited</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+
+    
+  <section
+      class="summary offset-anchor"
+      id="instance-methods">
+    <h2>Methods</h2>
+    <dl class="callables">
+        <dt id="contactExists" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/contactExists.html">contactExists</a></span><span class="signature">(<wbr><span class="parameter" id="contactExists-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Whether contact <code>name</code> exists.
+  
+
+</dd>
+
+        <dt id="defineForm" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/defineForm.html">defineForm</a></span><span class="signature">(<wbr><span class="parameter" id="defineForm-param-alias"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">alias</span>, </span><span class="parameter" id="defineForm-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="defineForm-param-description"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">description</span>, </span><span class="parameter" id="defineForm-param-fields"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/FormField-class.html">FormField</a></span>&gt;</span></span> <span class="parameter-name">fields</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/FormDefinition-class.html">FormDefinition</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Defines a new immutable revision of a vault-wide form.
+  
+
+</dd>
+
+        <dt id="deleteContact" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/deleteContact.html">deleteContact</a></span><span class="signature">(<wbr><span class="parameter" id="deleteContact-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Deletes contact <code>name</code>.
+  
+
+</dd>
+
+        <dt id="deletePrivateKey" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/deletePrivateKey.html">deletePrivateKey</a></span><span class="signature">(<wbr><span class="parameter" id="deletePrivateKey-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Deletes the active private key and its signing key for <code>name</code>.
+  
+
+</dd>
+
+        <dt id="dispose" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/dispose.html">dispose</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Wipes decrypted state and releases the writable vault handle.
+  
+
+</dd>
+
+        <dt id="findAccessSlotLabels" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/findAccessSlotLabels.html">findAccessSlotLabels</a></span><span class="signature">(<wbr><span class="parameter" id="findAccessSlotLabels-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">id</span>, </span><span class="parameter" id="findAccessSlotLabels-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/AccessSlotLabel-class.html">AccessSlotLabel</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Finds labels named <code>name</code> for lockbox <code>id</code>.
+  
+
+</dd>
+
+        <dt id="forgetAccessSlotLabel" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/forgetAccessSlotLabel.html">forgetAccessSlotLabel</a></span><span class="signature">(<wbr><span class="parameter" id="forgetAccessSlotLabel-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">id</span>, </span><span class="parameter" id="forgetAccessSlotLabel-param-slotId"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">slotId</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Deletes the local label for one lockbox access slot.
+  
+
+</dd>
+
+        <dt id="forgetLockbox" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/forgetLockbox.html">forgetLockbox</a></span><span class="signature">(<wbr><span class="parameter" id="forgetLockbox-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Forgets the lockbox remembered at host <code>path</code>.
+  
+
+</dd>
+
+        <dt id="listAccessSlotLabels" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listAccessSlotLabels.html">listAccessSlotLabels</a></span><span class="signature">(<wbr><span class="parameter" id="listAccessSlotLabels-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">id</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/AccessSlotLabel-class.html">AccessSlotLabel</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists local access-slot labels for lockbox <code>id</code>.
+  
+
+</dd>
+
+        <dt id="listContactNames" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listContactNames.html">listContactNames</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists stored contact names.
+  
+
+</dd>
+
+        <dt id="listContacts" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listContacts.html">listContacts</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/Contact-class.html">Contact</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists stored contacts and their public-key records.
+  
+
+</dd>
+
+        <dt id="listFormAliases" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listFormAliases.html">listFormAliases</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists stored form aliases.
+  
+
+</dd>
+
+        <dt id="listFormRevisions" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listFormRevisions.html">listFormRevisions</a></span><span class="signature">(<wbr><span class="parameter" id="listFormRevisions-param-typeId"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">typeId</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/FormDefinition-class.html">FormDefinition</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists every vault-wide revision for <code>typeId</code>.
+  
+
+</dd>
+
+        <dt id="listForms" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listForms.html">listForms</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/FormDefinition-class.html">FormDefinition</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists current vault-wide form definitions.
+  
+
+</dd>
+
+        <dt id="listKnownLockboxes" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listKnownLockboxes.html">listKnownLockboxes</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/KnownLockbox-class.html">KnownLockbox</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists remembered lockbox identifiers and host paths.
+  
+
+</dd>
+
+        <dt id="listPrivateKeyNames" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listPrivateKeyNames.html">listPrivateKeyNames</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists profile names that have private contact keys.
+  
+
+</dd>
+
+        <dt id="listPrivateKeys" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listPrivateKeys.html">listPrivateKeys</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists serialized private-key records for backup workflows.
+  
+
+</dd>
+
+        <dt id="listProfileGenerations" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/listProfileGenerations.html">listProfileGenerations</a></span><span class="signature">(<wbr><span class="parameter" id="listProfileGenerations-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/ProfileHistory-class.html">ProfileHistory</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists active and retired key generations for profile <code>name</code>.
+  
+
+</dd>
+
+        <dt id="loadBackup" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/loadBackup.html">loadBackup</a></span><span class="signature">(<wbr><span class="parameter" id="loadBackup-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">id</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Loads the encrypted key-directory backup for lockbox <code>id</code>.
+  
+
+</dd>
+
+        <dt id="loadContact" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/loadContact.html">loadContact</a></span><span class="signature">(<wbr><span class="parameter" id="loadContact-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../vault/ContactPublicKey-class.html">ContactPublicKey</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Loads the public key for contact <code>name</code>.
+  
+
+</dd>
+
+        <dt id="loadContactSigningKey" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/loadContactSigningKey.html">loadContactSigningKey</a></span><span class="signature">(<wbr><span class="parameter" id="loadContactSigningKey-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../vault/SigningPublicKey-class.html">SigningPublicKey</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Loads the signing public key stored for contact <code>name</code>.
+  
+
+</dd>
+
+        <dt id="loadOwnerSigningKey" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/loadOwnerSigningKey.html">loadOwnerSigningKey</a></span><span class="signature">(<wbr><span class="parameter" id="loadOwnerSigningKey-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../vault/SigningKeyPair-class.html">SigningKeyPair</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Loads the active owner signing key for profile <code>name</code>.
+  
+
+</dd>
+
+        <dt id="loadOwnerSigningKeyGeneration" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/loadOwnerSigningKeyGeneration.html">loadOwnerSigningKeyGeneration</a></span><span class="signature">(<wbr><span class="parameter" id="loadOwnerSigningKeyGeneration-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="loadOwnerSigningKeyGeneration-param-index"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">index</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../vault/SigningKeyPair-class.html">SigningKeyPair</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Loads historical owner-signing generation <code>index</code> for <code>name</code>.
+  
+
+</dd>
+
+        <dt id="loadPrivateKey" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/loadPrivateKey.html">loadPrivateKey</a></span><span class="signature">(<wbr><span class="parameter" id="loadPrivateKey-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../vault/ContactKeyPair-class.html">ContactKeyPair</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Loads the active private contact key for <code>name</code>.
+  
+
+</dd>
+
+        <dt id="loadPrivateKeyGeneration" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/loadPrivateKeyGeneration.html">loadPrivateKeyGeneration</a></span><span class="signature">(<wbr><span class="parameter" id="loadPrivateKeyGeneration-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="loadPrivateKeyGeneration-param-index"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">index</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../vault/ContactKeyPair-class.html">ContactKeyPair</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Loads historical private-key generation <code>index</code> for <code>name</code>.
+  
+
+</dd>
+
+        <dt id="noSuchMethod" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/noSuchMethod.html">noSuchMethod</a></span><span class="signature">(<wbr><span class="parameter" id="noSuchMethod-param-invocation"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Invocation-class.html">Invocation</a></span> <span class="parameter-name">invocation</span></span>)
+    <span class="returntype parameter">&#8594; dynamic</span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  Invoked when a nonexistent method or property is accessed.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="privateKeyExists" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/privateKeyExists.html">privateKeyExists</a></span><span class="signature">(<wbr><span class="parameter" id="privateKeyExists-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Whether a profile private key exists under <code>name</code>.
+  
+
+</dd>
+
+        <dt id="profileEmail" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/profileEmail.html">profileEmail</a></span><span class="signature">(<wbr><span class="parameter" id="profileEmail-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns the email associated with profile <code>name</code>, when present.
+  
+
+</dd>
+
+        <dt id="rememberAccessSlotLabel" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/rememberAccessSlotLabel.html">rememberAccessSlotLabel</a></span><span class="signature">(<wbr><span class="parameter" id="rememberAccessSlotLabel-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">id</span>, </span><span class="parameter" id="rememberAccessSlotLabel-param-slotId"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">slotId</span>, </span><span class="parameter" id="rememberAccessSlotLabel-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores local display <code>name</code> for one lockbox access slot.
+  
+
+</dd>
+
+        <dt id="rememberedPassword" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/rememberedPassword.html">rememberedPassword</a></span><span class="signature">(<wbr><span class="parameter" id="rememberedPassword-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">id</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns the password remembered for lockbox <code>id</code>.
+  
+
+</dd>
+
+        <dt id="rememberLockbox" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/rememberLockbox.html">rememberLockbox</a></span><span class="signature">(<wbr><span class="parameter" id="rememberLockbox-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">id</span>, </span><span class="parameter" id="rememberLockbox-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Remembers that lockbox <code>id</code> is stored at host <code>path</code>.
+  
+
+</dd>
+
+        <dt id="rememberPassword" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/rememberPassword.html">rememberPassword</a></span><span class="signature">(<wbr><span class="parameter" id="rememberPassword-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">id</span>, </span><span class="parameter" id="rememberPassword-param-password"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">password</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Remembers a lockbox <code>password</code> under lockbox <code>id</code>.
+  
+
+</dd>
+
+        <dt id="resolveForm" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/resolveForm.html">resolveForm</a></span><span class="signature">(<wbr><span class="parameter" id="resolveForm-param-reference"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">reference</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/FormDefinition-class.html">FormDefinition</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Resolves a vault-wide form alias or stable type identifier.
+  
+
+</dd>
+
+        <dt id="restorePrivateKey" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/restorePrivateKey.html">restorePrivateKey</a></span><span class="signature">(<wbr><span class="parameter" id="restorePrivateKey-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="restorePrivateKey-param-key"><span class="type-annotation"><a href="../vault/ContactKeyPair-class.html">ContactKeyPair</a></span> <span class="parameter-name">key</span>, </span><span class="parameter" id="restorePrivateKey-param-signing"><span class="type-annotation"><a href="../vault/SigningKeyPair-class.html">SigningKeyPair</a></span> <span class="parameter-name">signing</span>, {</span><span class="parameter" id="restorePrivateKey-param-overwrite"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">overwrite</span> = <span class="default-value">false</span></span>})
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Restores a profile key pair and its owner <code>signing</code> key.
+  
+
+</dd>
+
+        <dt id="rotatePrivateKey" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/rotatePrivateKey.html">rotatePrivateKey</a></span><span class="signature">(<wbr><span class="parameter" id="rotatePrivateKey-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/ProfileHistory-class.html">ProfileHistory</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Rotates profile <code>name</code> to newly generated contact and signing keys.
+  
+
+</dd>
+
+        <dt id="seedForms" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/seedForms.html">seedForms</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Installs any built-in form definitions that are not already present.
+  
+
+</dd>
+
+        <dt id="storeBackup" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/storeBackup.html">storeBackup</a></span><span class="signature">(<wbr><span class="parameter" id="storeBackup-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">id</span>, </span><span class="parameter" id="storeBackup-param-value"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">value</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores encrypted key-directory backup <code>value</code> under lockbox <code>id</code>.
+  
+
+</dd>
+
+        <dt id="storeContact" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/storeContact.html">storeContact</a></span><span class="signature">(<wbr><span class="parameter" id="storeContact-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="storeContact-param-key"><span class="type-annotation"><a href="../vault/ContactPublicKey-class.html">ContactPublicKey</a></span> <span class="parameter-name">key</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores <code>key</code> as the public key for contact <code>name</code>.
+  
+
+</dd>
+
+        <dt id="storeContactSigningKey" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/storeContactSigningKey.html">storeContactSigningKey</a></span><span class="signature">(<wbr><span class="parameter" id="storeContactSigningKey-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="storeContactSigningKey-param-key"><span class="type-annotation"><a href="../vault/SigningPublicKey-class.html">SigningPublicKey</a></span> <span class="parameter-name">key</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores a contact's signing public <code>key</code> under <code>name</code>.
+  
+
+</dd>
+
+        <dt id="storePrivateKey" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/storePrivateKey.html">storePrivateKey</a></span><span class="signature">(<wbr><span class="parameter" id="storePrivateKey-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="storePrivateKey-param-key"><span class="type-annotation"><a href="../vault/ContactKeyPair-class.html">ContactKeyPair</a></span> <span class="parameter-name">key</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores <code>key</code> as the active private contact key for <code>name</code>.
+  
+
+</dd>
+
+        <dt id="storeProfileEmail" class="callable">
+  <span class="name"><a href="../vault/VaultDirectory/storeProfileEmail.html">storeProfileEmail</a></span><span class="signature">(<wbr><span class="parameter" id="storeProfileEmail-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="storeProfileEmail-param-email"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">email</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores the contact <code>email</code> associated with profile <code>name</code>.
+  
+
+</dd>
+
+        <dt id="toString" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/toString.html">toString</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  A string representation of this object.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+    
+  <section
+      class="summary offset-anchor inherited"
+      id="operators">
+    <h2>Operators</h2>
+    <dl class="callables">
+        <dt id="operator ==" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/operator_equals.html">operator ==</a></span><span class="signature">(<wbr><span class="parameter" id="==-param-other"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></span> <span class="parameter-name">other</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  The equality operator.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+    
+    
+    
+
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="../index.html">revault_api</a></li>
+    <li><a href="../vault/">vault</a></li>
+    <li class="self-crumb">VaultDirectory class</li>
+</ol>
+
+    <h5>vault library</h5>
+    <div id="dartdoc-sidebar-left-content"></div>
+  </div>
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  </div><!--/.sidebar-offcanvas-->
+</main>
+<footer>
+  <span class="no-break">
+    revault_api
+      0.2.0
+  </span>
+  
+</footer>
+
+
+<script src="../static-assets/highlight.pack.js?v1"></script>
+<script src="../static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+

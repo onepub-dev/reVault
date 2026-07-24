@@ -1,0 +1,16 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+revault_api/__init__.py
+revault_api/_domain.py
+revault_api/_revault_native.py
+revault_api/facade.py
+revault_api/revault_bindings_pb2.py
+revault_api.egg-info/PKG-INFO
+revault_api.egg-info/SOURCES.txt
+revault_api.egg-info/dependency_links.txt
+revault_api.egg-info/requires.txt
+revault_api.egg-info/top_level.txt
+revault_api/_flatbuffers/__init__.py
+revault_api/_flatbuffers/revault_bindings_generated.py

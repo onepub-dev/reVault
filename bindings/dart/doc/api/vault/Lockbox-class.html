@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, user-scalable=no">
+  <meta name="description" content="API docs for the Lockbox class from the vault library, for the Dart programming language.">
+  <title>Lockbox class - vault library - Dart API</title>
+
+
+  
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,500;0,700;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  
+  <link rel="stylesheet" href="../static-assets/github.css?v1">
+  <link rel="stylesheet" href="../static-assets/styles.css?v1">
+  <link rel="icon" href="../static-assets/favicon.png?v1">
+  
+</head>
+
+<body data-base-href="../" data-using-base-href="false" class="light-theme">
+<div id="overlay-under-drawer"></div>
+<header id="title">
+  <span id="sidenav-left-toggle" class="material-symbols-outlined" role="button" tabindex="0">menu</span>
+  <ol class="breadcrumbs gt-separated dark hidden-xs">
+    <li><a href="../index.html">revault_api</a></li>
+    <li><a href="../vault/">vault.dart</a></li>
+    <li class="self-crumb">Lockbox class</li>
+  </ol>
+  <div class="self-name">Lockbox</div>
+  <form class="search navbar-right" role="search">
+    <input type="text" id="search-box" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+  <button class="toggle" id="theme-button" title="Toggle between light and dark mode" aria-label="Light and dark mode toggle">
+    <span id="dark-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      dark_mode
+    </span>
+    <span id="light-theme-button" class="material-symbols-outlined" aria-hidden="true">
+      light_mode
+    </span>
+  </button>
+</header>
+<main>
+<div
+    id="dartdoc-main-content"
+    class="main-content"
+    data-above-sidebar="vault&#47;vault-library-sidebar.html"
+    data-below-sidebar="vault&#47;Lockbox-class-sidebar.html">
+    <div>
+<h1><span class="kind-class">Lockbox</span> class 
+    <a href="https://dart.dev/language/class-modifiers#final" class="feature feature-final" title="This class can neither be extended, implemented, nor mixed in.">final</a>
+ 
+</h1></div>
+
+    
+<section class="desc markdown">
+  <p>An open encrypted archive containing files, variables, secrets, and forms.</p>
+<p>Obtain it from <a href="../vault/Vault-class.html">Vault</a> or <a href="../vault/LocalVault-class.html">LocalVault</a>. Reads observe its current contents;
+mutations remain pending until <a href="../vault/Lockbox/commit.html">commit</a>. Call <a href="../vault/Lockbox/dispose.html">dispose</a> when finished to
+release decrypted state.</p>
+</section>
+
+
+
+    
+    
+  <section
+      class="summary offset-anchor"
+      id="instance-properties">
+    <h2>Properties</h2>
+    <dl class="properties">
+        <dt id="bytes" class="property">
+  <span class="name"><a href="../vault/Lockbox/bytes.html">bytes</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span>
+  
+
+</dt>
+<dd>
+  Serializes the current committed lockbox state.
+  <div class="features"><span class="feature">no setter</span></div>
+
+</dd>
+
+        <dt id="disposed" class="property inherited">
+  <span class="name"><a href="../vault/Lockbox/disposed.html">disposed</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  
+  <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="hashCode" class="property inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/hashCode.html">hashCode</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  The hash code for this object.
+  <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="id" class="property">
+  <span class="name"><a href="../vault/Lockbox/id.html">id</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span>
+  
+
+</dt>
+<dd>
+  Returns the stable binary identifier of this lockbox.
+  <div class="features"><span class="feature">no setter</span></div>
+
+</dd>
+
+        <dt id="runtimeType" class="property inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/runtimeType.html">runtimeType</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/Type-class.html">Type</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  A representation of the runtime type of the object.
+  <div class="features"><span class="feature">no setter</span><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="storageLength" class="property">
+  <span class="name"><a href="../vault/Lockbox/storageLength.html">storageLength</a></span>
+  <span class="signature">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  
+
+</dt>
+<dd>
+  Returns the current serialized storage length in bytes.
+  <div class="features"><span class="feature">no setter</span></div>
+
+</dd>
+
+        <dt id="vault" class="property inherited">
+  <span class="name"><a href="../vault/Lockbox/vault.html">vault</a></span>
+  <span class="signature">&#8594; <a href="../vault/Vault-class.html">Vault</a></span>
+  
+
+</dt>
+<dd class="inherited">
+  
+  <div class="features"><span class="feature">final</span><span class="feature">inherited</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+
+    
+  <section
+      class="summary offset-anchor"
+      id="instance-methods">
+    <h2>Methods</h2>
+    <dl class="callables">
+        <dt id="addContact" class="callable">
+  <span class="name"><a href="../vault/Lockbox/addContact.html">addContact</a></span><span class="signature">(<wbr><span class="parameter" id="addContact-param-contact"><span class="type-annotation"><a href="../vault/ContactPublicKey-class.html">ContactPublicKey</a></span> <span class="parameter-name">contact</span>, </span><span class="parameter" id="addContact-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Adds a <code>contact</code> access slot with local display <code>name</code>.
+  
+
+</dd>
+
+        <dt id="addFile" class="callable">
+  <span class="name"><a href="../vault/Lockbox/addFile.html">addFile</a></span><span class="signature">(<wbr><span class="parameter" id="addFile-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="addFile-param-value"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">value</span>, {</span><span class="parameter" id="addFile-param-permissions"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a>?</span> <span class="parameter-name">permissions</span>, </span><span class="parameter" id="addFile-param-replace"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">replace</span> = <span class="default-value">false</span></span>})
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Adds <code>value</code> at normalized lockbox <code>path</code>.
+  
+
+</dd>
+
+        <dt id="addPassword" class="callable">
+  <span class="name"><a href="../vault/Lockbox/addPassword.html">addPassword</a></span><span class="signature">(<wbr><span class="parameter" id="addPassword-param-password"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">password</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Adds a password access slot and returns its stable slot identifier.
+  
+
+</dd>
+
+        <dt id="addSymlink" class="callable">
+  <span class="name"><a href="../vault/Lockbox/addSymlink.html">addSymlink</a></span><span class="signature">(<wbr><span class="parameter" id="addSymlink-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="addSymlink-param-target"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">target</span>, {</span><span class="parameter" id="addSymlink-param-replace"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">replace</span> = <span class="default-value">false</span></span>})
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Adds a stored symlink from <code>path</code> to lockbox <code>target</code>.
+  
+
+</dd>
+
+        <dt id="cacheStats" class="callable">
+  <span class="name"><a href="../vault/Lockbox/cacheStats.html">cacheStats</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/CacheStats-class.html">CacheStats</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns current decoded-page cache counters.
+  
+
+</dd>
+
+        <dt id="commit" class="callable">
+  <span class="name"><a href="../vault/Lockbox/commit.html">commit</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Authenticates and publishes all staged changes as a new commit.
+  
+
+</dd>
+
+        <dt id="createDirectory" class="callable">
+  <span class="name"><a href="../vault/Lockbox/createDirectory.html">createDirectory</a></span><span class="signature">(<wbr><span class="parameter" id="createDirectory-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, {</span><span class="parameter" id="createDirectory-param-parents"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">parents</span> = <span class="default-value">false</span></span>})
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Creates a directory at <code>path</code>, optionally creating missing parents.
+  
+
+</dd>
+
+        <dt id="createFormRecord" class="callable">
+  <span class="name"><a href="../vault/Lockbox/createFormRecord.html">createFormRecord</a></span><span class="signature">(<wbr><span class="parameter" id="createFormRecord-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="createFormRecord-param-typeReference"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">typeReference</span>, </span><span class="parameter" id="createFormRecord-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/FormRecord-class.html">FormRecord</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Creates a form record at <code>path</code> using <code>typeReference</code>.
+  
+
+</dd>
+
+        <dt id="createParentDirectories" class="callable">
+  <span class="name"><a href="../vault/Lockbox/createParentDirectories.html">createParentDirectories</a></span><span class="signature">(<wbr><span class="parameter" id="createParentDirectories-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Creates every missing directory above <code>path</code>.
+  
+
+</dd>
+
+        <dt id="defineForm" class="callable">
+  <span class="name"><a href="../vault/Lockbox/defineForm.html">defineForm</a></span><span class="signature">(<wbr><span class="parameter" id="defineForm-param-alias"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">alias</span>, </span><span class="parameter" id="defineForm-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="defineForm-param-description"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">description</span>, </span><span class="parameter" id="defineForm-param-fields"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/FormField-class.html">FormField</a></span>&gt;</span></span> <span class="parameter-name">fields</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/FormDefinition-class.html">FormDefinition</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Defines a new immutable revision of a typed form.
+  
+
+</dd>
+
+        <dt id="delete" class="callable">
+  <span class="name"><a href="../vault/Lockbox/delete.html">delete</a></span><span class="signature">(<wbr><span class="parameter" id="delete-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Deletes the file, symlink, variable, or form record at <code>path</code>.
+  
+
+</dd>
+
+        <dt id="deleteFormRecord" class="callable">
+  <span class="name"><a href="../vault/Lockbox/deleteFormRecord.html">deleteFormRecord</a></span><span class="signature">(<wbr><span class="parameter" id="deleteFormRecord-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Deletes the form record at <code>path</code>.
+  
+
+</dd>
+
+        <dt id="deleteKey" class="callable">
+  <span class="name"><a href="../vault/Lockbox/deleteKey.html">deleteKey</a></span><span class="signature">(<wbr><span class="parameter" id="deleteKey-param-id"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">id</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Deletes the access slot identified by <code>id</code>.
+  
+
+</dd>
+
+        <dt id="deleteVariable" class="callable">
+  <span class="name"><a href="../vault/Lockbox/deleteVariable.html">deleteVariable</a></span><span class="signature">(<wbr><span class="parameter" id="deleteVariable-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Deletes the variable named <code>name</code>.
+  
+
+</dd>
+
+        <dt id="dispose" class="callable">
+  <span class="name"><a href="../vault/Lockbox/dispose.html">dispose</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Wipes cached secret state and releases the native lockbox handle.
+  
+
+</dd>
+
+        <dt id="exists" class="callable">
+  <span class="name"><a href="../vault/Lockbox/exists.html">exists</a></span><span class="signature">(<wbr><span class="parameter" id="exists-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Whether any entry exists at <code>path</code>.
+  
+
+</dd>
+
+        <dt id="extractDirectory" class="callable">
+  <span class="name"><a href="../vault/Lockbox/extractDirectory.html">extractDirectory</a></span><span class="signature">(<wbr><span class="parameter" id="extractDirectory-param-destination"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">destination</span>, {</span><span class="parameter" id="extractDirectory-param-maxFileBytes"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxFileBytes</span>, </span><span class="parameter" id="extractDirectory-param-maxTotalBytes"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxTotalBytes</span>, </span><span class="parameter" id="extractDirectory-param-maxFiles"><span>required</span> <span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxFiles</span>, </span><span class="parameter" id="extractDirectory-param-restoreSymlinks"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">restoreSymlinks</span> = <span class="default-value">false</span>, </span><span class="parameter" id="extractDirectory-param-restorePermissions"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">restorePermissions</span> = <span class="default-value">false</span>, </span><span class="parameter" id="extractDirectory-param-overwrite"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">overwrite</span> = <span class="default-value">false</span></span>})
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Safely extracts the lockbox tree to host <code>destination</code>.
+  
+
+</dd>
+
+        <dt id="extractFile" class="callable">
+  <span class="name"><a href="../vault/Lockbox/extractFile.html">extractFile</a></span><span class="signature">(<wbr><span class="parameter" id="extractFile-param-source"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">source</span>, </span><span class="parameter" id="extractFile-param-destination"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">destination</span>, {</span><span class="parameter" id="extractFile-param-replace"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">replace</span> = <span class="default-value">false</span></span>})
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Extracts one file from <code>source</code> to host <code>destination</code>.
+  
+
+</dd>
+
+        <dt id="getFile" class="callable">
+  <span class="name"><a href="../vault/Lockbox/getFile.html">getFile</a></span><span class="signature">(<wbr><span class="parameter" id="getFile-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns all bytes stored in the regular file at <code>path</code>.
+  
+
+</dd>
+
+        <dt id="getFormField" class="callable">
+  <span class="name"><a href="../vault/Lockbox/getFormField.html">getFormField</a></span><span class="signature">(<wbr><span class="parameter" id="getFormField-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="getFormField-param-field"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">field</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/FormValue-class.html">FormValue</a>?</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns a non-secret form <code>field</code>, or an absent optional value.
+  
+
+</dd>
+
+        <dt id="getFormRecord" class="callable">
+  <span class="name"><a href="../vault/Lockbox/getFormRecord.html">getFormRecord</a></span><span class="signature">(<wbr><span class="parameter" id="getFormRecord-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/FormRecord-class.html">FormRecord</a>?</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns the form record at <code>path</code>, when present.
+  
+
+</dd>
+
+        <dt id="getVariable" class="callable">
+  <span class="name"><a href="../vault/Lockbox/getVariable.html">getVariable</a></span><span class="signature">(<wbr><span class="parameter" id="getVariable-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns a non-secret variable, or <code>null</code> when <code>name</code> is absent.
+  
+
+</dd>
+
+        <dt id="importStats" class="callable">
+  <span class="name"><a href="../vault/Lockbox/importStats.html">importStats</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/ImportStats-class.html">ImportStats</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns accumulated file-import timing counters.
+  
+
+</dd>
+
+        <dt id="isDirectory" class="callable">
+  <span class="name"><a href="../vault/Lockbox/isDirectory.html">isDirectory</a></span><span class="signature">(<wbr><span class="parameter" id="isDirectory-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Whether <code>path</code> identifies a directory.
+  
+
+</dd>
+
+        <dt id="list" class="callable">
+  <span class="name"><a href="../vault/Lockbox/list.html">list</a></span><span class="signature">(<wbr><span class="parameter" id="list-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, {</span><span class="parameter" id="list-param-recursive"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">recursive</span> = <span class="default-value">false</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/LockboxEntry-class.html">LockboxEntry</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists children below <code>path</code>, optionally recursively.
+  
+
+</dd>
+
+        <dt id="listFormDefinitions" class="callable">
+  <span class="name"><a href="../vault/Lockbox/listFormDefinitions.html">listFormDefinitions</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/FormDefinition-class.html">FormDefinition</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists the current form definitions embedded in this lockbox.
+  
+
+</dd>
+
+        <dt id="listFormRecords" class="callable">
+  <span class="name"><a href="../vault/Lockbox/listFormRecords.html">listFormRecords</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/FormRecord-class.html">FormRecord</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists all typed form records without returning secret field values.
+  
+
+</dd>
+
+        <dt id="listFormRevisions" class="callable">
+  <span class="name"><a href="../vault/Lockbox/listFormRevisions.html">listFormRevisions</a></span><span class="signature">(<wbr><span class="parameter" id="listFormRevisions-param-typeId"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">typeId</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/FormDefinition-class.html">FormDefinition</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists every stored revision for <code>typeId</code>.
+  
+
+</dd>
+
+        <dt id="listKeySlots" class="callable">
+  <span class="name"><a href="../vault/Lockbox/listKeySlots.html">listKeySlots</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/KeySlot-class.html">KeySlot</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists password and contact access slots without exposing key material.
+  
+
+</dd>
+
+        <dt id="listVariables" class="callable">
+  <span class="name"><a href="../vault/Lockbox/listVariables.html">listVariables</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/Variable-class.html">Variable</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists variable names and sensitivity without returning secret values.
+  
+
+</dd>
+
+        <dt id="listWithOptions" class="callable">
+  <span class="name"><a href="../vault/Lockbox/listWithOptions.html">listWithOptions</a></span><span class="signature">(<wbr><span class="parameter" id="listWithOptions-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="listWithOptions-param-glob"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">glob</span>, {</span><span class="parameter" id="listWithOptions-param-recursive"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">recursive</span> = <span class="default-value">false</span>, </span><span class="parameter" id="listWithOptions-param-includeFiles"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">includeFiles</span> = <span class="default-value">true</span>, </span><span class="parameter" id="listWithOptions-param-includeSymlinks"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">includeSymlinks</span> = <span class="default-value">true</span>, </span><span class="parameter" id="listWithOptions-param-includeDirectories"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">includeDirectories</span> = <span class="default-value">true</span>, </span><span class="parameter" id="listWithOptions-param-limit"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">limit</span> = <span class="default-value">0</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/LockboxEntry-class.html">LockboxEntry</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Lists entries matching <code>glob</code> with explicit kind and result filters.
+  
+
+</dd>
+
+        <dt id="moveFormRecords" class="callable">
+  <span class="name"><a href="../vault/Lockbox/moveFormRecords.html">moveFormRecords</a></span><span class="signature">(<wbr><span class="parameter" id="moveFormRecords-param-moves"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/PathMove-class.html">PathMove</a></span>&gt;</span></span> <span class="parameter-name">moves</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Applies all form-record <code>moves</code> atomically.
+  
+
+</dd>
+
+        <dt id="moveVariables" class="callable">
+  <span class="name"><a href="../vault/Lockbox/moveVariables.html">moveVariables</a></span><span class="signature">(<wbr><span class="parameter" id="moveVariables-param-moves"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/PathMove-class.html">PathMove</a></span>&gt;</span></span> <span class="parameter-name">moves</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Applies all variable <code>moves</code> atomically.
+  
+
+</dd>
+
+        <dt id="noSuchMethod" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/noSuchMethod.html">noSuchMethod</a></span><span class="signature">(<wbr><span class="parameter" id="noSuchMethod-param-invocation"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Invocation-class.html">Invocation</a></span> <span class="parameter-name">invocation</span></span>)
+    <span class="returntype parameter">&#8594; dynamic</span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  Invoked when a nonexistent method or property is accessed.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="ownerInspection" class="callable">
+  <span class="name"><a href="../vault/Lockbox/ownerInspection.html">ownerInspection</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/OwnerInspection-class.html">OwnerInspection</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Reports whether the lockbox is signed and its owner fingerprint.
+  
+
+</dd>
+
+        <dt id="pageInspection" class="callable">
+  <span class="name"><a href="../vault/Lockbox/pageInspection.html">pageInspection</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/PageInspection-class.html">PageInspection</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns structural metadata for each currently readable page.
+  
+
+</dd>
+
+        <dt id="permissions" class="callable">
+  <span class="name"><a href="../vault/Lockbox/permissions.html">permissions</a></span><span class="signature">(<wbr><span class="parameter" id="permissions-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns the stored Unix permission bits for <code>path</code>.
+  
+
+</dd>
+
+        <dt id="readRange" class="callable">
+  <span class="name"><a href="../vault/Lockbox/readRange.html">readRange</a></span><span class="signature">(<wbr><span class="parameter" id="readRange-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="readRange-param-offset"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">offset</span>, </span><span class="parameter" id="readRange-param-length"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">length</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Reads at most <code>length</code> bytes at <code>offset</code> from the file at <code>path</code>.
+  
+
+</dd>
+
+        <dt id="recoveryReport" class="callable">
+  <span class="name"><a href="../vault/Lockbox/recoveryReport.html">recoveryReport</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/RecoveryReport-class.html">RecoveryReport</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Scans the open lockbox and summarizes recoverable content.
+  
+
+</dd>
+
+        <dt id="removeDirectory" class="callable">
+  <span class="name"><a href="../vault/Lockbox/removeDirectory.html">removeDirectory</a></span><span class="signature">(<wbr><span class="parameter" id="removeDirectory-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, {</span><span class="parameter" id="removeDirectory-param-recursive"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">recursive</span> = <span class="default-value">false</span></span>})
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Removes a directory, requiring <code>recursive</code> when it is not empty.
+  
+
+</dd>
+
+        <dt id="rename" class="callable">
+  <span class="name"><a href="../vault/Lockbox/rename.html">rename</a></span><span class="signature">(<wbr><span class="parameter" id="rename-param-from"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">from</span>, </span><span class="parameter" id="rename-param-to"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">to</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Atomically moves an entry from <code>from</code> to <code>to</code>.
+  
+
+</dd>
+
+        <dt id="renderRecoveryReport" class="callable">
+  <span class="name"><a href="../vault/Lockbox/renderRecoveryReport.html">renderRecoveryReport</a></span><span class="signature">(<wbr>{<span class="parameter" id="renderRecoveryReport-param-verbose"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">verbose</span> = <span class="default-value">false</span>, </span><span class="parameter" id="renderRecoveryReport-param-maxEntries"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">maxEntries</span> = <span class="default-value">100</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Renders a human-readable recovery report.
+  
+
+</dd>
+
+        <dt id="resetImportStats" class="callable">
+  <span class="name"><a href="../vault/Lockbox/resetImportStats.html">resetImportStats</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Resets accumulated file-import timing counters.
+  
+
+</dd>
+
+        <dt id="resolveForm" class="callable">
+  <span class="name"><a href="../vault/Lockbox/resolveForm.html">resolveForm</a></span><span class="signature">(<wbr><span class="parameter" id="resolveForm-param-reference"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">reference</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/FormDefinition-class.html">FormDefinition</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Resolves a form alias or stable type identifier.
+  
+
+</dd>
+
+        <dt id="runtimeOptions" class="callable">
+  <span class="name"><a href="../vault/Lockbox/runtimeOptions.html">runtimeOptions</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/RuntimeOptions-class.html">RuntimeOptions</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns the effective workload and worker policies.
+  
+
+</dd>
+
+        <dt id="setFormField" class="callable">
+  <span class="name"><a href="../vault/Lockbox/setFormField.html">setFormField</a></span><span class="signature">(<wbr><span class="parameter" id="setFormField-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="setFormField-param-field"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">field</span>, </span><span class="parameter" id="setFormField-param-value"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">value</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores a non-secret <code>value</code> in a form <code>field</code>.
+  
+
+</dd>
+
+        <dt id="setOwnerSigningKey" class="callable">
+  <span class="name"><a href="../vault/Lockbox/setOwnerSigningKey.html">setOwnerSigningKey</a></span><span class="signature">(<wbr><span class="parameter" id="setOwnerSigningKey-param-key"><span class="type-annotation"><a href="../vault/SigningKeyPair-class.html">SigningKeyPair</a></span> <span class="parameter-name">key</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Sets the signing key required to authorize subsequent commits.
+  
+
+</dd>
+
+        <dt id="setPermissions" class="callable">
+  <span class="name"><a href="../vault/Lockbox/setPermissions.html">setPermissions</a></span><span class="signature">(<wbr><span class="parameter" id="setPermissions-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="setPermissions-param-value"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">value</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Replaces the stored Unix permission bits for <code>path</code>.
+  
+
+</dd>
+
+        <dt id="setSecretFormField" class="callable">
+  <span class="name"><a href="../vault/Lockbox/setSecretFormField.html">setSecretFormField</a></span><span class="signature">(<wbr><span class="parameter" id="setSecretFormField-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="setSecretFormField-param-field"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">field</span>, </span><span class="parameter" id="setSecretFormField-param-value"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">value</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores a secret form field without creating an immutable string.
+  
+
+</dd>
+
+        <dt id="setSecretVariable" class="callable">
+  <span class="name"><a href="../vault/Lockbox/setSecretVariable.html">setSecretVariable</a></span><span class="signature">(<wbr><span class="parameter" id="setSecretVariable-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="setSecretVariable-param-value"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">value</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores a secret variable without converting it to an immutable string.
+  
+
+</dd>
+
+        <dt id="setVariable" class="callable">
+  <span class="name"><a href="../vault/Lockbox/setVariable.html">setVariable</a></span><span class="signature">(<wbr><span class="parameter" id="setVariable-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="setVariable-param-value"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">value</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Stores a non-secret UTF-8 variable.
+  
+
+</dd>
+
+        <dt id="setWorkerPolicy" class="callable">
+  <span class="name"><a href="../vault/Lockbox/setWorkerPolicy.html">setWorkerPolicy</a></span><span class="signature">(<wbr><span class="parameter" id="setWorkerPolicy-param-mode"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">mode</span>, </span><span class="parameter" id="setWorkerPolicy-param-jobs"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/int-class.html">int</a></span> <span class="parameter-name">jobs</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Selects worker <code>mode</code> and its requested <code>jobs</code> count.
+  
+
+</dd>
+
+        <dt id="setWorkloadProfile" class="callable">
+  <span class="name"><a href="../vault/Lockbox/setWorkloadProfile.html">setWorkloadProfile</a></span><span class="signature">(<wbr><span class="parameter" id="setWorkloadProfile-param-profile"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">profile</span></span>)
+    <span class="returntype parameter">&#8594; void</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Selects a stable runtime workload <code>profile</code>.
+  
+
+</dd>
+
+        <dt id="stat" class="callable">
+  <span class="name"><a href="../vault/Lockbox/stat.html">stat</a></span><span class="signature">(<wbr><span class="parameter" id="stat-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; <a href="../revault_api/LockboxEntry-class.html">LockboxEntry</a>?</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns metadata for <code>path</code>, or an absent optional value when missing.
+  
+
+</dd>
+
+        <dt id="streamContent" class="callable">
+  <span class="name"><a href="../vault/Lockbox/streamContent.html">streamContent</a></span><span class="signature">(<wbr>{<span class="parameter" id="streamContent-param-physical"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span> <span class="parameter-name">physical</span> = <span class="default-value">false</span></span>})
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/List-class.html">List</a><span class="signature">&lt;<wbr><span class="type-parameter"><a href="../revault_api/StreamChunk-class.html">StreamChunk</a></span>&gt;</span></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns logical content chunks, or physical chunks when <code>physical</code> is set.
+  
+
+</dd>
+
+        <dt id="symlinkTarget" class="callable">
+  <span class="name"><a href="../vault/Lockbox/symlinkTarget.html">symlinkTarget</a></span><span class="signature">(<wbr><span class="parameter" id="symlinkTarget-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns the stored target for the symlink at <code>path</code>.
+  
+
+</dd>
+
+        <dt id="toString" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/toString.html">toString</a></span><span class="signature">(<wbr>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  A string representation of this object.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+        <dt id="variableSensitivity" class="callable">
+  <span class="name"><a href="../vault/Lockbox/variableSensitivity.html">variableSensitivity</a></span><span class="signature">(<wbr><span class="parameter" id="variableSensitivity-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a>?</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Returns the sensitivity classification of variable <code>name</code>.
+  
+
+</dd>
+
+        <dt id="withSecretFormField" class="callable">
+  <span class="name"><a href="../vault/Lockbox/withSecretFormField.html">withSecretFormField</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="withSecretFormField-param-path"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">path</span>, </span><span class="parameter" id="withSecretFormField-param-field"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">field</span>, </span><span class="parameter" id="withSecretFormField-param-callback"><span class="type-annotation">T</span> <span class="parameter-name">callback</span>(<span class="parameter" id="param-secret"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">secret</span></span>)</span>)
+    <span class="returntype parameter">&#8594; T?</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Invokes <code>callback</code> with temporary field bytes, then wipes the transfer copy.
+  
+
+</dd>
+
+        <dt id="withSecretVariable" class="callable">
+  <span class="name"><a href="../vault/Lockbox/withSecretVariable.html">withSecretVariable</a></span><span class="signature">&lt;<wbr><span class="type-parameter">T</span>&gt;</span><span class="signature">(<wbr><span class="parameter" id="withSecretVariable-param-name"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/String-class.html">String</a></span> <span class="parameter-name">name</span>, </span><span class="parameter" id="withSecretVariable-param-callback"><span class="type-annotation">T</span> <span class="parameter-name">callback</span>(<span class="parameter" id="param-secret"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-typed_data/Uint8List-class.html">Uint8List</a></span> <span class="parameter-name">secret</span></span>)</span>)
+    <span class="returntype parameter">&#8594; T?</span>
+  </span>
+  
+
+</dt>
+<dd>
+  Invokes <code>callback</code> with temporary secret bytes, then wipes the transfer copy.
+  
+
+</dd>
+
+    </dl>
+  </section>
+    
+  <section
+      class="summary offset-anchor inherited"
+      id="operators">
+    <h2>Operators</h2>
+    <dl class="callables">
+        <dt id="operator ==" class="callable inherited">
+  <span class="name"><a href="https://api.flutter.dev/flutter/dart-core/Object/operator_equals.html">operator ==</a></span><span class="signature">(<wbr><span class="parameter" id="==-param-other"><span class="type-annotation"><a href="https://api.flutter.dev/flutter/dart-core/Object-class.html">Object</a></span> <span class="parameter-name">other</span></span>)
+    <span class="returntype parameter">&#8594; <a href="https://api.flutter.dev/flutter/dart-core/bool-class.html">bool</a></span>
+  </span>
+  
+
+</dt>
+<dd class="inherited">
+  The equality operator.
+  <div class="features"><span class="feature">inherited</span></div>
+
+</dd>
+
+    </dl>
+  </section>
+    
+    
+    
+
+  </div> <!-- /.main-content -->
+  <div id="dartdoc-sidebar-left" class="sidebar sidebar-offcanvas-left">
+    <!-- The search input and breadcrumbs below are only responsively visible at low resolutions. -->
+<header id="header-search-sidebar" class="hidden-l">
+  <form class="search-sidebar" role="search">
+    <input type="text" id="search-sidebar" autocomplete="off" disabled class="form-control typeahead" placeholder="Loading search...">
+  </form>
+</header>
+<ol class="breadcrumbs gt-separated dark hidden-l" id="sidebar-nav">
+    <li><a href="../index.html">revault_api</a></li>
+    <li><a href="../vault/">vault</a></li>
+    <li class="self-crumb">Lockbox class</li>
+</ol>
+
+    <h5>vault library</h5>
+    <div id="dartdoc-sidebar-left-content"></div>
+  </div>
+  <div id="dartdoc-sidebar-right" class="sidebar sidebar-offcanvas-right">
+  </div><!--/.sidebar-offcanvas-->
+</main>
+<footer>
+  <span class="no-break">
+    revault_api
+      0.2.0
+  </span>
+  
+</footer>
+
+
+<script src="../static-assets/highlight.pack.js?v1"></script>
+<script src="../static-assets/docs.dart.js"></script>
+
+</body>
+</html>
+
