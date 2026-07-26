@@ -18,7 +18,7 @@ native = []
 [dependencies]
 revault_lockbox_api = { path = "../revault_lockbox_api", features = ["bindings"] }
 revault_vault_api = { path = "../revault_vault_api" }
-flatbuffers = "=25.2.10"
+flatbuffers = "=25.12.19"
 zeroize = "1.9"
 
 [dev-dependencies]
