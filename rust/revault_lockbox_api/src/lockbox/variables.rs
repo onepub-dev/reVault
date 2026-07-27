@@ -26,14 +26,56 @@ pub enum VariableValueRef<'a> {
     Secret(&'a SecretString),
 }
 
+fn ensure_variable_name_available(
+    variables: &BTreeMap<VariableName, VariableValue>,
+    requested: &VariableName,
+) -> Result<()> {
+    if let Some(existing) = variables.keys().find(|existing| {
+        *existing != requested && names_share_variable_and_directory(existing, requested)
+    }) {
+        return Err(Error::AlreadyExists(format!(
+            "variable namespace conflict between {requested} and {existing}"
+        )));
+    }
+    Ok(())
+}
+
+fn ensure_variable_namespace_is_unambiguous(names: &BTreeSet<VariableName>) -> Result<()> {
+    let mut previous: Option<&VariableName> = None;
+    for name in names {
+        if let Some(previous) = previous {
+            if is_variable_directory_of(previous, name) {
+                return Err(Error::AlreadyExists(format!(
+                    "variable namespace conflict between {previous} and {name}"
+                )));
+            }
+        }
+        previous = Some(name);
+    }
+    Ok(())
+}
+
+fn names_share_variable_and_directory(left: &VariableName, right: &VariableName) -> bool {
+    is_variable_directory_of(left, right) || is_variable_directory_of(right, left)
+}
+
+fn is_variable_directory_of(parent: &VariableName, child: &VariableName) -> bool {
+    child
+        .as_str()
+        .strip_prefix(parent.as_str())
+        .is_some_and(|suffix| suffix.starts_with('/'))
+}
+
 impl<State> Lockbox<State> {
     /// Store or replace a non-secret variable.
     ///
     /// Returns `Error::InvalidInput` if the value contains unsupported
     /// characters, `Error::SecurityLimitExceeded` if the value exceeds the
     /// configured variable value size limit, `Error::InvalidOperation` when
-    /// attempting to overwrite an existing secret variable as non-secret, and
-    /// `Error::CorruptRecord` if stored variable metadata cannot be loaded.
+    /// attempting to overwrite an existing secret variable as non-secret,
+    /// `Error::AlreadyExists` if the name conflicts with an existing variable
+    /// directory, and `Error::CorruptRecord` if stored variable metadata cannot
+    /// be loaded.
     pub fn set_variable(&mut self, name: &VariableName, value: &str) -> Result<()>
     where
         State: crate::WritableLockboxState,
@@ -47,6 +89,7 @@ impl<State> Lockbox<State> {
                 "variable is secret; delete and recreate to change sensitivity".to_string(),
             ));
         }
+        ensure_variable_name_available(variables, name)?;
         variables.insert(name.clone(), VariableValue::Normal(value));
         self.dirty_variables = true;
         Ok(())
@@ -62,7 +105,9 @@ impl<State> Lockbox<State> {
     /// Returns `Error::InvalidInput` if the secret plaintext contains
     /// unsupported characters, `Error::SecurityLimitExceeded` if the secret
     /// plaintext exceeds the configured variable value size limit,
-    /// `Error::CorruptRecord` if stored variable metadata cannot be loaded.
+    /// `Error::AlreadyExists` if the name conflicts with an existing variable
+    /// directory, or `Error::CorruptRecord` if stored variable metadata cannot
+    /// be loaded.
     pub fn set_secret_variable(&mut self, name: &VariableName, value: &SecretString) -> Result<()>
     where
         State: crate::WritableLockboxState,
@@ -71,6 +116,7 @@ impl<State> Lockbox<State> {
         self.ensure_variables_loaded()?;
         let mut variables = self.variables.borrow_mut();
         let variables = variables.as_mut().ok_or(Error::CorruptRecord)?;
+        ensure_variable_name_available(variables, name)?;
         variables.insert(
             name.clone(),
             VariableValue::Secret(Arc::new(value.try_clone()?)),
@@ -200,6 +246,13 @@ impl<State> Lockbox<State> {
                 return Err(Error::AlreadyExists(destination.to_string()));
             }
         }
+        let final_names = variables
+            .keys()
+            .filter(|name| !sources.contains(*name))
+            .cloned()
+            .chain(destinations.iter().cloned())
+            .collect::<BTreeSet<_>>();
+        ensure_variable_namespace_is_unambiguous(&final_names)?;
         let moved = moves
             .iter()
             .filter(|(source, destination)| source != destination)
