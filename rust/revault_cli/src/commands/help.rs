@@ -468,7 +468,7 @@ fn variables_command(verbose: bool) -> Command {
     .after_help(verbose_help(
         verbose,
         "Examples:\n  lockbox variable set secrets.lbox APP_MODE production\n  lockbox variable set secrets.lbox APP_MODE=production\n  lockbox variable get secrets.lbox APP_MODE\n  lockbox variable export secrets.lbox",
-        "Context:\n  Variables let you store name/value pairs securely in your lockbox. For secrets, such as an API key, set the variable using the --secret flag to ensure an additional level of security is applied to those values.",
+        "Context:\n  Variables let you store name/value pairs securely in your lockbox. Names and matching are case-sensitive on every platform. For secrets, such as an API key, set the variable using the --secret flag to ensure an additional level of security is applied to those values.",
     ))
     .subcommand_required(true)
     .arg_required_else_help(true)
@@ -538,7 +538,7 @@ fn variables_command(verbose: bool) -> Command {
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox variable get secrets.lbox APP_MODE\n  lockbox variable get --secret secrets.lbox API_TOKEN\n  lockbox variable get --secret --output api-token.txt secrets.lbox API_TOKEN",
-                "Context:\n  Variables get reads one named value from a lockbox. Secret values require --secret so accidental terminal output is an explicit user choice. Use --output when the exact bytes should go to a file.",
+                "Context:\n  Variables get reads one named value from a lockbox. Names are case-sensitive, independently of host environment-variable behavior. Secret values require --secret so accidental terminal output is an explicit user choice. Use --output when the exact bytes should go to a file.",
             ))
             .arg(
                 Arg::new("secret")
@@ -577,7 +577,7 @@ fn variables_command(verbose: bool) -> Command {
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox variable list secrets.lbox\n  lockbox variable list secrets.lbox /production\n  lockbox variable list secrets.lbox '**/API_KEY'\n  lockbox variable list --format json secrets.lbox",
-                "Context:\n  Variables list shows value names and whether each value is normal or secret. It does not print stored values. Pass a path such as /production to list that group, or a glob such as **/API_KEY to match names across groups.",
+                "Context:\n  Variables list shows value names and whether each value is normal or secret. It does not print stored values. Paths and glob patterns are case-sensitive. Pass a path such as /production to list that group, or a glob such as **/API_KEY to match names across groups.",
             ))
             .arg(output_format_arg())
             .arg(
