@@ -2263,6 +2263,61 @@ fn variables_can_be_removed_and_replaced() {
 }
 
 #[test]
+fn variable_names_cannot_also_be_variable_directories() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("/b/A"), "nested").unwrap();
+
+    assert!(matches!(
+        lb.set_variable(&variable("/b"), "parent"),
+        Err(Error::AlreadyExists(message))
+            if message.contains("/b") && message.contains("/b/A")
+    ));
+    assert!(matches!(
+        lb.set_secret_variable(&variable("/b"), &password("secret-parent")),
+        Err(Error::AlreadyExists(message))
+            if message.contains("/b") && message.contains("/b/A")
+    ));
+
+    lb.set_variable(&variable("/x"), "parent").unwrap();
+    assert!(matches!(
+        lb.set_variable(&variable("/x/A"), "nested"),
+        Err(Error::AlreadyExists(message))
+            if message.contains("/x") && message.contains("/x/A")
+    ));
+    assert_eq!(
+        lb.list_variables().unwrap(),
+        vec![
+            (variable("/b/A"), VariableSensitivity::Normal),
+            (variable("/x"), VariableSensitivity::Normal),
+        ]
+    );
+}
+
+#[test]
+fn moving_variables_cannot_create_variable_directory_collisions() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("/source"), "value").unwrap();
+    lb.set_variable(&variable("/target/child"), "nested")
+        .unwrap();
+
+    assert!(matches!(
+        lb.move_variables(&[(variable("/source"), variable("/target"))]),
+        Err(Error::AlreadyExists(message))
+            if message.contains("/target") && message.contains("/target/child")
+    ));
+    assert_eq!(
+        lb.get_variable(&variable("/source")).unwrap().as_deref(),
+        Some("value")
+    );
+    assert_eq!(
+        lb.get_variable(&variable("/target/child"))
+            .unwrap()
+            .as_deref(),
+        Some("nested")
+    );
+}
+
+#[test]
 fn variables_can_be_moved_atomically_without_exposing_secrets() {
     let mut lb = Lockbox::create(KEY);
     lb.set_variable(&variable("TMP"), "tmp-value").unwrap();
