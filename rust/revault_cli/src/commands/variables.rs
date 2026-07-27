@@ -80,6 +80,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
             let mut lb = open_existing(&args[0], access)?;
             lb.delete_variable(&name)?;
             lb.commit()?;
+            println!("Variable removed: {name}");
         }
         "move" | "mv" => {
             let args = optional_lockbox_positionals(positional_values(sub, "args"), 2)?;

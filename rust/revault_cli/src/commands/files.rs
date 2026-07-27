@@ -1,17 +1,17 @@
 use super::context::{cli_error, open_existing, open_or_create, require_arg, Access, CliResult};
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use super::{
-    default_lockbox_for_add, default_lockbox_for_command, looks_like_lockbox_path,
-    optional_lockbox_positionals, positional_values,
+    default_lockbox_for_add, default_lockbox_for_command, optional_lockbox_positionals,
+    positional_values,
 };
 use clap::ArgMatches;
 use revault_lockbox_api::{
     Error, ExtractPolicy, ListOptions, Lockbox, LockboxPath, WorkerPolicy, WorkloadProfile,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{self, IsTerminal, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 const ADD_PROGRESS_INTERVAL: Duration = Duration::from_secs(1);
@@ -21,7 +21,7 @@ pub(crate) fn add_matches(
     access: &Access,
     worker_policy: WorkerPolicy,
 ) -> CliResult<()> {
-    add(&add_args_from_matches(matches)?, access, worker_policy)
+    add(add_request_from_matches(matches)?, access, worker_policy)
 }
 
 pub(crate) fn extract_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
@@ -58,29 +58,119 @@ pub(crate) fn rename_matches(matches: &ArgMatches, access: &Access) -> CliResult
     )
 }
 
-fn add_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
-    let first = matches
-        .get_one::<String>("lockbox-or-source")
-        .ok_or_else(|| Error::InvalidInput("missing source".to_string()))?
-        .clone();
-    let second = matches.get_one::<String>("source-or-lockbox-path").cloned();
-    let third = matches.get_one::<String>("lockbox-path").cloned();
-    let mut args = match (second, third) {
-        (None, None) => vec![default_lockbox_for_add()?, first],
-        (Some(second), None) => {
-            if looks_like_lockbox_path(&first) {
-                vec![first, second]
-            } else {
-                vec![default_lockbox_for_add()?, first, second]
-            }
-        }
-        (Some(second), Some(third)) => vec![first, second, third],
-        (None, Some(_)) => unreachable!("clap does not provide third positional without second"),
-    };
-    if matches.get_flag("recursive") {
-        args.push("--recursive".to_string());
+struct AddRequest {
+    lockbox_path: String,
+    sources: Vec<AddSource>,
+}
+
+struct AddSource {
+    path: PathBuf,
+    destination: LockboxPath,
+    is_directory: bool,
+}
+
+fn add_request_from_matches(matches: &ArgMatches) -> CliResult<AddRequest> {
+    let source_values = matches
+        .get_many::<String>("sources")
+        .map(|values| values.cloned().collect::<Vec<_>>())
+        .unwrap_or_default();
+    let lockbox_path = default_lockbox_for_add()?;
+    if source_values.is_empty() {
+        return Err(cli_error("add requires at least one source"));
     }
-    Ok(args)
+    let recursive = matches.get_flag("recursive");
+    let destination = matches.get_one::<String>("to").map(String::as_str);
+    let sources = prepare_add_sources(&source_values, destination, recursive)?;
+    Ok(AddRequest {
+        lockbox_path,
+        sources,
+    })
+}
+
+fn prepare_add_sources(
+    values: &[String],
+    destination: Option<&str>,
+    recursive: bool,
+) -> CliResult<Vec<AddSource>> {
+    if values.len() > 1 && destination.is_some_and(|path| !path.ends_with('/')) {
+        return Err(cli_error(
+            "--to must end with / when adding multiple sources",
+        ));
+    }
+    let mut sources = Vec::with_capacity(values.len());
+    for value in values {
+        let path = PathBuf::from(value);
+        let metadata = source_metadata(&path)?;
+        let is_directory = metadata.is_dir();
+        if is_directory && !recursive {
+            return Err(cli_error(format!(
+                "source is a directory: {}; pass --recursive to import its files",
+                path.display()
+            )));
+        }
+        if is_directory && values.len() > 1 {
+            return Err(cli_error(
+                "add directory sources separately so their stored roots are unambiguous",
+            ));
+        }
+        let destination = add_destination(&path, is_directory, values.len(), destination)?;
+        sources.push(AddSource {
+            path,
+            destination,
+            is_directory,
+        });
+    }
+    let mut destinations = BTreeSet::new();
+    for source in &sources {
+        if !destinations.insert(source.destination.to_string()) {
+            return Err(cli_error(format!(
+                "multiple sources map to the same lockbox path: {}",
+                source.destination
+            )));
+        }
+    }
+    Ok(sources)
+}
+
+fn add_destination(
+    source: &Path,
+    is_directory: bool,
+    source_count: usize,
+    destination: Option<&str>,
+) -> CliResult<LockboxPath> {
+    let Some(destination) = destination else {
+        return if is_directory {
+            Ok(LockboxPath::new("/")?)
+        } else {
+            cli_lockbox_path(source_file_name(source)?)
+        };
+    };
+    let destination_path = cli_lockbox_path(destination)?;
+    if is_directory {
+        return Ok(destination_path);
+    }
+    if source_count > 1 || destination.ends_with('/') {
+        return join_lockbox_leaf(&destination_path, source_file_name(source)?);
+    }
+    Ok(destination_path)
+}
+
+fn cli_lockbox_path(value: &str) -> CliResult<LockboxPath> {
+    let rooted = if value.starts_with('/') {
+        value.to_string()
+    } else {
+        format!("/{value}")
+    };
+    Ok(LockboxPath::new(rooted)?)
+}
+
+fn join_lockbox_leaf(directory: &LockboxPath, leaf: &str) -> CliResult<LockboxPath> {
+    let path = if directory.as_str() == "/" {
+        format!("/{leaf}")
+    } else {
+        format!("{}/{leaf}", directory.as_str().trim_end_matches('/'))
+    };
+    Ok(LockboxPath::new(path)?)
 }
 
 fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
@@ -114,38 +204,38 @@ fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
     Ok(args)
 }
 
-pub(crate) fn add(args: &[String], access: &Access, worker_policy: WorkerPolicy) -> CliResult<()> {
-    let recursive = args.iter().any(|arg| arg == "--recursive" || arg == "-r");
-    let args = args
-        .iter()
-        .filter(|arg| !matches!(arg.as_str(), "--recursive" | "-r"))
-        .cloned()
-        .collect::<Vec<_>>();
-    let lockbox_path = require_arg(&args, 0, "lockbox")?;
-    let source = require_arg(&args, 1, "source")?;
-    let source_path = Path::new(source);
-    let source_metadata = source_metadata(source_path)?;
-    if source_metadata.is_dir() && !recursive {
-        return Err(cli_error(
-            "source is a directory; pass --recursive to import its files",
-        ));
-    }
-    let path = match args.get(2) {
-        Some(path) => destination_lockbox_path(source_path, &source_metadata, path)?,
-        None => default_lockbox_path_for_source(source_path)?,
-    };
-    let creates_lockbox = !Path::new(lockbox_path).exists();
-    let mut lb = open_or_create(lockbox_path, access)?;
+fn add(request: AddRequest, access: &Access, worker_policy: WorkerPolicy) -> CliResult<()> {
+    let creates_lockbox = !Path::new(&request.lockbox_path).exists();
+    let mut lb = open_or_create(&request.lockbox_path, access)?;
     lb.set_worker_policy(worker_policy);
-    if creates_lockbox || source_path.is_dir() {
+    if creates_lockbox
+        || request.sources.len() > 1
+        || request.sources.iter().any(|source| source.is_directory)
+    {
         lb.set_workload_profile(WorkloadProfile::BulkImport);
+    }
+    for source in &request.sources {
+        if !source.is_directory && lb.stat(&source.destination).is_some() {
+            return Err(Error::AlreadyExists(source.destination.to_string()).into());
+        }
     }
     lb.reset_import_stats();
     let add_start = Instant::now();
-    let mut progress = AddProgress::for_source(source_path);
-    let add_result = add_source_path(&mut lb, source_path, &path, &mut progress);
+    let mut progress = AddProgress::for_source(&request.sources[0].path);
+    let add_result: CliResult<usize> = (|| {
+        let mut added_files = 0;
+        for source in &request.sources {
+            added_files += add_source_path(
+                &mut lb,
+                &source.path,
+                source.destination.as_str(),
+                &mut progress,
+            )?;
+        }
+        Ok(added_files)
+    })();
     let progress_result = progress.finish();
-    add_result?;
+    let added_files = add_result?;
     progress_result?;
     let add_wall = add_start.elapsed();
     let commit_start = Instant::now();
@@ -163,6 +253,11 @@ pub(crate) fn add(args: &[String], access: &Access, worker_policy: WorkerPolicy)
             nanos_to_secs(stats.page_write_nanos),
         );
     }
+    println!(
+        "Added {added_files} {} to {}.",
+        plural(added_files, "file", "files"),
+        request.lockbox_path
+    );
     Ok(())
 }
 
@@ -188,19 +283,21 @@ pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
         let policy = extract_policy_from_args(&args[3..]);
         lb.set_workload_profile(WorkloadProfile::ExtractMany);
         lb.extract_to_directory(Path::new(dest), &policy)?;
+        println!("Extracted lockbox to {dest}.");
     } else {
-        let path = LockboxPath::new(require_arg(args, 1, "lockbox path")?)?;
+        let path = cli_lockbox_path(require_arg(args, 1, "lockbox path")?)?;
         let dest = require_arg(args, 2, "destination")?;
         let replace = args.iter().skip(3).any(|arg| arg == "--overwrite");
         lb.set_workload_profile(WorkloadProfile::ReadMostly);
         lb.extract_file_to(&path, Path::new(dest), replace)?;
+        println!("Extracted {path} to {dest}.");
     }
     Ok(())
 }
 
 pub(crate) fn cat(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let path = LockboxPath::new(require_arg(args, 1, "lockbox path")?)?;
+    let path = cli_lockbox_path(require_arg(args, 1, "lockbox path")?)?;
     let lb = open_existing(lockbox_path, access)?;
     let stdout = io::stdout();
     let mut lock = stdout.lock();
@@ -221,7 +318,7 @@ fn list_with_format(args: &[String], access: &Access, format: OutputFormat) -> C
     let path = if glob {
         LockboxPath::new("/")?
     } else {
-        LockboxPath::new(target)?
+        cli_lockbox_path(target)?
     };
     let lb = open_existing(lockbox_path, access)?;
     if recursive || glob {
@@ -319,35 +416,6 @@ fn leaf_name(path: &str) -> &str {
         .unwrap_or(path)
 }
 
-fn default_lockbox_path_for_source(source: &Path) -> CliResult<String> {
-    if source.is_dir() {
-        return Ok("/".to_string());
-    }
-    Ok(format!("/{}", source_file_name(source)?))
-}
-
-fn destination_lockbox_path(
-    source: &Path,
-    source_metadata: &fs::Metadata,
-    destination: &str,
-) -> CliResult<String> {
-    if source_metadata.is_file() && destination_looks_like_directory(destination) {
-        let path = format!(
-            "{}/{}",
-            destination.trim_end_matches('/'),
-            source_file_name(source)?
-        );
-        LockboxPath::new(&path)?;
-        return Ok(path);
-    }
-    LockboxPath::new(destination)?;
-    Ok(destination.to_string())
-}
-
-fn destination_looks_like_directory(destination: &str) -> bool {
-    destination == "/" || destination.ends_with('/') || !leaf_name(destination).contains('.')
-}
-
 fn source_file_name(source: &Path) -> CliResult<&str> {
     let Some(name) = source.file_name().and_then(|name| name.to_str()) else {
         return Err(Error::UnsupportedHostPath(format!(
@@ -367,11 +435,7 @@ pub(crate) fn remove(args: &[String], access: &Access) -> CliResult<()> {
         .cloned()
         .collect::<Vec<_>>();
     let lockbox_path = require_arg(&args, 0, "lockbox")?;
-    let path = LockboxPath::new(root_relative_lockbox_path(require_arg(
-        &args,
-        1,
-        "lockbox path",
-    )?))?;
+    let path = cli_lockbox_path(require_arg(&args, 1, "lockbox path")?)?;
     let mut lb = open_existing(lockbox_path, access)?;
     let Some(entry) = lb.stat(&path) else {
         return Err(Error::NotFound(path.to_string()).into());
@@ -386,22 +450,15 @@ pub(crate) fn remove(args: &[String], access: &Access) -> CliResult<()> {
     Ok(())
 }
 
-fn root_relative_lockbox_path(path: &str) -> String {
-    if path.starts_with('/') || path.contains('/') {
-        path.to_string()
-    } else {
-        format!("/{path}")
-    }
-}
-
 pub(crate) fn rename(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let from = LockboxPath::new(require_arg(args, 1, "from")?)?;
-    let to = LockboxPath::new(require_arg(args, 2, "to")?)?;
+    let from = cli_lockbox_path(require_arg(args, 1, "from")?)?;
+    let to = cli_lockbox_path(require_arg(args, 2, "to")?)?;
     let mut lb = open_existing(lockbox_path, access)?;
     lb.create_parent_dirs_for(&to)?;
     lb.rename(&from, &to)?;
     lb.commit()?;
+    println!("Renamed {from} to {to}.");
     Ok(())
 }
 
@@ -435,20 +492,19 @@ fn add_source_path(
     source: &Path,
     lockbox_root: &str,
     progress: &mut AddProgress,
-) -> CliResult<()> {
+) -> CliResult<usize> {
     let lockbox_root = LockboxPath::new(lockbox_root)?;
     if source.is_file() {
         progress.record(source)?;
         lockbox.create_parent_dirs_for(&lockbox_root)?;
         lockbox.add_file_from_path(source, &lockbox_root, false)?;
-        return Ok(());
+        return Ok(1);
     }
     if source.is_dir() {
         if lockbox_root.as_str() != "/" {
             create_lockbox_dir_if_missing(lockbox, &lockbox_root, true)?;
         }
-        add_directory(lockbox, source, source, &lockbox_root, progress)?;
-        return Ok(());
+        return add_directory(lockbox, source, source, &lockbox_root, progress);
     }
     Err(Error::UnsupportedHostPath(source.display().to_string()).into())
 }
@@ -459,7 +515,8 @@ fn add_directory(
     current: &Path,
     lockbox_root: &LockboxPath,
     progress: &mut AddProgress,
-) -> CliResult<()> {
+) -> CliResult<usize> {
+    let mut added_files = 0;
     for entry in fs::read_dir(current)? {
         let entry = entry?;
         let path = entry.path();
@@ -469,16 +526,25 @@ fn add_directory(
             let relative = path.strip_prefix(root)?;
             let lockbox_path = join_lockbox_path(lockbox_root, relative)?;
             create_lockbox_dir_if_missing(lockbox, &lockbox_path, true)?;
-            add_directory(lockbox, root, &path, lockbox_root, progress)?;
+            added_files += add_directory(lockbox, root, &path, lockbox_root, progress)?;
         } else if file_type.is_file() {
             let relative = path.strip_prefix(root)?;
             let lockbox_path = join_lockbox_path(lockbox_root, relative)?;
             progress.record(&path)?;
             lockbox.create_parent_dirs_for(&lockbox_path)?;
             lockbox.add_file_from_path(&path, &lockbox_path, false)?;
+            added_files += 1;
         }
     }
-    Ok(())
+    Ok(added_files)
+}
+
+fn plural<'a>(count: usize, singular: &'a str, plural: &'a str) -> &'a str {
+    if count == 1 {
+        singular
+    } else {
+        plural
+    }
 }
 
 fn create_lockbox_dir_if_missing(

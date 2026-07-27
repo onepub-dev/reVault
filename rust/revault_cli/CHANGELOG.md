@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Added target-first lockbox commands such as `lbx secrets.lbox add ...` and
+  `lbx secrets.lbox create`. Existing unambiguous command-first forms remain
+  available, but `add` now reserves every positional value for a source and
+  selects its lockbox before the command or from the session default. It
+  accepts multiple source files, uses `--to` for an optional logical
+  destination, and normalizes relative logical paths before storage.
+- Mutating CLI commands now confirm successful outcomes. File imports report
+  the number of files added, and create, extract, rename, variable, form,
+  access, and developer key operations report what changed.
 - Added prebuilt Linux, macOS, and Windows release artifacts, Unix and
   PowerShell installers, a Windows MSI, checksums, and build provenance.
 - Added `--version` so installers and package managers can verify the installed

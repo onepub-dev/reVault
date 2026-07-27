@@ -68,7 +68,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
 fn move_records(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let source_pattern = require_arg(args, 1, "source path or glob")?;
-    let destination = LockboxPath::new(require_arg(args, 2, "destination path")?)?;
+    let destination = form_record_path(require_arg(args, 2, "destination path")?)?;
     let mut lb = open_existing(lockbox_path, access)?;
     let moves = lb
         .list_form_records()?
@@ -351,6 +351,7 @@ fn edit_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         edit_fields_interactively(&mut lb, &path, &definition)?;
     }
     lb.commit()?;
+    println!("Form updated: {path}");
     Ok(())
 }
 
@@ -424,6 +425,7 @@ fn remove(args: &[String], access: &Access) -> CliResult<()> {
     let mut lb = open_existing(lockbox_path, access)?;
     lb.delete_form_record(&path)?;
     lb.commit()?;
+    println!("Form removed: {path}");
     Ok(())
 }
 

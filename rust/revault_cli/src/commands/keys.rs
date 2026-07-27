@@ -7,8 +7,8 @@ use super::context::{
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use super::session::clear_default_if_matches;
 use super::{
-    default_lockbox_for_command, looks_like_lockbox_path, optional_lockbox_positionals,
-    optional_lockbox_value, positional_values,
+    command_lockbox, default_lockbox_for_command, looks_like_lockbox_path,
+    optional_lockbox_positionals, optional_lockbox_value, positional_values,
 };
 use clap::ArgMatches;
 use revault_lockbox_api::vault_integration::VaultOpen;
@@ -36,7 +36,17 @@ pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult
         args.push("--contact".to_string());
         args.push(contact.clone());
     }
-    args.push(required_value(matches, "lockbox"));
+    let lockbox = match (command_lockbox(), matches.get_one::<String>("lockbox")) {
+        (Some(_), Some(_)) => {
+            return Err(cli_error(
+                "lockbox supplied both before and after the command",
+            ))
+        }
+        (Some(lockbox), None) => lockbox,
+        (None, Some(lockbox)) => lockbox.clone(),
+        (None, None) => return Err(cli_error("missing lockbox; use `lockbox LOCKBOX create`")),
+    };
+    args.push(lockbox);
     create(&args, access)
 }
 
@@ -56,6 +66,7 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
         )?;
         remember_lockbox_password_if_enabled_with_vault(&lb, &password, &vault)?;
         mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
+        println!("Lockbox created: {}", lockbox_path.display());
         return Ok(());
     }
     if args.first().map(String::as_str) == Some("--contact") {
@@ -76,6 +87,7 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
             &signing_key,
         )?;
         mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
+        println!("Lockbox created: {}", lockbox_path.display());
         return Ok(());
     }
     let lockbox_path = create_path(require_arg(args, 0, "lockbox")?)?;
@@ -111,6 +123,7 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
             return Err(Error::InvalidInput("create requires an open method".to_string()).into());
         }
     }
+    println!("Lockbox created: {}", lockbox_path.display());
     Ok(())
 }
 
@@ -268,6 +281,7 @@ pub(crate) fn keygen(args: &[String]) -> CliResult<()> {
         &export_private_key(&keypair, KeyFormat::RawHex)?,
     )?;
     fs::write(public_path, encode_hex(&keypair.public_key().to_bytes()))?;
+    println!("Keypair created: {private_path}, {public_path}");
     Ok(())
 }
 
@@ -293,6 +307,7 @@ pub(crate) fn open_key(args: &[String]) -> CliResult<()> {
     let keypair = load_private_key_from_arg(args.get(1).map(String::as_str))?;
     let lb = local_vault().open_lockbox_with(lockbox_path, LockboxOpen::ContactKeyPair(keypair))?;
     mirror_key_directory(&lb, lockbox_path)?;
+    println!("Lockbox opened: {lockbox_path}");
     Ok(())
 }
 
@@ -373,6 +388,7 @@ pub(crate) fn grant_access(args: &[String], access: &Access) -> CliResult<()> {
     lb.commit()?;
     mirror_key_directory(&lb, lockbox_path)?;
     default_vault()?.remember_access_slot_label(lb.lockbox_id(), slot_id, name)?;
+    println!("Access granted: slot {slot_id}");
     Ok(())
 }
 
@@ -462,6 +478,15 @@ pub(crate) fn revoke_access(args: &[String], access: &Access) -> CliResult<()> {
     for (name, slot_id) in new_labels {
         vault.remember_access_slot_label(lb.lockbox_id(), slot_id, name)?;
     }
+    println!(
+        "Revoked {} access {}.",
+        revoked_slot_ids.len(),
+        if revoked_slot_ids.len() == 1 {
+            "entry"
+        } else {
+            "entries"
+        }
+    );
     Ok(())
 }
 

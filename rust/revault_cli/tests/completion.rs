@@ -90,6 +90,47 @@ fn locked_vault_completion_falls_back_without_prompt_or_diagnostics() {
 }
 
 #[test]
+fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let temp = TestTempDir::new("completion-paths");
+    let vault_dir = temp.path().join("vault");
+    fs::write(temp.path().join("secrets.lbox"), b"test").unwrap();
+    fs::write(temp.path().join("source.txt"), b"test").unwrap();
+
+    let target = Command::new(bin)
+        .current_dir(temp.path())
+        .env("LOCKBOX_VAULT_DIR", &vault_dir)
+        .env("COMPLETE", "bash")
+        .env("_CLAP_COMPLETE_INDEX", "1")
+        .env("_CLAP_COMPLETE_COMP_TYPE", "9")
+        .env("_CLAP_COMPLETE_SPACE", "true")
+        .args(["--", "lockbox", "sec"])
+        .output()
+        .unwrap();
+    assert!(target.status.success(), "{target:?}");
+    assert!(
+        String::from_utf8_lossy(&target.stdout).contains("secrets.lbox"),
+        "{target:?}"
+    );
+
+    let source = Command::new(bin)
+        .current_dir(temp.path())
+        .env("LOCKBOX_VAULT_DIR", &vault_dir)
+        .env("COMPLETE", "bash")
+        .env("_CLAP_COMPLETE_INDEX", "3")
+        .env("_CLAP_COMPLETE_COMP_TYPE", "9")
+        .env("_CLAP_COMPLETE_SPACE", "true")
+        .args(["--", "lockbox", "secrets.lbox", "add", "sou"])
+        .output()
+        .unwrap();
+    assert!(source.status.success(), "{source:?}");
+    assert!(
+        String::from_utf8_lossy(&source.stdout).contains("source.txt"),
+        "{source:?}"
+    );
+}
+
+#[test]
 fn dynamic_completion_reads_vault_names_without_exposing_signing_material() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let temp = TestTempDir::new("completion-dynamic");

@@ -47,14 +47,14 @@ example; it creates your local vault and default profile.
 
 ```bash
 # Create and open an encrypted lockbox for the default vault profile.
-lbx create project-secrets.lbox
+lbx project-secrets.lbox create
 
 # Add one host file at a chosen path inside the lockbox.
-lbx add project-secrets.lbox ./README.md /project/README.md
+lbx project-secrets.lbox add ./README.md --to project/README.md
 
 # Add every file below a directory. The final path is the destination inside
 # the lockbox, not a path on the host machine.
-lbx add --recursive project-secrets.lbox ./deploy /project/deploy
+lbx project-secrets.lbox add --recursive ./deploy --to project/deploy/
 
 # Store a normal configuration value. Variables are encrypted metadata, not
 # files, so they do not appear in ordinary file listings.

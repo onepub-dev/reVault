@@ -33,7 +33,7 @@ fn lbx_binary_is_alias_for_revault_cli() {
     let help = run_output(bin, &["--help"]);
     assert_success(&help);
     let help = String::from_utf8_lossy(&help.stderr);
-    assert!(help.contains("Usage: lockbox <command> [arguments]"));
+    assert!(help.contains("Usage: lockbox [LOCKBOX] <command> [arguments]"));
     assert!(help.contains("Available commands:"));
 }
 
@@ -47,7 +47,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(help.contains(
         "Create encrypted file archives, store secrets safely, and grant access with public keys."
     ));
-    assert!(help.contains("Usage: lockbox <command> [arguments]"));
+    assert!(help.contains("Usage: lockbox [LOCKBOX] <command> [arguments]"));
     assert!(help.contains("Available commands:"));
     assert!(help.contains("Archives"));
     assert!(help.contains("Files"));
@@ -60,9 +60,8 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let add_help = String::from_utf8_lossy(&add_help.stdout);
     assert!(add_help.contains("Usage: lockbox add"));
     assert!(add_help.contains("-r, --recursive"));
-    assert!(add_help.contains("<lockbox-or-source>"));
-    assert!(add_help.contains("[source-or-lockbox-path]"));
-    assert!(add_help.contains("[lockbox-path]"));
+    assert!(add_help.contains("--to <LOCKBOX_PATH>"));
+    assert!(add_help.contains("<SOURCE>..."));
     assert!(!add_help.contains("--jobs"));
 
     let add_verbose_help = run_output(bin, &["add", "--help", "--verbose"]);
@@ -71,7 +70,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(add_verbose_help.contains("--jobs <auto|1|N>"));
     assert!(add_verbose_help.contains("--key <RAW_CONTENT_KEY>"));
     assert!(add_verbose_help.contains("Context:"));
-    assert!(add_verbose_help.contains("Pass --recursive when the source is a directory"));
+    assert!(add_verbose_help.contains("Pass --recursive for a directory source"));
     assert_contains_in_order(
         &add_verbose_help,
         &[
@@ -463,6 +462,17 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(recover_help.contains("lockbox recover damaged.lbox"));
     assert!(recover_help.contains("--dry-run"));
     assert!(!recover_help.contains("--report"));
+}
+
+#[test]
+fn target_first_lockbox_is_rejected_for_global_commands() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let output = run_output(bin, &["secrets.lbox", "vault", "init"]);
+
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("vault is not a lockbox-scoped command")
+    );
 }
 
 #[test]
@@ -1097,9 +1107,10 @@ fn file_env_and_developer_aliases_execute_real_flows() {
     run(
         bin,
         &[
-            "add",
             lockbox.to_str().unwrap(),
+            "add",
             source.to_str().unwrap(),
+            "--to",
             "/docs/a.txt",
         ],
     );
@@ -1477,10 +1488,10 @@ fn negative_cli_errors_remain_specific() {
     let invalid_jobs = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "add",
             "--jobs",
             "0",
-            lockbox.to_str().unwrap(),
             source.to_str().unwrap(),
         ],
     );
@@ -1551,9 +1562,10 @@ fn remove_requires_confirmation_and_reports_count() {
     run(
         bin,
         &[
-            "add",
             lockbox.to_str().unwrap(),
+            "add",
             source.to_str().unwrap(),
+            "--to",
             "/docs/remove.txt",
         ],
     );
@@ -1584,8 +1596,8 @@ fn remove_requires_confirmation_and_reports_count() {
     run(
         bin,
         &[
-            "add",
             lockbox.to_str().unwrap(),
+            "add",
             root_source.to_str().unwrap(),
         ],
     );
@@ -1622,7 +1634,7 @@ fn missing_lockbox_errors_are_cli_specific() {
 
     let add_missing = run_output_without_content_key(
         bin,
-        &["add", missing.to_str().unwrap(), source.to_str().unwrap()],
+        &[missing.to_str().unwrap(), "add", source.to_str().unwrap()],
         &vault_root,
         &agent_root,
     );
@@ -1660,9 +1672,10 @@ fn removing_last_lockbox_key_has_cli_guidance() {
     run_in(
         bin,
         &[
-            "add",
             lockbox.to_str().unwrap(),
+            "add",
             source.to_str().unwrap(),
+            "--to",
             "/alpha.txt",
         ],
         &vault_root,
@@ -1891,13 +1904,14 @@ fn cli_env_rename_and_visualize_flow() {
     run(
         bin,
         &[
-            "add",
             lockbox.to_str().unwrap(),
+            "add",
             source.to_str().unwrap(),
+            "--to",
             "/docs/a.txt",
         ],
     );
-    run(
+    let renamed = run_output(
         bin,
         &[
             "rename",
@@ -1906,6 +1920,8 @@ fn cli_env_rename_and_visualize_flow() {
             "/archive/docs",
         ],
     );
+    assert_success(&renamed);
+    assert!(String::from_utf8_lossy(&renamed.stdout).contains("Renamed /docs to /archive/docs."));
     let var_set = run_output(
         bin,
         &[
@@ -2050,15 +2066,18 @@ fn list_commands_support_table_tsv_and_json_formats() {
     let source = dir.join("source.txt");
     fs::write(&source, "alpha").unwrap();
 
-    run(
+    let first_add = run_output(
         bin,
         &[
-            "add",
             lockbox.to_str().unwrap(),
+            "add",
             source.to_str().unwrap(),
+            "--to",
             "/docs/a.txt",
         ],
     );
+    assert_success(&first_add);
+    assert!(String::from_utf8_lossy(&first_add.stdout).contains("Added 1 file to"));
 
     let table = run_output(bin, &["list", lockbox.to_str().unwrap()]);
     assert_success(&table);
@@ -2121,9 +2140,10 @@ fn recover_reports_and_writes_recovered_lockbox() {
     run(
         bin,
         &[
-            "add",
             damaged.to_str().unwrap(),
+            "add",
             source.to_str().unwrap(),
+            "--to",
             "/docs/a.txt",
         ],
     );
@@ -2258,9 +2278,9 @@ fn create_refuses_to_overwrite_existing_lockbox() {
     fs::create_dir_all(&dir).unwrap();
     let lockbox = dir.join("safe.lbox");
 
-    run(bin, &["create", lockbox.to_str().unwrap()]);
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
     let original = fs::read(&lockbox).unwrap();
-    let output = run_output(bin, &["create", lockbox.to_str().unwrap()]);
+    let output = run_output(bin, &[lockbox.to_str().unwrap(), "create"]);
 
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("already exists"));
@@ -2328,34 +2348,67 @@ fn add_can_default_destination_and_list_recursively() {
     let lockbox = dir.join("files.lbox");
     let source_file = dir.join("alpha.txt");
     fs::write(&source_file, "alpha").unwrap();
+    let second_file = dir.join("beta.txt");
+    fs::write(&second_file, "beta").unwrap();
     let source_dir = dir.join("src");
     fs::create_dir_all(&source_dir).unwrap();
     fs::write(source_dir.join("one.txt"), "one").unwrap();
     fs::write(source_dir.join("two.txt"), "two").unwrap();
 
-    run(
+    let first_add = run_output(
         bin,
         &[
-            "add",
             lockbox.to_str().unwrap(),
+            "add",
             source_file.to_str().unwrap(),
         ],
     );
+    assert_success(&first_add);
+    assert!(String::from_utf8_lossy(&first_add.stdout).contains("Added 1 file to"));
     run(
         bin,
         &[
-            "add",
             lockbox.to_str().unwrap(),
+            "add",
             source_file.to_str().unwrap(),
-            "/some/path",
+            "--to",
+            "some/path/alpha.txt",
         ],
     );
+    let ambiguous_multi_destination = run_output(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "add",
+            source_file.to_str().unwrap(),
+            second_file.to_str().unwrap(),
+            "--to",
+            "bundle",
+        ],
+    );
+    assert!(!ambiguous_multi_destination.status.success());
+    assert!(String::from_utf8_lossy(&ambiguous_multi_destination.stderr)
+        .contains("--to must end with / when adding multiple sources"));
+    let multi_add = run_output(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "add",
+            source_file.to_str().unwrap(),
+            second_file.to_str().unwrap(),
+            "--to",
+            "bundle/",
+        ],
+    );
+    assert_success(&multi_add);
+    assert!(String::from_utf8_lossy(&multi_add.stdout).contains("Added 2 files to"));
     let directory_without_recursive = run_output(
         bin,
         &[
-            "add",
             lockbox.to_str().unwrap(),
+            "add",
             source_dir.to_str().unwrap(),
+            "--to",
             "/copy",
         ],
     );
@@ -2365,10 +2418,11 @@ fn add_can_default_destination_and_list_recursively() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "add",
             "--recursive",
-            lockbox.to_str().unwrap(),
             source_dir.to_str().unwrap(),
+            "--to",
             "/copy",
         ],
     );
@@ -2376,10 +2430,11 @@ fn add_can_default_destination_and_list_recursively() {
     let progress_agent_root = unique_dir().join("agent");
     let progress = Command::new(bin)
         .args([
+            lockbox.to_str().unwrap(),
             "add",
             "--recursive",
-            lockbox.to_str().unwrap(),
             source_dir.to_str().unwrap(),
+            "--to",
             "/progress",
         ])
         .env("LOCKBOX_KEY", "test-key")
@@ -2415,12 +2470,21 @@ fn add_can_default_destination_and_list_recursively() {
     let recursive = String::from_utf8_lossy(&recursive.stdout);
     assert!(recursive.contains("/alpha.txt"));
     assert!(recursive.contains("/some/path/alpha.txt"));
+    assert!(recursive.contains("/bundle/alpha.txt"));
+    assert!(recursive.contains("/bundle/beta.txt"));
     assert!(recursive.contains("/copy/one.txt"));
     assert!(recursive.contains("/copy/two.txt"));
 
     let nested = run_output(bin, &["ls", lockbox.to_str().unwrap(), "/some/path"]);
     assert_success(&nested);
     assert!(String::from_utf8_lossy(&nested.stdout).contains("alpha.txt"));
+
+    let relative_cat = run_output(
+        bin,
+        &[lockbox.to_str().unwrap(), "cat", "some/path/alpha.txt"],
+    );
+    assert_success(&relative_cat);
+    assert_eq!(String::from_utf8_lossy(&relative_cat.stdout), "alpha");
 }
 
 #[test]
@@ -2440,7 +2504,7 @@ fn access_subcommands_manage_lockbox_access() {
     run_in(bin, &["vault", "init"], &vault_root, &agent_root);
     run_in(
         bin,
-        &["add", lockbox.to_str().unwrap(), source.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "add", source.to_str().unwrap()],
         &vault_root,
         &agent_root,
     );
@@ -4178,8 +4242,8 @@ fn session_default_sets_default_lockbox_for_commands() {
     let explicit_add = run_output_without_content_key(
         bin,
         &[
-            "add",
             explicit.to_str().unwrap(),
+            "add",
             explicit_source.to_str().unwrap(),
         ],
         &vault_root,
@@ -4215,7 +4279,7 @@ fn session_default_sets_default_lockbox_for_commands() {
     fs::remove_file(&lockbox).unwrap();
     let missing_active = run_output_without_content_key(
         bin,
-        &["add", source.to_str().unwrap(), "/after-delete.md"],
+        &["add", source.to_str().unwrap(), "--to", "/after-delete.md"],
         &vault_root,
         &agent_root,
     );
@@ -4256,7 +4320,7 @@ fn session_default_lockbox_applies_to_lockbox_argument_variants() {
     fs::write(&source, "alpha").unwrap();
     run_in(
         bin,
-        &["add", source.to_str().unwrap(), "/docs/a.txt"],
+        &["add", source.to_str().unwrap(), "--to", "/docs/a.txt"],
         &vault_root,
         &agent_root,
     );
@@ -4275,12 +4339,14 @@ fn session_default_lockbox_applies_to_lockbox_argument_variants() {
     assert_eq!(String::from_utf8_lossy(&cat.stdout), "alpha");
 
     let extracted = dir.join("extracted.txt");
-    run_in(
+    let extracted_output = run_output_in(
         bin,
         &["extract", "/docs/a.txt", extracted.to_str().unwrap()],
         &vault_root,
         &agent_root,
     );
+    assert_success(&extracted_output);
+    assert!(String::from_utf8_lossy(&extracted_output.stdout).contains("Extracted /docs/a.txt to"));
     assert_eq!(fs::read_to_string(&extracted).unwrap(), "alpha");
 
     let restored = dir.join("restore");
@@ -4766,11 +4832,12 @@ fn add_accepts_jobs_option_for_large_files() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "add",
             "--jobs",
             "2",
-            lockbox.to_str().unwrap(),
             source.to_str().unwrap(),
+            "--to",
             "/large.bin",
         ],
     );

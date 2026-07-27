@@ -18,10 +18,15 @@ use clap::ArgMatches;
 use context::{cli_error, ensure_lockbox_path_accessible, Access, CliResult};
 use revault_lockbox_api::{Error, SecretVec, WorkerPolicy};
 use revault_vault_api::SecretActivityKind;
+use std::cell::RefCell;
 use std::env as std_env;
 use std::path::Path;
 
 pub(crate) use error_output::{exit_code, print_error};
+
+thread_local! {
+    static COMMAND_LOCKBOX: RefCell<Option<String>> = const { RefCell::new(None) };
+}
 
 pub(crate) fn run() -> CliResult<()> {
     let binary_name = std::env::args_os()
@@ -63,6 +68,13 @@ pub(crate) fn run() -> CliResult<()> {
     let (command, command_matches) = matches
         .subcommand()
         .ok_or_else(|| Error::InvalidInput("missing command".to_string()))?;
+    let command_lockbox = matches.get_one::<String>("command-lockbox").cloned();
+    if command_lockbox.is_some() && !command_accepts_lockbox(command) {
+        return Err(cli_error(format!(
+            "{command} is not a lockbox-scoped command; place the command immediately after `lockbox`"
+        )));
+    }
+    set_command_lockbox(command_lockbox);
     let _secret_activity = command_secret_activity(command)
         .map(revault_vault_api::begin_secret_activity)
         .transpose()?;
@@ -98,6 +110,43 @@ pub(crate) fn run() -> CliResult<()> {
     }
 
     Ok(())
+}
+
+fn command_accepts_lockbox(command: &str) -> bool {
+    matches!(
+        command,
+        "create"
+            | "open"
+            | "close"
+            | "recover"
+            | "add"
+            | "extract"
+            | "cat"
+            | "list"
+            | "ls"
+            | "rm"
+            | "rename"
+            | "mv"
+            | "variable"
+            | "var"
+            | "variables"
+            | "form"
+            | "access"
+            | "doctor"
+            | "visualize"
+            | "visualise"
+            | "open-key"
+    )
+}
+
+fn set_command_lockbox(lockbox: Option<String>) {
+    COMMAND_LOCKBOX.with(|selected| {
+        *selected.borrow_mut() = lockbox;
+    });
+}
+
+pub(crate) fn command_lockbox() -> Option<String> {
+    COMMAND_LOCKBOX.with(|selected| selected.borrow().clone())
 }
 
 fn normalize_form_define_separator(mut args: Vec<String>) -> Vec<String> {
@@ -182,6 +231,9 @@ fn read_worker_policy(matches: &ArgMatches) -> CliResult<WorkerPolicy> {
 }
 
 pub(crate) fn default_lockbox_for_add() -> CliResult<String> {
+    if let Some(lockbox) = command_lockbox() {
+        return Ok(lockbox);
+    }
     default_lockbox_for_add_if_set()?.ok_or_else(|| {
         cli_error("missing lockbox; pass a .lbox path or set a session default lockbox")
     })
@@ -197,9 +249,13 @@ fn default_lockbox_for_add_if_set() -> CliResult<Option<String>> {
 }
 
 pub(crate) fn optional_lockbox_value(matches: &ArgMatches, name: &str) -> CliResult<String> {
-    match matches.get_one::<String>(name) {
-        Some(value) => Ok(value.clone()),
-        None => default_lockbox_for_command(),
+    match (command_lockbox(), matches.get_one::<String>(name)) {
+        (Some(_), Some(_)) => Err(cli_error(
+            "lockbox supplied both before and after the command",
+        )),
+        (Some(lockbox), None) => Ok(lockbox),
+        (None, Some(value)) => Ok(value.clone()),
+        (None, None) => default_lockbox_for_command(),
     }
 }
 
@@ -207,6 +263,13 @@ pub(crate) fn optional_lockbox_positionals(
     mut values: Vec<String>,
     required_after_lockbox: usize,
 ) -> CliResult<Vec<String>> {
+    if let Some(lockbox) = command_lockbox() {
+        if values.len() < required_after_lockbox {
+            return Err(cli_error("missing required argument"));
+        }
+        values.insert(0, lockbox);
+        return Ok(values);
+    }
     if values
         .first()
         .is_some_and(|value| looks_like_lockbox_path(value))
@@ -224,6 +287,9 @@ pub(crate) fn optional_lockbox_positionals(
 }
 
 pub(crate) fn default_lockbox_for_command() -> CliResult<String> {
+    if let Some(lockbox) = command_lockbox() {
+        return Ok(lockbox);
+    }
     default_lockbox_for_add_if_set()?.ok_or_else(|| {
         cli_error("missing lockbox; pass a .lbox path or set a session default lockbox")
     })

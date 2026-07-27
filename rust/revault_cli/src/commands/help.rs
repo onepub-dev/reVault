@@ -1,4 +1,4 @@
-use clap::{Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, Command, ValueHint};
 use clap_complete::engine::ArgValueCompleter;
 
 use super::completion;
@@ -20,9 +20,19 @@ pub(crate) fn command(verbose: bool) -> Command {
         .disable_help_subcommand(true)
         .arg_required_else_help(true)
         .subcommand_required(true)
+        .subcommand_precedence_over_arg(true)
         .subcommand_help_heading("Available commands")
-        .after_help("Run \"lockbox <command> --help\" for more information about a command.")
+        .after_help(
+            "Run \"lockbox [LOCKBOX] <command> --help\" for more information about a command.",
+        )
         .next_help_heading("Global options")
+        .arg(
+            Arg::new("command-lockbox")
+                .value_name("LOCKBOX")
+                .required(false)
+                .value_hint(ValueHint::FilePath)
+                .help("Lockbox for the command. Defaults to the session default lockbox."),
+        )
         .arg(
             Arg::new("verbose")
                 .long("verbose")
@@ -42,7 +52,7 @@ pub(crate) fn command(verbose: bool) -> Command {
             archive_command("create", "Create a new encrypted lockbox.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault init\n  lockbox create secrets.lbox\n  lockbox create --password secrets.lbox\n  lockbox create --for alice secrets.lbox",
+                    "Examples:\n  lockbox vault init\n  lockbox secrets.lbox create\n  lockbox secrets.lbox create --password\n  lockbox secrets.lbox create --for alice",
                     "Context:\n  Use create when starting a new encrypted archive. By default it creates a lockbox for the vault's default profile. Use --password when you need a password-protected lockbox.",
                 ))
                 .arg(
@@ -60,7 +70,10 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .help("Create the lockbox for one of your profiles or a saved contact.")
                         .add(ArgValueCompleter::new(completion::named_candidates)),
                 )
-                .arg(required("lockbox", "Lockbox path.")),
+                .arg(optional(
+                    "lockbox",
+                    "Legacy lockbox position. Prefer `lockbox LOCKBOX create`.",
+                )),
             archive_command("open", "Open the lockbox for later commands.")
                 .after_help(verbose_help(
                     verbose,
@@ -85,6 +98,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                     Arg::new("password-file")
                         .long("password-file")
                         .value_name("FILE")
+                        .value_hint(ValueHint::FilePath)
                         .conflicts_with_all(["password-env", "password-stdin"])
                         .help("Read the lockbox password from a file."),
                 )
@@ -118,6 +132,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .long("output")
                         .short('o')
                         .value_name("RECOVERED_LOCKBOX")
+                        .value_hint(ValueHint::AnyPath)
                         .help("Write recovered entries to this new lockbox."),
                 )
                 .arg(
@@ -137,8 +152,8 @@ pub(crate) fn command(verbose: bool) -> Command {
             file_command("add", "Add a file or directory to a lockbox.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox add ./notes.txt\n  lockbox add secrets.lbox ./notes.txt\n  lockbox add --recursive ./project /project\n  lockbox add -r secrets.lbox ./large-dir /archive",
-                    "Context:\n  Add imports a host file into an open lockbox. With a session default lockbox, omit the lockbox path and pass the source first. Pass --recursive when the source is a directory. If no destination path is supplied, files keep their filename at the lockbox root and recursive directory imports go under the root. Use --jobs in verbose mode to tune large imports.",
+                    "Examples:\n  lockbox add ./notes.txt\n  lockbox secrets.lbox add ./*.key\n  lockbox secrets.lbox add ./*.key --to keys/\n  lockbox secrets.lbox add ./notes.txt --to docs/readme.txt\n  lockbox secrets.lbox add --recursive ./project --to archive/project/",
+                    "Context:\n  Add imports one or more host files into the selected lockbox. Put the lockbox before the command, or omit it to use the session default. Every positional argument is a source; use --to for the logical destination. Relative logical destinations are rooted at the lockbox root. Pass --recursive for a directory source. Use --jobs in verbose mode to tune large imports.",
                 ))
                 .arg(
                     Arg::new("recursive")
@@ -154,18 +169,22 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .hide(!verbose)
                         .help("Set import worker count."),
                 )
-                .arg(required(
-                    "lockbox-or-source",
-                    "Lockbox path, or source file/directory when a session default lockbox is set.",
-                ))
-                .arg(optional(
-                    "source-or-lockbox-path",
-                    "Source file/directory, or destination path when a session default lockbox is set.",
-                ))
-                .arg(optional(
-                    "lockbox-path",
-                    "Destination path inside the lockbox. Defaults to root.",
-                )),
+                .arg(
+                    Arg::new("to")
+                        .long("to")
+                        .value_name("LOCKBOX_PATH")
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
+                        .help("Logical destination. End with / when adding multiple sources."),
+                )
+                .arg(
+                    Arg::new("sources")
+                        .value_name("SOURCE")
+                        .num_args(1..)
+                        .action(ArgAction::Append)
+                        .required(true)
+                        .value_hint(ValueHint::AnyPath)
+                        .help("One or more host files, or one directory with --recursive."),
+                ),
             file_command("extract", "Extract files from a lockbox.")
                 .after_help(verbose_help(
                     verbose,
@@ -176,6 +195,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                     Arg::new("to")
                         .long("to")
                         .value_name("DESTINATION")
+                        .value_hint(ValueHint::DirPath)
                         .help("Extract the full lockbox to a directory."),
                 )
                 .arg(
@@ -319,7 +339,7 @@ pub(crate) fn usage(verbose: bool) {
     eprintln!(
         "{ABOUT}
 
-Usage: lockbox <command> [arguments]
+Usage: lockbox [LOCKBOX] <command> [arguments]
 
 Global options:
     --verbose        Show detailed command forms and advanced options.
@@ -368,7 +388,7 @@ Advanced global options:
     --key <raw-content-key>    Developer override: open with a raw content key supplied out of band.
 
 Advanced command options:
-  lockbox add --jobs auto|1|N <lockbox> <source> <lockbox-path>
+  lockbox [LOCKBOX] add --jobs auto|1|N <source>... [--to <lockbox-path>]
 
 Developer and compatibility commands:
   keygen          Generate raw keypair files.
@@ -453,6 +473,7 @@ fn variables_command(verbose: bool) -> Command {
                     .value_name("LOCKBOX NAME[=VALUE] [VALUE] | NAME[=VALUE] [VALUE]")
                     .num_args(1..=3)
                     .action(ArgAction::Append)
+                    .add(ArgValueCompleter::new(completion::archive_value_candidates))
                     .help("With a session default lockbox, pass name and optional value. Otherwise pass lockbox, name, and optional value."),
             )
             .arg(
@@ -481,6 +502,7 @@ fn variables_command(verbose: bool) -> Command {
                     .short('f')
                     .long("file")
                     .value_name("FILE")
+                    .value_hint(ValueHint::FilePath)
                     .help("Read the value from a file."),
             )
             .arg(
@@ -510,6 +532,7 @@ fn variables_command(verbose: bool) -> Command {
                 Arg::new("output")
                     .long("output")
                     .value_name("FILE")
+                    .value_hint(ValueHint::AnyPath)
                     .help("Write the exact value bytes to a file instead of stdout."),
             )
             .arg(
@@ -524,6 +547,7 @@ fn variables_command(verbose: bool) -> Command {
                     .value_name("LOCKBOX NAME | NAME")
                     .num_args(1..=2)
                     .action(ArgAction::Append)
+                    .add(ArgValueCompleter::new(completion::archive_value_candidates))
                     .help("With a session default lockbox, pass only the variable name."),
             ),
     )
@@ -542,6 +566,7 @@ fn variables_command(verbose: bool) -> Command {
                     .value_name("LOCKBOX PATTERN | PATTERN")
                     .num_args(0..=2)
                     .action(ArgAction::Append)
+                    .add(ArgValueCompleter::new(completion::archive_value_candidates))
                     .help("With a session default lockbox, pass only the optional pattern."),
             ),
     )
@@ -565,6 +590,7 @@ fn variables_command(verbose: bool) -> Command {
                     .value_name("LOCKBOX PATTERN | PATTERN")
                     .num_args(0..=2)
                     .action(ArgAction::Append)
+                    .add(ArgValueCompleter::new(completion::archive_value_candidates))
                     .help("With a session default lockbox, pass only the optional pattern."),
             ),
     )
@@ -583,6 +609,7 @@ fn variables_command(verbose: bool) -> Command {
                     .num_args(2..=3)
                     .required(true)
                     .action(ArgAction::Append)
+                    .add(ArgValueCompleter::new(completion::archive_value_candidates))
                     .help("With a session default lockbox, pass only source and destination."),
             ),
     )
@@ -599,6 +626,7 @@ fn variables_command(verbose: bool) -> Command {
                     .value_name("LOCKBOX NAME | NAME")
                     .num_args(1..=2)
                     .action(ArgAction::Append)
+                    .add(ArgValueCompleter::new(completion::archive_value_candidates))
                     .help("With a session default lockbox, pass only the variable name."),
             ),
     )
@@ -711,6 +739,7 @@ fn form_command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH | PATH")
                         .num_args(1..=2)
                         .action(ArgAction::Append)
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("With a session default lockbox, pass only the form record path."),
                 )
                 .arg(
@@ -718,6 +747,7 @@ fn form_command(verbose: bool) -> Command {
                         .long("type")
                         .value_name("ALIAS_OR_DEFINITION_ID")
                         .required(true)
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("Form definition alias or stable definition id."),
                 )
                 .arg(
@@ -754,6 +784,7 @@ fn form_command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH | PATH")
                         .num_args(1..=2)
                         .action(ArgAction::Append)
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("With a session default lockbox, pass only the form record path."),
                 )
                 .arg(
@@ -779,6 +810,7 @@ fn form_command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH FIELD VALUE | PATH FIELD VALUE")
                         .num_args(2..=4)
                         .action(ArgAction::Append)
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("With a session default lockbox, pass form record path, field id, and optional value."),
                 )
                 .arg(
@@ -808,6 +840,7 @@ fn form_command(verbose: bool) -> Command {
                         .long("file")
                         .short('f')
                         .value_name("FILE")
+                        .value_hint(ValueHint::FilePath)
                         .conflicts_with_all(["explicit-value", "stdin", "from-env", "interactive"])
                         .help("Read the field value from a file."),
                 )
@@ -841,6 +874,7 @@ fn form_command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH FIELD | PATH FIELD")
                         .num_args(2..=3)
                         .action(ArgAction::Append)
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("With a session default lockbox, pass only the form record path and field id."),
                 )
                 .arg(
@@ -853,6 +887,7 @@ fn form_command(verbose: bool) -> Command {
                     Arg::new("output")
                         .long("output")
                         .value_name("FILE")
+                        .value_hint(ValueHint::AnyPath)
                         .help("Write the field value to this file."),
                 )
                 .arg(
@@ -871,6 +906,7 @@ fn form_command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH | PATH")
                         .num_args(1..=2)
                         .action(ArgAction::Append)
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("With a session default lockbox, pass only the form record path."),
                 ),
         )
@@ -883,6 +919,7 @@ fn form_command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATTERN | PATTERN")
                         .num_args(0..=2)
                         .action(ArgAction::Append)
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("With a session default lockbox, pass only the optional pattern."),
                 ),
         )
@@ -901,6 +938,7 @@ fn form_command(verbose: bool) -> Command {
                         .num_args(2..=3)
                         .required(true)
                         .action(ArgAction::Append)
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("With a session default lockbox, pass only source and destination."),
                 ),
         )
@@ -912,6 +950,7 @@ fn form_command(verbose: bool) -> Command {
                         .value_name("LOCKBOX PATH | PATH")
                         .num_args(1..=2)
                         .action(ArgAction::Append)
+                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("With a session default lockbox, pass only the form record path."),
                 ),
         )
@@ -1629,6 +1668,8 @@ fn optional(name: &'static str, help: &'static str) -> Arg {
 fn dynamic_completion_arg(arg: Arg, name: &str) -> Arg {
     match name {
         "form" => arg.add(ArgValueCompleter::new(completion::form_candidates)),
+        "lockbox" | "private-key" | "public-key" | "output" | "input" | "backup" | "artifact"
+        | "source" | "destination" => arg.value_hint(ValueHint::AnyPath),
         _ => arg,
     }
 }
@@ -1648,6 +1689,7 @@ fn completion_command() -> Command {
                         .long("output")
                         .short('o')
                         .value_name("FILE")
+                        .value_hint(ValueHint::AnyPath)
                         .help("Write the script to this file."),
                 ),
             Command::new("install")
@@ -1657,6 +1699,7 @@ fn completion_command() -> Command {
                     Arg::new("path")
                         .long("path")
                         .value_name("FILE")
+                        .value_hint(ValueHint::AnyPath)
                         .help("Override the standard per-user installation path."),
                 ),
             Command::new("uninstall")
@@ -1666,6 +1709,7 @@ fn completion_command() -> Command {
                     Arg::new("path")
                         .long("path")
                         .value_name("FILE")
+                        .value_hint(ValueHint::AnyPath)
                         .help("Override the standard per-user installation path."),
                 ),
         ])
@@ -1750,6 +1794,7 @@ fn migration_output_arg() -> Arg {
         .long("output")
         .short('o')
         .value_name("PATH")
+        .value_hint(ValueHint::AnyPath)
         .help("Write the migrated artifact to this path.")
 }
 
@@ -1765,6 +1810,7 @@ fn migration_exporter_arg() -> Arg {
     Arg::new("exporter")
         .long("exporter")
         .value_name("PATH")
+        .value_hint(ValueHint::FilePath)
         .hide(true)
         .help("Use this historical reVault exporter executable.")
 }

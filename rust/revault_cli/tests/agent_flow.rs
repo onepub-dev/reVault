@@ -91,9 +91,10 @@ fn open_populates_cache_and_close_clears_it() {
         &agent_dir,
         &vault_dir,
         &[
-            "add",
             vault.to_str().unwrap(),
+            "add",
             source.to_str().unwrap(),
+            "--to",
             "/docs/a.txt",
         ],
     );

@@ -6,7 +6,9 @@ the target behavior.
 
 ## Path Model
 
-Lockbox stores logical archive paths, not host filesystem paths.
+Lockbox stores logical archive paths, not host filesystem paths. CLI commands
+accept either `/docs/readme.md` or the more convenient relative spelling
+`docs/readme.md`; relative logical paths are rooted before they are stored.
 
 Good archive paths:
 
@@ -22,17 +24,17 @@ are rejected as unsafe archive entries.
 
 ## Add Files
 
-Open a lockbox before normal operations:
+The preferred grammar selects the lockbox before the command:
 
 ```bash
-lockbox open secrets.lbox
+lockbox secrets.lbox open
 ```
 
 The open is cached in a per-user in-memory agent for a short sliding TTL.
 Clear the cached open explicitly when done:
 
 ```bash
-lockbox close secrets.lbox
+lockbox secrets.lbox close
 ```
 
 ## Exit Codes
@@ -50,13 +52,13 @@ be improved without changing these numeric codes.
 Create a lockbox and cache open access:
 
 ```bash
-lockbox create secrets.lbox
+lockbox secrets.lbox create
 ```
 
-Add a directory under its own name:
+Add a directory at a logical destination:
 
 ```bash
-lockbox add secrets.lbox ./project
+lockbox secrets.lbox add --recursive ./project --to project/
 ```
 
 Example stored paths:
@@ -69,9 +71,7 @@ Example stored paths:
 Add only the directory contents:
 
 ```bash
-lockbox add secrets.lbox ./project \
-  --strip-prefix ./project \
-  --dest /
+lockbox secrets.lbox add --recursive ./project
 ```
 
 Example stored paths:
@@ -84,9 +84,8 @@ Example stored paths:
 Add a directory under a logical destination prefix:
 
 ```bash
-lockbox add secrets.lbox ./project \
-  --strip-prefix ./project \
-  --dest /backups/project-2026
+lockbox secrets.lbox add --recursive ./project \
+  --to backups/project-2026/
 ```
 
 Example stored paths:
@@ -96,12 +95,20 @@ Example stored paths:
 /backups/project-2026/src/main.rs
 ```
 
-## Add One File With A New Name
+## Add Multiple Files Or Rename One File
 
-Use an explicit source and destination when adding a single file:
+Every positional argument after `add` is a host source path. This means shell
+expansion works without the CLI mistaking the final file for a destination:
 
 ```bash
-lockbox add-file secrets.lbox ./generated.env /secrets/prod.env
+lockbox secrets.lbox add ./certificates/*.pem --to certificates/
+```
+
+When adding multiple sources, `--to` must end in `/`; each source keeps its
+basename. Use an exact `--to` path to rename one file:
+
+```bash
+lockbox secrets.lbox add ./generated.env --to secrets/prod.env
 ```
 
 Stored path:
@@ -246,74 +253,30 @@ Extraction must verify that every destination remains inside the chosen output
 directory. Existing files should not be overwritten unless the user explicitly
 passes `--overwrite`.
 
-## Logical Roots
+## Logical Destination Prefixes
 
-Some backups need to restore different groups of files to different host
-locations. Lockbox should support this with logical roots, not absolute archive
-paths.
-
-Add application config files into a `config` root:
+Use destination prefixes to keep different host trees separate inside a
+lockbox:
 
 ```bash
-lockbox add secrets.lbox ./etc/myapp \
-  --strip-prefix ./etc \
-  --root config \
-  --dest /myapp
+lockbox app.lbox add --recursive ./etc/myapp --to config/myapp/
+lockbox app.lbox add --recursive ./var/lib/myapp --to data/myapp/
 ```
 
-Add application data files into a `data` root:
-
-```bash
-lockbox add secrets.lbox ./var/lib/myapp \
-  --strip-prefix ./var/lib \
-  --root data \
-  --dest /myapp
-```
-
-Stored logical entries:
+The stored paths remain absolute and portable:
 
 ```text
-config:/myapp/config.yaml
-data:/myapp/state.db
+/config/myapp/config.yaml
+/data/myapp/state.db
 ```
 
-List roots:
+Relative paths are accepted for convenience when listing or otherwise
+addressing entries:
 
 ```bash
-lockbox roots secrets.lbox
+lockbox app.lbox list config
+lockbox app.lbox extract --to ./restore
 ```
-
-Example output:
-
-```text
-default
-config
-data
-```
-
-List within a root:
-
-```bash
-lockbox ls secrets.lbox --root config /myapp
-```
-
-Extract multi-root archives by explicitly mapping each logical root:
-
-```bash
-lockbox extract secrets.lbox \
-  --map-root config=./restore/etc \
-  --map-root data=./restore/var/lib
-```
-
-Example output mapping:
-
-```text
-config:/myapp/config.yaml -> ./restore/etc/myapp/config.yaml
-data:/myapp/state.db      -> ./restore/var/lib/myapp/state.db
-```
-
-If the archive contains an unmapped root, extraction should fail closed and ask
-the user to provide a mapping.
 
 ## Symlinks
 
@@ -485,7 +448,7 @@ LOCKBOX_VAULT_DIR=/secure/local/vault lockbox vault init
 Create a lockbox for one of your vault keys:
 
 ```bash
-lockbox create --recipient default secrets.lbox
+lockbox secrets.lbox create --for default
 ```
 
 Add a recipient public key or trusted recipient name to an opened lockbox:

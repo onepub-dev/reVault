@@ -355,7 +355,7 @@ Supported `--format` values:
 Current/target commands:
 
 ```bash
-lockbox create secrets.lbox
+lockbox secrets.lbox create
 lockbox open secrets.lbox
 lockbox list secrets.lbox
 lockbox close secrets.lbox

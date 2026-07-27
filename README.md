@@ -97,7 +97,7 @@ keys safely.
 Create a lockbox for the default vault profile: (recommended)
 
 ```bash
-lockbox create secrets.lbox
+lockbox secrets.lbox create
 ```
 
 For a lockbox protected by a passphrase instead of a vault profile:
@@ -105,7 +105,7 @@ For a lockbox protected by a passphrase instead of a vault profile:
 This form is less secure than using a profile.
 
 ```bash
-lockbox create --password secrets.lbox
+lockbox secrets.lbox create --password
 ```
 
 Open it for normal commands:
@@ -124,8 +124,8 @@ lockbox close secrets.lbox
 Add files:
 
 ```bash
-lockbox add --recursive secrets.lbox ./project /project
-lockbox add secrets.lbox ./generated.env /secrets/prod.env
+lockbox secrets.lbox add --recursive ./project --to project/
+lockbox secrets.lbox add ./generated.env --to secrets/prod.env
 ```
 
 List and extract:
@@ -164,7 +164,7 @@ lockbox vault contact import alice ./alice.pub \
 Create a lockbox for a recipient:
 
 ```bash
-lockbox create --for alice shared.lbox
+lockbox shared.lbox create --for alice
 ```
 
 Grant or revoke access on an existing lockbox:
