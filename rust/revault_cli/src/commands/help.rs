@@ -152,8 +152,8 @@ pub(crate) fn command(verbose: bool) -> Command {
             file_command("add", "Add a file or directory to a lockbox.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox add ./notes.txt\n  lockbox secrets.lbox add ./*.key\n  lockbox secrets.lbox add ./*.key --to keys/\n  lockbox secrets.lbox add ./notes.txt --to docs/readme.txt\n  lockbox secrets.lbox add --recursive ./project --to archive/project/",
-                    "Context:\n  Add imports one or more host files into the selected lockbox. Put the lockbox before the command, or omit it to use the session default. Every positional argument is a source; use --to for the logical destination. Relative logical destinations are rooted at the lockbox root. Pass --recursive for a directory source. Use --jobs in verbose mode to tune large imports.",
+                    "Examples:\n  lockbox add ./notes.txt\n  lockbox secrets.lbox add ./*.key\n  lockbox secrets.lbox add ./*.key --to keys/\n  lockbox secrets.lbox add ./notes.txt --to docs/readme.txt\n  lockbox secrets.lbox add ./notes.txt --to docs/readme.txt --overwrite\n  lockbox secrets.lbox add --recursive ./project --to archive/project/",
+                    "Context:\n  Add imports one or more host files into the selected lockbox. Put the lockbox before the command, or omit it to use the session default. Every positional argument is a source; use --to for the logical destination. Relative logical destinations are rooted at the lockbox root. Existing files are protected unless --overwrite is explicit. Pass --recursive for a directory source. Use --jobs in verbose mode to tune large imports.",
                 ))
                 .arg(
                     Arg::new("recursive")
@@ -175,6 +175,12 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("LOCKBOX_PATH")
                         .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("Logical destination. End with / when adding multiple sources."),
+                )
+                .arg(
+                    Arg::new("overwrite")
+                        .long("overwrite")
+                        .action(ArgAction::SetTrue)
+                        .help("Replace mapped files that already exist in the lockbox."),
                 )
                 .arg(
                     Arg::new("sources")
@@ -261,11 +267,12 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .help("With a session default lockbox, pass only the optional stored path or glob.")
                         .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
-            file_command("rm", "Remove a stored entry.")
+            file_command("remove", "Remove a stored entry.")
+                .visible_alias("rm")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox rm secrets.lbox /notes.txt\n  lockbox rm --force secrets.lbox /old.txt",
-                    "Context:\n  Remove deletes a stored file or directory entry from the lockbox and commits that change. Without --force, reVault asks for confirmation before changing the archive.",
+                    "Examples:\n  lockbox secrets.lbox remove notes.txt\n  lockbox secrets.lbox remove package.json package-lock.json\n  lockbox secrets.lbox rm '*.json'\n  lockbox secrets.lbox rm '**/*.json'\n  lockbox secrets.lbox remove --recursive old/\n  lockbox secrets.lbox remove --force old.txt",
+                    "Context:\n  Remove accepts one or more stored paths or archive glob patterns and validates the complete batch before committing. A quoted * matches within one lockbox directory; use ** for recursive matching. Removing a directory requires --recursive. Without --force, reVault asks once for confirmation before changing the archive.",
                 ))
                 .arg(
                     Arg::new("force")
@@ -274,19 +281,27 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .help("Remove without an interactive confirmation."),
                 )
                 .arg(
+                    Arg::new("recursive")
+                        .short('r')
+                        .visible_short_alias('R')
+                        .long("recursive")
+                        .action(ArgAction::SetTrue)
+                        .help("Remove selected directories and their contents."),
+                )
+                .arg(
                     Arg::new("args")
-                        .value_name("LOCKBOX PATH | PATH")
-                        .num_args(1..=2)
+                        .value_name("LOCKBOX PATH_OR_GLOB... | PATH_OR_GLOB...")
+                        .num_args(1..)
                         .action(ArgAction::Append)
-                        .help("With a session default lockbox, pass only the stored path.")
+                        .help("One or more stored paths or archive globs; the lockbox may be selected before the command.")
                         .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
-            file_command("rename", "Rename a stored entry.")
-                .visible_alias("mv")
+            file_command("move", "Move or rename a stored entry.")
+                .visible_aliases(["mv", "rename"])
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox rename secrets.lbox /draft.txt /final.txt\n  lockbox mv secrets.lbox /old-dir /archive/old-dir",
-                    "Context:\n  Rename changes the path stored inside the lockbox. It does not touch host filesystem paths; both arguments are lockbox paths.",
+                    "Examples:\n  lockbox secrets.lbox move draft.txt final.txt\n  lockbox secrets.lbox mv old-dir archive/old-dir\n  lockbox secrets.lbox rename old.txt new.txt",
+                    "Context:\n  Move changes the path stored inside the lockbox. It does not touch host filesystem paths; both arguments are lockbox paths. Use the short mv alias or the equally descriptive rename synonym.",
                 ))
                 .arg(
                     Arg::new("args")
@@ -358,8 +373,8 @@ Files
   extract         Extract files from a lockbox.
   cat             Write a stored file to stdout.
   list            List stored entries.
-  rm              Remove a stored entry.
-  rename          Rename a stored entry.
+  remove          Remove stored entries (alias: rm).
+  move            Move or rename a stored entry (aliases: mv, rename).
 
 Data
   variable        Store, retrieve, list, export, or remove variable values.
@@ -615,6 +630,7 @@ fn variables_command(verbose: bool) -> Command {
     )
     .subcommand(
         Command::new("remove")
+            .visible_alias("rm")
             .about("Remove a variable value.")
             .after_help(verbose_help(
                 verbose,
@@ -912,6 +928,7 @@ fn form_command(verbose: bool) -> Command {
         )
         .subcommand(
             Command::new("list")
+                .visible_alias("ls")
                 .about("List form records.")
                 .arg(output_format_arg())
                 .arg(
@@ -944,6 +961,7 @@ fn form_command(verbose: bool) -> Command {
         )
         .subcommand(
             Command::new("remove")
+                .visible_alias("rm")
                 .about("Remove one form record.")
                 .arg(
                     Arg::new("args")
@@ -1210,7 +1228,7 @@ fn vault_command(verbose: bool) -> Command {
                 .disable_help_subcommand(true)
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox vault form definitions\n  lockbox form use login secrets.lbox",
+                    "Examples:\n  lockbox vault form define login --field username:text --field password:secret\n  lockbox vault form list\n  lockbox form use login secrets.lbox",
                     "Context:\n  Vault form definitions are reusable templates stored in the local vault. Use form use to copy one into a lockbox before creating records that use it.",
                 ))
                 .subcommand_required(true)
@@ -1256,7 +1274,8 @@ fn vault_command(verbose: bool) -> Command {
                         ),
                 )
                 .subcommand(
-                    Command::new("definitions")
+                    Command::new("list")
+                        .visible_alias("ls")
                         .about("List reusable form definitions.")
                         .arg(output_format_arg()),
                 ),
@@ -1354,6 +1373,7 @@ fn vault_command(verbose: bool) -> Command {
                 )
                 .subcommand(
                     Command::new("remove")
+                        .visible_alias("rm")
                         .about("Remove a contact.")
                         .after_help(verbose_help(
                             verbose,
@@ -1390,6 +1410,7 @@ fn vault_command(verbose: bool) -> Command {
                 )
                 .subcommand(
                     Command::new("move")
+                        .visible_alias("mv")
                         .about("Move a lockbox and update its session and vault paths.")
                         .after_help(verbose_help(
                             verbose,
@@ -1603,6 +1624,7 @@ fn vault_profile_command(verbose: bool) -> Command {
         )
         .subcommand(
             Command::new("remove")
+                .visible_alias("rm")
                 .about("Remove a profile.")
                 .after_help(verbose_help(
                     verbose,
@@ -1899,6 +1921,45 @@ mod migration_inventory_tests {
             ("migrate/vault/verify".to_string(), strings(&["artifact"])),
         ]);
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn conventional_command_aliases_are_consistent() {
+        let command = command(false);
+        let expected = [
+            ("list", &["ls"][..]),
+            ("remove", &["rm"][..]),
+            ("move", &["mv", "rename"][..]),
+            ("variable/list", &["ls"][..]),
+            ("variable/remove", &["rm"][..]),
+            ("variable/move", &["mv"][..]),
+            ("form/list", &["ls"][..]),
+            ("form/remove", &["rm"][..]),
+            ("form/move", &["mv"][..]),
+            ("access/list", &["ls"][..]),
+            ("vault/form/list", &["ls"][..]),
+            ("vault/profile/list", &["ls"][..]),
+            ("vault/profile/remove", &["rm"][..]),
+            ("vault/contact/list", &["ls"][..]),
+            ("vault/contact/remove", &["rm"][..]),
+            ("vault/lockbox/list", &["ls"][..]),
+            ("vault/lockbox/move", &["mv"][..]),
+        ];
+        for (path, aliases) in expected {
+            let command = command_at(&command, path);
+            let mut actual = command.get_visible_aliases().collect::<Vec<_>>();
+            actual.sort_unstable();
+            assert_eq!(actual, aliases, "aliases for {path}");
+        }
+    }
+
+    fn command_at<'a>(root: &'a Command, path: &str) -> &'a Command {
+        path.split('/').fold(root, |command, name| {
+            command
+                .get_subcommands()
+                .find(|child| child.get_name() == name)
+                .unwrap_or_else(|| panic!("missing command {path}"))
+        })
     }
 
     fn strings(values: &[&str]) -> Vec<String> {

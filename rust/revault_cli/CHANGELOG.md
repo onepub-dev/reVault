@@ -7,10 +7,18 @@
   available, but `add` now reserves every positional value for a source and
   selects its lockbox before the command or from the session default. It
   accepts multiple source files, uses `--to` for an optional logical
-  destination, and normalizes relative logical paths before storage.
+  destination, supports explicit replacement with `--overwrite`, and
+  normalizes relative logical paths before storage.
 - Mutating CLI commands now confirm successful outcomes. File imports report
   the number of files added, and create, extract, rename, variable, form,
   access, and developer key operations report what changed.
+- `remove` now handles every shell-expanded path, supports quoted archive
+  globs, validates a batch before mutation, and prompts once. `*.json` matches
+  one directory while `**/*.json` matches recursively; directory removal
+  requires `--recursive`.
+- Standardized frequent command names and aliases across the CLI: `list`/`ls`,
+  `remove`/`rm`, and `move`/`mv`. `rename` remains a full descriptive synonym
+  for the top-level `move` operation.
 - Added prebuilt Linux, macOS, and Windows release artifacts, Unix and
   PowerShell installers, a Windows MSI, checksums, and build provenance.
 - Added `--version` so installers and package managers can verify the installed

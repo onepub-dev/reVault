@@ -61,6 +61,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(add_help.contains("Usage: lockbox add"));
     assert!(add_help.contains("-r, --recursive"));
     assert!(add_help.contains("--to <LOCKBOX_PATH>"));
+    assert!(add_help.contains("--overwrite"));
     assert!(add_help.contains("<SOURCE>..."));
     assert!(!add_help.contains("--jobs"));
 
@@ -268,7 +269,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let vault_form_help = String::from_utf8_lossy(&vault_form_help.stdout);
     assert!(vault_form_help.contains("Manage reusable form definitions."));
     assert!(vault_form_help.contains("define"));
-    assert!(vault_form_help.contains("definitions"));
+    assert!(vault_form_help.contains("list"));
     assert!(!vault_profile_create_help.contains("export-public"));
     assert!(vault_profile_create_help.contains("lockbox vault profile create laptop\n"));
     assert!(!vault_profile_create_help.contains("[public-key-output]"));
@@ -1362,7 +1363,7 @@ fn vault_form_definitions_can_be_used_and_captured() {
     );
     let vault_definitions = run_output_without_content_key(
         bin,
-        &["vault", "form", "definitions", "--format", "tsv"],
+        &["vault", "form", "list", "--format", "tsv"],
         &vault_root,
         &agent_root,
     );
@@ -1467,7 +1468,7 @@ fn vault_form_definitions_can_be_used_and_captured() {
     );
     let vault_definitions = run_output_without_content_key(
         bin,
-        &["vault", "form", "definitions", "--format", "tsv"],
+        &["vault", "form", "list", "--format", "tsv"],
         &vault_root,
         &agent_root,
     );
@@ -1550,6 +1551,8 @@ fn negative_cli_errors_remain_specific() {
 #[test]
 fn remove_requires_confirmation_and_reports_count() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
+    let harness_dir = unique_dir();
+    let _ = fs::remove_dir_all(&harness_dir);
     let dir = unique_dir_named("remove-confirmation");
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
@@ -1572,7 +1575,7 @@ fn remove_requires_confirmation_and_reports_count() {
 
     let refused = run_output_with_stdin(
         bin,
-        &["rm", lockbox.to_str().unwrap(), "/docs/remove.txt"],
+        &["remove", lockbox.to_str().unwrap(), "/docs/remove.txt"],
         "no\n",
     );
     assert_success(&refused);
@@ -1606,11 +1609,122 @@ fn remove_requires_confirmation_and_reports_count() {
     assert_success(&root_removed);
     assert!(String::from_utf8_lossy(&root_removed.stdout).contains("/perf.data"));
 
+    let package = dir.join("package.json");
+    let package_lock = dir.join("package-lock.json");
+    fs::write(&package, "{}").unwrap();
+    fs::write(&package_lock, "{}").unwrap();
+    run(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "add",
+            package.to_str().unwrap(),
+            package_lock.to_str().unwrap(),
+        ],
+    );
+    run(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "add",
+            package.to_str().unwrap(),
+            "--to",
+            "second/package.json",
+        ],
+    );
+
+    let expanded_batch = run_output_with_stdin(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "rm",
+            "package.json",
+            "package-lock.json",
+        ],
+        "y\n",
+    );
+    assert_success(&expanded_batch);
+    assert!(String::from_utf8_lossy(&expanded_batch.stderr).contains("Remove 2 lockbox entries?"));
+    assert!(String::from_utf8_lossy(&expanded_batch.stdout).contains("Removed 2 entries."));
+
+    run(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "add",
+            package.to_str().unwrap(),
+            package_lock.to_str().unwrap(),
+        ],
+    );
+    let root_glob = run_output_with_stdin(bin, &[lockbox.to_str().unwrap(), "rm", "*.json"], "y\n");
+    assert_success(&root_glob);
+    assert!(String::from_utf8_lossy(&root_glob.stdout).contains("Removed 2 entries."));
+    let nested_still_exists = run_output(
+        bin,
+        &[lockbox.to_str().unwrap(), "cat", "second/package.json"],
+    );
+    assert_success(&nested_still_exists);
+
+    let recursive_glob =
+        run_output_with_stdin(bin, &[lockbox.to_str().unwrap(), "rm", "**/*.json"], "y\n");
+    assert_success(&recursive_glob);
+    assert!(String::from_utf8_lossy(&recursive_glob.stdout).contains("Removed 1 file"));
+
     let listing = run_output(bin, &["list", lockbox.to_str().unwrap()]);
     assert_success(&listing);
     let listing = String::from_utf8_lossy(&listing.stdout);
     assert!(listing.contains("directory"));
     assert!(listing.contains("docs/"));
+}
+
+#[test]
+fn directory_remove_requires_recursive_flag() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("remove-directory-recursive");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let lockbox = dir.join("remove.lbox");
+    let tree = dir.join("tree");
+    let vault_root = dir.join("vault");
+    let agent_root = dir.join("agent");
+    fs::create_dir_all(&tree).unwrap();
+    fs::write(tree.join("item.txt"), "nested").unwrap();
+
+    let added = run_output_in(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "add",
+            "--recursive",
+            tree.to_str().unwrap(),
+            "--to",
+            "tree",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&added);
+
+    let refused_directory = run_output_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "remove", "--force", "tree"],
+        &vault_root,
+        &agent_root,
+    );
+    assert!(!refused_directory.status.success());
+    assert!(String::from_utf8_lossy(&refused_directory.stderr)
+        .contains("removing a directory requires --recursive"));
+
+    let removed_directory = run_output_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "rm", "--force", "-r", "tree"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&removed_directory);
+    assert!(
+        String::from_utf8_lossy(&removed_directory.stdout).contains("Removed 1 directory: /tree")
+    );
 }
 
 #[test]
@@ -1913,15 +2027,10 @@ fn cli_env_rename_and_visualize_flow() {
     );
     let renamed = run_output(
         bin,
-        &[
-            "rename",
-            lockbox.to_str().unwrap(),
-            "/docs",
-            "/archive/docs",
-        ],
+        &["move", lockbox.to_str().unwrap(), "/docs", "/archive/docs"],
     );
     assert_success(&renamed);
-    assert!(String::from_utf8_lossy(&renamed.stdout).contains("Renamed /docs to /archive/docs."));
+    assert!(String::from_utf8_lossy(&renamed.stdout).contains("Moved /docs to /archive/docs."));
     let var_set = run_output(
         bin,
         &[
@@ -2365,6 +2474,31 @@ fn add_can_default_destination_and_list_recursively() {
     );
     assert_success(&first_add);
     assert!(String::from_utf8_lossy(&first_add.stdout).contains("Added 1 file to"));
+    let protected_existing = run_output(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "add",
+            source_file.to_str().unwrap(),
+        ],
+    );
+    assert!(!protected_existing.status.success());
+    assert!(String::from_utf8_lossy(&protected_existing.stderr).contains("already exists"));
+    fs::write(&source_file, "alpha updated").unwrap();
+    let overwritten = run_output(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "add",
+            source_file.to_str().unwrap(),
+            "--overwrite",
+        ],
+    );
+    assert_success(&overwritten);
+    assert!(String::from_utf8_lossy(&overwritten.stdout).contains("Replaced 1 file in"));
+    let updated = run_output(bin, &[lockbox.to_str().unwrap(), "cat", "alpha.txt"]);
+    assert_success(&updated);
+    assert_eq!(String::from_utf8_lossy(&updated.stdout), "alpha updated");
     run(
         bin,
         &[
@@ -2484,7 +2618,10 @@ fn add_can_default_destination_and_list_recursively() {
         &[lockbox.to_str().unwrap(), "cat", "some/path/alpha.txt"],
     );
     assert_success(&relative_cat);
-    assert_eq!(String::from_utf8_lossy(&relative_cat.stdout), "alpha");
+    assert_eq!(
+        String::from_utf8_lossy(&relative_cat.stdout),
+        "alpha updated"
+    );
 }
 
 #[test]
@@ -2855,7 +2992,7 @@ fn password_create_requires_explicit_vault_init() {
 
     let default_forms = run_output_without_content_key(
         bin,
-        &["vault", "form", "definitions", "--format", "tsv"],
+        &["vault", "form", "list", "--format", "tsv"],
         &vault_root,
         &agent_root,
     );

@@ -93,7 +93,7 @@ fn vault_form_matches(matches: &ArgMatches) -> CliResult<()> {
         .ok_or_else(|| Error::InvalidInput("missing vault form command".to_string()))?;
     match command {
         "define" => form_define_matches(sub),
-        "definitions" => form_definitions_with_format(output_format_from_matches(sub)?),
+        "list" | "ls" => form_definitions_with_format(output_format_from_matches(sub)?),
         _ => Err(Error::InvalidInput(format!("unknown vault form command: {command}")).into()),
     }
 }
@@ -118,7 +118,7 @@ fn vault_profile_matches(matches: &ArgMatches) -> CliResult<()> {
             ProfileExportArgs::from_matches(sub),
             KeyFormat::parse(optional_value(sub, "format").unwrap_or("lockbox"))?,
         ),
-        "remove" => remove_key_options(optional_value(sub, "name"), sub.get_flag("force")),
+        "remove" | "rm" => remove_key_options(optional_value(sub, "name"), sub.get_flag("force")),
         "rotate" => rotate_key(&optional_string_arg(sub, "name")),
         _ => Err(Error::InvalidInput(format!("unknown vault profile command: {command}")).into()),
     }
@@ -135,7 +135,7 @@ fn vault_contact_matches(matches: &ArgMatches) -> CliResult<()> {
         "list" | "ls" => list_contacts_with_format(output_format_from_matches(sub)?),
         "import" => contact_import_options(ContactImportOptions::from_matches(sub)),
         "receive" => receive_publish_options(PublishCliOptions::from_receive_matches(sub)?),
-        "remove" => remove_contact_name(&required_value(sub, "name")),
+        "remove" | "rm" => remove_contact_name(&required_value(sub, "name")),
         _ => Err(Error::InvalidInput(format!("unknown vault contact command: {command}")).into()),
     }
 }
@@ -149,7 +149,7 @@ fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
     })?;
     match command {
         "list" | "ls" => list_known_lockboxes_with_format(output_format_from_matches(sub)?),
-        "move" => move_known_lockbox(
+        "move" | "mv" => move_known_lockbox(
             &required_value(sub, "source"),
             &required_value(sub, "destination"),
         ),

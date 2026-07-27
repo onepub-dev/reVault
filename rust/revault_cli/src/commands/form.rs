@@ -48,12 +48,12 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
             &optional_lockbox_positionals(positional_values(sub, "args"), 1)?,
             access,
         ),
-        "list" => list_with_format(
+        "list" | "ls" => list_with_format(
             &optional_lockbox_positionals(positional_values(sub, "args"), 0)?,
             access,
             output_format_from_matches(sub)?,
         ),
-        "remove" => remove(
+        "remove" | "rm" => remove(
             &optional_lockbox_positionals(positional_values(sub, "args"), 1)?,
             access,
         ),

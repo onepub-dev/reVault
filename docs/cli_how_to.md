@@ -111,6 +111,52 @@ basename. Use an exact `--to` path to rename one file:
 lockbox secrets.lbox add ./generated.env --to secrets/prod.env
 ```
 
+By default, `add` fails before committing when a mapped file already exists.
+Make replacement explicit when refreshing stored content:
+
+```bash
+lockbox secrets.lbox add ./generated.env \
+  --to secrets/prod.env \
+  --overwrite
+```
+
+`--overwrite` replaces mapped files regardless of their timestamps. It still
+adds mapped files that do not yet exist.
+
+## Remove Files
+
+`remove` accepts multiple stored paths, including an unquoted shell expansion:
+
+```bash
+lockbox secrets.lbox remove package.json package-lock.json
+```
+
+Quote patterns that reVault should match against paths inside the lockbox.
+`*` stays within one directory; `**` crosses directory boundaries:
+
+```bash
+lockbox secrets.lbox rm '*.json'
+lockbox secrets.lbox rm '**/*.json'
+```
+
+The complete match set is validated and shown before one confirmation prompt.
+Use `--force` to skip the prompt. Removing a directory and its contents
+requires `--recursive` (`-r` or `-R`).
+
+## Command Aliases
+
+The CLI uses descriptive command names in documentation and offers conventional
+short aliases for frequent operations:
+
+- `list` has the alias `ls`.
+- `remove` has the alias `rm`.
+- `move` has the alias `mv`.
+
+These aliases are available consistently on command groups that provide the
+corresponding operation. `rename` is also a full, descriptive synonym for the
+top-level `move` command. Specialized operations such as `extract`, `revoke`,
+`forget`, and `recover` are not given potentially ambiguous abbreviations.
+
 Stored path:
 
 ```text

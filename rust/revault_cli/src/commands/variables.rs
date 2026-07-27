@@ -74,7 +74,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
                 VariableValueRef::Secret(_) => Ok(()),
             })?;
         }
-        "remove" => {
+        "remove" | "rm" => {
             let args = optional_lockbox_positionals(positional_values(sub, "args"), 1)?;
             let name = VariableName::new(require_arg(&args, 1, "name")?)?;
             let mut lb = open_existing(&args[0], access)?;

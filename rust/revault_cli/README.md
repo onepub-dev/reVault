@@ -52,6 +52,9 @@ lbx project-secrets.lbox create
 # Add one host file at a chosen path inside the lockbox.
 lbx project-secrets.lbox add ./README.md --to project/README.md
 
+# Replace that stored file after the host copy changes.
+lbx project-secrets.lbox add ./README.md --to project/README.md --overwrite
+
 # Add every file below a directory. The final path is the destination inside
 # the lockbox, not a path on the host machine.
 lbx project-secrets.lbox add --recursive ./deploy --to project/deploy/
@@ -86,6 +89,9 @@ lbx form add project-secrets.lbox /services/github \
 lbx list project-secrets.lbox /
 lbx variable get project-secrets.lbox APP_ENV
 lbx form show project-secrets.lbox /services/github
+
+# Frequent commands also have familiar aliases: ls, rm, and mv.
+lbx project-secrets.lbox ls /
 
 # Close the local session when you no longer need it. The encrypted .lbox file
 # remains; close only removes the temporary local open session.
