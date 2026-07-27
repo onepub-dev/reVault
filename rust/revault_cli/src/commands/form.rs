@@ -68,15 +68,14 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
 fn move_records(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let source_pattern = require_arg(args, 1, "source path or glob")?;
-    let destination = form_record_path(require_arg(args, 2, "destination path")?)?;
+    let destination = require_arg(args, 2, "destination path")?;
     let mut lb = open_existing(lockbox_path, access)?;
     let moves = lb
         .list_form_records()?
         .into_iter()
         .filter(|record| form_path_matches(source_pattern, record.path.as_str()))
         .map(|record| {
-            let target =
-                moved_form_path(source_pattern, record.path.as_str(), destination.as_str());
+            let target = moved_form_path(source_pattern, record.path.as_str(), destination);
             Ok((record.path, LockboxPath::new(target)?))
         })
         .collect::<CliResult<Vec<_>>>()?;
@@ -869,5 +868,7 @@ mod move_tests {
     fn root_glob_preserves_form_record_names() {
         assert_eq!(moved_form_path("/*", "/TMP", "/dev"), "/dev/TMP");
         assert_eq!(moved_form_path("/*", "/MODE", "/dev"), "/dev/MODE");
+        assert_eq!(moved_form_path("/*", "/MODE", "/dev/"), "/dev/MODE");
+        assert_eq!(moved_form_path("/*", "/MODE", "/"), "/MODE");
     }
 }

@@ -1269,6 +1269,30 @@ fn file_env_and_developer_aliases_execute_real_flows() {
 
     run(
         bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "variable",
+            "set",
+            "/X/A/A",
+            "nested",
+        ],
+    );
+    run(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "variable",
+            "move",
+            "/X/A/A",
+            "/X/",
+        ],
+    );
+    let moved_variable = run_output(bin, &[lockbox.to_str().unwrap(), "variable", "get", "/X/A"]);
+    assert_success(&moved_variable);
+    assert_eq!(String::from_utf8_lossy(&moved_variable.stdout), "nested\n");
+
+    run(
+        bin,
         &["variable", "remove", lockbox.to_str().unwrap(), "APP_MODE"],
     );
     let env_list = run_output(bin, &["variable", "list", lockbox.to_str().unwrap()]);
