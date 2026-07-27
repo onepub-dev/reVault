@@ -12,10 +12,10 @@ Symbols use descriptive namespaces: `lockbox_*`, `vault_*`, `key_*`, and
 The ABI covers lockbox data and metadata operations, key management, recovery,
 vault directories, local-vault integration, session-agent controls, platform
 secret-store controls, key formatting, and explicit buffer/handle ownership.
-Structured responses use the shared `LBWF` binary frame and Protobuf schemas in
-`bindings/proto`. Every structured result and form-definition input uses a
-named Protobuf message. File contents and cryptographic material remain raw
-bytes.
+Structured responses use the private FlatBuffers schema in
+`bindings/flatbuffers`. Each language facade retains the returned buffer and
+exposes reVault domain objects; generated transport tables are not public API.
+File contents and cryptographic material remain raw bytes.
 The hosted WebAssembly package runs every API call through a real WASM
 dispatcher and uses its Node host adapter for filesystem, native vault,
 keyring, and agent facilities. The standalone browser module retains portable
@@ -25,7 +25,7 @@ or a session-agent process.
 
 ## Language targets
 
-The native ABI and shared Protobuf schema are the common contract for the
+The native ABI and private FlatBuffers schema are the common contract for the
 selected issue-189 targets:
 
 | Target | Binding location |
@@ -44,17 +44,18 @@ selected issue-189 targets:
 | Swift | `bindings/swift` |
 | WebAssembly | `bindings/wasm`, `rust/revault_wasm_bindings` |
 
-The checked-in binding surfaces and Protobuf models are validated or regenerated
+The checked-in binding surfaces and private transport models are validated or regenerated
 through the Rust tool:
 
 ```text
 cargo run --locked -p revault_tooling --bin revault-tool -- bindings check
-cargo run --locked -p revault_tooling --bin revault-tool -- bindings generate-protobuf
+cargo run --locked -p revault_tooling --bin revault-tool -- bindings generate-flatbuffers
 ```
 
-Full model regeneration requires `protoc` plus the pinned Go, Dart, and Swift
-Protobuf generator plugins on `PATH`; release containers install and run those
-same generators before compiling their package consumers.
+Full transport regeneration requires `flatc` 25.2.10 on `PATH`. Generated
+files live only in internal package locations; Ruby, Lua, and C use small
+private readers because the official compiler does not provide a suitable
+generator for those targets.
 
 The generated declaration surface covers all 218 exported C ABI functions:
 the ABI-version query plus 217 domain functions. C++, C, PHP, Swift, Lua, and Ruby
@@ -85,7 +86,7 @@ for e2e coverage.
 All foreign-language packages use the same versioned C ABI library. Canonical
 native archives contain the dynamic and static libraries, the Windows DLL
 import library where applicable, the target-built Ruby ABI adapter, C header,
-Protobuf schema, license, target
+private FlatBuffers schema, license, target
 metadata, SPDX SBOM, and SHA-256 sidecar. Linux requires
 the system `libdbus-1` runtime; macOS and Windows use their native secret-store
 implementations. A package must never select an artifact for another operating

@@ -8,7 +8,7 @@ for archive, vault, key-management, and security concepts.
 
 Use `revault_api.h` with the matching `revault_api` shared or static library
 from the GitHub release SDK, Debian/RPM package, Homebrew, vcpkg, or Conan.
-`api_abi_version()` must return `2`.
+`api_abi_version()` must return `3`.
 
 ```c
 #include <stdint.h>

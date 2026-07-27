@@ -7,6 +7,7 @@ use time::OffsetDateTime;
 
 const LOG_ENV: &str = "REVAULT_KEY_SERVER_LOG";
 
+/// Returns the server log path.
 pub fn server_log_path() -> PathBuf {
     if let Ok(path) = env::var(LOG_ENV) {
         return PathBuf::from(path);
@@ -14,6 +15,7 @@ pub fn server_log_path() -> PathBuf {
     fallback_log_path()
 }
 
+/// Returns the server log destination.
 pub fn server_log_destination() -> String {
     if let Ok(path) = env::var(LOG_ENV) {
         return PathBuf::from(path).display().to_string();
@@ -21,6 +23,7 @@ pub fn server_log_destination() -> String {
     platform_log_destination().to_string()
 }
 
+/// Returns the log server event.
 pub fn log_server_event(message: impl AsRef<str>) {
     let message = message.as_ref();
     if let Ok(path) = env::var(LOG_ENV) {
@@ -33,6 +36,7 @@ pub fn log_server_event(message: impl AsRef<str>) {
     write_file_log(fallback_log_path(), message);
 }
 
+/// Returns the log timestamp.
 pub fn log_timestamp() -> String {
     OffsetDateTime::now_utc()
         .format(

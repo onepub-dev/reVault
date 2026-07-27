@@ -20,7 +20,6 @@ const REQUIRED_PACKAGE_NAMES: &[&str] = &[
 const NON_PRODUCTION_PACKAGES: &[&str] = &[
     "revault_bindings",
     "revault_wasm_bindings",
-    "revault_wire",
     "revault_tooling",
 ];
 

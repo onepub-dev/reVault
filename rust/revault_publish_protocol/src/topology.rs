@@ -28,46 +28,72 @@ const SHARE_CODE_SERVER_ID_ALPHABET: &[u8; 36] = b"0123456789abcdefghijklmnopqrs
 const SHARE_CODE_LEN: usize = 14;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents cluster topology.
 pub struct ClusterTopology {
+    /// Represents the cluster id carried by this record case.
     pub cluster_id: String,
+    /// Represents the version carried by this record case.
     pub version: u64,
+    /// Represents the servers carried by this record case.
     pub servers: Vec<TopologyServer>,
+    /// Represents the routes carried by this record case.
     pub routes: Vec<TopologyRoute>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents topology server.
 pub struct TopologyServer {
+    /// Represents the id carried by this record case.
     pub id: u8,
+    /// Represents the url carried by this record case.
     pub url: String,
+    /// Represents the status carried by this record case.
     pub status: ServerStatus,
+    /// Represents the last seen ms carried by this record case.
     pub last_seen_ms: Option<u64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents topology registration.
 pub struct TopologyRegistration {
+    /// Represents the cluster id carried by this record case.
     pub cluster_id: String,
+    /// Represents the server id carried by this record case.
     pub server_id: u8,
+    /// Represents the server url carried by this record case.
     pub server_url: String,
+    /// Represents the status carried by this record case.
     pub status: ServerStatus,
+    /// Represents the security token carried by this record case.
     pub security_token: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents topology route.
 pub struct TopologyRoute {
+    /// Represents the owner id carried by this record case.
     pub owner_id: u8,
+    /// Represents the primary id carried by this record case.
     pub primary_id: u8,
+    /// Represents the failover ids carried by this record case.
     pub failover_ids: Vec<u8>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents server status.
 pub enum ServerStatus {
+    /// Represents the active case.
     Active,
+    /// Represents the standby case.
     Standby,
+    /// Represents the promoted case.
     Promoted,
+    /// Represents the disabled case.
     Disabled,
 }
 
 impl ClusterTopology {
+    /// Returns the single server.
     pub fn single_server(server_id: u8, url: impl Into<String>) -> Self {
         Self {
             cluster_id: "default".to_string(),
@@ -86,6 +112,7 @@ impl ClusterTopology {
         }
     }
 
+    /// Returns the with filtered stale servers.
     pub fn with_filtered_stale_servers(&self, stale_after_ms: u64) -> ClusterTopology {
         if stale_after_ms == 0 {
             return self.clone();
@@ -133,6 +160,7 @@ impl ClusterTopology {
         }
     }
 
+    /// Returns the validate.
     pub fn validate(&self) -> Result<(), ClientError> {
         if self.cluster_id.is_empty() {
             return Err(ClientError::Topology(
@@ -175,14 +203,17 @@ impl ClusterTopology {
         Ok(())
     }
 
+    /// Returns the server.
     pub fn server(&self, id: u8) -> Option<&TopologyServer> {
         self.servers.iter().find(|server| server.id == id)
     }
 
+    /// Returns the route.
     pub fn route(&self, owner_id: u8) -> Option<&TopologyRoute> {
         self.routes.iter().find(|route| route.owner_id == owner_id)
     }
 
+    /// Returns the urls for publish code.
     pub fn urls_for_publish_code(&self, publish_code: &str) -> Vec<String> {
         let Some(owner_id) = publish_code_owner_id(publish_code) else {
             return self.active_urls();
@@ -209,12 +240,14 @@ impl ClusterTopology {
         out
     }
 
+    /// Returns the verification email owner id.
     pub fn verification_email_owner_id(&self, normalized_email: &str) -> Option<u8> {
         self.verification_email_server_ids(normalized_email)
             .into_iter()
             .next()
     }
 
+    /// Returns the verification email server ids.
     pub fn verification_email_server_ids(&self, normalized_email: &str) -> Vec<u8> {
         let mut active_ids = self
             .servers
@@ -268,6 +301,7 @@ impl ClusterTopology {
         out
     }
 
+    /// Returns the urls for verification email.
     pub fn urls_for_verification_email(&self, normalized_email: &str) -> Vec<String> {
         let owner_ids = self.verification_email_server_ids(normalized_email);
         if owner_ids.is_empty() {
@@ -280,6 +314,7 @@ impl ClusterTopology {
             .collect()
     }
 
+    /// Returns the active urls.
     pub fn active_urls(&self) -> Vec<String> {
         self.servers
             .iter()
@@ -293,6 +328,7 @@ impl ClusterTopology {
             .collect()
     }
 
+    /// Returns the active urls with ttl.
     pub fn active_urls_with_ttl(&self, stale_after_ms: u64) -> Vec<String> {
         self.with_filtered_stale_servers(stale_after_ms)
             .servers
@@ -307,11 +343,13 @@ impl ClusterTopology {
             .collect()
     }
 
+    /// Returns the routes for owner.
     pub fn routes_for_owner(&self, owner_id: u8) -> Option<&TopologyRoute> {
         self.route(owner_id)
     }
 }
 
+/// Returns the build ring routes.
 pub fn build_ring_routes(servers: &[TopologyServer]) -> Vec<TopologyRoute> {
     let mut active_ids = servers
         .iter()
@@ -344,6 +382,7 @@ pub fn build_ring_routes(servers: &[TopologyServer]) -> Vec<TopologyRoute> {
     routes
 }
 
+/// Reports whether topology server stale.
 pub fn is_topology_server_stale(server: &TopologyServer, now_ms: u64, stale_after_ms: u64) -> bool {
     if stale_after_ms == 0 {
         return false;
@@ -354,10 +393,12 @@ pub fn is_topology_server_stale(server: &TopologyServer, now_ms: u64, stale_afte
     }
 }
 
+/// Returns the parse publish locator.
 pub fn parse_publish_locator(value: &str) -> Option<(u8, u8)> {
     publish_code_locator(value)
 }
 
+/// Encodes topology.
 pub fn encode_topology(topology: &ClusterTopology) -> Result<Vec<u8>, ClientError> {
     topology.validate()?;
     if topology.servers.len() > u16::MAX as usize || topology.routes.len() > u16::MAX as usize {
@@ -395,6 +436,7 @@ pub fn encode_topology(topology: &ClusterTopology) -> Result<Vec<u8>, ClientErro
     Ok(out)
 }
 
+/// Decodes topology.
 pub fn decode_topology(bytes: &[u8]) -> Result<ClusterTopology, ClientError> {
     let mut reader = Reader::new(bytes);
     let magic = reader
@@ -458,6 +500,7 @@ pub fn decode_topology(bytes: &[u8]) -> Result<ClusterTopology, ClientError> {
     Ok(topology)
 }
 
+/// Returns the publish code owner id.
 pub fn publish_code_owner_id(publish_code: &str) -> Option<u8> {
     if publish_code.len() != SHARE_CODE_LEN {
         return None;
@@ -465,6 +508,7 @@ pub fn publish_code_owner_id(publish_code: &str) -> Option<u8> {
     parse_publish_code_server_id(*publish_code.as_bytes().first()?)
 }
 
+/// Returns the publish code locator.
 pub fn publish_code_locator(publish_code: &str) -> Option<(u8, u8)> {
     let bytes = publish_code.as_bytes();
     if bytes.len() != SHARE_CODE_LEN {
@@ -475,6 +519,7 @@ pub fn publish_code_locator(publish_code: &str) -> Option<(u8, u8)> {
     Some((owner_id, secondary_id))
 }
 
+/// Returns the publish code server id char.
 pub fn publish_code_server_id_char(id: u8) -> Option<u8> {
     SHARE_CODE_SERVER_ID_ALPHABET.get(id as usize).copied()
 }

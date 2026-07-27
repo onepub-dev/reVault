@@ -104,13 +104,7 @@ jobs:
         run: >-
           sudo apt-get update && sudo apt-get install -y
           dbus-x11 gnome-keyring libsecret-tools libdbus-1-dev
-          pkg-config protobuf-compiler
-      - name: Install macOS build dependencies
-        if: runner.os == 'macOS'
-        run: brew install protobuf
-      - name: Install Windows build dependencies
-        if: runner.os == 'Windows'
-        run: choco install protoc --yes --no-progress
+          pkg-config
       - name: Build release library
         working-directory: rust
         run: cargo build --locked --release --target ${{ matrix.rust_target }} -p revault_bindings
@@ -273,28 +267,7 @@ jobs:
           swift-version: '6.1'
       - name: Install Linux service and build dependencies
         if: runner.os == 'Linux' && matrix.language != 'rust'
-        run: sudo apt-get update && sudo apt-get install -y build-essential cmake dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 libprotobuf-dev protobuf-compiler
-      - name: Install macOS C++ dependencies
-        if: runner.os == 'macOS' && matrix.language == 'cpp'
-        run: brew install protobuf
-      - name: Install Windows x64 C++ dependencies
-        if: runner.os == 'Windows' && matrix.language == 'cpp' && matrix.target == 'windows-x86_64-msvc'
-        shell: pwsh
-        run: |
-          vcpkg install protobuf:x64-windows
-          "CMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
-      - name: Install Windows ARM64 C++ dependencies
-        if: runner.os == 'Windows' && matrix.language == 'cpp' && matrix.target == 'windows-aarch64-msvc'
-        shell: pwsh
-        run: |
-          vcpkg install protobuf:arm64-windows
-          "CMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" >> $env:GITHUB_ENV
-      - name: Install Lua Protobuf dependency
-        if: matrix.language == 'lua'
-        run: luarocks install lua-protobuf
-      - name: Install Ruby Protobuf dependency
-        if: matrix.language == 'ruby'
-        run: gem install google-protobuf -v '~> 3.25' --no-document
+        run: sudo apt-get update && sudo apt-get install -y build-essential cmake dbus-x11 gnome-keyring libsecret-tools libdbus-1-3
       - name: Install, unpack and exercise the claimed package
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --

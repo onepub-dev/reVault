@@ -12,6 +12,7 @@ use crate::server_log::server_log_destination;
 const UNIT_PATH: &str = "/etc/systemd/system/revault_key_server.service";
 const INSTALL_BINARY_PATH: &str = "/usr/local/bin/revault_key_server";
 const CONFIG_DIR: &str = "/etc/revault";
+/// Represents the path constant case.
 pub const CONFIG_PATH: &str = "/etc/revault/key-server.toml";
 const LEGACY_CONFIG_PATH: &str = "/etc/lockbox/key-server.toml";
 const STATE_DIR: &str = "/var/lib/revault-key-server";
@@ -20,6 +21,7 @@ const LOG_DIR: &str = "/var/log/revault-key-server";
 const LOG_FILE: &str = "/var/log/revault-key-server/server.log";
 const USER: &str = "revault-publish";
 
+/// Returns the install systemd.
 pub fn install_systemd(force_config: bool) -> Result<(), Box<dyn std::error::Error>> {
     require_root("install")?;
     let user_created = ensure_user()?;
@@ -109,6 +111,7 @@ fn install_binary() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Returns the uninstall systemd.
 pub fn uninstall_systemd(purge_data: bool) -> Result<(), Box<dyn std::error::Error>> {
     let command = if purge_data {
         "uninstall --purge-data"
@@ -132,6 +135,7 @@ pub fn uninstall_systemd(purge_data: bool) -> Result<(), Box<dyn std::error::Err
     Ok(())
 }
 
+/// Starts systemd.
 pub fn start_systemd() -> Result<(), Box<dyn std::error::Error>> {
     require_root("start")?;
     run("systemctl", &["reset-failed", "revault_key_server.service"])?;
@@ -140,6 +144,7 @@ pub fn start_systemd() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Stops systemd.
 pub fn stop_systemd() -> Result<(), Box<dyn std::error::Error>> {
     require_root("stop")?;
     run("systemctl", &["stop", "revault_key_server.service"])?;
@@ -147,6 +152,7 @@ pub fn stop_systemd() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Returns the print status.
 pub fn print_status() -> Result<(), Box<dyn std::error::Error>> {
     require_root("doctor")?;
     let installed = Path::new(UNIT_PATH).exists();
@@ -346,10 +352,12 @@ fn log_path_from_standard_output(output: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+/// Returns the service can read path.
 pub fn service_can_read_path(path: &str) -> &'static str {
     service_path_access("-r", path)
 }
 
+/// Returns the service can write path.
 pub fn service_can_write_path(path: &str) -> &'static str {
     service_path_access("-w", path)
 }

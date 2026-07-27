@@ -28,8 +28,9 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use windows_sys::Win32::Foundation::{
-    CloseHandle, GetLastError, LocalFree, ERROR_FILE_NOT_FOUND, ERROR_NO_TOKEN, ERROR_PIPE_BUSY,
-    ERROR_PIPE_CONNECTED, GENERIC_READ, GENERIC_WRITE, HANDLE, INVALID_HANDLE_VALUE,
+    CloseHandle, GetLastError, LocalFree, SetLastError, ERROR_ALREADY_EXISTS, ERROR_FILE_NOT_FOUND,
+    ERROR_NO_TOKEN, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED, GENERIC_READ, GENERIC_WRITE, HANDLE,
+    INVALID_HANDLE_VALUE,
 };
 use windows_sys::Win32::Security::Authorization::{
     ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
@@ -46,7 +47,7 @@ use windows_sys::Win32::System::Pipes::{
     WaitNamedPipeW, PIPE_READMODE_BYTE, PIPE_TYPE_BYTE, PIPE_UNLIMITED_INSTANCES, PIPE_WAIT,
 };
 use windows_sys::Win32::System::Threading::{
-    GetCurrentProcess, GetCurrentThread, OpenProcessToken, OpenThreadToken,
+    CreateMutexW, GetCurrentProcess, GetCurrentThread, OpenProcessToken, OpenThreadToken,
 };
 
 const IDLE_EXIT_SECONDS: u64 = 10 * 60;
@@ -61,6 +62,10 @@ struct CacheEntry {
 }
 
 pub(crate) fn serve_agent() -> io::Result<()> {
+    let Some(_singleton) = acquire_agent_singleton()? else {
+        log_agent_event("agent already running");
+        return Ok(());
+    };
     log_agent_event("agent starting");
     let current_user_sid = current_process_user_sid()?;
     let cache = Arc::new(Mutex::new(BTreeMap::<String, CacheEntry>::new()));
@@ -270,7 +275,7 @@ pub(crate) fn unregister_secret_activity(pid: u32, token: u64) -> io::Result<()>
 }
 
 pub(crate) fn is_running() -> bool {
-    existing_agent_is_compatible().unwrap_or(false)
+    matches!(agent_compatibility(), Ok(AgentCompatibility::Compatible))
 }
 
 pub(crate) fn start() -> io::Result<()> {
@@ -360,19 +365,31 @@ fn start_agent() -> io::Result<()> {
 }
 
 fn ensure_agent() -> io::Result<()> {
-    if open_pipe(&wide_pipe_name()).is_ok() {
-        if existing_agent_is_compatible()? {
-            return Ok(());
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        match agent_compatibility()? {
+            AgentCompatibility::Compatible => return Ok(()),
+            AgentCompatibility::Incompatible => {
+                stop_incompatible_agent()?;
+                break;
+            }
+            AgentCompatibility::Unavailable if Instant::now() >= deadline => break,
+            AgentCompatibility::Unavailable => thread::sleep(Duration::from_millis(25)),
         }
-        stop_incompatible_agent()?;
     }
     start_agent()?;
     let deadline = Instant::now() + Duration::from_secs(3);
     while Instant::now() < deadline {
-        if existing_agent_is_compatible()? {
-            return Ok(());
+        match agent_compatibility()? {
+            AgentCompatibility::Compatible => return Ok(()),
+            AgentCompatibility::Incompatible => {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "incompatible lockbox session agent remained after restart",
+                ));
+            }
+            AgentCompatibility::Unavailable => thread::sleep(Duration::from_millis(25)),
         }
-        thread::sleep(Duration::from_millis(25));
     }
     Err(io::Error::new(
         io::ErrorKind::TimedOut,
@@ -380,16 +397,48 @@ fn ensure_agent() -> io::Result<()> {
     ))
 }
 
-fn existing_agent_is_compatible() -> io::Result<bool> {
-    let Ok(handle) = open_pipe(&wide_pipe_name()) else {
-        return Ok(false);
+fn acquire_agent_singleton() -> io::Result<Option<OwnedHandle>> {
+    let name = wide_mutex_name();
+    let mut security = PipeSecurity::current_owner_only()?;
+    // SAFETY: `name` is a null-terminated UTF-16 string and `security` owns a
+    // valid descriptor for the duration of the call. The returned handle is
+    // either transferred to `OwnedHandle` or reported as an OS error.
+    let handle = unsafe {
+        SetLastError(0);
+        CreateMutexW(security.as_mut_ptr(), 0, name.as_ptr())
     };
-    Ok(matches!(
-        request_with_handle(handle, &encode_info()?),
+    if handle.is_null() {
+        return Err(io::Error::last_os_error());
+    }
+    let already_exists = last_error() == ERROR_ALREADY_EXISTS;
+    let handle = OwnedHandle::new(handle);
+    if already_exists {
+        Ok(None)
+    } else {
+        Ok(Some(handle))
+    }
+}
+
+enum AgentCompatibility {
+    Unavailable,
+    Compatible,
+    Incompatible,
+}
+
+fn agent_compatibility() -> io::Result<AgentCompatibility> {
+    let Ok(handle) = open_pipe(&wide_pipe_name()) else {
+        return Ok(AgentCompatibility::Unavailable);
+    };
+    match request_with_handle(handle, &encode_info()?) {
         Ok(AgentResponse::Info(protocol, implementation))
             if protocol == AGENT_PROTOCOL_VERSION
-                && implementation == AGENT_IMPLEMENTATION_VERSION
-    ))
+                && implementation == AGENT_IMPLEMENTATION_VERSION =>
+        {
+            Ok(AgentCompatibility::Compatible)
+        }
+        Ok(_) => Ok(AgentCompatibility::Incompatible),
+        Err(_) => Ok(AgentCompatibility::Unavailable),
+    }
 }
 
 fn stop_incompatible_agent() -> io::Result<()> {
@@ -581,7 +630,15 @@ fn open_pipe(pipe_name: &[u16]) -> io::Result<OwnedHandle> {
         // duration of the wait call.
         let waited = unsafe { WaitNamedPipeW(pipe_name.as_ptr(), 3000) };
         if waited == 0 {
-            return Err(io::Error::last_os_error());
+            let err = io::Error::last_os_error();
+            // The one-request server disconnects the busy instance before it
+            // creates the next one. `WaitNamedPipeW` returns immediately if
+            // that short gap contains no instances, so retry until the same
+            // overall deadline instead of turning a cache hit into a miss.
+            if Instant::now() >= deadline {
+                return Err(err);
+            }
+            thread::sleep(Duration::from_millis(25));
         }
     }
 }
@@ -1050,6 +1107,10 @@ fn invalid_control_response<T>(response: ControlResponse) -> io::Result<T> {
 
 fn wide_pipe_name() -> Vec<u16> {
     to_wide(&format!(r"\\.\pipe\lockbox-agent-{}", pipe_scope()))
+}
+
+fn wide_mutex_name() -> Vec<u16> {
+    to_wide(&format!(r"Local\lockbox-agent-{}", pipe_scope()))
 }
 
 fn pipe_scope() -> String {

@@ -9,32 +9,32 @@
  */
 package com.onepub.revault.kotlin
 
-/** Main entry point for all lockbox, key, local-vault, agent, and platform operations. */
+/** Primary API used to open lockboxes and manage keys, metadata, and local services. */
 typealias Vault = com.onepub.revault.Revault
-/** Owned, mutable view of one encrypted lockbox archive. */
+/** An open encrypted archive containing files, variables, secrets, and forms. */
 typealias Lockbox = com.onepub.revault.Revault.Lockbox
-/** Runtime cache and worker tuning for opening or creating lockboxes. */
+/** Memory and CPU settings applied when creating or opening a lockbox. */
 typealias LockboxOptions = com.onepub.revault.Revault.LockboxOptions
-/** Owned contact key pair used to decrypt received content keys. */
+/** A profile's contact-encryption identity used to decrypt keys addressed to it. */
 typealias ContactKeyPair = com.onepub.revault.Revault.ContactKeyPair
-/** Shareable contact public key used to encrypt a recipient content key. */
+/** A recipient's shareable encryption identity used when granting access. */
 typealias ContactPublicKey = com.onepub.revault.Revault.ContactPublicKey
-/** Owned encrypted content-key envelope for one contact recipient. */
+/** A content key encrypted for one contact and recoverable by its matching key pair. */
 typealias WrappedContactKey = com.onepub.revault.Revault.WrappedContactKey
-/** Owned signing key pair used to authorize mutable lockbox commits. */
+/** A lockbox owner's signing identity used to authorize mutable revisions. */
 typealias SigningKeyPair = com.onepub.revault.Revault.SigningKeyPair
-/** Public key used to verify owner-authorized lockbox commits. */
+/** The public identity readers use to verify owner-authorized revisions. */
 typealias SigningPublicKey = com.onepub.revault.Revault.SigningPublicKey
-/** Writable, password-protected local metadata vault. */
+/** Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths. */
 typealias VaultDirectory = com.onepub.revault.Revault.VaultDirectory
-/** Read-only metadata view that never loads an owner signing key. */
+/** A metadata view for discovery that never loads an owner signing key. */
 typealias ReadOnlyVaultDirectory = com.onepub.revault.Revault.ReadOnlyVaultDirectory
-/** Owned registration for an operation that currently requires secret access. */
+/** A token kept alive while an operation needs secrets cached by the agent. */
 typealias AgentActivity = com.onepub.revault.Revault.AgentActivity
-/** High-level workflow for local metadata and remembered lockboxes. */
+/** A session that opens lockboxes by host path, caches passwords, and closes local files. */
 typealias LocalVault = com.onepub.revault.Revault.LocalVault
 
 /** One historical generation of a vault profile's contact keys. */
-typealias ProfileGeneration = revault.bindings.RevaultBindings.ProfileGeneration
+typealias ProfileGeneration = com.onepub.revault.ProfileGeneration
 /** Versioned key-generation history for one named vault profile. */
-typealias ProfileHistory = revault.bindings.RevaultBindings.ProfileHistory
+typealias ProfileHistory = com.onepub.revault.ProfileHistory

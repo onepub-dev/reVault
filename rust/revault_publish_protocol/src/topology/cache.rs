@@ -9,6 +9,7 @@ use crate::topology::{
     TOPOLOGY_CACHE_VERSION,
 };
 
+/// Returns the write topology cache.
 pub fn write_topology_cache(
     path: impl AsRef<Path>,
     topology: &ClusterTopology,
@@ -22,6 +23,7 @@ pub fn write_topology_cache(
     fs::write(path, out).map_err(ClientError::Io)
 }
 
+/// Returns topology cache.
 pub fn read_topology_cache(
     path: impl AsRef<Path>,
     max_age: Duration,

@@ -8,7 +8,7 @@ use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 use tar::{Builder as TarBuilder, Header};
@@ -16,7 +16,7 @@ use tempfile::TempDir;
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 
-const NATIVE_ABI_VERSION: u32 = 2;
+const NATIVE_ABI_VERSION: u32 = 3;
 
 #[derive(Subcommand)]
 pub enum ReleaseCommand {
@@ -243,7 +243,7 @@ fn install_native(args: InstallNative) -> Result {
     install_archive(&args.archive, &args.prefix).map(|_| ())
 }
 
-fn msvc_path(path: &Path) -> String {
+pub(crate) fn msvc_path(path: &Path) -> String {
     let value = path.to_string_lossy();
     if let Some(tail) = value.strip_prefix(r"\\?\UNC\") {
         format!(r"\\{tail}")
@@ -397,7 +397,7 @@ fn package_native(args: PackageNative) -> Result {
         rust_target: row.rust_target.clone(),
         library: row.library.clone(),
         abi: NATIVE_ABI_VERSION,
-        wire: "LBWF/protobuf".into(),
+        wire: "FlatBuffers/25.2.10".into(),
         library_sha256: sha256(&library)?,
         static_library: row.static_library.clone(),
         static_library_sha256: sha256(&static_library)?,
@@ -441,8 +441,8 @@ fn package_native(args: PackageNative) -> Result {
             format!("{prefix}/include/revault_api.h"),
         ),
         (
-            repository.join("bindings/proto/revault_bindings.proto"),
-            format!("{prefix}/proto/revault_bindings.proto"),
+            repository.join("bindings/flatbuffers/revault_bindings.fbs"),
+            format!("{prefix}/flatbuffers/revault_bindings.fbs"),
         ),
         (
             repository.join("rust/revault_lockbox_api/LICENSE"),
@@ -711,7 +711,6 @@ fn assemble_packages(args: AssemblePackages) -> Result {
     require_version(&output.join("dart/pubspec.yaml"), &args.version)?;
     copy_tree(&bindings.join("php"), &output.join("composer"))?;
     copy_tree(&layout.join("php/native"), &output.join("composer/native"))?;
-    replace_release_version(&output.join("composer/composer.json"), &args.version)?;
     assemble_go(&source, &layout, output, &manifest)?;
     for (name, destination) in [
         ("rust", "cargo/revault-api"),
@@ -913,7 +912,7 @@ fn extract_verified(archive: &Path, destination: &Path) -> Result<(PathBuf, Nati
     }
     let root = roots[0].path();
     let metadata: NativeMetadata = serde_json::from_slice(&fs::read(root.join("metadata.json"))?)?;
-    if metadata.abi != NATIVE_ABI_VERSION || metadata.wire != "LBWF/protobuf" {
+    if metadata.abi != NATIVE_ABI_VERSION || metadata.wire != "FlatBuffers/25.2.10" {
         return Err("unsupported native archive ABI or wire protocol".into());
     }
     let library = root.join("lib").join(&metadata.library);
@@ -1248,7 +1247,7 @@ fn go_platform(target: &str) -> Result<(&'static str, &'static str, &'static str
     })
 }
 
-pub fn publish_migration(repository: &Path, publish: bool) -> Result {
+pub fn publish_cli(repository: &Path, publish: bool) -> Result {
     let rust = repository.canonicalize()?.join("rust");
     let packages = [
         "revault_lockbox_api",
@@ -1263,6 +1262,11 @@ pub fn publish_migration(repository: &Path, publish: bool) -> Result {
     for package in packages {
         let manifest = find_package_manifest(&rust, package)?;
         let version = manifest_value(&manifest, "version")?;
+        let release = format!("{package}@{version}");
+        if crate_is_published(&rust, &release)? {
+            println!("skipping {release}: already published on crates.io");
+            continue;
+        }
         let mut command = Command::new("cargo");
         command
             .current_dir(&rust)
@@ -1272,15 +1276,9 @@ pub fn publish_migration(repository: &Path, publish: bool) -> Result {
         }
         run_process(&mut command)?;
         if publish {
-            let release = format!("{package}@{version}");
             let mut visible = false;
             for _ in 0..30 {
-                if Command::new("cargo")
-                    .current_dir(&rust)
-                    .args(["info", &release, "--registry", "crates-io"])
-                    .status()
-                    .is_ok_and(|status| status.success())
-                {
+                if crate_is_published(&rust, &release)? {
                     visible = true;
                     break;
                 }
@@ -1295,6 +1293,16 @@ pub fn publish_migration(repository: &Path, publish: bool) -> Result {
         }
     }
     Ok(())
+}
+
+fn crate_is_published(rust: &Path, release: &str) -> Result<bool> {
+    Ok(Command::new("cargo")
+        .current_dir(rust)
+        .args(["info", release, "--registry", "crates-io"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?
+        .success())
 }
 
 fn find_package_manifest(rust: &Path, package: &str) -> Result<PathBuf> {

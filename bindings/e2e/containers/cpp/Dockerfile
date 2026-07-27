@@ -2,7 +2,7 @@ FROM rust:1.95-bookworm
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake dbus-x11 gnome-keyring libsecret-tools \
-    libdbus-1-dev libprotobuf-dev pkg-config protobuf-compiler python3 \
+    libdbus-1-dev pkg-config python3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace

@@ -23,11 +23,13 @@ use serde::Deserialize;
 const MAX_WIRE_OVERHEAD: usize = 128;
 const CLUSTER_RATE_LIMIT_BLOCK_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 
+/// Returns the run server.
 pub fn run_server(bind: &str, store: Arc<PublishStore>) -> std::io::Result<()> {
     let listener = TcpListener::bind(bind)?;
     run_listener(listener, store)
 }
 
+/// Returns the run listener.
 pub fn run_listener(listener: TcpListener, store: Arc<PublishStore>) -> std::io::Result<()> {
     let local_addr = listener.local_addr()?;
     log_server_event(format!("revault_key_server listening on {local_addr}"));
@@ -48,6 +50,7 @@ pub fn run_listener(listener: TcpListener, store: Arc<PublishStore>) -> std::io:
     })
 }
 
+/// Returns the local addr.
 pub fn local_addr(listener: &TcpListener) -> std::io::Result<SocketAddr> {
     listener.local_addr()
 }
@@ -332,6 +335,7 @@ fn bearer_token_header(value: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+/// Represents rate limiter.
 pub struct RateLimiter {
     per_minute: u32,
     burst: u32,
@@ -411,6 +415,7 @@ fn unix_ms(time: SystemTime) -> u64 {
         .as_millis() as u64
 }
 
+/// Returns the bench http.
 pub fn bench_http(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     config.bind_addr = "127.0.0.1:0".to_string();
     config.rate_limit_per_minute = 0;
@@ -472,6 +477,7 @@ pub fn bench_http(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
+/// Returns the bench http receive.
 pub fn bench_http_receive(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     config.bind_addr = "127.0.0.1:0".to_string();
     config.rate_limit_per_minute = 0;
@@ -554,6 +560,7 @@ pub fn bench_http_receive(mut config: ServerConfig) -> Result<(), Box<dyn std::e
     Ok(())
 }
 
+/// Returns the bench http flow.
 pub fn bench_http_flow(mut config: ServerConfig) -> Result<(), Box<dyn std::error::Error>> {
     config.bind_addr = "127.0.0.1:0".to_string();
     config.rate_limit_per_minute = 0;

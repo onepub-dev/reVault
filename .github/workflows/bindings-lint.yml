@@ -64,17 +64,18 @@ jobs:
         with:
           php-version: '8.3'
           extensions: ffi
+          tools: composer:v2
       - uses: leafo/gh-actions-lua@v11
         with:
           luaVersion: luajit-2.1
+      - uses: leafo/gh-actions-luarocks@v5
       - uses: swift-actions/setup-swift@v2
         with:
           swift-version: '6.1'
       - name: Install native lint dependencies
         run: >-
           sudo apt-get update && sudo apt-get install -y
-          build-essential cmake libdbus-1-dev libprotobuf-dev
-          pkg-config protobuf-compiler
+          build-essential cmake libdbus-1-dev pkg-config
       - name: Rust formatting, lint and binding coverage
         working-directory: rust
         run: |
@@ -87,7 +88,13 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
         run: |
-          cargo doc --locked --no-deps --all-features -p revault_page_api -p revault_lockbox_api -p revault_vault_api -p revault_wasm_bindings
+          cargo doc --locked --no-deps --all-features \
+            -p revault_page_api@0.0.3 -p revault_lockbox_api@0.0.4 \
+            -p revault_vault_api@0.0.4 -p revault_bindings@0.2.0 \
+            -p revault_wasm_bindings@0.0.1 \
+            -p revault_migration_format@0.0.1 -p revault_migrate_vault_v1@0.0.1 \
+            -p revault_migrate_archive_v1@0.0.2 -p revault_migration@0.0.1 \
+            -p revault_publish_protocol@0.0.3 -p revault_key_server@0.0.5
           cargo doc --locked --no-deps --manifest-path ../bindings/rust/Cargo.toml
       - name: Build native library for compiled facades
         working-directory: rust
@@ -106,9 +113,18 @@ jobs:
         working-directory: bindings/dart
         run: |
           dart pub get
-          dart format --output=none --set-exit-if-changed lib ../e2e/dart/conformance.dart
+          dart format --language-version=3.10 --output=none --set-exit-if-changed lib ../e2e/dart/conformance.dart
           dart analyze --fatal-infos --fatal-warnings
           dart doc
+      - name: Dart pub.dev score and publication payload
+        working-directory: bindings/dart
+        run: |
+          dart pub global activate pana 0.23.14
+          pana_root="$(mktemp -d)"
+          mkdir "$pana_root/revault_api"
+          cp -R . "$pana_root/revault_api"
+          pana --exit-code-threshold 10 "$pana_root/revault_api"
+          dart pub publish --dry-run
       - name: Go formatting and vet
         working-directory: bindings/go
         env:
@@ -134,8 +150,8 @@ jobs:
           node --check javascript/index.js
           node --check javascript/native.js
           node --check wasm/index.js
-          node typescript/node_modules/typescript/bin/tsc --noEmit -p typescript/tsconfig.json
-          node typescript/node_modules/typescript/bin/tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --typeRoots typescript/node_modules/@types --types node e2e/typescript/conformance.ts
+          node node_modules/typescript/bin/tsc --noEmit -p typescript/tsconfig.json
+          node node_modules/typescript/bin/tsc --noEmit --strict --target ES2022 --module NodeNext --moduleResolution NodeNext --typeRoots typescript/node_modules/@types --types node e2e/typescript/conformance.ts
       - name: Python lint and bytecode
         run: |
           python -m pip install ruff
@@ -147,12 +163,35 @@ jobs:
           find bindings/php/src bindings/e2e/php -name '*.php' -print0 | xargs -0 -n1 php -l
           find bindings/ruby bindings/e2e/ruby -name '*.rb' -print0 | xargs -0 -n1 ruby -c
           gem install rubocop --version 1.63.5 --no-document
-          rubocop --only Lint bindings/ruby/lib bindings/ruby/revault_api.gemspec bindings/e2e/ruby/conformance.rb
-          luajit -b bindings/lua/revault_api.lua /tmp/revault_api.luac
-          luajit -b bindings/e2e/lua/conformance.lua /tmp/revault_conformance.luac
+          rubocop --config bindings/ruby/.rubocop.yml --only Lint bindings/ruby/lib bindings/ruby/revault_api.gemspec bindings/e2e/ruby/conformance.rb
+          luajit -e 'assert(loadfile("bindings/lua/revault_api.lua"))'
+          luajit -e 'assert(loadfile("bindings/e2e/lua/conformance.lua"))'
       - name: Swift compile
         working-directory: bindings/swift
         env:
           LIBRARY_PATH: ${{ github.workspace }}/rust/target/debug
           LD_LIBRARY_PATH: ${{ github.workspace }}/rust/target/debug
-        run: swift build -Xswiftc -warnings-as-errors
+        run: |
+          swift package dump-package > /dev/null
+          swift build -Xswiftc -warnings-as-errors
+          swift test -Xswiftc -warnings-as-errors
+      - name: Registry-native package validation
+        run: |
+          mkdir -p build/registry/python build/registry/nuget
+          npm pack --dry-run --json ./bindings/javascript > build/registry/npm.json
+          npm pack --dry-run --json ./bindings/wasm > build/registry/npm-wasm.json
+          python -m pip install build twine
+          python -m build bindings/python --outdir build/registry/python
+          python -m twine check build/registry/python/*
+          dotnet pack bindings/csharp/RevaultBindings.csproj -warnaserror -o build/registry/nuget
+          composer validate --working-dir bindings/php --strict --no-check-publish
+          gem build bindings/ruby/revault_api.gemspec --output build/registry/revault_api.gem
+          luarocks lint bindings/lua/revault_api-0.2.0-1.rockspec
+          cargo package --locked --manifest-path bindings/rust/Cargo.toml
+      - name: Upload registry validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: binding-registry-validation
+          path: build/registry
+          if-no-files-found: warn

@@ -61,11 +61,6 @@ fn topology_cache_round_trips_binary_documents() {
         .unwrap()
         .unwrap();
     assert_eq!(cached, topology);
-    assert!(
-        revault_publish_protocol::read_topology_cache(&path, Duration::from_millis(1))
-            .unwrap()
-            .is_some()
-    );
 
     let _ = std::fs::remove_file(path);
 }

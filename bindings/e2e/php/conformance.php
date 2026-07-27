@@ -4,10 +4,8 @@ declare(strict_types=1);
 require __DIR__ . '/vendor/autoload.php';
 
 use Revault\Vault;
-use Revault\Bindings\FormField;
-use Revault\Bindings\FormFieldList;
-use Revault\Bindings\PathMove;
-use Revault\Bindings\PathMoveList;
+use Revault\FormField;
+use Revault\PathMove;
 
 $api = new Vault();
 
@@ -18,20 +16,14 @@ function artifactRoot(): string {
     if (!is_dir($path)) mkdir($path, 0700, true);
     return $path;
 }
-function fields(): string {
-    return (new FormFieldList(['values' => [
-        new FormField([
-            'id' => 'username', 'label' => 'Username', 'kind' => 'text', 'required' => true,
-        ]),
-        new FormField([
-            'id' => 'password', 'label' => 'Password', 'kind' => 'secret', 'required' => true,
-        ]),
-    ]]))->serializeToString();
+function fields(): array {
+    return [
+        new FormField('username', 'Username', 'text', true),
+        new FormField('password', 'Password', 'secret', true),
+    ];
 }
-function moves(string $source, string $destination): string {
-    return (new PathMoveList(['values' => [new PathMove([
-        'source' => $source, 'destination' => $destination,
-    ])]]))->serializeToString();
+function moves(string $source, string $destination): array {
+    return [new PathMove($source, $destination)];
 }
 function freeHandle(object $value, string $symbol): void { $value->free(); pass($symbol); }
 

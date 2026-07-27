@@ -1,0 +1,35 @@
+[workspace]
+members = ["cargo:rust"]
+
+# Config for 'dist'
+[dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.31.0"
+# CI backends to support
+ci = "github"
+packages = ["revault_cli"]
+# A prefix git tags must include for dist to care about them
+tag-namespace = "revault_cli-v"
+# Whether to enable GitHub Attestations
+github-attestations = true
+# Which actions to run on pull requests
+pr-run-mode = "plan"
+# Publish jobs to run in CI
+publish-jobs = ["./revault-cli-crates"]
+github-custom-job-permissions = { "revault-cli-crates" = { contents = "read", id-token = "write", packages = "write" } }
+# The installers to generate for each app
+installers = []
+# Target platforms to build apps for (Rust target-triple syntax)
+targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+
+[dist.dependencies.apt]
+libdbus-1-dev = "*"
+pkg-config = "*"
+
+[dist.github-custom-runners]
+global = "ubuntu-24.04"
+x86_64-unknown-linux-gnu = "ubuntu-24.04"
+aarch64-unknown-linux-gnu = "ubuntu-24.04-arm"
+x86_64-apple-darwin = "macos-15-intel"
+aarch64-apple-darwin = "macos-15"
+x86_64-pc-windows-msvc = "windows-2025"

@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Encrypted, authenticated, streaming artifacts used to migrate reVault
 //! native vault and archive formats without retaining historical readers in
 //! the current storage crates.

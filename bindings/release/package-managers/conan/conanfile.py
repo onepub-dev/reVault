@@ -9,7 +9,10 @@ class RevaultApiConan(ConanFile):
     package_type = "shared-library"
     settings = "os", "arch", "compiler", "build_type"
     license = "reVault Source Available License 1.0"
+    description = "Stable native API for encrypted reVault lockboxes and local vaults"
     homepage = "https://github.com/onepub-dev/reVault"
+    url = "https://github.com/onepub-dev/reVault"
+    topics = ("encryption", "credentials", "archive", "security", "vault")
 
     def source(self):
         get(self, **self.conan_data["sources"][str(self.version)][str(self.settings.os)][str(self.settings.arch)])

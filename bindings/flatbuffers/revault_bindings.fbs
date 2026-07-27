@@ -1,0 +1,293 @@
+// Private cross-language transport for the reVault binding ABI.
+//
+// These tables are never part of a language binding's public API. Each facade
+// converts them to reVault-owned domain types before returning to callers.
+
+namespace revault.internal;
+
+enum LockboxEntryKind : int {
+  KIND_UNSPECIFIED = 0,
+  FILE = 1,
+  SYMLINK = 2,
+  DIRECTORY = 3,
+}
+
+table LockboxEntry {
+  path:string (id: 0);
+  kind:revault.internal.LockboxEntryKind (id: 1);
+  length:ulong (id: 2);
+  permissions:uint (id: 3);
+}
+
+table LockboxEntryList {
+  entries:[revault.internal.LockboxEntry] (id: 0);
+}
+
+table OptionalLockboxEntry {
+  value:revault.internal.LockboxEntry (id: 0);
+}
+
+table StringList {
+  values:[string] (id: 0);
+}
+
+table PathMove {
+  source:string (id: 0);
+  destination:string (id: 1);
+}
+
+table PathMoveList {
+  values:[revault.internal.PathMove] (id: 0);
+}
+
+table FormField {
+  id:string (id: 0);
+  label:string (id: 1);
+  kind:string (id: 2);
+  required:bool (id: 3);
+}
+
+table FormFieldList {
+  values:[revault.internal.FormField] (id: 0);
+}
+
+table FormDefinition {
+  type_id:string (id: 0);
+  alias:string (id: 1);
+  revision:uint (id: 2);
+  name:string (id: 3);
+  description:string (id: 4);
+  fields:[revault.internal.FormField] (id: 5);
+}
+
+table FormDefinitionList {
+  values:[revault.internal.FormDefinition] (id: 0);
+}
+
+table FormValue {
+  field_id:string (id: 0);
+  label:string (id: 1);
+  kind:string (id: 2);
+  value:string (id: 3);
+  secret:bool (id: 4);
+}
+
+table FormRecord {
+  path:string (id: 0);
+  name:string (id: 1);
+  type_id:string (id: 2);
+  definition_alias:string (id: 3);
+  definition_revision:uint (id: 4);
+  values:[revault.internal.FormValue] (id: 5);
+}
+
+table FormRecordList {
+  values:[revault.internal.FormRecord] (id: 0);
+}
+
+table OptionalFormRecord {
+  value:revault.internal.FormRecord (id: 0);
+}
+
+table OptionalFormValue {
+  value:revault.internal.FormValue (id: 0);
+}
+
+table RecoveryReport {
+  intact_files:[revault.internal.LockboxEntry] (id: 0);
+  intact_file_count:ulong (id: 1);
+  partial_files:ulong (id: 2);
+  corrupt_records:ulong (id: 3);
+  toc_recovered:bool (id: 4);
+  variables_recovered:bool (id: 5);
+  variable_count:ulong (id: 6);
+  forms_recovered:bool (id: 7);
+  form_definition_count:ulong (id: 8);
+  form_record_count:ulong (id: 9);
+}
+
+table KeySlot {
+  id:ulong (id: 0);
+  protection:string (id: 1);
+  algorithm:string (id: 2);
+}
+
+table KeySlotList {
+  values:[revault.internal.KeySlot] (id: 0);
+}
+
+table CacheStats {
+  limit_bytes:ulong (id: 0);
+  used_bytes:ulong (id: 1);
+  entries:ulong (id: 2);
+  hits:ulong (id: 3);
+  misses:ulong (id: 4);
+}
+
+table ImportStats {
+  host_stat_nanos:string (id: 0);
+  host_read_nanos:string (id: 1);
+  frame_prepare_nanos:string (id: 2);
+  page_write_nanos:string (id: 3);
+}
+
+table PageObject {
+  id:ulong (id: 0);
+  kind:string (id: 1);
+  payload_len:ulong (id: 2);
+}
+
+table PageInspection {
+  offset:ulong (id: 0);
+  page_id:ulong (id: 1);
+  sequence:ulong (id: 2);
+  page_size:ulong (id: 3);
+  encrypted_body_len:ulong (id: 4);
+  unused_bytes:ulong (id: 5);
+  object_count:ulong (id: 6);
+  objects:[revault.internal.PageObject] (id: 7);
+}
+
+table PageInspectionList {
+  values:[revault.internal.PageInspection] (id: 0);
+}
+
+table FileInspection {
+  lockbox_id:[ubyte] (id: 0);
+  header_readable:bool (id: 1);
+  key_directory_generation:ulong (id: 2);
+  key_directory_copy_count:ulong (id: 3);
+  owner_signed:bool (id: 4);
+  key_slots:[revault.internal.KeySlot] (id: 5);
+}
+
+table ProfileGeneration {
+  index:uint (id: 0);
+  status:string (id: 1);
+  contact_fingerprint:[ubyte] (id: 2);
+  created_at_unix_ms:ulong (id: 3);
+  retired_at_unix_ms:ulong (id: 4);
+  has_retired_at:bool (id: 5);
+}
+
+table ProfileHistory {
+  name:string (id: 0);
+  active_generation:uint (id: 1);
+  generations:[revault.internal.ProfileGeneration] (id: 2);
+}
+
+table KnownLockbox {
+  lockbox_id:[ubyte] (id: 0);
+  path:string (id: 1);
+  last_seen_unix_ms:ulong (id: 2);
+}
+
+table KnownLockboxList {
+  values:[revault.internal.KnownLockbox] (id: 0);
+}
+
+table AccessSlotLabel {
+  lockbox_id:[ubyte] (id: 0);
+  slot_id:ulong (id: 1);
+  name:string (id: 2);
+  updated_at_unix_ms:ulong (id: 3);
+}
+
+table AccessSlotLabelList {
+  values:[revault.internal.AccessSlotLabel] (id: 0);
+}
+
+table StreamChunk {
+  path:string (id: 0);
+  file_offset:ulong (id: 1);
+  length:ulong (id: 2);
+  physical_offset:ulong (id: 3);
+  sparse:bool (id: 4);
+  data:[ubyte] (id: 5);
+}
+
+table StreamChunkList {
+  values:[revault.internal.StreamChunk] (id: 0);
+}
+
+table RuntimeOptions {
+  workload_profile:string (id: 0);
+  worker_policy:string (id: 1);
+}
+
+table Variable {
+  name:string (id: 0);
+  sensitivity:string (id: 1);
+}
+
+table VariableList {
+  values:[revault.internal.Variable] (id: 0);
+}
+
+table OptionalString {
+  present:bool (id: 0);
+  value:string (id: 1);
+}
+
+table OwnerInspection {
+  signed:bool (id: 0);
+  fingerprint:string (id: 1);
+  has_fingerprint:bool (id: 2);
+}
+
+table Contact {
+  name:string (id: 0);
+  key:[ubyte] (id: 1);
+}
+
+table ContactList {
+  values:[revault.internal.Contact] (id: 0);
+}
+
+table ProfileHistoryList {
+  values:[revault.internal.ProfileHistory] (id: 0);
+}
+
+table AgentEntry {
+  id:string (id: 0);
+  path:string (id: 1);
+}
+
+table AgentEntryList {
+  values:[revault.internal.AgentEntry] (id: 0);
+}
+
+table SleepSupport {
+  suspend_notifications:bool (id: 0);
+  sleep_inhibition:bool (id: 1);
+  supported:bool (id: 2);
+}
+
+table PlatformStatus {
+  supported:bool (id: 0);
+  disabled:bool (id: 1);
+  scope:string (id: 2);
+  backend:string (id: 3);
+  item:string (id: 4);
+}
+
+table StringValue {
+  value:string (id: 0);
+}
+
+table VaultBackupManifest {
+  format_version:uint (id: 0);
+  created_at_unix_ms:ulong (id: 1);
+  vault_file_name:string (id: 2);
+  vault_size:ulong (id: 3);
+  vault_sha256:string (id: 4);
+}
+
+table ErrorDetails {
+  category:string (id: 0);
+  artifact_kind:string (id: 1);
+  found_version:uint (id: 2);
+  supported_version:uint (id: 3);
+  message:string (id: 4);
+  guidance:string (id: 5);
+}

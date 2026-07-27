@@ -2,7 +2,7 @@
 
 reVault is an encrypted archive and local-vault library for files, credentials,
 keys, and typed records. Platform wheels include the native library and expose
-typed Protobuf results. See the
+typed reVault domain values while keeping the native transport private. See the
 [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
 
 ```shell

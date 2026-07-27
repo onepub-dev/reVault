@@ -1,6 +1,6 @@
 FROM rust:1.95-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libdbus-1-dev pkg-config protobuf-compiler \
+    build-essential libdbus-1-dev pkg-config \
     dbus-x11 gnome-keyring libsecret-tools libdbus-1-3 python3 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace

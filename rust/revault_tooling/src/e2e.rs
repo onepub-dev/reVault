@@ -5,7 +5,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 use walkdir::WalkDir;
 
 const LANGUAGES: [&str; 16] = [
@@ -315,7 +317,7 @@ fn invocations(language: &str) -> Vec<Invocation> {
         "csharp" => ("dotnet", &["/opt/revault-csharp/Conformance.dll"]),
         "dart" => ("/opt/revault-dart/conformance", &[]),
         "go" => ("/tmp/revault-go-conformance", &[]),
-        "java" => ("java", &["--enable-native-access=ALL-UNNAMED", "-Djava.io.tmpdir=/tmp/revault-java-extract", "-Drevault.keepExtracted=true", "-cp", "/opt/revault-java:/root/.m2/repository/dev/onepub/revault-api/0.2.0/revault-api-0.2.0.jar:/root/.m2/repository/com/google/protobuf/protobuf-java/3.21.12/protobuf-java-3.21.12.jar", "com.onepub.revault.e2e.Conformance"]),
+        "java" => ("java", &["--enable-native-access=ALL-UNNAMED", "-Djava.io.tmpdir=/tmp/revault-java-extract", "-Drevault.keepExtracted=true", "-cp", "/opt/revault-java:/root/.m2/repository/dev/onepub/revault-api/0.2.0/revault-api-0.2.0.jar:/root/.m2/repository/com/google/flatbuffers/flatbuffers-java/25.2.10/flatbuffers-java-25.2.10.jar", "com.onepub.revault.e2e.Conformance"]),
         "javascript" | "wasm" => ("node", &["bindings/e2e/javascript/conformance.js"]),
         "kotlin" => ("bindings/e2e/kotlin/build/install/revault-api-kotlin-conformance/bin/revault-api-kotlin-conformance", &[]),
         "lua" => ("luajit", &["bindings/e2e/lua/conformance.lua"]),
@@ -498,24 +500,29 @@ fn native_conformance(args: NativeConformance) -> Result {
     }
     let service_env = linux_secret_service_env()?;
     fs::create_dir_all(&args.work)?;
-    let work = args.work.canonicalize()?;
-    let repository = args.repository.canonicalize()?;
-    let archive = args.archive.canonicalize()?;
+    let work = PathBuf::from(crate::release::msvc_path(&args.work.canonicalize()?));
+    let repository = PathBuf::from(crate::release::msvc_path(&args.repository.canonicalize()?));
+    let archive = PathBuf::from(crate::release::msvc_path(&args.archive.canonicalize()?));
     let install = crate::release::install_archive(&archive, &work.join("installed"))?;
     let build = work.join("build");
     run_status(
         Command::new("cmake")
             .arg("-S")
-            .arg(repository.join("bindings/e2e/c"))
+            .arg(crate::release::msvc_path(
+                &repository.join("bindings/e2e/c"),
+            ))
             .arg("-B")
-            .arg(&build)
+            .arg(crate::release::msvc_path(&build))
             .arg("-DCMAKE_BUILD_TYPE=Release")
-            .arg(format!("-DCMAKE_PREFIX_PATH={}", install.prefix.display())),
+            .arg(format!(
+                "-DCMAKE_PREFIX_PATH={}",
+                crate::release::msvc_path(&install.prefix)
+            )),
     )?;
     run_status(
         Command::new("cmake")
             .arg("--build")
-            .arg(&build)
+            .arg(crate::release::msvc_path(&build))
             .args(["--config", "Release"]),
     )?;
     let executable = if cfg!(windows) {
@@ -523,35 +530,53 @@ fn native_conformance(args: NativeConformance) -> Result {
     } else {
         build.join("revault_c_conformance")
     };
-    let mut command = Command::new(&executable);
     let library_dir = install.prefix.join("lib");
-    if cfg!(target_os = "linux") {
-        command.env("LD_LIBRARY_PATH", &library_dir);
-    }
-    if cfg!(target_os = "macos") {
-        command.env("DYLD_LIBRARY_PATH", &library_dir);
-    }
-    if cfg!(windows) {
-        let mut paths = vec![library_dir.clone()];
-        paths.extend(std::env::split_paths(
-            &std::env::var_os("PATH").unwrap_or_default(),
-        ));
-        command.env("PATH", std::env::join_paths(paths)?);
-    }
-    command.env_remove("REVAULT_LIBRARY");
-    command.envs(service_env);
-    command.env("REVAULT_E2E_LANGUAGE", "c");
-    command.env("REVAULT_E2E_ARTIFACT_DIR", work.join("artifacts"));
-    let output = command.output()?;
-    if !output.status.success() {
-        return Err(format!(
-            "native conformance failed: {}",
-            String::from_utf8_lossy(&output.stderr)
-        )
-        .into());
+    let mut combined = Vec::new();
+    for phase in ["--core", "--agent", "--platform", "--last-error"] {
+        println!("running native conformance phase {phase}");
+        let phase_output = work.join(format!("{}.tsv", phase.trim_start_matches('-')));
+        let mut command = Command::new(&executable);
+        command
+            .arg(phase)
+            .stdout(fs::File::create(&phase_output)?)
+            .stderr(Stdio::inherit());
+        if cfg!(target_os = "linux") {
+            command.env("LD_LIBRARY_PATH", &library_dir);
+        }
+        if cfg!(target_os = "macos") {
+            command.env("DYLD_LIBRARY_PATH", &library_dir);
+        }
+        if cfg!(windows) {
+            let mut paths = vec![library_dir.clone()];
+            paths.extend(std::env::split_paths(
+                &std::env::var_os("PATH").unwrap_or_default(),
+            ));
+            command.env("PATH", std::env::join_paths(paths)?);
+        }
+        command.env_remove("REVAULT_LIBRARY");
+        command.envs(&service_env);
+        command.env("REVAULT_E2E_LANGUAGE", "c");
+        command.env("REVAULT_E2E_ARTIFACT_DIR", work.join("artifacts"));
+        let mut child = command.spawn()?;
+        let deadline = Instant::now() + Duration::from_secs(120);
+        let status = loop {
+            if let Some(status) = child.try_wait()? {
+                break status;
+            }
+            if Instant::now() >= deadline {
+                child.kill()?;
+                child.wait()?;
+                return Err(format!("native conformance phase {phase} timed out").into());
+            }
+            thread::sleep(Duration::from_millis(50));
+        };
+        if !status.success() {
+            return Err(format!("native conformance phase {phase} failed with {status}").into());
+        }
+        combined.extend_from_slice(&fs::read(&phase_output)?);
     }
     let results = work.join("results.tsv");
-    fs::write(&results, output.stdout)?;
+    fs::write(&results, combined)?;
     let evidence_path = library_dir.join(&install.library);
     let native = work.join("native.tsv");
     let evidence_output = Command::new(std::env::current_exe()?)

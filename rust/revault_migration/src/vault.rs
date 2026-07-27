@@ -15,6 +15,7 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
+/// Exports vault v2.
 pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
     vault: &VaultDirectory,
     output: &Path,
@@ -136,6 +137,7 @@ pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
     Ok(count + 1)
 }
 
+/// Imports vault v2.
 pub fn import_vault_v2<P: MigrationPassphrase + ?Sized>(
     artifact: &Path,
     artifact_passphrase: &P,
@@ -292,6 +294,7 @@ pub fn upgrade_vault_artifact<P: MigrationPassphrase + ?Sized>(
     Ok(count)
 }
 
+/// Verifies vault artifact.
 pub fn verify_vault_artifact<P: MigrationPassphrase + ?Sized>(
     path: &Path,
     passphrase: &P,

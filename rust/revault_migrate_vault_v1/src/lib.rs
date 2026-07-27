@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Historical native-format v1 exporter. This crate never imports or creates
 //! current native vaults.
 

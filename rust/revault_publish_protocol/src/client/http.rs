@@ -15,6 +15,7 @@ const REQUEST_TOPOLOGY_HEADER: &str = "x-topology-version";
 const SERVER_TOKEN_HEADER: &str = "x-lockbox-server-token";
 
 impl HttpTransport {
+    /// Creates a value from the supplied data.
     pub fn new(server_url: &str) -> Result<Self, ClientError> {
         Ok(Self {
             endpoint: Endpoint::parse(server_url)?,
@@ -22,11 +23,13 @@ impl HttpTransport {
         })
     }
 
+    /// Returns the with timeout.
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self
     }
 
+    /// Returns get.
     pub fn get(url: &str, max_response_bytes: usize) -> Result<Vec<u8>, ClientError> {
         Endpoint::parse(url)?.get(Duration::from_secs(10), max_response_bytes)
     }
@@ -43,6 +46,7 @@ impl HttpTransport {
         self.post_binary_std_with_headers(body, topology_version, None)
     }
 
+    /// Returns the post binary with server token.
     pub fn post_binary_with_server_token(
         &self,
         body: &[u8],

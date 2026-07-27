@@ -10,25 +10,42 @@ use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+/// Represents migration stage.
 pub enum MigrationStage {
+    /// Represents the export case.
     Export,
+    /// Represents the upgrade case.
     Upgrade,
+    /// Represents the import case.
     Import,
+    /// Represents the validate case.
     Validate,
+    /// Represents the replace case.
     Replace,
+    /// Represents the complete case.
     Complete,
 }
 
 #[derive(Debug)]
+/// Represents migration journal.
 pub struct MigrationJournal {
+    /// Represents the operation id carried by this record case.
     pub operation_id: [u8; 16],
+    /// Represents the artifact kind carried by this record case.
     pub artifact_kind: ArtifactKind,
+    /// Represents the source path carried by this record case.
     pub source_path: PathBuf,
+    /// Represents the source format version carried by this record case.
     pub source_format_version: u32,
+    /// Represents the source fingerprint carried by this record case.
     pub source_fingerprint: [u8; 32],
+    /// Represents the target format version carried by this record case.
     pub target_format_version: u32,
+    /// Represents the current stage carried by this record case.
     pub current_stage: MigrationStage,
+    /// Represents the temporary paths carried by this record case.
     pub temporary_paths: Vec<PathBuf>,
+    /// Represents the exporter version carried by this record case.
     pub exporter_version: Option<String>,
     /// Random key used for the migration artifacts. It is held in the
     /// lockbox API secure heap. The encrypted journal stores it in a separate
@@ -107,6 +124,7 @@ impl MigrationJournal {
         fs::rename(&temporary, path).map_err(|err| MigrationError::Io(err.to_string()))
     }
 
+    /// Loads load.
     pub fn load<P: MigrationPassphrase + ?Sized>(path: &Path, passphrase: &P) -> Result<Self> {
         let file = File::open(path).map_err(|err| MigrationError::Io(err.to_string()))?;
         let mut reader = ArtifactReader::new_with_passphrase(BufReader::new(file), passphrase)?;

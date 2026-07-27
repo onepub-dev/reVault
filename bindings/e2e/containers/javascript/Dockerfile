@@ -1,9 +1,9 @@
 FROM rust:1.95-bookworm AS native
-RUN apt-get update && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config protobuf-compiler \
+RUN apt-get update && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /workspace
 COPY rust rust
-COPY bindings/proto bindings/proto
+COPY bindings/flatbuffers bindings/flatbuffers
 COPY bindings/release bindings/release
 COPY bindings/ruby/native/revault_ruby_shim.c bindings/ruby/native/revault_ruby_shim.c
 RUN cd rust && cargo build --locked --release -p revault_bindings -p revault_tooling

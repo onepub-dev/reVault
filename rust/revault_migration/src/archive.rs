@@ -17,6 +17,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 const FILE_CHUNK_BYTES: usize = 4 * 1024 * 1024;
 
+/// Exports archive.
 pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
     lockbox: &Lockbox<State>,
     output: &Path,
@@ -169,6 +170,7 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
     Ok(count + 1)
 }
 
+/// Imports archive.
 pub fn import_archive<P: MigrationPassphrase + ?Sized>(
     artifact: &Path,
     artifact_passphrase: &P,
@@ -393,6 +395,7 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
     Ok(count)
 }
 
+/// Verifies archive artifact.
 pub fn verify_archive_artifact<P: MigrationPassphrase + ?Sized>(
     path: &Path,
     passphrase: &P,

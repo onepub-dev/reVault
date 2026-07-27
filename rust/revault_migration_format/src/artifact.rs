@@ -16,19 +16,31 @@ const HEADER_BYTES: usize = 64;
 const FRAME_JSON: u8 = 1;
 const FRAME_RAW: u8 = 2;
 const FRAME_END: u8 = 255;
+/// Represents the frame bytes constant case.
 pub const MAX_FRAME_BYTES: usize = 8 * 1024 * 1024;
+/// Represents the frame type constant case.
 pub const JSON_FRAME_TYPE: u8 = FRAME_JSON;
+/// Represents the frame type constant case.
 pub const RAW_FRAME_TYPE: u8 = FRAME_RAW;
 
 #[derive(Debug)]
+/// Represents migration error.
 pub enum MigrationError {
+    /// Represents the io case.
     Io(String),
+    /// Represents the invalid header case.
     InvalidHeader(String),
+    /// Represents the unsupported envelope case.
     UnsupportedEnvelope(u16),
+    /// Represents the invalid key case.
     InvalidKey,
+    /// Represents the corrupt frame case.
     CorruptFrame(String),
+    /// Represents the security limit case.
     SecurityLimit(String),
+    /// Represents the serialization case.
     Serialization(String),
+    /// Represents the incomplete case.
     Incomplete,
 }
 
@@ -51,12 +63,14 @@ impl fmt::Display for MigrationError {
 
 impl std::error::Error for MigrationError {}
 
+/// Represents result.
 pub type Result<T> = std::result::Result<T, MigrationError>;
 
 /// A migration passphrase whose plaintext is exposed only while deriving an
 /// artifact key. Secure values release their read guard before artifact
 /// processing allocates or mutates any other secure memory.
 pub trait MigrationPassphrase {
+    /// Returns the with bytes.
     fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R>;
 }
 
@@ -84,6 +98,7 @@ impl<const N: usize> MigrationPassphrase for [u8; N] {
     }
 }
 
+/// Represents artifact writer.
 pub struct ArtifactWriter<W: Write> {
     output: Option<W>,
     header: MigrationHeader,
@@ -97,6 +112,7 @@ pub struct ArtifactWriter<W: Write> {
 }
 
 impl<W: Write> ArtifactWriter<W> {
+    /// Returns the new with passphrase.
     pub fn new_with_passphrase<P: MigrationPassphrase + ?Sized>(
         output: W,
         header: MigrationHeader,
@@ -105,6 +121,7 @@ impl<W: Write> ArtifactWriter<W> {
         passphrase.with_bytes(|bytes| Self::new(output, header, bytes))?
     }
 
+    /// Creates a value from the supplied data.
     pub fn new(mut output: W, header: MigrationHeader, passphrase: &[u8]) -> Result<Self> {
         if passphrase.is_empty() {
             return Err(MigrationError::InvalidHeader(
@@ -149,10 +166,12 @@ impl<W: Write> ArtifactWriter<W> {
         })
     }
 
+    /// Returns the header.
     pub fn header(&self) -> &MigrationHeader {
         &self.header
     }
 
+    /// Returns the write json.
     pub fn write_json<T: Serialize>(&mut self, value: &T) -> Result<()> {
         let mut payload = serde_json::to_vec(value)
             .map_err(|err| MigrationError::Serialization(err.to_string()))?;
@@ -161,6 +180,7 @@ impl<W: Write> ArtifactWriter<W> {
         result
     }
 
+    /// Returns the write raw.
     pub fn write_raw(&mut self, payload: &[u8]) -> Result<()> {
         self.write_frame(FRAME_RAW, payload)
     }
@@ -193,6 +213,7 @@ impl<W: Write> ArtifactWriter<W> {
         Ok(())
     }
 
+    /// Returns the records written.
     pub fn records_written(&self) -> u64 {
         self.record_count
     }
@@ -245,6 +266,7 @@ impl<W: Write> ArtifactWriter<W> {
         Ok(())
     }
 
+    /// Returns the finish.
     pub fn finish(mut self) -> Result<W> {
         let digest: [u8; 32] = self.checksum.clone().finalize().into();
         let mut trailer = Vec::with_capacity(1 + 8 + 32);
@@ -269,6 +291,7 @@ impl<W: Write> Drop for ArtifactWriter<W> {
     }
 }
 
+/// Represents artifact reader.
 pub struct ArtifactReader<R: Read> {
     input: R,
     header: MigrationHeader,
@@ -282,6 +305,7 @@ pub struct ArtifactReader<R: Read> {
 }
 
 impl<R: Read> ArtifactReader<R> {
+    /// Returns the new with passphrase.
     pub fn new_with_passphrase<P: MigrationPassphrase + ?Sized>(
         input: R,
         passphrase: &P,
@@ -289,6 +313,7 @@ impl<R: Read> ArtifactReader<R> {
         passphrase.with_bytes(|bytes| Self::new(input, bytes))?
     }
 
+    /// Creates a value from the supplied data.
     pub fn new(mut input: R, passphrase: &[u8]) -> Result<Self> {
         let mut encoded_header = [0u8; HEADER_BYTES];
         input
@@ -338,10 +363,12 @@ impl<R: Read> ArtifactReader<R> {
         })
     }
 
+    /// Returns the header.
     pub fn header(&self) -> &MigrationHeader {
         &self.header
     }
 
+    /// Returns the next json.
     pub fn next_json<T: DeserializeOwned>(&mut self) -> Result<Option<T>> {
         let Some((frame_type, mut payload)) = self.next_frame()? else {
             return Ok(None);
@@ -358,6 +385,7 @@ impl<R: Read> ArtifactReader<R> {
         result
     }
 
+    /// Returns the next frame.
     pub fn next_frame(&mut self) -> Result<Option<(u8, Vec<u8>)>> {
         if self.complete {
             return Ok(None);
@@ -454,6 +482,7 @@ impl<R: Read> ArtifactReader<R> {
         Ok(Some((frame_type, payload)))
     }
 
+    /// Reports whether complete.
     pub fn is_complete(&self) -> bool {
         self.complete
     }

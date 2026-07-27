@@ -5,8 +5,8 @@ and manage cryptographic keys and local vault metadata.
 
 ## Overview
 
-Create a ``Vault`` to access the API, then create or open a ``Lockbox``. Owned
-native handles release their resources when they are closed or deallocated.
+Create a ``Vault`` to access the API, then create or open a ``Lockbox``. Values
+that retain sensitive state release it when they are closed or deallocated.
 Secret variables and secret form fields are available only through
 callback-scoped accessors, reducing the chance that plaintext remains in Swift
 memory longer than intended.

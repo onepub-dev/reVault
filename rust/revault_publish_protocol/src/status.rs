@@ -5,18 +5,29 @@ const STATUS_MAGIC: &[u8; 4] = b"LBSS";
 const STATUS_VERSION: u16 = 1;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents key server status.
 pub struct KeyServerStatus {
+    /// Represents the created carried by this record case.
     pub created: u64,
+    /// Represents the received carried by this record case.
     pub received: u64,
+    /// Represents the deleted carried by this record case.
     pub deleted: u64,
+    /// Represents the expired carried by this record case.
     pub expired: u64,
+    /// Represents the misses carried by this record case.
     pub misses: u64,
+    /// Represents the live carried by this record case.
     pub live: u64,
+    /// Represents the segment bytes carried by this record case.
     pub segment_bytes: u64,
+    /// Represents the replication pending carried by this record case.
     pub replication_pending: u64,
+    /// Represents the replication last sequence carried by this record case.
     pub replication_last_sequence: u64,
 }
 
+/// Encodes status.
 pub fn encode_status(status: &KeyServerStatus) -> Vec<u8> {
     let mut out = Vec::with_capacity(4 + 2 + 9 * 8);
     out.extend_from_slice(STATUS_MAGIC);
@@ -33,6 +44,7 @@ pub fn encode_status(status: &KeyServerStatus) -> Vec<u8> {
     out
 }
 
+/// Decodes status.
 pub fn decode_status(bytes: &[u8]) -> Result<KeyServerStatus, ClientError> {
     let mut reader = Reader::new(bytes);
     let magic = reader

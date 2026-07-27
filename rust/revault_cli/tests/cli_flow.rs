@@ -1167,9 +1167,10 @@ fn top_level_help_pins_command_groups_and_hidden_commands() {
     assert!(archive_migrate_verbose_help.contains("upgrade"));
 
     for removed in ["add-contact", "list-keys", "remove-key", "contact"] {
-        let output = run_output(bin, &[removed, "--help"]);
+        let output = run_output(bin, &["removed-command-test.lbox", removed, "--help"]);
         assert!(!output.status.success());
-        assert!(String::from_utf8_lossy(&output.stderr).contains("unrecognized subcommand"));
+        assert!(String::from_utf8_lossy(&output.stderr)
+            .contains(&format!("unexpected argument '{removed}'")));
     }
 
     for removed in ["key", "trust", "list", "ls", "doctor"] {

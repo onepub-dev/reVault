@@ -96,8 +96,8 @@ void ruby_lockbox_owner_inspection(const void *handle, RevaultBuffer *out) {
   if (out != NULL) *out = lockbox_owner_inspection(handle);
 }
 
-void ruby_lockbox_define_form(void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_proto, size_t fields_len, RevaultBuffer *out) {
-  if (out != NULL) *out = lockbox_define_form(handle, alias, alias_len, name, name_len, description, description_len, fields_proto, fields_len);
+void ruby_lockbox_define_form(void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_flatbuffer, size_t fields_len, RevaultBuffer *out) {
+  if (out != NULL) *out = lockbox_define_form(handle, alias, alias_len, name, name_len, description, description_len, fields_flatbuffer, fields_len);
 }
 
 void ruby_lockbox_list_form_definitions(const void *handle, RevaultBuffer *out) {
@@ -256,8 +256,8 @@ void ruby_vault_directory_find_access_slot_labels(const void *handle, const uint
   if (out != NULL) *out = vault_directory_find_access_slot_labels(handle, id, id_len, name, name_len);
 }
 
-void ruby_vault_directory_define_form(const void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_proto, size_t fields_len, RevaultBuffer *out) {
-  if (out != NULL) *out = vault_directory_define_form(handle, alias, alias_len, name, name_len, description, description_len, fields_proto, fields_len);
+void ruby_vault_directory_define_form(const void *handle, const char *alias, size_t alias_len, const char *name, size_t name_len, const char *description, size_t description_len, const uint8_t *fields_flatbuffer, size_t fields_len, RevaultBuffer *out) {
+  if (out != NULL) *out = vault_directory_define_form(handle, alias, alias_len, name, name_len, description, description_len, fields_flatbuffer, fields_len);
 }
 
 void ruby_vault_directory_resolve_form(const void *handle, const char *reference, size_t reference_len, RevaultBuffer *out) {

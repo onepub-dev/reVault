@@ -1,3 +1,5 @@
+#![deny(missing_docs)]
+
 //! Historical native archive-format-v1 exporter.
 
 mod archive_v1;

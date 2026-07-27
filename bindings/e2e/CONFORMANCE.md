@@ -24,11 +24,11 @@ The test creates an archive with a deterministic content key and exercises:
 - contact and signing key generation, serialization, import/export, encryption,
   decryption, wrapped-contact accessors, fingerprints, and all key formats.
 
-Each result is decoded from the LBWF frame and named Protobuf message. Tests
+Each structured result is decoded from its private FlatBuffer table. Tests
 must assert field values, not merely that a pointer or map was returned.
 The authoritative operation-to-result mapping is
-`bindings/proto/results.tsv`. Every buffer-returning operation is classified
-as raw bytes, UTF-8, or an exact LBWF message type; unclassified operations
+`bindings/flatbuffers/results.tsv`. Every buffer-returning operation is classified
+as raw bytes, UTF-8, or an exact FlatBuffer table type; unclassified operations
 fail `revault-tool bindings check`.
 
 Every package suite must begin with a `NATIVE` evidence record containing the
@@ -59,7 +59,7 @@ The test creates a temporary vault and exercises:
 
 The archive and vault produced by each language are opened and verified by
 every other language in the matrix. This all-pairs check catches ABI layout
-errors, incorrect byte lengths, buffer ownership bugs, and Protobuf decoding
+errors, incorrect byte lengths, buffer ownership bugs, and FlatBuffer decoding
 differences that a single ring edge could miss. Each check emits an `INTEROP`
 record consumed by `revault-tool e2e verify-interop`; self-opening does not
 count.
