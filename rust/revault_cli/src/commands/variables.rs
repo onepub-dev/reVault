@@ -162,19 +162,13 @@ fn set_variable_request(
 ) -> CliResult<()> {
     let mut lb = open_or_create(lockbox_path, access)?;
     let existing = lb.variable_sensitivity(&request.name)?;
-    let effective_sensitivity = existing.unwrap_or(if request.secret {
+    let effective_sensitivity = if request.secret {
         VariableSensitivity::Secret
     } else {
-        VariableSensitivity::Normal
-    });
+        existing.unwrap_or(VariableSensitivity::Normal)
+    };
 
     if let Some(existing) = existing {
-        if request.secret && existing == VariableSensitivity::Normal {
-            return Err(Error::InvalidOperation(
-                "variable is not secret; delete and recreate it".to_string(),
-            )
-            .into());
-        }
         if !request.secret
             && existing == VariableSensitivity::Secret
             && request.positional.is_some()

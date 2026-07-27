@@ -47,6 +47,8 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(help.contains(
         "Create encrypted file archives, store secrets safely, and grant access with public keys."
     ));
+    assert!(help.contains(&format!("Version: {}", env!("CARGO_PKG_VERSION"))));
+    assert!(help.contains("-V, --version"));
     assert!(help.contains("Usage: lockbox [LOCKBOX] <command> [arguments]"));
     assert!(help.contains("Available commands:"));
     assert!(help.contains("Archives"));
@@ -100,7 +102,11 @@ fn help_is_grouped_and_commands_have_specific_help() {
 
     let variable_move_help = run_output(bin, &["variable", "mv", "--help"]);
     assert_success(&variable_move_help);
-    assert!(String::from_utf8_lossy(&variable_move_help.stdout).contains("Move matching variables"));
+    let variable_move_help = String::from_utf8_lossy(&variable_move_help.stdout);
+    assert!(variable_move_help.contains("Move matching variables"));
+    assert!(variable_move_help
+        .contains("Usage: lockbox variable move [OPTIONS] [LOCKBOX] <SOURCE> <DESTINATION>"));
+    assert!(!variable_move_help.contains("SOURCE DESTINATION | SOURCE DESTINATION"));
 
     let env_verbose_help = run_output(bin, &["variable", "--help", "--verbose"]);
     assert_success(&env_verbose_help);
@@ -820,6 +826,113 @@ fn form_definitions_and_records_flow() {
     assert!(report.contains("variables_recovered"));
     assert!(report.contains("forms_recovered"));
     assert!(report.contains("form_record_count"));
+}
+
+#[test]
+fn form_set_secret_upgrades_a_normal_field() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("form-secret-upgrade");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let lockbox = dir.join("forms.lbox");
+    let lockbox = lockbox.to_string_lossy().to_string();
+    let vault_root = dir.join("vault");
+    let agent_root = dir.join("agent");
+
+    run_in(
+        bin,
+        &[
+            "form",
+            "define",
+            &lockbox,
+            "account",
+            "--field",
+            "token:text:required:Token",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    run_in(
+        bin,
+        &[
+            "form",
+            "add",
+            &lockbox,
+            "/first",
+            "--type",
+            "account",
+            "--set",
+            "token=first-normal",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    run_in(
+        bin,
+        &[
+            "form",
+            "add",
+            &lockbox,
+            "/second",
+            "--type",
+            "account",
+            "--set",
+            "token=second-normal",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+
+    let upgraded = run_output_in_with_stdin(
+        bin,
+        &[
+            "form", "set", "--secret", "--stdin", &lockbox, "/first", "token",
+        ],
+        &vault_root,
+        &agent_root,
+        "first-secret",
+    );
+    assert_success(&upgraded);
+
+    let first = run_output_in(
+        bin,
+        &["form", "get", "--secret", &lockbox, "/first", "token"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&first);
+    assert_eq!(String::from_utf8_lossy(&first.stdout), "first-secret\n");
+    let second = run_output_in(
+        bin,
+        &["form", "get", "--secret", &lockbox, "/second", "token"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&second);
+    assert_eq!(String::from_utf8_lossy(&second.stdout), "second-normal\n");
+
+    let hidden = run_output_in(
+        bin,
+        &["form", "show", &lockbox, "/second"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&hidden);
+    let hidden = String::from_utf8_lossy(&hidden.stdout);
+    assert!(hidden.contains("field\ttoken\tToken\t<secret>"));
+    assert!(!hidden.contains("second-normal"));
+
+    let downgrade = run_output_in(
+        bin,
+        &[
+            "form", "set", "--value", "normal", &lockbox, "/second", "token",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert!(!downgrade.status.success());
+    assert!(String::from_utf8_lossy(&downgrade.stderr)
+        .contains("form field value sensitivity does not match"));
 }
 
 #[test]
@@ -1743,6 +1856,19 @@ fn missing_lockbox_errors_are_cli_specific() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("lockbox not found:"));
+    assert!(!stderr.contains("os error 2"));
+    assert!(!stderr.contains("another process is using the file"));
+
+    let open_missing = run_output_in(
+        bin,
+        &["open", missing.to_str().unwrap()],
+        &vault_root,
+        &agent_root,
+    );
+    assert!(!open_missing.status.success());
+    let stderr = String::from_utf8_lossy(&open_missing.stderr);
+    assert!(stderr.contains(&format!("lockbox not found: {}", missing.display())));
+    assert!(!stderr.contains("Could not access a file or platform service"));
     assert!(!stderr.contains("os error 2"));
     assert!(!stderr.contains("another process is using the file"));
 
@@ -5350,6 +5476,93 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
         ],
     );
     assert!(!rejected_value.status.success());
+}
+
+#[test]
+fn variable_set_secret_upgrades_a_normal_variable() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("secret-variable-upgrade");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let lockbox = dir.join("variables.lbox");
+    let secret_file = dir.join("secret.txt");
+    let vault_root = dir.join("vault");
+    let agent_root = dir.join("agent");
+    fs::write(&secret_file, "file-secret").unwrap();
+
+    run_in(
+        bin,
+        &[
+            "variable",
+            "set",
+            lockbox.to_str().unwrap(),
+            "UPGRADE_ME",
+            "-v",
+            "normal",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    let upgraded = run_output_in(
+        bin,
+        &[
+            "variable",
+            "set",
+            lockbox.to_str().unwrap(),
+            "--secret",
+            "UPGRADE_ME",
+            "--file",
+            secret_file.to_str().unwrap(),
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&upgraded);
+
+    let value = run_output_in(
+        bin,
+        &[
+            "variable",
+            "get",
+            "--secret",
+            lockbox.to_str().unwrap(),
+            "UPGRADE_ME",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&value);
+    assert_eq!(String::from_utf8_lossy(&value.stdout), "file-secret\n");
+
+    let listing = run_output_in(
+        bin,
+        &[
+            "variable",
+            "list",
+            "--format",
+            "tsv",
+            lockbox.to_str().unwrap(),
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&listing);
+    assert!(String::from_utf8_lossy(&listing.stdout).contains("/UPGRADE_ME\tsecret"));
+
+    let downgrade = run_output_in(
+        bin,
+        &[
+            "variable",
+            "set",
+            lockbox.to_str().unwrap(),
+            "UPGRADE_ME",
+            "-v",
+            "normal",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert!(!downgrade.status.success());
 }
 
 #[test]

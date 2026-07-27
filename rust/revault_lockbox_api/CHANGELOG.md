@@ -2,6 +2,10 @@
 
 ## 0.0.4
 
+- Normal variables and form fields can now be promoted to secret storage.
+  Form-field promotion creates a new definition revision and upgrades existing
+  values across records of that form type; secret-to-normal changes remain
+  prohibited in place.
 - Raised the minimum supported Rust version from 1.88 to 1.95.
 - Removed the `sysinfo` dependency. Automatic page-cache sizing now uses a
   conservative platform default, and Windows stale-lock detection uses native

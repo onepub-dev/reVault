@@ -5,6 +5,7 @@ use super::completion;
 
 const ABOUT: &str =
     "Create encrypted file archives, store secrets safely, and grant access with public keys.";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 const VERBOSE_HELP_TEMPLATE: &str = "\
 {about-with-newline}
 {before-help}
@@ -16,7 +17,7 @@ const VERBOSE_HELP_TEMPLATE: &str = "\
 pub(crate) fn command(verbose: bool) -> Command {
     let command = Command::new("lockbox")
         .about(ABOUT)
-        .version(env!("CARGO_PKG_VERSION"))
+        .version(VERSION)
         .disable_help_subcommand(true)
         .arg_required_else_help(true)
         .subcommand_required(true)
@@ -354,11 +355,14 @@ pub(crate) fn usage(verbose: bool) {
     eprintln!(
         "{ABOUT}
 
+Version: {VERSION}
+
 Usage: lockbox [LOCKBOX] <command> [arguments]
 
 Global options:
     --verbose        Show detailed command forms and advanced options.
 -h, --help           Print this usage information.
+-V, --version        Print version information.
 
 Available commands:
 
@@ -474,7 +478,7 @@ fn variables_command(verbose: bool) -> Command {
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox variable set secrets.lbox APP_MODE production\n  lockbox variable set secrets.lbox APP_MODE=production\n  lockbox variable set --secret secrets.lbox API_TOKEN --interactive\n  printf '%s' \"$TOKEN\" | lockbox variable set --secret --stdin secrets.lbox API_TOKEN",
-                "Context:\n  Variables set writes one named value into a lockbox. Use --secret for values that should not be exported in bulk, such as tokens and passwords. Choose one value source: argument, prompt, stdin, file, or process environment. Secret values cannot use --value; use --stdin, --file, --interactive, or --from-env.",
+                "Context:\n  Variables set writes one named value into a lockbox. Use --secret for values that should not be exported in bulk, such as tokens and passwords. Applying --secret to an existing normal variable upgrades it; making a secret variable normal still requires delete and recreate. Choose one value source: argument, prompt, stdin, file, or process environment. Secret values cannot use --value; use --stdin, --file, --interactive, or --from-env.",
             ))
             .arg(
                 Arg::new("secret")
@@ -613,6 +617,9 @@ fn variables_command(verbose: bool) -> Command {
         Command::new("move")
             .visible_alias("mv")
             .about("Move matching variables into another path.")
+            .override_usage(
+                "lockbox variable move [OPTIONS] [LOCKBOX] <SOURCE> <DESTINATION>",
+            )
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox variable move secrets.lbox '/*' /dev\n  lockbox variable mv secrets.lbox '/production/*' /archive",
@@ -620,7 +627,7 @@ fn variables_command(verbose: bool) -> Command {
             ))
             .arg(
                 Arg::new("args")
-                    .value_name("LOCKBOX SOURCE DESTINATION | SOURCE DESTINATION")
+                    .value_names(["LOCKBOX", "SOURCE", "DESTINATION"])
                     .num_args(2..=3)
                     .required(true)
                     .action(ArgAction::Append)
@@ -821,6 +828,11 @@ fn form_command(verbose: bool) -> Command {
         .subcommand(
             Command::new("set")
                 .about("Set one form field value.")
+                .after_help(verbose_help(
+                    verbose,
+                    "Examples:\n  lockbox form set secrets.lbox /work/github username alice\n  printf '%s' \"$TOKEN\" | lockbox form set --secret --stdin secrets.lbox /work/github token",
+                    "Context:\n  Form set updates one field. Applying --secret to a field currently defined as non-secret creates a new secret definition revision and upgrades existing values for that field across records of the same form type. Secret fields cannot be downgraded in place.",
+                ))
                 .arg(
                     Arg::new("args")
                         .value_name("LOCKBOX PATH FIELD VALUE | PATH FIELD VALUE")
@@ -951,7 +963,7 @@ fn form_command(verbose: bool) -> Command {
                 ))
                 .arg(
                     Arg::new("args")
-                        .value_name("LOCKBOX SOURCE DESTINATION | SOURCE DESTINATION")
+                        .value_names(["LOCKBOX", "SOURCE", "DESTINATION"])
                         .num_args(2..=3)
                         .required(true)
                         .action(ArgAction::Append)

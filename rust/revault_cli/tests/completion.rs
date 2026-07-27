@@ -131,6 +131,48 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
 }
 
 #[test]
+fn dynamic_completion_navigates_open_lockbox_paths() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let temp = TestTempDir::new("completion-open-paths");
+    let vault_dir = temp.path().join("vault");
+    let nested = temp.path().join("nested").join("deeper");
+    fs::create_dir_all(&nested).unwrap();
+    fs::write(nested.join("secrets.lbox"), b"test").unwrap();
+
+    let directory = Command::new(bin)
+        .current_dir(temp.path())
+        .env("LOCKBOX_VAULT_DIR", &vault_dir)
+        .env("COMPLETE", "bash")
+        .env("_CLAP_COMPLETE_INDEX", "2")
+        .env("_CLAP_COMPLETE_COMP_TYPE", "9")
+        .env("_CLAP_COMPLETE_SPACE", "true")
+        .args(["--", "lockbox", "open", "nested/d"])
+        .output()
+        .unwrap();
+    assert!(directory.status.success(), "{directory:?}");
+    assert!(
+        String::from_utf8_lossy(&directory.stdout).contains("nested/deeper/"),
+        "{directory:?}"
+    );
+
+    let lockbox = Command::new(bin)
+        .current_dir(temp.path())
+        .env("LOCKBOX_VAULT_DIR", &vault_dir)
+        .env("COMPLETE", "bash")
+        .env("_CLAP_COMPLETE_INDEX", "2")
+        .env("_CLAP_COMPLETE_COMP_TYPE", "9")
+        .env("_CLAP_COMPLETE_SPACE", "true")
+        .args(["--", "lockbox", "open", "nested/deeper/sec"])
+        .output()
+        .unwrap();
+    assert!(lockbox.status.success(), "{lockbox:?}");
+    assert!(
+        String::from_utf8_lossy(&lockbox.stdout).contains("nested/deeper/secrets.lbox"),
+        "{lockbox:?}"
+    );
+}
+
+#[test]
 fn dynamic_completion_reads_vault_names_without_exposing_signing_material() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let temp = TestTempDir::new("completion-dynamic");

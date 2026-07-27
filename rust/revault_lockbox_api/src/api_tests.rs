@@ -2308,7 +2308,7 @@ fn variables_can_be_moved_atomically_without_exposing_secrets() {
 }
 
 #[test]
-fn secret_variables_preserve_sensitivity_until_delete() {
+fn normal_variables_upgrade_to_secret_but_do_not_downgrade_in_place() {
     let mut lb = Lockbox::create(KEY);
     let first = password("first-secret");
     let second = password("second-secret");
@@ -2393,8 +2393,17 @@ fn secret_variables_preserve_sensitivity_until_delete() {
             .unwrap(),
         Some(VariableSensitivity::Normal)
     );
+    reopened
+        .set_secret_variable(&variable("API_TOKEN"), &first)
+        .unwrap();
+    assert_eq!(
+        reopened
+            .variable_sensitivity(&variable("API_TOKEN"))
+            .unwrap(),
+        Some(VariableSensitivity::Secret)
+    );
     assert!(matches!(
-        reopened.set_secret_variable(&variable("API_TOKEN"), &first),
+        reopened.set_variable(&variable("API_TOKEN"), "normal"),
         Err(Error::InvalidOperation(_))
     ));
 }
@@ -3161,6 +3170,71 @@ fn forms_persist_revisions_and_secret_values() {
         }
         FormValue::Normal(_) => panic!("password field was not secret"),
     }
+}
+
+#[test]
+fn normal_form_fields_upgrade_to_secret_across_the_form_type() {
+    let mut lb = Lockbox::create(KEY);
+    let definition = lb
+        .define_form(
+            "account",
+            "Account",
+            vec![form_field("token", "Token", FormFieldKind::Text, true)],
+        )
+        .unwrap();
+    create_form_record(&mut lb, &p("/first"), "account", "First").unwrap();
+    create_form_record(&mut lb, &p("/second"), "account", "Second").unwrap();
+    lb.set_form_field_normal(&p("/first"), "token", "first-normal")
+        .unwrap();
+    lb.set_form_field_normal(&p("/second"), "token", "second-normal")
+        .unwrap();
+
+    lb.set_form_field_secret(&p("/first"), "token", &password("first-secret"))
+        .unwrap();
+
+    let upgraded = lb.resolve_form_definition("account").unwrap();
+    assert_eq!(upgraded.type_id, definition.type_id);
+    assert_eq!(upgraded.revision, definition.revision + 1);
+    assert_eq!(upgraded.fields[0].kind, FormFieldKind::Secret);
+    for (path, expected) in [
+        (p("/first"), "first-secret"),
+        (p("/second"), "second-normal"),
+    ] {
+        let value = lb.get_form_field(&path, "token").unwrap().unwrap();
+        assert_eq!(value.kind, FormFieldKind::Secret);
+        let FormValue::Secret(value) = value.value else {
+            panic!("upgraded form value must use secure memory");
+        };
+        value.with_str(|value| assert_eq!(value, expected)).unwrap();
+    }
+    assert!(matches!(
+        lb.set_form_field_normal(&p("/second"), "token", "downgrade"),
+        Err(Error::InvalidOperation(_))
+    ));
+    assert!(matches!(
+        lb.revise_form_definition(
+            &definition.type_id,
+            "Account",
+            "",
+            vec![form_field("token", "Token", FormFieldKind::Text, true)],
+        ),
+        Err(Error::InvalidOperation(_))
+    ));
+
+    lb.commit().unwrap();
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened.resolve_form_definition("account").unwrap().fields[0].kind,
+        FormFieldKind::Secret
+    );
+    assert!(matches!(
+        reopened
+            .get_form_field(&p("/second"), "token")
+            .unwrap()
+            .unwrap()
+            .value,
+        FormValue::Secret(_)
+    ));
 }
 
 #[test]

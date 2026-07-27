@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Top-level help now prints the installed CLI version.
+- Corrected `variable move` usage to show one optional lockbox followed by one
+  source and destination.
+- Missing lockboxes now produce a direct path-specific error from `open`.
+- Added regression coverage for completing nested host lockbox paths.
+- `variable set --secret` and `form set --secret` now upgrade existing normal
+  values to secure storage. Form-field promotion creates a definition revision
+  and upgrades that field across records of the same form type. Downgrades
+  remain explicit delete-and-recreate operations.
 - Added target-first lockbox commands such as `lbx secrets.lbox add ...` and
   `lbx secrets.lbox create`. Existing unambiguous command-first forms remain
   available, but `add` now reserves every positional value for a source and

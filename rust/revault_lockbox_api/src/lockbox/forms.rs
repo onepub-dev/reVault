@@ -1,10 +1,13 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use super::Lockbox;
 use crate::form::{
     validate_form_alias, validate_form_description, validate_form_field_id, validate_form_label,
     validate_form_record_name, validate_form_value, FormDefinition, FormFieldDefinition,
-    FormFieldValue, FormRecord, FormTypeId, FormValue,
+    FormFieldKind, FormFieldValue, FormRecord, FormTypeId, FormValue,
 };
 use crate::form_btree::{
     decode_form_node_secure, definition_key, encode_form_internal, encode_form_leaf_secure,
@@ -140,6 +143,18 @@ impl<State> Lockbox<State> {
         let previous = self
             .latest_form_definition_by_type(type_id)?
             .ok_or_else(|| Error::NotFound(format!("form type {type_id}")))?;
+        for previous_field in &previous.fields {
+            if previous_field.kind.is_secret()
+                && fields
+                    .iter()
+                    .any(|field| field.id == previous_field.id && !field.kind.is_secret())
+            {
+                return Err(Error::InvalidOperation(format!(
+                    "form field {} is secret; remove it in one definition revision before recreating it as non-secret",
+                    previous_field.id
+                )));
+            }
+        }
         let definition = validated_definition(
             type_id.clone(),
             previous.alias.clone(),
@@ -482,7 +497,11 @@ impl<State> Lockbox<State> {
     /// Copies a secret into the named secret field.
     ///
     /// The supplied [`SecretString`] remains owned by the caller; the lockbox
-    /// stores an independent secure clone.
+    /// stores an independent secure clone. If the latest definition currently
+    /// declares the field as non-secret, this operation appends a secret-field
+    /// definition revision and securely upgrades that field in every record of
+    /// the same form type. A secret field cannot be downgraded by setting a
+    /// normal value.
     pub fn set_form_field_secret(
         &mut self,
         path: &LockboxPath,
@@ -523,14 +542,24 @@ impl<State> Lockbox<State> {
             .ok_or_else(|| Error::NotFound(format!("form record {path}")))?
             .type_id
             .clone();
-        let definition = self
+        let mut definition = self
             .latest_form_definition_by_type(&type_id)?
             .ok_or_else(|| Error::NotFound(format!("form type {type_id}")))?;
-        let field = definition
+        let mut field = definition
             .fields
             .iter()
             .find(|field| field.id == field_id)
+            .cloned()
             .ok_or_else(|| Error::InvalidInput(format!("unknown form field: {field_id}")))?;
+        if value.is_secret() && !field.kind.is_secret() {
+            definition = self.upgrade_form_field_to_secret(&type_id, &field_id)?;
+            field = definition
+                .fields
+                .iter()
+                .find(|field| field.id == field_id)
+                .cloned()
+                .ok_or(Error::CorruptRecord)?;
+        }
         validate_form_value(field.kind, &value)?;
         let value_record = FormFieldValue {
             field_id,
@@ -556,6 +585,101 @@ impl<State> Lockbox<State> {
         self.dirty_form_keys.insert(record_key(path));
         self.dirty_forms = true;
         Ok(())
+    }
+
+    fn upgrade_form_field_to_secret(
+        &mut self,
+        type_id: &FormTypeId,
+        field_id: &str,
+    ) -> Result<FormDefinition>
+    where
+        State: crate::WritableLockboxState,
+    {
+        let previous = self
+            .latest_form_definition_by_type(type_id)?
+            .ok_or_else(|| Error::NotFound(format!("form type {type_id}")))?;
+        let mut fields = previous.fields.clone();
+        let field = fields
+            .iter_mut()
+            .find(|field| field.id == field_id)
+            .ok_or_else(|| Error::InvalidInput(format!("unknown form field: {field_id}")))?;
+        if field.kind.is_secret() {
+            return Ok(previous);
+        }
+        field.kind = FormFieldKind::Secret;
+        let definition = validated_definition(
+            previous.type_id.clone(),
+            previous.alias.clone(),
+            previous.revision + 1,
+            &previous.name,
+            &previous.description,
+            fields,
+        )?;
+        let upgraded_label = definition
+            .fields
+            .iter()
+            .find(|field| field.id == field_id)
+            .ok_or(Error::CorruptRecord)?
+            .label
+            .clone();
+
+        let converted = self
+            .form_records
+            .borrow()
+            .as_ref()
+            .ok_or(Error::CorruptRecord)?
+            .iter()
+            .filter(|(_, record)| record.type_id == *type_id)
+            .filter_map(|(path, record)| {
+                record
+                    .values
+                    .iter()
+                    .find(|value| value.field_id == field_id)
+                    .and_then(|value| match &value.value {
+                        FormValue::Normal(value) => Some(
+                            SecretString::try_from_slice(value.as_bytes())
+                                .map_err(Error::from)
+                                .map(|value| (path.clone(), Arc::new(value))),
+                        ),
+                        FormValue::Secret(_) => None,
+                    })
+            })
+            .collect::<Result<BTreeMap<_, _>>>()?;
+
+        let definition_key = definition_key(&definition.type_id, definition.revision);
+        self.form_definitions
+            .borrow_mut()
+            .as_mut()
+            .ok_or(Error::CorruptRecord)?
+            .insert(definition_key.clone(), definition.clone());
+        self.dirty_form_keys.insert(definition_key);
+
+        let mut records = self.form_records.borrow_mut();
+        let records = records.as_mut().ok_or(Error::CorruptRecord)?;
+        for record in records
+            .values_mut()
+            .filter(|record| record.type_id == *type_id)
+        {
+            if let Some(value) = record
+                .values
+                .iter_mut()
+                .find(|value| value.field_id == field_id)
+            {
+                if let Some(secret) = converted.get(&record.path) {
+                    if let FormValue::Normal(plaintext) = &mut value.value {
+                        plaintext.zeroize();
+                    }
+                    value.value = FormValue::Secret(Arc::clone(secret));
+                }
+                value.kind = FormFieldKind::Secret;
+                value.captured_label = upgraded_label.clone();
+            }
+            record.definition_alias = definition.alias.clone();
+            record.definition_revision = definition.revision;
+            self.dirty_form_keys.insert(record_key(&record.path));
+        }
+        self.dirty_forms = true;
+        Ok(definition)
     }
 
     /// Returns a cloned field value, or `None` when the record or field is absent.

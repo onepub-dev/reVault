@@ -54,15 +54,15 @@ impl<State> Lockbox<State> {
 
     /// Store or replace a secret variable.
     ///
-    /// Secret values remain in secure storage. Changing an existing variable
-    /// between normal and secret sensitivity requires deleting it first.
+    /// Secret values remain in secure storage. An existing normal variable is
+    /// upgraded to secret sensitivity atomically. Secret variables cannot be
+    /// downgraded through [`Lockbox::set_variable`]; delete and recreate them
+    /// to make that sensitivity reduction explicit.
     ///
     /// Returns `Error::InvalidInput` if the secret plaintext contains
     /// unsupported characters, `Error::SecurityLimitExceeded` if the secret
     /// plaintext exceeds the configured variable value size limit,
-    /// `Error::InvalidOperation` when attempting to overwrite an existing
-    /// non-secret variable as secret, and `Error::CorruptRecord` if stored
-    /// variable metadata cannot be loaded.
+    /// `Error::CorruptRecord` if stored variable metadata cannot be loaded.
     pub fn set_secret_variable(&mut self, name: &VariableName, value: &SecretString) -> Result<()>
     where
         State: crate::WritableLockboxState,
@@ -71,11 +71,6 @@ impl<State> Lockbox<State> {
         self.ensure_variables_loaded()?;
         let mut variables = self.variables.borrow_mut();
         let variables = variables.as_mut().ok_or(Error::CorruptRecord)?;
-        if matches!(variables.get(name), Some(VariableValue::Normal(_))) {
-            return Err(Error::InvalidOperation(
-                "variable is not secret; delete and recreate to change sensitivity".to_string(),
-            ));
-        }
         variables.insert(
             name.clone(),
             VariableValue::Secret(Arc::new(value.try_clone()?)),

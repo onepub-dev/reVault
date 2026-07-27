@@ -6416,6 +6416,16 @@ mod tests {
             )
         });
         let variable = b"API_KEY";
+        let normal_value = b"initial";
+        assert!(unsafe {
+            lockbox_set_variable(
+                handle,
+                variable.as_ptr().cast(),
+                variable.len(),
+                normal_value.as_ptr().cast(),
+                normal_value.len(),
+            )
+        });
         let value = b"secret";
         assert!(unsafe {
             lockbox_set_secret_variable(

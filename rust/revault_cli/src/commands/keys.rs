@@ -1,6 +1,6 @@
 use super::context::{
-    cli_error, default_vault, ensure_default_vault_initialized, load_contact_file,
-    load_contact_from_arg, load_contact_from_vault, load_private_key_from_arg,
+    cli_error, default_vault, ensure_default_vault_initialized, ensure_lockbox_path_accessible,
+    load_contact_file, load_contact_from_arg, load_contact_from_vault, load_private_key_from_arg,
     mirror_key_directory, mirror_key_directory_with_vault, open_existing, read_new_password,
     read_password, require_arg, Access, CliResult,
 };
@@ -132,6 +132,7 @@ pub(crate) fn open_matches(matches: &ArgMatches) -> CliResult<()> {
 }
 
 fn open_options(options: OpenOptions) -> CliResult<()> {
+    ensure_lockbox_path_accessible(&options.lockbox_path)?;
     let inspection = Lockbox::inspect_file(&options.lockbox_path)?;
     let has_password_slot = inspection
         .key_slots
