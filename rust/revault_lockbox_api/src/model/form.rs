@@ -39,7 +39,7 @@ impl std::fmt::Display for FormTypeId {
 pub struct FormDefinition {
     /// Stable identity shared by all revisions.
     pub type_id: FormTypeId,
-    /// Human-friendly lookup name.
+    /// Human-friendly, case-sensitive lookup name.
     pub alias: String,
     /// Monotonically increasing schema revision, beginning at one.
     pub revision: u32,
@@ -54,7 +54,7 @@ pub struct FormDefinition {
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// Schema for one named field in a form definition.
 pub struct FormFieldDefinition {
-    /// Stable machine-readable identifier within the form.
+    /// Stable, case-sensitive machine-readable identifier within the form.
     pub id: String,
     /// User-facing field label.
     pub label: String,
@@ -139,7 +139,7 @@ pub struct FormRecord {
 #[derive(Debug, Clone)]
 /// One value stored in a form record with captured display metadata.
 pub struct FormFieldValue {
-    /// Machine-readable field identifier.
+    /// Case-sensitive machine-readable field identifier.
     pub field_id: String,
     /// User-facing label captured when the value was set.
     pub captured_label: String,

@@ -2243,6 +2243,39 @@ fn variables_round_trip_and_are_returned_as_a_map() {
 }
 
 #[test]
+fn variable_names_and_patterns_are_case_sensitive() {
+    let mut lb = Lockbox::create(KEY);
+    lb.set_variable(&variable("/production/API_KEY"), "upper")
+        .unwrap();
+    lb.set_variable(&variable("/production/api_key"), "lower")
+        .unwrap();
+
+    assert_eq!(
+        lb.get_variable(&variable("/production/API_KEY"))
+            .unwrap()
+            .as_deref(),
+        Some("upper")
+    );
+    assert_eq!(
+        lb.get_variable(&variable("/production/api_key"))
+            .unwrap()
+            .as_deref(),
+        Some("lower")
+    );
+    assert_eq!(
+        lb.list_variables()
+            .unwrap()
+            .into_iter()
+            .filter(|(name, _)| {
+                name.matches_pattern(&VariableNamePattern::new("**/API_KEY").unwrap())
+            })
+            .map(|(name, _)| name)
+            .collect::<Vec<_>>(),
+        vec![variable("/production/API_KEY")]
+    );
+}
+
+#[test]
 fn variables_can_be_removed_and_replaced() {
     let mut lb = Lockbox::create(KEY);
     lb.set_variable(&variable("TOKEN"), "one").unwrap();
@@ -3170,6 +3203,48 @@ fn forms_persist_revisions_and_secret_values() {
         }
         FormValue::Normal(_) => panic!("password field was not secret"),
     }
+}
+
+#[test]
+fn form_aliases_and_field_ids_are_case_sensitive() {
+    let mut lb = Lockbox::create(KEY);
+    lb.define_form(
+        "Account",
+        "Upper account",
+        vec![
+            form_field("User", "Upper user", FormFieldKind::Text, true),
+            form_field("user", "Lower user", FormFieldKind::Text, true),
+        ],
+    )
+    .unwrap();
+    lb.define_form(
+        "account",
+        "Lower account",
+        vec![form_field("user", "User", FormFieldKind::Text, true)],
+    )
+    .unwrap();
+    create_form_record(&mut lb, &p("/upper"), "Account", "Upper").unwrap();
+    lb.set_form_field_normal(&p("/upper"), "User", "UPPER")
+        .unwrap();
+    lb.set_form_field_normal(&p("/upper"), "user", "lower")
+        .unwrap();
+
+    assert_eq!(
+        lb.resolve_form_definition("Account").unwrap().name,
+        "Upper account"
+    );
+    assert_eq!(
+        lb.resolve_form_definition("account").unwrap().name,
+        "Lower account"
+    );
+    assert!(matches!(
+        lb.get_form_field(&p("/upper"), "User").unwrap().unwrap().value,
+        FormValue::Normal(value) if value == "UPPER"
+    ));
+    assert!(matches!(
+        lb.get_form_field(&p("/upper"), "user").unwrap().unwrap().value,
+        FormValue::Normal(value) if value == "lower"
+    ));
 }
 
 #[test]

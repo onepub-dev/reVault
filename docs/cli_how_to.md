@@ -234,9 +234,18 @@ FEATURE_FLAG
 _PRIVATE_TOKEN
 ```
 
+Variable names, grouped paths, and patterns are case-sensitive on every
+platform. For example, `API_TOKEN` and `api_token` are distinct lockbox
+variables, even on Windows where process environment variables are commonly
+case-insensitive. Avoid case-only names when values will be exported into a
+Windows process environment.
+
 Names that start with a number or contain spaces, dashes, dots, NUL bytes, or
 other unsafe characters are rejected. Values are encrypted and bounded; NUL and
 control characters are rejected.
+
+Form aliases and field identifiers are also case-sensitive. Display names and
+labels remain user-facing text and are not identifiers.
 
 ## Visualize A Lockbox
 
