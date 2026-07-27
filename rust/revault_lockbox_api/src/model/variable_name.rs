@@ -5,7 +5,7 @@ use std::ops::Deref;
 use crate::security::validate_variable_name;
 use crate::{Error, Result};
 
-/// Validated variable name stored inside a lockbox.
+/// Validated, case-sensitive variable name stored inside a lockbox.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct VariableName(String);
 
@@ -14,6 +14,8 @@ impl VariableName {
     ///
     /// Plain names such as `API_KEY` are canonicalized to `/API_KEY`. Absolute
     /// names such as `/production/API_KEY` are treated as grouped variable labels.
+    /// Names are case-sensitive: `/production/API_KEY` and
+    /// `/production/api_key` identify different variables.
     ///
     /// Returns `Error::InvalidPath` if the name is empty, too long, has unsafe
     /// path structure, or contains components outside `[A-Za-z0-9_]`.
@@ -32,11 +34,12 @@ impl VariableName {
     }
 }
 
-/// Validated variable-name filter.
+/// Validated case-sensitive variable-name filter.
 ///
 /// Plain names such as `API_KEY` match only that root-level variable. Absolute
 /// paths such as `/production` match that path and its children. Glob patterns
 /// such as `/production/**` or `**/API_KEY` match canonical variable paths.
+/// Exact, prefix, and glob matching all preserve case.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VariableNamePattern {
     mode: VariableNamePatternMode,
