@@ -186,6 +186,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 "sync",
                 "Synchronize a host directory into a lockbox directory.",
             )
+            .override_usage("lockbox [LOCKBOX] sync [OPTIONS] --to <LOCKBOX_PATH> <SOURCE>")
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox backup.lbox sync ./project --to /project --dry-run\n  lockbox backup.lbox sync ./project --to /project --force\n  lockbox backup.lbox sync ./project --to /project --delete --force\n  lockbox backup.lbox sync ./project --to /project --exclude .git/ --exclude '*.tmp'",
