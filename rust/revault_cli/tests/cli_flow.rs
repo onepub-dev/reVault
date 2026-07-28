@@ -71,6 +71,13 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&add_verbose_help);
     let add_verbose_help = String::from_utf8_lossy(&add_verbose_help.stdout);
     assert!(add_verbose_help.contains("--jobs <auto|1|N>"));
+
+    let sync_help = run_output(bin, &["sync", "--help"]);
+    assert_success(&sync_help);
+    let sync_help = String::from_utf8_lossy(&sync_help.stdout);
+    assert!(
+        sync_help.contains("Usage: lockbox [LOCKBOX] sync [OPTIONS] --to <LOCKBOX_PATH> <SOURCE>")
+    );
     assert!(add_verbose_help.contains("--key <RAW_CONTENT_KEY>"));
     assert!(add_verbose_help.contains("Context:"));
     assert!(add_verbose_help.contains("Pass --recursive for a directory source"));
