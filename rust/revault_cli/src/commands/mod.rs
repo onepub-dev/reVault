@@ -152,8 +152,12 @@ pub(crate) fn command_lockbox() -> Option<String> {
 }
 
 fn normalize_form_define_separator(mut args: Vec<String>) -> Vec<String> {
-    if args.first().map(String::as_str) != Some("form")
-        || args.get(1).map(String::as_str) != Some("define")
+    let command_index = usize::from(
+        args.first()
+            .is_some_and(|arg| command_accepts_lockbox_at_position(arg, &args)),
+    );
+    if args.get(command_index).map(String::as_str) != Some("form")
+        || args.get(command_index + 1).map(String::as_str) != Some("define")
     {
         return args;
     }
@@ -162,13 +166,29 @@ fn normalize_form_define_separator(mut args: Vec<String>) -> Vec<String> {
 }
 
 fn reject_variables_set_single_dash_secret(args: &[String]) -> CliResult<()> {
-    if matches!(args.first().map(String::as_str), Some("variable" | "var"))
-        && args.get(1).map(String::as_str) == Some("set")
-        && args.iter().skip(2).any(|arg| arg == "-secret")
+    let command_index = usize::from(
+        args.first()
+            .is_some_and(|arg| command_accepts_lockbox_at_position(arg, args)),
+    );
+    if matches!(
+        args.get(command_index).map(String::as_str),
+        Some("variable" | "var")
+    ) && args.get(command_index + 1).map(String::as_str) == Some("set")
+        && args
+            .iter()
+            .skip(command_index + 2)
+            .any(|arg| arg == "-secret")
     {
         return Err(cli_error("unknown option: -secret. Use --secret."));
     }
     Ok(())
+}
+
+fn command_accepts_lockbox_at_position(first: &str, args: &[String]) -> bool {
+    looks_like_lockbox_path(first)
+        && args
+            .get(1)
+            .is_some_and(|command| command_accepts_lockbox(command))
 }
 
 fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
@@ -250,15 +270,8 @@ fn default_lockbox_for_add_if_set() -> CliResult<Option<String>> {
     Ok(Some(default))
 }
 
-pub(crate) fn optional_lockbox_value(matches: &ArgMatches, name: &str) -> CliResult<String> {
-    match (command_lockbox(), matches.get_one::<String>(name)) {
-        (Some(_), Some(_)) => Err(cli_error(
-            "lockbox supplied both before and after the command",
-        )),
-        (Some(lockbox), None) => Ok(lockbox),
-        (None, Some(value)) => Ok(value.clone()),
-        (None, None) => default_lockbox_for_command(),
-    }
+pub(crate) fn optional_lockbox_value(_matches: &ArgMatches, _name: &str) -> CliResult<String> {
+    default_lockbox_for_command()
 }
 
 pub(crate) fn optional_lockbox_positionals(
@@ -276,10 +289,9 @@ pub(crate) fn optional_lockbox_positionals(
         .first()
         .is_some_and(|value| looks_like_lockbox_path(value))
     {
-        if values.len() < required_after_lockbox + 1 {
-            return Err(cli_error("missing argument after lockbox"));
-        }
-        return Ok(values);
+        return Err(cli_error(
+            "lockbox paths must precede lockbox-scoped commands; use `lockbox LOCKBOX COMMAND ...`",
+        ));
     }
     if values.len() < required_after_lockbox {
         return Err(cli_error("missing required argument"));

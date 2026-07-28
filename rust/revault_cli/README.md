@@ -61,15 +61,15 @@ lbx project-secrets.lbox add --recursive ./deploy --to project/deploy/
 
 # Store a normal configuration value. Variables are encrypted metadata, not
 # files, so they do not appear in ordinary file listings.
-lbx variable set project-secrets.lbox APP_ENV production
+lbx project-secrets.lbox variable set APP_ENV production
 
 # Store a secret without putting its value in shell history or the process list.
 # This prompts without echoing the value.
-lbx variable set --secret project-secrets.lbox API_TOKEN --interactive
+lbx project-secrets.lbox variable set --secret API_TOKEN --interactive
 
 # Define a reusable structured record type in this lockbox. A `secret` field is
 # hidden and must be supplied interactively or via an explicit secret source.
-lbx form define project-secrets.lbox login \
+lbx project-secrets.lbox form define login \
   --name 'Website login' \
   --description 'Credentials for an external service' \
   --field username:text:required:Username \
@@ -78,7 +78,7 @@ lbx form define project-secrets.lbox login \
 
 # Add a login record. --set supplies the non-secret fields; --interactive
 # securely prompts for the password field.
-lbx form add project-secrets.lbox /services/github \
+lbx project-secrets.lbox form add /services/github \
   --type login \
   --name GitHub \
   --set username=octavia \
@@ -86,23 +86,23 @@ lbx form add project-secrets.lbox /services/github \
   --interactive
 
 # Inspect the non-secret structure and values.
-lbx list project-secrets.lbox /
-lbx variable get project-secrets.lbox APP_ENV
-lbx form show project-secrets.lbox /services/github
+lbx project-secrets.lbox list /
+lbx project-secrets.lbox variable get APP_ENV
+lbx project-secrets.lbox form show /services/github
 
 # Frequent commands also have familiar aliases: ls, rm, and mv.
 lbx project-secrets.lbox ls /
 
 # Close the local session when you no longer need it. The encrypted .lbox file
 # remains; close only removes the temporary local open session.
-lbx close project-secrets.lbox
+lbx project-secrets.lbox close
 ```
 
 Use secret variables for tokens, passwords, and private keys rather than files
 or command-line values. `--interactive` is the safest convenient default;
 `--stdin`, `--file`, and `--from-env` are available for automated workflows.
 To see a secret form field, make that choice explicit with `--secret`, for
-example `lbx form get --secret project-secrets.lbox /services/github password`.
+example `lbx project-secrets.lbox form get --secret /services/github password`.
 
 ## License
 

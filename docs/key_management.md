@@ -179,17 +179,17 @@ The CLI uses an agent model for sudo-like open caching. The core library does
 not cache passwords or keys.
 
 ```text
-lockbox open secrets.lbox
+lockbox secrets.lbox open
   -> prompt for password/private-key passphrase
   -> unwrap the content key
   -> store the unwrapped content key in a per-user agent
 
-lockbox list secrets.lbox
+lockbox secrets.lbox list
   -> read the public lockbox UUID from the header
   -> ask the agent for that content key
   -> extend the TTL on successful use
 
-lockbox close secrets.lbox
+lockbox secrets.lbox close
   -> remove that content key from the agent
 ```
 
@@ -356,9 +356,9 @@ Current/target commands:
 
 ```bash
 lockbox secrets.lbox create
-lockbox open secrets.lbox
-lockbox list secrets.lbox
-lockbox close secrets.lbox
+lockbox secrets.lbox open
+lockbox secrets.lbox list
+lockbox secrets.lbox close
 
 lockbox list-keys secrets.lbox
 lockbox add-recipient secrets.lbox recipient.pub
