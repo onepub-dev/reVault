@@ -10,6 +10,7 @@ mod migrate;
 mod output;
 mod recovery;
 mod session;
+mod sync;
 mod variables;
 mod vault;
 mod visualize;
@@ -97,6 +98,7 @@ pub(crate) fn run() -> CliResult<()> {
             &access,
             read_worker_policy(command_matches)?,
         )?,
+        "sync" => sync::run_matches(command_matches, &access)?,
         "extract" => files::extract_matches(command_matches, &access)?,
         "cat" => files::cat_matches(command_matches, &access)?,
         "list" => files::list_matches(command_matches, &access)?,
@@ -120,6 +122,7 @@ fn command_accepts_lockbox(command: &str) -> bool {
             | "close"
             | "recover"
             | "add"
+            | "sync"
             | "extract"
             | "cat"
             | "list"
@@ -195,7 +198,7 @@ fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
     match command {
         "open" => Some(SecretActivityKind::Open),
         "close" => Some(SecretActivityKind::Close),
-        "add" | "extract" | "cat" | "list" | "remove" | "move" | "visualize" => {
+        "add" | "sync" | "extract" | "cat" | "list" | "remove" | "move" | "visualize" => {
             Some(SecretActivityKind::Open)
         }
         "variable" => Some(SecretActivityKind::Variables),

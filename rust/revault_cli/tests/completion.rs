@@ -96,6 +96,7 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
     let vault_dir = temp.path().join("vault");
     fs::write(temp.path().join("secrets.lbox"), b"test").unwrap();
     fs::write(temp.path().join("source.txt"), b"test").unwrap();
+    fs::create_dir(temp.path().join("source-dir")).unwrap();
 
     let target = Command::new(bin)
         .current_dir(temp.path())
@@ -127,6 +128,22 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
     assert!(
         String::from_utf8_lossy(&source.stdout).contains("source.txt"),
         "{source:?}"
+    );
+
+    let sync_source = Command::new(bin)
+        .current_dir(temp.path())
+        .env("LOCKBOX_VAULT_DIR", &vault_dir)
+        .env("COMPLETE", "bash")
+        .env("_CLAP_COMPLETE_INDEX", "3")
+        .env("_CLAP_COMPLETE_COMP_TYPE", "9")
+        .env("_CLAP_COMPLETE_SPACE", "true")
+        .args(["--", "lockbox", "secrets.lbox", "sync", "sou"])
+        .output()
+        .unwrap();
+    assert!(sync_source.status.success(), "{sync_source:?}");
+    assert!(
+        String::from_utf8_lossy(&sync_source.stdout).contains("source-dir/"),
+        "{sync_source:?}"
     );
 }
 

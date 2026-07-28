@@ -553,6 +553,37 @@ When the lockbox header is intact but embedded key-directory copies are damaged,
 
 ## Safety Summary
 
+### Synchronize a host directory safely
+
+`sync` maps the contents of a host directory directly below one logical
+lockbox directory:
+
+```bash
+lbx backup.lbox sync ./project --to /project --dry-run
+lbx backup.lbox sync ./project --to /project --force
+```
+
+New files are added, changed files are replaced using content-hash comparison,
+and unchanged files are skipped. Lockbox-only files are preserved unless
+`--delete` is supplied:
+
+```bash
+lbx backup.lbox sync ./project --to /project --delete --dry-run
+lbx backup.lbox sync ./project --to /project --delete --force
+```
+
+Use repeatable source-relative inclusion and exclusion rules such as
+`--include 'src/**'`, `--exclude .git/`, and `--exclude '*.tmp'`. Ordinary
+deletion protects filtered entries;
+`--delete-excluded` explicitly removes them.
+
+The first successful run stores an encrypted profile containing the canonical
+source path, destination, rules, symlink policy, stable profile id, and a
+platform directory identity when available. A moved or replaced source needs
+`--rebind-source`; changed exclusions need `--update-rules`. Empty sources and
+plans deleting more than half of the destination require `--allow-empty` and
+`--allow-large-delete` respectively.
+
 The CLI should reject or fail closed on:
 
 - `..` path components,

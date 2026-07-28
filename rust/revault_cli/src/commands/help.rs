@@ -182,6 +182,93 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_hint(ValueHint::AnyPath)
                         .help("One or more host files, or one directory with --recursive."),
                 ),
+            file_command(
+                "sync",
+                "Synchronize a host directory into a lockbox directory.",
+            )
+            .after_help(verbose_help(
+                verbose,
+                "Examples:\n  lockbox backup.lbox sync ./project --to /project --dry-run\n  lockbox backup.lbox sync ./project --to /project --force\n  lockbox backup.lbox sync ./project --to /project --delete --force\n  lockbox backup.lbox sync ./project --to /project --exclude .git/ --exclude '*.tmp'",
+                "Context:\n  Sync is one-way: the host source is authoritative for the selected lockbox subtree. New files are added, changed files are replaced, and unchanged files are skipped. TOC-only files are preserved unless --delete is explicit. The first successful run stores the canonical source identity and rules in encrypted lockbox metadata. Use --dry-run before destructive runs.",
+            ))
+            .arg(
+                Arg::new("source")
+                    .value_name("SOURCE")
+                    .required(true)
+                    .value_hint(ValueHint::DirPath)
+                    .help("Host source directory. Relative paths are accepted and canonicalized."),
+            )
+            .arg(
+                Arg::new("to")
+                    .long("to")
+                    .value_name("LOCKBOX_PATH")
+                    .required(true)
+                    .add(ArgValueCompleter::new(completion::archive_value_candidates))
+                    .help("Logical destination root inside the lockbox."),
+            )
+            .arg(
+                Arg::new("include")
+                    .long("include")
+                    .value_name("PATTERN")
+                    .action(ArgAction::Append)
+                    .help("Include only matching source-relative paths. Repeat as needed."),
+            )
+            .arg(
+                Arg::new("exclude")
+                    .long("exclude")
+                    .value_name("PATTERN")
+                    .action(ArgAction::Append)
+                    .help("Exclude a source-relative path or glob. Repeat as needed."),
+            )
+            .arg(
+                Arg::new("delete")
+                    .long("delete")
+                    .action(ArgAction::SetTrue)
+                    .help("Remove destination files that are absent from the source."),
+            )
+            .arg(
+                Arg::new("delete-excluded")
+                    .long("delete-excluded")
+                    .action(ArgAction::SetTrue)
+                    .help("Also remove excluded destination files. Implies --delete."),
+            )
+            .arg(
+                Arg::new("dry-run")
+                    .long("dry-run")
+                    .action(ArgAction::SetTrue)
+                    .help("Print the complete plan without modifying the lockbox."),
+            )
+            .arg(
+                Arg::new("force")
+                    .long("force")
+                    .action(ArgAction::SetTrue)
+                    .help("Apply a validated plan without confirmation."),
+            )
+            .arg(
+                Arg::new("allow-empty")
+                    .long("allow-empty")
+                    .action(ArgAction::SetTrue)
+                    .help("Allow an empty source to drive deletion."),
+            )
+            .arg(
+                Arg::new("allow-large-delete")
+                    .long("allow-large-delete")
+                    .action(ArgAction::SetTrue)
+                    .help("Allow deletion of more than half the destination files."),
+            )
+            .arg(
+                Arg::new("rebind-source")
+                    .long("rebind-source")
+                    .action(ArgAction::SetTrue)
+                    .help("Replace the stored source path or platform identity."),
+            )
+            .arg(
+                Arg::new("update-rules")
+                    .long("update-rules")
+                    .action(ArgAction::SetTrue)
+                    .help("Replace the stored exclusion rules."),
+            )
+            .arg(output_format_arg()),
             file_command("extract", "Extract files from a lockbox.")
                 .after_help(verbose_help(
                     verbose,
@@ -359,6 +446,7 @@ Archives
 
 Files
   add             Add a file or directory to a lockbox.
+  sync            Synchronize a host directory into a lockbox directory.
   extract         Extract files from a lockbox.
   cat             Write a stored file to stdout.
   list            List stored entries.

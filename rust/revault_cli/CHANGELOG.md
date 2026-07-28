@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added one-way `sync` from a host directory into a selected lockbox subtree,
+  with content-hash comparison, encrypted source profiles, dry-run/JSON plans,
+  explicit deletion, exclusion rules, source rebinding, and empty/large-delete
+  safeguards. This reuses existing encrypted variable records and does not
+  change the lockbox format version.
 - Top-level help now prints the installed CLI version.
 - Corrected `variable move` usage to show one optional lockbox followed by one
   source and destination.
