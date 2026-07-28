@@ -143,10 +143,10 @@ fn dynamic_completion_navigates_open_lockbox_paths() {
         .current_dir(temp.path())
         .env("LOCKBOX_VAULT_DIR", &vault_dir)
         .env("COMPLETE", "bash")
-        .env("_CLAP_COMPLETE_INDEX", "2")
+        .env("_CLAP_COMPLETE_INDEX", "1")
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
-        .args(["--", "lockbox", "open", "nested/d"])
+        .args(["--", "lockbox", "nested/d"])
         .output()
         .unwrap();
     assert!(directory.status.success(), "{directory:?}");
@@ -159,10 +159,10 @@ fn dynamic_completion_navigates_open_lockbox_paths() {
         .current_dir(temp.path())
         .env("LOCKBOX_VAULT_DIR", &vault_dir)
         .env("COMPLETE", "bash")
-        .env("_CLAP_COMPLETE_INDEX", "2")
+        .env("_CLAP_COMPLETE_INDEX", "1")
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
-        .args(["--", "lockbox", "open", "nested/deeper/sec"])
+        .args(["--", "lockbox", "nested/deeper/sec"])
         .output()
         .unwrap();
     assert!(lockbox.status.success(), "{lockbox:?}");

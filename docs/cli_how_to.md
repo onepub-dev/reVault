@@ -172,29 +172,29 @@ or APIs request them.
 Set a variable:
 
 ```bash
-lockbox variable set secrets.lbox DATABASE_URL 'postgres://localhost/app'
-lockbox variable set secrets.lbox DATABASE_URL='postgres://localhost/app'
-lockbox variable set secrets.lbox DATABASE_URL --value 'postgres://localhost/app'
+lockbox secrets.lbox variable set DATABASE_URL 'postgres://localhost/app'
+lockbox secrets.lbox variable set DATABASE_URL='postgres://localhost/app'
+lockbox secrets.lbox variable set DATABASE_URL --value 'postgres://localhost/app'
 ```
 
 Set a secret variable with an explicit value source:
 
 ```bash
-lockbox variable set secrets.lbox --secret API_TOKEN --interactive
-lockbox variable set secrets.lbox --secret API_TOKEN --file ./api-token.txt
-lockbox variable set secrets.lbox --secret API_TOKEN --stdin
-lockbox variable set secrets.lbox --secret API_TOKEN --from-env API_TOKEN
-lockbox variable set secrets.lbox --secret API_TOKEN --value "$API_TOKEN"
+lockbox secrets.lbox variable set --secret API_TOKEN --interactive
+lockbox secrets.lbox variable set --secret API_TOKEN --file ./api-token.txt
+lockbox secrets.lbox variable set --secret API_TOKEN --stdin
+lockbox secrets.lbox variable set --secret API_TOKEN --from-env API_TOKEN
+lockbox secrets.lbox variable set --secret API_TOKEN --value "$API_TOKEN"
 ```
 
 Short forms are also supported:
 
 ```bash
-lockbox variable set secrets.lbox -s API_TOKEN -i
-lockbox variable set secrets.lbox -s API_TOKEN -f ./api-token.txt
-lockbox variable set secrets.lbox -s API_TOKEN -t
-lockbox variable set secrets.lbox -s API_TOKEN -e API_TOKEN
-lockbox variable set secrets.lbox -s API_TOKEN -v "$API_TOKEN"
+lockbox secrets.lbox variable set -s API_TOKEN -i
+lockbox secrets.lbox variable set -s API_TOKEN -f ./api-token.txt
+lockbox secrets.lbox variable set -s API_TOKEN -t
+lockbox secrets.lbox variable set -s API_TOKEN -e API_TOKEN
+lockbox secrets.lbox variable set -s API_TOKEN -v "$API_TOKEN"
 ```
 
 Sensitivity is declared when a variable is created. Updating the value preserves
@@ -204,26 +204,26 @@ way around, delete it and recreate it.
 Get a variable:
 
 ```bash
-lockbox variable get secrets.lbox DATABASE_URL
-lockbox variable get secrets.lbox --secret API_TOKEN
+lockbox secrets.lbox variable get DATABASE_URL
+lockbox secrets.lbox variable get --secret API_TOKEN
 ```
 
 List variable names:
 
 ```bash
-lockbox variable list secrets.lbox
+lockbox secrets.lbox variable list
 ```
 
 Export variables for shell use:
 
 ```bash
-lockbox variable export secrets.lbox
+lockbox secrets.lbox variable export
 ```
 
 Remove a variable:
 
 ```bash
-lockbox variable rm secrets.lbox DATABASE_URL
+lockbox secrets.lbox variable rm DATABASE_URL
 ```
 
 Environment variable names should use portable shell-style names:
@@ -244,7 +244,7 @@ Use `visualize` when developing, diagnosing corruption, or checking what a
 lockbox contains without extracting it:
 
 ```bash
-lockbox visualize secrets.lbox
+lockbox secrets.lbox visualize
 ```
 
 The command is intentionally hidden from normal help; use
@@ -261,15 +261,15 @@ contents, environment variable names, or environment variable values. Use
 List a directory:
 
 ```bash
-lockbox ls secrets.lbox /
-lockbox ls secrets.lbox /docs
+lockbox secrets.lbox ls /
+lockbox secrets.lbox ls /docs
 ```
 
 Filter with a glob:
 
 ```bash
-lockbox ls secrets.lbox /docs --glob '*.pdf'
-lockbox ls secrets.lbox /docs --glob '**/*.pdf'
+lockbox secrets.lbox ls /docs --glob '*.pdf'
+lockbox secrets.lbox ls /docs --glob '**/*.pdf'
 ```
 
 The glob is applied to logical Lockbox paths. It does not access the host
@@ -280,13 +280,13 @@ filesystem.
 Extract one file:
 
 ```bash
-lockbox extract secrets.lbox /docs/a.txt ./out/a.txt
+lockbox secrets.lbox extract /docs/a.txt ./out/a.txt
 ```
 
 Extract into a selected directory:
 
 ```bash
-lockbox extract secrets.lbox --to ./out --restore-permissions
+lockbox secrets.lbox extract --to ./out --restore-permissions
 ```
 
 Example mapping:
@@ -329,13 +329,13 @@ lockbox app.lbox extract --to ./restore
 Symlinks are not restored by default:
 
 ```bash
-lockbox extract secrets.lbox --to ./out
+lockbox secrets.lbox extract --to ./out
 ```
 
 To restore symlinks explicitly:
 
 ```bash
-lockbox extract secrets.lbox --to ./out --restore-symlinks
+lockbox secrets.lbox extract --to ./out --restore-symlinks
 ```
 
 Lockbox still validates both the symlink path and target as safe logical paths.
@@ -347,13 +347,13 @@ backslashes, NUL bytes, or control characters are rejected.
 Ignore archive permissions and use safe defaults:
 
 ```bash
-lockbox extract secrets.lbox --to ./out --no-restore-permissions
+lockbox secrets.lbox extract --to ./out --no-restore-permissions
 ```
 
 Restore stored permissions where supported:
 
 ```bash
-lockbox extract secrets.lbox --to ./out --restore-permissions
+lockbox secrets.lbox extract --to ./out --restore-permissions
 ```
 
 The format stores only basic permission bits. Special bits and platform-specific
@@ -364,7 +364,7 @@ metadata should be rejected or ignored unless explicitly supported later.
 Inspect a damaged lockbox:
 
 ```bash
-lockbox recover --report damaged.lbox
+lockbox damaged.lbox recover --report
 ```
 
 `recover --report` is read-only. It scans the lockbox and reports what can be
@@ -387,13 +387,13 @@ form_records         38
 Write a clean lockbox containing recovered entries:
 
 ```bash
-lockbox recover damaged.lbox --output recovered.lbox
+lockbox damaged.lbox recover --output recovered.lbox
 ```
 
 Use `--overwrite` only when replacing an existing recovery output:
 
 ```bash
-lockbox recover damaged.lbox --output recovered.lbox --overwrite
+lockbox damaged.lbox recover --output recovered.lbox --overwrite
 ```
 
 The recovered lockbox is a new valid lockbox with the same content key. It
@@ -523,14 +523,14 @@ credential to keep opening the lockbox.
 Open with a private key:
 
 ```bash
-lockbox open-key secrets.lbox default
+lockbox secrets.lbox open-key default
 ```
 
 If no key name is supplied, `open-key` uses the default private key in the local
 vault:
 
 ```bash
-lockbox open-key secrets.lbox
+lockbox secrets.lbox open-key
 ```
 
 The CLI uses vault-managed private keys by name. External private key files

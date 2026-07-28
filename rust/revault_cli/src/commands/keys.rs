@@ -36,16 +36,8 @@ pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult
         args.push("--contact".to_string());
         args.push(contact.clone());
     }
-    let lockbox = match (command_lockbox(), matches.get_one::<String>("lockbox")) {
-        (Some(_), Some(_)) => {
-            return Err(cli_error(
-                "lockbox supplied both before and after the command",
-            ))
-        }
-        (Some(lockbox), None) => lockbox,
-        (None, Some(lockbox)) => lockbox.clone(),
-        (None, None) => return Err(cli_error("missing lockbox; use `lockbox LOCKBOX create`")),
-    };
+    let lockbox = command_lockbox()
+        .ok_or_else(|| cli_error("missing lockbox; use `lockbox LOCKBOX create`"))?;
     args.push(lockbox);
     create(&args, access)
 }
@@ -322,7 +314,7 @@ pub(crate) fn access_matches(matches: &ArgMatches, access: &Access) -> CliResult
             access,
         ),
         "list" | "ls" => list_access_with_format(
-            &optional_lockbox_positionals(positional_values(sub, "args"), 0)?,
+            &[default_lockbox_for_command()?],
             access,
             output_format_from_matches(sub)?,
         ),
@@ -374,14 +366,14 @@ pub(crate) fn grant_access(args: &[String], access: &Access) -> CliResult<()> {
     } else {
         if Path::new(contact_arg).exists() {
             return Err(cli_error(
-                "public key files require a contact name: lockbox access grant <lockbox> <name> <public-key>",
+                "public key files require a contact name: lockbox <lockbox> access grant <name> <public-key>",
             ));
         }
         load_contact_from_arg(contact_arg)?
     };
     let name = contact.name.ok_or_else(|| {
         cli_error(
-            "access entries require a name; use lockbox access grant <lockbox> <name> <public-key>",
+            "access entries require a name; use lockbox <lockbox> access grant <name> <public-key>",
         )
     })?;
     let mut lb = open_existing(lockbox_path, access)?;

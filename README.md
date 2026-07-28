@@ -111,14 +111,14 @@ lockbox secrets.lbox create --password
 Open it for normal commands:
 
 ```bash
-lockbox open secrets.lbox
+lockbox secrets.lbox open
 ```
 
 The open is cached in a per-user in-memory agent which will automatically close
 it after about 30mins.  Lock it when you are done:
 
 ```bash
-lockbox close secrets.lbox
+lockbox secrets.lbox close
 ```
 
 Add files:
@@ -131,9 +131,9 @@ lockbox secrets.lbox add ./generated.env --to secrets/prod.env
 List and extract:
 
 ```bash
-lockbox list secrets.lbox /
-lockbox list secrets.lbox '/project/**/*.rs'
-lockbox extract secrets.lbox /project/README.md ./out/README.md
+lockbox secrets.lbox list /
+lockbox secrets.lbox list '/project/**/*.rs'
+lockbox secrets.lbox extract /project/README.md ./out/README.md
 ```
 
 See [docs/cli_how_to.md](docs/cli_how_to.md) for command-focused examples.
@@ -170,9 +170,9 @@ lockbox shared.lbox create --for alice
 Grant or revoke access on an existing lockbox:
 
 ```bash
-lockbox access grant shared.lbox alice
-lockbox access list shared.lbox
-lockbox access revoke shared.lbox alice
+lockbox shared.lbox access grant alice
+lockbox shared.lbox access list
+lockbox shared.lbox access revoke alice
 ```
 
 Exporting a private key is supported for backup and migration, but treat the
@@ -197,9 +197,9 @@ Plain variables are for values that are useful configuration but not high-value
 secrets:
 
 ```bash
-lockbox variable set secrets.lbox DATABASE_URL --value 'postgres://localhost/app'
-lockbox variable set secrets.lbox DATABASE_URL='postgres://localhost/app'
-lockbox variable get secrets.lbox DATABASE_URL
+lockbox secrets.lbox variable set DATABASE_URL --value 'postgres://localhost/app'
+lockbox secrets.lbox variable set DATABASE_URL='postgres://localhost/app'
+lockbox secrets.lbox variable get DATABASE_URL
 ```
 
 With a session-default lockbox, assignment syntax is also supported:
@@ -214,10 +214,10 @@ material. They use secure-memory handling in the variable path and must be provi
 through an explicit source:
 
 ```bash
-lockbox variable set secrets.lbox --secret API_TOKEN --interactive
-lockbox variable set secrets.lbox --secret API_TOKEN --file ./api-token.txt
-lockbox variable set secrets.lbox --secret API_TOKEN --stdin
-lockbox variable set secrets.lbox --secret API_TOKEN --from-env API_TOKEN
+lockbox secrets.lbox variable set --secret API_TOKEN --interactive
+lockbox secrets.lbox variable set --secret API_TOKEN --file ./api-token.txt
+lockbox secrets.lbox variable set --secret API_TOKEN --stdin
+lockbox secrets.lbox variable set --secret API_TOKEN --from-env API_TOKEN
 ```
 
 Avoid passing secrets as command-line arguments. Shell history and process
@@ -239,8 +239,8 @@ Use these defaults unless you have a specific reason not to:
 - Do not pass secret values on the command line.
 - Keep private key exports offline, short-lived, and permission-restricted.
 - Prefer recipient keys over shared passwords for team access.
-- Run `lockbox close secrets.lbox` when an open should no longer be cached.
-- Use `lockbox visualize secrets.lbox` for diagnostics; it intentionally avoids
+- Run `lockbox secrets.lbox close` when an open should no longer be cached.
+- Use `lockbox secrets.lbox visualize` for diagnostics; it intentionally avoids
   printing file paths, file contents, variable names, or variable values.
 
 

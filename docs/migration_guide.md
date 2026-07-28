@@ -105,10 +105,10 @@ Open the migrated archive and check important paths before replacing or
 removing the original:
 
 ```console
-lockbox open secrets-migrated.lbox
-lockbox list secrets-migrated.lbox /
-lockbox cat secrets-migrated.lbox /path/to/important-file
-lockbox close secrets-migrated.lbox
+lockbox secrets-migrated.lbox open
+lockbox secrets-migrated.lbox list /
+lockbox secrets-migrated.lbox cat /path/to/important-file
+lockbox secrets-migrated.lbox close
 ```
 
 Archive migration creates a new signed commit chain. The files, forms, and
