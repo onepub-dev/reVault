@@ -132,9 +132,13 @@ The archive TOC is the archive-side manifest. The first successful run stores
 an encrypted synchronization profile using the existing archive metadata
 format. It records the canonical absolute source, destination, include/exclude rules,
 symlink policy, and platform directory identity where available. Later runs
-reject a different source or changed rules unless `--rebind-source` or
+reject a different source or changed rules unless `--rebind-host-path` or
 `--update-rules` is explicit. Multiple profiles may coexist, but their logical
 destinations cannot overlap.
+
+The profile is a normal encrypted variable under `/.revault/sync/`. Variable
+listings hide dot-prefixed variables unless `variable list --all` is supplied,
+and exports always omit them. An exact `variable get` can inspect one.
 
 Deletion is guarded separately: an empty source needs `--allow-empty`, and a
 plan deleting more than half the destination needs `--allow-large-delete`.

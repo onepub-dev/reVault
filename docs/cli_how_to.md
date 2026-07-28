@@ -570,10 +570,16 @@ deletion protects filtered entries;
 
 The first successful run stores an encrypted profile containing the canonical
 source path, destination, rules, symlink policy, stable profile id, and a
-platform directory identity when available. A moved or replaced source needs
-`--rebind-source`; changed exclusions need `--update-rules`. Empty sources and
+filesystem directory identity when available. On Unix this is the device and
+inode pair. A moved or replaced source needs `--rebind-host-path`; changed
+include/exclude rules need `--update-rules`. Empty sources and
 plans deleting more than half of the destination require `--allow-empty` and
 `--allow-large-delete` respectively.
+
+The profile is stored as a normal encrypted variable under
+`/.revault/sync/`. Dot-prefixed variables are omitted from ordinary
+`variable list` output and from every export. Use `variable list --all` to
+show their names and exact `variable get` to inspect a selected value.
 
 The CLI should reject or fail closed on:
 

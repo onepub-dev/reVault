@@ -341,7 +341,16 @@ pub(crate) fn archive_value_candidates(current: &OsStr) -> Vec<CompletionCandida
             continue;
         };
         if let Ok(variables) = lockbox.list_variables() {
-            values.extend(variables.into_iter().map(|(name, _)| name.to_string()));
+            let reveal_hidden = current
+                .to_str()
+                .is_some_and(|prefix| prefix.starts_with("/.") || prefix.starts_with('.'));
+            values.extend(
+                variables
+                    .into_iter()
+                    .map(|(name, _)| name)
+                    .filter(|name| reveal_hidden || !super::variables::is_hidden_variable(name))
+                    .map(|name| name.to_string()),
+            );
         }
         if let Ok(forms) = lockbox.list_form_definitions() {
             values.extend(forms.into_iter().map(|form| form.alias));

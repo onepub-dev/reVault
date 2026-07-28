@@ -1,7 +1,6 @@
 use clap::ArgMatches;
 use revault_lockbox_api::{
-    ListOptions, Lockbox, LockboxEntryKind, LockboxPath, SecretString, VariableName,
-    WorkloadProfile,
+    ListOptions, Lockbox, LockboxEntryKind, LockboxPath, VariableName, WorkloadProfile,
 };
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -13,7 +12,7 @@ use std::path::{Path, PathBuf};
 use super::context::{cli_error, open_existing, Access, CliResult};
 use super::default_lockbox_for_add;
 
-const PROFILE_PREFIX: &str = "/REVAULT_SYNC/";
+const PROFILE_PREFIX: &str = "/.revault/sync/";
 const LARGE_DELETE_PERCENT: usize = 50;
 
 /// A complete, inspectable one-way synchronization plan.
@@ -66,7 +65,7 @@ struct SyncRequest {
     options: SyncOptions,
     dry_run: bool,
     force: bool,
-    rebind_source: bool,
+    rebind_host_path: bool,
     update_rules: bool,
     json: bool,
 }
@@ -115,7 +114,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         },
         dry_run: matches.get_flag("dry-run"),
         force: matches.get_flag("force"),
-        rebind_source: matches.get_flag("rebind-source"),
+        rebind_host_path: matches.get_flag("rebind-host-path"),
         update_rules: matches.get_flag("update-rules"),
         json: matches
             .get_one::<String>("format")
@@ -484,10 +483,7 @@ fn load_profiles(lb: &Lockbox) -> CliResult<Vec<SyncProfile>> {
         if !name.as_str().starts_with(PROFILE_PREFIX) {
             continue;
         }
-        let Some(value) = lb
-            .with_secret_variable(&name, |value| value.with_str(str::to_string))?
-            .transpose()?
-        else {
+        let Some(value) = lb.get_variable(&name)? else {
             continue;
         };
         profiles.push(profile_from_json(&value)?);
@@ -508,8 +504,7 @@ fn store_profile(lb: &mut Lockbox, profile: &SyncProfile) -> CliResult<()> {
         "identity": profile.identity,
     })
     .to_string();
-    let secret = SecretString::try_from_slice(encoded.as_bytes())?;
-    lb.set_secret_variable(&name, &secret)?;
+    lb.set_variable(&name, &encoded)?;
     Ok(())
 }
 
@@ -558,16 +553,16 @@ fn validate_profile(
     };
     let source_changed =
         profile.source != source.display().to_string() || profile.identity.as_deref() != identity;
-    if source_changed && !request.rebind_source {
+    if source_changed && !request.rebind_host_path {
         return Err(cli_error(format!(
-            "source does not match the stored synchronization profile (stored: {}; current: {}); pass --rebind-source",
+            "host source does not match the stored synchronization profile (stored: {}; current: {}); pass --rebind-host-path",
             profile.source,
             source.display()
         )));
     }
     if (profile.includes != includes || profile.excludes != excludes) && !request.update_rules {
         return Err(cli_error(
-            "exclude rules differ from the stored synchronization profile; pass --update-rules",
+            "include/exclude rules differ from the stored synchronization profile; pass --update-rules",
         ));
     }
     Ok(())
