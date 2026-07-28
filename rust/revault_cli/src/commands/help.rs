@@ -224,13 +224,13 @@ pub(crate) fn command(verbose: bool) -> Command {
                 Arg::new("delete")
                     .long("delete")
                     .action(ArgAction::SetTrue)
-                    .help("Remove destination files that are absent from the source."),
+                    .help("Remove archive files that are absent from the host source directory."),
             )
             .arg(
                 Arg::new("delete-excluded")
                     .long("delete-excluded")
                     .action(ArgAction::SetTrue)
-                    .help("Also remove excluded destination files. Implies --delete."),
+                    .help("Also remove excluded files from the archive. Implies --delete."),
             )
             .arg(
                 Arg::new("dry-run")
@@ -242,31 +242,43 @@ pub(crate) fn command(verbose: bool) -> Command {
                 Arg::new("force")
                     .long("force")
                     .action(ArgAction::SetTrue)
-                    .help("Apply a validated plan without confirmation."),
+                    .help(
+                        "Apply changes without prompting after source, boundary, and deletion \
+                         safety checks pass.",
+                    ),
             )
             .arg(
                 Arg::new("allow-empty")
                     .long("allow-empty")
                     .action(ArgAction::SetTrue)
-                    .help("Allow an empty source to drive deletion."),
+                    .help(
+                        "Allow an empty host directory to remove included archive files when \
+                         --delete is set.",
+                    ),
             )
             .arg(
                 Arg::new("allow-large-delete")
                     .long("allow-large-delete")
                     .action(ArgAction::SetTrue)
-                    .help("Allow deletion of more than half the destination files."),
+                    .help("Allow deletion of more than half the archive files under --to."),
             )
             .arg(
-                Arg::new("rebind-source")
-                    .long("rebind-source")
+                Arg::new("rebind-host-path")
+                    .long("rebind-host-path")
                     .action(ArgAction::SetTrue)
-                    .help("Replace the stored source path or platform identity."),
+                    .help(
+                        "Accept and store a changed host path or filesystem directory identity. \
+                         On Unix, identity is the device and inode pair.",
+                    ),
             )
             .arg(
                 Arg::new("update-rules")
                     .long("update-rules")
                     .action(ArgAction::SetTrue)
-                    .help("Replace the stored exclusion rules."),
+                    .help(
+                        "Accept changed --include/--exclude rules and store them after a \
+                         successful sync.",
+                    ),
             )
             .arg(output_format_arg()),
             file_command("extract", "Extract files from a lockbox.")
@@ -650,9 +662,16 @@ fn variables_command(verbose: bool) -> Command {
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox secrets.lbox variable list\n  lockbox secrets.lbox variable list /production\n  lockbox secrets.lbox variable list '**/API_KEY'\n  lockbox secrets.lbox variable list --format json",
-                "Context:\n  Variables list shows value names and whether each value is normal or secret. It does not print stored values. Paths and glob patterns are case-sensitive. Pass a path such as /production to list that group, or a glob such as **/API_KEY to match names across groups.",
+                "Context:\n  Variables list shows value names and whether each value is normal or secret. It does not print stored values. Paths and glob patterns are case-sensitive. Dot-prefixed variables are hidden unless --all is supplied. Pass a path such as /production to list that group, or a glob such as **/API_KEY to match names across groups.",
             ))
             .arg(output_format_arg())
+            .arg(
+                Arg::new("all")
+                    .short('a')
+                    .long("all")
+                    .action(ArgAction::SetTrue)
+                    .help("Include dot-prefixed hidden variables."),
+            )
             .arg(
                 Arg::new("args")
                     .value_name("PATTERN")
@@ -668,7 +687,7 @@ fn variables_command(verbose: bool) -> Command {
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  eval \"$(lockbox secrets.lbox variable export)\"\n  lockbox secrets.lbox variable export /production\n  lockbox secrets.lbox variable export '**/API_KEY'\n  lockbox secrets.lbox variable export --format posix > variables.sh\n  lockbox secrets.lbox variable export --format powershell | Invoke-Expression\n\nFormats:\n  posix       NAME='value' lines for sh, bash, and zsh. Default.\n  powershell  $env:NAME = 'value' lines for PowerShell.\n  cmd         set \"NAME=value\" lines for cmd.exe.\n  json        One JSON object per line with name and value fields.\n\n`variable export` writes to stdout. Use shell redirection to write it to a file.",
-                "Context:\n  Variables export is intended for shell startup, CI setup, or scripting. It only includes non-secret values; use explicit `variable get --secret` for secret values so they are never exported in bulk by accident. The optional filter follows the same path or glob pattern rules as variable list. Grouped names are flattened with underscores for shell-safe output.",
+                "Context:\n  Variables export is intended for shell startup, CI setup, or scripting. It excludes secret and dot-prefixed hidden values. Use explicit variable get for hidden values or variable get --secret for secrets. The optional filter follows the same path or glob pattern rules as variable list. Grouped names are flattened with underscores for shell-safe output.",
             ))
             .arg(
                 Arg::new("format")

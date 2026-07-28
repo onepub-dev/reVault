@@ -4,7 +4,9 @@
 //! Core encrypted lockbox storage engine.
 //!
 //! `revault_lockbox_api` owns the portable `.lbox` file format and the in-memory API
-//! for storing files, symlinks, variable values, and key slots. It does not
+//! for storing files, symlinks, variable values, and key slots. Dot-prefixed
+//! variable components may be used by applications for hidden metadata; they
+//! remain ordinary encrypted variables at the API layer. It does not
 //! know about a user's local vault or open-cache agent; those are implemented in
 //! `revault_vault_api`.
 //!

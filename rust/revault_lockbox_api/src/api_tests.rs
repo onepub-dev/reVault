@@ -2276,6 +2276,25 @@ fn variable_names_and_patterns_are_case_sensitive() {
 }
 
 #[test]
+fn dot_prefixed_variable_components_round_trip_as_hidden_metadata() {
+    let mut lb = Lockbox::create(KEY);
+    let hidden = variable("/.revault/sync/Profile_1");
+    lb.set_variable(&hidden, r#"{"source":"/work/project"}"#)
+        .unwrap();
+    lb.commit().unwrap();
+
+    let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened.get_variable(&hidden).unwrap().as_deref(),
+        Some(r#"{"source":"/work/project"}"#)
+    );
+    assert!(VariableName::new(".").is_err());
+    assert!(VariableName::new("..").is_err());
+    assert!(VariableName::new("/.revault/../profile").is_err());
+    assert!(VariableName::new("/.revault/bad.name").is_err());
+}
+
+#[test]
 fn variables_can_be_removed_and_replaced() {
     let mut lb = Lockbox::create(KEY);
     lb.set_variable(&variable("TOKEN"), "one").unwrap();

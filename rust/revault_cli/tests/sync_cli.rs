@@ -85,6 +85,40 @@ fn sync_adds_replaces_deletes_and_persists_source_identity() {
     success(&initial);
     assert!(String::from_utf8_lossy(&initial.stdout).contains("2 added"));
 
+    let visible_variables = run(
+        bin,
+        temp.path(),
+        &[lockbox.to_str().unwrap(), "variable", "list"],
+    );
+    success(&visible_variables);
+    assert!(!String::from_utf8_lossy(&visible_variables.stdout).contains(".revault"));
+    let all_variables = run(
+        bin,
+        temp.path(),
+        &[lockbox.to_str().unwrap(), "variable", "ls", "-a"],
+    );
+    success(&all_variables);
+    let all_variables = String::from_utf8_lossy(&all_variables.stdout);
+    let profile_name = all_variables
+        .lines()
+        .flat_map(str::split_whitespace)
+        .find(|value| value.starts_with("/.revault/sync/"))
+        .expect("hidden sync profile");
+    let profile = run(
+        bin,
+        temp.path(),
+        &[lockbox.to_str().unwrap(), "variable", "get", profile_name],
+    );
+    success(&profile);
+    assert!(String::from_utf8_lossy(&profile.stdout).contains("\"source\""));
+    let exported = run(
+        bin,
+        temp.path(),
+        &[lockbox.to_str().unwrap(), "variable", "export"],
+    );
+    success(&exported);
+    assert!(!String::from_utf8_lossy(&exported.stdout).contains(".revault"));
+
     fs::write(source.join("README.md"), "two\n").unwrap();
     fs::remove_file(source.join("src/main.rs")).unwrap();
     fs::write(source.join("new.txt"), "new\n").unwrap();
@@ -173,7 +207,7 @@ fn sync_adds_replaces_deletes_and_persists_source_identity() {
         ],
     );
     assert!(!wrong_source.status.success());
-    assert!(String::from_utf8_lossy(&wrong_source.stderr).contains("--rebind-source"));
+    assert!(String::from_utf8_lossy(&wrong_source.stderr).contains("--rebind-host-path"));
 }
 
 #[test]

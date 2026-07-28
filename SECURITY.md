@@ -58,3 +58,7 @@ refuses filesystem roots, and requires overrides for empty sources and
 unusually large deletion plans. Deletion is bounded to the selected logical
 subtree. These controls reduce accidents; they cannot establish that the host
 source itself is benign or uncompromised.
+
+Synchronization profiles use dot-prefixed normal variables in the encrypted
+variable tree. Ordinary variable listings hide them and exports always omit
+them; `variable list --all` and exact `variable get` provide explicit access.

@@ -19,6 +19,8 @@ impl VariableName {
     ///
     /// Returns `Error::InvalidPath` if the name is empty, too long, has unsafe
     /// path structure, or contains components outside `[A-Za-z0-9_]`.
+    /// A component may begin with one dot to mark internal or hidden metadata;
+    /// the special `.` and `..` components remain invalid.
     pub fn new(name: impl AsRef<str>) -> Result<Self> {
         Ok(Self(validate_variable_name(name.as_ref())?))
     }
@@ -154,9 +156,11 @@ fn validate_variable_glob(pattern: &str) -> Result<String> {
         if component == "**" {
             continue;
         }
-        if !component
-            .chars()
-            .all(|ch| ch == '_' || ch == '*' || ch == '?' || ch.is_ascii_alphanumeric())
+        let visible = component.strip_prefix('.').unwrap_or(component);
+        if visible.is_empty()
+            || !visible
+                .chars()
+                .all(|ch| ch == '_' || ch == '*' || ch == '?' || ch.is_ascii_alphanumeric())
         {
             return Err(Error::InvalidPath(pattern.to_string()));
         }
