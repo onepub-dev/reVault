@@ -88,12 +88,20 @@ struct SourceSnapshot {
 }
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    let source = matches
-        .get_one::<String>("source")
-        .ok_or_else(|| cli_error("sync requires a source directory"))?;
     let destination = matches
         .get_one::<String>("to")
         .ok_or_else(|| cli_error("sync requires --to <LOCKBOX_PATH>"))?;
+    let lockbox = default_lockbox_for_add()?;
+    let destination = lockbox_path(destination)?;
+    let json = matches
+        .get_one::<String>("format")
+        .is_some_and(|value| value == "json");
+    if matches.get_flag("show-rules") {
+        return show_rules(&lockbox, &destination, json, access);
+    }
+    let source = matches
+        .get_one::<String>("source")
+        .ok_or_else(|| cli_error("sync requires a source directory"))?;
     let delete_excluded = matches.get_flag("delete-excluded");
     let rules_supplied = matches.get_many::<String>("include").is_some()
         || matches.get_many::<String>("exclude").is_some();
@@ -107,10 +115,16 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         .unwrap_or_default();
     normalize_rules(&mut includes);
     normalize_rules(&mut excludes);
+    let update_rules = matches.get_flag("update-rules");
+    if update_rules && !rules_supplied {
+        return Err(cli_error(
+            "--update-rules requires at least one --include or --exclude; use --clear-rules to remove all stored rules",
+        ));
+    }
     let request = SyncRequest {
-        lockbox: default_lockbox_for_add()?,
+        lockbox,
         source: PathBuf::from(source),
-        destination: lockbox_path(destination)?,
+        destination,
         includes,
         excludes,
         rules_supplied,
@@ -123,12 +137,57 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         dry_run: matches.get_flag("dry-run"),
         force: matches.get_flag("force"),
         rebind_host_path: matches.get_flag("rebind-host-path"),
-        update_rules: matches.get_flag("update-rules"),
-        json: matches
-            .get_one::<String>("format")
-            .is_some_and(|value| value == "json"),
+        update_rules: update_rules || matches.get_flag("clear-rules"),
+        json,
     };
     sync(request, access)
+}
+
+fn show_rules(
+    lockbox_path: &str,
+    destination: &LockboxPath,
+    json_output: bool,
+    access: &Access,
+) -> CliResult<()> {
+    let lb = open_existing(lockbox_path, access)?;
+    let profiles = load_profiles(&lb)?;
+    let profile = profiles
+        .iter()
+        .find(|profile| profile.destination == destination.as_str())
+        .ok_or_else(|| {
+            cli_error(format!(
+                "no stored synchronization profile for {destination}"
+            ))
+        })?;
+    if json_output {
+        println!(
+            "{}",
+            json!({
+                "destination": profile.destination,
+                "include": profile.includes,
+                "exclude": profile.excludes,
+            })
+        );
+        return Ok(());
+    }
+    println!("Stored synchronization rules for {destination}");
+    println!("include:");
+    if profile.includes.is_empty() {
+        println!("  (all source paths)");
+    } else {
+        for rule in &profile.includes {
+            println!("  {rule}");
+        }
+    }
+    println!("exclude:");
+    if profile.excludes.is_empty() {
+        println!("  (none)");
+    } else {
+        for rule in &profile.excludes {
+            println!("  {rule}");
+        }
+    }
+    Ok(())
 }
 
 fn normalize_rules(rules: &mut Vec<String>) {
