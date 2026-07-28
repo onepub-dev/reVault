@@ -30,6 +30,10 @@ and manages the vault, profiles, contacts and recipient access that make
 sharing possible. It also maintains a local open session so you do not need to
 re-enter keys for every command.
 
+It can also synchronize a host directory into one logical lockbox subtree.
+Synchronization is one-way: the host directory is authoritative, but
+lockbox-only files are deleted only when `--delete` is explicit.
+
 ```bash
 cargo install revault_cli
 lbx vault init
@@ -103,6 +107,50 @@ or command-line values. `--interactive` is the safest convenient default;
 `--stdin`, `--file`, and `--from-env` are available for automated workflows.
 To see a secret form field, make that choice explicit with `--secret`, for
 example `lbx form get --secret project-secrets.lbox /services/github password`.
+
+## One-way directory synchronization
+
+Preview the complete plan before changing the lockbox:
+
+```bash
+lbx backup.lbox sync ./project --to /project --delete --dry-run
+```
+
+Apply additions and replacements without deleting lockbox-only files:
+
+```bash
+lbx backup.lbox sync ./project --to /project --force
+```
+
+Make only `/project` mirror the source, including deletions:
+
+```bash
+lbx backup.lbox sync ./project --to /project --delete --force
+```
+
+The archive TOC is the archive-side manifest. The first successful run stores
+an encrypted synchronization profile using the existing archive metadata
+format. It records the canonical absolute source, destination, include/exclude rules,
+symlink policy, and platform directory identity where available. Later runs
+reject a different source or changed rules unless `--rebind-host-path` or
+`--update-rules` is explicit. Multiple profiles may coexist, but their logical
+destinations cannot overlap.
+
+Later runs reuse the stored include/exclude rules when no rule options are
+given. Passing different rules requires `--update-rules`; passing
+`--update-rules` without rule options is rejected. Inspect the stored rules
+with `sync --show-rules --to /destination`, or remove them explicitly with
+`--clear-rules`.
+
+The profile is a normal encrypted variable under `/.revault/sync/`. Variable
+listings hide dot-prefixed variables unless `variable list --all` is supplied,
+and exports always omit them. An exact `variable get` can inspect one.
+
+Deletion is guarded separately: an empty source needs `--allow-empty`, and a
+plan deleting more than half the destination needs `--allow-large-delete`.
+Excluded entries are protected unless `--delete-excluded` is used. These checks
+reduce accidental wrong-source deletion; they cannot make a compromised source
+directory trustworthy.
 
 ## License
 

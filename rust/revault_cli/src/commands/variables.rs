@@ -41,8 +41,12 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
                 }
             };
             let lb = open_existing(&args[0], access)?;
+            let show_all = sub.get_flag("all");
             let mut rows = Vec::new();
             for (name, sensitivity) in lb.list_variables()? {
+                if !show_all && is_hidden_variable(&name) {
+                    continue;
+                }
                 if pattern
                     .as_ref()
                     .is_some_and(|pattern| !name.matches_pattern(pattern))
@@ -66,6 +70,9 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
             let lb = open_existing(&args[0], access)?;
             lb.visit_variables(|name, value| match value {
                 VariableValueRef::Normal(value) => {
+                    if is_hidden_variable(name) {
+                        return Ok(());
+                    }
                     if let Some(name) = request.export_name(name) {
                         println!("{}", request.format.format_assignment(&name, value));
                     }
@@ -98,6 +105,12 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         }
     }
     Ok(())
+}
+
+pub(crate) fn is_hidden_variable(name: &VariableName) -> bool {
+    name.as_str()
+        .split('/')
+        .any(|component| component.starts_with('.') && component.len() > 1)
 }
 
 fn move_variables(

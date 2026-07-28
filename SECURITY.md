@@ -44,3 +44,21 @@ Please allow a reasonable remediation period before public disclosure. Good
 faith research and reporting that avoids privacy violations, data destruction,
 service disruption, and access beyond what is necessary to demonstrate the
 issue will not be pursued by the project.
+
+## Synchronization safety
+
+`lbx LOCKBOX sync SOURCE --to DESTINATION` is one-way. A wrong, incomplete, or
+compromised source can replace data, and `--delete` can remove data beneath the
+selected destination. Always inspect `--dry-run` output before destructive
+synchronization.
+
+reVault stores the canonical source path and available platform identity in an
+encrypted synchronization profile, rejects source/rule changes by default,
+refuses filesystem roots, and requires overrides for empty sources and
+unusually large deletion plans. Deletion is bounded to the selected logical
+subtree. These controls reduce accidents; they cannot establish that the host
+source itself is benign or uncompromised.
+
+Synchronization profiles use dot-prefixed normal variables in the encrypted
+variable tree. Ordinary variable listings hide them and exports always omit
+them; `variable list --all` and exact `variable get` provide explicit access.

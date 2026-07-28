@@ -2,6 +2,9 @@
 
 ## 0.0.4
 
+- Variable path components may use a single leading dot for encrypted
+  hidden/internal metadata namespaces. The unsafe `.` and `..` components
+  remain invalid.
 - Normal variables and form fields can now be promoted to secret storage.
   Form-field promotion creates a new definition revision and upgrades existing
   values across records of that form type; secret-to-normal changes remain

@@ -45,14 +45,16 @@ fn validate_variable_path(path: &str) -> Result<()> {
 }
 
 fn validate_variable_component(component: &str, original: &str) -> Result<()> {
+    let visible = component.strip_prefix('.').unwrap_or(component);
     if component.is_empty()
         || component == "."
         || component == ".."
-        || !component
+        || visible.is_empty()
+        || !visible
             .chars()
             .next()
             .is_some_and(|ch| ch == '_' || ch.is_ascii_alphabetic())
-        || !component
+        || !visible
             .chars()
             .all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
     {

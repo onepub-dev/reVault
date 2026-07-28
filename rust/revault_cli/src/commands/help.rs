@@ -192,6 +192,143 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_hint(ValueHint::AnyPath)
                         .help("One or more host files, or one directory with --recursive."),
                 ),
+            file_command(
+                "sync",
+                "Synchronize a host directory into a lockbox directory.",
+            )
+            .override_usage(
+                "lockbox [LOCKBOX] sync [OPTIONS] --to <LOCKBOX_PATH> <SOURCE>\n       \
+                 lockbox [LOCKBOX] sync --show-rules --to <LOCKBOX_PATH>",
+            )
+            .after_help(verbose_help(
+                verbose,
+                "Examples:\n  lockbox backup.lbox sync ./project --to /project --dry-run\n  lockbox backup.lbox sync ./project --to /project --force\n  lockbox backup.lbox sync ./project --to /project --delete --force\n  lockbox backup.lbox sync ./project --to /project --exclude .git/ --exclude '*.tmp'",
+                "Context:\n  Sync is one-way: the host source is authoritative for the selected lockbox subtree. New files are added, changed files are replaced, and unchanged files are skipped. TOC-only files are preserved unless --delete is explicit. The first successful run stores the canonical source identity and rules in encrypted lockbox metadata. Later runs reuse stored rules when no include/exclude options are supplied. Use --show-rules to inspect them, --update-rules with new rule arguments to replace them, or --clear-rules to remove them explicitly. Use --dry-run before destructive runs.",
+            ))
+            .arg(
+                Arg::new("source")
+                    .value_name("SOURCE")
+                    .required_unless_present("show-rules")
+                    .conflicts_with("show-rules")
+                    .value_hint(ValueHint::DirPath)
+                    .help("Host source directory. Relative paths are accepted and canonicalized."),
+            )
+            .arg(
+                Arg::new("to")
+                    .long("to")
+                    .value_name("LOCKBOX_PATH")
+                    .required(true)
+                    .add(ArgValueCompleter::new(completion::archive_value_candidates))
+                    .help("Logical destination root inside the lockbox."),
+            )
+            .arg(
+                Arg::new("show-rules")
+                    .long("show-rules")
+                    .action(ArgAction::SetTrue)
+                    .conflicts_with_all([
+                        "include",
+                        "exclude",
+                        "delete",
+                        "delete-excluded",
+                        "dry-run",
+                        "force",
+                        "allow-empty",
+                        "allow-large-delete",
+                        "rebind-host-path",
+                        "update-rules",
+                        "clear-rules",
+                    ])
+                    .help("Display the stored include/exclude rules without synchronizing."),
+            )
+            .arg(
+                Arg::new("include")
+                    .long("include")
+                    .value_name("PATTERN")
+                    .action(ArgAction::Append)
+                    .help(
+                        "Synchronize only matching source-relative paths or globs. Repeat as \
+                         needed.",
+                    ),
+            )
+            .arg(
+                Arg::new("exclude")
+                    .long("exclude")
+                    .value_name("PATTERN")
+                    .action(ArgAction::Append)
+                    .help("Exclude a source-relative path or glob. Repeat as needed."),
+            )
+            .arg(
+                Arg::new("delete")
+                    .long("delete")
+                    .action(ArgAction::SetTrue)
+                    .help("Remove archive files that are absent from the host source directory."),
+            )
+            .arg(
+                Arg::new("delete-excluded")
+                    .long("delete-excluded")
+                    .action(ArgAction::SetTrue)
+                    .help("Also remove excluded files from the archive. Implies --delete."),
+            )
+            .arg(
+                Arg::new("dry-run")
+                    .long("dry-run")
+                    .action(ArgAction::SetTrue)
+                    .help("Print the complete plan without modifying the lockbox."),
+            )
+            .arg(
+                Arg::new("force")
+                    .long("force")
+                    .action(ArgAction::SetTrue)
+                    .help(
+                        "Apply changes without prompting after source identity and deletion \
+                         safety checks pass.",
+                    ),
+            )
+            .arg(
+                Arg::new("allow-empty")
+                    .long("allow-empty")
+                    .action(ArgAction::SetTrue)
+                    .help(
+                        "Allow an empty host directory to delete archive files when --delete is \
+                         set.",
+                    ),
+            )
+            .arg(
+                Arg::new("allow-large-delete")
+                    .long("allow-large-delete")
+                    .action(ArgAction::SetTrue)
+                    .help(
+                        "Allow deletion of more than half the files in the synchronized archive \
+                         directory.",
+                    ),
+            )
+            .arg(
+                Arg::new("rebind-host-path")
+                    .long("rebind-host-path")
+                    .action(ArgAction::SetTrue)
+                    .help(
+                        "Accept and store a changed host path or filesystem directory identity. \
+                         On Unix, identity is the device and inode pair.",
+                    ),
+            )
+            .arg(
+                Arg::new("update-rules")
+                    .long("update-rules")
+                    .action(ArgAction::SetTrue)
+                    .conflicts_with("clear-rules")
+                    .help(
+                        "Replace the stored include/exclude rules with the rules supplied for \
+                         this sync.",
+                    ),
+            )
+            .arg(
+                Arg::new("clear-rules")
+                    .long("clear-rules")
+                    .action(ArgAction::SetTrue)
+                    .conflicts_with_all(["include", "exclude", "update-rules"])
+                    .help("Explicitly remove all stored include/exclude rules after this sync."),
+            )
+            .arg(output_format_arg()),
             file_command("extract", "Extract files from a lockbox.")
                 .after_help(verbose_help(
                     verbose,
@@ -374,6 +511,7 @@ Archives
 
 Files
   add             Add a file or directory to a lockbox.
+  sync            Synchronize a host directory into a lockbox directory.
   extract         Extract files from a lockbox.
   cat             Write a stored file to stdout.
   list            List stored entries.
@@ -577,9 +715,16 @@ fn variables_command(verbose: bool) -> Command {
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox variable list secrets.lbox\n  lockbox variable list secrets.lbox /production\n  lockbox variable list secrets.lbox '**/API_KEY'\n  lockbox variable list --format json secrets.lbox",
-                "Context:\n  Variables list shows value names and whether each value is normal or secret. It does not print stored values. Pass a path such as /production to list that group, or a glob such as **/API_KEY to match names across groups.",
+                "Context:\n  Variables list shows value names and whether each value is normal or secret. It does not print stored values. Dot-prefixed variables are hidden unless --all is supplied. Pass a path such as /production to list that group, or a glob such as **/API_KEY to match names across groups.",
             ))
             .arg(output_format_arg())
+            .arg(
+                Arg::new("all")
+                    .short('a')
+                    .long("all")
+                    .action(ArgAction::SetTrue)
+                    .help("Include dot-prefixed hidden variables."),
+            )
             .arg(
                 Arg::new("args")
                     .value_name("LOCKBOX PATTERN | PATTERN")
@@ -595,7 +740,7 @@ fn variables_command(verbose: bool) -> Command {
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  eval \"$(lockbox variable export secrets.lbox)\"\n  lockbox variable export secrets.lbox /production\n  lockbox variable export secrets.lbox '**/API_KEY'\n  lockbox variable export --format posix secrets.lbox > variables.sh\n  lockbox variable export --format powershell secrets.lbox | Invoke-Expression\n\nFormats:\n  posix       NAME='value' lines for sh, bash, and zsh. Default.\n  powershell  $env:NAME = 'value' lines for PowerShell.\n  cmd         set \"NAME=value\" lines for cmd.exe.\n  json        One JSON object per line with name and value fields.\n\n`variable export` writes to stdout. Use shell redirection to write it to a file.",
-                "Context:\n  Variables export is intended for shell startup, CI setup, or scripting. It only includes non-secret values; use explicit `variable get --secret` for secret values so they are never exported in bulk by accident. The optional filter follows the same path or glob pattern rules as variable list. Grouped names are flattened with underscores for shell-safe output.",
+                "Context:\n  Variables export is intended for shell startup, CI setup, or scripting. It excludes secret and dot-prefixed hidden values. Use explicit variable get for hidden values or variable get --secret for secrets. The optional filter follows the same path or glob pattern rules as variable list. Grouped names are flattened with underscores for shell-safe output.",
             ))
             .arg(
                 Arg::new("format")

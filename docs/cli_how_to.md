@@ -544,6 +544,49 @@ When the lockbox header is intact but embedded key-directory copies are damaged,
 
 ## Safety Summary
 
+### Synchronize a host directory safely
+
+`sync` maps the contents of a host directory directly below one logical
+lockbox directory:
+
+```bash
+lbx backup.lbox sync ./project --to /project --dry-run
+lbx backup.lbox sync ./project --to /project --force
+```
+
+New files are added, changed files are replaced using content-hash comparison,
+and unchanged files are skipped. Lockbox-only files are preserved unless
+`--delete` is supplied:
+
+```bash
+lbx backup.lbox sync ./project --to /project --delete --dry-run
+lbx backup.lbox sync ./project --to /project --delete --force
+```
+
+Use repeatable source-relative inclusion and exclusion rules such as
+`--include 'src/**'`, `--exclude .git/`, and `--exclude '*.tmp'`. Ordinary
+deletion protects filtered entries;
+`--delete-excluded` explicitly removes them.
+
+The first successful run stores an encrypted profile containing the canonical
+source path, destination, rules, symlink policy, stable profile id, and a
+filesystem directory identity when available. On Unix this is the device and
+inode pair. A moved or replaced source needs `--rebind-host-path`; changed
+include/exclude rules need `--update-rules`. Empty sources and
+plans deleting more than half of the destination require `--allow-empty` and
+`--allow-large-delete` respectively.
+
+When a later sync omits `--include` and `--exclude`, it reuses the stored
+rules. Supplying different rules is rejected unless `--update-rules` is also
+given. Inspect them with `sync --show-rules --to /destination`. An
+`--update-rules` invocation without rule arguments is rejected; use the
+explicit `--clear-rules` option to remove every stored rule.
+
+The profile is stored as a normal encrypted variable under
+`/.revault/sync/`. Dot-prefixed variables are omitted from ordinary
+`variable list` output and from every export. Use `variable list --all` to
+show their names and exact `variable get` to inspect a selected value.
+
 The CLI should reject or fail closed on:
 
 - `..` path components,
