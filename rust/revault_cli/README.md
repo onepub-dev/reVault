@@ -138,7 +138,9 @@ destinations cannot overlap.
 
 Later runs reuse the stored include/exclude rules when no rule options are
 given. Passing different rules requires `--update-rules`; passing
-`--update-rules` without rule options clears them.
+`--update-rules` without rule options is rejected. Inspect the stored rules
+with `sync --show-rules --to /destination`, or remove them explicitly with
+`--clear-rules`.
 
 The profile is a normal encrypted variable under `/.revault/sync/`. Variable
 listings hide dot-prefixed variables unless `variable list --all` is supplied,

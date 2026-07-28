@@ -578,7 +578,9 @@ plans deleting more than half of the destination require `--allow-empty` and
 
 When a later sync omits `--include` and `--exclude`, it reuses the stored
 rules. Supplying different rules is rejected unless `--update-rules` is also
-given. Use `--update-rules` without rule options to clear all stored rules.
+given. Inspect them with `sync --show-rules --to /destination`. An
+`--update-rules` invocation without rule arguments is rejected; use the
+explicit `--clear-rules` option to remove every stored rule.
 
 The profile is stored as a normal encrypted variable under
 `/.revault/sync/`. Dot-prefixed variables are omitted from ordinary

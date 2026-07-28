@@ -196,16 +196,20 @@ pub(crate) fn command(verbose: bool) -> Command {
                 "sync",
                 "Synchronize a host directory into a lockbox directory.",
             )
-            .override_usage("lockbox [LOCKBOX] sync [OPTIONS] --to <LOCKBOX_PATH> <SOURCE>")
+            .override_usage(
+                "lockbox [LOCKBOX] sync [OPTIONS] --to <LOCKBOX_PATH> <SOURCE>\n       \
+                 lockbox [LOCKBOX] sync --show-rules --to <LOCKBOX_PATH>",
+            )
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox backup.lbox sync ./project --to /project --dry-run\n  lockbox backup.lbox sync ./project --to /project --force\n  lockbox backup.lbox sync ./project --to /project --delete --force\n  lockbox backup.lbox sync ./project --to /project --exclude .git/ --exclude '*.tmp'",
-                "Context:\n  Sync is one-way: the host source is authoritative for the selected lockbox subtree. New files are added, changed files are replaced, and unchanged files are skipped. TOC-only files are preserved unless --delete is explicit. The first successful run stores the canonical source identity and rules in encrypted lockbox metadata. Later runs reuse stored rules when no include/exclude options are supplied. Different supplied rules require --update-rules; use that option without rule arguments to clear them. Use --dry-run before destructive runs.",
+                "Context:\n  Sync is one-way: the host source is authoritative for the selected lockbox subtree. New files are added, changed files are replaced, and unchanged files are skipped. TOC-only files are preserved unless --delete is explicit. The first successful run stores the canonical source identity and rules in encrypted lockbox metadata. Later runs reuse stored rules when no include/exclude options are supplied. Use --show-rules to inspect them, --update-rules with new rule arguments to replace them, or --clear-rules to remove them explicitly. Use --dry-run before destructive runs.",
             ))
             .arg(
                 Arg::new("source")
                     .value_name("SOURCE")
-                    .required(true)
+                    .required_unless_present("show-rules")
+                    .conflicts_with("show-rules")
                     .value_hint(ValueHint::DirPath)
                     .help("Host source directory. Relative paths are accepted and canonicalized."),
             )
@@ -216,6 +220,25 @@ pub(crate) fn command(verbose: bool) -> Command {
                     .required(true)
                     .add(ArgValueCompleter::new(completion::archive_value_candidates))
                     .help("Logical destination root inside the lockbox."),
+            )
+            .arg(
+                Arg::new("show-rules")
+                    .long("show-rules")
+                    .action(ArgAction::SetTrue)
+                    .conflicts_with_all([
+                        "include",
+                        "exclude",
+                        "delete",
+                        "delete-excluded",
+                        "dry-run",
+                        "force",
+                        "allow-empty",
+                        "allow-large-delete",
+                        "rebind-host-path",
+                        "update-rules",
+                        "clear-rules",
+                    ])
+                    .help("Display the stored include/exclude rules without synchronizing."),
             )
             .arg(
                 Arg::new("include")
@@ -292,10 +315,18 @@ pub(crate) fn command(verbose: bool) -> Command {
                 Arg::new("update-rules")
                     .long("update-rules")
                     .action(ArgAction::SetTrue)
+                    .conflicts_with("clear-rules")
                     .help(
                         "Replace the stored include/exclude rules with the rules supplied for \
                          this sync.",
                     ),
+            )
+            .arg(
+                Arg::new("clear-rules")
+                    .long("clear-rules")
+                    .action(ArgAction::SetTrue)
+                    .conflicts_with_all(["include", "exclude", "update-rules"])
+                    .help("Explicitly remove all stored include/exclude rules after this sync."),
             )
             .arg(output_format_arg()),
             file_command("extract", "Extract files from a lockbox.")

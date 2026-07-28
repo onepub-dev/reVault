@@ -85,6 +85,38 @@ fn sync_adds_replaces_deletes_and_persists_source_identity() {
     success(&initial);
     assert!(String::from_utf8_lossy(&initial.stdout).contains("2 added"));
 
+    let shown_rules = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "sync",
+            "--show-rules",
+            "--to",
+            "/project",
+        ],
+    );
+    success(&shown_rules);
+    let shown_rules = String::from_utf8_lossy(&shown_rules.stdout);
+    assert!(shown_rules.contains("Stored synchronization rules for /project"));
+    assert!(shown_rules.contains("*.tmp"));
+
+    let ambiguous_update = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "sync",
+            "project",
+            "--to",
+            "/project",
+            "--update-rules",
+            "--dry-run",
+        ],
+    );
+    assert!(!ambiguous_update.status.success());
+    assert!(String::from_utf8_lossy(&ambiguous_update.stderr).contains("--clear-rules"));
+
     let reused_rules = run(
         bin,
         temp.path(),
@@ -242,6 +274,36 @@ fn sync_adds_replaces_deletes_and_persists_source_identity() {
     );
     assert!(!wrong_source.status.success());
     assert!(String::from_utf8_lossy(&wrong_source.stderr).contains("--rebind-host-path"));
+
+    let cleared_rules = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "sync",
+            "project",
+            "--to",
+            "/project",
+            "--clear-rules",
+            "--force",
+        ],
+    );
+    success(&cleared_rules);
+    let shown_cleared_rules = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "sync",
+            "--show-rules",
+            "--to",
+            "/project",
+        ],
+    );
+    success(&shown_cleared_rules);
+    let shown_cleared_rules = String::from_utf8_lossy(&shown_cleared_rules.stdout);
+    assert!(shown_cleared_rules.contains("(all source paths)"));
+    assert!(shown_cleared_rules.contains("(none)"));
 }
 
 #[test]
