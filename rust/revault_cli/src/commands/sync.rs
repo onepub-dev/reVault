@@ -62,6 +62,7 @@ struct SyncRequest {
     destination: LockboxPath,
     includes: Vec<String>,
     excludes: Vec<String>,
+    rules_supplied: bool,
     options: SyncOptions,
     dry_run: bool,
     force: bool,
@@ -94,18 +95,25 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         .get_one::<String>("to")
         .ok_or_else(|| cli_error("sync requires --to <LOCKBOX_PATH>"))?;
     let delete_excluded = matches.get_flag("delete-excluded");
+    let rules_supplied = matches.get_many::<String>("include").is_some()
+        || matches.get_many::<String>("exclude").is_some();
+    let mut includes = matches
+        .get_many::<String>("include")
+        .map(|values| values.cloned().collect())
+        .unwrap_or_default();
+    let mut excludes = matches
+        .get_many::<String>("exclude")
+        .map(|values| values.cloned().collect())
+        .unwrap_or_default();
+    normalize_rules(&mut includes);
+    normalize_rules(&mut excludes);
     let request = SyncRequest {
         lockbox: default_lockbox_for_add()?,
         source: PathBuf::from(source),
         destination: lockbox_path(destination)?,
-        includes: matches
-            .get_many::<String>("include")
-            .map(|values| values.cloned().collect())
-            .unwrap_or_default(),
-        excludes: matches
-            .get_many::<String>("exclude")
-            .map(|values| values.cloned().collect())
-            .unwrap_or_default(),
+        includes,
+        excludes,
+        rules_supplied,
         options: SyncOptions {
             delete: matches.get_flag("delete") || delete_excluded,
             delete_excluded,
@@ -123,7 +131,12 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
     sync(request, access)
 }
 
-fn sync(request: SyncRequest, access: &Access) -> CliResult<()> {
+fn normalize_rules(rules: &mut Vec<String>) {
+    rules.sort();
+    rules.dedup();
+}
+
+fn sync(mut request: SyncRequest, access: &Access) -> CliResult<()> {
     let canonical = canonical_source(&request.source)?;
     let identity = platform_identity(&canonical)?;
     let mut lb = open_existing(&request.lockbox, access)?;
@@ -133,6 +146,12 @@ fn sync(request: SyncRequest, access: &Access) -> CliResult<()> {
     let existing = profiles
         .iter()
         .find(|profile| profile.destination == request.destination.as_str());
+    if let Some(profile) = existing {
+        if !request.rules_supplied && !request.update_rules {
+            request.includes.clone_from(&profile.includes);
+            request.excludes.clone_from(&profile.excludes);
+        }
+    }
     validate_destination_overlap(
         &profiles,
         &request.destination,

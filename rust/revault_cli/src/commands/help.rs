@@ -200,7 +200,7 @@ pub(crate) fn command(verbose: bool) -> Command {
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox backup.lbox sync ./project --to /project --dry-run\n  lockbox backup.lbox sync ./project --to /project --force\n  lockbox backup.lbox sync ./project --to /project --delete --force\n  lockbox backup.lbox sync ./project --to /project --exclude .git/ --exclude '*.tmp'",
-                "Context:\n  Sync is one-way: the host source is authoritative for the selected lockbox subtree. New files are added, changed files are replaced, and unchanged files are skipped. TOC-only files are preserved unless --delete is explicit. The first successful run stores the canonical source identity and rules in encrypted lockbox metadata. Use --dry-run before destructive runs.",
+                "Context:\n  Sync is one-way: the host source is authoritative for the selected lockbox subtree. New files are added, changed files are replaced, and unchanged files are skipped. TOC-only files are preserved unless --delete is explicit. The first successful run stores the canonical source identity and rules in encrypted lockbox metadata. Later runs reuse stored rules when no include/exclude options are supplied. Different supplied rules require --update-rules; use that option without rule arguments to clear them. Use --dry-run before destructive runs.",
             ))
             .arg(
                 Arg::new("source")
@@ -222,7 +222,10 @@ pub(crate) fn command(verbose: bool) -> Command {
                     .long("include")
                     .value_name("PATTERN")
                     .action(ArgAction::Append)
-                    .help("Include only matching source-relative paths. Repeat as needed."),
+                    .help(
+                        "Synchronize only matching source-relative paths or globs. Repeat as \
+                         needed.",
+                    ),
             )
             .arg(
                 Arg::new("exclude")
@@ -254,7 +257,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                     .long("force")
                     .action(ArgAction::SetTrue)
                     .help(
-                        "Apply changes without prompting after source, boundary, and deletion \
+                        "Apply changes without prompting after source identity and deletion \
                          safety checks pass.",
                     ),
             )
@@ -263,15 +266,18 @@ pub(crate) fn command(verbose: bool) -> Command {
                     .long("allow-empty")
                     .action(ArgAction::SetTrue)
                     .help(
-                        "Allow an empty host directory to remove included archive files when \
-                         --delete is set.",
+                        "Allow an empty host directory to delete archive files when --delete is \
+                         set.",
                     ),
             )
             .arg(
                 Arg::new("allow-large-delete")
                     .long("allow-large-delete")
                     .action(ArgAction::SetTrue)
-                    .help("Allow deletion of more than half the archive files under --to."),
+                    .help(
+                        "Allow deletion of more than half the files in the synchronized archive \
+                         directory.",
+                    ),
             )
             .arg(
                 Arg::new("rebind-host-path")
@@ -287,8 +293,8 @@ pub(crate) fn command(verbose: bool) -> Command {
                     .long("update-rules")
                     .action(ArgAction::SetTrue)
                     .help(
-                        "Accept changed --include/--exclude rules and store them after a \
-                         successful sync.",
+                        "Replace the stored include/exclude rules with the rules supplied for \
+                         this sync.",
                     ),
             )
             .arg(output_format_arg()),
