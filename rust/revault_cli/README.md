@@ -136,6 +136,10 @@ reject a different source or changed rules unless `--rebind-host-path` or
 `--update-rules` is explicit. Multiple profiles may coexist, but their logical
 destinations cannot overlap.
 
+Later runs reuse the stored include/exclude rules when no rule options are
+given. Passing different rules requires `--update-rules`; passing
+`--update-rules` without rule options clears them.
+
 The profile is a normal encrypted variable under `/.revault/sync/`. Variable
 listings hide dot-prefixed variables unless `variable list --all` is supplied,
 and exports always omit them. An exact `variable get` can inspect one.

@@ -585,6 +585,10 @@ include/exclude rules need `--update-rules`. Empty sources and
 plans deleting more than half of the destination require `--allow-empty` and
 `--allow-large-delete` respectively.
 
+When a later sync omits `--include` and `--exclude`, it reuses the stored
+rules. Supplying different rules is rejected unless `--update-rules` is also
+given. Use `--update-rules` without rule options to clear all stored rules.
+
 The profile is stored as a normal encrypted variable under
 `/.revault/sync/`. Dot-prefixed variables are omitted from ordinary
 `variable list` output and from every export. Use `variable list --all` to

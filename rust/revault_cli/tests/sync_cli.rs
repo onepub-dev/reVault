@@ -85,6 +85,40 @@ fn sync_adds_replaces_deletes_and_persists_source_identity() {
     success(&initial);
     assert!(String::from_utf8_lossy(&initial.stdout).contains("2 added"));
 
+    let reused_rules = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "sync",
+            "project",
+            "--to",
+            "/project",
+            "--dry-run",
+            "--format",
+            "json",
+        ],
+    );
+    success(&reused_rules);
+    assert!(!String::from_utf8_lossy(&reused_rules.stdout).contains("ignored.tmp"));
+
+    let changed_rules = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "sync",
+            "project",
+            "--to",
+            "/project",
+            "--exclude",
+            "*.bak",
+            "--dry-run",
+        ],
+    );
+    assert!(!changed_rules.status.success());
+    assert!(String::from_utf8_lossy(&changed_rules.stderr).contains("--update-rules"));
+
     let visible_variables = run(
         bin,
         temp.path(),
