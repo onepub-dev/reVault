@@ -2278,7 +2278,7 @@ fn variable_names_and_patterns_are_case_sensitive() {
 #[test]
 fn dot_prefixed_variable_components_round_trip_as_hidden_metadata() {
     let mut lb = Lockbox::create(KEY);
-    let hidden = variable("/.revault/sync/Profile_1");
+    let hidden = variable("/.revault/internal/Profile_1");
     lb.set_variable(&hidden, r#"{"source":"/work/project"}"#)
         .unwrap();
     lb.commit().unwrap();

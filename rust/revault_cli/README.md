@@ -30,9 +30,8 @@ and manages the vault, profiles, contacts and recipient access that make
 sharing possible. It also maintains a local open session so you do not need to
 re-enter keys for every command.
 
-It can also synchronize a host directory into one logical lockbox subtree.
-Synchronization is one-way: the host directory is authoritative, but
-lockbox-only files are deleted only when `--delete` is explicit.
+It can also maintain named, one-way mirror projects between host directories
+and exclusively managed lockbox subtrees.
 
 ```bash
 cargo install revault_cli
@@ -108,49 +107,50 @@ or command-line values. `--interactive` is the safest convenient default;
 To see a secret form field, make that choice explicit with `--secret`, for
 example `lbx project-secrets.lbox form get --secret /services/github password`.
 
-## One-way directory synchronization
+## One-way directory mirrors
 
-Preview the complete plan before changing the lockbox:
-
-```bash
-lbx backup.lbox sync ./project --to /project --delete --dry-run
-```
-
-Apply additions and replacements without deleting lockbox-only files:
+Create a named project, inspect its first update, then apply it:
 
 ```bash
-lbx backup.lbox sync ./project --to /project --force
+lbx backup.lbox mirror project create --from ./project --to /projects/project
+lbx backup.lbox mirror project status
+lbx backup.lbox mirror project update
 ```
 
-Make only `/project` mirror the source, including deletions:
+Creation stores configuration but copies no files. The host is authoritative:
+an update adds and replaces selected files and, by default, removes managed
+files missing from the host. Set `--missing-files retain` when that project
+should preserve archive-only files:
 
 ```bash
-lbx backup.lbox sync ./project --to /project --delete --force
+lbx backup.lbox mirror project configure --missing-files retain
 ```
 
-The archive TOC is the archive-side manifest. The first successful run stores
-an encrypted synchronization profile using the existing archive metadata
-format. It records the canonical absolute source, destination, include/exclude rules,
-symlink policy, and platform directory identity where available. Later runs
-reject a different source or changed rules unless `--rebind-host-path` or
-`--update-rules` is explicit. Multiple profiles may coexist, but their logical
-destinations cannot overlap.
+The archive TOC is the archive-side manifest. The encrypted project record
+stores the canonical host path, lockbox destination, filesystem identity where
+available, rules, and missing-file policy. Multiple projects may coexist, but
+their destinations cannot overlap. Ordinary file commands cannot mutate a
+managed subtree; use the corresponding `mirror NAME add`, `extract`, `cat`,
+`list`, `remove`, or `move` command.
 
-Later runs reuse the stored include/exclude rules when no rule options are
-given. Passing different rules requires `--update-rules`; passing
-`--update-rules` without rule options is rejected. Inspect the stored rules
-with `sync --show-rules --to /destination`, or remove them explicitly with
-`--clear-rules`.
+Configure persistent source-relative rules explicitly:
 
-The profile is a normal encrypted variable under `/.revault/sync/`. Variable
-listings hide dot-prefixed variables unless `variable list --all` is supplied,
-and exports always omit them. An exact `variable get` can inspect one.
+```bash
+lbx backup.lbox mirror project rule add include 'src/**' README.md
+lbx backup.lbox mirror project rule add exclude target/** '*.tmp'
+lbx backup.lbox mirror project rule list
+lbx backup.lbox mirror project rule remove exclude '*.tmp'
+```
 
-Deletion is guarded separately: an empty source needs `--allow-empty`, and a
-plan deleting more than half the destination needs `--allow-large-delete`.
-Excluded entries are protected unless `--delete-excluded` is used. These checks
-reduce accidental wrong-source deletion; they cannot make a compromised source
-directory trustworthy.
+The project is a normal encrypted variable under
+`/.revault/mirrors/PROJECT`. Variable listings hide dot-prefixed variables
+unless `variable list --all` is supplied, and exports always omit them. An
+exact `variable get` can inspect one.
+
+Deletion is guarded separately: an empty selected source needs `--allow-empty`,
+and a plan deleting more than half the managed files needs
+`--allow-large-delete`. These checks reduce accidental wrong-source deletion;
+they cannot make a compromised source directory trustworthy.
 
 ## License
 

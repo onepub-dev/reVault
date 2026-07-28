@@ -45,20 +45,20 @@ faith research and reporting that avoids privacy violations, data destruction,
 service disruption, and access beyond what is necessary to demonstrate the
 issue will not be pursued by the project.
 
-## Synchronization safety
+## Mirror safety
 
-`lbx LOCKBOX sync SOURCE --to DESTINATION` is one-way. A wrong, incomplete, or
-compromised source can replace data, and `--delete` can remove data beneath the
-selected destination. Always inspect `--dry-run` output before destructive
-synchronization.
+`lbx LOCKBOX mirror NAME update` is one-way. A wrong, incomplete, or
+compromised host source can replace or remove files in the project's managed
+lockbox directory. Inspect `mirror NAME status` before a destructive update.
 
-reVault stores the canonical source path and available platform identity in an
-encrypted synchronization profile, rejects source/rule changes by default,
-refuses filesystem roots, and requires overrides for empty sources and
-unusually large deletion plans. Deletion is bounded to the selected logical
-subtree. These controls reduce accidents; they cannot establish that the host
-source itself is benign or uncompromised.
+reVault stores the canonical source path and available filesystem identity in
+an encrypted mirror-project record, refuses filesystem roots, and requires
+explicit overrides for empty selected sources and unusually large deletion
+plans. A project exclusively owns one logical subtree, projects cannot overlap,
+and core mutation APIs reject ordinary writes into those subtrees. These
+controls reduce accidents; they cannot establish that the host source itself is
+benign or uncompromised.
 
-Synchronization profiles use dot-prefixed normal variables in the encrypted
-variable tree. Ordinary variable listings hide them and exports always omit
-them; `variable list --all` and exact `variable get` provide explicit access.
+Mirror records use dot-prefixed normal variables under `/.revault/mirrors/`.
+Ordinary variable listings hide them and exports always omit them;
+`variable list --all` and exact `variable get` provide explicit inspection.

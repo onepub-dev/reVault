@@ -321,6 +321,7 @@ impl<State> Lockbox<State> {
     where
         State: crate::WritableLockboxState,
     {
+        self.ensure_mirror_path_mutable(path)?;
         if data.len() <= SMALL_FILE_PACKING_LIMIT {
             return self.stage_small_file(path, data, permissions, replace);
         }
@@ -401,6 +402,7 @@ impl<State> Lockbox<State> {
     where
         State: crate::WritableLockboxState,
     {
+        self.ensure_mirror_path_mutable(path)?;
         self.write_file_from_reader_with_permissions(path, reader, permissions, replace)
     }
 
@@ -1393,6 +1395,7 @@ impl Lockbox<Writable> {
         options: OpenFileOptions,
     ) -> Result<LockboxFileMut<'_>> {
         let path = path.file_path()?;
+        self.ensure_mirror_path_mutable(&path)?;
         let permissions = validate_permissions(
             options.permissions.unwrap_or(
                 self.toc_entries

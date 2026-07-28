@@ -95,8 +95,10 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
     let temp = TestTempDir::new("completion-paths");
     let vault_dir = temp.path().join("vault");
     fs::write(temp.path().join("secrets.lbox"), b"test").unwrap();
+    fs::write(temp.path().join("README.md"), b"test").unwrap();
     fs::write(temp.path().join("source.txt"), b"test").unwrap();
     fs::create_dir(temp.path().join("source-dir")).unwrap();
+    fs::create_dir(temp.path().join("unrelated-dir")).unwrap();
 
     let target = Command::new(bin)
         .current_dir(temp.path())
@@ -105,13 +107,43 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
         .env("_CLAP_COMPLETE_INDEX", "1")
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
-        .args(["--", "lockbox", "sec"])
+        .args(["--", "lockbox", ""])
         .output()
         .unwrap();
     assert!(target.status.success(), "{target:?}");
     assert!(
         String::from_utf8_lossy(&target.stdout).contains("secrets.lbox"),
         "{target:?}"
+    );
+    let target_stdout = String::from_utf8_lossy(&target.stdout);
+    assert!(target_stdout.contains("create"), "{target:?}");
+    assert!(target_stdout.contains("--help"), "{target:?}");
+    assert!(!target_stdout.contains("README.md"), "{target:?}");
+    assert!(!target_stdout.contains("source.txt"), "{target:?}");
+    assert!(!target_stdout.contains("source-dir"), "{target:?}");
+    assert!(!target_stdout.contains("unrelated-dir"), "{target:?}");
+
+    let after_lockbox = Command::new(bin)
+        .current_dir(temp.path())
+        .env("LOCKBOX_VAULT_DIR", &vault_dir)
+        .env("COMPLETE", "bash")
+        .env("_CLAP_COMPLETE_INDEX", "2")
+        .env("_CLAP_COMPLETE_COMP_TYPE", "9")
+        .env("_CLAP_COMPLETE_SPACE", "true")
+        .args(["--", "lockbox", "secrets.lbox", ""])
+        .output()
+        .unwrap();
+    assert!(after_lockbox.status.success(), "{after_lockbox:?}");
+    let after_lockbox_stdout = String::from_utf8_lossy(&after_lockbox.stdout);
+    assert!(after_lockbox_stdout.contains("add"), "{after_lockbox:?}");
+    assert!(after_lockbox_stdout.contains("--help"), "{after_lockbox:?}");
+    assert!(
+        !after_lockbox_stdout.contains("README.md"),
+        "{after_lockbox:?}"
+    );
+    assert!(
+        !after_lockbox_stdout.contains("source.txt"),
+        "{after_lockbox:?}"
     );
 
     let source = Command::new(bin)
@@ -130,20 +162,20 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
         "{source:?}"
     );
 
-    let sync_source = Command::new(bin)
+    let mirror_action = Command::new(bin)
         .current_dir(temp.path())
         .env("LOCKBOX_VAULT_DIR", &vault_dir)
         .env("COMPLETE", "bash")
         .env("_CLAP_COMPLETE_INDEX", "3")
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
-        .args(["--", "lockbox", "secrets.lbox", "sync", "sou"])
+        .args(["--", "lockbox", "secrets.lbox", "mirror", ""])
         .output()
         .unwrap();
-    assert!(sync_source.status.success(), "{sync_source:?}");
+    assert!(mirror_action.status.success(), "{mirror_action:?}");
     assert!(
-        String::from_utf8_lossy(&sync_source.stdout).contains("source-dir/"),
-        "{sync_source:?}"
+        String::from_utf8_lossy(&mirror_action.stdout).contains("create"),
+        "{mirror_action:?}"
     );
 }
 

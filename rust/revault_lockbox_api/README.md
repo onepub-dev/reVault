@@ -64,10 +64,20 @@ A lockbox is an encrypted archive with structured metadata. It can hold:
 - **Forms**: versioned form definitions plus form records with normal and
   secret fields. This supports structured data such as login records without
   flattening everything into files.
+- **Mirror projects**: encrypted host-to-lockbox project definitions can give
+  one updater exclusive ownership of a subtree. Normal mutation APIs reject
+  managed paths; trusted orchestration uses a project-scoped callback that
+  cannot mutate outside the selected destination.
 - **Key slots**: password and contact key slots can open the same random
   lockbox content key.
 - **Key-directory backups**: higher-level vault code can keep encrypted backup
   copies of key-directory data for recovery flows.
+
+Mirror projects store configuration and enforce ownership; this crate does not
+walk host directories or choose deletion policy overrides. Higher-level code
+calculates a plan from the host and archive TOC, presents any required safety
+confirmation, then applies it through `Lockbox::with_mirror_project_mutation`.
+The CLI provides that complete workflow through `lbx LOCKBOX mirror`.
 
 ## Encryption And Authentication
 

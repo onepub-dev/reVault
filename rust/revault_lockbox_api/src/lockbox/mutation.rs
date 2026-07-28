@@ -16,6 +16,7 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         let path = path.file_path()?;
+        self.ensure_mirror_path_mutable(&path)?;
         if self.live_entry(&path).is_some() {
             return Err(Error::AlreadyExists(path.to_string()));
         }
@@ -49,6 +50,7 @@ impl<State> Lockbox<State> {
         let Some(parent) = path.parent()? else {
             return Ok(());
         };
+        self.ensure_mirror_path_mutable(&parent)?;
         if self.is_dir(&parent) {
             return Ok(());
         }
@@ -64,6 +66,7 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         let path = path.file_path()?;
+        self.ensure_mirror_path_mutable(&path)?;
         let entry = self
             .live_entry(&path)
             .cloned()
@@ -90,6 +93,7 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         let path = path.file_path()?;
+        self.ensure_mirror_path_mutable(&path)?;
         let entry = self
             .live_entry(&path)
             .cloned()
@@ -121,6 +125,7 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         let path = path.file_path()?;
+        self.ensure_mirror_path_mutable(&path)?;
         let permissions = validate_permissions(permissions)?;
         let entry = self
             .toc_entries
@@ -142,6 +147,7 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         let path = path.file_path()?;
+        self.ensure_mirror_path_mutable(&path)?;
         if self.should_discard_file_pages_after_flush()
             && self.pending_small_files.contains_key(path.as_str())
         {
@@ -177,6 +183,8 @@ impl<State> Lockbox<State> {
     {
         let from_path = from.file_path()?;
         let to_path = to.file_path()?;
+        self.ensure_mirror_path_mutable(&from_path)?;
+        self.ensure_mirror_path_mutable(&to_path)?;
         let entry = self
             .live_entry(&from_path)
             .cloned()

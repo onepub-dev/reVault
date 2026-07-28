@@ -96,8 +96,8 @@ pub use list_options::ListOptions;
 pub use lockbox::{
     ContentChunk, ContentStreamOptions, ContentStreamOrder, ImportStats, Lockbox,
     LockboxFileInspection, LockboxFileMut, LockboxFileReader, LockboxInspector, LockboxOpen,
-    LockboxOwnerInspection, LockboxProtection, OpenFileOptions, ReadOnly, RecoveryScanner,
-    VariableValueRef, Writable, WritableLockboxState,
+    LockboxOwnerInspection, LockboxProtection, MirrorMissingFilePolicy, MirrorProject,
+    OpenFileOptions, ReadOnly, RecoveryScanner, VariableValueRef, Writable, WritableLockboxState,
 };
 pub use lockbox_id::LockboxId;
 pub use lockbox_path::LockboxPath;

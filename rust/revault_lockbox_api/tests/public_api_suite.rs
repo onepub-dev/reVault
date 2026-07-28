@@ -7,8 +7,8 @@ use common::{
 use revault_lockbox_api::{
     ContactKeyPair, ContactPublicKey, ContactWrappedKey, ExtractPolicy, ListOptions, Lockbox,
     LockboxId, LockboxKeySlotAlgorithm, LockboxKeySlotProtection, LockboxOpen, LockboxProtection,
-    RecoveryReportOptions, RecoveryScanner, SecretString, SecretVec, VariableValueRef,
-    WorkloadProfile,
+    MirrorMissingFilePolicy, MirrorProject, RecoveryReportOptions, RecoveryScanner, SecretString,
+    SecretVec, VariableValueRef, WorkloadProfile,
 };
 use std::io::Cursor;
 
@@ -558,3 +558,70 @@ fn public_api_plain_open_returns_read_only_and_write_open_requires_signer() {
 }
 
 fn assert_read_only_lockbox(_: &Lockbox<revault_lockbox_api::ReadOnly>) {}
+
+#[test]
+fn public_api_mirror_projects_enforce_exclusive_subtree_ownership() {
+    let mut lockbox = Lockbox::create_in_memory(
+        LockboxProtection::Password(&password("mirror")),
+        &signing_key(),
+    )
+    .unwrap();
+    let project = MirrorProject {
+        name: "docs".to_string(),
+        source: std::env::current_dir()
+            .unwrap()
+            .canonicalize()
+            .unwrap()
+            .display()
+            .to_string(),
+        destination: p("/projects/docs"),
+        includes: vec!["**/*.md".to_string()],
+        excludes: vec!["target/**".to_string()],
+        missing_file_policy: MirrorMissingFilePolicy::Remove,
+        host_identity: Some("test-host".to_string()),
+    };
+
+    lockbox
+        .create_mirror_project(project.clone(), false)
+        .unwrap();
+    assert_eq!(
+        lockbox.list_mirror_projects().unwrap(),
+        vec![project.clone()]
+    );
+    assert_eq!(lockbox.mirror_project("docs").unwrap(), Some(project));
+    let mut moved = lockbox.mirror_project("docs").unwrap().unwrap();
+    moved.destination = p("/other");
+    assert!(lockbox
+        .update_mirror_project(&moved)
+        .unwrap_err()
+        .to_string()
+        .contains("destination cannot be changed"));
+
+    let ordinary = lockbox.add_file(&p("/projects/docs/readme.md"), b"managed", false);
+    assert!(ordinary
+        .unwrap_err()
+        .to_string()
+        .contains("managed by mirror"));
+
+    lockbox
+        .with_mirror_project_mutation("docs", |lockbox, _| {
+            lockbox.create_parent_dirs_for(&p("/projects/docs/readme.md"))?;
+            lockbox.add_file(&p("/projects/docs/readme.md"), b"managed", false)?;
+            assert!(lockbox
+                .add_file(&p("/outside.txt"), b"outside", false)
+                .unwrap_err()
+                .to_string()
+                .contains("outside the selected mirror"));
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(
+        lockbox.get_file(&p("/projects/docs/readme.md")).unwrap(),
+        b"managed"
+    );
+
+    lockbox.forget_mirror_project("docs").unwrap();
+    lockbox
+        .add_file(&p("/projects/docs/manual.md"), b"unmanaged", false)
+        .unwrap();
+}

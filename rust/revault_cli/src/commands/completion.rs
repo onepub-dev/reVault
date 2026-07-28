@@ -1,3 +1,16 @@
+//! Dynamic completion follows these rules:
+//!
+//! - At `lbx <TAB>`, offer commands, global options, and `.lbox` files.
+//! - Never offer unrelated host files or directories as lockboxes.
+//! - Keep relative and nested lockbox path navigation working.
+//! - After a lockbox is selected, offer only valid commands and options.
+//! - Host source arguments complete host filesystem paths.
+//! - Archive destination arguments complete archive directories.
+//! - Archive file arguments complete archive entries.
+//! - Variable and form values are offered only by their respective commands.
+//! - Prefer the selected lockbox for archive values; fall back to all cached
+//!   lockboxes only when the command line does not identify one.
+
 use clap::ArgMatches;
 use clap_complete::engine::CompletionCandidate;
 use revault_lockbox_api::{ListOptions, LockboxPath, SecretString};
@@ -285,6 +298,73 @@ fn candidates(
         .collect()
 }
 
+pub(crate) fn lockbox_path_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    let value = Path::new(current);
+    let (prefix, file_prefix) = match value.file_name() {
+        Some(name)
+            if !current
+                .as_encoded_bytes()
+                .ends_with(std::path::MAIN_SEPARATOR_STR.as_bytes()) =>
+        {
+            (value.parent().unwrap_or_else(|| Path::new("")), name)
+        }
+        _ => (value, OsStr::new("")),
+    };
+    let search_root = if prefix.is_absolute() {
+        prefix.to_path_buf()
+    } else {
+        env::current_dir()
+            .unwrap_or_else(|_| PathBuf::from("."))
+            .join(prefix)
+    };
+    let mut values = fs::read_dir(search_root)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with(&*file_prefix.to_string_lossy())
+        })
+        .filter_map(|entry| {
+            let file_type = entry.file_type().ok()?;
+            if file_type.is_file() && is_lockbox_path(&entry.path()) {
+                return Some(prefix.join(entry.file_name()));
+            }
+            if file_type.is_dir() && directory_contains_lockbox(&entry.path()) {
+                let mut path = prefix.join(entry.file_name());
+                path.push("");
+                return Some(path);
+            }
+            None
+        })
+        .map(|path| CompletionCandidate::new(path.into_os_string()))
+        .collect::<Vec<_>>();
+    values.sort();
+    values
+}
+
+fn is_lockbox_path(path: &Path) -> bool {
+    path.extension() == Some(OsStr::new("lbox"))
+}
+
+fn directory_contains_lockbox(path: &Path) -> bool {
+    fs::read_dir(path)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .any(|entry| {
+            let Ok(file_type) = entry.file_type() else {
+                return false;
+            };
+            (file_type.is_file() && is_lockbox_path(&entry.path()))
+                || (file_type.is_dir() && directory_contains_lockbox(&entry.path()))
+        })
+}
+
 fn read_only_vault() -> Option<ReadOnlyVaultDirectory> {
     let vault_id = default_vault_path().ok()?.to_string_lossy().into_owned();
     let password = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
@@ -329,47 +409,336 @@ pub(crate) fn form_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
     )
 }
 
-/// Returns names and paths from already-cached archives. It never attempts a
-/// password, contact key, vault key, or owner-signing key open.
-pub(crate) fn archive_value_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+#[derive(Clone, Copy)]
+enum ArchiveCandidateKind {
+    Directory,
+    Entry,
+    Form,
+    Variable,
+}
+
+/// Returns values from already-cached archives. It never attempts a password,
+/// contact key, vault key, or owner-signing key open.
+fn cached_archive_candidates(
+    current: &OsStr,
+    kind: ArchiveCandidateKind,
+) -> Vec<CompletionCandidate> {
     let mut values = Vec::new();
-    for cached in list_cached_lockboxes().unwrap_or_default() {
-        let Some(path) = cached.path else {
-            continue;
-        };
+    for path in completion_lockbox_paths() {
         let Ok(lockbox) = local_vault().open_lockbox_read_only(&path) else {
             continue;
         };
-        if let Ok(variables) = lockbox.list_variables() {
-            let reveal_hidden = current
-                .to_str()
-                .is_some_and(|prefix| prefix.starts_with("/.") || prefix.starts_with('.'));
-            values.extend(
-                variables
-                    .into_iter()
-                    .map(|(name, _)| name)
-                    .filter(|name| reveal_hidden || !super::variables::is_hidden_variable(name))
-                    .map(|name| name.to_string()),
-            );
-        }
-        if let Ok(forms) = lockbox.list_form_definitions() {
-            values.extend(forms.into_iter().map(|form| form.alias));
-        }
-        if let Ok(path) = LockboxPath::new("/") {
-            let mut options = ListOptions::new(&path);
-            options.recursive = true;
-            if let Ok(entries) = lockbox.list(options) {
-                values.extend(
-                    entries
-                        .filter_map(Result::ok)
-                        .map(|entry| entry.path.to_string()),
-                );
+        match kind {
+            ArchiveCandidateKind::Variable => {
+                if let Ok(variables) = lockbox.list_variables() {
+                    let reveal_hidden = current
+                        .to_str()
+                        .is_some_and(|prefix| prefix.starts_with("/.") || prefix.starts_with('.'));
+                    values.extend(
+                        variables
+                            .into_iter()
+                            .map(|(name, _)| name)
+                            .filter(|name| {
+                                reveal_hidden || !super::variables::is_hidden_variable(name)
+                            })
+                            .map(|name| name.to_string()),
+                    );
+                }
+            }
+            ArchiveCandidateKind::Form => {
+                if let Ok(forms) = lockbox.list_form_definitions() {
+                    values.extend(forms.into_iter().map(|form| form.alias));
+                }
+                if let Ok(records) = lockbox.list_form_records() {
+                    values.extend(records.into_iter().map(|record| record.path.to_string()));
+                }
+            }
+            ArchiveCandidateKind::Entry | ArchiveCandidateKind::Directory => {
+                if let Ok(path) = LockboxPath::new("/") {
+                    let mut options = ListOptions::new(&path);
+                    options.recursive = true;
+                    if let Ok(entries) = lockbox.list(options) {
+                        for entry in entries.filter_map(Result::ok) {
+                            let entry_path = entry.path.to_string();
+                            if matches!(kind, ArchiveCandidateKind::Entry) {
+                                values.push(entry_path.clone());
+                            }
+                            add_archive_directories(&mut values, &entry_path);
+                        }
+                    }
+                }
             }
         }
     }
     values.sort();
     values.dedup();
     candidates(current, values)
+}
+
+fn completion_lockbox_paths() -> Vec<String> {
+    selected_lockbox_path()
+        .map(|path| vec![path])
+        .unwrap_or_else(|| {
+            list_cached_lockboxes()
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|cached| cached.path)
+                .collect()
+        })
+}
+
+fn selected_lockbox_path() -> Option<String> {
+    let words = completion_words();
+    let first = words.first()?;
+    if is_command_name(first) || first.to_string_lossy().starts_with('-') {
+        return None;
+    }
+    Some(first.to_string_lossy().into_owned())
+}
+
+fn is_command_name(value: &OsStr) -> bool {
+    matches!(
+        value.to_str(),
+        Some(
+            "create"
+                | "open"
+                | "close"
+                | "recover"
+                | "add"
+                | "mirror"
+                | "extract"
+                | "cat"
+                | "list"
+                | "ls"
+                | "remove"
+                | "rm"
+                | "move"
+                | "mv"
+                | "rename"
+                | "variable"
+                | "var"
+                | "variables"
+                | "form"
+                | "session"
+                | "completion"
+                | "migrate"
+                | "doctor"
+                | "vault"
+                | "access"
+                | "visualize"
+                | "visualise"
+                | "keygen"
+                | "open-key"
+        )
+    )
+}
+
+fn add_archive_directories(values: &mut Vec<String>, entry: &str) {
+    let path = Path::new(entry);
+    for parent in path.ancestors().skip(1) {
+        let value = parent.to_string_lossy();
+        if value.is_empty() {
+            continue;
+        }
+        let value = if value == "/" {
+            value.into_owned()
+        } else {
+            format!("{value}/")
+        };
+        values.push(value);
+    }
+}
+
+pub(crate) fn archive_entry_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    cached_archive_candidates(current, ArchiveCandidateKind::Entry)
+}
+
+pub(crate) fn archive_directory_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    cached_archive_candidates(current, ArchiveCandidateKind::Directory)
+}
+
+pub(crate) fn variable_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    cached_archive_candidates(current, ArchiveCandidateKind::Variable)
+}
+
+pub(crate) fn lockbox_form_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    cached_archive_candidates(current, ArchiveCandidateKind::Form)
+}
+
+pub(crate) fn archive_value_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    let words = completion_words();
+    if words
+        .iter()
+        .any(|word| matches!(word.to_str(), Some("variable" | "variables" | "var")))
+    {
+        return variable_candidates(current);
+    }
+    if words.iter().any(|word| word.to_str() == Some("form")) {
+        return lockbox_form_candidates(current);
+    }
+    archive_entry_candidates(current)
+}
+
+pub(crate) fn mirror_project_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    let mut values = Vec::new();
+    for path in completion_lockbox_paths() {
+        let Ok(lockbox) = local_vault().open_lockbox_read_only(&path) else {
+            continue;
+        };
+        if let Ok(projects) = lockbox.list_mirror_projects() {
+            values.extend(projects.into_iter().map(|project| project.name));
+        }
+    }
+    values.sort();
+    values.dedup();
+    candidates(current, values)
+}
+
+pub(crate) fn mirror_entry_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    mirror_path_candidates(current, false)
+}
+
+pub(crate) fn mirror_directory_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    mirror_path_candidates(current, true)
+}
+
+pub(crate) fn mirror_rule_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
+    let words = completion_words();
+    let kind = words
+        .iter()
+        .position(|word| word == "remove" || word == "rm")
+        .and_then(|index| words.get(index + 1))
+        .and_then(|word| word.to_str());
+    let explicit_name = words
+        .iter()
+        .position(|word| word == "mirror")
+        .and_then(|index| words.get(index + 1))
+        .filter(|word| !is_mirror_action(word))
+        .and_then(|word| word.to_str());
+    let mut values = Vec::new();
+    for path in completion_lockbox_paths() {
+        let Ok(lockbox) = local_vault().open_lockbox_read_only(&path) else {
+            continue;
+        };
+        let Ok(projects) = lockbox.list_mirror_projects() else {
+            continue;
+        };
+        let project = explicit_name
+            .and_then(|name| projects.iter().find(|project| project.name == name))
+            .or_else(|| (projects.len() == 1).then(|| &projects[0]));
+        let Some(project) = project else {
+            continue;
+        };
+        values.extend(match kind {
+            Some("include") => project.includes.clone(),
+            Some("exclude") => project.excludes.clone(),
+            _ => project
+                .includes
+                .iter()
+                .chain(&project.excludes)
+                .cloned()
+                .collect(),
+        });
+    }
+    values.sort();
+    values.dedup();
+    candidates(current, values)
+}
+
+fn mirror_path_candidates(current: &OsStr, directories_only: bool) -> Vec<CompletionCandidate> {
+    let words = completion_words();
+    let explicit_name = words
+        .iter()
+        .position(|word| word == "mirror")
+        .and_then(|index| words.get(index + 1))
+        .filter(|word| !is_mirror_action(word))
+        .and_then(|word| word.to_str());
+    let mut values = Vec::new();
+    for path in completion_lockbox_paths() {
+        let Ok(lockbox) = local_vault().open_lockbox_read_only(&path) else {
+            continue;
+        };
+        let Ok(projects) = lockbox.list_mirror_projects() else {
+            continue;
+        };
+        let project = explicit_name
+            .and_then(|name| projects.iter().find(|project| project.name == name))
+            .or_else(|| (projects.len() == 1).then(|| &projects[0]));
+        let Some(project) = project else {
+            continue;
+        };
+        let mut options = ListOptions::new(&project.destination);
+        options.recursive = true;
+        let Ok(entries) = lockbox.list(options) else {
+            continue;
+        };
+        for entry in entries.filter_map(Result::ok) {
+            let relative = entry
+                .path
+                .as_str()
+                .strip_prefix(project.destination.as_str())
+                .unwrap_or(entry.path.as_str())
+                .trim_start_matches('/');
+            if relative.is_empty() {
+                continue;
+            }
+            if !directories_only {
+                values.push(relative.to_string());
+            }
+            add_archive_directories(&mut values, &format!("/{relative}"));
+        }
+    }
+    values = values
+        .into_iter()
+        .map(|value| value.trim_start_matches('/').to_string())
+        .collect();
+    values.sort();
+    values.dedup();
+    candidates(current, values)
+}
+
+fn is_mirror_action(value: &OsStr) -> bool {
+    matches!(
+        value.to_str(),
+        Some(
+            "create"
+                | "projects"
+                | "info"
+                | "status"
+                | "update"
+                | "configure"
+                | "rebind"
+                | "forget"
+                | "delete"
+                | "rule"
+                | "rules"
+                | "add"
+                | "extract"
+                | "cat"
+                | "list"
+                | "ls"
+                | "remove"
+                | "rm"
+                | "move"
+                | "mv"
+                | "rename"
+        )
+    )
+}
+
+fn completion_words() -> Vec<std::ffi::OsString> {
+    let mut words = env::args_os().skip(1).collect::<Vec<_>>();
+    while words.first().is_some_and(|word| word == "--") {
+        words.remove(0);
+    }
+    if words
+        .first()
+        .and_then(|word| Path::new(word).file_stem())
+        .is_some_and(|word| word == "lockbox" || word == "lbx")
+    {
+        words.remove(0);
+    }
+    words
 }
 
 #[cfg(test)]

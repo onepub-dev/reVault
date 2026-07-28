@@ -28,6 +28,7 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         let path = path.file_path()?;
+        self.ensure_mirror_path_mutable(&path)?;
         let target = target.file_path()?;
         self.ensure_parent_directory(&path)?;
         self.validate_replace_intent(&path, replace)?;

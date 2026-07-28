@@ -553,48 +553,56 @@ When the lockbox header is intact but embedded key-directory copies are damaged,
 
 ## Safety Summary
 
-### Synchronize a host directory safely
+### Mirror a host directory safely
 
-`sync` maps the contents of a host directory directly below one logical
-lockbox directory:
-
-```bash
-lbx backup.lbox sync ./project --to /project --dry-run
-lbx backup.lbox sync ./project --to /project --force
-```
-
-New files are added, changed files are replaced using content-hash comparison,
-and unchanged files are skipped. Lockbox-only files are preserved unless
-`--delete` is supplied:
+A mirror project is a persistent, one-way relationship between one host
+directory and one exclusively managed lockbox directory. Creating a project
+records the relationship but does not copy files:
 
 ```bash
-lbx backup.lbox sync ./project --to /project --delete --dry-run
-lbx backup.lbox sync ./project --to /project --delete --force
+lbx backup.lbox mirror project create --from ./project --to /projects/project
+lbx backup.lbox mirror project status
+lbx backup.lbox mirror project update
 ```
 
-Use repeatable source-relative inclusion and exclusion rules such as
-`--include 'src/**'`, `--exclude .git/`, and `--exclude '*.tmp'`. Ordinary
-deletion protects filtered entries;
-`--delete-excluded` explicitly removes them.
+`status` is the only preview operation. `update` recalculates the plan before
+applying it, adds new files, replaces changed files, and by default removes
+managed files that are missing or excluded on the host. Use
+`mirror project configure --missing-files retain` when archive-only files
+should survive an update.
 
-The first successful run stores an encrypted profile containing the canonical
-source path, destination, rules, symlink policy, stable profile id, and a
-filesystem directory identity when available. On Unix this is the device and
-inode pair. A moved or replaced source needs `--rebind-host-path`; changed
-include/exclude rules need `--update-rules`. Empty sources and
-plans deleting more than half of the destination require `--allow-empty` and
-`--allow-large-delete` respectively.
+Rules belong to the project and travel inside the encrypted lockbox:
 
-When a later sync omits `--include` and `--exclude`, it reuses the stored
-rules. Supplying different rules is rejected unless `--update-rules` is also
-given. Inspect them with `sync --show-rules --to /destination`. An
-`--update-rules` invocation without rule arguments is rejected; use the
-explicit `--clear-rules` option to remove every stored rule.
+```bash
+lbx backup.lbox mirror project rule add include 'src/**' README.md
+lbx backup.lbox mirror project rule add exclude '*.tmp' target/**
+lbx backup.lbox mirror project rule list
+lbx backup.lbox mirror project rule remove exclude '*.tmp'
+```
 
-The profile is stored as a normal encrypted variable under
-`/.revault/sync/`. Dot-prefixed variables are omitted from ordinary
-`variable list` output and from every export. Use `variable list --all` to
-show their names and exact `variable get` to inspect a selected value.
+An empty include list selects everything. Include and exclude patterns are
+source-relative globs; exclusions win. Ordinary recursive `add` accepts the
+same `--include` and `--exclude` syntax, but those command-line filters are
+temporary and are not stored.
+
+Each project owns its complete destination subtree. Destinations cannot overlap,
+and a project at `/` prevents any other project. Ordinary file commands cannot
+change a managed subtree; use the project-scoped `mirror NAME add`, `extract`,
+`cat`, `list`, `remove`, or `move` forms instead. Those commands use the same
+options as their ordinary file-command counterparts. `forget` removes only the
+project definition and leaves its files in place; `delete` removes both.
+
+The source is stored as a canonical absolute host path together with a
+filesystem identity where the platform provides one (for example, the Unix
+device and inode). If the directory moves or is replaced, explicitly accept the
+new identity with `mirror NAME rebind --from HOST_DIRECTORY`. Empty selected
+sources and plans that remove more than half the managed files require
+`--allow-empty` and `--allow-large-delete`.
+
+Project definitions are encrypted normal variables under
+`/.revault/mirrors/NAME`. Dot-prefixed variables are hidden from ordinary
+variable listings and all exports. Use `variable list --all` and an exact
+`variable get` when low-level inspection is necessary.
 
 The CLI should reject or fail closed on:
 

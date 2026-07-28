@@ -114,6 +114,25 @@ Open it for normal commands:
 lockbox secrets.lbox open
 ```
 
+### Persistent directory mirrors
+
+A mirror project records a one-way relationship between a host directory and
+an exclusively managed directory inside the lockbox. The project definition,
+including its include and exclude rules, is encrypted inside the lockbox and
+travels with it.
+
+```bash
+lbx secrets.lbox mirror source create --from ./src --to /projects/source
+lbx secrets.lbox mirror source rule add exclude target/** '*.tmp'
+lbx secrets.lbox mirror source status
+lbx secrets.lbox mirror source update
+```
+
+`status` previews the complete plan; `update` recalculates and applies it.
+Multiple projects can coexist when their destination directories do not
+overlap. See the [CLI guide](docs/cli_how_to.md#mirror-a-host-directory-safely)
+for ownership, deletion, rule, and safety details.
+
 The open is cached in a per-user in-memory agent which will automatically close
 it after about 30mins.  Lock it when you are done:
 
