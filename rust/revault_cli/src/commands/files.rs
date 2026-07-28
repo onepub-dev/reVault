@@ -1,4 +1,5 @@
 use super::context::{cli_error, open_existing, open_or_create, require_arg, Access, CliResult};
+use super::filters::{excluded, included, normalize as normalize_rules};
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use super::{
     default_lockbox_for_add, default_lockbox_for_command, optional_lockbox_positionals,
@@ -66,6 +67,8 @@ struct AddRequest {
     lockbox_path: String,
     sources: Vec<AddSource>,
     overwrite: bool,
+    includes: Vec<String>,
+    excludes: Vec<String>,
 }
 
 struct AddSource {
@@ -107,10 +110,26 @@ fn add_request_from_matches(matches: &ArgMatches) -> CliResult<AddRequest> {
     let recursive = matches.get_flag("recursive");
     let destination = matches.get_one::<String>("to").map(String::as_str);
     let sources = prepare_add_sources(&source_values, destination, recursive)?;
+    let mut includes = matches
+        .get_many::<String>("include")
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>();
+    let mut excludes = matches
+        .get_many::<String>("exclude")
+        .into_iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>();
+    normalize_rules(&mut includes);
+    normalize_rules(&mut excludes);
     Ok(AddRequest {
         lockbox_path,
         sources,
         overwrite: matches.get_flag("overwrite"),
+        includes,
+        excludes,
     })
 }
 
@@ -252,11 +271,20 @@ fn add(request: AddRequest, access: &Access, worker_policy: WorkerPolicy) -> Cli
     let add_result: CliResult<AddOutcome> = (|| {
         let mut outcome = AddOutcome::default();
         for source in &request.sources {
+            let source_name = source_file_name(&source.path)?;
+            if source.path.is_file()
+                && (!included(source_name, &request.includes)
+                    || excluded(source_name, &request.excludes))
+            {
+                continue;
+            }
             outcome.merge(add_source_path(
                 &mut lb,
                 &source.path,
                 source.destination.as_str(),
                 request.overwrite,
+                &request.includes,
+                &request.excludes,
                 &mut progress,
             )?);
         }
@@ -372,7 +400,7 @@ fn contains_glob(value: &str) -> bool {
     value.contains('*') || value.contains('?')
 }
 
-fn direct_listing_rows(lb: &Lockbox, path: &LockboxPath) -> CliResult<Vec<Vec<String>>> {
+pub(crate) fn direct_listing_rows(lb: &Lockbox, path: &LockboxPath) -> CliResult<Vec<Vec<String>>> {
     if let Some(entry) = lb.stat(path) {
         if entry.kind != revault_lockbox_api::LockboxEntryKind::Directory {
             return Ok(vec![vec![
@@ -586,6 +614,8 @@ fn add_source_path(
     source: &Path,
     lockbox_root: &str,
     overwrite: bool,
+    includes: &[String],
+    excludes: &[String],
     progress: &mut AddProgress,
 ) -> CliResult<AddOutcome> {
     let lockbox_root = LockboxPath::new(lockbox_root)?;
@@ -602,44 +632,62 @@ fn add_source_path(
         if lockbox_root.as_str() != "/" {
             create_lockbox_dir_if_missing(lockbox, &lockbox_root, true)?;
         }
-        return add_directory(lockbox, source, source, &lockbox_root, overwrite, progress);
+        let options = AddDirectoryOptions {
+            root: source,
+            lockbox_root: &lockbox_root,
+            overwrite,
+            includes,
+            excludes,
+        };
+        return add_directory(lockbox, source, &options, progress);
     }
     Err(Error::UnsupportedHostPath(source.display().to_string()).into())
 }
 
+struct AddDirectoryOptions<'a> {
+    root: &'a Path,
+    lockbox_root: &'a LockboxPath,
+    overwrite: bool,
+    includes: &'a [String],
+    excludes: &'a [String],
+}
+
 fn add_directory(
     lockbox: &mut Lockbox,
-    root: &Path,
     current: &Path,
-    lockbox_root: &LockboxPath,
-    overwrite: bool,
+    options: &AddDirectoryOptions<'_>,
     progress: &mut AddProgress,
 ) -> CliResult<AddOutcome> {
     let mut outcome = AddOutcome::default();
     for entry in fs::read_dir(current)? {
         let entry = entry?;
         let path = entry.path();
+        let relative = path.strip_prefix(options.root)?;
+        let relative_rule = relative
+            .components()
+            .map(|component| component.as_os_str().to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("/");
+        if excluded(&relative_rule, options.excludes) {
+            continue;
+        }
         let file_type = entry.file_type()?;
         if file_type.is_dir() {
             progress.record(&path)?;
-            let relative = path.strip_prefix(root)?;
-            let lockbox_path = join_lockbox_path(lockbox_root, relative)?;
-            create_lockbox_dir_if_missing(lockbox, &lockbox_path, true)?;
-            outcome.merge(add_directory(
-                lockbox,
-                root,
-                &path,
-                lockbox_root,
-                overwrite,
-                progress,
-            )?);
+            if options.includes.is_empty() {
+                let lockbox_path = join_lockbox_path(options.lockbox_root, relative)?;
+                create_lockbox_dir_if_missing(lockbox, &lockbox_path, true)?;
+            }
+            outcome.merge(add_directory(lockbox, &path, options, progress)?);
         } else if file_type.is_file() {
-            let relative = path.strip_prefix(root)?;
-            let lockbox_path = join_lockbox_path(lockbox_root, relative)?;
+            if !included(&relative_rule, options.includes) {
+                continue;
+            }
+            let lockbox_path = join_lockbox_path(options.lockbox_root, relative)?;
             let replaced = lockbox.stat(&lockbox_path).is_some();
             progress.record(&path)?;
             lockbox.create_parent_dirs_for(&lockbox_path)?;
-            lockbox.add_file_from_path(&path, &lockbox_path, overwrite)?;
+            lockbox.add_file_from_path(&path, &lockbox_path, options.overwrite)?;
             outcome.record_file(replaced);
         }
     }

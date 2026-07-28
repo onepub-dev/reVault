@@ -2,11 +2,13 @@
 
 ## Unreleased
 
-- Added one-way `sync` from a host directory into a selected lockbox subtree,
-  with content-hash comparison, encrypted source profiles, dry-run/JSON plans,
-  explicit deletion, exclusion rules, source rebinding, and empty/large-delete
-  safeguards. This reuses existing encrypted variable records and does not
-  change the lockbox format version.
+- Added persistent named `mirror` projects for one-way host-directory updates.
+  Projects own non-overlapping lockbox subtrees, store portable include/exclude
+  rules and missing-file policy inside the encrypted archive, use `status` as
+  the sole preview, and provide scoped variants of every file command. Empty
+  sources and large deletion plans retain explicit safeguards. This reuses
+  existing encrypted variable records and does not change the lockbox format
+  version.
 - Top-level help now prints the installed CLI version.
 - Corrected `variable move` usage to show one optional lockbox followed by one
   source and destination.

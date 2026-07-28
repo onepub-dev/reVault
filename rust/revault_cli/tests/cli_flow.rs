@@ -72,12 +72,10 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let add_verbose_help = String::from_utf8_lossy(&add_verbose_help.stdout);
     assert!(add_verbose_help.contains("--jobs <auto|1|N>"));
 
-    let sync_help = run_output(bin, &["sync", "--help"]);
-    assert_success(&sync_help);
-    let sync_help = String::from_utf8_lossy(&sync_help.stdout);
-    assert!(
-        sync_help.contains("Usage: lockbox [LOCKBOX] sync [OPTIONS] --to <LOCKBOX_PATH> <SOURCE>")
-    );
+    let mirror_help = run_output(bin, &["mirror", "--help"]);
+    assert_success(&mirror_help);
+    let mirror_help = String::from_utf8_lossy(&mirror_help.stdout);
+    assert!(mirror_help.contains("Usage: lockbox mirror [OPTIONS] [NAME] <COMMAND>"));
     assert!(add_verbose_help.contains("--key <RAW_CONTENT_KEY>"));
     assert!(add_verbose_help.contains("Context:"));
     assert!(add_verbose_help.contains("Pass --recursive for a directory source"));
@@ -2597,6 +2595,7 @@ fn add_can_default_destination_and_list_recursively() {
     fs::create_dir_all(&source_dir).unwrap();
     fs::write(source_dir.join("one.txt"), "one").unwrap();
     fs::write(source_dir.join("two.txt"), "two").unwrap();
+    fs::write(source_dir.join("ignored.tmp"), "ignored").unwrap();
 
     let first_add = run_output(
         bin,
@@ -2692,6 +2691,8 @@ fn add_can_default_destination_and_list_recursively() {
             source_dir.to_str().unwrap(),
             "--to",
             "/copy",
+            "--exclude",
+            "*.tmp",
         ],
     );
     let progress_vault_root = unique_dir().join("vault");
@@ -2704,6 +2705,8 @@ fn add_can_default_destination_and_list_recursively() {
             source_dir.to_str().unwrap(),
             "--to",
             "/progress",
+            "--exclude",
+            "*.tmp",
         ])
         .env("LOCKBOX_KEY", "test-key")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
@@ -2735,6 +2738,7 @@ fn add_can_default_destination_and_list_recursively() {
 
     let recursive = run_output(bin, &["ls", "--recursive", lockbox.to_str().unwrap()]);
     assert_success(&recursive);
+    assert!(!String::from_utf8_lossy(&recursive.stdout).contains("/copy/ignored.tmp"));
     let recursive = String::from_utf8_lossy(&recursive.stdout);
     assert!(recursive.contains("/alpha.txt"));
     assert!(recursive.contains("/some/path/alpha.txt"));

@@ -3,14 +3,15 @@ mod context;
 mod doctor;
 mod error_output;
 mod files;
+mod filters;
 mod form;
 mod help;
 mod keys;
 mod migrate;
+mod mirror;
 mod output;
 mod recovery;
 mod session;
-mod sync;
 mod variables;
 mod vault;
 mod visualize;
@@ -98,7 +99,7 @@ pub(crate) fn run() -> CliResult<()> {
             &access,
             read_worker_policy(command_matches)?,
         )?,
-        "sync" => sync::run_matches(command_matches, &access)?,
+        "mirror" => mirror::run_matches(command_matches, &access)?,
         "extract" => files::extract_matches(command_matches, &access)?,
         "cat" => files::cat_matches(command_matches, &access)?,
         "list" => files::list_matches(command_matches, &access)?,
@@ -122,7 +123,7 @@ fn command_accepts_lockbox(command: &str) -> bool {
             | "close"
             | "recover"
             | "add"
-            | "sync"
+            | "mirror"
             | "extract"
             | "cat"
             | "list"
@@ -178,7 +179,7 @@ fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
     match command {
         "open" => Some(SecretActivityKind::Open),
         "close" => Some(SecretActivityKind::Close),
-        "add" | "sync" | "extract" | "cat" | "list" | "remove" | "move" | "visualize" => {
+        "add" | "mirror" | "extract" | "cat" | "list" | "remove" | "move" | "visualize" => {
             Some(SecretActivityKind::Open)
         }
         "variable" => Some(SecretActivityKind::Variables),

@@ -31,7 +31,7 @@ pub(crate) fn command(verbose: bool) -> Command {
             Arg::new("command-lockbox")
                 .value_name("LOCKBOX")
                 .required(false)
-                .value_hint(ValueHint::FilePath)
+                .add(ArgValueCompleter::new(completion::lockbox_path_candidates))
                 .help("Lockbox for the command. Defaults to the session default lockbox."),
         )
         .arg(
@@ -174,7 +174,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                     Arg::new("to")
                         .long("to")
                         .value_name("LOCKBOX_PATH")
-                        .add(ArgValueCompleter::new(completion::archive_value_candidates))
+                        .add(ArgValueCompleter::new(completion::archive_directory_candidates))
                         .help("Logical destination. End with / when adding multiple sources."),
                 )
                 .arg(
@@ -183,6 +183,8 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .action(ArgAction::SetTrue)
                         .help("Replace mapped files that already exist in the lockbox."),
                 )
+                .arg(filter_arg("include"))
+                .arg(filter_arg("exclude"))
                 .arg(
                     Arg::new("sources")
                         .value_name("SOURCE")
@@ -192,143 +194,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_hint(ValueHint::AnyPath)
                         .help("One or more host files, or one directory with --recursive."),
                 ),
-            file_command(
-                "sync",
-                "Synchronize a host directory into a lockbox directory.",
-            )
-            .override_usage(
-                "lockbox [LOCKBOX] sync [OPTIONS] --to <LOCKBOX_PATH> <SOURCE>\n       \
-                 lockbox [LOCKBOX] sync --show-rules --to <LOCKBOX_PATH>",
-            )
-            .after_help(verbose_help(
-                verbose,
-                "Examples:\n  lockbox backup.lbox sync ./project --to /project --dry-run\n  lockbox backup.lbox sync ./project --to /project --force\n  lockbox backup.lbox sync ./project --to /project --delete --force\n  lockbox backup.lbox sync ./project --to /project --exclude .git/ --exclude '*.tmp'",
-                "Context:\n  Sync is one-way: the host source is authoritative for the selected lockbox subtree. New files are added, changed files are replaced, and unchanged files are skipped. TOC-only files are preserved unless --delete is explicit. The first successful run stores the canonical source identity and rules in encrypted lockbox metadata. Later runs reuse stored rules when no include/exclude options are supplied. Use --show-rules to inspect them, --update-rules with new rule arguments to replace them, or --clear-rules to remove them explicitly. Use --dry-run before destructive runs.",
-            ))
-            .arg(
-                Arg::new("source")
-                    .value_name("SOURCE")
-                    .required_unless_present("show-rules")
-                    .conflicts_with("show-rules")
-                    .value_hint(ValueHint::DirPath)
-                    .help("Host source directory. Relative paths are accepted and canonicalized."),
-            )
-            .arg(
-                Arg::new("to")
-                    .long("to")
-                    .value_name("LOCKBOX_PATH")
-                    .required(true)
-                    .add(ArgValueCompleter::new(completion::archive_value_candidates))
-                    .help("Logical destination root inside the lockbox."),
-            )
-            .arg(
-                Arg::new("show-rules")
-                    .long("show-rules")
-                    .action(ArgAction::SetTrue)
-                    .conflicts_with_all([
-                        "include",
-                        "exclude",
-                        "delete",
-                        "delete-excluded",
-                        "dry-run",
-                        "force",
-                        "allow-empty",
-                        "allow-large-delete",
-                        "rebind-host-path",
-                        "update-rules",
-                        "clear-rules",
-                    ])
-                    .help("Display the stored include/exclude rules without synchronizing."),
-            )
-            .arg(
-                Arg::new("include")
-                    .long("include")
-                    .value_name("PATTERN")
-                    .action(ArgAction::Append)
-                    .help(
-                        "Synchronize only matching source-relative paths or globs. Repeat as \
-                         needed.",
-                    ),
-            )
-            .arg(
-                Arg::new("exclude")
-                    .long("exclude")
-                    .value_name("PATTERN")
-                    .action(ArgAction::Append)
-                    .help("Exclude a source-relative path or glob. Repeat as needed."),
-            )
-            .arg(
-                Arg::new("delete")
-                    .long("delete")
-                    .action(ArgAction::SetTrue)
-                    .help("Remove archive files that are absent from the host source directory."),
-            )
-            .arg(
-                Arg::new("delete-excluded")
-                    .long("delete-excluded")
-                    .action(ArgAction::SetTrue)
-                    .help("Also remove excluded files from the archive. Implies --delete."),
-            )
-            .arg(
-                Arg::new("dry-run")
-                    .long("dry-run")
-                    .action(ArgAction::SetTrue)
-                    .help("Print the complete plan without modifying the lockbox."),
-            )
-            .arg(
-                Arg::new("force")
-                    .long("force")
-                    .action(ArgAction::SetTrue)
-                    .help(
-                        "Apply changes without prompting after source identity and deletion \
-                         safety checks pass.",
-                    ),
-            )
-            .arg(
-                Arg::new("allow-empty")
-                    .long("allow-empty")
-                    .action(ArgAction::SetTrue)
-                    .help(
-                        "Allow an empty host directory to delete archive files when --delete is \
-                         set.",
-                    ),
-            )
-            .arg(
-                Arg::new("allow-large-delete")
-                    .long("allow-large-delete")
-                    .action(ArgAction::SetTrue)
-                    .help(
-                        "Allow deletion of more than half the files in the synchronized archive \
-                         directory.",
-                    ),
-            )
-            .arg(
-                Arg::new("rebind-host-path")
-                    .long("rebind-host-path")
-                    .action(ArgAction::SetTrue)
-                    .help(
-                        "Accept and store a changed host path or filesystem directory identity. \
-                         On Unix, identity is the device and inode pair.",
-                    ),
-            )
-            .arg(
-                Arg::new("update-rules")
-                    .long("update-rules")
-                    .action(ArgAction::SetTrue)
-                    .conflicts_with("clear-rules")
-                    .help(
-                        "Replace the stored include/exclude rules with the rules supplied for \
-                         this sync.",
-                    ),
-            )
-            .arg(
-                Arg::new("clear-rules")
-                    .long("clear-rules")
-                    .action(ArgAction::SetTrue)
-                    .conflicts_with_all(["include", "exclude", "update-rules"])
-                    .help("Explicitly remove all stored include/exclude rules after this sync."),
-            )
-            .arg(output_format_arg()),
+            mirror_command(verbose),
             file_command("extract", "Extract files from a lockbox.")
                 .after_help(verbose_help(
                     verbose,
@@ -511,7 +377,7 @@ Archives
 
 Files
   add             Add a file or directory to a lockbox.
-  sync            Synchronize a host directory into a lockbox directory.
+  mirror          Manage persistent host-directory mirror projects.
   extract         Extract files from a lockbox.
   cat             Write a stored file to stdout.
   list            List stored entries.
@@ -581,6 +447,312 @@ fn archive_command(name: &'static str, about: &'static str) -> Command {
 
 fn file_command(name: &'static str, about: &'static str) -> Command {
     base_command(name, about)
+}
+
+fn mirror_command(verbose: bool) -> Command {
+    file_command(
+        "mirror",
+        "Manage named host-to-lockbox directory mirrors.",
+    )
+    .subcommand_required(true)
+    .arg_required_else_help(true)
+    .subcommand_precedence_over_arg(true)
+    .arg(
+        Arg::new("project")
+            .value_name("NAME")
+            .required(false)
+            .add(ArgValueCompleter::new(completion::mirror_project_candidates))
+            .help("Mirror project name. Omit when exactly one project exists."),
+    )
+    .subcommands([
+        Command::new("create")
+            .about("Create a mirror project without importing files.")
+            .arg(
+                Arg::new("from")
+                    .long("from")
+                    .value_name("HOST_DIRECTORY")
+                    .required(true)
+                    .value_hint(ValueHint::DirPath),
+            )
+            .arg(
+                Arg::new("to")
+                    .long("to")
+                    .value_name("LOCKBOX_DIRECTORY")
+                    .required(true)
+                    .add(ArgValueCompleter::new(completion::archive_directory_candidates)),
+            )
+            .arg(
+                Arg::new("adopt")
+                    .long("adopt")
+                    .action(ArgAction::SetTrue)
+                    .help("Allow the project to take ownership of an existing non-empty directory."),
+            ),
+        Command::new("projects")
+            .about("List configured mirror projects.")
+            .arg(output_format_arg()),
+        Command::new("info")
+            .about("Show one mirror project's configuration.")
+            .arg(output_format_arg()),
+        Command::new("status")
+            .about("Calculate the complete update plan without changing the lockbox.")
+            .arg(output_format_arg()),
+        Command::new("update")
+            .about("Update the managed directory from its configured host source.")
+            .arg(
+                Arg::new("force")
+                    .long("force")
+                    .action(ArgAction::SetTrue)
+                    .help("Apply without prompting after safety checks pass."),
+            )
+            .arg(
+                Arg::new("allow-empty")
+                    .long("allow-empty")
+                    .action(ArgAction::SetTrue)
+                    .help("Allow an empty selected source set to remove managed files."),
+            )
+            .arg(
+                Arg::new("allow-large-delete")
+                    .long("allow-large-delete")
+                    .action(ArgAction::SetTrue)
+                    .help("Allow removal of more than half the managed files."),
+            ),
+        Command::new("configure")
+            .about("Change persistent mirror behaviour.")
+            .arg(
+                Arg::new("missing-files")
+                    .long("missing-files")
+                    .value_name("remove|retain")
+                    .required(true)
+                    .value_parser(["remove", "retain"])
+                    .help(
+                        "Choose whether updates remove or retain archive files absent from the selected host content.",
+                    ),
+            ),
+        Command::new("rebind")
+            .about("Bind the project to a moved or replaced host directory.")
+            .arg(
+                Arg::new("from")
+                    .long("from")
+                    .value_name("HOST_DIRECTORY")
+                    .required(true)
+                    .value_hint(ValueHint::DirPath),
+            )
+            .arg(
+                Arg::new("force")
+                    .long("force")
+                    .action(ArgAction::SetTrue)
+                    .help("Rebind without prompting."),
+            ),
+        Command::new("forget")
+            .about("Remove project metadata while retaining its files.")
+            .arg(
+                Arg::new("force")
+                    .long("force")
+                    .action(ArgAction::SetTrue)
+                    .help("Forget without prompting."),
+            ),
+        Command::new("delete")
+            .about("Delete the project and its complete managed directory.")
+            .arg(
+                Arg::new("force")
+                    .long("force")
+                    .action(ArgAction::SetTrue)
+                    .help("Delete without prompting."),
+            ),
+        mirror_rule_command(),
+        mirror_add_command(verbose),
+        mirror_extract_command(),
+        Command::new("cat")
+            .about("Write a project file to stdout.")
+            .arg(
+                required("path", "Project-relative stored file path.")
+                    .add(ArgValueCompleter::new(completion::mirror_entry_candidates)),
+            ),
+        Command::new("list")
+            .visible_alias("ls")
+            .about("List project entries.")
+            .arg(output_format_arg())
+            .arg(
+                Arg::new("recursive")
+                    .short('R')
+                    .long("recursive")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                optional("path", "Optional project-relative path or glob.")
+                    .add(ArgValueCompleter::new(completion::mirror_entry_candidates)),
+            ),
+        Command::new("remove")
+            .visible_alias("rm")
+            .about("Remove project entries.")
+            .arg(
+                Arg::new("force")
+                    .long("force")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("recursive")
+                    .short('r')
+                    .visible_short_alias('R')
+                    .long("recursive")
+                    .action(ArgAction::SetTrue),
+            )
+            .arg(
+                Arg::new("paths")
+                    .value_name("PATH_OR_GLOB")
+                    .num_args(1..)
+                    .action(ArgAction::Append)
+                    .required(true)
+                    .add(ArgValueCompleter::new(completion::mirror_entry_candidates)),
+            ),
+        Command::new("move")
+            .visible_aliases(["mv", "rename"])
+            .about("Move or rename a project entry.")
+            .arg(
+                required("from", "Project-relative source path.")
+                    .add(ArgValueCompleter::new(completion::mirror_entry_candidates)),
+            )
+            .arg(
+                required("to", "Project-relative destination path.")
+                    .add(ArgValueCompleter::new(completion::mirror_directory_candidates)),
+            ),
+    ])
+    .after_help(verbose_help(
+        verbose,
+        "Examples:\n  lockbox store.lbox mirror project create --from ./project --to /projects/project\n  lockbox store.lbox mirror project status\n  lockbox store.lbox mirror project update\n  lockbox store.lbox mirror project rule add exclude '*.tmp'",
+        "Context:\n  A mirror project exclusively owns one lockbox directory. Status is the only preview operation; update applies the freshly calculated plan.",
+    ))
+}
+
+fn mirror_rule_command() -> Command {
+    Command::new("rule")
+        .visible_alias("rules")
+        .about("List or change persistent mirror selection rules.")
+        .subcommand_required(true)
+        .arg_required_else_help(true)
+        .subcommands([
+            Command::new("list")
+                .arg(
+                    Arg::new("kind")
+                        .value_name("include|exclude")
+                        .value_parser(["include", "exclude"]),
+                )
+                .arg(output_format_arg()),
+            Command::new("add")
+                .arg(required_rule_kind())
+                .arg(rule_patterns()),
+            Command::new("remove")
+                .visible_alias("rm")
+                .arg(required_rule_kind())
+                .arg(
+                    rule_patterns().add(ArgValueCompleter::new(completion::mirror_rule_candidates)),
+                ),
+            Command::new("clear").arg(
+                Arg::new("kind")
+                    .value_name("include|exclude|all")
+                    .required(true)
+                    .value_parser(["include", "exclude", "all"]),
+            ),
+        ])
+}
+
+fn required_rule_kind() -> Arg {
+    Arg::new("kind")
+        .value_name("include|exclude")
+        .required(true)
+        .value_parser(["include", "exclude"])
+}
+
+fn rule_patterns() -> Arg {
+    Arg::new("patterns")
+        .value_name("PATTERN")
+        .num_args(1..)
+        .action(ArgAction::Append)
+        .required(true)
+}
+
+fn mirror_add_command(verbose: bool) -> Command {
+    Command::new("add")
+        .about("Add host files within the managed project directory.")
+        .arg(
+            Arg::new("recursive")
+                .short('r')
+                .long("recursive")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("jobs")
+                .long("jobs")
+                .value_name("auto|1|N")
+                .hide(!verbose),
+        )
+        .arg(
+            Arg::new("to")
+                .long("to")
+                .value_name("PROJECT_PATH")
+                .add(ArgValueCompleter::new(
+                    completion::mirror_directory_candidates,
+                )),
+        )
+        .arg(
+            Arg::new("overwrite")
+                .long("overwrite")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(filter_arg("include"))
+        .arg(filter_arg("exclude"))
+        .arg(
+            Arg::new("sources")
+                .value_name("SOURCE")
+                .num_args(1..)
+                .action(ArgAction::Append)
+                .required(true)
+                .value_hint(ValueHint::AnyPath),
+        )
+}
+
+fn mirror_extract_command() -> Command {
+    Command::new("extract")
+        .about("Extract project files.")
+        .arg(
+            Arg::new("to")
+                .long("to")
+                .value_name("DESTINATION")
+                .value_hint(ValueHint::DirPath),
+        )
+        .arg(
+            Arg::new("overwrite")
+                .long("overwrite")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("restore-symlinks")
+                .long("restore-symlinks")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("restore-permissions")
+                .long("restore-permissions")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("args")
+                .value_name("PATH DESTINATION")
+                .num_args(0..=2)
+                .action(ArgAction::Append),
+        )
+}
+
+fn filter_arg(name: &'static str) -> Arg {
+    Arg::new(name)
+        .long(name)
+        .value_name("PATTERN")
+        .action(ArgAction::Append)
+        .help(if name == "include" {
+            "Include matching source-relative paths or globs. Repeat as needed."
+        } else {
+            "Exclude matching source-relative paths or globs. Repeat as needed."
+        })
 }
 
 fn sharing_command(name: &'static str, about: &'static str) -> Command {
@@ -1847,8 +2019,9 @@ fn optional(name: &'static str, help: &'static str) -> Arg {
 fn dynamic_completion_arg(arg: Arg, name: &str) -> Arg {
     match name {
         "form" => arg.add(ArgValueCompleter::new(completion::form_candidates)),
-        "lockbox" | "private-key" | "public-key" | "output" | "input" | "backup" | "artifact"
-        | "source" | "destination" => arg.value_hint(ValueHint::AnyPath),
+        "lockbox" => arg.add(ArgValueCompleter::new(completion::lockbox_path_candidates)),
+        "private-key" | "public-key" | "output" | "input" | "backup" | "artifact" | "source"
+        | "destination" => arg.value_hint(ValueHint::AnyPath),
         _ => arg,
     }
 }

@@ -2,6 +2,11 @@
 
 ## 0.0.4
 
+- Added persistent mirror-project metadata and core-enforced exclusive subtree
+  ownership. Ordinary mutation APIs cannot change managed paths; trusted
+  mirror orchestration receives a mutation scope that cannot escape its
+  project destination. The metadata uses existing encrypted variables and does
+  not change the archive format.
 - Variable path components may use a single leading dot for encrypted
   hidden/internal metadata namespaces. The unsafe `.` and `..` components
   remain invalid.

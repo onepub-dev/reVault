@@ -48,6 +48,7 @@ mod files;
 mod forms;
 mod key_management;
 mod listing;
+mod mirrors;
 mod mutation;
 mod recovery;
 mod symlinks;
@@ -60,6 +61,7 @@ pub use files::{
 #[cfg(feature = "vault-integration")]
 pub use key_management::OpenedContentKey;
 pub use key_management::{LockboxOpen, LockboxProtection};
+pub use mirrors::{MirrorMissingFilePolicy, MirrorProject};
 pub use recovery::RecoveryScanner;
 pub use variables::VariableValueRef;
 
@@ -202,6 +204,7 @@ pub struct Lockbox<State = Writable> {
     pending_small_files: BTreeMap<LockboxPath, PendingFileChunk>,
     pending_small_file_bytes: usize,
     pending_symlinks: BTreeMap<LockboxPath, LockboxPath>,
+    mirror_mutation_root: Option<LockboxPath>,
     needs_packing: bool,
     state: PhantomData<State>,
 }
@@ -258,6 +261,7 @@ impl<State> Lockbox<State> {
             pending_small_files: self.pending_small_files.clone(),
             pending_small_file_bytes: self.pending_small_file_bytes,
             pending_symlinks: self.pending_symlinks.clone(),
+            mirror_mutation_root: self.mirror_mutation_root.clone(),
             needs_packing: self.needs_packing,
             state: PhantomData,
         })
@@ -310,6 +314,7 @@ impl<State> Lockbox<State> {
             pending_small_files,
             pending_small_file_bytes,
             pending_symlinks,
+            mirror_mutation_root,
             needs_packing,
             state: _,
         } = self;
@@ -359,6 +364,7 @@ impl<State> Lockbox<State> {
             pending_small_files,
             pending_small_file_bytes,
             pending_symlinks,
+            mirror_mutation_root,
             needs_packing,
             state: PhantomData,
         }
@@ -469,6 +475,7 @@ impl Lockbox<Writable> {
             pending_small_files: BTreeMap::new(),
             pending_small_file_bytes: 0,
             pending_symlinks: BTreeMap::new(),
+            mirror_mutation_root: None,
             needs_packing: false,
             state: PhantomData,
         }
@@ -590,6 +597,7 @@ impl Lockbox<Writable> {
             pending_small_files: BTreeMap::new(),
             pending_small_file_bytes: 0,
             pending_symlinks: BTreeMap::new(),
+            mirror_mutation_root: None,
             needs_packing: false,
             state: PhantomData,
         };
