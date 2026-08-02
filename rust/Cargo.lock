@@ -1952,18 +1952,18 @@ dependencies = [
 
 [[package]]
 name = "oxiarc-core"
-version = "0.2.8"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8c3a93341d720329f503b2743970f11695ac25dc0661ccc94cb43e077545e23a"
+checksum = "77e26a3af1fa3e604e2b6e19be86376f4962779c80567b7c8a90a85a183c95fe"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "oxiarc-zstd"
-version = "0.2.8"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "843bcf00f00acaa23607a0feba6713951889c9d52233971c59f77cab5ccc9a9e"
+checksum = "fde54a890bced6620e220a8a4af19db214430e2f7a659f334bd12c4b3561e0e7"
 dependencies = [
  "oxiarc-core",
 ]
