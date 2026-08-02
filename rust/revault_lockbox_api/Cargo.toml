@@ -40,7 +40,7 @@ getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [dev-dependencies]
 criterion = "0.8.2"
-oxiarc-zstd = "0.2"
+oxiarc-zstd = "0.4"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
