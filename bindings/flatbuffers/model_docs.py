@@ -30,9 +30,44 @@ DESCRIPTIONS = {
     "ErrorDetails": "Structured category, version, guidance, and artifact context for the most recent native failure.",
 }
 
+EXAMPLES = {
+    "LockboxEntry": "final entry = lockbox.stat('/notes.txt');\nif (entry != null) print(entry.length);",
+    "PathMove": "lockbox.moveVariables([\n  PathMove(source: 'old-name', destination: 'new-name'),\n]);",
+    "FormField": "final field = FormField(\n  id: 'password',\n  label: 'Password',\n  kind: 'secret',\n  required: true,\n);",
+    "FormDefinition": "final definition = lockbox.resolveForm('login');\nprint(definition.revision);",
+    "FormValue": "final value = lockbox.getFormField('/alice.form', 'username');\nif (value != null && !value.secret) print(value.value);",
+    "FormRecord": "final record = lockbox.getFormRecord('/alice.form');\nif (record != null) print(record.name);",
+    "RecoveryReport": "final report = lockbox.recoveryReport();\nprint(report.intactFileCount);",
+    "KeySlot": "for (final slot in lockbox.listKeySlots()) {\n  print('${slot.id}: ${slot.protection}');\n}",
+    "CacheStats": "final stats = lockbox.cacheStats();\nprint('${stats.usedBytes}/${stats.limitBytes}');",
+    "ImportStats": "final stats = lockbox.importStats();\nprint(stats.hostReadNanos);",
+    "PageObject": "for (final page in lockbox.pageInspection()) {\n  for (final object in page.objects) print(object.kind);\n}",
+    "PageInspection": "for (final page in lockbox.pageInspection()) {\n  print('${page.pageId}: ${page.unusedBytes} bytes free');\n}",
+    "FileInspection": "final inspection = revault.inspectLockboxFile(path);\nif (!inspection.headerReadable) reportDamagedHeader();",
+    "ProfileGeneration": "final history = vault.listProfileGenerations('alice');\nprint(history.generations.last.status);",
+    "ProfileHistory": "final history = vault.listProfileGenerations('alice');\nprint(history.activeGeneration);",
+    "KnownLockbox": "for (final known in vault.listKnownLockboxes()) {\n  print(known.path);\n}",
+    "AccessSlotLabel": "for (final label in vault.listAccessSlotLabels(lockbox.id)) {\n  print(label.name);\n}",
+    "StreamChunk": "for (final chunk in lockbox.streamContent()) {\n  processRange(chunk.path, chunk.fileOffset, chunk.data);\n}",
+    "RuntimeOptions": "final options = lockbox.runtimeOptions();\nprint(options.workloadProfile);",
+    "Variable": "for (final variable in lockbox.listVariables()) {\n  print('${variable.name}: ${variable.sensitivity}');\n}",
+    "OwnerInspection": "final owner = lockbox.ownerInspection();\nif (owner.signed) print(owner.fingerprint);",
+    "Contact": "for (final contact in vault.listContacts()) {\n  print(contact.name);\n}",
+    "AgentEntry": "for (final entry in agent.listOpenLockboxes()) {\n  print(entry.path);\n}",
+    "SleepSupport": "final support = agent.sleepSupport();\nif (!support.supported) showReducedProtectionWarning();",
+    "PlatformStatus": "final status = Vault.platformCredentialStatus();\nprint(status.backend);",
+    "VaultBackupManifest": "final manifest = Vault.backupDefault(backupPath);\nprint(manifest.vaultSha256);",
+    "ErrorDetails": "on RevaultException catch (error) {\n  final details = error.details;\n  if (details != null) print(details.guidance);\n}",
+}
+
 def description(name: str) -> str:
     """Return the concrete public description for a domain model."""
     return DESCRIPTIONS[name]
+
+
+def example(name: str) -> str:
+    """Return a Dart example showing where a domain model is used."""
+    return EXAMPLES[name]
 
 
 FIELD_DESCRIPTIONS = {

@@ -20,6 +20,12 @@ enum LockboxEntryKind {
 }
 
 /// Metadata for one file, directory, or symbolic link stored at a lockbox path.
+///
+/// Example:
+/// ```dart
+/// final entry = lockbox.stat('/notes.txt');
+/// if (entry != null) print(entry.length);
+/// ```
 final class LockboxEntry {
   final fb.LockboxEntry? _view;
   final String? _path;
@@ -44,6 +50,12 @@ final class LockboxEntry {
       : _view.permissions;
 
   /// Creates a LockboxEntry value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final entry = lockbox.stat('/notes.txt');
+  /// if (entry != null) print(entry.length);
+  /// ```
   LockboxEntry({
     String path = '',
     LockboxEntryKind kind = LockboxEntryKind.unspecified,
@@ -62,6 +74,13 @@ final class LockboxEntry {
 }
 
 /// A source and destination pair used to rename a variable or form record atomically.
+///
+/// Example:
+/// ```dart
+/// lockbox.moveVariables([
+///   PathMove(source: 'old-name', destination: 'new-name'),
+/// ]);
+/// ```
 final class PathMove {
   final fb.PathMove? _view;
   final String? _source;
@@ -76,6 +95,13 @@ final class PathMove {
       : _view.destination ?? '';
 
   /// Creates a PathMove value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// lockbox.moveVariables([
+  ///   PathMove(source: 'old-name', destination: 'new-name'),
+  /// ]);
+  /// ```
   PathMove({String source = '', String destination = ''})
     : _view = null,
       _source = source,
@@ -84,6 +110,16 @@ final class PathMove {
 }
 
 /// One named input in a reusable form definition, including its display label and sensitivity kind.
+///
+/// Example:
+/// ```dart
+/// final field = FormField(
+///   id: 'password',
+///   label: 'Password',
+///   kind: 'secret',
+///   required: true,
+/// );
+/// ```
 final class FormField {
   final fb.FormField? _view;
   final String? _id;
@@ -104,6 +140,16 @@ final class FormField {
   late final bool required = _view == null ? _required! : _view.$required;
 
   /// Creates a FormField value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final field = FormField(
+  ///   id: 'password',
+  ///   label: 'Password',
+  ///   kind: 'secret',
+  ///   required: true,
+  /// );
+  /// ```
   FormField({
     String id = '',
     String label = '',
@@ -122,6 +168,12 @@ final class FormField {
 }
 
 /// A versioned form schema used to validate and label structured records in a lockbox.
+///
+/// Example:
+/// ```dart
+/// final definition = lockbox.resolveForm('login');
+/// print(definition.revision);
+/// ```
 final class FormDefinition {
   final fb.FormDefinition? _view;
   final String? _typeId;
@@ -156,6 +208,12 @@ final class FormDefinition {
         );
 
   /// Creates a FormDefinition value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final definition = lockbox.resolveForm('login');
+  /// print(definition.revision);
+  /// ```
   FormDefinition({
     String typeId = '',
     String alias = '',
@@ -180,6 +238,12 @@ final class FormDefinition {
 }
 
 /// The current value and sensitivity metadata for one field in a stored form record.
+///
+/// Example:
+/// ```dart
+/// final value = lockbox.getFormField('/alice.form', 'username');
+/// if (value != null && !value.secret) print(value.value);
+/// ```
 final class FormValue {
   final fb.FormValue? _view;
   final String? _fieldId;
@@ -204,6 +268,12 @@ final class FormValue {
   late final bool secret = _view == null ? _secret! : _view.secret;
 
   /// Creates a FormValue value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final value = lockbox.getFormField('/alice.form', 'username');
+  /// if (value != null && !value.secret) print(value.value);
+  /// ```
   FormValue({
     String fieldId = '',
     String label = '',
@@ -225,6 +295,12 @@ final class FormValue {
 }
 
 /// A named structured record stored at a lockbox path and tied to a form-definition revision.
+///
+/// Example:
+/// ```dart
+/// final record = lockbox.getFormRecord('/alice.form');
+/// if (record != null) print(record.name);
+/// ```
 final class FormRecord {
   final fb.FormRecord? _view;
   final String? _path;
@@ -261,6 +337,12 @@ final class FormRecord {
         );
 
   /// Creates a FormRecord value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final record = lockbox.getFormRecord('/alice.form');
+  /// if (record != null) print(record.name);
+  /// ```
   FormRecord({
     String path = '',
     String name = '',
@@ -285,6 +367,12 @@ final class FormRecord {
 }
 
 /// The files and metadata recovered, or found damaged, while inspecting or salvaging a lockbox.
+///
+/// Example:
+/// ```dart
+/// final report = lockbox.recoveryReport();
+/// print(report.intactFileCount);
+/// ```
 final class RecoveryReport {
   final fb.RecoveryReport? _view;
   final List<LockboxEntry>? _intactFiles;
@@ -351,6 +439,12 @@ final class RecoveryReport {
       : _view.formRecordCount;
 
   /// Creates a RecoveryReport value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final report = lockbox.recoveryReport();
+  /// print(report.intactFileCount);
+  /// ```
   RecoveryReport({
     List<LockboxEntry> intactFiles = const [],
     int intactFileCount = 0,
@@ -387,6 +481,13 @@ final class RecoveryReport {
 }
 
 /// One password or contact credential that can unlock a lockbox content key.
+///
+/// Example:
+/// ```dart
+/// for (final slot in lockbox.listKeySlots()) {
+///   print('${slot.id}: ${slot.protection}');
+/// }
+/// ```
 final class KeySlot {
   final fb.KeySlot? _view;
   final int? _id;
@@ -407,6 +508,13 @@ final class KeySlot {
       : _view.algorithm ?? '';
 
   /// Creates a KeySlot value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final slot in lockbox.listKeySlots()) {
+  ///   print('${slot.id}: ${slot.protection}');
+  /// }
+  /// ```
   KeySlot({int id = 0, String protection = '', String algorithm = ''})
     : _view = null,
       _id = id,
@@ -416,6 +524,12 @@ final class KeySlot {
 }
 
 /// Current capacity, occupancy, hit, and miss counters for an open lockbox cache.
+///
+/// Example:
+/// ```dart
+/// final stats = lockbox.cacheStats();
+/// print('${stats.usedBytes}/${stats.limitBytes}');
+/// ```
 final class CacheStats {
   final fb.CacheStats? _view;
   final int? _limitBytes;
@@ -440,6 +554,12 @@ final class CacheStats {
   late final int misses = _view == null ? _misses! : _view.misses;
 
   /// Creates a CacheStats value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final stats = lockbox.cacheStats();
+  /// print('${stats.usedBytes}/${stats.limitBytes}');
+  /// ```
   CacheStats({
     int limitBytes = 0,
     int usedBytes = 0,
@@ -461,6 +581,12 @@ final class CacheStats {
 }
 
 /// Time spent reading host files and preparing encrypted pages during the latest import work.
+///
+/// Example:
+/// ```dart
+/// final stats = lockbox.importStats();
+/// print(stats.hostReadNanos);
+/// ```
 final class ImportStats {
   final fb.ImportStats? _view;
   final String? _hostStatNanos;
@@ -489,6 +615,12 @@ final class ImportStats {
       : _view.pageWriteNanos ?? '';
 
   /// Creates a ImportStats value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final stats = lockbox.importStats();
+  /// print(stats.hostReadNanos);
+  /// ```
   ImportStats({
     String hostStatNanos = '',
     String hostReadNanos = '',
@@ -507,6 +639,13 @@ final class ImportStats {
 }
 
 /// One logical object recorded inside an inspected encrypted lockbox page.
+///
+/// Example:
+/// ```dart
+/// for (final page in lockbox.pageInspection()) {
+///   for (final object in page.objects) print(object.kind);
+/// }
+/// ```
 final class PageObject {
   final fb.PageObject? _view;
   final int? _id;
@@ -523,6 +662,13 @@ final class PageObject {
   late final int payloadLen = _view == null ? _payloadLen! : _view.payloadLen;
 
   /// Creates a PageObject value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final page in lockbox.pageInspection()) {
+  ///   for (final object in page.objects) print(object.kind);
+  /// }
+  /// ```
   PageObject({int id = 0, String kind = '', int payloadLen = 0})
     : _view = null,
       _id = id,
@@ -532,6 +678,13 @@ final class PageObject {
 }
 
 /// Layout and utilization details for one encrypted page in a lockbox archive.
+///
+/// Example:
+/// ```dart
+/// for (final page in lockbox.pageInspection()) {
+///   print('${page.pageId}: ${page.unusedBytes} bytes free');
+/// }
+/// ```
 final class PageInspection {
   final fb.PageInspection? _view;
   final int? _offset;
@@ -578,6 +731,13 @@ final class PageInspection {
         );
 
   /// Creates a PageInspection value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final page in lockbox.pageInspection()) {
+  ///   print('${page.pageId}: ${page.unusedBytes} bytes free');
+  /// }
+  /// ```
   PageInspection({
     int offset = 0,
     int pageId = 0,
@@ -608,6 +768,12 @@ final class PageInspection {
 }
 
 /// Header, owner-signature, and key-slot information read from a lockbox file without opening its contents.
+///
+/// Example:
+/// ```dart
+/// final inspection = revault.inspectLockboxFile(path);
+/// if (!inspection.headerReadable) reportDamagedHeader();
+/// ```
 final class FileInspection {
   final fb.FileInspection? _view;
   final Uint8List? _lockboxId;
@@ -650,6 +816,12 @@ final class FileInspection {
         );
 
   /// Creates a FileInspection value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final inspection = revault.inspectLockboxFile(path);
+  /// if (!inspection.headerReadable) reportDamagedHeader();
+  /// ```
   FileInspection({
     required Uint8List lockboxId,
     bool headerReadable = false,
@@ -674,6 +846,12 @@ final class FileInspection {
 }
 
 /// One active or retired generation of the contact keys belonging to a named vault profile.
+///
+/// Example:
+/// ```dart
+/// final history = vault.listProfileGenerations('alice');
+/// print(history.generations.last.status);
+/// ```
 final class ProfileGeneration {
   final fb.ProfileGeneration? _view;
   final int? _index;
@@ -710,6 +888,12 @@ final class ProfileGeneration {
       : _view.hasRetiredAt;
 
   /// Creates a ProfileGeneration value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final history = vault.listProfileGenerations('alice');
+  /// print(history.generations.last.status);
+  /// ```
   ProfileGeneration({
     int index = 0,
     String status = '',
@@ -734,6 +918,12 @@ final class ProfileGeneration {
 }
 
 /// The active generation and rotation history for a named vault profile.
+///
+/// Example:
+/// ```dart
+/// final history = vault.listProfileGenerations('alice');
+/// print(history.activeGeneration);
+/// ```
 final class ProfileHistory {
   final fb.ProfileHistory? _view;
   final String? _name;
@@ -756,6 +946,12 @@ final class ProfileHistory {
         );
 
   /// Creates a ProfileHistory value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final history = vault.listProfileGenerations('alice');
+  /// print(history.activeGeneration);
+  /// ```
   ProfileHistory({
     String name = '',
     int activeGeneration = 0,
@@ -771,6 +967,13 @@ final class ProfileHistory {
 }
 
 /// A lockbox identifier and host path remembered by the local vault for later discovery.
+///
+/// Example:
+/// ```dart
+/// for (final known in vault.listKnownLockboxes()) {
+///   print(known.path);
+/// }
+/// ```
 final class KnownLockbox {
   final fb.KnownLockbox? _view;
   final Uint8List? _lockboxId;
@@ -791,6 +994,13 @@ final class KnownLockbox {
       : _view.lastSeenUnixMs;
 
   /// Creates a KnownLockbox value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final known in vault.listKnownLockboxes()) {
+  ///   print(known.path);
+  /// }
+  /// ```
   KnownLockbox({
     required Uint8List lockboxId,
     String path = '',
@@ -806,6 +1016,13 @@ final class KnownLockbox {
 }
 
 /// A local human-readable label attached to one lockbox access slot.
+///
+/// Example:
+/// ```dart
+/// for (final label in vault.listAccessSlotLabels(lockbox.id)) {
+///   print(label.name);
+/// }
+/// ```
 final class AccessSlotLabel {
   final fb.AccessSlotLabel? _view;
   final Uint8List? _lockboxId;
@@ -830,6 +1047,13 @@ final class AccessSlotLabel {
       : _view.updatedAtUnixMs;
 
   /// Creates a AccessSlotLabel value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final label in vault.listAccessSlotLabels(lockbox.id)) {
+  ///   print(label.name);
+  /// }
+  /// ```
   AccessSlotLabel({
     required Uint8List lockboxId,
     int slotId = 0,
@@ -848,6 +1072,13 @@ final class AccessSlotLabel {
 }
 
 /// A logical or physical byte range emitted while walking the contents of a lockbox.
+///
+/// Example:
+/// ```dart
+/// for (final chunk in lockbox.streamContent()) {
+///   processRange(chunk.path, chunk.fileOffset, chunk.data);
+/// }
+/// ```
 final class StreamChunk {
   final fb.StreamChunk? _view;
   final String? _path;
@@ -880,6 +1111,13 @@ final class StreamChunk {
       : Uint8List.fromList(_view.data ?? const <int>[]);
 
   /// Creates a StreamChunk value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final chunk in lockbox.streamContent()) {
+  ///   processRange(chunk.path, chunk.fileOffset, chunk.data);
+  /// }
+  /// ```
   StreamChunk({
     String path = '',
     int fileOffset = 0,
@@ -904,6 +1142,12 @@ final class StreamChunk {
 }
 
 /// The workload and worker policies currently applied to an open lockbox.
+///
+/// Example:
+/// ```dart
+/// final options = lockbox.runtimeOptions();
+/// print(options.workloadProfile);
+/// ```
 final class RuntimeOptions {
   final fb.RuntimeOptions? _view;
   final String? _workloadProfile;
@@ -920,6 +1164,12 @@ final class RuntimeOptions {
       : _view.workerPolicy ?? '';
 
   /// Creates a RuntimeOptions value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final options = lockbox.runtimeOptions();
+  /// print(options.workloadProfile);
+  /// ```
   RuntimeOptions({String workloadProfile = '', String workerPolicy = ''})
     : _view = null,
       _workloadProfile = workloadProfile,
@@ -930,6 +1180,13 @@ final class RuntimeOptions {
 }
 
 /// The name and sensitivity classification of a variable stored in a lockbox.
+///
+/// Example:
+/// ```dart
+/// for (final variable in lockbox.listVariables()) {
+///   print('${variable.name}: ${variable.sensitivity}');
+/// }
+/// ```
 final class Variable {
   final fb.Variable? _view;
   final String? _name;
@@ -944,6 +1201,13 @@ final class Variable {
       : _view.sensitivity ?? '';
 
   /// Creates a Variable value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final variable in lockbox.listVariables()) {
+  ///   print('${variable.name}: ${variable.sensitivity}');
+  /// }
+  /// ```
   Variable({String name = '', String sensitivity = ''})
     : _view = null,
       _name = name,
@@ -952,6 +1216,12 @@ final class Variable {
 }
 
 /// Whether a lockbox is owner-signed and, when available, the signing-key fingerprint.
+///
+/// Example:
+/// ```dart
+/// final owner = lockbox.ownerInspection();
+/// if (owner.signed) print(owner.fingerprint);
+/// ```
 final class OwnerInspection {
   final fb.OwnerInspection? _view;
   final bool? _signed;
@@ -972,6 +1242,12 @@ final class OwnerInspection {
       : _view.hasFingerprint;
 
   /// Creates a OwnerInspection value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final owner = lockbox.ownerInspection();
+  /// if (owner.signed) print(owner.fingerprint);
+  /// ```
   OwnerInspection({
     bool signed = false,
     String fingerprint = '',
@@ -987,6 +1263,13 @@ final class OwnerInspection {
 }
 
 /// A named recipient public key stored in the local vault address book.
+///
+/// Example:
+/// ```dart
+/// for (final contact in vault.listContacts()) {
+///   print(contact.name);
+/// }
+/// ```
 final class Contact {
   final fb.Contact? _view;
   final String? _name;
@@ -1001,6 +1284,13 @@ final class Contact {
       : Uint8List.fromList(_view.key ?? const <int>[]);
 
   /// Creates a Contact value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final contact in vault.listContacts()) {
+  ///   print(contact.name);
+  /// }
+  /// ```
   Contact({String name = '', required Uint8List key})
     : _view = null,
       _name = name,
@@ -1009,6 +1299,13 @@ final class Contact {
 }
 
 /// A lockbox key currently held by the local session agent, identified by lockbox and path.
+///
+/// Example:
+/// ```dart
+/// for (final entry in agent.listOpenLockboxes()) {
+///   print(entry.path);
+/// }
+/// ```
 final class AgentEntry {
   final fb.AgentEntry? _view;
   final String? _id;
@@ -1021,6 +1318,13 @@ final class AgentEntry {
   late final String path = _view == null ? _path! : _view.path ?? '';
 
   /// Creates a AgentEntry value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final entry in agent.listOpenLockboxes()) {
+  ///   print(entry.path);
+  /// }
+  /// ```
   AgentEntry({String id = '', String path = ''})
     : _view = null,
       _id = id,
@@ -1029,6 +1333,12 @@ final class AgentEntry {
 }
 
 /// The host capabilities used to protect cached secrets across suspend and sleep.
+///
+/// Example:
+/// ```dart
+/// final support = agent.sleepSupport();
+/// if (!support.supported) showReducedProtectionWarning();
+/// ```
 final class SleepSupport {
   final fb.SleepSupport? _view;
   final bool? _suspendNotifications;
@@ -1049,6 +1359,12 @@ final class SleepSupport {
   late final bool supported = _view == null ? _supported! : _view.supported;
 
   /// Creates a SleepSupport value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final support = agent.sleepSupport();
+  /// if (!support.supported) showReducedProtectionWarning();
+  /// ```
   SleepSupport({
     bool suspendNotifications = false,
     bool sleepInhibition = false,
@@ -1064,6 +1380,12 @@ final class SleepSupport {
 }
 
 /// Availability and configuration of the operating-system credential store used for the vault password.
+///
+/// Example:
+/// ```dart
+/// final status = Vault.platformCredentialStatus();
+/// print(status.backend);
+/// ```
 final class PlatformStatus {
   final fb.PlatformStatus? _view;
   final bool? _supported;
@@ -1088,6 +1410,12 @@ final class PlatformStatus {
   late final String item = _view == null ? _item! : _view.item ?? '';
 
   /// Creates a PlatformStatus value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final status = Vault.platformCredentialStatus();
+  /// print(status.backend);
+  /// ```
   PlatformStatus({
     bool supported = false,
     bool disabled = false,
@@ -1109,6 +1437,12 @@ final class PlatformStatus {
 }
 
 /// The version, size, checksum, and creation time of an exported local-vault backup.
+///
+/// Example:
+/// ```dart
+/// final manifest = Vault.backupDefault(backupPath);
+/// print(manifest.vaultSha256);
+/// ```
 final class VaultBackupManifest {
   final fb.VaultBackupManifest? _view;
   final int? _formatVersion;
@@ -1141,6 +1475,12 @@ final class VaultBackupManifest {
       : _view.vaultSha256 ?? '';
 
   /// Creates a VaultBackupManifest value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// final manifest = Vault.backupDefault(backupPath);
+  /// print(manifest.vaultSha256);
+  /// ```
   VaultBackupManifest({
     int formatVersion = 0,
     int createdAtUnixMs = 0,
@@ -1162,6 +1502,14 @@ final class VaultBackupManifest {
 }
 
 /// Structured category, version, guidance, and artifact context for the most recent native failure.
+///
+/// Example:
+/// ```dart
+/// on RevaultException catch (error) {
+///   final details = error.details;
+///   if (details != null) print(details.guidance);
+/// }
+/// ```
 final class ErrorDetails {
   final fb.ErrorDetails? _view;
   final String? _category;
@@ -1200,6 +1548,14 @@ final class ErrorDetails {
       : _view.guidance ?? '';
 
   /// Creates a ErrorDetails value for an API input or application-owned copy.
+  ///
+  /// Example:
+  /// ```dart
+  /// on RevaultException catch (error) {
+  ///   final details = error.details;
+  ///   if (details != null) print(details.guidance);
+  /// }
+  /// ```
   ErrorDetails({
     String category = '',
     String artifactKind = '',

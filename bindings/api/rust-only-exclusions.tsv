@@ -46,6 +46,7 @@ store	Rust generic dependency-injection accessor; foreign bindings deliberately 
 try_clone	Rust ownership helper; foreign handles have explicit ownership and do not expose clone semantics.
 try_clone_key	Raw content-key extraction is intentionally not exposed to foreign facades; local-vault and agent operations consume it inside native secure storage.
 update_mirror_project	Host rebind, rules, and deletion policy changes require CLI-owned host checks and confirmation; foreign file mutations still inherit core mirror ownership enforcement.
+validate_vault_record_name	Rust CLI input-validation helper; foreign facades validate profile and contact names when they enter their mapped native vault operations.
 with_key	Raw content-key callback is intentionally not exposed to foreign facades; local-vault and agent operations consume it inside native secure storage.
 with_mirror_project_mutation	Rust scoped callback used by trusted mirror orchestration; foreign file APIs remain guarded and cannot enter or bypass a managed subtree.
 from_parts	Low-level wrapped-key reconstruction helper; foreign APIs create wrapped keys through authenticated encryption and keep the handle opaque.

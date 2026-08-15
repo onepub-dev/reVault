@@ -6,6 +6,7 @@ import 'dart:ffi' as ffi;
 import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 import 'domain_models.dart';
+import 'exceptions.dart';
 import 'revault_native.dart';
 
 final class BindingOperations {
@@ -19,21 +20,21 @@ final class BindingOperations {
       native.buffer_last_error().cast<Utf8>().toDartString();
   bool _requireBool(bool value) {
     if (!value) {
-      throw StateError(lastError);
+      _throwLastError();
     }
     return true;
   }
 
   ffi.Pointer<ffi.Void> _requireHandle(ffi.Pointer<ffi.Void> value) {
     if (value == ffi.nullptr) {
-      throw StateError(lastError);
+      _throwLastError();
     }
     return value;
   }
 
   Uint8List _take(RevaultBuffer value) {
     if (value.ptr == ffi.nullptr) {
-      throw StateError(lastError);
+      _throwLastError();
     }
     final result = Uint8List.fromList(value.ptr.asTypedList(value.len));
     native.buffer_free(value);
@@ -41,6 +42,23 @@ final class BindingOperations {
   }
 
   String _takeString(RevaultBuffer value) => utf8.decode(_take(value));
+
+  Never _throwLastError() {
+    final message = lastError;
+    ErrorDetails? details;
+    final value = native.buffer_last_error_details();
+    if (value.ptr != ffi.nullptr) {
+      final bytes = Uint8List.fromList(value.ptr.asTypedList(value.len));
+      native.buffer_free(value);
+      try {
+        details = DomainDecoders.errorDetails(bytes);
+      } on Object {
+        // Preserve the original native failure if diagnostic decoding fails.
+      }
+    }
+    throw RevaultException(message, details: details);
+  }
+
   T _withBytes<T>(
     Uint8List value,
     T Function(ffi.Pointer<ffi.Uint8>, int) callback,

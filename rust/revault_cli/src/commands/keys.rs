@@ -125,6 +125,11 @@ pub(crate) fn open_matches(matches: &ArgMatches) -> CliResult<()> {
 
 fn open_options(options: OpenOptions) -> CliResult<()> {
     ensure_lockbox_path_accessible(&options.lockbox_path)?;
+    // Opening a lockbox must never initialise the local vault as a side
+    // effect.  Apart from being surprising, doing so makes an arbitrary
+    // passphrase look like a successful vault setup and can produce a
+    // misleading "no password access" error below.
+    ensure_default_vault_initialized()?;
     let inspection = Lockbox::inspect_file(&options.lockbox_path)?;
     let has_password_slot = inspection
         .key_slots

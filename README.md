@@ -165,6 +165,22 @@ Create another local profile:
 lockbox vault profile create laptop
 ```
 
+Create an independent encrypted vault with a fresh profile and register that
+profile's public key as a contact in the current vault:
+
+```bash
+lbx vault beget production
+# Creates production.vault.lbx with profile:production.
+# Saves only the public key locally as contact:production.
+
+lbx access grant shared.lbox contact:production
+```
+
+Use `--output` to choose the new vault path, `--contact-name` to avoid a local
+contact-name collision, or `--no-contact` to leave the current vault unchanged.
+`beget` never grants lockbox access automatically and never copies private
+material from the current vault.
+
 List profiles and export a public key:
 
 ```bash

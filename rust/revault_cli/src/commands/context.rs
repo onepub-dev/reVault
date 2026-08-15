@@ -10,7 +10,7 @@ use revault_vault_api::{
 };
 use std::fmt;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::Path;
 
 use super::error_output::ExitCode;
@@ -320,11 +320,20 @@ fn read_new_vault_password_with_cancel(cancel_action: &str) -> CliResult<SecretS
 }
 
 pub(crate) fn read_replacement_vault_password() -> CliResult<SecretString> {
+    read_new_secondary_vault_password("passphrase change")
+}
+
+pub(crate) fn read_new_secondary_vault_password(cancel_action: &str) -> CliResult<SecretString> {
     if let Some(password) = SecretString::try_from_env("LOCKBOX_NEW_VAULT_PASSWORD")? {
         validate_new_vault_pass_phrase(&password)?;
         return Ok(password);
     }
-    read_new_vault_password_with_cancel("passphrase change")
+    if !io::stdin().is_terminal() {
+        return Err(cli_error(
+            "new vault pass phrase is unavailable; set LOCKBOX_NEW_VAULT_PASSWORD",
+        ));
+    }
+    read_new_vault_password_with_cancel(cancel_action)
 }
 
 fn read_vault_passphrase_mode(cancel_action: &str) -> CliResult<String> {

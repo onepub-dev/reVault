@@ -4,8 +4,9 @@ import 'package:revault_api/revault_api.dart';
 
 /// Creates an in-memory lockbox and stores public and secret values in it.
 Future<void> main() async {
-  final vault = await Vault.load();
-  final lockbox = vault.createLockbox(Uint8List(32));
+  await Revault.load();
+  final contentKey = SecretBytes.random(32);
+  final lockbox = Lockbox.createInMemory(contentKey: contentKey);
 
   try {
     lockbox.addFile(
@@ -14,10 +15,12 @@ Future<void> main() async {
       replace: false,
     );
     lockbox.setVariable('owner', 'alice');
-    lockbox.setSecretVariable(
-      'token',
-      Uint8List.fromList('secret'.codeUnits),
-    );
+    final token = SecretBytes.fromString('secret');
+    try {
+      lockbox.setSecretVariable('token', token);
+    } finally {
+      token.close();
+    }
     final tokenLength = lockbox.withSecretVariable(
       'token',
       (token) => token.length,
@@ -25,6 +28,7 @@ Future<void> main() async {
     print('Stored a $tokenLength-byte secret.');
     lockbox.commit();
   } finally {
-    lockbox.dispose();
+    lockbox.close();
+    contentKey.close();
   }
 }
