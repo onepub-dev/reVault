@@ -122,3 +122,26 @@ mechanically copy it to the other languages until its API review is complete.
 - Use `revault-dart-vX.Y.Z` for a Dart-only publication. This path must retain
   the six-target native build, attestation, and installed-package gates while
   leaving every other registry and promoted package repository untouched.
+
+## Release execution
+
+- Keep code ownership separate from release mechanics. The agent responsible
+  for implementation and review must approve the exact release commit before a
+  tag is pushed. A cheaper model or release operator may push an already
+  approved commit or tag, but must not edit files, create corrective commits,
+  bump versions, or replace tags.
+- Do not spend model turns on passive CI polling. Start one plain
+  `gh run watch <run-id> --exit-status` process and wait on that process. Do not
+  run a second watcher or duplicate status queries merely to narrate unchanged
+  state.
+- Use model reasoning only at release milestones: before tagging, when a check
+  fails, after the workflow completes, and when verifying the registry result.
+  On failure, collect the failed step and logs, then return diagnosis and code
+  changes to the implementation agent.
+- Treat release tags and registry versions as immutable. If an approved tagged
+  release contains a code or metadata defect, stop publication where possible,
+  correct it in a new commit, and publish a new patch version. Retry the same
+  workflow run only for a transient infrastructure or credential failure that
+  does not change the artifacts.
+- Never run multiple release operators for the same tag. A single process owns
+  monitoring until success, failure, or explicit handoff.
