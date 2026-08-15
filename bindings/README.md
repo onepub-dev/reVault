@@ -234,8 +234,8 @@ To publish only the Dart package while its redesigned facade is being
 validated, use the Dart-scoped tag instead:
 
 ```text
-git tag -s revault-dart-v0.3.1 -m "Release revault_api 0.3.1"
-git push origin revault-dart-v0.3.1
+git tag -s revault-dart-v0.3.2 -m "Release revault_api 0.3.2"
+git push origin revault-dart-v0.3.2
 ```
 
 The Dart-scoped tag still builds, attests, and package-tests all six native
