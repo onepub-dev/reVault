@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
+- Refresh the checked Rust binding lockfile used by the release validation
+  workflow.
+
 ## 0.3.1
 
 - Add `Revault.load(nativeLibraryPath: ...)` so Flutter desktop and other
