@@ -1,3 +1,4 @@
+mod build;
 mod command;
 mod compression;
 mod install;
@@ -30,6 +31,7 @@ fn run() -> Result<(), String> {
         "clippy-advisory" => no_args(&task, &args, quality::clippy_advisory),
         "generate-api-docs" => no_args(&task, &args, quality::generate_api_docs),
         "install-cli" => no_args(&task, &args, install::cli),
+        "build-cli" => build::cli(&args),
         "run-network-tests" => no_args(&task, &args, quality::run_network_tests),
         "measure-key-server-performance" => quality::measure_key_server_performance(&args),
         "compare-archive-compression" => compression::run(&args),
@@ -68,6 +70,7 @@ Tasks:
   clippy-advisory                Run the advisory Clippy lint groups
   generate-api-docs              Generate revault_lockbox_api documentation
   install-cli                    Install local lockbox and lbx executables
+  build-cli                      Build portable CLI binaries in Docker (glibc 2.31)
   run-network-tests              Run ignored network integration tests
   measure-key-server-performance Run and capture the heavy failover benchmark
   compare-archive-compression    Compare lockbox compression with other tools

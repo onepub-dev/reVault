@@ -34,6 +34,16 @@ thread_local! {
 /// Current on-disk structure version for records stored inside the local vault.
 pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 2;
 
+/// Validates a profile or contact name used by the native vault.
+///
+/// # Errors
+///
+/// Returns [`Error::InvalidInput`] when `name` is empty, too long, contains
+/// unsupported characters, or is not in its normalized form.
+pub fn validate_vault_record_name(name: &str) -> Result<()> {
+    validate_record_name(name).map(|_| ())
+}
+
 /// Contact entry stored in a `VaultDirectory`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredContact {
@@ -127,11 +137,11 @@ pub struct VaultBackupManifest {
     pub vault_sha256: String,
 }
 
-/// Password-protected local vault file for native reVault metadata.
+/// Password-protected vault file for native reVault metadata.
 ///
-/// A `VaultDirectory` stores its data in `local-vault.lbox` under a private
-/// directory. It can hold contact private keys, contact public keys,
-/// and key-directory backups used by `Vault` recovery fallback paths.
+/// The default layout stores `local-vault.lbox` under a private directory;
+/// explicitly created vaults may use any file path. A vault can hold profile
+/// private keys, contact public keys, and key-directory recovery records.
 #[derive(Debug)]
 pub struct VaultDirectory {
     root: PathBuf,
@@ -163,8 +173,25 @@ impl ReadOnlyVaultDirectory {
                 "local vault is not initialized; run `lockbox vault init` first".to_string(),
             ));
         }
+        Self::open_file(path, password)
+    }
+
+    /// Opens a vault file without loading owner-signing material.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the file does not exist, cannot be read, is not a
+    /// supported vault, or cannot be decrypted with `password`.
+    pub fn open_file(path: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let path = path.as_ref();
+        if !path.exists() {
+            return Err(Error::VaultUnavailable(format!(
+                "vault file does not exist: {}",
+                path.display()
+            )));
+        }
         Ok(Self {
-            lockbox: RefCell::new(Lockbox::open(&path, LockboxOpen::Password(password))?),
+            lockbox: RefCell::new(Lockbox::open(path, LockboxOpen::Password(password))?),
         })
     }
 
@@ -237,6 +264,78 @@ impl VaultDirectory {
         Self::open_or_create(default_vault_dir()?, password)
     }
 
+    /// Creates a new vault at an explicit file path.
+    ///
+    /// Unlike [`Self::open_or_create`], this never opens an existing vault and
+    /// does not require the conventional `local-vault.lbox` filename.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `path` already exists, its parent cannot be
+    /// created, the vault cannot be locked or written, or key generation fails.
+    pub fn create_file(path: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        if path.exists() {
+            return Err(Error::AlreadyExists(path.display().to_string()));
+        }
+        let root = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+        fs::create_dir_all(&root).map_err(|err| Error::Io(err.to_string()))?;
+        let _guard = VaultFileLock::acquire(&path)?;
+        if path.exists() {
+            return Err(Error::AlreadyExists(path.display().to_string()));
+        }
+        let signing_key = OwnerSigningKeyPair::generate()?;
+        let lockbox = Lockbox::create_file_assuming_locked(
+            &path,
+            LockboxProtection::Password(password),
+            &signing_key,
+        )?;
+        set_private_file_permissions(&path)?;
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+        };
+        vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
+        vault.ensure_structure_version(true)?;
+        Ok(vault)
+    }
+
+    /// Opens an existing vault at an explicit file path.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the file does not exist, cannot be locked or
+    /// opened, is not a supported vault, or cannot be decrypted with `password`.
+    pub fn open_file(path: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+        let path = path.as_ref().to_path_buf();
+        if !path.exists() {
+            return Err(Error::VaultUnavailable(format!(
+                "vault file does not exist: {}",
+                path.display()
+            )));
+        }
+        let root = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."))
+            .to_path_buf();
+        let _guard = VaultFileLock::acquire(&path)?;
+        let lockbox = open_vault_lockbox_for_write(&path, password)?;
+        let vault = Self {
+            root,
+            path,
+            lockbox: RefCell::new(lockbox),
+        };
+        vault.attach_or_create_default_owner_signing_key()?;
+        vault.ensure_structure_version(false)?;
+        Ok(vault)
+    }
+
     /// Replaces the default vault directory using `password`.
     ///
     /// The replacement is coordinated with the same interprocess lock used for
@@ -266,7 +365,7 @@ impl VaultDirectory {
                 "local vault is not initialized; run `lockbox vault init` first".to_string(),
             ));
         }
-        let _guard = VaultFileLock::acquire(&root)?;
+        let _guard = VaultFileLock::acquire(&path)?;
         let lockbox = open_vault_lockbox_for_write(&path, old_password)?;
         let vault = Self {
             root,
@@ -289,8 +388,8 @@ impl VaultDirectory {
     pub fn replace(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
         let root = root.as_ref().to_path_buf();
         create_private_dir(&root)?;
-        let _guard = VaultFileLock::acquire(&root)?;
         let path = root.join(VAULT_FILE_NAME);
+        let _guard = VaultFileLock::acquire(&path)?;
         let vault_id = path.to_string_lossy().into_owned();
         let _ = crate::forget_vault_unlock_key(&vault_id);
         let _ = crate::forget_owner_signing_key(&vault_id, Self::DEFAULT_KEY_NAME);
@@ -322,8 +421,8 @@ impl VaultDirectory {
     pub fn replace_for_migration(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
         let root = root.as_ref().to_path_buf();
         create_private_dir(&root)?;
-        let _guard = VaultFileLock::acquire(&root)?;
         let path = root.join(VAULT_FILE_NAME);
+        let _guard = VaultFileLock::acquire(&path)?;
         if path.exists() {
             return Err(Error::AlreadyExists(path.display().to_string()));
         }
@@ -350,8 +449,8 @@ impl VaultDirectory {
     pub fn open_or_create(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
         let root = root.as_ref().to_path_buf();
         create_private_dir(&root)?;
-        let _guard = VaultFileLock::acquire(&root)?;
         let path = root.join(VAULT_FILE_NAME);
+        let _guard = VaultFileLock::acquire(&path)?;
         let existed = path.exists();
         let lockbox = if existed {
             open_vault_lockbox_for_write(&path, password)?
@@ -382,12 +481,12 @@ impl VaultDirectory {
         Ok(vault)
     }
 
-    /// Returns the root directory that contains the local vault file.
+    /// Returns the directory containing this vault file.
     pub fn root(&self) -> &Path {
         &self.root
     }
 
-    /// Returns the path to the `local-vault.lbox` file.
+    /// Returns the vault file path.
     pub fn path(&self) -> &Path {
         &self.path
     }
@@ -917,7 +1016,7 @@ impl VaultDirectory {
         name: &str,
         fields: Vec<FormFieldDefinition>,
     ) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.root)?;
+        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.define_form(alias, name, fields)?;
         lockbox.commit()?;
@@ -933,7 +1032,7 @@ impl VaultDirectory {
         description: &str,
         fields: Vec<FormFieldDefinition>,
     ) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.root)?;
+        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.define_form_with_description(alias, name, description, fields)?;
         lockbox.commit()?;
@@ -949,7 +1048,7 @@ impl VaultDirectory {
         name: &str,
         fields: Vec<FormFieldDefinition>,
     ) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.root)?;
+        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.define_form_with_type_id(type_id, alias, name, fields)?;
         lockbox.commit()?;
@@ -966,7 +1065,7 @@ impl VaultDirectory {
         description: &str,
         fields: Vec<FormFieldDefinition>,
     ) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.root)?;
+        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.define_form_with_type_id_and_description(
             type_id,
@@ -982,7 +1081,7 @@ impl VaultDirectory {
 
     /// Imports an exact reusable form definition into the vault.
     pub fn import_form_definition(&self, definition: FormDefinition) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.root)?;
+        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.import_form_definition(definition)?;
         lockbox.commit()?;
@@ -1071,7 +1170,7 @@ impl VaultDirectory {
         bytes: &[u8],
         replace: bool,
     ) -> Result<()> {
-        let _guard = VaultFileLock::acquire(&self.root)?;
+        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let replace = replace && lockbox.stat(path).is_some();
         lockbox.create_parent_dirs_for(path)?;
@@ -1082,7 +1181,7 @@ impl VaultDirectory {
     }
 
     fn put_secret_variable_record(&self, name: &VariableName, value: &SecretString) -> Result<()> {
-        let _guard = VaultFileLock::acquire(&self.root)?;
+        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         lockbox.set_secret_variable(name, value)?;
         lockbox.commit()?;
@@ -1095,7 +1194,7 @@ impl VaultDirectory {
     }
 
     fn delete_record_if_exists(&self, path: &LockboxPath) -> Result<()> {
-        let _guard = VaultFileLock::acquire(&self.root)?;
+        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         if lockbox.stat(path).is_some() {
             lockbox.delete(path)?;
@@ -1106,7 +1205,7 @@ impl VaultDirectory {
     }
 
     fn delete_secret_variable_record_if_exists(&self, name: &VariableName) -> Result<()> {
-        let _guard = VaultFileLock::acquire(&self.root)?;
+        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         if lockbox.variable_sensitivity(name)?.is_some() {
             lockbox.delete_variable(name)?;
@@ -1281,7 +1380,7 @@ pub fn backup_default_vault(
             "local vault is not initialized; run `lockbox vault init` first".to_string(),
         ));
     }
-    let _guard = VaultFileLock::acquire(&root)?;
+    let _guard = VaultFileLock::acquire(&path)?;
     let vault_bytes = fs::read(&path).map_err(|err| Error::Io(err.to_string()))?;
     let digest: [u8; 32] = Sha256::digest(&vault_bytes).into();
     let manifest = VaultBackupManifest {
@@ -1306,7 +1405,7 @@ pub fn restore_default_vault(
     let root = default_vault_dir()?;
     create_private_dir(&root)?;
     let path = root.join(VAULT_FILE_NAME);
-    let _guard = VaultFileLock::acquire(&root)?;
+    let _guard = VaultFileLock::acquire(&path)?;
     if path.exists() && !overwrite {
         return Err(Error::AlreadyExists(format!(
             "{}; pass --overwrite to replace it",
@@ -1415,7 +1514,7 @@ struct VaultFileLock {
 }
 
 impl VaultFileLock {
-    fn acquire(root: &Path) -> Result<Self> {
+    fn acquire(path: &Path) -> Result<Self> {
         let nested = VAULT_LOCK_DEPTH.with(|depth| {
             let value = depth.get();
             depth.set(value.saturating_add(1));
@@ -1427,8 +1526,7 @@ impl VaultFileLock {
                 active: true,
             });
         }
-        let path = root.join(VAULT_FILE_NAME);
-        let lock = ScopedFileLock::acquire(&path, FileLockScope::Vault).inspect_err(|_| {
+        let lock = ScopedFileLock::acquire(path, FileLockScope::Vault).inspect_err(|_| {
             VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
         })?;
         Ok(Self {

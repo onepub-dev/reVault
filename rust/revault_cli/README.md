@@ -38,6 +38,18 @@ cargo install revault_cli
 lbx vault init
 ```
 
+Create a separate native vault and introduce its new profile to the current
+vault as a public contact:
+
+```bash
+lbx vault beget production
+lbx access grant deploy.lbox contact:production
+```
+
+This creates `production.vault.lbx`; it does not copy the current vault or
+grant access by itself. Use `--contact-name` or `--no-contact` to control local
+contact creation.
+
 Begin with the [reVault project overview](https://github.com/onepub-dev/reVault#readme),
 then follow its CLI quick start and command guide.
 

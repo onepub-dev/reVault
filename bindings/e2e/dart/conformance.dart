@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:revault_api/revault_api.dart';
 
-late final Vault api;
+late final Revault api;
 void pass(String symbol, [int assertions = 1]) =>
     stdout.writeln('PASS\tdart\t$symbol\t$assertions');
 void check(bool value, String message) {
@@ -14,6 +14,45 @@ void check(bool value, String message) {
 Uint8List text(String value) => Uint8List.fromList(utf8.encode(value));
 Uint8List repeat(int value, int count) =>
     Uint8List.fromList(List.filled(count, value));
+T withSecretBytes<T>(List<int> value, T Function(SecretBytes secret) action) {
+  final secret = SecretBytes.copyOf(Uint8List.fromList(value));
+  try {
+    return action(secret);
+  } finally {
+    secret.close();
+  }
+}
+
+T withSecretTextBytes<T>(
+  String value,
+  T Function(SecretBytes secret) action,
+) {
+  final secret = SecretBytes.fromString(value);
+  try {
+    return action(secret);
+  } finally {
+    secret.close();
+  }
+}
+
+T withSecretString<T>(String value, T Function(SecretString secret) action) {
+  final secret = SecretString.fromString(value);
+  try {
+    return action(secret);
+  } finally {
+    secret.close();
+  }
+}
+
+bool secretBytesEqual(SecretBytes secret, List<int> expected) =>
+    secret.withBytes((bytes) => _equal(bytes, expected));
+
+bool secretStringsEqual(SecretString first, SecretString second) =>
+    first.withBytes(
+      (firstBytes) => second.withBytes(
+        (secondBytes) => _equal(firstBytes, secondBytes),
+      ),
+    );
 String artifactRoot() {
   final path =
       '${Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ?? '/tmp/revault-e2e-artifacts'}/dart';
@@ -22,14 +61,16 @@ String artifactRoot() {
 }
 
 List<FormField> fields() => [
-  FormField(id: 'username', label: 'Username', kind: 'text', required: true),
-  FormField(id: 'password', label: 'Password', kind: 'secret', required: true),
-];
+      FormField(
+          id: 'username', label: 'Username', kind: 'text', required: true),
+      FormField(
+          id: 'password', label: 'Password', kind: 'secret', required: true),
+    ];
 
 void archiveLifecycle() {
-  final key = repeat('K'.codeUnitAt(0), 32);
+  final key = SecretBytes.copyOf(repeat('K'.codeUnitAt(0), 32));
   late Uint8List archive;
-  final box = api.createLockbox(key);
+  final box = Lockbox.createInMemory(contentKey: key);
   pass('lockbox_create');
   box.addFile('/hello.txt', text('hello from dart conformance'));
   check(box.exists('/hello.txt'), 'add');
@@ -75,7 +116,9 @@ void archiveLifecycle() {
   check(box.getVariable('moved') == 'value', 'moved variable');
   box.moveVariables([PathMove(source: 'moved', destination: 'normal')]);
   pass('lockbox_move_variables', 3);
-  box.setSecretVariable('secret', text('hidden'));
+  withSecretTextBytes('hidden', (secret) {
+    box.setSecretVariable('secret', secret);
+  });
   pass('lockbox_set_secret_variable');
   check(
     box.withSecretVariable('secret', (value) => String.fromCharCodes(value)) ==
@@ -100,8 +143,8 @@ void archiveLifecycle() {
   check(box.stat('/renamed.txt') != null, 'stat');
   pass('lockbox_list', 2);
   pass('lockbox_stat', 2);
-  box.setWorkloadProfile('read-mostly');
-  box.setWorkerPolicy('single', 1);
+  box.setWorkloadProfile(LockboxWorkload.readMostly);
+  box.setWorkerPolicy(LockboxWorker.single, jobs: 1);
   check(box.runtimeOptions().workloadProfile.isNotEmpty, 'runtime');
   pass('lockbox_set_workload_profile');
   pass('lockbox_set_worker_policy');
@@ -126,13 +169,18 @@ void archiveLifecycle() {
     api.probeLockboxFormatVersion(Uint8List.fromList([1, 2, 3])) == 0,
     'invalid format probe',
   );
-  check(api.lastErrorDetails.message.isNotEmpty, 'structured error details');
+  try {
+    Lockbox.openBytes(Uint8List.fromList([1, 2, 3]), contentKey: key);
+    throw StateError('invalid lockbox unexpectedly opened');
+  } on RevaultException catch (error) {
+    check(error.message.isNotEmpty, 'structured error details');
+  }
   pass('buffer_last_error_details', 2);
   final path = '${artifactRoot()}/archive.lbox';
   File(path).writeAsBytesSync(archive);
   stdout.writeln('ARTIFACT\tdart\tarchive-created\t$path');
-  box.dispose();
-  final opened = api.openLockbox(archive, key);
+  box.close();
+  final opened = Lockbox.openBytes(archive, contentKey: key);
   check(
     _equal(opened.getFile('/renamed.txt'), text('replacement payload')),
     'open',
@@ -145,7 +193,8 @@ void archiveLifecycle() {
   opened.removeDirectory('/tree', recursive: true);
   check(!opened.exists('/tree'), 'remove');
   pass('lockbox_remove_dir', 2);
-  opened.dispose();
+  opened.close();
+  key.close();
   pass('lockbox_free', 2);
 }
 
@@ -154,7 +203,8 @@ bool _equal(List<int> a, List<int> b) =>
     List.generate(a.length, (i) => a[i] == b[i]).every((e) => e);
 
 void keyLifecycle() {
-  final content = Uint8List.fromList(List.generate(32, (i) => i));
+  final contentBytes = Uint8List.fromList(List.generate(32, (i) => i));
+  final content = SecretBytes.copyOf(contentBytes);
   final contact = api.generateContactKeyPair();
   pass('key_contact_generate');
   final privateKey = contact.privateRecord();
@@ -169,7 +219,9 @@ void keyLifecycle() {
   pass('key_contact_public_from_bytes');
   final wrapped = publicKey.encrypt(content);
   pass('key_contact_encrypt');
-  check(_equal(copy.decrypt(wrapped), content), 'decrypt');
+  final decrypted = copy.decrypt(wrapped);
+  check(secretBytesEqual(decrypted, contentBytes), 'decrypt');
+  decrypted.close();
   pass('key_contact_decrypt', 3);
   check(
     wrapped.publicBytes().isNotEmpty &&
@@ -182,13 +234,15 @@ void keyLifecycle() {
   pass('key_contact_wrapped_encrypted', 2);
   wrapped.dispose();
   pass('key_contact_wrapped_free');
-  final importedPrivate = api.importContactKeyPair(contact.export('raw-hex'));
+  final importedPrivate = api.importContactKeyPair(
+    contact.export(KeyExportFormat.rawHex),
+  );
   check(importedPrivate.publicBytes().isNotEmpty, 'import private');
   importedPrivate.dispose();
   pass('vault_key_export_private', 2);
   pass('vault_key_import_private');
   final importedPublic = api.importContactPublicKey(
-    publicKey.export('lockbox-pem'),
+    publicKey.export(KeyExportFormat.lockboxPem),
   );
   pass('vault_key_export_public', 2);
   pass('vault_key_import_public');
@@ -215,37 +269,38 @@ void keyLifecycle() {
   contact.dispose();
   pass('key_contact_public_free', 2);
   pass('key_contact_free', 3);
-  final plain = api.hexEncode(content);
-  check(_equal(api.hexDecode(plain), content), 'plain hex');
+  final plain = api.hexEncode(contentBytes);
+  check(_equal(api.hexDecode(plain), contentBytes), 'plain hex');
   pass('vault_key_hex_encode', 2);
   pass('vault_key_hex_decode', 2);
-  final signing = api.generateSigningKeyPair();
+  final signing = api.generateProfileSigningKeyPair();
   pass('key_signing_generate');
   final signingPrivate = signing.privateRecord(),
       signingPublic = signing.publicBytes();
   check(signingPrivate.isNotEmpty && signingPublic.isNotEmpty, 'signing');
   pass('key_signing_private', 2);
   pass('key_signing_public', 2);
-  final signingCopy = api.signingKeyPairFromPrivate(signingPrivate);
+  final signingCopy = api.profileSigningKeyPairFromPrivate(signingPrivate);
   check(signingCopy.publicBytes().isNotEmpty, 'copy');
   signingCopy.dispose();
   pass('key_signing_from_private');
-  final signingPub = api.signingPublicKeyFromBytes(signingPublic);
+  final signingPub = api.profileSigningPublicKeyFromBytes(signingPublic);
   signingPub.dispose();
   pass('key_signing_public_from_bytes');
   pass('key_signing_public_free', 2);
   signing.dispose();
+  content.close();
   pass('key_signing_free', 3);
 }
 
 void advancedArchive() {
-  final key = repeat('A'.codeUnitAt(0), 32);
-  final box = api.createLockbox(
-    key,
-    const LockboxOptions(
+  final key = SecretBytes.copyOf(repeat('A'.codeUnitAt(0), 32));
+  final box = Lockbox.createInMemory(
+    contentKey: key,
+    options: const LockboxOptions(
       cacheBytes: 4 << 20,
-      workload: 'bulk-import',
-      worker: 'single',
+      workload: LockboxWorkload.bulkImport,
+      worker: LockboxWorker.single,
       jobs: 1,
     ),
   );
@@ -288,7 +343,9 @@ void advancedArchive() {
   pass('lockbox_create_form_record');
   box.setFormField('/account.form', 'username', 'alice');
   pass('lockbox_set_form_field');
-  box.setSecretFormField('/account.form', 'password', text('hidden'));
+  withSecretTextBytes('hidden', (secret) {
+    box.setSecretFormField('/account.form', 'password', secret);
+  });
   pass('lockbox_set_secret_form_field');
   check(
     box.withSecretFormField(
@@ -317,12 +374,15 @@ void advancedArchive() {
     PathMove(source: '/moved.form', destination: '/account.form'),
   ]);
   pass('lockbox_move_form_records', 3);
-  final signing = api.generateSigningKeyPair();
+  final signing = api.generateProfileSigningKeyPair();
   final contact = api.generateContactKeyPair();
   final publicKey = contact.publicKey();
   box.setOwnerSigningKey(signing);
   pass('lockbox_set_owner_signing_key');
-  final passwordSlot = box.addPassword(text('archive password'));
+  final passwordSlot = withSecretString(
+    'archive password',
+    box.addPassword,
+  );
   pass('lockbox_add_password');
   check(box.addContact(publicKey, 'recipient') >= 0, 'slot');
   pass('lockbox_add_contact');
@@ -363,15 +423,15 @@ void advancedArchive() {
     signing,
   );
   check(salvaged.storageLength > 0, 'salvage');
-  salvaged.dispose();
+  salvaged.close();
   pass('lockbox_recovery_salvage', 2);
-  final optionOpen = api.openLockbox(
+  final optionOpen = Lockbox.openBytes(
     archive,
-    key,
-    const LockboxOptions(
+    contentKey: key,
+    options: const LockboxOptions(
       cacheBytes: 4 << 20,
-      workload: 'bulk-import',
-      worker: 'single',
+      workload: LockboxWorkload.bulkImport,
+      worker: LockboxWorker.single,
       jobs: 1,
     ),
   );
@@ -379,41 +439,47 @@ void advancedArchive() {
     _equal(optionOpen.getFile('/account.txt'), text('account data')),
     'option open',
   );
-  optionOpen.dispose();
+  optionOpen.close();
   pass('lockbox_open_with_options', 2);
-  final passwordBox = api.createLockboxWithPassword(text('archive password'));
+  final passwordBox = withSecretString(
+    'archive password',
+    (password) => Lockbox.createInMemory(password: password),
+  );
   passwordBox.addFile('/password.txt', text('password protected'));
   passwordBox.commit();
   final passwordArchive = passwordBox.bytes;
-  passwordBox.dispose();
+  passwordBox.close();
   pass('lockbox_create_password');
-  final passwordOpen = api.openLockboxWithPassword(
-    passwordArchive,
-    text('archive password'),
+  final passwordOpen = withSecretString(
+    'archive password',
+    (password) => Lockbox.openBytes(passwordArchive, password: password),
   );
   check(
     _equal(passwordOpen.getFile('/password.txt'), text('password protected')),
     'password open',
   );
-  passwordOpen.dispose();
+  passwordOpen.close();
   pass('lockbox_open_password', 2);
-  final contactBox = api.createLockboxForContact(publicKey);
+  final contactBox = Lockbox.createInMemory(contact: publicKey);
   contactBox.addFile('/contact.txt', text('contact protected'));
   contactBox.commit();
   final contactArchive = contactBox.bytes;
-  contactBox.dispose();
+  contactBox.close();
   pass('lockbox_create_contact');
-  final contactOpen = api.openLockboxForContact(contactArchive, contact);
+  final contactOpen = Lockbox.openBytes(contactArchive, contact: contact);
   check(
     _equal(contactOpen.getFile('/contact.txt'), text('contact protected')),
     'contact open',
   );
-  contactOpen.dispose();
+  contactOpen.close();
   pass('lockbox_open_contact', 2);
-  final signed = api.createSignedLockbox(key, signing);
+  final signed = Lockbox.createInMemory(
+    contentKey: key,
+    signingKey: signing,
+  );
   signed.commit();
   check(signed.ownerInspection().signed, 'signed');
-  signed.dispose();
+  signed.close();
   pass('lockbox_create_with_signing_key', 2);
   final extract = Directory('${artifactRoot()}/extract');
   if (extract.existsSync()) extract.deleteSync(recursive: true);
@@ -434,23 +500,25 @@ void advancedArchive() {
   pass('lockbox_extract_directory', 2);
   box.deleteFormRecord('/account.form');
   pass('lockbox_delete_form_record');
-  box.dispose();
+  box.close();
   publicKey.dispose();
   contact.dispose();
   signing.dispose();
+  key.close();
 }
 
 void vaultLifecycle() {
   final root = '${artifactRoot()}/vault';
   Directory(root).createSync(recursive: true);
-  final password = text('vault password'), changed = text('new vault password');
+  final password = SecretString.fromString('vault password');
+  final changed = SecretString.fromString('new vault password');
   final id = Uint8List.fromList(List.generate(16, (i) => 0xa0 + i));
   final profile = api.generateContactKeyPair(),
       contact = api.generateContactKeyPair(),
       contactPublic = contact.publicKey(),
-      owner = api.generateSigningKeyPair(),
+      owner = api.generateProfileSigningKeyPair(),
       ownerPublic = owner.publicKey();
-  final vault = api.replaceVaultDirectory(root, password);
+  final vault = Vault.replace(root: root, passphrase: password);
   pass('vault_directory_replace');
   stdout.writeln('ARTIFACT\tdart\tvault-created\t$root');
   check(vault.root == root && vault.structureVersion > 0, 'vault');
@@ -483,8 +551,8 @@ void vaultLifecycle() {
   check(vault.rotatePrivateKey('alice').generations.length == 2, 'rotate');
   pass('vault_directory_list_profile_generations');
   pass('vault_directory_rotate_private_key');
-  vault.loadOwnerSigningKey('alice').dispose();
-  vault.loadOwnerSigningKeyGeneration('alice', 1).dispose();
+  vault.loadProfileSigningKey('alice').dispose();
+  vault.loadProfileSigningKeyGeneration('alice', 1).dispose();
   pass('vault_directory_load_owner_signing_key');
   pass('vault_directory_load_owner_signing_key_generation');
   vault.storeContact('bob', contactPublic);
@@ -531,7 +599,9 @@ void vaultLifecycle() {
   pass('vault_directory_list_access_slot_labels');
   pass('vault_directory_find_access_slot_labels');
   vault.rememberPassword(id, password);
-  check(_equal(vault.rememberedPassword(id), password), 'remember');
+  final remembered = vault.rememberedPassword(id);
+  check(secretStringsEqual(remembered, password), 'remember');
+  remembered.close();
   pass('vault_directory_remember_password');
   pass('vault_directory_remembered_password', 3);
   final vaultForm = vault.defineForm('login', 'Login', 'Login form', fields());
@@ -565,9 +635,9 @@ void vaultLifecycle() {
   check(vault.privateKeyExists('alice'), 'restore');
   pass('vault_directory_delete_private_key', 2);
   pass('vault_directory_restore_private_key', 2);
-  vault.dispose();
+  vault.close();
   pass('vault_directory_free');
-  final readonly = api.openReadOnlyVaultDirectory(root, password);
+  final readonly = Vault.openReadOnly(root: root, passphrase: password);
   check(readonly.listProfileNames().isNotEmpty, 'read-only profiles');
   readonly.listContactNames();
   check(readonly.listFormAliases().isNotEmpty, 'read-only forms');
@@ -577,52 +647,66 @@ void vaultLifecycle() {
   pass('vault_read_only_list_contact_names');
   pass('vault_read_only_list_form_aliases', 2);
   pass('vault_read_only_list_known_lockboxes');
-  readonly.dispose();
+  readonly.close();
   pass('vault_read_only_free');
-  api.changeVaultDirectoryPassword(root, password, changed);
+  final changing = Vault.open(root: root, passphrase: password);
+  changing.changePassphrase(password, changed);
+  changing.close();
   pass('vault_directory_change_password');
-  final reopened = api.openVaultDirectory(root, changed);
+  final reopened = Vault.open(root: root, passphrase: changed);
   check(reopened.structureVersion > 0, 'reopen');
-  reopened.dispose();
+  reopened.close();
   pass('vault_directory_open');
   stdout.writeln('ARTIFACT\tdart\tvault-opened\t$root');
-  final opened = api.openOrCreateVaultDirectory(root, changed);
+  final opened = Vault.openOrCreate(root: root, passphrase: changed);
   check(opened.structureVersion > 0, 'open create');
-  opened.dispose();
+  opened.close();
   pass('vault_directory_open_or_create');
   ownerPublic.dispose();
   owner.dispose();
   contactPublic.dispose();
   contact.dispose();
   profile.dispose();
+  changed.close();
+  password.close();
 }
 
 void defaultVault() {
   final root = Platform.environment['LOCKBOX_VAULT_DIR']!;
   Directory(root).createSync(recursive: true);
-  api.replaceDefaultVaultDirectory(text('default password')).dispose();
+  withSecretString(
+    'default password',
+    (password) => Vault.replace(passphrase: password).close(),
+  );
   pass('vault_directory_replace_default');
-  api.openDefaultReadOnlyVaultDirectory(text('default password')).dispose();
+  withSecretString(
+    'default password',
+    (password) => Vault.openReadOnly(passphrase: password).close(),
+  );
   pass('vault_read_only_open_default');
   check(
-    api.defaultVaultDirectory == root &&
-        File(api.defaultVaultPath).parent.path == root,
+    Vault.defaultRoot == root && File(Vault.defaultPath).parent.path == root,
     'default',
   );
   pass('vault_default_directory', 3);
   pass('vault_default_path', 2);
-  api.openOrCreateDefaultVaultDirectory(text('default password')).dispose();
-  pass('vault_directory_open_or_create_default');
-  api.changeDefaultVaultDirectoryPassword(
-    text('default password'),
-    text('changed default password'),
+  final changing = withSecretString(
+    'default password',
+    (password) => Vault.openOrCreate(passphrase: password),
   );
+  pass('vault_directory_open_or_create_default');
+  withSecretString('default password', (oldPassword) {
+    withSecretString('changed default password', (newPassword) {
+      changing.changePassphrase(oldPassword, newPassword);
+    });
+  });
+  changing.close();
   pass('vault_directory_change_default_password');
   final backup = File('${artifactRoot()}/default-vault.backup');
   if (backup.existsSync()) backup.deleteSync();
-  check(api.backupDefaultVault(backup.path).vaultSize > 0, 'backup');
+  check(Vault.backupDefault(backup.path).vaultSize > 0, 'backup');
   check(
-    api.restoreDefaultVault(backup.path, overwrite: true).vaultSize > 0,
+    Vault.restoreDefault(backup.path, overwrite: true).vaultSize > 0,
     'restore',
   );
   pass('vault_backup_default');
@@ -630,26 +714,24 @@ void defaultVault() {
 }
 
 void platformStore() {
-  check(api.platformStatus().backend.isNotEmpty, 'status');
+  check(Vault.platformCredentialStatus().backend.isNotEmpty, 'status');
   pass('vault_platform_status', 2);
-  api.setPlatformScope('vault');
-  pass('vault_platform_set_scope');
-  api.disablePlatformStore();
-  check(api.platformStoreDisabled, 'disabled');
+  Vault.forgetPassphrase();
+  check(Vault.platformCredentialsDisabled, 'disabled');
   pass('vault_platform_disable');
   pass('vault_platform_disabled');
-  api.enablePlatformStore();
-  check(!api.platformStoreDisabled, 'enabled');
+  pass('vault_platform_forget_password');
+  final password = SecretString.fromString('platform vault password');
+  Vault.replace(passphrase: password).close();
+  Vault.rememberPassphrase(password);
+  check(!Vault.platformCredentialsDisabled, 'enabled');
   pass('vault_platform_enable');
-  api.putPlatformPassword(text('platform vault password'));
-  check(
-    _equal(api.getPlatformPassword(), text('platform vault password')),
-    'password',
-  );
+  pass('vault_platform_set_scope');
+  Vault.open().close();
   pass('vault_platform_put_password');
   pass('vault_platform_get_password', 3);
-  api.forgetPlatformPassword();
-  pass('vault_platform_forget_password');
+  Vault.forgetPassphrase();
+  password.close();
 }
 
 Future<void> agentAndLocal() async {
@@ -659,21 +741,26 @@ Future<void> agentAndLocal() async {
   Directory(
     Platform.environment['LOCKBOX_VAULT_DIR']!,
   ).createSync(recursive: true);
-  final directory = api.replaceDefaultVaultDirectory(
-    text('agent vault password'),
+  final directory = withSecretString(
+    'agent vault password',
+    (password) => Vault.replace(passphrase: password),
   );
   final profile = api.generateContactKeyPair();
   directory.storePrivateKey('default', profile);
   profile.dispose();
-  directory.dispose();
-  api.forgetAllAgentSecrets();
+  directory.close();
+  final agent = AgentSession.instance;
+  agent.clearAllSecrets();
   pass('vault_forget_all');
-  final child = await Process.start(Platform.resolvedExecutable, [
-    '--serve-agent',
-  ], mode: ProcessStartMode.inheritStdio);
+  final child = await Process.start(
+      Platform.resolvedExecutable,
+      [
+        '--serve-agent',
+      ],
+      mode: ProcessStartMode.inheritStdio);
   var running = false;
   for (var attempt = 0; attempt < 200; attempt++) {
-    if (api.agentIsRunning) {
+    if (agent.isRunning) {
       running = true;
       break;
     }
@@ -682,133 +769,165 @@ Future<void> agentAndLocal() async {
   check(running, 'agent');
   pass('vault_agent_serve');
   pass('vault_is_running');
-  api.startAgent();
+  agent.start();
   pass('vault_agent_start');
-  api.verifyAgentTransport();
+  agent.verifyTransport();
   pass('vault_agent_verify_transport');
   final id = Uint8List.fromList(List.generate(16, (i) => 0xc0 + i));
-  final key = Uint8List.fromList(List.generate(32, (i) => 0x20 + i));
-  api.putAgentKey(id, key);
+  final keyBytes = Uint8List.fromList(List.generate(32, (i) => 0x20 + i));
+  final key = SecretBytes.copyOf(keyBytes);
+  agent.cacheKey(id, key);
+  final cachedKey = agent.key(id);
   check(
-    _equal(api.getAgentKey(id), key) && api.listAgentKeys().isNotEmpty,
+    secretBytesEqual(cachedKey, keyBytes) &&
+        agent.listOpenLockboxes().isNotEmpty,
     'agent key',
   );
+  cachedKey.close();
   pass('vault_agent_put');
   pass('vault_agent_get', 3);
   pass('vault_agent_list');
-  api.putAgentVaultUnlockKey('vault-id', key, 120);
-  check(_equal(api.getAgentVaultUnlockKey('vault-id'), key), 'vault key');
+  agent.cacheVaultUnlockKey(
+    'vault-id',
+    key,
+    duration: const Duration(seconds: 120),
+  );
+  final unlockKey = agent.vaultUnlockKey('vault-id');
+  check(secretBytesEqual(unlockKey, keyBytes), 'vault key');
+  unlockKey.close();
   pass('vault_agent_put_vault_unlock_key');
   pass('vault_agent_get_vault_unlock_key', 3);
-  final owner = api.generateSigningKeyPair();
-  api.putAgentOwnerSigningKey('vault-id', 'alice', owner, 120);
-  final loaded = api.getAgentOwnerSigningKey('vault-id', 'alice');
+  final owner = api.generateProfileSigningKeyPair();
+  agent.cacheProfileSigningKey(
+    'vault-id',
+    'alice',
+    owner,
+    duration: const Duration(seconds: 120),
+  );
+  final loaded = agent.profileSigningKey('vault-id', 'alice');
   check(loaded.publicBytes().isNotEmpty, 'owner');
   loaded.dispose();
   pass('vault_agent_put_owner_signing_key');
   pass('vault_agent_get_owner_signing_key');
-  final activity = api.beginAgentActivity('open');
+  final activity = agent.beginActivity(AgentActivityKind.open);
   pass('vault_agent_begin_activity');
   activity.dispose();
   pass('vault_agent_end_activity');
-  check(api.agentSleepSupport() is SleepSupport, 'sleep');
+  agent.sleepSupport();
   pass('vault_agent_sleep_support');
   check(
-    api.agentLogPath.isNotEmpty && api.agentLogDestination.isNotEmpty,
+    agent.logPath.isNotEmpty && agent.logDestination.isNotEmpty,
     'logs',
   );
   pass('vault_agent_log_path', 2);
   pass('vault_agent_log_destination', 2);
-  final local = api.openLocalVault();
+  final local = agent;
   pass('vault_local');
   final root = Directory.systemTemp.createTempSync('revault-dart-local-');
   final payload = text('local vault data');
   final passwordPath = '${root.path}/password.lbox';
-  final passwordBox = local.createWithPassword(
-    passwordPath,
-    text('local password'),
+  final passwordBox = withSecretString(
+    'local password',
+    (password) => Lockbox.create(
+      passwordPath,
+      password: password,
+      overwrite: true,
+    ),
   );
   passwordBox.addFile('/data.txt', payload);
   passwordBox.commit();
-  passwordBox.dispose();
+  passwordBox.close();
   pass('vault_create_lockbox_password', 3);
-  local.cachePassword(passwordPath, text('local password'), 120);
+  withSecretString('local password', (password) {
+    local.keepOpenWithPassword(
+      passwordPath,
+      password,
+      duration: const Duration(seconds: 120),
+    );
+  });
   pass('vault_cache_lockbox_password');
-  final passwordOpen = local.openWithPassword(
-    passwordPath,
-    text('local password'),
+  final passwordOpen = withSecretString(
+    'local password',
+    (password) => Lockbox.open(passwordPath, password: password),
   );
   check(_equal(passwordOpen.getFile('/data.txt'), payload), 'password local');
-  passwordOpen.dispose();
+  passwordOpen.close();
   pass('vault_open_lockbox_password', 3);
   local.closeLockbox(passwordPath);
   pass('vault_close_lockbox');
   final contentPath = '${root.path}/content.lbox';
-  final contentBox = local.createWithContentKey(contentPath, key, owner);
+  final contentBox = Lockbox.create(
+    contentPath,
+    contentKey: key,
+    signingKey: owner,
+    overwrite: true,
+  );
   contentBox.addFile('/data.txt', payload);
   contentBox.commit();
-  contentBox.dispose();
+  contentBox.close();
   pass('vault_create_lockbox_content_key', 3);
-  final contentOpen = local.openWithContentKey(contentPath, key, owner);
+  final contentOpen = Lockbox.open(contentPath, contentKey: key);
+  contentOpen.setOwnerSigningKey(owner);
   check(_equal(contentOpen.getFile('/data.txt'), payload), 'content local');
-  contentOpen.dispose();
+  contentOpen.close();
   pass('vault_open_lockbox_content_key', 3);
   final contact = api.generateContactKeyPair(), publicKey = contact.publicKey();
-  final contactBox = local.createForContact(
+  final contactBox = Lockbox.create(
     '${root.path}/contact.lbox',
-    publicKey,
-    'recipient',
-    owner,
+    contact: publicKey,
+    signingKey: owner,
+    overwrite: true,
   );
   contactBox.addFile('/data.txt', payload);
   contactBox.commit();
-  contactBox.dispose();
+  contactBox.close();
   pass('vault_create_lockbox_contact', 3);
   publicKey.dispose();
   contact.dispose();
   local.closeAll();
   pass('vault_close_all');
-  local.dispose();
-  pass('vault_free');
   owner.dispose();
-  api.forgetAgentOwnerSigningKey('vault-id', 'alice');
-  api.forgetAgentVaultUnlockKey('vault-id');
-  api.forgetAgentKey(id);
+  agent.forgetProfileSigningKey('vault-id', 'alice');
+  agent.forgetVaultUnlockKey('vault-id');
+  agent.forgetKey(id);
   pass('vault_agent_forget_owner_signing_key');
   pass('vault_agent_forget_vault_unlock_key');
   pass('vault_agent_forget');
-  api.stopAgent();
+  agent.stop();
+  key.close();
   pass('vault_agent_stop');
   check(await child.exitCode == 0, 'agent child');
 }
 
 void interop(String producer) {
-  final root =
-      Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
+  final root = Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
       '/tmp/revault-e2e-artifacts';
-  final box = api.openLockbox(
+  final box = Lockbox.openBytes(
     Uint8List.fromList(File('$root/$producer/archive.lbox').readAsBytesSync()),
-    repeat('K'.codeUnitAt(0), 32),
+    contentKey: SecretBytes.copyOf(repeat('K'.codeUnitAt(0), 32)),
   );
   check(
     _equal(box.getFile('/renamed.txt'), text('replacement payload')),
     'foreign archive',
   );
-  box.dispose();
-  final vault = api.openVaultDirectory(
-    '$root/$producer/vault',
-    text('new vault password'),
+  box.close();
+  final vault = withSecretString(
+    'new vault password',
+    (password) => Vault.open(
+      root: '$root/$producer/vault',
+      passphrase: password,
+    ),
   );
   check(vault.structureVersion > 0, 'foreign vault');
-  vault.dispose();
+  vault.close();
   stdout.writeln('INTEROP\tdart\t$producer\tarchive\t3');
   stdout.writeln('INTEROP\tdart\t$producer\tvault\t2');
 }
 
 Future<void> main(List<String> args) async {
-  api = await Vault.load();
+  api = await Revault.load();
   if (args case ['--serve-agent']) {
-    api.serveAgent();
+    AgentSession.instance.serve();
     return;
   }
   if (args case ['--default']) {
@@ -831,6 +950,5 @@ Future<void> main(List<String> args) async {
   keyLifecycle();
   advancedArchive();
   vaultLifecycle();
-  api.lastError;
   pass('buffer_last_error');
 }

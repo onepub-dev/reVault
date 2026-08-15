@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import re
-from model_docs import DESCRIPTIONS, field_description
+from model_docs import DESCRIPTIONS, example, field_description
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = Path(__file__).with_name("revault_bindings.fbs")
@@ -124,7 +124,18 @@ def generate() -> str:
     ]
     for table in public:
         fields = tables[table]
-        lines += [f"/// {DESCRIPTIONS[table]}", f"final class {table} {{"]
+        example_lines = [
+            "///",
+            "/// Example:",
+            "/// ```dart",
+            *[f"/// {line}" for line in example(table).splitlines()],
+            "/// ```",
+        ]
+        lines += [
+            f"/// {DESCRIPTIONS[table]}",
+            *example_lines,
+            f"final class {table} {{",
+        ]
         constructor_fields = []
         initializers = ["_view = null"]
         view_initializers = []
@@ -154,6 +165,7 @@ def generate() -> str:
             ]
         lines.append("")
         lines.append(f"  /// Creates a {table} value for an API input or application-owned copy.")
+        lines.extend(f"  {line}" for line in example_lines)
         lines.append(f"  {table}({{{', '.join(constructor_fields)}}}) : {', '.join(initializers)};")
         lines += [f"  {table}._from(this._view) : {', '.join(view_initializers)};", "}", ""]
 

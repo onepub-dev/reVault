@@ -1,8 +1,23 @@
 # CI/CD with reVault
 
-> **Draft command design:** `lockbox vault ci bootstrap` and
-> `lockbox vault ci open` are proposed commands. They are not implemented yet.
-> This document defines the intended user experience for review.
+> **Partially superseded draft:** identity creation is now the generic
+> `lbx vault beget` workflow. The `lockbox vault ci open` orchestration described
+> below remains a proposal and is not implemented. References to `ci bootstrap`
+> are retained as design history and should not be treated as CLI documentation.
+
+Create a deployment identity with the same command used for any independent
+vault:
+
+```bash
+LOCKBOX_NEW_VAULT_PASSWORD='<strong passphrase>' \
+  lbx vault beget production --output .revault/ci/production.vault.lbx
+lbx access grant deploy.lbox contact:production
+```
+
+This creates an encrypted, file-backed vault containing the private
+`production` profile. The current vault receives only its public key as the
+`production` contact. Identity creation does not grant access to any lockbox;
+grants remain explicit, orthogonal operations.
 
 reVault can keep a versioned bundle of deployment secrets beside a project
 without placing the decrypted values in the repository. A CI job receives one

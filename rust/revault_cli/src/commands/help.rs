@@ -1510,6 +1510,42 @@ fn vault_command(verbose: bool) -> Command {
                 ),
         )
         .subcommand(
+            Command::new("beget")
+                .about("Create an independent vault with a new profile.")
+                .after_help(verbose_help(
+                    verbose,
+                    "Examples:\n  lbx vault beget production\n  lbx vault beget production --output .revault/production-runner.vault.lbx\n  lbx vault beget production --contact-name ci-production\n  lbx vault beget production --no-contact",
+                    "Context:\n  Beget creates a new encrypted vault containing one fresh profile. By default, its public key is saved as a contact with the same name in the current vault. It does not copy private material from the current vault or grant access to any lockbox.",
+                ))
+                .arg(
+                    Arg::new("profile")
+                        .value_name("PROFILE")
+                        .required(true)
+                        .help("Profile name created inside the new vault."),
+                )
+                .arg(
+                    Arg::new("output")
+                        .short('o')
+                        .long("output")
+                        .value_name("VAULT")
+                        .value_hint(ValueHint::AnyPath)
+                        .help("Output path. Defaults to <PROFILE>.vault.lbx."),
+                )
+                .arg(
+                    Arg::new("contact-name")
+                        .long("contact-name")
+                        .value_name("NAME")
+                        .conflicts_with("no-contact")
+                        .help("Contact name in the current vault. Defaults to <PROFILE>."),
+                )
+                .arg(
+                    Arg::new("no-contact")
+                        .long("no-contact")
+                        .action(ArgAction::SetTrue)
+                        .help("Do not add a contact to the current vault."),
+                ),
+        )
+        .subcommand(
             Command::new("backup")
                 .about("Create an encrypted backup archive of the local vault.")
                 .after_help(verbose_help(

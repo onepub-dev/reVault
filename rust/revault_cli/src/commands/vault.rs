@@ -1,6 +1,6 @@
 use super::context::{
-    cli_error, default_vault, open_default_vault_with_password, read_new_vault_password,
-    read_replacement_vault_password, read_vault_password,
+    cli_error, default_vault, open_default_vault_with_password, read_new_secondary_vault_password,
+    read_new_vault_password, read_replacement_vault_password, read_vault_password,
     remember_default_vault_password_with_warning, require_arg, CliResult,
 };
 use super::form::{default_form_alias, parse_field_spec, print_form_definition_saved};
@@ -23,8 +23,8 @@ use revault_vault_api::{
     forget_platform_vault_password, format_fingerprint_crockford_96 as format_fingerprint_code,
     format_fingerprint_crockford_96_reading as format_fingerprint_reading,
     format_fingerprint_hex_pairs as format_hex_pairs, import_private_key, import_public_key,
-    local_vault, public_key_fingerprint, restore_default_vault, set_auto_open_scope, AutoOpenScope,
-    KeyFormat, ProfileGenerationStatus, VaultDirectory,
+    local_vault, public_key_fingerprint, restore_default_vault, set_auto_open_scope,
+    validate_vault_record_name, AutoOpenScope, KeyFormat, ProfileGenerationStatus, VaultDirectory,
 };
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -58,6 +58,7 @@ pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
         .ok_or_else(|| Error::InvalidInput("missing vault command".to_string()))?;
     match command {
         "init" => init_options(sub.get_flag("overwrite"), sub.get_flag("verify")),
+        "beget" => beget_options(BegetOptions::from_matches(sub)),
         "backup" => backup_options(required_value(sub, "output"), sub.get_flag("overwrite")),
         "restore" => restore_options(required_value(sub, "backup"), sub.get_flag("overwrite")),
         "passphrase" => change_passphrase(&[]),
@@ -66,6 +67,24 @@ pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
         "contact" => vault_contact_matches(sub),
         "lockbox" => vault_lockbox_matches(sub),
         _ => Err(Error::InvalidInput(format!("unknown vault command: {command}")).into()),
+    }
+}
+
+struct BegetOptions {
+    profile: String,
+    output: Option<String>,
+    contact_name: Option<String>,
+    no_contact: bool,
+}
+
+impl BegetOptions {
+    fn from_matches(matches: &ArgMatches) -> Self {
+        Self {
+            profile: required_value(matches, "profile"),
+            output: optional_value(matches, "output").map(str::to_string),
+            contact_name: optional_value(matches, "contact-name").map(str::to_string),
+            no_contact: matches.get_flag("no-contact"),
+        }
     }
 }
 
@@ -394,6 +413,121 @@ fn backup_options(output: String, overwrite: bool) -> CliResult<()> {
         absolute_path(&PathBuf::from(output))?.display()
     );
     Ok(())
+}
+
+fn beget_options(options: BegetOptions) -> CliResult<()> {
+    validate_vault_record_name(&options.profile)?;
+    let contact_name = if options.no_contact {
+        None
+    } else {
+        let name = options
+            .contact_name
+            .as_deref()
+            .unwrap_or(&options.profile)
+            .to_string();
+        validate_vault_record_name(&name)?;
+        Some(name)
+    };
+    let output = PathBuf::from(
+        options
+            .output
+            .unwrap_or_else(|| format!("{}.vault.lbx", options.profile)),
+    );
+    let _output_guard = ScopedFileLock::acquire(&output, FileLockScope::Vault)?;
+    if output.exists() {
+        return Err(Error::AlreadyExists(format!("vault output {}", output.display())).into());
+    }
+
+    let current_vault = if let Some(name) = &contact_name {
+        let vault = default_vault()?;
+        if vault.contact_exists(name)? {
+            return Err(cli_error(format!(
+                "Contact already exists: {name}\n\nChoose another contact name:\n  lbx vault beget {} --contact-name <NAME>\n\nOr create the vault without registering a contact:\n  lbx vault beget {} --no-contact",
+                options.profile, options.profile
+            )));
+        }
+        Some(vault)
+    } else {
+        None
+    };
+
+    let password = read_new_secondary_vault_password("vault beget")?;
+    let keypair = ContactKeyPair::generate()?;
+    let public_key = keypair.public_key();
+    let temp = beget_temp_path(&output);
+    cleanup_beget_artifacts(&temp);
+
+    let create_result = (|| -> CliResult<()> {
+        let vault = VaultDirectory::create_file(&temp, &password)?;
+        vault.store_private_key(&options.profile, &keypair)?;
+        drop(vault);
+        if let (Some(vault), Some(name)) = (&current_vault, &contact_name) {
+            vault.store_contact(name, &public_key)?;
+        }
+        if output.exists() {
+            if let (Some(vault), Some(name)) = (&current_vault, &contact_name) {
+                let _ = vault.delete_contact(name);
+            }
+            return Err(Error::AlreadyExists(format!("vault output {}", output.display())).into());
+        }
+        if let Err(err) = fs::rename(&temp, &output) {
+            if let (Some(vault), Some(name)) = (&current_vault, &contact_name) {
+                let _ = vault.delete_contact(name);
+            }
+            return Err(err.into());
+        }
+        Ok(())
+    })();
+    cleanup_beget_artifacts(&temp);
+    create_result?;
+
+    println!("Vault created successfully.");
+    println!();
+    println!("Vault:");
+    println!("  {}", absolute_path(&output)?.display());
+    println!();
+    println!("Profile:");
+    println!("  {}", options.profile);
+    println!();
+    if let Some(name) = contact_name {
+        println!("Contact:");
+        println!("  {name}");
+        println!();
+        println!("Fingerprint:");
+        println!(
+            "  {}",
+            format_fingerprint_code(&public_key_fingerprint(&public_key))
+        );
+        println!();
+        println!("No lockbox access has been granted.");
+        println!();
+        println!("Next:");
+        println!("  lbx access grant <lockbox> contact:{name}");
+    } else {
+        println!("Contact:");
+        println!("  Not created");
+        println!();
+        println!("Export the profile public key when you are ready to register it elsewhere.");
+    }
+    Ok(())
+}
+
+fn beget_temp_path(output: &Path) -> PathBuf {
+    let file_name = output
+        .file_name()
+        .unwrap_or_else(|| std::ffi::OsStr::new("vault"))
+        .to_string_lossy();
+    output.with_file_name(format!(
+        ".{file_name}.beget-{}-{}.tmp",
+        std::process::id(),
+        unix_ms_now()
+    ))
+}
+
+fn cleanup_beget_artifacts(path: &Path) {
+    for path in [path.to_path_buf(), lock_path_for(path)] {
+        let _ = fs::remove_file(path);
+    }
 }
 
 fn absolute_path(path: &std::path::Path) -> CliResult<PathBuf> {

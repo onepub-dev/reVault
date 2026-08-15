@@ -6,7 +6,7 @@
 build/
 
 # Directory created by dartdoc
-doc/api/
+**/doc/api/
 .history
 pubspec.lock
 custom_lint.log

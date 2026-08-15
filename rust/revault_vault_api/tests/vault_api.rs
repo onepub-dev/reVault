@@ -5,7 +5,8 @@ use revault_lockbox_api::{
 };
 use revault_vault_api::{
     export_private_key, import_private_key_file, ContentKeyStore, KeyFormat,
-    ProfileGenerationStatus, SecretString, Vault, VaultDirectory, CURRENT_VAULT_STRUCTURE_VERSION,
+    ProfileGenerationStatus, ReadOnlyVaultDirectory, SecretString, Vault, VaultDirectory,
+    CURRENT_VAULT_STRUCTURE_VERSION,
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -760,6 +761,55 @@ fn private_key_file_import_uses_secure_import_path() {
         keypair.private_key_record().unwrap()
     );
 
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn standalone_vault_file_can_be_created_and_reopened() {
+    let root = unique_dir("standalone-vault-file");
+    let _ = fs::remove_dir_all(&root);
+    fs::create_dir_all(&root).unwrap();
+    let path = root.join("production.vault.lbx");
+    let password = SecretString::try_from_bytes(b"standalone-vault-password".to_vec()).unwrap();
+    let wrong_password = SecretString::try_from_bytes(b"wrong-vault-password".to_vec()).unwrap();
+    let profile = ContactKeyPair::generate().unwrap();
+
+    let vault = VaultDirectory::create_file(&path, &password).unwrap();
+    vault.store_private_key("production", &profile).unwrap();
+    drop(vault);
+
+    assert!(path.is_file());
+    assert!(VaultDirectory::open_file(&path, &wrong_password).is_err());
+    let vault = VaultDirectory::open_file(&path, &password).unwrap();
+    assert_eq!(vault.list_private_keys().unwrap(), vec!["production"]);
+    assert_eq!(
+        vault
+            .load_private_key("production")
+            .unwrap()
+            .private_key_record()
+            .unwrap(),
+        profile.private_key_record().unwrap()
+    );
+    vault.load_owner_signing_key("production").unwrap();
+    drop(vault);
+
+    let read_only = ReadOnlyVaultDirectory::open_file(&path, &password).unwrap();
+    assert_eq!(
+        read_only.list_private_key_names().unwrap(),
+        vec!["production"]
+    );
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o600
+        );
+    }
+
+    let duplicate = VaultDirectory::create_file(&path, &password).unwrap_err();
+    assert!(matches!(duplicate, Error::AlreadyExists(_)));
     let _ = fs::remove_dir_all(root);
 }
 
