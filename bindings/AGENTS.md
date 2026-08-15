@@ -119,3 +119,6 @@ mechanically copy it to the other languages until its API review is complete.
 - Keep the non-Dart facades unchanged while the Dart 0.3 prototype is under
   review. Once accepted, adapt its behavior to each language's conventions
   rather than reproducing Dart signatures mechanically.
+- Use `revault-dart-vX.Y.Z` for a Dart-only publication. This path must retain
+  the six-target native build, attestation, and installed-package gates while
+  leaving every other registry and promoted package repository untouched.

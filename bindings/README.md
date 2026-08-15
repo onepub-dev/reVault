@@ -222,12 +222,25 @@ RPM repository is selected. These contribution/repository decisions do not
 block the language-native npm, PyPI, Maven, NuGet, pub.dev, RubyGems, Packagist,
 LuaRocks, Go, crates.io, SwiftPM, or Homebrew publications.
 
-To release, create and push one tag after all authorizations above exist:
+To release every language package in lockstep, create and push one tag after
+all authorizations above exist:
 
 ```text
 git tag -s revault-api-v0.2.0 -m "Release revault-api 0.2.0"
 git push origin revault-api-v0.2.0
 ```
+
+To publish only the Dart package while its redesigned facade is being
+validated, use the Dart-scoped tag instead:
+
+```text
+git tag -s revault-dart-v0.3.0 -m "Release revault_api 0.3.0"
+git push origin revault-dart-v0.3.0
+```
+
+The Dart-scoped tag still builds, attests, and package-tests all six native
+targets. It publishes `revault_api` to pub.dev and creates the corresponding
+GitHub release, but it does not publish or promote any other language package.
 
 Do not rerun publication by changing an existing tag. Registry versions and
 package-repository tags are immutable; correct a failed release with the same
