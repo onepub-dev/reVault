@@ -2,7 +2,7 @@ name: revault_api
 description: >-
   Typed Dart FFI bindings for encrypted reVault lockboxes, credentials, keys,
   form records, and local vault metadata on Linux, macOS, and Windows.
-version: 0.3.0
+version: 0.3.1
 repository: https://github.com/onepub-dev/reVault
 issue_tracker: https://github.com/onepub-dev/reVault/issues
 environment:

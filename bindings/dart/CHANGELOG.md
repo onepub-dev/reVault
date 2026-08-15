@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+- Add `Revault.load(nativeLibraryPath: ...)` so Flutter desktop and other
+  application bundles can supply the native library location explicitly.
+- Continue executable-relative discovery when package-URI resolution is not
+  supported by the Dart host.
+
 ## 0.3.0
 
 - Breaking: rename the runtime entry point from `Vault` to `Revault` and use

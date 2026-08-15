@@ -32,21 +32,57 @@ import 'package:revault_api/src/vault.dart';
 final class Revault {
   static Revault? _current;
 
-  /// Loads the bundled native library and installs the process-wide runtime.
+  /// Loads the native library and installs the process-wide runtime.
   ///
   /// Call this once during application startup, before using any other reVault
-  /// type. It selects the native library for the current operating system and
-  /// rejects an incompatible ABI.
+  /// type.
+  ///
+  /// If nativeLibraryPath is supplied, reVault opens that path directly.
+  ///
+  /// if the env var REVAULT_LIBRARY is set, reVault opens the path it
+  ///  contains. If the load is passed [nativeLibraryPath] and REVAULT_LIBRARY is set,
+  ///     the explicit path takes precedence.
+  ///
+  /// In either case, no automatic native library search is performed.
+  ///
+  ///  If neither is supplied, reVault derives the native library path from the operating system
+  ///  and architecture
+  ///   - Linux: librevault_api.so
+  ///   - macOS: librevault_api.dylib
+  ///   - Windows: revault_api.dll
+  ///   - Targets include linux-x86_64-gnu, linux-aarch64-gnu, etc.
+  ///
+  /// The discovery order is:
+  ///   1. If nativeLibraryPath is passed to Revault.load(), open that path immediately.
+  ///   2. if REVAULT_LIBRARY is non-empty, open the path it contains.
+  ///   3. Determine the native target from Platform.operatingSystem and Abi.current().
+  ///   4. Derive the expected library filename e.g. librevault_api.so
+  ///   5. Search the package binary assets for the current target. This only works for Flutter mobile and web.
+  ///   6. Search for the library beside the executable.
+  ///
+  ///  Flutter desktop and Dart application (non Flutter) cannot resolve the package URI,
+  ///  so applications should supply nativeLibraryPath using the location established by
+  ///  their application installer.
   ///
   /// Example:
   /// ```dart
   /// Future<void> main() async {
-  ///   final revault = await Revault.load();
+  ///   final revault = await Revault.load(
+  ///     nativeLibraryPath: '/opt/my_app/lib/librevault_api.so',
+  ///   );
   ///   print(revault.lockboxFormatVersion);
   /// }
   /// ```
-  static Future<Revault> load() async {
-    final loaded = Revault._(await loadNativeLibrary());
+  ///
+  /// A command-line launcher can instead select the library without changing
+  /// application code:
+  /// ```sh
+  /// REVAULT_LIBRARY=/opt/revault/lib/librevault_api.so dart run xxx
+  /// ```
+  static Future<Revault> load({String? nativeLibraryPath}) async {
+    final loaded = Revault._(
+      await loadNativeLibrary(nativeLibraryPath: nativeLibraryPath),
+    );
     _current = loaded;
     return loaded;
   }

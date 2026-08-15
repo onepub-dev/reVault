@@ -5,7 +5,20 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:isolate';
 
-Future<ffi.DynamicLibrary> loadNativeLibrary() async {
+Future<ffi.DynamicLibrary> loadNativeLibrary({
+  String? nativeLibraryPath,
+}) async {
+  if (nativeLibraryPath != null) {
+    if (nativeLibraryPath.isEmpty) {
+      throw ArgumentError.value(
+        nativeLibraryPath,
+        'nativeLibraryPath',
+        'must not be empty',
+      );
+    }
+    return ffi.DynamicLibrary.open(nativeLibraryPath);
+  }
+
   final override = Platform.environment['REVAULT_LIBRARY'];
   if (override != null && override.isNotEmpty) {
     return ffi.DynamicLibrary.open(override);
@@ -13,9 +26,19 @@ Future<ffi.DynamicLibrary> loadNativeLibrary() async {
 
   final target = _target();
   final library = _libraryName();
-  final uri = await Isolate.resolvePackageUri(
-    Uri.parse('package:revault_api/src/native/$target/$library'),
-  );
+  Uri? uri;
+  try {
+    uri = await Isolate.resolvePackageUri(
+      Uri.parse('package:revault_api/src/native/$target/$library'),
+    );
+  } catch (error) {
+    // Flutter desktop does not provide package-URI resolution. Continue to the
+    // executable-relative carrier lookup, or let the final error explain how
+    // to supply an explicit path.
+    if (error is! UnsupportedError && error is! UnimplementedError) {
+      rethrow;
+    }
+  }
   if (uri != null && uri.scheme == 'file') {
     final bundled = File.fromUri(uri);
     if (bundled.existsSync()) {
@@ -34,7 +57,7 @@ Future<ffi.DynamicLibrary> loadNativeLibrary() async {
   }
   throw StateError(
     'revault-api native carrier is missing for $target; '
-    'set REVAULT_LIBRARY for development',
+    'pass nativeLibraryPath to Revault.load() or set REVAULT_LIBRARY',
   );
 }
 
