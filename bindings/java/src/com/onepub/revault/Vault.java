@@ -20,11 +20,11 @@ import java.util.Objects;
  */
 public final class Vault implements AutoCloseable {
   private final Revault runtime;
-  private final Revault.VaultDirectory directory;
-  private final Revault.LocalVault local;
+  private final Revault.VaultDirectoryHandle directory;
+  private final Revault.LocalVaultHandle local;
   private final AgentSession agent;
 
-  private Vault(Revault runtime, Revault.VaultDirectory directory) {
+  private Vault(Revault runtime, Revault.VaultDirectoryHandle directory) {
     this.runtime = Objects.requireNonNull(runtime);
     this.directory = Objects.requireNonNull(directory);
     this.local = runtime.openLocalVault();
@@ -48,12 +48,6 @@ public final class Vault implements AutoCloseable {
     var runtime = Revault.load();
     return new Vault(runtime, runtime.openVaultDirectory(root.toString(), vaultPassphrase));
   }
-
-  /** Returns the persistent directory facade for profiles and credentials. */
-  public Revault.VaultDirectory directory() { return directory; }
-
-  /** Returns the process-local lockbox creation/opening facade. */
-  public Revault.LocalVault local() { return local; }
 
   /** Returns controls for the optional session-agent process. */
   public AgentSession agentSession() { return agent; }
