@@ -8,6 +8,8 @@ See the [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/
 go get github.com/onepub-dev/revault-api@v0.2.0
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```go
 box, err := revault.Create(make([]byte, 32)) // load a real key securely
 if err != nil { log.Fatal(err) }

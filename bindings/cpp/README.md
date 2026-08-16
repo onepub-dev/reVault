@@ -24,5 +24,7 @@ box.with_secret_variable("token", [](std::span<const std::uint8_t> token) {
 box.commit();
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 Facade objects own their native handles. Secret values are deliberately read
 only through scoped callbacks; do not copy them into long-lived strings.

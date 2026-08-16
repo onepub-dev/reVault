@@ -16,6 +16,11 @@ Structured responses use the private FlatBuffers schema in
 `bindings/flatbuffers`. Each language facade retains the returned buffer and
 exposes reVault domain objects; generated transport tables are not public API.
 File contents and cryptographic material remain raw bytes.
+
+Every public facade method has a contextual worked example. See
+[`API_EXAMPLES.md`](API_EXAMPLES.md) for the shared documentation contract,
+the canonical lifecycle, and links to the native-language examples and
+executable conformance runners.
 The hosted WebAssembly package runs every API call through a real WASM
 dispatcher and uses its Node host adapter for filesystem, native vault,
 keyring, and agent facilities. The standalone browser module retains portable

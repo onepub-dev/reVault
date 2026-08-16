@@ -9,6 +9,8 @@ native runtime. See the
 gem install revault_api -v 0.2.0
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```ruby
 vault = Revault::Vault.new
 box = vault.lockbox_create("\0" * 32)

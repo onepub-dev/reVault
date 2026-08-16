@@ -9,6 +9,8 @@ matching native runtime. See the
 composer require onepub/revault-api:0.2.0
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```php
 $vault = new Revault\Vault();
 $box = $vault->lockboxCreate(str_repeat("\0", 32));

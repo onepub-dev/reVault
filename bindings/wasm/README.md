@@ -10,6 +10,8 @@ facilities to the host package. See the
 npm install @onepub-dev/revault-api-wasm@0.2.0
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```js
 import { Vault, wasmDispatchCount } from '@onepub-dev/revault-api-wasm';
 

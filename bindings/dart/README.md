@@ -8,6 +8,8 @@ dependencies:
   revault_api: ^0.3.0
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 Load the native runtime once, then work with the domain objects directly:
 
 ```dart

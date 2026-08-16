@@ -9,6 +9,8 @@ typed reVault domain values while keeping the native transport private. See the
 python -m pip install revault-api==0.2.0
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```python
 from revault_api import Vault
 

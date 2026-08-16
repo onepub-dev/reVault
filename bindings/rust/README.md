@@ -10,6 +10,8 @@ keys, and typed records. This source-native crate re-exports the complete
 revault-api = "0.2.0"
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```rust
 use revault_api::lockbox::{Lockbox, LockboxPath, SecretString, VariableName};
 

@@ -9,6 +9,8 @@ complete Java 22+ runtime. See the
 implementation("dev.onepub:revault-api-kotlin:0.2.0")
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```kotlin
 val vault = Vault()
 vault.createLockbox(ByteArray(32)).use { box -> // load a real key securely

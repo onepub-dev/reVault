@@ -9,6 +9,8 @@ native runtime. See the
 luarocks install revault_api 0.2.0-1
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```lua
 local revault = require('revault_api')
 local vault = revault.Vault.new()

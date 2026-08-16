@@ -9,6 +9,8 @@ API and includes the matching native runtime. See the
 implementation("dev.onepub:revault-api:0.2.0")
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```java
 import static java.nio.charset.StandardCharsets.UTF_8;
 

@@ -39,6 +39,8 @@ lockbox_commit(box);
 lockbox_free(box);
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 Every returned `RevaultBuffer` must be released with `buffer_free`; every
 owned handle has a corresponding `*_free`. Secret handles are opaque and must
 be copied only for the duration of the operation, cleared, then freed.

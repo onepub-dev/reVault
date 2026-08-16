@@ -9,6 +9,8 @@ this directory is its strict compile-time conformance consumer. See the
 npm install @onepub-dev/revault-api@0.2.0
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```ts
 import { Vault } from '@onepub-dev/revault-api';
 

@@ -9,6 +9,8 @@ returns documented reVault domain values while keeping its binary transport priv
 npm install @onepub-dev/revault-api@0.2.0
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```js
 import { Vault } from '@onepub-dev/revault-api';
 

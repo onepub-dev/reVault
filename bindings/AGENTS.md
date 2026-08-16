@@ -3,8 +3,9 @@
 These rules apply to language facades under `bindings/`. The C ABI is a shared
 transport and capability contract; it is not the public API design template.
 
-The Dart 0.3 facade is the current terminology and workflow prototype. Do not
-mechanically copy it to the other languages until its API review is complete.
+The Dart 0.3 facade defines the reviewed terminology and lifecycle model. Apply
+that model to every language, translating names and ownership to the language's
+normal conventions rather than preserving older facade concepts.
 
 ## Domain terminology
 
@@ -116,9 +117,18 @@ mechanically copy it to the other languages until its API review is complete.
   and complete common workflows at the facade level.
 - Generated files are regenerated from their source and are never hand-edited
   unless the repository explicitly identifies them as maintained bindings.
-- Keep the non-Dart facades unchanged while the Dart 0.3 prototype is under
-  review. Once accepted, adapt its behavior to each language's conventions
-  rather than reproducing Dart signatures mechanically.
+- Keep all language facades aligned with the reviewed Dart model. A language
+  may use different syntax, ownership, and error idioms, but it must preserve
+  the same Revault/Vault/Lockbox/AgentSession concepts and lifecycle semantics.
+- Every public method must have a meaningful worked example in its native API
+  documentation. The example must show the method in context, use realistic
+  inputs, and demonstrate cleanup or error handling where relevant. A copied
+  signature, a one-line paraphrase, or a link to a package-level README does
+  not satisfy this requirement.
+- The executable conformance runner is the reference implementation for each
+  method example. Public documentation must link to the relevant conformance
+  function or include an equivalent inline example; generated transport code
+  is excluded from this requirement.
 - Use `revault-dart-vX.Y.Z` for a Dart-only publication. This path must retain
   the six-target native build, attestation, and installed-package gates while
   leaving every other registry and promoted package repository untouched.

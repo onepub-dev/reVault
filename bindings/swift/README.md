@@ -9,6 +9,8 @@ macOS and Linux. See the
 .package(url: "https://github.com/onepub-dev/revault-api", exact: "0.2.0")
 ```
 
+The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+
 ```swift
 let vault = Vault()
 let box = try vault.lockboxCreate(Data(repeating: 0, count: 32))
