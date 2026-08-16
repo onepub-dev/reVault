@@ -2,8 +2,16 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::LazyLock;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
+static TEST_RUN_ID: LazyLock<u128> = LazyLock::new(|| {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock must be after the Unix epoch")
+        .as_nanos()
+});
 
 pub struct TestTempDir {
     dir: tempfile::TempDir,
@@ -29,8 +37,9 @@ pub fn unique_thread_dir_path(prefix: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../target/test-tmp")
         .join(format!(
-            "{prefix}-{}-{:?}",
+            "{prefix}-{}-{:x}-{:?}",
             std::process::id(),
+            *TEST_RUN_ID,
             std::thread::current().id()
         ))
 }
@@ -39,12 +48,20 @@ pub fn unique_dir_path(prefix: &str, label: &str) -> PathBuf {
     let counter = TEST_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../target/test-tmp")
-        .join(format!("{prefix}-{label}-{}-{counter}", std::process::id()))
+        .join(format!(
+            "{prefix}-{label}-{}-{:x}-{counter}",
+            std::process::id(),
+            *TEST_RUN_ID
+        ))
 }
 
 pub fn short_dir_path(label: &str) -> PathBuf {
     let counter = TEST_DIR_COUNTER.fetch_add(1, Ordering::SeqCst);
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../target/t")
-        .join(format!("lb-{label}-{}-{counter}", std::process::id()))
+        .join(format!(
+            "lb-{label}-{}-{:x}-{counter}",
+            std::process::id(),
+            *TEST_RUN_ID
+        ))
 }

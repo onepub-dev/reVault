@@ -4070,7 +4070,7 @@ fn open_requires_explicit_vault_init() {
 
     let open = run_output_without_content_key(
         bin,
-        &["open", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "open"],
         &vault_root,
         &agent_root,
     );
@@ -4712,7 +4712,7 @@ fn session_default_sets_default_lockbox_for_commands() {
 
     let missing_add = run_output_without_content_key(
         bin,
-        &[dir.join("missing.md").to_str().unwrap(), "add"],
+        &["add", dir.join("missing.md").to_str().unwrap()],
         &vault_root,
         &agent_root,
     );

@@ -1161,7 +1161,11 @@ fn sha256(path: &Path) -> Result<String> {
         }
         hash.update(&buffer[..read]);
     }
-    Ok(format!("{:x}", hash.finalize()))
+    Ok(hash
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect())
 }
 
 fn run_status(command: &mut Command) -> Result {

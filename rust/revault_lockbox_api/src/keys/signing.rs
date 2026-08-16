@@ -3,8 +3,8 @@ use ed25519_dalek::{
     Verifier as Ed25519Verifier, VerifyingKey as Ed25519VerifyingKey,
 };
 use ml_dsa::{
-    Keypair, MlDsa65, Signature as MlDsaSignature, SignatureEncoding, Signer as MlDsaSigner,
-    SigningKey as MlDsaSigningKey, Verifier as MlDsaVerifier, VerifyingKey as MlDsaVerifyingKey,
+    Keypair, MlDsa65, Signature as MlDsaSignature, SignatureEncoding,
+    SigningKey as MlDsaSigningKey, VerifyingKey as MlDsaVerifyingKey,
 };
 use std::fmt;
 

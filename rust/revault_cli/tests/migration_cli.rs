@@ -316,8 +316,10 @@ fn build_historical_vault_exporter() -> PathBuf {
         .unwrap();
     assert!(status.success());
     let extension = if cfg!(windows) { ".exe" } else { "" };
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../target/debug")
+    std::env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../target"))
+        .join("debug")
         .join(format!("revault-migrate-vault-v1{extension}"))
 }
 

@@ -809,7 +809,10 @@ fn release_url(version: &str, asset: &str) -> String {
 
 fn sha256(path: &Path) -> Result<String> {
     let bytes = fs::read(path)?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    Ok(Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect())
 }
 
 fn clear_checkout_tree(destination: &Path) -> Result {

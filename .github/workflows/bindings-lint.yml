@@ -13,7 +13,7 @@ on:
       - 'rust/revault_vault_api/**'
       - 'rust/revault_wasm_bindings/**'
   push:
-    branches: [main]
+    branches: [master]
     paths:
       - '.github/workflows/bindings-*.yml'
       - 'bindings/**'
