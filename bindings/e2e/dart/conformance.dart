@@ -23,10 +23,7 @@ T withSecretBytes<T>(List<int> value, T Function(SecretBytes secret) action) {
   }
 }
 
-T withSecretTextBytes<T>(
-  String value,
-  T Function(SecretBytes secret) action,
-) {
+T withSecretTextBytes<T>(String value, T Function(SecretBytes secret) action) {
   final secret = SecretBytes.fromString(value);
   try {
     return action(secret);
@@ -49,9 +46,8 @@ bool secretBytesEqual(SecretBytes secret, List<int> expected) =>
 
 bool secretStringsEqual(SecretString first, SecretString second) =>
     first.withBytes(
-      (firstBytes) => second.withBytes(
-        (secondBytes) => _equal(firstBytes, secondBytes),
-      ),
+      (firstBytes) =>
+          second.withBytes((secondBytes) => _equal(firstBytes, secondBytes)),
     );
 String artifactRoot() {
   final path =
@@ -61,11 +57,9 @@ String artifactRoot() {
 }
 
 List<FormField> fields() => [
-      FormField(
-          id: 'username', label: 'Username', kind: 'text', required: true),
-      FormField(
-          id: 'password', label: 'Password', kind: 'secret', required: true),
-    ];
+  FormField(id: 'username', label: 'Username', kind: 'text', required: true),
+  FormField(id: 'password', label: 'Password', kind: 'secret', required: true),
+];
 
 void archiveLifecycle() {
   final key = SecretBytes.copyOf(repeat('K'.codeUnitAt(0), 32));
@@ -379,10 +373,7 @@ void advancedArchive() {
   final publicKey = contact.publicKey();
   box.setOwnerSigningKey(signing);
   pass('lockbox_set_owner_signing_key');
-  final passwordSlot = withSecretString(
-    'archive password',
-    box.addPassword,
-  );
+  final passwordSlot = withSecretString('archive password', box.addPassword);
   pass('lockbox_add_password');
   check(box.addContact(publicKey, 'recipient') >= 0, 'slot');
   pass('lockbox_add_contact');
@@ -473,10 +464,7 @@ void advancedArchive() {
   );
   contactOpen.close();
   pass('lockbox_open_contact', 2);
-  final signed = Lockbox.createInMemory(
-    contentKey: key,
-    signingKey: signing,
-  );
+  final signed = Lockbox.createInMemory(contentKey: key, signingKey: signing);
   signed.commit();
   check(signed.ownerInspection().signed, 'signed');
   signed.close();
@@ -752,12 +740,9 @@ Future<void> agentAndLocal() async {
   final agent = AgentSession.instance;
   agent.clearAllSecrets();
   pass('vault_forget_all');
-  final child = await Process.start(
-      Platform.resolvedExecutable,
-      [
-        '--serve-agent',
-      ],
-      mode: ProcessStartMode.inheritStdio);
+  final child = await Process.start(Platform.resolvedExecutable, [
+    '--serve-agent',
+  ], mode: ProcessStartMode.inheritStdio);
   var running = false;
   for (var attempt = 0; attempt < 200; attempt++) {
     if (agent.isRunning) {
@@ -815,10 +800,7 @@ Future<void> agentAndLocal() async {
   pass('vault_agent_end_activity');
   agent.sleepSupport();
   pass('vault_agent_sleep_support');
-  check(
-    agent.logPath.isNotEmpty && agent.logDestination.isNotEmpty,
-    'logs',
-  );
+  check(agent.logPath.isNotEmpty && agent.logDestination.isNotEmpty, 'logs');
   pass('vault_agent_log_path', 2);
   pass('vault_agent_log_destination', 2);
   final local = agent;
@@ -828,11 +810,8 @@ Future<void> agentAndLocal() async {
   final passwordPath = '${root.path}/password.lbox';
   final passwordBox = withSecretString(
     'local password',
-    (password) => Lockbox.create(
-      passwordPath,
-      password: password,
-      overwrite: true,
-    ),
+    (password) =>
+        Lockbox.create(passwordPath, password: password, overwrite: true),
   );
   passwordBox.addFile('/data.txt', payload);
   passwordBox.commit();
@@ -900,7 +879,8 @@ Future<void> agentAndLocal() async {
 }
 
 void interop(String producer) {
-  final root = Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
+  final root =
+      Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
       '/tmp/revault-e2e-artifacts';
   final box = Lockbox.openBytes(
     Uint8List.fromList(File('$root/$producer/archive.lbox').readAsBytesSync()),
@@ -913,10 +893,8 @@ void interop(String producer) {
   box.close();
   final vault = withSecretString(
     'new vault password',
-    (password) => Vault.open(
-      root: '$root/$producer/vault',
-      passphrase: password,
-    ),
+    (password) =>
+        Vault.open(root: '$root/$producer/vault', passphrase: password),
   );
   check(vault.structureVersion > 0, 'foreign vault');
   vault.close();
