@@ -82,7 +82,7 @@ gpg --decrypt secrets.env.gpg
 ```
 
 ```bash
-lockbox variable export secrets.lbox
+lockbox secrets.lbox variable export
 ```
 
 The Lockbox command may be better once installed, but GPG often wins the first

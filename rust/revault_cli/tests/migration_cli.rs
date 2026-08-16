@@ -245,7 +245,7 @@ impl Fixture {
 
     fn create_archive(&self, name: &str) -> PathBuf {
         let archive = self.root.join(name);
-        self.success(&["create", path(&archive)]);
+        self.success(&[path(&archive), "create"]);
         archive
     }
 

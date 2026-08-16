@@ -22,18 +22,12 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
     match command {
         "define" => define_matches(sub, access),
         "definitions" => definitions_with_format(
-            &optional_lockbox_positionals(positional_values(sub, "args"), 0)?,
+            &[default_lockbox_for_command()?],
             access,
             output_format_from_matches(sub)?,
         ),
         "use" => use_vault_definition(
-            &[
-                required_value(sub, "form"),
-                sub.get_one::<String>("lockbox")
-                    .cloned()
-                    .map(Ok)
-                    .unwrap_or_else(default_lockbox_for_command)?,
-            ],
+            &[required_value(sub, "form"), default_lockbox_for_command()?],
             access,
         ),
         "capture" => capture_definition(

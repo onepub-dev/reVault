@@ -11,13 +11,10 @@ use std::fs::OpenOptions;
 use std::path::Path;
 
 pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
-    match (command_lockbox(), matches.get_one::<String>("lockbox")) {
-        (Some(_), Some(_)) => Err(cli_error(
-            "lockbox supplied both before and after the command",
-        )),
-        (Some(lockbox), None) => run_lockbox(&lockbox),
-        (None, Some(lockbox)) => run_lockbox(lockbox),
-        (None, None) => run_global(),
+    let _ = matches;
+    match command_lockbox() {
+        Some(lockbox) => run_lockbox(&lockbox),
+        None => run_global(),
     }
 }
 

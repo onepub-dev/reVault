@@ -26,7 +26,7 @@ Assume `deploy.lbox` contains the variables needed by `./ci/deploy.sh`.
 Open the lockbox locally as an owner, then bootstrap a production CI identity:
 
 ```bash
-lockbox open deploy.lbox
+lockbox deploy.lbox open
 
 lockbox vault ci bootstrap production \
   --output .revault/ci/production.lockbox-ci \
@@ -134,7 +134,7 @@ lockbox vault ci bootstrap production \
   --output production.lockbox-ci \
   --public-key production.pub
 
-lockbox access grant deploy.lbox ci-production production.pub
+lockbox deploy.lbox access grant ci-production production.pub
 ```
 
 The generated passphrase may be shown once on an interactive terminal. It must

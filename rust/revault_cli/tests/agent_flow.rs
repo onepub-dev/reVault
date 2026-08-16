@@ -1,6 +1,6 @@
 mod common;
 
-use common::TestTempDir;
+use common::{target_first_args, TestTempDir};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -239,7 +239,7 @@ fn run_output(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]
 fn command(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]) -> Command {
     let mut command = Command::new(bin);
     command
-        .args(args)
+        .args(target_first_args(args))
         .env("LOCKBOX_PASSWORD", "test-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")

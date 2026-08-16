@@ -1,6 +1,6 @@
 mod common;
 
-use common::{short_dir_path, unique_dir_path, unique_thread_dir_path};
+use common::{short_dir_path, target_first_args, unique_dir_path, unique_thread_dir_path};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -105,8 +105,8 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let variable_move_help = String::from_utf8_lossy(&variable_move_help.stdout);
     assert!(variable_move_help.contains("Move matching variables"));
     assert!(variable_move_help
-        .contains("Usage: lockbox variable move [OPTIONS] [LOCKBOX] <SOURCE> <DESTINATION>"));
-    assert!(!variable_move_help.contains("SOURCE DESTINATION | SOURCE DESTINATION"));
+        .contains("Usage: lockbox [LOCKBOX] variable move [OPTIONS] <SOURCE> <DESTINATION>"));
+    assert!(!variable_move_help.contains("[LOCKBOX] <SOURCE>"));
 
     let env_verbose_help = run_output(bin, &["variable", "--help", "--verbose"]);
     assert_success(&env_verbose_help);
@@ -144,13 +144,13 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let form_define_verbose_help = String::from_utf8_lossy(&form_define_verbose_help.stdout);
     assert!(form_define_verbose_help.contains("NAME[:KIND[:required[:LABEL]]]"));
     assert!(form_define_verbose_help.contains("The alias is optional"));
-    assert!(form_define_verbose_help.contains("lockbox form define secrets.lbox --name Login"));
+    assert!(form_define_verbose_help.contains("lockbox secrets.lbox form define --name Login"));
 
     let form_define_error = run_output(bin, &["form", "define", "test.lbox"]);
     assert!(!form_define_error.status.success());
     let form_define_error = String::from_utf8_lossy(&form_define_error.stderr);
     assert!(form_define_error.contains("Example:"));
-    assert!(form_define_error.contains("lockbox form define secrets.lbox login"));
+    assert!(form_define_error.contains("lockbox secrets.lbox form define login"));
     assert!(form_define_error.contains("[alias]"));
 
     let dir = unique_dir_named("form-define-separator");
@@ -191,21 +191,22 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let env_export_help = run_output(bin, &["variable", "export", "--help"]);
     assert_success(&env_export_help);
     let env_export_help = String::from_utf8_lossy(&env_export_help.stdout);
-    assert!(env_export_help.contains("LOCKBOX PATTERN | PATTERN"));
+    assert!(env_export_help.contains("[PATTERN]"));
 
     let env_get_help = run_output(bin, &["variable", "get", "--help"]);
     assert_success(&env_get_help);
     let env_get_help = String::from_utf8_lossy(&env_get_help.stdout);
-    assert!(env_get_help.contains("lockbox variable get secrets.lbox APP_MODE"));
-    assert!(env_get_help.contains("lockbox variable get --secret secrets.lbox API_TOKEN"));
+    assert!(env_get_help.contains("lockbox secrets.lbox variable get APP_MODE"));
+    assert!(env_get_help.contains("lockbox secrets.lbox variable get --secret API_TOKEN"));
     assert!(env_get_help.contains("--output <FILE>"));
-    assert!(env_get_help.contains("lockbox variable get --secret --output api-token.txt"));
+    assert!(env_get_help
+        .contains("lockbox secrets.lbox variable get --secret --output api-token.txt API_TOKEN"));
 
     let form_get_help = run_output(bin, &["form", "get", "--help"]);
     assert_success(&form_get_help);
     let form_get_help = String::from_utf8_lossy(&form_get_help.stdout);
-    assert!(form_get_help.contains("lockbox form get secrets.lbox /work/github username"));
-    assert!(form_get_help.contains("lockbox form get --secret"));
+    assert!(form_get_help.contains("lockbox secrets.lbox form get /work/github username"));
+    assert!(form_get_help.contains("lockbox secrets.lbox form get --secret"));
     assert!(form_get_help.contains("--output <FILE>"));
     assert!(form_get_help.contains("--overwrite"));
 
@@ -213,7 +214,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&env_export_help);
     let env_export_help = String::from_utf8_lossy(&env_export_help.stdout);
     assert!(env_export_help.contains("--format <posix|powershell|cmd|json>"));
-    assert!(env_export_help.contains("eval \"$(lockbox variable export secrets.lbox)\""));
+    assert!(env_export_help.contains("eval \"$(lockbox secrets.lbox variable export)\""));
     assert!(env_export_help.contains("Use shell redirection to write it to a file."));
 
     let vault_init_help = run_output(bin, &["vault", "init", "--help"]);
@@ -379,12 +380,12 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&access_grant_verbose_help);
     let access_grant_verbose_help = String::from_utf8_lossy(&access_grant_verbose_help.stdout);
     assert!(access_grant_verbose_help.contains("profile:name or contact:name"));
-    assert!(access_grant_verbose_help.contains("lockbox access grant secrets.lbox profile:alice"));
+    assert!(access_grant_verbose_help.contains("lockbox secrets.lbox access grant profile:alice"));
     assert!(
-        access_grant_verbose_help.contains("lockbox access grant secrets.lbox alice ./alice.pub")
+        access_grant_verbose_help.contains("lockbox secrets.lbox access grant alice ./alice.pub")
     );
     assert!(access_grant_verbose_help.contains("Profile name, contact name, profile:name"));
-    assert!(access_grant_verbose_help.contains("Public key path."));
+    assert!(access_grant_verbose_help.contains("Public key path"));
 
     let vault_help = run_output(bin, &["vault", "--help"]);
     assert_success(&vault_help);
@@ -431,7 +432,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&doctor_help);
     let doctor_help = String::from_utf8_lossy(&doctor_help.stdout);
     assert!(doctor_help.contains("Show vault, agent, or lockbox diagnostics."));
-    assert!(doctor_help.contains("lockbox doctor secrets.lbox"));
+    assert!(doctor_help.contains("lockbox secrets.lbox doctor"));
 
     let open_help = run_output(bin, &["open", "--help"]);
     assert_success(&open_help);
@@ -453,7 +454,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&close_help);
     let close_help = String::from_utf8_lossy(&close_help.stdout);
     assert!(close_help.contains("Close the lockbox."));
-    assert!(close_help.contains("lockbox close secrets.lbox"));
+    assert!(close_help.contains("lockbox secrets.lbox close"));
     assert!(close_help.contains("lockbox close"));
     assert!(!close_help.contains("--all"));
 
@@ -466,7 +467,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let recover_help = run_output(bin, &["recover", "--help"]);
     assert_success(&recover_help);
     let recover_help = String::from_utf8_lossy(&recover_help.stdout);
-    assert!(recover_help.contains("lockbox recover damaged.lbox"));
+    assert!(recover_help.contains("lockbox damaged.lbox recover"));
     assert!(recover_help.contains("--dry-run"));
     assert!(!recover_help.contains("--report"));
 }
@@ -480,6 +481,29 @@ fn target_first_lockbox_is_rejected_for_global_commands() {
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("vault is not a lockbox-scoped command")
     );
+}
+
+#[test]
+fn command_first_lockbox_is_rejected_for_lockbox_scoped_commands() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    for args in [
+        vec!["open", "test.lbox"],
+        vec!["list", "test.lbox"],
+        vec!["variable", "get", "test.lbox", "API_KEY"],
+        vec!["form", "show", "test.lbox", "/login"],
+    ] {
+        let output = Command::new(bin).args(&args).output().unwrap();
+        assert!(
+            !output.status.success(),
+            "legacy command ordering unexpectedly succeeded: {args:?}"
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("unexpected argument")
+                || stderr.contains("lockbox paths must precede lockbox-scoped commands"),
+            "unexpected error for {args:?}: {stderr}"
+        );
+    }
 }
 
 #[test]
@@ -3633,7 +3657,7 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
     assert_success(&init.wait_with_output().unwrap());
 
     let mut create = Command::new(bin)
-        .args(["create", lockbox.to_str().unwrap()])
+        .args([lockbox.to_str().unwrap(), "create"])
         .env_remove("LOCKBOX_KEY")
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
@@ -3658,7 +3682,7 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
     assert!(lockbox.exists());
 
     let mut open = Command::new(bin)
-        .args(["open", lockbox.to_str().unwrap()])
+        .args([lockbox.to_str().unwrap(), "open"])
         .env_remove("LOCKBOX_KEY")
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
@@ -3689,7 +3713,7 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
     assert!(stdout.contains("Lockbox opened:"));
 
     let mut reopen = Command::new(bin)
-        .args(["open", lockbox.to_str().unwrap()])
+        .args([lockbox.to_str().unwrap(), "open"])
         .env_remove("LOCKBOX_KEY")
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
@@ -3742,7 +3766,7 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
     assert_success(&init);
 
     let create = Command::new(bin)
-        .args(["create", "--password", lockbox.to_str().unwrap()])
+        .args([lockbox.to_str().unwrap(), "create", "--password"])
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_PASSWORD", lockbox_password)
         .env("LOCKBOX_VAULT_PASSWORD", vault_password)
@@ -3755,7 +3779,7 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
     assert_success(&create);
 
     let mut open = Command::new(bin)
-        .args(["open", lockbox.to_str().unwrap()])
+        .args([lockbox.to_str().unwrap(), "open"])
         .env_remove("LOCKBOX_KEY")
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
@@ -3811,7 +3835,7 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
     assert_success(&init);
 
     let create = Command::new(bin)
-        .args(["create", lockbox.to_str().unwrap()])
+        .args([lockbox.to_str().unwrap(), "create"])
         .env_remove("LOCKBOX_KEY")
         .env("LOCKBOX_VAULT_PASSWORD", original_password)
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
@@ -3835,7 +3859,7 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
     assert_success(&replace);
 
     let mut open = Command::new(bin)
-        .args(["open", lockbox.to_str().unwrap()])
+        .args([lockbox.to_str().unwrap(), "open"])
         .env_remove("LOCKBOX_KEY")
         .env_remove("LOCKBOX_PASSWORD")
         .env_remove("LOCKBOX_VAULT_PASSWORD")
@@ -5078,7 +5102,7 @@ fn open_accepts_password_sources_and_session_duration() {
 
     thread::sleep(Duration::from_secs(3));
     let listing = Command::new(bin)
-        .args(["list", lockbox.to_str().unwrap()])
+        .args([lockbox.to_str().unwrap(), "list"])
         .env("LOCKBOX_SESSION_AGENT_DIR", &agent_root)
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
@@ -5904,7 +5928,7 @@ fn run_output(bin: &str, args: &[&str]) -> Output {
 
 fn run_output_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &PathBuf) -> Output {
     Command::new(bin)
-        .args(args)
+        .args(target_first_args(args))
         .env("LOCKBOX_KEY", "test-key")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
@@ -5932,7 +5956,7 @@ fn run_output_in_with_stdin(
     stdin: &str,
 ) -> Output {
     let mut child = Command::new(bin)
-        .args(args)
+        .args(target_first_args(args))
         .env("LOCKBOX_KEY", "test-key")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
@@ -5959,7 +5983,7 @@ fn run_output_without_content_key(
     agent_root: &PathBuf,
 ) -> Output {
     Command::new(bin)
-        .args(args)
+        .args(target_first_args(args))
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
@@ -5977,7 +6001,7 @@ fn run_output_without_lockbox_password(
 ) -> Command {
     let mut command = Command::new(bin);
     command
-        .args(args)
+        .args(target_first_args(args))
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
@@ -6015,7 +6039,7 @@ fn run_output_without_content_key_with_stdin(
     stdin: &str,
 ) -> Output {
     let mut child = Command::new(bin)
-        .args(args)
+        .args(target_first_args(args))
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
