@@ -1961,9 +1961,9 @@ dependencies = [
 
 [[package]]
 name = "oxiarc-zstd"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fde54a890bced6620e220a8a4af19db214430e2f7a659f334bd12c4b3561e0e7"
+checksum = "0e6f1740cf3dbb942ba0f1f99f54ea6c16950437930ff39d06aa29c8efcd9ce6"
 dependencies = [
  "oxiarc-core",
 ]
