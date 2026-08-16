@@ -1,6 +1,6 @@
 mod common;
 
-use common::{target_first_args, TestTempDir};
+use common::TestTempDir;
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -28,7 +28,7 @@ fn open_populates_cache_and_close_clears_it() {
         bin,
         &agent_dir,
         &vault_dir,
-        &["create", vault.to_str().unwrap()],
+        &[vault.to_str().unwrap(), "create"],
     );
     // The first open launches the Windows agent. Inheriting the test's capture
     // pipes into that process tree prevents their readers from observing EOF.
@@ -38,7 +38,7 @@ fn open_populates_cache_and_close_clears_it() {
             bin,
             &agent_dir,
             &vault_dir,
-            &["open", vault.to_str().unwrap()],
+            &[vault.to_str().unwrap(), "open"],
         ),
         stdout: Vec::new(),
         stderr: Vec::new(),
@@ -48,7 +48,7 @@ fn open_populates_cache_and_close_clears_it() {
         bin,
         &agent_dir,
         &vault_dir,
-        &["open", vault.to_str().unwrap()],
+        &[vault.to_str().unwrap(), "open"],
     );
     if String::from_utf8_lossy(&open.stderr).contains("lockbox session agent did not start") {
         eprintln!("skipping session agent cache assertions: lockbox session agent did not start");
@@ -103,7 +103,7 @@ fn open_populates_cache_and_close_clears_it() {
         bin,
         &agent_dir,
         &vault_dir,
-        &["list", vault.to_str().unwrap(), "/docs"],
+        &[vault.to_str().unwrap(), "list", "/docs"],
     );
     assert!(
         output.status.success(),
@@ -121,13 +121,13 @@ fn open_populates_cache_and_close_clears_it() {
         bin,
         &agent_dir,
         &vault_dir,
-        &["close", vault.to_str().unwrap()],
+        &[vault.to_str().unwrap(), "close"],
     );
     let output = run_output(
         bin,
         &agent_dir,
         &vault_dir,
-        &["list", vault.to_str().unwrap(), "/docs"],
+        &[vault.to_str().unwrap(), "list", "/docs"],
     );
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("Lockbox is closed"));
@@ -239,7 +239,7 @@ fn run_output(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]
 fn command(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf, args: &[&str]) -> Command {
     let mut command = Command::new(bin);
     command
-        .args(target_first_args(args))
+        .args(args)
         .env("LOCKBOX_PASSWORD", "test-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")

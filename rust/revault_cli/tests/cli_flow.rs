@@ -1,6 +1,6 @@
 mod common;
 
-use common::{short_dir_path, target_first_args, unique_dir_path, unique_thread_dir_path};
+use common::{short_dir_path, unique_dir_path, unique_thread_dir_path};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -146,7 +146,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(form_define_verbose_help.contains("The alias is optional"));
     assert!(form_define_verbose_help.contains("lockbox secrets.lbox form define --name Login"));
 
-    let form_define_error = run_output(bin, &["form", "define", "test.lbox"]);
+    let form_define_error = run_output(bin, &["test.lbox", "form", "define"]);
     assert!(!form_define_error.status.success());
     let form_define_error = String::from_utf8_lossy(&form_define_error.stderr);
     assert!(form_define_error.contains("Example:"));
@@ -159,9 +159,9 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let form_define_with_separator = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "form",
             "define",
-            lockbox.to_str().unwrap(),
             "login",
             "--",
             "--field",
@@ -517,9 +517,9 @@ fn form_definitions_and_records_flow() {
     let define = run_output(
         bin,
         &[
+            &lockbox,
             "form",
             "define",
-            &lockbox,
             "login",
             "--name",
             "Login",
@@ -547,9 +547,9 @@ fn form_definitions_and_records_flow() {
     let aliasless_define = run_output(
         bin,
         &[
+            &aliasless_lockbox,
             "form",
             "define",
-            &aliasless_lockbox,
             "--name",
             "Token",
             "--field",
@@ -562,22 +562,22 @@ fn form_definitions_and_records_flow() {
     assert!(aliasless_define.contains("name: Token"));
     let aliasless_list = run_output(
         bin,
-        &["form", "definitions", &aliasless_lockbox, "--format", "tsv"],
+        &[&aliasless_lockbox, "form", "definitions", "--format", "tsv"],
     );
     assert_success(&aliasless_list);
     let aliasless_list = String::from_utf8_lossy(&aliasless_list.stdout);
     assert!(aliasless_list.contains("token"));
     assert!(aliasless_list.contains("Token"));
-    let definitions = run_output(bin, &["form", "definitions", &lockbox, "--format", "tsv"]);
+    let definitions = run_output(bin, &[&lockbox, "form", "definitions", "--format", "tsv"]);
     assert_success(&definitions);
     let definitions = String::from_utf8_lossy(&definitions.stdout);
     assert!(definitions.contains("Website sign-in credentials"));
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "add",
-            &lockbox,
             "/work/github",
             "--type",
             "login",
@@ -592,11 +592,11 @@ fn form_definitions_and_records_flow() {
     let secret_set = run_output_with_stdin(
         bin,
         &[
+            &lockbox,
             "form",
             "set",
             "--secret",
             "--stdin",
-            &lockbox,
             "/work/github",
             "password",
         ],
@@ -608,23 +608,23 @@ fn form_definitions_and_records_flow() {
         "/work/github\tpassword\tupdated\n"
     );
 
-    let username = run_output(bin, &["form", "get", &lockbox, "/work/github", "username"]);
+    let username = run_output(bin, &[&lockbox, "form", "get", "/work/github", "username"]);
     assert_success(&username);
     assert_eq!(String::from_utf8_lossy(&username.stdout), "bsutton\n");
 
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "set",
             "--value",
             "alice",
-            &lockbox,
             "/work/github",
             "username",
         ],
     );
-    let username = run_output(bin, &["form", "get", &lockbox, "/work/github", "username"]);
+    let username = run_output(bin, &[&lockbox, "form", "get", "/work/github", "username"]);
     assert_success(&username);
     assert_eq!(String::from_utf8_lossy(&username.stdout), "alice\n");
 
@@ -633,16 +633,16 @@ fn form_definitions_and_records_flow() {
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "set",
             "--file",
             site_file.to_str().unwrap(),
-            &lockbox,
             "/work/github",
             "site",
         ],
     );
-    let site = run_output(bin, &["form", "get", &lockbox, "/work/github", "site"]);
+    let site = run_output(bin, &[&lockbox, "form", "get", "/work/github", "site"]);
     assert_success(&site);
     assert_eq!(
         String::from_utf8_lossy(&site.stdout),
@@ -654,12 +654,12 @@ fn form_definitions_and_records_flow() {
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "set",
             "--secret",
             "--file",
             password_file.to_str().unwrap(),
-            &lockbox,
             "/work/github",
             "password",
         ],
@@ -667,10 +667,10 @@ fn form_definitions_and_records_flow() {
     let password = run_output(
         bin,
         &[
+            &lockbox,
             "form",
             "get",
             "--secret",
-            &lockbox,
             "/work/github",
             "password",
         ],
@@ -678,7 +678,7 @@ fn form_definitions_and_records_flow() {
     assert_success(&password);
     assert_eq!(String::from_utf8_lossy(&password.stdout), "file horse\n");
 
-    let refused = run_output(bin, &["form", "get", &lockbox, "/work/github", "password"]);
+    let refused = run_output(bin, &[&lockbox, "form", "get", "/work/github", "password"]);
     assert!(!refused.status.success());
     let refused = String::from_utf8_lossy(&refused.stderr);
     assert!(refused.contains("pass --secret"));
@@ -687,10 +687,10 @@ fn form_definitions_and_records_flow() {
     let password = run_output(
         bin,
         &[
+            &lockbox,
             "form",
             "get",
             "--secret",
-            &lockbox,
             "/work/github",
             "password",
         ],
@@ -702,12 +702,12 @@ fn form_definitions_and_records_flow() {
     let password_file = run_output(
         bin,
         &[
+            &lockbox,
             "form",
             "get",
             "--secret",
             "--output",
             password_output.to_str().unwrap(),
-            &lockbox,
             "/work/github",
             "password",
         ],
@@ -719,12 +719,12 @@ fn form_definitions_and_records_flow() {
     let rejected_password_file = run_output(
         bin,
         &[
+            &lockbox,
             "form",
             "get",
             "--secret",
             "--output",
             password_output.to_str().unwrap(),
-            &lockbox,
             "/work/github",
             "password",
         ],
@@ -735,19 +735,19 @@ fn form_definitions_and_records_flow() {
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "get",
             "--output",
             password_output.to_str().unwrap(),
             "--overwrite",
-            &lockbox,
             "/work/github",
             "username",
         ],
     );
     assert_eq!(fs::read(&password_output).unwrap(), b"alice");
 
-    let inspect = run_output(bin, &["form", "show", &lockbox, "/work/github"]);
+    let inspect = run_output(bin, &[&lockbox, "form", "show", "/work/github"]);
     assert_success(&inspect);
     let inspect = String::from_utf8_lossy(&inspect.stdout);
     assert!(inspect.contains("definition_id\t"));
@@ -756,7 +756,7 @@ fn form_definitions_and_records_flow() {
     assert!(inspect.contains("field\tpassword\tPassword\t<secret>"));
     assert!(!inspect.contains("file horse"));
 
-    let list = run_output(bin, &["form", "list", &lockbox, "/work"]);
+    let list = run_output(bin, &[&lockbox, "form", "list", "/work"]);
     assert_success(&list);
     let list = String::from_utf8_lossy(&list.stdout);
     assert!(list.lines().next().unwrap_or("").contains("definition_id"));
@@ -764,7 +764,7 @@ fn form_definitions_and_records_flow() {
     assert!(list.contains("/work/github"));
     assert!(list.contains("GitHub"));
 
-    let definitions = run_output(bin, &["form", "definitions", &lockbox]);
+    let definitions = run_output(bin, &[&lockbox, "form", "definitions"]);
     assert_success(&definitions);
     let definitions = String::from_utf8_lossy(&definitions.stdout);
     assert!(definitions
@@ -776,15 +776,15 @@ fn form_definitions_and_records_flow() {
     assert!(definitions.contains("login"));
     assert!(definitions.contains("Login"));
 
-    let legacy_types = run_output(bin, &["form", "types", &lockbox]);
+    let legacy_types = run_output(bin, &[&lockbox, "form", "types"]);
     assert!(!legacy_types.status.success());
 
     let interactive = run_output_with_stdin(
         bin,
         &[
+            &lockbox,
             "form",
             "add",
-            &lockbox,
             "/work/gitlab",
             "--type",
             "login",
@@ -793,7 +793,7 @@ fn form_definitions_and_records_flow() {
         "alice\ninteractive secret\n\n",
     );
     assert_success(&interactive);
-    let interactive_show = run_output(bin, &["form", "show", &lockbox, "/work/gitlab"]);
+    let interactive_show = run_output(bin, &[&lockbox, "form", "show", "/work/gitlab"]);
     assert_success(&interactive_show);
     let interactive_show = String::from_utf8_lossy(&interactive_show.stdout);
     assert!(interactive_show.contains("name\tgitlab"));
@@ -804,38 +804,38 @@ fn form_definitions_and_records_flow() {
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "add",
-            &lockbox,
             "/work/remove-me",
             "--type",
             "login",
         ],
     );
-    run(bin, &["form", "remove", &lockbox, "/work/remove-me"]);
-    let removed = run_output(bin, &["form", "show", &lockbox, "/work/remove-me"]);
+    run(bin, &[&lockbox, "form", "remove", "/work/remove-me"]);
+    let removed = run_output(bin, &[&lockbox, "form", "show", "/work/remove-me"]);
     assert!(!removed.status.success());
 
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "add",
-            &lockbox,
             "/work/remove-alias",
             "--type",
             "login",
         ],
     );
-    run(bin, &["form", "remove", &lockbox, "/work/remove-alias"]);
-    let removed = run_output(bin, &["form", "show", &lockbox, "/work/remove-alias"]);
+    run(bin, &[&lockbox, "form", "remove", "/work/remove-alias"]);
+    let removed = run_output(bin, &[&lockbox, "form", "show", "/work/remove-alias"]);
     assert!(!removed.status.success());
 
     run(
         bin,
-        &["variable", "set", &lockbox, "/prod/API_KEY", "normal-key"],
+        &[&lockbox, "variable", "set", "/prod/API_KEY", "normal-key"],
     );
-    let visualize = run_output(bin, &["visualize", &lockbox]);
+    let visualize = run_output(bin, &[&lockbox, "visualize"]);
     assert_success(&visualize);
     let visualize = String::from_utf8_lossy(&visualize.stdout);
     assert!(visualize.contains("variables: 1"));
@@ -844,7 +844,7 @@ fn form_definitions_and_records_flow() {
     assert!(visualize.contains("variables recovered: true"));
     assert!(visualize.contains("forms recovered: true"));
 
-    let report = run_output(bin, &["recover", "--dry-run", &lockbox]);
+    let report = run_output(bin, &[&lockbox, "recover", "--dry-run"]);
     assert_success(&report);
     let report = String::from_utf8_lossy(&report.stdout);
     assert!(report.contains("variables_recovered"));
@@ -866,9 +866,9 @@ fn form_set_secret_upgrades_a_normal_field() {
     run_in(
         bin,
         &[
+            &lockbox,
             "form",
             "define",
-            &lockbox,
             "account",
             "--field",
             "token:text:required:Token",
@@ -879,9 +879,9 @@ fn form_set_secret_upgrades_a_normal_field() {
     run_in(
         bin,
         &[
+            &lockbox,
             "form",
             "add",
-            &lockbox,
             "/first",
             "--type",
             "account",
@@ -894,9 +894,9 @@ fn form_set_secret_upgrades_a_normal_field() {
     run_in(
         bin,
         &[
+            &lockbox,
             "form",
             "add",
-            &lockbox,
             "/second",
             "--type",
             "account",
@@ -910,7 +910,7 @@ fn form_set_secret_upgrades_a_normal_field() {
     let upgraded = run_output_in_with_stdin(
         bin,
         &[
-            "form", "set", "--secret", "--stdin", &lockbox, "/first", "token",
+            &lockbox, "form", "set", "--secret", "--stdin", "/first", "token",
         ],
         &vault_root,
         &agent_root,
@@ -920,7 +920,7 @@ fn form_set_secret_upgrades_a_normal_field() {
 
     let first = run_output_in(
         bin,
-        &["form", "get", "--secret", &lockbox, "/first", "token"],
+        &[&lockbox, "form", "get", "--secret", "/first", "token"],
         &vault_root,
         &agent_root,
     );
@@ -928,7 +928,7 @@ fn form_set_secret_upgrades_a_normal_field() {
     assert_eq!(String::from_utf8_lossy(&first.stdout), "first-secret\n");
     let second = run_output_in(
         bin,
-        &["form", "get", "--secret", &lockbox, "/second", "token"],
+        &[&lockbox, "form", "get", "--secret", "/second", "token"],
         &vault_root,
         &agent_root,
     );
@@ -937,7 +937,7 @@ fn form_set_secret_upgrades_a_normal_field() {
 
     let hidden = run_output_in(
         bin,
-        &["form", "show", &lockbox, "/second"],
+        &[&lockbox, "form", "show", "/second"],
         &vault_root,
         &agent_root,
     );
@@ -949,7 +949,7 @@ fn form_set_secret_upgrades_a_normal_field() {
     let downgrade = run_output_in(
         bin,
         &[
-            "form", "set", "--value", "normal", &lockbox, "/second", "token",
+            &lockbox, "form", "set", "--value", "normal", "/second", "token",
         ],
         &vault_root,
         &agent_root,
@@ -970,9 +970,9 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "define",
-            &lockbox,
             "login",
             "--name",
             "Login",
@@ -985,9 +985,9 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "add",
-            &lockbox,
             "/work/history",
             "--type",
             "login",
@@ -1002,9 +1002,9 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
     run(
         bin,
         &[
+            &lockbox,
             "form",
             "define",
-            &lockbox,
             "login",
             "--name",
             "Login",
@@ -1019,13 +1019,13 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
 
     let edit = run_output_with_stdin(
         bin,
-        &["form", "edit", &lockbox, "/work/history", "--interactive"],
+        &[&lockbox, "form", "edit", "/work/history", "--interactive"],
         "\nrevision secret\n\n",
     );
     assert_success(&edit);
     assert!(String::from_utf8_lossy(&edit.stdout).contains("Username [alice]:"));
 
-    let show = run_output(bin, &["form", "show", &lockbox, "/work/history"]);
+    let show = run_output(bin, &[&lockbox, "form", "show", "/work/history"]);
     assert_success(&show);
     let show = String::from_utf8_lossy(&show.stdout);
     assert!(show.contains("field\tusername\tUsername\talice"));
@@ -1036,10 +1036,10 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
     let password = run_output(
         bin,
         &[
+            &lockbox,
             "form",
             "get",
             "--secret",
-            &lockbox,
             "/work/history",
             "password",
         ],
@@ -1052,7 +1052,7 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
 
     let edit_existing = run_output_with_stdin(
         bin,
-        &["form", "edit", &lockbox, "/work/history", "--interactive"],
+        &[&lockbox, "form", "edit", "/work/history", "--interactive"],
         "bob\n\nhttps://example.com\n",
     );
     assert_success(&edit_existing);
@@ -1060,7 +1060,7 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
     assert!(edit_existing.contains("Username [alice]:"));
     assert!(!edit_existing.contains("revision secret"));
 
-    let show = run_output(bin, &["form", "show", &lockbox, "/work/history"]);
+    let show = run_output(bin, &[&lockbox, "form", "show", "/work/history"]);
     assert_success(&show);
     let show = String::from_utf8_lossy(&show.stdout);
     assert!(show.contains("field\tusername\tUsername\tbob"));
@@ -1069,10 +1069,10 @@ fn form_interactive_edit_handles_definition_history_and_mismatched_record() {
     let password = run_output(
         bin,
         &[
+            &lockbox,
             "form",
             "get",
             "--secret",
-            &lockbox,
             "/work/history",
             "password",
         ],
@@ -1256,22 +1256,22 @@ fn file_env_and_developer_aliases_execute_real_flows() {
     run(
         bin,
         &[
-            "mv",
             lockbox.to_str().unwrap(),
+            "mv",
             "/docs/a.txt",
             "/docs/b.txt",
         ],
     );
 
-    let cat = run_output(bin, &["cat", lockbox.to_str().unwrap(), "/docs/b.txt"]);
+    let cat = run_output(bin, &[lockbox.to_str().unwrap(), "cat", "/docs/b.txt"]);
     assert_success(&cat);
     assert_eq!(String::from_utf8_lossy(&cat.stdout), "alpha");
 
     run(
         bin,
-        &["rm", "--force", lockbox.to_str().unwrap(), "/docs/b.txt"],
+        &[lockbox.to_str().unwrap(), "rm", "--force", "/docs/b.txt"],
     );
-    let listing = run_output(bin, &["ls", lockbox.to_str().unwrap()]);
+    let listing = run_output(bin, &[lockbox.to_str().unwrap(), "ls"]);
     assert_success(&listing);
     let listing = String::from_utf8_lossy(&listing.stdout);
     assert!(listing.contains("directory"));
@@ -1280,14 +1280,14 @@ fn file_env_and_developer_aliases_execute_real_flows() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "APP_MODE",
             "prod",
         ],
     );
-    let env_list = run_output(bin, &["variable", "ls", lockbox.to_str().unwrap()]);
+    let env_list = run_output(bin, &[lockbox.to_str().unwrap(), "variable", "ls"]);
     assert_success(&env_list);
     assert!(String::from_utf8_lossy(&env_list.stdout).contains("APP_MODE"));
 
@@ -1317,18 +1317,18 @@ fn file_env_and_developer_aliases_execute_real_flows() {
 
     run(
         bin,
-        &["variable", "remove", lockbox.to_str().unwrap(), "APP_MODE"],
+        &[lockbox.to_str().unwrap(), "variable", "remove", "APP_MODE"],
     );
-    let env_list = run_output(bin, &["variable", "list", lockbox.to_str().unwrap()]);
+    let env_list = run_output(bin, &[lockbox.to_str().unwrap(), "variable", "list"]);
     assert_success(&env_list);
     assert!(!String::from_utf8_lossy(&env_list.stdout).contains("APP_MODE"));
 
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "APP_MODE_ALIAS",
             "prod",
         ],
@@ -1336,17 +1336,17 @@ fn file_env_and_developer_aliases_execute_real_flows() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "remove",
-            lockbox.to_str().unwrap(),
             "APP_MODE_ALIAS",
         ],
     );
-    let env_list = run_output(bin, &["variable", "list", lockbox.to_str().unwrap()]);
+    let env_list = run_output(bin, &[lockbox.to_str().unwrap(), "variable", "list"]);
     assert_success(&env_list);
     assert!(!String::from_utf8_lossy(&env_list.stdout).contains("APP_MODE_ALIAS"));
 
-    let visualize = run_output(bin, &["visualise", lockbox.to_str().unwrap()]);
+    let visualize = run_output(bin, &[lockbox.to_str().unwrap(), "visualise"]);
     assert_success(&visualize);
     assert!(String::from_utf8_lossy(&visualize.stdout).contains("Lockbox"));
 }
@@ -1542,22 +1542,22 @@ fn vault_form_definitions_can_be_used_and_captured() {
 
     run_without_content_key(
         bin,
-        &["create", "--password", main_lockbox.to_str().unwrap()],
+        &[main_lockbox.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
     run_without_content_key(
         bin,
-        &["form", "use", "login", main_lockbox.to_str().unwrap()],
+        &[main_lockbox.to_str().unwrap(), "form", "use", "login"],
         &vault_root,
         &agent_root,
     );
     let lockbox_definitions = run_output_without_content_key(
         bin,
         &[
+            main_lockbox.to_str().unwrap(),
             "form",
             "definitions",
-            main_lockbox.to_str().unwrap(),
             "--format",
             "tsv",
         ],
@@ -1570,9 +1570,9 @@ fn vault_form_definitions_can_be_used_and_captured() {
     run_without_content_key(
         bin,
         &[
+            main_lockbox.to_str().unwrap(),
             "form",
             "add",
-            main_lockbox.to_str().unwrap(),
             "/work/github",
             "--type",
             "login",
@@ -1585,9 +1585,9 @@ fn vault_form_definitions_can_be_used_and_captured() {
     let records = run_output_without_content_key(
         bin,
         &[
+            main_lockbox.to_str().unwrap(),
             "form",
             "list",
-            main_lockbox.to_str().unwrap(),
             "--format",
             "tsv",
         ],
@@ -1599,16 +1599,16 @@ fn vault_form_definitions_can_be_used_and_captured() {
 
     run_without_content_key(
         bin,
-        &["create", "--password", shared_lockbox.to_str().unwrap()],
+        &[shared_lockbox.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
     run_without_content_key(
         bin,
         &[
+            shared_lockbox.to_str().unwrap(),
             "form",
             "define",
-            shared_lockbox.to_str().unwrap(),
             "server",
             "--field",
             "host:text",
@@ -1619,9 +1619,9 @@ fn vault_form_definitions_can_be_used_and_captured() {
     run_without_content_key(
         bin,
         &[
+            shared_lockbox.to_str().unwrap(),
             "form",
             "capture",
-            shared_lockbox.to_str().unwrap(),
             "server",
             "captured-server",
         ],
@@ -1665,9 +1665,9 @@ fn negative_cli_errors_remain_specific() {
     let invalid_env_set = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "APP_MODE",
             "prod",
             "--value",
@@ -1681,10 +1681,10 @@ fn negative_cli_errors_remain_specific() {
     let invalid_secret_flag = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "var",
             "set",
             "-secret",
-            lockbox.to_str().unwrap(),
             "/product/API_KEY",
             "yyyyy",
         ],
@@ -1698,11 +1698,11 @@ fn negative_cli_errors_remain_specific() {
     let invalid_export = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "export",
             "--format",
             "fish",
-            lockbox.to_str().unwrap(),
         ],
     );
     assert!(!invalid_export.status.success());
@@ -1737,7 +1737,7 @@ fn remove_requires_confirmation_and_reports_count() {
 
     let refused = run_output_with_stdin(
         bin,
-        &["remove", lockbox.to_str().unwrap(), "/docs/remove.txt"],
+        &[lockbox.to_str().unwrap(), "remove", "/docs/remove.txt"],
         "no\n",
     );
     assert_success(&refused);
@@ -1745,13 +1745,13 @@ fn remove_requires_confirmation_and_reports_count() {
         .contains("Remove lockbox entry '/docs/remove.txt'? Type y or yes to confirm:"));
     assert!(String::from_utf8_lossy(&refused.stdout).contains("No entries removed."));
 
-    let listing = run_output(bin, &["list", "--recursive", lockbox.to_str().unwrap()]);
+    let listing = run_output(bin, &[lockbox.to_str().unwrap(), "list", "--recursive"]);
     assert_success(&listing);
     assert!(String::from_utf8_lossy(&listing.stdout).contains("/docs/remove.txt"));
 
     let removed = run_output_with_stdin(
         bin,
-        &["rm", lockbox.to_str().unwrap(), "/docs/remove.txt"],
+        &[lockbox.to_str().unwrap(), "rm", "/docs/remove.txt"],
         "y\n",
     );
     assert_success(&removed);
@@ -1767,7 +1767,7 @@ fn remove_requires_confirmation_and_reports_count() {
         ],
     );
     let root_removed =
-        run_output_with_stdin(bin, &["rm", lockbox.to_str().unwrap(), "perf.data"], "y\n");
+        run_output_with_stdin(bin, &[lockbox.to_str().unwrap(), "rm", "perf.data"], "y\n");
     assert_success(&root_removed);
     assert!(String::from_utf8_lossy(&root_removed.stdout).contains("/perf.data"));
 
@@ -1832,7 +1832,7 @@ fn remove_requires_confirmation_and_reports_count() {
     assert_success(&recursive_glob);
     assert!(String::from_utf8_lossy(&recursive_glob.stdout).contains("Removed 1 file"));
 
-    let listing = run_output(bin, &["list", lockbox.to_str().unwrap()]);
+    let listing = run_output(bin, &[lockbox.to_str().unwrap(), "list"]);
     assert_success(&listing);
     let listing = String::from_utf8_lossy(&listing.stdout);
     assert!(listing.contains("directory"));
@@ -1901,7 +1901,7 @@ fn missing_lockbox_errors_are_cli_specific() {
     let agent_root = dir.join("agent");
     fs::write(&source, "missing lockbox source").unwrap();
 
-    let output = run_output(bin, &["visualize", missing.to_str().unwrap()]);
+    let output = run_output(bin, &[missing.to_str().unwrap(), "visualize"]);
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("lockbox not found:"));
@@ -1910,7 +1910,7 @@ fn missing_lockbox_errors_are_cli_specific() {
 
     let open_missing = run_output_in(
         bin,
-        &["open", missing.to_str().unwrap()],
+        &[missing.to_str().unwrap(), "open"],
         &vault_root,
         &agent_root,
     );
@@ -1973,9 +1973,9 @@ fn removing_last_lockbox_key_has_cli_guidance() {
     run_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "grant",
-            lockbox.to_str().unwrap(),
             "access_key",
             public_key.to_str().unwrap(),
         ],
@@ -1986,11 +1986,11 @@ fn removing_last_lockbox_key_has_cli_guidance() {
     let keys = run_output_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "list",
             "--format",
             "tsv",
-            lockbox.to_str().unwrap(),
         ],
         &vault_root,
         &agent_root,
@@ -2005,7 +2005,7 @@ fn removing_last_lockbox_key_has_cli_guidance() {
 
     let output = run_output_in(
         bin,
-        &["access", "revoke", lockbox.to_str().unwrap(), &slot_id],
+        &[lockbox.to_str().unwrap(), "access", "revoke", &slot_id],
         &vault_root,
         &agent_root,
     );
@@ -2102,7 +2102,7 @@ fn doctor_lockbox_reports_closed_metadata_and_open_guidance() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &["create", "--password", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
@@ -2110,7 +2110,7 @@ fn doctor_lockbox_reports_closed_metadata_and_open_guidance() {
 
     let doctor = run_output_without_lockbox_password(
         bin,
-        &["doctor", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "doctor"],
         &vault_root,
         &agent_root,
     )
@@ -2140,13 +2140,13 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &["create", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create"],
         &vault_root,
         &agent_root,
     );
     let open = run_output_without_content_key(
         bin,
-        &["open", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "open"],
         &vault_root,
         &agent_root,
     );
@@ -2158,7 +2158,7 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
 
     let doctor = run_output_without_lockbox_password(
         bin,
-        &["doctor", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "doctor"],
         &vault_root,
         &agent_root,
     )
@@ -2202,16 +2202,16 @@ fn cli_env_rename_and_visualize_flow() {
     );
     let renamed = run_output(
         bin,
-        &["move", lockbox.to_str().unwrap(), "/docs", "/archive/docs"],
+        &[lockbox.to_str().unwrap(), "move", "/docs", "/archive/docs"],
     );
     assert_success(&renamed);
     assert!(String::from_utf8_lossy(&renamed.stdout).contains("Moved /docs to /archive/docs."));
     let var_set = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "var",
             "set",
-            lockbox.to_str().unwrap(),
             "DATABASE_URL",
             "postgres://localhost/app",
         ],
@@ -2219,7 +2219,7 @@ fn cli_env_rename_and_visualize_flow() {
     assert_success(&var_set);
     assert!(String::from_utf8_lossy(&var_set.stdout).contains("Variable set: /DATABASE_URL"));
 
-    let listing = run_output(bin, &["list", lockbox.to_str().unwrap(), "/archive/docs"]);
+    let listing = run_output(bin, &[lockbox.to_str().unwrap(), "list", "/archive/docs"]);
     assert_success(&listing);
     let listing = String::from_utf8_lossy(&listing.stdout);
     assert!(listing.contains("a.txt"));
@@ -2228,7 +2228,7 @@ fn cli_env_rename_and_visualize_flow() {
 
     let env_get = run_output(
         bin,
-        &["var", "get", lockbox.to_str().unwrap(), "DATABASE_URL"],
+        &[lockbox.to_str().unwrap(), "var", "get", "DATABASE_URL"],
     );
     assert_success(&env_get);
     assert_eq!(
@@ -2236,7 +2236,7 @@ fn cli_env_rename_and_visualize_flow() {
         "postgres://localhost/app"
     );
 
-    let visualize = run_output(bin, &["visualize", lockbox.to_str().unwrap()]);
+    let visualize = run_output(bin, &[lockbox.to_str().unwrap(), "visualize"]);
     assert_success(&visualize);
     let visualize = String::from_utf8_lossy(&visualize.stdout);
     assert!(visualize.contains("Lockbox"));
@@ -2363,7 +2363,7 @@ fn list_commands_support_table_tsv_and_json_formats() {
     assert_success(&first_add);
     assert!(String::from_utf8_lossy(&first_add.stdout).contains("Added 1 file to"));
 
-    let table = run_output(bin, &["list", lockbox.to_str().unwrap()]);
+    let table = run_output(bin, &[lockbox.to_str().unwrap(), "list"]);
     assert_success(&table);
     let table = String::from_utf8_lossy(&table.stdout);
     assert!(table.lines().next().unwrap_or("").contains("kind"));
@@ -2371,25 +2371,25 @@ fn list_commands_support_table_tsv_and_json_formats() {
     assert!(table.contains("docs/"));
     assert!(!table.contains("/docs/a.txt"));
 
-    let recursive = run_output(bin, &["list", "--recursive", lockbox.to_str().unwrap()]);
+    let recursive = run_output(bin, &[lockbox.to_str().unwrap(), "list", "--recursive"]);
     assert_success(&recursive);
     let recursive = String::from_utf8_lossy(&recursive.stdout);
     assert!(recursive.lines().next().unwrap_or("").contains("path"));
     assert!(recursive.contains("/docs/a.txt"));
 
-    let glob = run_output(bin, &["list", lockbox.to_str().unwrap(), "/docs/*.txt"]);
+    let glob = run_output(bin, &[lockbox.to_str().unwrap(), "list", "/docs/*.txt"]);
     assert_success(&glob);
     let glob = String::from_utf8_lossy(&glob.stdout);
     assert!(glob.lines().next().unwrap_or("").contains("path"));
     assert!(glob.contains("/docs/a.txt"));
 
-    let tsv = run_output(bin, &["list", "--format", "tsv", lockbox.to_str().unwrap()]);
+    let tsv = run_output(bin, &[lockbox.to_str().unwrap(), "list", "--format", "tsv"]);
     assert_success(&tsv);
     assert!(String::from_utf8_lossy(&tsv.stdout).contains("directory\t-\tdocs/"));
 
     let json = run_output(
         bin,
-        &["list", "--format", "json", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "list", "--format", "json"],
     );
     assert_success(&json);
     assert!(String::from_utf8_lossy(&json.stdout)
@@ -2398,11 +2398,11 @@ fn list_commands_support_table_tsv_and_json_formats() {
     let recursive_json = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "list",
             "--recursive",
             "--format",
             "json",
-            lockbox.to_str().unwrap(),
         ],
     );
     assert_success(&recursive_json);
@@ -2438,18 +2438,18 @@ fn recover_reports_and_writes_recovered_lockbox() {
     let report = run_output(
         bin,
         &[
+            damaged.to_str().unwrap(),
             "recover",
             "--dry-run",
             "--format",
             "json",
-            damaged.to_str().unwrap(),
         ],
     );
     assert_success(&report);
     assert!(String::from_utf8_lossy(&report.stdout).contains("\"field\":\"intact_file_count\""));
 
     let default_recovered = dir.join("damaged.recovered.lbox");
-    let default_output = run_output(bin, &["recover", damaged.to_str().unwrap()]);
+    let default_output = run_output(bin, &[damaged.to_str().unwrap(), "recover"]);
     assert_success(&default_output);
     assert!(damaged.exists());
     assert!(default_recovered.exists());
@@ -2460,8 +2460,8 @@ fn recover_reports_and_writes_recovered_lockbox() {
     let output = run_output(
         bin,
         &[
-            "recover",
             damaged.to_str().unwrap(),
+            "recover",
             "--output",
             recovered.to_str().unwrap(),
             "--format",
@@ -2475,11 +2475,11 @@ fn recover_reports_and_writes_recovered_lockbox() {
     let listing = run_output(
         bin,
         &[
+            recovered.to_str().unwrap(),
             "list",
             "--recursive",
             "--format",
             "tsv",
-            recovered.to_str().unwrap(),
         ],
     );
     assert_success(&listing);
@@ -2491,8 +2491,8 @@ fn recover_reports_and_writes_recovered_lockbox() {
     let in_place_output = run_output(
         bin,
         &[
-            "recover",
             in_place.to_str().unwrap(),
+            "recover",
             "--output",
             in_place.to_str().unwrap(),
             "--overwrite",
@@ -2510,11 +2510,11 @@ fn recover_reports_and_writes_recovered_lockbox() {
     let listing = run_output(
         bin,
         &[
+            in_place.to_str().unwrap(),
             "list",
             "--recursive",
             "--format",
             "tsv",
-            in_place.to_str().unwrap(),
         ],
     );
     assert_success(&listing);
@@ -2533,7 +2533,7 @@ fn content_key_create_does_not_mirror_empty_key_directory() {
 
     run_in(
         bin,
-        &["create", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create"],
         &vault_root,
         &agent_root,
     );
@@ -2541,7 +2541,7 @@ fn content_key_create_does_not_mirror_empty_key_directory() {
     assert!(lockbox.exists());
     let listing = run_output_in(
         bin,
-        &["list", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "list"],
         &vault_root,
         &agent_root,
     );
@@ -2585,7 +2585,7 @@ fn create_defaults_lbox_extension_and_reports_before_prompting() {
     let created = dir.join("project.lbox");
     let output = run_output_without_content_key(
         bin,
-        &["create", requested.to_str().unwrap()],
+        &[requested.to_str().unwrap(), "create"],
         &vault_root,
         &agent_root,
     );
@@ -2597,7 +2597,7 @@ fn create_defaults_lbox_extension_and_reports_before_prompting() {
 
     let listing = run_output_without_lockbox_password(
         bin,
-        &["list", created.to_str().unwrap()],
+        &[created.to_str().unwrap(), "list"],
         &vault_root,
         &agent_root,
     )
@@ -2613,7 +2613,7 @@ fn create_defaults_lbox_extension_and_reports_before_prompting() {
     let original = fs::read(&created).unwrap();
     let duplicate = run_output_without_content_key(
         bin,
-        &["create", requested.to_str().unwrap()],
+        &[requested.to_str().unwrap(), "create"],
         &vault_root,
         &agent_root,
     );
@@ -2767,14 +2767,14 @@ fn add_can_default_destination_and_list_recursively() {
         "{progress_stderr:?}"
     );
 
-    let listing = run_output(bin, &["ls", lockbox.to_str().unwrap()]);
+    let listing = run_output(bin, &[lockbox.to_str().unwrap(), "ls"]);
     assert_success(&listing);
     let listing = String::from_utf8_lossy(&listing.stdout);
     assert!(listing.contains("alpha.txt"));
     assert!(listing.contains("copy/"));
     assert!(!listing.contains("/copy/one.txt"));
 
-    let recursive = run_output(bin, &["ls", "--recursive", lockbox.to_str().unwrap()]);
+    let recursive = run_output(bin, &[lockbox.to_str().unwrap(), "ls", "--recursive"]);
     assert_success(&recursive);
     let recursive = String::from_utf8_lossy(&recursive.stdout);
     assert!(recursive.contains("/alpha.txt"));
@@ -2784,7 +2784,7 @@ fn add_can_default_destination_and_list_recursively() {
     assert!(recursive.contains("/copy/one.txt"));
     assert!(recursive.contains("/copy/two.txt"));
 
-    let nested = run_output(bin, &["ls", lockbox.to_str().unwrap(), "/some/path"]);
+    let nested = run_output(bin, &[lockbox.to_str().unwrap(), "ls", "/some/path"]);
     assert_success(&nested);
     assert!(String::from_utf8_lossy(&nested.stdout).contains("alpha.txt"));
 
@@ -2881,7 +2881,7 @@ fn access_subcommands_manage_lockbox_access() {
     );
     let ambiguous = run_output_in(
         bin,
-        &["access", "grant", lockbox.to_str().unwrap(), "sharee"],
+        &[lockbox.to_str().unwrap(), "access", "grant", "sharee"],
         &vault_root,
         &agent_root,
     );
@@ -2894,9 +2894,9 @@ fn access_subcommands_manage_lockbox_access() {
     let path_only = run_output_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "grant",
-            lockbox.to_str().unwrap(),
             public_key.to_str().unwrap(),
         ],
         &vault_root,
@@ -2909,9 +2909,9 @@ fn access_subcommands_manage_lockbox_access() {
     run_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "grant",
-            lockbox.to_str().unwrap(),
             "external",
             public_key.to_str().unwrap(),
         ],
@@ -2921,9 +2921,9 @@ fn access_subcommands_manage_lockbox_access() {
     run_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "grant",
-            lockbox.to_str().unwrap(),
             "profile:sharee",
         ],
         &vault_root,
@@ -2932,9 +2932,9 @@ fn access_subcommands_manage_lockbox_access() {
     run_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "grant",
-            lockbox.to_str().unwrap(),
             "contact:sharee",
         ],
         &vault_root,
@@ -2943,7 +2943,7 @@ fn access_subcommands_manage_lockbox_access() {
 
     let access = run_output_in(
         bin,
-        &["access", "ls", "--format", "tsv", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "access", "ls", "--format", "tsv"],
         &vault_root,
         &agent_root,
     );
@@ -2957,11 +2957,11 @@ fn access_subcommands_manage_lockbox_access() {
     let access_json = run_output_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "ls",
             "--format",
             "json",
-            lockbox.to_str().unwrap(),
         ],
         &vault_root,
         &agent_root,
@@ -2979,7 +2979,7 @@ fn access_subcommands_manage_lockbox_access() {
 
     let ambiguous = run_output_in(
         bin,
-        &["access", "revoke", lockbox.to_str().unwrap(), "sharee"],
+        &[lockbox.to_str().unwrap(), "access", "revoke", "sharee"],
         &vault_root,
         &agent_root,
     );
@@ -2989,9 +2989,9 @@ fn access_subcommands_manage_lockbox_access() {
     run_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "revoke",
-            lockbox.to_str().unwrap(),
             "external",
             "profile:sharee",
         ],
@@ -3000,7 +3000,7 @@ fn access_subcommands_manage_lockbox_access() {
     );
     let access = run_output_without_lockbox_password(
         bin,
-        &["access", "ls", "--format", "tsv", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "access", "ls", "--format", "tsv"],
         &vault_root,
         &agent_root,
     )
@@ -3015,9 +3015,9 @@ fn access_subcommands_manage_lockbox_access() {
     let grant = run_output_without_lockbox_password(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "grant",
-            lockbox.to_str().unwrap(),
             "profile:sharee",
         ],
         &vault_root,
@@ -3028,7 +3028,7 @@ fn access_subcommands_manage_lockbox_access() {
     assert_success(&grant);
     let access = run_output_without_lockbox_password(
         bin,
-        &["access", "ls", "--format", "tsv", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "access", "ls", "--format", "tsv"],
         &vault_root,
         &agent_root,
     )
@@ -3046,7 +3046,7 @@ fn access_subcommands_manage_lockbox_access() {
         .expect("access slot id");
     let revoke = run_output_without_lockbox_password(
         bin,
-        &["access", "revoke", lockbox.to_str().unwrap(), slot_id],
+        &[lockbox.to_str().unwrap(), "access", "revoke", slot_id],
         &vault_root,
         &agent_root,
     )
@@ -3067,7 +3067,7 @@ fn password_create_requires_explicit_vault_init() {
 
     let create_without_vault = run_output_without_content_key(
         bin,
-        &["create", "--password", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
@@ -3198,7 +3198,7 @@ fn password_create_requires_explicit_vault_init() {
 
     run_without_content_key(
         bin,
-        &["create", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create"],
         &vault_root,
         &agent_root,
     );
@@ -3413,7 +3413,7 @@ fn vault_lockbox_list_reports_owner_size_and_path() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &["create", "--password", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
@@ -3480,7 +3480,7 @@ fn vault_lockbox_move_updates_file_sidecar_vault_and_default_session() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &["create", "--password", source.to_str().unwrap()],
+        &[source.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
@@ -3562,7 +3562,7 @@ fn plain_filesystem_move_reports_stale_session_default_clearly() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &["create", "--password", source.to_str().unwrap()],
+        &[source.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
@@ -4279,13 +4279,13 @@ fn vault_profile_rotate_history_and_access_refresh_flow() {
     run_in(bin, &["vault", "init"], &vault_root, &agent_root);
     run_in(
         bin,
-        &["create", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create"],
         &vault_root,
         &agent_root,
     );
     run_in(
         bin,
-        &["access", "grant", lockbox.to_str().unwrap(), "default"],
+        &[lockbox.to_str().unwrap(), "access", "grant", "default"],
         &vault_root,
         &agent_root,
     );
@@ -4334,9 +4334,9 @@ fn vault_profile_rotate_history_and_access_refresh_flow() {
     let dry_run = run_output_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "refresh",
-            lockbox.to_str().unwrap(),
             "default",
             "--dry-run",
         ],
@@ -4351,9 +4351,9 @@ fn vault_profile_rotate_history_and_access_refresh_flow() {
     let refreshed = run_output_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "access",
             "refresh",
-            lockbox.to_str().unwrap(),
             "default",
             "--yes",
         ],
@@ -4409,7 +4409,7 @@ fn session_and_close_report_empty_cache_and_already_closed_state() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &["create", "--password", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
@@ -4436,7 +4436,7 @@ fn session_and_close_report_empty_cache_and_already_closed_state() {
 
     let closed = run_output_without_content_key(
         bin,
-        &["close", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "close"],
         &vault_root,
         &agent_root,
     );
@@ -4472,7 +4472,7 @@ fn session_and_close_report_empty_cache_and_already_closed_state() {
 
     let listing = run_output_without_content_key(
         bin,
-        &["list", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "list"],
         &vault_root,
         &agent_root,
     );
@@ -4496,7 +4496,7 @@ fn session_default_sets_default_lockbox_for_commands() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &["create", "--password", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
@@ -4520,7 +4520,7 @@ fn session_default_sets_default_lockbox_for_commands() {
 
     let missing_add = run_output_without_content_key(
         bin,
-        &["add", dir.join("missing.md").to_str().unwrap()],
+        &[dir.join("missing.md").to_str().unwrap(), "add"],
         &vault_root,
         &agent_root,
     );
@@ -4545,7 +4545,7 @@ fn session_default_sets_default_lockbox_for_commands() {
     let explicit = dir.join("explicit.lbox");
     run_without_content_key(
         bin,
-        &["create", "--password", explicit.to_str().unwrap()],
+        &[explicit.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
@@ -4565,7 +4565,7 @@ fn session_default_sets_default_lockbox_for_commands() {
 
     let explicit_listing = run_output_without_content_key(
         bin,
-        &["list", explicit.to_str().unwrap()],
+        &[explicit.to_str().unwrap(), "list"],
         &vault_root,
         &agent_root,
     );
@@ -4617,7 +4617,7 @@ fn session_default_lockbox_applies_to_lockbox_argument_variants() {
     run_in(bin, &["vault", "init"], &vault_root, &agent_root);
     run_in(
         bin,
-        &["create", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create"],
         &vault_root,
         &agent_root,
     );
@@ -4899,13 +4899,13 @@ fn auto_open_lockboxes_uses_remembered_password() {
 
     run_without_content_key(
         bin,
-        &["create", "--password", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
     let close = run_output_without_lockbox_password(
         bin,
-        &["close", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "close"],
         &vault_root,
         &agent_root,
     )
@@ -4919,7 +4919,7 @@ fn auto_open_lockboxes_uses_remembered_password() {
 
     let listing = run_output_without_lockbox_password(
         bin,
-        &["list", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "list"],
         &vault_root,
         &agent_root,
     )
@@ -4954,7 +4954,7 @@ fn auto_open_lockboxes_with_vault_profile_allows_first_add() {
     );
     run_without_content_key(
         bin,
-        &["create", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create"],
         &vault_root,
         &agent_root,
     );
@@ -4982,7 +4982,7 @@ fn auto_open_lockboxes_with_vault_profile_allows_first_add() {
 
     let listing = run_output_without_lockbox_password(
         bin,
-        &["list", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "list"],
         &vault_root,
         &agent_root,
     )
@@ -5006,7 +5006,7 @@ fn open_accepts_password_sources_and_session_duration() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &["create", "--password", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "create", "--password"],
         &vault_root,
         &agent_root,
     );
@@ -5015,10 +5015,10 @@ fn open_accepts_password_sources_and_session_duration() {
     let env_open = run_output_without_lockbox_password(
         bin,
         &[
+            lockbox_without_extension.to_str().unwrap(),
             "open",
             "--password-env",
             "LBX_TEST_PASSWORD",
-            lockbox_without_extension.to_str().unwrap(),
         ],
         &vault_root,
         &agent_root,
@@ -5033,7 +5033,7 @@ fn open_accepts_password_sources_and_session_duration() {
     assert_success(&env_open);
     run_without_content_key(
         bin,
-        &["close", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "close"],
         &vault_root,
         &agent_root,
     );
@@ -5043,10 +5043,10 @@ fn open_accepts_password_sources_and_session_duration() {
     let file_open = run_output_without_lockbox_password(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "open",
             "--password-file",
             password_file.to_str().unwrap(),
-            lockbox.to_str().unwrap(),
         ],
         &vault_root,
         &agent_root,
@@ -5056,7 +5056,7 @@ fn open_accepts_password_sources_and_session_duration() {
     assert_success(&file_open);
     run_without_content_key(
         bin,
-        &["close", lockbox.to_str().unwrap()],
+        &[lockbox.to_str().unwrap(), "close"],
         &vault_root,
         &agent_root,
     );
@@ -5070,11 +5070,11 @@ fn open_accepts_password_sources_and_session_duration() {
     let stdin_open = run_output_without_lockbox_password_with_stdin(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "open",
             "--password-stdin",
             "--duration",
             "2s",
-            lockbox.to_str().unwrap(),
         ],
         &vault_root,
         &agent_root,
@@ -5156,8 +5156,8 @@ fn add_accepts_jobs_option_for_large_files() {
     run(
         bin,
         &[
-            "extract",
             lockbox.to_str().unwrap(),
+            "extract",
             "/large.bin",
             extracted.to_str().unwrap(),
         ],
@@ -5179,9 +5179,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let app_mode_set = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "APP_MODE",
             "-v",
             "prod",
@@ -5192,9 +5192,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "EMPTY_VALUE",
             "-v",
             "",
@@ -5203,9 +5203,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let secret_set = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "-s",
             "API_TOKEN",
             "-f",
@@ -5219,9 +5219,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "/production/APP_MODE",
             "-v",
             "prod-path",
@@ -5230,9 +5230,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "/production/database/DATABASE_URL",
             "-v",
             "postgres://localhost/app",
@@ -5241,9 +5241,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "/staging/APP_MODE",
             "-v",
             "staging-path",
@@ -5253,11 +5253,11 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let listing = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "list",
             "--format",
             "tsv",
-            lockbox.to_str().unwrap(),
         ],
     );
     assert_success(&listing);
@@ -5270,11 +5270,11 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let production_listing = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "list",
             "--format",
             "tsv",
-            lockbox.to_str().unwrap(),
             "/production",
         ],
     );
@@ -5287,11 +5287,11 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let app_mode_listing = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "list",
             "--format",
             "tsv",
-            lockbox.to_str().unwrap(),
             "**/APP_MODE",
         ],
     );
@@ -5302,7 +5302,7 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     assert!(app_mode_listing.contains("/staging/APP_MODE"));
     assert!(!app_mode_listing.contains("/API_TOKEN"));
 
-    let export = run_output(bin, &["variable", "export", lockbox.to_str().unwrap()]);
+    let export = run_output(bin, &[lockbox.to_str().unwrap(), "variable", "export"]);
     assert_success(&export);
     let export = String::from_utf8_lossy(&export.stdout);
     assert!(export.contains("APP_MODE='prod'"));
@@ -5315,9 +5315,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let production_export = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "export",
-            lockbox.to_str().unwrap(),
             "/production",
         ],
     );
@@ -5332,9 +5332,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let app_mode_export = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "export",
-            lockbox.to_str().unwrap(),
             "**/APP_MODE",
         ],
     );
@@ -5348,11 +5348,11 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let powershell_export = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "export",
             "--format",
             "powershell",
-            lockbox.to_str().unwrap(),
         ],
     );
     assert_success(&powershell_export);
@@ -5362,11 +5362,11 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let cmd_export = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "export",
             "--format",
             "cmd",
-            lockbox.to_str().unwrap(),
         ],
     );
     assert_success(&cmd_export);
@@ -5376,11 +5376,11 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let json_export = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "export",
             "--format",
             "json",
-            lockbox.to_str().unwrap(),
         ],
     );
     assert_success(&json_export);
@@ -5391,9 +5391,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let secret_get = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "get",
-            lockbox.to_str().unwrap(),
             "-s",
             "API_TOKEN",
         ],
@@ -5406,14 +5406,14 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
 
     let empty_get = run_output(
         bin,
-        &["variable", "get", lockbox.to_str().unwrap(), "EMPTY_VALUE"],
+        &[lockbox.to_str().unwrap(), "variable", "get", "EMPTY_VALUE"],
     );
     assert_success(&empty_get);
     assert_eq!(String::from_utf8_lossy(&empty_get.stdout), "\n");
 
     let missing_get = run_output(
         bin,
-        &["variable", "get", lockbox.to_str().unwrap(), "MISSING"],
+        &[lockbox.to_str().unwrap(), "variable", "get", "MISSING"],
     );
     assert!(!missing_get.status.success());
     assert!(String::from_utf8_lossy(&missing_get.stderr).contains("not found"));
@@ -5421,9 +5421,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let missing_secret_get = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "get",
-            lockbox.to_str().unwrap(),
             "--secret",
             "MISSING",
         ],
@@ -5434,11 +5434,11 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let report = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "recover",
             "--dry-run",
             "--format",
             "tsv",
-            lockbox.to_str().unwrap(),
         ],
     );
     assert_success(&report);
@@ -5450,12 +5450,12 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "get",
             "--secret",
             "--output",
             token_output.to_str().unwrap(),
-            lockbox.to_str().unwrap(),
             "API_TOKEN",
         ],
     );
@@ -5473,12 +5473,12 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let rejected_output = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "get",
             "--secret",
             "--output",
             token_output.to_str().unwrap(),
-            lockbox.to_str().unwrap(),
             "API_TOKEN",
         ],
     );
@@ -5488,13 +5488,13 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     run(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "get",
             "--secret",
             "--output",
             token_output.to_str().unwrap(),
             "--overwrite",
-            lockbox.to_str().unwrap(),
             "API_TOKEN",
         ],
     );
@@ -5503,9 +5503,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let rejected = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "API_TOKEN",
             "positional-secret",
         ],
@@ -5515,9 +5515,9 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let rejected_value = run_output(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "-s",
             "OTHER_TOKEN",
             "--value",
@@ -5542,9 +5542,9 @@ fn variable_set_secret_upgrades_a_normal_variable() {
     run_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "UPGRADE_ME",
             "-v",
             "normal",
@@ -5555,9 +5555,9 @@ fn variable_set_secret_upgrades_a_normal_variable() {
     let upgraded = run_output_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "--secret",
             "UPGRADE_ME",
             "--file",
@@ -5571,10 +5571,10 @@ fn variable_set_secret_upgrades_a_normal_variable() {
     let value = run_output_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "get",
             "--secret",
-            lockbox.to_str().unwrap(),
             "UPGRADE_ME",
         ],
         &vault_root,
@@ -5586,11 +5586,11 @@ fn variable_set_secret_upgrades_a_normal_variable() {
     let listing = run_output_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "list",
             "--format",
             "tsv",
-            lockbox.to_str().unwrap(),
         ],
         &vault_root,
         &agent_root,
@@ -5601,9 +5601,9 @@ fn variable_set_secret_upgrades_a_normal_variable() {
     let downgrade = run_output_in(
         bin,
         &[
+            lockbox.to_str().unwrap(),
             "variable",
             "set",
-            lockbox.to_str().unwrap(),
             "UPGRADE_ME",
             "-v",
             "normal",
@@ -5928,7 +5928,7 @@ fn run_output(bin: &str, args: &[&str]) -> Output {
 
 fn run_output_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &PathBuf) -> Output {
     Command::new(bin)
-        .args(target_first_args(args))
+        .args(args)
         .env("LOCKBOX_KEY", "test-key")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
@@ -5956,7 +5956,7 @@ fn run_output_in_with_stdin(
     stdin: &str,
 ) -> Output {
     let mut child = Command::new(bin)
-        .args(target_first_args(args))
+        .args(args)
         .env("LOCKBOX_KEY", "test-key")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
@@ -5983,7 +5983,7 @@ fn run_output_without_content_key(
     agent_root: &PathBuf,
 ) -> Output {
     Command::new(bin)
-        .args(target_first_args(args))
+        .args(args)
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
@@ -6001,7 +6001,7 @@ fn run_output_without_lockbox_password(
 ) -> Command {
     let mut command = Command::new(bin);
     command
-        .args(target_first_args(args))
+        .args(args)
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
@@ -6039,7 +6039,7 @@ fn run_output_without_content_key_with_stdin(
     stdin: &str,
 ) -> Output {
     let mut child = Command::new(bin)
-        .args(target_first_args(args))
+        .args(args)
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
