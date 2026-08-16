@@ -33,10 +33,10 @@ struct Prepared {
 }
 
 pub fn run(args: PackageConformance) -> Result {
-    let repository = args.repository.canonicalize()?;
-    let packages = args.packages.canonicalize()?;
+    let repository = PathBuf::from(crate::release::msvc_path(&args.repository.canonicalize()?));
+    let packages = PathBuf::from(crate::release::msvc_path(&args.packages.canonicalize()?));
     fs::create_dir_all(&args.work)?;
-    let work = args.work.canonicalize()?;
+    let work = PathBuf::from(crate::release::msvc_path(&args.work.canonicalize()?));
     configure_isolated_caches(&work)?;
     if args.language == "rust" {
         let source_archive = prepare_rust_package(&repository, &packages, &work)?;
@@ -51,7 +51,9 @@ pub fn run(args: PackageConformance) -> Result {
     let archive_input = args
         .archive
         .ok_or("--archive is required for foreign-language package conformance")?;
-    let archive = resolve_archive(&archive_input, &args.target)?.canonicalize()?;
+    let archive = PathBuf::from(crate::release::msvc_path(
+        &resolve_archive(&archive_input, &args.target)?.canonicalize()?,
+    ));
     let inspected = crate::release::install_archive(&archive, &work.join("archive-inspection"))?;
     if inspected.target != args.target {
         return Err(format!(
