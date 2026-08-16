@@ -37,8 +37,6 @@ use revault_lockbox_api::{
 use std::cell::RefCell;
 use std::ffi::{c_char, c_void};
 use std::ptr;
-#[cfg(windows)]
-use std::sync::OnceLock;
 use zeroize::Zeroize;
 
 #[repr(C)]
@@ -98,55 +96,17 @@ unsafe fn lockbox_mut<'a>(handle: *mut c_void) -> Option<&'a mut LockboxHandle> 
 
 const LAST_ERROR_CAPACITY: usize = 4096;
 
-#[cfg(not(windows))]
 thread_local! {
+    // A fixed buffer has no destructor. That matters for the Windows cdylib:
+    // destroying a heap-owning TLS value while the DLL is detaching can
+    // recursively re-enter the runtime and overflow the process stack.
     static LAST_ERROR: RefCell<[u8; LAST_ERROR_CAPACITY]> =
         const { RefCell::new([0; LAST_ERROR_CAPACITY]) };
 }
 
-#[cfg(not(windows))]
-fn with_last_error<R>(operation: impl FnOnce(&RefCell<[u8; LAST_ERROR_CAPACITY]>) -> R) -> R {
-    LAST_ERROR.with(operation)
-}
-
-#[cfg(windows)]
-#[link(name = "kernel32")]
-extern "system" {
-    fn TlsAlloc() -> u32;
-    fn TlsGetValue(index: u32) -> *mut c_void;
-    fn TlsSetValue(index: u32, value: *mut c_void) -> i32;
-}
-
-#[cfg(windows)]
-fn with_last_error<R>(operation: impl FnOnce(&RefCell<[u8; LAST_ERROR_CAPACITY]>) -> R) -> R {
-    const TLS_OUT_OF_INDEXES: u32 = u32::MAX;
-    static LAST_ERROR_INDEX: OnceLock<u32> = OnceLock::new();
-
-    let index = *LAST_ERROR_INDEX.get_or_init(|| {
-        let index = unsafe { TlsAlloc() };
-        if index == TLS_OUT_OF_INDEXES {
-            std::process::abort();
-        }
-        index
-    });
-    let mut slot = unsafe { TlsGetValue(index) }.cast::<RefCell<[u8; LAST_ERROR_CAPACITY]>>();
-    if slot.is_null() {
-        // Windows runs Rust TLS destructors while unloading a cdylib. That can
-        // recursively enter the runtime and overflow the process stack. Use a
-        // Win32 TLS slot without a detach callback instead. The allocation is
-        // intentionally process-owned and reclaimed by Windows at exit.
-        slot = Box::into_raw(Box::new(RefCell::new([0; LAST_ERROR_CAPACITY])));
-        if unsafe { TlsSetValue(index, slot.cast()) } == 0 {
-            unsafe { drop(Box::from_raw(slot)) };
-            std::process::abort();
-        }
-    }
-    operation(unsafe { &*slot })
-}
-
 fn set_error(error: impl std::fmt::Display) {
     let message = error.to_string().replace('\0', "\\0");
-    with_last_error(|slot| {
+    LAST_ERROR.with(|slot| {
         let mut output = slot.borrow_mut();
         let mut length = message.len().min(LAST_ERROR_CAPACITY - 1);
         while !message.is_char_boundary(length) {
@@ -158,11 +118,11 @@ fn set_error(error: impl std::fmt::Display) {
 }
 
 fn clear_error() {
-    with_last_error(|slot| slot.borrow_mut()[0] = 0);
+    LAST_ERROR.with(|slot| slot.borrow_mut()[0] = 0);
 }
 
 fn last_error_message() -> String {
-    with_last_error(|slot| {
+    LAST_ERROR.with(|slot| {
         let input = slot.borrow();
         let length = input
             .iter()
@@ -550,7 +510,7 @@ fn contact_list_transport(
 #[no_mangle]
 /// Returns the last error.
 pub extern "C" fn buffer_last_error() -> *const c_char {
-    with_last_error(|slot| slot.borrow().as_ptr().cast())
+    LAST_ERROR.with(|slot| slot.borrow().as_ptr().cast())
 }
 
 #[no_mangle]
