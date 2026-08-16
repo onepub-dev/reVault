@@ -107,14 +107,13 @@ fn move_variables(
     access: &Access,
 ) -> CliResult<()> {
     let pattern = VariableNamePattern::new(source_pattern)?;
-    let destination = VariableName::new(destination)?;
     let mut lb = open_existing(lockbox_path, access)?;
     let moves = lb
         .list_variables()?
         .into_iter()
         .filter(|(name, _)| name.matches_pattern(&pattern))
         .map(|(name, _)| {
-            let target = moved_path(source_pattern, name.as_str(), destination.as_str())?;
+            let target = moved_path(source_pattern, name.as_str(), destination)?;
             Ok((name, VariableName::new(target)?))
         })
         .collect::<CliResult<Vec<_>>>()?;
@@ -575,6 +574,8 @@ mod move_tests {
     fn root_glob_preserves_variable_names() {
         assert_eq!(moved_path("/*", "/TMP", "/dev").unwrap(), "/dev/TMP");
         assert_eq!(moved_path("/*", "/MODE", "/dev").unwrap(), "/dev/MODE");
+        assert_eq!(moved_path("/*", "/MODE", "/dev/").unwrap(), "/dev/MODE");
+        assert_eq!(moved_path("/*", "/MODE", "/").unwrap(), "/MODE");
     }
 
     #[test]
