@@ -876,6 +876,8 @@ Future<void> agentAndLocal() async {
   key.close();
   pass('vault_agent_stop');
   check(await child.exitCode == 0, 'agent child');
+  agent.dispose();
+  pass('vault_free');
 }
 
 void interop(String producer) {

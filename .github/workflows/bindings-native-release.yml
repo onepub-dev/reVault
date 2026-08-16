@@ -28,7 +28,7 @@ jobs:
     uses: ./.github/workflows/bindings-lint.yml
 
   package-matrix:
-    name: define 94 claimed package combinations
+    name: define installed package combinations
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.matrix.outputs.value }}
@@ -37,7 +37,12 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.95.0
       - id: matrix
         shell: bash
-        run: echo "value=$(cargo run --locked --quiet --manifest-path rust/Cargo.toml -p revault_tooling -- e2e matrix-json)" >> "$GITHUB_OUTPUT"
+        run: |
+          value=$(cargo run --locked --quiet --manifest-path rust/Cargo.toml -p revault_tooling -- e2e matrix-json)
+          if [[ "$GITHUB_REF_NAME" == revault-dart-v* ]]; then
+            value=$(jq -c '{include: [.include[] | select(.language == "dart")]}' <<< "$value")
+          fi
+          echo "value=$value" >> "$GITHUB_OUTPUT"
 
   conformance:
     needs: binding-lint
@@ -46,8 +51,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run exhaustive package E2E matrix
+        if: ${{ !startsWith(github.ref_name, 'revault-dart-v') }}
         working-directory: rust
         run: cargo run --locked -p revault_tooling -- e2e matrix --compose ../bindings/e2e/compose.yaml
+      - name: Keep Dart-only release scoped to Dart package conformance
+        if: ${{ startsWith(github.ref_name, 'revault-dart-v') }}
+        run: echo "Dart is exercised from its assembled package on all six native targets."
 
   native:
     needs: binding-lint
