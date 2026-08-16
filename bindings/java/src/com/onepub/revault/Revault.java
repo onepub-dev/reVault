@@ -25,10 +25,16 @@ public final class Revault {
 
   private final BindingOperations operations;
 
-  /** Returns the revault. */
+  /** Loads the process-wide native reVault runtime using platform discovery. */
+  public static Revault load() { return new Revault(); }
+
+  /** Loads the native runtime from an explicit shared-library path. */
+  public static Revault load(String libraryPath) { return new Revault(libraryPath); }
+
+  /** Creates a runtime loader. Prefer {@link #load()} in application code. */
   public Revault() { this(NativeLibrary.resolve()); }
 
-  /** Returns the revault. */
+  /** Creates a runtime loader for an explicit shared-library path. */
   public Revault(String libraryPath) {
     this(new RevaultNativeApi(SymbolLookup.libraryLookup(libraryPath, Arena.global())));
   }
@@ -55,10 +61,6 @@ public final class Revault {
     if (handle == null || handle.address() == 0) throw new IllegalStateException("object is closed");
   }
 
-  /** Returns the last error. */
-  public String lastError() { return operations.lastErrorMessage(); }
-  /** Returns the last error details. */
-  public ErrorDetails lastErrorDetails() { return operations.bufferLastErrorDetails(); }
   /** Returns the lockbox format version. */
   public int lockboxFormatVersion() { return operations.lockboxFormatVersion(); }
   /** Determines lockbox format version without fully opening it. */

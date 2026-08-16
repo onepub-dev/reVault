@@ -2,7 +2,8 @@
  * Encrypts files, variables, and typed form records in portable reVault
  * lockboxes and manages keys and local vault metadata.
  *
- * <p>{@link com.onepub.revault.Revault} is the main entry point. Owned handles
+ * <p>{@link com.onepub.revault.Revault} loads the native runtime and
+ * {@link com.onepub.revault.Vault} opens the persistent local vault. Owned handles
  * implement {@link java.lang.AutoCloseable}; use try-with-resources to release
  * native state promptly. Secret accessors use callback scope to reduce the
  * lifetime of plaintext in managed memory.
