@@ -677,7 +677,10 @@ fn evidence(args: Evidence) -> Result {
 fn sha256_file(path: &Path) -> Result<String> {
     let mut source = fs::File::open(path)?;
     let mut digest = Sha256::new();
-    let mut buffer = [0_u8; 1024 * 1024];
+    // Windows executables default to a 1 MiB main-thread stack. Keep the
+    // evidence buffer on the heap so hashing an installed artifact cannot
+    // exhaust the stack before the first read.
+    let mut buffer = vec![0_u8; 1024 * 1024];
     loop {
         let read = source.read(&mut buffer)?;
         if read == 0 {
