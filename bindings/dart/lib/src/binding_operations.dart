@@ -1511,6 +1511,70 @@ final class BindingOperations {
         _take(native.vault_directory_list_contacts(handle)),
       );
 
+  bool vaultDirectoryStoreDeviceJson(
+    ffi.Pointer<ffi.Void> handle,
+    Map<String, Object?> record,
+  ) => _withBytes(
+    Uint8List.fromList(utf8.encode(jsonEncode(record))),
+    (pointer, length) => _requireBool(
+      native.vault_directory_store_device_json(handle, pointer, length),
+    ),
+  );
+
+  String vaultDirectoryListDevicesJson(ffi.Pointer<ffi.Void> handle) =>
+      utf8.decode(_take(native.vault_directory_list_devices_json(handle)));
+
+  bool vaultDirectoryRevokeDevice(ffi.Pointer<ffi.Void> handle, Uint8List id) =>
+      _withBytes(
+        id,
+        (pointer, length) => _requireBool(
+          native.vault_directory_revoke_device(handle, pointer, length),
+        ),
+      );
+
+  bool vaultDirectoryStoreApprovalSourceJson(
+    ffi.Pointer<ffi.Void> handle,
+    Map<String, Object?> record,
+  ) => _withBytes(
+    Uint8List.fromList(utf8.encode(jsonEncode(record))),
+    (pointer, length) => _requireBool(
+      native.vault_directory_store_approval_source_json(
+        handle,
+        pointer,
+        length,
+      ),
+    ),
+  );
+
+  bool vaultDirectoryUpdateApprovalSourceJson(
+    ffi.Pointer<ffi.Void> handle,
+    Map<String, Object?> record,
+  ) => _withBytes(
+    Uint8List.fromList(utf8.encode(jsonEncode(record))),
+    (pointer, length) => _requireBool(
+      native.vault_directory_update_approval_source_json(
+        handle,
+        pointer,
+        length,
+      ),
+    ),
+  );
+
+  String vaultDirectoryListApprovalSourcesJson(ffi.Pointer<ffi.Void> handle) =>
+      utf8.decode(
+        _take(native.vault_directory_list_approval_sources_json(handle)),
+      );
+
+  bool vaultDirectoryRevokeApprovalSource(
+    ffi.Pointer<ffi.Void> handle,
+    Uint8List id,
+  ) => _withBytes(
+    id,
+    (pointer, length) => _requireBool(
+      native.vault_directory_revoke_approval_source(handle, pointer, length),
+    ),
+  );
+
   bool vaultDirectoryStoreProfileEmail(
     ffi.Pointer<ffi.Void> handle,
     String name,

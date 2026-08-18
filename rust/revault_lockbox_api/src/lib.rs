@@ -91,7 +91,13 @@ pub use form::{
 pub use key_slot::{
     LockboxKeySlot, LockboxKeySlotAlgorithm, LockboxKeySlotProtection, MAX_KEY_SLOT_NAME_BYTES,
 };
-pub use key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
+#[cfg(feature = "migration")]
+#[doc(hidden)]
+pub use key_slot::MigrationKeySlot;
+pub use key_wrap::{
+    ContactKeyPair, ContactPublicKey, ContactWrappedKey, RecipientKeyPair, RecipientPublicKey,
+    RecipientWrappedKey,
+};
 pub use list_options::ListOptions;
 pub use lockbox::{
     ContentChunk, ContentStreamOptions, ContentStreamOrder, ImportStats, Lockbox,
@@ -105,6 +111,6 @@ pub use page_inspection::{PageInspection, PageObjectInspection};
 pub use recovery_report::RecoveryReport;
 pub use recovery_report_options::RecoveryReportOptions;
 pub use secret_vec::{SecretString, SecretVec};
-pub use signing::{OwnerSigningKeyPair, OwnerSigningPublicKey};
+pub use signing::{HybridDetachedSignature, OwnerSigningKeyPair, OwnerSigningPublicKey};
 pub use variable_name::{VariableName, VariableNamePattern};
 pub use variable_sensitivity::VariableSensitivity;

@@ -3,7 +3,7 @@ use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use zeroize::Zeroize;
 
 use crate::key_derivation::{derive_key_from_password, derive_key_from_password_bytes};
-use crate::key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
+use crate::key_wrap::{RecipientKeyPair, RecipientPublicKey, RecipientWrappedKey};
 use crate::secret_vec::SecretString;
 use crate::{Error, Result};
 use std::fmt;
@@ -62,6 +62,33 @@ pub struct LockboxKeySlot {
     pub algorithm: LockboxKeySlotAlgorithm,
 }
 
+/// Logical key-slot material used only by the explicit migration pipeline.
+#[cfg(feature = "migration")]
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MigrationKeySlot {
+    /// Password-wrapped content key.
+    Password {
+        /// Stable slot identifier.
+        id: u64,
+        /// Password KDF salt.
+        salt: Vec<u8>,
+        /// Wrapped content key.
+        encrypted_key: Vec<u8>,
+    },
+    /// Hybrid recipient-wrapped content key.
+    HybridRecipient {
+        /// Stable slot identifier.
+        id: u64,
+        /// Ephemeral X25519 public key.
+        x25519_ephemeral_public_key: Vec<u8>,
+        /// ML-KEM ciphertext.
+        mlkem_ciphertext: Vec<u8>,
+        /// Wrapped content key.
+        encrypted_key: Vec<u8>,
+    },
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum KeySlot {
     Password {
@@ -69,16 +96,16 @@ pub(crate) enum KeySlot {
         salt: Vec<u8>,
         encrypted_key: Vec<u8>,
     },
-    HybridContact {
+    HybridRecipient {
         id: u64,
-        wrapped: Box<ContactWrappedKey>,
+        wrapped: Box<RecipientWrappedKey>,
     },
 }
 
 impl KeySlot {
     pub(crate) fn id(&self) -> u64 {
         match self {
-            KeySlot::Password { id, .. } | KeySlot::HybridContact { id, .. } => *id,
+            KeySlot::Password { id, .. } | KeySlot::HybridRecipient { id, .. } => *id,
         }
     }
 
@@ -89,7 +116,7 @@ impl KeySlot {
                 protection: LockboxKeySlotProtection::Password,
                 algorithm: LockboxKeySlotAlgorithm::Argon2idChaCha20Poly1305,
             },
-            KeySlot::HybridContact { id, .. } => LockboxKeySlot {
+            KeySlot::HybridRecipient { id, .. } => LockboxKeySlot {
                 id: *id,
                 protection: LockboxKeySlotProtection::Contact,
                 algorithm: LockboxKeySlotAlgorithm::X25519MlKem768ChaCha20Poly1305,
@@ -115,10 +142,10 @@ impl KeySlot {
 
     pub(crate) fn hybrid_contact(
         id: u64,
-        contact: &ContactPublicKey,
+        contact: &RecipientPublicKey,
         content_key: &[u8],
     ) -> Result<Self> {
-        Ok(Self::HybridContact {
+        Ok(Self::HybridRecipient {
             id,
             wrapped: Box::new(contact.encrypt(content_key)?),
         })
@@ -140,9 +167,9 @@ impl KeySlot {
         }
     }
 
-    pub(crate) fn try_contact(&self, contact: &ContactKeyPair) -> Result<Vec<u8>> {
+    pub(crate) fn try_contact(&self, contact: &RecipientKeyPair) -> Result<Vec<u8>> {
         match self {
-            KeySlot::HybridContact { wrapped, .. } => contact.decrypt(wrapped),
+            KeySlot::HybridRecipient { wrapped, .. } => contact.decrypt(wrapped),
             _ => Err(Error::InvalidKey),
         }
     }

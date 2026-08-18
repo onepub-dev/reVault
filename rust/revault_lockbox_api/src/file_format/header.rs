@@ -5,7 +5,7 @@ use crate::lockbox_id::LockboxId;
 use crate::{ArtifactKind, Error, Result};
 
 /// Current on-disk `.lbox` format version written by this crate.
-pub const LOCKBOX_FORMAT_VERSION: u16 = 1;
+pub const LOCKBOX_FORMAT_VERSION: u16 = 2;
 const HEADER_CHECKSUM_START: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

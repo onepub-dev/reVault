@@ -1,6 +1,6 @@
 use super::context::{
-    cli_error, default_vault, open_default_vault_with_password, read_new_secondary_vault_password,
-    read_new_vault_password, read_replacement_vault_password, read_vault_password,
+    cli_error, default_vault, open_default_vault_with_password, read_new_vault_password,
+    read_replacement_vault_password, read_vault_password,
     remember_default_vault_password_with_warning, require_arg, CliResult,
 };
 use super::form::{default_form_alias, parse_field_spec, print_form_definition_saved};
@@ -24,7 +24,8 @@ use revault_vault_api::{
     format_fingerprint_crockford_96_reading as format_fingerprint_reading,
     format_fingerprint_hex_pairs as format_hex_pairs, import_private_key, import_public_key,
     local_vault, public_key_fingerprint, restore_default_vault, set_auto_open_scope,
-    validate_vault_record_name, AutoOpenScope, KeyFormat, ProfileGenerationStatus, VaultDirectory,
+    ApprovalSourceId, AutoOpenScope, DeviceId, KeyFormat, ProfileGenerationStatus,
+    StoredApprovalSource, StoredDevice, VaultDirectory,
 };
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -58,34 +59,98 @@ pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
         .ok_or_else(|| Error::InvalidInput("missing vault command".to_string()))?;
     match command {
         "init" => init_options(sub.get_flag("overwrite"), sub.get_flag("verify")),
-        "beget" => beget_options(BegetOptions::from_matches(sub)),
         "backup" => backup_options(required_value(sub, "output"), sub.get_flag("overwrite")),
         "restore" => restore_options(required_value(sub, "backup"), sub.get_flag("overwrite")),
         "passphrase" => change_passphrase(&[]),
         "form" => vault_form_matches(sub),
         "profile" => vault_profile_matches(sub),
         "contact" => vault_contact_matches(sub),
+        "device" => vault_device_matches(sub),
+        "source" => vault_source_matches(sub),
         "lockbox" => vault_lockbox_matches(sub),
         _ => Err(Error::InvalidInput(format!("unknown vault command: {command}")).into()),
     }
 }
 
-struct BegetOptions {
-    profile: String,
-    output: Option<String>,
-    contact_name: Option<String>,
-    no_contact: bool,
+fn vault_device_matches(matches: &ArgMatches) -> CliResult<()> {
+    let (command, sub) = matches.subcommand().ok_or_else(|| {
+        Error::InvalidInput("missing vault device command".to_string())
+    })?;
+    match command {
+        "enroll" => enroll_device_json(&required_value(sub, "record")),
+        "list" | "ls" => list_devices_with_format(output_format_from_matches(sub)?),
+        "revoke" => revoke_device_id(&required_value(sub, "id")),
+        _ => Err(Error::InvalidInput(format!("unknown vault device command: {command}")).into()),
+    }
 }
 
-impl BegetOptions {
-    fn from_matches(matches: &ArgMatches) -> Self {
-        Self {
-            profile: required_value(matches, "profile"),
-            output: optional_value(matches, "output").map(str::to_string),
-            contact_name: optional_value(matches, "contact-name").map(str::to_string),
-            no_contact: matches.get_flag("no-contact"),
-        }
+fn vault_source_matches(matches: &ArgMatches) -> CliResult<()> {
+    let (command, sub) = matches.subcommand().ok_or_else(|| {
+        Error::InvalidInput("missing vault source command".to_string())
+    })?;
+    match command {
+        "add" => add_source_json(&required_value(sub, "policy")),
+        "list" | "ls" => list_sources_with_format(output_format_from_matches(sub)?),
+        "revoke" => revoke_source_id(&required_value(sub, "id")),
+        _ => Err(Error::InvalidInput(format!("unknown vault source command: {command}")).into()),
     }
+}
+
+fn enroll_device_json(path: &str) -> CliResult<()> {
+    let record = StoredDevice::from_json_bytes(&fs::read(path)?)?;
+    let id = record.id;
+    let name = record.name.clone();
+    default_vault()?.store_device(&record)?;
+    println!("Enrolled approval device {name} ({id}).");
+    Ok(())
+}
+
+fn add_source_json(path: &str) -> CliResult<()> {
+    let record = StoredApprovalSource::from_json_bytes(&fs::read(path)?)?;
+    let id = record.id;
+    let name = record.name.clone();
+    default_vault()?.store_approval_source(&record)?;
+    println!("Added approval source {name} ({id}).");
+    Ok(())
+}
+
+fn list_devices_with_format(format: OutputFormat) -> CliResult<()> {
+    let rows = default_vault()?
+        .list_devices()?
+        .into_iter()
+        .map(|device| vec![device.id.to_string(), device.name, format!("{:?}", device.platform).to_lowercase(), format!("{:?}", device.state).to_lowercase()])
+        .collect();
+    print_records(&["id", "name", "platform", "state"], rows, format)
+}
+
+fn list_sources_with_format(format: OutputFormat) -> CliResult<()> {
+    let rows = default_vault()?
+        .list_approval_sources()?
+        .into_iter()
+        .map(|source| vec![source.id.to_string(), source.name, format!("{:?}", source.mode).to_lowercase(), format!("{:?}", source.state).to_lowercase()])
+        .collect();
+    print_records(&["id", "name", "mode", "state"], rows, format)
+}
+
+fn revoke_device_id(value: &str) -> CliResult<()> {
+    let id = DeviceId::from_bytes(parse_admin_id(value)?);
+    default_vault()?.revoke_device(id)?;
+    println!("Revoked approval device {id}.");
+    Ok(())
+}
+
+fn revoke_source_id(value: &str) -> CliResult<()> {
+    let id = ApprovalSourceId::from_bytes(parse_admin_id(value)?);
+    default_vault()?.revoke_approval_source(id)?;
+    println!("Revoked approval source {id}.");
+    Ok(())
+}
+
+fn parse_admin_id(value: &str) -> CliResult<[u8; 16]> {
+    let bytes = decode_hex(value)?;
+    bytes.try_into().map_err(|_| {
+        Error::InvalidInput("approval id must be exactly 32 hexadecimal characters".to_string()).into()
+    })
 }
 
 fn required_value(matches: &ArgMatches, name: &str) -> String {
@@ -413,121 +478,6 @@ fn backup_options(output: String, overwrite: bool) -> CliResult<()> {
         absolute_path(&PathBuf::from(output))?.display()
     );
     Ok(())
-}
-
-fn beget_options(options: BegetOptions) -> CliResult<()> {
-    validate_vault_record_name(&options.profile)?;
-    let contact_name = if options.no_contact {
-        None
-    } else {
-        let name = options
-            .contact_name
-            .as_deref()
-            .unwrap_or(&options.profile)
-            .to_string();
-        validate_vault_record_name(&name)?;
-        Some(name)
-    };
-    let output = PathBuf::from(
-        options
-            .output
-            .unwrap_or_else(|| format!("{}.vault.lbx", options.profile)),
-    );
-    let _output_guard = ScopedFileLock::acquire(&output, FileLockScope::Vault)?;
-    if output.exists() {
-        return Err(Error::AlreadyExists(format!("vault output {}", output.display())).into());
-    }
-
-    let current_vault = if let Some(name) = &contact_name {
-        let vault = default_vault()?;
-        if vault.contact_exists(name)? {
-            return Err(cli_error(format!(
-                "Contact already exists: {name}\n\nChoose another contact name:\n  lbx vault beget {} --contact-name <NAME>\n\nOr create the vault without registering a contact:\n  lbx vault beget {} --no-contact",
-                options.profile, options.profile
-            )));
-        }
-        Some(vault)
-    } else {
-        None
-    };
-
-    let password = read_new_secondary_vault_password("vault beget")?;
-    let keypair = ContactKeyPair::generate()?;
-    let public_key = keypair.public_key();
-    let temp = beget_temp_path(&output);
-    cleanup_beget_artifacts(&temp);
-
-    let create_result = (|| -> CliResult<()> {
-        let vault = VaultDirectory::create_file(&temp, &password)?;
-        vault.store_private_key(&options.profile, &keypair)?;
-        drop(vault);
-        if let (Some(vault), Some(name)) = (&current_vault, &contact_name) {
-            vault.store_contact(name, &public_key)?;
-        }
-        if output.exists() {
-            if let (Some(vault), Some(name)) = (&current_vault, &contact_name) {
-                let _ = vault.delete_contact(name);
-            }
-            return Err(Error::AlreadyExists(format!("vault output {}", output.display())).into());
-        }
-        if let Err(err) = fs::rename(&temp, &output) {
-            if let (Some(vault), Some(name)) = (&current_vault, &contact_name) {
-                let _ = vault.delete_contact(name);
-            }
-            return Err(err.into());
-        }
-        Ok(())
-    })();
-    cleanup_beget_artifacts(&temp);
-    create_result?;
-
-    println!("Vault created successfully.");
-    println!();
-    println!("Vault:");
-    println!("  {}", absolute_path(&output)?.display());
-    println!();
-    println!("Profile:");
-    println!("  {}", options.profile);
-    println!();
-    if let Some(name) = contact_name {
-        println!("Contact:");
-        println!("  {name}");
-        println!();
-        println!("Fingerprint:");
-        println!(
-            "  {}",
-            format_fingerprint_code(&public_key_fingerprint(&public_key))
-        );
-        println!();
-        println!("No lockbox access has been granted.");
-        println!();
-        println!("Next:");
-        println!("  lbx access grant <lockbox> contact:{name}");
-    } else {
-        println!("Contact:");
-        println!("  Not created");
-        println!();
-        println!("Export the profile public key when you are ready to register it elsewhere.");
-    }
-    Ok(())
-}
-
-fn beget_temp_path(output: &Path) -> PathBuf {
-    let file_name = output
-        .file_name()
-        .unwrap_or_else(|| std::ffi::OsStr::new("vault"))
-        .to_string_lossy();
-    output.with_file_name(format!(
-        ".{file_name}.beget-{}-{}.tmp",
-        std::process::id(),
-        unix_ms_now()
-    ))
-}
-
-fn cleanup_beget_artifacts(path: &Path) {
-    for path in [path.to_path_buf(), lock_path_for(path)] {
-        let _ = fs::remove_file(path);
-    }
 }
 
 fn absolute_path(path: &std::path::Path) -> CliResult<PathBuf> {

@@ -8,6 +8,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::server_log::log_server_event;
 use crate::store::{PublishStore, ServerConfig};
+use crate::approval_mailbox::{ApprovalMailboxStore, MailboxError};
 use axum::body::Bytes;
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
@@ -74,10 +75,12 @@ fn start_background_maintenance(store: &Arc<PublishStore>) {
 struct AppState {
     store: Arc<PublishStore>,
     limiter: Arc<RateLimiter>,
+    approval_mailbox: Arc<ApprovalMailboxStore>,
 }
 
 fn make_app(store: Arc<PublishStore>) -> Router {
-    let body_limit = store.max_payload_bytes() + MAX_WIRE_OVERHEAD;
+    let body_limit = (store.max_payload_bytes() + MAX_WIRE_OVERHEAD)
+        .max(revault_approval_protocol::MAX_ENVELOPE_BYTES);
     let limiter = Arc::new(RateLimiter::new(
         store.rate_limit_per_minute(),
         store.rate_limit_burst(),
@@ -89,8 +92,164 @@ fn make_app(store: Arc<PublishStore>) -> Router {
         .route("/v1/topology", get(topology_handler))
         .route("/v1/status", get(status_handler))
         .route("/v1/verify", get(verify_handler))
+        .route(
+            "/v1/approval/request",
+            post(approval_request_upload_handler).get(approval_request_poll_handler),
+        )
+        .route(
+            "/v1/approval/response",
+            post(approval_response_upload_handler).get(approval_response_consume_handler),
+        )
         .layer(DefaultBodyLimit::max(body_limit))
-        .with_state(AppState { store, limiter })
+        .with_state(AppState {
+            store,
+            limiter,
+            approval_mailbox: Arc::new(ApprovalMailboxStore::default()),
+        })
+}
+
+async fn approval_request_upload_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip())) {
+        return approval_mailbox_error(MailboxError::RateLimited);
+    }
+    let Some(request_id) = header_string(&headers, "x-revault-request-id") else {
+        return approval_mailbox_error(MailboxError::Invalid);
+    };
+    let Some(mailbox) = header_string(&headers, "x-revault-mailbox-capability") else {
+        return approval_mailbox_error(MailboxError::Invalid);
+    };
+    let Some(source) = header_string(&headers, "x-revault-source-capability") else {
+        return approval_mailbox_error(MailboxError::Invalid);
+    };
+    let Some(reply) = header_string(&headers, "x-revault-reply-capability") else {
+        return approval_mailbox_error(MailboxError::Invalid);
+    };
+    let now = unix_ms(SystemTime::now());
+    match state.approval_mailbox.upload_request(
+        &request_id,
+        &mailbox,
+        &source,
+        &reply,
+        &body,
+        now,
+    ) {
+        Ok(()) => {
+            let push_deferred = state.approval_mailbox.note_push(&mailbox, now).is_err();
+            let mut response = StatusCode::ACCEPTED.into_response();
+            if push_deferred {
+                response.headers_mut().insert(
+                    "x-revault-push-deferred",
+                    header::HeaderValue::from_static("true"),
+                );
+            }
+            response
+        }
+        Err(error) => approval_mailbox_error(error),
+    }
+}
+
+async fn approval_request_poll_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+) -> Response {
+    if !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip())) {
+        return approval_mailbox_error(MailboxError::RateLimited);
+    }
+    let Some(mailbox) = header_string(&headers, "x-revault-mailbox-capability") else {
+        return approval_mailbox_error(MailboxError::Invalid);
+    };
+    match state
+        .approval_mailbox
+        .poll_request(&mailbox, unix_ms(SystemTime::now()))
+    {
+        Ok(pending) => {
+            let mut response = binary_response(StatusCode::OK, pending.envelope);
+            if let Ok(value) = header::HeaderValue::from_str(&pending.id) {
+                response
+                    .headers_mut()
+                    .insert("x-revault-request-id", value);
+            }
+            response
+        }
+        Err(error) => approval_mailbox_error(error),
+    }
+}
+
+async fn approval_response_upload_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    if !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip())) {
+        return approval_mailbox_error(MailboxError::RateLimited);
+    }
+    let Some(request_id) = header_string(&headers, "x-revault-request-id") else {
+        return approval_mailbox_error(MailboxError::Invalid);
+    };
+    let Some(mailbox) = header_string(&headers, "x-revault-mailbox-capability") else {
+        return approval_mailbox_error(MailboxError::Invalid);
+    };
+    match state.approval_mailbox.upload_response(
+        &request_id,
+        &mailbox,
+        &body,
+        unix_ms(SystemTime::now()),
+    ) {
+        Ok(()) => StatusCode::ACCEPTED.into_response(),
+        Err(error) => approval_mailbox_error(error),
+    }
+}
+
+async fn approval_response_consume_handler(
+    State(state): State<AppState>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
+    headers: HeaderMap,
+) -> Response {
+    if !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip())) {
+        return approval_mailbox_error(MailboxError::RateLimited);
+    }
+    let Some(request_id) = header_string(&headers, "x-revault-request-id") else {
+        return approval_mailbox_error(MailboxError::Invalid);
+    };
+    let Some(reply) = header_string(&headers, "x-revault-reply-capability") else {
+        return approval_mailbox_error(MailboxError::Invalid);
+    };
+    match state.approval_mailbox.consume_response(
+        &request_id,
+        &reply,
+        unix_ms(SystemTime::now()),
+    ) {
+        Ok(envelope) => binary_response(StatusCode::OK, envelope),
+        Err(error) => approval_mailbox_error(error),
+    }
+}
+
+fn approval_mailbox_error(error: MailboxError) -> Response {
+    let (status, message) = match error {
+        MailboxError::Invalid => (StatusCode::BAD_REQUEST, "invalid approval request"),
+        MailboxError::TooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "approval envelope too large"),
+        MailboxError::Conflict => (StatusCode::CONFLICT, "approval request already exists"),
+        MailboxError::NotFound => (StatusCode::NOT_FOUND, "approval request not found"),
+        MailboxError::NotReady => (StatusCode::NO_CONTENT, "approval response not ready"),
+        MailboxError::Gone => (StatusCode::GONE, "approval response already consumed"),
+        MailboxError::RateLimited => (StatusCode::TOO_MANY_REQUESTS, "approval rate limited"),
+        MailboxError::Capacity => (StatusCode::TOO_MANY_REQUESTS, "too many pending approvals"),
+    };
+    let mut response = (status, message).into_response();
+    if status == StatusCode::TOO_MANY_REQUESTS {
+        response.headers_mut().insert(
+            header::RETRY_AFTER,
+            header::HeaderValue::from_static("60"),
+        );
+    }
+    response
 }
 
 async fn publish_handler(

@@ -13,9 +13,9 @@ pub use archive::{
 };
 pub use journal::{MigrationJournal, MigrationStage};
 pub use revault_migration_format::{
-    ArchiveRecord, ArtifactKind, ArtifactReader, ArtifactWriter, FormDefinitionRecord,
+    ArchiveKeySlotRecord, ArchiveRecord, ArtifactKind, ArtifactReader, ArtifactWriter, FormDefinitionRecord,
     FormFieldRecord, FormRecordValue, FormValueRecord, MigrationError, MigrationHeader,
     MigrationPassphrase, MigrationRecord, ProfileGenerationRecord, ProfileRecord, Result,
     SecretBytes, VaultRecord, JSON_FRAME_TYPE, MAX_FRAME_BYTES, RAW_FRAME_TYPE,
 };
-pub use vault::{export_vault_v2, import_vault_v2, upgrade_vault_artifact, verify_vault_artifact};
+pub use vault::{export_vault_v3, import_vault_v3, upgrade_vault_artifact, verify_vault_artifact};

@@ -3,10 +3,9 @@ use revault_lockbox_api::{
     LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretString,
 };
 use revault_lockbox_api_v1::{ContactKeyPair as V1ContactKeyPair, SecretString as V1SecretString};
-use revault_migrate_archive_v1::export_archive_v1;
 use revault_migrate_vault_v1::export_vault_v1;
 use revault_migration::{
-    export_vault_v2, import_archive, import_vault_v2, upgrade_archive_artifact,
+    export_archive, export_vault_v3, import_archive, import_vault_v3, upgrade_archive_artifact,
     upgrade_vault_artifact, verify_archive_artifact, verify_vault_artifact,
 };
 use revault_vault_api::{VaultDirectory, CURRENT_VAULT_STRUCTURE_VERSION};
@@ -34,11 +33,11 @@ fn vault_v2_export_verify_import_round_trip() {
         .unwrap();
     source.seed_default_form_definitions().unwrap();
 
-    export_vault_v2(&source, &artifact, &artifact_password, [1; 16]).unwrap();
+    export_vault_v3(&source, &artifact, &artifact_password, [1; 16]).unwrap();
     assert!(verify_vault_artifact(&artifact, &artifact_password).unwrap() > 2);
     drop(source);
 
-    import_vault_v2(&artifact, &artifact_password, &output_root, &password).unwrap();
+    import_vault_v3(&artifact, &artifact_password, &output_root, &password).unwrap();
     let imported = VaultDirectory::open_or_create(&output_root, &password).unwrap();
     assert_eq!(
         imported.structure_version().unwrap(),
@@ -87,7 +86,7 @@ fn vault_v1_fixture_exports_upgrades_and_imports_as_v2() {
         .unwrap();
     assert_eq!(std::fs::read(&source_path).unwrap(), source_before);
     upgrade_vault_artifact(&exported, &upgraded, b"artifact password").unwrap();
-    import_vault_v2(&upgraded, b"artifact password", &imported_root, &password).unwrap();
+    import_vault_v3(&upgraded, b"artifact password", &imported_root, &password).unwrap();
     let imported = VaultDirectory::open_or_create(&imported_root, &password).unwrap();
     assert_eq!(
         imported.structure_version().unwrap(),
@@ -163,7 +162,7 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
     source.commit().unwrap();
     let source_owner = source.owner_inspection().unwrap().fingerprint.unwrap();
 
-    export_archive_v1(&source, &artifact, b"artifact password", [2; 16]).unwrap();
+    export_archive(&source, &artifact, b"artifact password", [2; 16]).unwrap();
     assert!(verify_archive_artifact(&artifact, b"artifact password").unwrap() > 4);
     upgrade_archive_artifact(&artifact, &upgraded, b"artifact password").unwrap();
     assert!(verify_archive_artifact(&upgraded, b"artifact password").unwrap() > 4);

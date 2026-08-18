@@ -234,14 +234,6 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(vault_init_verbose_help.contains("Context:"));
     assert!(vault_init_verbose_help.contains("A new vault also gets a default profile."));
 
-    let vault_beget_help = run_output(bin, &["vault", "beget", "--help"]);
-    assert_success(&vault_beget_help);
-    let vault_beget_help = String::from_utf8_lossy(&vault_beget_help.stdout);
-    assert!(vault_beget_help.contains("Usage: lockbox vault beget [OPTIONS] <PROFILE>"));
-    assert!(vault_beget_help.contains("--output <VAULT>"));
-    assert!(vault_beget_help.contains("--contact-name <NAME>"));
-    assert!(vault_beget_help.contains("--no-contact"));
-    assert!(vault_beget_help.contains("Defaults to <PROFILE>.vault.lbx"));
 
     let vault_passphrase_help = run_output(bin, &["vault", "passphrase", "--help"]);
     assert_success(&vault_passphrase_help);
@@ -3178,154 +3170,11 @@ fn password_create_requires_explicit_vault_init() {
 }
 
 #[test]
-fn vault_beget_creates_an_independent_profile_and_local_contact() {
+fn vault_beget_is_not_available() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
-    let dir = unique_dir_named("vault-beget");
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    let vault_root = dir.join("vault");
-    let agent_root = dir.join("agent");
-    let current_password = SecretString::try_from_bytes(b"test-vault-password".to_vec()).unwrap();
-    VaultDirectory::open_or_create(&vault_root, &current_password).unwrap();
-
-    let output = Command::new(bin)
-        .current_dir(&dir)
-        .args(["vault", "beget", "production"])
-        .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
-        .env("LOCKBOX_NEW_VAULT_PASSWORD", "production-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", &agent_root)
-        .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
-        .output()
-        .unwrap();
-    assert_success(&output);
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Vault created successfully."));
-    assert!(stdout.contains("Profile:\n  production"));
-    assert!(stdout.contains("Contact:\n  production"));
-    assert!(stdout.contains("No lockbox access has been granted."));
-    assert!(stdout.contains("lbx access grant <lockbox> contact:production"));
-
-    let begotten_path = dir.join("production.vault.lbx");
-    assert!(begotten_path.is_file());
-    let begotten_password =
-        SecretString::try_from_bytes(b"production-vault-password".to_vec()).unwrap();
-    let begotten = VaultDirectory::open_file(&begotten_path, &begotten_password).unwrap();
-    assert_eq!(begotten.list_private_keys().unwrap(), vec!["production"]);
-    let public_key = begotten
-        .load_private_key("production")
-        .unwrap()
-        .public_key();
-    begotten.load_owner_signing_key("production").unwrap();
-    drop(begotten);
-
-    let current = VaultDirectory::open_or_create(&vault_root, &current_password).unwrap();
-    assert_eq!(
-        current.load_contact("production").unwrap().to_bytes(),
-        public_key.to_bytes()
-    );
-    assert!(!current.private_key_exists("production").unwrap());
-
-    let collision_path = dir.join("collision.vault.lbx");
-    let collision = Command::new(bin)
-        .current_dir(&dir)
-        .args([
-            "vault",
-            "beget",
-            "production",
-            "--output",
-            collision_path.to_str().unwrap(),
-        ])
-        .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
-        .env("LOCKBOX_NEW_VAULT_PASSWORD", "another-production-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", &agent_root)
-        .output()
-        .unwrap();
-    assert!(!collision.status.success());
-    assert!(
-        String::from_utf8_lossy(&collision.stderr).contains("Contact already exists: production")
-    );
-    assert!(!collision_path.exists());
+    let output = run_output(bin, &["vault", "beget", "--help"]);
+    assert!(!output.status.success());
 }
-
-#[test]
-fn vault_beget_supports_custom_output_contact_and_no_contact() {
-    let bin = env!("CARGO_BIN_EXE_lockbox");
-    let dir = unique_dir_named("vault-beget-options");
-    let _ = fs::remove_dir_all(&dir);
-    fs::create_dir_all(&dir).unwrap();
-    let vault_root = dir.join("vault");
-    let agent_root = dir.join("agent");
-    let current_password = SecretString::try_from_bytes(b"test-vault-password".to_vec()).unwrap();
-    VaultDirectory::open_or_create(&vault_root, &current_password).unwrap();
-    let custom_path = dir.join("nested").join("runner.vault.lbx");
-
-    let custom = Command::new(bin)
-        .args([
-            "vault",
-            "beget",
-            "production",
-            "--output",
-            custom_path.to_str().unwrap(),
-            "--contact-name",
-            "ci-production",
-        ])
-        .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
-        .env("LOCKBOX_NEW_VAULT_PASSWORD", "custom-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", &agent_root)
-        .output()
-        .unwrap();
-    assert_success(&custom);
-    assert!(custom_path.is_file());
-    let current = VaultDirectory::open_or_create(&vault_root, &current_password).unwrap();
-    assert!(current.contact_exists("ci-production").unwrap());
-    assert!(!current.contact_exists("production").unwrap());
-    drop(current);
-
-    let no_contact_root = dir.join("missing-current-vault");
-    let no_contact_path = dir.join("isolated.vault.lbx");
-    let no_contact = Command::new(bin)
-        .args([
-            "vault",
-            "beget",
-            "isolated",
-            "--output",
-            no_contact_path.to_str().unwrap(),
-            "--no-contact",
-        ])
-        .env("LOCKBOX_VAULT_DIR", &no_contact_root)
-        .env("LOCKBOX_NEW_VAULT_PASSWORD", "isolated-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", dir.join("isolated-agent"))
-        .output()
-        .unwrap();
-    assert_success(&no_contact);
-    assert!(no_contact_path.is_file());
-    assert!(!no_contact_root.exists());
-    assert!(String::from_utf8_lossy(&no_contact.stdout).contains("Contact:\n  Not created"));
-
-    let missing_password_path = dir.join("missing-password.vault.lbx");
-    let missing_password = Command::new(bin)
-        .args([
-            "vault",
-            "beget",
-            "missing-password",
-            "--output",
-            missing_password_path.to_str().unwrap(),
-            "--no-contact",
-        ])
-        .env("LOCKBOX_VAULT_DIR", &no_contact_root)
-        .env_remove("LOCKBOX_NEW_VAULT_PASSWORD")
-        .env("LOCKBOX_SESSION_AGENT_DIR", dir.join("isolated-agent"))
-        .output()
-        .unwrap();
-    assert!(!missing_password.status.success());
-    assert!(String::from_utf8_lossy(&missing_password.stderr)
-        .contains("set LOCKBOX_NEW_VAULT_PASSWORD"));
-    assert!(!missing_password_path.exists());
-}
-
 #[test]
 fn vault_init_rejects_blank_pass_phrase() {
     let bin = env!("CARGO_BIN_EXE_lockbox");

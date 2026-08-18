@@ -8,7 +8,6 @@ import 'package:revault_api/src/contact_public_key.dart';
 import 'package:revault_api/src/domain_models.dart';
 import 'package:revault_api/src/lockbox.dart';
 import 'package:revault_api/src/lockbox_options.dart';
-import 'package:revault_api/src/native_library.dart';
 import 'package:revault_api/src/profile_signing_key_pair.dart';
 import 'package:revault_api/src/profile_signing_public_key.dart';
 import 'package:revault_api/src/read_only_vault.dart';
@@ -37,52 +36,17 @@ final class Revault {
   /// Call this once during application startup, before using any other reVault
   /// type.
   ///
-  /// If nativeLibraryPath is supplied, reVault opens that path directly.
-  ///
-  /// if the env var REVAULT_LIBRARY is set, reVault opens the path it
-  ///  contains. If the load is passed [nativeLibraryPath] and REVAULT_LIBRARY is set,
-  ///     the explicit path takes precedence.
-  ///
-  /// In either case, no automatic native library search is performed.
-  ///
-  ///  If neither is supplied, reVault derives the native library path from the operating system
-  ///  and architecture
-  ///   - Linux: librevault_api.so
-  ///   - macOS: librevault_api.dylib
-  ///   - Windows: revault_api.dll
-  ///   - Targets include linux-x86_64-gnu, linux-aarch64-gnu, etc.
-  ///
-  /// The discovery order is:
-  ///   1. If nativeLibraryPath is passed to Revault.load(), open that path immediately.
-  ///   2. if REVAULT_LIBRARY is non-empty, open the path it contains.
-  ///   3. Determine the native target from Platform.operatingSystem and Abi.current().
-  ///   4. Derive the expected library filename e.g. librevault_api.so
-  ///   5. Search the package binary assets for the current target. This only works for Flutter mobile and web.
-  ///   6. Search for the library beside the executable.
-  ///
-  ///  Flutter desktop and Dart application (non Flutter) cannot resolve the package URI,
-  ///  so applications should supply nativeLibraryPath using the location established by
-  ///  their application installer.
+  /// Loads the carrier published by the package build hook and installs the
+  /// process-wide runtime. The carrier is selected for the application's target
+  /// by `dart build` or Flutter's build system; no filesystem path is required.
   ///
   /// Example:
   /// ```dart
-  /// Future<void> main() async {
-  ///   final revault = await Revault.load(
-  ///     nativeLibraryPath: '/opt/my_app/lib/librevault_api.so',
-  ///   );
-  ///   print(revault.lockboxFormatVersion);
-  /// }
+  /// final revault = await Revault.load();
+  /// print(revault.lockboxFormatVersion);
   /// ```
-  ///
-  /// A command-line launcher can instead select the library without changing
-  /// application code:
-  /// ```sh
-  /// REVAULT_LIBRARY=/opt/revault/lib/librevault_api.so dart run xxx
-  /// ```
-  static Future<Revault> load({String? nativeLibraryPath}) async {
-    final loaded = Revault._(
-      await loadNativeLibrary(nativeLibraryPath: nativeLibraryPath),
-    );
+  static Future<Revault> load() async {
+    final loaded = Revault._();
     _current = loaded;
     return loaded;
   }
@@ -94,8 +58,10 @@ final class Revault {
         'Call and await Revault.load() before using Vault, Lockbox, or AgentSession.',
       ));
 
-  Revault._(ffi.DynamicLibrary library)
-    : operations = BindingOperations(RevaultNative(library)) {
+  Revault._()
+    : operations = BindingOperations(
+        RevaultNative(ffi.DynamicLibrary.process()),
+      ) {
     _current = this;
   }
 

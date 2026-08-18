@@ -49,7 +49,9 @@ fn api_error_exit_code(error: &Error) -> ExitCode {
         Error::InvalidKey => ExitCode::AuthenticationFailed,
         Error::NotFound(_) => ExitCode::NotFound,
         Error::VaultUnavailable(_) => ExitCode::VaultUnavailable,
-        Error::UnsupportedFormatVersion { .. } => ExitCode::UnsupportedFormat,
+        Error::UnsupportedFormatVersion { .. } | Error::UnsupportedKeySlotKind(_) => {
+            ExitCode::UnsupportedFormat
+        }
         Error::CorruptHeader
         | Error::CorruptRecord
         | Error::CorruptVaultRecord(_)
@@ -118,6 +120,11 @@ fn render_api_error(error: &Error, colour: bool) -> String {
         } => (
             format!("Unsupported {} format", artifact.as_str()),
             format!("Found version {found}; this reVault build supports version {supported}."),
+            Some(error.guidance()),
+        ),
+        Error::UnsupportedKeySlotKind(kind) => (
+            "Unsupported lockbox access slot".to_string(),
+            format!("The key directory contains unsupported slot kind {kind}."),
             Some(error.guidance()),
         ),
         Error::CorruptRecord => (

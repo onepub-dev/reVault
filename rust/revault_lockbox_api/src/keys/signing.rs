@@ -20,6 +20,7 @@ const SIGNING_KEY_VERSION: u16 = 1;
 const SIGNING_ALGORITHM_ED25519_MLDSA65: u16 = 1;
 const ED25519_SEED_LEN: usize = 32;
 const ML_DSA_SEED_LEN: usize = 32;
+const DETACHED_SIGNATURE_MAGIC: &[u8; 8] = b"LBX1DSIG";
 
 /// Hybrid owner signing keypair used to authenticate writable commits.
 ///
@@ -36,6 +37,13 @@ pub struct OwnerSigningKeyPair {
 pub struct OwnerSigningPublicKey {
     ed25519_public_key: [u8; 32],
     ml_dsa65_public_key: Vec<u8>,
+}
+
+/// Hybrid Ed25519 and ML-DSA-65 detached signature.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HybridDetachedSignature {
+    ed25519: [u8; 64],
+    ml_dsa65: Vec<u8>,
 }
 
 impl OwnerSigningKeyPair {
@@ -70,6 +78,14 @@ impl OwnerSigningKeyPair {
     /// Clone this signing keypair into a new secure allocation.
     pub fn try_clone(&self) -> Result<Self> {
         Self::from_private_key_record(self.private_key_record()?)
+    }
+
+    /// Signs an application message with both classical and post-quantum keys.
+    pub fn sign_detached(&self, message: &[u8]) -> HybridDetachedSignature {
+        HybridDetachedSignature {
+            ed25519: self.ed25519.sign(message).to_bytes(),
+            ml_dsa65: self.ml_dsa65.sign(message).to_bytes().to_vec(),
+        }
     }
 
     fn from_seeds(
@@ -142,6 +158,77 @@ impl OwnerSigningPublicKey {
     /// Encodes this key as a versioned public-key record.
     pub fn to_bytes(&self) -> Vec<u8> {
         encode_public_key(self)
+    }
+
+    /// Verifies both components of a detached hybrid signature.
+    pub fn verify_detached(
+        &self,
+        message: &[u8],
+        signature: &HybridDetachedSignature,
+    ) -> Result<()> {
+        let ed25519 = Ed25519VerifyingKey::from_bytes(&self.ed25519_public_key)
+            .map_err(|_| Error::InvalidKeyMaterial("invalid Ed25519 public key".to_string()))?;
+        let ed25519_signature = Ed25519Signature::from_bytes(&signature.ed25519);
+        ed25519
+            .verify(message, &ed25519_signature)
+            .map_err(|_| Error::InvalidKey)?;
+        let ml_dsa65 = MlDsaVerifyingKey::<MlDsa65>::decode(
+            &self
+                .ml_dsa65_public_key
+                .as_slice()
+                .try_into()
+                .map_err(|_| Error::InvalidKeyMaterial("invalid ML-DSA public key".to_string()))?,
+        );
+        let ml_dsa65_signature = MlDsaSignature::<MlDsa65>::try_from(signature.ml_dsa65.as_slice())
+            .map_err(|_| Error::InvalidKeyMaterial("invalid ML-DSA signature".to_string()))?;
+        ml_dsa65
+            .verify(message, &ml_dsa65_signature)
+            .map_err(|_| Error::InvalidKey)
+    }
+}
+
+impl HybridDetachedSignature {
+    /// Encodes this signature as a versioned binary record.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(DETACHED_SIGNATURE_MAGIC);
+        put_u16(&mut out, 1);
+        out.extend_from_slice(&self.ed25519);
+        put_bytes(&mut out, &self.ml_dsa65);
+        out
+    }
+
+    /// Decodes a versioned detached signature record.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+        if bytes.len() < 8 + 2 + 64 + 4 || &bytes[..8] != DETACHED_SIGNATURE_MAGIC {
+            return Err(Error::InvalidKeyMaterial(
+                "invalid detached signature record".to_string(),
+            ));
+        }
+        if u16::from_le_bytes([bytes[8], bytes[9]]) != 1 {
+            return Err(Error::InvalidKeyMaterial(
+                "unsupported detached signature version".to_string(),
+            ));
+        }
+        let mut ed25519 = [0_u8; 64];
+        ed25519.copy_from_slice(&bytes[10..74]);
+        let length = u32::from_le_bytes(
+            bytes[74..78]
+                .try_into()
+                .map_err(|_| Error::InvalidKeyMaterial("invalid signature length".to_string()))?,
+        ) as usize;
+        let end = 78_usize
+            .checked_add(length)
+            .ok_or_else(|| Error::InvalidKeyMaterial("signature length overflow".to_string()))?;
+        if end != bytes.len() {
+            return Err(Error::InvalidKeyMaterial(
+                "invalid detached signature length".to_string(),
+            ));
+        }
+        Ok(Self {
+            ed25519,
+            ml_dsa65: bytes[78..end].to_vec(),
+        })
     }
 }
 

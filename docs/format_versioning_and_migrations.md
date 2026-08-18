@@ -100,6 +100,14 @@ Every native format change must include all of the following:
 6. Test logical equivalence rather than native byte equality. Archive migration
    intentionally produces a new commit/signature history.
 
+These rules apply to every persisted-format change, including adding a slot or
+record kind. Do not conditionally write a newer format only when the new feature
+is used, and do not teach the current storage API to read both native versions.
+Once a format version changes, all newly written artifacts use the new version;
+existing artifacts are upgraded only by the migration command. Historical
+exporters decode old binary structures into logical migration records, and the
+current importer reconstructs current binary structures from those records.
+
 Vault native format v2 is the first migration target and the reference test case
 for this policy.
 

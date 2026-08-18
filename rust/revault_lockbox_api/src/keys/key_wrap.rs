@@ -15,37 +15,46 @@ const HYBRID_KEY_VERSION: u16 = 1;
 const HYBRID_ALGORITHM_X25519_MLKEM768: u16 = 1;
 const X25519_KEY_LEN: usize = 32;
 
-/// Hybrid X25519 + ML-KEM-768 contact keypair.
+/// Hybrid X25519 + ML-KEM-768 recipient keypair.
 ///
 /// The private material is stored as a versioned Lockbox binary record in
 /// `SecretVec`. The public contact key is cached separately for wrapping new
 /// content keys.
-pub struct ContactKeyPair {
+pub struct RecipientKeyPair {
     private_key_bytes: SecretVec,
     x25519_public_key: [u8; X25519_KEY_LEN],
     mlkem_encapsulation_key: ml_kem::EncapsulationKey768,
 }
 
-/// Public hybrid X25519 + ML-KEM-768 contact key.
+/// Public hybrid X25519 + ML-KEM-768 recipient key.
 ///
 /// This key can be shared with a lockbox creator. It can wrap a lockbox content
-/// key for the holder of the matching `ContactKeyPair`, but it cannot open a
+/// key for the holder of the matching `RecipientKeyPair`, but it cannot open a
 /// lockbox by itself.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ContactPublicKey {
+pub struct RecipientPublicKey {
     x25519_public_key: [u8; X25519_KEY_LEN],
     mlkem_encapsulation_key: ml_kem::EncapsulationKey768,
 }
 
-/// Content key wrapped to a hybrid X25519 + ML-KEM-768 contact.
+/// Content key wrapped to a hybrid X25519 + ML-KEM-768 recipient.
 #[derive(Debug, Clone)]
-pub struct ContactWrappedKey {
+pub struct RecipientWrappedKey {
     x25519_ephemeral_public_key: [u8; X25519_KEY_LEN],
     mlkem_ciphertext: ml_kem::Ciphertext<MlKem768>,
     encrypted_key: Vec<u8>,
 }
 
-impl ContactKeyPair {
+/// Compatibility name for a recipient keypair.
+pub type ContactKeyPair = RecipientKeyPair;
+
+/// Compatibility name for a recipient public key.
+pub type ContactPublicKey = RecipientPublicKey;
+
+/// Compatibility name for a wrapped recipient key.
+pub type ContactWrappedKey = RecipientWrappedKey;
+
+impl RecipientKeyPair {
     /// Generate a fresh hybrid X25519 + ML-KEM-768 keypair.
     ///
     /// Returns `Error::SecurityLimitExceeded` if the private record cannot be
@@ -73,7 +82,7 @@ impl ContactKeyPair {
     /// Encrypt a content key to this keypair's public contact key.
     ///
     /// Returns `Error::InvalidKey` if authenticated wrapping fails.
-    pub fn encrypt(&self, content_key: &[u8]) -> Result<ContactWrappedKey> {
+    pub fn encrypt(&self, content_key: &[u8]) -> Result<RecipientWrappedKey> {
         self.public_key().encrypt(content_key)
     }
 
@@ -82,7 +91,7 @@ impl ContactKeyPair {
     /// Returns `Error::InvalidKey` if authenticated decrypt fails,
     /// `Error::InvalidKeyMaterial` if the stored private key cannot be decoded,
     /// or `Error::SecurityLimitExceeded` if secure memory access fails.
-    pub fn decrypt(&self, wrapped: &ContactWrappedKey) -> Result<Vec<u8>> {
+    pub fn decrypt(&self, wrapped: &RecipientWrappedKey) -> Result<Vec<u8>> {
         self.private_key_bytes.with_bytes(|bytes| {
             let decoded = decode_private_key(bytes)?;
             let x25519_secret_key = X25519SecretKey::from(decoded.x25519_secret_key);
@@ -107,8 +116,8 @@ impl ContactKeyPair {
     }
 
     /// Return the public contact key for this keypair.
-    pub fn public_key(&self) -> ContactPublicKey {
-        ContactPublicKey {
+    pub fn public_key(&self) -> RecipientPublicKey {
+        RecipientPublicKey {
             x25519_public_key: self.x25519_public_key,
             mlkem_encapsulation_key: self.mlkem_encapsulation_key.clone(),
         }
@@ -152,7 +161,7 @@ impl ContactKeyPair {
     }
 }
 
-impl ContactPublicKey {
+impl RecipientPublicKey {
     /// Decode a public contact key from its versioned Lockbox byte
     /// representation.
     ///
@@ -170,7 +179,7 @@ impl ContactPublicKey {
     /// Wrap a content key for this contact.
     ///
     /// Returns `Error::InvalidKey` if authenticated wrapping fails.
-    pub fn encrypt(&self, content_key: &[u8]) -> Result<ContactWrappedKey> {
+    pub fn encrypt(&self, content_key: &[u8]) -> Result<RecipientWrappedKey> {
         let mut ephemeral_secret_bytes = [0_u8; X25519_KEY_LEN];
         getrandom::fill(&mut ephemeral_secret_bytes).map_err(|err| Error::Io(err.to_string()))?;
         let ephemeral_secret = X25519SecretKey::from(ephemeral_secret_bytes);
@@ -188,7 +197,7 @@ impl ContactPublicKey {
             .encrypt(&Nonce::from([0_u8; 12]), content_key)
             .map_err(|_| Error::InvalidKey)?;
         wrapping_key.zeroize();
-        Ok(ContactWrappedKey {
+        Ok(RecipientWrappedKey {
             x25519_ephemeral_public_key,
             mlkem_ciphertext,
             encrypted_key,
@@ -196,7 +205,7 @@ impl ContactPublicKey {
     }
 }
 
-impl ContactWrappedKey {
+impl RecipientWrappedKey {
     /// Reconstruct a wrapped key from serialized hybrid ciphertext components.
     ///
     /// Returns `Error::InvalidKeyMaterial` if the component bytes are invalid.
@@ -246,7 +255,7 @@ struct DecodedPrivateKey {
     mlkem_seed: Vec<u8>,
 }
 
-fn encode_public_key(key: &ContactPublicKey) -> Vec<u8> {
+fn encode_public_key(key: &RecipientPublicKey) -> Vec<u8> {
     let mlkem_public = key.mlkem_encapsulation_key.to_bytes();
     let mut out = Vec::with_capacity(16 + X25519_KEY_LEN + 4 + mlkem_public.len());
     out.extend_from_slice(PUBLIC_MAGIC);
@@ -257,7 +266,7 @@ fn encode_public_key(key: &ContactPublicKey) -> Vec<u8> {
     out
 }
 
-fn decode_public_key(bytes: &[u8]) -> Result<ContactPublicKey> {
+fn decode_public_key(bytes: &[u8]) -> Result<RecipientPublicKey> {
     let mut reader = Reader::new(bytes);
     reader.magic(PUBLIC_MAGIC)?;
     reader.version()?;
@@ -272,7 +281,7 @@ fn decode_public_key(bytes: &[u8]) -> Result<ContactPublicKey> {
     let mlkem_encapsulation_key = ml_kem::EncapsulationKey768::new(&key).map_err(|_| {
         Error::InvalidKeyMaterial("ML-KEM public key bytes are invalid".to_string())
     })?;
-    Ok(ContactPublicKey {
+    Ok(RecipientPublicKey {
         x25519_public_key: x25519_public,
         mlkem_encapsulation_key,
     })

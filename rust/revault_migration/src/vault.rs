@@ -4,19 +4,22 @@ use crate::{
     ProfileRecord, Result, SecretBytes, VaultRecord,
 };
 use revault_lockbox_api::{
-    ContactKeyPair, ContactPublicKey, FormDefinition, FormFieldDefinition, FormFieldKind,
-    FormTypeId, LockboxId, OwnerSigningKeyPair, OwnerSigningPublicKey, SecretString, SecretVec,
+    ContactKeyPair, ContactPublicKey, FormDefinition, FormFieldDefinition, FormFieldKind, FormTypeId,
+    LockboxId, OwnerSigningKeyPair, OwnerSigningPublicKey, RecipientPublicKey, SecretString,
+    SecretVec,
 };
 use revault_vault_api::{
-    AccessSlotLabel, KnownLockbox, ProfileGeneration, ProfileGenerationStatus, ProfileHistory,
-    VaultDirectory, CURRENT_VAULT_STRUCTURE_VERSION,
+    AccessSlotLabel, ApprovalAction, ApprovalSourceId, ApprovalSourceIdentity, ApprovalSourceMode,
+    DeviceId, DevicePlatform, EnrollmentState, KnownLockbox, ProfileGeneration,
+    ProfileGenerationStatus, ProfileHistory, StoredApprovalSource, StoredDevice, VaultDirectory,
+    CURRENT_VAULT_STRUCTURE_VERSION,
 };
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
-/// Exports vault v2.
-pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
+/// Exports the current vault v3 logical state.
+pub fn export_vault_v3<P: MigrationPassphrase + ?Sized>(
     vault: &VaultDirectory,
     output: &Path,
     artifact_passphrase: &P,
@@ -26,7 +29,7 @@ pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Vault,
         source_native_version: vault.structure_version().map_err(core_error)?,
-        migration_schema_version: 2,
+        migration_schema_version: 3,
         target_native_version: Some(CURRENT_VAULT_STRUCTURE_VERSION),
         operation_id,
     };
@@ -79,6 +82,48 @@ pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
             name: contact.name,
             public_key: contact.key.to_bytes(),
             signing_public_key,
+        }))?;
+    }
+
+    for device in vault.list_devices().map_err(core_error)? {
+        writer.write_json(&MigrationRecord::Vault(VaultRecord::Device {
+            id: *device.id.as_bytes(),
+            name: device.name,
+            recipient_public_key: device.recipient_public_key.to_bytes(),
+            transport_public_key: device.transport_public_key,
+            response_verification_key: device.response_verification_key,
+            mailbox_id: device.mailbox_id,
+            platform: device_platform_name(device.platform).to_string(),
+            capabilities: device.capabilities,
+            state: enrollment_state_name(device.state).to_string(),
+            created_at_unix_ms: device.created_at_unix_ms,
+            revoked_at_unix_ms: device.revoked_at_unix_ms,
+        }))?;
+    }
+
+    for source in vault.list_approval_sources().map_err(core_error)? {
+        writer.write_json(&MigrationRecord::Vault(VaultRecord::ApprovalSource {
+            id: *source.id.as_bytes(),
+            name: source.name,
+            mode: source_mode_name(source.mode).to_string(),
+            identity_json: serde_json::to_vec(&source.identity).map_err(json_error)?,
+            allowed_lockboxes: source
+                .allowed_lockboxes
+                .iter()
+                .map(|id| *id.as_bytes())
+                .collect(),
+            allowed_actions: source
+                .allowed_actions
+                .iter()
+                .map(|action| approval_action_name(*action).to_string())
+                .collect(),
+            unattended_recipient_public_key: source
+                .unattended_recipient_public_key
+                .as_ref()
+                .map(RecipientPublicKey::to_bytes),
+            state: enrollment_state_name(source.state).to_string(),
+            created_at_unix_ms: source.created_at_unix_ms,
+            revoked_at_unix_ms: source.revoked_at_unix_ms,
         }))?;
     }
 
@@ -137,8 +182,8 @@ pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
     Ok(count + 1)
 }
 
-/// Imports vault v2.
-pub fn import_vault_v2<P: MigrationPassphrase + ?Sized>(
+/// Imports a logical migration artifact into current vault v3.
+pub fn import_vault_v3<P: MigrationPassphrase + ?Sized>(
     artifact: &Path,
     artifact_passphrase: &P,
     output_root: &Path,
@@ -192,6 +237,68 @@ pub fn import_vault_v2<P: MigrationPassphrase + ?Sized>(
                         .map_err(core_error)?;
                 }
             }
+            VaultRecord::Device {
+                id,
+                name,
+                recipient_public_key,
+                transport_public_key,
+                response_verification_key,
+                mailbox_id,
+                platform,
+                capabilities,
+                state,
+                created_at_unix_ms,
+                revoked_at_unix_ms,
+            } => vault
+                .store_device(&StoredDevice {
+                    id: DeviceId::from_bytes(id),
+                    name,
+                    recipient_public_key: RecipientPublicKey::from_bytes(&recipient_public_key)
+                        .map_err(core_error)?,
+                    transport_public_key,
+                    response_verification_key,
+                    mailbox_id,
+                    platform: parse_device_platform(&platform)?,
+                    capabilities,
+                    state: parse_enrollment_state(&state)?,
+                    created_at_unix_ms,
+                    revoked_at_unix_ms,
+                })
+                .map_err(core_error)?,
+            VaultRecord::ApprovalSource {
+                id,
+                name,
+                mode,
+                identity_json,
+                allowed_lockboxes,
+                allowed_actions,
+                unattended_recipient_public_key,
+                state,
+                created_at_unix_ms,
+                revoked_at_unix_ms,
+            } => vault
+                .store_approval_source(&StoredApprovalSource {
+                    id: ApprovalSourceId::from_bytes(id),
+                    name,
+                    mode: parse_source_mode(&mode)?,
+                    identity: serde_json::from_slice::<ApprovalSourceIdentity>(&identity_json)
+                        .map_err(json_error)?,
+                    allowed_lockboxes: allowed_lockboxes
+                        .into_iter()
+                        .map(LockboxId::from_bytes)
+                        .collect(),
+                    allowed_actions: allowed_actions
+                        .iter()
+                        .map(|action| parse_approval_action(action))
+                        .collect::<Result<Vec<_>>>()?,
+                    unattended_recipient_public_key: unattended_recipient_public_key
+                        .map(|bytes| RecipientPublicKey::from_bytes(&bytes).map_err(core_error))
+                        .transpose()?,
+                    state: parse_enrollment_state(&state)?,
+                    created_at_unix_ms,
+                    revoked_at_unix_ms,
+                })
+                .map_err(core_error)?,
             VaultRecord::FormDefinition(value) => {
                 vault
                     .import_form_definition(form_from_record(value)?)
@@ -264,7 +371,7 @@ pub fn upgrade_vault_artifact<P: MigrationPassphrase + ?Sized>(
     let file = File::open(input).map_err(io_error)?;
     let mut reader = ArtifactReader::new_with_passphrase(BufReader::new(file), passphrase)?;
     require_vault_header(reader.header())?;
-    if reader.header().migration_schema_version > 2 {
+    if reader.header().migration_schema_version > 3 {
         return Err(MigrationError::InvalidHeader(format!(
             "vault migration schema {} is newer than this build supports",
             reader.header().migration_schema_version
@@ -273,7 +380,7 @@ pub fn upgrade_vault_artifact<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Vault,
         source_native_version: reader.header().source_native_version,
-        migration_schema_version: 2,
+        migration_schema_version: 3,
         target_native_version: Some(CURRENT_VAULT_STRUCTURE_VERSION),
         operation_id: reader.header().operation_id,
     };
@@ -474,6 +581,76 @@ fn parse_generation_status(value: &str) -> Result<ProfileGenerationStatus> {
             "unknown profile generation status {other}"
         ))),
     }
+}
+
+fn device_platform_name(value: DevicePlatform) -> &'static str {
+    match value {
+        DevicePlatform::Ios => "ios",
+        DevicePlatform::Android => "android",
+    }
+}
+
+fn parse_device_platform(value: &str) -> Result<DevicePlatform> {
+    match value {
+        "ios" => Ok(DevicePlatform::Ios),
+        "android" => Ok(DevicePlatform::Android),
+        other => Err(MigrationError::Serialization(format!(
+            "unknown device platform {other}"
+        ))),
+    }
+}
+
+fn enrollment_state_name(value: EnrollmentState) -> &'static str {
+    match value {
+        EnrollmentState::Active => "active",
+        EnrollmentState::Revoked => "revoked",
+    }
+}
+
+fn parse_enrollment_state(value: &str) -> Result<EnrollmentState> {
+    match value {
+        "active" => Ok(EnrollmentState::Active),
+        "revoked" => Ok(EnrollmentState::Revoked),
+        other => Err(MigrationError::Serialization(format!(
+            "unknown enrollment state {other}"
+        ))),
+    }
+}
+
+fn source_mode_name(value: ApprovalSourceMode) -> &'static str {
+    match value {
+        ApprovalSourceMode::ApprovalRequired => "approval_required",
+        ApprovalSourceMode::Unattended => "unattended",
+    }
+}
+
+fn parse_source_mode(value: &str) -> Result<ApprovalSourceMode> {
+    match value {
+        "approval_required" => Ok(ApprovalSourceMode::ApprovalRequired),
+        "unattended" => Ok(ApprovalSourceMode::Unattended),
+        other => Err(MigrationError::Serialization(format!(
+            "unknown approval source mode {other}"
+        ))),
+    }
+}
+
+fn approval_action_name(value: ApprovalAction) -> &'static str {
+    match value {
+        ApprovalAction::UnlockRead => "unlock_read",
+    }
+}
+
+fn parse_approval_action(value: &str) -> Result<ApprovalAction> {
+    match value {
+        "unlock_read" => Ok(ApprovalAction::UnlockRead),
+        other => Err(MigrationError::Serialization(format!(
+            "unknown approval action {other}"
+        ))),
+    }
+}
+
+fn json_error(error: serde_json::Error) -> MigrationError {
+    MigrationError::Serialization(error.to_string())
 }
 
 fn secret_bytes(value: &SecretVec) -> Result<Vec<u8>> {

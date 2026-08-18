@@ -3,7 +3,7 @@ use revault_lockbox_api::{
     VariableSensitivity, LOCKBOX_FORMAT_VERSION,
 };
 use revault_migration_format::{
-    ArchiveRecord, ArtifactKind, ArtifactWriter, FormDefinitionRecord, FormFieldRecord,
+    ArchiveKeySlotRecord, ArchiveRecord, ArtifactKind, ArtifactWriter, FormDefinitionRecord, FormFieldRecord,
     FormRecordValue, FormValueRecord, MigrationError, MigrationHeader, MigrationRecord, Result,
     SecretBytes,
 };
@@ -14,7 +14,7 @@ use std::path::Path;
 
 const FILE_CHUNK_BYTES: usize = 4 * 1024 * 1024;
 
-/// Streams a native archive-format-v1 lockbox into migration schema 1.
+/// Streams a native archive-format-v1 lockbox into logical migration schema 2.
 pub fn export_archive_v1<State>(
     lockbox: &Lockbox<State>,
     output: &Path,
@@ -29,7 +29,7 @@ pub fn export_archive_v1<State>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
         source_native_version: 1,
-        migration_schema_version: 1,
+        migration_schema_version: 2,
         target_native_version: None,
         operation_id,
     };
@@ -41,11 +41,13 @@ pub fn export_archive_v1<State>(
     let (content_key, key_directory) = lockbox
         .export_migration_key_material()
         .map_err(core_error)?;
+    let (key_directory_generation, key_slots) = decode_v1_key_directory(&key_directory)?;
     writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Start {
         archive_id: *lockbox.lockbox_id().as_bytes(),
         format_version: 1,
         content_key: SecretBytes::new(secret_bytes(&content_key)?),
-        key_directory: SecretBytes::new(key_directory),
+        key_directory_generation,
+        key_slots,
     }))?;
 
     let root = LockboxPath::new("/").map_err(core_error)?;
@@ -203,6 +205,96 @@ fn form_kind_name(value: FormFieldKind) -> &'static str {
         FormFieldKind::Notes => "notes",
         FormFieldKind::Number => "number",
     }
+}
+
+fn decode_v1_key_directory(bytes: &[u8]) -> Result<(u64, Vec<ArchiveKeySlotRecord>)> {
+    const HEADER_LEN: usize = 64;
+    if bytes.len() < HEADER_LEN
+        || &bytes[0..8] != b"LBX1KEY\0"
+        || read_u16(bytes, 8)? != 1
+        || read_u32(bytes, 12)? as usize != HEADER_LEN
+    {
+        return Err(corrupt_key_directory());
+    }
+    let total_len = usize::try_from(read_u64(bytes, 16)?).map_err(|_| corrupt_key_directory())?;
+    if total_len != bytes.len() || total_len > 1024 * 1024 {
+        return Err(corrupt_key_directory());
+    }
+    let generation = read_u64(bytes, 24)?;
+    let count = read_u32(bytes, HEADER_LEN)? as usize;
+    let mut offset = HEADER_LEN + 4;
+    let mut slots = Vec::with_capacity(count);
+    for _ in 0..count {
+        let kind = *bytes.get(offset).ok_or_else(corrupt_key_directory)?;
+        offset += 1;
+        let id = read_u64(bytes, offset)?;
+        offset += 8;
+        slots.push(match kind {
+            1 => ArchiveKeySlotRecord::Password {
+                id,
+                salt: SecretBytes::new(read_blob(bytes, &mut offset)?),
+                encrypted_key: SecretBytes::new(read_blob(bytes, &mut offset)?),
+            },
+            2 => ArchiveKeySlotRecord::HybridRecipient {
+                id,
+                x25519_ephemeral_public_key: read_blob(bytes, &mut offset)?,
+                mlkem_ciphertext: read_blob(bytes, &mut offset)?,
+                encrypted_key: SecretBytes::new(read_blob(bytes, &mut offset)?),
+            },
+            _ => return Err(corrupt_key_directory()),
+        });
+    }
+    if offset != total_len {
+        return Err(corrupt_key_directory());
+    }
+    Ok((generation, slots))
+}
+
+fn read_blob(bytes: &[u8], offset: &mut usize) -> Result<Vec<u8>> {
+    let len = read_u32(bytes, *offset)? as usize;
+    *offset = (*offset)
+        .checked_add(4)
+        .ok_or_else(corrupt_key_directory)?;
+    let end = (*offset)
+        .checked_add(len)
+        .ok_or_else(corrupt_key_directory)?;
+    let value = bytes
+        .get(*offset..end)
+        .ok_or_else(corrupt_key_directory)?
+        .to_vec();
+    *offset = end;
+    Ok(value)
+}
+
+fn read_u16(bytes: &[u8], offset: usize) -> Result<u16> {
+    let value: [u8; 2] = bytes
+        .get(offset..offset + 2)
+        .ok_or_else(corrupt_key_directory)?
+        .try_into()
+        .map_err(|_| corrupt_key_directory())?;
+    Ok(u16::from_le_bytes(value))
+}
+
+fn read_u32(bytes: &[u8], offset: usize) -> Result<u32> {
+    let value: [u8; 4] = bytes
+        .get(offset..offset + 4)
+        .ok_or_else(corrupt_key_directory)?
+        .try_into()
+        .map_err(|_| corrupt_key_directory())?;
+    Ok(u32::from_le_bytes(value))
+}
+
+fn read_u64(bytes: &[u8], offset: usize) -> Result<u64> {
+    let value: [u8; 8] = bytes
+        .get(offset..offset + 8)
+        .ok_or_else(corrupt_key_directory)?
+        .try_into()
+        .map_err(|_| corrupt_key_directory())?;
+    Ok(u64::from_le_bytes(value))
+}
+
+fn corrupt_key_directory() -> MigrationError {
+    MigrationError::CorruptFrame("invalid native v1 key directory".to_string())
 }
 
 fn secret_bytes(value: &revault_lockbox_api::SecretVec) -> Result<Vec<u8>> {

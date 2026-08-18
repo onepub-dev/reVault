@@ -1510,42 +1510,6 @@ fn vault_command(verbose: bool) -> Command {
                 ),
         )
         .subcommand(
-            Command::new("beget")
-                .about("Create an independent vault with a new profile.")
-                .after_help(verbose_help(
-                    verbose,
-                    "Examples:\n  lbx vault beget production\n  lbx vault beget production --output .revault/production-runner.vault.lbx\n  lbx vault beget production --contact-name ci-production\n  lbx vault beget production --no-contact",
-                    "Context:\n  Beget creates a new encrypted vault containing one fresh profile. By default, its public key is saved as a contact with the same name in the current vault. It does not copy private material from the current vault or grant access to any lockbox.",
-                ))
-                .arg(
-                    Arg::new("profile")
-                        .value_name("PROFILE")
-                        .required(true)
-                        .help("Profile name created inside the new vault."),
-                )
-                .arg(
-                    Arg::new("output")
-                        .short('o')
-                        .long("output")
-                        .value_name("VAULT")
-                        .value_hint(ValueHint::AnyPath)
-                        .help("Output path. Defaults to <PROFILE>.vault.lbx."),
-                )
-                .arg(
-                    Arg::new("contact-name")
-                        .long("contact-name")
-                        .value_name("NAME")
-                        .conflicts_with("no-contact")
-                        .help("Contact name in the current vault. Defaults to <PROFILE>."),
-                )
-                .arg(
-                    Arg::new("no-contact")
-                        .long("no-contact")
-                        .action(ArgAction::SetTrue)
-                        .help("Do not add a contact to the current vault."),
-                ),
-        )
-        .subcommand(
             Command::new("backup")
                 .about("Create an encrypted backup archive of the local vault.")
                 .after_help(verbose_help(
@@ -1587,6 +1551,50 @@ fn vault_command(verbose: bool) -> Command {
                 .arg(required("backup", "Backup archive input path.")),
         )
         .subcommand(vault_profile_command(verbose))
+        .subcommand(
+            Command::new("device")
+                .about("Manage phones enrolled for approval.")
+                .subcommand_required(true)
+                .arg_required_else_help(true)
+                .subcommand(
+                    Command::new("enroll")
+                        .about("Enroll a phone from its authenticated pairing record.")
+                        .arg(required("record", "Versioned device enrollment JSON path.")),
+                )
+                .subcommand(
+                    Command::new("list")
+                        .visible_alias("ls")
+                        .about("List enrolled and revoked approval phones.")
+                        .arg(output_format_arg()),
+                )
+                .subcommand(
+                    Command::new("revoke")
+                        .about("Revoke an approval phone while retaining its audit record.")
+                        .arg(required("id", "32-character hexadecimal device id.")),
+                ),
+        )
+        .subcommand(
+            Command::new("source")
+                .about("Manage trusted desktop and CI approval sources.")
+                .subcommand_required(true)
+                .arg_required_else_help(true)
+                .subcommand(
+                    Command::new("add")
+                        .about("Add a named source from a provider identity policy.")
+                        .arg(required("policy", "Versioned approval-source JSON path.")),
+                )
+                .subcommand(
+                    Command::new("list")
+                        .visible_alias("ls")
+                        .about("List active and revoked approval sources.")
+                        .arg(output_format_arg()),
+                )
+                .subcommand(
+                    Command::new("revoke")
+                        .about("Revoke an approval source while retaining its audit record.")
+                        .arg(required("id", "32-character hexadecimal source id.")),
+                ),
+        )
         .subcommand(
             Command::new("form")
                 .about("Manage reusable form definitions.")

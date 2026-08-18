@@ -165,21 +165,18 @@ Create another local profile:
 lockbox vault profile create laptop
 ```
 
-Create an independent encrypted vault with a fresh profile and register that
-profile's public key as a contact in the current vault:
+Enroll phones independently from contacts. A device record contains only public
+keys, an opaque relay mailbox id, and a user-chosen name:
 
 ```bash
-lbx vault beget production
-# Creates production.vault.lbx with profile:production.
-# Saves only the public key locally as contact:production.
-
-lbx access grant shared.lbox contact:production
+lockbox vault device enroll ./alice-phone.device.json
+lockbox vault device list
+lockbox vault source add ./production-deploy.source.json
 ```
 
-Use `--output` to choose the new vault path, `--contact-name` to avoid a local
-contact-name collision, or `--no-contact` to leave the current vault unchanged.
-`beget` never grants lockbox access automatically and never copies private
-material from the current vault.
+Each local or CI source has a separate, named policy. The phone displays that
+name only after authenticating the desktop signature or provider OIDC token.
+Devices and sources can be revoked while retaining their audit records.
 
 List profiles and export a public key:
 

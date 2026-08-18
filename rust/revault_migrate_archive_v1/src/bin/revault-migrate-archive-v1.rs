@@ -38,7 +38,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args = env::args().skip(1).collect::<Vec<_>>();
     if args.as_slice() == ["capabilities"] {
         println!(
-            "{{\"protocol\":2,\"artifact\":\"archive\",\"native_version\":1,\"migration_schema\":1}}"
+            "{{\"protocol\":2,\"artifact\":\"archive\",\"native_version\":1,\"migration_schema\":2}}"
         );
         return Ok(());
     }

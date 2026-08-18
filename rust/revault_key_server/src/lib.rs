@@ -10,3 +10,4 @@ pub mod server;
 pub mod server_log;
 /// Represents store.
 pub mod store;
+mod approval_mailbox;

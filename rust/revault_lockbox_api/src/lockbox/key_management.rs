@@ -8,6 +8,7 @@ use crate::key_directory::read_key_directory_backup;
 use crate::key_directory::{best_key_directory, scan_key_directories};
 use crate::key_slot::{next_key_slot_id, random_content_key, random_salt, KeySlot, LockboxKeySlot};
 use crate::key_wrap::{ContactKeyPair, ContactPublicKey};
+use crate::key_wrap::RecipientWrappedKey;
 use crate::lockbox_id::LockboxId;
 use crate::secret_vec::{SecretString, SecretVec};
 use crate::signing::OwnerSigningKeyPair;
@@ -791,9 +792,67 @@ impl Lockbox {
         Ok(())
     }
 
+    /// Restores logical access slots while creating the current native format.
+    #[cfg(feature = "migration")]
+    #[doc(hidden)]
+    pub fn import_migration_key_slots(
+        &mut self,
+        generation: u64,
+        slots: Vec<crate::key_slot::MigrationKeySlot>,
+    ) -> Result<()> {
+        self.key_slots = slots
+            .into_iter()
+            .map(|slot| match slot {
+                crate::key_slot::MigrationKeySlot::Password {
+                    id,
+                    salt,
+                    encrypted_key,
+                } => Ok(KeySlot::Password {
+                    id,
+                    salt,
+                    encrypted_key,
+                }),
+                crate::key_slot::MigrationKeySlot::HybridRecipient {
+                    id,
+                    x25519_ephemeral_public_key,
+                    mlkem_ciphertext,
+                    encrypted_key,
+                } => Ok(KeySlot::HybridRecipient {
+                    id,
+                    wrapped: Box::new(crate::key_wrap::RecipientWrappedKey::from_parts(
+                        x25519_ephemeral_public_key,
+                        mlkem_ciphertext,
+                        encrypted_key,
+                    )?),
+                }),
+            })
+            .collect::<Result<Vec<_>>>()?;
+        self.key_directory_generation = generation;
+        self.mark_key_directory_dirty();
+        Ok(())
+    }
+
     /// List the keys that can open this lockbox.
     pub fn list_key_slots(&self) -> Vec<LockboxKeySlot> {
         self.key_slots.iter().map(KeySlot::info).collect()
+    }
+
+    /// Exports one recipient-wrapped content key for an end-to-end encrypted
+    /// approval request.
+    ///
+    /// The returned ciphertext is not secret, but it must remain bound to the
+    /// lockbox id and slot id by the approval protocol. Password slots and
+    /// unknown slot ids are rejected.
+    pub fn recipient_slot_ciphertext(&self, slot_id: u64) -> Result<RecipientWrappedKey> {
+        self.key_slots
+            .iter()
+            .find_map(|slot| match slot {
+                KeySlot::HybridRecipient { id, wrapped } if *id == slot_id => {
+                    Some((**wrapped).clone())
+                }
+                _ => None,
+            })
+            .ok_or_else(|| Error::NotFound(format!("recipient key slot {slot_id}")))
     }
 
     /// Replace one existing password with a new password and return the new key id.
@@ -1133,6 +1192,40 @@ impl<State> Lockbox<State> {
                 0,
             )?,
         ))
+    }
+
+    /// Exports content-key and logical slot material for a migration artifact.
+    #[cfg(feature = "migration")]
+    #[doc(hidden)]
+    pub fn export_migration_key_slots(
+        &self,
+    ) -> Result<(SecretVec, u64, Vec<crate::key_slot::MigrationKeySlot>)> {
+        let slots = self
+            .key_slots
+            .iter()
+            .map(|slot| match slot {
+                KeySlot::Password {
+                    id,
+                    salt,
+                    encrypted_key,
+                } => crate::key_slot::MigrationKeySlot::Password {
+                    id: *id,
+                    salt: salt.clone(),
+                    encrypted_key: encrypted_key.clone(),
+                },
+                KeySlot::HybridRecipient { id, wrapped } => {
+                    crate::key_slot::MigrationKeySlot::HybridRecipient {
+                        id: *id,
+                        x25519_ephemeral_public_key: wrapped
+                            .x25519_ephemeral_public_key()
+                            .to_vec(),
+                        mlkem_ciphertext: wrapped.ciphertext_bytes().to_vec(),
+                        encrypted_key: wrapped.encrypted_key().to_vec(),
+                    }
+                }
+            })
+            .collect();
+        Ok((self.key.try_clone()?, self.key_directory_generation, slots))
     }
 
     pub(crate) fn mark_key_directory_dirty(&mut self) {

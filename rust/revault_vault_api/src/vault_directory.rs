@@ -13,6 +13,10 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::key_format::{export_private_key, import_private_key, KeyFormat};
+use crate::{
+    approval_admin::{decode_device, decode_source, encode_device, encode_source},
+    ApprovalSourceId, DeviceId, EnrollmentState, StoredApprovalSource, StoredDevice,
+};
 
 const VAULT_FILE_NAME: &str = "local-vault.lbox";
 const VAULT_BACKUP_MAGIC: &[u8; 8] = b"LBVBK001";
@@ -32,7 +36,7 @@ thread_local! {
 }
 
 /// Current on-disk structure version for records stored inside the local vault.
-pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 2;
+pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 3;
 
 /// Validates a profile or contact name used by the native vault.
 ///
@@ -862,6 +866,102 @@ impl VaultDirectory {
             });
         }
         Ok(out)
+    }
+
+    /// Enrolls a new approval device.
+    ///
+    /// The device public keys and mailbox identifier are stored only inside
+    /// the encrypted vault. An existing device id is never replaced.
+    pub fn store_device(&self, device: &StoredDevice) -> Result<()> {
+        validate_display_name(&device.name)?;
+        validate_device(device)?;
+        self.put_record(&device_record_path(device.id)?, &encode_device(device)?)
+    }
+
+    /// Loads an approval device by its stable identifier.
+    pub fn load_device(&self, id: DeviceId) -> Result<StoredDevice> {
+        decode_device(&self.get_record(&device_record_path(id)?)?)
+    }
+
+    /// Lists all enrolled devices, including revoked devices.
+    pub fn list_devices(&self) -> Result<Vec<StoredDevice>> {
+        let mut devices = Vec::new();
+        for name in self.list_record_names("/devices", ".lbdv")? {
+            let path = LockboxPath::new(format!("/devices/{name}.lbdv"))?;
+            devices.push(decode_device(&self.get_record(&path)?)?);
+        }
+        devices.sort_by(|left, right| left.name.cmp(&right.name).then(left.id.cmp(&right.id)));
+        Ok(devices)
+    }
+
+    /// Renames an enrolled device without changing its cryptographic identity.
+    pub fn rename_device(&self, id: DeviceId, name: &str) -> Result<()> {
+        validate_display_name(name)?;
+        let mut device = self.load_device(id)?;
+        device.name = name.to_string();
+        self.put_record_replace(&device_record_path(id)?, &encode_device(&device)?)
+    }
+
+    /// Marks a device revoked while retaining an administrative audit record.
+    ///
+    /// Callers must separately rotate every lockbox content key granted to the
+    /// device; changing this vault record alone is not cryptographic revocation.
+    pub fn revoke_device(&self, id: DeviceId) -> Result<()> {
+        let mut device = self.load_device(id)?;
+        if device.state == EnrollmentState::Revoked {
+            return Ok(());
+        }
+        device.state = EnrollmentState::Revoked;
+        device.revoked_at_unix_ms = Some(unix_ms(SystemTime::now()));
+        self.put_record_replace(&device_record_path(id)?, &encode_device(&device)?)
+    }
+
+    /// Stores a new local or CI approval source.
+    pub fn store_approval_source(&self, source: &StoredApprovalSource) -> Result<()> {
+        validate_display_name(&source.name)?;
+        validate_approval_source(source)?;
+        self.put_record(
+            &approval_source_record_path(source.id)?,
+            &encode_source(source)?,
+        )
+    }
+
+    /// Loads an approval source by its stable identifier.
+    pub fn load_approval_source(&self, id: ApprovalSourceId) -> Result<StoredApprovalSource> {
+        decode_source(&self.get_record(&approval_source_record_path(id)?)?)
+    }
+
+    /// Lists all approval sources, including revoked sources.
+    pub fn list_approval_sources(&self) -> Result<Vec<StoredApprovalSource>> {
+        let mut sources = Vec::new();
+        for name in self.list_record_names("/approval_sources", ".lbasrc")? {
+            let path = LockboxPath::new(format!("/approval_sources/{name}.lbasrc"))?;
+            sources.push(decode_source(&self.get_record(&path)?)?);
+        }
+        sources.sort_by(|left, right| left.name.cmp(&right.name).then(left.id.cmp(&right.id)));
+        Ok(sources)
+    }
+
+    /// Replaces the mutable policy fields of an existing approval source.
+    pub fn update_approval_source(&self, source: &StoredApprovalSource) -> Result<()> {
+        validate_display_name(&source.name)?;
+        validate_approval_source(source)?;
+        let _existing = self.load_approval_source(source.id)?;
+        self.put_record_replace(
+            &approval_source_record_path(source.id)?,
+            &encode_source(source)?,
+        )
+    }
+
+    /// Marks an approval source revoked while retaining its audit record.
+    pub fn revoke_approval_source(&self, id: ApprovalSourceId) -> Result<()> {
+        let mut source = self.load_approval_source(id)?;
+        if source.state == EnrollmentState::Revoked {
+            return Ok(());
+        }
+        source.state = EnrollmentState::Revoked;
+        source.revoked_at_unix_ms = Some(unix_ms(SystemTime::now()));
+        self.put_record_replace(&approval_source_record_path(id)?, &encode_source(&source)?)
     }
 
     /// Stores an exported key-directory backup for `lockbox_id`.
@@ -1787,6 +1887,68 @@ fn contact_signing_record_path(name: &str) -> Result<LockboxPath> {
         "/contacts/{}.signing.pub",
         validate_record_name(name)?
     ))
+}
+
+fn device_record_path(id: DeviceId) -> Result<LockboxPath> {
+    LockboxPath::new(format!("/devices/{id}.lbdv"))
+}
+
+fn approval_source_record_path(id: ApprovalSourceId) -> Result<LockboxPath> {
+    LockboxPath::new(format!("/approval_sources/{id}.lbasrc"))
+}
+
+fn validate_display_name(name: &str) -> Result<()> {
+    if name.is_empty() || name.len() > 255 || name.chars().any(char::is_control) {
+        return Err(Error::InvalidInput(
+            "display name must be 1 to 255 UTF-8 bytes without control characters".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_device(device: &StoredDevice) -> Result<()> {
+    if device.transport_public_key.is_empty() || device.response_verification_key.is_empty() {
+        return Err(Error::InvalidInput(
+            "device transport and response verification keys must not be empty".to_string(),
+        ));
+    }
+    if device.capabilities.len() > 64
+        || device
+            .capabilities
+            .iter()
+            .any(|capability| capability.is_empty() || capability.len() > 128)
+    {
+        return Err(Error::InvalidInput(
+            "device capabilities exceed the supported limits".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn validate_approval_source(source: &StoredApprovalSource) -> Result<()> {
+    if source.allowed_lockboxes.len() > 1024 || source.allowed_actions.is_empty() {
+        return Err(Error::InvalidInput(
+            "approval source must contain actions and at most 1024 lockboxes".to_string(),
+        ));
+    }
+    match source.mode {
+        crate::ApprovalSourceMode::ApprovalRequired
+            if source.unattended_recipient_public_key.is_some() =>
+        {
+            Err(Error::InvalidInput(
+                "approval-required source must not contain an unattended recipient key"
+                    .to_string(),
+            ))
+        }
+        crate::ApprovalSourceMode::Unattended
+            if source.unattended_recipient_public_key.is_none() =>
+        {
+            Err(Error::InvalidInput(
+                "unattended source requires a provider-held recipient public key".to_string(),
+            ))
+        }
+        _ => Ok(()),
+    }
 }
 
 fn profile_history_record_path(name: &str) -> Result<LockboxPath> {

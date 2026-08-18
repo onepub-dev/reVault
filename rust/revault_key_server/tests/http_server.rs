@@ -152,6 +152,61 @@ fn axum_server_verify_page_reports_missing_token_as_html_error() {
     assert!(String::from_utf8_lossy(&response).contains("Verification failed"));
 }
 
+#[test]
+fn approval_mailbox_routes_opaque_envelopes_and_consumes_response_once() {
+    let (_guard, config) = temp_server_config("approval-mailbox");
+    let server = spawn_server_with_store(config);
+    let request_id = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    let mailbox = "device-capability-0000000000000000";
+    let source = "source-capability-0000000000000000";
+    let reply = "reply-capability-00000000000000000";
+    let request_headers = format!(
+        "X-Revault-Request-Id: {request_id}\r\nX-Revault-Mailbox-Capability: {mailbox}\r\nX-Revault-Source-Capability: {source}\r\nX-Revault-Reply-Capability: {reply}\r\n"
+    );
+    let uploaded = post_request(
+        server.addr,
+        "/v1/approval/request",
+        &request_headers,
+        b"opaque-request",
+    );
+    assert!(uploaded.starts_with(b"HTTP/1.1 202 Accepted"));
+
+    let polled = get_request(
+        server.addr,
+        "/v1/approval/request",
+        &format!("X-Revault-Mailbox-Capability: {mailbox}\r\n"),
+    );
+    assert!(polled.starts_with(b"HTTP/1.1 200 OK"));
+    assert_eq!(http_body(&polled), b"opaque-request");
+
+    let response_headers = format!(
+        "X-Revault-Request-Id: {request_id}\r\nX-Revault-Mailbox-Capability: {mailbox}\r\n"
+    );
+    let uploaded = post_request(
+        server.addr,
+        "/v1/approval/response",
+        &response_headers,
+        b"opaque-response",
+    );
+    assert!(uploaded.starts_with(b"HTTP/1.1 202 Accepted"));
+
+    let consume_headers = format!(
+        "X-Revault-Request-Id: {request_id}\r\nX-Revault-Reply-Capability: {reply}\r\n"
+    );
+    let consumed = get_request(
+        server.addr,
+        "/v1/approval/response",
+        &consume_headers,
+    );
+    assert_eq!(http_body(&consumed), b"opaque-response");
+    let replay = get_request(
+        server.addr,
+        "/v1/approval/response",
+        &consume_headers,
+    );
+    assert!(replay.starts_with(b"HTTP/1.1 410 Gone"));
+}
+
 struct TestServer {
     addr: SocketAddr,
     store: Arc<PublishStore>,

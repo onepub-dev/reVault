@@ -9,7 +9,7 @@ use revault_lockbox_api::{
     LOCKBOX_FORMAT_VERSION,
 };
 use revault_migration::{
-    export_archive, export_vault_v2, import_archive, import_vault_v2, upgrade_archive_artifact,
+    export_archive, export_vault_v3, import_archive, import_vault_v3, upgrade_archive_artifact,
     upgrade_vault_artifact, verify_archive_artifact, verify_vault_artifact, ArtifactKind,
     MigrationJournal, MigrationPassphrase, MigrationStage,
 };
@@ -74,7 +74,7 @@ fn vault_export(matches: &ArgMatches) -> CliResult<()> {
         None => default_vault()?,
     };
     let operation_id = random_id()?;
-    let count = export_vault_v2(&vault, &output, &artifact_password, operation_id)?;
+    let count = export_vault_v3(&vault, &output, &artifact_password, operation_id)?;
     println!(
         "Exported {count} vault migration records to {}",
         output.display()
@@ -99,7 +99,7 @@ fn vault_import(matches: &ArgMatches) -> CliResult<()> {
     let output = required_path(matches, "output")?;
     let artifact_password = migration_password()?;
     let vault_password = vault_password_without_open()?;
-    let count = import_vault_v2(&input, &artifact_password, &output, &vault_password)?;
+    let count = import_vault_v3(&input, &artifact_password, &output, &vault_password)?;
     println!(
         "Imported {count} vault migration records into {}",
         output.display()
@@ -223,7 +223,7 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
             remove_partial(&artifact)?;
             if source_version == CURRENT_VAULT_STRUCTURE_VERSION {
                 let vault = VaultDirectory::open_or_create(&source, &source_password)?;
-                export_vault_v2(&vault, &artifact, &migration_key, operation_id)?;
+                export_vault_v3(&vault, &artifact, &migration_key, operation_id)?;
             } else {
                 let exporter = resolve_exporter(
                     ArtifactKind::Vault,
@@ -261,7 +261,7 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
                 .is_ok_and(|version| version == CURRENT_VAULT_STRUCTURE_VERSION);
         if !complete {
             remove_partial(&output)?;
-            import_vault_v2(&upgraded, &migration_key, &output, &source_password)?;
+            import_vault_v3(&upgraded, &migration_key, &output, &source_password)?;
         }
         journal.current_stage = MigrationStage::Validate;
         save_journal(&mut journal, &journal_path, &source_password)?;
@@ -545,14 +545,23 @@ fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterR
             native_version: 1,
             migration_schema: 1,
         }),
+        (ArtifactKind::Vault, 2) => Some(ExporterRelease {
+            package: "revault_migrate_vault_v2",
+            version: "0.0.1",
+            binary: "revault-migrate-vault-v2",
+            protocol: 1,
+            artifact: "vault",
+            native_version: 2,
+            migration_schema: 2,
+        }),
         (ArtifactKind::Archive, 1) => Some(ExporterRelease {
             package: "revault_migrate_archive_v1",
-            version: "0.0.2",
+            version: "0.0.3",
             binary: "revault-migrate-archive-v1",
             protocol: 2,
             artifact: "archive",
             native_version: 1,
-            migration_schema: 1,
+            migration_schema: 2,
         }),
         _ => None,
     }
@@ -1086,12 +1095,20 @@ mod tests {
             vault
         ));
 
+        let vault_v2 = exporter_release(ArtifactKind::Vault, 2).unwrap();
+        assert_eq!(vault_v2.package, "revault_migrate_vault_v2");
+        assert_eq!(vault_v2.binary, "revault-migrate-vault-v2");
+        assert!(capabilities_match(
+            br#"{"protocol":1,"artifact":"vault","native_version":2,"migration_schema":2}"#,
+            vault_v2
+        ));
+
         let archive = exporter_release(ArtifactKind::Archive, 1).unwrap();
         assert_eq!(archive.package, "revault_migrate_archive_v1");
         assert_eq!(archive.binary, "revault-migrate-archive-v1");
-        assert_eq!(archive.version, "0.0.2");
+        assert_eq!(archive.version, "0.0.3");
         assert!(capabilities_match(
-            br#"{"protocol":2,"artifact":"archive","native_version":1,"migration_schema":1}"#,
+            br#"{"protocol":2,"artifact":"archive","native_version":1,"migration_schema":2}"#,
             archive
         ));
         assert!(!capabilities_match(

@@ -11,7 +11,7 @@ pub use artifact::{
     MAX_FRAME_BYTES, RAW_FRAME_TYPE,
 };
 pub use model::{
-    ArchiveRecord, ArtifactKind, FormDefinitionRecord, FormFieldRecord, FormRecordValue,
+    ArchiveKeySlotRecord, ArchiveRecord, ArtifactKind, FormDefinitionRecord, FormFieldRecord, FormRecordValue,
     FormValueRecord, MigrationHeader, MigrationRecord, ProfileGenerationRecord, ProfileRecord,
     SecretBytes, VaultRecord,
 };

@@ -200,6 +200,54 @@ pub enum VaultRecord {
         /// Represents the signing public key carried by this record case.
         signing_public_key: Option<Vec<u8>>,
     },
+    /// Represents an enrolled approval device.
+    Device {
+        /// Stable device id.
+        id: [u8; 16],
+        /// User-assigned display name.
+        name: String,
+        /// Generic recipient public key.
+        recipient_public_key: Vec<u8>,
+        /// Approval-envelope transport public key.
+        transport_public_key: Vec<u8>,
+        /// Approval-response verification public key.
+        response_verification_key: Vec<u8>,
+        /// Opaque relay mailbox id.
+        mailbox_id: [u8; 32],
+        /// Mobile platform name.
+        platform: String,
+        /// Versioned application capabilities.
+        capabilities: Vec<String>,
+        /// Enrollment lifecycle state.
+        state: String,
+        /// Creation time in Unix milliseconds.
+        created_at_unix_ms: u64,
+        /// Revocation time in Unix milliseconds.
+        revoked_at_unix_ms: Option<u64>,
+    },
+    /// Represents a local or CI approval source.
+    ApprovalSource {
+        /// Stable source id.
+        id: [u8; 16],
+        /// User-assigned display name.
+        name: String,
+        /// Approval-required or unattended mode.
+        mode: String,
+        /// Provider identity encoded using the logical schema's tagged JSON form.
+        identity_json: Vec<u8>,
+        /// Allowed lockbox ids.
+        allowed_lockboxes: Vec<[u8; 16]>,
+        /// Allowed action names.
+        allowed_actions: Vec<String>,
+        /// Provider-held unattended recipient public key, when configured.
+        unattended_recipient_public_key: Option<Vec<u8>>,
+        /// Enrollment lifecycle state.
+        state: String,
+        /// Creation time in Unix milliseconds.
+        created_at_unix_ms: u64,
+        /// Revocation time in Unix milliseconds.
+        revoked_at_unix_ms: Option<u64>,
+    },
     /// Represents the form definition case.
     FormDefinition(FormDefinitionRecord),
     /// Represents the known lockbox case.
@@ -255,8 +303,10 @@ pub enum ArchiveRecord {
         format_version: u32,
         /// Represents the content key carried by this record case.
         content_key: SecretBytes,
-        /// Represents the key directory carried by this record case.
-        key_directory: SecretBytes,
+        /// Key-directory generation used to preserve update ordering.
+        key_directory_generation: u64,
+        /// Logical access slots, decoded by the historical exporter.
+        key_slots: Vec<ArchiveKeySlotRecord>,
     },
     /// Represents the file start case.
     FileStart {
@@ -311,6 +361,32 @@ pub enum ArchiveRecord {
     End {
         /// Represents the record count carried by this record case.
         record_count: u64,
+    },
+}
+
+/// Logical archive key slot carried across native format boundaries.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ArchiveKeySlotRecord {
+    /// Password-wrapped content key.
+    Password {
+        /// Stable slot identifier.
+        id: u64,
+        /// Password derivation salt.
+        salt: SecretBytes,
+        /// Wrapped content key.
+        encrypted_key: SecretBytes,
+    },
+    /// Hybrid recipient-wrapped content key.
+    HybridRecipient {
+        /// Stable slot identifier.
+        id: u64,
+        /// Ephemeral X25519 public key.
+        x25519_ephemeral_public_key: Vec<u8>,
+        /// ML-KEM ciphertext.
+        mlkem_ciphertext: Vec<u8>,
+        /// Wrapped content key.
+        encrypted_key: SecretBytes,
     },
 }
 

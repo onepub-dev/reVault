@@ -1,6 +1,6 @@
 use crate::checked::{array_16, read_u16_le, read_u32_le, read_u64_le};
 use crate::key_slot::KeySlot;
-use crate::key_wrap::ContactWrappedKey;
+use crate::key_wrap::RecipientWrappedKey;
 use crate::lockbox_id::LockboxId;
 use crate::page::{
     decode_page, page_decode_slice, physical_page_size_from_page_slice, DecodedPage,
@@ -10,9 +10,9 @@ use crate::page_cache::{PageCache, PageReadKey, PageSecurity};
 use crate::storage::Storage;
 use crate::{CacheLimit, Error, Result};
 
-const KEY_DIR_MAGIC: &[u8; 8] = b"LBX1KEY\0";
+const KEY_DIR_MAGIC: &[u8; 8] = b"LBX2KEY\0";
 const KEY_DIR_HEADER_LEN: usize = 64;
-const KEY_DIR_VERSION: u16 = 1;
+const KEY_DIR_VERSION: u16 = 2;
 const MAX_KEY_DIRECTORY_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone)]
@@ -216,25 +216,30 @@ fn encode_key_slots(slots: &[KeySlot]) -> Vec<u8> {
     let mut out = Vec::new();
     out.extend_from_slice(&(slots.len() as u32).to_le_bytes());
     for slot in slots {
-        match slot {
+        let (kind, id, body) = match slot {
             KeySlot::Password {
                 id,
                 salt,
                 encrypted_key,
             } => {
-                out.push(1);
-                out.extend_from_slice(&id.to_le_bytes());
-                write_bytes(&mut out, salt);
-                write_bytes(&mut out, encrypted_key);
+                let mut body = Vec::new();
+                write_bytes(&mut body, salt);
+                write_bytes(&mut body, encrypted_key);
+                (1_u16, *id, body)
             }
-            KeySlot::HybridContact { id, wrapped } => {
-                out.push(2);
-                out.extend_from_slice(&id.to_le_bytes());
-                write_bytes(&mut out, wrapped.x25519_ephemeral_public_key());
-                write_bytes(&mut out, wrapped.ciphertext_bytes());
-                write_bytes(&mut out, wrapped.encrypted_key());
+            KeySlot::HybridRecipient { id, wrapped } => {
+                let mut body = Vec::new();
+                write_bytes(&mut body, wrapped.x25519_ephemeral_public_key());
+                write_bytes(&mut body, wrapped.ciphertext_bytes());
+                write_bytes(&mut body, wrapped.encrypted_key());
+                (2_u16, *id, body)
             }
-        }
+        };
+        out.extend_from_slice(&kind.to_le_bytes());
+        out.extend_from_slice(&0_u16.to_le_bytes());
+        out.extend_from_slice(&id.to_le_bytes());
+        out.extend_from_slice(&(body.len() as u32).to_le_bytes());
+        out.extend_from_slice(&body);
     }
     out
 }
@@ -244,23 +249,38 @@ fn decode_key_slots(payload: &[u8]) -> Result<Vec<KeySlot>> {
         return Err(Error::CorruptHeader);
     }
     let count = read_u32_le(&payload[0..4]).map_err(|_| Error::CorruptHeader)? as usize;
-    if count > (payload.len() - 4) / 9 {
+    const SLOT_HEADER_LEN: usize = 16;
+    if count > (payload.len() - 4) / SLOT_HEADER_LEN {
         return Err(Error::CorruptHeader);
     }
     let mut offset = 4usize;
     let mut slots = Vec::with_capacity(count);
     for _ in 0..count {
-        if offset + 9 > payload.len() {
+        if offset + SLOT_HEADER_LEN > payload.len() {
             return Err(Error::CorruptHeader);
         }
-        let kind = payload[offset];
-        offset += 1;
+        let kind = read_u16_le(&payload[offset..offset + 2]).map_err(|_| Error::CorruptHeader)?;
+        offset += 2;
+        let flags = read_u16_le(&payload[offset..offset + 2]).map_err(|_| Error::CorruptHeader)?;
+        offset += 2;
+        if flags != 0 {
+            return Err(Error::CorruptHeader);
+        }
         let id = read_u64_le(&payload[offset..offset + 8]).map_err(|_| Error::CorruptHeader)?;
         offset += 8;
+        let body_len =
+            read_u32_le(&payload[offset..offset + 4]).map_err(|_| Error::CorruptHeader)? as usize;
+        offset += 4;
+        let body_end = offset.checked_add(body_len).ok_or(Error::CorruptHeader)?;
+        if body_end > payload.len() {
+            return Err(Error::CorruptHeader);
+        }
+        let body = &payload[offset..body_end];
+        let mut body_offset = 0usize;
         match kind {
             1 => {
-                let salt = read_bytes(payload, &mut offset)?;
-                let encrypted_key = read_bytes(payload, &mut offset)?;
+                let salt = read_bytes(body, &mut body_offset)?;
+                let encrypted_key = read_bytes(body, &mut body_offset)?;
                 slots.push(KeySlot::Password {
                     id,
                     salt,
@@ -268,20 +288,27 @@ fn decode_key_slots(payload: &[u8]) -> Result<Vec<KeySlot>> {
                 });
             }
             2 => {
-                let x25519_ephemeral_public_key = read_bytes(payload, &mut offset)?;
-                let mlkem_ciphertext = read_bytes(payload, &mut offset)?;
-                let encrypted_key = read_bytes(payload, &mut offset)?;
-                slots.push(KeySlot::HybridContact {
+                let x25519_ephemeral_public_key = read_bytes(body, &mut body_offset)?;
+                let mlkem_ciphertext = read_bytes(body, &mut body_offset)?;
+                let encrypted_key = read_bytes(body, &mut body_offset)?;
+                slots.push(KeySlot::HybridRecipient {
                     id,
-                    wrapped: Box::new(ContactWrappedKey::from_parts(
+                    wrapped: Box::new(RecipientWrappedKey::from_parts(
                         x25519_ephemeral_public_key,
                         mlkem_ciphertext,
                         encrypted_key,
                     )?),
                 });
             }
-            _ => return Err(Error::CorruptHeader),
+            _ => return Err(Error::UnsupportedKeySlotKind(kind)),
         }
+        if body_offset != body.len() {
+            return Err(Error::CorruptHeader);
+        }
+        offset = body_end;
+    }
+    if offset != payload.len() {
+        return Err(Error::CorruptHeader);
     }
     Ok(slots)
 }
@@ -320,7 +347,7 @@ mod tests {
             encode_key_directory(&[], lockbox_id, 0x0102_0304_0506_0708, 0x1112_1314).unwrap();
 
         assert_eq!(&encoded[0..8], KEY_DIR_MAGIC);
-        assert_eq!(&encoded[8..10], &[0x01, 0x00]);
+        assert_eq!(&encoded[8..10], &[0x02, 0x00]);
         assert_eq!(&encoded[12..16], &[0x40, 0x00, 0x00, 0x00]);
         assert_eq!(
             &encoded[16..24],

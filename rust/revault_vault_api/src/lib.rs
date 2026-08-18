@@ -45,6 +45,7 @@ pub use revault_lockbox_api::{SecretString, SecretVec};
 
 mod active_secret;
 mod agent_client;
+mod approval_admin;
 mod agent_config;
 mod agent_log;
 mod agent_protocol;
@@ -84,6 +85,10 @@ pub(crate) use agent_protocol::{
     AGENT_IMPLEMENTATION_VERSION, AGENT_PROTOCOL_VERSION, DEFAULT_TTL_SECONDS,
 };
 pub use content_key_store::ContentKeyStore;
+pub use approval_admin::{
+    ApprovalAction, ApprovalSourceId, ApprovalSourceIdentity, ApprovalSourceMode, DeviceId,
+    DevicePlatform, EnrollmentState, StoredApprovalSource, StoredDevice,
+};
 pub use hex::{decode_hex, encode_hex};
 pub use key_format::{
     decode_fingerprint_crockford_96, decode_fingerprint_hex, export_private_key, export_public_key,

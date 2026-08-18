@@ -38,6 +38,7 @@ lettre = { version = "0.11", default-features = false, features = [
     "rustls-tls",
 ] }
 revault_publish_protocol = { version = "0.0.3", path = "../revault_publish_protocol" }
+revault_approval_protocol = { version = "0.0.1", path = "../revault_approval_protocol" }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"
 time = { version = "0.3", features = ["formatting"] }

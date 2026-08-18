@@ -33,6 +33,8 @@ pub enum Error {
         /// Newest version supported by this build.
         supported: u32,
     },
+    /// A key directory contains a length-framed slot kind this build does not implement.
+    UnsupportedKeySlotKind(u16),
     /// An encrypted record or decoded page failed validation.
     CorruptRecord,
     /// Stored vault metadata failed validation.
@@ -82,6 +84,9 @@ impl Error {
                     "Run `lockbox migrate vault --output <directory>` or use `--replace`."
                 }
             },
+            Error::UnsupportedKeySlotKind(_) => {
+                "Migrate the archive with a reVault release that supports this key-slot kind."
+            }
             Error::CorruptRecord => {
                 "The lockbox contents failed validation; try recovery or restore from a clean copy."
             }
@@ -159,6 +164,9 @@ impl fmt::Display for Error {
                 }
                 .guidance()
             ),
+            Error::UnsupportedKeySlotKind(kind) => {
+                write!(f, "unsupported lockbox key-slot kind {kind}")
+            }
             Error::CorruptRecord => write!(f, "corrupt lockbox page or record"),
             Error::CorruptVaultRecord(message) => {
                 write!(f, "corrupt vault record: {message}")

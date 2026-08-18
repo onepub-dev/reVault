@@ -1,7 +1,9 @@
 import 'dart:ffi' as ffi;
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:revault_api/src/agent_session.dart';
+import 'package:revault_api/src/approval_models.dart';
 import 'package:revault_api/src/contact_key_pair.dart';
 import 'package:revault_api/src/contact_public_key.dart';
 import 'package:revault_api/src/lockbox.dart';
@@ -467,6 +469,93 @@ final class Vault extends Owned {
   /// ```
   List<Contact> listContacts() =>
       runtime.operations.vaultDirectoryListContacts(handle);
+
+  /// Enrolls [device] using public data from an authenticated pairing transcript.
+  ///
+  /// The phone recipient private key remains on the phone. Adding this record
+  /// does not grant it access to any Lockbox.
+  ///
+  /// Example:
+  /// ```dart
+  /// vault.storeApprovalDevice(scannedDevice);
+  /// ```
+  void storeApprovalDevice(ApprovalDevice device) =>
+      runtime.operations.vaultDirectoryStoreDeviceJson(handle, device.toJson());
+
+  /// Lists active and revoked phone enrollment records.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final device in vault.listApprovalDevices()) print(device.name);
+  /// ```
+  List<ApprovalDevice> listApprovalDevices() =>
+      (jsonDecode(runtime.operations.vaultDirectoryListDevicesJson(handle))
+              as List<Object?>)
+          .map(
+            (record) => ApprovalDevice.fromJson(
+              (record! as Map<Object?, Object?>).cast<String, Object?>(),
+            ),
+          )
+          .toList(growable: false);
+
+  /// Marks an enrolled phone revoked in the Vault administration record.
+  ///
+  /// This does not itself rotate Lockbox content keys. The caller must use the
+  /// Lockbox revocation workflow for every granted archive.
+  ///
+  /// Example:
+  /// ```dart
+  /// vault.revokeApprovalDevice(lostPhone.id);
+  /// ```
+  void revokeApprovalDevice(Uint8List deviceId) =>
+      runtime.operations.vaultDirectoryRevokeDevice(handle, deviceId);
+
+  /// Stores a new local or CI source policy.
+  ///
+  /// Example:
+  /// ```dart
+  /// vault.storeApprovalSource(githubProductionSource);
+  /// ```
+  void storeApprovalSource(ApprovalSource source) => runtime.operations
+      .vaultDirectoryStoreApprovalSourceJson(handle, source.toJson());
+
+  /// Replaces the policy of an existing source with the same stable ID.
+  ///
+  /// Example:
+  /// ```dart
+  /// vault.updateApprovalSource(restrictedSource);
+  /// ```
+  void updateApprovalSource(ApprovalSource source) => runtime.operations
+      .vaultDirectoryUpdateApprovalSourceJson(handle, source.toJson());
+
+  /// Lists active and revoked local and CI approval sources.
+  ///
+  /// Example:
+  /// ```dart
+  /// for (final source in vault.listApprovalSources()) print(source.name);
+  /// ```
+  List<ApprovalSource> listApprovalSources() =>
+      (jsonDecode(
+                runtime.operations.vaultDirectoryListApprovalSourcesJson(
+                  handle,
+                ),
+              )
+              as List<Object?>)
+          .map(
+            (record) => ApprovalSource.fromJson(
+              (record! as Map<Object?, Object?>).cast<String, Object?>(),
+            ),
+          )
+          .toList(growable: false);
+
+  /// Revokes a source policy by its stable 16-byte ID.
+  ///
+  /// Example:
+  /// ```dart
+  /// vault.revokeApprovalSource(retiredPipeline.id);
+  /// ```
+  void revokeApprovalSource(Uint8List sourceId) =>
+      runtime.operations.vaultDirectoryRevokeApprovalSource(handle, sourceId);
 
   /// Stores the contact [email] associated with local profile [name].
   ///

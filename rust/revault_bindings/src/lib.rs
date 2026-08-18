@@ -38,6 +38,7 @@ use std::cell::RefCell;
 use std::ffi::{c_char, c_void};
 use std::ptr;
 use zeroize::Zeroize;
+use revault_vault_api::{ApprovalSourceId, DeviceId, StoredApprovalSource, StoredDevice};
 
 #[repr(C)]
 /// Caller-owned bytes returned through the stable C ABI.
@@ -152,6 +153,32 @@ fn buffer(bytes: Vec<u8>) -> RevaultBuffer {
     };
     std::mem::forget(bytes);
     result
+}
+
+fn json_record_list_buffer(result: LockboxResult<Vec<Vec<u8>>>) -> RevaultBuffer {
+    match result {
+        Ok(records) => {
+            let capacity = records.iter().map(Vec::len).sum::<usize>() + records.len() + 2;
+            let mut bytes = Vec::with_capacity(capacity);
+            bytes.push(b'[');
+            for (index, record) in records.into_iter().enumerate() {
+                if index != 0 {
+                    bytes.push(b',');
+                }
+                bytes.extend_from_slice(&record);
+            }
+            bytes.push(b']');
+            clear_error();
+            buffer(bytes)
+        }
+        Err(error) => {
+            set_error(error);
+            RevaultBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+            }
+        }
+    }
 }
 
 macro_rules! flatbuffer_buffer {
@@ -5291,6 +5318,223 @@ pub unsafe extern "C" fn vault_directory_list_contacts(handle: *const c_void) ->
                 ptr: ptr::null_mut(),
                 len: 0,
             }
+        }
+    }
+}
+
+#[no_mangle]
+/// Stores a versioned JSON approval-device enrollment record.
+///
+/// # Safety
+/// `handle` must be a live vault handle and `record` must be readable for
+/// `record_len` bytes.
+pub unsafe extern "C" fn vault_directory_store_device_json(
+    handle: *const c_void,
+    record: *const u8,
+    record_len: usize,
+) -> bool {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return false;
+    };
+    let Some(record) = (unsafe { input(record, record_len) }) else {
+        set_error("invalid device record");
+        return false;
+    };
+    match StoredDevice::from_json_bytes(record).and_then(|device| handle.store_device(&device)) {
+        Ok(()) => {
+            clear_error();
+            true
+        }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+/// Returns all versioned JSON approval-device records as a JSON array.
+///
+/// # Safety
+/// `handle` must be a live vault handle.
+pub unsafe extern "C" fn vault_directory_list_devices_json(
+    handle: *const c_void,
+) -> RevaultBuffer {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return RevaultBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+        };
+    };
+    json_record_list_buffer(handle.list_devices().and_then(|devices| {
+        devices
+            .iter()
+            .map(StoredDevice::to_json_bytes)
+            .collect::<LockboxResult<Vec<_>>>()
+    }))
+}
+
+#[no_mangle]
+/// Revokes an approval device by its 16-byte stable id.
+///
+/// # Safety
+/// `handle` must be a live vault handle and `id` must be readable for 16 bytes.
+pub unsafe extern "C" fn vault_directory_revoke_device(
+    handle: *const c_void,
+    id: *const u8,
+    id_len: usize,
+) -> bool {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return false;
+    };
+    let Some(id) = (unsafe { input(id, id_len) }).and_then(|bytes| bytes.try_into().ok()) else {
+        set_error("device id must contain 16 bytes");
+        return false;
+    };
+    match handle.revoke_device(DeviceId::from_bytes(id)) {
+        Ok(()) => {
+            clear_error();
+            true
+        }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+/// Stores a versioned JSON approval-source policy record.
+///
+/// # Safety
+/// `handle` must be a live vault handle and `record` must be readable for
+/// `record_len` bytes.
+pub unsafe extern "C" fn vault_directory_store_approval_source_json(
+    handle: *const c_void,
+    record: *const u8,
+    record_len: usize,
+) -> bool {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return false;
+    };
+    let Some(record) = (unsafe { input(record, record_len) }) else {
+        set_error("invalid approval source record");
+        return false;
+    };
+    match StoredApprovalSource::from_json_bytes(record)
+        .and_then(|source| handle.store_approval_source(&source))
+    {
+        Ok(()) => {
+            clear_error();
+            true
+        }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+/// Updates a versioned JSON approval-source policy record.
+///
+/// # Safety
+/// `handle` must be a live vault handle and `record` must be readable for
+/// `record_len` bytes.
+pub unsafe extern "C" fn vault_directory_update_approval_source_json(
+    handle: *const c_void,
+    record: *const u8,
+    record_len: usize,
+) -> bool {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return false;
+    };
+    let Some(record) = (unsafe { input(record, record_len) }) else {
+        set_error("invalid approval source record");
+        return false;
+    };
+    match StoredApprovalSource::from_json_bytes(record)
+        .and_then(|source| handle.update_approval_source(&source))
+    {
+        Ok(()) => {
+            clear_error();
+            true
+        }
+        Err(error) => {
+            set_error(error);
+            false
+        }
+    }
+}
+
+#[no_mangle]
+/// Returns all versioned JSON approval-source records as a JSON array.
+///
+/// # Safety
+/// `handle` must be a live vault handle.
+pub unsafe extern "C" fn vault_directory_list_approval_sources_json(
+    handle: *const c_void,
+) -> RevaultBuffer {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return RevaultBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+        };
+    };
+    json_record_list_buffer(handle.list_approval_sources().and_then(|sources| {
+        sources
+            .iter()
+            .map(StoredApprovalSource::to_json_bytes)
+            .collect::<LockboxResult<Vec<_>>>()
+    }))
+}
+
+#[no_mangle]
+/// Revokes an approval source by its 16-byte stable id.
+///
+/// # Safety
+/// `handle` must be a live vault handle and `id` must be readable for 16 bytes.
+pub unsafe extern "C" fn vault_directory_revoke_approval_source(
+    handle: *const c_void,
+    id: *const u8,
+    id_len: usize,
+) -> bool {
+    let Some(handle) =
+        (!handle.is_null()).then(|| unsafe { &*(handle.cast::<VaultDirectoryHandle>()) })
+    else {
+        set_error("vault handle is null");
+        return false;
+    };
+    let Some(id) = (unsafe { input(id, id_len) }).and_then(|bytes| bytes.try_into().ok()) else {
+        set_error("approval source id must contain 16 bytes");
+        return false;
+    };
+    match handle.revoke_approval_source(ApprovalSourceId::from_bytes(id)) {
+        Ok(()) => {
+            clear_error();
+            true
+        }
+        Err(error) => {
+            set_error(error);
+            false
         }
     }
 }

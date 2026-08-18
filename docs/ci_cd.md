@@ -1,392 +1,115 @@
-# CI/CD with reVault
+# CI/CD and phone approval
 
-> **Partially superseded draft:** identity creation is now the generic
-> `lbx vault beget` workflow. The `lockbox vault ci open` orchestration described
-> below remains a proposal and is not implemented. References to `ci bootstrap`
-> are retained as design history and should not be treated as CLI documentation.
+CI must be treated as an untrusted requester, not as a child vault stored on a
+developer workstation. There are no deployed `beget` vaults to preserve and the
+old workflow has been removed.
 
-Create a deployment identity with the same command used for any independent
-vault:
+## Threat model
 
-```bash
-LOCKBOX_NEW_VAULT_PASSWORD='<strong passphrase>' \
-  lbx vault beget production --output .revault/ci/production.vault.lbx
-lbx access grant deploy.lbox contact:production
+Assume an AI tool or compromised process can read every developer file and can
+invoke the local credential store. It must not be able to approve itself. Phone
+recipient, transport, and response-signing private keys therefore live only on
+the phone, encrypted by the platform Keychain/Keystore and released after local
+user authentication. Secure Element backing is used where an algorithm is
+supported, but is not a CI requirement and cannot currently hold the hybrid
+post-quantum recipient key on typical phones.
+
+The relay receives opaque, end-to-end encrypted envelopes. It never receives a
+vault password, content key, provider token, or phone private key. STUN/ICE is
+not required: push notification plus an HTTPS mailbox works across carrier NAT,
+corporate firewalls, sleeping phones, and CI runners more reliably than a
+peer-to-peer channel.
+
+## Enrollment
+
+1. The phone creates independent hybrid recipient and transport identities, a
+   response signing identity, a random device id, and a random mailbox id.
+2. An authenticated QR/pairing transcript transfers only the public enrollment
+   record to the desktop vault.
+3. The owner gives the device a recognisable name. Multiple phones can be
+   enrolled for one lockbox; devices are not contacts because they also have a
+   mailbox, signing identity, capabilities, platform, and revocation state.
+4. The owner adds a separately named source policy and explicitly selects the
+   lockbox ids and operations it may request.
+
+```console
+lockbox vault device enroll alice-phone.device.json
+lockbox vault source add production-deploy.source.json
+lockbox vault device list
+lockbox vault source list
 ```
 
-This creates an encrypted, file-backed vault containing the private
-`production` profile. The current vault receives only its public key as the
-`production` contact. Identity creation does not grant access to any lockbox;
-grants remain explicit, orthogonal operations.
-
-reVault can keep a versioned bundle of deployment secrets beside a project
-without placing the decrypted values in the repository. A CI job receives one
-passphrase from its native secret store, opens the encrypted bundle for the
-duration of a command, and then discards the temporary vault and session.
-
-The intended setup has two commands:
-
-- `lockbox vault ci bootstrap` creates a dedicated CI identity and optionally
-  grants it access to one or more lockboxes.
-- `lockbox vault ci open` reconstructs that identity temporarily, opens the
-  requested lockbox, runs a command, and cleans up.
-
-The CI profile is stable so its access can be granted and revoked. The local
-vault used by an individual job is temporary.
-
-## Five-Minute Setup
-
-Assume `deploy.lbox` contains the variables needed by `./ci/deploy.sh`.
-
-Open the lockbox locally as an owner, then bootstrap a production CI identity:
-
-```bash
-lockbox open deploy.lbox
-
-lockbox vault ci bootstrap production \
-  --output .revault/ci/production.lockbox-ci \
-  --grant deploy.lbox
-```
-
-The command creates:
-
-```text
-.revault/ci/production.lockbox-ci
-```
-
-The bundle contains an encrypted, minimal vault with one profile. It does not
-contain the vault passphrase. The command prints the generated passphrase once
-and instructs the operator to save it as this CI secret:
-
-```text
-LOCKBOX_VAULT_PASSWORD
-```
-
-Commit the encrypted CI bundle and the lockbox:
-
-```bash
-git add .revault/ci/production.lockbox-ci deploy.lbox
-git commit -m "Configure the production CI identity"
-```
-
-This is appropriate only when bootstrap generated a high-entropy passphrase
-and repository policy permits encrypted key material. If the bundle must not be
-committed, store it as a protected CI file or deployment artifact and pass its
-downloaded path to `ci open`. Keep the bundle separate from its passphrase in
-either case.
-
-Configure `LOCKBOX_VAULT_PASSWORD` as a protected secret for the production
-environment in the CI provider. The deployment job can then run:
-
-```bash
-lockbox vault ci open .revault/ci/production.lockbox-ci \
-  --lockbox deploy.lbox \
-  -- ./ci/deploy.sh
-```
-
-`./ci/deploy.sh` and its child processes inherit the temporary reVault runtime.
-They can use normal commands without knowing where the temporary vault or agent
-is stored:
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-token_file="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/deployment-token"
-
-lockbox variable get --secret \
-  --output "$token_file" \
-  deploy.lbox DEPLOYMENT_TOKEN
-
-deploy-tool --token-file "$token_file"
-```
-
-The secret is written to a temporary file instead of the build log or command
-line. The CI runner should be ephemeral, or the script should remove any output
-files containing decrypted values.
-
-## Bootstrap Command
-
-The proposed command shape is:
-
-```text
-lockbox vault ci bootstrap <name>
-    [--output <bundle>]
-    [--grant <lockbox>]...
-    [--public-key <file>]
-    [--password-stdin]
-```
-
-For example:
-
-```bash
-lockbox vault ci bootstrap production \
-  --output .revault/ci/production.lockbox-ci \
-  --grant deploy.lbox \
-  --grant release-signing.lbox
-```
-
-The command should:
-
-1. Create an isolated temporary vault without changing the user's normal
-   vault.
-2. Create exactly one profile named after the CI identity.
-3. Generate a strong random vault passphrase when one is not supplied through
-   `LOCKBOX_VAULT_PASSWORD` or `--password-stdin`.
-4. Create one encrypted CI bundle containing the minimal vault plus public
-   metadata such as its name, format version, and fingerprint.
-5. Grant the profile to every `--grant` lockbox using the existing owner
-   session. Each grant changes the lockbox and must be committed by the user.
-6. Optionally write the public key to `--public-key` when access will be
-   granted on another machine.
-7. Print the fingerprint, output path, CI secret name, and next commands.
-8. Never print private profile recovery material.
-
-If `--grant` is omitted, bootstrap should explain how to grant access manually:
-
-```bash
-lockbox vault ci bootstrap production \
-  --output production.lockbox-ci \
-  --public-key production.pub
-
-lockbox access grant deploy.lbox ci-production production.pub
-```
-
-The generated passphrase may be shown once on an interactive terminal. It must
-not be shown when stdout is redirected or the command is running in CI. In
-those cases the caller must provide it through `LOCKBOX_VAULT_PASSWORD` or
-`--password-stdin`.
-
-### Suggested output
-
-```text
-CI identity created: production
-Fingerprint: 4a:7f:...
-Encrypted bundle: .revault/ci/production.lockbox-ci
-Granted access: deploy.lbox
-
-Create a protected CI secret named LOCKBOX_VAULT_PASSWORD with this value:
-  <generated passphrase shown once>
-
-Run in CI:
-  lockbox vault ci open .revault/ci/production.lockbox-ci \
-    --lockbox deploy.lbox -- ./ci/deploy.sh
-```
-
-## Open Command
-
-The proposed command shape is:
-
-```text
-lockbox vault ci open <bundle>
-    --lockbox <lockbox>...
-    [--duration <duration>]
-    [--env <name>[=<variable>]]...
-    -- <command> [arguments...]
-```
-
-The child-command form is deliberate. A process cannot safely change its
-parent shell's environment, and CI steps frequently run in separate shells.
-Running the deployment as a child gives `ci open` a clear lifetime in which it
-can guarantee setup and cleanup.
-
-`ci open` should:
-
-1. Require `LOCKBOX_VAULT_PASSWORD`, unless a secure password input option was
-   selected explicitly.
-2. Create private temporary vault and session-agent directories.
-3. Restore and verify the encrypted CI bundle.
-4. Disable platform credential-store integration for the temporary vault.
-5. Open every requested lockbox using the CI profile.
-6. Run the child command with the temporary vault and agent settings inherited.
-7. Forward termination signals and return the child command's exit status.
-8. Close all opened lockboxes, stop the session agent, zeroize in-memory secret
-   material, and remove temporary state on success or failure.
-
-The command must not echo the vault passphrase, decrypted variables, or the
-child command's environment.
-
-### Explicit environment injection
-
-For tools that conventionally consume environment variables, repeated `--env`
-options could provide a convenient, explicit shortcut:
-
-```bash
-lockbox vault ci open .revault/ci/production.lockbox-ci \
-  --lockbox deploy.lbox \
-  --env API_TOKEN \
-  --env DATABASE_URL=/production/DATABASE_URL \
-  -- ./ci/deploy.sh
-```
-
-`--env API_TOKEN` reads `API_TOKEN` and gives it the same name in the child
-environment. `--env DATABASE_URL=/production/DATABASE_URL` maps a lockbox
-variable path to `DATABASE_URL`.
-
-Injection is explicit: `ci open` must not export every secret variable by
-default. The values exist only in the child process and its descendants. For a
-credential that can be consumed from a file, `lockbox variable get --secret
---output ...` remains preferable.
-
-The initial implementation can omit `--env`; the managed child-command scope is
-the essential behavior.
-
-## GitHub Actions
-
-Store `LOCKBOX_VAULT_PASSWORD` as a repository or environment secret. Use an
-environment secret for deployments that require environment protection or
-approval. GitHub documents how secrets are made available through the `secrets`
-context in [Using secrets in GitHub Actions][github-secrets].
-
-An example deployment job is:
-
-```yaml
-name: Deploy
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    environment: production
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install reVault
-        run: ./ci/install-revault.sh
-
-      - name: Deploy
-        env:
-          LOCKBOX_VAULT_PASSWORD: ${{ secrets.LOCKBOX_VAULT_PASSWORD }}
-        run: |
-          lockbox vault ci open .revault/ci/production.lockbox-ci \
-            --lockbox deploy.lbox \
-            -- ./ci/deploy.sh
-```
-
-Do not provide the vault password to a job that runs unreviewed pull-request
-code. A workflow that receives the password can decrypt every lockbox granted
-to that CI profile. GitHub notes that secret redaction is not guaranteed for
-transformed values, so scripts must still avoid printing secrets.
-
-## GitLab CI/CD
-
-Create `LOCKBOX_VAULT_PASSWORD` under **Settings > CI/CD > Variables**. Mark it
-masked, hidden, and protected when those options are available. Scope it to the
-deployment environment when environment-scoped variables are available. See
-GitLab's [CI/CD variable documentation](https://docs.gitlab.com/ci/variables/)
-for the current options.
-
-```yaml
-deploy-production:
-  stage: deploy
-  environment:
-    name: production
-  script:
-    - ./ci/install-revault.sh
-    - >-
-      lockbox vault ci open
-      .revault/ci/production.lockbox-ci
-      --lockbox deploy.lbox
-      -- ./ci/deploy.sh
-  rules:
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-```
-
-The protected variable is inherited as `LOCKBOX_VAULT_PASSWORD`; it does not
-need to appear in `.gitlab-ci.yml`.
-
-## One Identity per Trust Boundary
-
-Create separate CI identities when access should be independently revocable.
-Typical boundaries are:
-
-- production and staging;
-- unrelated repositories;
-- build and deployment jobs;
-- separate customers or tenants.
-
-Do not share a developer's profile with CI. A dedicated profile makes it
-possible to revoke a compromised pipeline without changing human access.
-
-Creating one identity per job run is also undesirable: every run would have a
-new public key and every lockbox would need to be modified before that run
-could open it. The CI profile should be stable while the vault restored on the
-runner remains ephemeral.
-
-## Rotation and Revocation
-
-Rotate a CI identity without interrupting deployments:
-
-1. Bootstrap a new version, such as `production-v2`, and grant it access while
-   `production` still works.
-2. Add the new protected password to the CI provider under a versioned secret
-   name.
-3. Commit the new bundle and update the workflow to use the new secret.
-4. Run a deployment and verify it succeeds.
-5. Revoke the old profile's access slots from every lockbox.
-6. Remove the old CI secret and bundle.
-
-Versioned secret names avoid a transition where a new bundle is paired with an
-old password, or the reverse.
-
-Revocation prevents the old identity from opening updated lockboxes. It cannot
-erase secrets or lockbox copies that were already decrypted or copied by a
-compromised job.
-
-## Password-Protected Lockboxes
-
-A dedicated, randomly generated lockbox password is also a valid CI design:
-
-```text
-lockbox password -> lockbox access
-```
-
-The profile-based design uses two inputs:
-
-```text
-encrypted CI bundle + vault password -> CI profile -> lockbox access
-```
-
-Both inputs are present while the job is running, so control of the job means
-control of the available secrets in either design. The profile workflow is most
-useful when one CI identity needs several lockboxes, when access should be
-granted without exchanging a secret, or when public-key-based rotation is more
-convenient.
-
-A future `ci open` may support a password-only mode for the smallest possible
-setup. It should use a dedicated random password per trust boundary, not a
-human-chosen or organization-wide shared password.
-
-## What reVault Does Not Provide
-
-reVault is a portable encrypted bundle, not an online secret-control plane. It
-does not provide dynamic credentials, server-side access policy, or per-read
-audit events. See [CI Secret Storage Comparison](ci_secret_storage_comparison.md)
-for cases where a managed secret service is a better fit.
-
-The CI provider remains responsible for deciding which jobs receive
-`LOCKBOX_VAULT_PASSWORD`. reVault cannot protect secrets from malicious code
-that runs inside an authorized job.
-
-## Proposed Acceptance Criteria
-
-The first implementation should be considered complete when:
-
-- bootstrap creates a minimal encrypted bundle without modifying the normal
-  user vault;
-- bootstrap can grant the CI profile to one or more already-open lockboxes;
-- no private key or generated passphrase is printed to redirected output;
-- open uses private temporary vault and agent directories;
-- open runs a child command and always performs cleanup;
-- the child command receives the original exit status and termination signals;
-- secret values never appear in normal command output;
-- Linux, macOS, and Windows runners are covered by automated tests;
-- the generic, GitHub Actions, GitLab CI/CD, rotation, and revocation workflows
-  are documented.
-
-[github-secrets]: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets
+The JSON files are versioned pairing/policy records. They contain public data,
+but the pairing channel still must be authenticated to prevent key substitution.
+
+## Interactive request
+
+The requester creates a random request id, independent challenge, one-time reply
+key, two-minute expiry, and an operation digest. It includes the lockbox's
+recipient-wrapped content-key slot and encrypts the whole request to the phone's
+transport key. The relay indexes the ciphertext only by opaque capability
+hashes.
+
+The phone verifies all of the following before showing an Approve button:
+
+- device id, source id, lockbox id, action, expiry, and operation digest;
+- the enrolled source policy;
+- a local desktop signature or a provider-signed OIDC workload token;
+- the provider-specific repository/project and workflow/ref/environment claims;
+- that the request id has not already been consumed.
+
+The prompt shows the owner-assigned source name and verified repository,
+workflow, ref, environment, and commit. Requester-supplied text is visibly
+labelled unverified and is never used for policy decisions.
+
+On approval, the phone unwraps a candidate device slot locally and returns only
+the content key in a response encrypted to the one-time reply key. The response
+is signed by the enrolled phone and binds request id, challenge, source,
+lockbox, operation digest, issue time, and expiry. Relay response fetch is
+atomic, and both clients retain replay caches. A captured response therefore
+cannot authorize another request or be consumed twice.
+
+## Provider OIDC policies
+
+OIDC trust is configured per provider and per named source. Signing-key
+validation uses the issuer discovery document and JWKS; policy evaluation then
+requires the exact issuer and an allowed audience.
+
+GitHub Actions policies use stable `repository_id` values and constrain
+`job_workflow_ref`, `ref`, and `environment`. Display-only context can include
+`repository`, `actor`, and `sha`, but mutable names do not replace stable ids.
+
+GitLab policies use stable `project_id` values and constrain `ref`,
+`environment`, and the provider's job/pipeline context. Generic providers use
+an issuer, audiences, and exact allowed values for named claims. This adapter
+model is deliberate: claim names and security semantics are provider-specific.
+
+Signing into a provider on the phone is useful for selecting repositories and
+building the policy, but it does not authenticate a later CI job. Every job must
+present its own short-lived, provider-signed workload token. No authentication
+key is stored on the developer desktop.
+
+## Unattended CI
+
+Some deployments cannot wait for a phone. They use a separately declared
+`unattended` source and a hybrid recipient private key generated inside the CI
+provider's protected secret store. Hardware backing is optional because typical
+hosted runners do not provide a portable hardware keystore. This is a different,
+weaker policy: compromise of that provider secret can open the explicitly
+allowed lockboxes until access is rotated.
+
+Interactive OIDC mode is preferred when a person must authorize each run. The
+OIDC token authenticates the job; it is not itself an unlock key.
+
+## Relay limits and operations
+
+The key server enforces envelope size and lifetime, per-source minute/hour
+request quotas, per-source and per-device pending limits, per-device push
+quotas, and `429 Retry-After` responses. Production deployment must share this
+state across replicas and persist pending ciphertext until expiry; the in-memory
+store is suitable only for a single process and tests. Push payloads contain
+only a mailbox wake-up hint, never key material.
+
+Revocation has two layers. Revoking a device/source prevents future approvals
+and retains its audit record. Cryptographic revocation also rotates the affected
+lockbox content key and removes that recipient slot.

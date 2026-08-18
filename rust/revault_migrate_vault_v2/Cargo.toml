@@ -1,0 +1,22 @@
+[package]
+name = "revault_migrate_vault_v2"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.95"
+license-file = "../revault_lockbox_api/LICENSE"
+description = "Historical native vault-format-v2 exporter for reVault migrations"
+repository = "https://github.com/onepub-dev/reVault"
+
+[[bin]]
+name = "revault-migrate-vault-v2"
+path = "src/bin/revault-migrate-vault-v2.rs"
+
+[dependencies]
+getrandom = "0.4"
+revault_migration_format = { version = "0.0.1", path = "../revault_migration_format" }
+revault_vault_api_v2 = { package = "revault_vault_api", version = "=0.0.4" }
+revault_lockbox_api_v2 = { package = "revault_lockbox_api", version = "=0.0.4" }
+zeroize = "1.9"
+
+[dev-dependencies]
+tempfile = "3"

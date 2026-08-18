@@ -1,12 +1,12 @@
 use crate::{
-    ArchiveRecord, ArtifactKind, ArtifactReader, ArtifactWriter, FormDefinitionRecord,
+    ArchiveKeySlotRecord, ArchiveRecord, ArtifactKind, ArtifactReader, ArtifactWriter, FormDefinitionRecord,
     FormFieldRecord, FormRecordValue, FormValueRecord, MigrationError, MigrationHeader,
     MigrationPassphrase, MigrationRecord, Result, SecretBytes, JSON_FRAME_TYPE, RAW_FRAME_TYPE,
 };
 use revault_lockbox_api::{
     FormDefinition, FormFieldDefinition, FormFieldKind, FormFieldValue, FormRecord, FormTypeId,
     FormValue, ListOptions, Lockbox, LockboxEntryKind, LockboxId, LockboxPath, OpenFileOptions,
-    OwnerSigningKeyPair, SecretString, SecretVec, VariableName, VariableSensitivity,
+    MigrationKeySlot, OwnerSigningKeyPair, SecretString, SecretVec, VariableName, VariableSensitivity,
     LOCKBOX_FORMAT_VERSION,
 };
 use sha2::{Digest, Sha256};
@@ -27,7 +27,7 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
         source_native_version: u32::from(LOCKBOX_FORMAT_VERSION),
-        migration_schema_version: 1,
+        migration_schema_version: 2,
         target_native_version: Some(u32::from(LOCKBOX_FORMAT_VERSION)),
         operation_id,
     };
@@ -36,14 +36,15 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
         header,
         artifact_passphrase,
     )?;
-    let (content_key, key_directory) = lockbox
-        .export_migration_key_material()
+    let (content_key, key_directory_generation, key_slots) = lockbox
+        .export_migration_key_slots()
         .map_err(core_error)?;
     writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Start {
         archive_id: *lockbox.lockbox_id().as_bytes(),
         format_version: u32::from(LOCKBOX_FORMAT_VERSION),
         content_key: SecretBytes::new(secret_bytes(&content_key)?),
-        key_directory: SecretBytes::new(key_directory),
+        key_directory_generation,
+        key_slots: key_slots.into_iter().map(slot_to_record).collect(),
     }))?;
 
     let root = LockboxPath::new("/").map_err(core_error)?;
@@ -213,7 +214,8 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
             ArchiveRecord::Start {
                 archive_id,
                 content_key,
-                key_directory,
+                key_directory_generation,
+                key_slots,
                 ..
             } => {
                 if lockbox.is_some() || count != 0 {
@@ -225,7 +227,10 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                     Lockbox::create_with_lockbox_id(content_key, LockboxId::from_bytes(archive_id));
                 created.set_owner_signing_key(signing_key.try_clone().map_err(core_error)?);
                 created
-                    .import_migration_key_directory(key_directory.as_slice())
+                    .import_migration_key_slots(
+                        key_directory_generation,
+                        key_slots.into_iter().map(record_to_slot).collect(),
+                    )
                     .map_err(core_error)?;
                 lockbox = Some(created);
             }
@@ -528,7 +533,7 @@ pub fn verify_archive_artifact<P: MigrationPassphrase + ?Sized>(
 }
 
 /// Re-encrypts and advances an archive migration artifact through each
-/// registered logical schema step. Schema 1 is currently the latest schema,
+/// registered logical schema step. Schema 2 is currently the latest schema,
 /// so this performs a validated canonical rewrite.
 pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
     input: &Path,
@@ -542,7 +547,7 @@ pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
             "artifact is not an archive migration".to_string(),
         ));
     }
-    if reader.header().migration_schema_version > 1 {
+    if reader.header().migration_schema_version > 2 {
         return Err(MigrationError::InvalidHeader(format!(
             "archive migration schema {} is newer than this build supports",
             reader.header().migration_schema_version
@@ -551,7 +556,7 @@ pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
         source_native_version: reader.header().source_native_version,
-        migration_schema_version: 1,
+        migration_schema_version: 2,
         target_native_version: Some(u32::from(LOCKBOX_FORMAT_VERSION)),
         operation_id: reader.header().operation_id,
     };
@@ -693,6 +698,56 @@ fn parse_form_kind(value: &str) -> Result<FormFieldKind> {
         other => Err(MigrationError::Serialization(format!(
             "unknown form field kind {other}"
         ))),
+    }
+}
+
+fn slot_to_record(slot: MigrationKeySlot) -> ArchiveKeySlotRecord {
+    match slot {
+        MigrationKeySlot::Password {
+            id,
+            salt,
+            encrypted_key,
+        } => ArchiveKeySlotRecord::Password {
+            id,
+            salt: SecretBytes::new(salt),
+            encrypted_key: SecretBytes::new(encrypted_key),
+        },
+        MigrationKeySlot::HybridRecipient {
+            id,
+            x25519_ephemeral_public_key,
+            mlkem_ciphertext,
+            encrypted_key,
+        } => ArchiveKeySlotRecord::HybridRecipient {
+            id,
+            x25519_ephemeral_public_key,
+            mlkem_ciphertext,
+            encrypted_key: SecretBytes::new(encrypted_key),
+        },
+    }
+}
+
+fn record_to_slot(slot: ArchiveKeySlotRecord) -> MigrationKeySlot {
+    match slot {
+        ArchiveKeySlotRecord::Password {
+            id,
+            salt,
+            encrypted_key,
+        } => MigrationKeySlot::Password {
+            id,
+            salt: salt.into_vec(),
+            encrypted_key: encrypted_key.into_vec(),
+        },
+        ArchiveKeySlotRecord::HybridRecipient {
+            id,
+            x25519_ephemeral_public_key,
+            mlkem_ciphertext,
+            encrypted_key,
+        } => MigrationKeySlot::HybridRecipient {
+            id,
+            x25519_ephemeral_public_key,
+            mlkem_ciphertext,
+            encrypted_key: encrypted_key.into_vec(),
+        },
     }
 }
 
