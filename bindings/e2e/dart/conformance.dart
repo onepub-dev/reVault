@@ -905,9 +905,7 @@ void interop(String producer) {
 }
 
 Future<void> main(List<String> args) async {
-  api = await Revault.load(
-    nativeLibraryPath: Platform.environment['REVAULT_E2E_NATIVE_LIBRARY'],
-  );
+  api = await Revault.load();
   if (args case ['--serve-agent']) {
     AgentSession.instance.serve();
     return;

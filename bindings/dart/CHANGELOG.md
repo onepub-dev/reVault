@@ -4,13 +4,9 @@
 
 - Refresh the checked Rust binding lockfile used by the release validation
   workflow.
+- Use Dart native assets and build hooks to bundle the target-specific carrier.
 
 ## 0.3.1
-
-- Add `Revault.load(nativeLibraryPath: ...)` so Flutter desktop and other
-  application bundles can supply the native library location explicitly.
-- Continue executable-relative discovery when package-URI resolution is not
-  supported by the Dart host.
 
 ## 0.3.0
 

@@ -107,4 +107,7 @@ See [UPGRADING.md](UPGRADING.md) when migrating from 0.2.x. See the
 [repository documentation](https://github.com/onepub-dev/reVault/tree/main/docs)
 for the file format, key management, and security model.
 
-`REVAULT_LIBRARY` is a development-only override for native-library discovery.
+The package build hook publishes the target-specific Revault carrier as a
+native code asset. `Revault.load()` therefore needs no library path or
+environment variable; `dart build cli` and Flutter builds bundle the carrier
+automatically.

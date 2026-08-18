@@ -21,20 +21,9 @@ You normally do not pass `revault` to later calls. Awaiting `Revault.load()`
 installs the process-wide native runtime used by `Vault`, `Lockbox`, and
 `AgentSession`.
 
-Flutter desktop applications must pass the native library location provided by
-their packaging layer because Flutter does not implement Dart package-URI
-resolution:
-
-```dart
-final revault = await Revault.load(
-  nativeLibraryPath: '/path/to/librevault_api.so',
-);
-```
-
-Launchers that control the process environment can instead set
-`REVAULT_LIBRARY` to the absolute native-library path and call
-`Revault.load()` without an argument. An explicit `nativeLibraryPath` takes
-precedence when both are present.
+The Dart package now publishes the target-specific carrier through its native
+assets build hook. Both Dart CLI and Flutter builds bundle it automatically;
+the application continues to call `Revault.load()` without a path.
 
 ## Open the persistent vault
 
