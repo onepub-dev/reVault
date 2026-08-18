@@ -1,7 +1,15 @@
 # Changelog
+# 0.3.3
+- feat(dart): bundle native rust libraries with build hooks
+- docs(bindings): added worked examples to each method.
+- fix(release): normalize Windows package paths
+- fix(release): avoid Windows evidence stack overflow
+- Fix #270: define identifier case sensitivity
+- Fix #271: disallow variable directory collisions
+- Fix #269: accept move destination directories (#274)
+
 
 ## 0.3.2
-
 - Refresh the checked Rust binding lockfile used by the release validation
   workflow.
 - Use Dart native assets and build hooks to bundle the target-specific carrier.
