@@ -30,10 +30,13 @@ rust/fuzz/target
 .bench-target
 rust/revault_cli/testbox
 rust/revault_cli/testbox.lbox
-**/*.lbox
 .e2e-work/
 package-conformance-*/
 .codex/
 .crates.toml
 .crates2.json
 /dart/bin/
+**/*.lbx
+**/*.lbox
+**/*.lock
+
