@@ -25,7 +25,14 @@ Future<void> main(List<String> arguments) async {
 
   await _run(
     'dart',
-    ['build', 'cli', '--target', 'conformance.dart', '-o', install.path],
+    [
+      'build',
+      'cli',
+      '--target',
+      'conformance.dart',
+      '-o',
+      install.absolute.path,
+    ],
     conformanceRoot,
   );
 
