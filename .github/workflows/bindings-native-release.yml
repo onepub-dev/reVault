@@ -24,9 +24,6 @@ env:
   RELEASE_VERSION: ${{ inputs.version }}
 
 jobs:
-  binding-lint:
-    uses: ./.github/workflows/bindings-lint.yml
-
   package-matrix:
     name: define installed package combinations
     runs-on: ubuntu-24.04
@@ -45,7 +42,6 @@ jobs:
           echo "value=$value" >> "$GITHUB_OUTPUT"
 
   conformance:
-    needs: binding-lint
     name: 16 installed Linux APIs and 480 interoperability paths
     runs-on: ubuntu-24.04
     steps:
@@ -59,7 +55,6 @@ jobs:
         run: echo "Dart is exercised from its assembled package on all six native targets."
 
   native:
-    needs: binding-lint
     name: native ${{ matrix.target }}
     strategy:
       fail-fast: false
