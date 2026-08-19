@@ -111,3 +111,16 @@ The package build hook publishes the target-specific Revault carrier as a
 native code asset. `Revault.load()` therefore needs no library path or
 environment variable; `dart build cli` and Flutter builds bundle the carrier
 automatically.
+
+Before publishing with `pub_release`, stage all six prebuilt carriers:
+
+```console
+REVAULT_DART_NATIVE_SOURCE=/path/to/dart/lib/src/native \
+  dart tool/pre_release_hook/stage_native_assets.dart 0.3.4
+```
+
+`pub_release` discovers scripts under `tool/pre_release_hook/` and supplies
+the version argument automatically. Its dry run passes `--dry-run`; the hook
+then validates the six carriers without copying them. The existing release
+assembler can be used as the source with
+`REVAULT_DART_NATIVE_SOURCE=../../packages/dart/lib/src/native`.

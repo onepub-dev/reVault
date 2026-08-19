@@ -355,6 +355,25 @@ jobs:
           --layout ecosystem
           --source .
           --output packages
+      - name: Verify all Dart native carriers are in the publication tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          declare -A libraries=(
+            [linux-x86_64-gnu]=librevault_api.so
+            [linux-aarch64-gnu]=librevault_api.so
+            [macos-x86_64]=librevault_api.dylib
+            [macos-aarch64]=librevault_api.dylib
+            [windows-x86_64-msvc]=revault_api.dll
+            [windows-aarch64-msvc]=revault_api.dll
+          )
+          for target in "${!libraries[@]}"; do
+            carrier="packages/dart/lib/src/native/$target/${libraries[$target]}"
+            test -f "$carrier" || {
+              echo "Missing Dart native carrier: $carrier" >&2
+              exit 1
+            }
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: ecosystem-native-layouts

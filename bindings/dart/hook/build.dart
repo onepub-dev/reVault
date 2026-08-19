@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:code_assets/code_assets.dart';
 import 'package:hooks/hooks.dart';
 
@@ -11,6 +13,13 @@ void main(List<String> arguments) async {
     final carrier = input.packageRoot.resolve(
       'lib/src/native/$target/${_libraryName(input.config.code.targetOS)}',
     );
+    if (!File.fromUri(carrier).existsSync()) {
+      throw StateError(
+        'Revault native carrier is missing: $carrier. '
+        'The published package must include its target carrier under '
+        'lib/src/native/$target.',
+      );
+    }
     output.assets.code.add(
       CodeAsset(
         package: input.packageName,
