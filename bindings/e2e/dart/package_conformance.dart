@@ -20,7 +20,7 @@ Future<void> main(List<String> arguments) async {
   final install = Directory('${work.path}/dart-install');
   await install.create(recursive: true);
   final executable = File(
-    '${install.path}/bundle/bin/conformance${Platform.isWindows ? '.exe' : ''}',
+    '${install.absolute.path}/bundle/bin/conformance${Platform.isWindows ? '.exe' : ''}',
   );
 
   await _run(
