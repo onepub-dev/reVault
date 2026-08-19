@@ -20,12 +20,12 @@ Future<void> main(List<String> arguments) async {
   final install = Directory('${work.path}/dart-install');
   await install.create(recursive: true);
   final executable = File(
-    '${install.path}/conformance${Platform.isWindows ? '.exe' : ''}',
+    '${install.path}/bundle/conformance${Platform.isWindows ? '.exe' : ''}',
   );
 
   await _run(
     'dart',
-    ['build', 'cli', 'conformance.dart', '-o', executable.path],
+    ['build', 'cli', '--target', 'conformance.dart', '-o', install.path],
     conformanceRoot,
   );
 
