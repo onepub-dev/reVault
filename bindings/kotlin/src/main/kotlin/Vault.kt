@@ -25,14 +25,8 @@ typealias WrappedContactKey = com.onepub.revault.Revault.WrappedContactKey
 typealias SigningKeyPair = com.onepub.revault.Revault.SigningKeyPair
 /** The public identity readers use to verify owner-authorized revisions. */
 typealias SigningPublicKey = com.onepub.revault.Revault.SigningPublicKey
-/** Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths. */
-typealias VaultDirectory = com.onepub.revault.Revault.VaultDirectory
-/** A metadata view for discovery that never loads an owner signing key. */
-typealias ReadOnlyVaultDirectory = com.onepub.revault.Revault.ReadOnlyVaultDirectory
 /** A token kept alive while an operation needs secrets cached by the agent. */
 typealias AgentActivity = com.onepub.revault.Revault.AgentActivity
-/** A session that opens lockboxes by host path, caches passwords, and closes local files. */
-typealias LocalVault = com.onepub.revault.Revault.LocalVault
 
 /** One historical generation of a vault profile's contact keys. */
 typealias ProfileGeneration = com.onepub.revault.ProfileGeneration
