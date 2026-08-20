@@ -1,4 +1,10 @@
 # Changelog
+
+## 0.3.5
+
+- Throw `VaultPassphraseAccessException` with platform credential-store recovery
+  guidance when a remembered Vault passphrase cannot be retrieved.
+
 # 0.3.3
 - feat(dart): bundle native rust libraries with build hooks
 - docs(bindings): added worked examples to each method.

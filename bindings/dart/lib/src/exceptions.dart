@@ -100,6 +100,70 @@ final class VaultPassphraseUnavailableException extends RevaultException {
   String toString() => 'VaultPassphraseUnavailableException: $message';
 }
 
+/// The remembered Vault passphrase could not be read from the platform
+/// credential-store.
+///
+/// This differs from [VaultPassphraseUnavailableException]: a credential may
+/// exist, but the current process cannot retrieve it. Common causes include
+/// running as a user who cannot access the platform credential-store containing
+/// the Vault passphrase. Callers may prompt for the Vault passphrase and retry
+/// with `Vault.open(passphrase: suppliedPassphrase)`.
+///
+/// Example:
+/// ```dart
+/// try {
+///   return Vault.open();
+/// } on VaultPassphraseAccessException catch (error) {
+///   log(error.toString());
+///   return Vault.open(passphrase: await promptForVaultPassphrase());
+/// }
+/// ```
+final class VaultPassphraseAccessException extends RevaultException {
+  /// Creates an actionable exception from the platform credential-store
+  /// [cause].
+  ///
+  /// The Dart facade constructs this when `Vault.open()` cannot retrieve a
+  /// remembered passphrase. Application code normally catches this exception
+  /// rather than constructing it.
+  ///
+  /// Example:
+  /// ```dart
+  /// final error = VaultPassphraseAccessException(
+  ///   const RevaultException('Permission denied'),
+  /// );
+  /// log(error.toString());
+  /// ```
+  VaultPassphraseAccessException(this.cause)
+    : super(
+        'The remembered vault passphrase could not be read from the '
+        'platform credential-store.',
+        details: ErrorDetails(
+          category: 'platform_credential_store',
+          message: cause.message,
+          guidance:
+              'Run the application as the user with access to the '
+              'platform credential-store containing the vault passphrase, or '
+              'supply the vault passphrase to '
+              'Vault.open(passphrase: ...).',
+        ),
+      );
+
+  /// The original native platform credential-store failure.
+  final RevaultException cause;
+
+  @override
+  /// Formats the access failure, its native cause, and recovery guidance.
+  ///
+  /// Example:
+  /// ```dart
+  /// log(error.toString());
+  /// ```
+  String toString() {
+    return 'VaultPassphraseAccessException: $message '
+        'Native cause: ${cause.message}. $guidance';
+  }
+}
+
 /// No supplied, remembered, or profile credential could open a lockbox.
 ///
 /// This means the caller must explicitly supply a password, Profile key, or

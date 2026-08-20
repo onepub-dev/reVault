@@ -116,7 +116,7 @@ Before publishing with `pub_release`, stage all six prebuilt carriers:
 
 ```console
 REVAULT_DART_NATIVE_SOURCE=/path/to/dart/lib/src/native \
-  dart tool/pre_release_hook/stage_native_assets.dart 0.3.4
+  dart tool/pre_release_hook/stage_native_assets.dart 0.3.5
 ```
 
 `pub_release` discovers scripts under `tool/pre_release_hook/` and supplies

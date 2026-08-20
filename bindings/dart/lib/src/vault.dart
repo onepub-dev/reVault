@@ -39,11 +39,16 @@ final class Vault extends Owned {
   /// Opens an existing persistent vault.
   ///
   /// When [passphrase] is omitted, reVault retrieves the vault passphrase from
-  /// the operating system's credential store. Persisting that passphrase
+  /// the platform credential-store. Persisting that passphrase
   /// grants unattended same-user access to every lockbox for which this vault
   /// contains a usable credential. A future platform implementation may gate
   /// retrieval on user presence, such as biometric confirmation, but callers
   /// must not assume that protection is available.
+  ///
+  /// Throws [VaultPassphraseUnavailableException] when no passphrase is
+  /// remembered. Throws [VaultPassphraseAccessException] when the platform
+  /// credential-store cannot be accessed; its guidance explains how to restore
+  /// access or retry with an explicit [passphrase].
   ///
   /// [root] defaults to [defaultRoot]. This method never creates a vault.
   ///
@@ -71,7 +76,7 @@ final class Vault extends Owned {
       if (error.message.isEmpty) {
         throw const VaultPassphraseUnavailableException();
       }
-      rethrow;
+      throw VaultPassphraseAccessException(error);
     }
     try {
       return runtime.openVaultInternal(resolvedRoot, stored);
@@ -158,7 +163,7 @@ final class Vault extends Owned {
   /// ```
   static String get defaultPath => Revault.runtime.defaultVaultPathInternal;
 
-  /// Stores [passphrase] in the operating system credential store.
+  /// Stores [passphrase] in the platform credential-store.
   ///
   /// On platforms without per-use user-presence enforcement, any process
   /// running as this user may be able to retrieve it and open this vault.
@@ -180,7 +185,7 @@ final class Vault extends Owned {
     passphrase.withBytes(operations.vaultPlatformPutPassword);
   }
 
-  /// Removes the vault passphrase from the operating system credential store.
+  /// Removes the vault passphrase from the platform credential-store.
   ///
   /// This neither deletes the vault nor closes lockboxes already held by this
   /// process or by [AgentSession].
@@ -196,7 +201,7 @@ final class Vault extends Owned {
     operations.vaultPlatformDisable();
   }
 
-  /// Reports the operating-system credential-store implementation and policy.
+  /// Reports the platform credential-store implementation and policy.
   ///
   /// Use this for settings and diagnostics, not as proof that each retrieval
   /// requires biometric user presence.
