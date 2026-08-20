@@ -165,17 +165,17 @@ pub fn get_platform_vault_password() -> Result<Option<SecretString>> {
 /// ```
 pub fn get_platform_vault_password_for(
     path_to: &Path,
-    _session_bus_address: Option<&str>,
+    session_bus_address: Option<&str>,
 ) -> Result<Option<SecretString>> {
     if platform_secret_store_disabled_for(path_to)? || !platform_supported() {
         return Ok(None);
     }
     let item = vault_item_name_for(path_to)?;
     #[cfg(all(target_os = "linux", not(test)))]
-    if let Some(address) = _session_bus_address {
+    if let Some(address) = session_bus_address {
         return linux_platform_get_vault_password(&item, address);
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(any(not(target_os = "linux"), test))]
     let _ = session_bus_address;
     platform_get_vault_password_for_item(&item)
 }
