@@ -4,7 +4,7 @@
 /// ```dart
 /// final activity = AgentSession.instance.beginActivity(AgentActivityKind.open);
 /// try {
-///   final box = Lockbox.openFromAgent(path);
+///   final box = AgentSession.instance.acquireOpenLockbox(path);
 /// } finally {
 ///   activity.dispose();
 /// }

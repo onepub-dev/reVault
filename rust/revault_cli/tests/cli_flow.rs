@@ -1207,8 +1207,9 @@ fn top_level_help_pins_command_groups_and_hidden_commands() {
     for removed in ["add-contact", "list-keys", "remove-key", "contact"] {
         let output = run_output(bin, &["removed-command-test.lbox", removed, "--help"]);
         assert!(!output.status.success());
-        assert!(String::from_utf8_lossy(&output.stderr)
-            .contains(&format!("unexpected argument '{removed}'")));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(&format!("unexpected argument '{removed}'"))
+            || stderr.contains(&format!("unrecognized subcommand '{removed}'")));
     }
 
     for removed in ["key", "trust", "list", "ls", "doctor"] {

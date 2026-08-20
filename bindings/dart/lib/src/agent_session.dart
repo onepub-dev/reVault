@@ -1,9 +1,12 @@
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
+
 import 'package:revault_api/src/agent_activity.dart';
 import 'package:revault_api/src/agent_activity_kind.dart';
 import 'package:revault_api/src/domain_models.dart';
+import 'package:revault_api/src/exceptions.dart';
 import 'package:revault_api/src/lockbox.dart';
+import 'package:revault_api/src/lockbox_options.dart';
 import 'package:revault_api/src/owned.dart';
 import 'package:revault_api/src/profile_signing_key_pair.dart';
 import 'package:revault_api/src/revault.dart';
@@ -23,7 +26,7 @@ import 'package:revault_api/src/vault.dart';
 /// final agent = AgentSession.instance;
 /// agent.start();
 /// agent.keepOpenWithPassword(path, password, duration: Duration(minutes: 15));
-/// final box = Lockbox.openFromAgent(path);
+/// final box = agent.acquireOpenLockbox(path);
 /// ```
 final class AgentSession extends Owned {
   AgentSession._(Revault runtime)
@@ -154,6 +157,51 @@ final class AgentSession extends Owned {
   /// ```
   void closeLockbox(String path) =>
       runtime.operations.vaultCloseLockbox(handle, path);
+
+  /// Acquires an independent process-local handle to an already-open Lockbox.
+  ///
+  /// The agent's expiry remains fixed at the time the key was cached. The
+  /// returned [Lockbox] owns a copied content key and remains usable after that
+  /// expiry until it is closed. Throws [AgentLockboxNotOpenException] only for
+  /// a cache miss; transport and security failures propagate unchanged.
+  ///
+  /// Example:
+  /// ```dart
+  /// final box = AgentSession.instance.acquireOpenLockbox(path);
+  /// try {
+  ///   print(box.list('/'));
+  /// } finally {
+  ///   box.close();
+  /// }
+  /// ```
+  Lockbox acquireOpenLockbox(String path, {LockboxOptions? options}) {
+    final lockbox = tryAcquireOpenLockbox(path, options: options);
+    if (lockbox == null) throw AgentLockboxNotOpenException(path);
+    return lockbox;
+  }
+
+  /// Tries to acquire an independent handle to an already-open Lockbox.
+  ///
+  /// Returns `null` only when the agent has no live key for [path]. Genuine
+  /// agent errors are not converted to cache misses.
+  ///
+  /// Example:
+  /// ```dart
+  /// final box = AgentSession.instance.tryAcquireOpenLockbox(path);
+  /// if (box == null) return Lockbox.open(path);
+  /// return box;
+  /// ```
+  Lockbox? tryAcquireOpenLockbox(String path, {LockboxOptions? options}) {
+    final lockboxId = runtime.inspectLockboxFile(path).lockboxId;
+    final bytes = runtime.operations.vaultAgentTryGet(lockboxId);
+    if (bytes == null) return null;
+    final key = SecretBytes.take(bytes);
+    try {
+      return Lockbox.open(path, contentKey: key, options: options);
+    } finally {
+      key.close();
+    }
+  }
 
   /// Closes every agent-open Lockbox without changing Vault credentials.
   ///

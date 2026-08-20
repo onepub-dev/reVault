@@ -4,8 +4,11 @@
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'dart:typed_data';
+
 import 'package:ffi/ffi.dart';
+
 import 'domain_models.dart';
+import 'dart_native_extensions.dart' as dart_native;
 import 'exceptions.dart';
 import 'revault_native.dart';
 
@@ -34,6 +37,16 @@ final class BindingOperations {
 
   Uint8List _take(RevaultBuffer value) {
     if (value.ptr == ffi.nullptr) {
+      _throwLastError();
+    }
+    final result = Uint8List.fromList(value.ptr.asTypedList(value.len));
+    native.buffer_free(value);
+    return result;
+  }
+
+  Uint8List? _takeOrNull(RevaultBuffer value) {
+    if (value.ptr == ffi.nullptr) {
+      if (lastError.isEmpty) return null;
       _throwLastError();
     }
     final result = Uint8List.fromList(value.ptr.asTypedList(value.len));
@@ -1061,6 +1074,9 @@ final class BindingOperations {
 
   void lockboxFree(ffi.Pointer<ffi.Void> handle) => native.lockbox_free(handle);
 
+  ffi.Pointer<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ffi.Void>)>>
+  get lockboxFreeAddress => dart_native.lockboxFreeAddress;
+
   bool vaultIsRunning() => native.vault_is_running();
 
   bool vaultForgetAll() => _requireBool(native.vault_forget_all());
@@ -1987,6 +2003,12 @@ final class BindingOperations {
     (idPointer, idLength) => _take(native.vault_agent_get(idPointer, idLength)),
   );
 
+  Uint8List? vaultAgentTryGet(Uint8List id) => _withBytes(
+    id,
+    (idPointer, idLength) =>
+        _takeOrNull(native.vault_agent_get(idPointer, idLength)),
+  );
+
   bool vaultAgentPut(Uint8List id, Uint8List key) => _withBytes(
     id,
     (idPointer, idLength) => _withBytes(
@@ -2041,6 +2063,24 @@ final class BindingOperations {
 
   Uint8List vaultPlatformGetPassword() =>
       _take(native.vault_platform_get_password());
+
+  Uint8List vaultPlatformGetPasswordFor(
+    String pathTo,
+    String? sessionBusAddress,
+  ) => _withText(
+    pathTo,
+    (pathPointer, pathLength) => _withText(
+      sessionBusAddress ?? '',
+      (sessionPointer, sessionLength) => _take(
+        dart_native.vaultPlatformGetPasswordForNative(
+          pathPointer,
+          pathLength,
+          sessionPointer,
+          sessionLength,
+        ),
+      ),
+    ),
+  );
 
   String vaultDefaultDirectory() =>
       _takeString(native.vault_default_directory());

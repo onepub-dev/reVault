@@ -127,7 +127,7 @@ agent.keepOpenWithPassword(
   duration: const Duration(minutes: 30),
 );
 
-final box = Lockbox.openFromAgent('/secrets/team.lbox');
+final box = AgentSession.instance.acquireOpenLockbox('/secrets/team.lbox');
 box.close(); // releases only this process's handle
 
 agent.closeLockbox('/secrets/team.lbox');

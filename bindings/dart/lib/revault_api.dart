@@ -29,6 +29,7 @@ export 'src/lockbox_worker.dart' show LockboxWorker;
 export 'src/lockbox_workload.dart' show LockboxWorkload;
 export 'src/profile_signing_key_pair.dart' show ProfileSigningKeyPair;
 export 'src/profile_signing_public_key.dart' show ProfileSigningPublicKey;
+export 'src/platform_credential_context.dart' show PlatformCredentialContext;
 export 'src/read_only_vault.dart' show ReadOnlyVault;
 export 'src/revault.dart' show Revault;
 export 'src/secret_bytes.dart' show SecretBytes;

@@ -32,7 +32,6 @@ const IDLE_EXIT_SECONDS: u64 = 10 * 60;
 struct CacheEntry {
     key: SecretVec,
     path: Option<String>,
-    ttl_seconds: u64,
     expires_at: Instant,
 }
 
@@ -483,7 +482,6 @@ fn handle_agent_request(
             let now = Instant::now();
             match cache.get_mut(&lockbox_id) {
                 Some(entry) if entry.expires_at > now => {
-                    entry.expires_at = now + Duration::from_secs(entry.ttl_seconds);
                     log_agent_event(format!("cache hit {lockbox_id}"));
                     encode_key_response(&entry.key)?
                 }
@@ -504,7 +502,6 @@ fn handle_agent_request(
                 CacheEntry {
                     key,
                     path,
-                    ttl_seconds,
                     expires_at: Instant::now() + Duration::from_secs(ttl_seconds),
                 },
             );
@@ -836,13 +833,26 @@ fn socket_dir() -> PathBuf {
         return PathBuf::from(dir);
     }
     if let Ok(dir) = env::var("XDG_RUNTIME_DIR") {
-        return PathBuf::from(dir).join("lockbox");
+        let dir = PathBuf::from(dir);
+        if runtime_dir_belongs_to_current_user(&dir) {
+            return dir.join("lockbox");
+        }
     }
-    env::temp_dir().join(format!("lockbox-{}", current_user()))
+    #[cfg(target_os = "linux")]
+    {
+        let dir = PathBuf::from(format!("/run/user/{}", current_effective_uid()));
+        if dir.is_dir() {
+            return dir.join("lockbox");
+        }
+    }
+    env::temp_dir().join(format!("lockbox-{}", current_effective_uid()))
 }
 
-fn current_user() -> String {
-    env::var("USER").unwrap_or_else(|_| "unknown".to_string())
+fn runtime_dir_belongs_to_current_user(path: &Path) -> bool {
+    match fs::metadata(path) {
+        Ok(metadata) => metadata.uid() == current_effective_uid(),
+        Err(_) => false,
+    }
 }
 
 #[cfg(test)]
@@ -959,7 +969,6 @@ mod tests {
             CacheEntry {
                 key: SecretVec::try_from_slice(b"cached-key").unwrap(),
                 path: Some("/tmp/test.lbox".to_string()),
-                ttl_seconds: 60,
                 expires_at: Instant::now() + Duration::from_secs(60),
             },
         );

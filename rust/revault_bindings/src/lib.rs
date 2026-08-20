@@ -7114,6 +7114,72 @@ pub extern "C" fn vault_platform_get_password() -> RevaultBuffer {
 }
 
 #[no_mangle]
+/// Returns the platform password for an explicit vault directory and session.
+///
+/// This Dart-facing transport operation keeps session selection out of the
+/// process environment. An empty session bus address selects the platform
+/// default credential-store connection.
+pub extern "C" fn dart_vault_platform_get_password_for(
+    path_to: *const c_char,
+    path_to_len: usize,
+    session_bus_address: *const c_char,
+    session_bus_address_len: usize,
+) -> RevaultBuffer {
+    let Some(path_to) = (unsafe { input_str(path_to, path_to_len) }) else {
+        set_error("path_to must be valid UTF-8");
+        return RevaultBuffer {
+            ptr: ptr::null_mut(),
+            len: 0,
+        };
+    };
+    let session_bus_address = if session_bus_address_len == 0 {
+        None
+    } else {
+        let Some(value) = (unsafe { input_str(session_bus_address, session_bus_address_len) })
+        else {
+            set_error("session_bus_address must be valid UTF-8");
+            return RevaultBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+            };
+        };
+        Some(value)
+    };
+    match revault_vault_api::get_platform_vault_password_for(
+        std::path::Path::new(path_to),
+        session_bus_address,
+    ) {
+        Ok(Some(value)) => match value.with_bytes(|bytes| bytes.to_vec()) {
+            Ok(bytes) => {
+                clear_error();
+                buffer(bytes)
+            }
+            Err(error) => {
+                set_error(error);
+                RevaultBuffer {
+                    ptr: ptr::null_mut(),
+                    len: 0,
+                }
+            }
+        },
+        Ok(None) => {
+            clear_error();
+            RevaultBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+            }
+        }
+        Err(error) => {
+            set_error(error);
+            RevaultBuffer {
+                ptr: ptr::null_mut(),
+                len: 0,
+            }
+        }
+    }
+}
+
+#[no_mangle]
 /// Returns the default directory.
 pub extern "C" fn vault_default_directory() -> RevaultBuffer {
     match revault_vault_api::default_vault_dir() {

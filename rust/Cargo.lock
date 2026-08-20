@@ -2445,10 +2445,12 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-io-kit",
  "revault_lockbox_api 0.0.4",
+ "secret-service",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "windows-sys 0.61.2",
+ "zbus",
  "zeroize",
 ]
 

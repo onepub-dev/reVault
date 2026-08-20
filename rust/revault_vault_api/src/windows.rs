@@ -57,7 +57,6 @@ const PIPE_BUFFER_BYTES: u32 = 64 * 1024;
 struct CacheEntry {
     key: SecretVec,
     path: Option<String>,
-    ttl_seconds: u64,
     expires_at: Instant,
 }
 
@@ -681,7 +680,6 @@ fn handle_cache_request(
             let now = Instant::now();
             match cache.get_mut(&lockbox_id) {
                 Some(entry) if entry.expires_at > now => {
-                    entry.expires_at = now + Duration::from_secs(entry.ttl_seconds);
                     log_agent_event(format!("cache hit {lockbox_id}"));
                     encode_key_response(&entry.key)?
                 }
@@ -703,7 +701,6 @@ fn handle_cache_request(
                 CacheEntry {
                     key,
                     path,
-                    ttl_seconds,
                     expires_at: Instant::now() + Duration::from_secs(ttl_seconds),
                 },
             );

@@ -148,6 +148,53 @@ pub fn get_platform_vault_password() -> Result<Option<SecretString>> {
     platform_get_vault_password()
 }
 
+/// Loads the password for the vault directory at `path_to`.
+///
+/// On Linux, `session_bus_address` selects the user's Secret Service session
+/// without changing the process environment. Other platforms ignore it.
+///
+/// ```no_run
+/// use std::path::Path;
+/// use revault_vault_api::get_platform_vault_password_for;
+///
+/// let password = get_platform_vault_password_for(
+///     Path::new("/home/alice/.local/share/lockbox/vault"),
+///     Some("unix:path=/run/user/1000/bus"),
+/// )?;
+/// # Ok::<(), revault_lockbox_api::Error>(())
+/// ```
+pub fn get_platform_vault_password_for(
+    path_to: &Path,
+    _session_bus_address: Option<&str>,
+) -> Result<Option<SecretString>> {
+    if platform_secret_store_disabled_for(path_to)? || !platform_supported() {
+        return Ok(None);
+    }
+    let item = vault_item_name_for(path_to)?;
+    #[cfg(all(target_os = "linux", not(test)))]
+    if let Some(address) = _session_bus_address {
+        return linux_platform_get_vault_password(&item, address);
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = session_bus_address;
+    platform_get_vault_password_for_item(&item)
+}
+
+fn platform_secret_store_disabled_for(path_to: &Path) -> Result<bool> {
+    if let Ok(value) = env::var(MODE_ENV) {
+        return parse_disabled_mode(&value);
+    }
+    if path_to.join(DISABLED_MARKER).exists() {
+        return Ok(true);
+    }
+    let scope_path = path_to.join(AUTO_OPEN_SCOPE_FILE);
+    match fs::read_to_string(scope_path) {
+        Ok(value) => Ok(parse_auto_open_scope(value.trim())? == AutoOpenScope::Off),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(err) => Err(Error::Io(err.to_string())),
+    }
+}
+
 /// Stores the default local vault password in the platform secret store.
 pub fn put_platform_vault_password(password: &SecretString) -> Result<()> {
     if platform_secret_store_disabled()? || !platform_supported() {
@@ -225,6 +272,18 @@ fn vault_item_name() -> Result<String> {
     Ok(path.to_string_lossy().into_owned())
 }
 
+fn vault_item_name_for(path_to: &Path) -> Result<String> {
+    let path = path_to.join("local-vault.lbox");
+    let absolute = if path.is_absolute() {
+        path
+    } else {
+        env::current_dir()
+            .map(|cwd| cwd.join(path))
+            .map_err(|err| Error::Io(err.to_string()))?
+    };
+    Ok(absolute.to_string_lossy().into_owned())
+}
+
 fn absolute_vault_path() -> Result<PathBuf> {
     let path = default_vault_path()?;
     if path.is_absolute() {
@@ -291,7 +350,15 @@ fn platform_backend_name() -> &'static str {
     any(target_os = "linux", target_os = "macos", target_os = "windows")
 ))]
 fn platform_get_vault_password() -> Result<Option<SecretString>> {
-    let entry = keyring_entry()?;
+    platform_get_vault_password_for_item(&vault_item_name()?)
+}
+
+#[cfg(all(
+    not(test),
+    any(target_os = "linux", target_os = "macos", target_os = "windows")
+))]
+fn platform_get_vault_password_for_item(item: &str) -> Result<Option<SecretString>> {
+    let entry = keyring::Entry::new(SERVICE, item).map_err(platform_error)?;
     match entry.get_secret() {
         Ok(secret) => SecretString::try_from_utf8(secret)
             .map(Some)
@@ -299,6 +366,72 @@ fn platform_get_vault_password() -> Result<Option<SecretString>> {
         Err(keyring::Error::NoEntry) => Ok(None),
         Err(err) => Err(platform_error(err)),
     }
+}
+
+#[cfg(all(
+    not(test),
+    not(any(target_os = "linux", target_os = "macos", target_os = "windows"))
+))]
+fn platform_get_vault_password_for_item(_item: &str) -> Result<Option<SecretString>> {
+    Ok(None)
+}
+
+#[cfg(test)]
+fn platform_get_vault_password_for_item(item: &str) -> Result<Option<SecretString>> {
+    let secret = test_platform_store()
+        .lock()
+        .expect("test platform store lock poisoned")
+        .get(item)
+        .cloned();
+    secret
+        .map(SecretString::try_from_utf8)
+        .transpose()
+        .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))
+}
+
+#[cfg(all(not(test), target_os = "linux"))]
+fn linux_platform_get_vault_password(
+    item: &str,
+    session_bus_address: &str,
+) -> Result<Option<SecretString>> {
+    use secret_service::{blocking::SecretService, EncryptionType};
+    use std::collections::HashMap;
+
+    let connection = zbus::blocking::connection::Builder::address(session_bus_address)
+        .and_then(|builder| builder.build())
+        .map_err(|err| platform_session_error(err.to_string()))?;
+    let service = SecretService::connect_with_existing(EncryptionType::Dh, connection)
+        .map_err(|err| platform_session_error(err.to_string()))?;
+    let found = service
+        .search_items(HashMap::from([("service", SERVICE), ("username", item)]))
+        .map_err(|err| platform_session_error(err.to_string()))?;
+    let mut items = found.unlocked;
+    items.extend(found.locked);
+    match items.len() {
+        0 => Ok(None),
+        1 => {
+            let selected = items.pop().expect("one Secret Service item");
+            selected
+                .ensure_unlocked()
+                .map_err(|err| platform_session_error(err.to_string()))?;
+            let secret = selected
+                .get_secret()
+                .map_err(|err| platform_session_error(err.to_string()))?;
+            SecretString::try_from_utf8(secret)
+                .map(Some)
+                .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))
+        }
+        _ => Err(Error::VaultUnavailable(format!(
+            "platform secret store has multiple credentials for {item}"
+        ))),
+    }
+}
+
+#[cfg(all(not(test), target_os = "linux"))]
+fn platform_session_error(message: String) -> Error {
+    Error::VaultUnavailable(format!(
+        "platform secret store session is unavailable: {message}"
+    ))
 }
 
 #[cfg(all(

@@ -231,8 +231,9 @@ zeroized after use where the Rust APIs allow it. This is hardening against
 accidental disclosure and simple memory reuse; it is not a complete defense
 against malicious code running as the same OS user.
 
-The TTL is sliding. Each successful cache lookup extends the expiry. The
-current default is 15 minutes.
+The TTL is absolute from the time the key is cached. A successful lookup does
+not extend expiry. The current default is 15 minutes. A caller that acquires a
+copy may keep its process-local Lockbox open after the agent copy expires.
 
 Transport requirements:
 

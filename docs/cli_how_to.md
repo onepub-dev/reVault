@@ -30,7 +30,8 @@ The preferred grammar selects the lockbox before the command:
 lockbox secrets.lbox open
 ```
 
-The open is cached in a per-user in-memory agent for a short sliding TTL.
+The open is cached in a per-user in-memory agent until the absolute TTL set by
+the open command expires. Using the cached key does not extend that TTL.
 Clear the cached open explicitly when done:
 
 ```bash

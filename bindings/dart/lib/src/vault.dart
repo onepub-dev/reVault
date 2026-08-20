@@ -6,6 +6,7 @@ import 'package:revault_api/src/contact_key_pair.dart';
 import 'package:revault_api/src/contact_public_key.dart';
 import 'package:revault_api/src/lockbox.dart';
 import 'package:revault_api/src/owned.dart';
+import 'package:revault_api/src/platform_credential_context.dart';
 import 'package:revault_api/src/profile_signing_key_pair.dart';
 import 'package:revault_api/src/profile_signing_public_key.dart';
 import 'package:revault_api/src/read_only_vault.dart';
@@ -50,7 +51,8 @@ final class Vault extends Owned {
   /// credential-store cannot be accessed; its guidance explains how to restore
   /// access or retry with an explicit [passphrase].
   ///
-  /// [root] defaults to [defaultRoot]. This method never creates a vault.
+  /// [pathTo] is the directory containing the vault and defaults to
+  /// [defaultRoot]. This method never creates a vault.
   ///
   /// Example:
   /// ```dart
@@ -61,16 +63,24 @@ final class Vault extends Owned {
   ///   vault.close();
   /// }
   /// ```
-  static Vault open({String? root, SecretString? passphrase}) {
+  static Vault open({
+    String? pathTo,
+    @Deprecated('Use pathTo.') String? root,
+    SecretString? passphrase,
+    PlatformCredentialContext? platformCredentialContext,
+  }) {
     final runtime = Revault.runtime;
-    final resolvedRoot = root ?? runtime.defaultVaultDirectoryInternal;
+    final resolvedPath = _resolvePathTo(pathTo, root, runtime);
     if (passphrase != null) {
-      return runtime.openVaultInternal(resolvedRoot, passphrase);
+      return runtime.openVaultInternal(resolvedPath, passphrase);
     }
     late final SecretString stored;
     try {
       stored = SecretString.takeUtf8(
-        runtime.operations.vaultPlatformGetPassword(),
+        runtime.operations.vaultPlatformGetPasswordFor(
+          resolvedPath,
+          platformCredentialContext?.sessionBusAddress,
+        ),
       );
     } on RevaultException catch (error) {
       if (error.message.isEmpty) {
@@ -79,15 +89,15 @@ final class Vault extends Owned {
       throw VaultPassphraseAccessException(error);
     }
     try {
-      return runtime.openVaultInternal(resolvedRoot, stored);
+      return runtime.openVaultInternal(resolvedPath, stored);
     } finally {
       stored.close();
     }
   }
 
-  /// Opens an existing vault or creates it when [root] does not contain one.
+  /// Opens an existing vault or creates it when [pathTo] does not contain one.
   ///
-  /// Creation is explicit because it can hide an incorrect path. Omit [root]
+  /// Creation is explicit because it can hide an incorrect path. Omit [pathTo]
   /// to use [defaultRoot]. Unlike [open], a passphrase is always required.
   ///
   /// Example:
@@ -95,31 +105,41 @@ final class Vault extends Owned {
   /// final passphrase = SecretString.fromString(initialPassphrase);
   /// final vault = Vault.openOrCreate(passphrase: passphrase);
   /// ```
-  static Vault openOrCreate({String? root, required SecretString passphrase}) {
+  static Vault openOrCreate({
+    String? pathTo,
+    @Deprecated('Use pathTo.') String? root,
+    required SecretString passphrase,
+  }) {
     final runtime = Revault.runtime;
-    return root == null
+    final resolvedPath = _resolveOptionalPathTo(pathTo, root);
+    return resolvedPath == null
         ? runtime.openOrCreateDefaultVaultInternal(passphrase)
-        : runtime.openOrCreateVaultInternal(root, passphrase);
+        : runtime.openOrCreateVaultInternal(resolvedPath, passphrase);
   }
 
-  /// Replaces [root] with a new empty vault protected by [passphrase].
+  /// Replaces [pathTo] with a new empty vault protected by [passphrase].
   ///
-  /// Existing vault data at that location is destroyed. Omit [root] to replace
+  /// Existing vault data at that location is destroyed. Omit [pathTo] to replace
   /// the platform-default vault.
   ///
   /// Example:
   /// ```dart
   /// final replacement = Vault.replace(
-  ///   root: testDirectory,
+  ///   pathTo: testDirectory,
   ///   passphrase: testPassphrase,
   /// );
   /// replacement.close();
   /// ```
-  static Vault replace({String? root, required SecretString passphrase}) {
+  static Vault replace({
+    String? pathTo,
+    @Deprecated('Use pathTo.') String? root,
+    required SecretString passphrase,
+  }) {
     final runtime = Revault.runtime;
-    return root == null
+    final resolvedPath = _resolveOptionalPathTo(pathTo, root);
+    return resolvedPath == null
         ? runtime.replaceDefaultVaultInternal(passphrase)
-        : runtime.replaceVaultInternal(root, passphrase);
+        : runtime.replaceVaultInternal(resolvedPath, passphrase);
   }
 
   /// Opens a metadata-only view that cannot load private keys or mutate data.
@@ -137,13 +157,26 @@ final class Vault extends Owned {
   /// }
   /// ```
   static ReadOnlyVault openReadOnly({
-    String? root,
+    String? pathTo,
+    @Deprecated('Use pathTo.') String? root,
     required SecretString passphrase,
   }) {
     final runtime = Revault.runtime;
-    return root == null
+    final resolvedPath = _resolveOptionalPathTo(pathTo, root);
+    return resolvedPath == null
         ? runtime.openDefaultReadOnlyVaultInternal(passphrase)
-        : runtime.openReadOnlyVaultInternal(root, passphrase);
+        : runtime.openReadOnlyVaultInternal(resolvedPath, passphrase);
+  }
+
+  static String _resolvePathTo(String? pathTo, String? root, Revault runtime) =>
+      _resolveOptionalPathTo(pathTo, root) ??
+      runtime.defaultVaultDirectoryInternal;
+
+  static String? _resolveOptionalPathTo(String? pathTo, String? root) {
+    if (pathTo != null && root != null) {
+      throw ArgumentError('Supply pathTo or root, not both.');
+    }
+    return pathTo ?? root;
   }
 
   /// The platform-default directory containing the persistent Vault file.

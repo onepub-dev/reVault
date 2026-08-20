@@ -56,8 +56,10 @@ The key payload stores:
 - optional path string for diagnostics
 - TTL in seconds
 
-TTL defaults to 15 minutes when omitted. A `get` hit extends the expiry time
-(sliding TTL).
+TTL defaults to 15 minutes when omitted. Expiry is absolute from the `put`
+operation: a `get` hit copies the key but does not extend the agent entry.
+The receiving process owns that copy and may continue using its open Lockbox
+handle after the agent entry expires, until it closes or finalizes the handle.
 
 ### Control path (sleep behavior)
 
@@ -101,13 +103,18 @@ agent operation. Users do not normally need to restart the agent manually.
 - Default TTL: 15 minutes.
 - TTL is validated as positive.
 - Inactive cache entries are pruned on accept loop and when servicing requests.
-- Cache-hit extends expiry by another TTL period.
+- Cache hits do not extend expiry; TTL is absolute from the cache `put`.
 - `lockbox vault sessions close-all` clears all cached entries from the CLI side.
 - `lockbox vault sessions close <lockbox>` clears one path from the CLI side.
 
 ## Platform notes
 
 - Unix
+  - Explicit `LOCKBOX_SESSION_AGENT_DIR` takes precedence.
+  - `XDG_RUNTIME_DIR` is used only when owned by the effective user. On Linux,
+    reVault otherwise tries `/run/user/<effective-uid>` before a uid-scoped
+    temporary directory. This prevents a sudo-inherited root environment from
+    selecting root's agent after privileges are released.
   - Socket directory defaults to:
     - `LOCKBOX_SESSION_AGENT_DIR` (if set), else
     - `${XDG_RUNTIME_DIR}/lockbox`, else

@@ -164,6 +164,32 @@ final class VaultPassphraseAccessException extends RevaultException {
   }
 }
 
+/// The requested Lockbox does not currently have a key in the session agent.
+///
+/// This represents an ordinary cache miss. Agent transport, permission, and
+/// protocol failures continue to surface as [RevaultException].
+///
+/// Example:
+/// ```dart
+/// try {
+///   return AgentSession.instance.acquireOpenLockbox(path);
+/// } on AgentLockboxNotOpenException {
+///   return Lockbox.open(path);
+/// }
+/// ```
+final class AgentLockboxNotOpenException implements Exception {
+  /// Creates a cache-miss exception for [path].
+  const AgentLockboxNotOpenException(this.path);
+
+  /// The Lockbox path that was not open in the agent.
+  final String path;
+
+  @override
+  String toString() =>
+      'AgentLockboxNotOpenException: The lockbox is not open in the session '
+      'agent: $path';
+}
+
 /// No supplied, remembered, or profile credential could open a lockbox.
 ///
 /// This means the caller must explicitly supply a password, Profile key, or

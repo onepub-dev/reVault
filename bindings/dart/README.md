@@ -44,9 +44,6 @@ Future<void> main() async {
 - `AgentSession` controls the optional, single session-agent process and its
   temporary cache of decrypted lockbox content keys.
 
-The package exposes one Dart library: `package:revault_api/revault_api.dart`.
-Implementation files under `lib/src` are not separate public entry points.
-
 Passwords and passphrases use `SecretString`; binary keys use `SecretBytes`.
 Both own wipeable byte storage and must be closed. `SecretString.fromString`
 cannot erase the immutable Dart `String` used to create it, so password-input
@@ -65,7 +62,7 @@ agent.keepOpenWithPassword(
   duration: const Duration(minutes: 30),
 );
 
-final box = Lockbox.openFromAgent('/secrets/team.lbox');
+final box = agent.acquireOpenLockbox('/secrets/team.lbox');
 try {
   // Use the process-local Lockbox handle.
 } finally {
@@ -77,7 +74,11 @@ agent.closeLockbox('/secrets/team.lbox');
 ```
 
 The agent does not keep a file handle open. “Open” means that it temporarily
-holds the content key needed to reopen that lockbox.
+holds the content key needed to reopen that lockbox. Acquiring a Lockbox does
+not extend the agent TTL. The returned process-local handle owns a copy of the
+content key and remains usable after agent expiry until `close()` is called. A
+native finalizer is a safety net for forgotten handles, but deterministic
+`close()` remains the preferred way to wipe the process-local key promptly.
 
 ## Platform credentials and unattended access
 
@@ -102,6 +103,39 @@ the vault.
 Future releases may support platform-enforced biometric or equivalent user
 presence whenever a vault or lockbox credential is retrieved to open a
 lockbox. Code must feature-detect that capability when introduced.
+
+### Opening a Vault after sudo
+
+On Linux, a process launched by `sudo` normally inherits root's effective
+identity and environment. The user's remembered Vault passphrase is in that
+user's Secret Service session, so both must be restored deliberately:
+
+```dart
+final invokingUid = int.parse(Platform.environment['SUDO_UID']!);
+final invokingGid = int.parse(Platform.environment['SUDO_GID']!);
+final busAddress = 'unix:path=/run/user/$invokingUid/bus';
+
+// Use the platform's setegid/seteuid equivalents before opening the Vault.
+dropEffectivePrivileges(uid: invokingUid, gid: invokingGid);
+
+final vault = Vault.open(
+  pathTo: '/home/the-user/.local/share/lockbox/vault',
+  platformCredentialContext: PlatformCredentialContext.linux(
+    sessionBusAddress: busAddress,
+  ),
+);
+```
+
+`pathTo` is the directory containing `local-vault.lbox`. It also identifies
+the credential-store item, so it must match the path used when the passphrase
+was remembered. The session address is passed directly to native code; reVault
+does not modify `DBUS_SESSION_BUS_ADDRESS` or any other process environment
+variable.
+
+Applications using dcli can use its sudo-user and privilege-release helpers to
+restore the invoking user's effective uid/gid and session values, then pass the
+resulting bus address to `PlatformCredentialContext.linux`. dcli does not need
+to know anything about reVault or its agent.
 
 See [UPGRADING.md](UPGRADING.md) when migrating from 0.2.x. See the
 [repository documentation](https://github.com/onepub-dev/reVault/tree/main/docs)

@@ -1,6 +1,7 @@
 import 'dart:ffi' as ffi;
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:revault_api/src/agent_session.dart';
 import 'package:revault_api/src/contact_key_pair.dart';
 import 'package:revault_api/src/contact_public_key.dart';
@@ -34,10 +35,17 @@ import 'package:revault_api/src/vault.dart';
 ///   password.close();
 /// }
 /// ```
-final class Lockbox extends Owned {
+final class Lockbox extends Owned implements ffi.Finalizable {
   /// @nodoc
   Lockbox.internal(super.runtime, super.handle, {String? backingPath})
-    : _backingPath = backingPath;
+    : _backingPath = backingPath {
+    final finalizer = _nativeFinalizer ??= ffi.NativeFinalizer(
+      runtime.operations.lockboxFreeAddress,
+    );
+    finalizer.attach(this, handle, detach: this);
+  }
+
+  static ffi.NativeFinalizer? _nativeFinalizer;
 
   String? _backingPath;
 
@@ -256,28 +264,25 @@ final class Lockbox extends Owned {
   ///
   /// Example:
   /// ```dart
-  /// final box = Lockbox.openFromAgent('/secrets/team.lbox');
+  /// final box = AgentSession.instance.acquireOpenLockbox(
+  ///   '/secrets/team.lbox',
+  /// );
   /// try {
   ///   print(box.list('/', recursive: true));
   /// } finally {
   ///   box.close();
   /// }
   /// ```
+  @Deprecated('Use AgentSession.acquireOpenLockbox().')
   static Lockbox openFromAgent(
     String path, {
     AgentSession? agentSession,
     LockboxOptions? options,
   }) {
-    final runtime = Revault.runtime;
-    final lockboxId = runtime.inspectLockboxFile(path).lockboxId;
-    final key = (agentSession ?? AgentSession.instance).contentKeyInternal(
-      lockboxId,
+    return (agentSession ?? AgentSession.instance).acquireOpenLockbox(
+      path,
+      options: options,
     );
-    try {
-      return open(path, contentKey: key, options: options);
-    } finally {
-      key.close();
-    }
   }
 
   static Lockbox _openUsingVault(
@@ -1165,6 +1170,7 @@ final class Lockbox extends Owned {
   /// ```
   void close() {
     if (!disposed) {
+      _nativeFinalizer?.detach(this);
       runtime.operations.lockboxFree(handle);
       handle = ffi.nullptr;
     }
