@@ -324,7 +324,12 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release view "revault-api-v${RELEASE_VERSION}" --repo onepub-dev/reVault
+        run: |
+          if gh release view "revault-api-v${RELEASE_VERSION}" --repo onepub-dev/reVault; then
+            echo "Using existing immutable GitHub release for publication retry."
+          else
+            echo "No immutable GitHub release exists; continuing with registry-only publication."
+          fi
 
   ecosystem-layouts:
     needs: native
