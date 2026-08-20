@@ -109,7 +109,6 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
         Command::new("cargo")
             .args([
                 "package",
-                "--locked",
                 "--allow-dirty",
                 "--no-verify",
                 "--target-dir",
