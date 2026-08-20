@@ -27,6 +27,8 @@ jobs:
   package-matrix:
     name: define installed package combinations
     runs-on: ubuntu-24.04
+    env:
+      RELEASE_TARGETS: ${{ inputs.targets }}
     outputs:
       matrix: ${{ steps.matrix.outputs.value }}
     steps:
@@ -38,6 +40,9 @@ jobs:
           value=$(cargo run --locked --quiet --manifest-path rust/Cargo.toml -p revault_tooling -- e2e matrix-json)
           if [[ "$GITHUB_REF_NAME" == revault-dart-v* ]]; then
             value=$(jq -c '{include: [.include[] | select(.language == "dart")]}' <<< "$value")
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            value=$(jq -c --arg targets ",${RELEASE_TARGETS}," \
+              '{include: [.include[] | .language as $language | select($targets | contains("," + $language + ","))]}' <<< "$value")
           fi
           echo "value=$value" >> "$GITHUB_OUTPUT"
 
@@ -47,12 +52,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run exhaustive package E2E matrix
-        if: ${{ !startsWith(github.ref_name, 'revault-dart-v') }}
+        if: ${{ github.event_name != 'workflow_dispatch' && !startsWith(github.ref_name, 'revault-dart-v') }}
         working-directory: rust
         run: cargo run --locked -p revault_tooling -- e2e matrix --compose ../bindings/e2e/compose.yaml
       - name: Keep Dart-only release scoped to Dart package conformance
-        if: ${{ startsWith(github.ref_name, 'revault-dart-v') }}
-        run: echo "Dart is exercised from its assembled package on all six native targets."
+        if: ${{ startsWith(github.ref_name, 'revault-dart-v') || github.event_name == 'workflow_dispatch' }}
+        run: echo "Publication targets are exercised from their assembled packages on the selected native targets."
 
   native:
     name: native ${{ matrix.target }}
