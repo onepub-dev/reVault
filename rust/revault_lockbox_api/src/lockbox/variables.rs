@@ -17,6 +17,8 @@ use crate::{crypto::derive_page_content_key, secret_vec::SecureVec};
 use crate::{Error, Result, SecretString, VariableName, VariableSensitivity};
 use zeroize::Zeroize;
 
+const LOCKBOX_DESCRIPTION_VARIABLE: &str = "/.revault/description";
+
 /// Borrowed variable value yielded by `Lockbox::visit_variables`.
 #[derive(Debug)]
 pub enum VariableValueRef<'a> {
@@ -67,6 +69,82 @@ fn is_variable_directory_of(parent: &VariableName, child: &VariableName) -> bool
 }
 
 impl<State> Lockbox<State> {
+    /// Return the encrypted human-readable description of this lockbox.
+    ///
+    /// The description is stored as ordinary encrypted lockbox metadata at
+    /// `/.revault/description`. It is unavailable until the lockbox has been
+    /// opened. `Ok(None)` means no description has been assigned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use revault_lockbox_api::{Lockbox, LockboxProtection, OwnerSigningKeyPair, SecretString};
+    /// # let password = SecretString::try_from_slice(b"correct horse")?;
+    /// # let signing_key = OwnerSigningKeyPair::generate()?;
+    /// # let lockbox = Lockbox::create_in_memory(LockboxProtection::Password(&password), &signing_key)?;
+    /// if let Some(description) = lockbox.description()? {
+    ///     println!("Lockbox purpose: {description}");
+    /// }
+    /// # Ok::<(), revault_lockbox_api::Error>(())
+    /// ```
+    pub fn description(&self) -> Result<Option<String>> {
+        self.get_variable(&VariableName::new(LOCKBOX_DESCRIPTION_VARIABLE)?)
+    }
+
+    /// Store or replace this lockbox's encrypted human-readable description.
+    ///
+    /// `description` is UTF-8 text with the same validation and one-mebibyte
+    /// size limit as a normal variable value. Call [`Lockbox::commit`] to
+    /// authenticate and publish the change. Use [`Lockbox::clear_description`]
+    /// to remove it.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use revault_lockbox_api::{Lockbox, LockboxProtection, OwnerSigningKeyPair, SecretString};
+    /// # let password = SecretString::try_from_slice(b"correct horse")?;
+    /// # let signing_key = OwnerSigningKeyPair::generate()?;
+    /// let mut lockbox = Lockbox::create_in_memory(
+    ///     LockboxProtection::Password(&password),
+    ///     &signing_key,
+    /// )?;
+    /// lockbox.set_description("Deployment credentials for Project Atlas")?;
+    /// lockbox.commit()?;
+    /// # Ok::<(), revault_lockbox_api::Error>(())
+    /// ```
+    pub fn set_description(&mut self, description: &str) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
+        self.set_variable(
+            &VariableName::new(LOCKBOX_DESCRIPTION_VARIABLE)?,
+            description,
+        )
+    }
+
+    /// Remove this lockbox's encrypted description, if one is present.
+    ///
+    /// Call [`Lockbox::commit`] to authenticate and publish the change.
+    /// Repeated calls are safe.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use revault_lockbox_api::{Lockbox, LockboxProtection, OwnerSigningKeyPair, SecretString};
+    /// # let password = SecretString::try_from_slice(b"correct horse")?;
+    /// # let signing_key = OwnerSigningKeyPair::generate()?;
+    /// # let mut lockbox = Lockbox::create_in_memory(LockboxProtection::Password(&password), &signing_key)?;
+    /// lockbox.clear_description()?;
+    /// lockbox.commit()?;
+    /// # Ok::<(), revault_lockbox_api::Error>(())
+    /// ```
+    pub fn clear_description(&mut self) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
+        self.delete_variable(&VariableName::new(LOCKBOX_DESCRIPTION_VARIABLE)?)
+    }
+
     /// Store or replace a non-secret variable.
     ///
     /// Returns `Error::InvalidInput` if the value contains unsupported

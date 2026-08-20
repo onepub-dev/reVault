@@ -592,6 +592,24 @@ func (box *Lockbox) GetVariable(name string) (*string, error) {
 	return decodeResult(C.lockbox_get_variable(box.handle, charPointer(name), C.size_t(len(name))), decodeOptionalString)
 }
 
+// Description returns the encrypted lockbox description, or nil when unset.
+// For example, call SetDescription, Commit, then Description to display it.
+func (box *Lockbox) Description() (*string, error) {
+	return box.GetVariable("/.revault/description")
+}
+
+// SetDescription stages encrypted description text. Call Commit to publish it.
+// For example: box.SetDescription("Production credentials"); box.Commit().
+func (box *Lockbox) SetDescription(description string) error {
+	return box.SetVariable("/.revault/description", description)
+}
+
+// ClearDescription stages removal of the encrypted description. Call Commit.
+// For example: box.ClearDescription(); box.Commit().
+func (box *Lockbox) ClearDescription() error {
+	return box.DeleteVariable("/.revault/description")
+}
+
 // WithSecretVariable returns or performs with secret variable.
 func (box *Lockbox) WithSecretVariable(name string, callback func([]byte) error) error {
 	return withSecret(func(output *unsafe.Pointer) bool {

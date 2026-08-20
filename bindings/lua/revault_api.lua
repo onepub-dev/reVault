@@ -1949,6 +1949,24 @@ function Lockbox:get_variable(name)
   return self.operations:lockbox_get_variable(self.handle, name)
 end
 
+--- Returns the encrypted lockbox description, or nil when unset.
+--- Example: set it, commit, then `print(box:description())`.
+function Lockbox:description()
+  return self:get_variable('/.revault/description')
+end
+
+--- Stages encrypted description text; call commit() to publish it.
+--- Example: `box:set_description('Production credentials'); box:commit()`.
+function Lockbox:set_description(description)
+  return self:set_variable('/.revault/description', description)
+end
+
+--- Stages removal of the encrypted description; call commit().
+--- Example: `box:clear_description(); box:commit()`.
+function Lockbox:clear_description()
+  return self:delete_variable('/.revault/description')
+end
+
 --- Calls `callback` with temporary secret bytes, then wipes the transfer copy.
 function Lockbox:with_secret_variable(name, callback)
   return self.operations:lockbox_get_secret_variable(self.handle, name, callback)

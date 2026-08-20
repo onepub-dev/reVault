@@ -35,6 +35,8 @@ static class Conformance
             Pass("lockbox_rename", 3); Pass("lockbox_exists", 2);
             box.SetPermissions("/renamed.txt", 0x180); Check(box.Permissions("/renamed.txt") == 0x180, "set mode"); Pass("lockbox_set_permissions", 2);
             Check(box.ReadRange("/renamed.txt", 0, 11).SequenceEqual(Bytes("replacement")), "range"); Pass("lockbox_read_range", 3);
+            box.SetDescription("Deployment credentials for Project Atlas"); Check(box.Description == "Deployment credentials for Project Atlas", "description");
+            box.ClearDescription(); Check(box.Description == null, "description cleared");
             box.SetVariable("normal", "value"); Check(box.GetVariable("normal") == "value", "variable"); Pass("lockbox_set_variable"); Pass("lockbox_get_variable", 3);
             box.MoveVariables(new[] { new PathMove("normal", "moved") }); Check(box.GetVariable("moved") == "value", "moved variable");
             box.MoveVariables(new[] { new PathMove("moved", "normal") }); Pass("lockbox_move_variables", 3);

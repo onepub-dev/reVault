@@ -39,10 +39,18 @@ pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult
     let lockbox = command_lockbox()
         .ok_or_else(|| cli_error("missing lockbox; use `lockbox LOCKBOX create`"))?;
     args.push(lockbox);
-    create(&args, access)
+    create_with_description(
+        &args,
+        access,
+        matches.get_one::<String>("description").map(String::as_str),
+    )
 }
 
-pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
+fn create_with_description(
+    args: &[String],
+    access: &Access,
+    description: Option<&str>,
+) -> CliResult<()> {
     if args.first().map(String::as_str) == Some("--password") {
         let lockbox_path = create_path(require_arg(args, 1, "lockbox")?)?;
         ensure_new_lockbox_path(&lockbox_path)?;
@@ -51,11 +59,12 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
         let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
         println!("Creating lockbox: {}", lockbox_path.display());
         let password = read_new_password()?;
-        let lb = local_vault().create_lockbox_with_signing_key(
+        let mut lb = local_vault().create_lockbox_with_signing_key(
             &lockbox_path,
             LockboxProtection::Password(&password),
             &signing_key,
         )?;
+        set_initial_description(&mut lb, description)?;
         remember_lockbox_password_if_enabled_with_vault(&lb, &password, &vault)?;
         mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
         println!("Lockbox created: {}", lockbox_path.display());
@@ -70,7 +79,7 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
         let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
         let contact = load_contact_from_vault(contact_name, &vault)?;
         println!("Creating lockbox: {}", lockbox_path.display());
-        let lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
+        let mut lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
             &lockbox_path,
             LockboxProtection::ContactPublicKey {
                 name: contact.name.map(|name| access_entry_name(&name)),
@@ -78,6 +87,7 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
             },
             &signing_key,
         )?;
+        set_initial_description(&mut lb, description)?;
         mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
         println!("Lockbox created: {}", lockbox_path.display());
         return Ok(());
@@ -89,11 +99,12 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
         Access::ContentKey(key) => {
             let vault = default_vault()?;
             let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
-            let lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
+            let mut lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
                 &lockbox_path,
                 LockboxProtection::ContentKey(key.try_clone()?),
                 &signing_key,
             )?;
+            set_initial_description(&mut lb, description)?;
             mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
         }
         Access::PromptPassword => {
@@ -101,7 +112,7 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
             let vault = default_vault()?;
             let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
             let contact = load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, &vault)?;
-            let lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
+            let mut lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
                 &lockbox_path,
                 LockboxProtection::ContactPublicKey {
                     name: contact.name.map(|name| access_entry_name(&name)),
@@ -109,6 +120,7 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
                 },
                 &signing_key,
             )?;
+            set_initial_description(&mut lb, description)?;
             mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
         }
         Access::CacheOnly => {
@@ -116,6 +128,14 @@ pub(crate) fn create(args: &[String], access: &Access) -> CliResult<()> {
         }
     }
     println!("Lockbox created: {}", lockbox_path.display());
+    Ok(())
+}
+
+fn set_initial_description(lockbox: &mut Lockbox, description: Option<&str>) -> CliResult<()> {
+    if let Some(description) = description {
+        lockbox.set_description(description)?;
+        lockbox.commit()?;
+    }
     Ok(())
 }
 

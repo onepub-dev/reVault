@@ -405,6 +405,25 @@ impl WasmLockbox {
         self.0.set_variable(&name, value).map_err(error)
     }
 
+    /// Returns the encrypted lockbox description, or `undefined` when unset.
+    /// For example, set it, commit, then display `box.description` in JavaScript.
+    #[wasm_bindgen(getter)]
+    pub fn description(&self) -> Result<Option<String>, JsValue> {
+        self.0.description().map_err(error)
+    }
+
+    /// Stages encrypted description text; call `commit` to publish it.
+    /// For example: `box.set_description("Production credentials"); box.commit()`.
+    pub fn set_description(&mut self, description: &str) -> Result<(), JsValue> {
+        self.0.set_description(description).map_err(error)
+    }
+
+    /// Stages removal of the encrypted description; call `commit`.
+    /// For example: `box.clear_description(); box.commit()`.
+    pub fn clear_description(&mut self) -> Result<(), JsValue> {
+        self.0.clear_description().map_err(error)
+    }
+
     /// Stores a secret variable in secure memory until it is encrypted.
     pub fn set_secret_variable(&mut self, name: &str, value: &[u8]) -> Result<(), JsValue> {
         let name = revault_lockbox_api::VariableName::new(name).map_err(error)?;

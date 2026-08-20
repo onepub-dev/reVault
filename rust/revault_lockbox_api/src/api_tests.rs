@@ -2295,6 +2295,35 @@ fn dot_prefixed_variable_components_round_trip_as_hidden_metadata() {
 }
 
 #[test]
+fn encrypted_lockbox_description_round_trips_and_clears() {
+    let mut lockbox = Lockbox::create(KEY);
+    assert_eq!(lockbox.description().unwrap(), None);
+
+    lockbox
+        .set_description("Deployment credentials for Project Atlas")
+        .unwrap();
+    lockbox.commit().unwrap();
+
+    let mut reopened = Lockbox::open_bytes_with_key(lockbox.to_bytes(), KEY).unwrap();
+    assert_eq!(
+        reopened.description().unwrap().as_deref(),
+        Some("Deployment credentials for Project Atlas")
+    );
+
+    reopened.clear_description().unwrap();
+    reopened.commit().unwrap();
+    assert_eq!(reopened.description().unwrap(), None);
+
+    let maximum = "x".repeat(crate::constants::MAX_VARIABLE_VALUE_BYTES);
+    reopened.set_description(&maximum).unwrap();
+    let oversized = "x".repeat(crate::constants::MAX_VARIABLE_VALUE_BYTES + 1);
+    assert!(matches!(
+        reopened.set_description(&oversized),
+        Err(Error::SecurityLimitExceeded(_))
+    ));
+}
+
+#[test]
 fn variables_can_be_removed_and_replaced() {
     let mut lb = Lockbox::create(KEY);
     lb.set_variable(&variable("TOKEN"), "one").unwrap();

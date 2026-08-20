@@ -80,6 +80,23 @@ content key and remains usable after agent expiry until `close()` is called. A
 native finalizer is a safety net for forgotten handles, but deterministic
 `close()` remains the preferred way to wipe the process-local key promptly.
 
+## Lockbox descriptions
+
+A Lockbox can carry a human-readable description of its purpose. The text is
+stored inside the encrypted archive, not its public header, and therefore can
+only be read after the Lockbox is opened. It accepts the same UTF-8 content and
+one-mebibyte limit as a normal variable value.
+
+```dart
+lockbox.setDescription(
+  'Production deployment credentials and recovery material',
+);
+lockbox.commit();
+print(lockbox.description);
+```
+
+Use `clearDescription()` followed by `commit()` to remove it.
+
 ## Platform credentials and unattended access
 
 `Vault.rememberPassphrase` stores the vault passphrase in the operating system

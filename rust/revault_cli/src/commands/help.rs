@@ -70,6 +70,12 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("PROFILE_OR_CONTACT")
                         .help("Create the lockbox for one of your profiles or a saved contact.")
                         .add(ArgValueCompleter::new(completion::named_candidates)),
+                )
+                .arg(
+                    Arg::new("description")
+                        .long("description")
+                        .value_name("TEXT")
+                        .help("Store an encrypted description in the new lockbox."),
                 ),
             archive_command("open", "Open the lockbox for later commands.")
                 .after_help(verbose_help(
@@ -306,6 +312,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
             variables_command(verbose),
+            description_command(verbose),
             form_command(verbose),
             session_command(verbose),
             completion_command(),
@@ -315,7 +322,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox doctor\n  lockbox secrets.lbox doctor",
-                    "Context:\n  With no lockbox path, doctor reports local configuration and runtime state, including vault path, auto-open support, and whether the session agent is reachable. With a lockbox path, doctor inspects public lockbox metadata without opening and adds deeper checks when the lockbox is already open.",
+                    "Context:\n  With no lockbox path, doctor reports local configuration and runtime state, including vault path, auto-open support, and whether the session agent is reachable. With a lockbox path, doctor inspects public lockbox metadata without opening and adds the encrypted description and deeper checks when the lockbox can be opened.",
                 )),
             vault_command(verbose),
             developer_command("visualize", "Print internal lockbox structure.")
@@ -370,6 +377,7 @@ Files
   move            Move or rename a stored entry (aliases: mv, rename).
 
 Data
+  description     Get, set, or clear the encrypted lockbox description.
   variable        Store, retrieve, list, export, or remove variable values.
   form            Manage typed multi-field form records.
 
@@ -953,6 +961,61 @@ fn variables_command(verbose: bool) -> Command {
                     .help("Variable name in the selected lockbox."),
             ),
     )
+}
+
+fn description_command(verbose: bool) -> Command {
+    base_command(
+        "description",
+        "Get, set, or clear the encrypted lockbox description.",
+    )
+    .after_help(verbose_help(
+        verbose,
+        "Examples:\n  lockbox secrets.lbox description get\n  lockbox secrets.lbox description set 'Deployment credentials for Project Atlas'\n  lockbox secrets.lbox description set --file purpose.txt\n  lockbox secrets.lbox description clear",
+        "Context:\n  The description is encrypted inside the lockbox and cannot be read until the lockbox is opened. It accepts the same UTF-8 content and one-mebibyte limit as a normal variable value.",
+    ))
+    .subcommand_required(true)
+    .arg_required_else_help(true)
+    .subcommand(Command::new("get").about("Print the encrypted lockbox description."))
+    .subcommand(
+        Command::new("set")
+            .about("Store or replace the encrypted lockbox description.")
+            .arg(
+                Arg::new("description")
+                    .value_name("TEXT")
+                    .num_args(0..=1)
+                    .help("Description text."),
+            )
+            .arg(
+                Arg::new("interactive")
+                    .short('i')
+                    .long("interactive")
+                    .action(ArgAction::SetTrue)
+                    .help("Prompt for the description."),
+            )
+            .arg(
+                Arg::new("stdin")
+                    .short('t')
+                    .long("stdin")
+                    .action(ArgAction::SetTrue)
+                    .help("Read the description from stdin."),
+            )
+            .arg(
+                Arg::new("file")
+                    .short('f')
+                    .long("file")
+                    .value_name("FILE")
+                    .value_hint(ValueHint::FilePath)
+                    .help("Read the description from a UTF-8 file."),
+            )
+            .arg(
+                Arg::new("from-env")
+                    .short('e')
+                    .long("from-env")
+                    .value_name("NAME")
+                    .help("Read the description from a process variable."),
+            ),
+    )
+    .subcommand(Command::new("clear").about("Remove the encrypted lockbox description."))
 }
 
 fn form_command(verbose: bool) -> Command {
@@ -1739,10 +1802,16 @@ fn vault_command(verbose: bool) -> Command {
                         .visible_alias("ls")
                         .after_help(verbose_help(
                             verbose,
-                            "Examples:\n  lockbox vault lockbox list\n  lockbox vault lockbox list --format json",
-                            "Context:\n  The lockbox list command reports remembered lockboxes, including file state, signed-owner status, compact file size, lockbox id, and path.",
+                            "Examples:\n  lockbox vault lockbox list\n  lockbox vault lockbox list --with-description\n  lockbox vault lockbox list --format json",
+                            "Context:\n  The lockbox list command reports remembered lockboxes, including file state, signed-owner status, compact file size, lockbox id, and path. --with-description attempts to open each lockbox and includes its encrypted description when available.",
                         ))
-                        .arg(output_format_arg()),
+                        .arg(output_format_arg())
+                        .arg(
+                            Arg::new("with-description")
+                                .long("with-description")
+                                .action(ArgAction::SetTrue)
+                                .help("Open each available lockbox and include its encrypted description."),
+                        ),
                 )
                 .subcommand(
                     Command::new("move")

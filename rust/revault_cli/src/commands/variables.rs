@@ -10,7 +10,7 @@ use revault_lockbox_api::{
 
 use super::context::{open_existing, open_or_create, require_arg, Access, CliResult};
 use super::output::{json_string, output_format_from_matches, print_records};
-use super::{optional_lockbox_positionals, positional_values};
+use super::{default_lockbox_for_command, optional_lockbox_positionals, positional_values};
 use crate::secret_prompt::prompt_secret;
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
@@ -105,6 +105,97 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         }
     }
     Ok(())
+}
+
+pub(crate) fn description_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    let (subcommand, sub) = matches
+        .subcommand()
+        .ok_or_else(|| Error::InvalidInput("missing description command".to_string()))?;
+    let lockbox_path = default_lockbox_for_command()?;
+    match subcommand {
+        "get" => {
+            let lockbox = open_existing(&lockbox_path, access)?;
+            let description = lockbox
+                .description()?
+                .ok_or_else(|| Error::NotFound("lockbox description".to_string()))?;
+            let mut stdout = std::io::stdout().lock();
+            stdout.write_all(description.as_bytes())?;
+            stdout.write_all(b"\n")?;
+        }
+        "set" => {
+            let description = read_description(sub)?;
+            let mut lockbox = open_existing(&lockbox_path, access)?;
+            lockbox.set_description(&description)?;
+            lockbox.commit()?;
+            println!("Lockbox description set: {lockbox_path}");
+        }
+        "clear" => {
+            let mut lockbox = open_existing(&lockbox_path, access)?;
+            lockbox.clear_description()?;
+            lockbox.commit()?;
+            println!("Lockbox description cleared: {lockbox_path}");
+        }
+        _ => {
+            return Err(
+                Error::InvalidInput(format!("unknown description command: {subcommand}")).into(),
+            )
+        }
+    }
+    Ok(())
+}
+
+fn read_description(matches: &ArgMatches) -> CliResult<String> {
+    let positional = matches.get_one::<String>("description").cloned();
+    let mut source = None;
+    if matches.get_flag("interactive") {
+        set_source_for(&mut source, ValueSource::Interactive, "description set")?;
+    }
+    if matches.get_flag("stdin") {
+        set_source_for(&mut source, ValueSource::Stdin, "description set")?;
+    }
+    if let Some(path) = matches.get_one::<String>("file") {
+        set_source_for(
+            &mut source,
+            ValueSource::File(path.clone()),
+            "description set",
+        )?;
+    }
+    if let Some(name) = matches.get_one::<String>("from-env") {
+        set_source_for(
+            &mut source,
+            ValueSource::FromEnv(name.clone()),
+            "description set",
+        )?;
+    }
+    if source.is_some() == positional.is_some() {
+        return Err(Error::InvalidInput(
+            "description set requires exactly one value source".to_string(),
+        )
+        .into());
+    }
+    if let Some(description) = positional {
+        return Ok(description);
+    }
+    match source.expect("a description source was validated above") {
+        ValueSource::Interactive => {
+            print!("Description: ");
+            std::io::stdout().flush()?;
+            let mut description = String::new();
+            std::io::stdin().read_line(&mut description)?;
+            while matches!(description.as_bytes().last(), Some(b'\n' | b'\r')) {
+                description.pop();
+            }
+            Ok(description)
+        }
+        ValueSource::File(path) => Ok(String::from_utf8(fs::read(path)?)?),
+        ValueSource::Stdin => {
+            let mut bytes = Vec::new();
+            std::io::stdin().lock().read_to_end(&mut bytes)?;
+            Ok(String::from_utf8(bytes)?)
+        }
+        ValueSource::FromEnv(name) => Ok(std::env::var(name)?),
+        ValueSource::Value(description) => Ok(description),
+    }
 }
 
 pub(crate) fn is_hidden_variable(name: &VariableName) -> bool {
@@ -550,11 +641,18 @@ impl VariableExportFormat {
 }
 
 fn set_source(target: &mut Option<ValueSource>, source: ValueSource) -> CliResult<()> {
+    set_source_for(target, source, "variable set")
+}
+
+fn set_source_for(
+    target: &mut Option<ValueSource>,
+    source: ValueSource,
+    operation: &str,
+) -> CliResult<()> {
     if target.is_some() {
-        return Err(Error::InvalidInput(
-            "variable set accepts exactly one value source".to_string(),
-        )
-        .into());
+        return Err(
+            Error::InvalidInput(format!("{operation} accepts exactly one value source")).into(),
+        );
     }
     *target = Some(source);
     Ok(())

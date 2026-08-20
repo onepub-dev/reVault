@@ -84,7 +84,7 @@ pub(crate) fn run() -> CliResult<()> {
 
     match command {
         "create" => keys::create_matches(command_matches, &access)?,
-        "doctor" => doctor::run_matches(command_matches)?,
+        "doctor" => doctor::run_matches(command_matches, &access)?,
         "open" => keys::open_matches(command_matches)?,
         "close" => keys::close_matches(command_matches)?,
         "keygen" => keys::keygen_matches(command_matches)?,
@@ -106,6 +106,7 @@ pub(crate) fn run() -> CliResult<()> {
         "remove" => files::remove_matches(command_matches, &access)?,
         "move" => files::rename_matches(command_matches, &access)?,
         "variable" => variables::run_matches(command_matches, &access)?,
+        "description" => variables::description_matches(command_matches, &access)?,
         "form" => form::run_matches(command_matches, &access)?,
         "recover" => recovery::run_matches(command_matches, &access)?,
         "visualize" => visualize::run_matches(command_matches, &access)?,
@@ -136,6 +137,7 @@ fn command_accepts_lockbox(command: &str) -> bool {
             | "variable"
             | "var"
             | "variables"
+            | "description"
             | "form"
             | "access"
             | "doctor"
@@ -202,7 +204,7 @@ fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
         "add" | "mirror" | "extract" | "cat" | "list" | "remove" | "move" | "visualize" => {
             Some(SecretActivityKind::Open)
         }
-        "variable" => Some(SecretActivityKind::Variables),
+        "variable" | "description" => Some(SecretActivityKind::Variables),
         "form" => Some(SecretActivityKind::Form),
         "recover" | "migrate" => Some(SecretActivityKind::Recovery),
         "access" | "open-key" | "session" => Some(SecretActivityKind::Vault),

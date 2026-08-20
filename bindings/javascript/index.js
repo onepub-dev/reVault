@@ -433,6 +433,27 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxGetVariable(this.nativeHandle, name);
   }
 
+  /** Returns the encrypted Lockbox description, or undefined when unset.
+   * Example lifecycle: set "Production credentials", commit, then print this property.
+   */
+  get description() {
+    return this.getVariable('/.revault/description');
+  }
+
+  /** Stages an encrypted Lockbox description; call commit to publish it.
+   * Example lifecycle: set "Production credentials", then commit the box.
+   */
+  setDescription(description) {
+    return this.setVariable('/.revault/description', description);
+  }
+
+  /** Stages removal of the encrypted Lockbox description; call commit.
+   * Example lifecycle: clear the description, then commit the box.
+   */
+  clearDescription() {
+    return this.deleteVariable('/.revault/description');
+  }
+
   /** Returns the with secret variable. */
   withSecretVariable(name, callback) {
     return this.operations.lockboxWithSecretVariable(this.nativeHandle, name, callback);

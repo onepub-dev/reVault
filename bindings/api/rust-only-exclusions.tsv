@@ -11,6 +11,7 @@ export_key_directory_backup	Vault-integration implementation hook; the public fo
 export_migration_key_material	Hidden migration-only API carrying raw secret material; migration executables remain Rust-only by design.
 forget_mirror_project	Project lifecycle orchestration includes confirmation and host-context safety policy owned by the CLI; foreign file mutations still inherit core mirror ownership enforcement.
 guidance	Error presentation helper; structured native errors already carry the same guidance field.
+get_platform_vault_password_for	Privileged embedding helper for a selected vault path and Linux session bus; foreign facades retrieve credentials for the current process through vault_platform_get_password.
 import_migration_form_record	Hidden migration-only exact-revision import; foreign bindings operate on supported current-format archives.
 import_migration_key_directory	Hidden migration-only key-directory import; foreign bindings operate on supported current-format archives.
 import_form_definition	Exact-revision migration/import primitive; current-format foreign callers use define_form, which validates and assigns revisions.

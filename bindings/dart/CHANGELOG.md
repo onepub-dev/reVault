@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added encrypted Lockbox descriptions through `description`,
+  `setDescription`, and `clearDescription`. Descriptions use existing encrypted
+  variable storage, so the `.lbox` format version is unchanged.
+
 ## 0.3.5
 
 - Throw `VaultPassphraseAccessException` with platform credential-store recovery

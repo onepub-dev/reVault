@@ -199,6 +199,12 @@ export class Lockbox {
   setSecretVariable(name: string, value: BinaryInput): boolean;
   /** Returns variable. */
   getVariable(name: string): string | undefined;
+  /** Encrypted Lockbox description, or undefined when unset. Example lifecycle: set it, commit, then print this property. */
+  readonly description: string | undefined;
+  /** Stages encrypted description text; call commit to publish it. Example lifecycle: set "Production credentials", then commit the box. */
+  setDescription(description: string): boolean;
+  /** Stages removal of the encrypted description; call commit. Example lifecycle: clear it, then commit the box. */
+  clearDescription(): boolean;
   /**
    * Invokes `callback` with temporary secret bytes and overwrites the native
    * transfer buffer immediately afterwards. Do not retain plaintext unless the

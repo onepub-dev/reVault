@@ -297,6 +297,12 @@ public final class Revault {
     public void setSecretVariable(String name, byte[] value) { operations.lockboxSetSecretVariable(handle, name, value); }
     /** Returns variable. */
     public String getVariable(String name) { return operations.lockboxGetVariable(handle, name); }
+    /** Returns the encrypted Lockbox description, or {@code null} when unset. Example: {@code box.setDescription("Production credentials"); box.commit(); System.out.println(box.description());} */
+    public String description() { return getVariable("/.revault/description"); }
+    /** Stages an encrypted Lockbox description; call {@link #commit()} to publish it. Example: {@code box.setDescription("Production credentials"); box.commit();} */
+    public void setDescription(String description) { setVariable("/.revault/description", description); }
+    /** Stages removal of the encrypted Lockbox description; call {@link #commit()}. Example: {@code box.clearDescription(); box.commit();} */
+    public void clearDescription() { deleteVariable("/.revault/description"); }
     /** Invokes {@code callback} with temporary secret bytes, then wipes the transfer buffer. */
     public <T> T withSecretVariable(String name, SecretCallback<T> callback) { return operations.lockboxWithSecretVariable(handle, name, callback); }
     /** Removes variable. */

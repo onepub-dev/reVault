@@ -17,6 +17,8 @@ import 'package:revault_api/src/secret_bytes.dart';
 import 'package:revault_api/src/secret_string.dart';
 import 'package:revault_api/src/vault.dart';
 
+const _lockboxDescriptionVariable = '/.revault/description';
+
 /// An open encrypted archive containing files, variables, secrets, and forms.
 ///
 /// Create or open it with the static factories on [Lockbox]. Reads observe its
@@ -689,6 +691,77 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   /// ```
   LockboxEntry? stat(String path) =>
       runtime.operations.lockboxStat(handle, path);
+
+  /// Returns this Lockbox's encrypted human-readable description.
+  ///
+  /// The description is UTF-8 text stored inside the encrypted Lockbox rather
+  /// than its public header. It is therefore available only after [open] and
+  /// is `null` when no description has been assigned.
+  ///
+  /// Example:
+  /// ```dart
+  /// final password = SecretString.fromString(promptedPassword);
+  /// final lockbox = Lockbox.open('/backups/production.lbox', password: password);
+  /// try {
+  ///   print(lockbox.description ?? 'No purpose recorded');
+  /// } finally {
+  ///   lockbox.close();
+  ///   password.close();
+  /// }
+  /// ```
+  String? get description => runtime.operations.lockboxGetVariable(
+    handle,
+    _lockboxDescriptionVariable,
+  );
+
+  /// Stores or replaces this Lockbox's encrypted human-readable description.
+  ///
+  /// [description] accepts the same UTF-8 content and one-mebibyte limit as a
+  /// normal variable. The immutable Dart String remains outside reVault's
+  /// control. Call [commit] to authenticate and publish the change; use
+  /// [clearDescription] to remove it.
+  ///
+  /// Example:
+  /// ```dart
+  /// final password = SecretString.fromString(promptedPassword);
+  /// final lockbox = Lockbox.create(
+  ///   '/backups/production.lbox',
+  ///   password: password,
+  /// );
+  /// try {
+  ///   lockbox.setDescription(
+  ///     'Production deployment credentials and recovery material',
+  ///   );
+  ///   lockbox.commit();
+  /// } finally {
+  ///   lockbox.close();
+  ///   password.close();
+  /// }
+  /// ```
+  void setDescription(String description) => runtime.operations
+      .lockboxSetVariable(handle, _lockboxDescriptionVariable, description);
+
+  /// Removes this Lockbox's encrypted description, if one is present.
+  ///
+  /// Call [commit] to authenticate and publish the change. Repeated calls are
+  /// safe.
+  ///
+  /// Example:
+  /// ```dart
+  /// final password = SecretString.fromString(promptedPassword);
+  /// final lockbox = Lockbox.open('/backups/retired.lbox', password: password);
+  /// try {
+  ///   lockbox.clearDescription();
+  ///   lockbox.commit();
+  /// } finally {
+  ///   lockbox.close();
+  ///   password.close();
+  /// }
+  /// ```
+  void clearDescription() => runtime.operations.lockboxDeleteVariable(
+    handle,
+    _lockboxDescriptionVariable,
+  );
 
   /// Stores a non-secret UTF-8 variable in Lockbox metadata.
   ///

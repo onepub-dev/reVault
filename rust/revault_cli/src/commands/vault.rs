@@ -1,7 +1,8 @@
 use super::context::{
-    cli_error, default_vault, open_default_vault_with_password, read_new_secondary_vault_password,
-    read_new_vault_password, read_replacement_vault_password, read_vault_password,
-    remember_default_vault_password_with_warning, require_arg, CliResult,
+    cli_error, default_vault, open_default_vault_with_password, open_existing,
+    read_new_secondary_vault_password, read_new_vault_password, read_replacement_vault_password,
+    read_vault_password, remember_default_vault_password_with_warning, require_arg, Access,
+    CliResult,
 };
 use super::form::{default_form_alias, parse_field_spec, print_form_definition_saved};
 use super::output::{output_format_from_matches, print_records, OutputFormat};
@@ -167,7 +168,10 @@ fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
         )
     })?;
     match command {
-        "list" | "ls" => list_known_lockboxes_with_format(output_format_from_matches(sub)?),
+        "list" | "ls" => list_known_lockboxes_with_format(
+            output_format_from_matches(sub)?,
+            sub.get_flag("with-description"),
+        ),
         "move" | "mv" => move_known_lockbox(
             &required_value(sub, "source"),
             &required_value(sub, "destination"),
@@ -1475,33 +1479,40 @@ fn list_contacts_with_format(format: OutputFormat) -> CliResult<()> {
     Ok(())
 }
 
-fn list_known_lockboxes_with_format(format: OutputFormat) -> CliResult<()> {
+fn list_known_lockboxes_with_format(format: OutputFormat, with_description: bool) -> CliResult<()> {
     let vault = default_vault()?;
     let mut rows = Vec::<KnownLockboxListRow>::new();
     for lockbox in vault.list_known_lockboxes()? {
-        rows.push(known_lockbox_list_row(&lockbox));
+        rows.push(known_lockbox_list_row(&lockbox, with_description));
     }
     match format {
-        OutputFormat::Table => print_known_lockbox_table(&rows),
+        OutputFormat::Table => print_known_lockbox_table(&rows, with_description),
         OutputFormat::Tsv | OutputFormat::Json => {
             let rows = rows
                 .into_iter()
                 .map(|row| {
-                    vec![
-                        row.name,
-                        row.state,
-                        row.owner,
-                        row.size,
-                        row.lockbox_id,
-                        row.path,
-                    ]
+                    let mut fields = vec![row.name, row.state, row.owner, row.size, row.lockbox_id];
+                    if with_description {
+                        fields.push(row.description);
+                    }
+                    fields.push(row.path);
+                    fields
                 })
                 .collect::<Vec<_>>();
-            print_records(
-                &["name", "state", "owner", "size", "lockbox_id", "path"],
-                rows,
-                format,
-            )?;
+            let headers = if with_description {
+                vec![
+                    "name",
+                    "state",
+                    "owner",
+                    "size",
+                    "lockbox_id",
+                    "description",
+                    "path",
+                ]
+            } else {
+                vec!["name", "state", "owner", "size", "lockbox_id", "path"]
+            };
+            print_records(&headers, rows, format)?;
         }
     }
     Ok(())
@@ -1513,10 +1524,14 @@ struct KnownLockboxListRow {
     owner: String,
     size: String,
     lockbox_id: String,
+    description: String,
     path: String,
 }
 
-fn known_lockbox_list_row(lockbox: &revault_vault_api::KnownLockbox) -> KnownLockboxListRow {
+fn known_lockbox_list_row(
+    lockbox: &revault_vault_api::KnownLockbox,
+    with_description: bool,
+) -> KnownLockboxListRow {
     let path = Path::new(&lockbox.path);
     let mut owner = "-".to_string();
     let mut size = "-".to_string();
@@ -1536,6 +1551,20 @@ fn known_lockbox_list_row(lockbox: &revault_vault_api::KnownLockbox) -> KnownLoc
         Err(_) => "inaccessible",
     }
     .to_string();
+    let description = if with_description && state == "present" {
+        match open_existing(&lockbox.path, &Access::CacheOnly) {
+            Ok(opened) => match opened.description() {
+                Ok(Some(description)) => compact_description(&description),
+                Ok(None) => "(none)".to_string(),
+                Err(_) => "(unavailable)".to_string(),
+            },
+            Err(_) => "(unavailable)".to_string(),
+        }
+    } else if with_description {
+        "(unavailable)".to_string()
+    } else {
+        String::new()
+    };
     KnownLockboxListRow {
         name: path
             .file_name()
@@ -1546,11 +1575,12 @@ fn known_lockbox_list_row(lockbox: &revault_vault_api::KnownLockbox) -> KnownLoc
         owner,
         size,
         lockbox_id: lockbox.lockbox_id.to_string(),
+        description,
         path: lockbox.path.clone(),
     }
 }
 
-fn print_known_lockbox_table(rows: &[KnownLockboxListRow]) {
+fn print_known_lockbox_table(rows: &[KnownLockboxListRow], with_description: bool) {
     if rows.is_empty() {
         println!("empty");
         return;
@@ -1560,6 +1590,29 @@ fn print_known_lockbox_table(rows: &[KnownLockboxListRow]) {
     let owner_width = column_width("owner", rows.iter().map(|row| row.owner.as_str()));
     let size_width = column_width("size", rows.iter().map(|row| row.size.as_str()));
     let id_width = column_width("lockbox_id", rows.iter().map(|row| row.lockbox_id.as_str()));
+    let description_width = column_width(
+        "description",
+        rows.iter().map(|row| row.description.as_str()),
+    );
+    if with_description {
+        println!(
+            "{:<name_width$}  {:<state_width$}  {:<owner_width$}  {:>size_width$}  {:<id_width$}  {:<description_width$}  path",
+            "name", "state", "owner", "size", "lockbox_id", "description"
+        );
+        for row in rows {
+            println!(
+                "{:<name_width$}  {:<state_width$}  {:<owner_width$}  {:>size_width$}  {:<id_width$}  {:<description_width$}  {}",
+                row.name,
+                row.state,
+                row.owner,
+                row.size,
+                row.lockbox_id,
+                row.description,
+                row.path
+            );
+        }
+        return;
+    }
     println!(
         "{:<name_width$}  {:<state_width$}  {:<owner_width$}  {:>size_width$}  {:<id_width$}  path",
         "name", "state", "owner", "size", "lockbox_id"
@@ -1570,6 +1623,14 @@ fn print_known_lockbox_table(rows: &[KnownLockboxListRow]) {
             row.name, row.state, row.owner, row.size, row.lockbox_id, row.path
         );
     }
+}
+
+fn compact_description(description: &str) -> String {
+    description
+        .replace('\\', "\\\\")
+        .replace('\r', "\\r")
+        .replace('\n', "\\n")
+        .replace('\t', "\\t")
 }
 
 fn column_width<'a>(header: &str, values: impl Iterator<Item = &'a str>) -> usize {

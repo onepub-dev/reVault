@@ -547,6 +547,24 @@ class Lockbox extends OwnedHandle
         return $value->getPresent() ? $value->getValue() : null;
     }
 
+    /** Returns the encrypted Lockbox description, or null when unset. Example: set it, commit, then print `$box->description()`. */
+    public function description(): ?string
+    {
+        return $this->getVariable('/.revault/description');
+    }
+
+    /** Stages encrypted description text; call commit() to publish it. Example: `$box->setDescription('Production credentials'); $box->commit();`. */
+    public function setDescription(string $description): bool
+    {
+        return $this->setVariable('/.revault/description', $description);
+    }
+
+    /** Stages removal of the encrypted description; call commit(). Example: `$box->clearDescription(); $box->commit();`. */
+    public function clearDescription(): bool
+    {
+        return $this->deleteVariable('/.revault/description');
+    }
+
     /** Invokes the callback with temporary secret bytes, then wipes the native transfer. */
     public function withSecretVariable(string $name, callable $callback): mixed
     {

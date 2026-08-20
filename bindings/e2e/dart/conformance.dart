@@ -102,6 +102,13 @@ void archiveLifecycle() {
     'range',
   );
   pass('lockbox_read_range', 3);
+  box.setDescription('Deployment credentials for Project Atlas');
+  check(
+    box.description == 'Deployment credentials for Project Atlas',
+    'description',
+  );
+  box.clearDescription();
+  check(box.description == null, 'description cleared');
   box.setVariable('normal', 'value');
   check(box.getVariable('normal') == 'value', 'variable');
   pass('lockbox_set_variable');

@@ -41,6 +41,9 @@ function archiveLifecycle(Vault $api): void {
     check($box->exists('/renamed.txt') && !$box->exists('/hello.txt'), 'exists'); pass('lockbox_exists', 2);
     $box->setPermissions('/renamed.txt', 0600); pass('lockbox_set_permissions', 2);
     check($box->readRange('/renamed.txt', 0, 11) === 'replacement', 'range'); pass('lockbox_read_range', 3);
+    $box->setDescription('Deployment credentials for Project Atlas');
+    check($box->description() === 'Deployment credentials for Project Atlas', 'description');
+    $box->clearDescription(); check($box->description() === null, 'description cleared');
     $box->setVariable('normal', 'value'); pass('lockbox_set_variable');
     check($box->getVariable('normal') === 'value', 'variable'); pass('lockbox_get_variable', 3);
     $box->moveVariables(moves('normal', 'moved')); check($box->getVariable('moved') === 'value', 'moved variable');

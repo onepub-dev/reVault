@@ -260,6 +260,12 @@ public sealed class Vault
         public void SetSecretVariable(string name, byte[] value) => owner.operations.LockboxSetSecretVariable(Handle, name, value);
         /// <summary>Returns variable.</summary>
         public string? GetVariable(string name) => owner.operations.LockboxGetVariable(Handle, name);
+        /// <summary>Returns the encrypted Lockbox description, or null when unset. Example: <c>box.SetDescription("Production credentials"); box.Commit(); Console.WriteLine(box.Description);</c></summary>
+        public string? Description => GetVariable("/.revault/description");
+        /// <summary>Stages an encrypted Lockbox description; call Commit to publish it. Example: <c>box.SetDescription("Production credentials"); box.Commit();</c></summary>
+        public void SetDescription(string description) => SetVariable("/.revault/description", description);
+        /// <summary>Stages removal of the encrypted Lockbox description; call Commit. Example: <c>box.ClearDescription(); box.Commit();</c></summary>
+        public void ClearDescription() => DeleteVariable("/.revault/description");
         /// <summary>Invokes <paramref name="callback"/> with temporary secret bytes, then wipes the transfer buffer.</summary>
         public T? WithSecretVariable<T>(string name, SecretCallback<T> callback) => owner.operations.LockboxWithSecretVariable(Handle, name, callback);
         /// <summary>Removes variable.</summary>

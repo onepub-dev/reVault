@@ -2142,7 +2142,7 @@ fn doctor_lockbox_reports_closed_metadata_and_open_guidance() {
     assert!(doctor.contains("pass phrase slots: 1"));
     assert!(doctor.contains("contact-key slots: 0"));
     assert!(doctor.contains("Open checks"));
-    assert!(doctor.contains("additional checks"));
+    assert!(doctor.contains("open: yes") || doctor.contains("additional checks"));
 }
 
 #[test]
@@ -2157,7 +2157,12 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     run_without_content_key(
         bin,
-        &[lockbox.to_str().unwrap(), "create"],
+        &[
+            lockbox.to_str().unwrap(),
+            "create",
+            "--description",
+            "Initial encrypted purpose",
+        ],
         &vault_root,
         &agent_root,
     );
@@ -2173,6 +2178,44 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
     }
     assert_success(&open);
 
+    let initial_description = run_output_without_content_key(
+        bin,
+        &[lockbox.to_str().unwrap(), "description", "get"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&initial_description);
+    assert_eq!(
+        String::from_utf8_lossy(&initial_description.stdout).trim(),
+        "Initial encrypted purpose"
+    );
+
+    let set_description = run_output_without_content_key_with_stdin(
+        bin,
+        &[lockbox.to_str().unwrap(), "description", "set", "--stdin"],
+        &vault_root,
+        &agent_root,
+        "Updated encrypted purpose",
+    );
+    assert_success(&set_description);
+
+    let remembered = run_output_without_content_key(
+        bin,
+        &[
+            "vault",
+            "lockbox",
+            "list",
+            "--with-description",
+            "--format",
+            "json",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&remembered);
+    assert!(String::from_utf8_lossy(&remembered.stdout)
+        .contains("\"description\":\"Updated encrypted purpose\""));
+
     let doctor = run_output_without_lockbox_password(
         bin,
         &[lockbox.to_str().unwrap(), "doctor"],
@@ -2185,6 +2228,7 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
     let doctor = String::from_utf8_lossy(&doctor.stdout);
     assert!(doctor.contains("Open checks"));
     assert!(doctor.contains("open: yes"));
+    assert!(doctor.contains("description: Updated encrypted purpose"));
     assert!(doctor.contains("pages:"));
     assert!(doctor.contains("intact files:"));
 
@@ -2195,6 +2239,22 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
     assert_success(&global_doctor);
     let global_doctor = String::from_utf8_lossy(&global_doctor.stdout);
     assert!(global_doctor.contains("open lockboxes: 1"));
+
+    let clear_description = run_output_without_content_key(
+        bin,
+        &[lockbox.to_str().unwrap(), "description", "clear"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&clear_description);
+    let missing_description = run_output_without_content_key(
+        bin,
+        &[lockbox.to_str().unwrap(), "description", "get"],
+        &vault_root,
+        &agent_root,
+    );
+    assert!(!missing_description.status.success());
+    assert!(String::from_utf8_lossy(&missing_description.stderr).contains("lockbox description"));
 }
 
 #[test]

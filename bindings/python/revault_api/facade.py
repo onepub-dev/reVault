@@ -588,6 +588,30 @@ def _Lockbox_get_variable(self, name):
     return _call(self, 'lockbox_get_variable', (name,))
 Lockbox.get_variable = _Lockbox_get_variable
 
+def _Lockbox_description(self):
+    """Return the encrypted description, or ``None`` when unset.
+
+    For example, set it, commit, then print ``box.description``.
+    """
+    return self.get_variable('/.revault/description')
+Lockbox.description = property(_Lockbox_description)
+
+def _Lockbox_set_description(self, description):
+    """Stage encrypted description text; call ``commit`` to publish it.
+
+    For example: ``box.set_description('Production credentials'); box.commit()``.
+    """
+    return self.set_variable('/.revault/description', description)
+Lockbox.set_description = _Lockbox_set_description
+
+def _Lockbox_clear_description(self):
+    """Stage removal of the encrypted description; call ``commit``.
+
+    For example: ``box.clear_description(); box.commit()``.
+    """
+    return self.delete_variable('/.revault/description')
+Lockbox.clear_description = _Lockbox_clear_description
+
 def _Lockbox_with_secret_variable(self, name, callback):
     """Returns the variable."""
     """Call ``callback`` with temporary secret bytes, then wipe the transfer copy."""

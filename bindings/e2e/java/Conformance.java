@@ -62,6 +62,9 @@ public final class Conformance {
       pass("lockbox_set_permissions", 2);
       check(Arrays.equals(box.readRange("/renamed.txt", 0, 11), "replacement".getBytes()), "range");
       pass("lockbox_read_range", 3);
+      box.setDescription("Deployment credentials for Project Atlas");
+      check(box.description().equals("Deployment credentials for Project Atlas"), "description");
+      box.clearDescription(); check(box.description() == null, "description cleared");
       box.setVariable("normal", "value"); check(box.getVariable("normal").equals("value"), "variable");
       pass("lockbox_set_variable"); pass("lockbox_get_variable", 3);
       box.moveVariables(java.util.List.of(new PathMove("normal", "moved")));

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added encrypted Lockbox descriptions. `create --description` records the
+  initial purpose, `description get|set|clear` manages it, `doctor LOCKBOX`
+  shows it after a successful open, and `vault lockbox list
+  --with-description` includes descriptions that can be decrypted. Existing
+  encrypted variable storage is reused, so the lockbox format is unchanged.
 - Added persistent named `mirror` projects for one-way host-directory updates.
   Projects own non-overlapping lockbox subtrees, store portable include/exclude
   rules and missing-file policy inside the encrypted archive, use `status` as

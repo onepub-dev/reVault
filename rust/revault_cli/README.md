@@ -61,8 +61,10 @@ website login as a typed form record. Run `lbx vault init` once before this
 example; it creates your local vault and default profile.
 
 ```bash
-# Create and open an encrypted lockbox for the default vault profile.
-lbx project-secrets.lbox create
+# Create an encrypted lockbox for the default vault profile and record its
+# purpose inside the encrypted archive.
+lbx project-secrets.lbox create \
+  --description 'Deployment credentials for Project Atlas'
 
 # Add one host file at a chosen path inside the lockbox.
 lbx project-secrets.lbox add ./README.md --to project/README.md
@@ -102,6 +104,7 @@ lbx project-secrets.lbox form add /services/github \
 
 # Inspect the non-secret structure and values.
 lbx project-secrets.lbox list /
+lbx project-secrets.lbox description get
 lbx project-secrets.lbox variable get APP_ENV
 lbx project-secrets.lbox form show /services/github
 
@@ -118,6 +121,18 @@ or command-line values. `--interactive` is the safest convenient default;
 `--stdin`, `--file`, and `--from-env` are available for automated workflows.
 To see a secret form field, make that choice explicit with `--secret`, for
 example `lbx project-secrets.lbox form get --secret /services/github password`.
+
+Update or remove the encrypted Lockbox description explicitly:
+
+```bash
+lbx project-secrets.lbox description set --file purpose.txt
+lbx project-secrets.lbox description clear
+```
+
+`lbx doctor project-secrets.lbox` shows the description when it can open that
+Lockbox. `lbx vault lockbox list --with-description` attempts to open every
+remembered Lockbox and reports `(unavailable)` for descriptions it cannot
+decrypt.
 
 ## One-way directory mirrors
 

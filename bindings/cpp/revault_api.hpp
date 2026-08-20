@@ -569,6 +569,22 @@ class Lockbox {
     return decoded<bindings::OptionalString>(
         lockbox_get_variable(handle_, name.data(), name.size()));
   }
+  /** Returns the encrypted lockbox description, or no value when unset.
+   * Example lifecycle: set "Production credentials", commit the box, then
+   * print the returned description. */
+  std::optional<std::string> description() const {
+    return get_variable("/.revault/description");
+  }
+  /** Stages an encrypted lockbox description; call commit to publish it.
+   * Example lifecycle: set "Production credentials", then commit the box. */
+  void set_description(const std::string& description) {
+    set_variable("/.revault/description", description);
+  }
+  /** Stages removal of the encrypted lockbox description; call commit.
+   * Example lifecycle: clear the description, then commit the box. */
+  void clear_description() {
+    delete_variable("/.revault/description");
+  }
   /** Returns the with secret variable. */
   bool with_secret_variable(const std::string& name,
       const std::function<void(std::span<const std::uint8_t>)>& callback) const {

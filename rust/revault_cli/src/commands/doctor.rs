@@ -1,19 +1,19 @@
 use super::command_lockbox;
-use super::context::{cli_error, CliResult};
+use super::context::{cli_error, open_existing, Access, CliResult};
 use clap::ArgMatches;
-use revault_lockbox_api::{Error, Lockbox, LockboxFileInspection, LockboxKeySlotProtection};
+use revault_lockbox_api::{Lockbox, LockboxFileInspection, LockboxKeySlotProtection};
 use revault_vault_api::{
     agent_log_destination, agent_sleep_support, default_vault_path, get_platform_vault_password,
-    is_running, list, local_vault, platform_secret_store_disabled, platform_secret_store_status,
+    is_running, list, platform_secret_store_disabled, platform_secret_store_status,
     verify_agent_transport_security, SecretString, VaultDirectory,
 };
 use std::fs::OpenOptions;
 use std::path::Path;
 
-pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
+pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     let _ = matches;
     match command_lockbox() {
-        Some(lockbox) => run_lockbox(&lockbox),
+        Some(lockbox) => run_lockbox(&lockbox, access),
         None => run_global(),
     }
 }
@@ -115,7 +115,7 @@ fn run_global() -> CliResult<()> {
     Ok(())
 }
 
-fn run_lockbox(lockbox_path: &str) -> CliResult<()> {
+fn run_lockbox(lockbox_path: &str, access: &Access) -> CliResult<()> {
     let path = Path::new(lockbox_path);
     let metadata = std::fs::metadata(path).map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
@@ -146,7 +146,7 @@ fn run_lockbox(lockbox_path: &str) -> CliResult<()> {
     println!();
     print_revault_vault_api(&inspection);
     println!();
-    print_open_checks(path, lockbox_path);
+    print_open_checks(lockbox_path, access);
     Ok(())
 }
 
@@ -231,10 +231,21 @@ fn print_revault_vault_api(inspection: &LockboxFileInspection) {
     }
 }
 
-fn print_open_checks(path: &Path, lockbox_path: &str) {
+fn print_open_checks(lockbox_path: &str, access: &Access) {
     println!("Open checks");
-    match local_vault().open_lockbox(path) {
+    match open_existing(lockbox_path, access) {
         Ok(lockbox) => {
+            match lockbox.description() {
+                Ok(Some(description)) => {
+                    let mut lines = description.lines();
+                    println!("  description: {}", lines.next().unwrap_or_default());
+                    for line in lines {
+                        println!("               {line}");
+                    }
+                }
+                Ok(None) => println!("  description: not set"),
+                Err(err) => println!("  description: not checked: {err}"),
+            }
             let inspector = lockbox.inspector();
             println!("  open: yes");
             match inspector.storage_len() {
@@ -249,16 +260,11 @@ fn print_open_checks(path: &Path, lockbox_path: &str) {
             println!("  intact files: {}", report.intact_file_count);
             println!("  partial files: {}", report.partial_files);
         }
-        Err(Error::VaultUnavailable(message)) if message.contains("no cached content key") => {
-            println!("  open: no");
-            println!("  additional checks require an open lockbox.");
-            println!("  run: lockbox open {lockbox_path}");
-            println!("  then: lockbox doctor {lockbox_path}");
-        }
         Err(err) => {
             println!("  open: no");
             println!("  additional checks unavailable: {err}");
-            println!("  run after opening: lockbox doctor {lockbox_path}");
+            println!("  run: lockbox {lockbox_path} open");
+            println!("  then: lockbox {lockbox_path} doctor");
         }
     }
 }

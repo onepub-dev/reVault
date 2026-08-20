@@ -430,6 +430,24 @@ module Revault
       @operations.lockbox_get_variable(@native_handle, name)
     end
 
+    # Returns the encrypted lockbox description, or nil when unset.
+    # Example: set it, commit, then `puts box.description`.
+    def description
+      get_variable('/.revault/description')
+    end
+
+    # Stages encrypted description text; call commit to publish it.
+    # Example: `box.set_description('Production credentials'); box.commit`.
+    def set_description(description)
+      set_variable('/.revault/description', description)
+    end
+
+    # Stages removal of the encrypted description; call commit.
+    # Example: `box.clear_description; box.commit`.
+    def clear_description
+      delete_variable('/.revault/description')
+    end
+
     # Yields temporary secret bytes and wipes the native transfer afterwards.
     def with_secret_variable(name, &callback)
       @operations.lockbox_get_secret_variable(@native_handle, name, &callback)

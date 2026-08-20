@@ -1869,6 +1869,26 @@ extension Lockbox {
         return try operations.lockboxGetVariable(handle!, name)
     }
 
+    /// Returns the encrypted Lockbox description, or `nil` when unset.
+    /// Example: set it, commit, then `print(try box.description)`.
+    public var description: String? {
+        get throws { try getVariable("/.revault/description") }
+    }
+
+    /// Stages encrypted description text; call `commit()` to publish it.
+    /// Example: `try box.setDescription("Production credentials"); try box.commit()`.
+    @discardableResult
+    public func setDescription(_ description: String) throws -> Bool {
+        return try setVariable("/.revault/description", description)
+    }
+
+    /// Stages removal of the encrypted description; call `commit()`.
+    /// Example: `try box.clearDescription(); try box.commit()`.
+    @discardableResult
+    public func clearDescription() throws -> Bool {
+        return try deleteVariable("/.revault/description")
+    }
+
     /// Returns the with secret variable.
     public func withSecretVariable<T>(_ name: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
         return try operations.lockboxWithSecretVariable(handle!, name, callback)

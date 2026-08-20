@@ -55,6 +55,9 @@ add_symlink	lockbox_add_symlink	direct
 get_symlink_target	lockbox_get_symlink_target	direct
 is_symlink	lockbox_stat	derived from entry kind
 set_variable	lockbox_set_variable	direct normal-value call
+description	lockbox_get_variable	fixed encrypted metadata name
+set_description	lockbox_set_variable	fixed encrypted metadata name
+clear_description	lockbox_delete_variable	fixed encrypted metadata name
 set_secret_variable	lockbox_set_secret_variable	direct secret-value call
 get_variable	lockbox_get_variable	direct optional normal value
 with_secret_variable	lockbox_get_secret_variable,secret_len,secret_copy,secret_free	scoped secret callback

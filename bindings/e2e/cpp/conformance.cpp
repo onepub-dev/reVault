@@ -73,6 +73,10 @@ static void archive_lifecycle() {
   pass("lockbox_set_permissions", 2);
   check(copy(box.read_range("/renamed.txt", 0, 11)) == bytes("replacement"), "range");
   pass("lockbox_read_range", 3);
+  box.set_description("Deployment credentials for Project Atlas");
+  check(box.description() == "Deployment credentials for Project Atlas", "description");
+  box.clear_description();
+  check(!box.description().has_value(), "description cleared");
   box.set_variable("normal", "value");
   check(box.get_variable("normal") == "value", "variable");
   pass("lockbox_set_variable");
