@@ -5,7 +5,7 @@ import 'dart:ffi' as ffi;
 
 import 'revault_native.dart';
 
-const _assetId = 'package:revault_api/revault_api.dart';
+const _assetId = 'package:revault_api/src/revault_native.dart';
 
 typedef _LockboxFreeNative = ffi.Void Function(ffi.Pointer<ffi.Void>);
 
