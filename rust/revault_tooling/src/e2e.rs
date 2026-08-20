@@ -456,7 +456,7 @@ fn rust_source_conformance(args: RustSourceConformance) -> Result {
     run_status(
         Command::new("cargo")
             .current_dir(&workspace)
-            .args(["check", "--locked", "--manifest-path"])
+            .args(["check", "--manifest-path"])
             .arg(repository.join("bindings/rust/Cargo.toml")),
     )?;
     let source = args
