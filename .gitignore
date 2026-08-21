@@ -39,4 +39,4 @@ package-conformance-*/
 **/*.lbx
 **/*.lbox
 **/*.lock
-
+.worktrees/
