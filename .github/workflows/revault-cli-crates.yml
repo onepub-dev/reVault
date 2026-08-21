@@ -22,6 +22,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.95.0
+      - name: Install Linux Rust publication dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - id: crates
         uses: rust-lang/crates-io-auth-action@v1
       - name: Publish CLI dependency chain
