@@ -707,6 +707,8 @@ jobs:
           name: revault-api-publication-trees
           path: packages
       - uses: dtolnay/rust-toolchain@1.95.0
+      - name: Install Linux Rust publication dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - name: Check crates.io publication state
         id: crates-state
         shell: bash
