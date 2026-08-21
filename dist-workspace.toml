@@ -9,7 +9,7 @@ cargo-dist-version = "0.31.0"
 ci = "github"
 packages = ["revault_cli"]
 # A prefix git tags must include for dist to care about them
-tag-namespace = "revault_cli-v"
+tag-namespace = "revault_cli-"
 # Whether to enable GitHub Attestations
 github-attestations = true
 # Which actions to run on pull requests
