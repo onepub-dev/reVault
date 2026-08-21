@@ -141,7 +141,7 @@ pub fn publish(args: PublishPackages) -> Result {
             "revault-api",
             &args.version,
             args.publish,
-            true,
+            false,
         ),
     }
 }
