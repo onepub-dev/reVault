@@ -2214,7 +2214,7 @@ dependencies = [
 
 [[package]]
 name = "revault_cli"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2349,7 +2349,7 @@ dependencies = [
 
 [[package]]
 name = "revault_migration_format"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "argon2",
  "chacha20poly1305",
