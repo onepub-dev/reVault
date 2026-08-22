@@ -3,6 +3,10 @@ name = "revault_wasm_bindings"
 version = "0.0.2"
 edition = "2021"
 rust-version = "1.88"
+license-file = "../revault_lockbox_api/LICENSE"
+description = "WebAssembly bindings for the reVault APIs"
+repository = "https://github.com/onepub-dev/reVault"
+documentation = "https://docs.rs/revault_wasm_bindings"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
