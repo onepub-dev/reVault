@@ -44,7 +44,7 @@
   PowerShell installers, a Windows MSI, checksums, and build provenance.
 - Added `--version` so installers and package managers can verify the installed
   CLI without opening a vault.
-- Raised the minimum supported Rust version from 1.88 to 1.95.
+- Restored the minimum supported Rust version to Rust 1.88.
 - Renamed vault identities to profiles throughout the CLI. Profile commands,
   output labels, completion, publishing, recovery backups, and file extensions
   now consistently use `profile`; the former `identity` forms are not retained.

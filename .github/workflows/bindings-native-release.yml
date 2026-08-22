@@ -33,7 +33,7 @@ jobs:
       matrix: ${{ steps.matrix.outputs.value }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - id: matrix
         shell: bash
         run: |
@@ -102,7 +102,7 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
         with:
           targets: ${{ matrix.rust_target }}
       - uses: ilammy/msvc-dev-cmd@v1
@@ -172,7 +172,7 @@ jobs:
         with:
           pattern: native-macos-*
           path: native
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - name: Build universal Swift binary target
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
@@ -198,7 +198,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: actions/download-artifact@v4
         with:
           name: native-${{ matrix.target }}
@@ -336,7 +336,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: actions/download-artifact@v4
         with:
           pattern: native-*
@@ -411,7 +411,7 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -439,7 +439,7 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -475,14 +475,14 @@ jobs:
           - { target: windows-aarch64-msvc, runner: windows-11-arm, architecture: arm64 }
     runs-on: ${{ matrix.runner }}
     env:
-      RUSTUP_TOOLCHAIN: 1.95.0
+      RUSTUP_TOOLCHAIN: 1.88.0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -541,7 +541,7 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -576,7 +576,7 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
@@ -606,7 +606,7 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: dart-lang/setup-dart@v1
       - name: Publish pub.dev package
         run: >-
@@ -628,7 +628,7 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
@@ -660,7 +660,7 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: leafo/gh-actions-lua@v11
         with:
           luaVersion: luajit-2.1
@@ -706,7 +706,7 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - name: Install Linux Rust publication dependencies
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - name: Check crates.io publication state
@@ -761,7 +761,7 @@ jobs:
         with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - uses: actions/download-artifact@v4
         with:
           pattern: native-*
@@ -803,7 +803,7 @@ jobs:
         with:
           name: swift-macos-xcframework
           path: release-assets
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - name: Generate checksummed package metadata and promote tag
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --

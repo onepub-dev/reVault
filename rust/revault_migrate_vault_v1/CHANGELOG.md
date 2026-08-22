@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Raised the minimum supported Rust version from 1.88 to 1.95.
+- Restored the minimum supported Rust version to Rust 1.88.
 
 ## 0.0.1
 

@@ -1,8 +1,8 @@
 [package]
 name = "revault_key_server"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2021"
-rust-version = "1.95"
+rust-version = "1.88"
 license-file = "LICENSE"
 description = "High-throughput reVault key rendezvous server"
 repository = "https://github.com/onepub-dev/reVault"
@@ -37,7 +37,7 @@ lettre = { version = "0.11", default-features = false, features = [
     "smtp-transport",
     "rustls-tls",
 ] }
-revault_publish_protocol = { version = "0.0.3", path = "../revault_publish_protocol" }
+revault_publish_protocol = { version = "0.0.4", path = "../revault_publish_protocol" }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.11"
 time = { version = "0.3", features = ["formatting"] }

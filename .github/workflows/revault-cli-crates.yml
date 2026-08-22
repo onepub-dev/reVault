@@ -1,4 +1,4 @@
-name: Publish revault CLI crates
+name: Publish reVault Rust crates
 
 on:
   workflow_call:
@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   publish-crates:
-    name: Publish CLI crates to crates.io
+    name: Publish Rust crates to crates.io
     runs-on: ubuntu-24.04
     environment: release
     permissions:
@@ -21,12 +21,12 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.95.0
+      - uses: dtolnay/rust-toolchain@1.88.0
       - name: Install Linux Rust publication dependencies
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - id: crates
         uses: rust-lang/crates-io-auth-action@v1
-      - name: Publish CLI dependency chain
+      - name: Publish Rust crate dependency chain
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-

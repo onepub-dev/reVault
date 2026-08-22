@@ -2,7 +2,7 @@ use crate::command::{self, TaskResult};
 use std::fs;
 use std::path::PathBuf;
 
-const DEFAULT_IMAGE: &str = "rust:1.95-bullseye";
+const DEFAULT_IMAGE: &str = "rust:1.88-bullseye";
 const DEFAULT_OUTPUT: &str = "target/portable/x86_64-unknown-linux-gnu-glibc-2.31";
 
 /// Builds the CLI in a pinned Linux userspace so the resulting binary has a

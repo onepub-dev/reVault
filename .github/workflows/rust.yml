@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   api-msrv:
-    name: Public APIs / Rust 1.95
+    name: Public APIs / Rust 1.88
     runs-on: ubuntu-latest
 
     defaults:
@@ -34,14 +34,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust 1.95
-        uses: dtolnay/rust-toolchain@1.95.0
+      - name: Install Rust 1.88
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-          key: api-msrv-1.95
+          key: api-msrv-1.88
 
       - name: Install Linux dependencies
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
@@ -49,9 +49,9 @@ jobs:
       - name: Check public APIs at MSRV
         run: >-
           cargo check
-          -p revault_page_api@0.0.3
-          -p revault_lockbox_api@0.0.4
-          -p revault_vault_api@0.0.4
+          -p revault_page_api@0.0.4
+          -p revault_lockbox_api@0.0.6
+          -p revault_vault_api@0.0.6
           --all-targets
           --locked
 
@@ -59,7 +59,7 @@ jobs:
         run: cargo check --manifest-path ../bindings/rust/Cargo.toml
 
   tooling-msrv:
-    name: Tooling / Rust 1.95
+    name: Tooling / Rust 1.88
     runs-on: ubuntu-latest
 
     defaults:
@@ -70,14 +70,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Rust 1.95
-        uses: dtolnay/rust-toolchain@1.95.0
+      - name: Install Rust 1.88
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-          key: msrv-1.95
+          key: msrv-1.88
 
       - name: Install Linux dependencies
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
@@ -105,7 +105,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.95.0
+        uses: dtolnay/rust-toolchain@1.88.0
         with:
           components: rustfmt, clippy
 
@@ -152,7 +152,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.95.0
+        uses: dtolnay/rust-toolchain@1.88.0
         with:
           targets: ${{ matrix.target }}
 
@@ -194,7 +194,7 @@ jobs:
           key: lockbox-compression-corpus-${{ env.LOCKBOX_COMPRESSION_CORPUS_VERSION }}
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.95.0
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2
@@ -225,7 +225,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.95.0
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Cache Cargo
         uses: Swatinem/rust-cache@v2

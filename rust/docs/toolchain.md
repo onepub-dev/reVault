@@ -2,7 +2,7 @@
 
 MSRV means Minimum Supported Rust Version: the oldest Rust compiler version this workspace is expected to build with.
 
-The project and public Rust API MSRV is 1.95. This applies to:
+The project and public Rust API MSRV is 1.88. This applies to:
 
 - `revault_page_api`
 - `revault_lockbox_api`
@@ -10,11 +10,11 @@ The project and public Rust API MSRV is 1.95. This applies to:
 - `bindings/rust` (the published `revault-api` crate)
 
 All workspace crates, applications, migration executables, binding generators,
-and published Rust bindings use the same Rust 1.95 baseline.
+and published Rust bindings use the same Rust 1.88 baseline.
 
 Development flow:
 
-- Use the pinned Rust 1.95 toolchain when developing locally.
+- Use the pinned Rust 1.88 toolchain when developing locally.
 - Run `cargo xtask check-required` before merging substantial Rust changes.
 - Run `cargo xtask run-network-tests` when changing publish, topology,
   replication, networking, or key-server behavior.
@@ -23,7 +23,7 @@ Development flow:
 
 CI flow:
 
-- GitHub Actions verifies the public APIs and complete workspace on Rust 1.95,
+- GitHub Actions verifies the public APIs and complete workspace on Rust 1.88,
   and also exercises the workspace on the latest stable Rust.
 - Required checks run formatting, clippy, unit tests, integration tests, and the key-server/publish-protocol crates.
 - The network integration job runs ignored loopback tests, including key-server failover and CLI publish/receive flows.

@@ -1254,6 +1254,7 @@ fn go_platform(target: &str) -> Result<(&'static str, &'static str, &'static str
 pub fn publish_cli(repository: &Path, publish: bool) -> Result {
     let rust = repository.canonicalize()?.join("rust");
     let packages = [
+        "revault_page_api",
         "revault_lockbox_api",
         "revault_migration_format",
         "revault_migrate_vault_v1",
@@ -1261,6 +1262,9 @@ pub fn publish_cli(repository: &Path, publish: bool) -> Result {
         "revault_migrate_archive_v1",
         "revault_migration",
         "revault_publish_protocol",
+        "revault_key_server",
+        "revault_bindings",
+        "revault_wasm_bindings",
         "revault_cli",
     ];
     for package in packages {

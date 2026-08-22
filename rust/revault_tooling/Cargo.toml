@@ -2,7 +2,7 @@
 name = "revault_tooling"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.95"
+rust-version = "1.88"
 publish = false
 license-file = "../revault_lockbox_api/LICENSE"
 description = "Repository-owned generation, release, and conformance tooling for reVault"

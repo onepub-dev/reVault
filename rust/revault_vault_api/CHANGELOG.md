@@ -2,7 +2,7 @@
 
 ## 0.0.4
 
-- Raised the minimum supported Rust version from 1.88 to 1.95.
+- Restored the minimum supported Rust version to Rust 1.88.
 - Renamed the cryptographic identity model to profile throughout the public API
   and encrypted vault format, including profile generations, history, email
   records, publishing fields, backup labels, and owner-signing cache scope.
