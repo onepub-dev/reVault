@@ -59,7 +59,7 @@ impl Runtime {
     ///
     /// Unknown names are rejected before control reaches the native host.
     pub fn before_call(&mut self, operation: &str) -> Result<(), JsValue> {
-        let known = include_str!("../../../bindings/e2e/operations.tsv")
+        let known = include_str!("../operations.tsv")
             .lines()
             .skip(1)
             .filter_map(|line| line.split('\t').next())
