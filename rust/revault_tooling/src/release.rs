@@ -340,6 +340,7 @@ pub(crate) fn install_archive(archive: &Path, prefix: &Path) -> Result<NativeIns
         prefix.display()
     );
     Ok(NativeInstall {
+        version: metadata.version,
         target: metadata.target,
         library: metadata.library,
         prefix: prefix.to_path_buf(),
@@ -347,6 +348,7 @@ pub(crate) fn install_archive(archive: &Path, prefix: &Path) -> Result<NativeIns
 }
 
 pub(crate) struct NativeInstall {
+    pub version: String,
     pub target: String,
     pub library: String,
     pub prefix: PathBuf,
@@ -892,9 +894,20 @@ fn assemble_go(source: &Path, layout: &Path, output: &Path, manifest: &NativeMan
     }
     for entry in &manifest.targets {
         let (os, arch, system) = go_platform(&entry.target)?;
+        let library_flags = if entry.target.starts_with("windows-") {
+            format!(
+                "-L${{SRCDIR}}/native/{} -l:{}",
+                entry.target, entry.static_library
+            )
+        } else {
+            format!(
+                "${{SRCDIR}}/native/{}/{}",
+                entry.target, entry.static_library
+            )
+        };
         fs::write(
             go.join(format!("link_{os}_{arch}.go")),
-            format!("//go:build {os} && {arch}\n\npackage revault\n\n/*\n#cgo LDFLAGS: ${{SRCDIR}}/native/{}/{} {system}\n*/\nimport \"C\"\n", entry.target, entry.static_library),
+            format!("//go:build {os} && {arch}\n\npackage revault\n\n/*\n#cgo LDFLAGS: {library_flags} {system}\n*/\nimport \"C\"\n"),
         )?;
     }
     copy_file(
@@ -1264,12 +1277,12 @@ fn go_platform(target: &str) -> Result<(&'static str, &'static str, &'static str
         "macos-x86_64" => (
             "darwin",
             "amd64",
-            "-framework Security -framework CoreFoundation -framework Foundation",
+            "-framework Security -framework CoreFoundation -framework Foundation -framework IOKit",
         ),
         "macos-aarch64" => (
             "darwin",
             "arm64",
-            "-framework Security -framework CoreFoundation -framework Foundation",
+            "-framework Security -framework CoreFoundation -framework Foundation -framework IOKit",
         ),
         "windows-x86_64-msvc" => (
             "windows",
@@ -1408,6 +1421,19 @@ mod tests {
             assert!(npm_platform(target).is_ok());
             assert!(rid(target).is_ok());
             assert!(go_platform(target).is_ok());
+        }
+    }
+
+    #[test]
+    fn go_platforms_include_required_system_libraries() {
+        for target in ["macos-x86_64", "macos-aarch64"] {
+            let (_, _, flags) = go_platform(target).unwrap();
+            assert!(flags.contains("-framework IOKit"));
+        }
+        for target in ["windows-x86_64-msvc", "windows-aarch64-msvc"] {
+            let (_, _, flags) = go_platform(target).unwrap();
+            assert!(flags.contains("-lbcrypt"));
+            assert!(flags.contains("-lws2_32"));
         }
     }
 

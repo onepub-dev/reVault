@@ -66,6 +66,7 @@ pub fn run(args: PackageConformance) -> Result {
     let prepared = prepare(
         &args.language,
         &args.target,
+        &inspected.version,
         &repository,
         &packages,
         &work,
@@ -152,7 +153,7 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
     )?;
     fs::write(
         consumer.join("src/main.rs"),
-        "use revault_api::{ContactKeyPair, VaultDirectory};\nfn main() { let _ = std::mem::size_of::<Option<ContactKeyPair>>(); let _ = std::mem::size_of::<Option<VaultDirectory>>(); }\n",
+        "use revault_api::{ContactKeyPair, Vault};\nfn main() { let _ = std::mem::size_of::<Option<ContactKeyPair>>(); let _ = std::mem::size_of::<Option<Vault>>(); }\n",
     )?;
     run_status(
         Command::new("cargo")
@@ -214,6 +215,7 @@ fn resolve_archive(input: &Path, target: &str) -> Result<PathBuf> {
 fn prepare(
     language: &str,
     target: &str,
+    version: &str,
     repository: &Path,
     packages: &Path,
     work: &Path,
@@ -222,11 +224,11 @@ fn prepare(
     match language {
         "c" => prepare_c(false, repository, work, archive),
         "cpp" => prepare_c(true, repository, work, archive),
-        "csharp" => prepare_csharp(target, repository, packages, work),
+        "csharp" => prepare_csharp(target, version, repository, packages, work),
         "dart" => prepare_dart(target, repository, packages, work),
         "go" => prepare_go(target, repository, packages, work),
-        "java" => prepare_gradle(false, target, repository, packages, work),
-        "kotlin" => prepare_gradle(true, target, repository, packages, work),
+        "java" => prepare_gradle(false, target, version, repository, packages, work),
+        "kotlin" => prepare_gradle(true, target, version, repository, packages, work),
         "javascript" | "typescript" | "wasm" => {
             prepare_npm(language, target, repository, packages, work)
         }
@@ -327,7 +329,7 @@ fn prepare_npm(
     }
     for package in &package_dirs {
         run_status(
-            Command::new("npm")
+            Command::new(npm())
                 .arg("pack")
                 .arg(package)
                 .arg("--pack-destination")
@@ -335,12 +337,17 @@ fn prepare_npm(
         )?;
     }
     run_status(
-        Command::new("npm")
+        Command::new(npm())
             .arg("init")
             .arg("-y")
             .current_dir(&consumer),
     )?;
-    let mut install = Command::new("npm");
+    run_status(
+        Command::new(npm())
+            .args(["pkg", "set", "type=module"])
+            .current_dir(&consumer),
+    )?;
+    let mut install = Command::new(npm());
     install
         .args(["install", "--omit=optional"])
         .current_dir(&consumer);
@@ -351,6 +358,29 @@ fn prepare_npm(
         install.args(["typescript@5.8.3", "tsx@4.20.0", "@types/node@22"]);
     }
     run_status(&mut install)?;
+    if language == "typescript" {
+        // The initial install omits optional dependencies so it does not try
+        // to resolve every platform's native reVault package. Install only
+        // esbuild's host binary, at the version selected by tsx.
+        let esbuild: serde_json::Value = serde_json::from_slice(&fs::read(
+            consumer.join("node_modules/esbuild/package.json"),
+        )?)?;
+        let version = esbuild
+            .get("version")
+            .and_then(serde_json::Value::as_str)
+            .ok_or("installed esbuild package has no version")?;
+        let platform_package = format!("{}@{version}", esbuild_platform_package()?);
+        run_status(
+            Command::new(npm())
+                .args([
+                    "install",
+                    "--no-save",
+                    "--include=optional",
+                    &platform_package,
+                ])
+                .current_dir(&consumer),
+        )?;
+    }
     let module = if language == "wasm" {
         "@onepub-dev/revault-api-wasm"
     } else {
@@ -370,20 +400,22 @@ fn prepare_npm(
             "NODE_PATH".into(),
             consumer.join("node_modules").display().to_string(),
         ));
+        let conformance = consumer.join("conformance.ts");
+        fs::copy(
+            repository.join("bindings/e2e/typescript/conformance.ts"),
+            &conformance,
+        )?;
         (
             consumer.join(if cfg!(windows) {
                 "node_modules/.bin/tsx.cmd"
             } else {
                 "node_modules/.bin/tsx"
             }),
-            vec![repository
-                .join("bindings/e2e/typescript/conformance.ts")
-                .display()
-                .to_string()],
+            vec![conformance.display().to_string()],
         )
     } else {
         (
-            PathBuf::from("node"),
+            PathBuf::from(if cfg!(windows) { "node.exe" } else { "node" }),
             vec![repository
                 .join("bindings/e2e/javascript/conformance.js")
                 .display()
@@ -474,6 +506,7 @@ fn prepare_go(target: &str, repository: &Path, packages: &Path, work: &Path) -> 
 
 fn prepare_csharp(
     target: &str,
+    version: &str,
     repository: &Path,
     packages: &Path,
     work: &Path,
@@ -481,6 +514,14 @@ fn prepare_csharp(
     let feed = work.join("nuget-feed");
     let output = work.join("csharp-conformance");
     fs::create_dir_all(&feed)?;
+    let nuget_config = work.join("NuGet.Config");
+    fs::write(
+        &nuget_config,
+        format!(
+            "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<configuration>\n  <packageSources>\n    <clear />\n    <add key=\"revault-local\" value=\"{}\" />\n    <add key=\"nuget.org\" value=\"https://api.nuget.org/v3/index.json\" protocolVersion=\"3\" />\n  </packageSources>\n</configuration>\n",
+            feed.display()
+        ),
+    )?;
     run_status(
         Command::new("dotnet")
             .arg("pack")
@@ -495,13 +536,10 @@ fn prepare_csharp(
             .arg(repository.join("bindings/e2e/csharp/Conformance.csproj"))
             .args(["-c", "Release", "-o"])
             .arg(&output)
-            .arg("--source")
-            .arg(&feed)
-            .args([
-                "--source",
-                "https://api.nuget.org/v3/index.json",
-                "--nologo",
-            ]),
+            .arg(format!("-p:RevaultVersion={version}"))
+            .arg("--configfile")
+            .arg(&nuget_config)
+            .arg("--nologo"),
     )?;
     Ok(Prepared {
         program: PathBuf::from("dotnet"),
@@ -561,18 +599,22 @@ fn prepare_php(target: &str, repository: &Path, packages: &Path, work: &Path) ->
     )?;
     let project = root.join("bindings/e2e/php");
     run_status(
-        Command::new("composer")
-            .args([
-                "install",
-                "--no-interaction",
-                "--no-progress",
-                "--prefer-dist",
-                "--optimize-autoloader",
-            ])
-            .current_dir(&project),
+        Command::new(if cfg!(windows) {
+            "composer.bat"
+        } else {
+            "composer"
+        })
+        .args([
+            "install",
+            "--no-interaction",
+            "--no-progress",
+            "--prefer-dist",
+            "--optimize-autoloader",
+        ])
+        .current_dir(&project),
     )?;
     Ok(Prepared {
-        program: PathBuf::from("php"),
+        program: PathBuf::from(if cfg!(windows) { "php.exe" } else { "php" }),
         args: vec![
             "-d".into(),
             "ffi.enable=true".into(),
@@ -591,13 +633,13 @@ fn prepare_ruby(target: &str, repository: &Path, packages: &Path, work: &Path) -
     let package = packages.join("ruby").join(target);
     let gem_home = work.join("ruby-gems");
     run_status(
-        Command::new("gem")
+        Command::new(if cfg!(windows) { "gem.cmd" } else { "gem" })
             .args(["build", "revault_api.gemspec"])
             .current_dir(&package),
     )?;
     let gem = one_file(&package, "gem")?;
     run_status(
-        Command::new("gem")
+        Command::new(if cfg!(windows) { "gem.cmd" } else { "gem" })
             .arg("install")
             .arg(gem)
             .args(["--no-document", "--install-dir"])
@@ -605,7 +647,7 @@ fn prepare_ruby(target: &str, repository: &Path, packages: &Path, work: &Path) -
     )?;
     let native_root = find_parent(&gem_home, &dynamic_library(target))?;
     Ok(Prepared {
-        program: PathBuf::from("ruby"),
+        program: PathBuf::from(if cfg!(windows) { "ruby.exe" } else { "ruby" }),
         args: vec![repository
             .join("bindings/e2e/ruby/conformance.rb")
             .display()
@@ -691,14 +733,21 @@ fn find_named_package(directory: &Path, prefix: &str, suffix: &str) -> Result<Pa
 fn prepare_gradle(
     kotlin: bool,
     target: &str,
+    version: &str,
     repository: &Path,
     packages: &Path,
     work: &Path,
 ) -> Result<Prepared> {
+    let java_toolchain = if target == "windows-aarch64-msvc" {
+        "23"
+    } else {
+        "22"
+    };
     run_status(
         Command::new(gradle())
             .arg("-p")
             .arg(packages.join("maven/java"))
+            .arg(format!("-PjavaToolchain={java_toolchain}"))
             .args(["--no-daemon", "publishToMavenLocal"]),
     )?;
     if kotlin {
@@ -706,6 +755,7 @@ fn prepare_gradle(
             Command::new(gradle())
                 .arg("-p")
                 .arg(packages.join("maven/kotlin"))
+                .arg(format!("-PjavaToolchain={java_toolchain}"))
                 .args(["--no-daemon", "publishToMavenLocal"]),
         )?;
     }
@@ -718,6 +768,8 @@ fn prepare_gradle(
         Command::new(gradle())
             .arg("-p")
             .arg(&project)
+            .arg(format!("-PrevaultVersion={version}"))
+            .arg(format!("-PjavaToolchain={java_toolchain}"))
             .args(["--no-daemon", "installDist"]),
     )?;
     let name = if kotlin {
@@ -857,6 +909,32 @@ fn gradle() -> &'static str {
         "gradle.bat"
     } else {
         "gradle"
+    }
+}
+
+fn npm() -> &'static str {
+    if cfg!(windows) {
+        "npm.cmd"
+    } else {
+        "npm"
+    }
+}
+
+fn esbuild_platform_package() -> Result<&'static str> {
+    if cfg!(target_os = "linux") && cfg!(target_arch = "x86_64") {
+        Ok("@esbuild/linux-x64")
+    } else if cfg!(target_os = "linux") && cfg!(target_arch = "aarch64") {
+        Ok("@esbuild/linux-arm64")
+    } else if cfg!(target_os = "macos") && cfg!(target_arch = "x86_64") {
+        Ok("@esbuild/darwin-x64")
+    } else if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
+        Ok("@esbuild/darwin-arm64")
+    } else if cfg!(target_os = "windows") && cfg!(target_arch = "x86_64") {
+        Ok("@esbuild/win32-x64")
+    } else if cfg!(target_os = "windows") && cfg!(target_arch = "aarch64") {
+        Ok("@esbuild/win32-arm64")
+    } else {
+        Err("unsupported host platform for esbuild package".into())
     }
 }
 

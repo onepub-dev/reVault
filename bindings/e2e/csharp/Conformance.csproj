@@ -4,8 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RevaultVersion Condition="'$(RevaultVersion)' == ''">0.2.0</RevaultVersion>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Revault.Api" Version="0.2.0" />
+    <PackageReference Include="Revault.Api" Version="$(RevaultVersion)" />
   </ItemGroup>
 </Project>

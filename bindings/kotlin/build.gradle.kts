@@ -11,7 +11,13 @@ dependencies {
     api("dev.onepub:revault-api:0.2.0")
     implementation("com.google.flatbuffers:flatbuffers-java:25.2.10")
 }
-java { toolchain { languageVersion.set(JavaLanguageVersion.of(22)) } }
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(
+            providers.gradleProperty("javaToolchain").getOrElse("22").toInt()
+        ))
+    }
+}
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     compilerOptions.allWarningsAsErrors.set(true)
 }

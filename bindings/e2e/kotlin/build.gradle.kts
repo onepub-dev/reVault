@@ -4,8 +4,9 @@ plugins {
 }
 repositories { mavenLocal(); mavenCentral() }
 dependencies {
-    implementation("dev.onepub:revault-api:0.2.0")
-    implementation("dev.onepub:revault-api-kotlin:0.2.0")
+    val revaultVersion = providers.gradleProperty("revaultVersion").getOrElse("0.2.0")
+    implementation("dev.onepub:revault-api:$revaultVersion")
+    implementation("dev.onepub:revault-api-kotlin:$revaultVersion")
 }
 sourceSets {
     main {
@@ -13,7 +14,13 @@ sourceSets {
         java.setSrcDirs(listOf(projectDir.resolve("../java")))
     }
 }
-java { toolchain { languageVersion.set(JavaLanguageVersion.of(22)) } }
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(
+            providers.gradleProperty("javaToolchain").getOrElse("22").toInt()
+        ))
+    }
+}
 tasks.withType<JavaCompile>().configureEach { options.release.set(22) }
 application {
     mainClass.set("com.onepub.revault.e2e.kotlin.KotlinConformance")

@@ -101,10 +101,10 @@ inline bool with_secret_handle(
       throw std::runtime_error(buffer_last_error());
     try { callback(bytes); }
     catch (...) {
-      std::fill(bytes.begin(), bytes.end(), 0);
+      std::fill(bytes.begin(), bytes.end(), std::uint8_t{0});
       throw;
     }
-    std::fill(bytes.begin(), bytes.end(), 0);
+    std::fill(bytes.begin(), bytes.end(), std::uint8_t{0});
     secret_free(handle);
     return true;
   } catch (...) {

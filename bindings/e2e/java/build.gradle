@@ -8,11 +8,15 @@ repositories {
 }
 
 dependencies {
-    implementation 'dev.onepub:revault-api:0.2.0'
+    implementation "dev.onepub:revault-api:${providers.gradleProperty('revaultVersion').getOrElse('0.2.0')}"
 }
 
 java {
-    toolchain { languageVersion = JavaLanguageVersion.of(22) }
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(
+            providers.gradleProperty('javaToolchain').getOrElse('22').toInteger()
+        )
+    }
 }
 
 sourceSets.main.java.srcDirs = [projectDir]
