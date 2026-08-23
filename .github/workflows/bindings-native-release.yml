@@ -199,6 +199,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows' && matrix.language != 'dart'
+        with:
+          arch: ${{ matrix.target == 'windows-aarch64-msvc' && 'arm64' || 'x64' }}
+      - name: Build package acceptance driver before language setup
+        if: matrix.language != 'dart'
+        run: cargo build --locked --manifest-path rust/Cargo.toml -p revault_tooling
       - uses: actions/download-artifact@v4
         with:
           name: native-${{ matrix.target }}
@@ -228,10 +235,6 @@ jobs:
         if: matrix.language == 'csharp'
         with:
           dotnet-version: '8.0.x'
-      - uses: ilammy/msvc-dev-cmd@v1
-        if: runner.os == 'Windows' && contains(fromJSON('["c","cpp"]'), matrix.language)
-        with:
-          arch: ${{ matrix.target == 'windows-aarch64-msvc' && 'arm64' || 'x64' }}
       - uses: dart-lang/setup-dart@v1
         if: matrix.language == 'dart'
       - uses: actions/setup-go@v5
@@ -248,7 +251,7 @@ jobs:
           php-version: '8.3'
           extensions: ffi
           tools: composer:v2
-      - uses: leafo/gh-actions-lua@v11
+      - uses: leafo/gh-actions-lua@v13
         if: matrix.language == 'lua'
         with:
           luaVersion: luajit-2.1
@@ -271,7 +274,7 @@ jobs:
           Expand-Archive -Path $archive -DestinationPath $root
           $bin = Join-Path $root 'luarocks-3.11.1-windows-64'
           $luarocks = Join-Path $bin 'luarocks.exe'
-          $lua = (Get-Command luajit.exe).Source
+          $lua = (Get-Command lua.exe).Source
           & $luarocks --lua-version 5.1 config variables.LUA $lua
           $bin |
             Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
@@ -281,7 +284,7 @@ jobs:
       - name: Install, unpack and exercise the claimed package
         if: matrix.language != 'dart'
         run: >-
-          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
+          ${{ runner.os == 'Windows' && 'rust/target/debug/revault-tool.exe' || 'rust/target/debug/revault-tool' }}
           e2e package-conformance
           --language "${{ matrix.language }}"
           --target "${{ matrix.target }}"

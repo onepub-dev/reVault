@@ -2,8 +2,9 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-const binding = await import(process.env.REVAULT_E2E_MODULE ?? '../../javascript/index.js');
+import { fileURLToPath, pathToFileURL } from 'node:url';
+const modulePath = process.env.REVAULT_E2E_MODULE;
+const binding = await import(modulePath ? pathToFileURL(modulePath).href : '../../javascript/index.js');
 const { Revault, Vault, AgentSession } = binding;
 
 const api = await Revault.load();

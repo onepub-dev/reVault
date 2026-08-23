@@ -18,8 +18,8 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += ['-Xlint:all,-restricted', '-Werror']
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.compilerArgs += ['-Xlint:all,-restricted', '-Werror']
+tasks.withType(Javadoc).configureEach {
+    exclude 'com/onepub/revault/internal/**'
 }
 
 sourceSets.main.java.srcDirs = ['src', 'generated']

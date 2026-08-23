@@ -8,7 +8,7 @@ module Revault
 
     def path
       cpu = case RbConfig::CONFIG['host_cpu']
-            when 'x86_64', 'amd64' then 'x86_64'
+            when 'x86_64', 'amd64', 'x64' then 'x86_64'
             when 'aarch64', 'arm64' then 'aarch64'
             else raise "unsupported reVault architecture: #{RbConfig::CONFIG['host_cpu']}"
             end

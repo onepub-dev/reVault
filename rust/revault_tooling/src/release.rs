@@ -894,17 +894,7 @@ fn assemble_go(source: &Path, layout: &Path, output: &Path, manifest: &NativeMan
     }
     for entry in &manifest.targets {
         let (os, arch, system) = go_platform(&entry.target)?;
-        let library_flags = if entry.target.starts_with("windows-") {
-            format!(
-                "-L${{SRCDIR}}/native/{} -l:{}",
-                entry.target, entry.static_library
-            )
-        } else {
-            format!(
-                "${{SRCDIR}}/native/{}/{}",
-                entry.target, entry.static_library
-            )
-        };
+        let library_flags = go_library_flags(&entry.target, &entry.static_library);
         fs::write(
             go.join(format!("link_{os}_{arch}.go")),
             format!("//go:build {os} && {arch}\n\npackage revault\n\n/*\n#cgo LDFLAGS: {library_flags} {system}\n*/\nimport \"C\"\n"),
@@ -914,6 +904,14 @@ fn assemble_go(source: &Path, layout: &Path, output: &Path, manifest: &NativeMan
         &source.join("rust/revault_bindings/revault_api.h"),
         &go.join("revault_api.h"),
     )
+}
+
+fn go_library_flags(target: &str, static_library: &str) -> String {
+    if target.starts_with("windows-") {
+        format!("-L${{SRCDIR}}/native/{target} -lrevault_api")
+    } else {
+        format!("${{SRCDIR}}/native/{target}/{static_library}")
+    }
 }
 
 fn extract_verified(archive: &Path, destination: &Path) -> Result<(PathBuf, NativeMetadata)> {
@@ -1435,6 +1433,18 @@ mod tests {
             assert!(flags.contains("-lbcrypt"));
             assert!(flags.contains("-lws2_32"));
         }
+    }
+
+    #[test]
+    fn go_windows_link_flags_are_accepted_by_cgo_and_clang() {
+        assert_eq!(
+            go_library_flags("windows-x86_64-msvc", "revault_api.lib"),
+            "-L${SRCDIR}/native/windows-x86_64-msvc -lrevault_api"
+        );
+        assert_eq!(
+            go_library_flags("linux-x86_64-gnu", "librevault_api.a"),
+            "${SRCDIR}/native/linux-x86_64-gnu/librevault_api.a"
+        );
     }
 
     #[test]

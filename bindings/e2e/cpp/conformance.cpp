@@ -8,8 +8,14 @@
 #include <string>
 #include <thread>
 #include <vector>
+#ifdef _WIN32
+#include <windows.h>
+using AgentProcess = HANDLE;
+#else
 #include <sys/wait.h>
 #include <unistd.h>
+using AgentProcess = pid_t;
+#endif
 
 #include <revault_api.hpp>
 
@@ -17,6 +23,57 @@ namespace fs = std::filesystem;
 using namespace revault;
 
 static const char* executable_path;
+static void check(bool condition, const char* message);
+static unsigned long process_id() {
+#ifdef _WIN32
+  return static_cast<unsigned long>(GetCurrentProcessId());
+#else
+  return static_cast<unsigned long>(getpid());
+#endif
+}
+static void set_environment(const char* name, const char* value) {
+#ifdef _WIN32
+  check(_putenv_s(name, value) == 0, "set environment");
+#else
+  check(setenv(name, value, 1) == 0, "set environment");
+#endif
+}
+static AgentProcess spawn_agent() {
+#ifdef _WIN32
+  std::string command = "\"" + std::string(executable_path) + "\" --serve-agent";
+  STARTUPINFOA startup{};
+  PROCESS_INFORMATION process{};
+  startup.cb = sizeof(startup);
+  check(CreateProcessA(nullptr, command.data(), nullptr, nullptr, FALSE, 0,
+                       nullptr, nullptr, &startup, &process) != 0,
+        "start agent process");
+  CloseHandle(process.hThread);
+  return process.hProcess;
+#else
+  const pid_t child = fork();
+  check(child >= 0, "fork agent");
+  if (child == 0) {
+    execl(executable_path, executable_path, "--serve-agent", nullptr);
+    _exit(127);
+  }
+  return child;
+#endif
+}
+static void wait_for_agent(AgentProcess child) {
+#ifdef _WIN32
+  check(WaitForSingleObject(child, 10000) == WAIT_OBJECT_0,
+        "agent stopped within ten seconds");
+  DWORD status = 1;
+  check(GetExitCodeProcess(child, &status) != 0 && status == 0,
+        "agent child exit");
+  CloseHandle(child);
+#else
+  int status = 0;
+  check(waitpid(child, &status, 0) == child && WIFEXITED(status) &&
+            WEXITSTATUS(status) == 0,
+        "agent child exit");
+#endif
+}
 static void pass(const char* symbol, unsigned assertions = 1) {
   std::cout << "PASS\tcpp\t" << symbol << '\t' << assertions << '\n';
 }
@@ -504,7 +561,7 @@ static void vault_lifecycle() {
 static void default_vault_lifecycle() {
   const auto root = artifact_root() / "default-vault";
   fs::create_directories(root);
-  setenv("LOCKBOX_VAULT_DIR", root.c_str(), 1);
+  set_environment("LOCKBOX_VAULT_DIR", root.string().c_str());
   {
     auto vault = Vault::replace_default("default password");
     pass("vault_directory_replace_default");
@@ -536,16 +593,16 @@ static void default_vault_lifecycle() {
 
 static void agent_and_local_vault() {
   const auto agent_dir = fs::temp_directory_path() /
-      ("revault-cpp-agent-" + std::to_string(getpid()));
+      ("revault-cpp-agent-" + std::to_string(process_id()));
   const auto agent_vault_dir = fs::temp_directory_path() /
-      ("revault-cpp-agent-vault-" + std::to_string(getpid()));
+      ("revault-cpp-agent-vault-" + std::to_string(process_id()));
   fs::remove_all(agent_dir); fs::remove_all(agent_vault_dir);
   fs::create_directories(agent_dir); fs::create_directories(agent_vault_dir);
   fs::permissions(agent_dir, fs::perms::owner_all, fs::perm_options::replace);
   fs::permissions(agent_vault_dir, fs::perms::owner_all, fs::perm_options::replace);
-  setenv("LOCKBOX_SESSION_AGENT_DIR", agent_dir.c_str(), 1);
-  setenv("LOCKBOX_VAULT_DIR", agent_vault_dir.c_str(), 1);
-  setenv("LOCKBOX_VAULT_PASSWORD", "agent vault password", 1);
+  set_environment("LOCKBOX_SESSION_AGENT_DIR", agent_dir.string().c_str());
+  set_environment("LOCKBOX_VAULT_DIR", agent_vault_dir.string().c_str());
+  set_environment("LOCKBOX_VAULT_PASSWORD", "agent vault password");
   {
     auto vault = Vault::replace_default("agent vault password");
     ContactKeyPair profile;
@@ -553,12 +610,7 @@ static void agent_and_local_vault() {
   }
   AgentSession::forget_all();
   pass("vault_forget_all");
-  const pid_t child = fork();
-  check(child >= 0, "fork agent");
-  if (child == 0) {
-    execl(executable_path, executable_path, "--serve-agent", nullptr);
-    _exit(127);
-  }
+  const AgentProcess child = spawn_agent();
   bool running = false;
   for (unsigned attempt = 0; attempt < 200; ++attempt) {
     if (AgentSession::is_running()) { running = true; break; }
@@ -605,7 +657,7 @@ static void agent_and_local_vault() {
 
   pass("vault_local");
   const auto local_root = fs::temp_directory_path() /
-      ("revault-cpp-local-" + std::to_string(getpid()));
+      ("revault-cpp-local-" + std::to_string(process_id()));
   fs::remove_all(local_root); fs::create_directories(local_root);
   const auto password_path = (local_root / "password.lbox").string();
   {
@@ -655,16 +707,14 @@ static void agent_and_local_vault() {
   pass("vault_agent_forget");
   AgentSession::stop();
   pass("vault_agent_stop");
-  int status = 0;
-  check(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0,
-        "agent child exit");
+  wait_for_agent(child);
 }
 
 static void platform_secret_store() {
   const auto root = fs::temp_directory_path() /
-      ("revault-cpp-platform-" + std::to_string(getpid()));
+      ("revault-cpp-platform-" + std::to_string(process_id()));
   fs::remove_all(root); fs::create_directories(root);
-  setenv("LOCKBOX_VAULT_DIR", root.c_str(), 1);
+  set_environment("LOCKBOX_VAULT_DIR", root.string().c_str());
   (void)PlatformSecretStore::status();
   pass("vault_platform_status", 2);
   PlatformSecretStore::set_scope("vault");

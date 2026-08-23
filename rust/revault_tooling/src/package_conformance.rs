@@ -485,14 +485,17 @@ fn prepare_go(target: &str, repository: &Path, packages: &Path, work: &Path) -> 
     } else {
         "revault-go-conformance"
     });
-    run_status(
-        Command::new("go")
-            .arg("build")
-            .arg("-o")
-            .arg(&output)
-            .arg(repository.join("bindings/e2e/go/conformance.go"))
-            .current_dir(&package),
-    )?;
+    let mut build = Command::new("go");
+    build
+        .arg("build")
+        .arg("-o")
+        .arg(&output)
+        .arg(repository.join("bindings/e2e/go/conformance.go"))
+        .current_dir(&package);
+    if cfg!(windows) {
+        build.env("CC", "clang");
+    }
+    run_status(&mut build)?;
     let native_root = package.join("native").join(target);
     Ok(Prepared {
         program: output,
@@ -598,21 +601,24 @@ fn prepare_php(target: &str, repository: &Path, packages: &Path, work: &Path) ->
         &root.join("bindings/e2e/php"),
     )?;
     let project = root.join("bindings/e2e/php");
-    run_status(
-        Command::new(if cfg!(windows) {
-            "composer.bat"
-        } else {
-            "composer"
-        })
-        .args([
-            "install",
-            "--no-interaction",
-            "--no-progress",
-            "--prefer-dist",
-            "--optimize-autoloader",
-        ])
-        .current_dir(&project),
-    )?;
+    let mut composer = Command::new(if cfg!(windows) {
+        "composer.bat"
+    } else {
+        "composer"
+    });
+    composer.args([
+        "install",
+        "--no-interaction",
+        "--no-progress",
+        "--optimize-autoloader",
+    ]);
+    composer.arg(if cfg!(windows) {
+        "--prefer-source"
+    } else {
+        "--prefer-dist"
+    });
+    composer.current_dir(&project);
+    run_status(&mut composer)?;
     Ok(Prepared {
         program: PathBuf::from(if cfg!(windows) { "php.exe" } else { "php" }),
         args: vec![
@@ -690,11 +696,7 @@ fn prepare_lua(target: &str, repository: &Path, packages: &Path, work: &Path) ->
         if cfg!(windows) { "dll" } else { "so" }
     );
     Ok(Prepared {
-        program: PathBuf::from(if cfg!(windows) {
-            "luajit.exe"
-        } else {
-            "luajit"
-        }),
+        program: PathBuf::from(if cfg!(windows) { "lua.exe" } else { "luajit" }),
         args: vec![repository
             .join("bindings/e2e/lua/conformance.lua")
             .display()

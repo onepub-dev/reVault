@@ -16,7 +16,11 @@ import java.nio.charset.StandardCharsets;
  * for installation and examples.
  */
 public final class Revault {
-  /** Consumes temporary secret bytes before their transfer copy is wiped. */
+  /**
+   * Consumes temporary secret bytes before their transfer copy is wiped.
+   *
+   * @param <T> value returned by the callback
+   */
   @FunctionalInterface
   public interface SecretCallback<T> {
     /** Uses temporary secret bytes that must not be retained after this call. */
@@ -450,8 +454,11 @@ public final class Revault {
     return operations.vaultRestoreDefault(path, overwrite);
   }
 
-  /** Password-protected storage for profile keys, contacts, forms, backups, and known lockbox paths. */
-  /** Internal implementation base exposed through the public {@link Vault} facade. */
+  /**
+   * Password-protected storage for profile keys, contacts, forms, backups,
+   * and known lockbox paths. This internal implementation base is exposed
+   * through the public {@link Vault} facade.
+   */
   public class VaultHandle implements AutoCloseable {
     private MemorySegment handle;
     protected VaultHandle(MemorySegment handle) { this.handle = handle; }
@@ -564,8 +571,11 @@ public final class Revault {
     @Override public void close() { if (handle != null) { operations.vaultDirectoryFree(handle); handle = null; } }
   }
 
-  /** A metadata view for discovery and diagnostics that never loads an owner signing key. */
-  /** Internal implementation base exposed through the public {@link ReadOnlyVault} facade. */
+  /**
+   * A metadata view for discovery and diagnostics that never loads an owner
+   * signing key. This internal implementation base is exposed through the
+   * public {@link ReadOnlyVault} facade.
+   */
   public class ReadOnlyVaultHandle implements AutoCloseable {
     private MemorySegment handle;
     protected ReadOnlyVaultHandle(MemorySegment handle) { this.handle = handle; }
