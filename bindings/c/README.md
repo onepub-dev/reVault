@@ -1,6 +1,6 @@
 # reVault C API
 
-reVault is an encrypted archive and local-vault library for storing files,
+reVault is an encrypted archive and persistent Vault library for storing files,
 metadata, credentials, keys, and typed form records. The stable C ABI is the
 foundation for the native language packages. See the
 [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs)
@@ -40,6 +40,9 @@ lockbox_free(box);
 ```
 
 The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+The executable lifecycle examples are in
+[`../e2e/c/conformance.c`](../e2e/c/conformance.c); they run against the
+installed SDK carrier and release every returned buffer and handle.
 
 Every returned `RevaultBuffer` must be released with `buffer_free`; every
 owned handle has a corresponding `*_free`. Secret handles are opaque and must

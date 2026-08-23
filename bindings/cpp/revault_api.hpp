@@ -2,7 +2,7 @@
 
 /**
  * @file revault_api.hpp
- * @brief RAII C++ API for encrypted reVault lockboxes and local vaults.
+ * @brief RAII C++ API for encrypted reVault Lockboxes and persistent Vaults.
  *
  * Use the functions and classes in `revault` to create or open lockboxes,
  * manage cryptographic keys, and open the local metadata vault. Objects that
@@ -29,10 +29,9 @@
 /** High-level, ownership-safe wrappers around the stable reVault C ABI. */
 namespace revault {
 
-class VaultDirectory;
-class ReadOnlyVaultDirectory;
-class Agent;
-class LocalVault;
+class Vault;
+class ReadOnlyVault;
+class AgentSession;
 class WrappedContactKey;
 
 namespace detail {
@@ -125,7 +124,35 @@ inline bindings::ErrorDetails last_error_details() {
   return take_message<bindings::ErrorDetails>(buffer_last_error_details());
 }
 
+/** Private carrier for the vault-integrated lockbox calls. It is deliberately
+ * not a public domain object; callers use Lockbox factories and AgentSession. */
+class VaultIntegrationHandle {
+ public:
+  VaultIntegrationHandle() : handle_(vault_local()) {
+    if (!handle_) throw std::runtime_error(buffer_last_error());
+  }
+  VaultIntegrationHandle(const VaultIntegrationHandle&) = delete;
+  VaultIntegrationHandle& operator=(const VaultIntegrationHandle&) = delete;
+  ~VaultIntegrationHandle() { if (handle_) vault_free(handle_); }
+  const void* get() const { return handle_; }
+ private:
+  void* handle_{};
+};
+
 }  // namespace detail
+
+/** Linked native runtime entry point. Loading validates the ABI and does not
+ * open a Vault or start the optional AgentSession. */
+class Revault {
+ public:
+  /** Validates that the linked carrier implements this facade's ABI. */
+  static Revault load() {
+    detail::require_compatible_abi();
+    return Revault();
+  }
+ private:
+  Revault() = default;
+};
 
 /** Throws when the loaded native library does not implement this facade's ABI. */
 inline void require_compatible_abi() { detail::require_compatible_abi(); }
@@ -169,7 +196,7 @@ class ContactPublicKey {
   /** Returns the native handle. */
   void* native_handle() const { return handle_; }
  private:
-  friend class VaultDirectory;
+  friend class Vault;
   explicit ContactPublicKey(void* handle) : handle_(handle) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
@@ -252,7 +279,7 @@ class ContactKeyPair {
   /** Returns the native handle. */
   void* native_handle() const { return handle_; }
  private:
-  friend class VaultDirectory;
+  friend class Vault;
   explicit ContactKeyPair(void* handle) : handle_(handle) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
@@ -261,26 +288,26 @@ class ContactKeyPair {
 
 /** The shareable half of a lockbox owner's signing identity, used by readers to
  * verify owner-authorized revisions. */
-class SigningPublicKey {
+class ProfileSigningPublicKey {
  public:
   /** Returns the signing public key. */
-  explicit SigningPublicKey(const std::vector<std::uint8_t>& bytes)
+  explicit ProfileSigningPublicKey(const std::vector<std::uint8_t>& bytes)
       : handle_(key_signing_public_from_bytes(bytes.data(), bytes.size())) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
   /** Returns the signing public key. */
-  SigningPublicKey(const SigningPublicKey&) = delete;
+  ProfileSigningPublicKey(const ProfileSigningPublicKey&) = delete;
   /** Returns the operator. */
-  SigningPublicKey& operator=(const SigningPublicKey&) = delete;
+  ProfileSigningPublicKey& operator=(const ProfileSigningPublicKey&) = delete;
   /** Returns the signing public key. */
-  SigningPublicKey(SigningPublicKey&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
+  ProfileSigningPublicKey(ProfileSigningPublicKey&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
   /** Returns the signing public key. */
-  ~SigningPublicKey() { if (handle_) key_signing_public_free(handle_); }
+  ~ProfileSigningPublicKey() { if (handle_) key_signing_public_free(handle_); }
   /** Returns the native handle. */
   void* native_handle() const { return handle_; }
  private:
-  friend class VaultDirectory;
-  explicit SigningPublicKey(void* handle) : handle_(handle) {
+  friend class Vault;
+  explicit ProfileSigningPublicKey(void* handle) : handle_(handle) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
   void* handle_{};
@@ -288,36 +315,36 @@ class SigningPublicKey {
 
 /** A lockbox owner's signing identity, supplied when creating or committing a
  * mutable lockbox so readers can authenticate its revisions. */
-class SigningKeyPair {
+class ProfileSigningKeyPair {
  public:
   /** Returns the signing key pair. */
-  SigningKeyPair() : handle_(key_signing_generate()) {
+  ProfileSigningKeyPair() : handle_(key_signing_generate()) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
   /** Returns the from private record. */
-  static SigningKeyPair from_private_record(const std::vector<std::uint8_t>& bytes) {
-    return SigningKeyPair(key_signing_from_private(bytes.data(), bytes.size()));
+  static ProfileSigningKeyPair from_private_record(const std::vector<std::uint8_t>& bytes) {
+    return ProfileSigningKeyPair(key_signing_from_private(bytes.data(), bytes.size()));
   }
   /** Returns the signing key pair. */
-  SigningKeyPair(const SigningKeyPair&) = delete;
+  ProfileSigningKeyPair(const ProfileSigningKeyPair&) = delete;
   /** Returns the operator. */
-  SigningKeyPair& operator=(const SigningKeyPair&) = delete;
+  ProfileSigningKeyPair& operator=(const ProfileSigningKeyPair&) = delete;
   /** Returns the signing key pair. */
-  SigningKeyPair(SigningKeyPair&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
+  ProfileSigningKeyPair(ProfileSigningKeyPair&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
   /** Returns the signing key pair. */
-  ~SigningKeyPair() { if (handle_) key_signing_free(handle_); }
+  ~ProfileSigningKeyPair() { if (handle_) key_signing_free(handle_); }
   /** Returns the public bytes. */
   std::vector<std::uint8_t> public_bytes() const { return detail::take_bytes(key_signing_public(handle_)); }
   /** Returns the private record. */
   std::vector<std::uint8_t> private_record() const { return detail::take_bytes(key_signing_private(handle_)); }
   /** Returns the public key. */
-  SigningPublicKey public_key() const { return SigningPublicKey(public_bytes()); }
+  ProfileSigningPublicKey public_key() const { return ProfileSigningPublicKey(public_bytes()); }
   /** Returns the native handle. */
   void* native_handle() const { return handle_; }
  private:
-  friend class VaultDirectory;
-  friend class Agent;
-  explicit SigningKeyPair(void* handle) : handle_(handle) {
+  friend class Vault;
+  friend class AgentSession;
+  explicit ProfileSigningKeyPair(void* handle) : handle_(handle) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
   void* handle_{};
@@ -391,7 +418,7 @@ class Lockbox {
   }
   /** Creates signed. */
   static Lockbox create_signed(const std::vector<std::uint8_t>& key,
-                               const SigningKeyPair& signing_key) {
+                               const ProfileSigningKeyPair& signing_key) {
     return adopt(lockbox_create_with_signing_key(
         key.data(), key.size(), signing_key.native_handle()));
   }
@@ -421,6 +448,54 @@ class Lockbox {
   static Lockbox open_with_contact(const std::vector<std::uint8_t>& archive,
                                    const ContactKeyPair& contact) {
     return adopt(lockbox_open_contact(archive.data(), archive.size(), contact.native_handle()));
+  }
+
+  /** Creates a password-protected lockbox at a host path through the
+   * persistent Vault integration. The returned Lockbox owns the process-local
+   * content key; it does not retain the integration handle. */
+  static Lockbox create_path_with_password(const std::string& path,
+                                           const std::string& lockbox_password) {
+    detail::VaultIntegrationHandle vault;
+    return adopt(vault_create_lockbox_password(
+        vault.get(), path.data(), path.size(),
+        reinterpret_cast<const std::uint8_t*>(lockbox_password.data()),
+        lockbox_password.size()));
+  }
+  /** Opens a password-protected lockbox from a host path. */
+  static Lockbox open_path_with_password(const std::string& path,
+                                         const std::string& lockbox_password) {
+    detail::VaultIntegrationHandle vault;
+    return adopt(vault_open_lockbox_password(
+        vault.get(), path.data(), path.size(),
+        reinterpret_cast<const std::uint8_t*>(lockbox_password.data()),
+        lockbox_password.size()));
+  }
+  /** Creates a content-key lockbox at a host path. */
+  static Lockbox create_path_with_content_key(
+      const std::string& path, const std::vector<std::uint8_t>& content_key,
+      const ProfileSigningKeyPair& signing_key) {
+    detail::VaultIntegrationHandle vault;
+    return adopt(vault_create_lockbox_content_key(
+        vault.get(), path.data(), path.size(), content_key.data(),
+        content_key.size(), signing_key.native_handle()));
+  }
+  /** Opens a content-key lockbox from a host path. */
+  static Lockbox open_path_with_content_key(
+      const std::string& path, const std::vector<std::uint8_t>& content_key,
+      const ProfileSigningKeyPair& signing_key) {
+    detail::VaultIntegrationHandle vault;
+    return adopt(vault_open_lockbox_content_key(
+        vault.get(), path.data(), path.size(), content_key.data(),
+        content_key.size(), signing_key.native_handle()));
+  }
+  /** Creates a contact-protected lockbox at a host path. */
+  static Lockbox create_path_for_contact(
+      const std::string& path, const ContactPublicKey& contact,
+      const std::string& contact_name, const ProfileSigningKeyPair& signing_key) {
+    detail::VaultIntegrationHandle vault;
+    return adopt(vault_create_lockbox_contact(
+        vault.get(), path.data(), path.size(), contact.native_handle(),
+        contact_name.data(), contact_name.size(), signing_key.native_handle()));
   }
 
   /** Adds file. */
@@ -461,7 +536,7 @@ class Lockbox {
   /** Salvages salvage. */
   static Lockbox salvage(const std::vector<std::uint8_t>& archive,
                          const std::vector<std::uint8_t>& key,
-                         const SigningKeyPair* signing_key = nullptr) {
+                         const ProfileSigningKeyPair* signing_key = nullptr) {
     return adopt(lockbox_recovery_salvage(
         archive.data(), archive.size(), key.data(), key.size(),
         signing_key ? signing_key->native_handle() : nullptr));
@@ -639,7 +714,7 @@ class Lockbox {
   /** Returns the owner inspection. */
   bindings::OwnerInspection owner_inspection() const { return decoded<bindings::OwnerInspection>(lockbox_owner_inspection(handle_)); }
   /** Sets owner signing key. */
-  void set_owner_signing_key(const SigningKeyPair& key) {
+  void set_owner_signing_key(const ProfileSigningKeyPair& key) {
     if (!lockbox_set_owner_signing_key(handle_, key.native_handle()))
       throw std::runtime_error(buffer_last_error());
   }
@@ -749,7 +824,6 @@ class Lockbox {
   void* native_handle() const { return handle_; }
 
  private:
-  friend class LocalVault;
   explicit Lockbox(void* handle) : handle_(handle) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
@@ -768,7 +842,7 @@ class Lockbox {
 
 /** A writable, password-protected store for profile keys, contacts, forms,
  * backups, and remembered lockbox paths; lockbox contents remain separate. */
-class VaultDirectory {
+class Vault {
  public:
   /** Returns the current structure version. */
   static std::uint32_t current_structure_version() { return vault_structure_version_current(); }
@@ -780,31 +854,31 @@ class VaultDirectory {
     return value;
   }
   /** Opens an existing lockbox. */
-  static VaultDirectory open(const std::string& root, const std::string& password) {
+  static Vault open(const std::string& root, const std::string& password) {
     return adopt(vault_directory_open(
         root.data(), root.size(), reinterpret_cast<const std::uint8_t*>(password.data()),
         password.size()));
   }
   /** Opens or create. */
-  static VaultDirectory open_or_create(const std::string& root,
+  static Vault open_or_create(const std::string& root,
                                        const std::string& password) {
     return adopt(vault_directory_open_or_create(
         root.data(), root.size(), reinterpret_cast<const std::uint8_t*>(password.data()),
         password.size()));
   }
   /** Updates replace. */
-  static VaultDirectory replace(const std::string& root, const std::string& password) {
+  static Vault replace(const std::string& root, const std::string& password) {
     return adopt(vault_directory_replace(
         root.data(), root.size(), reinterpret_cast<const std::uint8_t*>(password.data()),
         password.size()));
   }
   /** Opens or create default. */
-  static VaultDirectory open_or_create_default(const std::string& password) {
+  static Vault open_or_create_default(const std::string& password) {
     return adopt(vault_directory_open_or_create_default(
         reinterpret_cast<const std::uint8_t*>(password.data()), password.size()));
   }
   /** Updates default. */
-  static VaultDirectory replace_default(const std::string& password) {
+  static Vault replace_default(const std::string& password) {
     return adopt(vault_directory_replace_default(
         reinterpret_cast<const std::uint8_t*>(password.data()), password.size()));
   }
@@ -843,13 +917,13 @@ class VaultDirectory {
   }
 
   /** Returns the vault directory. */
-  VaultDirectory(const VaultDirectory&) = delete;
+  Vault(const Vault&) = delete;
   /** Returns the operator. */
-  VaultDirectory& operator=(const VaultDirectory&) = delete;
+  Vault& operator=(const Vault&) = delete;
   /** Returns the vault directory. */
-  VaultDirectory(VaultDirectory&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
+  Vault(Vault&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
   /** Returns the operator. */
-  VaultDirectory& operator=(VaultDirectory&& other) noexcept {
+  Vault& operator=(Vault&& other) noexcept {
     if (this != &other) {
       if (handle_) vault_directory_free(handle_);
       handle_ = other.handle_;
@@ -858,7 +932,7 @@ class VaultDirectory {
     return *this;
   }
   /** Returns the vault directory. */
-  ~VaultDirectory() { if (handle_) vault_directory_free(handle_); }
+  ~Vault() { if (handle_) vault_directory_free(handle_); }
 
   /** Returns the root. */
   std::string root() const { return detail::take_string(vault_directory_root(handle_)); }
@@ -948,31 +1022,31 @@ class VaultDirectory {
   std::uint64_t backup_count() const { return vault_directory_backup_count(handle_); }
   /** Returns the restore private key. */
   void restore_private_key(const std::string& name, const ContactKeyPair& key,
-                           const SigningKeyPair& signing_key, bool overwrite = false) const {
+                           const ProfileSigningKeyPair& signing_key, bool overwrite = false) const {
     checked(vault_directory_restore_private_key(
         handle_, name.data(), name.size(), key.native_handle(),
         signing_key.native_handle(), overwrite));
   }
-  /** Loads owner signing key. */
-  SigningKeyPair load_owner_signing_key(const std::string& name) const {
-    return SigningKeyPair(vault_directory_load_owner_signing_key(
+  /** Loads the current signing identity for a profile. */
+  ProfileSigningKeyPair load_profile_signing_key(const std::string& name) const {
+    return ProfileSigningKeyPair(vault_directory_load_owner_signing_key(
         handle_, name.data(), name.size()));
   }
-  /** Loads owner signing key generation. */
-  SigningKeyPair load_owner_signing_key_generation(const std::string& name,
-                                                   std::uint16_t index) const {
-    return SigningKeyPair(vault_directory_load_owner_signing_key_generation(
+  /** Loads a historical signing-key generation for a profile. */
+  ProfileSigningKeyPair load_profile_signing_key_generation(
+      const std::string& name, std::uint16_t index) const {
+    return ProfileSigningKeyPair(vault_directory_load_owner_signing_key_generation(
         handle_, name.data(), name.size(), index));
   }
   /** Stores contact signing key. */
   void store_contact_signing_key(const std::string& name,
-                                 const SigningPublicKey& key) const {
+                                 const ProfileSigningPublicKey& key) const {
     checked(vault_directory_store_contact_signing_key(
         handle_, name.data(), name.size(), key.native_handle()));
   }
   /** Loads contact signing key. */
-  SigningPublicKey load_contact_signing_key(const std::string& name) const {
-    return SigningPublicKey(vault_directory_load_contact_signing_key(
+  ProfileSigningPublicKey load_contact_signing_key(const std::string& name) const {
+    return ProfileSigningPublicKey(vault_directory_load_contact_signing_key(
         handle_, name.data(), name.size()));
   }
   /** Lists profile generations. */
@@ -1066,10 +1140,10 @@ class VaultDirectory {
   void* native_handle() const { return handle_; }
 
  private:
-  explicit VaultDirectory(void* handle) : handle_(handle) {
+  explicit Vault(void* handle) : handle_(handle) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
-  static VaultDirectory adopt(void* handle) { return VaultDirectory(handle); }
+  static Vault adopt(void* handle) { return Vault(handle); }
   static void checked(bool result) {
     if (!result) throw std::runtime_error(buffer_last_error());
   }
@@ -1078,25 +1152,25 @@ class VaultDirectory {
 
 /** A restricted metadata view for discovery or diagnostics without loading an
  * owner signing key or exposing mutation operations. */
-class ReadOnlyVaultDirectory {
+class ReadOnlyVault {
  public:
   /** Returns only vault directory. */
-  ReadOnlyVaultDirectory(const std::string& root, const std::string& password)
+  ReadOnlyVault(const std::string& root, const std::string& password)
       : handle_(vault_read_only_open(root.data(), root.size(),
           reinterpret_cast<const std::uint8_t*>(password.data()), password.size())) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
   /** Opens default. */
-  static ReadOnlyVaultDirectory open_default(const std::string& password) {
-    return ReadOnlyVaultDirectory(vault_read_only_open_default(
+  static ReadOnlyVault open_default(const std::string& password) {
+    return ReadOnlyVault(vault_read_only_open_default(
         reinterpret_cast<const std::uint8_t*>(password.data()), password.size()));
   }
   /** Returns only vault directory. */
-  ReadOnlyVaultDirectory(const ReadOnlyVaultDirectory&) = delete;
+  ReadOnlyVault(const ReadOnlyVault&) = delete;
   /** Returns only vault directory. */
-  ReadOnlyVaultDirectory(ReadOnlyVaultDirectory&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
+  ReadOnlyVault(ReadOnlyVault&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
   /** Returns only vault directory. */
-  ~ReadOnlyVaultDirectory() { if (handle_) vault_read_only_free(handle_); }
+  ~ReadOnlyVault() { if (handle_) vault_read_only_free(handle_); }
   /** Lists profile names. */
   bindings::StringList list_profile_names() const { return detail::take_message<bindings::StringList>(vault_read_only_list_profile_names(handle_)); }
   /** Lists contact names. */
@@ -1106,7 +1180,7 @@ class ReadOnlyVaultDirectory {
   /** Lists known lockboxes. */
   bindings::KnownLockboxList list_known_lockboxes() const { return detail::take_message<bindings::KnownLockboxList>(vault_read_only_list_known_lockboxes(handle_)); }
  private:
-  explicit ReadOnlyVaultDirectory(void* handle) : handle_(handle) { if (!handle_) throw std::runtime_error(buffer_last_error()); }
+  explicit ReadOnlyVault(void* handle) : handle_(handle) { if (!handle_) throw std::runtime_error(buffer_last_error()); }
   void* handle_{};
 };
 
@@ -1167,16 +1241,16 @@ class AgentActivity {
     }
   }
  private:
-  friend class Agent;
+  friend class AgentSession;
   explicit AgentActivity(void* handle) : handle_(handle) {
     if (!handle_) throw std::runtime_error(buffer_last_error());
   }
   void* handle_{};
 };
 
-/** Client for the local session service that temporarily caches vault unlock
- * and owner signing keys across application operations. */
-class Agent {
+/** Explicit client for the session service that temporarily caches vault
+ * unlock keys and selected profile signing keys across operations. */
+class AgentSession {
  public:
   /** Starts start. */
   static void start() { checked(vault_agent_start()); }
@@ -1230,24 +1304,47 @@ class Agent {
   static void forget_vault_unlock_key(const std::string& profile) {
     checked(vault_agent_forget_vault_unlock_key(profile.data(), profile.size()));
   }
-  /** Stores owner signing key. */
-  static void put_owner_signing_key(const std::string& vault_id, const std::string& profile,
-                            const SigningKeyPair& key, std::uint64_t ttl_seconds) {
+  /** Caches a profile signing key for the selected session duration. */
+  static void put_profile_signing_key(const std::string& vault_id,
+                                      const std::string& profile,
+                                      const ProfileSigningKeyPair& key,
+                                      std::uint64_t ttl_seconds) {
     checked(vault_agent_put_owner_signing_key(
         vault_id.data(), vault_id.size(), profile.data(), profile.size(),
         key.native_handle(), ttl_seconds));
   }
-  /** Returns owner signing key. */
-  static SigningKeyPair get_owner_signing_key(const std::string& vault_id,
-                                      const std::string& profile) {
-    return SigningKeyPair(vault_agent_get_owner_signing_key(
+  /** Retrieves a cached profile signing key, if present. */
+  static ProfileSigningKeyPair get_profile_signing_key(
+      const std::string& vault_id, const std::string& profile) {
+    return ProfileSigningKeyPair(vault_agent_get_owner_signing_key(
         vault_id.data(), vault_id.size(), profile.data(), profile.size()));
   }
-  /** Removes owner signing key. */
-  static void forget_owner_signing_key(const std::string& vault_id,
-                               const std::string& profile) {
+  /** Forgets a cached profile signing key. */
+  static void forget_profile_signing_key(const std::string& vault_id,
+                                         const std::string& profile) {
     checked(vault_agent_forget_owner_signing_key(
         vault_id.data(), vault_id.size(), profile.data(), profile.size()));
+  }
+  /** Retains a lockbox password in the optional session agent for a bounded
+   * duration. This is independent of any Lockbox handle. */
+  static void cache_lockbox_password(const std::string& path,
+                                     const std::string& lockbox_password,
+                                     std::uint64_t ttl_seconds) {
+    detail::VaultIntegrationHandle vault;
+    checked(vault_cache_lockbox_password(
+        vault.get(), path.data(), path.size(),
+        reinterpret_cast<const std::uint8_t*>(lockbox_password.data()),
+        lockbox_password.size(), ttl_seconds));
+  }
+  /** Forgets one lockbox key retained by the session agent. */
+  static void close_lockbox(const std::string& path) {
+    detail::VaultIntegrationHandle vault;
+    checked(vault_close_lockbox(vault.get(), path.data(), path.size()));
+  }
+  /** Forgets all lockbox keys retained by the session agent. */
+  static void close_all() {
+    detail::VaultIntegrationHandle vault;
+    checked(vault_close_all(vault.get()));
   }
   /** Starts activity. */
   static AgentActivity begin_activity(const std::string& kind) {
@@ -1289,82 +1386,6 @@ class PlatformSecretStore {
   static void checked(bool result) {
     if (!result) throw std::runtime_error(buffer_last_error());
   }
-};
-
-/** A session for creating or opening lockboxes by host path, caching short-lived
- * passwords, and committing and closing files used by a local application. */
-class LocalVault {
- public:
-  /** Returns the local vault. */
-  LocalVault() : handle_(vault_local()) {
-    if (!handle_) throw std::runtime_error(buffer_last_error());
-  }
-  /** Returns the local vault. */
-  LocalVault(const LocalVault&) = delete;
-  /** Returns the operator. */
-  LocalVault& operator=(const LocalVault&) = delete;
-  /** Returns the local vault. */
-  LocalVault(LocalVault&& other) noexcept : handle_(other.handle_) { other.handle_ = nullptr; }
-  /** Returns the local vault. */
-  ~LocalVault() { if (handle_) vault_free(handle_); }
-  /** Creates with password. */
-  Lockbox create_with_password(const std::string& path,
-                               const std::string& password) const {
-    return Lockbox::adopt(vault_create_lockbox_password(
-        handle_, path.data(), path.size(),
-        reinterpret_cast<const std::uint8_t*>(password.data()), password.size()));
-  }
-  /** Opens with password. */
-  Lockbox open_with_password(const std::string& path,
-                             const std::string& password) const {
-    return Lockbox::adopt(vault_open_lockbox_password(
-        handle_, path.data(), path.size(),
-        reinterpret_cast<const std::uint8_t*>(password.data()), password.size()));
-  }
-  /** Creates with content key. */
-  Lockbox create_with_content_key(const std::string& path,
-                                  const std::vector<std::uint8_t>& key,
-                                  const SigningKeyPair& signing_key) const {
-    return Lockbox::adopt(vault_create_lockbox_content_key(
-        handle_, path.data(), path.size(), key.data(), key.size(),
-        signing_key.native_handle()));
-  }
-  /** Opens with content key. */
-  Lockbox open_with_content_key(const std::string& path,
-                                const std::vector<std::uint8_t>& key,
-                                const SigningKeyPair& signing_key) const {
-    return Lockbox::adopt(vault_open_lockbox_content_key(
-        handle_, path.data(), path.size(), key.data(), key.size(),
-        signing_key.native_handle()));
-  }
-  /** Creates for contact. */
-  Lockbox create_for_contact(const std::string& path,
-                             const ContactPublicKey& contact,
-                             const std::string& name,
-                             const SigningKeyPair& signing_key) const {
-    return Lockbox::adopt(vault_create_lockbox_contact(
-        handle_, path.data(), path.size(), contact.native_handle(), name.data(),
-        name.size(), signing_key.native_handle()));
-  }
-  /** Stores password. */
-  void cache_password(const std::string& path, const std::string& password,
-                      std::uint64_t ttl_seconds) const {
-    checked(vault_cache_lockbox_password(
-        handle_, path.data(), path.size(),
-        reinterpret_cast<const std::uint8_t*>(password.data()), password.size(),
-        ttl_seconds));
-  }
-  /** Releases the native resources held by close. */
-  void close(const std::string& path) const {
-    checked(vault_close_lockbox(handle_, path.data(), path.size()));
-  }
-  /** Releases the native resources held by all. */
-  void close_all() const { checked(vault_close_all(handle_)); }
- private:
-  static void checked(bool result) {
-    if (!result) throw std::runtime_error(buffer_last_error());
-  }
-  void* handle_{};
 };
 
 }  // namespace revault

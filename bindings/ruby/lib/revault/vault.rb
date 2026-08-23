@@ -5,6 +5,19 @@ require_relative 'binding_operations'
 
 # Encrypts lockbox content and manages local vault metadata.
 module Revault
+  # Load the installed native carrier and return the runtime facade.
+  def self.load = Runtime.new
+  # Return a new runtime facade synchronously for factory operations.
+  def self.runtime = Runtime.new
+
+  # Native operation failure with structured diagnostic details.
+  class RevaultError < StandardError
+    attr_reader :details
+    # Preserve the stable native message and structured details.
+    def initialize(message, details = nil)
+      super(message); @details = details
+    end
+  end
 
   # Returns the owned handle.
   class OwnedHandle
@@ -18,7 +31,7 @@ module Revault
 
   # Primary API used to open lockboxes, manage keys and metadata, use the
   # session agent, and access operating-system credential storage.
-  class Vault
+  class Runtime
     attr_reader :agent, :platform
     # Returns the initialize.
     def initialize
@@ -198,7 +211,7 @@ module Revault
 
     # Returns the vault directory open.
     def vault_directory_open(root, password)
-      VaultDirectory.new(@operations, @operations.vault_directory_open(root, password))
+      Vault.new(@operations, @operations.vault_directory_open(root, password))
     end
 
     # Returns the vault structure version current.
@@ -213,12 +226,12 @@ module Revault
 
     # Returns the vault directory open or create default.
     def vault_directory_open_or_create_default(password)
-      VaultDirectory.new(@operations, @operations.vault_directory_open_or_create_default(password))
+      Vault.new(@operations, @operations.vault_directory_open_or_create_default(password))
     end
 
     # Returns the vault directory replace default.
     def vault_directory_replace_default(password)
-      VaultDirectory.new(@operations, @operations.vault_directory_replace_default(password))
+      Vault.new(@operations, @operations.vault_directory_replace_default(password))
     end
 
     # Returns the vault directory change password.
@@ -233,12 +246,12 @@ module Revault
 
     # Returns the vault directory replace.
     def vault_directory_replace(root, password)
-      VaultDirectory.new(@operations, @operations.vault_directory_replace(root, password))
+      Vault.new(@operations, @operations.vault_directory_replace(root, password))
     end
 
     # Returns the vault directory open or create.
     def vault_directory_open_or_create(root, password)
-      VaultDirectory.new(@operations, @operations.vault_directory_open_or_create(root, password))
+      Vault.new(@operations, @operations.vault_directory_open_or_create(root, password))
     end
 
     # Returns the vault backup default.
@@ -253,12 +266,12 @@ module Revault
 
     # Returns the vault read only open.
     def vault_read_only_open(root, password)
-      ReadOnlyVaultDirectory.new(@operations, @operations.vault_read_only_open(root, password))
+      ReadOnlyVault.new(@operations, @operations.vault_read_only_open(root, password))
     end
 
     # Returns the vault read only open default.
     def vault_read_only_open_default(password)
-      ReadOnlyVaultDirectory.new(@operations, @operations.vault_read_only_open_default(password))
+      ReadOnlyVault.new(@operations, @operations.vault_read_only_open_default(password))
     end
 
     # Returns the vault default directory.
@@ -281,15 +294,54 @@ module Revault
       @operations.vault_agent_log_destination()
     end
 
-    # Returns the vault local.
-    def vault_local()
-      LocalVault.new(@operations, @operations.vault_local())
-    end
-
   end
 
   # An open encrypted archive containing files, variables, secrets, and forms.
   class Lockbox < OwnedHandle
+    # Creates an in-memory archive protected by exactly one credential.
+    def self.create_in_memory(password: nil, content_key: nil, contact: nil, signing_key: nil, options: nil)
+      credentials = [password, content_key, contact].compact
+      raise ArgumentError, 'supply exactly one of password, content_key, or contact' unless credentials.length == 1
+      runtime = Revault.runtime
+      box = if password
+              runtime.lockbox_create_password(password.to_str)
+            elsif contact
+              runtime.lockbox_create_contact(contact)
+            elsif options
+              runtime.lockbox_create_with_options(content_key, options[:cache_mode], options[:cache_bytes] || 0, options[:workload], options[:worker], options[:jobs] || 0)
+            else
+              runtime.lockbox_create(content_key)
+            end
+      box.set_owner_signing_key(signing_key) if signing_key
+      box
+    end
+
+    # Opens serialized archive bytes without consulting the session agent.
+    def self.open_bytes(archive, password: nil, content_key: nil, contact: nil, options: nil)
+      credentials = [password, content_key, contact].compact
+      raise ArgumentError, 'supply exactly one of password, content_key, or contact' unless credentials.length == 1
+      runtime = Revault.runtime
+      return runtime.lockbox_open_password(archive, password.to_str) if password
+      return runtime.lockbox_open_contact(archive, contact) if contact
+      options ? runtime.lockbox_open_with_options(archive, content_key, options[:cache_mode], options[:cache_bytes] || 0, options[:workload], options[:worker], options[:jobs] || 0) : runtime.lockbox_open(archive, content_key)
+    end
+
+    # Creates an archive file and returns its process-local handle.
+    def self.create(path, **options)
+      raise Errno::EEXIST, path if File.exist?(path) && !options.delete(:overwrite)
+      box = create_in_memory(**options)
+      File.binwrite(path, box.to_bytes)
+      box.instance_variable_set(:@backing_path, path)
+      box
+    end
+
+    # Opens an archive file without consulting the session agent.
+    def self.open(path, **options)
+      box = open_bytes(File.binread(path), **options)
+      box.instance_variable_set(:@backing_path, path)
+      box
+    end
+
     # Adds file.
     def add_file(path, data, replace)
       @operations.lockbox_add_file(@native_handle, path, data, replace)
@@ -372,7 +424,9 @@ module Revault
 
     # Authenticates and publishes the staged changes.
     def commit()
-      @operations.lockbox_commit(@native_handle)
+      result = @operations.lockbox_commit(@native_handle)
+      File.binwrite(@backing_path, to_bytes) if @backing_path
+      result
     end
 
     # Creates dir.
@@ -717,7 +771,7 @@ module Revault
   end
 
   # Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
-  class VaultDirectory < OwnedHandle
+  class VaultStore < OwnedHandle
     # Returns the root.
     def root()
       @operations.vault_directory_root(@native_handle)
@@ -937,7 +991,7 @@ module Revault
   end
 
   # A metadata view for discovery that never loads an owner signing key.
-  class ReadOnlyVaultDirectory < OwnedHandle
+  class ReadOnlyVault < OwnedHandle
     # Lists profile names.
     def list_profile_names()
       @operations.vault_read_only_list_profile_names(@native_handle)
@@ -1123,7 +1177,7 @@ module Revault
   end
 
   # A session that opens lockboxes by host path, caches passwords, and closes local files.
-  class LocalVault < OwnedHandle
+  class LocalSession < OwnedHandle
     # Creates lockbox password.
     def create_lockbox_password(path, password)
       Lockbox.new(@operations, @operations.vault_create_lockbox_password(@native_handle, path, password))
@@ -1174,6 +1228,121 @@ module Revault
 
 end
 
+# Reviewed 0.3 facade names. The Fiddle transport classes above remain
+# implementation details of these domain objects.
+module Revault
+  module LockboxCacheMode
+    BYTES = 'bytes'; DISABLED = 'disabled'; AUTOMATIC = 'automatic'
+  end
+  module LockboxWorkload
+    INTERACTIVE = 'interactive'; BULK_IMPORT = 'bulk-import'; READ_MOSTLY = 'read-mostly'
+  end
+  module LockboxWorker
+    AUTO = 'auto'; SINGLE = 'single'; THREADS = 'threads'
+  end
+  module AgentActivityKind
+    OPEN = 'open'; CLOSE = 'close'; VARIABLES = 'variables'; FORM = 'form'; RECOVERY = 'recovery'; VAULT = 'vault'
+  end
+  module KeyExportFormat
+    LOCKBOX_PEM = 'lockbox-pem'; JWK = 'jwk'; JWKS = 'jwks'; RAW_HEX = 'raw-hex'
+  end
+
+  # Mutable byte secret that can be wiped after a native operation.
+  class SecretBytes
+    # Copy bytes into owned mutable storage.
+    def initialize(value = ''.b) @bytes = value.to_s.b.dup end
+    # Return a copy of the secret bytes.
+    def to_str = @bytes
+    # Return a defensive copy of the secret bytes.
+    def bytes = @bytes.dup
+    # Wipe the secret in place.
+    def close = @bytes.replace("\0" * @bytes.bytesize)
+    alias dispose close
+  end
+  # UTF-8 secret passphrase with the same wipe semantics as SecretBytes.
+  class SecretString < SecretBytes
+    # Copy a passphrase into mutable UTF-8 storage.
+    def initialize(value = '') super(value.to_s.encode(Encoding::UTF_8)) end
+  end
+
+  # Persistent encrypted local store for profiles, keys, contacts and metadata.
+  class Vault < VaultStore
+    # Constructors for the persistent store lifecycle.
+    class << self
+      # Open an existing store without creating or replacing it.
+      def open(root, vault_passphrase) = Runtime.new.vault_directory_open(root, vault_passphrase.to_str)
+      # Open or create a store at root.
+      def open_or_create(root, vault_passphrase) = Runtime.new.vault_directory_open_or_create(root, vault_passphrase.to_str)
+      # Create a new store at root.
+      def create(root, vault_passphrase) = Runtime.new.vault_directory_replace(root, vault_passphrase.to_str)
+      # Replace an existing store explicitly.
+      def replace(root, vault_passphrase) = Runtime.new.vault_directory_replace(root, vault_passphrase.to_str)
+    end
+  end
+  ProfileSigningKeyPair = SigningKeyPair
+  ProfileSigningPublicKey = SigningPublicKey
+
+  # Shared close convenience for all owned facade handles.
+  class OwnedHandle
+    # Release the native resource.
+    def close = free
+  end
+  # Lockbox-specific close convenience.
+  class Lockbox
+    # Release the lockbox handle.
+    alias close free
+  end
+  # Persistent store close convenience.
+  class VaultStore
+    # Release the store handle.
+    alias close free
+  end
+  # Read-only store close convenience.
+  class ReadOnlyVault
+    # Release the read-only store handle.
+    alias close free
+  end
+  # Local session close convenience.
+  class LocalSession
+    # Release the local session handle.
+    alias close free
+  end
+  # Explicit session-agent controller with process-local lockbox operations.
+  class AgentSession < Agent
+    # Return the process-wide explicit session controller.
+    def self.instance
+      @instance ||= new(BindingOperations.new)
+    end
+    # Attach this controller to the local native session handle.
+    def initialize(operations)
+      super
+      @local = operations.vault_local
+    end
+    # Remove one cached lockbox key.
+    def close_lockbox(path) = @operations.vault_close_lockbox(@local, path)
+    # Remove all cached lockbox keys.
+    def close_all = @operations.vault_close_all(@local)
+    # Create a password-protected lockbox file.
+    def create_lockbox_password(path, password) = Lockbox.new(@operations, @operations.vault_create_lockbox_password(@local, path, password.to_str))
+    # Open a password-protected lockbox file.
+    def open_lockbox_password(path, password) = Lockbox.new(@operations, @operations.vault_open_lockbox_password(@local, path, password.to_str))
+    # Create a content-key lockbox file.
+    def create_lockbox_content_key(path, content_key, signing_key) = Lockbox.new(@operations, @operations.vault_create_lockbox_content_key(@local, path, content_key, signing_key.native_handle))
+    # Create a contact-addressed lockbox file.
+    def create_lockbox_contact(path, contact, name, signing_key) = Lockbox.new(@operations, @operations.vault_create_lockbox_contact(@local, path, contact.native_handle, name, signing_key.native_handle))
+    # Open a content-key lockbox file.
+    def open_lockbox_content_key(path, content_key, signing_key) = Lockbox.new(@operations, @operations.vault_open_lockbox_content_key(@local, path, content_key, signing_key.native_handle))
+    # Cache a password-derived key for the requested TTL.
+    def cache_lockbox_password(path, password, ttl_seconds) = @operations.vault_cache_lockbox_password(@local, path, password.to_str, ttl_seconds)
+    # Release the local session handle.
+    def close
+      @operations.vault_free(@local) if @local
+      @local = nil
+    end
+    alias free close
+  end
+end
+
 # Native handles and operation routing are implementation details of the
 # application-facing facade above.
-Revault.private_constant(:BindingOperations, :OwnedHandle)
+Revault.private_constant(:BindingOperations, :OwnedHandle, :Runtime, :VaultStore, :LocalSession)

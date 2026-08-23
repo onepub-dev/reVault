@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Vault } from '@onepub-dev/revault-api';
+import { AgentSession, Revault, Vault } from '@onepub-dev/revault-api';
 
-const api = new Vault();
+const api = await Revault.load();
 const language = 'typescript';
 const script = fileURLToPath(import.meta.url);
 const pass = (symbol: string, assertions = 1) => console.log(`PASS\t${language}\t${symbol}\t${assertions}`);
@@ -164,7 +164,7 @@ function vaultLifecycle() {
   const profile = api.keyContactGenerate(); const contact = api.keyContactGenerate();
   const contactPublic = api.keyContactPublicFromBytes(contact.public());
   const owner = api.keySigningGenerate(); const ownerPublic = api.keySigningPublicFromBytes(owner.public());
-  const vault = api.vaultDirectoryReplace(root, password); pass('vault_directory_replace');
+  const vault = Vault.replace(root, password); pass('vault_directory_replace');
   console.log(`ARTIFACT\t${language}\tvault-created\t${root}`);
   check(vault.root() === root && vault.structureVersion() > 0, 'vault'); pass('vault_directory_root', 3); pass('vault_directory_structure_version');
   const currentVersion = api.vaultStructureVersionCurrent();
@@ -210,8 +210,8 @@ function vaultLifecycle() {
   pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes');
   readonly.free(); pass('vault_read_only_free');
   api.vaultDirectoryChangePassword(root, password, changed); pass('vault_directory_change_password');
-  api.vaultDirectoryOpen(root, changed).free(); pass('vault_directory_open'); console.log(`ARTIFACT\t${language}\tvault-opened\t${root}`);
-  api.vaultDirectoryOpenOrCreate(root, changed).free(); pass('vault_directory_open_or_create');
+  Vault.open(root, changed).free(); pass('vault_directory_open'); console.log(`ARTIFACT\t${language}\tvault-opened\t${root}`);
+  Vault.openOrCreate(root, changed).free(); pass('vault_directory_open_or_create');
   ownerPublic.publicFree(); owner.free(); contactPublic.publicFree(); contact.free(); profile.free();
 }
 
@@ -259,7 +259,7 @@ async function agentAndLocal() {
   const activity = agent.beginActivity('open'); pass('vault_agent_begin_activity'); agent.endActivity(activity); pass('vault_agent_end_activity');
   agent.sleepSupport(); pass('vault_agent_sleep_support'); api.vaultAgentLogPath(); api.vaultAgentLogDestination();
   pass('vault_agent_log_path', 2); pass('vault_agent_log_destination', 2);
-  const local = api.vaultLocal(); pass('vault_local'); const root = fs.mkdtempSync(path.join(os.tmpdir(), 'revault-typescript-local-'));
+  const local = AgentSession.instance; pass('vault_local'); const root = fs.mkdtempSync(path.join(os.tmpdir(), 'revault-typescript-local-'));
   const passwordPath = path.join(root, 'password.lbox'); let box = local.createLockboxPassword(passwordPath, 'local password');
   box.addFile('/data.txt', 'local vault data', false); box.commit(); box.free(); pass('vault_create_lockbox_password', 3);
   local.cacheLockboxPassword(passwordPath, 'local password', 120); pass('vault_cache_lockbox_password');
@@ -283,7 +283,7 @@ function interop(producer: string) {
   const root = process.env.REVAULT_E2E_ARTIFACT_DIR ?? '/tmp/revault-e2e-artifacts';
   const box = api.lockboxOpen(fs.readFileSync(path.join(root, producer, 'archive.lbox')), Buffer.alloc(32, 'K'));
   check(equal(box.getFile('/renamed.txt'), 'replacement payload'), 'foreign archive'); box.free();
-  const vault = api.vaultDirectoryOpen(path.join(root, producer, 'vault'), 'new vault password');
+  const vault = Vault.open(path.join(root, producer, 'vault'), 'new vault password');
   check(vault.structureVersion() > 0, 'foreign vault'); vault.free();
   console.log(`INTEROP\t${language}\t${producer}\tarchive\t3\nINTEROP\t${language}\t${producer}\tvault\t2`);
 }

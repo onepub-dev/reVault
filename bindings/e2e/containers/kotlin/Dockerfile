@@ -38,7 +38,7 @@ RUN gradle -p /tmp/packages/maven/java --no-daemon publishToMavenLocal \
     && gradle -p bindings/e2e/kotlin --no-daemon installDist
 ENV REVAULT_E2E_LANGUAGE=kotlin
 ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
-ENV REVAULT_E2E_NATIVE_ROOT=/tmp/revault-kotlin-extract
+ENV REVAULT_E2E_NATIVE_ROOT=/tmp/revault-kotlin-extract/revault-native
 ENV REVAULT_E2E_NATIVE_FILE=librevault_api.so
 ENV REVAULT_E2E_NATIVE_KIND=dynamic
 CMD ["revault-tool", "e2e", "container", "--language", "kotlin"]

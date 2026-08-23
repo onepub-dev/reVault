@@ -1,7 +1,8 @@
 """Encrypt files, variables, and typed records in portable reVault lockboxes.
 
-``Vault`` is the entry point for lockboxes, keys, local vault metadata, the
-session agent, and the platform secret store. Owned handles are context
+``Revault`` loads the native runtime for lockboxes, keys, the session agent,
+and platform services; ``Vault`` is the persistent encrypted metadata store.
+Owned handles are context
 managers; secret values use callback-scoped accessors to limit plaintext
 lifetime.
 
@@ -11,11 +12,9 @@ https://github.com/onepub-dev/reVault#readme
 from __future__ import annotations
 
 import ctypes
-import os
 import platform
 import sys
 from pathlib import Path
-from typing import Optional
 
 from ._domain import FormField, PathMove
 
@@ -29,9 +28,6 @@ def _error(library: ctypes.CDLL) -> str:
 
 
 def _native_library_path() -> str:
-    override = os.environ.get("REVAULT_LIBRARY")
-    if override:
-        return override
     machine = platform.machine().lower()
     arch = {
         "amd64": "x86_64",
@@ -65,14 +61,14 @@ def _native_library_path() -> str:
     if not bundled.is_file():
         raise RuntimeError(
             f"revault-api native carrier is missing for {target}; "
-            "set REVAULT_LIBRARY for development"
+            "install the matching revault-api native carrier for this platform"
         )
     return str(bundled)
 
 
-def load(path: Optional[str | Path] = None) -> ctypes.CDLL:
+def _load() -> ctypes.CDLL:
     """Load and validate the version-matched ABI-v2 native library."""
-    library = ctypes.CDLL(str(path or _native_library_path()))
+    library = ctypes.CDLL(_native_library_path())
     library.api_abi_version.argtypes = []
     library.api_abi_version.restype = ctypes.c_uint32
     if library.api_abi_version() != 3:
@@ -86,38 +82,47 @@ def load(path: Optional[str | Path] = None) -> ctypes.CDLL:
 
 # Imported after the loader helpers because the generated facade uses them.
 from .facade import (  # noqa: E402
-    Agent,
+    AgentActivityKind,
+    AgentSession,
     AgentActivity,
     ContactKeyPair,
     ContactPublicKey,
-    LocalVault,
     Lockbox,
-    Platform,
-    ReadOnlyVaultDirectory,
+    ProfileSigningKeyPair,
+    ProfileSigningPublicKey,
+    ReadOnlyVault,
+    RevaultError,
     Revault,
-    SigningKeyPair,
-    SigningPublicKey,
     Vault,
-    VaultDirectory,
     WrappedContactKey,
+    SecretBytes,
+    SecretString,
+    LockboxCacheMode,
+    LockboxWorkload,
+    LockboxWorker,
+    KeyExportFormat,
 )
 
 __all__ = [
-    "Agent",
+    "AgentSession",
+    "AgentActivityKind",
     "AgentActivity",
     "ContactKeyPair",
     "ContactPublicKey",
-    "LocalVault",
     "Lockbox",
-    "Platform",
-    "ReadOnlyVaultDirectory",
-    "Revault",
-    "SigningKeyPair",
-    "SigningPublicKey",
     "Vault",
-    "VaultDirectory",
+    "ProfileSigningKeyPair",
+    "ProfileSigningPublicKey",
+    "ReadOnlyVault",
+    "Revault",
     "WrappedContactKey",
-    "load",
+    "SecretString",
+    "SecretBytes",
+    "RevaultError",
+    "LockboxCacheMode",
+    "LockboxWorkload",
+    "LockboxWorker",
+    "KeyExportFormat",
     "FormField",
     "PathMove",
 ]

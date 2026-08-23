@@ -74,10 +74,10 @@ impl HttpTransport {
         }
         let mut stream = self.endpoint.connect(self.timeout)?;
         let topology_header = topology_version
-            .map(|version| format!("{}: {version}\r\n", REQUEST_TOPOLOGY_HEADER))
+            .map(|version| format!("{REQUEST_TOPOLOGY_HEADER}: {version}\r\n"))
             .unwrap_or_default();
         let server_token_header = server_token
-            .map(|token| format!("{}: {token}\r\n", SERVER_TOKEN_HEADER))
+            .map(|token| format!("{SERVER_TOKEN_HEADER}: {token}\r\n"))
             .unwrap_or_default();
         let request = format!(
             "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/octet-stream\r\n{topology_header}{server_token_header}Content-Length: {}\r\nConnection: close\r\n\r\n",

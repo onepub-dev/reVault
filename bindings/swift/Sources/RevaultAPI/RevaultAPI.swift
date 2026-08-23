@@ -13,6 +13,15 @@ public enum RevaultError: Error {
     case invalidFrame
 }
 
+/// Closed cache policy values accepted by lockbox creation/opening.
+public enum CacheMode: String, Sendable { case bytes, pages }
+/// Closed I/O workload policy values accepted by the native runtime.
+public enum WorkloadProfile: String, Sendable { case interactive, bulkImport = "bulk-import" }
+/// Closed worker scheduling policy values accepted by the native runtime.
+public enum WorkerPolicy: String, Sendable { case auto, single }
+/// Kinds of temporary activity retained by the optional agent.
+public enum AgentActivityKind: String, Sendable { case lockbox, form, key }
+
 private func lastError() -> String {
     guard let value = buffer_last_error() else { return "native reVault operation failed" }
     return String(cString: value)
@@ -1421,13 +1430,15 @@ public final class SigningKeyPair: OwnedHandle {}
 public final class SigningPublicKey: OwnedHandle {}
 
 /// Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
-public final class VaultDirectory: OwnedHandle {}
+public final class Vault: OwnedHandle {}
 
 /// A metadata view for discovery that never loads an owner signing key.
-public final class ReadOnlyVaultDirectory: OwnedHandle {}
+public final class ReadOnlyVault: OwnedHandle {}
 
 /// Client for the session service that temporarily caches unlock and signing keys.
-public final class Agent: OwnedHandle {}
+public final class AgentSession: OwnedHandle {}
+/// Explicit controller for the single optional session-agent process.
+
 
 /// A token kept alive while an operation needs secrets cached by the agent.
 public final class AgentActivity: OwnedHandle {}
@@ -1435,15 +1446,12 @@ public final class AgentActivity: OwnedHandle {}
 /// Access to operating-system credential storage for a scoped vault password.
 public final class Platform: OwnedHandle {}
 
-/// A session that opens lockboxes by host path, caches passwords, and closes local files.
-public final class LocalVault: OwnedHandle {}
-
-/// Primary API used to open lockboxes, manage keys and metadata, use the session
-/// agent, and access operating-system credential storage.
-public final class Vault {
+/// Runtime API used to create/open lockboxes, reach Vault metadata, use the
+/// explicit session agent, and access operating-system credential storage.
+public final class Revault {
     fileprivate let operations = BindingOperations()
     /// Returns the agent.
-    public lazy var agent = Agent(operations, nil)
+    public lazy var agentSession = AgentSession(operations, try? operations.vaultLocal())
     /// Returns the platform.
     public lazy var platform = Platform(operations, nil)
     /// Returns the init.
@@ -1473,6 +1481,12 @@ public final class Vault {
         return Lockbox(operations, try operations.lockboxCreateWithOptions(key, cacheMode, cacheBytes, workload, worker, jobs))
     }
 
+    /// Creates a lockbox using closed policy enums; the content key remains caller-owned.
+    public func lockboxCreateWithOptions(_ key: Data, cacheMode: CacheMode, cacheBytes: UInt64,
+        workload: WorkloadProfile, worker: WorkerPolicy, jobs: Int = 0) throws -> Lockbox {
+        try lockboxCreateWithOptions(key, cacheMode.rawValue, cacheBytes, workload.rawValue, worker.rawValue, jobs)
+    }
+
     /// Returns the lockbox create password.
     public func lockboxCreatePassword(_ password: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreatePassword(password))
@@ -1496,6 +1510,12 @@ public final class Vault {
     /// Opens a lockbox with explicit cache capacity, workload, worker policy, and job count.
     public func lockboxOpenWithOptions(_ archive: Data, _ key: Data, _ cacheMode: String, _ cacheBytes: UInt64, _ workload: String, _ worker: String, _ jobs: Int) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxOpenWithOptions(archive, key, cacheMode, cacheBytes, workload, worker, jobs))
+    }
+
+    /// Opens an existing archive using closed policy enums and a process-local content key.
+    public func lockboxOpenWithOptions(_ archive: Data, _ key: Data, cacheMode: CacheMode, cacheBytes: UInt64,
+        workload: WorkloadProfile, worker: WorkerPolicy, jobs: Int = 0) throws -> Lockbox {
+        try lockboxOpenWithOptions(archive, key, cacheMode.rawValue, cacheBytes, workload.rawValue, worker.rawValue, jobs)
     }
 
     /// Returns the lockbox open password.
@@ -1619,8 +1639,8 @@ public final class Vault {
     }
 
     /// Returns the vault directory open.
-    public func vaultDirectoryOpen(_ root: String, _ password: Data) throws -> VaultDirectory {
-        return VaultDirectory(operations, try operations.vaultDirectoryOpen(root, password))
+    public func openVault(_ root: String, _ password: Data) throws -> Vault {
+        return Vault(operations, try operations.vaultDirectoryOpen(root, password))
     }
 
     /// Returns the vault structure version current.
@@ -1629,40 +1649,40 @@ public final class Vault {
     }
 
     /// Returns the vault directory probe structure version.
-    public func vaultDirectoryProbeStructureVersion(_ root: String, _ password: Data) throws -> UInt32 {
+    public func probeVaultStructureVersion(_ root: String, _ password: Data) throws -> UInt32 {
         return try operations.vaultDirectoryProbeStructureVersion(root, password)
     }
 
     /// Returns the vault directory open or create default.
-    public func vaultDirectoryOpenOrCreateDefault(_ password: Data) throws -> VaultDirectory {
-        return VaultDirectory(operations, try operations.vaultDirectoryOpenOrCreateDefault(password))
+    public func openOrCreateDefaultVault(_ password: Data) throws -> Vault {
+        return Vault(operations, try operations.vaultDirectoryOpenOrCreateDefault(password))
     }
 
     /// Returns the vault directory replace default.
-    public func vaultDirectoryReplaceDefault(_ password: Data) throws -> VaultDirectory {
-        return VaultDirectory(operations, try operations.vaultDirectoryReplaceDefault(password))
+    public func replaceDefaultVault(_ password: Data) throws -> Vault {
+        return Vault(operations, try operations.vaultDirectoryReplaceDefault(password))
     }
 
     /// Returns the vault directory change password.
     @discardableResult
-    public func vaultDirectoryChangePassword(_ root: String, _ oldPassword: Data, _ newPassword: Data) throws -> Bool {
+    public func changeVaultPassword(_ root: String, _ oldPassword: Data, _ newPassword: Data) throws -> Bool {
         return try operations.vaultDirectoryChangePassword(root, oldPassword, newPassword)
     }
 
     /// Returns the vault directory change default password.
     @discardableResult
-    public func vaultDirectoryChangeDefaultPassword(_ oldPassword: Data, _ newPassword: Data) throws -> Bool {
+    public func changeDefaultVaultPassword(_ oldPassword: Data, _ newPassword: Data) throws -> Bool {
         return try operations.vaultDirectoryChangeDefaultPassword(oldPassword, newPassword)
     }
 
     /// Returns the vault directory replace.
-    public func vaultDirectoryReplace(_ root: String, _ password: Data) throws -> VaultDirectory {
-        return VaultDirectory(operations, try operations.vaultDirectoryReplace(root, password))
+    public func replaceVault(_ root: String, _ password: Data) throws -> Vault {
+        return Vault(operations, try operations.vaultDirectoryReplace(root, password))
     }
 
     /// Returns the vault directory open or create.
-    public func vaultDirectoryOpenOrCreate(_ root: String, _ password: Data) throws -> VaultDirectory {
-        return VaultDirectory(operations, try operations.vaultDirectoryOpenOrCreate(root, password))
+    public func openOrCreateVault(_ root: String, _ password: Data) throws -> Vault {
+        return Vault(operations, try operations.vaultDirectoryOpenOrCreate(root, password))
     }
 
     /// Returns the vault backup default.
@@ -1676,17 +1696,17 @@ public final class Vault {
     }
 
     /// Returns the vault read only open.
-    public func vaultReadOnlyOpen(_ root: String, _ password: Data) throws -> ReadOnlyVaultDirectory {
-        return ReadOnlyVaultDirectory(operations, try operations.vaultReadOnlyOpen(root, password))
+    public func openReadOnlyVault(_ root: String, _ password: Data) throws -> ReadOnlyVault {
+        return ReadOnlyVault(operations, try operations.vaultReadOnlyOpen(root, password))
     }
 
     /// Returns the vault read only open default.
-    public func vaultReadOnlyOpenDefault(_ password: Data) throws -> ReadOnlyVaultDirectory {
-        return ReadOnlyVaultDirectory(operations, try operations.vaultReadOnlyOpenDefault(password))
+    public func openDefaultReadOnlyVault(_ password: Data) throws -> ReadOnlyVault {
+        return ReadOnlyVault(operations, try operations.vaultReadOnlyOpenDefault(password))
     }
 
     /// Returns the vault default directory.
-    public func vaultDefaultDirectory() throws -> String {
+    public func defaultVaultRoot() throws -> String {
         return try operations.vaultDefaultDirectory()
     }
 
@@ -1705,12 +1725,26 @@ public final class Vault {
         return try operations.vaultAgentLogDestination()
     }
 
-    /// Returns the vault local.
-    public func vaultLocal() throws -> LocalVault {
-        return LocalVault(operations, try operations.vaultLocal())
+    /// Opens an existing persistent Vault; it never creates or replaces it.
+    public func openVault(at path: String, vaultPassphrase: Data) throws -> Vault {
+        Vault(operations, try operations.vaultDirectoryOpen(path, vaultPassphrase))
+    }
+
+    /// Opens or creates a persistent Vault when no archive exists at path.
+    public func openOrCreateVault(at path: String, vaultPassphrase: Data) throws -> Vault {
+        Vault(operations, try operations.vaultDirectoryOpenOrCreate(path, vaultPassphrase))
+    }
+
+    /// Replaces persistent Vault data at path. This operation is destructive.
+    public func replaceVault(at path: String, vaultPassphrase: Data) throws -> Vault {
+        Vault(operations, try operations.vaultDirectoryReplace(path, vaultPassphrase))
     }
 
 }
+
+/// Persistent encrypted local metadata store. Its directory is a storage
+/// detail; callers use the Vault facade rather than a directory domain object.
+
 
 /// Returns the member.
 extension Lockbox {
@@ -1790,10 +1824,22 @@ extension Lockbox {
         return try operations.lockboxSetWorkloadProfile(handle!, profile)
     }
 
+    /// Selects a closed workload profile without passing undocumented strings.
+    @discardableResult
+    public func setWorkloadProfile(_ profile: WorkloadProfile) throws -> Bool {
+        try setWorkloadProfile(profile.rawValue)
+    }
+
     /// Sets worker policy.
     @discardableResult
     public func setWorkerPolicy(_ mode: String, _ jobs: Int) throws -> Bool {
         return try operations.lockboxSetWorkerPolicy(handle!, mode, jobs)
+    }
+
+    /// Selects a closed worker policy without passing undocumented strings.
+    @discardableResult
+    public func setWorkerPolicy(_ mode: WorkerPolicy, jobs: Int = 0) throws -> Bool {
+        try setWorkerPolicy(mode.rawValue, jobs)
     }
 
     /// Returns the runtime options.
@@ -2170,7 +2216,7 @@ extension SigningPublicKey {
 }
 
 /// Returns the member.
-extension VaultDirectory {
+extension Vault {
     /// Returns the root.
     public func root() throws -> String {
         return try operations.vaultDirectoryRoot(handle!)
@@ -2405,7 +2451,7 @@ extension VaultDirectory {
 }
 
 /// Returns the member.
-extension ReadOnlyVaultDirectory {
+extension ReadOnlyVault {
     /// Lists profile names.
     public func listProfileNames() throws -> [String] {
         return try operations.vaultReadOnlyListProfileNames(handle!)
@@ -2435,7 +2481,7 @@ extension ReadOnlyVaultDirectory {
 }
 
 /// Returns the member.
-extension Agent {
+extension AgentSession {
     /// Reports whether running.
     @discardableResult
     public func isRunning() throws -> Bool {
@@ -2543,6 +2589,62 @@ extension Agent {
         try operations.vaultAgentEndActivity(handle.handle!)
     }
 
+    private func localHandle() throws -> UnsafeMutableRawPointer {
+        guard let handle else { throw RevaultError.native("session agent local handle is unavailable") }
+        return handle
+    }
+
+    /// Creates a password-protected Lockbox at a host path.
+    public func createLockboxPassword(_ path: String, _ password: Data) throws -> Lockbox {
+        return Lockbox(operations, try operations.vaultCreateLockboxPassword(localHandle(), path, password))
+    }
+
+    /// Opens a password-protected Lockbox at a host path.
+    public func openLockboxPassword(_ path: String, _ password: Data) throws -> Lockbox {
+        return Lockbox(operations, try operations.vaultOpenLockboxPassword(localHandle(), path, password))
+    }
+
+    /// Creates a signed Lockbox from a content key at a host path.
+    public func createLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
+        return Lockbox(operations, try operations.vaultCreateLockboxContentKey(localHandle(), path, contentKey, signingKey.handle!))
+    }
+
+    /// Creates a Lockbox for a contact at a host path.
+    public func createLockboxContact(_ path: String, _ contact: OwnedHandle, _ name: String, _ signingKey: OwnedHandle) throws -> Lockbox {
+        return Lockbox(operations, try operations.vaultCreateLockboxContact(localHandle(), path, contact.handle!, name, signingKey.handle!))
+    }
+
+    /// Opens a signed Lockbox from a content key at a host path.
+    public func openLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
+        return Lockbox(operations, try operations.vaultOpenLockboxContentKey(localHandle(), path, contentKey, signingKey.handle!))
+    }
+
+    /// Caches a password for a host-path Lockbox until the supplied TTL.
+    @discardableResult
+    public func cacheLockboxPassword(_ path: String, _ password: Data, _ ttlSeconds: UInt64) throws -> Bool {
+        return try operations.vaultCacheLockboxPassword(localHandle(), path, password, ttlSeconds)
+    }
+
+    /// Removes the agent's cached key for a host-path Lockbox.
+    @discardableResult
+    public func closeLockbox(_ path: String) throws -> Bool {
+        return try operations.vaultCloseLockbox(localHandle(), path)
+    }
+
+    /// Removes all keys held by the local session handle.
+    @discardableResult
+    public func closeAll() throws -> Bool {
+        return try operations.vaultCloseAll(localHandle())
+    }
+
+    /// Releases the local session handle in addition to the agent resources.
+    public func free() throws -> Void {
+        if let handle {
+            try operations.vaultFree(handle)
+            self.handle = nil
+        }
+    }
+
 }
 
 /// Returns the member.
@@ -2600,54 +2702,3 @@ extension Platform {
 }
 
 /// Returns the member.
-extension LocalVault {
-    /// Creates lockbox password.
-    public func createLockboxPassword(_ path: String, _ password: Data) throws -> Lockbox {
-        return Lockbox(operations, try operations.vaultCreateLockboxPassword(handle!, path, password))
-    }
-
-    /// Opens lockbox password.
-    public func openLockboxPassword(_ path: String, _ password: Data) throws -> Lockbox {
-        return Lockbox(operations, try operations.vaultOpenLockboxPassword(handle!, path, password))
-    }
-
-    /// Creates lockbox content key.
-    public func createLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
-        return Lockbox(operations, try operations.vaultCreateLockboxContentKey(handle!, path, contentKey, signingKey.handle!))
-    }
-
-    /// Creates lockbox contact.
-    public func createLockboxContact(_ path: String, _ contact: OwnedHandle, _ name: String, _ signingKey: OwnedHandle) throws -> Lockbox {
-        return Lockbox(operations, try operations.vaultCreateLockboxContact(handle!, path, contact.handle!, name, signingKey.handle!))
-    }
-
-    /// Opens lockbox content key.
-    public func openLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
-        return Lockbox(operations, try operations.vaultOpenLockboxContentKey(handle!, path, contentKey, signingKey.handle!))
-    }
-
-    /// Stores lockbox password.
-    @discardableResult
-    public func cacheLockboxPassword(_ path: String, _ password: Data, _ ttlSeconds: UInt64) throws -> Bool {
-        return try operations.vaultCacheLockboxPassword(handle!, path, password, ttlSeconds)
-    }
-
-    /// Releases the native resources held by lockbox.
-    @discardableResult
-    public func closeLockbox(_ path: String) throws -> Bool {
-        return try operations.vaultCloseLockbox(handle!, path)
-    }
-
-    /// Releases the native resources held by all.
-    @discardableResult
-    public func closeAll() throws -> Bool {
-        return try operations.vaultCloseAll(handle!)
-    }
-
-    /// Releases the native resources held by this object.
-    public func free() throws -> Void {
-        try operations.vaultFree(handle!)
-        handle = nil
-    }
-
-}

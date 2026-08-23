@@ -1,8 +1,8 @@
 use revault_api::lockbox::{
-    Lockbox, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretString,
+    Lockbox, LockboxOpen, LockboxPath, LockboxProtection, ProfileSigningKeyPair, SecretString,
     SecretVec,
 };
-use revault_api::VaultDirectory;
+use revault_api::vault::Vault;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -49,7 +49,7 @@ fn create_artifacts() -> Result {
     let vault_root = root.join("vault");
     let _ = std::fs::remove_file(&archive);
     let _ = std::fs::remove_dir_all(&vault_root);
-    let signing = OwnerSigningKeyPair::generate()?;
+    let signing = ProfileSigningKeyPair::generate()?;
     let mut lockbox = Lockbox::create_file(
         &archive,
         LockboxProtection::ContentKey(content_key()?),
@@ -69,13 +69,13 @@ fn create_artifacts() -> Result {
     }
     println!("ARTIFACT\trust\tarchive-opened\t{}", archive.display());
 
-    let vault = VaultDirectory::replace(&vault_root, &password()?)?;
+    let vault = Vault::replace(&vault_root, &password()?)?;
     if vault.structure_version()? == 0 {
         return Err("Rust vault structure version is zero".into());
     }
     drop(vault);
     println!("ARTIFACT\trust\tvault-created\t{}", vault_root.display());
-    let reopened = VaultDirectory::open_or_create(&vault_root, &password()?)?;
+    let reopened = Vault::open_or_create(&vault_root, &password()?)?;
     if reopened.structure_version()? == 0 {
         return Err("Rust reopened vault structure version is zero".into());
     }
@@ -94,7 +94,7 @@ fn open_foreign(producer: &str) -> Result {
     if !vault_root.join("local-vault.lbox").is_file() {
         return Err("foreign vault artifact is missing".into());
     }
-    let vault = VaultDirectory::open_or_create(&vault_root, &password()?)?;
+    let vault = Vault::open_or_create(&vault_root, &password()?)?;
     if vault.structure_version()? == 0 {
         return Err("foreign vault structure version is zero".into());
     }

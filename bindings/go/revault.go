@@ -9,9 +9,77 @@ package revault
 import "C"
 
 import (
-	"errors"
+	"fmt"
 	"unsafe"
 )
+
+// Revault is the process-local native runtime entry point. Loading the
+// runtime does not open a vault or lockbox; use OpenVault/CreateVault for
+// persistent metadata and Open/Create for portable archives.
+type Revault struct{}
+
+// Load verifies that the installed carrier can be reached. Go's cgo loader
+// resolves librevault_api through the package's normal linker/runtime search
+// path; callers must not set a runtime library override.
+func Load() (*Revault, error) {
+	if C.api_abi_version() != 3 {
+		return nil, &NativeError{Message: "revault-api native ABI mismatch; expected 3"}
+	}
+	return &Revault{}, nil
+}
+
+// NativeError is a structured native failure returned by facade operations.
+// Message is stable diagnostic text; Details may contain operation/category
+// fields when the native runtime supplied them.
+type NativeError struct {
+	Message string
+	Details *ErrorDetails
+}
+
+// Error implements error and returns the native diagnostic message.
+func (e *NativeError) Error() string { return e.Message }
+
+// CacheMode controls decoded-page cache storage.
+type CacheMode string
+const (
+	CacheModeBytes CacheMode = "bytes"
+	CacheModePages CacheMode = "pages"
+)
+
+// WorkloadProfile tunes I/O for the expected workload.
+type WorkloadProfile string
+const (
+	WorkloadInteractive WorkloadProfile = "interactive"
+	WorkloadBulkImport WorkloadProfile = "bulk-import"
+)
+
+// WorkerPolicy selects native worker scheduling.
+type WorkerPolicy string
+const (
+	WorkerAuto WorkerPolicy = "auto"
+	WorkerSingle WorkerPolicy = "single"
+)
+
+// AgentActivityKind identifies the selected agent operation.
+type AgentActivityKind string
+const (
+	AgentActivityLockbox AgentActivityKind = "lockbox"
+	AgentActivityForm AgentActivityKind = "form"
+	AgentActivityKey AgentActivityKind = "key"
+)
+
+// Validate checks closed native policy values before crossing the ABI.
+func (o LockboxOptions) Validate() error {
+	if CacheMode(o.CacheMode) != CacheModeBytes && CacheMode(o.CacheMode) != CacheModePages { return fmt.Errorf("invalid cache mode %q", o.CacheMode) }
+	if WorkloadProfile(o.Workload) != WorkloadInteractive && WorkloadProfile(o.Workload) != WorkloadBulkImport { return fmt.Errorf("invalid workload profile %q", o.Workload) }
+	if WorkerPolicy(o.Worker) != WorkerAuto && WorkerPolicy(o.Worker) != WorkerSingle { return fmt.Errorf("invalid worker policy %q", o.Worker) }
+	return nil
+}
+
+// NewLockboxOptions creates options from closed, typed policies.
+func NewLockboxOptions(cacheMode CacheMode, cacheBytes uint64, workload WorkloadProfile, worker WorkerPolicy, jobs uint) LockboxOptions {
+	return LockboxOptions{CacheMode: string(cacheMode), CacheBytes: cacheBytes, Workload: string(workload), Worker: string(worker), Jobs: jobs}
+}
 
 func init() {
 	if C.api_abi_version() != 3 {
@@ -19,7 +87,7 @@ func init() {
 	}
 }
 
-func lastError() error { return errors.New(C.GoString(C.buffer_last_error())) }
+func lastError() error { return &NativeError{Message: LastError()} }
 
 // LastError returns the diagnostic from the most recent failed native call on this thread.
 func LastError() string { return C.GoString(C.buffer_last_error()) }
@@ -249,51 +317,51 @@ func (key *ContactKeyPair) Decrypt(wrapped *WrappedContactKey) ([]byte, error) {
 	return takeBuffer(C.key_contact_decrypt(key.handle, wrapped.handle))
 }
 
-// SigningPublicKey is the public identity readers use to verify
+// ProfileSigningPublicKey is the public identity readers use to verify
 // owner-authorized lockbox revisions.
-type SigningPublicKey struct{ handle unsafe.Pointer }
+type ProfileSigningPublicKey struct{ handle unsafe.Pointer }
 
 // NewSigningPublicKey returns or performs new signing public key.
-func NewSigningPublicKey(value []byte) (*SigningPublicKey, error) {
+func NewProfileSigningPublicKey(value []byte) (*ProfileSigningPublicKey, error) {
 	h := C.key_signing_public_from_bytes(bytePointer(value), C.size_t(len(value)))
 	if h == nil {
 		return nil, lastError()
 	}
-	return &SigningPublicKey{handle: h}, nil
+	return &ProfileSigningPublicKey{handle: h}, nil
 }
 
 // Close releases the native resources held by close.
-func (key *SigningPublicKey) Close() {
+func (key *ProfileSigningPublicKey) Close() {
 	if key != nil && key.handle != nil {
 		C.key_signing_public_free(key.handle)
 		key.handle = nil
 	}
 }
 
-// SigningKeyPair is a lockbox owner's signing identity, supplied when creating
+// ProfileSigningKeyPair is a profile signing identity, supplied when creating
 // or committing a mutable lockbox so readers can authenticate its revisions.
-type SigningKeyPair struct{ handle unsafe.Pointer }
+type ProfileSigningKeyPair struct{ handle unsafe.Pointer }
 
 // GenerateSigningKeyPair generates signing key pair.
-func GenerateSigningKeyPair() (*SigningKeyPair, error) {
+func GenerateProfileSigningKeyPair() (*ProfileSigningKeyPair, error) {
 	h := C.key_signing_generate()
 	if h == nil {
 		return nil, lastError()
 	}
-	return &SigningKeyPair{handle: h}, nil
+	return &ProfileSigningKeyPair{handle: h}, nil
 }
 
 // SigningKeyPairFromPrivate returns or performs signing key pair from private.
-func SigningKeyPairFromPrivate(value []byte) (*SigningKeyPair, error) {
+func ProfileSigningKeyPairFromPrivate(value []byte) (*ProfileSigningKeyPair, error) {
 	h := C.key_signing_from_private(bytePointer(value), C.size_t(len(value)))
 	if h == nil {
 		return nil, lastError()
 	}
-	return &SigningKeyPair{handle: h}, nil
+	return &ProfileSigningKeyPair{handle: h}, nil
 }
 
 // Close releases the native resources held by close.
-func (key *SigningKeyPair) Close() {
+func (key *ProfileSigningKeyPair) Close() {
 	if key != nil && key.handle != nil {
 		C.key_signing_free(key.handle)
 		key.handle = nil
@@ -301,22 +369,22 @@ func (key *SigningKeyPair) Close() {
 }
 
 // PublicBytes returns or performs public bytes.
-func (key *SigningKeyPair) PublicBytes() ([]byte, error) {
+func (key *ProfileSigningKeyPair) PublicBytes() ([]byte, error) {
 	return takeBuffer(C.key_signing_public(key.handle))
 }
 
 // PrivateRecord returns or performs private record.
-func (key *SigningKeyPair) PrivateRecord() ([]byte, error) {
+func (key *ProfileSigningKeyPair) PrivateRecord() ([]byte, error) {
 	return takeBuffer(C.key_signing_private(key.handle))
 }
 
 // PublicKey returns or performs public key.
-func (key *SigningKeyPair) PublicKey() (*SigningPublicKey, error) {
+func (key *ProfileSigningKeyPair) PublicKey() (*ProfileSigningPublicKey, error) {
 	value, err := key.PublicBytes()
 	if err != nil {
 		return nil, err
 	}
-	return NewSigningPublicKey(value)
+	return NewProfileSigningPublicKey(value)
 }
 
 // LockboxOptions controls memory and CPU behavior when creating or opening a
@@ -358,6 +426,7 @@ func Create(key []byte) (*Lockbox, error) {
 
 // CreateWithOptions creates with options.
 func CreateWithOptions(key []byte, options LockboxOptions) (*Lockbox, error) {
+	if err := options.Validate(); err != nil { return nil, err }
 	return adoptLockbox(C.lockbox_create_with_options(bytePointer(key), C.size_t(len(key)), charPointer(options.CacheMode), C.size_t(len(options.CacheMode)), C.uint64_t(options.CacheBytes), charPointer(options.Workload), C.size_t(len(options.Workload)), charPointer(options.Worker), C.size_t(len(options.Worker)), C.size_t(options.Jobs)))
 }
 
@@ -372,7 +441,7 @@ func CreateForContact(contact *ContactPublicKey) (*Lockbox, error) {
 }
 
 // CreateSigned creates signed.
-func CreateSigned(contentKey []byte, signing *SigningKeyPair) (*Lockbox, error) {
+func CreateSigned(contentKey []byte, signing *ProfileSigningKeyPair) (*Lockbox, error) {
 	return adoptLockbox(C.lockbox_create_with_signing_key(bytePointer(contentKey), C.size_t(len(contentKey)), signing.handle))
 }
 
@@ -383,6 +452,7 @@ func Open(archive, key []byte) (*Lockbox, error) {
 
 // OpenWithOptions opens with options.
 func OpenWithOptions(archive, key []byte, options LockboxOptions) (*Lockbox, error) {
+	if err := options.Validate(); err != nil { return nil, err }
 	return adoptLockbox(C.lockbox_open_with_options(bytePointer(archive), C.size_t(len(archive)), bytePointer(key), C.size_t(len(key)), charPointer(options.CacheMode), C.size_t(len(options.CacheMode)), C.uint64_t(options.CacheBytes), charPointer(options.Workload), C.size_t(len(options.Workload)), charPointer(options.Worker), C.size_t(len(options.Worker)), C.size_t(options.Jobs)))
 }
 
@@ -539,7 +609,7 @@ func ScanLockbox(archive, key []byte) (*RecoveryReport, error) {
 }
 
 // SalvageLockbox salvages lockbox.
-func SalvageLockbox(archive, key []byte, signing *SigningKeyPair) (*Lockbox, error) {
+func SalvageLockbox(archive, key []byte, signing *ProfileSigningKeyPair) (*Lockbox, error) {
 	var signingHandle unsafe.Pointer
 	if signing != nil {
 		signingHandle = signing.handle
@@ -680,7 +750,7 @@ func (box *Lockbox) ListKeySlots() ([]KeySlot, error) {
 }
 
 // SetOwnerSigningKey sets owner signing key.
-func (box *Lockbox) SetOwnerSigningKey(key *SigningKeyPair) error {
+func (box *Lockbox) SetOwnerSigningKey(key *ProfileSigningKeyPair) error {
 	return require(bool(C.lockbox_set_owner_signing_key(box.handle, key.handle)))
 }
 
@@ -793,55 +863,131 @@ func HexDecode(value string) ([]byte, error) {
 	return takeBuffer(C.vault_key_hex_decode(charPointer(value), C.size_t(len(value))))
 }
 
-// VaultDirectory is password-protected storage for profile keys, contacts,
+// vaultStore is password-protected storage for profile keys, contacts,
 // forms, backups, and remembered lockbox paths. Lockbox contents remain in
 // their separate archive files.
-type VaultDirectory struct{ handle unsafe.Pointer }
+type vaultStore struct{ handle unsafe.Pointer }
 
-func adoptVaultDirectory(handle unsafe.Pointer) (*VaultDirectory, error) {
+// Vault is the persistent encrypted local store for profiles, private keys,
+// contacts, signing keys, and remembered lockbox metadata. The embedded
+// implementation owns its native handle and must be closed.
+//
+type Vault struct{ *vaultStore }
+
+// OpenVault opens an existing persistent vault. It never creates or replaces
+// the vault and the vaultPassphrase remains caller-owned.
+func OpenVault(root string, vaultPassphrase []byte) (*Vault, error) {
+	v, err := openVaultStore(root, vaultPassphrase)
+	if err != nil { return nil, err }
+	return &Vault{vaultStore: v}, nil
+}
+
+// OpenOrCreateVault opens an existing vault or creates one when absent.
+func OpenOrCreateVault(root string, vaultPassphrase []byte) (*Vault, error) {
+	v, err := openOrCreateVaultStore(root, vaultPassphrase)
+	if err != nil { return nil, err }
+	return &Vault{vaultStore: v}, nil
+}
+
+// ReplaceVault creates a new vault, replacing persistent data at root. This
+// operation is destructive and must be selected explicitly.
+func ReplaceVault(root string, vaultPassphrase []byte) (*Vault, error) {
+	v, err := replaceVaultStore(root, vaultPassphrase)
+	if err != nil { return nil, err }
+	return &Vault{vaultStore: v}, nil
+}
+
+// CreateVault is an explicit name for destructive vault creation. It has the
+// same replacement semantics as ReplaceVault and is intentionally separate
+// from OpenVault.
+func CreateVault(root string, vaultPassphrase []byte) (*Vault, error) {
+	return ReplaceVault(root, vaultPassphrase)
+}
+
+// OpenOrCreateDefaultVault opens or creates the default persistent Vault.
+func OpenOrCreateDefaultVault(vaultPassphrase []byte) (*Vault, error) {
+	v, err := openOrCreateDefaultVaultStore(vaultPassphrase)
+	if err != nil { return nil, err }
+	return &Vault{vaultStore: v}, nil
+}
+
+// ReplaceDefaultVault destructively replaces the default persistent Vault.
+func ReplaceDefaultVault(vaultPassphrase []byte) (*Vault, error) {
+	v, err := replaceDefaultVaultStore(vaultPassphrase)
+	if err != nil { return nil, err }
+	return &Vault{vaultStore: v}, nil
+}
+
+// ChangeDefaultVaultPassword updates the default Vault passphrase.
+func ChangeDefaultVaultPassword(oldPassphrase, newPassphrase []byte) error {
+	return changeDefaultVaultPassword(oldPassphrase, newPassphrase)
+}
+
+// OpenVault opens the default persistent vault using platform credentials.
+func (r *Revault) OpenVault(vaultPassphrase []byte) (*Vault, error) {
+	root, err := defaultVaultRoot()
+	if err != nil { return nil, err }
+	v, err := openVaultStore(root, vaultPassphrase)
+	if err != nil { return nil, err }
+	return &Vault{vaultStore: v}, nil
+}
+
+// Close is idempotent and wipes the native vault handle.
+func (v *Vault) Close() { if v != nil && v.vaultStore != nil { v.vaultStore.Close(); v.vaultStore = nil } }
+
+func adoptVaultStore(handle unsafe.Pointer) (*vaultStore, error) {
 	if handle == nil {
 		return nil, lastError()
 	}
-	return &VaultDirectory{handle: handle}, nil
+	return &vaultStore{handle: handle}, nil
 }
 
-// OpenVaultDirectory opens vault directory.
-func OpenVaultDirectory(root string, password []byte) (*VaultDirectory, error) {
-	return adoptVaultDirectory(C.vault_directory_open(charPointer(root), C.size_t(len(root)), bytePointer(password), C.size_t(len(password))))
+// openVaultStore opens vault directory.
+func openVaultStore(root string, password []byte) (*vaultStore, error) {
+	return adoptVaultStore(C.vault_directory_open(charPointer(root), C.size_t(len(root)), bytePointer(password), C.size_t(len(password))))
 }
 
-// OpenOrCreateVaultDirectory opens or create vault directory.
-func OpenOrCreateVaultDirectory(root string, password []byte) (*VaultDirectory, error) {
-	return adoptVaultDirectory(C.vault_directory_open_or_create(charPointer(root), C.size_t(len(root)), bytePointer(password), C.size_t(len(password))))
+// openOrCreateVaultStore opens or create vault directory.
+func openOrCreateVaultStore(root string, password []byte) (*vaultStore, error) {
+	return adoptVaultStore(C.vault_directory_open_or_create(charPointer(root), C.size_t(len(root)), bytePointer(password), C.size_t(len(password))))
 }
 
-// ReplaceVaultDirectory updates vault directory.
-func ReplaceVaultDirectory(root string, password []byte) (*VaultDirectory, error) {
-	return adoptVaultDirectory(C.vault_directory_replace(charPointer(root), C.size_t(len(root)), bytePointer(password), C.size_t(len(password))))
+// replaceVaultStore updates vault directory.
+func replaceVaultStore(root string, password []byte) (*vaultStore, error) {
+	return adoptVaultStore(C.vault_directory_replace(charPointer(root), C.size_t(len(root)), bytePointer(password), C.size_t(len(password))))
 }
 
-// OpenOrCreateDefaultVaultDirectory opens or create default vault directory.
-func OpenOrCreateDefaultVaultDirectory(password []byte) (*VaultDirectory, error) {
-	return adoptVaultDirectory(C.vault_directory_open_or_create_default(bytePointer(password), C.size_t(len(password))))
+// openOrCreateDefaultVaultStore opens or create default vault directory.
+func openOrCreateDefaultVaultStore(password []byte) (*vaultStore, error) {
+	return adoptVaultStore(C.vault_directory_open_or_create_default(bytePointer(password), C.size_t(len(password))))
 }
 
-// ReplaceDefaultVaultDirectory updates default vault directory.
-func ReplaceDefaultVaultDirectory(password []byte) (*VaultDirectory, error) {
-	return adoptVaultDirectory(C.vault_directory_replace_default(bytePointer(password), C.size_t(len(password))))
+// replaceDefaultVaultStore updates default vault directory.
+func replaceDefaultVaultStore(password []byte) (*vaultStore, error) {
+	return adoptVaultStore(C.vault_directory_replace_default(bytePointer(password), C.size_t(len(password))))
 }
 
-// ChangeVaultDirectoryPassword updates vault directory password.
-func ChangeVaultDirectoryPassword(root string, oldPassword, newPassword []byte) error {
+// changeVaultPassword updates vault directory password.
+func changeVaultPassword(root string, oldPassword, newPassword []byte) error {
 	return require(bool(C.vault_directory_change_password(charPointer(root), C.size_t(len(root)), bytePointer(oldPassword), C.size_t(len(oldPassword)), bytePointer(newPassword), C.size_t(len(newPassword)))))
 }
 
-// ChangeDefaultVaultDirectoryPassword updates default vault directory password.
-func ChangeDefaultVaultDirectoryPassword(oldPassword, newPassword []byte) error {
+// ChangeVaultPassword updates a Vault passphrase without opening or replacing
+// the Vault.
+func ChangeVaultPassword(root string, oldPassword, newPassword []byte) error {
+	return changeVaultPassword(root, oldPassword, newPassword)
+}
+
+// changeDefaultVaultPassword updates default vault directory password.
+func changeDefaultVaultPassword(oldPassword, newPassword []byte) error {
 	return require(bool(C.vault_directory_change_default_password(bytePointer(oldPassword), C.size_t(len(oldPassword)), bytePointer(newPassword), C.size_t(len(newPassword)))))
 }
 
-// DefaultVaultDirectory returns or performs default vault directory.
-func DefaultVaultDirectory() (string, error) { return takeString(C.vault_default_directory()) }
+// defaultVaultRoot returns or performs default vault directory.
+func defaultVaultRoot() (string, error) { return takeString(C.vault_default_directory()) }
+
+// DefaultVaultRoot returns the host path containing the default Vault.
+func DefaultVaultRoot() (string, error) { return defaultVaultRoot() }
 
 // DefaultVaultPath returns or performs default vault path.
 func DefaultVaultPath() (string, error) { return takeString(C.vault_default_path()) }
@@ -857,7 +1003,7 @@ func RestoreDefaultVault(path string, overwrite bool) (*VaultBackupManifest, err
 }
 
 // Close releases the native resources held by close.
-func (vault *VaultDirectory) Close() {
+func (vault *vaultStore) Close() {
 	if vault != nil && vault.handle != nil {
 		C.vault_directory_free(vault.handle)
 		vault.handle = nil
@@ -865,52 +1011,52 @@ func (vault *VaultDirectory) Close() {
 }
 
 // Root returns or performs root.
-func (vault *VaultDirectory) Root() (string, error) {
+func (vault *vaultStore) Root() (string, error) {
 	return takeString(C.vault_directory_root(vault.handle))
 }
 
 // StructureVersion returns or performs structure version.
-func (vault *VaultDirectory) StructureVersion() uint32 {
+func (vault *vaultStore) StructureVersion() uint32 {
 	return uint32(C.vault_directory_structure_version(vault.handle))
 }
 
 // ListPrivateKeys lists private keys.
-func (vault *VaultDirectory) ListPrivateKeys() ([]string, error) {
+func (vault *vaultStore) ListPrivateKeys() ([]string, error) {
 	return decodeResult(C.vault_directory_list_private_keys(vault.handle), decodeStringList)
 }
 
 // ListPrivateKeyNames lists private key names.
-func (vault *VaultDirectory) ListPrivateKeyNames() ([]string, error) {
+func (vault *vaultStore) ListPrivateKeyNames() ([]string, error) {
 	return decodeResult(C.vault_directory_list_private_key_names(vault.handle), decodeStringList)
 }
 
 // ListContactNames lists contact names.
-func (vault *VaultDirectory) ListContactNames() ([]string, error) {
+func (vault *vaultStore) ListContactNames() ([]string, error) {
 	return decodeResult(C.vault_directory_list_contact_names(vault.handle), decodeStringList)
 }
 
 // ListFormAliases lists form aliases.
-func (vault *VaultDirectory) ListFormAliases() ([]string, error) {
+func (vault *vaultStore) ListFormAliases() ([]string, error) {
 	return decodeResult(C.vault_directory_list_form_aliases(vault.handle), decodeStringList)
 }
 
 // PrivateKeyExists returns or performs private key exists.
-func (vault *VaultDirectory) PrivateKeyExists(name string) bool {
+func (vault *vaultStore) PrivateKeyExists(name string) bool {
 	return bool(C.vault_directory_private_key_exists(vault.handle, charPointer(name), C.size_t(len(name))))
 }
 
 // DeletePrivateKey removes private key.
-func (vault *VaultDirectory) DeletePrivateKey(name string) error {
+func (vault *vaultStore) DeletePrivateKey(name string) error {
 	return require(bool(C.vault_directory_delete_private_key(vault.handle, charPointer(name), C.size_t(len(name)))))
 }
 
 // StorePrivateKey stores private key.
-func (vault *VaultDirectory) StorePrivateKey(name string, key *ContactKeyPair) error {
+func (vault *vaultStore) StorePrivateKey(name string, key *ContactKeyPair) error {
 	return require(bool(C.vault_directory_store_private_key(vault.handle, charPointer(name), C.size_t(len(name)), key.handle)))
 }
 
 // LoadPrivateKey loads private key.
-func (vault *VaultDirectory) LoadPrivateKey(name string) (*ContactKeyPair, error) {
+func (vault *vaultStore) LoadPrivateKey(name string) (*ContactKeyPair, error) {
 	h := C.vault_directory_load_private_key(vault.handle, charPointer(name), C.size_t(len(name)))
 	if h == nil {
 		return nil, lastError()
@@ -919,7 +1065,7 @@ func (vault *VaultDirectory) LoadPrivateKey(name string) (*ContactKeyPair, error
 }
 
 // LoadPrivateKeyGeneration loads private key generation.
-func (vault *VaultDirectory) LoadPrivateKeyGeneration(name string, index uint16) (*ContactKeyPair, error) {
+func (vault *vaultStore) LoadPrivateKeyGeneration(name string, index uint16) (*ContactKeyPair, error) {
 	h := C.vault_directory_load_private_key_generation(vault.handle, charPointer(name), C.size_t(len(name)), C.uint16_t(index))
 	if h == nil {
 		return nil, lastError()
@@ -928,12 +1074,12 @@ func (vault *VaultDirectory) LoadPrivateKeyGeneration(name string, index uint16)
 }
 
 // StoreContact stores contact.
-func (vault *VaultDirectory) StoreContact(name string, key *ContactPublicKey) error {
+func (vault *vaultStore) StoreContact(name string, key *ContactPublicKey) error {
 	return require(bool(C.vault_directory_store_contact(vault.handle, charPointer(name), C.size_t(len(name)), key.handle)))
 }
 
 // LoadContact loads contact.
-func (vault *VaultDirectory) LoadContact(name string) (*ContactPublicKey, error) {
+func (vault *vaultStore) LoadContact(name string) (*ContactPublicKey, error) {
 	h := C.vault_directory_load_contact(vault.handle, charPointer(name), C.size_t(len(name)))
 	if h == nil {
 		return nil, lastError()
@@ -942,192 +1088,202 @@ func (vault *VaultDirectory) LoadContact(name string) (*ContactPublicKey, error)
 }
 
 // ContactExists returns or performs contact exists.
-func (vault *VaultDirectory) ContactExists(name string) bool {
+func (vault *vaultStore) ContactExists(name string) bool {
 	return bool(C.vault_directory_contact_exists(vault.handle, charPointer(name), C.size_t(len(name))))
 }
 
 // DeleteContact removes contact.
-func (vault *VaultDirectory) DeleteContact(name string) error {
+func (vault *vaultStore) DeleteContact(name string) error {
 	return require(bool(C.vault_directory_delete_contact(vault.handle, charPointer(name), C.size_t(len(name)))))
 }
 
 // ListContacts lists contacts.
-func (vault *VaultDirectory) ListContacts() ([]Contact, error) {
+func (vault *vaultStore) ListContacts() ([]Contact, error) {
 	return decodeResult(C.vault_directory_list_contacts(vault.handle), decodeContactList)
 }
 
 // StoreProfileEmail stores profile email.
-func (vault *VaultDirectory) StoreProfileEmail(name, email string) error {
+func (vault *vaultStore) StoreProfileEmail(name, email string) error {
 	return require(bool(C.vault_directory_store_profile_email(vault.handle, charPointer(name), C.size_t(len(name)), charPointer(email), C.size_t(len(email)))))
 }
 
 // ProfileEmail returns or performs profile email.
-func (vault *VaultDirectory) ProfileEmail(name string) (*string, error) {
+func (vault *vaultStore) ProfileEmail(name string) (*string, error) {
 	return decodeResult(C.vault_directory_profile_email(vault.handle, charPointer(name), C.size_t(len(name))), decodeOptionalString)
 }
 
 // StoreBackup stores backup.
-func (vault *VaultDirectory) StoreBackup(id, value []byte) error {
+func (vault *vaultStore) StoreBackup(id, value []byte) error {
 	return require(bool(C.vault_directory_store_backup(vault.handle, bytePointer(id), C.size_t(len(id)), bytePointer(value), C.size_t(len(value)))))
 }
 
 // LoadBackup loads backup.
-func (vault *VaultDirectory) LoadBackup(id []byte) ([]byte, error) {
+func (vault *vaultStore) LoadBackup(id []byte) ([]byte, error) {
 	return takeBuffer(C.vault_directory_load_backup(vault.handle, bytePointer(id), C.size_t(len(id))))
 }
 
 // BackupCount returns or performs backup count.
-func (vault *VaultDirectory) BackupCount() uint64 {
+func (vault *vaultStore) BackupCount() uint64 {
 	return uint64(C.vault_directory_backup_count(vault.handle))
 }
 
 // RestorePrivateKey returns or performs restore private key.
-func (vault *VaultDirectory) RestorePrivateKey(name string, key *ContactKeyPair, signing *SigningKeyPair, overwrite bool) error {
+func (vault *vaultStore) RestorePrivateKey(name string, key *ContactKeyPair, signing *ProfileSigningKeyPair, overwrite bool) error {
 	return require(bool(C.vault_directory_restore_private_key(vault.handle, charPointer(name), C.size_t(len(name)), key.handle, signing.handle, C.bool(overwrite))))
 }
 
 // LoadOwnerSigningKey loads owner signing key.
-func (vault *VaultDirectory) LoadOwnerSigningKey(name string) (*SigningKeyPair, error) {
+func (vault *vaultStore) LoadProfileSigningKey(name string) (*ProfileSigningKeyPair, error) {
 	h := C.vault_directory_load_owner_signing_key(vault.handle, charPointer(name), C.size_t(len(name)))
 	if h == nil {
 		return nil, lastError()
 	}
-	return &SigningKeyPair{handle: h}, nil
+	return &ProfileSigningKeyPair{handle: h}, nil
 }
 
 // LoadOwnerSigningKeyGeneration loads owner signing key generation.
-func (vault *VaultDirectory) LoadOwnerSigningKeyGeneration(name string, index uint16) (*SigningKeyPair, error) {
+func (vault *vaultStore) LoadProfileSigningKeyGeneration(name string, index uint16) (*ProfileSigningKeyPair, error) {
 	h := C.vault_directory_load_owner_signing_key_generation(vault.handle, charPointer(name), C.size_t(len(name)), C.uint16_t(index))
 	if h == nil {
 		return nil, lastError()
 	}
-	return &SigningKeyPair{handle: h}, nil
+	return &ProfileSigningKeyPair{handle: h}, nil
 }
 
 // StoreContactSigningKey stores contact signing key.
-func (vault *VaultDirectory) StoreContactSigningKey(name string, key *SigningPublicKey) error {
+func (vault *vaultStore) StoreContactSigningKey(name string, key *ProfileSigningPublicKey) error {
 	return require(bool(C.vault_directory_store_contact_signing_key(vault.handle, charPointer(name), C.size_t(len(name)), key.handle)))
 }
 
 // LoadContactSigningKey loads contact signing key.
-func (vault *VaultDirectory) LoadContactSigningKey(name string) (*SigningPublicKey, error) {
+func (vault *vaultStore) LoadContactSigningKey(name string) (*ProfileSigningPublicKey, error) {
 	h := C.vault_directory_load_contact_signing_key(vault.handle, charPointer(name), C.size_t(len(name)))
 	if h == nil {
 		return nil, lastError()
 	}
-	return &SigningPublicKey{handle: h}, nil
+	return &ProfileSigningPublicKey{handle: h}, nil
 }
 
 // ListProfileGenerations lists profile generations.
-func (vault *VaultDirectory) ListProfileGenerations(name string) (*ProfileHistory, error) {
+func (vault *vaultStore) ListProfileGenerations(name string) (*ProfileHistory, error) {
 	return decodeResult(C.vault_directory_list_profile_generations(vault.handle, charPointer(name), C.size_t(len(name))), decodeProfileHistory)
 }
 
 // RotatePrivateKey updates private key.
-func (vault *VaultDirectory) RotatePrivateKey(name string) (*ProfileHistory, error) {
+func (vault *vaultStore) RotatePrivateKey(name string) (*ProfileHistory, error) {
 	return decodeResult(C.vault_directory_rotate_private_key(vault.handle, charPointer(name), C.size_t(len(name))), decodeProfileHistory)
 }
 
 // RememberLockbox stores lockbox.
-func (vault *VaultDirectory) RememberLockbox(id []byte, path string) error {
+func (vault *vaultStore) RememberLockbox(id []byte, path string) error {
 	return require(bool(C.vault_directory_remember_lockbox(vault.handle, bytePointer(id), C.size_t(len(id)), charPointer(path), C.size_t(len(path)))))
 }
 
 // ListKnownLockboxes lists known lockboxes.
-func (vault *VaultDirectory) ListKnownLockboxes() ([]KnownLockbox, error) {
+func (vault *vaultStore) ListKnownLockboxes() ([]KnownLockbox, error) {
 	return decodeResult(C.vault_directory_list_known_lockboxes(vault.handle), decodeKnownLockboxList)
 }
 
 // ForgetLockbox removes lockbox.
-func (vault *VaultDirectory) ForgetLockbox(path string) error {
+func (vault *vaultStore) ForgetLockbox(path string) error {
 	return require(bool(C.vault_directory_forget_lockbox(vault.handle, charPointer(path), C.size_t(len(path)))))
 }
 
 // RememberAccessSlotLabel stores access slot label.
-func (vault *VaultDirectory) RememberAccessSlotLabel(id []byte, slotID uint64, name string) error {
+func (vault *vaultStore) RememberAccessSlotLabel(id []byte, slotID uint64, name string) error {
 	return require(bool(C.vault_directory_remember_access_slot_label(vault.handle, bytePointer(id), C.size_t(len(id)), C.uint64_t(slotID), charPointer(name), C.size_t(len(name)))))
 }
 
 // ListAccessSlotLabels lists access slot labels.
-func (vault *VaultDirectory) ListAccessSlotLabels(id []byte) ([]AccessSlotLabel, error) {
+func (vault *vaultStore) ListAccessSlotLabels(id []byte) ([]AccessSlotLabel, error) {
 	return decodeResult(C.vault_directory_list_access_slot_labels(vault.handle, bytePointer(id), C.size_t(len(id))), decodeAccessSlotLabelList)
 }
 
 // FindAccessSlotLabels returns or performs find access slot labels.
-func (vault *VaultDirectory) FindAccessSlotLabels(id []byte, name string) ([]AccessSlotLabel, error) {
+func (vault *vaultStore) FindAccessSlotLabels(id []byte, name string) ([]AccessSlotLabel, error) {
 	return decodeResult(C.vault_directory_find_access_slot_labels(vault.handle, bytePointer(id), C.size_t(len(id)), charPointer(name), C.size_t(len(name))), decodeAccessSlotLabelList)
 }
 
 // ForgetAccessSlotLabel removes access slot label.
-func (vault *VaultDirectory) ForgetAccessSlotLabel(id []byte, slotID uint64) error {
+func (vault *vaultStore) ForgetAccessSlotLabel(id []byte, slotID uint64) error {
 	return require(bool(C.vault_directory_forget_access_slot_label(vault.handle, bytePointer(id), C.size_t(len(id)), C.uint64_t(slotID))))
 }
 
 // DefineForm returns or performs define form.
-func (vault *VaultDirectory) DefineForm(alias, name, description string, fields []FormField) (*FormDefinition, error) {
+func (vault *vaultStore) DefineForm(alias, name, description string, fields []FormField) (*FormDefinition, error) {
 	encoded := encodeFormFields(fields)
 	return decodeResult(C.vault_directory_define_form(vault.handle, charPointer(alias), C.size_t(len(alias)), charPointer(name), C.size_t(len(name)), charPointer(description), C.size_t(len(description)), bytePointer(encoded), C.size_t(len(encoded))), decodeFormDefinition)
 }
 
 // ResolveForm returns or performs resolve form.
-func (vault *VaultDirectory) ResolveForm(reference string) (*FormDefinition, error) {
+func (vault *vaultStore) ResolveForm(reference string) (*FormDefinition, error) {
 	return decodeResult(C.vault_directory_resolve_form(vault.handle, charPointer(reference), C.size_t(len(reference))), decodeFormDefinition)
 }
 
 // ListForms lists forms.
-func (vault *VaultDirectory) ListForms() ([]FormDefinition, error) {
+func (vault *vaultStore) ListForms() ([]FormDefinition, error) {
 	return decodeResult(C.vault_directory_list_forms(vault.handle), decodeFormDefinitionList)
 }
 
 // ListFormRevisions lists form revisions.
-func (vault *VaultDirectory) ListFormRevisions(typeID string) ([]FormDefinition, error) {
+func (vault *vaultStore) ListFormRevisions(typeID string) ([]FormDefinition, error) {
 	return decodeResult(C.vault_directory_list_form_revisions(vault.handle, charPointer(typeID), C.size_t(len(typeID))), decodeFormDefinitionList)
 }
 
-// ReadOnlyVaultDirectory lists local metadata for discovery or diagnostics
+// ReadOnlyVault lists local metadata for discovery or diagnostics
 // without loading an owner signing key or exposing mutation operations.
-type ReadOnlyVaultDirectory struct{ handle unsafe.Pointer }
+type ReadOnlyVault struct{ handle unsafe.Pointer }
 
-// OpenReadOnlyVaultDirectory opens read only vault directory.
-func OpenReadOnlyVaultDirectory(root string, password []byte) (*ReadOnlyVaultDirectory, error) {
+// openReadOnlyVault opens read only vault directory.
+func openReadOnlyVault(root string, password []byte) (*ReadOnlyVault, error) {
 	h := C.vault_read_only_open(charPointer(root), C.size_t(len(root)), bytePointer(password), C.size_t(len(password)))
 	if h == nil {
 		return nil, lastError()
 	}
-	return &ReadOnlyVaultDirectory{handle: h}, nil
+	return &ReadOnlyVault{handle: h}, nil
 }
 
-// OpenDefaultReadOnlyVaultDirectory opens default read only vault directory.
-func OpenDefaultReadOnlyVaultDirectory(password []byte) (*ReadOnlyVaultDirectory, error) {
+// OpenReadOnlyVault opens an existing Vault for metadata discovery.
+func OpenReadOnlyVault(root string, vaultPassphrase []byte) (*ReadOnlyVault, error) {
+	return openReadOnlyVault(root, vaultPassphrase)
+}
+
+// openDefaultReadOnlyVault opens default read only vault directory.
+func openDefaultReadOnlyVault(password []byte) (*ReadOnlyVault, error) {
 	h := C.vault_read_only_open_default(bytePointer(password), C.size_t(len(password)))
 	if h == nil {
 		return nil, lastError()
 	}
-	return &ReadOnlyVaultDirectory{handle: h}, nil
+	return &ReadOnlyVault{handle: h}, nil
+}
+
+// OpenDefaultReadOnlyVault opens the default Vault for metadata discovery.
+func OpenDefaultReadOnlyVault(vaultPassphrase []byte) (*ReadOnlyVault, error) {
+	return openDefaultReadOnlyVault(vaultPassphrase)
 }
 
 // ListProfileNames lists profile names.
-func (vault *ReadOnlyVaultDirectory) ListProfileNames() ([]string, error) {
+func (vault *ReadOnlyVault) ListProfileNames() ([]string, error) {
 	return decodeResult(C.vault_read_only_list_profile_names(vault.handle), decodeStringList)
 }
 
 // ListContactNames lists contact names.
-func (vault *ReadOnlyVaultDirectory) ListContactNames() ([]string, error) {
+func (vault *ReadOnlyVault) ListContactNames() ([]string, error) {
 	return decodeResult(C.vault_read_only_list_contact_names(vault.handle), decodeStringList)
 }
 
 // ListFormAliases lists form aliases.
-func (vault *ReadOnlyVaultDirectory) ListFormAliases() ([]string, error) {
+func (vault *ReadOnlyVault) ListFormAliases() ([]string, error) {
 	return decodeResult(C.vault_read_only_list_form_aliases(vault.handle), decodeStringList)
 }
 
 // ListKnownLockboxes lists known lockboxes.
-func (vault *ReadOnlyVaultDirectory) ListKnownLockboxes() ([]KnownLockbox, error) {
+func (vault *ReadOnlyVault) ListKnownLockboxes() ([]KnownLockbox, error) {
 	return decodeResult(C.vault_read_only_list_known_lockboxes(vault.handle), decodeKnownLockboxList)
 }
 
 // Close releases the native resources held by close.
-func (vault *ReadOnlyVaultDirectory) Close() {
+func (vault *ReadOnlyVault) Close() {
 	if vault != nil && vault.handle != nil {
 		C.vault_read_only_free(vault.handle)
 		vault.handle = nil
@@ -1135,17 +1291,17 @@ func (vault *ReadOnlyVaultDirectory) Close() {
 }
 
 // SeedForms returns or performs seed forms.
-func (vault *VaultDirectory) SeedForms() uint {
+func (vault *vaultStore) SeedForms() uint {
 	return uint(C.vault_directory_seed_forms(vault.handle))
 }
 
 // RememberPassword stores password.
-func (vault *VaultDirectory) RememberPassword(id, password []byte) error {
+func (vault *vaultStore) RememberPassword(id, password []byte) error {
 	return require(bool(C.vault_directory_remember_password(vault.handle, bytePointer(id), C.size_t(len(id)), bytePointer(password), C.size_t(len(password)))))
 }
 
 // RememberedPassword returns or performs remembered password.
-func (vault *VaultDirectory) RememberedPassword(id []byte) ([]byte, error) {
+func (vault *vaultStore) RememberedPassword(id []byte) ([]byte, error) {
 	return takeBuffer(C.vault_directory_remembered_password(vault.handle, bytePointer(id), C.size_t(len(id))))
 }
 
@@ -1214,17 +1370,17 @@ func ForgetAgentVaultUnlockKey(vaultID string) error {
 }
 
 // PutAgentOwnerSigningKey stores agent owner signing key.
-func PutAgentOwnerSigningKey(vaultID, profile string, key *SigningKeyPair, ttlSeconds uint64) error {
+func PutAgentProfileSigningKey(vaultID, profile string, key *ProfileSigningKeyPair, ttlSeconds uint64) error {
 	return require(bool(C.vault_agent_put_owner_signing_key(charPointer(vaultID), C.size_t(len(vaultID)), charPointer(profile), C.size_t(len(profile)), key.handle, C.uint64_t(ttlSeconds))))
 }
 
 // GetAgentOwnerSigningKey returns agent owner signing key.
-func GetAgentOwnerSigningKey(vaultID, profile string) (*SigningKeyPair, error) {
+func GetAgentProfileSigningKey(vaultID, profile string) (*ProfileSigningKeyPair, error) {
 	h := C.vault_agent_get_owner_signing_key(charPointer(vaultID), C.size_t(len(vaultID)), charPointer(profile), C.size_t(len(profile)))
 	if h == nil {
 		return nil, lastError()
 	}
-	return &SigningKeyPair{handle: h}, nil
+	return &ProfileSigningKeyPair{handle: h}, nil
 }
 
 // ForgetAgentOwnerSigningKey removes agent owner signing key.
@@ -1243,6 +1399,29 @@ func BeginAgentActivity(kind string) (*AgentActivity, error) {
 		return nil, lastError()
 	}
 	return &AgentActivity{handle: h}, nil
+}
+
+// AgentSession explicitly controls the single optional session-agent process.
+// It caches temporary lockbox content keys; it does not keep archive file
+// handles open and it is not an authentication boundary while a persistent
+// vault credential can be retrieved without user interaction.
+type AgentSession struct{}
+
+// SessionAgent returns the process-local agent controller.
+func SessionAgent() *AgentSession { return &AgentSession{} }
+// Start starts the optional session agent.
+func (a *AgentSession) Start() error { return StartAgent() }
+// Close stops the optional session agent and forgets its temporary entries.
+func (a *AgentSession) Close() error { return StopAgent() }
+// IsRunning reports whether the session agent is running.
+func (a *AgentSession) IsRunning() bool { return AgentIsRunning() }
+// CloseLockbox forgets the agent's temporary content-key entry for lockboxID.
+func (a *AgentSession) CloseLockbox(lockboxID []byte) error { return ForgetAgentKey(lockboxID) }
+// CloseAll forgets every temporary content-key entry held by the agent.
+func (a *AgentSession) CloseAll() error { return ForgetAllAgentSecrets() }
+// Begin starts a typed temporary agent activity.
+func (a *AgentSession) Begin(kind AgentActivityKind) (*AgentActivity, error) {
+	return BeginAgentActivity(string(kind))
 }
 
 // Close releases the native resources held by close.
@@ -1283,21 +1462,25 @@ func GetPlatformPassword() ([]byte, error) { return takeBuffer(C.vault_platform_
 // ForgetPlatformPassword removes platform password.
 func ForgetPlatformPassword() error { return require(bool(C.vault_platform_forget_password())) }
 
-// LocalVault is a session for opening lockboxes by host path, caching
+// LockboxSession is a session for opening lockboxes by host path, caching
 // short-lived passwords, and committing and closing locally used files.
-type LocalVault struct{ handle unsafe.Pointer }
+type LockboxSession struct{ handle unsafe.Pointer }
 
-// OpenLocalVault opens local vault.
-func OpenLocalVault() (*LocalVault, error) {
+// openLockboxSession opens local vault.
+func openLockboxSession() (*LockboxSession, error) {
 	h := C.vault_local()
 	if h == nil {
 		return nil, lastError()
 	}
-	return &LocalVault{handle: h}, nil
+	return &LockboxSession{handle: h}, nil
 }
 
+// OpenLockboxSession opens the path-based lockbox workflow. The session agent
+// remains independent and is never contacted implicitly.
+func OpenLockboxSession() (*LockboxSession, error) { return openLockboxSession() }
+
 // Close releases the native resources held by close.
-func (vault *LocalVault) Close() {
+func (vault *LockboxSession) Close() {
 	if vault != nil && vault.handle != nil {
 		C.vault_free(vault.handle)
 		vault.handle = nil
@@ -1305,39 +1488,39 @@ func (vault *LocalVault) Close() {
 }
 
 // CreateWithPassword creates with password.
-func (vault *LocalVault) CreateWithPassword(path string, password []byte) (*Lockbox, error) {
+func (vault *LockboxSession) CreateWithPassword(path string, password []byte) (*Lockbox, error) {
 	return adoptLockbox(C.vault_create_lockbox_password(vault.handle, charPointer(path), C.size_t(len(path)), bytePointer(password), C.size_t(len(password))))
 }
 
 // OpenWithPassword opens with password.
-func (vault *LocalVault) OpenWithPassword(path string, password []byte) (*Lockbox, error) {
+func (vault *LockboxSession) OpenWithPassword(path string, password []byte) (*Lockbox, error) {
 	return adoptLockbox(C.vault_open_lockbox_password(vault.handle, charPointer(path), C.size_t(len(path)), bytePointer(password), C.size_t(len(password))))
 }
 
 // CreateWithContentKey creates with content key.
-func (vault *LocalVault) CreateWithContentKey(path string, key []byte, signing *SigningKeyPair) (*Lockbox, error) {
+func (vault *LockboxSession) CreateWithContentKey(path string, key []byte, signing *ProfileSigningKeyPair) (*Lockbox, error) {
 	return adoptLockbox(C.vault_create_lockbox_content_key(vault.handle, charPointer(path), C.size_t(len(path)), bytePointer(key), C.size_t(len(key)), signing.handle))
 }
 
 // OpenWithContentKey opens with content key.
-func (vault *LocalVault) OpenWithContentKey(path string, key []byte, signing *SigningKeyPair) (*Lockbox, error) {
+func (vault *LockboxSession) OpenWithContentKey(path string, key []byte, signing *ProfileSigningKeyPair) (*Lockbox, error) {
 	return adoptLockbox(C.vault_open_lockbox_content_key(vault.handle, charPointer(path), C.size_t(len(path)), bytePointer(key), C.size_t(len(key)), signing.handle))
 }
 
 // CreateForContact creates for contact.
-func (vault *LocalVault) CreateForContact(path string, contact *ContactPublicKey, name string, signing *SigningKeyPair) (*Lockbox, error) {
+func (vault *LockboxSession) CreateForContact(path string, contact *ContactPublicKey, name string, signing *ProfileSigningKeyPair) (*Lockbox, error) {
 	return adoptLockbox(C.vault_create_lockbox_contact(vault.handle, charPointer(path), C.size_t(len(path)), contact.handle, charPointer(name), C.size_t(len(name)), signing.handle))
 }
 
 // CachePassword stores password.
-func (vault *LocalVault) CachePassword(path string, password []byte, ttlSeconds uint64) error {
+func (vault *LockboxSession) CachePassword(path string, password []byte, ttlSeconds uint64) error {
 	return require(bool(C.vault_cache_lockbox_password(vault.handle, charPointer(path), C.size_t(len(path)), bytePointer(password), C.size_t(len(password)), C.uint64_t(ttlSeconds))))
 }
 
 // CloseLockbox releases the native resources held by lockbox.
-func (vault *LocalVault) CloseLockbox(path string) error {
+func (vault *LockboxSession) CloseLockbox(path string) error {
 	return require(bool(C.vault_close_lockbox(vault.handle, charPointer(path), C.size_t(len(path)))))
 }
 
 // CloseAll releases the native resources held by all.
-func (vault *LocalVault) CloseAll() error { return require(bool(C.vault_close_all(vault.handle))) }
+func (vault *LockboxSession) CloseAll() error { return require(bool(C.vault_close_all(vault.handle))) }

@@ -7,6 +7,11 @@ use FFI;
 use FFI\CData;
 use RuntimeException;
 
+final class RevaultError extends RuntimeException
+{
+    public function __construct(string $message, public readonly ?object $details = null) { parent::__construct($message); }
+}
+
 /**
  * Complete binary operation layer generated from revault_api.h.
  *
@@ -28,19 +33,19 @@ final class BindingOperations
 
     private function requireBool(bool $value): bool
     {
-        if (!$value) { throw new RuntimeException($this->lastErrorMessage()); }
+        if (!$value) { throw new RevaultError($this->lastErrorMessage()); }
         return true;
     }
 
     private function requireHandle(CData $value): CData
     {
-        if (FFI::isNull($value)) { throw new RuntimeException($this->lastErrorMessage()); }
+        if (FFI::isNull($value)) { throw new RevaultError($this->lastErrorMessage()); }
         return $value;
     }
 
     private function take(CData $value): string
     {
-        if (FFI::isNull($value->ptr)) { throw new RuntimeException($this->lastErrorMessage()); }
+        if (FFI::isNull($value->ptr)) { throw new RevaultError($this->lastErrorMessage()); }
         try { return FFI::string($value->ptr, $value->len); }
         finally { $this->ffi->buffer_free($value); }
     }

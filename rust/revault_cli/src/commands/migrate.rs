@@ -463,8 +463,7 @@ fn resolve_exporter(
 ) -> CliResult<PathBuf> {
     let release = exporter_release(kind, source_version).ok_or_else(|| {
         cli_error(format!(
-            "no crates.io exporter is registered for {:?} format version {source_version}",
-            kind
+            "no crates.io exporter is registered for {kind:?} format version {source_version}"
         ))
     })?;
     if let Some(path) = explicit {

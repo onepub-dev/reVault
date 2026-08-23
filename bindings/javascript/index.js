@@ -4,7 +4,34 @@
  * guidance, and complete examples.
  * @module @onepub-dev/revault-api
  */
-import { BindingOperations, createMessage, encodeMessage } from './native.js';
+import { BindingOperations, RevaultError, createMessage, encodeMessage } from './native.js';
+import fs from 'node:fs';
+
+/** Error raised when a native operation is rejected; details preserve ABI diagnostics. */
+export { RevaultError };
+/** Cache policies for an open Lockbox. */
+export const LockboxCacheMode = Object.freeze({ BYTES: 'bytes', DISABLED: 'disabled', AUTOMATIC: 'automatic' });
+/** Workload profiles used to tune archive operations. */
+export const LockboxWorkload = Object.freeze({ INTERACTIVE: 'interactive', BULK_IMPORT: 'bulk-import', READ_MOSTLY: 'read-mostly' });
+/** Worker policies used by archive operations. */
+export const LockboxWorker = Object.freeze({ AUTO: 'auto', SINGLE: 'single', THREADS: 'threads' });
+/** Categories recorded by the explicit session agent. */
+export const AgentActivityKind = Object.freeze({ OPEN: 'open', CLOSE: 'close', VARIABLES: 'variables', FORM: 'form', RECOVERY: 'recovery', VAULT: 'vault' });
+/** Stable key export encodings. */
+export const KeyExportFormat = Object.freeze({ LOCKBOX_PEM: 'lockbox-pem', JWK: 'jwk', JWKS: 'jwks', RAW_HEX: 'raw-hex' });
+
+/** Mutable UTF-8 secret owned by the caller and wiped by close(). */
+export class SecretBytes extends Uint8Array {
+  /** Wipe the mutable secret buffer in place. */
+  close() { this.fill(0); }
+}
+/** Mutable UTF-8 password owned by the caller and wiped by close(). */
+export class SecretString extends SecretBytes {
+  /** Copy a UTF-8 passphrase into a mutable, wipeable buffer. */
+  constructor(value) { super(Buffer.from(value, 'utf8')); }
+  /** Decode the current UTF-8 value for a native call. */
+  toString() { return Buffer.from(this).toString('utf8'); }
+}
 
 function encodePathMoves(moves) {
   return encodeMessage(createMessage('PathMoveList', {
@@ -21,11 +48,18 @@ function encodeFormFields(fields) {
 class OwnedHandle {
   /** Creates a new facade over the bundled native library. */
   constructor(operations, nativeHandle) { this.operations = operations; this.nativeHandle = nativeHandle; }
+  /** Release this handle when its concrete type supplies a native free method. */
+  close() { if (this.nativeHandle != null && typeof this.free === 'function') this.free(); }
 }
 
 /** Primary API used to open lockboxes, manage keys and metadata, use the
  * session agent, and access operating-system credential storage. */
-export class Vault {
+/** Native runtime loader and archive/key factory. */
+export class Revault {
+  /** Load the installed native carrier asynchronously. */
+  static async load() { return new Revault(); }
+  /** Return a synchronous runtime facade for factory operations. */
+  static get runtime() { return new Revault(); }
   /** Creates a new facade over the bundled native library. */
   constructor() { this.operations = new BindingOperations(); this.agent = new Agent(this.operations); this.platform = new Platform(this.operations); }
   /** Returns the last error. */
@@ -200,7 +234,7 @@ export class Vault {
 
   /** Returns the vault directory open. */
   vaultDirectoryOpen(root, password) {
-    return new VaultDirectory(this.operations, this.operations.vaultDirectoryOpen(root, password));
+    return new Vault(this.operations, this.operations.vaultDirectoryOpen(root, password));
   }
 
   /** Returns the vault structure version current. */
@@ -215,12 +249,12 @@ export class Vault {
 
   /** Returns the vault directory open or create default. */
   vaultDirectoryOpenOrCreateDefault(password) {
-    return new VaultDirectory(this.operations, this.operations.vaultDirectoryOpenOrCreateDefault(password));
+    return new Vault(this.operations, this.operations.vaultDirectoryOpenOrCreateDefault(password));
   }
 
   /** Returns the vault directory replace default. */
   vaultDirectoryReplaceDefault(password) {
-    return new VaultDirectory(this.operations, this.operations.vaultDirectoryReplaceDefault(password));
+    return new Vault(this.operations, this.operations.vaultDirectoryReplaceDefault(password));
   }
 
   /** Returns the vault directory change password. */
@@ -235,12 +269,12 @@ export class Vault {
 
   /** Returns the vault directory replace. */
   vaultDirectoryReplace(root, password) {
-    return new VaultDirectory(this.operations, this.operations.vaultDirectoryReplace(root, password));
+    return new Vault(this.operations, this.operations.vaultDirectoryReplace(root, password));
   }
 
   /** Returns the vault directory open or create. */
   vaultDirectoryOpenOrCreate(root, password) {
-    return new VaultDirectory(this.operations, this.operations.vaultDirectoryOpenOrCreate(root, password));
+    return new Vault(this.operations, this.operations.vaultDirectoryOpenOrCreate(root, password));
   }
 
   /** Returns the vault backup default. */
@@ -255,12 +289,12 @@ export class Vault {
 
   /** Returns the vault read only open. */
   vaultReadOnlyOpen(root, password) {
-    return new ReadOnlyVaultDirectory(this.operations, this.operations.vaultReadOnlyOpen(root, password));
+    return new ReadOnlyVault(this.operations, this.operations.vaultReadOnlyOpen(root, password));
   }
 
   /** Returns the vault read only open default. */
   vaultReadOnlyOpenDefault(password) {
-    return new ReadOnlyVaultDirectory(this.operations, this.operations.vaultReadOnlyOpenDefault(password));
+    return new ReadOnlyVault(this.operations, this.operations.vaultReadOnlyOpenDefault(password));
   }
 
   /** Returns the vault default directory. */
@@ -283,16 +317,53 @@ export class Vault {
     return this.operations.vaultAgentLogDestination();
   }
 
-  /** Returns the vault local. */
-  vaultLocal() {
-    return new LocalVault(this.operations, this.operations.vaultLocal());
-  }
-
 }
 
 /** An open encrypted archive containing files, variables, secrets, and forms.
  * Commit pending changes and release it when finished with decrypted content. */
 export class Lockbox extends OwnedHandle {
+  /** Create an in-memory archive using exactly one credential. */
+  static createInMemory({ password, contentKey, contact, signingKey, options } = {}) {
+    const credentials = [password, contentKey, contact].filter((value) => value != null);
+    if (credentials.length !== 1) throw new TypeError('Supply exactly one of password, contentKey, or contact.');
+    const runtime = Revault.runtime;
+    let lockbox;
+    if (password != null) lockbox = runtime.lockboxCreatePassword(password);
+    else if (contact != null) lockbox = runtime.lockboxCreateContact(contact);
+    else if (options != null) lockbox = runtime.lockboxCreateWithOptions(contentKey, options.cacheMode, options.cacheBytes ?? 0, options.workload, options.worker, options.jobs ?? 0);
+    else lockbox = runtime.lockboxCreate(contentKey);
+    if (signingKey != null) lockbox.setOwnerSigningKey(signingKey);
+    return lockbox;
+  }
+
+  /** Open serialized archive bytes with exactly one credential. */
+  static openBytes(archive, { password, contentKey, contact, options } = {}) {
+    const credentials = [password, contentKey, contact].filter((value) => value != null);
+    if (credentials.length !== 1) throw new TypeError('Supply exactly one of password, contentKey, or contact.');
+    const runtime = Revault.runtime;
+    if (password != null) return runtime.lockboxOpenPassword(archive, password);
+    if (contact != null) return runtime.lockboxOpenContact(archive, contact);
+    return options == null
+      ? runtime.lockboxOpen(archive, contentKey)
+      : runtime.lockboxOpenWithOptions(archive, contentKey, options.cacheMode, options.cacheBytes ?? 0, options.workload, options.worker, options.jobs ?? 0);
+  }
+
+  /** Create an archive file and return its process-local handle. */
+  static create(path, options = {}) {
+    if (fs.existsSync(path) && !options.overwrite) throw new Error(`Lockbox already exists: ${path}`);
+    const lockbox = Lockbox.createInMemory(options);
+    fs.writeFileSync(path, lockbox.toBytes());
+    lockbox._backingPath = path;
+    return lockbox;
+  }
+
+  /** Open an archive file without consulting the session agent. */
+  static open(path, options = {}) {
+    const lockbox = Lockbox.openBytes(fs.readFileSync(path), options);
+    lockbox._backingPath = path;
+    return lockbox;
+  }
+
   /** Adds file. */
   addFile(path, data, replace) {
     return this.operations.lockboxAddFile(this.nativeHandle, path, data, replace);
@@ -375,7 +446,11 @@ export class Lockbox extends OwnedHandle {
 
   /** Authenticates and publishes the staged changes. */
   commit() {
-    return this.operations.lockboxCommit(this.nativeHandle);
+    const result = this.operations.lockboxCommit(this.nativeHandle);
+    // The byte-oriented factory keeps a process-local handle backed by the
+    // requested host path. Persist only after native authentication succeeds.
+    if (this._backingPath != null) fs.writeFileSync(this._backingPath, this.toBytes());
+    return result;
   }
 
   /** Creates dir. */
@@ -660,6 +735,8 @@ export class ContactPublicKey extends OwnedHandle {
     this.operations.keyContactPublicFree(this.nativeHandle);
     this.nativeHandle = null;
   }
+  /** Release the public key handle. */
+  close() { this.publicFree(); }
 
   /** Encrypts a content key for the selected contact. */
   encrypt(contentKey) {
@@ -694,7 +771,7 @@ export class WrappedContactKey extends OwnedHandle {
 }
 
 /** A lockbox owner's signing identity, used to authorize mutable revisions. */
-export class SigningKeyPair extends OwnedHandle {
+class SigningKeyPair extends OwnedHandle {
   /** Returns the public. */
   public() {
     return this.operations.keySigningPublic(this.nativeHandle);
@@ -714,18 +791,29 @@ export class SigningKeyPair extends OwnedHandle {
 }
 
 /** The public identity readers use to verify owner-authorized revisions. */
-export class SigningPublicKey extends OwnedHandle {
+class SigningPublicKey extends OwnedHandle {
   /** Returns the public free. */
   publicFree() {
     this.operations.keySigningPublicFree(this.nativeHandle);
     this.nativeHandle = null;
   }
+  /** Release the signing public key handle. */
+  close() { this.publicFree(); }
 
 }
 
 /** A password-protected local store for profile keys, contacts, forms, backups,
  * and remembered lockbox paths; it does not contain lockbox file contents. */
-export class VaultDirectory extends OwnedHandle {
+/** Persistent encrypted local store for profiles, keys, contacts and metadata. */
+export class Vault extends OwnedHandle {
+  /** Open an existing persistent Vault without creating or replacing it. */
+  static open(root, vaultPassphrase) { return new Revault().vaultDirectoryOpen(root, vaultPassphrase); }
+  /** Open a persistent Vault or create it when absent. */
+  static openOrCreate(root, vaultPassphrase) { return new Revault().vaultDirectoryOpenOrCreate(root, vaultPassphrase); }
+  /** Create a new persistent Vault. */
+  static create(root, vaultPassphrase) { return new Revault().vaultDirectoryReplace(root, vaultPassphrase); }
+  /** Replace a persistent Vault explicitly; existing contents are discarded. */
+  static replace(root, vaultPassphrase) { return new Revault().vaultDirectoryReplace(root, vaultPassphrase); }
   /** Returns the root. */
   root() {
     return this.operations.vaultDirectoryRoot(this.nativeHandle);
@@ -945,7 +1033,8 @@ export class VaultDirectory extends OwnedHandle {
 }
 
 /** A restricted local metadata view for discovery without signing-key access. */
-export class ReadOnlyVaultDirectory extends OwnedHandle {
+/** Read-only persistent Vault view for discovery and diagnostics. */
+export class ReadOnlyVault extends OwnedHandle {
   /** Lists profile names. */
   listProfileNames() {
     return this.operations.vaultReadOnlyListProfileNames(this.nativeHandle);
@@ -968,14 +1057,17 @@ export class ReadOnlyVaultDirectory extends OwnedHandle {
 
   /** Releases the native resources held by this object. */
   free() {
-    return this.operations.vaultReadOnlyFree(this.nativeHandle);
+    if (this.nativeHandle != null) {
+      this.operations.vaultReadOnlyFree(this.nativeHandle);
+      this.nativeHandle = null;
+    }
   }
 
 }
 
 /** Client for the session service that temporarily caches vault unlock and
  * owner signing keys across application operations. */
-export class Agent {
+class Agent {
   /** Creates a new facade over the bundled native library. */
   constructor(operations) { this.operations = operations; }
 
@@ -1076,12 +1168,50 @@ export class Agent {
 
 }
 
+/** Explicit session-agent controller; it caches content keys only when asked. */
+export class AgentSession extends Agent {
+  /** Create an explicit session controller over a native runtime. */
+  constructor(operations) { super(operations); this._vaultHandle = operations.vaultLocal(); }
+  /** Return the process-wide explicit session controller. */
+  static get instance() { if (!this._instance) this._instance = new AgentSession(new BindingOperations()); return this._instance; }
+  /** Remove one cached lockbox key from this session. */
+  closeLockbox(lockboxPath) { return this.operations.vaultCloseLockbox(this._vaultHandle, lockboxPath); }
+  /** Remove every lockbox key cached by this session. */
+  closeAll() { return this.operations.vaultCloseAll(this._vaultHandle); }
+  /** Create a password-protected lockbox file through this session. */
+  createLockboxPassword(path, password) { return new Lockbox(this.operations, this.operations.vaultCreateLockboxPassword(this._vaultHandle, path, password)); }
+  /** Open a password-protected lockbox file through this session. */
+  openLockboxPassword(path, password) { return new Lockbox(this.operations, this.operations.vaultOpenLockboxPassword(this._vaultHandle, path, password)); }
+  /** Create a content-key lockbox file through this session. */
+  createLockboxContentKey(path, contentKey, signingKey) { return new Lockbox(this.operations, this.operations.vaultCreateLockboxContentKey(this._vaultHandle, path, contentKey, signingKey?.nativeHandle ?? null)); }
+  /** Create a contact-addressed lockbox file through this session. */
+  createLockboxContact(path, contact, name, signingKey) { return new Lockbox(this.operations, this.operations.vaultCreateLockboxContact(this._vaultHandle, path, contact?.nativeHandle ?? null, name, signingKey?.nativeHandle ?? null)); }
+  /** Open a content-key lockbox file through this session. */
+  openLockboxContentKey(path, contentKey, signingKey) { return new Lockbox(this.operations, this.operations.vaultOpenLockboxContentKey(this._vaultHandle, path, contentKey, signingKey?.nativeHandle ?? null)); }
+  /** Cache a password-derived key for the requested number of seconds. */
+  cacheLockboxPassword(path, password, ttlSeconds) { return this.operations.vaultCacheLockboxPassword(this._vaultHandle, path, password, ttlSeconds); }
+  /** Release the process-local session handle. */
+  free() { if (this._vaultHandle != null) { this.operations.vaultFree(this._vaultHandle); this._vaultHandle = null; } }
+}
+
+// Reviewed 0.3 terminology for returned persistent-vault and signing-key
+// values. The old transport class names are intentionally not used in docs.
+/** Profile-oriented names for signing identities used by persistent Vault records. */
+export { SigningKeyPair as ProfileSigningKeyPair, SigningPublicKey as ProfileSigningPublicKey };
+
 /** A token kept alive while an operation needs secrets cached by the agent. */
 export class AgentActivity extends OwnedHandle {
+  /** End the activity and release its native lifetime token. */
+  free() {
+    if (this.nativeHandle != null) {
+      this.operations.vaultAgentEndActivity(this.nativeHandle);
+      this.nativeHandle = null;
+    }
+  }
 }
 
 /** Access to operating-system credential storage for a scoped vault password. */
-export class Platform {
+class Platform {
   /** Creates a new facade over the bundled native library. */
   constructor(operations) { this.operations = operations; }
 
@@ -1129,7 +1259,7 @@ export class Platform {
 
 /** A session for opening lockboxes by host path, caching short-lived passwords,
  * and committing and closing locally used lockbox files. */
-export class LocalVault extends OwnedHandle {
+class LocalVault extends OwnedHandle {
   /** Creates lockbox password. */
   createLockboxPassword(path, password) {
     return new Lockbox(this.operations, this.operations.vaultCreateLockboxPassword(this.nativeHandle, path, password));

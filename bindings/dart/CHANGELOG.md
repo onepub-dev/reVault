@@ -1,16 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Allow the bundled native client to use a session agent from a different
+  package release when both implement the same agent protocol.
+- Added encrypted Lockbox descriptions through `description`, `setDescription`,
+  and `clearDescription`. Descriptions use existing encrypted variable storage,
+  so the `.lbox` format version is unchanged.
+
 ## 0.3.6
 
 - Add process-local lockbox handles with deterministic `close` support.
 - Add agent-backed lockbox handle acquisition without extending the agent TTL.
 - Add explicit platform credential context support for sudo-safe vault access.
-
-## Unreleased
-
-- Added encrypted Lockbox descriptions through `description`,
-  `setDescription`, and `clearDescription`. Descriptions use existing encrypted
-  variable storage, so the `.lbox` format version is unchanged.
 
 ## 0.3.5
 

@@ -18,35 +18,66 @@ import java.util.Objects;
  * }
  * }</pre>
  */
-public final class Vault implements AutoCloseable {
+public final class Vault extends Revault.VaultHandle {
   private final Revault runtime;
-  private final Revault.VaultDirectoryHandle directory;
-  private final Revault.LocalVaultHandle local;
+  private final Revault.LockboxSessionHandle local;
   private final AgentSession agent;
 
-  private Vault(Revault runtime, Revault.VaultDirectoryHandle directory) {
+  private Vault(Revault runtime, Revault.VaultHandle directory) {
+    runtime.super(directory.detach());
     this.runtime = Objects.requireNonNull(runtime);
-    this.directory = Objects.requireNonNull(directory);
-    this.local = runtime.openLocalVault();
+    Objects.requireNonNull(directory);
+    this.local = runtime.openLockboxSession();
     this.agent = new AgentSession(runtime);
   }
 
   /** Opens the default Vault using the passphrase held in platform storage. */
   public static Vault open() {
     var runtime = Revault.load();
-    return new Vault(runtime, runtime.openOrCreateDefaultVaultDirectory(runtime.getPlatformPassword()));
+    var passphrase = runtime.getPlatformPassword();
+    try { return new Vault(runtime, runtime.openVault(runtime.defaultVaultRoot(), passphrase)); }
+    finally { java.util.Arrays.fill(passphrase, (byte) 0); }
   }
 
   /** Opens the default Vault with an explicitly supplied vault passphrase. */
   public static Vault open(byte[] vaultPassphrase) {
     var runtime = Revault.load();
-    return new Vault(runtime, runtime.openOrCreateDefaultVaultDirectory(vaultPassphrase));
+    return new Vault(runtime, runtime.openVault(runtime.defaultVaultRoot(), vaultPassphrase));
   }
 
   /** Opens an existing Vault directory with its vault passphrase. */
   public static Vault open(Path root, byte[] vaultPassphrase) {
     var runtime = Revault.load();
-    return new Vault(runtime, runtime.openVaultDirectory(root.toString(), vaultPassphrase));
+    return new Vault(runtime, runtime.openVault(root.toString(), vaultPassphrase));
+  }
+
+  /** Opens an existing Vault or creates it when absent. */
+  public static Vault openOrCreate(Path root, byte[] vaultPassphrase) {
+    var runtime = Revault.load();
+    return new Vault(runtime, runtime.openOrCreateVault(root.toString(), vaultPassphrase));
+  }
+
+  /** Creates a fresh Vault, replacing persistent data at {@code root}. */
+  public static Vault create(Path root, byte[] vaultPassphrase) {
+    var runtime = Revault.load();
+    return new Vault(runtime, runtime.replaceVault(root.toString(), vaultPassphrase));
+  }
+
+  /** Explicit destructive alias for {@link #create(Path, byte[])}. */
+  public static Vault replace(Path root, byte[] vaultPassphrase) {
+    return create(root, vaultPassphrase);
+  }
+
+  /** Opens the metadata-only view for an existing Vault. */
+  public static ReadOnlyVault openReadOnly(Path root, byte[] vaultPassphrase) {
+    var runtime = Revault.load();
+    return new ReadOnlyVault(runtime, runtime.openReadOnlyVault(root.toString(), vaultPassphrase));
+  }
+
+  /** Opens the metadata-only view for the platform-default Vault. */
+  public static ReadOnlyVault openReadOnly(byte[] vaultPassphrase) {
+    var runtime = Revault.load();
+    return new ReadOnlyVault(runtime, runtime.openDefaultReadOnlyVault(vaultPassphrase));
   }
 
   /** Returns controls for the optional session-agent process. */
@@ -68,6 +99,6 @@ public final class Vault implements AutoCloseable {
   /** Closes lockbox/local-vault resources and the persistent Vault handle. */
   @Override public void close() {
     local.close();
-    directory.close();
+    super.close();
   }
 }

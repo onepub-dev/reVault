@@ -1216,7 +1216,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.4"
+version = "0.0.6"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -1238,7 +1238,7 @@ dependencies = [
 
 [[package]]
 name = "revault_page_api"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
@@ -1248,7 +1248,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.4"
+version = "0.0.6"
 dependencies = [
  "base64ct",
  "chacha20poly1305",
@@ -1259,10 +1259,12 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-io-kit",
  "revault_lockbox_api",
+ "secret-service",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "windows-sys",
+ "zbus",
  "zeroize",
 ]
 

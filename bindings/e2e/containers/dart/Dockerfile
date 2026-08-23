@@ -25,13 +25,9 @@ RUN rm -rf bindings/dart \
     && cp -a /tmp/packages/dart bindings/dart \
     && cd bindings/e2e/dart \
     && dart pub get \
-    && mkdir -p /opt/revault-dart \
-    && dart compile exe conformance.dart -o /opt/revault-dart/conformance \
-    && mkdir -p /opt/revault-dart/native/linux-x86_64-gnu \
-    && cp /workspace/bindings/dart/lib/src/native/linux-x86_64-gnu/librevault_api.so \
-      /opt/revault-dart/native/linux-x86_64-gnu/
+    && dart build cli --target conformance.dart -o /opt/revault-dart
 ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
-ENV REVAULT_E2E_NATIVE_ROOT=/opt/revault-dart/native/linux-x86_64-gnu
+ENV REVAULT_E2E_NATIVE_ROOT=/opt/revault-dart/bundle/lib
 ENV REVAULT_E2E_NATIVE_FILE=librevault_api.so
 ENV REVAULT_E2E_NATIVE_KIND=dynamic
 CMD ["revault-tool", "e2e", "container", "--language", "dart"]

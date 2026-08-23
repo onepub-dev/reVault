@@ -238,11 +238,11 @@ module Revault
     def initialize = raise('revault-api native ABI mismatch; expected 3') unless Native.api_abi_version == 3
     def last_error_message = Native.buffer_last_error.to_s
     def require_value(value)
-      raise last_error_message unless value
+      raise RevaultError, last_error_message unless value
       value
     end
     def require_handle(value)
-      raise last_error_message if value.nil? || value.null?
+      raise RevaultError, last_error_message if value.nil? || value.null?
       value
     end
     def buffer_call(symbol, *arguments)
@@ -251,23 +251,23 @@ module Revault
       value
     end
     def take(value)
-      raise last_error_message if value.ptr.null?
+      raise RevaultError, last_error_message if value.ptr.null?
       value.ptr.to_s(value.len)
     ensure
       Shim.ruby_buffer_free(value) if value && !value.ptr.null?
     end
     def with_secret(getter)
       output = Fiddle::Pointer.malloc(Fiddle::SIZEOF_VOIDP)
-      raise last_error_message unless getter.call(output)
+      raise RevaultError, last_error_message unless getter.call(output)
       address = output[0, Fiddle::SIZEOF_VOIDP].unpack1('J')
       return nil if address.zero?
       handle = Fiddle::Pointer.new(address)
       begin
         length_out = Fiddle::Pointer.malloc(Fiddle::SIZEOF_SIZE_T)
-        raise last_error_message unless Native.secret_len(handle, length_out)
+        raise RevaultError, last_error_message unless Native.secret_len(handle, length_out)
         length = length_out[0, Fiddle::SIZEOF_SIZE_T].unpack1('J')
         native = Fiddle::Pointer.malloc([length, 1].max)
-        raise last_error_message unless Native.secret_copy(handle, native, length)
+        raise RevaultError, last_error_message unless Native.secret_copy(handle, native, length)
         secret = native.to_s(length)
         begin
           yield secret, length

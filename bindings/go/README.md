@@ -11,7 +11,8 @@ go get github.com/onepub-dev/revault-api@v0.2.0
 The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
 
 ```go
-box, err := revault.Create(make([]byte, 32)) // load a real key securely
+runtime, err := revault.Load() // verifies the installed carrier
+box, err := revault.Create(make([]byte, 32)) // use a real content key securely
 if err != nil { log.Fatal(err) }
 defer box.Close()
 _ = box.AddFile("/hello.txt", []byte("hello\n"), false)
@@ -24,5 +25,11 @@ _ = box.WithSecretVariable("token", func(token []byte) error {
 _ = box.Commit()
 ```
 
-Install the platform SDK before building so cgo can locate `revault_api`.
-Secret callbacks receive a temporary byte slice; never retain it.
+`Revault.Load` does not open a Vault or Lockbox. `OpenVault` opens existing
+persistent metadata; `ReplaceVault` is the explicit destructive constructor.
+Vault passphrases, lockbox passwords, and content keys are distinct caller
+owned byte slices. Native failures return `NativeError`. `SessionAgent` is
+explicit and caches only temporary content keys; it does not delete files or
+persistent credentials. Install the platform SDK before building so cgo can
+locate `revault_api`. Secret callbacks receive a temporary byte slice; never
+retain it.

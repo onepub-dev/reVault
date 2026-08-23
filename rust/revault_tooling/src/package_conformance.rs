@@ -107,12 +107,7 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
     let target = work.join("rust-package-target");
     run_status(
         Command::new("cargo")
-            .args([
-                "package",
-                "--allow-dirty",
-                "--no-verify",
-                "--target-dir",
-            ])
+            .args(["package", "--allow-dirty", "--no-verify", "--target-dir"])
             .arg(&target)
             .current_dir(&package),
     )?;
@@ -535,26 +530,18 @@ fn prepare_dart(target: &str, repository: &Path, packages: &Path, work: &Path) -
             .current_dir(&project),
     )?;
     let install = work.join("dart-install");
-    let program = install.join(if cfg!(windows) {
+    let program = install.join("bundle/bin").join(if cfg!(windows) {
         "conformance.exe"
     } else {
         "conformance"
     });
-    fs::create_dir_all(&install)?;
     run_status(
         Command::new("dart")
-            .args(["compile", "exe", "conformance.dart", "-o"])
-            .arg(&program)
+            .args(["build", "cli", "--target", "conformance.dart", "-o"])
+            .arg(&install)
             .current_dir(&project),
     )?;
-    let native_root = install.join("native").join(target);
-    fs::create_dir_all(&native_root)?;
-    fs::copy(
-        root.join("bindings/dart/lib/src/native")
-            .join(target)
-            .join(dynamic_library(target)),
-        native_root.join(dynamic_library(target)),
-    )?;
+    let native_root = install.join("bundle/lib");
     Ok(Prepared {
         program,
         args: vec![],
@@ -747,14 +734,19 @@ fn prepare_gradle(
         } else {
             name.into()
         });
-    let native_root = work.join(if kotlin {
-        "kotlin-native"
-    } else {
-        "java-native"
-    });
+    let native_root = work
+        .join(if kotlin {
+            "kotlin-native"
+        } else {
+            "java-native"
+        })
+        .join("revault-native");
+    let extraction_root = native_root
+        .parent()
+        .ok_or("native extraction root has no parent")?;
     let java_options = format!(
         "-Djava.io.tmpdir={} -Drevault.keepExtracted=true",
-        native_root.display()
+        extraction_root.display()
     );
     Ok(Prepared {
         program,

@@ -12,10 +12,10 @@ npm install @onepub-dev/revault-api@0.2.0
 The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
 
 ```ts
-import { Vault } from '@onepub-dev/revault-api';
+import { Revault, SecretString, Vault } from '@onepub-dev/revault-api';
 
-const vault = new Vault();
-const box = vault.lockboxCreate(new Uint8Array(32));
+const runtime = await Revault.load();
+const box = runtime.lockboxCreate(new Uint8Array(32));
 box.setVariable('owner', 'alice');
 box.setSecretVariable('token', new TextEncoder().encode('secret'));
 const length: number | undefined = box.withSecretVariable(
@@ -24,7 +24,12 @@ const length: number | undefined = box.withSecretVariable(
 );
 box.commit();
 box.free();
+
+const passphrase = new SecretString('vault passphrase');
+const persistent = Vault.openOrCreate('/tmp/revault-vault', passphrase);
+persistent.close(); passphrase.close();
 ```
 
 The callback buffer is temporary and cleared after return. Strict TypeScript
 consumers should keep `strict` enabled to preserve nullable-result checks.
+`AgentSession` is explicit; process-local Lockbox opens never contact it.

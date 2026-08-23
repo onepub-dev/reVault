@@ -266,7 +266,7 @@ function domainView(view) {
   return new Proxy(Object.create(null), {
     get(_target, property) {
       if (property === Symbol.toStringTag) return view.constructor.name;
-      if (typeof property !== 'string' || property.startsWith('__') || property === 'bb' || property === 'bb_pos') return undefined;
+      if (typeof property !== 'string' || property.startsWith('__') || property === 'constructor' || property === 'bb' || property === 'bb_pos') return undefined;
       const array = view[`${property}Array`];
       if (typeof array === 'function') return array.call(view) ?? new Uint8Array();
       const length = view[`${property}Length`];
@@ -291,9 +291,14 @@ function decode(name, value) {
   if (name === 'OptionalLockboxEntry' || name === 'OptionalFormRecord' || name === 'OptionalFormValue') return result.value ?? undefined;
   return result;
 }
+export class RevaultError extends Error {
+  constructor(message, details = undefined) {
+    super(message); this.name = 'RevaultError'; this.details = details;
+  }
+}
 function lastError() { return buffer_last_error(); }
-function requireValue(value) { if (!value) throw new Error(lastError()); return value; }
-function requireHandle(value) { if (value == null) throw new Error(lastError()); return value; }
+function requireValue(value) { if (!value) throw new RevaultError(lastError()); return value; }
+function requireHandle(value) { if (value == null) throw new RevaultError(lastError()); return value; }
 function withSecret(getter, callback) {
   const output = [null];
   requireValue(getter(output));

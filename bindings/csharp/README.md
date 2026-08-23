@@ -14,8 +14,9 @@ The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.m
 ```csharp
 using Revault;
 
-var vault = new Vault();
-using var box = vault.CreateLockbox(new byte[32]); // load a real key securely
+var runtime = Revault.Load(); // loads the installed carrier only
+var vault = runtime.ReplaceVault(root, vaultPassphrase);
+using var box = vault.OpenLockboxWithPassword(path, lockboxPassword);
 box.AddFile("/hello.txt", "hello\n"u8.ToArray(), replace: false);
 box.SetVariable("owner", "alice");
 box.SetSecretVariable("token", "secret"u8);
@@ -23,5 +24,9 @@ box.WithSecretVariable("token", token => token.Length);
 box.Commit();
 ```
 
-Dispose all owned objects. Secret callbacks receive a read-only span backed by
-a temporary buffer that is zeroed immediately after the callback returns.
+`Revault.Load` does not open a Vault or Lockbox. A vault passphrase, lockbox
+password, and content key are distinct caller-owned secrets. Native failures
+are `RevaultException`; `vault.AgentSession` explicitly controls temporary
+agent content-key entries. Dispose all owned objects. Secret callbacks receive
+a read-only span backed by a temporary buffer that is zeroed immediately after
+the callback returns.

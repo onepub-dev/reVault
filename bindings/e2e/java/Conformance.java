@@ -265,7 +265,7 @@ public final class Conformance {
     try (var profile = API.generateContactKeyPair(); var contact = API.generateContactKeyPair();
          var contactPublic = contact.publicKey(); var owner = API.generateSigningKeyPair();
          var ownerPublic = owner.publicKey()) {
-      try (var vault = API.replaceVaultDirectory(root.toString(), password)) {
+      try (var vault = API.replaceVault(root.toString(), password)) {
         pass("vault_directory_replace");
         System.out.printf("ARTIFACT\t%s\tvault-created\t%s%n", LANGUAGE, root);
         check(vault.root().equals(root.toString()), "root"); check(vault.structureVersion() > 0, "version");
@@ -334,7 +334,7 @@ public final class Conformance {
         pass("vault_directory_delete_private_key", 2); pass("vault_directory_restore_private_key", 2);
       }
       pass("vault_directory_free");
-      try (var readonly = API.openReadOnlyVaultDirectory(root.toString(), password)) {
+      try (var readonly = API.openReadOnlyVault(root.toString(), password)) {
         check(readonly.listProfileNames().size() > 0, "read-only profiles");
         readonly.listContactNames();
         check(readonly.listFormAliases().size() > 0, "read-only forms");
@@ -345,12 +345,12 @@ public final class Conformance {
       }
       pass("vault_read_only_free");
     }
-    API.changeVaultDirectoryPassword(root.toString(), password, newPassword); pass("vault_directory_change_password");
-    try (var reopened = API.openVaultDirectory(root.toString(), newPassword)) {
+    API.changeVaultPassword(root.toString(), password, newPassword); pass("vault_directory_change_password");
+    try (var reopened = API.openVault(root.toString(), newPassword)) {
       check(reopened.structureVersion() > 0, "reopen");
     }
     pass("vault_directory_open"); System.out.printf("ARTIFACT\t%s\tvault-opened\t%s%n", LANGUAGE, root);
-    try (var opened = API.openOrCreateVaultDirectory(root.toString(), newPassword)) {
+    try (var opened = API.openOrCreateVault(root.toString(), newPassword)) {
       check(opened.structureVersion() > 0, "open create");
     }
     pass("vault_directory_open_or_create");
@@ -358,22 +358,22 @@ public final class Conformance {
 
   private static void defaultVaultLifecycle() throws Exception {
     var expectedRoot = Path.of(System.getenv("LOCKBOX_VAULT_DIR")); Files.createDirectories(expectedRoot);
-    try (var vault = API.replaceDefaultVaultDirectory("default password".getBytes())) {
+    try (var vault = API.replaceDefaultVault("default password".getBytes())) {
       check(vault != null, "replace default vault");
     }
     pass("vault_directory_replace_default");
-    try (var vault = API.openDefaultReadOnlyVaultDirectory("default password".getBytes())) {
+      try (var vault = API.openDefaultReadOnlyVault("default password".getBytes())) {
       check(vault != null, "open default read-only vault");
     }
     pass("vault_read_only_open_default");
-    check(API.defaultVaultDirectory().equals(expectedRoot.toString()), "default dir");
+    check(API.defaultVaultRoot().equals(expectedRoot.toString()), "default dir");
     check(Path.of(API.defaultVaultPath()).getParent().equals(expectedRoot), "default path");
     pass("vault_default_directory", 3); pass("vault_default_path", 2);
-    try (var vault = API.openOrCreateDefaultVaultDirectory("default password".getBytes())) {
+      try (var vault = API.openOrCreateDefaultVault("default password".getBytes())) {
       check(vault != null, "open default vault");
     }
     pass("vault_directory_open_or_create_default");
-    API.changeDefaultVaultDirectoryPassword("default password".getBytes(), "changed default password".getBytes());
+    API.changeDefaultVaultPassword("default password".getBytes(), "changed default password".getBytes());
     pass("vault_directory_change_default_password");
     var backup = artifactRoot().resolve("default-vault.backup"); Files.deleteIfExists(backup);
     check(API.backupDefaultVault(backup.toString(), false).vaultSize() > 0, "backup default");
@@ -388,10 +388,10 @@ public final class Conformance {
         .inheritIO().start();
   }
 
-  private static void agentAndLocalVault() throws Exception {
+  private static void agentAndLockboxSession() throws Exception {
     Files.createDirectories(Path.of(System.getenv("LOCKBOX_SESSION_AGENT_DIR")));
     Files.createDirectories(Path.of(System.getenv("LOCKBOX_VAULT_DIR")));
-    try (var vault = API.replaceDefaultVaultDirectory("agent vault password".getBytes());
+    try (var vault = API.replaceDefaultVault("agent vault password".getBytes());
          var profile = API.generateContactKeyPair()) {
       vault.storePrivateKey("default", profile);
     }
@@ -427,7 +427,7 @@ public final class Conformance {
       check(API.agentSleepSupport() != null, "sleep"); pass("vault_agent_sleep_support");
       check(!API.agentLogPath().isEmpty(), "log path"); check(!API.agentLogDestination().isEmpty(), "log destination");
       pass("vault_agent_log_path", 2); pass("vault_agent_log_destination", 2);
-      try (var local = API.openLocalVault()) {
+      try (var local = API.openLockboxSession()) {
         pass("vault_local");
         var root = Files.createTempDirectory("revault-java-local-"); var payload = "local vault data".getBytes();
         var passwordPath = root.resolve("password.lbox").toString();
@@ -482,7 +482,7 @@ public final class Conformance {
     try (var box = API.openLockbox(archive, repeated('K', 32))) {
       check(Arrays.equals(box.getFile("/renamed.txt"), "replacement payload".getBytes()), "foreign archive");
     }
-    try (var vault = API.openVaultDirectory(base.resolve(producer).resolve("vault").toString(),
+    try (var vault = API.openVault(base.resolve(producer).resolve("vault").toString(),
         "new vault password".getBytes())) {
       check(vault.structureVersion() > 0, "foreign vault");
     }
@@ -492,7 +492,7 @@ public final class Conformance {
 
   public static void main(String[] args) throws Exception {
     if (args.length == 1 && args[0].equals("--serve-agent")) { API.serveAgent(); return; }
-    if (args.length == 1 && args[0].equals("--agent")) { agentAndLocalVault(); return; }
+    if (args.length == 1 && args[0].equals("--agent")) { agentAndLockboxSession(); return; }
     if (args.length == 1 && args[0].equals("--platform")) { platformSecretStore(); return; }
     if (args.length == 1 && args[0].equals("--default")) { defaultVaultLifecycle(); return; }
     if (args.length == 2 && args[0].equals("--interop")) { interopOpen(args[1]); return; }

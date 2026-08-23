@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(revault_api LANGUAGES CXX)
+# The native header and carrier are intentionally resolved from the installed
+# SDK (normally via CMAKE_PREFIX_PATH). A source/build-tree carrier is not a
+# valid package or conformance input.
 find_package(flatbuffers 25.2.10 CONFIG QUIET)
 if(NOT flatbuffers_FOUND)
   include(FetchContent)
@@ -20,14 +23,11 @@ else()
   message(FATAL_ERROR "FlatBuffers CMake target was not created")
 endif()
 if(WIN32)
-  find_library(REVAULT_NATIVE_LIBRARY NAMES revault_api.dll revault_api
-    HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../../rust/target/debug REQUIRED)
+  find_library(REVAULT_NATIVE_LIBRARY NAMES revault_api.dll revault_api REQUIRED)
 else()
-  find_library(REVAULT_NATIVE_LIBRARY revault_api
-    HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../../rust/target/debug REQUIRED)
+  find_library(REVAULT_NATIVE_LIBRARY revault_api REQUIRED)
 endif()
 find_path(REVAULT_NATIVE_INCLUDE_DIR revault_api.h
-  HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../../rust/revault_bindings
   REQUIRED)
 add_library(revault_api_cpp STATIC revault_api.cpp)
 target_compile_features(revault_api_cpp PUBLIC cxx_std_20)

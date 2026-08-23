@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 
@@ -24,7 +23,6 @@ function nativeTarget() {
 }
 
 export function nativeLibraryPath() {
-  if (process.env.REVAULT_LIBRARY) return process.env.REVAULT_LIBRARY;
   const [target, library] = nativeTarget();
   const packageName = `@onepub-dev/revault-api-native-${target}`;
   try {
@@ -34,7 +32,5 @@ export function nativeLibraryPath() {
   } catch (error) {
     if (error?.code !== 'MODULE_NOT_FOUND') throw error;
   }
-  const bundled = path.join(path.dirname(fileURLToPath(import.meta.url)), 'native', target, library);
-  if (fs.existsSync(bundled)) return bundled;
-  throw new Error(`revault-api native carrier ${packageName} is missing; set REVAULT_LIBRARY for development`);
+  throw new Error(`revault-api native carrier ${packageName} is missing; install the matching platform package`);
 }

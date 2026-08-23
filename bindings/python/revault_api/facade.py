@@ -1,32 +1,115 @@
 """Owned, class-oriented reVault API.
 
-Use :class:`Vault` as the entry point and close owned handles with a context
-manager. Secret access is callback-scoped. The repository README contains the
+Use :class:`Revault` to load runtime services and :class:`Vault` for persistent
+metadata; close owned handles with a context manager. Secret access is callback-scoped. The repository README contains the
 security model and examples: https://github.com/onepub-dev/reVault#readme
 """
 from __future__ import annotations
 import ctypes
+from enum import Enum
 from pathlib import Path
 
-from . import _Buffer, _error, load
+from . import _Buffer, _error, _load as load
 from ._domain import decode, encode_form_fields, encode_path_moves
 
+
+class RevaultError(RuntimeError):
+    """A native operation failed; ``details`` carries stable diagnostics."""
+
+    def __init__(self, message, details=None):
+        super().__init__(message)
+        self.message, self.details = message, details
+
+
+class LockboxCacheMode(str, Enum):
+    """Policy controlling decoded lockbox page caching."""
+
+    BYTES = "bytes"
+    DISABLED = "disabled"
+    AUTOMATIC = "automatic"
+
+
+class LockboxWorkload(str, Enum):
+    """Expected access pattern for lockbox operations."""
+
+    INTERACTIVE = "interactive"
+    BULK_IMPORT = "bulk-import"
+    READ_MOSTLY = "read-mostly"
+
+
+class LockboxWorker(str, Enum):
+    """Worker policy for lockbox operations."""
+
+    AUTO = "auto"
+    SINGLE = "single"
+    THREADS = "threads"
+
+
+class AgentActivityKind(str, Enum):
+    """Kind of operation currently using the session agent."""
+
+    OPEN = "open"
+    CLOSE = "close"
+    VARIABLES = "variables"
+    FORM = "form"
+    RECOVERY = "recovery"
+    VAULT = "vault"
+
+
+class KeyExportFormat(str, Enum):
+    """Supported serialized signing-key formats."""
+
+    LOCKBOX_PEM = "lockbox-pem"
+    JWK = "jwk"
+    JWKS = "jwks"
+    RAW_HEX = "raw-hex"
+
+
+class _OwnedSecret:
+    """Mutable secret bytes wiped by ``close`` and context exit."""
+
+    def __init__(self, value=b""):
+        self._bytes = bytearray(value.encode() if isinstance(value, str) else value)
+
+    def __bytes__(self):
+        return bytes(self._bytes)
+
+    def __len__(self):
+        return len(self._bytes)
+
+    def close(self):
+        self._bytes[:] = b"\0" * len(self._bytes)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        self.close()
+
+
+class SecretString(_OwnedSecret):
+    """Owning UTF-8 vault passphrase or lockbox password."""
+
+
+class SecretBytes(_OwnedSecret):
+    """Owning binary content key; close it after the operation."""
+
 def _take(lib, result):
-    if not result.ptr: raise RuntimeError(_error(lib))
+    if not result.ptr: raise RevaultError(_error(lib))
     try: return ctypes.string_at(result.ptr, result.len)
     finally: lib.buffer_free(result)
 
 def _with_secret(owner, getter, callback):
     handle = ctypes.c_void_p()
-    if not getter(ctypes.byref(handle)): raise RuntimeError(_error(owner._lib))
+    if not getter(ctypes.byref(handle)): raise RevaultError(_error(owner._lib))
     if not handle.value: return None
     try:
         length = ctypes.c_size_t()
         if not owner._lib.secret_len(handle, ctypes.byref(length)):
-            raise RuntimeError(_error(owner._lib))
+            raise RevaultError(_error(owner._lib))
         native = (ctypes.c_uint8 * max(1, length.value))()
         if not owner._lib.secret_copy(handle, native, length.value):
-            raise RuntimeError(_error(owner._lib))
+            raise RevaultError(_error(owner._lib))
         secret = bytearray(native[:length.value])
         try: return callback(secret)
         finally:
@@ -39,6 +122,7 @@ def _call(owner, symbol, values):
     route = _ROUTES[symbol]
     if route[0] and route[0][0] == 'handle' and hasattr(owner, '_handle'):
         values = (owner, *values)
+    values = tuple(value.value if isinstance(value, Enum) else value for value in values)
     native_args, keepalive = [], []
     for kind, value in zip(route[0], values):
         if kind in ('text', 'bytes'):
@@ -52,10 +136,10 @@ def _call(owner, symbol, values):
     result = getattr(lib, symbol)(*native_args)
     result_kind = route[1]
     if result_kind.startswith('handle:'):
-        if not result: raise RuntimeError(_error(lib))
+        if not result: raise RevaultError(_error(lib))
         return globals()[result_kind[7:]](owner._root, result)
     if result_kind == 'bool':
-        if not result: raise RuntimeError(_error(lib))
+        if not result: raise RevaultError(_error(lib))
         return None
     if result_kind == 'predicate': return bool(result)
     if result_kind == 'void':
@@ -74,15 +158,24 @@ class _OwnedHandle:
         close = getattr(self, 'free', None)
         if close and self._handle: close()
 
-class Vault:
+    def close(self):
+        """Release the native handle; repeated close is safe."""
+        if self._handle: self.free()
+
+class Revault:
     """Primary API used to open lockboxes and access reVault's local services.
 
     Create one when the application starts, then use it to manage keys, metadata,
     the session agent, and operating-system credential storage.
     """
-    def __init__(self, path: str | Path | None = None):
-        """Load and validate the bundled native library, or the library at path."""
-        self._root = self; self._lib = load(path); self.agent = Agent(self, None); self.platform = Platform(self, None)
+    def __init__(self):
+        """Load and validate the installed native carrier."""
+        self._root = self; self._lib = load(); self.agent = AgentSession(self); self.platform = Platform(self, None)
+
+    @staticmethod
+    def load():
+        """Load the packaged native runtime without opening a Vault."""
+        return Revault()
     @property
     def last_error(self):
         """Return the diagnostic from the most recent native call on this thread."""
@@ -94,10 +187,60 @@ class Vault:
 class Lockbox(_OwnedHandle):
     """An open encrypted archive containing files, variables, secrets, and forms.
 
-    Obtain one from ``Vault`` or ``LocalVault``; commit pending mutations and
+    Obtain one from ``Revault`` or ``AgentSession``; commit pending mutations and
     release it when the application finishes using its decrypted contents.
     """
-    pass
+    @staticmethod
+    def create_in_memory(*, password=None, content_key=None, contact=None, signing_key=None, options=None):
+        """Create an in-memory archive; exactly one credential is required."""
+        credentials = [value for value in (password, content_key, contact) if value is not None]
+        if len(credentials) != 1:
+            raise ValueError('Supply exactly one of password, content_key, or contact.')
+        runtime = Revault.load()
+        if password is not None:
+            box = runtime.lockbox_create_password(password)
+        elif contact is not None:
+            box = runtime.lockbox_create_contact(contact)
+        elif options is not None:
+            box = runtime.lockbox_create_with_options(content_key, options.cache_mode, options.cache_bytes, options.workload, options.worker, options.jobs)
+        else:
+            box = runtime.lockbox_create(content_key)
+        if signing_key is not None:
+            box.set_owner_signing_key(signing_key)
+        return box
+
+    @staticmethod
+    def open_bytes(archive, *, password=None, content_key=None, contact=None, options=None):
+        """Open serialized archive bytes without consulting the session agent."""
+        credentials = [value for value in (password, content_key, contact) if value is not None]
+        if len(credentials) != 1:
+            raise ValueError('Supply exactly one of password, content_key, or contact.')
+        runtime = Revault.load()
+        if password is not None:
+            return runtime.lockbox_open_password(archive, password)
+        if contact is not None:
+            return runtime.lockbox_open_contact(archive, contact)
+        if options is not None:
+            return runtime.lockbox_open_with_options(archive, content_key, options.cache_mode, options.cache_bytes, options.workload, options.worker, options.jobs)
+        return runtime.lockbox_open(archive, content_key)
+
+    @staticmethod
+    def create(path, *, password=None, content_key=None, contact=None, signing_key=None, options=None, overwrite=False):
+        """Create an archive file and return its process-local handle."""
+        target = Path(path)
+        if target.exists() and not overwrite:
+            raise FileExistsError(path)
+        box = Lockbox.create_in_memory(password=password, content_key=content_key, contact=contact, signing_key=signing_key, options=options)
+        target.write_bytes(box.to_bytes())
+        box._backing_path = target
+        return box
+
+    @staticmethod
+    def open(path, *, password=None, content_key=None, contact=None, options=None):
+        """Open an archive file without consulting the session agent."""
+        box = Lockbox.open_bytes(Path(path).read_bytes(), password=password, content_key=content_key, contact=contact, options=options)
+        box._backing_path = Path(path)
+        return box
 
 class ContactKeyPair(_OwnedHandle):
     """A profile's contact-encryption identity, including its private key.
@@ -163,6 +306,50 @@ class Agent(_OwnedHandle):
     """
     pass
 
+
+class AgentSession(Agent):
+    """Explicit controller for the optional session agent and path workflow.
+
+    Constructing this object does not start the agent.  The path handle is a
+    process-local lockbox workflow; ``close_lockbox`` and ``close_all`` only
+    forget its temporary entries and never remove Vault credentials or files.
+    """
+
+    def __init__(self, root=None):
+        root = root or Revault.load()
+        super().__init__(root, None)
+        self._local = _call(root, 'vault_local', ())
+
+    @classmethod
+    def instance(cls):
+        """Create a session controller for the default local vault."""
+        return cls()
+
+    def close_lockbox(self, lockbox_path):
+        """Forget the agent's cached key for ``lockbox_path``."""
+        return self._local.close_lockbox(lockbox_path)
+
+    def close_all(self):
+        """Forget every lockbox key cached by the session agent."""
+        return self._local.close_all()
+
+    def __getattr__(self, name):
+        # Path-oriented operations belong to the explicit session controller;
+        # agent controls continue to resolve on Agent itself.
+        if name in {
+            'create_lockbox_password', 'open_lockbox_password',
+            'create_lockbox_content_key', 'create_lockbox_contact',
+            'open_lockbox_content_key', 'cache_lockbox_password',
+        }:
+            return getattr(self._local, name)
+        raise AttributeError(name)
+
+    def close(self):
+        """Release local-vault and session-agent handles."""
+        if getattr(self, '_local', None) is not None:
+            self._local.close()
+            self._local = None
+
 class AgentActivity(_OwnedHandle):
     """A lifetime token for an operation that currently needs cached secrets.
 
@@ -190,257 +377,252 @@ class LocalVault(_OwnedHandle):
 def _Vault_lockbox_format_version(self):
     """Returns the version."""
     return _call(self, 'lockbox_format_version', ())
-Vault.lockbox_format_version = _Vault_lockbox_format_version
+Revault.lockbox_format_version = _Vault_lockbox_format_version
 
 def _Vault_lockbox_probe_format_version(self, bytes):
     """Returns the version."""
     return _call(self, 'lockbox_probe_format_version', (bytes,))
-Vault.lockbox_probe_format_version = _Vault_lockbox_probe_format_version
+Revault.lockbox_probe_format_version = _Vault_lockbox_probe_format_version
 
 def _Vault_lockbox_create(self, key):
     """Creates a new lockbox."""
     return _call(self, 'lockbox_create', (key,))
-Vault.lockbox_create = _Vault_lockbox_create
+Revault.lockbox_create = _Vault_lockbox_create
 
 def _Vault_lockbox_create_with_options(self, key, cache_mode, cache_bytes, workload, worker, jobs):
     """Create a lockbox with explicit cache capacity, workload, worker policy, and job count."""
     return _call(self, 'lockbox_create_with_options', (key, cache_mode, cache_bytes, workload, worker, jobs))
-Vault.lockbox_create_with_options = _Vault_lockbox_create_with_options
+Revault.lockbox_create_with_options = _Vault_lockbox_create_with_options
 
 def _Vault_lockbox_create_password(self, password):
     """Returns the password."""
     return _call(self, 'lockbox_create_password', (password,))
-Vault.lockbox_create_password = _Vault_lockbox_create_password
+Revault.lockbox_create_password = _Vault_lockbox_create_password
 
 def _Vault_lockbox_create_contact(self, contact):
     """Returns the contact."""
     return _call(self, 'lockbox_create_contact', (contact,))
-Vault.lockbox_create_contact = _Vault_lockbox_create_contact
+Revault.lockbox_create_contact = _Vault_lockbox_create_contact
 
 def _Vault_lockbox_create_with_signing_key(self, content_key, signing_key):
     """Returns the key."""
     return _call(self, 'lockbox_create_with_signing_key', (content_key, signing_key))
-Vault.lockbox_create_with_signing_key = _Vault_lockbox_create_with_signing_key
+Revault.lockbox_create_with_signing_key = _Vault_lockbox_create_with_signing_key
 
 def _Vault_lockbox_open(self, archive, key):
     """Opens an existing lockbox."""
     return _call(self, 'lockbox_open', (archive, key))
-Vault.lockbox_open = _Vault_lockbox_open
+Revault.lockbox_open = _Vault_lockbox_open
 
 def _Vault_lockbox_open_with_options(self, archive, key, cache_mode, cache_bytes, workload, worker, jobs):
     """Open a lockbox with explicit cache capacity, workload, worker policy, and job count."""
     return _call(self, 'lockbox_open_with_options', (archive, key, cache_mode, cache_bytes, workload, worker, jobs))
-Vault.lockbox_open_with_options = _Vault_lockbox_open_with_options
+Revault.lockbox_open_with_options = _Vault_lockbox_open_with_options
 
 def _Vault_lockbox_open_password(self, archive, password):
     """Returns the password."""
     return _call(self, 'lockbox_open_password', (archive, password))
-Vault.lockbox_open_password = _Vault_lockbox_open_password
+Revault.lockbox_open_password = _Vault_lockbox_open_password
 
 def _Vault_lockbox_open_contact(self, archive, contact):
     """Returns the contact."""
     return _call(self, 'lockbox_open_contact', (archive, contact))
-Vault.lockbox_open_contact = _Vault_lockbox_open_contact
+Revault.lockbox_open_contact = _Vault_lockbox_open_contact
 
 def _Vault_lockbox_inspect_file(self, path):
     """Returns the file."""
     return _call(self, 'lockbox_inspect_file', (path,))
-Vault.lockbox_inspect_file = _Vault_lockbox_inspect_file
+Revault.lockbox_inspect_file = _Vault_lockbox_inspect_file
 
 def _Vault_lockbox_recovery_scan_path(self, path, key):
     """Returns the path."""
     return _call(self, 'lockbox_recovery_scan_path', (path, key))
-Vault.lockbox_recovery_scan_path = _Vault_lockbox_recovery_scan_path
+Revault.lockbox_recovery_scan_path = _Vault_lockbox_recovery_scan_path
 
 def _Vault_lockbox_recovery_scan(self, bytes, key):
     """Scans scan."""
     return _call(self, 'lockbox_recovery_scan', (bytes, key))
-Vault.lockbox_recovery_scan = _Vault_lockbox_recovery_scan
+Revault.lockbox_recovery_scan = _Vault_lockbox_recovery_scan
 
 def _Vault_lockbox_recovery_salvage(self, bytes, key, signing_key):
     """Salvages salvage."""
     return _call(self, 'lockbox_recovery_salvage', (bytes, key, signing_key))
-Vault.lockbox_recovery_salvage = _Vault_lockbox_recovery_salvage
+Revault.lockbox_recovery_salvage = _Vault_lockbox_recovery_salvage
 
 def _Vault_key_contact_generate(self):
     """Generates generate."""
     return _call(self, 'key_contact_generate', ())
-Vault.key_contact_generate = _Vault_key_contact_generate
+Revault.key_contact_generate = _Vault_key_contact_generate
 
 def _Vault_key_contact_from_private(self, bytes):
     """Returns the private."""
     return _call(self, 'key_contact_from_private', (bytes,))
-Vault.key_contact_from_private = _Vault_key_contact_from_private
+Revault.key_contact_from_private = _Vault_key_contact_from_private
 
 def _Vault_key_contact_public_from_bytes(self, bytes):
     """Returns the bytes."""
     return _call(self, 'key_contact_public_from_bytes', (bytes,))
-Vault.key_contact_public_from_bytes = _Vault_key_contact_public_from_bytes
+Revault.key_contact_public_from_bytes = _Vault_key_contact_public_from_bytes
 
 def _Vault_key_signing_generate(self):
     """Generates generate."""
     return _call(self, 'key_signing_generate', ())
-Vault.key_signing_generate = _Vault_key_signing_generate
+Revault.key_signing_generate = _Vault_key_signing_generate
 
 def _Vault_key_signing_from_private(self, bytes):
     """Returns the private."""
     return _call(self, 'key_signing_from_private', (bytes,))
-Vault.key_signing_from_private = _Vault_key_signing_from_private
+Revault.key_signing_from_private = _Vault_key_signing_from_private
 
 def _Vault_key_signing_public_from_bytes(self, bytes):
     """Returns the bytes."""
     return _call(self, 'key_signing_public_from_bytes', (bytes,))
-Vault.key_signing_public_from_bytes = _Vault_key_signing_public_from_bytes
+Revault.key_signing_public_from_bytes = _Vault_key_signing_public_from_bytes
 
 def _Vault_vault_key_export_private(self, key, format):
     """Returns the private."""
     return _call(self, 'vault_key_export_private', (key, format))
-Vault.vault_key_export_private = _Vault_vault_key_export_private
+Revault.vault_key_export_private = _Vault_vault_key_export_private
 
 def _Vault_vault_key_export_public(self, key, format):
     """Returns the public."""
     return _call(self, 'vault_key_export_public', (key, format))
-Vault.vault_key_export_public = _Vault_vault_key_export_public
+Revault.vault_key_export_public = _Vault_vault_key_export_public
 
 def _Vault_vault_key_import_private(self, bytes):
     """Returns the private."""
     return _call(self, 'vault_key_import_private', (bytes,))
-Vault.vault_key_import_private = _Vault_vault_key_import_private
+Revault.vault_key_import_private = _Vault_vault_key_import_private
 
 def _Vault_vault_key_import_public(self, bytes):
     """Returns the public."""
     return _call(self, 'vault_key_import_public', (bytes,))
-Vault.vault_key_import_public = _Vault_vault_key_import_public
+Revault.vault_key_import_public = _Vault_vault_key_import_public
 
 def _Vault_vault_key_fingerprint(self, key):
     """Returns the stable fingerprint of this key."""
     return _call(self, 'vault_key_fingerprint', (key,))
-Vault.vault_key_fingerprint = _Vault_vault_key_fingerprint
+Revault.vault_key_fingerprint = _Vault_vault_key_fingerprint
 
 def _Vault_vault_key_format_hex(self, bytes):
     """Returns the hex."""
     return _call(self, 'vault_key_format_hex', (bytes,))
-Vault.vault_key_format_hex = _Vault_vault_key_format_hex
+Revault.vault_key_format_hex = _Vault_vault_key_format_hex
 
 def _Vault_vault_key_decode_hex(self, text):
     """Returns the hex."""
     return _call(self, 'vault_key_decode_hex', (text,))
-Vault.vault_key_decode_hex = _Vault_vault_key_decode_hex
+Revault.vault_key_decode_hex = _Vault_vault_key_decode_hex
 
 def _Vault_vault_key_format_crockford(self, bytes):
     """Returns the crockford."""
     return _call(self, 'vault_key_format_crockford', (bytes,))
-Vault.vault_key_format_crockford = _Vault_vault_key_format_crockford
+Revault.vault_key_format_crockford = _Vault_vault_key_format_crockford
 
 def _Vault_vault_key_format_crockford_reading(self, code):
     """Returns the reading."""
     return _call(self, 'vault_key_format_crockford_reading', (code,))
-Vault.vault_key_format_crockford_reading = _Vault_vault_key_format_crockford_reading
+Revault.vault_key_format_crockford_reading = _Vault_vault_key_format_crockford_reading
 
 def _Vault_vault_key_decode_crockford(self, code):
     """Returns the crockford."""
     return _call(self, 'vault_key_decode_crockford', (code,))
-Vault.vault_key_decode_crockford = _Vault_vault_key_decode_crockford
+Revault.vault_key_decode_crockford = _Vault_vault_key_decode_crockford
 
 def _Vault_vault_key_hex_encode(self, bytes):
     """Encodes encode."""
     return _call(self, 'vault_key_hex_encode', (bytes,))
-Vault.vault_key_hex_encode = _Vault_vault_key_hex_encode
+Revault.vault_key_hex_encode = _Vault_vault_key_hex_encode
 
 def _Vault_vault_key_hex_decode(self, text):
     """Decodes decode."""
     return _call(self, 'vault_key_hex_decode', (text,))
-Vault.vault_key_hex_decode = _Vault_vault_key_hex_decode
+Revault.vault_key_hex_decode = _Vault_vault_key_hex_decode
 
 def _Vault_vault_directory_open(self, root, password):
     """Opens an existing lockbox."""
     return _call(self, 'vault_directory_open', (root, password))
-Vault.vault_directory_open = _Vault_vault_directory_open
+Revault.vault_directory_open = _Vault_vault_directory_open
 
 def _Vault_vault_structure_version_current(self):
     """Returns the current."""
     return _call(self, 'vault_structure_version_current', ())
-Vault.vault_structure_version_current = _Vault_vault_structure_version_current
+Revault.vault_structure_version_current = _Vault_vault_structure_version_current
 
 def _Vault_vault_directory_probe_structure_version(self, root, password):
     """Returns the version."""
     return _call(self, 'vault_directory_probe_structure_version', (root, password))
-Vault.vault_directory_probe_structure_version = _Vault_vault_directory_probe_structure_version
+Revault.vault_directory_probe_structure_version = _Vault_vault_directory_probe_structure_version
 
 def _Vault_vault_directory_open_or_create_default(self, password):
     """Returns the default."""
     return _call(self, 'vault_directory_open_or_create_default', (password,))
-Vault.vault_directory_open_or_create_default = _Vault_vault_directory_open_or_create_default
+Revault.vault_directory_open_or_create_default = _Vault_vault_directory_open_or_create_default
 
 def _Vault_vault_directory_replace_default(self, password):
     """Returns the default."""
     return _call(self, 'vault_directory_replace_default', (password,))
-Vault.vault_directory_replace_default = _Vault_vault_directory_replace_default
+Revault.vault_directory_replace_default = _Vault_vault_directory_replace_default
 
 def _Vault_vault_directory_change_password(self, root, old_password, new_password):
     """Returns the password."""
     return _call(self, 'vault_directory_change_password', (root, old_password, new_password))
-Vault.vault_directory_change_password = _Vault_vault_directory_change_password
+Revault.vault_directory_change_password = _Vault_vault_directory_change_password
 
 def _Vault_vault_directory_change_default_password(self, old_password, new_password):
     """Returns the password."""
     return _call(self, 'vault_directory_change_default_password', (old_password, new_password))
-Vault.vault_directory_change_default_password = _Vault_vault_directory_change_default_password
+Revault.vault_directory_change_default_password = _Vault_vault_directory_change_default_password
 
 def _Vault_vault_directory_replace(self, root, password):
     """Updates replace."""
     return _call(self, 'vault_directory_replace', (root, password))
-Vault.vault_directory_replace = _Vault_vault_directory_replace
+Revault.vault_directory_replace = _Vault_vault_directory_replace
 
 def _Vault_vault_directory_open_or_create(self, root, password):
     """Creates a new lockbox."""
     return _call(self, 'vault_directory_open_or_create', (root, password))
-Vault.vault_directory_open_or_create = _Vault_vault_directory_open_or_create
+Revault.vault_directory_open_or_create = _Vault_vault_directory_open_or_create
 
 def _Vault_vault_backup_default(self, path, overwrite):
     """Returns the default."""
     return _call(self, 'vault_backup_default', (path, overwrite))
-Vault.vault_backup_default = _Vault_vault_backup_default
+Revault.vault_backup_default = _Vault_vault_backup_default
 
 def _Vault_vault_restore_default(self, path, overwrite):
     """Returns the default."""
     return _call(self, 'vault_restore_default', (path, overwrite))
-Vault.vault_restore_default = _Vault_vault_restore_default
+Revault.vault_restore_default = _Vault_vault_restore_default
 
 def _Vault_vault_read_only_open(self, root, password):
     """Opens an existing lockbox."""
     return _call(self, 'vault_read_only_open', (root, password))
-Vault.vault_read_only_open = _Vault_vault_read_only_open
+Revault.vault_read_only_open = _Vault_vault_read_only_open
 
 def _Vault_vault_read_only_open_default(self, password):
     """Returns the default."""
     return _call(self, 'vault_read_only_open_default', (password,))
-Vault.vault_read_only_open_default = _Vault_vault_read_only_open_default
+Revault.vault_read_only_open_default = _Vault_vault_read_only_open_default
 
 def _Vault_vault_default_directory(self):
     """Returns the directory."""
     return _call(self, 'vault_default_directory', ())
-Vault.vault_default_directory = _Vault_vault_default_directory
+Revault.vault_default_directory = _Vault_vault_default_directory
 
 def _Vault_vault_default_path(self):
     """Returns the path."""
     return _call(self, 'vault_default_path', ())
-Vault.vault_default_path = _Vault_vault_default_path
+Revault.vault_default_path = _Vault_vault_default_path
 
 def _Vault_vault_agent_log_path(self):
     """Returns the path."""
     return _call(self, 'vault_agent_log_path', ())
-Vault.vault_agent_log_path = _Vault_vault_agent_log_path
+Revault.vault_agent_log_path = _Vault_vault_agent_log_path
 
 def _Vault_vault_agent_log_destination(self):
     """Returns the destination."""
     return _call(self, 'vault_agent_log_destination', ())
-Vault.vault_agent_log_destination = _Vault_vault_agent_log_destination
-
-def _Vault_vault_local(self):
-    """Returns the local."""
-    return _call(self, 'vault_local', ())
-Vault.vault_local = _Vault_vault_local
+Revault.vault_agent_log_destination = _Vault_vault_agent_log_destination
 
 def _Lockbox_add_file(self, path, data, replace):
     """Returns the file."""
@@ -524,7 +706,13 @@ Lockbox.runtime_options = _Lockbox_runtime_options
 
 def _Lockbox_commit(self):
     """Authenticates and publishes the staged changes."""
-    return _call(self, 'lockbox_commit', ())
+    result = _call(self, 'lockbox_commit', ())
+    # In-memory handles have no file destination.  A handle returned by the
+    # path factory is explicitly backed by that file, so persist the committed
+    # archive after native authentication succeeds.
+    if getattr(self, '_backing_path', None) is not None:
+        self._backing_path.write_bytes(self.to_bytes())
+    return result
 Lockbox.commit = _Lockbox_commit
 
 def _Lockbox_create_dir(self, path, create_parents):
@@ -579,7 +767,7 @@ def _Lockbox_set_secret_variable(self, name, value):
     native = (ctypes.c_uint8 * len(secret)).from_buffer(secret) if secret else None
     try:
         if not self._lib.lockbox_set_secret_variable(self._handle, raw, len(raw), native, len(secret)):
-            raise RuntimeError(_error(self._lib))
+            raise RevaultError(_error(self._lib))
     finally: secret[:] = b'\0' * len(secret)
 Lockbox.set_secret_variable = _Lockbox_set_secret_variable
 
@@ -746,7 +934,7 @@ def _Lockbox_set_secret_form_field(self, path, field, value):
     native = (ctypes.c_uint8 * len(secret)).from_buffer(secret) if secret else None
     try:
         if not self._lib.lockbox_set_secret_form_field(self._handle, path_raw, len(path_raw), field_raw, len(field_raw), native, len(secret)):
-            raise RuntimeError(_error(self._lib))
+            raise RevaultError(_error(self._lib))
     finally: secret[:] = b'\0' * len(secret)
 Lockbox.set_secret_form_field = _Lockbox_set_secret_form_field
 
@@ -1282,7 +1470,44 @@ def _LocalVault_free(self):
     return _call(self, 'vault_free', ())
 LocalVault.free = _LocalVault_free
 
-Revault = Vault
+class Vault(VaultDirectory):
+    """Persistent encrypted local store for profiles, keys and metadata."""
+
+    @staticmethod
+    def open(path, vault_passphrase):
+        """Open an existing Vault; never creates or replaces it."""
+        return Revault().vault_directory_open(path, vault_passphrase)
+
+    @staticmethod
+    def open_or_create(path, vault_passphrase):
+        """Open a Vault or create it when absent."""
+        return Revault().vault_directory_open_or_create(path, vault_passphrase)
+
+    @staticmethod
+    def create(path, vault_passphrase):
+        """Create a new Vault at ``path``, replacing existing data."""
+        return Revault().vault_directory_replace(path, vault_passphrase)
+
+    @staticmethod
+    def replace(path, vault_passphrase):
+        """Replace a Vault explicitly; destructive."""
+        return Revault().vault_directory_replace(path, vault_passphrase)
+
+
+ReadOnlyVault = ReadOnlyVaultDirectory
+ProfileSigningKeyPair = SigningKeyPair
+ProfileSigningPublicKey = SigningPublicKey
+Lockbox.close = _OwnedHandle.close
+VaultDirectory.close = VaultDirectory.free
+ReadOnlyVaultDirectory.close = ReadOnlyVaultDirectory.free
+
+def _AgentActivity_free(self):
+    """Release the agent activity token."""
+    return _call(self._root, 'vault_agent_end_activity', (self,))
+
+AgentActivity.free = _AgentActivity_free
+AgentActivity.close = AgentActivity.free
+LocalVault.close = LocalVault.free
 
 _ROUTES = {
     'buffer_last_error_details': ((), 'message:ErrorDetails', False),
@@ -1400,15 +1625,15 @@ _ROUTES = {
     'vault_key_decode_crockford': (('text',), 'bytes', False),
     'vault_key_hex_encode': (('bytes',), 'utf8', False),
     'vault_key_hex_decode': (('text',), 'bytes', False),
-    'vault_directory_open': (('text', 'bytes'), 'handle:VaultDirectory', False),
+    'vault_directory_open': (('text', 'bytes'), 'handle:Vault', False),
     'vault_structure_version_current': ((), 'value', False),
     'vault_directory_probe_structure_version': (('text', 'bytes'), 'value', False),
-    'vault_directory_open_or_create_default': (('bytes',), 'handle:VaultDirectory', False),
-    'vault_directory_replace_default': (('bytes',), 'handle:VaultDirectory', False),
+    'vault_directory_open_or_create_default': (('bytes',), 'handle:Vault', False),
+    'vault_directory_replace_default': (('bytes',), 'handle:Vault', False),
     'vault_directory_change_password': (('text', 'bytes', 'bytes'), 'bool', False),
     'vault_directory_change_default_password': (('bytes', 'bytes'), 'bool', False),
-    'vault_directory_replace': (('text', 'bytes'), 'handle:VaultDirectory', False),
-    'vault_directory_open_or_create': (('text', 'bytes'), 'handle:VaultDirectory', False),
+    'vault_directory_replace': (('text', 'bytes'), 'handle:Vault', False),
+    'vault_directory_open_or_create': (('text', 'bytes'), 'handle:Vault', False),
     'vault_directory_root': (('handle',), 'utf8', False),
     'vault_directory_structure_version': (('handle',), 'value', False),
     'vault_directory_list_private_keys': (('handle',), 'message:StringList', False),
@@ -1454,8 +1679,8 @@ _ROUTES = {
     'vault_backup_default': (('text', 'value'), 'message:VaultBackupManifest', False),
     'vault_restore_default': (('text', 'value'), 'message:VaultBackupManifest', False),
     'vault_directory_free': (('handle',), 'void', True),
-    'vault_read_only_open': (('text', 'bytes'), 'handle:ReadOnlyVaultDirectory', False),
-    'vault_read_only_open_default': (('bytes',), 'handle:ReadOnlyVaultDirectory', False),
+    'vault_read_only_open': (('text', 'bytes'), 'handle:ReadOnlyVault', False),
+    'vault_read_only_open_default': (('bytes',), 'handle:ReadOnlyVault', False),
     'vault_read_only_list_profile_names': (('handle',), 'message:StringList', False),
     'vault_read_only_list_contact_names': (('handle',), 'message:StringList', False),
     'vault_read_only_list_form_aliases': (('handle',), 'message:StringList', False),
@@ -1502,4 +1727,4 @@ _ROUTES = {
     'vault_free': (('handle',), 'void', True),
 }
 
-__all__ = ['Vault', 'Lockbox', 'ContactKeyPair', 'ContactPublicKey', 'WrappedContactKey', 'SigningKeyPair', 'SigningPublicKey', 'VaultDirectory', 'ReadOnlyVaultDirectory', 'Agent', 'AgentActivity', 'Platform', 'LocalVault', 'Revault']
+__all__ = ['Revault', 'Vault', 'ReadOnlyVault', 'Lockbox', 'ContactKeyPair', 'ContactPublicKey', 'WrappedContactKey', 'ProfileSigningKeyPair', 'ProfileSigningPublicKey', 'AgentSession', 'AgentActivity', 'SecretString', 'SecretBytes', 'LockboxCacheMode', 'LockboxWorkload', 'LockboxWorker', 'AgentActivityKind', 'KeyExportFormat']

@@ -863,6 +863,20 @@ fn generate_flatbuffers(repository: &Path) -> Result {
             let source = source
                 .lines()
                 .map(|line| {
+                    if line.starts_with("namespace Revault.Internal.Transport") {
+                        line.to_string()
+                    } else {
+                        line.replace(
+                            "Revault.Internal.Transport",
+                            "global::Revault.Internal.Transport",
+                        )
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            let source = source
+                .lines()
+                .map(|line| {
                     if line.starts_with("public struct ")
                         || line.starts_with("public class ")
                         || line.starts_with("public enum ")

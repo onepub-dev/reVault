@@ -9,7 +9,7 @@
 -- @module revault_api
 -- @usage
 -- local revault = require('revault_api')
--- local vault = revault.Vault.new()
+-- local vault = revault.Revault.new()
 -- local lockbox = vault:lockbox_create(string.rep('\0', 32))
 -- lockbox:set_variable('environment', 'production')
 -- local bytes = lockbox:to_bytes()
@@ -240,8 +240,6 @@ void vault_free(void * vault);
 ]]
 
 local function native_library()
-  local override = os.getenv('REVAULT_LIBRARY')
-  if override and #override > 0 then return override end
   local cpu = ({ x64 = 'x86_64', arm64 = 'aarch64' })[jit.arch]
   if not cpu then error('unsupported reVault architecture: ' .. jit.arch) end
   local target, library
@@ -264,7 +262,7 @@ local function native_library()
     local file = io.open(bundled, 'rb')
     if file then file:close(); return bundled end
   end
-  error('revault-api native carrier is missing for ' .. target .. '; set REVAULT_LIBRARY for development')
+  error('revault-api native carrier is missing for ' .. target .. '; install the matching platform rock')
 end
 local native = ffi.load(native_library())
 if tonumber(native.api_abi_version()) ~= 3 then error('revault-api native ABI mismatch; expected 3') end
@@ -1503,7 +1501,7 @@ end
 --- Primary API for opening lockboxes, managing keys and metadata, using the
 --- session agent, and accessing operating-system credential storage.
 -- @type Vault
-local Vault = owned("Vault")
+local Revault = owned("Revault")
 --- An open encrypted archive containing files, variables, secrets, and forms.
 -- @type Lockbox
 local Lockbox = owned("Lockbox")
@@ -1523,11 +1521,11 @@ local SigningKeyPair = owned("SigningKeyPair")
 -- @type SigningPublicKey
 local SigningPublicKey = owned("SigningPublicKey")
 --- Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
--- @type VaultDirectory
-local VaultDirectory = owned("VaultDirectory")
+-- @type VaultStore
+local VaultStore = owned("VaultStore")
 --- A metadata view for discovery that never loads an owner signing key.
--- @type ReadOnlyVaultDirectory
-local ReadOnlyVaultDirectory = owned("ReadOnlyVaultDirectory")
+-- @type ReadOnlyVault
+local ReadOnlyVault = owned("ReadOnlyVault")
 --- Client for the session service that temporarily caches unlock and signing keys.
 -- @type Agent
 local Agent = owned("Agent")
@@ -1538,275 +1536,271 @@ local AgentActivity = owned("AgentActivity")
 -- @type Platform
 local Platform = owned("Platform")
 --- A session that opens lockboxes by host path, caches passwords, and closes local files.
--- @type LocalVault
-local LocalVault = owned("LocalVault")
+-- @type LocalSession
+local LocalSession = owned("LocalSession")
+local Vault = VaultStore
 
-local new_vault_handle = Vault.new
+local new_vault_handle = Revault.new
 --- Loads the native library and creates the main reVault facade.
-function Vault.new()
+function Revault.new()
   local operations = Operations.new()
   local value = new_vault_handle(operations, nil)
   value.agent = Agent.new(operations, nil); value.platform = Platform.new(operations, nil)
   return value
 end
 --- Returns the last error.
-function Vault:last_error() return self.operations:last_error_message() end
+function Revault:last_error() return self.operations:last_error_message() end
 --- Returns the last error details.
-function Vault:last_error_details() return self.operations:buffer_last_error_details() end
+function Revault:last_error_details() return self.operations:buffer_last_error_details() end
 
 --- Returns the lockbox format version.
-function Vault:lockbox_format_version()
+function Revault:lockbox_format_version()
   return self.operations:lockbox_format_version()
 end
 
 --- Returns the lockbox probe format version.
-function Vault:lockbox_probe_format_version(bytes)
+function Revault:lockbox_probe_format_version(bytes)
   return self.operations:lockbox_probe_format_version(bytes)
 end
 
 --- Returns the lockbox create.
-function Vault:lockbox_create(key)
+function Revault:lockbox_create(key)
   return Lockbox.new(self.operations, self.operations:lockbox_create(key))
 end
 
 --- Creates a lockbox with explicit cache capacity, workload, worker policy, and job count.
-function Vault:lockbox_create_with_options(key, cache_mode, cache_bytes, workload, worker, jobs)
+function Revault:lockbox_create_with_options(key, cache_mode, cache_bytes, workload, worker, jobs)
   return Lockbox.new(self.operations, self.operations:lockbox_create_with_options(key, cache_mode, cache_bytes, workload, worker, jobs))
 end
 
 --- Returns the lockbox create password.
-function Vault:lockbox_create_password(password)
+function Revault:lockbox_create_password(password)
   return Lockbox.new(self.operations, self.operations:lockbox_create_password(password))
 end
 
 --- Returns the lockbox create contact.
-function Vault:lockbox_create_contact(contact)
+function Revault:lockbox_create_contact(contact)
   return Lockbox.new(self.operations, self.operations:lockbox_create_contact(contact.handle))
 end
 
 --- Returns the lockbox create with signing key.
-function Vault:lockbox_create_with_signing_key(content_key, signing_key)
+function Revault:lockbox_create_with_signing_key(content_key, signing_key)
   return Lockbox.new(self.operations, self.operations:lockbox_create_with_signing_key(content_key, signing_key.handle))
 end
 
 --- Returns the lockbox open.
-function Vault:lockbox_open(archive, key)
+function Revault:lockbox_open(archive, key)
   return Lockbox.new(self.operations, self.operations:lockbox_open(archive, key))
 end
 
 --- Opens a lockbox with explicit cache capacity, workload, worker policy, and job count.
-function Vault:lockbox_open_with_options(archive, key, cache_mode, cache_bytes, workload, worker, jobs)
+function Revault:lockbox_open_with_options(archive, key, cache_mode, cache_bytes, workload, worker, jobs)
   return Lockbox.new(self.operations, self.operations:lockbox_open_with_options(archive, key, cache_mode, cache_bytes, workload, worker, jobs))
 end
 
 --- Returns the lockbox open password.
-function Vault:lockbox_open_password(archive, password)
+function Revault:lockbox_open_password(archive, password)
   return Lockbox.new(self.operations, self.operations:lockbox_open_password(archive, password))
 end
 
 --- Returns the lockbox open contact.
-function Vault:lockbox_open_contact(archive, contact)
+function Revault:lockbox_open_contact(archive, contact)
   return Lockbox.new(self.operations, self.operations:lockbox_open_contact(archive, contact.handle))
 end
 
 --- Returns the lockbox inspect file.
-function Vault:lockbox_inspect_file(path)
+function Revault:lockbox_inspect_file(path)
   return self.operations:lockbox_inspect_file(path)
 end
 
 --- Returns the lockbox recovery scan path.
-function Vault:lockbox_recovery_scan_path(path, key)
+function Revault:lockbox_recovery_scan_path(path, key)
   return self.operations:lockbox_recovery_scan_path(path, key)
 end
 
 --- Returns the lockbox recovery scan.
-function Vault:lockbox_recovery_scan(bytes, key)
+function Revault:lockbox_recovery_scan(bytes, key)
   return self.operations:lockbox_recovery_scan(bytes, key)
 end
 
 --- Returns the lockbox recovery salvage.
-function Vault:lockbox_recovery_salvage(bytes, key, signing_key)
+function Revault:lockbox_recovery_salvage(bytes, key, signing_key)
   return Lockbox.new(self.operations, self.operations:lockbox_recovery_salvage(bytes, key, signing_key.handle))
 end
 
 --- Returns the key contact generate.
-function Vault:key_contact_generate()
+function Revault:key_contact_generate()
   return ContactKeyPair.new(self.operations, self.operations:key_contact_generate())
 end
 
 --- Returns the key contact from private.
-function Vault:key_contact_from_private(bytes)
+function Revault:key_contact_from_private(bytes)
   return ContactKeyPair.new(self.operations, self.operations:key_contact_from_private(bytes))
 end
 
 --- Returns the key contact public from bytes.
-function Vault:key_contact_public_from_bytes(bytes)
+function Revault:key_contact_public_from_bytes(bytes)
   return ContactPublicKey.new(self.operations, self.operations:key_contact_public_from_bytes(bytes))
 end
 
 --- Returns the key signing generate.
-function Vault:key_signing_generate()
+function Revault:key_signing_generate()
   return SigningKeyPair.new(self.operations, self.operations:key_signing_generate())
 end
 
 --- Returns the key signing from private.
-function Vault:key_signing_from_private(bytes)
+function Revault:key_signing_from_private(bytes)
   return SigningKeyPair.new(self.operations, self.operations:key_signing_from_private(bytes))
 end
 
 --- Returns the key signing public from bytes.
-function Vault:key_signing_public_from_bytes(bytes)
+function Revault:key_signing_public_from_bytes(bytes)
   return SigningPublicKey.new(self.operations, self.operations:key_signing_public_from_bytes(bytes))
 end
 
 --- Returns the vault key export private.
-function Vault:vault_key_export_private(key, format)
+function Revault:vault_key_export_private(key, format)
   return self.operations:vault_key_export_private(key.handle, format)
 end
 
 --- Returns the vault key export public.
-function Vault:vault_key_export_public(key, format)
+function Revault:vault_key_export_public(key, format)
   return self.operations:vault_key_export_public(key.handle, format)
 end
 
 --- Returns the vault key import private.
-function Vault:vault_key_import_private(bytes)
+function Revault:vault_key_import_private(bytes)
   return ContactKeyPair.new(self.operations, self.operations:vault_key_import_private(bytes))
 end
 
 --- Returns the vault key import public.
-function Vault:vault_key_import_public(bytes)
+function Revault:vault_key_import_public(bytes)
   return ContactPublicKey.new(self.operations, self.operations:vault_key_import_public(bytes))
 end
 
 --- Returns the vault key fingerprint.
-function Vault:vault_key_fingerprint(key)
+function Revault:vault_key_fingerprint(key)
   return self.operations:vault_key_fingerprint(key.handle)
 end
 
 --- Returns the vault key format hex.
-function Vault:vault_key_format_hex(bytes)
+function Revault:vault_key_format_hex(bytes)
   return self.operations:vault_key_format_hex(bytes)
 end
 
 --- Returns the vault key decode hex.
-function Vault:vault_key_decode_hex(text)
+function Revault:vault_key_decode_hex(text)
   return self.operations:vault_key_decode_hex(text)
 end
 
 --- Returns the vault key format crockford.
-function Vault:vault_key_format_crockford(bytes)
+function Revault:vault_key_format_crockford(bytes)
   return self.operations:vault_key_format_crockford(bytes)
 end
 
 --- Returns the vault key format crockford reading.
-function Vault:vault_key_format_crockford_reading(code)
+function Revault:vault_key_format_crockford_reading(code)
   return self.operations:vault_key_format_crockford_reading(code)
 end
 
 --- Returns the vault key decode crockford.
-function Vault:vault_key_decode_crockford(code)
+function Revault:vault_key_decode_crockford(code)
   return self.operations:vault_key_decode_crockford(code)
 end
 
 --- Returns the vault key hex encode.
-function Vault:vault_key_hex_encode(bytes)
+function Revault:vault_key_hex_encode(bytes)
   return self.operations:vault_key_hex_encode(bytes)
 end
 
 --- Returns the vault key hex decode.
-function Vault:vault_key_hex_decode(text)
+function Revault:vault_key_hex_decode(text)
   return self.operations:vault_key_hex_decode(text)
 end
 
 --- Returns the vault directory open.
-function Vault:vault_directory_open(root, password)
-  return VaultDirectory.new(self.operations, self.operations:vault_directory_open(root, password))
+function Revault:vault_directory_open(root, password)
+  return VaultStore.new(self.operations, self.operations:vault_directory_open(root, password))
 end
 
 --- Returns the vault structure version current.
-function Vault:vault_structure_version_current()
+function Revault:vault_structure_version_current()
   return self.operations:vault_structure_version_current()
 end
 
 --- Returns the vault directory probe structure version.
-function Vault:vault_directory_probe_structure_version(root, password)
+function Revault:vault_directory_probe_structure_version(root, password)
   return self.operations:vault_directory_probe_structure_version(root, password)
 end
 
 --- Returns the vault directory open or create default.
-function Vault:vault_directory_open_or_create_default(password)
-  return VaultDirectory.new(self.operations, self.operations:vault_directory_open_or_create_default(password))
+function Revault:vault_directory_open_or_create_default(password)
+  return VaultStore.new(self.operations, self.operations:vault_directory_open_or_create_default(password))
 end
 
 --- Returns the vault directory replace default.
-function Vault:vault_directory_replace_default(password)
-  return VaultDirectory.new(self.operations, self.operations:vault_directory_replace_default(password))
+function Revault:vault_directory_replace_default(password)
+  return VaultStore.new(self.operations, self.operations:vault_directory_replace_default(password))
 end
 
 --- Returns the vault directory change password.
-function Vault:vault_directory_change_password(root, old_password, new_password)
+function Revault:vault_directory_change_password(root, old_password, new_password)
   return self.operations:vault_directory_change_password(root, old_password, new_password)
 end
 
 --- Returns the vault directory change default password.
-function Vault:vault_directory_change_default_password(old_password, new_password)
+function Revault:vault_directory_change_default_password(old_password, new_password)
   return self.operations:vault_directory_change_default_password(old_password, new_password)
 end
 
 --- Returns the vault directory replace.
-function Vault:vault_directory_replace(root, password)
-  return VaultDirectory.new(self.operations, self.operations:vault_directory_replace(root, password))
+function Revault:vault_directory_replace(root, password)
+  return VaultStore.new(self.operations, self.operations:vault_directory_replace(root, password))
 end
 
 --- Returns the vault directory open or create.
-function Vault:vault_directory_open_or_create(root, password)
-  return VaultDirectory.new(self.operations, self.operations:vault_directory_open_or_create(root, password))
+function Revault:vault_directory_open_or_create(root, password)
+  return VaultStore.new(self.operations, self.operations:vault_directory_open_or_create(root, password))
 end
 
 --- Returns the vault backup default.
-function Vault:vault_backup_default(path, overwrite)
+function Revault:vault_backup_default(path, overwrite)
   return self.operations:vault_backup_default(path, overwrite)
 end
 
 --- Returns the vault restore default.
-function Vault:vault_restore_default(path, overwrite)
+function Revault:vault_restore_default(path, overwrite)
   return self.operations:vault_restore_default(path, overwrite)
 end
 
 --- Returns the vault read only open.
-function Vault:vault_read_only_open(root, password)
-  return ReadOnlyVaultDirectory.new(self.operations, self.operations:vault_read_only_open(root, password))
+function Revault:vault_read_only_open(root, password)
+  return ReadOnlyVault.new(self.operations, self.operations:vault_read_only_open(root, password))
 end
 
 --- Returns the vault read only open default.
-function Vault:vault_read_only_open_default(password)
-  return ReadOnlyVaultDirectory.new(self.operations, self.operations:vault_read_only_open_default(password))
+function Revault:vault_read_only_open_default(password)
+  return ReadOnlyVault.new(self.operations, self.operations:vault_read_only_open_default(password))
 end
 
 --- Returns the vault default directory.
-function Vault:vault_default_directory()
+function Revault:vault_default_directory()
   return self.operations:vault_default_directory()
 end
 
 --- Returns the vault default path.
-function Vault:vault_default_path()
+function Revault:vault_default_path()
   return self.operations:vault_default_path()
 end
 
 --- Returns the vault agent log path.
-function Vault:vault_agent_log_path()
+function Revault:vault_agent_log_path()
   return self.operations:vault_agent_log_path()
 end
 
 --- Returns the vault agent log destination.
-function Vault:vault_agent_log_destination()
+function Revault:vault_agent_log_destination()
   return self.operations:vault_agent_log_destination()
-end
-
---- Returns the vault local.
-function Vault:vault_local()
-  return LocalVault.new(self.operations, self.operations:vault_local())
 end
 
 --- Adds file.
@@ -2214,243 +2208,243 @@ function SigningPublicKey:public_free()
 end
 
 --- Returns the root.
-function VaultDirectory:root()
+function VaultStore:root()
   return self.operations:vault_directory_root(self.handle)
 end
 
 --- Returns the structure version.
-function VaultDirectory:structure_version()
+function VaultStore:structure_version()
   return self.operations:vault_directory_structure_version(self.handle)
 end
 
 --- Lists private keys.
-function VaultDirectory:list_private_keys()
+function VaultStore:list_private_keys()
   return self.operations:vault_directory_list_private_keys(self.handle)
 end
 
 --- Lists private key names.
-function VaultDirectory:list_private_key_names()
+function VaultStore:list_private_key_names()
   return self.operations:vault_directory_list_private_key_names(self.handle)
 end
 
 --- Lists contact names.
-function VaultDirectory:list_contact_names()
+function VaultStore:list_contact_names()
   return self.operations:vault_directory_list_contact_names(self.handle)
 end
 
 --- Lists form aliases.
-function VaultDirectory:list_form_aliases()
+function VaultStore:list_form_aliases()
   return self.operations:vault_directory_list_form_aliases(self.handle)
 end
 
 --- Returns the private key exists.
-function VaultDirectory:private_key_exists(name)
+function VaultStore:private_key_exists(name)
   return self.operations:vault_directory_private_key_exists(self.handle, name)
 end
 
 --- Removes private key.
-function VaultDirectory:delete_private_key(name)
+function VaultStore:delete_private_key(name)
   return self.operations:vault_directory_delete_private_key(self.handle, name)
 end
 
 --- Stores private key.
-function VaultDirectory:store_private_key(name, key)
+function VaultStore:store_private_key(name, key)
   return self.operations:vault_directory_store_private_key(self.handle, name, key.handle)
 end
 
 --- Loads private key.
-function VaultDirectory:load_private_key(name)
+function VaultStore:load_private_key(name)
   return ContactKeyPair.new(self.operations, self.operations:vault_directory_load_private_key(self.handle, name))
 end
 
 --- Loads private key generation.
-function VaultDirectory:load_private_key_generation(name, index)
+function VaultStore:load_private_key_generation(name, index)
   return ContactKeyPair.new(self.operations, self.operations:vault_directory_load_private_key_generation(self.handle, name, index))
 end
 
 --- Stores contact.
-function VaultDirectory:store_contact(name, key)
+function VaultStore:store_contact(name, key)
   return self.operations:vault_directory_store_contact(self.handle, name, key.handle)
 end
 
 --- Loads contact.
-function VaultDirectory:load_contact(name)
+function VaultStore:load_contact(name)
   return ContactPublicKey.new(self.operations, self.operations:vault_directory_load_contact(self.handle, name))
 end
 
 --- Returns the contact exists.
-function VaultDirectory:contact_exists(name)
+function VaultStore:contact_exists(name)
   return self.operations:vault_directory_contact_exists(self.handle, name)
 end
 
 --- Removes contact.
-function VaultDirectory:delete_contact(name)
+function VaultStore:delete_contact(name)
   return self.operations:vault_directory_delete_contact(self.handle, name)
 end
 
 --- Lists contacts.
-function VaultDirectory:list_contacts()
+function VaultStore:list_contacts()
   return self.operations:vault_directory_list_contacts(self.handle)
 end
 
 --- Stores profile email.
-function VaultDirectory:store_profile_email(name, email)
+function VaultStore:store_profile_email(name, email)
   return self.operations:vault_directory_store_profile_email(self.handle, name, email)
 end
 
 --- Returns the profile email.
-function VaultDirectory:profile_email(name)
+function VaultStore:profile_email(name)
   return self.operations:vault_directory_profile_email(self.handle, name)
 end
 
 --- Stores backup.
-function VaultDirectory:store_backup(id, bytes)
+function VaultStore:store_backup(id, bytes)
   return self.operations:vault_directory_store_backup(self.handle, id, bytes)
 end
 
 --- Loads backup.
-function VaultDirectory:load_backup(id)
+function VaultStore:load_backup(id)
   return self.operations:vault_directory_load_backup(self.handle, id)
 end
 
 --- Returns the backup count.
-function VaultDirectory:backup_count()
+function VaultStore:backup_count()
   return self.operations:vault_directory_backup_count(self.handle)
 end
 
 --- Returns the restore private key.
-function VaultDirectory:restore_private_key(name, key, signing_key, overwrite)
+function VaultStore:restore_private_key(name, key, signing_key, overwrite)
   return self.operations:vault_directory_restore_private_key(self.handle, name, key.handle, signing_key.handle, overwrite)
 end
 
 --- Loads owner signing key.
-function VaultDirectory:load_owner_signing_key(name)
+function VaultStore:load_owner_signing_key(name)
   return SigningKeyPair.new(self.operations, self.operations:vault_directory_load_owner_signing_key(self.handle, name))
 end
 
 --- Loads owner signing key generation.
-function VaultDirectory:load_owner_signing_key_generation(name, index)
+function VaultStore:load_owner_signing_key_generation(name, index)
   return SigningKeyPair.new(self.operations, self.operations:vault_directory_load_owner_signing_key_generation(self.handle, name, index))
 end
 
 --- Stores contact signing key.
-function VaultDirectory:store_contact_signing_key(name, key)
+function VaultStore:store_contact_signing_key(name, key)
   return self.operations:vault_directory_store_contact_signing_key(self.handle, name, key.handle)
 end
 
 --- Loads contact signing key.
-function VaultDirectory:load_contact_signing_key(name)
+function VaultStore:load_contact_signing_key(name)
   return SigningPublicKey.new(self.operations, self.operations:vault_directory_load_contact_signing_key(self.handle, name))
 end
 
 --- Lists profile generations.
-function VaultDirectory:list_profile_generations(name)
+function VaultStore:list_profile_generations(name)
   return self.operations:vault_directory_list_profile_generations(self.handle, name)
 end
 
 --- Updates private key.
-function VaultDirectory:rotate_private_key(name)
+function VaultStore:rotate_private_key(name)
   return self.operations:vault_directory_rotate_private_key(self.handle, name)
 end
 
 --- Stores lockbox.
-function VaultDirectory:remember_lockbox(id, path)
+function VaultStore:remember_lockbox(id, path)
   return self.operations:vault_directory_remember_lockbox(self.handle, id, path)
 end
 
 --- Lists known lockboxes.
-function VaultDirectory:list_known_lockboxes()
+function VaultStore:list_known_lockboxes()
   return self.operations:vault_directory_list_known_lockboxes(self.handle)
 end
 
 --- Removes lockbox.
-function VaultDirectory:forget_lockbox(path)
+function VaultStore:forget_lockbox(path)
   return self.operations:vault_directory_forget_lockbox(self.handle, path)
 end
 
 --- Stores access slot label.
-function VaultDirectory:remember_access_slot_label(id, slot_id, name)
+function VaultStore:remember_access_slot_label(id, slot_id, name)
   return self.operations:vault_directory_remember_access_slot_label(self.handle, id, slot_id, name)
 end
 
 --- Lists access slot labels.
-function VaultDirectory:list_access_slot_labels(id)
+function VaultStore:list_access_slot_labels(id)
   return self.operations:vault_directory_list_access_slot_labels(self.handle, id)
 end
 
 --- Returns the find access slot labels.
-function VaultDirectory:find_access_slot_labels(id, name)
+function VaultStore:find_access_slot_labels(id, name)
   return self.operations:vault_directory_find_access_slot_labels(self.handle, id, name)
 end
 
 --- Removes access slot label.
-function VaultDirectory:forget_access_slot_label(id, slot_id)
+function VaultStore:forget_access_slot_label(id, slot_id)
   return self.operations:vault_directory_forget_access_slot_label(self.handle, id, slot_id)
 end
 
 --- Defines a reusable, versioned form in the local vault.
-function VaultDirectory:define_form(alias, name, description, fields)
+function VaultStore:define_form(alias, name, description, fields)
   return self.operations:vault_directory_define_form(self.handle, alias, name, description, flatbuffers.encode_form_fields(fields))
 end
 
 --- Returns the resolve form.
-function VaultDirectory:resolve_form(reference)
+function VaultStore:resolve_form(reference)
   return self.operations:vault_directory_resolve_form(self.handle, reference)
 end
 
 --- Lists forms.
-function VaultDirectory:list_forms()
+function VaultStore:list_forms()
   return self.operations:vault_directory_list_forms(self.handle)
 end
 
 --- Lists form revisions.
-function VaultDirectory:list_form_revisions(type_id)
+function VaultStore:list_form_revisions(type_id)
   return self.operations:vault_directory_list_form_revisions(self.handle, type_id)
 end
 
 --- Returns the seed forms.
-function VaultDirectory:seed_forms()
+function VaultStore:seed_forms()
   return self.operations:vault_directory_seed_forms(self.handle)
 end
 
 --- Stores password.
-function VaultDirectory:remember_password(id, password)
+function VaultStore:remember_password(id, password)
   return self.operations:vault_directory_remember_password(self.handle, id, password)
 end
 
 --- Returns the remembered password.
-function VaultDirectory:remembered_password(id)
+function VaultStore:remembered_password(id)
   return self.operations:vault_directory_remembered_password(self.handle, id)
 end
 
 --- Releases the native resources held by this object.
-function VaultDirectory:free()
+function VaultStore:free()
   self.operations:vault_directory_free(self.handle)
   self.handle = nil
 end
 
 --- Lists profile names.
-function ReadOnlyVaultDirectory:list_profile_names()
+function ReadOnlyVault:list_profile_names()
   return self.operations:vault_read_only_list_profile_names(self.handle)
 end
 
 --- Lists contact names.
-function ReadOnlyVaultDirectory:list_contact_names()
+function ReadOnlyVault:list_contact_names()
   return self.operations:vault_read_only_list_contact_names(self.handle)
 end
 
 --- Lists form aliases.
-function ReadOnlyVaultDirectory:list_form_aliases()
+function ReadOnlyVault:list_form_aliases()
   return self.operations:vault_read_only_list_form_aliases(self.handle)
 end
 
 --- Lists known lockboxes.
-function ReadOnlyVaultDirectory:list_known_lockboxes()
+function ReadOnlyVault:list_known_lockboxes()
   return self.operations:vault_read_only_list_known_lockboxes(self.handle)
 end
 
 --- Releases the native resources held by this object.
-function ReadOnlyVaultDirectory:free()
+function ReadOnlyVault:free()
   self.operations:vault_read_only_free(self.handle)
   self.handle = nil
 end
@@ -2591,56 +2585,162 @@ function Platform:get_password()
 end
 
 --- Creates lockbox password.
-function LocalVault:create_lockbox_password(path, password)
+function LocalSession:create_lockbox_password(path, password)
   return Lockbox.new(self.operations, self.operations:vault_create_lockbox_password(self.handle, path, password))
 end
 
 --- Opens lockbox password.
-function LocalVault:open_lockbox_password(path, password)
+function LocalSession:open_lockbox_password(path, password)
   return Lockbox.new(self.operations, self.operations:vault_open_lockbox_password(self.handle, path, password))
 end
 
 --- Creates lockbox content key.
-function LocalVault:create_lockbox_content_key(path, content_key, signing_key)
+function LocalSession:create_lockbox_content_key(path, content_key, signing_key)
   return Lockbox.new(self.operations, self.operations:vault_create_lockbox_content_key(self.handle, path, content_key, signing_key.handle))
 end
 
 --- Creates lockbox contact.
-function LocalVault:create_lockbox_contact(path, contact, name, signing_key)
+function LocalSession:create_lockbox_contact(path, contact, name, signing_key)
   return Lockbox.new(self.operations, self.operations:vault_create_lockbox_contact(self.handle, path, contact.handle, name, signing_key.handle))
 end
 
 --- Opens lockbox content key.
-function LocalVault:open_lockbox_content_key(path, content_key, signing_key)
+function LocalSession:open_lockbox_content_key(path, content_key, signing_key)
   return Lockbox.new(self.operations, self.operations:vault_open_lockbox_content_key(self.handle, path, content_key, signing_key.handle))
 end
 
 --- Stores lockbox password.
-function LocalVault:cache_lockbox_password(path, password, ttl_seconds)
+function LocalSession:cache_lockbox_password(path, password, ttl_seconds)
   return self.operations:vault_cache_lockbox_password(self.handle, path, password, ttl_seconds)
 end
 
 --- Releases the native resources held by lockbox.
-function LocalVault:close_lockbox(path)
+function LocalSession:close_lockbox(path)
   return self.operations:vault_close_lockbox(self.handle, path)
 end
 
 --- Releases the native resources held by all.
-function LocalVault:close_all()
+function LocalSession:close_all()
   return self.operations:vault_close_all(self.handle)
 end
 
 --- Releases the native resources held by this object.
-function LocalVault:free()
+function LocalSession:free()
   self.operations:vault_free(self.handle)
   self.handle = nil
 end
 
+-- Reviewed 0.3 terminology. Native transport classes retain their private
+-- implementation names while these values are the package-facing concepts.
+local LockboxCacheMode = { bytes = 'bytes', disabled = 'disabled', automatic = 'automatic' }
+local LockboxWorkload = { interactive = 'interactive', bulk_import = 'bulk-import', read_mostly = 'read-mostly' }
+local LockboxWorker = { auto = 'auto', single = 'single', threads = 'threads' }
+local AgentActivityKind = { open = 'open', close = 'close', variables = 'variables', form = 'form', recovery = 'recovery', vault = 'vault' }
+local KeyExportFormat = { lockbox_pem = 'lockbox-pem', jwk = 'jwk', jwks = 'jwks', raw_hex = 'raw-hex' }
+local SecretBytes = {}
+function SecretBytes.new(value)
+  local secret = { bytes = value or '' }
+  function secret:close() self.bytes = string.rep('\0', #self.bytes) end
+  return secret
+end
+local SecretString = SecretBytes
+
+-- Opening an existing Vault is distinct from the destructive replacement API.
+function Vault.open(root, vault_passphrase)
+  return Revault.new():vault_directory_open(root, vault_passphrase)
+end
+function Vault.open_or_create(root, vault_passphrase)
+  return Revault.new():vault_directory_open_or_create(root, vault_passphrase)
+end
+function Vault.create(root, vault_passphrase)
+  return Revault.new():vault_directory_replace(root, vault_passphrase)
+end
+function Vault.replace(root, vault_passphrase)
+  return Revault.new():vault_directory_replace(root, vault_passphrase)
+end
+
+--- Creates an in-memory archive protected by exactly one credential.
+function Lockbox.create_in_memory(options)
+  options = options or {}
+  local credentials = 0
+  for _, value in ipairs({ options.password, options.content_key, options.contact }) do if value ~= nil then credentials = credentials + 1 end end
+  if credentials ~= 1 then error('supply exactly one of password, content_key, or contact') end
+  local runtime = Revault.runtime()
+  local box
+  if options.password then box = runtime:lockbox_create_password(options.password)
+  elseif options.contact then box = runtime:lockbox_create_contact(options.contact)
+  elseif options.options then
+    local tuning = options.options
+    box = runtime:lockbox_create_with_options(options.content_key, tuning.cache_mode, tuning.cache_bytes or 0, tuning.workload, tuning.worker, tuning.jobs or 0)
+  else box = runtime:lockbox_create(options.content_key) end
+  if options.signing_key then box:set_owner_signing_key(options.signing_key) end
+  return box
+end
+--- Opens serialized archive bytes without consulting the session agent.
+function Lockbox.open_bytes(archive, options)
+  options = options or {}
+  local credentials = 0
+  for _, value in ipairs({ options.password, options.content_key, options.contact }) do if value ~= nil then credentials = credentials + 1 end end
+  if credentials ~= 1 then error('supply exactly one of password, content_key, or contact') end
+  local runtime = Revault.runtime()
+  if options.password then return runtime:lockbox_open_password(archive, options.password) end
+  if options.contact then return runtime:lockbox_open_contact(archive, options.contact) end
+  if options.options then
+    local tuning = options.options
+    return runtime:lockbox_open_with_options(archive, options.content_key, tuning.cache_mode, tuning.cache_bytes or 0, tuning.workload, tuning.worker, tuning.jobs or 0)
+  end
+  return runtime:lockbox_open(archive, options.content_key)
+end
+--- Creates an archive file and returns its process-local handle.
+function Lockbox.create(path, options)
+  options = options or {}
+  local existing = io.open(path, 'rb')
+  if existing then existing:close(); if not options.overwrite then error('Lockbox already exists: ' .. path) end end
+  local box = Lockbox.create_in_memory(options)
+  local file = assert(io.open(path, 'wb')); file:write(box:to_bytes()); file:close()
+  return box
+end
+--- Opens an archive file without consulting the session agent.
+function Lockbox.open(path, options)
+  local file = assert(io.open(path, 'rb')); local archive = file:read('*a'); file:close()
+  return Lockbox.open_bytes(archive, options)
+end
+
+Lockbox.close = Lockbox.free
+VaultStore.close = VaultStore.free
+ReadOnlyVault.close = ReadOnlyVault.free
+LocalSession.close = LocalSession.free
+--- Explicit session-agent controller with process-local lockbox operations.
+local AgentSession = setmetatable({}, { __index = Agent })
+AgentSession.__index = AgentSession
+function AgentSession.new(operations, handle) return setmetatable({ operations = operations, handle = handle }, AgentSession) end
+function AgentSession.instance()
+  local runtime = Revault.new()
+  return AgentSession.new(runtime.operations, runtime.operations:vault_local())
+end
+function AgentSession:create_lockbox_password(path, password) return Lockbox.new(self.operations, self.operations:vault_create_lockbox_password(self.handle, path, password)) end
+function AgentSession:open_lockbox_password(path, password) return Lockbox.new(self.operations, self.operations:vault_open_lockbox_password(self.handle, path, password)) end
+function AgentSession:create_lockbox_content_key(path, content_key, signing_key) return Lockbox.new(self.operations, self.operations:vault_create_lockbox_content_key(self.handle, path, content_key, signing_key.handle)) end
+function AgentSession:create_lockbox_contact(path, contact, name, signing_key) return Lockbox.new(self.operations, self.operations:vault_create_lockbox_contact(self.handle, path, contact.handle, name, signing_key.handle)) end
+function AgentSession:open_lockbox_content_key(path, content_key, signing_key) return Lockbox.new(self.operations, self.operations:vault_open_lockbox_content_key(self.handle, path, content_key, signing_key.handle)) end
+function AgentSession:cache_lockbox_password(path, password, ttl_seconds) return self.operations:vault_cache_lockbox_password(self.handle, path, password, ttl_seconds) end
+function AgentSession:close_lockbox(path) return self.operations:vault_close_lockbox(self.handle, path) end
+function AgentSession:close_all() return self.operations:vault_close_all(self.handle) end
+function AgentSession:free() self.operations:vault_free(self.handle); self.handle = nil end
+Revault.load = function() return Revault.new() end
+Revault.runtime = Revault.load
+local ProfileSigningKeyPair = SigningKeyPair
+local ProfileSigningPublicKey = SigningPublicKey
+
 local M = {
-  Vault = Vault, Models = Models,
+  Revault = Revault, Vault = Vault, ReadOnlyVault = ReadOnlyVault, Models = Models,
   Lockbox = Lockbox, ContactKeyPair = ContactKeyPair, ContactPublicKey = ContactPublicKey,
   WrappedContactKey = WrappedContactKey, SigningKeyPair = SigningKeyPair,
-  SigningPublicKey = SigningPublicKey, VaultDirectory = VaultDirectory, ReadOnlyVaultDirectory = ReadOnlyVaultDirectory,
-  Agent = Agent, AgentActivity = AgentActivity, Platform = Platform, LocalVault = LocalVault,
+  ProfileSigningKeyPair = ProfileSigningKeyPair, SigningPublicKey = SigningPublicKey,
+  ProfileSigningPublicKey = ProfileSigningPublicKey, AgentSession = AgentSession,
+  AgentActivity = AgentActivity,
+  SecretBytes = SecretBytes, SecretString = SecretString, LockboxCacheMode = LockboxCacheMode,
+  LockboxWorkload = LockboxWorkload, LockboxWorker = LockboxWorker,
+  AgentActivityKind = AgentActivityKind, KeyExportFormat = KeyExportFormat,
 }
 return M

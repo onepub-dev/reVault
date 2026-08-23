@@ -1,7 +1,7 @@
 package com.onepub.revault;
 
-import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.Arena;
 import java.lang.foreign.SymbolLookup;
 import java.nio.charset.StandardCharsets;
 
@@ -28,15 +28,9 @@ public final class Revault {
   /** Loads the process-wide native reVault runtime using platform discovery. */
   public static Revault load() { return new Revault(); }
 
-  /** Loads the native runtime from an explicit shared-library path. */
-  public static Revault load(String libraryPath) { return new Revault(libraryPath); }
-
   /** Creates a runtime loader. Prefer {@link #load()} in application code. */
-  public Revault() { this(NativeLibrary.resolve()); }
-
-  /** Creates a runtime loader for an explicit shared-library path. */
-  public Revault(String libraryPath) {
-    this(new RevaultNativeApi(SymbolLookup.libraryLookup(libraryPath, Arena.global())));
+  public Revault() {
+    this(new RevaultNativeApi(SymbolLookup.libraryLookup(NativeLibrary.resolve(), Arena.global())));
   }
 
   Revault(RevaultNativeApi nativeApi) { operations = new BindingOperations(nativeApi); }
@@ -51,6 +45,21 @@ public final class Revault {
    * @param jobs worker count; zero lets the library select it
    */
   public record LockboxOptions(String cacheMode, long cacheBytes, String workload, String worker, long jobs) {
+    /** Creates options from the closed policy enums used by the public facade. */
+    public LockboxOptions(CacheMode cacheMode, long cacheBytes, WorkloadProfile workload,
+        WorkerPolicy worker, long jobs) {
+      this(cacheMode.wire(), cacheBytes, workload.wire(), worker.wire(), jobs);
+    }
+
+    /** Returns the cache policy as a closed enum. */
+    public CacheMode cacheModeValue() { return CacheMode.valueOf(cacheMode.toUpperCase(java.util.Locale.ROOT)); }
+    /** Returns the workload policy as a closed enum. */
+    public WorkloadProfile workloadValue() {
+      return "bulk-import".equals(workload) ? WorkloadProfile.BULK_IMPORT : WorkloadProfile.INTERACTIVE;
+    }
+    /** Returns the worker policy as a closed enum. */
+    public WorkerPolicy workerValue() { return WorkerPolicy.valueOf(worker.toUpperCase(java.util.Locale.ROOT)); }
+
     /** Returns the recommended interactive runtime defaults. */
     public static LockboxOptions defaults() {
       return new LockboxOptions("bytes", 64L << 20, "interactive", "auto", 0);
@@ -60,6 +69,11 @@ public final class Revault {
   private static void ensureOpen(MemorySegment handle) {
     if (handle == null || handle.address() == 0) throw new IllegalStateException("object is closed");
   }
+
+  /** Returns the last native error message. */
+  public String lastError() { return operations.lastErrorMessage(); }
+  /** Returns structured details for the last native error. */
+  public ErrorDetails lastErrorDetails() { return operations.bufferLastErrorDetails(); }
 
   /** Returns the lockbox format version. */
   public int lockboxFormatVersion() { return operations.lockboxFormatVersion(); }
@@ -388,43 +402,43 @@ public final class Revault {
   }
 
   /** Opens vault directory. */
-  VaultDirectoryHandle openVaultDirectory(String root, byte[] password) {
-    return new VaultDirectoryHandle(operations.vaultDirectoryOpen(root, password));
+  public VaultHandle openVault(String root, byte[] password) {
+    return new VaultHandle(operations.vaultDirectoryOpen(root, password));
   }
   /** Opens read only vault directory. */
-  ReadOnlyVaultHandle openReadOnlyVaultDirectory(String root, byte[] password) {
+  public ReadOnlyVaultHandle openReadOnlyVault(String root, byte[] password) {
     return new ReadOnlyVaultHandle(operations.vaultReadOnlyOpen(root, password));
   }
   /** Opens default read only vault directory. */
-  ReadOnlyVaultHandle openDefaultReadOnlyVaultDirectory(byte[] password) {
+  public ReadOnlyVaultHandle openDefaultReadOnlyVault(byte[] password) {
     return new ReadOnlyVaultHandle(operations.vaultReadOnlyOpenDefault(password));
   }
   /** Opens or create vault directory. */
-  VaultDirectoryHandle openOrCreateVaultDirectory(String root, byte[] password) {
-    return new VaultDirectoryHandle(operations.vaultDirectoryOpenOrCreate(root, password));
+  public VaultHandle openOrCreateVault(String root, byte[] password) {
+    return new VaultHandle(operations.vaultDirectoryOpenOrCreate(root, password));
   }
   /** Updates vault directory. */
-  VaultDirectoryHandle replaceVaultDirectory(String root, byte[] password) {
-    return new VaultDirectoryHandle(operations.vaultDirectoryReplace(root, password));
+  public VaultHandle replaceVault(String root, byte[] password) {
+    return new VaultHandle(operations.vaultDirectoryReplace(root, password));
   }
   /** Opens or create default vault directory. */
-  VaultDirectoryHandle openOrCreateDefaultVaultDirectory(byte[] password) {
-    return new VaultDirectoryHandle(operations.vaultDirectoryOpenOrCreateDefault(password));
+  public VaultHandle openOrCreateDefaultVault(byte[] password) {
+    return new VaultHandle(operations.vaultDirectoryOpenOrCreateDefault(password));
   }
   /** Updates default vault directory. */
-  VaultDirectoryHandle replaceDefaultVaultDirectory(byte[] password) {
-    return new VaultDirectoryHandle(operations.vaultDirectoryReplaceDefault(password));
+  public VaultHandle replaceDefaultVault(byte[] password) {
+    return new VaultHandle(operations.vaultDirectoryReplaceDefault(password));
   }
   /** Updates vault directory password. */
-  public void changeVaultDirectoryPassword(String root, byte[] oldPassword, byte[] newPassword) {
+  public void changeVaultPassword(String root, byte[] oldPassword, byte[] newPassword) {
     operations.vaultDirectoryChangePassword(root, oldPassword, newPassword);
   }
   /** Updates default vault directory password. */
-  public void changeDefaultVaultDirectoryPassword(byte[] oldPassword, byte[] newPassword) {
+  public void changeDefaultVaultPassword(byte[] oldPassword, byte[] newPassword) {
     operations.vaultDirectoryChangeDefaultPassword(oldPassword, newPassword);
   }
   /** Returns the default vault directory. */
-  public String defaultVaultDirectory() { return operations.vaultDefaultDirectory(); }
+  public String defaultVaultRoot() { return operations.vaultDefaultDirectory(); }
   /** Returns the default vault path. */
   public String defaultVaultPath() { return operations.vaultDefaultPath(); }
   /** Returns the backup default vault. */
@@ -437,9 +451,11 @@ public final class Revault {
   }
 
   /** Password-protected storage for profile keys, contacts, forms, backups, and known lockbox paths. */
-  final class VaultDirectoryHandle implements AutoCloseable {
+  /** Internal implementation base exposed through the public {@link Vault} facade. */
+  public class VaultHandle implements AutoCloseable {
     private MemorySegment handle;
-    private VaultDirectoryHandle(MemorySegment handle) { this.handle = handle; }
+    protected VaultHandle(MemorySegment handle) { this.handle = handle; }
+    MemorySegment detach() { var value = handle; handle = null; return value; }
     /** Returns the root. */
     public String root() { return operations.vaultDirectoryRoot(handle); }
     /** Returns the structure version. */
@@ -549,9 +565,11 @@ public final class Revault {
   }
 
   /** A metadata view for discovery and diagnostics that never loads an owner signing key. */
-  final class ReadOnlyVaultHandle implements AutoCloseable {
+  /** Internal implementation base exposed through the public {@link ReadOnlyVault} facade. */
+  public class ReadOnlyVaultHandle implements AutoCloseable {
     private MemorySegment handle;
-    private ReadOnlyVaultHandle(MemorySegment handle) { this.handle = handle; }
+    protected ReadOnlyVaultHandle(MemorySegment handle) { this.handle = handle; }
+    MemorySegment detach() { var value = handle; handle = null; return value; }
     /** Lists profile names. */
     public java.util.List<String> listProfileNames() { return operations.vaultReadOnlyListProfileNames(handle); }
     /** Lists contact names. */
@@ -643,11 +661,11 @@ public final class Revault {
   public void forgetPlatformPassword() { operations.vaultPlatformForgetPassword(); }
 
   /** Opens local vault. */
-  LocalVaultHandle openLocalVault() { return new LocalVaultHandle(operations.vaultLocal()); }
+  public LockboxSessionHandle openLockboxSession() { return new LockboxSessionHandle(operations.vaultLocal()); }
   /** A session that opens lockboxes by host path, caches passwords, and closes locally used files. */
-  final class LocalVaultHandle implements AutoCloseable {
+  public final class LockboxSessionHandle implements AutoCloseable {
     private MemorySegment handle;
-    private LocalVaultHandle(MemorySegment handle) { this.handle = handle; }
+    private LockboxSessionHandle(MemorySegment handle) { this.handle = handle; }
     /** Creates with password. */
     public Lockbox createWithPassword(String path, byte[] password) {
       return new Lockbox(operations.vaultCreateLockboxPassword(handle, path, password));

@@ -38,7 +38,7 @@ RUN mvn -q dependency:get -Dartifact=com.google.flatbuffers:flatbuffers-java:25.
       -d /opt/revault-java bindings/e2e/java/Conformance.java
 
 ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
-ENV REVAULT_E2E_NATIVE_ROOT=/tmp/revault-java-extract
+ENV REVAULT_E2E_NATIVE_ROOT=/tmp/revault-java-extract/revault-native
 ENV REVAULT_E2E_NATIVE_FILE=librevault_api.so
 ENV REVAULT_E2E_NATIVE_KIND=dynamic
 CMD ["revault-tool", "e2e", "container", "--language", "java"]

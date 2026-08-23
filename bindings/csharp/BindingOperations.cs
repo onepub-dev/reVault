@@ -9,11 +9,11 @@ internal sealed class BindingOperations
 {
     public BindingOperations() { if (RevaultNative.api_abi_version() != 3) throw new DllNotFoundException("revault-api native ABI mismatch; expected 3"); }
     private static string LastError() => Marshal.PtrToStringUTF8(RevaultNative.buffer_last_error()) ?? "native operation failed";
-    private static bool Require(bool value) { if (!value) throw new InvalidOperationException(LastError()); return true; }
-    private static IntPtr Require(IntPtr value) { if (value == IntPtr.Zero) throw new InvalidOperationException(LastError()); return value; }
+    private static bool Require(bool value) { if (!value) throw new RevaultException(LastError()); return true; }
+    private static IntPtr Require(IntPtr value) { if (value == IntPtr.Zero) throw new RevaultException(LastError()); return value; }
     private static byte[] Take(RevaultBuffer value)
     {
-        if (value.Ptr == IntPtr.Zero) throw new InvalidOperationException(LastError());
+        if (value.Ptr == IntPtr.Zero) throw new RevaultException(LastError());
         var result = new byte[checked((int)value.Length)];
         Marshal.Copy(value.Ptr, result, 0, result.Length);
         RevaultNative.buffer_free(value);

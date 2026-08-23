@@ -41,8 +41,10 @@ class Runtime:
     """Own the loaded native library and decode its ABI return conventions."""
 
     def __init__(self) -> None:
-        library = os.environ.get("REVAULT_LIBRARY")
-        self.lib = binding.load(library) if library else binding.load()
+        # Package acceptance must resolve the carrier from the installed
+        # package. Build-tree overrides are deliberately unsupported here.
+        self.facade = binding.Revault.load()
+        self.lib = self.facade._lib
 
     def error(self) -> str:
         """Return the most recent native error message."""

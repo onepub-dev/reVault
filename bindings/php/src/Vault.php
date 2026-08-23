@@ -15,23 +15,22 @@ use FFI\CData;
  * repository README for installation and examples:
  * https://github.com/onepub-dev/reVault#readme
  */
-final class Vault
+/** Native runtime loader and archive/key factory. */
+final class Revault
 {
     private readonly BindingOperations $operations;
     private readonly Agent $agent;
     private readonly Platform $platform;
 
     /** Returns the construct. */
-    public function __construct(?string $library = null)
+    public function __construct()
     {
-        $this->operations = BindingOperations::load($library ?? self::nativeLibrary());
+        $this->operations = BindingOperations::load(self::nativeLibrary());
         $this->agent = new Agent($this->operations); $this->platform = new Platform($this->operations);
     }
 
     private static function nativeLibrary(): string
     {
-        $override = getenv('REVAULT_LIBRARY');
-        if ($override !== false && $override !== '') return $override;
         $arch = strtolower(php_uname('m'));
         $cpu = match ($arch) {
             'x86_64', 'amd64' => 'x86_64',
@@ -45,7 +44,7 @@ final class Vault
             default => throw new \RuntimeException('unsupported reVault operating system: '.PHP_OS_FAMILY),
         };
         $bundled = dirname(__DIR__)."/native/$target/$file";
-        if (!is_file($bundled)) { throw new \RuntimeException("revault-api native carrier is missing for $target; set REVAULT_LIBRARY for development"); }
+        if (!is_file($bundled)) { throw new \RuntimeException("revault-api native carrier is missing for $target; install the matching platform package"); }
         return $bundled;
     }
 
@@ -53,6 +52,10 @@ final class Vault
     public function agent(): Agent { return $this->agent; }
     /** Returns the platform. */
     public function platform(): Platform { return $this->platform; }
+    public static function load(): self { return new self(); }
+    public static function runtime(): self { return new self(); }
+    public static function agentSession(): AgentSession
+    { $runtime = new self(); return new AgentSession($runtime->operations); }
     /** Returns the last error. */
     public function lastError(): string { return $this->operations->lastErrorMessage(); }
     /** Returns the last error details. */
@@ -257,9 +260,9 @@ final class Vault
     }
 
     /** Returns the vault directory open. */
-    public function vaultDirectoryOpen(string $root, string $password): VaultDirectory
+    public function vaultDirectoryOpen(string $root, string $password): Vault
     {
-        return new VaultDirectory($this->operations, $this->operations->vaultDirectoryOpen($root, $password));
+        return new Vault($this->operations, $this->operations->vaultDirectoryOpen($root, $password));
     }
 
     /** Returns the vault structure version current. */
@@ -275,15 +278,15 @@ final class Vault
     }
 
     /** Returns the vault directory open or create default. */
-    public function vaultDirectoryOpenOrCreateDefault(string $password): VaultDirectory
+    public function vaultDirectoryOpenOrCreateDefault(string $password): Vault
     {
-        return new VaultDirectory($this->operations, $this->operations->vaultDirectoryOpenOrCreateDefault($password));
+        return new Vault($this->operations, $this->operations->vaultDirectoryOpenOrCreateDefault($password));
     }
 
     /** Returns the vault directory replace default. */
-    public function vaultDirectoryReplaceDefault(string $password): VaultDirectory
+    public function vaultDirectoryReplaceDefault(string $password): Vault
     {
-        return new VaultDirectory($this->operations, $this->operations->vaultDirectoryReplaceDefault($password));
+        return new Vault($this->operations, $this->operations->vaultDirectoryReplaceDefault($password));
     }
 
     /** Returns the vault directory change password. */
@@ -299,15 +302,15 @@ final class Vault
     }
 
     /** Returns the vault directory replace. */
-    public function vaultDirectoryReplace(string $root, string $password): VaultDirectory
+    public function vaultDirectoryReplace(string $root, string $password): Vault
     {
-        return new VaultDirectory($this->operations, $this->operations->vaultDirectoryReplace($root, $password));
+        return new Vault($this->operations, $this->operations->vaultDirectoryReplace($root, $password));
     }
 
     /** Returns the vault directory open or create. */
-    public function vaultDirectoryOpenOrCreate(string $root, string $password): VaultDirectory
+    public function vaultDirectoryOpenOrCreate(string $root, string $password): Vault
     {
-        return new VaultDirectory($this->operations, $this->operations->vaultDirectoryOpenOrCreate($root, $password));
+        return new Vault($this->operations, $this->operations->vaultDirectoryOpenOrCreate($root, $password));
     }
 
     /** Returns the vault backup default. */
@@ -323,15 +326,15 @@ final class Vault
     }
 
     /** Returns the vault read only open. */
-    public function vaultReadOnlyOpen(string $root, string $password): ReadOnlyVaultDirectory
+    public function vaultReadOnlyOpen(string $root, string $password): ReadOnlyVault
     {
-        return new ReadOnlyVaultDirectory($this->operations, $this->operations->vaultReadOnlyOpen($root, $password));
+        return new ReadOnlyVault($this->operations, $this->operations->vaultReadOnlyOpen($root, $password));
     }
 
     /** Returns the vault read only open default. */
-    public function vaultReadOnlyOpenDefault(string $password): ReadOnlyVaultDirectory
+    public function vaultReadOnlyOpenDefault(string $password): ReadOnlyVault
     {
-        return new ReadOnlyVaultDirectory($this->operations, $this->operations->vaultReadOnlyOpenDefault($password));
+        return new ReadOnlyVault($this->operations, $this->operations->vaultReadOnlyOpenDefault($password));
     }
 
     /** Returns the vault default directory. */
@@ -358,12 +361,6 @@ final class Vault
         return $this->operations->vaultAgentLogDestination();
     }
 
-    /** Returns the vault local. */
-    public function vaultLocal(): LocalVault
-    {
-        return new LocalVault($this->operations, $this->operations->vaultLocal());
-    }
-
 }
 
 /** Base type for disposable API values; applications use its concrete subclasses. */
@@ -372,11 +369,59 @@ abstract class OwnedHandle
     /** Returns the construct. */
     public function __construct(protected readonly BindingOperations $operations, protected CData $handle) {}
     final public function nativeHandle(): CData { return $this->handle; }
+    /** Release native memory; concrete handles implement free(). */
+    public function close(): void { if (method_exists($this, 'free')) $this->free(); }
 }
 
 /** An open encrypted archive containing files, variables, secrets, and forms. */
 class Lockbox extends OwnedHandle
 {
+    /** Host path for handles returned by the path factory; null for bytes-only handles. */
+    private ?string $backingPath = null;
+    /** Create an in-memory archive protected by exactly one credential. */
+    public static function createInMemory(?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?OwnedHandle $signingKey = null, ?array $options = null): self
+    {
+        if (count(array_filter([$password, $contentKey, $contact], static fn($value) => $value !== null)) !== 1) {
+            throw new \InvalidArgumentException('Supply exactly one of password, contentKey, or contact.');
+        }
+        $runtime = Revault::runtime();
+        $box = $password !== null ? $runtime->lockboxCreatePassword($password)
+            : ($contact !== null ? $runtime->lockboxCreateContact($contact)
+                : ($options !== null ? $runtime->lockboxCreateWithOptions($contentKey, $options['cacheMode'], $options['cacheBytes'] ?? 0, $options['workload'], $options['worker'], $options['jobs'] ?? 0)
+                    : $runtime->lockboxCreate($contentKey)));
+        if ($signingKey !== null) $box->setOwnerSigningKey($signingKey);
+        return $box;
+    }
+
+    /** Open serialized archive bytes without consulting the session agent. */
+    public static function openBytes(string $archive, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?array $options = null): self
+    {
+        if (count(array_filter([$password, $contentKey, $contact], static fn($value) => $value !== null)) !== 1) {
+            throw new \InvalidArgumentException('Supply exactly one of password, contentKey, or contact.');
+        }
+        $runtime = Revault::runtime();
+        if ($password !== null) return $runtime->lockboxOpenPassword($archive, $password);
+        if ($contact !== null) return $runtime->lockboxOpenContact($archive, $contact);
+        return $options === null ? $runtime->lockboxOpen($archive, $contentKey) : $runtime->lockboxOpenWithOptions($archive, $contentKey, $options['cacheMode'], $options['cacheBytes'] ?? 0, $options['workload'], $options['worker'], $options['jobs'] ?? 0);
+    }
+
+    /** Create a host archive file and return its process-local handle. */
+    public static function create(string $path, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?OwnedHandle $signingKey = null, ?array $options = null, bool $overwrite = false): self
+    {
+        if (is_file($path) && !$overwrite) throw new \RuntimeException("Lockbox already exists: $path");
+        $box = self::createInMemory($password, $contentKey, $contact, $signingKey, $options);
+        file_put_contents($path, $box->toBytes());
+        $box->backingPath = $path;
+        return $box;
+    }
+
+    /** Open a host archive file without consulting the session agent. */
+    public static function open(string $path, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?array $options = null): self
+    {
+        $box = self::openBytes(file_get_contents($path), $password, $contentKey, $contact, $options);
+        $box->backingPath = $path;
+        return $box;
+    }
 
     /** Adds file. */
     public function addFile(string $path, string $data, bool $replace): bool
@@ -477,7 +522,9 @@ class Lockbox extends OwnedHandle
     /** Authenticates and publishes the staged changes. */
     public function commit(): bool
     {
-        return $this->operations->lockboxCommit($this->handle);
+        $committed = $this->operations->lockboxCommit($this->handle);
+        if ($this->backingPath !== null) file_put_contents($this->backingPath, $this->toBytes());
+        return $committed;
     }
 
     /** Creates dir. */
@@ -886,7 +933,7 @@ class SigningPublicKey extends OwnedHandle
 }
 
 /** Password-protected storage for profile keys, contacts, forms, backups, and known lockbox paths. */
-class VaultDirectory extends OwnedHandle
+class VaultStore extends OwnedHandle
 {
 
     /** Returns the root. */
@@ -1150,7 +1197,7 @@ class VaultDirectory extends OwnedHandle
 }
 
 /** A metadata view for discovery and diagnostics that never loads an owner signing key. */
-class ReadOnlyVaultDirectory
+class ReadOnlyVault
 {
     /** Returns the construct. */
     public function __construct(protected readonly BindingOperations $operations, protected CData $handle) {}
@@ -1184,6 +1231,9 @@ class ReadOnlyVaultDirectory
     {
         $this->operations->vaultReadOnlyFree($this->handle);
     }
+
+    /** Release the read-only Vault handle; repeated close is safe. */
+    public function close(): void { $this->free(); }
 
 }
 
@@ -1372,7 +1422,7 @@ class Platform
 }
 
 /** A session that opens lockboxes by host path, caches passwords, and closes locally used files. */
-class LocalVault extends OwnedHandle
+class LocalSession extends OwnedHandle
 {
 
     /** Creates lockbox password. */
@@ -1430,3 +1480,67 @@ class LocalVault extends OwnedHandle
     }
 
 }
+
+/** Persistent encrypted local store for profiles, keys, contacts and metadata. */
+final class Vault extends VaultStore
+{
+    public static function open(string $root, string $vaultPassphrase): self
+    { return Revault::load()->vaultDirectoryOpen($root, $vaultPassphrase); }
+    public static function openOrCreate(string $root, string $vaultPassphrase): self
+    { return Revault::load()->vaultDirectoryOpenOrCreate($root, $vaultPassphrase); }
+    public static function create(string $root, string $vaultPassphrase): self
+    { return Revault::load()->vaultDirectoryReplace($root, $vaultPassphrase); }
+    public static function replace(string $root, string $vaultPassphrase): self
+    { return Revault::load()->vaultDirectoryReplace($root, $vaultPassphrase); }
+}
+
+/** Explicit session-agent controller; cached content keys are temporary. */
+final class AgentSession extends Agent
+{
+    private CData $local;
+    /** Attach an explicit session controller to the packaged runtime. */
+    public function __construct(BindingOperations $operations)
+    { parent::__construct($operations); $this->local = $operations->vaultLocal(); }
+    /** Return the process-wide explicit session controller. */
+    public static function instance(): self { static $instance; return $instance ??= Revault::agentSession(); }
+    /** Remove one cached lockbox key. */
+    public function closeLockbox(string $lockboxPath): bool { return $this->operations->vaultCloseLockbox($this->local, $lockboxPath); }
+    /** Remove all cached lockbox keys. */
+    public function closeAll(): bool { return $this->operations->vaultCloseAll($this->local); }
+    /** Create a password-protected lockbox file through this session. */
+    public function createLockboxPassword(string $path, string $password): Lockbox { return new Lockbox($this->operations, $this->operations->vaultCreateLockboxPassword($this->local, $path, $password)); }
+    /** Open a password-protected lockbox file through this session. */
+    public function openLockboxPassword(string $path, string $password): Lockbox { return new Lockbox($this->operations, $this->operations->vaultOpenLockboxPassword($this->local, $path, $password)); }
+    /** Create a content-key lockbox file through this session. */
+    public function createLockboxContentKey(string $path, string $contentKey, OwnedHandle $signingKey): Lockbox { return new Lockbox($this->operations, $this->operations->vaultCreateLockboxContentKey($this->local, $path, $contentKey, $signingKey->nativeHandle())); }
+    /** Create a contact-addressed lockbox file through this session. */
+    public function createLockboxContact(string $path, OwnedHandle $contact, string $name, OwnedHandle $signingKey): Lockbox { return new Lockbox($this->operations, $this->operations->vaultCreateLockboxContact($this->local, $path, $contact->nativeHandle(), $name, $signingKey->nativeHandle())); }
+    /** Open a content-key lockbox file through this session. */
+    public function openLockboxContentKey(string $path, string $contentKey, OwnedHandle $signingKey): Lockbox { return new Lockbox($this->operations, $this->operations->vaultOpenLockboxContentKey($this->local, $path, $contentKey, $signingKey->nativeHandle())); }
+    /** Cache a password-derived key for the requested TTL. */
+    public function cacheLockboxPassword(string $path, string $password, int $ttlSeconds): bool { return $this->operations->vaultCacheLockboxPassword($this->local, $path, $password, $ttlSeconds); }
+    /** Release the local session handle. */
+    public function close(): void { $this->operations->vaultFree($this->local); }
+    /** Release the local session handle (legacy alias). */
+    public function free(): void { $this->close(); }
+}
+
+class SecretBytes
+{
+    private string $bytes;
+    /** Copy a secret into mutable storage that can be wiped explicitly. */
+    public function __construct(string $bytes) { $this->bytes = $bytes; }
+    /** Return a copy for one native call. */
+    public function bytes(): string { return $this->bytes; }
+    /** Wipe the stored bytes in place. */
+    public function close(): void { $this->bytes = str_repeat("\0", strlen($this->bytes)); }
+}
+final class SecretString extends SecretBytes {}
+final class LockboxCacheMode { public const BYTES = 'bytes', DISABLED = 'disabled', AUTOMATIC = 'automatic'; }
+final class LockboxWorkload { public const INTERACTIVE = 'interactive', BULK_IMPORT = 'bulk-import', READ_MOSTLY = 'read-mostly'; }
+final class LockboxWorker { public const AUTO = 'auto', SINGLE = 'single', THREADS = 'threads'; }
+final class AgentActivityKind { public const OPEN = 'open', CLOSE = 'close', VARIABLES = 'variables', FORM = 'form', RECOVERY = 'recovery', VAULT = 'vault'; }
+final class KeyExportFormat { public const LOCKBOX_PEM = 'lockbox-pem', JWK = 'jwk', JWKS = 'jwks', RAW_HEX = 'raw-hex'; }
+
+class_alias(SigningKeyPair::class, __NAMESPACE__ . '\\ProfileSigningKeyPair');
+class_alias(SigningPublicKey::class, __NAMESPACE__ . '\\ProfileSigningPublicKey');

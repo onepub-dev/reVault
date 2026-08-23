@@ -98,4 +98,8 @@ lines += [
     "    internal static byte[] EncodeFormFields(IReadOnlyList<FormField> values) { var builder = new FlatBufferBuilder(256); var transport = new Revault.Internal.Transport.FormFieldListT { Values = values.Select(value => new Revault.Internal.Transport.FormFieldT { Id = value.Id, Label = value.Label, Kind = value.Kind, Required = value.Required }).ToList() }; var root = Revault.Internal.Transport.FormFieldList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }",
     "}", "",
 ]
-OUTPUT.write_text("\n".join(lines))
+OUTPUT.write_text(
+    "\n".join(lines).replace(
+        "Revault.Internal.Transport", "global::Revault.Internal.Transport"
+    )
+)

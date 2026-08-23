@@ -1,14 +1,13 @@
 use super::{
-    encode_control_err_response, encode_control_ok_response, encode_err_response,
-    encode_forget_all, encode_forget_identifier, encode_get_identifier, encode_info,
-    encode_info_response, encode_key_response, encode_list, encode_list_response,
+    agent_is_compatible, encode_control_err_response, encode_control_ok_response,
+    encode_err_response, encode_forget_all, encode_forget_identifier, encode_get_identifier,
+    encode_info, encode_info_response, encode_key_response, encode_list, encode_list_response,
     encode_miss_response, encode_ok_response, encode_put_identifier,
     encode_register_secret_activity, encode_registered_response, encode_stop,
     encode_unregister_secret_activity, frame_header_len, frame_message_type, frame_payload_len,
     is_control_message_type, max_message_bytes, parse_control_request, parse_control_response,
     parse_request, parse_response, AgentRequest, AgentResponse, CachedLockbox, ControlRequest,
-    ControlResponse, SecretActivityKind, SecretVec, AGENT_IMPLEMENTATION_VERSION,
-    AGENT_PROTOCOL_VERSION, DEFAULT_TTL_SECONDS,
+    ControlResponse, SecretActivityKind, SecretVec, DEFAULT_TTL_SECONDS,
 };
 use crate::active_secret::ActiveSecretRegistry;
 use crate::agent_config::AgentConfig;
@@ -324,8 +323,7 @@ fn existing_agent_is_compatible() -> io::Result<bool> {
     Ok(matches!(
         request_started_agent(&request),
         Ok(AgentResponse::Info(protocol, implementation))
-            if protocol == AGENT_PROTOCOL_VERSION
-                && implementation == AGENT_IMPLEMENTATION_VERSION
+            if agent_is_compatible(protocol, &implementation)
     ))
 }
 
@@ -858,7 +856,9 @@ fn runtime_dir_belongs_to_current_user(path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::agent_protocol::{encode_forget, encode_get, encode_put};
+    use crate::agent_protocol::{
+        encode_forget, encode_get, encode_put, AGENT_IMPLEMENTATION_VERSION, AGENT_PROTOCOL_VERSION,
+    };
 
     #[test]
     fn sleep_watcher_suspend_event_is_detected() {

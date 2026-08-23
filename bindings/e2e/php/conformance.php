@@ -3,11 +3,13 @@ declare(strict_types=1);
 
 require __DIR__ . '/vendor/autoload.php';
 
+use Revault\Revault as ApiRuntime;
+use Revault\AgentSession;
 use Revault\Vault;
 use Revault\FormField;
 use Revault\PathMove;
 
-$api = new Vault();
+$api = ApiRuntime::load();
 
 function pass(string $symbol, int $assertions = 1): void { echo "PASS\tphp\t$symbol\t$assertions\n"; }
 function check(bool $value, string $message): void { if (!$value) throw new RuntimeException($message); }
@@ -27,7 +29,7 @@ function moves(string $source, string $destination): array {
 }
 function freeHandle(object $value, string $symbol): void { $value->free(); pass($symbol); }
 
-function archiveLifecycle(Vault $api): void {
+function archiveLifecycle(ApiRuntime $api): void {
     $key = str_repeat('K', 32);
     $box = $api->lockboxCreate($key); pass('lockbox_create');
     $box->addFile('/hello.txt', 'hello from php conformance', false); pass('lockbox_add_file', 2);
@@ -78,7 +80,7 @@ function archiveLifecycle(Vault $api): void {
     $opened->free(); pass('lockbox_free', 2);
 }
 
-function keyLifecycle(Vault $api): void {
+function keyLifecycle(ApiRuntime $api): void {
     $content = implode('', array_map(chr(...), range(0, 31)));
     $contact = $api->keyContactGenerate(); pass('key_contact_generate');
     $private = $contact->private(); pass('key_contact_private', 2);
@@ -113,7 +115,7 @@ function keyLifecycle(Vault $api): void {
     $signing->free(); pass('key_signing_free', 3);
 }
 
-function advancedArchive(Vault $api): void {
+function advancedArchive(ApiRuntime $api): void {
     $key = str_repeat('A', 32);
     $box = $api->lockboxCreateWithOptions($key, 'bytes', 4 << 20, 'bulk-import', 'single', 1); pass('lockbox_create_with_options');
     $box->addFile('/account.txt', 'account data', false);
@@ -163,13 +165,13 @@ function advancedArchive(Vault $api): void {
     $box->free(); $public->publicFree(); $contact->free(); $signing->free();
 }
 
-function vaultLifecycle(Vault $api): void {
+function vaultLifecycle(ApiRuntime $api): void {
     $root = artifactRoot() . '/vault'; if (!is_dir($root)) mkdir($root, 0700, true);
     $password = 'vault password'; $changed = 'new vault password'; $id = implode('', array_map(chr(...), range(0xa0, 0xaf)));
     $profile = $api->keyContactGenerate(); $contact = $api->keyContactGenerate();
     $contactPublic = $api->keyContactPublicFromBytes($contact->public());
     $owner = $api->keySigningGenerate(); $ownerPublic = $api->keySigningPublicFromBytes($owner->public());
-    $vault = $api->vaultDirectoryReplace($root, $password); pass('vault_directory_replace');
+    $vault = Vault::replace($root, $password); pass('vault_directory_replace');
     echo "ARTIFACT\tphp\tvault-created\t$root\n";
     check($vault->root() === $root && $vault->structureVersion() > 0, 'vault'); pass('vault_directory_root', 3); pass('vault_directory_structure_version');
     $current = $api->vaultStructureVersionCurrent(); check($current === $vault->structureVersion() && $api->vaultDirectoryProbeStructureVersion($root, $password) === $current, 'vault probe');
@@ -211,12 +213,12 @@ function vaultLifecycle(Vault $api): void {
     pass('vault_read_only_open'); pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names'); pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes');
     $readonly->free(); pass('vault_read_only_free');
     $api->vaultDirectoryChangePassword($root, $password, $changed); pass('vault_directory_change_password');
-    $api->vaultDirectoryOpen($root, $changed)->free(); pass('vault_directory_open'); echo "ARTIFACT\tphp\tvault-opened\t$root\n";
-    $api->vaultDirectoryOpenOrCreate($root, $changed)->free(); pass('vault_directory_open_or_create');
+    Vault::open($root, $changed)->free(); pass('vault_directory_open'); echo "ARTIFACT\tphp\tvault-opened\t$root\n";
+    Vault::openOrCreate($root, $changed)->free(); pass('vault_directory_open_or_create');
     $ownerPublic->publicFree(); $owner->free(); $contactPublic->publicFree(); $contact->free(); $profile->free();
 }
 
-function defaultVault(Vault $api): void {
+function defaultVault(ApiRuntime $api): void {
     $root = getenv('LOCKBOX_VAULT_DIR'); if (!is_dir($root)) mkdir($root, 0700, true);
     $api->vaultDirectoryReplaceDefault('default password')->free(); pass('vault_directory_replace_default');
     $api->vaultReadOnlyOpenDefault('default password')->free(); pass('vault_read_only_open_default');
@@ -228,7 +230,7 @@ function defaultVault(Vault $api): void {
     pass('vault_backup_default'); pass('vault_restore_default');
 }
 
-function platformStore(Vault $api): void {
+function platformStore(ApiRuntime $api): void {
     $platform = $api->platform(); $platform->status(); pass('vault_platform_status', 2);
     $platform->setScope('vault'); pass('vault_platform_set_scope');
     $platform->disable(); $platform->disabled(); pass('vault_platform_disable'); pass('vault_platform_disabled');
@@ -238,7 +240,7 @@ function platformStore(Vault $api): void {
     $platform->forgetPassword(); pass('vault_platform_forget_password');
 }
 
-function agentAndLocal(Vault $api): void {
+function agentAndLocal(ApiRuntime $api): void {
     foreach ([getenv('LOCKBOX_SESSION_AGENT_DIR'), getenv('LOCKBOX_VAULT_DIR')] as $dir) if (!is_dir($dir)) mkdir($dir, 0700, true);
     $directory = $api->vaultDirectoryReplaceDefault('agent vault password'); $profile = $api->keyContactGenerate();
     $directory->storePrivateKey('default', $profile); $profile->free(); $directory->free();
@@ -264,7 +266,7 @@ function agentAndLocal(Vault $api): void {
     $activity = $agent->beginActivity('open'); pass('vault_agent_begin_activity'); $agent->endActivity($activity); pass('vault_agent_end_activity');
     $agent->sleepSupport(); pass('vault_agent_sleep_support'); $api->vaultAgentLogPath(); $api->vaultAgentLogDestination();
     pass('vault_agent_log_path', 2); pass('vault_agent_log_destination', 2);
-    $local = $api->vaultLocal(); pass('vault_local'); $root = sys_get_temp_dir() . '/revault-php-local-' . bin2hex(random_bytes(4)); mkdir($root, 0700, true);
+    $local = AgentSession::instance(); pass('vault_local'); $root = sys_get_temp_dir() . '/revault-php-local-' . bin2hex(random_bytes(4)); mkdir($root, 0700, true);
     $passwordPath = "$root/password.lbox"; $box = $local->createLockboxPassword($passwordPath, 'local password');
     $box->addFile('/data.txt', 'local vault data', false); $box->commit(); $box->free(); pass('vault_create_lockbox_password', 3);
     $local->cacheLockboxPassword($passwordPath, 'local password', 120); pass('vault_cache_lockbox_password');
@@ -282,11 +284,11 @@ function agentAndLocal(Vault $api): void {
     $agent->stop(); pass('vault_agent_stop'); check(proc_close($process) === 0, 'agent process');
 }
 
-function interop(Vault $api, string $producer): void {
+function interop(ApiRuntime $api, string $producer): void {
     $root = getenv('REVAULT_E2E_ARTIFACT_DIR') ?: '/tmp/revault-e2e-artifacts';
     $box = $api->lockboxOpen(file_get_contents("$root/$producer/archive.lbox"), str_repeat('K', 32));
     check($box->getFile('/renamed.txt') === 'replacement payload', 'foreign archive'); $box->free();
-    $vault = $api->vaultDirectoryOpen("$root/$producer/vault", 'new vault password'); check($vault->structureVersion() > 0, 'foreign vault'); $vault->free();
+    $vault = Vault::open("$root/$producer/vault", 'new vault password'); check($vault->structureVersion() > 0, 'foreign vault'); $vault->free();
     echo "INTEROP\tphp\t$producer\tarchive\t3\nINTEROP\tphp\t$producer\tvault\t2\n";
 }
 

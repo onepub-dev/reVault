@@ -39,12 +39,15 @@ final class BindingOperations {
     var pointer = (MemorySegment) call(api.buffer_last_error);
     return pointer.address() == 0 ? "native operation failed" : pointer.reinterpret(Long.MAX_VALUE).getString(0);
   }
-  private boolean require(boolean value) { if (!value) throw new IllegalStateException(lastError()); return true; }
-  private MemorySegment require(MemorySegment value) { if (value.address() == 0) throw new IllegalStateException(lastError()); return value; }
+  private RevaultException failure() {
+    return new RevaultException(lastError(), null);
+  }
+  private boolean require(boolean value) { if (!value) throw failure(); return true; }
+  private MemorySegment require(MemorySegment value) { if (value.address() == 0) throw failure(); return value; }
   private byte[] take(MemorySegment value) {
     var pointer = value.get(ValueLayout.ADDRESS, 0);
     var length = value.get(ValueLayout.JAVA_LONG, ValueLayout.ADDRESS.byteSize());
-    if (pointer.address() == 0) throw new IllegalStateException(lastError());
+    if (pointer.address() == 0) throw failure();
     var result = pointer.reinterpret(length).toArray(ValueLayout.JAVA_BYTE);
     call(api.buffer_free, value); return result;
   }

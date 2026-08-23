@@ -4,7 +4,7 @@ using Revault;
 
 static class Conformance
 {
-    static readonly Vault Api = new();
+    static readonly global::Revault.Revault Api = new();
     static void Pass(string symbol, int assertions = 1) => Console.WriteLine($"PASS\tcsharp\t{symbol}\t{assertions}");
     static void Check(bool value, string message) { if (!value) throw new Exception(message); }
     static byte[] Bytes(string value) => Encoding.UTF8.GetBytes(value);
@@ -104,7 +104,7 @@ static class Conformance
 
     static void AdvancedArchive()
     {
-        var key = Repeat('A', 32); var options = new Vault.LockboxOptions("bytes", 4UL << 20, "bulk-import", "single", 1);
+        var key = Repeat('A', 32); var options = new global::Revault.Revault.LockboxOptions("bytes", 4UL << 20, "bulk-import", "single", 1);
         using var box = Api.CreateLockbox(key, options); Pass("lockbox_create_with_options"); box.AddFile("/account.txt", Bytes("account data"));
         Check(box.List("/", "*.txt", true, true, false, false, 20).Count == 1, "filter"); Pass("lockbox_list_with_options", 2);
         var definition = box.DefineForm("account", "Account", "Account form", Fields()); Check(definition.TypeId.Length > 0, "form"); Pass("lockbox_define_form", 2);
@@ -147,7 +147,7 @@ static class Conformance
         var root = Path.Combine(Root(), "vault"); Directory.CreateDirectory(root); var password = Bytes("vault password"); var changed = Bytes("new vault password");
         var id = Enumerable.Range(0, 16).Select(i => (byte)(0xa0 + i)).ToArray(); using var profile = Api.GenerateContactKeyPair(); using var contact = Api.GenerateContactKeyPair();
         using var contactPublic = contact.PublicKey(); using var owner = Api.GenerateSigningKeyPair(); using var ownerPublic = owner.PublicKey();
-        using (var vault = Api.ReplaceVaultDirectory(root, password))
+        using (var vault = Api.ReplaceVault(root, password))
         {
             Pass("vault_directory_replace"); Console.WriteLine($"ARTIFACT\tcsharp\tvault-created\t{root}"); Check(vault.Root == root && vault.StructureVersion > 0, "vault"); Pass("vault_directory_root", 3); Pass("vault_directory_structure_version");
             var currentVersion = Api.CurrentVaultStructureVersion; Check(currentVersion == vault.StructureVersion && Api.ProbeVaultStructureVersion(root, password) == currentVersion, "vault probe"); Pass("vault_structure_version_current", 2); Pass("vault_directory_probe_structure_version", 2);
@@ -170,17 +170,17 @@ static class Conformance
             vault.ForgetAccessSlotLabel(id, 7); vault.ForgetLockbox("/tmp/example.lbox"); vault.DeleteContact("bob"); Pass("vault_directory_forget_access_slot_label"); Pass("vault_directory_forget_lockbox"); Pass("vault_directory_delete_contact");
             vault.DeletePrivateKey("alice"); Check(!vault.PrivateKeyExists("alice"), "deleted"); vault.RestorePrivateKey("alice", profile, owner, true); Check(vault.PrivateKeyExists("alice"), "restored"); Pass("vault_directory_delete_private_key", 2); Pass("vault_directory_restore_private_key", 2);
         }
-        Pass("vault_directory_free"); using (var readOnlyVault = Api.OpenReadOnlyVaultDirectory(root, password)) { Check(readOnlyVault.ListProfileNames().Count > 0, "readonly profiles"); _ = readOnlyVault.ListContactNames(); Check(readOnlyVault.ListFormAliases().Count > 0, "readonly forms"); _ = readOnlyVault.ListKnownLockboxes(); Pass("vault_read_only_open"); Pass("vault_read_only_list_profile_names", 2); Pass("vault_read_only_list_contact_names"); Pass("vault_read_only_list_form_aliases", 2); Pass("vault_read_only_list_known_lockboxes"); } Pass("vault_read_only_free");
-        Api.ChangeVaultDirectoryPassword(root, password, changed); Pass("vault_directory_change_password"); using (var opened = Api.OpenVaultDirectory(root, changed)) Check(opened.StructureVersion > 0, "reopen"); Pass("vault_directory_open"); Console.WriteLine($"ARTIFACT\tcsharp\tvault-opened\t{root}");
-        using (var opened = Api.OpenOrCreateVaultDirectory(root, changed)) Check(opened.StructureVersion > 0, "open create"); Pass("vault_directory_open_or_create");
+        Pass("vault_directory_free"); using (var readOnlyVault = Api.OpenReadOnlyVault(root, password)) { Check(readOnlyVault.ListProfileNames().Count > 0, "readonly profiles"); _ = readOnlyVault.ListContactNames(); Check(readOnlyVault.ListFormAliases().Count > 0, "readonly forms"); _ = readOnlyVault.ListKnownLockboxes(); Pass("vault_read_only_open"); Pass("vault_read_only_list_profile_names", 2); Pass("vault_read_only_list_contact_names"); Pass("vault_read_only_list_form_aliases", 2); Pass("vault_read_only_list_known_lockboxes"); } Pass("vault_read_only_free");
+        Api.ChangeVaultPassword(root, password, changed); Pass("vault_directory_change_password"); using (var opened = Api.OpenVault(root, changed)) Check(opened.StructureVersion > 0, "reopen"); Pass("vault_directory_open"); Console.WriteLine($"ARTIFACT\tcsharp\tvault-opened\t{root}");
+        using (var opened = Api.OpenOrCreateVault(root, changed)) Check(opened.StructureVersion > 0, "open create"); Pass("vault_directory_open_or_create");
     }
 
     static void DefaultVault()
     {
-        var root = Environment.GetEnvironmentVariable("LOCKBOX_VAULT_DIR")!; Directory.CreateDirectory(root); using (Api.ReplaceDefaultVaultDirectory(Bytes("default password"))) { }
-        Pass("vault_directory_replace_default"); Check(Api.DefaultVaultDirectory == root && Path.GetDirectoryName(Api.DefaultVaultPath) == root, "default paths"); Pass("vault_default_directory", 3); Pass("vault_default_path", 2);
-        using (Api.OpenDefaultReadOnlyVaultDirectory(Bytes("default password"))) { } Pass("vault_read_only_open_default");
-        using (Api.OpenOrCreateDefaultVaultDirectory(Bytes("default password"))) { } Pass("vault_directory_open_or_create_default"); Api.ChangeDefaultVaultDirectoryPassword(Bytes("default password"), Bytes("changed default password")); Pass("vault_directory_change_default_password");
+        var root = Environment.GetEnvironmentVariable("LOCKBOX_VAULT_DIR")!; Directory.CreateDirectory(root); using (Api.ReplaceDefaultVault(Bytes("default password"))) { }
+        Pass("vault_directory_replace_default"); Check(Api.DefaultVaultRoot == root && Path.GetDirectoryName(Api.DefaultVaultPath) == root, "default paths"); Pass("vault_default_directory", 3); Pass("vault_default_path", 2);
+        using (Api.OpenDefaultReadOnlyVault(Bytes("default password"))) { } Pass("vault_read_only_open_default");
+        using (Api.OpenOrCreateDefaultVault(Bytes("default password"))) { } Pass("vault_directory_open_or_create_default"); Api.ChangeDefaultVaultPassword(Bytes("default password"), Bytes("changed default password")); Pass("vault_directory_change_default_password");
         var backup = Path.Combine(Root(), "default-vault.backup"); if (File.Exists(backup)) File.Delete(backup); Check(Api.BackupDefaultVault(backup).VaultSize > 0, "backup default"); Check(Api.RestoreDefaultVault(backup, true).VaultSize > 0, "restore default"); Pass("vault_backup_default"); Pass("vault_restore_default");
     }
 
@@ -189,7 +189,7 @@ static class Conformance
     static void AgentAndLocal()
     {
         Directory.CreateDirectory(Environment.GetEnvironmentVariable("LOCKBOX_SESSION_AGENT_DIR")!); Directory.CreateDirectory(Environment.GetEnvironmentVariable("LOCKBOX_VAULT_DIR")!);
-        using (var vault = Api.ReplaceDefaultVaultDirectory(Bytes("agent vault password"))) using (var profile = Api.GenerateContactKeyPair()) vault.StorePrivateKey("default", profile);
+        using (var vault = Api.ReplaceDefaultVault(Bytes("agent vault password"))) using (var profile = Api.GenerateContactKeyPair()) vault.StorePrivateKey("default", profile);
         Api.ForgetAllAgentSecrets(); Pass("vault_forget_all"); using var child = StartAgent(); var running = false; for (var i = 0; i < 200; i++) { if (Api.AgentIsRunning) { running = true; break; } Thread.Sleep(50); }
         Check(running, "agent"); Pass("vault_agent_serve"); Pass("vault_is_running"); Api.StartAgent(); Pass("vault_agent_start"); Api.VerifyAgentTransport(); Pass("vault_agent_verify_transport");
         var id = Enumerable.Range(0, 16).Select(i => (byte)(0xc0 + i)).ToArray(); var key = Enumerable.Range(0, 32).Select(i => (byte)(0x20 + i)).ToArray();
@@ -200,7 +200,7 @@ static class Conformance
             Api.PutAgentOwnerSigningKey("vault-id", "alice", owner, 120); using (var loaded = Api.GetAgentOwnerSigningKey("vault-id", "alice")) Check(loaded.PublicBytes().Length > 0, "owner"); Pass("vault_agent_put_owner_signing_key"); Pass("vault_agent_get_owner_signing_key");
             using (Api.BeginAgentActivity("open")) Pass("vault_agent_begin_activity"); Pass("vault_agent_end_activity"); Check(Api.AgentSleepSupport() != null, "sleep"); Pass("vault_agent_sleep_support");
             Check(Api.AgentLogPath.Length > 0 && Api.AgentLogDestination.Length > 0, "logs"); Pass("vault_agent_log_path", 2); Pass("vault_agent_log_destination", 2);
-            using (var local = Api.OpenLocalVault())
+            using (var local = Api.OpenLockboxSession())
             {
                 Pass("vault_local"); var root = Path.Combine(Path.GetTempPath(), $"revault-csharp-local-{Guid.NewGuid()}"); Directory.CreateDirectory(root); var payload = Bytes("local vault data"); var passwordPath = Path.Combine(root, "password.lbox");
                 using (var box = local.CreateWithPassword(passwordPath, Bytes("local password"))) { box.AddFile("/data.txt", payload); box.Commit(); } Pass("vault_create_lockbox_password", 3);
@@ -224,7 +224,7 @@ static class Conformance
     static void Interop(string producer)
     {
         var root = Environment.GetEnvironmentVariable("REVAULT_E2E_ARTIFACT_DIR") ?? "/tmp/revault-e2e-artifacts"; using (var box = Api.OpenLockbox(File.ReadAllBytes(Path.Combine(root, producer, "archive.lbox")), Repeat('K', 32))) Check(box.GetFile("/renamed.txt").SequenceEqual(Bytes("replacement payload")), "foreign archive");
-        using (var vault = Api.OpenVaultDirectory(Path.Combine(root, producer, "vault"), Bytes("new vault password"))) Check(vault.StructureVersion > 0, "foreign vault"); Console.WriteLine($"INTEROP\tcsharp\t{producer}\tarchive\t3"); Console.WriteLine($"INTEROP\tcsharp\t{producer}\tvault\t2");
+        using (var vault = Api.OpenVault(Path.Combine(root, producer, "vault"), Bytes("new vault password"))) Check(vault.StructureVersion > 0, "foreign vault"); Console.WriteLine($"INTEROP\tcsharp\t{producer}\tarchive\t3"); Console.WriteLine($"INTEROP\tcsharp\t{producer}\tvault\t2");
     }
 
     static void Main(string[] args)

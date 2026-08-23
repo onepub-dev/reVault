@@ -174,16 +174,16 @@ static void key_lifecycle() {
   pass("key_contact_wrapped_public", 2);
   pass("key_contact_wrapped_ciphertext", 2);
   pass("key_contact_wrapped_encrypted", 2);
-  SigningKeyPair signing;
+  ProfileSigningKeyPair signing;
   pass("key_signing_generate");
   auto signing_private = signing.private_record();
   auto signing_public = signing.public_bytes();
   check(!signing_private.empty() && !signing_public.empty(), "signing records");
   pass("key_signing_private", 2);
   pass("key_signing_public", 2);
-  auto signing_copy = SigningKeyPair::from_private_record(signing_private);
+  auto signing_copy = ProfileSigningKeyPair::from_private_record(signing_private);
   pass("key_signing_from_private");
-  SigningPublicKey signing_public_key(signing_public);
+  ProfileSigningPublicKey signing_public_key(signing_public);
   pass("key_signing_public_from_bytes");
   auto exported_private = contact.export_as("raw-hex");
   auto imported_private = ContactKeyPair::import(exported_private);
@@ -267,7 +267,7 @@ static void advanced_archive() {
   box.move_form_records({{"/moved.form", "/account.form"}});
   pass("lockbox_move_form_records", 3);
 
-  SigningKeyPair signing;
+  ProfileSigningKeyPair signing;
   box.set_owner_signing_key(signing);
   pass("lockbox_set_owner_signing_key");
   const auto password_slot = box.add_password("archive password");
@@ -366,19 +366,19 @@ static void vault_lifecycle() {
   ContactKeyPair profile;
   ContactKeyPair contact;
   auto contact_public = contact.public_key();
-  SigningKeyPair owner;
+  ProfileSigningKeyPair owner;
   auto owner_public = owner.public_key();
   {
-    auto vault = VaultDirectory::replace(root.string(), password);
+    auto vault = Vault::replace(root.string(), password);
     pass("vault_directory_replace");
     std::cout << "ARTIFACT\tcpp\tvault-created\t" << root.string() << '\n';
     check(vault.root() == root.string(), "vault root");
     check(vault.structure_version() > 0, "vault structure");
     pass("vault_directory_root", 3);
     pass("vault_directory_structure_version");
-    const auto current_version = VaultDirectory::current_structure_version();
+    const auto current_version = Vault::current_structure_version();
     check(current_version == vault.structure_version(), "current vault structure version");
-    check(VaultDirectory::probe_structure_version(root.string(), password) == current_version,
+    check(Vault::probe_structure_version(root.string(), password) == current_version,
           "probed vault structure version");
     pass("vault_structure_version_current", 2);
     pass("vault_directory_probe_structure_version", 2);
@@ -401,8 +401,8 @@ static void vault_lifecycle() {
           "profile rotation");
     pass("vault_directory_list_profile_generations");
     pass("vault_directory_rotate_private_key");
-    auto loaded_owner = vault.load_owner_signing_key("alice");
-    auto loaded_owner_generation = vault.load_owner_signing_key_generation("alice", 1);
+    auto loaded_owner = vault.load_profile_signing_key("alice");
+    auto loaded_owner_generation = vault.load_profile_signing_key_generation("alice", 1);
     pass("vault_directory_load_owner_signing_key");
     pass("vault_directory_load_owner_signing_key_generation");
     vault.store_contact("bob", contact_public);
@@ -474,7 +474,7 @@ static void vault_lifecycle() {
   }
   pass("vault_directory_free");
   {
-    ReadOnlyVaultDirectory readonly(root.string(), password);
+    ReadOnlyVault readonly(root.string(), password);
     check(readonly.list_profile_names().size() > 0, "read-only profiles");
     (void)readonly.list_contact_names();
     check(readonly.list_form_aliases().size() > 0, "read-only form aliases");
@@ -486,16 +486,16 @@ static void vault_lifecycle() {
     pass("vault_read_only_list_known_lockboxes");
   }
   pass("vault_read_only_free");
-  VaultDirectory::change_password(root.string(), password, new_password);
+  Vault::change_password(root.string(), password, new_password);
   pass("vault_directory_change_password");
   {
-    auto reopened = VaultDirectory::open(root.string(), new_password);
+    auto reopened = Vault::open(root.string(), new_password);
     check(reopened.structure_version() > 0, "reopened vault");
     pass("vault_directory_open");
     std::cout << "ARTIFACT\tcpp\tvault-opened\t" << root.string() << '\n';
   }
   {
-    auto opened = VaultDirectory::open_or_create(root.string(), new_password);
+    auto opened = Vault::open_or_create(root.string(), new_password);
     check(opened.structure_version() > 0, "open or create vault");
     pass("vault_directory_open_or_create");
   }
@@ -506,29 +506,29 @@ static void default_vault_lifecycle() {
   fs::create_directories(root);
   setenv("LOCKBOX_VAULT_DIR", root.c_str(), 1);
   {
-    auto vault = VaultDirectory::replace_default("default password");
+    auto vault = Vault::replace_default("default password");
     pass("vault_directory_replace_default");
   }
   {
-    auto vault = ReadOnlyVaultDirectory::open_default("default password");
+    auto vault = ReadOnlyVault::open_default("default password");
     (void)vault.list_profile_names();
     pass("vault_read_only_open_default");
   }
-  check(VaultDirectory::default_directory() == root.string(), "default directory");
-  check(VaultDirectory::default_path().find(root.string()) == 0, "default path");
+  check(Vault::default_directory() == root.string(), "default directory");
+  check(Vault::default_path().find(root.string()) == 0, "default path");
   pass("vault_default_directory", 3);
   pass("vault_default_path", 2);
   {
-    auto vault = VaultDirectory::open_or_create_default("default password");
+    auto vault = Vault::open_or_create_default("default password");
     check(vault.structure_version() > 0, "default open or create");
     pass("vault_directory_open_or_create_default");
   }
-  VaultDirectory::change_default_password("default password", "changed default password");
+  Vault::change_default_password("default password", "changed default password");
   pass("vault_directory_change_default_password");
   const auto backup = artifact_root() / "default-vault.backup";
   fs::remove(backup);
-  check(VaultDirectory::backup_default(backup.string()).vault_size > 0, "default backup");
-  check(VaultDirectory::restore_default(backup.string(), true).vault_size > 0,
+  check(Vault::backup_default(backup.string()).vault_size > 0, "default backup");
+  check(Vault::restore_default(backup.string(), true).vault_size > 0,
         "default restore");
   pass("vault_backup_default");
   pass("vault_restore_default");
@@ -547,11 +547,11 @@ static void agent_and_local_vault() {
   setenv("LOCKBOX_VAULT_DIR", agent_vault_dir.c_str(), 1);
   setenv("LOCKBOX_VAULT_PASSWORD", "agent vault password", 1);
   {
-    auto vault = VaultDirectory::replace_default("agent vault password");
+    auto vault = Vault::replace_default("agent vault password");
     ContactKeyPair profile;
     vault.store_private_key("default", profile);
   }
-  Agent::forget_all();
+  AgentSession::forget_all();
   pass("vault_forget_all");
   const pid_t child = fork();
   check(child >= 0, "fork agent");
@@ -561,78 +561,77 @@ static void agent_and_local_vault() {
   }
   bool running = false;
   for (unsigned attempt = 0; attempt < 200; ++attempt) {
-    if (Agent::is_running()) { running = true; break; }
+    if (AgentSession::is_running()) { running = true; break; }
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
   }
   check(running, "agent started");
   pass("vault_agent_serve");
   pass("vault_is_running");
-  Agent::start();
+  AgentSession::start();
   pass("vault_agent_start");
-  Agent::verify_transport();
+  AgentSession::verify_transport();
   pass("vault_agent_verify_transport");
   std::vector<std::uint8_t> id(16), key(32);
   for (std::size_t i = 0; i < id.size(); ++i) id[i] = 0xc0 + i;
   for (std::size_t i = 0; i < key.size(); ++i) key[i] = 0x20 + i;
-  Agent::put(id, key);
-  check(Agent::get(id) == key, "agent generic key");
-  check(Agent::list().size() > 0, "agent list");
+  AgentSession::put(id, key);
+  check(AgentSession::get(id) == key, "agent generic key");
+  check(AgentSession::list().size() > 0, "agent list");
   pass("vault_agent_put");
   pass("vault_agent_get", 3);
   pass("vault_agent_list");
-  Agent::put_vault_unlock_key("vault-id", key, 120);
-  check(Agent::get_vault_unlock_key("vault-id") == key, "agent vault key");
+  AgentSession::put_vault_unlock_key("vault-id", key, 120);
+  check(AgentSession::get_vault_unlock_key("vault-id") == key, "agent vault key");
   pass("vault_agent_put_vault_unlock_key");
   pass("vault_agent_get_vault_unlock_key", 3);
-  SigningKeyPair owner;
-  Agent::put_owner_signing_key("vault-id", "alice", owner, 120);
-  auto loaded_owner = Agent::get_owner_signing_key("vault-id", "alice");
+  ProfileSigningKeyPair owner;
+  AgentSession::put_profile_signing_key("vault-id", "alice", owner, 120);
+  auto loaded_owner = AgentSession::get_profile_signing_key("vault-id", "alice");
   check(!loaded_owner.public_bytes().empty(), "agent owner key");
   pass("vault_agent_put_owner_signing_key");
   pass("vault_agent_get_owner_signing_key");
   {
-    auto activity = Agent::begin_activity("open");
+    auto activity = AgentSession::begin_activity("open");
     pass("vault_agent_begin_activity");
     activity.end();
     pass("vault_agent_end_activity");
   }
-  (void)Agent::sleep_support();
+  (void)AgentSession::sleep_support();
   pass("vault_agent_sleep_support");
-  check(!Agent::log_path().empty(), "agent log path");
-  check(!Agent::log_destination().empty(), "agent log destination");
+  check(!AgentSession::log_path().empty(), "agent log path");
+  check(!AgentSession::log_destination().empty(), "agent log destination");
   pass("vault_agent_log_path", 2);
   pass("vault_agent_log_destination", 2);
 
-  LocalVault local;
   pass("vault_local");
   const auto local_root = fs::temp_directory_path() /
       ("revault-cpp-local-" + std::to_string(getpid()));
   fs::remove_all(local_root); fs::create_directories(local_root);
   const auto password_path = (local_root / "password.lbox").string();
   {
-    auto box = local.create_with_password(password_path, "local password");
+    auto box = Lockbox::create_path_with_password(password_path, "local password");
     box.add_file("/data.txt", bytes("local vault data"));
     box.commit();
   }
   pass("vault_create_lockbox_password", 3);
-  local.cache_password(password_path, "local password", 120);
+  AgentSession::cache_lockbox_password(password_path, "local password", 120);
   pass("vault_cache_lockbox_password");
   {
-    auto box = local.open_with_password(password_path, "local password");
+    auto box = Lockbox::open_path_with_password(password_path, "local password");
     check(box.get_file("/data.txt") == bytes("local vault data"), "local password open");
   }
   pass("vault_open_lockbox_password", 3);
-  local.close(password_path);
+  AgentSession::close_lockbox(password_path);
   pass("vault_close_lockbox");
   const auto content_path = (local_root / "content.lbox").string();
   {
-    auto box = local.create_with_content_key(content_path, key, owner);
+    auto box = Lockbox::create_path_with_content_key(content_path, key, owner);
     box.add_file("/data.txt", bytes("local vault data"));
     box.commit();
   }
   pass("vault_create_lockbox_content_key", 3);
   {
-    auto box = local.open_with_content_key(content_path, key, owner);
+    auto box = Lockbox::open_path_with_content_key(content_path, key, owner);
     check(box.get_file("/data.txt") == bytes("local vault data"), "local content open");
   }
   pass("vault_open_lockbox_content_key", 3);
@@ -640,21 +639,21 @@ static void agent_and_local_vault() {
   auto public_key = contact.public_key();
   const auto contact_path = (local_root / "contact.lbox").string();
   {
-    auto box = local.create_for_contact(contact_path, public_key, "recipient", owner);
+    auto box = Lockbox::create_path_for_contact(contact_path, public_key, "recipient", owner);
     box.add_file("/data.txt", bytes("local vault data"));
     box.commit();
   }
   pass("vault_create_lockbox_contact", 3);
-  local.close_all();
+  AgentSession::close_all();
   pass("vault_close_all");
   pass("vault_free");
-  Agent::forget_owner_signing_key("vault-id", "alice");
-  Agent::forget_vault_unlock_key("vault-id");
-  Agent::forget(id);
+  AgentSession::forget_profile_signing_key("vault-id", "alice");
+  AgentSession::forget_vault_unlock_key("vault-id");
+  AgentSession::forget(id);
   pass("vault_agent_forget_owner_signing_key");
   pass("vault_agent_forget_vault_unlock_key");
   pass("vault_agent_forget");
-  Agent::stop();
+  AgentSession::stop();
   pass("vault_agent_stop");
   int status = 0;
   check(waitpid(child, &status, 0) == child && WIFEXITED(status) && WEXITSTATUS(status) == 0,
@@ -691,7 +690,7 @@ static void interop_open(const std::string& producer) {
   auto archive = read(base / producer / "archive.lbox");
   auto box = Lockbox::open(archive, std::vector<std::uint8_t>(32, 'K'));
   check(box.get_file("/renamed.txt") == bytes("replacement payload"), "foreign archive");
-  auto vault = VaultDirectory::open((base / producer / "vault").string(), "new vault password");
+  auto vault = Vault::open((base / producer / "vault").string(), "new vault password");
   check(vault.structure_version() > 0, "foreign vault");
   std::cout << "INTEROP\tcpp\t" << producer << "\tarchive\t3\n";
   std::cout << "INTEROP\tcpp\t" << producer << "\tvault\t2\n";
@@ -703,7 +702,7 @@ int main(int argc, char** argv) {
   try {
     revault::require_compatible_abi();
     if (argc == 2 && std::strcmp(argv[1], "--serve-agent") == 0) {
-      Agent::serve();
+      AgentSession::serve();
       return 0;
     }
     if (argc == 2 && std::strcmp(argv[1], "--agent") == 0) {

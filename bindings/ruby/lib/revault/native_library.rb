@@ -7,7 +7,6 @@ module Revault
     module_function
 
     def path
-      return ENV['REVAULT_LIBRARY'] unless ENV['REVAULT_LIBRARY'].to_s.empty?
       cpu = case RbConfig::CONFIG['host_cpu']
             when 'x86_64', 'amd64' then 'x86_64'
             when 'aarch64', 'arm64' then 'aarch64'
@@ -21,11 +20,10 @@ module Revault
                         end
       bundled = File.expand_path("../../native/#{target}/#{library}", __dir__)
       return bundled if File.file?(bundled)
-      raise "revault-api native carrier is missing for #{target}; set REVAULT_LIBRARY for development"
+      raise "revault-api native carrier is missing for #{target}; install the matching platform gem"
     end
 
     def shim_path
-      return ENV['REVAULT_RUBY_SHIM'] unless ENV['REVAULT_RUBY_SHIM'].to_s.empty?
       name = case RbConfig::CONFIG['host_os']
              when /linux/ then 'librevault_ruby_shim.so'
              when /darwin/ then 'librevault_ruby_shim.dylib'

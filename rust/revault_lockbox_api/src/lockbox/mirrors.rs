@@ -88,16 +88,15 @@ impl<State> Lockbox<State> {
                 return Ok(());
             }
             return Err(Error::InvalidOperation(format!(
-                "{} is outside the selected mirror directory {}",
-                path, root
+                "{path} is outside the selected mirror directory {root}"
             )));
         }
         if let Some(project) = projects.iter().find(|project| {
             path == &project.destination || path.is_descendant_of(&project.destination)
         }) {
             return Err(Error::InvalidOperation(format!(
-                "{} is managed by mirror '{}'; use a mirror-scoped operation",
-                path, project.name
+                "{path} is managed by mirror '{}'; use a mirror-scoped operation",
+                project.name
             )));
         }
         Ok(())

@@ -315,7 +315,7 @@ fn invocations(language: &str) -> Vec<Invocation> {
         "c" => ("/tmp/revault-c-conformance/revault_c_conformance", &[]),
         "cpp" => ("/tmp/revault-cpp-conformance/revault_cpp_conformance", &[]),
         "csharp" => ("dotnet", &["/opt/revault-csharp/Conformance.dll"]),
-        "dart" => ("/opt/revault-dart/conformance", &[]),
+        "dart" => ("/opt/revault-dart/bundle/bin/conformance", &[]),
         "go" => ("/tmp/revault-go-conformance", &[]),
         "java" => ("java", &["--enable-native-access=ALL-UNNAMED", "-Djava.io.tmpdir=/tmp/revault-java-extract", "-Drevault.keepExtracted=true", "-cp", "/opt/revault-java:/root/.m2/repository/dev/onepub/revault-api/0.2.0/revault-api-0.2.0.jar:/root/.m2/repository/com/google/flatbuffers/flatbuffers-java/25.2.10/flatbuffers-java-25.2.10.jar", "com.onepub.revault.e2e.Conformance"]),
         "javascript" | "wasm" => ("node", &["bindings/e2e/javascript/conformance.js"]),

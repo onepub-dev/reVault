@@ -2401,7 +2401,7 @@ pub unsafe extern "C" fn lockbox_list_variables(handle: *const c_void) -> Revaul
                         .iter()
                         .map(|(name, sensitivity)| bindings_transport::VariableT {
                             name: Some(name.as_str().to_string()),
-                            sensitivity: Some(format!("{:?}", sensitivity).to_ascii_lowercase()),
+                            sensitivity: Some(format!("{sensitivity:?}").to_ascii_lowercase()),
                         })
                         .collect()
                 ),
@@ -2452,7 +2452,7 @@ pub unsafe extern "C" fn lockbox_variable_sensitivity(
                 present: value.is_some(),
                 value: Some(
                     value
-                        .map(|value| format!("{:?}", value).to_ascii_lowercase())
+                        .map(|value| format!("{value:?}").to_ascii_lowercase())
                         .unwrap_or_default()
                 ),
             })

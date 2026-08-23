@@ -3,7 +3,7 @@ require 'fileutils'
 require 'tmpdir'
 require 'revault_api'
 
-API = Revault::Vault.new
+API = Revault.load
 def pass(symbol, assertions = 1) = puts("PASS\truby\t#{symbol}\t#{assertions}")
 def check(value, message)
   raise(message) unless value
@@ -158,7 +158,7 @@ def vault_lifecycle
   profile = API.key_contact_generate; contact = API.key_contact_generate
   contact_public = API.key_contact_public_from_bytes(contact.public)
   owner = API.key_signing_generate; owner_public = API.key_signing_public_from_bytes(owner.public)
-  vault = API.vault_directory_replace(root, password); pass('vault_directory_replace')
+  vault = Revault::Vault.replace(root, password); pass('vault_directory_replace')
   puts("ARTIFACT\truby\tvault-created\t#{root}")
   check(vault.root == root && vault.structure_version > 0, 'vault'); pass('vault_directory_root', 3); pass('vault_directory_structure_version')
   current = API.vault_structure_version_current
@@ -203,8 +203,8 @@ def vault_lifecycle
   pass('vault_read_only_list_form_aliases', 2); pass('vault_read_only_list_known_lockboxes')
   readonly.free; pass('vault_read_only_free')
   API.vault_directory_change_password(root, password, changed); pass('vault_directory_change_password')
-  API.vault_directory_open(root, changed).free; pass('vault_directory_open'); puts("ARTIFACT\truby\tvault-opened\t#{root}")
-  API.vault_directory_open_or_create(root, changed).free; pass('vault_directory_open_or_create')
+  Revault::Vault.open(root, changed).free; pass('vault_directory_open'); puts("ARTIFACT\truby\tvault-opened\t#{root}")
+  Revault::Vault.open_or_create(root, changed).free; pass('vault_directory_open_or_create')
   owner_public.public_free; owner.free; contact_public.public_free; contact.free; profile.free
 end
 
@@ -251,7 +251,7 @@ def agent_and_local
   activity = agent.begin_activity('open'); pass('vault_agent_begin_activity'); agent.end_activity(activity); pass('vault_agent_end_activity')
   agent.sleep_support; pass('vault_agent_sleep_support'); API.vault_agent_log_path; API.vault_agent_log_destination
   pass('vault_agent_log_path', 2); pass('vault_agent_log_destination', 2)
-  local = API.vault_local; pass('vault_local'); root = Dir.mktmpdir('revault-ruby-local-')
+  local = Revault::AgentSession.instance; pass('vault_local'); root = Dir.mktmpdir('revault-ruby-local-')
   password_path = File.join(root, 'password.lbox'); box = local.create_lockbox_password(password_path, 'local password')
   box.add_file('/data.txt', 'local vault data', false); box.commit; box.free; pass('vault_create_lockbox_password', 3)
   local.cache_lockbox_password(password_path, 'local password', 120); pass('vault_cache_lockbox_password')
@@ -273,7 +273,7 @@ def interop(producer)
   root = ENV.fetch('REVAULT_E2E_ARTIFACT_DIR', '/tmp/revault-e2e-artifacts')
   box = API.lockbox_open(File.binread(File.join(root, producer, 'archive.lbox')), 'K' * 32)
   check(box.get_file('/renamed.txt') == 'replacement payload', 'foreign archive'); box.free
-  vault = API.vault_directory_open(File.join(root, producer, 'vault'), 'new vault password')
+  vault = Revault::Vault.open(File.join(root, producer, 'vault'), 'new vault password')
   check(vault.structure_version > 0, 'foreign vault'); vault.free
   puts("INTEROP\truby\t#{producer}\tarchive\t3\nINTEROP\truby\t#{producer}\tvault\t2")
 end

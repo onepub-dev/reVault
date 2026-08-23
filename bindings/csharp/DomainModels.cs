@@ -217,152 +217,152 @@ public sealed record ErrorDetails(string Category, string ArtifactKind, uint Fou
 /// <summary>Converts private native transport buffers into public domain values.</summary>
 internal static class DomainCodec
 {
-    private static LockboxEntry FromInternal(Revault.Internal.Transport.LockboxEntryT value) =>
+    private static LockboxEntry FromInternal(global::Revault.Internal.Transport.LockboxEntryT value) =>
         new(value.Path ?? string.Empty, (LockboxEntryKind)(int)value.Kind, value.Length, value.Permissions);
-    internal static LockboxEntry LockboxEntry(byte[] bytes) => FromInternal(Revault.Internal.Transport.LockboxEntry.GetRootAsLockboxEntry(new ByteBuffer(bytes)).UnPack());
-    private static PathMove FromInternal(Revault.Internal.Transport.PathMoveT value) =>
+    internal static LockboxEntry LockboxEntry(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.LockboxEntry.GetRootAsLockboxEntry(new ByteBuffer(bytes)).UnPack());
+    private static PathMove FromInternal(global::Revault.Internal.Transport.PathMoveT value) =>
         new(value.Source ?? string.Empty, value.Destination ?? string.Empty);
-    internal static PathMove PathMove(byte[] bytes) => FromInternal(Revault.Internal.Transport.PathMove.GetRootAsPathMove(new ByteBuffer(bytes)).UnPack());
-    private static FormField FromInternal(Revault.Internal.Transport.FormFieldT value) =>
+    internal static PathMove PathMove(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.PathMove.GetRootAsPathMove(new ByteBuffer(bytes)).UnPack());
+    private static FormField FromInternal(global::Revault.Internal.Transport.FormFieldT value) =>
         new(value.Id ?? string.Empty, value.Label ?? string.Empty, value.Kind ?? string.Empty, value.Required);
-    internal static FormField FormField(byte[] bytes) => FromInternal(Revault.Internal.Transport.FormField.GetRootAsFormField(new ByteBuffer(bytes)).UnPack());
-    private static FormDefinition FromInternal(Revault.Internal.Transport.FormDefinitionT value) =>
+    internal static FormField FormField(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.FormField.GetRootAsFormField(new ByteBuffer(bytes)).UnPack());
+    private static FormDefinition FromInternal(global::Revault.Internal.Transport.FormDefinitionT value) =>
         new(value.TypeId ?? string.Empty, value.Alias ?? string.Empty, value.Revision, value.Name ?? string.Empty, value.Description ?? string.Empty, value.Fields is null ? Array.Empty<FormField>() : value.Fields.Select(FromInternal).ToArray());
-    internal static FormDefinition FormDefinition(byte[] bytes) => FromInternal(Revault.Internal.Transport.FormDefinition.GetRootAsFormDefinition(new ByteBuffer(bytes)).UnPack());
-    private static FormValue FromInternal(Revault.Internal.Transport.FormValueT value) =>
+    internal static FormDefinition FormDefinition(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.FormDefinition.GetRootAsFormDefinition(new ByteBuffer(bytes)).UnPack());
+    private static FormValue FromInternal(global::Revault.Internal.Transport.FormValueT value) =>
         new(value.FieldId ?? string.Empty, value.Label ?? string.Empty, value.Kind ?? string.Empty, value.Value ?? string.Empty, value.Secret);
-    internal static FormValue FormValue(byte[] bytes) => FromInternal(Revault.Internal.Transport.FormValue.GetRootAsFormValue(new ByteBuffer(bytes)).UnPack());
-    private static FormRecord FromInternal(Revault.Internal.Transport.FormRecordT value) =>
+    internal static FormValue FormValue(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.FormValue.GetRootAsFormValue(new ByteBuffer(bytes)).UnPack());
+    private static FormRecord FromInternal(global::Revault.Internal.Transport.FormRecordT value) =>
         new(value.Path ?? string.Empty, value.Name ?? string.Empty, value.TypeId ?? string.Empty, value.DefinitionAlias ?? string.Empty, value.DefinitionRevision, value.Values is null ? Array.Empty<FormValue>() : value.Values.Select(FromInternal).ToArray());
-    internal static FormRecord FormRecord(byte[] bytes) => FromInternal(Revault.Internal.Transport.FormRecord.GetRootAsFormRecord(new ByteBuffer(bytes)).UnPack());
-    private static RecoveryReport FromInternal(Revault.Internal.Transport.RecoveryReportT value) =>
+    internal static FormRecord FormRecord(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.FormRecord.GetRootAsFormRecord(new ByteBuffer(bytes)).UnPack());
+    private static RecoveryReport FromInternal(global::Revault.Internal.Transport.RecoveryReportT value) =>
         new(value.IntactFiles is null ? Array.Empty<LockboxEntry>() : value.IntactFiles.Select(FromInternal).ToArray(), value.IntactFileCount, value.PartialFiles, value.CorruptRecords, value.TocRecovered, value.VariablesRecovered, value.VariableCount, value.FormsRecovered, value.FormDefinitionCount, value.FormRecordCount);
-    internal static RecoveryReport RecoveryReport(byte[] bytes) => FromInternal(Revault.Internal.Transport.RecoveryReport.GetRootAsRecoveryReport(new ByteBuffer(bytes)).UnPack());
-    private static KeySlot FromInternal(Revault.Internal.Transport.KeySlotT value) =>
+    internal static RecoveryReport RecoveryReport(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.RecoveryReport.GetRootAsRecoveryReport(new ByteBuffer(bytes)).UnPack());
+    private static KeySlot FromInternal(global::Revault.Internal.Transport.KeySlotT value) =>
         new(value.Id, value.Protection ?? string.Empty, value.Algorithm ?? string.Empty);
-    internal static KeySlot KeySlot(byte[] bytes) => FromInternal(Revault.Internal.Transport.KeySlot.GetRootAsKeySlot(new ByteBuffer(bytes)).UnPack());
-    private static CacheStats FromInternal(Revault.Internal.Transport.CacheStatsT value) =>
+    internal static KeySlot KeySlot(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.KeySlot.GetRootAsKeySlot(new ByteBuffer(bytes)).UnPack());
+    private static CacheStats FromInternal(global::Revault.Internal.Transport.CacheStatsT value) =>
         new(value.LimitBytes, value.UsedBytes, value.Entries, value.Hits, value.Misses);
-    internal static CacheStats CacheStats(byte[] bytes) => FromInternal(Revault.Internal.Transport.CacheStats.GetRootAsCacheStats(new ByteBuffer(bytes)).UnPack());
-    private static ImportStats FromInternal(Revault.Internal.Transport.ImportStatsT value) =>
+    internal static CacheStats CacheStats(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.CacheStats.GetRootAsCacheStats(new ByteBuffer(bytes)).UnPack());
+    private static ImportStats FromInternal(global::Revault.Internal.Transport.ImportStatsT value) =>
         new(value.HostStatNanos ?? string.Empty, value.HostReadNanos ?? string.Empty, value.FramePrepareNanos ?? string.Empty, value.PageWriteNanos ?? string.Empty);
-    internal static ImportStats ImportStats(byte[] bytes) => FromInternal(Revault.Internal.Transport.ImportStats.GetRootAsImportStats(new ByteBuffer(bytes)).UnPack());
-    private static PageObject FromInternal(Revault.Internal.Transport.PageObjectT value) =>
+    internal static ImportStats ImportStats(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.ImportStats.GetRootAsImportStats(new ByteBuffer(bytes)).UnPack());
+    private static PageObject FromInternal(global::Revault.Internal.Transport.PageObjectT value) =>
         new(value.Id, value.Kind ?? string.Empty, value.PayloadLen);
-    internal static PageObject PageObject(byte[] bytes) => FromInternal(Revault.Internal.Transport.PageObject.GetRootAsPageObject(new ByteBuffer(bytes)).UnPack());
-    private static PageInspection FromInternal(Revault.Internal.Transport.PageInspectionT value) =>
+    internal static PageObject PageObject(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.PageObject.GetRootAsPageObject(new ByteBuffer(bytes)).UnPack());
+    private static PageInspection FromInternal(global::Revault.Internal.Transport.PageInspectionT value) =>
         new(value.Offset, value.PageId, value.Sequence, value.PageSize, value.EncryptedBodyLen, value.UnusedBytes, value.ObjectCount, value.Objects is null ? Array.Empty<PageObject>() : value.Objects.Select(FromInternal).ToArray());
-    internal static PageInspection PageInspection(byte[] bytes) => FromInternal(Revault.Internal.Transport.PageInspection.GetRootAsPageInspection(new ByteBuffer(bytes)).UnPack());
-    private static FileInspection FromInternal(Revault.Internal.Transport.FileInspectionT value) =>
+    internal static PageInspection PageInspection(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.PageInspection.GetRootAsPageInspection(new ByteBuffer(bytes)).UnPack());
+    private static FileInspection FromInternal(global::Revault.Internal.Transport.FileInspectionT value) =>
         new(value.LockboxId?.ToArray() ?? Array.Empty<byte>(), value.HeaderReadable, value.KeyDirectoryGeneration, value.KeyDirectoryCopyCount, value.OwnerSigned, value.KeySlots is null ? Array.Empty<KeySlot>() : value.KeySlots.Select(FromInternal).ToArray());
-    internal static FileInspection FileInspection(byte[] bytes) => FromInternal(Revault.Internal.Transport.FileInspection.GetRootAsFileInspection(new ByteBuffer(bytes)).UnPack());
-    private static ProfileGeneration FromInternal(Revault.Internal.Transport.ProfileGenerationT value) =>
+    internal static FileInspection FileInspection(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.FileInspection.GetRootAsFileInspection(new ByteBuffer(bytes)).UnPack());
+    private static ProfileGeneration FromInternal(global::Revault.Internal.Transport.ProfileGenerationT value) =>
         new(value.Index, value.Status ?? string.Empty, value.ContactFingerprint?.ToArray() ?? Array.Empty<byte>(), value.CreatedAtUnixMs, value.RetiredAtUnixMs, value.HasRetiredAt);
-    internal static ProfileGeneration ProfileGeneration(byte[] bytes) => FromInternal(Revault.Internal.Transport.ProfileGeneration.GetRootAsProfileGeneration(new ByteBuffer(bytes)).UnPack());
-    private static ProfileHistory FromInternal(Revault.Internal.Transport.ProfileHistoryT value) =>
+    internal static ProfileGeneration ProfileGeneration(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.ProfileGeneration.GetRootAsProfileGeneration(new ByteBuffer(bytes)).UnPack());
+    private static ProfileHistory FromInternal(global::Revault.Internal.Transport.ProfileHistoryT value) =>
         new(value.Name ?? string.Empty, value.ActiveGeneration, value.Generations is null ? Array.Empty<ProfileGeneration>() : value.Generations.Select(FromInternal).ToArray());
-    internal static ProfileHistory ProfileHistory(byte[] bytes) => FromInternal(Revault.Internal.Transport.ProfileHistory.GetRootAsProfileHistory(new ByteBuffer(bytes)).UnPack());
-    private static KnownLockbox FromInternal(Revault.Internal.Transport.KnownLockboxT value) =>
+    internal static ProfileHistory ProfileHistory(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.ProfileHistory.GetRootAsProfileHistory(new ByteBuffer(bytes)).UnPack());
+    private static KnownLockbox FromInternal(global::Revault.Internal.Transport.KnownLockboxT value) =>
         new(value.LockboxId?.ToArray() ?? Array.Empty<byte>(), value.Path ?? string.Empty, value.LastSeenUnixMs);
-    internal static KnownLockbox KnownLockbox(byte[] bytes) => FromInternal(Revault.Internal.Transport.KnownLockbox.GetRootAsKnownLockbox(new ByteBuffer(bytes)).UnPack());
-    private static AccessSlotLabel FromInternal(Revault.Internal.Transport.AccessSlotLabelT value) =>
+    internal static KnownLockbox KnownLockbox(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.KnownLockbox.GetRootAsKnownLockbox(new ByteBuffer(bytes)).UnPack());
+    private static AccessSlotLabel FromInternal(global::Revault.Internal.Transport.AccessSlotLabelT value) =>
         new(value.LockboxId?.ToArray() ?? Array.Empty<byte>(), value.SlotId, value.Name ?? string.Empty, value.UpdatedAtUnixMs);
-    internal static AccessSlotLabel AccessSlotLabel(byte[] bytes) => FromInternal(Revault.Internal.Transport.AccessSlotLabel.GetRootAsAccessSlotLabel(new ByteBuffer(bytes)).UnPack());
-    private static StreamChunk FromInternal(Revault.Internal.Transport.StreamChunkT value) =>
+    internal static AccessSlotLabel AccessSlotLabel(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.AccessSlotLabel.GetRootAsAccessSlotLabel(new ByteBuffer(bytes)).UnPack());
+    private static StreamChunk FromInternal(global::Revault.Internal.Transport.StreamChunkT value) =>
         new(value.Path ?? string.Empty, value.FileOffset, value.Length, value.PhysicalOffset, value.Sparse, value.Data?.ToArray() ?? Array.Empty<byte>());
-    internal static StreamChunk StreamChunk(byte[] bytes) => FromInternal(Revault.Internal.Transport.StreamChunk.GetRootAsStreamChunk(new ByteBuffer(bytes)).UnPack());
-    private static RuntimeOptions FromInternal(Revault.Internal.Transport.RuntimeOptionsT value) =>
+    internal static StreamChunk StreamChunk(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.StreamChunk.GetRootAsStreamChunk(new ByteBuffer(bytes)).UnPack());
+    private static RuntimeOptions FromInternal(global::Revault.Internal.Transport.RuntimeOptionsT value) =>
         new(value.WorkloadProfile ?? string.Empty, value.WorkerPolicy ?? string.Empty);
-    internal static RuntimeOptions RuntimeOptions(byte[] bytes) => FromInternal(Revault.Internal.Transport.RuntimeOptions.GetRootAsRuntimeOptions(new ByteBuffer(bytes)).UnPack());
-    private static Variable FromInternal(Revault.Internal.Transport.VariableT value) =>
+    internal static RuntimeOptions RuntimeOptions(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.RuntimeOptions.GetRootAsRuntimeOptions(new ByteBuffer(bytes)).UnPack());
+    private static Variable FromInternal(global::Revault.Internal.Transport.VariableT value) =>
         new(value.Name ?? string.Empty, value.Sensitivity ?? string.Empty);
-    internal static Variable Variable(byte[] bytes) => FromInternal(Revault.Internal.Transport.Variable.GetRootAsVariable(new ByteBuffer(bytes)).UnPack());
-    private static OwnerInspection FromInternal(Revault.Internal.Transport.OwnerInspectionT value) =>
+    internal static Variable Variable(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.Variable.GetRootAsVariable(new ByteBuffer(bytes)).UnPack());
+    private static OwnerInspection FromInternal(global::Revault.Internal.Transport.OwnerInspectionT value) =>
         new(value.Signed, value.Fingerprint ?? string.Empty, value.HasFingerprint);
-    internal static OwnerInspection OwnerInspection(byte[] bytes) => FromInternal(Revault.Internal.Transport.OwnerInspection.GetRootAsOwnerInspection(new ByteBuffer(bytes)).UnPack());
-    private static Contact FromInternal(Revault.Internal.Transport.ContactT value) =>
+    internal static OwnerInspection OwnerInspection(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.OwnerInspection.GetRootAsOwnerInspection(new ByteBuffer(bytes)).UnPack());
+    private static Contact FromInternal(global::Revault.Internal.Transport.ContactT value) =>
         new(value.Name ?? string.Empty, value.Key?.ToArray() ?? Array.Empty<byte>());
-    internal static Contact Contact(byte[] bytes) => FromInternal(Revault.Internal.Transport.Contact.GetRootAsContact(new ByteBuffer(bytes)).UnPack());
-    private static AgentEntry FromInternal(Revault.Internal.Transport.AgentEntryT value) =>
+    internal static Contact Contact(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.Contact.GetRootAsContact(new ByteBuffer(bytes)).UnPack());
+    private static AgentEntry FromInternal(global::Revault.Internal.Transport.AgentEntryT value) =>
         new(value.Id ?? string.Empty, value.Path ?? string.Empty);
-    internal static AgentEntry AgentEntry(byte[] bytes) => FromInternal(Revault.Internal.Transport.AgentEntry.GetRootAsAgentEntry(new ByteBuffer(bytes)).UnPack());
-    private static SleepSupport FromInternal(Revault.Internal.Transport.SleepSupportT value) =>
+    internal static AgentEntry AgentEntry(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.AgentEntry.GetRootAsAgentEntry(new ByteBuffer(bytes)).UnPack());
+    private static SleepSupport FromInternal(global::Revault.Internal.Transport.SleepSupportT value) =>
         new(value.SuspendNotifications, value.SleepInhibition, value.Supported);
-    internal static SleepSupport SleepSupport(byte[] bytes) => FromInternal(Revault.Internal.Transport.SleepSupport.GetRootAsSleepSupport(new ByteBuffer(bytes)).UnPack());
-    private static PlatformStatus FromInternal(Revault.Internal.Transport.PlatformStatusT value) =>
+    internal static SleepSupport SleepSupport(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.SleepSupport.GetRootAsSleepSupport(new ByteBuffer(bytes)).UnPack());
+    private static PlatformStatus FromInternal(global::Revault.Internal.Transport.PlatformStatusT value) =>
         new(value.Supported, value.Disabled, value.Scope ?? string.Empty, value.Backend ?? string.Empty, value.Item ?? string.Empty);
-    internal static PlatformStatus PlatformStatus(byte[] bytes) => FromInternal(Revault.Internal.Transport.PlatformStatus.GetRootAsPlatformStatus(new ByteBuffer(bytes)).UnPack());
-    private static VaultBackupManifest FromInternal(Revault.Internal.Transport.VaultBackupManifestT value) =>
+    internal static PlatformStatus PlatformStatus(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.PlatformStatus.GetRootAsPlatformStatus(new ByteBuffer(bytes)).UnPack());
+    private static VaultBackupManifest FromInternal(global::Revault.Internal.Transport.VaultBackupManifestT value) =>
         new(value.FormatVersion, value.CreatedAtUnixMs, value.VaultFileName ?? string.Empty, value.VaultSize, value.VaultSha256 ?? string.Empty);
-    internal static VaultBackupManifest VaultBackupManifest(byte[] bytes) => FromInternal(Revault.Internal.Transport.VaultBackupManifest.GetRootAsVaultBackupManifest(new ByteBuffer(bytes)).UnPack());
-    private static ErrorDetails FromInternal(Revault.Internal.Transport.ErrorDetailsT value) =>
+    internal static VaultBackupManifest VaultBackupManifest(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.VaultBackupManifest.GetRootAsVaultBackupManifest(new ByteBuffer(bytes)).UnPack());
+    private static ErrorDetails FromInternal(global::Revault.Internal.Transport.ErrorDetailsT value) =>
         new(value.Category ?? string.Empty, value.ArtifactKind ?? string.Empty, value.FoundVersion, value.SupportedVersion, value.Message ?? string.Empty, value.Guidance ?? string.Empty);
-    internal static ErrorDetails ErrorDetails(byte[] bytes) => FromInternal(Revault.Internal.Transport.ErrorDetails.GetRootAsErrorDetails(new ByteBuffer(bytes)).UnPack());
+    internal static ErrorDetails ErrorDetails(byte[] bytes) => FromInternal(global::Revault.Internal.Transport.ErrorDetails.GetRootAsErrorDetails(new ByteBuffer(bytes)).UnPack());
     internal static IReadOnlyList<StreamChunk> StreamChunkList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.StreamChunkList.GetRootAsStreamChunkList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.StreamChunkList.GetRootAsStreamChunkList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<StreamChunk>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<PageInspection> PageInspectionList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.PageInspectionList.GetRootAsPageInspectionList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.PageInspectionList.GetRootAsPageInspectionList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<PageInspection>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<LockboxEntry> LockboxEntryList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.LockboxEntryList.GetRootAsLockboxEntryList(new ByteBuffer(bytes)).UnPack().Entries;
+        var values = global::Revault.Internal.Transport.LockboxEntryList.GetRootAsLockboxEntryList(new ByteBuffer(bytes)).UnPack().Entries;
         return values is null ? Array.Empty<LockboxEntry>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<Variable> VariableList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.VariableList.GetRootAsVariableList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.VariableList.GetRootAsVariableList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<Variable>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<KeySlot> KeySlotList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.KeySlotList.GetRootAsKeySlotList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.KeySlotList.GetRootAsKeySlotList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<KeySlot>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<FormDefinition> FormDefinitionList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.FormDefinitionList.GetRootAsFormDefinitionList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.FormDefinitionList.GetRootAsFormDefinitionList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<FormDefinition>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<FormRecord> FormRecordList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.FormRecordList.GetRootAsFormRecordList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.FormRecordList.GetRootAsFormRecordList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<FormRecord>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<Contact> ContactList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.ContactList.GetRootAsContactList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.ContactList.GetRootAsContactList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<Contact>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<KnownLockbox> KnownLockboxList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.KnownLockboxList.GetRootAsKnownLockboxList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.KnownLockboxList.GetRootAsKnownLockboxList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<KnownLockbox>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<AccessSlotLabel> AccessSlotLabelList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.AccessSlotLabelList.GetRootAsAccessSlotLabelList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.AccessSlotLabelList.GetRootAsAccessSlotLabelList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<AccessSlotLabel>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<AgentEntry> AgentEntryList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.AgentEntryList.GetRootAsAgentEntryList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.AgentEntryList.GetRootAsAgentEntryList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<AgentEntry>() : values.Select(FromInternal).ToArray();
     }
     internal static IReadOnlyList<ProfileHistory> ProfileHistoryList(byte[] bytes)
     {
-        var values = Revault.Internal.Transport.ProfileHistoryList.GetRootAsProfileHistoryList(new ByteBuffer(bytes)).UnPack().Values;
+        var values = global::Revault.Internal.Transport.ProfileHistoryList.GetRootAsProfileHistoryList(new ByteBuffer(bytes)).UnPack().Values;
         return values is null ? Array.Empty<ProfileHistory>() : values.Select(FromInternal).ToArray();
     }
-    internal static IReadOnlyList<string> StringList(byte[] bytes) => Revault.Internal.Transport.StringList.GetRootAsStringList(new ByteBuffer(bytes)).UnPack().Values?.ToArray() ?? Array.Empty<string>();
-    internal static LockboxEntry? OptionalLockboxEntry(byte[] bytes) { var value = Revault.Internal.Transport.OptionalLockboxEntry.GetRootAsOptionalLockboxEntry(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }
-    internal static FormRecord? OptionalFormRecord(byte[] bytes) { var value = Revault.Internal.Transport.OptionalFormRecord.GetRootAsOptionalFormRecord(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }
-    internal static FormValue? OptionalFormValue(byte[] bytes) { var value = Revault.Internal.Transport.OptionalFormValue.GetRootAsOptionalFormValue(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }
-    internal static string? OptionalString(byte[] bytes) { var value = Revault.Internal.Transport.OptionalString.GetRootAsOptionalString(new ByteBuffer(bytes)).UnPack(); return value.Present ? value.Value : null; }
-    internal static byte[] EncodePathMoves(IReadOnlyList<PathMove> values) { var builder = new FlatBufferBuilder(256); var transport = new Revault.Internal.Transport.PathMoveListT { Values = values.Select(value => new Revault.Internal.Transport.PathMoveT { Source = value.Source, Destination = value.Destination }).ToList() }; var root = Revault.Internal.Transport.PathMoveList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }
-    internal static byte[] EncodeFormFields(IReadOnlyList<FormField> values) { var builder = new FlatBufferBuilder(256); var transport = new Revault.Internal.Transport.FormFieldListT { Values = values.Select(value => new Revault.Internal.Transport.FormFieldT { Id = value.Id, Label = value.Label, Kind = value.Kind, Required = value.Required }).ToList() }; var root = Revault.Internal.Transport.FormFieldList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }
+    internal static IReadOnlyList<string> StringList(byte[] bytes) => global::Revault.Internal.Transport.StringList.GetRootAsStringList(new ByteBuffer(bytes)).UnPack().Values?.ToArray() ?? Array.Empty<string>();
+    internal static LockboxEntry? OptionalLockboxEntry(byte[] bytes) { var value = global::Revault.Internal.Transport.OptionalLockboxEntry.GetRootAsOptionalLockboxEntry(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }
+    internal static FormRecord? OptionalFormRecord(byte[] bytes) { var value = global::Revault.Internal.Transport.OptionalFormRecord.GetRootAsOptionalFormRecord(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }
+    internal static FormValue? OptionalFormValue(byte[] bytes) { var value = global::Revault.Internal.Transport.OptionalFormValue.GetRootAsOptionalFormValue(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }
+    internal static string? OptionalString(byte[] bytes) { var value = global::Revault.Internal.Transport.OptionalString.GetRootAsOptionalString(new ByteBuffer(bytes)).UnPack(); return value.Present ? value.Value : null; }
+    internal static byte[] EncodePathMoves(IReadOnlyList<PathMove> values) { var builder = new FlatBufferBuilder(256); var transport = new global::Revault.Internal.Transport.PathMoveListT { Values = values.Select(value => new global::Revault.Internal.Transport.PathMoveT { Source = value.Source, Destination = value.Destination }).ToList() }; var root = global::Revault.Internal.Transport.PathMoveList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }
+    internal static byte[] EncodeFormFields(IReadOnlyList<FormField> values) { var builder = new FlatBufferBuilder(256); var transport = new global::Revault.Internal.Transport.FormFieldListT { Values = values.Select(value => new global::Revault.Internal.Transport.FormFieldT { Id = value.Id, Label = value.Label, Kind = value.Kind, Required = value.Required }).ToList() }; var root = global::Revault.Internal.Transport.FormFieldList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }
 }

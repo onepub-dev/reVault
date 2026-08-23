@@ -27,6 +27,13 @@ pub(crate) const DEFAULT_TTL_SECONDS: u64 = 15 * 60;
 pub(crate) const AGENT_PROTOCOL_VERSION: u32 = 1;
 pub(crate) const AGENT_IMPLEMENTATION_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+pub(crate) fn agent_is_compatible(protocol: u32, _implementation: &str) -> bool {
+    // The protocol version is the compatibility contract. The implementation
+    // version is diagnostic metadata and may legitimately differ when a CLI
+    // and a language binding were released at different times.
+    protocol == AGENT_PROTOCOL_VERSION
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// Metadata describing a lockbox whose content key is cached by the agent.
 pub struct CachedLockbox {
@@ -762,5 +769,15 @@ mod tests {
             }
             _ => panic!("expected agent info response"),
         }
+    }
+
+    #[test]
+    fn compatibility_depends_on_protocol_not_package_version() {
+        assert!(agent_is_compatible(AGENT_PROTOCOL_VERSION, "0.0.4"));
+        assert!(agent_is_compatible(AGENT_PROTOCOL_VERSION, "0.0.6"));
+        assert!(!agent_is_compatible(
+            AGENT_PROTOCOL_VERSION + 1,
+            AGENT_IMPLEMENTATION_VERSION,
+        ));
     }
 }

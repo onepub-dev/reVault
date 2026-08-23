@@ -9,8 +9,12 @@
  */
 package com.onepub.revault.kotlin
 
-/** Primary API used to open lockboxes and manage keys, metadata, and local services. */
-typealias Vault = com.onepub.revault.Revault
+/** Runtime loader. Loading does not open a vault or lockbox. */
+typealias Revault = com.onepub.revault.Revault
+/** Persistent encrypted local store for profiles, keys, contacts, and metadata. */
+typealias Vault = com.onepub.revault.Vault
+/** Metadata-only view that cannot mutate or load private signing material. */
+typealias ReadOnlyVault = com.onepub.revault.ReadOnlyVault
 /** An open encrypted archive containing files, variables, secrets, and forms. */
 typealias Lockbox = com.onepub.revault.Revault.Lockbox
 /** Memory and CPU settings applied when creating or opening a lockbox. */
@@ -27,6 +31,15 @@ typealias SigningKeyPair = com.onepub.revault.Revault.SigningKeyPair
 typealias SigningPublicKey = com.onepub.revault.Revault.SigningPublicKey
 /** A token kept alive while an operation needs secrets cached by the agent. */
 typealias AgentActivity = com.onepub.revault.Revault.AgentActivity
+
+/** Explicit controller for the optional single session-agent process. */
+typealias AgentSession = com.onepub.revault.AgentSession
+/** Closed cache policy values. */
+typealias CacheMode = com.onepub.revault.CacheMode
+/** Closed I/O workload values. */
+typealias WorkloadProfile = com.onepub.revault.WorkloadProfile
+/** Closed worker scheduling values. */
+typealias WorkerPolicy = com.onepub.revault.WorkerPolicy
 
 /** One historical generation of a vault profile's contact keys. */
 typealias ProfileGeneration = com.onepub.revault.ProfileGeneration

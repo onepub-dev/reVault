@@ -25,10 +25,13 @@ try (var vault = Vault.open(vaultPassphrase);
 }
 ```
 
-`Revault.load()` only loads the native runtime. `Vault.open()` opens the
-persistent local vault; it throws a Java exception for native failures rather
-than exposing a `lastError` state. `AgentSession` is available from
-`vault.agentSession()` when an application explicitly needs agent controls.
+`Revault.load()` only loads the installed native carrier. `Vault.open()` opens
+the persistent encrypted local store; it never contacts the agent. A
+`vaultPassphrase` opens the Vault and a `lockboxPassword` unlocks that archive;
+callers own both byte arrays and should wipe them after use. Native failures
+are thrown as `RevaultException`. `vault.agentSession()` is explicit: its
+`closeLockbox`/`closeAll` operations forget temporary cached content keys and
+do not delete lockbox files or persistent credentials.
 
 Run with native access enabled for this module/application. Owned objects are
 `AutoCloseable`; secret callback arrays are cleared after the callback returns.

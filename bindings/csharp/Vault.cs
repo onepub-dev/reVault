@@ -20,9 +20,13 @@ public delegate T SecretCallback<T>(ReadOnlySpan<byte> secret);
 /// <see href="https://github.com/onepub-dev/reVault#readme">repository README</see>
 /// for installation, security guidance, and examples.
 /// </remarks>
-public sealed class Vault
+public sealed class Revault
 {
     private readonly BindingOperations operations = new();
+    /// Loads the installed native carrier without opening a Vault or Lockbox.
+    public static Revault Load() => new();
+    /// Explicit controls for the optional session agent.
+    public AgentSession AgentSession => new(this);
     private static void Open(IntPtr handle) { if (handle == IntPtr.Zero) throw new ObjectDisposedException("native object"); }
 
     /// <summary>Memory and CPU settings applied when creating or opening a lockbox.</summary>
@@ -33,6 +37,14 @@ public sealed class Vault
     /// <param name="Jobs">Worker count; zero lets the library select it.</param>
     public sealed record LockboxOptions(string CacheMode, ulong CacheBytes, string Workload, string Worker, nuint Jobs)
     {
+        /// <summary>Creates options from the closed policy enums.</summary>
+        public LockboxOptions(CacheMode cacheMode, ulong cacheBytes, WorkloadProfile workload,
+            WorkerPolicy worker, nuint jobs = 0)
+            : this(cacheMode switch { global::Revault.CacheMode.Bytes => "bytes", global::Revault.CacheMode.Pages => "pages", _ => throw new ArgumentOutOfRangeException(nameof(cacheMode)) },
+                cacheBytes,
+                workload switch { WorkloadProfile.Interactive => "interactive", WorkloadProfile.BulkImport => "bulk-import", _ => throw new ArgumentOutOfRangeException(nameof(workload)) },
+                worker switch { WorkerPolicy.Auto => "auto", WorkerPolicy.Single => "single", _ => throw new ArgumentOutOfRangeException(nameof(worker)) }, jobs) { }
+
         /// <summary>Returns the recommended interactive runtime defaults.</summary>
         public static LockboxOptions Defaults => new("bytes", 64UL << 20, "interactive", "auto", 0);
     }
@@ -53,8 +65,8 @@ public sealed class Vault
     /// <summary>A recipient's shareable encryption identity used when granting lockbox access.</summary>
     public sealed class ContactPublicKey : IDisposable
     {
-        private readonly Vault owner; internal IntPtr Handle;
-        internal ContactPublicKey(Vault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
+        private readonly Revault owner; internal IntPtr Handle;
+        internal ContactPublicKey(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
         /// <summary>Exports this key in the requested format.</summary>
         public byte[] Export(string format) { Open(Handle); return owner.operations.VaultKeyExportPublic(Handle, format); }
         /// <summary>Returns the stable fingerprint of this key.</summary>
@@ -70,8 +82,8 @@ public sealed class Vault
     /// <summary>A content key encrypted for one contact and recoverable only by its matching key pair.</summary>
     public sealed class WrappedContactKey : IDisposable
     {
-        private readonly Vault owner; internal IntPtr Handle;
-        internal WrappedContactKey(Vault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
+        private readonly Revault owner; internal IntPtr Handle;
+        internal WrappedContactKey(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
         /// <summary>Returns the public bytes.</summary>
         public byte[] PublicBytes() => owner.operations.KeyContactWrappedPublic(Handle);
         /// <summary>Returns the ciphertext.</summary>
@@ -87,8 +99,8 @@ public sealed class Vault
     /// <summary>A profile's contact-encryption identity used to decrypt content keys addressed to it.</summary>
     public sealed class ContactKeyPair : IDisposable
     {
-        private readonly Vault owner; internal IntPtr Handle;
-        internal ContactKeyPair(Vault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
+        private readonly Revault owner; internal IntPtr Handle;
+        internal ContactKeyPair(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
         /// <summary>Returns the public bytes.</summary>
         public byte[] PublicBytes() => owner.operations.KeyContactPublic(Handle);
         /// <summary>Returns the private record.</summary>
@@ -108,8 +120,8 @@ public sealed class Vault
     /// <summary>The public identity readers use to verify owner-authorized lockbox revisions.</summary>
     public sealed class SigningPublicKey : IDisposable
     {
-        private readonly Vault owner; internal IntPtr Handle;
-        internal SigningPublicKey(Vault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
+        private readonly Revault owner; internal IntPtr Handle;
+        internal SigningPublicKey(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
         /// <summary>Releases the native resources held by this object.</summary>
         public void Dispose() { if (Handle != IntPtr.Zero) { owner.operations.KeySigningPublicFree(Handle); Handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         /// <summary>Releases the native signing-public-key handle during finalization.</summary>
@@ -119,8 +131,8 @@ public sealed class Vault
     /// <summary>A lockbox owner's signing identity used to authorize mutable revisions.</summary>
     public sealed class SigningKeyPair : IDisposable
     {
-        private readonly Vault owner; internal IntPtr Handle;
-        internal SigningKeyPair(Vault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
+        private readonly Revault owner; internal IntPtr Handle;
+        internal SigningKeyPair(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
         /// <summary>Returns the public bytes.</summary>
         public byte[] PublicBytes() => owner.operations.KeySigningPublic(Handle);
         /// <summary>Returns the private record.</summary>
@@ -198,8 +210,8 @@ public sealed class Vault
     /// <summary>An open encrypted archive containing files, variables, secrets, and forms.</summary>
     public sealed class Lockbox : IDisposable
     {
-        private readonly Vault owner; internal IntPtr Handle;
-        internal Lockbox(Vault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
+        private readonly Revault owner; internal IntPtr Handle;
+        internal Lockbox(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
         /// <summary>Adds file.</summary>
         public void AddFile(string path, byte[] value, bool replace = false) => owner.operations.LockboxAddFile(Handle, path, value, replace);
         /// <summary>Adds file.</summary>
@@ -293,9 +305,9 @@ public sealed class Vault
         /// <summary>Returns range.</summary>
         public byte[] ReadRange(string path, ulong offset, ulong length) => owner.operations.LockboxReadRange(Handle, path, offset, length);
         /// <summary>Adds password.</summary>
-        public ulong AddPassword(byte[] password) { var id = owner.operations.LockboxAddPassword(Handle, password); if (id == ulong.MaxValue) throw new InvalidOperationException(owner.LastError); return id; }
+        public ulong AddPassword(byte[] password) { var id = owner.operations.LockboxAddPassword(Handle, password); if (id == ulong.MaxValue) throw new RevaultException(owner.LastError); return id; }
         /// <summary>Adds contact.</summary>
-        public ulong AddContact(ContactPublicKey contact, string name) { var id = owner.operations.LockboxAddContact(Handle, contact.Handle, name); if (id == ulong.MaxValue) throw new InvalidOperationException(owner.LastError); return id; }
+        public ulong AddContact(ContactPublicKey contact, string name) { var id = owner.operations.LockboxAddContact(Handle, contact.Handle, name); if (id == ulong.MaxValue) throw new RevaultException(owner.LastError); return id; }
         /// <summary>Removes key.</summary>
         public void DeleteKey(ulong id) => owner.operations.LockboxDeleteKey(Handle, id);
         /// <summary>Lists key slots.</summary>
@@ -340,21 +352,21 @@ public sealed class Vault
     }
 
     /// <summary>Opens vault directory.</summary>
-    public VaultDirectory OpenVaultDirectory(string root, byte[] password) => new(this, operations.VaultDirectoryOpen(root, password));
+    public Vault OpenVault(string root, byte[] password) => new(this, operations.VaultDirectoryOpen(root, password));
     /// <summary>Opens or create vault directory.</summary>
-    public VaultDirectory OpenOrCreateVaultDirectory(string root, byte[] password) => new(this, operations.VaultDirectoryOpenOrCreate(root, password));
+    public Vault OpenOrCreateVault(string root, byte[] password) => new(this, operations.VaultDirectoryOpenOrCreate(root, password));
     /// <summary>Updates vault directory.</summary>
-    public VaultDirectory ReplaceVaultDirectory(string root, byte[] password) => new(this, operations.VaultDirectoryReplace(root, password));
+    public Vault ReplaceVault(string root, byte[] password) => new(this, operations.VaultDirectoryReplace(root, password));
     /// <summary>Opens or create default vault directory.</summary>
-    public VaultDirectory OpenOrCreateDefaultVaultDirectory(byte[] password) => new(this, operations.VaultDirectoryOpenOrCreateDefault(password));
+    public Vault OpenOrCreateDefaultVault(byte[] password) => new(this, operations.VaultDirectoryOpenOrCreateDefault(password));
     /// <summary>Updates default vault directory.</summary>
-    public VaultDirectory ReplaceDefaultVaultDirectory(byte[] password) => new(this, operations.VaultDirectoryReplaceDefault(password));
+    public Vault ReplaceDefaultVault(byte[] password) => new(this, operations.VaultDirectoryReplaceDefault(password));
     /// <summary>Updates vault directory password.</summary>
-    public void ChangeVaultDirectoryPassword(string root, byte[] oldPassword, byte[] newPassword) => operations.VaultDirectoryChangePassword(root, oldPassword, newPassword);
+    public void ChangeVaultPassword(string root, byte[] oldPassword, byte[] newPassword) => operations.VaultDirectoryChangePassword(root, oldPassword, newPassword);
     /// <summary>Updates default vault directory password.</summary>
-    public void ChangeDefaultVaultDirectoryPassword(byte[] oldPassword, byte[] newPassword) => operations.VaultDirectoryChangeDefaultPassword(oldPassword, newPassword);
+    public void ChangeDefaultVaultPassword(byte[] oldPassword, byte[] newPassword) => operations.VaultDirectoryChangeDefaultPassword(oldPassword, newPassword);
     /// <summary>Returns the default vault directory.</summary>
-    public string DefaultVaultDirectory => operations.VaultDefaultDirectory();
+    public string DefaultVaultRoot => operations.VaultDefaultDirectory();
     /// <summary>Returns the default vault path.</summary>
     public string DefaultVaultPath => operations.VaultDefaultPath();
     /// <summary>Returns the backup default vault.</summary>
@@ -363,10 +375,10 @@ public sealed class Vault
     public VaultBackupManifest RestoreDefaultVault(string path, bool overwrite = false) => operations.VaultRestoreDefault(path, overwrite);
 
     /// <summary>Password-protected storage for profile keys, contacts, forms, backups, and known lockbox paths.</summary>
-    public sealed class VaultDirectory : IDisposable
+    public class VaultStore : IDisposable
     {
-        private readonly Vault owner; internal IntPtr Handle;
-        internal VaultDirectory(Vault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
+        private readonly Revault owner; internal IntPtr Handle;
+        internal VaultStore(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
         /// <summary>Returns the root.</summary>
         public string Root => owner.operations.VaultDirectoryRoot(Handle);
         /// <summary>Returns the structure version.</summary>
@@ -457,20 +469,20 @@ public sealed class Vault
         /// <summary>Releases the native resources held by this object.</summary>
         public void Dispose() { if (Handle != IntPtr.Zero) { owner.operations.VaultDirectoryFree(Handle); Handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         /// <summary>Releases the writable vault handle during finalization.</summary>
-        ~VaultDirectory() => Dispose();
+        ~VaultStore() => Dispose();
     }
 
     /// <summary>Opens read only vault directory.</summary>
-    public ReadOnlyVaultDirectory OpenReadOnlyVaultDirectory(string root, byte[] password) =>
+    public ReadOnlyVault OpenReadOnlyVault(string root, byte[] password) =>
         new(this, operations.VaultReadOnlyOpen(root, password));
     /// <summary>Opens default read only vault directory.</summary>
-    public ReadOnlyVaultDirectory OpenDefaultReadOnlyVaultDirectory(byte[] password) =>
+    public ReadOnlyVault OpenDefaultReadOnlyVault(byte[] password) =>
         new(this, operations.VaultReadOnlyOpenDefault(password));
     /// <summary>A metadata view for discovery and diagnostics that never loads an owner signing key.</summary>
-    public sealed class ReadOnlyVaultDirectory : IDisposable
+    public class ReadOnlyVaultStore : IDisposable
     {
-        private readonly Vault owner; private IntPtr handle;
-        internal ReadOnlyVaultDirectory(Vault owner, IntPtr handle) { this.owner = owner; this.handle = handle; }
+        private readonly Revault owner; private IntPtr handle;
+        internal ReadOnlyVaultStore(Revault owner, IntPtr handle) { this.owner = owner; this.handle = handle; }
         /// <summary>Lists profile names.</summary>
         public IReadOnlyList<string> ListProfileNames() => owner.operations.VaultReadOnlyListProfileNames(handle);
         /// <summary>Lists contact names.</summary>
@@ -482,7 +494,7 @@ public sealed class Vault
         /// <summary>Releases the native resources held by this object.</summary>
         public void Dispose() { if (handle != IntPtr.Zero) { owner.operations.VaultReadOnlyFree(handle); handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         /// <summary>Releases the read-only vault handle during finalization.</summary>
-        ~ReadOnlyVaultDirectory() => Dispose();
+        ~ReadOnlyVaultStore() => Dispose();
     }
 
     /// <summary>Returns the agent is running.</summary>
@@ -530,8 +542,8 @@ public sealed class Vault
     /// <summary>A token kept alive while an operation needs secrets cached by the session agent.</summary>
     public sealed class AgentActivity : IDisposable
     {
-        private readonly Vault owner; private IntPtr handle;
-        internal AgentActivity(Vault owner, IntPtr handle) { this.owner = owner; this.handle = handle; }
+        private readonly Revault owner; private IntPtr handle;
+        internal AgentActivity(Revault owner, IntPtr handle) { this.owner = owner; this.handle = handle; }
         /// <summary>Releases the native resources held by this object.</summary>
         public void Dispose() { if (handle != IntPtr.Zero) { owner.operations.VaultAgentEndActivity(handle); handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         /// <summary>Ends and releases the agent activity during finalization.</summary>
@@ -556,12 +568,12 @@ public sealed class Vault
     public void ForgetPlatformPassword() => operations.VaultPlatformForgetPassword();
 
     /// <summary>Opens local vault.</summary>
-    public LocalVault OpenLocalVault() => new(this, operations.VaultLocal());
+    public LockboxSession OpenLockboxSession() => new(this, operations.VaultLocal());
     /// <summary>A session that opens lockboxes by host path, caches passwords, and closes locally used files.</summary>
-    public sealed class LocalVault : IDisposable
+    public sealed class LockboxSession : IDisposable
     {
-        private readonly Vault owner; private IntPtr handle;
-        internal LocalVault(Vault owner, IntPtr handle) { this.owner = owner; this.handle = handle; }
+        private readonly Revault owner; private IntPtr handle;
+        internal LockboxSession(Revault owner, IntPtr handle) { this.owner = owner; this.handle = handle; }
         /// <summary>Creates with password.</summary>
         public Lockbox CreateWithPassword(string path, byte[] password) => new(owner, owner.operations.VaultCreateLockboxPassword(handle, path, password));
         /// <summary>Opens with password.</summary>
@@ -584,6 +596,6 @@ public sealed class Vault
         /// <summary>Releases the native resources held by this object.</summary>
         public void Dispose() { if (handle != IntPtr.Zero) { owner.operations.VaultFree(handle); handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         /// <summary>Releases the local-vault handle during finalization.</summary>
-        ~LocalVault() => Dispose();
+        ~LockboxSession() => Dispose();
     }
 }

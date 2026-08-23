@@ -699,6 +699,9 @@ fn assemble_packages(args: AssemblePackages) -> Result {
     copy_tree(&bindings.join("kotlin"), &output.join("maven/kotlin"))?;
     replace_release_version(&output.join("maven/kotlin/build.gradle.kts"), &args.version)?;
     copy_tree(&bindings.join("csharp"), &output.join("nuget"))?;
+    normalize_csharp_transport_qualifiers(
+        &output.join("nuget/Generated/FlatBuffers/revault_bindings_generated.cs"),
+    )?;
     copy_tree(
         &layout.join("nuget/runtimes"),
         &output.join("nuget/runtimes"),
@@ -760,6 +763,37 @@ fn assemble_packages(args: AssemblePackages) -> Result {
 fn replace_release_version(path: &Path, version: &str) -> Result {
     let source = fs::read_to_string(path)?;
     fs::write(path, replace_version_text(&source, version)?)?;
+    Ok(())
+}
+
+/// Qualify generated transport references from within the public `Revault`
+/// namespace so C# resolves the namespace rather than the public type.
+fn normalize_csharp_transport_qualifiers(path: &Path) -> Result {
+    let source = fs::read_to_string(path)?;
+    let source = source.replace(
+        "global::Revault.Internal.Transport",
+        "Revault.Internal.Transport",
+    );
+    let normalized = source
+        .lines()
+        .map(|line| {
+            if line
+                .trim_start()
+                .starts_with("namespace Revault.Internal.Transport")
+            {
+                line.to_string()
+            } else {
+                line.replace(
+                    "Revault.Internal.Transport",
+                    "global::Revault.Internal.Transport",
+                )
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    if normalized != source {
+        fs::write(path, normalized)?;
+    }
     Ok(())
 }
 

@@ -408,7 +408,7 @@ fn set_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         lb.set_form_field_normal(&path, field_id, &value)?;
     }
     lb.commit()?;
-    println!("{}\t{}\tupdated", path, field_id);
+    println!("{path}\t{field_id}\tupdated");
     Ok(())
 }
 

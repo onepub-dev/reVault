@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Treat the session-agent protocol version as the compatibility contract so
+  clients and agents from different package releases can interoperate when
+  their wire protocol is unchanged.
+
 ## 0.0.4
 
 - Restored the minimum supported Rust version to Rust 1.88.

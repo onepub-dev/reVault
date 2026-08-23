@@ -2,7 +2,7 @@
  * Encrypt files, variables, and typed form records in portable reVault
  * lockboxes, and manage keys and local vault metadata.
  *
- * Start with {@link Vault}. Call `free()` on owned handles and use the
+ * Start with {@link Revault}. Use {@link Vault} for persistent metadata. Call `free()` on owned handles and use the
  * callback-scoped secret accessors to avoid retaining plaintext.
  *
  * @see {@link https://github.com/onepub-dev/reVault#readme | Repository README}
@@ -14,14 +14,34 @@ export type * from './domain.js';
 export type Binary = Uint8Array;
 /** Returns the binary input. */
 export type BinaryInput = Uint8Array | string;
+/** Owning binary secret; call close() when the native operation ends. */
+export class SecretBytes extends Uint8Array { close(): void; }
+/** Owning UTF-8 passphrase; call close() to wipe its mutable bytes. */
+export class SecretString extends SecretBytes { constructor(value: string); toString(): string; }
+/** Error raised when the native ABI rejects an operation; `details` identifies the failing category. */
+export class RevaultError extends Error { readonly details?: import('./domain.js').ErrorDetails; }
+/** Cache policies for an open Lockbox. */
+export const LockboxCacheMode: { readonly BYTES: 'bytes'; readonly DISABLED: 'disabled'; readonly AUTOMATIC: 'automatic'; };
+/** Workload profiles used to tune archive import and reads. */
+export const LockboxWorkload: { readonly INTERACTIVE: 'interactive'; readonly BULK_IMPORT: 'bulk-import'; readonly READ_MOSTLY: 'read-mostly'; };
+/** Worker policies used by archive operations. */
+export const LockboxWorker: { readonly AUTO: 'auto'; readonly SINGLE: 'single'; readonly THREADS: 'threads'; };
+/** Categories recorded by the explicit session agent. */
+export const AgentActivityKind: { readonly OPEN: 'open'; readonly CLOSE: 'close'; readonly VARIABLES: 'variables'; readonly FORM: 'form'; readonly RECOVERY: 'recovery'; readonly VAULT: 'vault'; };
+/** Stable key export encodings accepted by Revault key methods. */
+export const KeyExportFormat: { readonly LOCKBOX_PEM: 'lockbox-pem'; readonly JWK: 'jwk'; readonly JWKS: 'jwks'; readonly RAW_HEX: 'raw-hex'; };
 /** Returns the native handle. */
-export type NativeHandle = ContactKeyPair | ContactPublicKey | WrappedContactKey | SigningKeyPair | SigningPublicKey | VaultDirectory | ReadOnlyVaultDirectory | AgentActivity | LocalVault;
+export type NativeHandle = ContactKeyPair | ContactPublicKey | WrappedContactKey | ProfileSigningKeyPair | ProfileSigningPublicKey | AgentActivity;
 /** Primary API used to open lockboxes, manage keys and metadata, use the
  * session agent, and access operating-system credential storage. Create one
  * when the application starts. */
-export class Vault {
+export class Revault {
   /** Creates a new facade over the bundled native library. */
   constructor();
+  /** Load the installed native carrier and create the runtime facade. */
+  static load(): Promise<Revault>;
+  /** Return a new synchronous runtime facade for factory operations. */
+  static readonly runtime: Revault;
   /** Returns the agent. */
   readonly agent: Agent;
   /** Returns the platform. */
@@ -72,11 +92,11 @@ export class Vault {
   /** Returns the key contact public from bytes. */
   keyContactPublicFromBytes(bytes: BinaryInput): ContactPublicKey;
   /** Returns the key signing generate. */
-  keySigningGenerate(): SigningKeyPair;
+  keySigningGenerate(): ProfileSigningKeyPair;
   /** Returns the key signing from private. */
-  keySigningFromPrivate(bytes: BinaryInput): SigningKeyPair;
+  keySigningFromPrivate(bytes: BinaryInput): ProfileSigningKeyPair;
   /** Returns the key signing public from bytes. */
-  keySigningPublicFromBytes(bytes: BinaryInput): SigningPublicKey;
+  keySigningPublicFromBytes(bytes: BinaryInput): ProfileSigningPublicKey;
   /** Returns the vault key export private. */
   vaultKeyExportPrivate(key: NativeHandle, format: string): Binary;
   /** Returns the vault key export public. */
@@ -102,31 +122,31 @@ export class Vault {
   /** Returns the vault key hex decode. */
   vaultKeyHexDecode(text: string): Binary;
   /** Returns the vault directory open. */
-  vaultDirectoryOpen(root: string, password: BinaryInput): VaultDirectory;
+  vaultDirectoryOpen(root: string, password: BinaryInput): Vault;
   /** Returns the vault structure version current. */
   vaultStructureVersionCurrent(): number;
   /** Returns the vault directory probe structure version. */
   vaultDirectoryProbeStructureVersion(root: string, password: BinaryInput): number;
   /** Returns the vault directory open or create default. */
-  vaultDirectoryOpenOrCreateDefault(password: BinaryInput): VaultDirectory;
+  vaultDirectoryOpenOrCreateDefault(password: BinaryInput): Vault;
   /** Returns the vault directory replace default. */
-  vaultDirectoryReplaceDefault(password: BinaryInput): VaultDirectory;
+  vaultDirectoryReplaceDefault(password: BinaryInput): Vault;
   /** Returns the vault directory change password. */
   vaultDirectoryChangePassword(root: string, oldPassword: BinaryInput, newPassword: BinaryInput): boolean;
   /** Returns the vault directory change default password. */
   vaultDirectoryChangeDefaultPassword(oldPassword: BinaryInput, newPassword: BinaryInput): boolean;
   /** Returns the vault directory replace. */
-  vaultDirectoryReplace(root: string, password: BinaryInput): VaultDirectory;
+  vaultDirectoryReplace(root: string, password: BinaryInput): Vault;
   /** Returns the vault directory open or create. */
-  vaultDirectoryOpenOrCreate(root: string, password: BinaryInput): VaultDirectory;
+  vaultDirectoryOpenOrCreate(root: string, password: BinaryInput): Vault;
   /** Returns the vault backup default. */
   vaultBackupDefault(path: string, overwrite: boolean): import('./domain.js').VaultBackupManifest;
   /** Returns the vault restore default. */
   vaultRestoreDefault(path: string, overwrite: boolean): import('./domain.js').VaultBackupManifest;
   /** Returns the vault read only open. */
-  vaultReadOnlyOpen(root: string, password: BinaryInput): ReadOnlyVaultDirectory;
+  vaultReadOnlyOpen(root: string, password: BinaryInput): ReadOnlyVault;
   /** Returns the vault read only open default. */
-  vaultReadOnlyOpenDefault(password: BinaryInput): ReadOnlyVaultDirectory;
+  vaultReadOnlyOpenDefault(password: BinaryInput): ReadOnlyVault;
   /** Returns the vault default directory. */
   vaultDefaultDirectory(): string;
   /** Returns the vault default path. */
@@ -136,13 +156,23 @@ export class Vault {
   /** Returns the vault agent log destination. */
   vaultAgentLogDestination(): string;
   /** Returns the vault local. */
-  vaultLocal(): LocalVault;
 }
 
 /** An open encrypted archive containing files, variables, secrets, and forms.
- * Obtain one from {@link Vault} or {@link LocalVault}, commit pending changes,
+ * Obtain one from {@link Revault} or {@link AgentSession}, commit pending changes,
  * and call {@link free} when finished with its decrypted contents. */
 export class Lockbox {
+  /** Create an in-memory archive protected by one password, key, or contact. */
+  static createInMemory(options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; signingKey?: NativeHandle; options?: object }): Lockbox;
+  /** Open serialized archive bytes with one password, key, or contact. */
+  static openBytes(archive: BinaryInput, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; options?: object }): Lockbox;
+  /** Create a host archive file and return its owned handle. */
+  static create(path: string, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; signingKey?: NativeHandle; options?: object; overwrite?: boolean }): Lockbox;
+  /** Open a host archive file without consulting the session agent. */
+  static open(path: string, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; options?: object }): Lockbox;
+  /** Release the process-local content key; repeated calls are safe. */
+  /** Release this owned handle and wipe any native secret state. */
+  close(): void;
   /** Adds file. */
   addFile(path: string, data: BinaryInput, replace: boolean): boolean;
   /** Adds file with permissions. */
@@ -288,6 +318,8 @@ export class ContactKeyPair {
   private(): Binary;
   /** Releases the native resources held by this object. */
   free(): void;
+  /** Release this owned handle and wipe any native secret state. */
+  close(): void;
   /** Decrypts a wrapped content key for this contact. */
   decrypt(wrapped: NativeHandle): Binary;
 }
@@ -297,6 +329,8 @@ export class ContactKeyPair {
 export class ContactPublicKey {
   /** Returns the public free. */
   publicFree(): void;
+  /** Release this owned handle and wipe any native secret state. */
+  close(): void;
   /** Encrypts a content key for the selected contact. */
   encrypt(contentKey: BinaryInput): WrappedContactKey;
 }
@@ -312,29 +346,43 @@ export class WrappedContactKey {
   encrypted(): Binary;
   /** Releases the native resources held by this object. */
   free(): void;
+  /** Release this owned handle and wipe any native secret state. */
+  close(): void;
 }
 
 /** A lockbox owner's signing identity. Supply it when creating or committing a
  * mutable lockbox so readers can authenticate revisions. */
-export class SigningKeyPair {
+export class ProfileSigningKeyPair {
   /** Returns the public. */
   public(): Binary;
   /** Returns the private. */
   private(): Binary;
   /** Releases the native resources held by this object. */
   free(): void;
+  /** Release this owned handle and wipe any native secret state. */
+  close(): void;
 }
 
 /** The shareable half of a lockbox owner's signing identity, used by readers to
  * verify owner-authorized revisions. */
-export class SigningPublicKey {
+export class ProfileSigningPublicKey {
   /** Returns the public free. */
   publicFree(): void;
+  /** Release this owned handle and wipe any native secret state. */
+  close(): void;
 }
 
 /** A writable, password-protected store for profile keys, contacts, forms,
  * backups, and remembered lockbox paths. Lockbox contents remain separate. */
-export class VaultDirectory {
+export class Vault {
+  /** Open an existing Vault; does not create or replace it. */
+  static open(root: string, vaultPassphrase: BinaryInput): Vault;
+  /** Open or create a Vault explicitly. */
+  static openOrCreate(root: string, vaultPassphrase: BinaryInput): Vault;
+  /** Create a Vault at a new path. */
+  static create(root: string, vaultPassphrase: BinaryInput): Vault;
+  /** Replace a Vault explicitly; destructive. */
+  static replace(root: string, vaultPassphrase: BinaryInput): Vault;
   /** Returns the root. */
   root(): string;
   /** Returns the structure version. */
@@ -380,13 +428,13 @@ export class VaultDirectory {
   /** Returns the restore private key. */
   restorePrivateKey(name: string, key: NativeHandle, signingKey: NativeHandle, overwrite: boolean): boolean;
   /** Loads owner signing key. */
-  loadOwnerSigningKey(name: string): SigningKeyPair;
+  loadOwnerSigningKey(name: string): ProfileSigningKeyPair;
   /** Loads owner signing key generation. */
-  loadOwnerSigningKeyGeneration(name: string, index: number): SigningKeyPair;
+  loadOwnerSigningKeyGeneration(name: string, index: number): ProfileSigningKeyPair;
   /** Stores contact signing key. */
   storeContactSigningKey(name: string, key: NativeHandle): boolean;
   /** Loads contact signing key. */
-  loadContactSigningKey(name: string): SigningPublicKey;
+  loadContactSigningKey(name: string): ProfileSigningPublicKey;
   /** Lists profile generations. */
   listProfileGenerations(name: string): import('./domain.js').ProfileHistory;
   /** Updates private key. */
@@ -421,11 +469,13 @@ export class VaultDirectory {
   rememberedPassword(id: BinaryInput): Binary;
   /** Releases the native resources held by this object. */
   free(): void;
+  /** Release this owned handle and wipe any native secret state. */
+  close(): void;
 }
 
 /** A restricted metadata view for discovery or diagnostics that lists local
  * profiles, contacts, forms, and lockboxes without loading owner signing keys. */
-export class ReadOnlyVaultDirectory {
+export class ReadOnlyVault {
   /** Lists profile names. */
   listProfileNames(): ReadonlyArray<string>;
   /** Lists contact names. */
@@ -436,11 +486,13 @@ export class ReadOnlyVaultDirectory {
   listKnownLockboxes(): ReadonlyArray<import('./domain.js').KnownLockbox>;
   /** Releases the native resources held by this object. */
   free(): void;
+  /** Release this owned handle and wipe any native secret state. */
+  close(): void;
 }
 
 /** Client for the local session service that temporarily caches vault unlock
  * and owner signing keys across application operations. */
-export class Agent {
+declare class Agent {
   /** Reports whether running. */
   isRunning(): boolean;
   /** Removes all. */
@@ -470,7 +522,7 @@ export class Agent {
   /** Removes vault unlock key. */
   forgetVaultUnlockKey(vaultId: string): boolean;
   /** Returns owner signing key. */
-  getOwnerSigningKey(vaultId: string, profile: string): SigningKeyPair;
+  getOwnerSigningKey(vaultId: string, profile: string): ProfileSigningKeyPair;
   /** Stores owner signing key. */
   putOwnerSigningKey(vaultId: string, profile: string, key: NativeHandle, ttlSeconds: number): boolean;
   /** Removes owner signing key. */
@@ -480,14 +532,39 @@ export class Agent {
   /** Stops activity. */
   endActivity(handle: NativeHandle): void;
 }
+/** Explicit controller for the optional session agent. */
+export class AgentSession extends Agent {
+  static readonly instance: AgentSession;
+  /** Remove one cached lockbox key from this explicit session. */
+  closeLockbox(lockboxPath: string): boolean;
+  /** Remove all lockbox keys cached by this explicit session. */
+  closeAll(): boolean;
+  /** Create a password-protected lockbox file through this session. */
+  createLockboxPassword(path: string, password: BinaryInput): Lockbox;
+  /** Open a password-protected lockbox file through this session. */
+  openLockboxPassword(path: string, password: BinaryInput): Lockbox;
+  /** Create a lockbox file protected by an explicit content key. */
+  createLockboxContentKey(path: string, contentKey: BinaryInput, signingKey: NativeHandle): Lockbox;
+  /** Create a lockbox file addressed to a contact. */
+  createLockboxContact(path: string, contact: NativeHandle, name: string, signingKey: NativeHandle): Lockbox;
+  /** Open a content-key lockbox file through this session. */
+  openLockboxContentKey(path: string, contentKey: BinaryInput, signingKey: NativeHandle): Lockbox;
+  /** Cache a password-derived key for the requested number of seconds. */
+  cacheLockboxPassword(path: string, password: BinaryInput, ttlSeconds: number): boolean;
+  /** Release the local session handle. */
+  free(): void;
+}
+/** Profile-oriented names for the signing identities used by persistent Vault records. */
 
 /** A lifetime token kept alive while an operation needs cached secrets. Release
  * it afterward so the session agent can expire unused secrets. */
 export class AgentActivity {
+  /** Release this owned handle and wipe any native secret state. */
+  close(): void;
 }
 
 /** Access to operating-system credential storage for a scoped vault password. */
-export class Platform {
+declare class Platform {
   /** Returns the status. */
   status(): import('./domain.js').PlatformStatus;
   /** Sets scope. */
@@ -508,7 +585,7 @@ export class Platform {
 
 /** A session for creating or opening lockboxes by host path, caching short-lived
  * passwords, and committing and closing the files used by a local application. */
-export class LocalVault {
+declare class LocalVault {
   /** Creates lockbox password. */
   createLockboxPassword(path: string, password: BinaryInput): Lockbox;
   /** Opens lockbox password. */
