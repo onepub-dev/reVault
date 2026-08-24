@@ -674,7 +674,7 @@ fn prepare_lua(target: &str, repository: &Path, packages: &Path, work: &Path) ->
     let rockspec = find_named_package(&package, "revault_api-", "-1.rockspec")?;
     run_status(
         Command::new("luarocks")
-            .arg("make")
+            .args(["--lua-version", "5.1", "make"])
             .arg("--tree")
             .arg(&tree)
             .arg(rockspec)

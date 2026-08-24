@@ -241,6 +241,26 @@ jobs:
         if: matrix.language == 'go'
         with:
           go-version: '1.24.x'
+      - name: Install Windows LLVM-MinGW for Go cgo
+        if: matrix.language == 'go' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $version = '20260616'
+          $llvmHost = '${{ matrix.target == 'windows-aarch64-msvc' && 'aarch64' || 'x86_64' }}'
+          $expected = '${{ matrix.target == 'windows-aarch64-msvc' && '312593669435bd0bfc1a43ac3fba23c8b27e0610bade88b2738e5a01702a99ba' || 'b9b68a4d276e16fa25802aaba458e4638f64b3884c290aaccdc2d87083b6ca35' }}'
+          $name = "llvm-mingw-$version-ucrt-$llvmHost"
+          $archive = Join-Path $env:RUNNER_TEMP "$name.zip"
+          Invoke-WebRequest `
+            -Uri "https://github.com/mstorsjo/llvm-mingw/releases/download/$version/$name.zip" `
+            -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) {
+            throw "LLVM-MinGW archive checksum mismatch: $actual"
+          }
+          $root = Join-Path $env:RUNNER_TEMP 'llvm-mingw'
+          Expand-Archive -Path $archive -DestinationPath $root
+          (Join-Path $root "$name\bin") |
+            Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
       - uses: ruby/setup-ruby@v1
         if: matrix.language == 'ruby'
         with:

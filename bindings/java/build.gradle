@@ -15,11 +15,12 @@ java {
 }
 
 tasks.withType(JavaCompile).configureEach {
+    options.release = 22
     options.compilerArgs += ['-Xlint:all,-restricted', '-Werror']
 }
 
 tasks.withType(Javadoc).configureEach {
-    exclude 'com/onepub/revault/internal/**'
+    exclude 'flatbuffers/**'
 }
 
 sourceSets.main.java.srcDirs = ['src', 'generated']

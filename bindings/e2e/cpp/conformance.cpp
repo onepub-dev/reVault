@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -208,7 +212,9 @@ static void archive_lifecycle() {
 
 static void key_lifecycle() {
   std::vector<std::uint8_t> content(32);
-  for (std::size_t i = 0; i < content.size(); ++i) content[i] = i;
+  for (std::size_t i = 0; i < content.size(); ++i) {
+    content[i] = static_cast<std::uint8_t>(i);
+  }
   ContactKeyPair contact;
   pass("key_contact_generate");
   auto private_record = contact.private_record();
@@ -419,7 +425,9 @@ static void vault_lifecycle() {
   const std::string password = "vault password";
   const std::string new_password = "new vault password";
   std::vector<std::uint8_t> id(16);
-  for (std::size_t i = 0; i < id.size(); ++i) id[i] = 0xa0 + i;
+  for (std::size_t i = 0; i < id.size(); ++i) {
+    id[i] = static_cast<std::uint8_t>(0xa0 + i);
+  }
   ContactKeyPair profile;
   ContactKeyPair contact;
   auto contact_public = contact.public_key();
@@ -624,8 +632,12 @@ static void agent_and_local_vault() {
   AgentSession::verify_transport();
   pass("vault_agent_verify_transport");
   std::vector<std::uint8_t> id(16), key(32);
-  for (std::size_t i = 0; i < id.size(); ++i) id[i] = 0xc0 + i;
-  for (std::size_t i = 0; i < key.size(); ++i) key[i] = 0x20 + i;
+  for (std::size_t i = 0; i < id.size(); ++i) {
+    id[i] = static_cast<std::uint8_t>(0xc0 + i);
+  }
+  for (std::size_t i = 0; i < key.size(); ++i) {
+    key[i] = static_cast<std::uint8_t>(0x20 + i);
+  }
   AgentSession::put(id, key);
   check(AgentSession::get(id) == key, "agent generic key");
   check(AgentSession::list().size() > 0, "agent list");

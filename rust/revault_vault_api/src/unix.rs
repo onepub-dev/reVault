@@ -209,7 +209,31 @@ pub(crate) fn stop() -> io::Result<()> {
     if !existing_agent_is_reachable()? {
         return Ok(());
     }
-    expect_ok(request(&encode_stop()?)?)
+    match request_started_agent(&encode_stop()?) {
+        Ok(response) => expect_ok(response),
+        Err(error) if stop_disconnect(error.kind()) => {
+            let deadline = Instant::now() + Duration::from_secs(1);
+            while Instant::now() < deadline {
+                if !existing_agent_is_reachable()? {
+                    return Ok(());
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(error)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn stop_disconnect(kind: io::ErrorKind) -> bool {
+    matches!(
+        kind,
+        io::ErrorKind::BrokenPipe
+            | io::ErrorKind::ConnectionAborted
+            | io::ErrorKind::ConnectionReset
+            | io::ErrorKind::NotConnected
+            | io::ErrorKind::UnexpectedEof
+    )
 }
 
 pub(crate) fn list() -> io::Result<Vec<CachedLockbox>> {
@@ -859,6 +883,15 @@ mod tests {
     use crate::agent_protocol::{
         encode_forget, encode_get, encode_put, AGENT_IMPLEMENTATION_VERSION, AGENT_PROTOCOL_VERSION,
     };
+
+    #[test]
+    fn stop_accepts_only_transport_disconnect_errors() {
+        assert!(stop_disconnect(io::ErrorKind::NotConnected));
+        assert!(stop_disconnect(io::ErrorKind::ConnectionReset));
+        assert!(stop_disconnect(io::ErrorKind::UnexpectedEof));
+        assert!(!stop_disconnect(io::ErrorKind::PermissionDenied));
+        assert!(!stop_disconnect(io::ErrorKind::InvalidData));
+    }
 
     #[test]
     fn sleep_watcher_suspend_event_is_detected() {
