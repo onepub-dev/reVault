@@ -15,8 +15,12 @@ The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.m
 import java.nio.file.Path;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-try (var vault = Vault.open(vaultPassphrase);
+var runtime = Revault.load();
+try (var signing = runtime.generateProfileSigningKeyPair();
+     var publicSigningKey = signing.publicKey();
+     var vault = Vault.open(vaultPassphrase);
      var box = vault.openLockboxWithPassword(Path.of("team.lbox"), lockboxPassword)) {
+  box.setOwnerSigningKey(signing); // Profile becomes this Lockbox's owner
   box.addFile("/hello.txt", "hello\n".getBytes(UTF_8), false);
   box.setVariable("owner", "alice");
   box.setSecretVariable("token", "secret".getBytes(UTF_8));
@@ -32,6 +36,11 @@ callers own both byte arrays and should wipe them after use. Native failures
 are thrown as `RevaultException`. `vault.agentSession()` is explicit: its
 `closeLockbox`/`closeAll` operations forget temporary cached content keys and
 do not delete lockbox files or persistent credentials.
+
+`Revault.load(Path)` or `Revault.load(String)` selects an application-owned
+carrier. Otherwise a non-empty inherited `REVAULT_LIBRARY` is used before the
+JAR carrier. A bare string delegates to the operating-system library search
+path.
 
 Run with native access enabled for this module/application. Owned objects are
 `AutoCloseable`; secret callback arrays are cleared after the callback returns.

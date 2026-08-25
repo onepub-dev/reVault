@@ -264,8 +264,25 @@ local function native_library()
   end
   error('revault-api native carrier is missing for ' .. target .. '; install the matching platform rock')
 end
-local native = ffi.load(native_library())
-if tonumber(native.api_abi_version()) ~= 3 then error('revault-api native ABI mismatch; expected 3') end
+local loaded_native
+local function load_native(explicit_path)
+  if explicit_path == '' then error('native library path must not be empty') end
+  local inherited = os.getenv('REVAULT_LIBRARY')
+  local selected = explicit_path or
+    (inherited ~= nil and inherited ~= '' and inherited or nil) or
+    native_library()
+  local library = ffi.load(selected)
+  if tonumber(library.api_abi_version()) ~= 3 then
+    error('revault-api native ABI mismatch; expected 3')
+  end
+  loaded_native = library
+end
+local native = setmetatable({}, {
+  __index = function(_, symbol)
+    if loaded_native == nil then load_native(nil) end
+    return loaded_native[symbol]
+  end,
+})
 local function last_error()
   local value = native.buffer_last_error()
   return value == nil and 'native reVault operation failed' or ffi.string(value)
@@ -1514,12 +1531,12 @@ local ContactPublicKey = owned("ContactPublicKey")
 --- A content key encrypted for one contact and recoverable by its matching key pair.
 -- @type WrappedContactKey
 local WrappedContactKey = owned("WrappedContactKey")
---- A lockbox owner's signing identity used to authorize mutable revisions.
--- @type SigningKeyPair
-local SigningKeyPair = owned("SigningKeyPair")
---- The public identity readers use to verify owner-authorized revisions.
--- @type SigningPublicKey
-local SigningPublicKey = owned("SigningPublicKey")
+--- A Vault Profile signing identity used to authorize mutable Lockbox revisions.
+-- @type ProfileSigningKeyPair
+local ProfileSigningKeyPair = owned("ProfileSigningKeyPair")
+--- The public half of a Vault Profile signing identity.
+-- @type ProfileSigningPublicKey
+local ProfileSigningPublicKey = owned("ProfileSigningPublicKey")
 --- Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
 -- @type VaultStore
 local VaultStore = owned("VaultStore")
@@ -1643,19 +1660,19 @@ function Revault:key_contact_public_from_bytes(bytes)
   return ContactPublicKey.new(self.operations, self.operations:key_contact_public_from_bytes(bytes))
 end
 
---- Returns the key signing generate.
-function Revault:key_signing_generate()
-  return SigningKeyPair.new(self.operations, self.operations:key_signing_generate())
+--- Generates a signing identity owned by a Vault Profile.
+function Revault:generate_profile_signing_key_pair()
+  return ProfileSigningKeyPair.new(self.operations, self.operations:key_signing_generate())
 end
 
---- Returns the key signing from private.
-function Revault:key_signing_from_private(bytes)
-  return SigningKeyPair.new(self.operations, self.operations:key_signing_from_private(bytes))
+--- Imports a Vault Profile signing identity from its private record.
+function Revault:profile_signing_key_pair_from_private(bytes)
+  return ProfileSigningKeyPair.new(self.operations, self.operations:key_signing_from_private(bytes))
 end
 
---- Returns the key signing public from bytes.
-function Revault:key_signing_public_from_bytes(bytes)
-  return SigningPublicKey.new(self.operations, self.operations:key_signing_public_from_bytes(bytes))
+--- Imports the public half of a Vault Profile signing identity.
+function Revault:profile_signing_public_key_from_bytes(bytes)
+  return ProfileSigningPublicKey.new(self.operations, self.operations:key_signing_public_from_bytes(bytes))
 end
 
 --- Returns the vault key export private.
@@ -2185,24 +2202,32 @@ function WrappedContactKey:free()
   self.handle = nil
 end
 
---- Returns the public.
-function SigningKeyPair:public()
+--- Returns the canonical public bytes paired with this identity.
+function ProfileSigningKeyPair:public_bytes()
   return self.operations:key_signing_public(self.handle)
 end
 
---- Returns the private.
-function SigningKeyPair:private()
+--- Returns the private signing-key record for secure binary backup.
+function ProfileSigningKeyPair:private_record()
   return self.operations:key_signing_private(self.handle)
 end
 
+--- Creates an independently owned public verification-key handle.
+function ProfileSigningKeyPair:public_key()
+  return ProfileSigningPublicKey.new(
+    self.operations,
+    self.operations:key_signing_public_from_bytes(self:public_bytes())
+  )
+end
+
 --- Releases the native resources held by this object.
-function SigningKeyPair:free()
+function ProfileSigningKeyPair:free()
   self.operations:key_signing_free(self.handle)
   self.handle = nil
 end
 
---- Returns the public free.
-function SigningPublicKey:public_free()
+--- Releases the native resources held by this object.
+function ProfileSigningPublicKey:free()
   self.operations:key_signing_public_free(self.handle)
   self.handle = nil
 end
@@ -2317,14 +2342,14 @@ function VaultStore:restore_private_key(name, key, signing_key, overwrite)
   return self.operations:vault_directory_restore_private_key(self.handle, name, key.handle, signing_key.handle, overwrite)
 end
 
---- Loads owner signing key.
-function VaultStore:load_owner_signing_key(name)
-  return SigningKeyPair.new(self.operations, self.operations:vault_directory_load_owner_signing_key(self.handle, name))
+--- Loads the current signing identity for a Vault Profile.
+function VaultStore:load_profile_signing_key(name)
+  return ProfileSigningKeyPair.new(self.operations, self.operations:vault_directory_load_owner_signing_key(self.handle, name))
 end
 
---- Loads owner signing key generation.
-function VaultStore:load_owner_signing_key_generation(name, index)
-  return SigningKeyPair.new(self.operations, self.operations:vault_directory_load_owner_signing_key_generation(self.handle, name, index))
+--- Loads one historical signing identity for a Vault Profile.
+function VaultStore:load_profile_signing_key_generation(name, index)
+  return ProfileSigningKeyPair.new(self.operations, self.operations:vault_directory_load_owner_signing_key_generation(self.handle, name, index))
 end
 
 --- Stores contact signing key.
@@ -2334,7 +2359,7 @@ end
 
 --- Loads contact signing key.
 function VaultStore:load_contact_signing_key(name)
-  return SigningPublicKey.new(self.operations, self.operations:vault_directory_load_contact_signing_key(self.handle, name))
+  return ProfileSigningPublicKey.new(self.operations, self.operations:vault_directory_load_contact_signing_key(self.handle, name))
 end
 
 --- Lists profile generations.
@@ -2519,18 +2544,18 @@ function Agent:forget_vault_unlock_key(vault_id)
   return self.operations:vault_agent_forget_vault_unlock_key(vault_id)
 end
 
---- Returns owner signing key.
-function Agent:get_owner_signing_key(vault_id, profile)
-  return SigningKeyPair.new(self.operations, self.operations:vault_agent_get_owner_signing_key(vault_id, profile))
+--- Returns the cached signing identity for a Vault Profile.
+function Agent:profile_signing_key(vault_id, profile)
+  return ProfileSigningKeyPair.new(self.operations, self.operations:vault_agent_get_owner_signing_key(vault_id, profile))
 end
 
---- Stores owner signing key.
-function Agent:put_owner_signing_key(vault_id, profile, key, ttl_seconds)
+--- Caches a signing identity for a Vault Profile.
+function Agent:cache_profile_signing_key(vault_id, profile, key, ttl_seconds)
   return self.operations:vault_agent_put_owner_signing_key(vault_id, profile, key.handle, ttl_seconds)
 end
 
---- Removes owner signing key.
-function Agent:forget_owner_signing_key(vault_id, profile)
+--- Removes a cached signing identity for a Vault Profile.
+function Agent:forget_profile_signing_key(vault_id, profile)
   return self.operations:vault_agent_forget_owner_signing_key(vault_id, profile)
 end
 
@@ -2727,16 +2752,17 @@ function AgentSession:cache_lockbox_password(path, password, ttl_seconds) return
 function AgentSession:close_lockbox(path) return self.operations:vault_close_lockbox(self.handle, path) end
 function AgentSession:close_all() return self.operations:vault_close_all(self.handle) end
 function AgentSession:free() self.operations:vault_free(self.handle); self.handle = nil end
-Revault.load = function() return Revault.new() end
+Revault.load = function(native_library_path)
+  if native_library_path ~= nil or loaded_native == nil then
+    load_native(native_library_path)
+  end
+  return Revault.new()
+end
 Revault.runtime = Revault.load
-local ProfileSigningKeyPair = SigningKeyPair
-local ProfileSigningPublicKey = SigningPublicKey
-
 local M = {
   Revault = Revault, Vault = Vault, ReadOnlyVault = ReadOnlyVault, Models = Models,
   Lockbox = Lockbox, ContactKeyPair = ContactKeyPair, ContactPublicKey = ContactPublicKey,
-  WrappedContactKey = WrappedContactKey, SigningKeyPair = SigningKeyPair,
-  ProfileSigningKeyPair = ProfileSigningKeyPair, SigningPublicKey = SigningPublicKey,
+  WrappedContactKey = WrappedContactKey, ProfileSigningKeyPair = ProfileSigningKeyPair,
   ProfileSigningPublicKey = ProfileSigningPublicKey, AgentSession = AgentSession,
   AgentActivity = AgentActivity,
   SecretBytes = SecretBytes, SecretString = SecretString, LockboxCacheMode = LockboxCacheMode,

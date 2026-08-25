@@ -1,14 +1,23 @@
 # The owned, class-oriented reVault API. See the
 # {repository README}[https://github.com/onepub-dev/reVault#readme] for the
 # security model and complete examples.
-require_relative 'binding_operations'
+require_relative 'native_library'
 
 # Encrypts lockbox content and manages local vault metadata.
 module Revault
-  # Load the installed native carrier and return the runtime facade.
-  def self.load = Runtime.new
+  # Load an explicit, inherited, or installed native carrier.
+  def self.load(native_library_path = nil) = Runtime.new(native_library_path)
   # Return a new runtime facade synchronously for factory operations.
   def self.runtime = Runtime.new
+
+  # Select the process-wide native carrier and load binding operations.
+  def self.ensure_native(native_library_path = nil)
+    NativeLibrary.path(native_library_path)
+    unless const_defined?(:BindingOperations, false)
+      require_relative 'binding_operations'
+      private_constant(:BindingOperations)
+    end
+  end
 
   # Native operation failure with structured diagnostic details.
   class RevaultError < StandardError
@@ -34,7 +43,8 @@ module Revault
   class Runtime
     attr_reader :agent, :platform
     # Returns the initialize.
-    def initialize
+    def initialize(native_library_path = nil)
+      Revault.ensure_native(native_library_path)
       @operations = BindingOperations.new
       @agent = Agent.new(@operations)
       @platform = Platform.new(@operations)
@@ -134,19 +144,19 @@ module Revault
       ContactPublicKey.new(@operations, @operations.key_contact_public_from_bytes(bytes))
     end
 
-    # Returns the key signing generate.
-    def key_signing_generate()
-      SigningKeyPair.new(@operations, @operations.key_signing_generate())
+    # Generates a signing identity owned by a Vault Profile.
+    def generate_profile_signing_key_pair()
+      ProfileSigningKeyPair.new(@operations, @operations.key_signing_generate())
     end
 
-    # Returns the key signing from private.
-    def key_signing_from_private(bytes)
-      SigningKeyPair.new(@operations, @operations.key_signing_from_private(bytes))
+    # Imports a Vault Profile signing identity from its private record.
+    def profile_signing_key_pair_from_private(bytes)
+      ProfileSigningKeyPair.new(@operations, @operations.key_signing_from_private(bytes))
     end
 
-    # Returns the key signing public from bytes.
-    def key_signing_public_from_bytes(bytes)
-      SigningPublicKey.new(@operations, @operations.key_signing_public_from_bytes(bytes))
+    # Imports the public half of a Vault Profile signing identity.
+    def profile_signing_public_key_from_bytes(bytes)
+      ProfileSigningPublicKey.new(@operations, @operations.key_signing_public_from_bytes(bytes))
     end
 
     # Returns the vault key export private.
@@ -677,13 +687,13 @@ module Revault
 
   # A profile's contact-encryption identity used to decrypt keys addressed to it.
   class ContactKeyPair < OwnedHandle
-    # Returns the public.
-    def public()
+    # Returns the canonical public bytes paired with this identity.
+    def public_bytes()
       @operations.key_contact_public(@native_handle)
     end
 
-    # Returns the private.
-    def private()
+    # Returns the private signing-key record for secure binary backup.
+    def private_record()
       @operations.key_contact_private(@native_handle)
     end
 
@@ -740,8 +750,8 @@ module Revault
 
   end
 
-  # A lockbox owner's signing identity used to authorize mutable revisions.
-  class SigningKeyPair < OwnedHandle
+  # A Vault Profile signing identity used to authorize mutable Lockbox revisions.
+  class ProfileSigningKeyPair < OwnedHandle
     # Returns the public.
     def public()
       @operations.key_signing_public(@native_handle)
@@ -752,6 +762,14 @@ module Revault
       @operations.key_signing_private(@native_handle)
     end
 
+    # Creates an independently owned public verification-key handle.
+    def public_key()
+      ProfileSigningPublicKey.new(
+        @operations,
+        @operations.key_signing_public_from_bytes(public)
+      )
+    end
+
     # Releases the native resources held by this object.
     def free()
       @operations.key_signing_free(@native_handle)
@@ -760,10 +778,10 @@ module Revault
 
   end
 
-  # The public identity readers use to verify owner-authorized revisions.
-  class SigningPublicKey < OwnedHandle
-    # Returns the public free.
-    def public_free()
+  # The public half of a Vault Profile signing identity.
+  class ProfileSigningPublicKey < OwnedHandle
+    # Releases the native resources held by this object.
+    def free()
       @operations.key_signing_public_free(@native_handle)
       @native_handle = nil
     end
@@ -882,14 +900,14 @@ module Revault
       @operations.vault_directory_restore_private_key(@native_handle, name, key.native_handle, signing_key.native_handle, overwrite)
     end
 
-    # Loads owner signing key.
-    def load_owner_signing_key(name)
-      SigningKeyPair.new(@operations, @operations.vault_directory_load_owner_signing_key(@native_handle, name))
+    # Loads the current signing identity for a Vault Profile.
+    def load_profile_signing_key(name)
+      ProfileSigningKeyPair.new(@operations, @operations.vault_directory_load_owner_signing_key(@native_handle, name))
     end
 
-    # Loads owner signing key generation.
-    def load_owner_signing_key_generation(name, index)
-      SigningKeyPair.new(@operations, @operations.vault_directory_load_owner_signing_key_generation(@native_handle, name, index))
+    # Loads one historical signing identity for a Vault Profile.
+    def load_profile_signing_key_generation(name, index)
+      ProfileSigningKeyPair.new(@operations, @operations.vault_directory_load_owner_signing_key_generation(@native_handle, name, index))
     end
 
     # Stores contact signing key.
@@ -899,7 +917,7 @@ module Revault
 
     # Loads contact signing key.
     def load_contact_signing_key(name)
-      SigningPublicKey.new(@operations, @operations.vault_directory_load_contact_signing_key(@native_handle, name))
+      ProfileSigningPublicKey.new(@operations, @operations.vault_directory_load_contact_signing_key(@native_handle, name))
     end
 
     # Lists profile generations.
@@ -1096,18 +1114,18 @@ module Revault
       @operations.vault_agent_forget_vault_unlock_key(vault_id)
     end
 
-    # Returns owner signing key.
-    def get_owner_signing_key(vault_id, profile)
-      SigningKeyPair.new(@operations, @operations.vault_agent_get_owner_signing_key(vault_id, profile))
+    # Returns the cached signing identity for a Vault Profile.
+    def profile_signing_key(vault_id, profile)
+      ProfileSigningKeyPair.new(@operations, @operations.vault_agent_get_owner_signing_key(vault_id, profile))
     end
 
-    # Stores owner signing key.
-    def put_owner_signing_key(vault_id, profile, key, ttl_seconds)
+    # Caches a signing identity for a Vault Profile.
+    def cache_profile_signing_key(vault_id, profile, key, ttl_seconds)
       @operations.vault_agent_put_owner_signing_key(vault_id, profile, key.native_handle, ttl_seconds)
     end
 
-    # Removes owner signing key.
-    def forget_owner_signing_key(vault_id, profile)
+    # Removes a cached signing identity for a Vault Profile.
+    def forget_profile_signing_key(vault_id, profile)
       @operations.vault_agent_forget_owner_signing_key(vault_id, profile)
     end
 
@@ -1279,8 +1297,6 @@ module Revault
       def replace(root, vault_passphrase) = Runtime.new.vault_directory_replace(root, vault_passphrase.to_str)
     end
   end
-  ProfileSigningKeyPair = SigningKeyPair
-  ProfileSigningPublicKey = SigningPublicKey
 
   # Shared close convenience for all owned facade handles.
   class OwnedHandle
@@ -1311,6 +1327,7 @@ module Revault
   class AgentSession < Agent
     # Return the process-wide explicit session controller.
     def self.instance
+      Revault.ensure_native
       @instance ||= new(BindingOperations.new)
     end
     # Attach this controller to the local native session handle.
@@ -1345,4 +1362,4 @@ end
 
 # Native handles and operation routing are implementation details of the
 # application-facing facade above.
-Revault.private_constant(:BindingOperations, :OwnedHandle, :Runtime, :VaultStore, :LocalSession)
+Revault.private_constant(:OwnedHandle, :Runtime, :VaultStore, :LocalSession)

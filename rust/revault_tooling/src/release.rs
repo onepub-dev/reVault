@@ -758,8 +758,63 @@ fn assemble_packages(args: AssemblePackages) -> Result {
         &layout.join("native-manifest.json"),
         &output.join("native-manifest.json"),
     )?;
+    replace_documented_versions(output, &args.version)?;
     println!("assembled complete revault-api publication trees for all sixteen language APIs");
     Ok(())
+}
+
+fn replace_documented_versions(root: &Path, version: &str) -> Result {
+    for entry in WalkDir::new(root).sort_by_file_name() {
+        let entry = entry?;
+        if !entry.file_type().is_file() || entry.file_name() != OsStr::new("README.md") {
+            continue;
+        }
+        let source = fs::read_to_string(entry.path())?;
+        let rewritten = replace_semver_triplets(&source, version);
+        if rewritten != source {
+            fs::write(entry.path(), rewritten)?;
+        }
+    }
+    Ok(())
+}
+
+fn replace_semver_triplets(source: &str, version: &str) -> String {
+    let bytes = source.as_bytes();
+    let mut output = Vec::with_capacity(source.len());
+    let mut cursor = 0;
+    while cursor < bytes.len() {
+        let start = cursor;
+        if bytes[cursor].is_ascii_digit() && (cursor == 0 || !bytes[cursor - 1].is_ascii_digit()) {
+            while cursor < bytes.len() && bytes[cursor].is_ascii_digit() {
+                cursor += 1;
+            }
+            for _ in 0..2 {
+                if cursor >= bytes.len() || bytes[cursor] != b'.' {
+                    cursor = start;
+                    break;
+                }
+                cursor += 1;
+                let digits = cursor;
+                while cursor < bytes.len() && bytes[cursor].is_ascii_digit() {
+                    cursor += 1;
+                }
+                if cursor == digits {
+                    cursor = start;
+                    break;
+                }
+            }
+            if cursor != start
+                && (cursor == bytes.len()
+                    || (!bytes[cursor].is_ascii_digit() && bytes[cursor] != b'.'))
+            {
+                output.extend_from_slice(version.as_bytes());
+                continue;
+            }
+        }
+        cursor = start + 1;
+        output.push(bytes[start]);
+    }
+    String::from_utf8(output).expect("rewriting UTF-8 documentation preserves UTF-8")
 }
 
 fn replace_release_version(path: &Path, version: &str) -> Result {
@@ -1484,5 +1539,15 @@ mod tests {
             assert!(replaced.contains("9.8.7"));
             assert!(!replaced.contains("1.2.3"));
         }
+    }
+
+    #[test]
+    fn release_documentation_versions_follow_the_automated_release_version() {
+        let source =
+            "install package@0.2.0\nrequire ^0.3.5\nLua 0.2.0-1\nUTF-8: Profile → Lockbox\n";
+        assert_eq!(
+            replace_semver_triplets(source, "9.8.7"),
+            "install package@9.8.7\nrequire ^9.8.7\nLua 9.8.7-1\nUTF-8: Profile → Lockbox\n"
+        );
     }
 }

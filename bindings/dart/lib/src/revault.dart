@@ -1,4 +1,5 @@
 import 'dart:ffi' as ffi;
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:revault_api/src/agent_session.dart';
@@ -36,17 +37,38 @@ final class Revault {
   /// Call this once during application startup, before using any other reVault
   /// type.
   ///
-  /// Loads the target-specific carrier published by the package build hook.
-  /// The SDK bundles and resolves that carrier; callers do not provide a
-  /// filesystem path or environment variable.
+  /// With no argument, loads the target-specific carrier published by the
+  /// package build hook. The SDK bundles and resolves that carrier, so normal
+  /// Dart and Flutter applications do not provide a filesystem path.
+  ///
+  /// Set [nativeLibraryPath] only when an application installer deliberately
+  /// owns a shared carrier outside the Dart bundle, for example
+  /// `/opt/my_app/lib/librevault_api.so`. The path is opened directly and takes
+  /// precedence over the packaged native asset. A relative name uses the
+  /// operating system loader's normal search rules.
+  ///
+  /// When [nativeLibraryPath] is omitted, a non-empty inherited
+  /// `REVAULT_LIBRARY` value is opened next. This environment hook is intended
+  /// for launchers and diagnostics; installed-package acceptance deliberately
+  /// removes it so the default branch proves the packaged carrier works.
   ///
   /// Example:
   /// ```dart
   /// final revault = await Revault.load();
   /// print(revault.lockboxFormatVersion);
   /// ```
-  static Future<Revault> load() async {
-    final loaded = Revault._();
+  static Future<Revault> load({String? nativeLibraryPath}) async {
+    if (nativeLibraryPath != null && nativeLibraryPath.isEmpty) {
+      throw ArgumentError.value(
+        nativeLibraryPath,
+        'nativeLibraryPath',
+        'must not be empty',
+      );
+    }
+    final inheritedPath = Platform.environment['REVAULT_LIBRARY'];
+    final selectedPath = nativeLibraryPath ??
+        (inheritedPath == null || inheritedPath.isEmpty ? null : inheritedPath);
+    final loaded = Revault._(selectedPath);
     _current = loaded;
     return loaded;
   }
@@ -58,7 +80,12 @@ final class Revault {
         'Call and await Revault.load() before using Vault, Lockbox, or AgentSession.',
       ));
 
-  Revault._() : operations = BindingOperations(RevaultNative()) {
+  Revault._(String? nativeLibraryPath)
+    : operations = BindingOperations(
+        nativeLibraryPath == null
+            ? RevaultNative()
+            : RevaultNative.open(ffi.DynamicLibrary.open(nativeLibraryPath)),
+      ) {
     _current = this;
   }
 

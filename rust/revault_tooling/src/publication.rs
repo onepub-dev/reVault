@@ -258,6 +258,13 @@ fn repair_linux_wheels(wheel_dir: &Path) -> Result {
 
 fn maven(package: &Path, version: &str, publication: &str, publish: bool) -> Result {
     require_text_version(&gradle_manifest(package)?, version)?;
+    if publish && maven_version_is_public(publication, version)? {
+        println!(
+            "already published: dev.onepub:{}:{version}",
+            maven_artifact_id(publication)?
+        );
+        return Ok(());
+    }
     let task = if publish {
         "publishAndReleaseToMavenCentral"
     } else {
@@ -268,6 +275,45 @@ fn maven(package: &Path, version: &str, publication: &str, publish: bool) -> Res
         .arg("-p")
         .arg(package)
         .args(["--no-daemon", task]))
+}
+
+fn maven_artifact_id(publication: &str) -> Result<&'static str> {
+    match publication {
+        "mavenJava" => Ok("revault-api"),
+        "mavenKotlin" => Ok("revault-api-kotlin"),
+        other => Err(format!("unsupported Maven publication: {other}").into()),
+    }
+}
+
+fn maven_package_url(publication: &str, version: &str) -> Result<String> {
+    let artifact = maven_artifact_id(publication)?;
+    Ok(format!(
+        "https://repo1.maven.org/maven2/dev/onepub/{artifact}/{version}/{artifact}-{version}.pom"
+    ))
+}
+
+fn maven_version_is_public(publication: &str, version: &str) -> Result<bool> {
+    let url = maven_package_url(publication, version)?;
+    let null_device = if cfg!(windows) { "NUL" } else { "/dev/null" };
+    let output = Command::new("curl")
+        .args([
+            "--silent",
+            "--output",
+            null_device,
+            "--write-out",
+            "%{http_code}",
+            "--head",
+            &url,
+        ])
+        .output()?;
+    if !output.status.success() {
+        return Err(format!("Maven Central availability check failed: {}", output.status).into());
+    }
+    match String::from_utf8_lossy(&output.stdout).trim() {
+        "200" => Ok(true),
+        "404" => Ok(false),
+        status => Err(format!("Maven Central availability check returned HTTP {status}").into()),
+    }
 }
 
 fn nuget(package: &Path, version: &str, output: &Path, publish: bool) -> Result {
@@ -533,9 +579,22 @@ fn upload_binary_rock(api_key: &str, version_id: u64, rock: &Path) -> Result {
         .build()
         .header("Authorization", &format!("Bearer {api_key}"))
         .send(form)?;
-    let _: serde_json::Value = decode_luarocks_response(response, "binary rock upload")?;
-    println!("published binary rock: {}", rock.display());
+    match decode_luarocks_response::<serde_json::Value>(response, "binary rock upload") {
+        Ok(_) => println!("published binary rock: {}", rock.display()),
+        Err(error) if luarocks_duplicate_error(&error.to_string()) => {
+            println!("already published binary rock: {}", rock.display());
+        }
+        Err(error) => return Err(error),
+    }
     Ok(())
+}
+
+fn luarocks_duplicate_error(error: &str) -> bool {
+    let error = error.to_ascii_lowercase();
+    error.contains("already exists")
+        || error.contains("already uploaded")
+        || error.contains("already present")
+        || error.contains("duplicate")
 }
 
 fn decode_luarocks_response<T: DeserializeOwned>(
@@ -967,6 +1026,20 @@ mod tests {
     }
 
     #[test]
+    fn maven_publication_uses_the_expected_coordinates() {
+        assert_eq!(maven_artifact_id("mavenJava").unwrap(), "revault-api");
+        assert_eq!(
+            maven_artifact_id("mavenKotlin").unwrap(),
+            "revault-api-kotlin"
+        );
+        assert_eq!(
+            maven_package_url("mavenJava", "0.1.0").unwrap(),
+            "https://repo1.maven.org/maven2/dev/onepub/revault-api/0.1.0/revault-api-0.1.0.pom"
+        );
+        assert!(maven_artifact_id("other").is_err());
+    }
+
+    #[test]
     fn luarocks_version_includes_the_rockspec_revision() {
         assert_eq!(luarocks_version("0.1.0"), "0.1.0-1");
     }
@@ -985,6 +1058,15 @@ mod tests {
         let response: LuaRocksErrorResponse =
             serde_json::from_str(r#"{"errors":["first", "second"]}"#).unwrap();
         assert_eq!(response.errors, ["first", "second"]);
+    }
+
+    #[test]
+    fn luarocks_duplicate_errors_are_only_ignored_for_duplicate_messages() {
+        assert!(luarocks_duplicate_error(
+            "LuaRocks binary rock upload failed with HTTP 400: rock already exists"
+        ));
+        assert!(luarocks_duplicate_error("duplicate binary rock"));
+        assert!(!luarocks_duplicate_error("invalid rock format"));
     }
 
     #[test]

@@ -35,6 +35,32 @@ Every package suite must begin with a `NATIVE` evidence record containing the
 target, delivery kind, installed artifact path, SHA-256, and `installed`
 status. The verifier rejects release runs that omit this record. Build-tree
 paths and `REVAULT_LIBRARY` are forbidden in package acceptance jobs.
+
+After the override-free installed-package suite proves packaged discovery, the
+dynamic-binding gate starts a fresh consumer process for every loader branch:
+packaged discovery with the variable absent and empty, an invalid
+`REVAULT_LIBRARY` negative control that must fail rather than fall back, an
+explicit full path with that same invalid variable that must succeed, an
+inherited `REVAULT_LIBRARY`, and an explicit bare name resolved through the
+platform's `LD_LIBRARY_PATH`, `DYLD_LIBRARY_PATH`, or `PATH` search mechanism. These smoke
+checks use the already-installed carrier in place;
+they never copy, rename, replace, or patch a native library. A branch passes
+only after calling the carrier's lockbox-format operation and validating its
+positive result. The failing control followed by the successful explicit-path
+process proves that the explicit argument wins; packaged fallback, loader
+initialization, or diagnostic output alone cannot satisfy the check.
+
+Consumer phases have a five-minute process deadline, and package preparation
+commands have a fifteen-minute deadline. A stalled session-agent child or
+package manager therefore fails with its language and phase instead of holding
+the release runner indefinitely.
+
+Interoperability still verifies both artifact types for every directed,
+non-self language pair. Each installed consumer now opens all fifteen foreign
+producers in one process; the emitted `INTEROP` records retain the consumer,
+producer, artifact type, and assertion count, so batching removes runtime
+startup overhead without reducing the 480-path matrix.
+
 Rust is source-native and emits `SUITE` records for `public_api_suite` and
 `vault_api`, followed by a `SOURCE` record containing the packed `.crate`
 archive hash. It does not emit a fictitious C-library record.

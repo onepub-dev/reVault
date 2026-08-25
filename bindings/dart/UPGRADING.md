@@ -25,6 +25,17 @@ The Dart package now publishes the target-specific carrier through its native
 assets build hook. Both Dart CLI and Flutter builds bundle it automatically;
 the application continues to call `Revault.load()` without a path.
 
+Installers that intentionally keep a single carrier in an application-owned
+location may pass it explicitly:
+
+```dart
+await Revault.load(nativeLibraryPath: '/opt/my_app/lib/librevault_api.so');
+```
+
+This is an installer integration point, not a requirement for ordinary package
+consumers. A launcher may alternatively inherit `REVAULT_LIBRARY`; an explicit
+argument takes precedence, and the package carrier remains the final default.
+
 ## Open the persistent vault
 
 Passphrases and passwords now use `SecretString`, while content and unlock keys

@@ -1423,16 +1423,16 @@ public final class ContactPublicKey: OwnedHandle {}
 /// A content key encrypted for one contact and recoverable by its matching key pair.
 public final class WrappedContactKey: OwnedHandle {}
 
-/// A lockbox owner's signing identity used to authorize mutable revisions.
-public final class SigningKeyPair: OwnedHandle {}
+/// A profile signing identity used to authorize mutable lockbox revisions.
+public final class ProfileSigningKeyPair: OwnedHandle {}
 
-/// The public identity readers use to verify owner-authorized revisions.
-public final class SigningPublicKey: OwnedHandle {}
+/// The public profile identity readers use to verify authorized revisions.
+public final class ProfileSigningPublicKey: OwnedHandle {}
 
 /// Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
 public final class Vault: OwnedHandle {}
 
-/// A metadata view for discovery that never loads an owner signing key.
+/// A metadata view for discovery that never loads private profile signing material.
 public final class ReadOnlyVault: OwnedHandle {}
 
 /// Client for the session service that temporarily caches unlock and signing keys.
@@ -1498,7 +1498,7 @@ public final class Revault {
     }
 
     /// Returns the lockbox create with signing key.
-    public func lockboxCreateWithSigningKey(_ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
+    public func lockboxCreateWithProfileSigningKey(_ contentKey: Data, _ signingKey: ProfileSigningKeyPair) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreateWithSigningKey(contentKey, signingKey.handle!))
     }
 
@@ -1544,7 +1544,7 @@ public final class Revault {
     }
 
     /// Returns the lockbox recovery salvage.
-    public func lockboxRecoverySalvage(_ bytes: Data, _ key: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
+    public func lockboxRecoverySalvage(_ bytes: Data, _ key: Data, _ signingKey: ProfileSigningKeyPair) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxRecoverySalvage(bytes, key, signingKey.handle!))
     }
 
@@ -1563,19 +1563,19 @@ public final class Revault {
         return ContactPublicKey(operations, try operations.keyContactPublicFromBytes(bytes))
     }
 
-    /// Returns the key signing generate.
-    public func keySigningGenerate() throws -> SigningKeyPair {
-        return SigningKeyPair(operations, try operations.keySigningGenerate())
+    /// Generates a profile signing identity.
+    public func generateProfileSigningKeyPair() throws -> ProfileSigningKeyPair {
+        return ProfileSigningKeyPair(operations, try operations.keySigningGenerate())
     }
 
-    /// Returns the key signing from private.
-    public func keySigningFromPrivate(_ bytes: Data) throws -> SigningKeyPair {
-        return SigningKeyPair(operations, try operations.keySigningFromPrivate(bytes))
+    /// Imports a profile signing identity from its private record.
+    public func profileSigningKeyPairFromPrivate(_ bytes: Data) throws -> ProfileSigningKeyPair {
+        return ProfileSigningKeyPair(operations, try operations.keySigningFromPrivate(bytes))
     }
 
-    /// Returns the key signing public from bytes.
-    public func keySigningPublicFromBytes(_ bytes: Data) throws -> SigningPublicKey {
-        return SigningPublicKey(operations, try operations.keySigningPublicFromBytes(bytes))
+    /// Imports a profile signing public key from encoded public bytes.
+    public func profileSigningPublicKeyFromBytes(_ bytes: Data) throws -> ProfileSigningPublicKey {
+        return ProfileSigningPublicKey(operations, try operations.keySigningPublicFromBytes(bytes))
     }
 
     /// Returns the vault key export private.
@@ -2029,7 +2029,7 @@ extension Lockbox {
 
     /// Sets owner signing key.
     @discardableResult
-    public func setOwnerSigningKey(_ key: OwnedHandle) throws -> Bool {
+    public func setOwnerSigningKey(_ key: ProfileSigningKeyPair) throws -> Bool {
         return try operations.lockboxSetOwnerSigningKey(handle!, key.handle!)
     }
 
@@ -2186,19 +2186,27 @@ extension WrappedContactKey {
 }
 
 /// Returns the member.
-extension SigningKeyPair {
+extension ProfileSigningKeyPair {
     /// Returns the public bytes.
     public func publicBytes() throws -> Data {
         return try operations.keySigningPublic(handle!)
     }
 
-    /// Returns the private bytes.
-    public func privateBytes() throws -> Data {
+    /// Returns the private signing-key record for secure binary backup.
+    public func privateRecord() throws -> Data {
         return try operations.keySigningPrivate(handle!)
     }
 
-    /// Releases the native resources held by this object.
-    public func free() throws -> Void {
+    /// Creates an independently owned public verification-key handle.
+    public func publicKey() throws -> ProfileSigningPublicKey {
+        return ProfileSigningPublicKey(
+            operations,
+            try operations.keySigningPublicFromBytes(publicBytes())
+        )
+    }
+
+    /// Wipes and releases the native signing-key handle.
+    public func dispose() throws -> Void {
         try operations.keySigningFree(handle!)
         handle = nil
     }
@@ -2206,9 +2214,9 @@ extension SigningKeyPair {
 }
 
 /// Returns the member.
-extension SigningPublicKey {
-    /// Returns the public free.
-    public func publicFree() throws -> Void {
+extension ProfileSigningPublicKey {
+    /// Releases the native verification-key handle.
+    public func dispose() throws -> Void {
         try operations.keySigningPublicFree(handle!)
         handle = nil
     }
@@ -2332,29 +2340,29 @@ extension Vault {
 
     /// Returns the restore private key.
     @discardableResult
-    public func restorePrivateKey(_ name: String, _ key: OwnedHandle, _ signingKey: OwnedHandle, _ overwrite: Bool) throws -> Bool {
+    public func restorePrivateKey(_ name: String, _ key: OwnedHandle, _ signingKey: ProfileSigningKeyPair, _ overwrite: Bool) throws -> Bool {
         return try operations.vaultDirectoryRestorePrivateKey(handle!, name, key.handle!, signingKey.handle!, overwrite)
     }
 
-    /// Loads owner signing key.
-    public func loadOwnerSigningKey(_ name: String) throws -> SigningKeyPair {
-        return SigningKeyPair(operations, try operations.vaultDirectoryLoadOwnerSigningKey(handle!, name))
+    /// Loads the current profile signing identity.
+    public func loadProfileSigningKey(_ name: String) throws -> ProfileSigningKeyPair {
+        return ProfileSigningKeyPair(operations, try operations.vaultDirectoryLoadOwnerSigningKey(handle!, name))
     }
 
-    /// Loads owner signing key generation.
-    public func loadOwnerSigningKeyGeneration(_ name: String, _ index: UInt16) throws -> SigningKeyPair {
-        return SigningKeyPair(operations, try operations.vaultDirectoryLoadOwnerSigningKeyGeneration(handle!, name, index))
+    /// Loads a historical profile signing identity generation.
+    public func loadProfileSigningKeyGeneration(_ name: String, _ index: UInt16) throws -> ProfileSigningKeyPair {
+        return ProfileSigningKeyPair(operations, try operations.vaultDirectoryLoadOwnerSigningKeyGeneration(handle!, name, index))
     }
 
     /// Stores contact signing key.
     @discardableResult
-    public func storeContactSigningKey(_ name: String, _ key: OwnedHandle) throws -> Bool {
+    public func storeContactSigningKey(_ name: String, _ key: ProfileSigningPublicKey) throws -> Bool {
         return try operations.vaultDirectoryStoreContactSigningKey(handle!, name, key.handle!)
     }
 
     /// Loads contact signing key.
-    public func loadContactSigningKey(_ name: String) throws -> SigningPublicKey {
-        return SigningPublicKey(operations, try operations.vaultDirectoryLoadContactSigningKey(handle!, name))
+    public func loadContactSigningKey(_ name: String) throws -> ProfileSigningPublicKey {
+        return ProfileSigningPublicKey(operations, try operations.vaultDirectoryLoadContactSigningKey(handle!, name))
     }
 
     /// Lists profile generations.
@@ -2562,20 +2570,20 @@ extension AgentSession {
         return try operations.vaultAgentForgetVaultUnlockKey(vaultId)
     }
 
-    /// Returns owner signing key.
-    public func getOwnerSigningKey(_ vaultId: String, _ profile: String) throws -> SigningKeyPair {
-        return SigningKeyPair(operations, try operations.vaultAgentGetOwnerSigningKey(vaultId, profile))
+    /// Returns a profile signing identity cached by the session agent.
+    public func profileSigningKey(_ vaultId: String, _ profile: String) throws -> ProfileSigningKeyPair {
+        return ProfileSigningKeyPair(operations, try operations.vaultAgentGetOwnerSigningKey(vaultId, profile))
     }
 
-    /// Stores owner signing key.
+    /// Caches a profile signing identity for the requested session TTL.
     @discardableResult
-    public func putOwnerSigningKey(_ vaultId: String, _ profile: String, _ key: OwnedHandle, _ ttlSeconds: UInt64) throws -> Bool {
+    public func cacheProfileSigningKey(_ vaultId: String, _ profile: String, _ key: ProfileSigningKeyPair, _ ttlSeconds: UInt64) throws -> Bool {
         return try operations.vaultAgentPutOwnerSigningKey(vaultId, profile, key.handle!, ttlSeconds)
     }
 
-    /// Removes owner signing key.
+    /// Removes one cached profile signing identity.
     @discardableResult
-    public func forgetOwnerSigningKey(_ vaultId: String, _ profile: String) throws -> Bool {
+    public func forgetProfileSigningKey(_ vaultId: String, _ profile: String) throws -> Bool {
         return try operations.vaultAgentForgetOwnerSigningKey(vaultId, profile)
     }
 
@@ -2605,17 +2613,17 @@ extension AgentSession {
     }
 
     /// Creates a signed Lockbox from a content key at a host path.
-    public func createLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
+    public func createLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: ProfileSigningKeyPair) throws -> Lockbox {
         return Lockbox(operations, try operations.vaultCreateLockboxContentKey(localHandle(), path, contentKey, signingKey.handle!))
     }
 
     /// Creates a Lockbox for a contact at a host path.
-    public func createLockboxContact(_ path: String, _ contact: OwnedHandle, _ name: String, _ signingKey: OwnedHandle) throws -> Lockbox {
+    public func createLockboxContact(_ path: String, _ contact: OwnedHandle, _ name: String, _ signingKey: ProfileSigningKeyPair) throws -> Lockbox {
         return Lockbox(operations, try operations.vaultCreateLockboxContact(localHandle(), path, contact.handle!, name, signingKey.handle!))
     }
 
     /// Opens a signed Lockbox from a content key at a host path.
-    public func openLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: OwnedHandle) throws -> Lockbox {
+    public func openLockboxContentKey(_ path: String, _ contentKey: Data, _ signingKey: ProfileSigningKeyPair) throws -> Lockbox {
         return Lockbox(operations, try operations.vaultOpenLockboxContentKey(localHandle(), path, contentKey, signingKey.handle!))
     }
 

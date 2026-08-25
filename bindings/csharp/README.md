@@ -9,14 +9,23 @@ matching native runtime. See the
 dotnet add package Revault.Api --version 0.2.0
 ```
 
+`Revault.Load(nativeLibraryPath)` selects an application-owned carrier.
+Otherwise a non-empty inherited `REVAULT_LIBRARY` is used before NuGet runtime
+asset discovery. A bare library name delegates to the operating-system search
+path. Native selection is process-wide and must happen before the first native
+operation.
+
 The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
 
 ```csharp
 using Revault;
 
 var runtime = Revault.Load(); // loads the installed carrier only
+using var signing = runtime.GenerateProfileSigningKeyPair();
+using var publicSigningKey = signing.PublicKey();
 var vault = runtime.ReplaceVault(root, vaultPassphrase);
 using var box = vault.OpenLockboxWithPassword(path, lockboxPassword);
+box.SetOwnerSigningKey(signing); // the Profile now occupies this Lockbox's owner role
 box.AddFile("/hello.txt", "hello\n"u8.ToArray(), replace: false);
 box.SetVariable("owner", "alice");
 box.SetSecretVariable("token", "secret"u8);

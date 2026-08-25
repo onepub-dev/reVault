@@ -6,7 +6,7 @@ typed reVault domain values while keeping the native transport private. See the
 [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
 
 ```shell
-python -m pip install revault-api==0.2.0
+python -m pip install revault-api
 ```
 
 The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
@@ -15,17 +15,26 @@ The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.m
 from revault_api import Revault, SecretString, Vault
 
 runtime = Revault.load()                 # loading does not open a Vault
+signing = runtime.generate_profile_signing_key_pair()
+public_signing_key = signing.public_key()
 with runtime.lockbox_create(bytes(32)) as box:  # process-local Lockbox
+    box.set_owner_signing_key(signing)  # Profile becomes this Lockbox's owner
     box.add_file("/hello.txt", b"hello\n", False)
     box.set_variable("owner", "alice")
     box.set_secret_variable("token", bytearray(b"secret"))
     size = box.with_secret_variable("token", lambda token: len(token))
     box.commit()
+public_signing_key.close()
+signing.close()
 
 with SecretString("vault passphrase") as vault_passphrase:
     persistent = Vault.open_or_create("/tmp/revault-vault", vault_passphrase)
     persistent.close()
 ```
+
+`Revault.load(native_library_path=...)` opens an application-owned carrier.
+Otherwise a non-empty inherited `REVAULT_LIBRARY` is used before the packaged
+carrier. A bare library name delegates to the operating-system search path.
 
 The value passed to a secret callback is a temporary `bytearray`; it is
 cleared after the callback. Do not convert it to a retained `str` or `bytes`.

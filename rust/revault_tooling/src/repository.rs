@@ -84,6 +84,7 @@ fn check(repository: &Path) -> Result {
     check_registry_quality(&repository)?;
     check_transport_schema(&repository)?;
     check_public_api_documentation(&repository)?;
+    check_removed_facade_types(&repository)?;
     let messages = schema_messages(&repository)?;
     for relative in [
         "bindings/cpp/generated/flatbuffers/revault_bindings_generated.h",
@@ -118,6 +119,52 @@ fn check(repository: &Path) -> Result {
         declarations.len(),
         operations.len()
     );
+    Ok(())
+}
+
+fn check_removed_facade_types(repository: &Path) -> Result {
+    let public_facades = [
+        "bindings/cpp/revault_api.hpp",
+        "bindings/csharp/Vault.cs",
+        "bindings/dart/lib/revault_api.dart",
+        "bindings/go/revault.go",
+        "bindings/java/src/com/onepub/revault/Revault.java",
+        "bindings/javascript/index.js",
+        "bindings/javascript/index.d.ts",
+        "bindings/kotlin/src/main/kotlin/Vault.kt",
+        "bindings/lua/revault_api.lua",
+        "bindings/php/src/Vault.php",
+        "bindings/python/revault_api/__init__.py",
+        "bindings/python/revault_api/facade.py",
+        "bindings/ruby/lib/revault/vault.rb",
+        "bindings/rust/src/lib.rs",
+        "bindings/swift/Sources/RevaultAPI/RevaultAPI.swift",
+        "bindings/wasm/index.js",
+        "bindings/wasm/index.d.ts",
+    ];
+    let removed = [
+        "SigningKeyPair",
+        "SigningPublicKey",
+        "put_profile_signing_key",
+        "get_profile_signing_key",
+        "PutAgentProfileSigningKey",
+        "GetAgentProfileSigningKey",
+    ];
+    for relative in public_facades {
+        let source = fs::read_to_string(repository.join(relative))?;
+        let identifiers = source
+            .split(|value: char| !value.is_ascii_alphanumeric() && value != '_')
+            .collect::<BTreeSet<_>>();
+        for name in removed {
+            if identifiers.contains(name) {
+                return Err(format!(
+                    "{relative} still exposes removed facade name {name}; use the ProfileSigning facade vocabulary"
+                )
+                .into());
+            }
+        }
+    }
+    println!("verified removed signing facade names are absent from all public bindings");
     Ok(())
 }
 

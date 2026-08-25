@@ -163,6 +163,22 @@ native code asset. `Revault.load()` therefore needs no library path or
 environment variable; `dart build cli` and Flutter builds bundle the carrier
 automatically.
 
+An application installer that deliberately maintains one shared carrier can
+open it explicitly without disabling native assets for other applications:
+
+```dart
+await Revault.load(
+  nativeLibraryPath: '/opt/my_app/lib/librevault_api.so',
+);
+```
+
+Resolution order is an explicit path, a non-empty inherited
+`REVAULT_LIBRARY`, then the package carrier. Passing only a library name as the
+explicit or environment value delegates lookup to the operating system's
+standard library search paths. Package acceptance removes `REVAULT_LIBRARY`
+and always exercises the default bundled-carrier path; separate loader tests
+cover every override branch.
+
 Before publishing with `pub_release`, stage all six prebuilt carriers:
 
 ```console

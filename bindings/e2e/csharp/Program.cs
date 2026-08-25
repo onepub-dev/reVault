@@ -4,7 +4,8 @@ using Revault;
 
 static class Conformance
 {
-    static readonly global::Revault.Revault Api = new();
+    static readonly global::Revault.Revault Api = global::Revault.Revault.Load(
+        Environment.GetEnvironmentVariable("REVAULT_E2E_LOAD_PATH"));
     static void Pass(string symbol, int assertions = 1) => Console.WriteLine($"PASS\tcsharp\t{symbol}\t{assertions}");
     static void Check(bool value, string message) { if (!value) throw new Exception(message); }
     static byte[] Bytes(string value) => Encoding.UTF8.GetBytes(value);
@@ -93,11 +94,11 @@ static class Conformance
             Pass("key_contact_public_free", 2); Pass("key_contact_free", 3);
         }
         var plain = Api.HexEncode(content); Check(Api.HexDecode(plain).SequenceEqual(content), "plain hex"); Pass("vault_key_hex_encode", 2); Pass("vault_key_hex_decode", 2);
-        using (var signing = Api.GenerateSigningKeyPair())
+        using (var signing = Api.GenerateProfileSigningKeyPair())
         {
             Pass("key_signing_generate"); var privateKey = signing.PrivateRecord(); var publicKey = signing.PublicBytes(); Check(privateKey.Length > 0 && publicKey.Length > 0, "signing");
-            Pass("key_signing_private", 2); Pass("key_signing_public", 2); using (var copy = Api.SigningKeyPairFromPrivate(privateKey)) Check(copy.PublicBytes().Length > 0, "copy"); Pass("key_signing_from_private");
-            using (var key = Api.SigningPublicKeyFromBytes(publicKey)) Check(key != null, "public key"); Pass("key_signing_public_from_bytes"); Pass("key_signing_public_free", 2);
+            Pass("key_signing_private", 2); Pass("key_signing_public", 2); using (var copy = Api.ProfileSigningKeyPairFromPrivate(privateKey)) Check(copy.PublicBytes().Length > 0, "copy"); Pass("key_signing_from_private");
+            using (var key = Api.ProfileSigningPublicKeyFromBytes(publicKey)) Check(key != null, "public key"); Pass("key_signing_public_from_bytes"); Pass("key_signing_public_free", 2);
         }
         Pass("key_signing_free", 3);
     }
@@ -119,7 +120,7 @@ static class Conformance
         Pass("lockbox_get_form_record"); Pass("lockbox_get_form_field"); Pass("lockbox_list_form_records");
         box.MoveFormRecords(new[] { new PathMove("/account.form", "/moved.form") }); Check(box.GetFormRecord("/moved.form")!.Values.Count == 2, "moved record");
         box.MoveFormRecords(new[] { new PathMove("/moved.form", "/account.form") }); Pass("lockbox_move_form_records", 3);
-        using var signing = Api.GenerateSigningKeyPair(); using var contact = Api.GenerateContactKeyPair(); using var publicKey = contact.PublicKey();
+        using var signing = Api.GenerateProfileSigningKeyPair(); using var contact = Api.GenerateContactKeyPair(); using var publicKey = contact.PublicKey();
         box.SetOwnerSigningKey(signing); Pass("lockbox_set_owner_signing_key"); var passwordSlot = box.AddPassword(Bytes("archive password")); Pass("lockbox_add_password");
         var contactSlot = box.AddContact(publicKey, "recipient"); Check(contactSlot != ulong.MaxValue, "slot"); Pass("lockbox_add_contact"); Check(box.ListKeySlots().Count >= 2, "slots"); Pass("lockbox_list_key_slots");
         box.DeleteKey(passwordSlot); Pass("lockbox_delete_key"); box.Commit(); Check(box.OwnerInspection().Signed, "owner"); Pass("lockbox_owner_inspection", 2);
@@ -135,7 +136,7 @@ static class Conformance
         Pass("lockbox_create_password"); using (var opened = Api.OpenLockboxWithPassword(passwordArchive, Bytes("archive password"))) Check(opened.GetFile("/password.txt").SequenceEqual(Bytes("password protected")), "password open"); Pass("lockbox_open_password", 2);
         byte[] contactArchive; using (var contactBox = Api.CreateLockboxForContact(publicKey)) { contactBox.AddFile("/contact.txt", Bytes("contact protected")); contactBox.Commit(); contactArchive = contactBox.Bytes; }
         Pass("lockbox_create_contact"); using (var opened = Api.OpenLockboxForContact(contactArchive, contact)) Check(opened.GetFile("/contact.txt").SequenceEqual(Bytes("contact protected")), "contact open"); Pass("lockbox_open_contact", 2);
-        using (var signed = Api.CreateSignedLockbox(key, signing)) { signed.Commit(); Check(signed.OwnerInspection().Signed, "signed"); } Pass("lockbox_create_with_signing_key", 2);
+        using (var signed = Api.CreateLockboxWithProfileSigningKey(key, signing)) { signed.Commit(); Check(signed.OwnerInspection().Signed, "signed"); } Pass("lockbox_create_with_signing_key", 2);
         var extract = Path.Combine(Root(), "extract"); if (Directory.Exists(extract)) Directory.Delete(extract, true); Directory.CreateDirectory(extract);
         var extracted = Path.Combine(extract, "account.txt"); box.ExtractFile("/account.txt", extracted); Check(File.Exists(extracted), "extract file"); Pass("lockbox_extract_file", 2);
         var tree = Path.Combine(extract, "tree"); Directory.CreateDirectory(tree); box.ExtractDirectory(tree, 1 << 20, 4 << 20, 100, false, true, false); Check(Directory.Exists(tree), "extract dir"); Pass("lockbox_extract_directory", 2);
@@ -146,7 +147,7 @@ static class Conformance
     {
         var root = Path.Combine(Root(), "vault"); Directory.CreateDirectory(root); var password = Bytes("vault password"); var changed = Bytes("new vault password");
         var id = Enumerable.Range(0, 16).Select(i => (byte)(0xa0 + i)).ToArray(); using var profile = Api.GenerateContactKeyPair(); using var contact = Api.GenerateContactKeyPair();
-        using var contactPublic = contact.PublicKey(); using var owner = Api.GenerateSigningKeyPair(); using var ownerPublic = owner.PublicKey();
+        using var contactPublic = contact.PublicKey(); using var owner = Api.GenerateProfileSigningKeyPair(); using var ownerPublic = owner.PublicKey();
         using (var vault = Api.ReplaceVault(root, password))
         {
             Pass("vault_directory_replace"); Console.WriteLine($"ARTIFACT\tcsharp\tvault-created\t{root}"); Check(vault.Root == root && vault.StructureVersion > 0, "vault"); Pass("vault_directory_root", 3); Pass("vault_directory_structure_version");
@@ -155,7 +156,7 @@ static class Conformance
             Pass("vault_directory_store_private_key"); Pass("vault_directory_private_key_exists"); Pass("vault_directory_load_private_key"); Pass("vault_directory_load_private_key_generation");
             vault.StoreProfileEmail("alice", "alice@example.test"); Check(vault.ProfileEmail("alice") != null, "email"); Pass("vault_directory_store_profile_email"); Pass("vault_directory_profile_email", 3);
             Check(vault.ListProfileGenerations("alice").Generations.Count == 1, "history"); Check(vault.RotatePrivateKey("alice").Generations.Count == 2, "rotate"); Pass("vault_directory_list_profile_generations"); Pass("vault_directory_rotate_private_key");
-            using (var loaded = vault.LoadOwnerSigningKey("alice")) Check(loaded.PublicBytes().Length > 0, "owner"); using (var loaded = vault.LoadOwnerSigningKeyGeneration("alice", 1)) Check(loaded.PublicBytes().Length > 0, "owner gen"); Pass("vault_directory_load_owner_signing_key"); Pass("vault_directory_load_owner_signing_key_generation");
+            using (var loaded = vault.LoadProfileSigningKey("alice")) Check(loaded.PublicBytes().Length > 0, "profile"); using (var loaded = vault.LoadProfileSigningKeyGeneration("alice", 1)) Check(loaded.PublicBytes().Length > 0, "profile gen"); Pass("vault_directory_load_owner_signing_key"); Pass("vault_directory_load_owner_signing_key_generation");
             vault.StoreContact("bob", contactPublic); Check(vault.ContactExists("bob"), "contact"); using (var loaded = vault.LoadContact("bob")) Check(loaded.Fingerprint().Length > 0, "load contact"); Check(vault.ListContacts().Count == 1, "contacts");
             Pass("vault_directory_store_contact"); Pass("vault_directory_contact_exists"); Pass("vault_directory_load_contact"); Pass("vault_directory_list_contacts");
             vault.StoreContactSigningKey("bob", ownerPublic); using (var loaded = vault.LoadContactSigningKey("bob")) Check(loaded != null, "signing contact"); Pass("vault_directory_store_contact_signing_key"); Pass("vault_directory_load_contact_signing_key");
@@ -195,9 +196,9 @@ static class Conformance
         var id = Enumerable.Range(0, 16).Select(i => (byte)(0xc0 + i)).ToArray(); var key = Enumerable.Range(0, 32).Select(i => (byte)(0x20 + i)).ToArray();
         Api.PutAgentKey(id, key); Check(Api.GetAgentKey(id).SequenceEqual(key) && Api.ListAgentKeys().Count > 0, "agent key"); Pass("vault_agent_put"); Pass("vault_agent_get", 3); Pass("vault_agent_list");
         Api.PutAgentVaultUnlockKey("vault-id", key, 120); Check(Api.GetAgentVaultUnlockKey("vault-id").SequenceEqual(key), "vault key"); Pass("vault_agent_put_vault_unlock_key"); Pass("vault_agent_get_vault_unlock_key", 3);
-        using (var owner = Api.GenerateSigningKeyPair())
+        using (var owner = Api.GenerateProfileSigningKeyPair())
         {
-            Api.PutAgentOwnerSigningKey("vault-id", "alice", owner, 120); using (var loaded = Api.GetAgentOwnerSigningKey("vault-id", "alice")) Check(loaded.PublicBytes().Length > 0, "owner"); Pass("vault_agent_put_owner_signing_key"); Pass("vault_agent_get_owner_signing_key");
+            Api.CacheProfileSigningKey("vault-id", "alice", owner, 120); using (var loaded = Api.ProfileSigningKey("vault-id", "alice")) Check(loaded.PublicBytes().Length > 0, "profile"); Pass("vault_agent_put_owner_signing_key"); Pass("vault_agent_get_owner_signing_key");
             using (Api.BeginAgentActivity("open")) Pass("vault_agent_begin_activity"); Pass("vault_agent_end_activity"); Check(Api.AgentSleepSupport() != null, "sleep"); Pass("vault_agent_sleep_support");
             Check(Api.AgentLogPath.Length > 0 && Api.AgentLogDestination.Length > 0, "logs"); Pass("vault_agent_log_path", 2); Pass("vault_agent_log_destination", 2);
             using (var local = Api.OpenLockboxSession())
@@ -212,7 +213,7 @@ static class Conformance
             }
             Pass("vault_free");
         }
-        Api.ForgetAgentOwnerSigningKey("vault-id", "alice"); Api.ForgetAgentVaultUnlockKey("vault-id"); Api.ForgetAgentKey(id); Pass("vault_agent_forget_owner_signing_key"); Pass("vault_agent_forget_vault_unlock_key"); Pass("vault_agent_forget"); Api.StopAgent(); Pass("vault_agent_stop"); child.WaitForExit(); Check(child.ExitCode == 0, "agent child");
+        Api.ForgetProfileSigningKey("vault-id", "alice"); Api.ForgetAgentVaultUnlockKey("vault-id"); Api.ForgetAgentKey(id); Pass("vault_agent_forget_owner_signing_key"); Pass("vault_agent_forget_vault_unlock_key"); Pass("vault_agent_forget"); Api.StopAgent(); Pass("vault_agent_stop"); child.WaitForExit(); Check(child.ExitCode == 0, "agent child");
     }
 
     static void Platform()
@@ -229,7 +230,8 @@ static class Conformance
 
     static void Main(string[] args)
     {
+        if (Environment.GetEnvironmentVariable("REVAULT_E2E_LOADER_SMOKE") is string loaderMode) { var version = Api.LockboxFormatVersion; Check(version > 0, "loader native round trip"); Console.WriteLine($"LOADER\tcsharp\t{loaderMode}\t{version}"); return; }
         if (args is ["--serve-agent"]) { Api.ServeAgent(); return; } if (args is ["--agent"]) { AgentAndLocal(); return; } if (args is ["--platform"]) { Platform(); return; } if (args is ["--default"]) { DefaultVault(); return; }
-        if (args is ["--interop", var producer]) { Interop(producer); return; } ArchiveLifecycle(); KeyLifecycle(); AdvancedArchive(); VaultLifecycle(); _ = Api.LastError; Pass("buffer_last_error");
+        if (args.Length >= 2 && args[0] == "--interop") { foreach (var producer in args[1..]) Interop(producer); return; } ArchiveLifecycle(); KeyLifecycle(); AdvancedArchive(); VaultLifecycle(); _ = Api.LastError; Pass("buffer_last_error");
     }
 }

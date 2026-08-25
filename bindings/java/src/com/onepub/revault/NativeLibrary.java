@@ -11,6 +11,18 @@ final class NativeLibrary {
   private NativeLibrary() {}
 
   static String resolve() {
+    return resolve(null);
+  }
+
+  static String resolve(String explicitPath) {
+    if (explicitPath != null) {
+      if (explicitPath.isEmpty()) {
+        throw new IllegalArgumentException("nativeLibraryPath must not be empty");
+      }
+      return explicitPath;
+    }
+    String inherited = System.getenv("REVAULT_LIBRARY");
+    if (inherited != null && !inherited.isEmpty()) return inherited;
     String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
     String arch = System.getProperty("os.arch").toLowerCase(Locale.ROOT);
     String cpu = switch (arch) {

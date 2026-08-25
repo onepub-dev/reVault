@@ -23,9 +23,16 @@ final class Revault
     private readonly Platform $platform;
 
     /** Returns the construct. */
-    public function __construct()
+    public function __construct(?string $nativeLibraryPath = null)
     {
-        $this->operations = BindingOperations::load(self::nativeLibrary());
+        if ($nativeLibraryPath === '') {
+            throw new \InvalidArgumentException('nativeLibraryPath must not be empty');
+        }
+        $inherited = getenv('REVAULT_LIBRARY');
+        $selected = $nativeLibraryPath
+            ?? (is_string($inherited) && $inherited !== '' ? $inherited : null)
+            ?? self::nativeLibrary();
+        $this->operations = BindingOperations::load($selected);
         $this->agent = new Agent($this->operations); $this->platform = new Platform($this->operations);
     }
 
@@ -52,7 +59,8 @@ final class Revault
     public function agent(): Agent { return $this->agent; }
     /** Returns the platform. */
     public function platform(): Platform { return $this->platform; }
-    public static function load(): self { return new self(); }
+    public static function load(?string $nativeLibraryPath = null): self
+    { return new self($nativeLibraryPath); }
     public static function runtime(): self { return new self(); }
     public static function agentSession(): AgentSession
     { $runtime = new self(); return new AgentSession($runtime->operations); }
@@ -170,21 +178,21 @@ final class Revault
     }
 
     /** Returns the key signing generate. */
-    public function keySigningGenerate(): SigningKeyPair
+    public function generateProfileSigningKeyPair(): ProfileSigningKeyPair
     {
-        return new SigningKeyPair($this->operations, $this->operations->keySigningGenerate());
+        return new ProfileSigningKeyPair($this->operations, $this->operations->keySigningGenerate());
     }
 
     /** Returns the key signing from private. */
-    public function keySigningFromPrivate(string $bytes): SigningKeyPair
+    public function profileSigningKeyPairFromPrivate(string $bytes): ProfileSigningKeyPair
     {
-        return new SigningKeyPair($this->operations, $this->operations->keySigningFromPrivate($bytes));
+        return new ProfileSigningKeyPair($this->operations, $this->operations->keySigningFromPrivate($bytes));
     }
 
     /** Returns the key signing public from bytes. */
-    public function keySigningPublicFromBytes(string $bytes): SigningPublicKey
+    public function profileSigningPublicKeyFromBytes(string $bytes): ProfileSigningPublicKey
     {
-        return new SigningPublicKey($this->operations, $this->operations->keySigningPublicFromBytes($bytes));
+        return new ProfileSigningPublicKey($this->operations, $this->operations->keySigningPublicFromBytes($bytes));
     }
 
     /** Returns the vault key export private. */
@@ -822,14 +830,14 @@ class Lockbox extends OwnedHandle
 class ContactKeyPair extends OwnedHandle
 {
 
-    /** Returns the public. */
-    public function public(): string
+    /** Returns the canonical public bytes paired with this identity. */
+    public function publicBytes(): string
     {
         return $this->operations->keyContactPublic($this->handle);
     }
 
-    /** Returns the private. */
-    public function private(): string
+    /** Returns the private signing-key record for secure binary backup. */
+    public function privateRecord(): string
     {
         return $this->operations->keyContactPrivate($this->handle);
     }
@@ -896,8 +904,8 @@ class WrappedContactKey extends OwnedHandle
 
 }
 
-/** A lockbox owner's signing identity used to authorize mutable revisions. */
-class SigningKeyPair extends OwnedHandle
+/** A Vault Profile signing identity used to authorize mutable Lockbox revisions. */
+class ProfileSigningKeyPair extends OwnedHandle
 {
 
     /** Returns the public. */
@@ -912,6 +920,15 @@ class SigningKeyPair extends OwnedHandle
         return $this->operations->keySigningPrivate($this->handle);
     }
 
+    /** Creates an independently owned public verification-key handle. */
+    public function publicKey(): ProfileSigningPublicKey
+    {
+        return new ProfileSigningPublicKey(
+            $this->operations,
+            $this->operations->keySigningPublicFromBytes($this->public()),
+        );
+    }
+
     /** Releases the native resources held by this object. */
     public function free(): void
     {
@@ -920,12 +937,12 @@ class SigningKeyPair extends OwnedHandle
 
 }
 
-/** The public identity readers use to verify owner-authorized lockbox revisions. */
-class SigningPublicKey extends OwnedHandle
+/** The public half of a Vault Profile signing identity. */
+class ProfileSigningPublicKey extends OwnedHandle
 {
 
-    /** Returns the public free. */
-    public function publicFree(): void
+    /** Releases the native resources held by this object. */
+    public function free(): void
     {
         $this->operations->keySigningPublicFree($this->handle);
     }
@@ -1069,15 +1086,15 @@ class VaultStore extends OwnedHandle
     }
 
     /** Loads owner signing key. */
-    public function loadOwnerSigningKey(string $name): SigningKeyPair
+    public function loadProfileSigningKey(string $name): ProfileSigningKeyPair
     {
-        return new SigningKeyPair($this->operations, $this->operations->vaultDirectoryLoadOwnerSigningKey($this->handle, $name));
+        return new ProfileSigningKeyPair($this->operations, $this->operations->vaultDirectoryLoadOwnerSigningKey($this->handle, $name));
     }
 
     /** Loads owner signing key generation. */
-    public function loadOwnerSigningKeyGeneration(string $name, int $index): SigningKeyPair
+    public function loadProfileSigningKeyGeneration(string $name, int $index): ProfileSigningKeyPair
     {
-        return new SigningKeyPair($this->operations, $this->operations->vaultDirectoryLoadOwnerSigningKeyGeneration($this->handle, $name, $index));
+        return new ProfileSigningKeyPair($this->operations, $this->operations->vaultDirectoryLoadOwnerSigningKeyGeneration($this->handle, $name, $index));
     }
 
     /** Stores contact signing key. */
@@ -1087,9 +1104,9 @@ class VaultStore extends OwnedHandle
     }
 
     /** Loads contact signing key. */
-    public function loadContactSigningKey(string $name): SigningPublicKey
+    public function loadContactSigningKey(string $name): ProfileSigningPublicKey
     {
-        return new SigningPublicKey($this->operations, $this->operations->vaultDirectoryLoadContactSigningKey($this->handle, $name));
+        return new ProfileSigningPublicKey($this->operations, $this->operations->vaultDirectoryLoadContactSigningKey($this->handle, $name));
     }
 
     /** Lists profile generations. */
@@ -1327,20 +1344,20 @@ class Agent
         return $this->operations->vaultAgentForgetVaultUnlockKey($vaultId);
     }
 
-    /** Returns owner signing key. */
-    public function getOwnerSigningKey(string $vaultId, string $profile): SigningKeyPair
+    /** Returns the cached signing identity for a Vault Profile. */
+    public function profileSigningKey(string $vaultId, string $profile): ProfileSigningKeyPair
     {
-        return new SigningKeyPair($this->operations, $this->operations->vaultAgentGetOwnerSigningKey($vaultId, $profile));
+        return new ProfileSigningKeyPair($this->operations, $this->operations->vaultAgentGetOwnerSigningKey($vaultId, $profile));
     }
 
-    /** Stores owner signing key. */
-    public function putOwnerSigningKey(string $vaultId, string $profile, OwnedHandle $key, int $ttlSeconds): bool
+    /** Caches a signing identity for a Vault Profile. */
+    public function cacheProfileSigningKey(string $vaultId, string $profile, OwnedHandle $key, int $ttlSeconds): bool
     {
         return $this->operations->vaultAgentPutOwnerSigningKey($vaultId, $profile, $key->nativeHandle(), $ttlSeconds);
     }
 
-    /** Removes owner signing key. */
-    public function forgetOwnerSigningKey(string $vaultId, string $profile): bool
+    /** Removes a cached signing identity for a Vault Profile. */
+    public function forgetProfileSigningKey(string $vaultId, string $profile): bool
     {
         return $this->operations->vaultAgentForgetOwnerSigningKey($vaultId, $profile);
     }
@@ -1541,6 +1558,3 @@ final class LockboxWorkload { public const INTERACTIVE = 'interactive', BULK_IMP
 final class LockboxWorker { public const AUTO = 'auto', SINGLE = 'single', THREADS = 'threads'; }
 final class AgentActivityKind { public const OPEN = 'open', CLOSE = 'close', VARIABLES = 'variables', FORM = 'form', RECOVERY = 'recovery', VAULT = 'vault'; }
 final class KeyExportFormat { public const LOCKBOX_PEM = 'lockbox-pem', JWK = 'jwk', JWKS = 'jwks', RAW_HEX = 'raw-hex'; }
-
-class_alias(SigningKeyPair::class, __NAMESPACE__ . '\\ProfileSigningKeyPair');
-class_alias(SigningPublicKey::class, __NAMESPACE__ . '\\ProfileSigningPublicKey');

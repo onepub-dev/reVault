@@ -13,13 +13,18 @@ The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.m
 
 ```swift
 let runtime = Revault()
+let signing = try runtime.generateProfileSigningKeyPair()
+let publicSigningKey = try signing.publicKey()
 let box = try runtime.lockboxCreate(Data(repeating: 0, count: 32))
+try box.setOwnerSigningKey(signing) // Profile becomes this Lockbox's owner
 try box.addFile("/hello.txt", Data("hello\n".utf8), false)
 try box.setVariable("owner", "alice")
 try box.setSecretVariable("token", Data("secret".utf8))
 try box.withSecretVariable("token") { token in token.count }
 try box.commit()
 try box.free()
+try publicSigningKey.dispose()
+try signing.dispose()
 ```
 
 `Revault()` loads the installed runtime facade; loading does not open a Vault or

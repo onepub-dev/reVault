@@ -21,6 +21,22 @@ public final class AgentSession {
   /** Forgets every temporary key held by the agent. */
   public void closeAll() { runtime.forgetAllAgentSecrets(); }
 
+  /** Caches a profile signing identity for the requested session TTL. */
+  public void cacheProfileSigningKey(String vaultId, String profile,
+      Revault.ProfileSigningKeyPair key, long ttlSeconds) {
+    runtime.cacheProfileSigningKey(vaultId, profile, key, ttlSeconds);
+  }
+
+  /** Returns a profile signing identity cached by the session agent. */
+  public Revault.ProfileSigningKeyPair profileSigningKey(String vaultId, String profile) {
+    return runtime.profileSigningKey(vaultId, profile);
+  }
+
+  /** Forgets one cached profile signing identity. */
+  public void forgetProfileSigningKey(String vaultId, String profile) {
+    runtime.forgetProfileSigningKey(vaultId, profile);
+  }
+
   /** Begins a scoped activity and releases it with try-with-resources. */
   public Revault.AgentActivity beginActivity(ActivityKind kind) {
     return runtime.beginAgentActivity(kind.name());

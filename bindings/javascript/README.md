@@ -6,8 +6,14 @@ returns documented reVault domain values while keeping its binary transport priv
 [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
 
 ```shell
-npm install @onepub-dev/revault-api@0.2.0
+npm install @onepub-dev/revault-api
 ```
+
+`Revault.load(nativeLibraryPath)` selects an application-owned carrier.
+Otherwise a non-empty inherited `REVAULT_LIBRARY` is used before the matching
+npm native-carrier package. A bare library name delegates to the
+operating-system search path. Native selection is process-wide and must happen
+before the first native operation.
 
 The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
 
@@ -15,13 +21,17 @@ The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.m
 import { Revault, SecretString, Vault } from '@onepub-dev/revault-api';
 
 const runtime = await Revault.load(); // loading does not open a Vault
+const signing = runtime.generateProfileSigningKeyPair();
+const publicSigningKey = signing.publicKey();
 const box = runtime.lockboxCreate(Buffer.alloc(32)); // process-local Lockbox
+box.setOwnerSigningKey(signing); // the Profile now occupies this Lockbox's owner role
 box.addFile('/hello.txt', Buffer.from('hello\n'), false);
 box.setVariable('owner', 'alice');
 box.setSecretVariable('token', Buffer.from('secret'));
 box.withSecretVariable('token', token => token.length);
 box.commit();
 box.free();
+publicSigningKey.dispose(); signing.dispose();
 
 const vaultPassphrase = new SecretString('vault passphrase');
 const persistent = Vault.openOrCreate('/tmp/revault-vault', vaultPassphrase);

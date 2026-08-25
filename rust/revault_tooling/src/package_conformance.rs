@@ -5,6 +5,8 @@ use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::thread;
+use std::time::{Duration, Instant};
 use walkdir::WalkDir;
 
 #[derive(Args)]
@@ -245,15 +247,17 @@ fn prepare_c(cpp: bool, repository: &Path, work: &Path, archive: &Path) -> Resul
     let install = crate::release::install_archive(archive, &work.join("installed-sdk"))?;
     let prefix = install.prefix;
     if cpp {
-        run_status(
-            Command::new("cmake")
-                .args(["-S"])
-                .arg(repository.join("bindings/cpp"))
-                .args(["-B"])
-                .arg(work.join("cpp-api"))
-                .arg(format!("-DCMAKE_PREFIX_PATH={}", prefix.display()))
-                .arg("-DCMAKE_BUILD_TYPE=Release"),
-        )?;
+        let mut configure = Command::new("cmake");
+        configure
+            .args(["-S"])
+            .arg(repository.join("bindings/cpp"))
+            .args(["-B"])
+            .arg(work.join("cpp-api"))
+            .arg(format!("-DCMAKE_PREFIX_PATH={}", prefix.display()));
+        if !cfg!(windows) {
+            configure.arg("-DCMAKE_BUILD_TYPE=Release");
+        }
+        run_status(&mut configure)?;
         run_status(
             Command::new("cmake")
                 .arg("--build")
@@ -278,15 +282,17 @@ fn prepare_c(cpp: bool, repository: &Path, work: &Path, archive: &Path) -> Resul
     } else {
         "c-conformance"
     });
-    run_status(
-        Command::new("cmake")
-            .args(["-S"])
-            .arg(repository.join(source))
-            .args(["-B"])
-            .arg(&build)
-            .arg(format!("-DCMAKE_PREFIX_PATH={}", prefix.display()))
-            .arg("-DCMAKE_BUILD_TYPE=Release"),
-    )?;
+    let mut configure = Command::new("cmake");
+    configure
+        .args(["-S"])
+        .arg(repository.join(source))
+        .args(["-B"])
+        .arg(&build)
+        .arg(format!("-DCMAKE_PREFIX_PATH={}", prefix.display()));
+    if !cfg!(windows) {
+        configure.arg("-DCMAKE_BUILD_TYPE=Release");
+    }
+    run_status(&mut configure)?;
     run_status(
         Command::new("cmake")
             .arg("--build")
@@ -942,7 +948,24 @@ fn esbuild_platform_package() -> Result<&'static str> {
 
 fn run_status(command: &mut Command) -> Result {
     let display = format!("{command:?}");
-    let status = command.status()?;
+    let mut child = command.spawn()?;
+    let timeout = Duration::from_secs(900);
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break status;
+        }
+        if Instant::now() >= deadline {
+            child.kill()?;
+            child.wait()?;
+            return Err(format!(
+                "package preparation timed out after {} seconds: {display}",
+                timeout.as_secs()
+            )
+            .into());
+        }
+        thread::sleep(Duration::from_millis(100));
+    };
     if status.success() {
         Ok(())
     } else {

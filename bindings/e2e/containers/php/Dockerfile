@@ -1,13 +1,4 @@
-FROM rust:1.95-bookworm AS native
-RUN apt-get update && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-WORKDIR /workspace
-COPY . .
-RUN cd rust && cargo build --locked --release -p revault_bindings -p revault_tooling
-RUN rust/target/release/revault-tool release package-native --repository . \
-      --version 0.2.0 --target linux-x86_64-gnu \
-      --library rust/target/release/librevault_api.so \
-      --static-library rust/target/release/librevault_api.a --output /tmp/native
+FROM revault-e2e-native:local AS native
 
 FROM composer:2 AS composer
 

@@ -1,6 +1,9 @@
 .git
 .codex
+.history
+.worktrees
 target
+build
 **/target
 rust/target
 rust/revault_lockbox_api/target

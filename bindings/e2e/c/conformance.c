@@ -1528,8 +1528,8 @@ int main(int argc, char **argv) {
     platform_secret_store();
     return 0;
   }
-  if (argc == 3 && strcmp(argv[1], "--interop") == 0) {
-    interop_open(argv[2]);
+  if (argc >= 3 && strcmp(argv[1], "--interop") == 0) {
+    for (int index = 2; index < argc; index++) interop_open(argv[index]);
     return 0;
   }
   if (argc == 2 && strcmp(argv[1], "--core") == 0) {

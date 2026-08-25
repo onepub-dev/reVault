@@ -7,7 +7,11 @@ namespace Revault;
 /// <summary>Generated complete, typed C# surface for every exported operation.</summary>
 internal sealed class BindingOperations
 {
-    public BindingOperations() { if (RevaultNative.api_abi_version() != 3) throw new DllNotFoundException("revault-api native ABI mismatch; expected 3"); }
+    public BindingOperations()
+    {
+        NativeLibraryResolver.MarkUsed();
+        if (RevaultNative.api_abi_version() != 3) throw new DllNotFoundException("revault-api native ABI mismatch; expected 3");
+    }
     private static string LastError() => Marshal.PtrToStringUTF8(RevaultNative.buffer_last_error()) ?? "native operation failed";
     private static bool Require(bool value) { if (!value) throw new RevaultException(LastError()); return true; }
     private static IntPtr Require(IntPtr value) { if (value == IntPtr.Zero) throw new RevaultException(LastError()); return value; }

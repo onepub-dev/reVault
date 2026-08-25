@@ -8,11 +8,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
 
 /** Full Java end-to-end conformance runner. Every PASS follows a real API call. */
 public final class Conformance {
   private static final String LANGUAGE = System.getenv().getOrDefault("REVAULT_E2E_LANGUAGE", "java");
-  private static final Revault API = new Revault();
+  private static final Revault API = Revault.load(System.getenv("REVAULT_E2E_LOAD_PATH"));
 
   private static void pass(String symbol, int... assertions) {
     System.out.printf("PASS\t%s\t%s\t%d%n", LANGUAGE, symbol, assertions.length == 0 ? 1 : assertions[0]);
@@ -153,14 +154,14 @@ public final class Conformance {
     }
     var plainHex = API.hexEncode(content); check(Arrays.equals(API.hexDecode(plainHex), content), "plain hex");
     pass("vault_key_hex_encode", 2); pass("vault_key_hex_decode", 2);
-    try (var signing = API.generateSigningKeyPair()) {
+    try (var signing = API.generateProfileSigningKeyPair()) {
       pass("key_signing_generate");
       var privateRecord = signing.privateRecord(); var publicRecord = signing.publicBytes();
       check(privateRecord.length > 0 && publicRecord.length > 0, "signing records");
       pass("key_signing_private", 2); pass("key_signing_public", 2);
-      try (var copy = API.signingKeyPairFromPrivate(privateRecord)) { check(copy.publicBytes().length > 0, "signing copy"); }
+      try (var copy = API.profileSigningKeyPairFromPrivate(privateRecord)) { check(copy.publicBytes().length > 0, "signing copy"); }
       pass("key_signing_from_private");
-      try (var publicKey = API.signingPublicKey(publicRecord)) { check(publicKey != null, "signing public"); }
+      try (var publicKey = API.profileSigningPublicKeyFromBytes(publicRecord)) { check(publicKey != null, "signing public"); }
       pass("key_signing_public_from_bytes"); pass("key_signing_public_free", 2);
     }
     pass("key_signing_free", 3);
@@ -193,7 +194,7 @@ public final class Conformance {
       check(box.getFormRecord("/moved.form").values().size() == 2, "moved record");
       box.moveFormRecords(java.util.List.of(new PathMove("/moved.form", "/account.form")));
       pass("lockbox_move_form_records", 3);
-      try (var signing = API.generateSigningKeyPair(); var contact = API.generateContactKeyPair();
+      try (var signing = API.generateProfileSigningKeyPair(); var contact = API.generateContactKeyPair();
            var publicKey = contact.publicKey()) {
         box.setOwnerSigningKey(signing); pass("lockbox_set_owner_signing_key");
         long passwordSlot = box.addPassword("archive password".getBytes());
@@ -242,7 +243,7 @@ public final class Conformance {
           }
           pass("lockbox_open_contact", 2);
         }
-        try (var signed = API.createSignedLockbox(key, signing)) {
+        try (var signed = API.createLockboxWithProfileSigningKey(key, signing)) {
           signed.commit(); check(signed.ownerInspection().signed(), "signed box");
         }
         pass("lockbox_create_with_signing_key", 2);
@@ -263,7 +264,7 @@ public final class Conformance {
     var password = "vault password".getBytes(); var newPassword = "new vault password".getBytes();
     var id = new byte[16]; for (int i = 0; i < id.length; i++) id[i] = (byte) (0xa0 + i);
     try (var profile = API.generateContactKeyPair(); var contact = API.generateContactKeyPair();
-         var contactPublic = contact.publicKey(); var owner = API.generateSigningKeyPair();
+         var contactPublic = contact.publicKey(); var owner = API.generateProfileSigningKeyPair();
          var ownerPublic = owner.publicKey()) {
       try (var vault = API.replaceVault(root.toString(), password)) {
         pass("vault_directory_replace");
@@ -286,8 +287,8 @@ public final class Conformance {
         check(vault.listProfileGenerations("alice").generations().size() == 1, "history");
         check(vault.rotatePrivateKey("alice").generations().size() == 2, "rotation");
         pass("vault_directory_list_profile_generations"); pass("vault_directory_rotate_private_key");
-        try (var loaded = vault.loadOwnerSigningKey("alice");
-             var generation = vault.loadOwnerSigningKeyGeneration("alice", 1)) {
+        try (var loaded = vault.loadProfileSigningKey("alice");
+             var generation = vault.loadProfileSigningKeyGeneration("alice", 1)) {
           check(loaded.publicBytes().length > 0 && generation.publicBytes().length > 0, "owner");
         }
         pass("vault_directory_load_owner_signing_key"); pass("vault_directory_load_owner_signing_key_generation");
@@ -413,9 +414,9 @@ public final class Conformance {
     pass("vault_agent_put"); pass("vault_agent_get", 3); pass("vault_agent_list");
     API.putAgentVaultUnlockKey("vault-id", key, 120); check(Arrays.equals(API.getAgentVaultUnlockKey("vault-id"), key), "vault key");
     pass("vault_agent_put_vault_unlock_key"); pass("vault_agent_get_vault_unlock_key", 3);
-    try (var owner = API.generateSigningKeyPair()) {
-      API.putAgentOwnerSigningKey("vault-id", "alice", owner, 120);
-      try (var loaded = API.getAgentOwnerSigningKey("vault-id", "alice")) {
+    try (var owner = API.generateProfileSigningKeyPair()) {
+      API.cacheProfileSigningKey("vault-id", "alice", owner, 120);
+      try (var loaded = API.profileSigningKey("vault-id", "alice")) {
         check(loaded.publicBytes().length > 0, "owner key");
       }
       pass("vault_agent_put_owner_signing_key"); pass("vault_agent_get_owner_signing_key");
@@ -459,9 +460,11 @@ public final class Conformance {
       }
       pass("vault_free");
     }
-    API.forgetAgentOwnerSigningKey("vault-id", "alice"); API.forgetAgentVaultUnlockKey("vault-id"); API.forgetAgentKey(id);
+    API.forgetProfileSigningKey("vault-id", "alice"); API.forgetAgentVaultUnlockKey("vault-id"); API.forgetAgentKey(id);
     pass("vault_agent_forget_owner_signing_key"); pass("vault_agent_forget_vault_unlock_key"); pass("vault_agent_forget");
-    API.stopAgent(); pass("vault_agent_stop"); check(child.waitFor() == 0, "agent child");
+    API.stopAgent(); pass("vault_agent_stop");
+    check(child.waitFor(10, TimeUnit.SECONDS), "agent child timeout");
+    check(child.exitValue() == 0, "agent child");
   }
 
   private static void platformSecretStore() {
@@ -491,11 +494,16 @@ public final class Conformance {
   }
 
   public static void main(String[] args) throws Exception {
+    var loaderMode = System.getenv("REVAULT_E2E_LOADER_SMOKE");
+    if (loaderMode != null) { int version = API.lockboxFormatVersion(); check(version > 0, "loader native round trip"); System.out.printf("LOADER\t%s\t%s\t%d%n", LANGUAGE, loaderMode, version); return; }
     if (args.length == 1 && args[0].equals("--serve-agent")) { API.serveAgent(); return; }
     if (args.length == 1 && args[0].equals("--agent")) { agentAndLockboxSession(); return; }
     if (args.length == 1 && args[0].equals("--platform")) { platformSecretStore(); return; }
     if (args.length == 1 && args[0].equals("--default")) { defaultVaultLifecycle(); return; }
-    if (args.length == 2 && args[0].equals("--interop")) { interopOpen(args[1]); return; }
+    if (args.length >= 2 && args[0].equals("--interop")) {
+      for (int index = 1; index < args.length; index++) interopOpen(args[index]);
+      return;
+    }
     archiveLifecycle(); keyLifecycle(); advancedArchive(); vaultLifecycle();
     API.lastError(); pass("buffer_last_error");
   }

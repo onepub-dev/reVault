@@ -5,7 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Output, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 use walkdir::WalkDir;
@@ -28,6 +29,9 @@ const LANGUAGES: [&str; 16] = [
     "typescript",
     "wasm",
 ];
+
+const CONSUMER_PHASE_TIMEOUT: Duration = Duration::from_secs(300);
+static COMMAND_OUTPUT_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Subcommand)]
 pub enum E2eCommand {
@@ -99,6 +103,9 @@ pub struct Matrix {
     compose: PathBuf,
     #[arg(long)]
     skip_interop: bool,
+    /// Maximum number of language containers to execute concurrently.
+    #[arg(long, default_value_t = 1)]
+    jobs: usize,
 }
 
 #[derive(Args)]
@@ -176,7 +183,11 @@ pub(crate) fn container(args: Container) -> Result {
             target: "linux-x86_64-gnu".into(),
             source_archive: None,
         })?;
-        let output = Command::new("/opt/revault-rust-conformance").output()?;
+        let output = command_output_with_timeout(
+            &mut Command::new("/opt/revault-rust-conformance"),
+            CONSUMER_PHASE_TIMEOUT,
+            "Rust artifact conformance",
+        )?;
         if !output.status.success() {
             return Err(format!(
                 "Rust artifact conformance failed: {}",
@@ -197,11 +208,19 @@ pub(crate) fn container(args: Container) -> Result {
         fs::set_permissions(&runtime, fs::Permissions::from_mode(0o700))?;
     }
     if cfg!(target_os = "linux") && std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_none() {
-        let status = Command::new("dbus-run-session")
-            .arg("--")
-            .arg(std::env::current_exe()?)
-            .args(["e2e", "container", "--language", &args.language])
-            .status()?;
+        let mut command = Command::new("dbus-run-session");
+        command.arg("--").arg(std::env::current_exe()?).args([
+            "e2e",
+            "container",
+            "--language",
+            &args.language,
+        ]);
+        let mut child = command.spawn()?;
+        let status = wait_child_with_timeout(
+            &mut child,
+            Duration::from_secs(1200),
+            &format!("{} service session", args.language),
+        )?;
         if !status.success() {
             return Err(format!("service session failed with {status}").into());
         }
@@ -242,7 +261,11 @@ pub(crate) fn container(args: Container) -> Result {
         for (key, value) in invocation.env {
             command.env(key, value);
         }
-        let output = command.output()?;
+        let output = command_output_with_timeout(
+            &mut command,
+            CONSUMER_PHASE_TIMEOUT,
+            &format!("{} {:?} phase", args.language, invocation.args.last()),
+        )?;
         if !output.status.success() {
             return Err(format!(
                 "{} conformance failed: {}",
@@ -252,7 +275,11 @@ pub(crate) fn container(args: Container) -> Result {
             .into());
         }
         if let Some(mut child) = server.take() {
-            let status = child.wait()?;
+            let status = wait_child_with_timeout(
+                &mut child,
+                CONSUMER_PHASE_TIMEOUT,
+                &format!("{} agent server", args.language),
+            )?;
             if !status.success() {
                 return Err(format!("{} agent server failed with {status}", args.language).into());
             }
@@ -272,7 +299,7 @@ pub(crate) fn container(args: Container) -> Result {
             &kind,
             "--root",
         ])
-        .arg(root)
+        .arg(&root)
         .args(["--file", &file])
         .output()?;
     if !evidence_output.status.success() {
@@ -283,10 +310,156 @@ pub(crate) fn container(args: Container) -> Result {
     fs::write(&native, evidence_output.stdout)?;
     std::env::set_var("REVAULT_REQUIRE_INSTALLED_NATIVE", "1");
     verify_results(VerifyResults {
-        languages: vec![args.language],
+        languages: vec![args.language.clone()],
         operations: PathBuf::from("bindings/e2e/operations.tsv"),
         results: vec![results, native],
-    })
+    })?;
+    verify_loader_resolution(&args.language, &root, &file, &service_env)
+}
+
+fn verify_loader_resolution(
+    language: &str,
+    native_root: &Path,
+    native_file: &str,
+    service_env: &BTreeMap<String, String>,
+) -> Result {
+    if !matches!(
+        language,
+        "csharp"
+            | "dart"
+            | "java"
+            | "javascript"
+            | "kotlin"
+            | "lua"
+            | "php"
+            | "python"
+            | "ruby"
+            | "typescript"
+    ) {
+        return Ok(());
+    }
+    let invocation = invocations(language)
+        .into_iter()
+        .next()
+        .ok_or("missing loader conformance invocation")?;
+    let full_path = native_root.join(native_file).canonicalize()?;
+    let invalid_environment_path = native_root.join(format!(
+        ".revault-e2e-missing-library-{}",
+        std::process::id()
+    ));
+    if invalid_environment_path.exists() {
+        return Err(format!(
+            "loader negative-control path unexpectedly exists: {}",
+            invalid_environment_path.display()
+        )
+        .into());
+    }
+
+    // This negative control closes an important false-positive path. Without it,
+    // a binding could ignore both REVAULT_LIBRARY and the explicit argument,
+    // discover its packaged carrier, and still make the explicit-precedence
+    // check appear to pass.
+    let mut invalid_environment_control = Command::new(&invocation.program);
+    invalid_environment_control
+        .args(&invocation.args)
+        .envs(service_env)
+        .envs(&invocation.env)
+        .env_remove("REVAULT_E2E_LOAD_PATH")
+        .env("REVAULT_LIBRARY", &invalid_environment_path)
+        .env("REVAULT_E2E_LOADER_SMOKE", "invalid-environment-control");
+    let invalid_output = command_output_with_timeout(
+        &mut invalid_environment_control,
+        CONSUMER_PHASE_TIMEOUT,
+        &format!("{language} invalid-environment loader negative control"),
+    )?;
+    if invalid_output.status.success() {
+        return Err(format!(
+            "{language} ignored invalid REVAULT_LIBRARY and fell back to another carrier: {}",
+            String::from_utf8_lossy(&invalid_output.stdout).trim()
+        )
+        .into());
+    }
+
+    for mode in [
+        "packaged",
+        "empty-environment",
+        "explicit-overrides-invalid-environment",
+        "environment",
+        "search",
+    ] {
+        let mut command = Command::new(&invocation.program);
+        command
+            .args(&invocation.args)
+            .envs(service_env)
+            .envs(&invocation.env)
+            .env_remove("REVAULT_LIBRARY")
+            .env_remove("REVAULT_E2E_LOAD_PATH")
+            .env("REVAULT_E2E_LOADER_SMOKE", mode);
+        match mode {
+            "packaged" => {}
+            "empty-environment" => {
+                command.env("REVAULT_LIBRARY", "");
+            }
+            "explicit-overrides-invalid-environment" => {
+                command
+                    .env("REVAULT_E2E_LOAD_PATH", &full_path)
+                    .env("REVAULT_LIBRARY", &invalid_environment_path);
+            }
+            "environment" => {
+                command.env("REVAULT_LIBRARY", &full_path);
+            }
+            "search" => {
+                command.env("REVAULT_E2E_LOAD_PATH", native_file);
+                let search_variable = if cfg!(windows) {
+                    "PATH"
+                } else if cfg!(target_os = "macos") {
+                    "DYLD_LIBRARY_PATH"
+                } else {
+                    "LD_LIBRARY_PATH"
+                };
+                let mut paths = vec![native_root.to_path_buf()];
+                paths.extend(std::env::split_paths(
+                    &std::env::var_os(search_variable).unwrap_or_default(),
+                ));
+                command.env(search_variable, std::env::join_paths(paths)?);
+            }
+            _ => unreachable!(),
+        }
+        let output = command_output_with_timeout(
+            &mut command,
+            CONSUMER_PHASE_TIMEOUT,
+            &format!("{language} {mode} loader conformance"),
+        )?;
+        if !output.status.success() {
+            return Err(format!(
+                "{language} {mode} loader conformance failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )
+            .into());
+        }
+        let line = String::from_utf8_lossy(&output.stdout);
+        let fields: Vec<_> = line.trim().split('\t').collect();
+        let version = fields
+            .get(3)
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or_default();
+        if fields.len() != 4
+            || fields[0] != "LOADER"
+            || fields[1] != language
+            || fields[2] != mode
+            || version == 0
+        {
+            return Err(format!(
+                "{language} {mode} loader conformance returned unexpected output: {}",
+                line.trim()
+            )
+            .into());
+        }
+    }
+    println!(
+        "verified {language} invalid-environment rejection plus packaged, empty-environment, explicit-overrides-invalid-environment, environment, and search-path loading"
+    );
+    Ok(())
 }
 
 fn prepare_invocation_directories(environment: &BTreeMap<String, String>) -> Result {
@@ -704,18 +877,47 @@ fn matrix_json() -> Result {
         ("windows-x86_64-msvc", "windows-2025"),
         ("windows-aarch64-msvc", "windows-11-arm"),
     ];
+    let groups = [
+        (
+            "native-jvm",
+            ["c", "cpp", "go", "java", "kotlin", "rust", "swift"].as_slice(),
+        ),
+        (
+            "managed-script",
+            [
+                "csharp",
+                "dart",
+                "javascript",
+                "lua",
+                "php",
+                "python",
+                "ruby",
+                "typescript",
+                "wasm",
+            ]
+            .as_slice(),
+        ),
+    ];
     let mut include = Vec::new();
+    let mut combinations = 0;
     for (target, runner) in targets {
-        for language in LANGUAGES {
-            if language == "swift" && target.starts_with("windows-") {
-                continue;
-            }
-            include.push(
-                serde_json::json!({"target": target, "runner": runner, "language": language}),
-            );
+        for (group, languages) in groups {
+            let languages: Vec<_> = languages
+                .iter()
+                .copied()
+                .filter(|language| *language != "swift" || !target.starts_with("windows-"))
+                .collect();
+            combinations += languages.len();
+            include.push(serde_json::json!({
+                "target": target,
+                "runner": runner,
+                "group": group,
+                "languages": languages.join(","),
+            }));
         }
     }
-    assert_eq!(include.len(), 94);
+    assert_eq!(include.len(), 12);
+    assert_eq!(combinations, 94);
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({"include": include}))?
@@ -1042,21 +1244,67 @@ fn generate_inventory(args: GenerateInventory) -> Result {
 }
 
 fn matrix(args: Matrix) -> Result {
-    for language in LANGUAGES {
+    if args.jobs == 0 {
+        return Err("matrix jobs must be greater than zero".into());
+    }
+
+    let compose = args.compose.canonicalize()?;
+    let e2e_directory = compose.parent().ok_or("compose path has no parent")?;
+    let repository = e2e_directory
+        .parent()
+        .and_then(Path::parent)
+        .ok_or("compose path is not below bindings/e2e")?;
+    println!(
+        "building the shared native image, then language images with at most {} concurrent builds",
+        args.jobs
+    );
+    let mut native_build = Command::new("docker");
+    if std::env::var("GITHUB_ACTIONS").as_deref() == Ok("true") {
+        native_build.args([
+            "buildx",
+            "build",
+            "--cache-from",
+            "type=gha,scope=bindings-e2e-native",
+            "--cache-to",
+            "type=gha,mode=max,scope=bindings-e2e-native",
+            "--load",
+        ]);
+    } else {
+        native_build.arg("build");
+    }
+    native_build
+        .arg("--file")
+        .arg(e2e_directory.join("containers/native/Dockerfile"))
+        .args(["--tag", "revault-e2e-native:local"])
+        .arg(repository);
+    run_status(&mut native_build)?;
+    run_status(
+        Command::new("docker")
+            .env("COMPOSE_PARALLEL_LIMIT", args.jobs.to_string())
+            .args(["compose", "-f"])
+            .arg(&compose)
+            .arg("build"),
+    )?;
+
+    let conformance_errors = run_language_batches(args.jobs, |language| {
         println!("running installed {language} conformance");
         run_status(
             Command::new("docker")
                 .args(["compose", "-f"])
-                .arg(&args.compose)
+                .arg(&compose)
                 .args(["run", "--rm", language]),
-        )?;
+        )
+    });
+    if !conformance_errors.is_empty() {
+        return Err(conformance_errors.join("\n").into());
     }
+
     if !args.skip_interop {
-        for language in LANGUAGES {
+        let interop_errors = run_language_batches(args.jobs, |language| {
             run_status(
                 Command::new("docker")
                     .args(["compose", "-f"])
-                    .arg(&args.compose)
+                    .arg(&compose)
                     .args([
                         "run",
                         "--rm",
@@ -1067,12 +1315,15 @@ fn matrix(args: Matrix) -> Result {
                         "--consumer",
                         language,
                     ]),
-            )?;
+            )
+        });
+        if !interop_errors.is_empty() {
+            return Err(interop_errors.join("\n").into());
         }
         run_status(
             Command::new("docker")
                 .args(["compose", "-f"])
-                .arg(&args.compose)
+                .arg(&compose)
                 .args([
                     "run",
                     "--rm",
@@ -1088,35 +1339,71 @@ fn matrix(args: Matrix) -> Result {
     Ok(())
 }
 
+fn run_language_batches<F>(jobs: usize, run: F) -> Vec<String>
+where
+    F: Fn(&str) -> Result + Sync,
+{
+    let mut errors = Vec::new();
+    for batch in LANGUAGES.chunks(jobs) {
+        std::thread::scope(|scope| {
+            let handles: Vec<_> = batch
+                .iter()
+                .map(|language| {
+                    let language = *language;
+                    let run = &run;
+                    (language, scope.spawn(move || run(language)))
+                })
+                .collect();
+            for (language, handle) in handles {
+                match handle.join() {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => errors.push(format!("{language}: {error}")),
+                    Err(_) => errors.push(format!("{language}: conformance worker panicked")),
+                }
+            }
+        });
+    }
+    errors
+}
+
 fn interop_consumer(args: InteropConsumer) -> Result {
     if !LANGUAGES.contains(&args.consumer.as_str()) {
         return Err(format!("unknown consumer {}", args.consumer).into());
     }
     fs::create_dir_all(&args.artifacts)?;
-    for producer in LANGUAGES
+    let producers: Vec<_> = LANGUAGES
         .into_iter()
         .filter(|producer| *producer != args.consumer)
-    {
-        let invocation = invocations(&args.consumer)
-            .into_iter()
-            .next()
-            .ok_or("missing language invocation")?;
-        let mut command = Command::new(invocation.program);
-        command
-            .args(invocation.args)
-            .args(["--interop", producer])
-            .envs(invocation.env)
-            .env_remove("REVAULT_LIBRARY");
-        let output = command.output()?;
-        if !output.status.success() {
-            return Err(format!("{} failed opening {producer} artifacts", args.consumer).into());
-        }
-        fs::write(
-            args.artifacts
-                .join(format!("interop-{}-{producer}.tsv", args.consumer)),
-            output.stdout,
-        )?;
+        .collect();
+    let invocation = invocations(&args.consumer)
+        .into_iter()
+        .next()
+        .ok_or("missing language invocation")?;
+    let mut command = Command::new(invocation.program);
+    command
+        .args(invocation.args)
+        .arg("--interop")
+        .args(&producers)
+        .envs(invocation.env)
+        .env_remove("REVAULT_LIBRARY");
+    let output = command_output_with_timeout(
+        &mut command,
+        CONSUMER_PHASE_TIMEOUT,
+        &format!("{} batched interoperability", args.consumer),
+    )?;
+    if !output.status.success() {
+        return Err(format!(
+            "{} failed opening foreign artifacts: {}",
+            args.consumer,
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into());
     }
+    fs::write(
+        args.artifacts
+            .join(format!("interop-{}-batch.tsv", args.consumer)),
+        output.stdout,
+    )?;
     Ok(())
 }
 
@@ -1200,9 +1487,94 @@ fn run_status(command: &mut Command) -> Result {
     Ok(())
 }
 
+fn wait_child_with_timeout(
+    child: &mut Child,
+    timeout: Duration,
+    description: &str,
+) -> Result<std::process::ExitStatus> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(status);
+        }
+        if Instant::now() >= deadline {
+            child.kill()?;
+            child.wait()?;
+            return Err(format!(
+                "{description} timed out after {} seconds",
+                timeout.as_secs()
+            )
+            .into());
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+}
+
+fn command_output_with_timeout(
+    command: &mut Command,
+    timeout: Duration,
+    description: &str,
+) -> Result<Output> {
+    let output_id = COMMAND_OUTPUT_ID.fetch_add(1, Ordering::Relaxed);
+    let output_prefix = std::env::temp_dir().join(format!(
+        "revault-command-output-{}-{output_id}",
+        std::process::id()
+    ));
+    let stdout_path = output_prefix.with_extension("stdout");
+    let stderr_path = output_prefix.with_extension("stderr");
+    command
+        .stdout(fs::File::create(&stdout_path)?)
+        .stderr(fs::File::create(&stderr_path)?);
+    let display = format!("{command:?}");
+    let mut child = command.spawn()?;
+    let status = wait_child_with_timeout(&mut child, timeout, description);
+    let stdout = fs::read(&stdout_path)?;
+    let stderr = fs::read(&stderr_path)?;
+    let _ = fs::remove_file(stdout_path);
+    let _ = fs::remove_file(stderr_path);
+    let status = status.map_err(|error| {
+        format!(
+            "{error}; command: {display}; stderr: {}",
+            String::from_utf8_lossy(&stderr).trim()
+        )
+    })?;
+    Ok(Output {
+        status,
+        stdout,
+        stderr,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn command_output_timeout_is_bounded() {
+        let started = Instant::now();
+        let result = command_output_with_timeout(
+            Command::new("sh").args(["-c", "while :; do :; done"]),
+            Duration::from_millis(50),
+            "test child",
+        );
+        assert!(result.unwrap_err().to_string().contains("timed out"));
+        assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn command_output_capture_preserves_both_streams() {
+        let output = command_output_with_timeout(
+            Command::new("sh").args(["-c", "printf stdout; printf stderr >&2"]),
+            Duration::from_secs(1),
+            "test child",
+        )
+        .unwrap();
+        assert!(output.status.success());
+        assert_eq!(output.stdout, b"stdout");
+        assert_eq!(output.stderr, b"stderr");
+    }
+
     #[test]
     fn known_languages_are_unique() {
         assert_eq!(

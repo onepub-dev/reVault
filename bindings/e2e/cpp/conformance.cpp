@@ -649,8 +649,8 @@ static void agent_and_local_vault() {
   pass("vault_agent_put_vault_unlock_key");
   pass("vault_agent_get_vault_unlock_key", 3);
   ProfileSigningKeyPair owner;
-  AgentSession::put_profile_signing_key("vault-id", "alice", owner, 120);
-  auto loaded_owner = AgentSession::get_profile_signing_key("vault-id", "alice");
+  AgentSession::cache_profile_signing_key("vault-id", "alice", owner, 120);
+  auto loaded_owner = AgentSession::profile_signing_key("vault-id", "alice");
   check(!loaded_owner.public_bytes().empty(), "agent owner key");
   pass("vault_agent_put_owner_signing_key");
   pass("vault_agent_get_owner_signing_key");
@@ -775,8 +775,8 @@ int main(int argc, char** argv) {
       platform_secret_store();
       return 0;
     }
-    if (argc == 3 && std::strcmp(argv[1], "--interop") == 0) {
-      interop_open(argv[2]);
+    if (argc >= 3 && std::strcmp(argv[1], "--interop") == 0) {
+      for (int index = 2; index < argc; ++index) interop_open(argv[index]);
       return 0;
     }
     if (argc == 2 && std::strcmp(argv[1], "--core") == 0) {

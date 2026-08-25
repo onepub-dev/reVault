@@ -342,7 +342,7 @@ func (key *ProfileSigningPublicKey) Close() {
 // or committing a mutable lockbox so readers can authenticate its revisions.
 type ProfileSigningKeyPair struct{ handle unsafe.Pointer }
 
-// GenerateSigningKeyPair generates signing key pair.
+// GenerateProfileSigningKeyPair generates a signing identity for a Vault Profile.
 func GenerateProfileSigningKeyPair() (*ProfileSigningKeyPair, error) {
 	h := C.key_signing_generate()
 	if h == nil {
@@ -1132,7 +1132,7 @@ func (vault *vaultStore) RestorePrivateKey(name string, key *ContactKeyPair, sig
 	return require(bool(C.vault_directory_restore_private_key(vault.handle, charPointer(name), C.size_t(len(name)), key.handle, signing.handle, C.bool(overwrite))))
 }
 
-// LoadOwnerSigningKey loads owner signing key.
+// LoadProfileSigningKey loads the current signing identity for a Vault Profile.
 func (vault *vaultStore) LoadProfileSigningKey(name string) (*ProfileSigningKeyPair, error) {
 	h := C.vault_directory_load_owner_signing_key(vault.handle, charPointer(name), C.size_t(len(name)))
 	if h == nil {
@@ -1141,7 +1141,7 @@ func (vault *vaultStore) LoadProfileSigningKey(name string) (*ProfileSigningKeyP
 	return &ProfileSigningKeyPair{handle: h}, nil
 }
 
-// LoadOwnerSigningKeyGeneration loads owner signing key generation.
+// LoadProfileSigningKeyGeneration loads one historical signing identity for a Vault Profile.
 func (vault *vaultStore) LoadProfileSigningKeyGeneration(name string, index uint16) (*ProfileSigningKeyPair, error) {
 	h := C.vault_directory_load_owner_signing_key_generation(vault.handle, charPointer(name), C.size_t(len(name)), C.uint16_t(index))
 	if h == nil {
@@ -1369,13 +1369,13 @@ func ForgetAgentVaultUnlockKey(vaultID string) error {
 	return require(bool(C.vault_agent_forget_vault_unlock_key(charPointer(vaultID), C.size_t(len(vaultID)))))
 }
 
-// PutAgentOwnerSigningKey stores agent owner signing key.
-func PutAgentProfileSigningKey(vaultID, profile string, key *ProfileSigningKeyPair, ttlSeconds uint64) error {
+// CacheAgentProfileSigningKey caches a signing identity for a Vault Profile.
+func CacheAgentProfileSigningKey(vaultID, profile string, key *ProfileSigningKeyPair, ttlSeconds uint64) error {
 	return require(bool(C.vault_agent_put_owner_signing_key(charPointer(vaultID), C.size_t(len(vaultID)), charPointer(profile), C.size_t(len(profile)), key.handle, C.uint64_t(ttlSeconds))))
 }
 
-// GetAgentOwnerSigningKey returns agent owner signing key.
-func GetAgentProfileSigningKey(vaultID, profile string) (*ProfileSigningKeyPair, error) {
+// AgentProfileSigningKey returns the cached signing identity for a Vault Profile.
+func AgentProfileSigningKey(vaultID, profile string) (*ProfileSigningKeyPair, error) {
 	h := C.vault_agent_get_owner_signing_key(charPointer(vaultID), C.size_t(len(vaultID)), charPointer(profile), C.size_t(len(profile)))
 	if h == nil {
 		return nil, lastError()
@@ -1383,8 +1383,8 @@ func GetAgentProfileSigningKey(vaultID, profile string) (*ProfileSigningKeyPair,
 	return &ProfileSigningKeyPair{handle: h}, nil
 }
 
-// ForgetAgentOwnerSigningKey removes agent owner signing key.
-func ForgetAgentOwnerSigningKey(vaultID, profile string) error {
+// ForgetAgentProfileSigningKey removes a cached Vault Profile signing identity.
+func ForgetAgentProfileSigningKey(vaultID, profile string) error {
 	return require(bool(C.vault_agent_forget_owner_signing_key(charPointer(vaultID), C.size_t(len(vaultID)), charPointer(profile), C.size_t(len(profile)))))
 }
 

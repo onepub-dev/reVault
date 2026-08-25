@@ -58,4 +58,14 @@ public sealed class AgentSession
     public void CloseAll() => owner.ForgetAllAgentSecrets();
     /// Forgets one lockbox key retained by the session agent.
     public void CloseLockbox(byte[] lockboxId) => owner.ForgetAgentKey(lockboxId);
+    /// Caches a profile signing identity for the requested session TTL.
+    public void CacheProfileSigningKey(string vaultId, string profile,
+        Revault.ProfileSigningKeyPair key, ulong ttlSeconds) =>
+        owner.CacheProfileSigningKey(vaultId, profile, key, ttlSeconds);
+    /// Returns a profile signing identity cached by the session agent.
+    public Revault.ProfileSigningKeyPair ProfileSigningKey(string vaultId, string profile) =>
+        owner.ProfileSigningKey(vaultId, profile);
+    /// Forgets one cached profile signing identity.
+    public void ForgetProfileSigningKey(string vaultId, string profile) =>
+        owner.ForgetProfileSigningKey(vaultId, profile);
 }

@@ -31,8 +31,8 @@ installation, the security model, and complete workflows.
 - ``ContactKeyPair``
 - ``ContactPublicKey``
 - ``WrappedContactKey``
-- ``SigningKeyPair``
-- ``SigningPublicKey``
+- ``ProfileSigningKeyPair``
+- ``ProfileSigningPublicKey``
 
 ### Local services
 

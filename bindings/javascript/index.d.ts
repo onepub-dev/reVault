@@ -37,9 +37,9 @@ export type NativeHandle = ContactKeyPair | ContactPublicKey | WrappedContactKey
  * when the application starts. */
 export class Revault {
   /** Creates a new facade over the bundled native library. */
-  constructor();
+  constructor(nativeLibraryPath?: string);
   /** Load the installed native carrier and create the runtime facade. */
-  static load(): Promise<Revault>;
+  static load(nativeLibraryPath?: string): Promise<Revault>;
   /** Return a new synchronous runtime facade for factory operations. */
   static readonly runtime: Revault;
   /** Returns the agent. */
@@ -91,12 +91,12 @@ export class Revault {
   keyContactFromPrivate(bytes: BinaryInput): ContactKeyPair;
   /** Returns the key contact public from bytes. */
   keyContactPublicFromBytes(bytes: BinaryInput): ContactPublicKey;
-  /** Returns the key signing generate. */
-  keySigningGenerate(): ProfileSigningKeyPair;
-  /** Returns the key signing from private. */
-  keySigningFromPrivate(bytes: BinaryInput): ProfileSigningKeyPair;
-  /** Returns the key signing public from bytes. */
-  keySigningPublicFromBytes(bytes: BinaryInput): ProfileSigningPublicKey;
+  /** Generates a signing identity owned by a Vault Profile. */
+  generateProfileSigningKeyPair(): ProfileSigningKeyPair;
+  /** Imports a Vault Profile signing identity from its private record. */
+  profileSigningKeyPairFromPrivate(bytes: BinaryInput): ProfileSigningKeyPair;
+  /** Imports the public half of a Vault Profile signing identity. */
+  profileSigningPublicKeyFromBytes(bytes: BinaryInput): ProfileSigningPublicKey;
   /** Returns the vault key export private. */
   vaultKeyExportPrivate(key: NativeHandle, format: string): Binary;
   /** Returns the vault key export public. */
@@ -350,26 +350,22 @@ export class WrappedContactKey {
   close(): void;
 }
 
-/** A lockbox owner's signing identity. Supply it when creating or committing a
- * mutable lockbox so readers can authenticate revisions. */
+/** A Vault Profile signing identity used to authorize mutable Lockbox revisions. */
 export class ProfileSigningKeyPair {
-  /** Returns the public. */
-  public(): Binary;
-  /** Returns the private. */
-  private(): Binary;
-  /** Releases the native resources held by this object. */
-  free(): void;
-  /** Release this owned handle and wipe any native secret state. */
-  close(): void;
+  /** Returns the canonical public bytes paired with this identity. */
+  publicBytes(): Binary;
+  /** Returns the private signing-key record for secure binary backup. */
+  privateRecord(): Binary;
+  /** Creates an independently owned public verification-key handle. */
+  publicKey(): ProfileSigningPublicKey;
+  /** Wipes and releases the native signing-key handle. */
+  dispose(): void;
 }
 
-/** The shareable half of a lockbox owner's signing identity, used by readers to
- * verify owner-authorized revisions. */
+/** The shareable half of a Vault Profile signing identity. */
 export class ProfileSigningPublicKey {
-  /** Returns the public free. */
-  publicFree(): void;
-  /** Release this owned handle and wipe any native secret state. */
-  close(): void;
+  /** Releases the native verification-key handle. */
+  dispose(): void;
 }
 
 /** A writable, password-protected store for profile keys, contacts, forms,
@@ -428,9 +424,9 @@ export class Vault {
   /** Returns the restore private key. */
   restorePrivateKey(name: string, key: NativeHandle, signingKey: NativeHandle, overwrite: boolean): boolean;
   /** Loads owner signing key. */
-  loadOwnerSigningKey(name: string): ProfileSigningKeyPair;
+  loadProfileSigningKey(name: string): ProfileSigningKeyPair;
   /** Loads owner signing key generation. */
-  loadOwnerSigningKeyGeneration(name: string, index: number): ProfileSigningKeyPair;
+  loadProfileSigningKeyGeneration(name: string, index: number): ProfileSigningKeyPair;
   /** Stores contact signing key. */
   storeContactSigningKey(name: string, key: NativeHandle): boolean;
   /** Loads contact signing key. */
@@ -521,12 +517,12 @@ declare class Agent {
   putVaultUnlockKey(vaultId: string, key: BinaryInput, ttlSeconds: number): boolean;
   /** Removes vault unlock key. */
   forgetVaultUnlockKey(vaultId: string): boolean;
-  /** Returns owner signing key. */
-  getOwnerSigningKey(vaultId: string, profile: string): ProfileSigningKeyPair;
-  /** Stores owner signing key. */
-  putOwnerSigningKey(vaultId: string, profile: string, key: NativeHandle, ttlSeconds: number): boolean;
-  /** Removes owner signing key. */
-  forgetOwnerSigningKey(vaultId: string, profile: string): boolean;
+  /** Returns the cached signing identity for a Vault Profile. */
+  profileSigningKey(vaultId: string, profile: string): ProfileSigningKeyPair;
+  /** Caches a signing identity for a Vault Profile. */
+  cacheProfileSigningKey(vaultId: string, profile: string, key: NativeHandle, ttlSeconds: number): boolean;
+  /** Removes a cached Vault Profile signing identity. */
+  forgetProfileSigningKey(vaultId: string, profile: string): boolean;
   /** Starts activity. */
   beginActivity(kind: string): AgentActivity;
   /** Stops activity. */

@@ -4,12 +4,21 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AgentSession, Revault, Vault } from '@onepub-dev/revault-api';
+import * as binding from '@onepub-dev/revault-api';
 
-const api = await Revault.load();
+const api = await Revault.load(process.env.REVAULT_E2E_LOAD_PATH);
 const language = 'typescript';
+if (process.env.REVAULT_E2E_LOADER_SMOKE) {
+  const version = api.lockboxFormatVersion();
+  if (version <= 0) throw new Error('loader native round trip');
+  console.log(`LOADER\t${language}\t${process.env.REVAULT_E2E_LOADER_SMOKE}\t${version}`);
+  process.exit(0);
+}
 const script = fileURLToPath(import.meta.url);
 const pass = (symbol: string, assertions = 1) => console.log(`PASS\t${language}\t${symbol}\t${assertions}`);
 const check = (value: boolean, message: string) => { if (!value) throw new Error(message); };
+check(!('SigningKeyPair' in binding) && !('SigningPublicKey' in binding), 'legacy signing classes remain exported');
+check('ProfileSigningKeyPair' in binding && 'ProfileSigningPublicKey' in binding, 'profile signing classes are missing');
 const bytes = (value: Uint8Array | string) => Buffer.isBuffer(value) ? value : Buffer.from(value);
 const equal = (left: Uint8Array | string, right: Uint8Array | string) => bytes(left).equals(bytes(right));
 const artifactRoot = () => {
@@ -100,13 +109,13 @@ function keyLifecycle() {
   importedPrivate.free(); copy.free(); contact.free(); pass('key_contact_free', 3);
   const plain = api.vaultKeyHexEncode(content); check(equal(api.vaultKeyHexDecode(plain), content), 'plain hex');
   pass('vault_key_hex_encode', 2); pass('vault_key_hex_decode', 2);
-  const signing = api.keySigningGenerate(); pass('key_signing_generate');
-  const signingPrivate = signing.private(); const signingPublic = signing.public();
+  const signing = api.generateProfileSigningKeyPair(); pass('key_signing_generate');
+  const signingPrivate = signing.privateRecord(); const signingPublic = signing.publicBytes();
   pass('key_signing_private', 2); pass('key_signing_public', 2);
-  api.keySigningFromPrivate(signingPrivate).free(); pass('key_signing_from_private');
-  api.keySigningPublicFromBytes(signingPublic).publicFree();
+  api.profileSigningKeyPairFromPrivate(signingPrivate).dispose(); pass('key_signing_from_private');
+  api.profileSigningPublicKeyFromBytes(signingPublic).dispose();
   pass('key_signing_public_from_bytes'); pass('key_signing_public_free', 2);
-  signing.free(); pass('key_signing_free', 3);
+  signing.dispose(); pass('key_signing_free', 3);
 }
 
 function advancedArchive() {
@@ -128,7 +137,7 @@ function advancedArchive() {
   box.moveFormRecords(moves); box.getFormRecord('/moved.form');
   moves = [{ source: '/moved.form', destination: '/account.form' }];
   box.moveFormRecords(moves); pass('lockbox_move_form_records', 3);
-  const signing = api.keySigningGenerate(); const contact = api.keyContactGenerate();
+  const signing = api.generateProfileSigningKeyPair(); const contact = api.keyContactGenerate();
   const publicKey = api.keyContactPublicFromBytes(contact.public());
   box.setOwnerSigningKey(signing); pass('lockbox_set_owner_signing_key');
   const slot = box.addPassword('archive password'); pass('lockbox_add_password');
@@ -154,7 +163,7 @@ function advancedArchive() {
   box.extractFile('/account.txt', path.join(extract, 'account.txt'), false); pass('lockbox_extract_file', 2);
   const tree = path.join(extract, 'tree'); fs.mkdirSync(tree); box.extractDirectory(tree, 1 << 20, 4 << 20, 100, false, true, false); pass('lockbox_extract_directory', 2);
   box.deleteFormRecord('/account.form'); pass('lockbox_delete_form_record');
-  box.free(); publicKey.publicFree(); contact.free(); signing.free();
+  box.free(); publicKey.publicFree(); contact.free(); signing.dispose();
 }
 
 function vaultLifecycle() {
@@ -163,7 +172,7 @@ function vaultLifecycle() {
   const id = Buffer.from(Array.from({ length: 16 }, (_, index) => 0xa0 + index));
   const profile = api.keyContactGenerate(); const contact = api.keyContactGenerate();
   const contactPublic = api.keyContactPublicFromBytes(contact.public());
-  const owner = api.keySigningGenerate(); const ownerPublic = api.keySigningPublicFromBytes(owner.public());
+  const owner = api.generateProfileSigningKeyPair(); const ownerPublic = owner.publicKey();
   const vault = Vault.replace(root, password); pass('vault_directory_replace');
   console.log(`ARTIFACT\t${language}\tvault-created\t${root}`);
   check(vault.root() === root && vault.structureVersion() > 0, 'vault'); pass('vault_directory_root', 3); pass('vault_directory_structure_version');
@@ -179,11 +188,11 @@ function vaultLifecycle() {
   pass('vault_directory_store_profile_email'); pass('vault_directory_profile_email', 3);
   vault.listProfileGenerations('alice'); vault.rotatePrivateKey('alice');
   pass('vault_directory_list_profile_generations'); pass('vault_directory_rotate_private_key');
-  vault.loadOwnerSigningKey('alice').free(); vault.loadOwnerSigningKeyGeneration('alice', 1).free();
+  vault.loadProfileSigningKey('alice').dispose(); vault.loadProfileSigningKeyGeneration('alice', 1).dispose();
   pass('vault_directory_load_owner_signing_key'); pass('vault_directory_load_owner_signing_key_generation');
   vault.storeContact('bob', contactPublic); vault.contactExists('bob'); vault.loadContact('bob').publicFree(); vault.listContacts();
   pass('vault_directory_store_contact'); pass('vault_directory_contact_exists'); pass('vault_directory_load_contact'); pass('vault_directory_list_contacts');
-  vault.storeContactSigningKey('bob', ownerPublic); vault.loadContactSigningKey('bob').publicFree();
+  vault.storeContactSigningKey('bob', ownerPublic); vault.loadContactSigningKey('bob').dispose();
   pass('vault_directory_store_contact_signing_key'); pass('vault_directory_load_contact_signing_key');
   vault.listPrivateKeys(); vault.listPrivateKeyNames(); vault.listContactNames();
   pass('vault_directory_list_private_keys'); pass('vault_directory_list_private_key_names'); pass('vault_directory_list_contact_names');
@@ -212,7 +221,7 @@ function vaultLifecycle() {
   api.vaultDirectoryChangePassword(root, password, changed); pass('vault_directory_change_password');
   Vault.open(root, changed).free(); pass('vault_directory_open'); console.log(`ARTIFACT\t${language}\tvault-opened\t${root}`);
   Vault.openOrCreate(root, changed).free(); pass('vault_directory_open_or_create');
-  ownerPublic.publicFree(); owner.free(); contactPublic.publicFree(); contact.free(); profile.free();
+  ownerPublic.dispose(); owner.dispose(); contactPublic.publicFree(); contact.free(); profile.free();
 }
 
 function defaultVault() {
@@ -254,7 +263,7 @@ async function agentAndLocal() {
   agent.put(id, key); check(equal(agent.get(id), key), 'agent key'); agent.list();
   pass('vault_agent_put'); pass('vault_agent_get', 3); pass('vault_agent_list');
   agent.putVaultUnlockKey('vault-id', key, 120); agent.getVaultUnlockKey('vault-id'); pass('vault_agent_put_vault_unlock_key'); pass('vault_agent_get_vault_unlock_key', 3);
-  const owner = api.keySigningGenerate(); agent.putOwnerSigningKey('vault-id', 'alice', owner, 120); agent.getOwnerSigningKey('vault-id', 'alice').free();
+  const owner = api.generateProfileSigningKeyPair(); agent.cacheProfileSigningKey('vault-id', 'alice', owner, 120); agent.profileSigningKey('vault-id', 'alice').dispose();
   pass('vault_agent_put_owner_signing_key'); pass('vault_agent_get_owner_signing_key');
   const activity = agent.beginActivity('open'); pass('vault_agent_begin_activity'); agent.endActivity(activity); pass('vault_agent_end_activity');
   agent.sleepSupport(); pass('vault_agent_sleep_support'); api.vaultAgentLogPath(); api.vaultAgentLogDestination();
@@ -271,8 +280,8 @@ async function agentAndLocal() {
   const contact = api.keyContactGenerate(); const publicKey = api.keyContactPublicFromBytes(contact.public());
   box = local.createLockboxContact(path.join(root, 'contact.lbox'), publicKey, 'recipient', owner);
   box.addFile('/data.txt', 'local vault data', false); box.commit(); box.free(); pass('vault_create_lockbox_contact', 3);
-  publicKey.publicFree(); contact.free(); local.closeAll(); pass('vault_close_all'); local.free(); pass('vault_free'); owner.free();
-  agent.forgetOwnerSigningKey('vault-id', 'alice'); agent.forgetVaultUnlockKey('vault-id'); agent.forget(id);
+  publicKey.publicFree(); contact.free(); local.closeAll(); pass('vault_close_all'); local.free(); pass('vault_free'); owner.dispose();
+  agent.forgetProfileSigningKey('vault-id', 'alice'); agent.forgetVaultUnlockKey('vault-id'); agent.forget(id);
   pass('vault_agent_forget_owner_signing_key'); pass('vault_agent_forget_vault_unlock_key'); pass('vault_agent_forget');
   agent.stop(); pass('vault_agent_stop');
   const exitCode = await new Promise<number | null>((resolve, reject) => { child.once('error', reject); child.once('exit', resolve); });
@@ -293,7 +302,7 @@ if (args[0] === '--serve-agent') api.agent.serve();
 else if (args[0] === '--default') defaultVault();
 else if (args[0] === '--platform') platformStore();
 else if (args[0] === '--agent') await agentAndLocal();
-else if (args[0] === '--interop' && args.length === 2) interop(args[1]);
+else if (args[0] === '--interop' && args.length >= 2) args.slice(1).forEach(interop);
 else {
   archiveLifecycle(); keyLifecycle(); advancedArchive(); vaultLifecycle();
   api.lastError(); pass('buffer_last_error');

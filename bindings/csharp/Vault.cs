@@ -22,9 +22,17 @@ public delegate T SecretCallback<T>(ReadOnlySpan<byte> secret);
 /// </remarks>
 public sealed class Revault
 {
-    private readonly BindingOperations operations = new();
-    /// Loads the installed native carrier without opening a Vault or Lockbox.
-    public static Revault Load() => new();
+    private readonly BindingOperations operations;
+    /// <summary>Loads the native carrier without opening a Vault or Lockbox.</summary>
+    /// <param name="nativeLibraryPath">Explicit path/name, or null for inherited/package discovery.</param>
+    public static Revault Load(string? nativeLibraryPath = null) => new(nativeLibraryPath);
+    /// <summary>Creates a runtime using explicit, inherited, then packaged discovery.</summary>
+    /// <param name="nativeLibraryPath">Explicit path/name, or null for inherited/package discovery.</param>
+    public Revault(string? nativeLibraryPath = null)
+    {
+        NativeLibraryResolver.Configure(nativeLibraryPath);
+        operations = new BindingOperations();
+    }
     /// Explicit controls for the optional session agent.
     public AgentSession AgentSession => new(this);
     private static void Open(IntPtr handle) { if (handle == IntPtr.Zero) throw new ObjectDisposedException("native object"); }
@@ -117,32 +125,32 @@ public sealed class Revault
         ~ContactKeyPair() => Dispose();
     }
 
-    /// <summary>The public identity readers use to verify owner-authorized lockbox revisions.</summary>
-    public sealed class SigningPublicKey : IDisposable
+    /// <summary>The public profile identity readers use to verify authorized lockbox revisions.</summary>
+    public sealed class ProfileSigningPublicKey : IDisposable
     {
         private readonly Revault owner; internal IntPtr Handle;
-        internal SigningPublicKey(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
+        internal ProfileSigningPublicKey(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
         /// <summary>Releases the native resources held by this object.</summary>
         public void Dispose() { if (Handle != IntPtr.Zero) { owner.operations.KeySigningPublicFree(Handle); Handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         /// <summary>Releases the native signing-public-key handle during finalization.</summary>
-        ~SigningPublicKey() => Dispose();
+        ~ProfileSigningPublicKey() => Dispose();
     }
 
-    /// <summary>A lockbox owner's signing identity used to authorize mutable revisions.</summary>
-    public sealed class SigningKeyPair : IDisposable
+    /// <summary>A profile signing identity used to authorize mutable lockbox revisions.</summary>
+    public sealed class ProfileSigningKeyPair : IDisposable
     {
         private readonly Revault owner; internal IntPtr Handle;
-        internal SigningKeyPair(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
+        internal ProfileSigningKeyPair(Revault owner, IntPtr handle) { this.owner = owner; Handle = handle; }
         /// <summary>Returns the public bytes.</summary>
         public byte[] PublicBytes() => owner.operations.KeySigningPublic(Handle);
         /// <summary>Returns the private record.</summary>
         public byte[] PrivateRecord() => owner.operations.KeySigningPrivate(Handle);
         /// <summary>Returns the public key.</summary>
-        public SigningPublicKey PublicKey() => owner.SigningPublicKeyFromBytes(PublicBytes());
+        public ProfileSigningPublicKey PublicKey() => owner.ProfileSigningPublicKeyFromBytes(PublicBytes());
         /// <summary>Releases the native resources held by this object.</summary>
         public void Dispose() { if (Handle != IntPtr.Zero) { owner.operations.KeySigningFree(Handle); Handle = IntPtr.Zero; } GC.SuppressFinalize(this); }
         /// <summary>Releases the native signing-key handle during finalization.</summary>
-        ~SigningKeyPair() => Dispose();
+        ~ProfileSigningKeyPair() => Dispose();
     }
 
     /// <summary>Generates contact key pair.</summary>
@@ -155,12 +163,12 @@ public sealed class Revault
     public ContactPublicKey ContactPublicKeyFromBytes(byte[] value) => new(this, operations.KeyContactPublicFromBytes(value));
     /// <summary>Imports contact public key.</summary>
     public ContactPublicKey ImportContactPublicKey(byte[] value) => new(this, operations.VaultKeyImportPublic(value));
-    /// <summary>Generates signing key pair.</summary>
-    public SigningKeyPair GenerateSigningKeyPair() => new(this, operations.KeySigningGenerate());
-    /// <summary>Returns the signing key pair from private.</summary>
-    public SigningKeyPair SigningKeyPairFromPrivate(byte[] value) => new(this, operations.KeySigningFromPrivate(value));
-    /// <summary>Returns the signing public key from bytes.</summary>
-    public SigningPublicKey SigningPublicKeyFromBytes(byte[] value) => new(this, operations.KeySigningPublicFromBytes(value));
+    /// <summary>Generates a profile signing key pair.</summary>
+    public ProfileSigningKeyPair GenerateProfileSigningKeyPair() => new(this, operations.KeySigningGenerate());
+    /// <summary>Imports a profile signing key pair from its private record.</summary>
+    public ProfileSigningKeyPair ProfileSigningKeyPairFromPrivate(byte[] value) => new(this, operations.KeySigningFromPrivate(value));
+    /// <summary>Imports a profile signing public key from encoded bytes.</summary>
+    public ProfileSigningPublicKey ProfileSigningPublicKeyFromBytes(byte[] value) => new(this, operations.KeySigningPublicFromBytes(value));
 
     /// <summary>Formats key hex.</summary>
     public string FormatKeyHex(byte[] value) => operations.VaultKeyFormatHex(value);
@@ -187,7 +195,7 @@ public sealed class Revault
     /// <summary>Creates lockbox for contact.</summary>
     public Lockbox CreateLockboxForContact(ContactPublicKey contact) => new(this, operations.LockboxCreateContact(contact.Handle));
     /// <summary>Creates signed lockbox.</summary>
-    public Lockbox CreateSignedLockbox(byte[] key, SigningKeyPair signing) => new(this, operations.LockboxCreateWithSigningKey(key, signing.Handle));
+    public Lockbox CreateLockboxWithProfileSigningKey(byte[] key, ProfileSigningKeyPair signing) => new(this, operations.LockboxCreateWithSigningKey(key, signing.Handle));
     /// <summary>Opens lockbox.</summary>
     public Lockbox OpenLockbox(byte[] archive, byte[] key) => new(this, operations.LockboxOpen(archive, key));
     /// <summary>Opens lockbox.</summary>
@@ -204,7 +212,7 @@ public sealed class Revault
     /// <summary>Scans lockbox.</summary>
     public RecoveryReport ScanLockbox(byte[] archive, byte[] key) => operations.LockboxRecoveryScan(archive, key);
     /// <summary>Salvages lockbox.</summary>
-    public Lockbox SalvageLockbox(byte[] archive, byte[] key, SigningKeyPair? signing = null) =>
+    public Lockbox SalvageLockbox(byte[] archive, byte[] key, ProfileSigningKeyPair? signing = null) =>
         new(this, operations.LockboxRecoverySalvage(archive, key, signing?.Handle ?? IntPtr.Zero));
 
     /// <summary>An open encrypted archive containing files, variables, secrets, and forms.</summary>
@@ -313,7 +321,7 @@ public sealed class Revault
         /// <summary>Lists key slots.</summary>
         public IReadOnlyList<KeySlot> ListKeySlots() => owner.operations.LockboxListKeySlots(Handle);
         /// <summary>Sets owner signing key.</summary>
-        public void SetOwnerSigningKey(SigningKeyPair key) => owner.operations.LockboxSetOwnerSigningKey(Handle, key.Handle);
+        public void SetOwnerSigningKey(ProfileSigningKeyPair key) => owner.operations.LockboxSetOwnerSigningKey(Handle, key.Handle);
         /// <summary>Returns the owner inspection.</summary>
         public OwnerInspection OwnerInspection() => owner.operations.LockboxOwnerInspection(Handle);
         /// <summary>Returns the define form.</summary>
@@ -422,17 +430,17 @@ public sealed class Revault
         /// <summary>Returns the backup count.</summary>
         public ulong BackupCount => owner.operations.VaultDirectoryBackupCount(Handle);
         /// <summary>Returns the restore private key.</summary>
-        public void RestorePrivateKey(string name, ContactKeyPair key, SigningKeyPair signing, bool overwrite) =>
+        public void RestorePrivateKey(string name, ContactKeyPair key, ProfileSigningKeyPair signing, bool overwrite) =>
             owner.operations.VaultDirectoryRestorePrivateKey(Handle, name, key.Handle, signing.Handle, overwrite);
-        /// <summary>Loads owner signing key.</summary>
-        public SigningKeyPair LoadOwnerSigningKey(string name) => new(owner, owner.operations.VaultDirectoryLoadOwnerSigningKey(Handle, name));
-        /// <summary>Loads owner signing key generation.</summary>
-        public SigningKeyPair LoadOwnerSigningKeyGeneration(string name, ushort index) =>
+        /// <summary>Loads the current profile signing key.</summary>
+        public ProfileSigningKeyPair LoadProfileSigningKey(string name) => new(owner, owner.operations.VaultDirectoryLoadOwnerSigningKey(Handle, name));
+        /// <summary>Loads a historical profile signing key generation.</summary>
+        public ProfileSigningKeyPair LoadProfileSigningKeyGeneration(string name, ushort index) =>
             new(owner, owner.operations.VaultDirectoryLoadOwnerSigningKeyGeneration(Handle, name, index));
         /// <summary>Stores contact signing key.</summary>
-        public void StoreContactSigningKey(string name, SigningPublicKey key) => owner.operations.VaultDirectoryStoreContactSigningKey(Handle, name, key.Handle);
+        public void StoreContactSigningKey(string name, ProfileSigningPublicKey key) => owner.operations.VaultDirectoryStoreContactSigningKey(Handle, name, key.Handle);
         /// <summary>Loads contact signing key.</summary>
-        public SigningPublicKey LoadContactSigningKey(string name) => new(owner, owner.operations.VaultDirectoryLoadContactSigningKey(Handle, name));
+        public ProfileSigningPublicKey LoadContactSigningKey(string name) => new(owner, owner.operations.VaultDirectoryLoadContactSigningKey(Handle, name));
         /// <summary>Lists profile generations.</summary>
         public ProfileHistory ListProfileGenerations(string name) => owner.operations.VaultDirectoryListProfileGenerations(Handle, name);
         /// <summary>Updates private key.</summary>
@@ -478,7 +486,7 @@ public sealed class Revault
     /// <summary>Opens default read only vault directory.</summary>
     public ReadOnlyVault OpenDefaultReadOnlyVault(byte[] password) =>
         new(this, operations.VaultReadOnlyOpenDefault(password));
-    /// <summary>A metadata view for discovery and diagnostics that never loads an owner signing key.</summary>
+    /// <summary>A metadata view for discovery and diagnostics that never loads private profile signing material.</summary>
     public class ReadOnlyVaultStore : IDisposable
     {
         private readonly Revault owner; private IntPtr handle;
@@ -529,13 +537,13 @@ public sealed class Revault
     public byte[] GetAgentVaultUnlockKey(string vaultId) => operations.VaultAgentGetVaultUnlockKey(vaultId);
     /// <summary>Removes agent vault unlock key.</summary>
     public void ForgetAgentVaultUnlockKey(string vaultId) => operations.VaultAgentForgetVaultUnlockKey(vaultId);
-    /// <summary>Stores agent owner signing key.</summary>
-    public void PutAgentOwnerSigningKey(string vaultId, string profile, SigningKeyPair key, ulong ttlSeconds) =>
+    /// <summary>Caches a profile signing key in the session agent.</summary>
+    public void CacheProfileSigningKey(string vaultId, string profile, ProfileSigningKeyPair key, ulong ttlSeconds) =>
         operations.VaultAgentPutOwnerSigningKey(vaultId, profile, key.Handle, ttlSeconds);
-    /// <summary>Returns agent owner signing key.</summary>
-    public SigningKeyPair GetAgentOwnerSigningKey(string vaultId, string profile) => new(this, operations.VaultAgentGetOwnerSigningKey(vaultId, profile));
-    /// <summary>Removes agent owner signing key.</summary>
-    public void ForgetAgentOwnerSigningKey(string vaultId, string profile) => operations.VaultAgentForgetOwnerSigningKey(vaultId, profile);
+    /// <summary>Returns a profile signing key cached by the session agent.</summary>
+    public ProfileSigningKeyPair ProfileSigningKey(string vaultId, string profile) => new(this, operations.VaultAgentGetOwnerSigningKey(vaultId, profile));
+    /// <summary>Removes a cached profile signing key.</summary>
+    public void ForgetProfileSigningKey(string vaultId, string profile) => operations.VaultAgentForgetOwnerSigningKey(vaultId, profile);
     /// <summary>Starts agent activity.</summary>
     public AgentActivity BeginAgentActivity(string kind) => new(this, operations.VaultAgentBeginActivity(kind));
 
@@ -579,13 +587,13 @@ public sealed class Revault
         /// <summary>Opens with password.</summary>
         public Lockbox OpenWithPassword(string path, byte[] password) => new(owner, owner.operations.VaultOpenLockboxPassword(handle, path, password));
         /// <summary>Creates with content key.</summary>
-        public Lockbox CreateWithContentKey(string path, byte[] key, SigningKeyPair signing) =>
+        public Lockbox CreateWithContentKey(string path, byte[] key, ProfileSigningKeyPair signing) =>
             new(owner, owner.operations.VaultCreateLockboxContentKey(handle, path, key, signing.Handle));
         /// <summary>Opens with content key.</summary>
-        public Lockbox OpenWithContentKey(string path, byte[] key, SigningKeyPair signing) =>
+        public Lockbox OpenWithContentKey(string path, byte[] key, ProfileSigningKeyPair signing) =>
             new(owner, owner.operations.VaultOpenLockboxContentKey(handle, path, key, signing.Handle));
         /// <summary>Creates for contact.</summary>
-        public Lockbox CreateForContact(string path, ContactPublicKey contact, string name, SigningKeyPair signing) =>
+        public Lockbox CreateForContact(string path, ContactPublicKey contact, string name, ProfileSigningKeyPair signing) =>
             new(owner, owner.operations.VaultCreateLockboxContact(handle, path, contact.Handle, name, signing.Handle));
         /// <summary>Stores password.</summary>
         public void CachePassword(string path, byte[] password, ulong ttlSeconds) => owner.operations.VaultCacheLockboxPassword(handle, path, password, ttlSeconds);

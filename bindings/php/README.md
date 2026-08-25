@@ -6,15 +6,18 @@ matching native runtime. See the
 [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
 
 ```shell
-composer require onepub/revault-api:0.2.0
+composer require onepub/revault-api
 ```
 
 The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
 
 ```php
 $runtime = Revault\Revault::load(); // loading does not open a Vault
+$signing = $runtime->generateProfileSigningKeyPair();
+$publicSigningKey = $signing->publicKey();
 $vault = $runtime;
 $box = $vault->lockboxCreate(str_repeat("\0", 32));
+$box->setOwnerSigningKey($signing); // Profile becomes this Lockbox's owner
 $box->addFile('/hello.txt', "hello\n", false);
 $box->setVariable('owner', 'alice');
 $box->setSecretVariable('token', 'secret');
@@ -23,10 +26,16 @@ $box->withSecretVariable('token', function (FFI\CData $token, int $length) {
 });
 $box->commit();
 $box->free();
+$publicSigningKey->free(); $signing->free();
 
 $persistent = Revault\Vault::openOrCreate('/tmp/revault-vault', 'vault passphrase');
 $persistent->close();
 ```
+
+Pass a carrier path to `Revault::load($nativeLibraryPath)` for an
+application-owned installation. Otherwise a non-empty inherited
+`REVAULT_LIBRARY` is used before the Composer package carrier. A bare library
+name delegates to the operating-system search path.
 
 Enable `ext-ffi` in production. Callback memory is cleared after return; PHP
 strings are immutable, so do not retain plaintext secret strings.

@@ -7,6 +7,7 @@ security model and examples: https://github.com/onepub-dev/reVault#readme
 from __future__ import annotations
 import ctypes
 from enum import Enum
+from os import PathLike
 from pathlib import Path
 
 from . import _Buffer, _error, _load as load
@@ -168,14 +169,14 @@ class Revault:
     Create one when the application starts, then use it to manage keys, metadata,
     the session agent, and operating-system credential storage.
     """
-    def __init__(self):
-        """Load and validate the installed native carrier."""
-        self._root = self; self._lib = load(); self.agent = AgentSession(self); self.platform = Platform(self, None)
+    def __init__(self, native_library_path: str | PathLike[str] | None = None):
+        """Load an explicit, inherited, or packaged native carrier."""
+        self._root = self; self._lib = load(native_library_path); self.agent = AgentSession(self); self.platform = Platform(self, None)
 
     @staticmethod
-    def load():
-        """Load the packaged native runtime without opening a Vault."""
-        return Revault()
+    def load(native_library_path: str | PathLike[str] | None = None):
+        """Load the native runtime without opening a Vault."""
+        return Revault(native_library_path)
     @property
     def last_error(self):
         """Return the diagnostic from the most recent native call on this thread."""
@@ -266,16 +267,16 @@ class WrappedContactKey(_OwnedHandle):
     """
     pass
 
-class SigningKeyPair(_OwnedHandle):
-    """A lockbox owner's signing identity, including its private key.
+class ProfileSigningKeyPair(_OwnedHandle):
+    """A Vault Profile signing identity, including its private key.
 
-    Supply it when creating or committing a mutable lockbox so readers can
-    authenticate revisions.
+    A Lockbox assigns this Profile credential the owner role when it signs
+    revisions.
     """
     pass
 
-class SigningPublicKey(_OwnedHandle):
-    """The shareable half of a lockbox owner's signing identity.
+class ProfileSigningPublicKey(_OwnedHandle):
+    """The shareable half of a Vault Profile signing identity.
 
     Readers use it to verify owner-authorized revisions; it cannot create a
     signature.
@@ -464,20 +465,20 @@ def _Vault_key_contact_public_from_bytes(self, bytes):
     return _call(self, 'key_contact_public_from_bytes', (bytes,))
 Revault.key_contact_public_from_bytes = _Vault_key_contact_public_from_bytes
 
-def _Vault_key_signing_generate(self):
-    """Generates generate."""
+def _Vault_generate_profile_signing_key_pair(self):
+    """Generate a signing identity owned by a Vault Profile."""
     return _call(self, 'key_signing_generate', ())
-Revault.key_signing_generate = _Vault_key_signing_generate
+Revault.generate_profile_signing_key_pair = _Vault_generate_profile_signing_key_pair
 
-def _Vault_key_signing_from_private(self, bytes):
-    """Returns the private."""
+def _Vault_profile_signing_key_pair_from_private(self, bytes):
+    """Import a Vault Profile signing identity from its private record."""
     return _call(self, 'key_signing_from_private', (bytes,))
-Revault.key_signing_from_private = _Vault_key_signing_from_private
+Revault.profile_signing_key_pair_from_private = _Vault_profile_signing_key_pair_from_private
 
-def _Vault_key_signing_public_from_bytes(self, bytes):
-    """Returns the bytes."""
+def _Vault_profile_signing_public_key_from_bytes(self, bytes):
+    """Import the public half of a Vault Profile signing identity."""
     return _call(self, 'key_signing_public_from_bytes', (bytes,))
-Revault.key_signing_public_from_bytes = _Vault_key_signing_public_from_bytes
+Revault.profile_signing_public_key_from_bytes = _Vault_profile_signing_public_key_from_bytes
 
 def _Vault_vault_key_export_private(self, key, format):
     """Returns the private."""
@@ -1030,25 +1031,30 @@ def _WrappedContactKey_free(self):
     return _call(self, 'key_contact_wrapped_free', ())
 WrappedContactKey.free = _WrappedContactKey_free
 
-def _SigningKeyPair_public(self):
-    """Returns the public."""
+def _ProfileSigningKeyPair_public_bytes(self):
+    """Return the canonical public bytes paired with this identity."""
     return _call(self, 'key_signing_public', ())
-SigningKeyPair.public = _SigningKeyPair_public
+ProfileSigningKeyPair.public_bytes = _ProfileSigningKeyPair_public_bytes
 
-def _SigningKeyPair_private(self):
-    """Returns the private."""
+def _ProfileSigningKeyPair_private_record(self):
+    """Return the private signing-key record for secure binary backup."""
     return _call(self, 'key_signing_private', ())
-SigningKeyPair.private = _SigningKeyPair_private
+ProfileSigningKeyPair.private_record = _ProfileSigningKeyPair_private_record
 
-def _SigningKeyPair_free(self):
+def _ProfileSigningKeyPair_public_key(self):
+    """Create an independently owned public verification-key handle."""
+    return self._root.profile_signing_public_key_from_bytes(self.public_bytes())
+ProfileSigningKeyPair.public_key = _ProfileSigningKeyPair_public_key
+
+def _ProfileSigningKeyPair_free(self):
     """Releases the native resources held by this object."""
     return _call(self, 'key_signing_free', ())
-SigningKeyPair.free = _SigningKeyPair_free
+ProfileSigningKeyPair.free = _ProfileSigningKeyPair_free
 
-def _SigningPublicKey_public_free(self):
+def _ProfileSigningPublicKey_free(self):
     """Releases the native resources held by this object."""
     return _call(self, 'key_signing_public_free', ())
-SigningPublicKey.public_free = _SigningPublicKey_public_free
+ProfileSigningPublicKey.free = _ProfileSigningPublicKey_free
 
 def _VaultDirectory_root(self):
     """Returns the root."""
@@ -1160,15 +1166,15 @@ def _VaultDirectory_restore_private_key(self, name, key, signing_key, overwrite)
     return _call(self, 'vault_directory_restore_private_key', (name, key, signing_key, overwrite))
 VaultDirectory.restore_private_key = _VaultDirectory_restore_private_key
 
-def _VaultDirectory_load_owner_signing_key(self, name):
-    """Returns the key."""
+def _VaultDirectory_load_profile_signing_key(self, name):
+    """Load the current signing identity for a Vault Profile."""
     return _call(self, 'vault_directory_load_owner_signing_key', (name,))
-VaultDirectory.load_owner_signing_key = _VaultDirectory_load_owner_signing_key
+VaultDirectory.load_profile_signing_key = _VaultDirectory_load_profile_signing_key
 
-def _VaultDirectory_load_owner_signing_key_generation(self, name, index):
-    """Returns the generation."""
+def _VaultDirectory_load_profile_signing_key_generation(self, name, index):
+    """Load one historical signing identity for a Vault Profile."""
     return _call(self, 'vault_directory_load_owner_signing_key_generation', (name, index))
-VaultDirectory.load_owner_signing_key_generation = _VaultDirectory_load_owner_signing_key_generation
+VaultDirectory.load_profile_signing_key_generation = _VaultDirectory_load_profile_signing_key_generation
 
 def _VaultDirectory_store_contact_signing_key(self, name, key):
     """Returns the key."""
@@ -1360,20 +1366,20 @@ def _Agent_forget_vault_unlock_key(self, vault_id):
     return _call(self, 'vault_agent_forget_vault_unlock_key', (vault_id,))
 Agent.forget_vault_unlock_key = _Agent_forget_vault_unlock_key
 
-def _Agent_get_owner_signing_key(self, vault_id, profile):
-    """Returns the key."""
+def _Agent_profile_signing_key(self, vault_id, profile):
+    """Return the cached signing identity for a Vault Profile."""
     return _call(self, 'vault_agent_get_owner_signing_key', (vault_id, profile))
-Agent.get_owner_signing_key = _Agent_get_owner_signing_key
+Agent.profile_signing_key = _Agent_profile_signing_key
 
-def _Agent_put_owner_signing_key(self, vault_id, profile, key, ttl_seconds):
-    """Returns the key."""
+def _Agent_cache_profile_signing_key(self, vault_id, profile, key, ttl_seconds):
+    """Cache a signing identity for a Vault Profile."""
     return _call(self, 'vault_agent_put_owner_signing_key', (vault_id, profile, key, ttl_seconds))
-Agent.put_owner_signing_key = _Agent_put_owner_signing_key
+Agent.cache_profile_signing_key = _Agent_cache_profile_signing_key
 
-def _Agent_forget_owner_signing_key(self, vault_id, profile):
-    """Returns the key."""
+def _Agent_forget_profile_signing_key(self, vault_id, profile):
+    """Remove the cached signing identity for a Vault Profile."""
     return _call(self, 'vault_agent_forget_owner_signing_key', (vault_id, profile))
-Agent.forget_owner_signing_key = _Agent_forget_owner_signing_key
+Agent.forget_profile_signing_key = _Agent_forget_profile_signing_key
 
 def _Agent_begin_activity(self, kind):
     """Returns the activity."""
@@ -1495,8 +1501,6 @@ class Vault(VaultDirectory):
 
 
 ReadOnlyVault = ReadOnlyVaultDirectory
-ProfileSigningKeyPair = SigningKeyPair
-ProfileSigningPublicKey = SigningPublicKey
 Lockbox.close = _OwnedHandle.close
 VaultDirectory.close = VaultDirectory.free
 ReadOnlyVaultDirectory.close = ReadOnlyVaultDirectory.free
@@ -1606,11 +1610,11 @@ _ROUTES = {
     'key_contact_wrapped_ciphertext': (('handle',), 'bytes', False),
     'key_contact_wrapped_encrypted': (('handle',), 'bytes', False),
     'key_contact_wrapped_free': (('handle',), 'void', True),
-    'key_signing_generate': ((), 'handle:SigningKeyPair', False),
-    'key_signing_from_private': (('bytes',), 'handle:SigningKeyPair', False),
+    'key_signing_generate': ((), 'handle:ProfileSigningKeyPair', False),
+    'key_signing_from_private': (('bytes',), 'handle:ProfileSigningKeyPair', False),
     'key_signing_public': (('handle',), 'bytes', False),
     'key_signing_private': (('handle',), 'bytes', False),
-    'key_signing_public_from_bytes': (('bytes',), 'handle:SigningPublicKey', False),
+    'key_signing_public_from_bytes': (('bytes',), 'handle:ProfileSigningPublicKey', False),
     'key_signing_public_free': (('handle',), 'void', True),
     'key_signing_free': (('handle',), 'void', True),
     'vault_key_export_private': (('handle', 'text'), 'bytes', False),
@@ -1656,10 +1660,10 @@ _ROUTES = {
     'vault_directory_load_backup': (('handle', 'bytes'), 'bytes', False),
     'vault_directory_backup_count': (('handle',), 'value', False),
     'vault_directory_restore_private_key': (('handle', 'text', 'handle', 'handle', 'value'), 'bool', False),
-    'vault_directory_load_owner_signing_key': (('handle', 'text'), 'handle:SigningKeyPair', False),
-    'vault_directory_load_owner_signing_key_generation': (('handle', 'text', 'value'), 'handle:SigningKeyPair', False),
+    'vault_directory_load_owner_signing_key': (('handle', 'text'), 'handle:ProfileSigningKeyPair', False),
+    'vault_directory_load_owner_signing_key_generation': (('handle', 'text', 'value'), 'handle:ProfileSigningKeyPair', False),
     'vault_directory_store_contact_signing_key': (('handle', 'text', 'handle'), 'bool', False),
-    'vault_directory_load_contact_signing_key': (('handle', 'text'), 'handle:SigningPublicKey', False),
+    'vault_directory_load_contact_signing_key': (('handle', 'text'), 'handle:ProfileSigningPublicKey', False),
     'vault_directory_list_profile_generations': (('handle', 'text'), 'message:ProfileHistory', False),
     'vault_directory_rotate_private_key': (('handle', 'text'), 'message:ProfileHistory', False),
     'vault_directory_remember_lockbox': (('handle', 'bytes', 'text'), 'bool', False),
@@ -1710,7 +1714,7 @@ _ROUTES = {
     'vault_agent_get_vault_unlock_key': (('text',), 'bytes', False),
     'vault_agent_put_vault_unlock_key': (('text', 'bytes', 'value'), 'bool', False),
     'vault_agent_forget_vault_unlock_key': (('text',), 'bool', False),
-    'vault_agent_get_owner_signing_key': (('text', 'text'), 'handle:SigningKeyPair', False),
+    'vault_agent_get_owner_signing_key': (('text', 'text'), 'handle:ProfileSigningKeyPair', False),
     'vault_agent_put_owner_signing_key': (('text', 'text', 'handle', 'value'), 'bool', False),
     'vault_agent_forget_owner_signing_key': (('text', 'text'), 'bool', False),
     'vault_agent_begin_activity': (('text',), 'handle:AgentActivity', False),

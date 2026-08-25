@@ -56,12 +56,12 @@ class OwnedHandle {
  * session agent, and access operating-system credential storage. */
 /** Native runtime loader and archive/key factory. */
 export class Revault {
-  /** Load the installed native carrier asynchronously. */
-  static async load() { return new Revault(); }
+  /** Load an explicit, inherited, or installed native carrier asynchronously. */
+  static async load(nativeLibraryPath = undefined) { return new Revault(nativeLibraryPath); }
   /** Return a synchronous runtime facade for factory operations. */
   static get runtime() { return new Revault(); }
   /** Creates a new facade over the bundled native library. */
-  constructor() { this.operations = new BindingOperations(); this.agent = new Agent(this.operations); this.platform = new Platform(this.operations); }
+  constructor(nativeLibraryPath = undefined) { this.operations = new BindingOperations(nativeLibraryPath); this.agent = new Agent(this.operations); this.platform = new Platform(this.operations); }
   /** Returns the last error. */
   lastError() { return this.operations.lastErrorMessage(); }
   /** Returns the last error details. */
@@ -157,19 +157,19 @@ export class Revault {
     return new ContactPublicKey(this.operations, this.operations.keyContactPublicFromBytes(bytes));
   }
 
-  /** Returns the key signing generate. */
-  keySigningGenerate() {
-    return new SigningKeyPair(this.operations, this.operations.keySigningGenerate());
+  /** Generates a signing identity owned by a Vault Profile. */
+  generateProfileSigningKeyPair() {
+    return new ProfileSigningKeyPair(this.operations, this.operations.keySigningGenerate());
   }
 
-  /** Returns the key signing from private. */
-  keySigningFromPrivate(bytes) {
-    return new SigningKeyPair(this.operations, this.operations.keySigningFromPrivate(bytes));
+  /** Imports a Vault Profile signing identity from its private record. */
+  profileSigningKeyPairFromPrivate(bytes) {
+    return new ProfileSigningKeyPair(this.operations, this.operations.keySigningFromPrivate(bytes));
   }
 
-  /** Returns the key signing public from bytes. */
-  keySigningPublicFromBytes(bytes) {
-    return new SigningPublicKey(this.operations, this.operations.keySigningPublicFromBytes(bytes));
+  /** Imports the public half of a Vault Profile signing identity. */
+  profileSigningPublicKeyFromBytes(bytes) {
+    return new ProfileSigningPublicKey(this.operations, this.operations.keySigningPublicFromBytes(bytes));
   }
 
   /** Returns the vault key export private. */
@@ -770,35 +770,41 @@ export class WrappedContactKey extends OwnedHandle {
 
 }
 
-/** A lockbox owner's signing identity, used to authorize mutable revisions. */
-class SigningKeyPair extends OwnedHandle {
-  /** Returns the public. */
-  public() {
+/** A Vault Profile signing identity used to authorize mutable Lockbox revisions. */
+export class ProfileSigningKeyPair extends OwnedHandle {
+  /** Returns the canonical public bytes paired with this identity. */
+  publicBytes() {
     return this.operations.keySigningPublic(this.nativeHandle);
   }
 
-  /** Returns the private. */
-  private() {
+  /** Returns the private signing-key record for secure binary backup. */
+  privateRecord() {
     return this.operations.keySigningPrivate(this.nativeHandle);
   }
 
-  /** Releases the native resources held by this object. */
-  free() {
+  /** Creates an independently owned public verification-key handle. */
+  publicKey() {
+    return new ProfileSigningPublicKey(
+      this.operations,
+      this.operations.keySigningPublicFromBytes(this.publicBytes()),
+    );
+  }
+
+  /** Wipes and releases the native signing-key handle. */
+  dispose() {
     this.operations.keySigningFree(this.nativeHandle);
     this.nativeHandle = null;
   }
 
 }
 
-/** The public identity readers use to verify owner-authorized revisions. */
-class SigningPublicKey extends OwnedHandle {
-  /** Returns the public free. */
-  publicFree() {
+/** The shareable half of a Vault Profile signing identity. */
+export class ProfileSigningPublicKey extends OwnedHandle {
+  /** Releases the native verification-key handle. */
+  dispose() {
     this.operations.keySigningPublicFree(this.nativeHandle);
     this.nativeHandle = null;
   }
-  /** Release the signing public key handle. */
-  close() { this.publicFree(); }
 
 }
 
@@ -925,13 +931,13 @@ export class Vault extends OwnedHandle {
   }
 
   /** Loads owner signing key. */
-  loadOwnerSigningKey(name) {
-    return new SigningKeyPair(this.operations, this.operations.vaultDirectoryLoadOwnerSigningKey(this.nativeHandle, name));
+  loadProfileSigningKey(name) {
+    return new ProfileSigningKeyPair(this.operations, this.operations.vaultDirectoryLoadOwnerSigningKey(this.nativeHandle, name));
   }
 
   /** Loads owner signing key generation. */
-  loadOwnerSigningKeyGeneration(name, index) {
-    return new SigningKeyPair(this.operations, this.operations.vaultDirectoryLoadOwnerSigningKeyGeneration(this.nativeHandle, name, index));
+  loadProfileSigningKeyGeneration(name, index) {
+    return new ProfileSigningKeyPair(this.operations, this.operations.vaultDirectoryLoadOwnerSigningKeyGeneration(this.nativeHandle, name, index));
   }
 
   /** Stores contact signing key. */
@@ -941,7 +947,7 @@ export class Vault extends OwnedHandle {
 
   /** Loads contact signing key. */
   loadContactSigningKey(name) {
-    return new SigningPublicKey(this.operations, this.operations.vaultDirectoryLoadContactSigningKey(this.nativeHandle, name));
+    return new ProfileSigningPublicKey(this.operations, this.operations.vaultDirectoryLoadContactSigningKey(this.nativeHandle, name));
   }
 
   /** Lists profile generations. */
@@ -1141,18 +1147,18 @@ class Agent {
     return this.operations.vaultAgentForgetVaultUnlockKey(vaultId);
   }
 
-  /** Returns owner signing key. */
-  getOwnerSigningKey(vaultId, profile) {
-    return new SigningKeyPair(this.operations, this.operations.vaultAgentGetOwnerSigningKey(vaultId, profile));
+  /** Returns the cached signing identity for a Vault Profile. */
+  profileSigningKey(vaultId, profile) {
+    return new ProfileSigningKeyPair(this.operations, this.operations.vaultAgentGetOwnerSigningKey(vaultId, profile));
   }
 
-  /** Stores owner signing key. */
-  putOwnerSigningKey(vaultId, profile, key, ttlSeconds) {
+  /** Caches a signing identity for a Vault Profile. */
+  cacheProfileSigningKey(vaultId, profile, key, ttlSeconds) {
     return this.operations.vaultAgentPutOwnerSigningKey(vaultId, profile, key?.nativeHandle ?? null, ttlSeconds);
   }
 
-  /** Removes owner signing key. */
-  forgetOwnerSigningKey(vaultId, profile) {
+  /** Removes a cached Vault Profile signing identity. */
+  forgetProfileSigningKey(vaultId, profile) {
     return this.operations.vaultAgentForgetOwnerSigningKey(vaultId, profile);
   }
 
@@ -1193,11 +1199,6 @@ export class AgentSession extends Agent {
   /** Release the process-local session handle. */
   free() { if (this._vaultHandle != null) { this.operations.vaultFree(this._vaultHandle); this._vaultHandle = null; } }
 }
-
-// Reviewed 0.3 terminology for returned persistent-vault and signing-key
-// values. The old transport class names are intentionally not used in docs.
-/** Profile-oriented names for signing identities used by persistent Vault records. */
-export { SigningKeyPair as ProfileSigningKeyPair, SigningPublicKey as ProfileSigningPublicKey };
 
 /** A token kept alive while an operation needs secrets cached by the agent. */
 export class AgentActivity extends OwnedHandle {

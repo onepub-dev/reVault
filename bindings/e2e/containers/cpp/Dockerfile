@@ -1,4 +1,4 @@
-FROM rust:1.95-bookworm
+FROM revault-e2e-native:local
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake dbus-x11 gnome-keyring libsecret-tools \
@@ -7,13 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /workspace
 COPY . .
-RUN cd rust && cargo build --locked --release -p revault_bindings -p revault_tooling
-RUN install -m 0755 rust/target/release/revault-tool /usr/local/bin/revault-tool \
-    && revault-tool release package-native --repository . \
-      --version 0.2.0 --target linux-x86_64-gnu \
-      --library rust/target/release/librevault_api.so \
-      --static-library rust/target/release/librevault_api.a --output /tmp/native \
-    && revault-tool release install-native \
+RUN revault-tool release install-native \
       --archive /tmp/native/revault-api-native-0.2.0-linux-x86_64-gnu.tar.gz \
       --prefix /usr/local \
     && revault-tool release stage-ecosystems --allow-partial --repository . \

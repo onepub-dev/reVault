@@ -34,8 +34,9 @@ const handles = new Set([
   'Revault',
   'Vault',
   'Lockbox', 'ContactKeyPair', 'ContactPublicKey', 'WrappedContactKey',
-  'SigningKeyPair', 'SigningPublicKey', 'VaultDirectory', 'ReadOnlyVaultDirectory', 'Agent',
-  'AgentActivity', 'Platform', 'LocalVault',
+  'ProfileSigningKeyPair', 'ProfileSigningPublicKey', 'VaultDirectory',
+  'ReadOnlyVaultDirectory', 'Agent', 'AgentSession', 'AgentActivity', 'Platform',
+  'LocalVault',
 ]);
 const snake = value => value.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
 function operation(className, method) {
@@ -51,8 +52,7 @@ function operation(className, method) {
       'loadPrivateKeyGeneration', 'storeContact', 'loadContact',
       'contactExists', 'deleteContact', 'listContacts', 'storeProfileEmail',
       'profileEmail', 'storeBackup', 'loadBackup', 'backupCount',
-      'restorePrivateKey', 'loadOwnerSigningKey',
-      'loadOwnerSigningKeyGeneration', 'storeContactSigningKey',
+      'restorePrivateKey', 'storeContactSigningKey',
       'loadContactSigningKey', 'listProfileGenerations', 'rotatePrivateKey',
       'rememberLockbox', 'forgetLockbox',
       'rememberKnownLockbox', 'listKnownLockboxes', 'forgetKnownLockbox',
@@ -63,6 +63,15 @@ function operation(className, method) {
       'resolveForm', 'listForms', 'listFormRevisions', 'seedForms',
       'rememberPassword', 'rememberedPassword', 'free', 'close',
     ]).has(method)) return `vault_directory_${name}`;
+    if (className === 'Vault' && method === 'loadProfileSigningKey') {
+      return 'vault_directory_load_owner_signing_key';
+    }
+    if (className === 'Vault' && method === 'loadProfileSigningKeyGeneration') {
+      return 'vault_directory_load_owner_signing_key_generation';
+    }
+    if (method === 'generateProfileSigningKeyPair') return 'key_signing_generate';
+    if (method === 'profileSigningKeyPairFromPrivate') return 'key_signing_from_private';
+    if (method === 'profileSigningPublicKeyFromBytes') return 'key_signing_public_from_bytes';
     if (method === 'lastError') return 'buffer_last_error';
     if (method === 'lastErrorDetails') return 'buffer_last_error_details';
     return name;
@@ -80,16 +89,32 @@ function operation(className, method) {
   if (className === 'ContactPublicKey') return method === 'encrypt' ? 'key_contact_encrypt' : `key_contact_${name}`;
   if (className === 'WrappedContactKey') return `key_contact_wrapped_${name}`;
   if (className === 'AgentSession') {
+    if (new Set([
+      'createLockboxPassword', 'openLockboxPassword', 'createLockboxContentKey',
+      'openLockboxContentKey', 'createLockboxContact', 'cacheLockboxPassword',
+      'free',
+    ]).has(method)) return `vault_${name}`;
     if (method === 'closeLockbox') return 'vault_close_lockbox';
     if (method === 'closeAll') return 'vault_close_all';
     return operation('Agent', method);
   }
-  if (className === 'SigningKeyPair' || className === 'SigningPublicKey') return `key_signing_${name}`;
+  if (className === 'ProfileSigningKeyPair') {
+    if (method === 'publicBytes') return 'key_signing_public';
+    if (method === 'privateRecord') return 'key_signing_private';
+    if (method === 'publicKey') return 'key_signing_public_from_bytes';
+    if (method === 'dispose') return 'key_signing_free';
+  }
+  if (className === 'ProfileSigningPublicKey' && method === 'dispose') {
+    return 'key_signing_public_free';
+  }
   if (className === 'VaultDirectory') return `vault_directory_${name}`;
   if (className === 'ReadOnlyVaultDirectory') return `vault_read_only_${name}`;
   if (className === 'Agent') {
     if (method === 'isRunning') return 'vault_is_running';
     if (method === 'forgetAll') return 'vault_forget_all';
+    if (method === 'profileSigningKey') return 'vault_agent_get_owner_signing_key';
+    if (method === 'cacheProfileSigningKey') return 'vault_agent_put_owner_signing_key';
+    if (method === 'forgetProfileSigningKey') return 'vault_agent_forget_owner_signing_key';
     return `vault_agent_${name}`;
   }
   if (className === 'Platform') return `vault_platform_${name}`;

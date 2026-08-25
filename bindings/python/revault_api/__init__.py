@@ -12,6 +12,7 @@ https://github.com/onepub-dev/reVault#readme
 from __future__ import annotations
 
 import ctypes
+import os
 import platform
 import sys
 from pathlib import Path
@@ -66,9 +67,19 @@ def _native_library_path() -> str:
     return str(bundled)
 
 
-def _load() -> ctypes.CDLL:
-    """Load and validate the version-matched ABI-v2 native library."""
-    library = ctypes.CDLL(_native_library_path())
+def _load(native_library_path: str | os.PathLike[str] | None = None) -> ctypes.CDLL:
+    """Load and validate the selected version-matched native library."""
+    if native_library_path is not None and not os.fspath(native_library_path):
+        raise ValueError("native_library_path must not be empty")
+    inherited = os.environ.get("REVAULT_LIBRARY")
+    selected = (
+        os.fspath(native_library_path)
+        if native_library_path is not None
+        else inherited
+        if inherited
+        else _native_library_path()
+    )
+    library = ctypes.CDLL(selected)
     library.api_abi_version.argtypes = []
     library.api_abi_version.restype = ctypes.c_uint32
     if library.api_abi_version() != 3:

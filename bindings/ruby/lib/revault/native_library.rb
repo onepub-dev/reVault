@@ -6,7 +6,20 @@ module Revault
   module NativeLibrary
     module_function
 
-    def path
+    def path(explicit_path = nil)
+      raise ArgumentError, 'native library path must not be empty' if explicit_path == ''
+      inherited = ENV['REVAULT_LIBRARY']
+      selected = explicit_path || (inherited unless inherited.nil? || inherited.empty?) || bundled_path
+      if defined?(@selected_path) && explicit_path.nil?
+        return @selected_path
+      end
+      if defined?(@selected_path) && @selected_path != selected
+        raise 'the process-wide reVault native library is already selected'
+      end
+      @selected_path = selected
+    end
+
+    def bundled_path
       cpu = case RbConfig::CONFIG['host_cpu']
             when 'x86_64', 'amd64', 'x64' then 'x86_64'
             when 'aarch64', 'arm64' then 'aarch64'
@@ -30,9 +43,9 @@ module Revault
              when /mswin|mingw/ then 'revault_ruby_shim.dll'
              else raise "unsupported reVault operating system: #{RbConfig::CONFIG['host_os']}"
              end
-      bundled = File.join(File.dirname(path), name)
+      bundled = File.join(File.dirname(bundled_path), name)
       return bundled if File.file?(bundled)
-      raise "revault-api Ruby native shim is missing beside #{path}"
+      raise "revault-api Ruby native shim is missing beside #{bundled_path}"
     end
   end
 end

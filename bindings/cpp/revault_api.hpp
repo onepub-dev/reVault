@@ -1305,16 +1305,16 @@ class AgentSession {
     checked(vault_agent_forget_vault_unlock_key(profile.data(), profile.size()));
   }
   /** Caches a profile signing key for the selected session duration. */
-  static void put_profile_signing_key(const std::string& vault_id,
-                                      const std::string& profile,
-                                      const ProfileSigningKeyPair& key,
-                                      std::uint64_t ttl_seconds) {
+  static void cache_profile_signing_key(const std::string& vault_id,
+                                        const std::string& profile,
+                                        const ProfileSigningKeyPair& key,
+                                        std::uint64_t ttl_seconds) {
     checked(vault_agent_put_owner_signing_key(
         vault_id.data(), vault_id.size(), profile.data(), profile.size(),
         key.native_handle(), ttl_seconds));
   }
   /** Retrieves a cached profile signing key, if present. */
-  static ProfileSigningKeyPair get_profile_signing_key(
+  static ProfileSigningKeyPair profile_signing_key(
       const std::string& vault_id, const std::string& profile) {
     return ProfileSigningKeyPair(vault_agent_get_owner_signing_key(
         vault_id.data(), vault_id.size(), profile.data(), profile.size()));

@@ -8,7 +8,7 @@ package. See the
 [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
 
 ```shell
-npm install @onepub-dev/revault-api-wasm@0.3.0
+npm install @onepub-dev/revault-api-wasm
 ```
 
 The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
@@ -19,12 +19,16 @@ and the generated WebAssembly module under `generated/`.
 import { Revault, wasmDispatchCount } from '@onepub-dev/revault-api-wasm';
 
 const runtime = new Revault();
+const signing = runtime.generateProfileSigningKeyPair();
+const publicSigningKey = signing.publicKey();
 const box = runtime.lockboxCreate(new Uint8Array(32));
+box.setOwnerSigningKey(signing); // Profile becomes this Lockbox's owner
 box.setVariable('owner', 'alice');
 box.setSecretVariable('token', new TextEncoder().encode('secret'));
 box.withSecretVariable('token', token => token.length);
 box.commit();
 box.free();
+publicSigningKey.dispose(); signing.dispose();
 console.log(wasmDispatchCount());
 ```
 

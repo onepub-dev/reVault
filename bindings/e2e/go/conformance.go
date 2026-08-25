@@ -598,8 +598,8 @@ func agentAndLockboxSession() {
 	pass("vault_agent_get_vault_unlock_key", 3)
 	owner := mustValue(revault.GenerateProfileSigningKeyPair())
 	defer owner.Close()
-	must(revault.PutAgentProfileSigningKey("vault-id", "alice", owner, 120))
-	loadedOwner := mustValue(revault.GetAgentProfileSigningKey("vault-id", "alice"))
+	must(revault.CacheAgentProfileSigningKey("vault-id", "alice", owner, 120))
+	loadedOwner := mustValue(revault.AgentProfileSigningKey("vault-id", "alice"))
 	check(len(mustValue(loadedOwner.PublicBytes())) > 0, "owner key")
 	loadedOwner.Close()
 	pass("vault_agent_put_owner_signing_key")
@@ -656,7 +656,7 @@ func agentAndLockboxSession() {
 	pass("vault_close_all")
 	local.Close()
 	pass("vault_free")
-	must(revault.ForgetAgentOwnerSigningKey("vault-id", "alice"))
+	must(revault.ForgetAgentProfileSigningKey("vault-id", "alice"))
 	must(revault.ForgetAgentVaultUnlockKey("vault-id"))
 	must(revault.ForgetAgentKey(id))
 	pass("vault_agent_forget_owner_signing_key")
@@ -718,8 +718,10 @@ func main() {
 		platformSecretStore()
 		return
 	}
-	if len(os.Args) == 3 && os.Args[1] == "--interop" {
-		interopOpen(os.Args[2])
+	if len(os.Args) >= 3 && os.Args[1] == "--interop" {
+		for _, producer := range os.Args[2:] {
+			interopOpen(producer)
+		}
 		return
 	}
 	archiveLifecycle()

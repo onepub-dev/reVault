@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment;
 import java.lang.foreign.Arena;
 import java.lang.foreign.SymbolLookup;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 
 /**
  * Entry point for encrypted lockboxes, keys, local vault metadata, the session
@@ -32,9 +33,33 @@ public final class Revault {
   /** Loads the process-wide native reVault runtime using platform discovery. */
   public static Revault load() { return new Revault(); }
 
+  /**
+   * Loads an application-owned carrier before inherited or packaged discovery.
+   * @param nativeLibraryPath filesystem path or operating-system library name
+   */
+  public static Revault load(String nativeLibraryPath) { return new Revault(nativeLibraryPath); }
+
+  /**
+   * Loads an application-owned carrier before inherited or packaged discovery.
+   * @param nativeLibraryPath filesystem path to the carrier
+   */
+  public static Revault load(Path nativeLibraryPath) {
+    if (nativeLibraryPath == null) throw new NullPointerException("nativeLibraryPath");
+    return load(nativeLibraryPath.toString());
+  }
+
   /** Creates a runtime loader. Prefer {@link #load()} in application code. */
   public Revault() {
-    this(new RevaultNativeApi(SymbolLookup.libraryLookup(NativeLibrary.resolve(), Arena.global())));
+    this((String) null);
+  }
+
+  /**
+   * Creates a runtime loader using explicit, inherited, then packaged discovery.
+   * @param nativeLibraryPath explicit path/name, or {@code null} for inherited/package discovery
+   */
+  public Revault(String nativeLibraryPath) {
+    this(new RevaultNativeApi(SymbolLookup.libraryLookup(
+        NativeLibrary.resolve(nativeLibraryPath), Arena.global())));
   }
 
   Revault(RevaultNativeApi nativeApi) { operations = new BindingOperations(nativeApi); }
@@ -144,26 +169,26 @@ public final class Revault {
     }
   }
 
-  /** The public identity readers use to verify owner-authorized lockbox revisions. */
-  public final class SigningPublicKey implements AutoCloseable {
+  /** The public profile identity readers use to verify authorized lockbox revisions. */
+  public final class ProfileSigningPublicKey implements AutoCloseable {
     private MemorySegment handle;
-    private SigningPublicKey(MemorySegment handle) { this.handle = handle; }
+    private ProfileSigningPublicKey(MemorySegment handle) { this.handle = handle; }
     /** Releases the native resources held by this object. */
     @Override public void close() {
       if (handle != null) { operations.keySigningPublicFree(handle); handle = null; }
     }
   }
 
-  /** A lockbox owner's signing identity used to authorize mutable revisions. */
-  public final class SigningKeyPair implements AutoCloseable {
+  /** A profile signing identity used to authorize mutable lockbox revisions. */
+  public final class ProfileSigningKeyPair implements AutoCloseable {
     private MemorySegment handle;
-    private SigningKeyPair(MemorySegment handle) { this.handle = handle; }
+    private ProfileSigningKeyPair(MemorySegment handle) { this.handle = handle; }
     /** Returns the public bytes. */
     public byte[] publicBytes() { ensureOpen(handle); return operations.keySigningPublic(handle); }
     /** Returns the private record. */
     public byte[] privateRecord() { ensureOpen(handle); return operations.keySigningPrivate(handle); }
     /** Returns the public key. */
-    public SigningPublicKey publicKey() { return signingPublicKey(publicBytes()); }
+    public ProfileSigningPublicKey publicKey() { return profileSigningPublicKeyFromBytes(publicBytes()); }
     /** Releases the native resources held by this object. */
     @Override public void close() {
       if (handle != null) { operations.keySigningFree(handle); handle = null; }
@@ -180,12 +205,12 @@ public final class Revault {
   public ContactPublicKey contactPublicKey(byte[] value) { return new ContactPublicKey(operations.keyContactPublicFromBytes(value)); }
   /** Imports contact public key. */
   public ContactPublicKey importContactPublicKey(byte[] value) { return new ContactPublicKey(operations.vaultKeyImportPublic(value)); }
-  /** Generates signing key pair. */
-  public SigningKeyPair generateSigningKeyPair() { return new SigningKeyPair(operations.keySigningGenerate()); }
-  /** Returns the signing key pair from private. */
-  public SigningKeyPair signingKeyPairFromPrivate(byte[] value) { return new SigningKeyPair(operations.keySigningFromPrivate(value)); }
-  /** Returns the signing public key. */
-  public SigningPublicKey signingPublicKey(byte[] value) { return new SigningPublicKey(operations.keySigningPublicFromBytes(value)); }
+  /** Generates a profile signing key pair. */
+  public ProfileSigningKeyPair generateProfileSigningKeyPair() { return new ProfileSigningKeyPair(operations.keySigningGenerate()); }
+  /** Imports a profile signing key pair from its private record. */
+  public ProfileSigningKeyPair profileSigningKeyPairFromPrivate(byte[] value) { return new ProfileSigningKeyPair(operations.keySigningFromPrivate(value)); }
+  /** Imports a profile signing public key from encoded bytes. */
+  public ProfileSigningPublicKey profileSigningPublicKeyFromBytes(byte[] value) { return new ProfileSigningPublicKey(operations.keySigningPublicFromBytes(value)); }
 
   /** Formats key hex. */
   public String formatKeyHex(byte[] value) { return operations.vaultKeyFormatHex(value); }
@@ -216,7 +241,7 @@ public final class Revault {
     ensureOpen(contact.handle); return new Lockbox(operations.lockboxCreateContact(contact.handle));
   }
   /** Creates signed lockbox. */
-  public Lockbox createSignedLockbox(byte[] contentKey, SigningKeyPair signingKey) {
+  public Lockbox createLockboxWithProfileSigningKey(byte[] contentKey, ProfileSigningKeyPair signingKey) {
     ensureOpen(signingKey.handle); return new Lockbox(operations.lockboxCreateWithSigningKey(contentKey, signingKey.handle));
   }
   /** Opens lockbox. */
@@ -242,7 +267,7 @@ public final class Revault {
   /** Scans lockbox. */
   public RecoveryReport scanLockbox(byte[] archive, byte[] key) { return operations.lockboxRecoveryScan(archive, key); }
   /** Salvages lockbox. */
-  public Lockbox salvageLockbox(byte[] archive, byte[] key, SigningKeyPair signingKey) {
+  public Lockbox salvageLockbox(byte[] archive, byte[] key, ProfileSigningKeyPair signingKey) {
     return new Lockbox(operations.lockboxRecoverySalvage(archive, key,
         signingKey == null ? MemorySegment.NULL : signingKey.handle));
   }
@@ -364,7 +389,7 @@ public final class Revault {
     /** Lists key slots. */
     public java.util.List<KeySlot> listKeySlots() { return operations.lockboxListKeySlots(handle); }
     /** Sets owner signing key. */
-    public void setOwnerSigningKey(SigningKeyPair key) { operations.lockboxSetOwnerSigningKey(handle, key.handle); }
+    public void setOwnerSigningKey(ProfileSigningKeyPair key) { operations.lockboxSetOwnerSigningKey(handle, key.handle); }
     /** Returns the owner inspection. */
     public OwnerInspection ownerInspection() { return operations.lockboxOwnerInspection(handle); }
     /** Returns the define form. */
@@ -508,24 +533,24 @@ public final class Revault {
     /** Returns the backup count. */
     public long backupCount() { return operations.vaultDirectoryBackupCount(handle); }
     /** Returns the restore private key. */
-    public void restorePrivateKey(String name, ContactKeyPair key, SigningKeyPair signingKey, boolean overwrite) {
+    public void restorePrivateKey(String name, ContactKeyPair key, ProfileSigningKeyPair signingKey, boolean overwrite) {
       operations.vaultDirectoryRestorePrivateKey(handle, name, key.handle, signingKey.handle, overwrite);
     }
-    /** Loads owner signing key. */
-    public SigningKeyPair loadOwnerSigningKey(String name) {
-      return new SigningKeyPair(operations.vaultDirectoryLoadOwnerSigningKey(handle, name));
+    /** Loads the current profile signing key. */
+    public ProfileSigningKeyPair loadProfileSigningKey(String name) {
+      return new ProfileSigningKeyPair(operations.vaultDirectoryLoadOwnerSigningKey(handle, name));
     }
-    /** Loads owner signing key generation. */
-    public SigningKeyPair loadOwnerSigningKeyGeneration(String name, int index) {
-      return new SigningKeyPair(operations.vaultDirectoryLoadOwnerSigningKeyGeneration(handle, name, (short) index));
+    /** Loads a historical profile signing key generation. */
+    public ProfileSigningKeyPair loadProfileSigningKeyGeneration(String name, int index) {
+      return new ProfileSigningKeyPair(operations.vaultDirectoryLoadOwnerSigningKeyGeneration(handle, name, (short) index));
     }
     /** Stores contact signing key. */
-    public void storeContactSigningKey(String name, SigningPublicKey key) {
+    public void storeContactSigningKey(String name, ProfileSigningPublicKey key) {
       operations.vaultDirectoryStoreContactSigningKey(handle, name, key.handle);
     }
     /** Loads contact signing key. */
-    public SigningPublicKey loadContactSigningKey(String name) {
-      return new SigningPublicKey(operations.vaultDirectoryLoadContactSigningKey(handle, name));
+    public ProfileSigningPublicKey loadContactSigningKey(String name) {
+      return new ProfileSigningPublicKey(operations.vaultDirectoryLoadContactSigningKey(handle, name));
     }
     /** Lists profile generations. */
     public ProfileHistory listProfileGenerations(String name) {
@@ -572,9 +597,9 @@ public final class Revault {
   }
 
   /**
-   * A metadata view for discovery and diagnostics that never loads an owner
-   * signing key. This internal implementation base is exposed through the
-   * public {@link ReadOnlyVault} facade.
+   * A metadata view for discovery and diagnostics that never loads private
+   * profile signing material. This internal implementation base is exposed
+   * through the public {@link ReadOnlyVault} facade.
    */
   public class ReadOnlyVaultHandle implements AutoCloseable {
     private MemorySegment handle;
@@ -626,16 +651,16 @@ public final class Revault {
   public byte[] getAgentVaultUnlockKey(String vaultId) { return operations.vaultAgentGetVaultUnlockKey(vaultId); }
   /** Removes agent vault unlock key. */
   public void forgetAgentVaultUnlockKey(String vaultId) { operations.vaultAgentForgetVaultUnlockKey(vaultId); }
-  /** Stores agent owner signing key. */
-  public void putAgentOwnerSigningKey(String vaultId, String profile, SigningKeyPair key, long ttlSeconds) {
+  /** Caches a profile signing key in the session agent. */
+  public void cacheProfileSigningKey(String vaultId, String profile, ProfileSigningKeyPair key, long ttlSeconds) {
     operations.vaultAgentPutOwnerSigningKey(vaultId, profile, key.handle, ttlSeconds);
   }
-  /** Returns agent owner signing key. */
-  public SigningKeyPair getAgentOwnerSigningKey(String vaultId, String profile) {
-    return new SigningKeyPair(operations.vaultAgentGetOwnerSigningKey(vaultId, profile));
+  /** Returns a profile signing key cached by the session agent. */
+  public ProfileSigningKeyPair profileSigningKey(String vaultId, String profile) {
+    return new ProfileSigningKeyPair(operations.vaultAgentGetOwnerSigningKey(vaultId, profile));
   }
-  /** Removes agent owner signing key. */
-  public void forgetAgentOwnerSigningKey(String vaultId, String profile) {
+  /** Removes a cached profile signing key. */
+  public void forgetProfileSigningKey(String vaultId, String profile) {
     operations.vaultAgentForgetOwnerSigningKey(vaultId, profile);
   }
 
@@ -685,15 +710,15 @@ public final class Revault {
       return new Lockbox(operations.vaultOpenLockboxPassword(handle, path, password));
     }
     /** Creates with content key. */
-    public Lockbox createWithContentKey(String path, byte[] key, SigningKeyPair signingKey) {
+    public Lockbox createWithContentKey(String path, byte[] key, ProfileSigningKeyPair signingKey) {
       return new Lockbox(operations.vaultCreateLockboxContentKey(handle, path, key, signingKey.handle));
     }
     /** Opens with content key. */
-    public Lockbox openWithContentKey(String path, byte[] key, SigningKeyPair signingKey) {
+    public Lockbox openWithContentKey(String path, byte[] key, ProfileSigningKeyPair signingKey) {
       return new Lockbox(operations.vaultOpenLockboxContentKey(handle, path, key, signingKey.handle));
     }
     /** Creates for contact. */
-    public Lockbox createForContact(String path, ContactPublicKey contact, String name, SigningKeyPair signingKey) {
+    public Lockbox createForContact(String path, ContactPublicKey contact, String name, ProfileSigningKeyPair signingKey) {
       return new Lockbox(operations.vaultCreateLockboxContact(handle, path, contact.handle, name, signingKey.handle));
     }
     /** Stores password. */

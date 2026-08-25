@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Restore the optional `Revault.load(nativeLibraryPath: ...)` installer hook
+  while retaining native-assets loading as the default.
 - Allow the bundled native client to use a session agent from a different
   package release when both implement the same agent protocol.
 - Added encrypted Lockbox descriptions through `description`, `setDescription`,

@@ -57,9 +57,11 @@ String artifactRoot() {
 }
 
 List<FormField> fields() => [
-  FormField(id: 'username', label: 'Username', kind: 'text', required: true),
-  FormField(id: 'password', label: 'Password', kind: 'secret', required: true),
-];
+      FormField(
+          id: 'username', label: 'Username', kind: 'text', required: true),
+      FormField(
+          id: 'password', label: 'Password', kind: 'secret', required: true),
+    ];
 
 void archiveLifecycle() {
   final key = SecretBytes.copyOf(repeat('K'.codeUnitAt(0), 32));
@@ -747,9 +749,12 @@ Future<void> agentAndLocal() async {
   final agent = AgentSession.instance;
   agent.clearAllSecrets();
   pass('vault_forget_all');
-  final child = await Process.start(Platform.resolvedExecutable, [
-    '--serve-agent',
-  ], mode: ProcessStartMode.inheritStdio);
+  final child = await Process.start(
+      Platform.resolvedExecutable,
+      [
+        '--serve-agent',
+      ],
+      mode: ProcessStartMode.inheritStdio);
   var running = false;
   for (var attempt = 0; attempt < 200; attempt++) {
     if (agent.isRunning) {
@@ -888,8 +893,7 @@ Future<void> agentAndLocal() async {
 }
 
 void interop(String producer) {
-  final root =
-      Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
+  final root = Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
       '/tmp/revault-e2e-artifacts';
   final box = Lockbox.openBytes(
     Uint8List.fromList(File('$root/$producer/archive.lbox').readAsBytesSync()),
@@ -912,7 +916,15 @@ void interop(String producer) {
 }
 
 Future<void> main(List<String> args) async {
-  api = await Revault.load();
+  api = await Revault.load(
+    nativeLibraryPath: Platform.environment['REVAULT_E2E_LOAD_PATH'],
+  );
+  if (Platform.environment['REVAULT_E2E_LOADER_SMOKE'] case final mode?) {
+    final version = api.lockboxFormatVersion;
+    check(version > 0, 'loader native round trip');
+    stdout.writeln('LOADER\tdart\t$mode\t$version');
+    return;
+  }
   if (args case ['--serve-agent']) {
     AgentSession.instance.serve();
     return;
@@ -929,8 +941,8 @@ Future<void> main(List<String> args) async {
     await agentAndLocal();
     return;
   }
-  if (args case ['--interop', final producer]) {
-    interop(producer);
+  if (args.length >= 2 && args.first == '--interop') {
+    for (final producer in args.skip(1)) interop(producer);
     return;
   }
   archiveLifecycle();

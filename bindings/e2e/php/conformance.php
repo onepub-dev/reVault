@@ -9,10 +9,18 @@ use Revault\Vault;
 use Revault\FormField;
 use Revault\PathMove;
 
-$api = ApiRuntime::load();
+$api = ApiRuntime::load(getenv('REVAULT_E2E_LOAD_PATH') ?: null);
+if (($loaderMode = getenv('REVAULT_E2E_LOADER_SMOKE')) !== false) {
+    $version = $api->lockboxFormatVersion();
+    if ($version <= 0) { throw new RuntimeException('loader native round trip'); }
+    echo "LOADER\tphp\t$loaderMode\t$version\n";
+    exit(0);
+}
 
 function pass(string $symbol, int $assertions = 1): void { echo "PASS\tphp\t$symbol\t$assertions\n"; }
 function check(bool $value, string $message): void { if (!$value) throw new RuntimeException($message); }
+check(!class_exists('Revault\\SigningKeyPair') && !class_exists('Revault\\SigningPublicKey'), 'legacy signing classes remain exported');
+check(class_exists('Revault\\ProfileSigningKeyPair') && class_exists('Revault\\ProfileSigningPublicKey'), 'profile signing classes are missing');
 function artifactRoot(): string {
     $path = (getenv('REVAULT_E2E_ARTIFACT_DIR') ?: '/tmp/revault-e2e-artifacts') . '/php';
     if (!is_dir($path)) mkdir($path, 0700, true);
@@ -83,9 +91,9 @@ function archiveLifecycle(ApiRuntime $api): void {
 function keyLifecycle(ApiRuntime $api): void {
     $content = implode('', array_map(chr(...), range(0, 31)));
     $contact = $api->keyContactGenerate(); pass('key_contact_generate');
-    $private = $contact->private(); pass('key_contact_private', 2);
+    $private = $contact->privateRecord(); pass('key_contact_private', 2);
     $copy = $api->keyContactFromPrivate($private); pass('key_contact_from_private');
-    $publicBytes = $contact->public(); pass('key_contact_public', 2);
+    $publicBytes = $contact->publicBytes(); pass('key_contact_public', 2);
     $public = $api->keyContactPublicFromBytes($publicBytes); pass('key_contact_public_from_bytes');
     $wrapped = $public->encrypt($content); pass('key_contact_encrypt');
     check($copy->decrypt($wrapped) === $content, 'contact decrypt'); pass('key_contact_decrypt', 3);
@@ -106,11 +114,11 @@ function keyLifecycle(ApiRuntime $api): void {
     $importPrivate->free(); $copy->free(); $contact->free(); pass('key_contact_free', 3);
     $plain = $api->vaultKeyHexEncode($content); check($api->vaultKeyHexDecode($plain) === $content, 'hex');
     pass('vault_key_hex_encode', 2); pass('vault_key_hex_decode', 2);
-    $signing = $api->keySigningGenerate(); pass('key_signing_generate');
+    $signing = $api->generateProfileSigningKeyPair(); pass('key_signing_generate');
     $signPrivate = $signing->private(); $signPublic = $signing->public();
     pass('key_signing_private', 2); pass('key_signing_public', 2);
-    $signCopy = $api->keySigningFromPrivate($signPrivate); $signCopy->free(); pass('key_signing_from_private');
-    $signPub = $api->keySigningPublicFromBytes($signPublic); $signPub->publicFree();
+    $signCopy = $api->profileSigningKeyPairFromPrivate($signPrivate); $signCopy->free(); pass('key_signing_from_private');
+    $signPub = $api->profileSigningPublicKeyFromBytes($signPublic); $signPub->free();
     pass('key_signing_public_from_bytes'); pass('key_signing_public_free', 2);
     $signing->free(); pass('key_signing_free', 3);
 }
@@ -133,8 +141,8 @@ function advancedArchive(ApiRuntime $api): void {
     pass('lockbox_get_form_record'); pass('lockbox_get_form_field'); pass('lockbox_list_form_records');
     $box->moveFormRecords(moves('/account.form', '/moved.form')); $box->getFormRecord('/moved.form');
     $box->moveFormRecords(moves('/moved.form', '/account.form')); pass('lockbox_move_form_records', 3);
-    $signing = $api->keySigningGenerate(); $contact = $api->keyContactGenerate();
-    $public = $api->keyContactPublicFromBytes($contact->public());
+    $signing = $api->generateProfileSigningKeyPair(); $contact = $api->keyContactGenerate();
+    $public = $api->keyContactPublicFromBytes($contact->publicBytes());
     $box->setOwnerSigningKey($signing); pass('lockbox_set_owner_signing_key');
     $slot = $box->addPassword('archive password'); pass('lockbox_add_password');
     $box->addContact($public, 'recipient'); pass('lockbox_add_contact');
@@ -169,8 +177,8 @@ function vaultLifecycle(ApiRuntime $api): void {
     $root = artifactRoot() . '/vault'; if (!is_dir($root)) mkdir($root, 0700, true);
     $password = 'vault password'; $changed = 'new vault password'; $id = implode('', array_map(chr(...), range(0xa0, 0xaf)));
     $profile = $api->keyContactGenerate(); $contact = $api->keyContactGenerate();
-    $contactPublic = $api->keyContactPublicFromBytes($contact->public());
-    $owner = $api->keySigningGenerate(); $ownerPublic = $api->keySigningPublicFromBytes($owner->public());
+    $contactPublic = $api->keyContactPublicFromBytes($contact->publicBytes());
+    $owner = $api->generateProfileSigningKeyPair(); $ownerPublic = $owner->publicKey();
     $vault = Vault::replace($root, $password); pass('vault_directory_replace');
     echo "ARTIFACT\tphp\tvault-created\t$root\n";
     check($vault->root() === $root && $vault->structureVersion() > 0, 'vault'); pass('vault_directory_root', 3); pass('vault_directory_structure_version');
@@ -184,11 +192,11 @@ function vaultLifecycle(ApiRuntime $api): void {
     pass('vault_directory_store_profile_email'); pass('vault_directory_profile_email', 3);
     $vault->listProfileGenerations('alice'); $vault->rotatePrivateKey('alice');
     pass('vault_directory_list_profile_generations'); pass('vault_directory_rotate_private_key');
-    $vault->loadOwnerSigningKey('alice')->free(); $vault->loadOwnerSigningKeyGeneration('alice', 1)->free();
+    $vault->loadProfileSigningKey('alice')->free(); $vault->loadProfileSigningKeyGeneration('alice', 1)->free();
     pass('vault_directory_load_owner_signing_key'); pass('vault_directory_load_owner_signing_key_generation');
     $vault->storeContact('bob', $contactPublic); $vault->contactExists('bob'); $vault->loadContact('bob')->publicFree(); $vault->listContacts();
     pass('vault_directory_store_contact'); pass('vault_directory_contact_exists'); pass('vault_directory_load_contact'); pass('vault_directory_list_contacts');
-    $vault->storeContactSigningKey('bob', $ownerPublic); $vault->loadContactSigningKey('bob')->publicFree();
+    $vault->storeContactSigningKey('bob', $ownerPublic); $vault->loadContactSigningKey('bob')->free();
     pass('vault_directory_store_contact_signing_key'); pass('vault_directory_load_contact_signing_key');
     $vault->listPrivateKeys(); $vault->listPrivateKeyNames(); $vault->listContactNames();
     pass('vault_directory_list_private_keys'); pass('vault_directory_list_private_key_names'); pass('vault_directory_list_contact_names');
@@ -215,7 +223,7 @@ function vaultLifecycle(ApiRuntime $api): void {
     $api->vaultDirectoryChangePassword($root, $password, $changed); pass('vault_directory_change_password');
     Vault::open($root, $changed)->free(); pass('vault_directory_open'); echo "ARTIFACT\tphp\tvault-opened\t$root\n";
     Vault::openOrCreate($root, $changed)->free(); pass('vault_directory_open_or_create');
-    $ownerPublic->publicFree(); $owner->free(); $contactPublic->publicFree(); $contact->free(); $profile->free();
+    $ownerPublic->free(); $owner->free(); $contactPublic->publicFree(); $contact->free(); $profile->free();
 }
 
 function defaultVault(ApiRuntime $api): void {
@@ -261,7 +269,7 @@ function agentAndLocal(ApiRuntime $api): void {
     $agent->put($id, $key); check($agent->get($id) === $key, 'agent key'); $agent->list();
     pass('vault_agent_put'); pass('vault_agent_get', 3); pass('vault_agent_list');
     $agent->putVaultUnlockKey('vault-id', $key, 120); $agent->getVaultUnlockKey('vault-id'); pass('vault_agent_put_vault_unlock_key'); pass('vault_agent_get_vault_unlock_key', 3);
-    $owner = $api->keySigningGenerate(); $agent->putOwnerSigningKey('vault-id', 'alice', $owner, 120); $agent->getOwnerSigningKey('vault-id', 'alice')->free();
+    $owner = $api->generateProfileSigningKeyPair(); $agent->cacheProfileSigningKey('vault-id', 'alice', $owner, 120); $agent->profileSigningKey('vault-id', 'alice')->free();
     pass('vault_agent_put_owner_signing_key'); pass('vault_agent_get_owner_signing_key');
     $activity = $agent->beginActivity('open'); pass('vault_agent_begin_activity'); $agent->endActivity($activity); pass('vault_agent_end_activity');
     $agent->sleepSupport(); pass('vault_agent_sleep_support'); $api->vaultAgentLogPath(); $api->vaultAgentLogDestination();
@@ -275,11 +283,11 @@ function agentAndLocal(ApiRuntime $api): void {
     $contentPath = "$root/content.lbox"; $box = $local->createLockboxContentKey($contentPath, $key, $owner);
     $box->addFile('/data.txt', 'local vault data', false); $box->commit(); $box->free(); pass('vault_create_lockbox_content_key', 3);
     $open = $local->openLockboxContentKey($contentPath, $key, $owner); $open->getFile('/data.txt'); $open->free(); pass('vault_open_lockbox_content_key', 3);
-    $contact = $api->keyContactGenerate(); $public = $api->keyContactPublicFromBytes($contact->public());
+    $contact = $api->keyContactGenerate(); $public = $api->keyContactPublicFromBytes($contact->publicBytes());
     $box = $local->createLockboxContact("$root/contact.lbox", $public, 'recipient', $owner); $box->addFile('/data.txt', 'local vault data', false); $box->commit(); $box->free();
     pass('vault_create_lockbox_contact', 3); $public->publicFree(); $contact->free();
     $local->closeAll(); pass('vault_close_all'); $local->free(); pass('vault_free'); $owner->free();
-    $agent->forgetOwnerSigningKey('vault-id', 'alice'); $agent->forgetVaultUnlockKey('vault-id'); $agent->forget($id);
+    $agent->forgetProfileSigningKey('vault-id', 'alice'); $agent->forgetVaultUnlockKey('vault-id'); $agent->forget($id);
     pass('vault_agent_forget_owner_signing_key'); pass('vault_agent_forget_vault_unlock_key'); pass('vault_agent_forget');
     $agent->stop(); pass('vault_agent_stop'); check(proc_close($process) === 0, 'agent process');
 }
@@ -297,6 +305,6 @@ if ($args === ['--serve-agent']) { $api->agent()->serve(); exit(0); }
 if ($args === ['--default']) { defaultVault($api); exit(0); }
 if ($args === ['--platform']) { platformStore($api); exit(0); }
 if ($args === ['--agent']) { agentAndLocal($api); exit(0); }
-if (count($args) === 2 && $args[0] === '--interop') { interop($api, $args[1]); exit(0); }
+if (count($args) >= 2 && $args[0] === '--interop') { foreach (array_slice($args, 1) as $producer) interop($api, $producer); exit(0); }
 archiveLifecycle($api); keyLifecycle($api); advancedArchive($api); vaultLifecycle($api);
 $api->lastError(); pass('buffer_last_error');

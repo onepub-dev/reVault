@@ -25,10 +25,10 @@ typealias ContactKeyPair = com.onepub.revault.Revault.ContactKeyPair
 typealias ContactPublicKey = com.onepub.revault.Revault.ContactPublicKey
 /** A content key encrypted for one contact and recoverable by its matching key pair. */
 typealias WrappedContactKey = com.onepub.revault.Revault.WrappedContactKey
-/** A lockbox owner's signing identity used to authorize mutable revisions. */
-typealias SigningKeyPair = com.onepub.revault.Revault.SigningKeyPair
-/** The public identity readers use to verify owner-authorized revisions. */
-typealias SigningPublicKey = com.onepub.revault.Revault.SigningPublicKey
+/** A profile signing identity used to authorize mutable lockbox revisions. */
+typealias ProfileSigningKeyPair = com.onepub.revault.Revault.ProfileSigningKeyPair
+/** The public profile identity readers use to verify authorized revisions. */
+typealias ProfileSigningPublicKey = com.onepub.revault.Revault.ProfileSigningPublicKey
 /** A token kept alive while an operation needs secrets cached by the agent. */
 typealias AgentActivity = com.onepub.revault.Revault.AgentActivity
 

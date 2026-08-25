@@ -18,8 +18,11 @@ fn main() {
 fn run() -> Result {
     std::env::set_var("LOCKBOX_PLATFORM_SECRET_STORE", "disabled");
     let arguments: Vec<_> = std::env::args().collect();
-    if arguments.len() == 3 && arguments[1] == "--interop" {
-        return open_foreign(&arguments[2]);
+    if arguments.len() >= 3 && arguments[1] == "--interop" {
+        for producer in &arguments[2..] {
+            open_foreign(producer)?;
+        }
+        return Ok(());
     }
     create_artifacts()
 }

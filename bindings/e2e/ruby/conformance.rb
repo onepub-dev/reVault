@@ -3,11 +3,19 @@ require 'fileutils'
 require 'tmpdir'
 require 'revault_api'
 
-API = Revault.load
+API = Revault.load(ENV['REVAULT_E2E_LOAD_PATH'])
+if (loader_mode = ENV['REVAULT_E2E_LOADER_SMOKE'])
+  version = API.lockbox_format_version
+  raise 'loader native round trip' unless version.positive?
+  puts("LOADER\truby\t#{loader_mode}\t#{version}")
+  exit(0)
+end
 def pass(symbol, assertions = 1) = puts("PASS\truby\t#{symbol}\t#{assertions}")
 def check(value, message)
   raise(message) unless value
 end
+check(!Revault.const_defined?(:SigningKeyPair, false) && !Revault.const_defined?(:SigningPublicKey, false), 'legacy signing classes remain exported')
+check(Revault.const_defined?(:ProfileSigningKeyPair, false) && Revault.const_defined?(:ProfileSigningPublicKey, false), 'profile signing classes are missing')
 def artifact_root
   path = File.join(ENV.fetch('REVAULT_E2E_ARTIFACT_DIR', '/tmp/revault-e2e-artifacts'), 'ruby')
   FileUtils.mkdir_p(path, mode: 0o700); path
@@ -75,9 +83,9 @@ end
 def key_lifecycle
   content = (0...32).to_a.pack('C*')
   contact = API.key_contact_generate; pass('key_contact_generate')
-  private_key = contact.private; pass('key_contact_private', 2)
+  private_key = contact.private_record; pass('key_contact_private', 2)
   copy = API.key_contact_from_private(private_key); pass('key_contact_from_private')
-  public_bytes = contact.public; pass('key_contact_public', 2)
+  public_bytes = contact.public_bytes; pass('key_contact_public', 2)
   public_key = API.key_contact_public_from_bytes(public_bytes); pass('key_contact_public_from_bytes')
   wrapped = public_key.encrypt(content); pass('key_contact_encrypt')
   check(copy.decrypt(wrapped) == content, 'decrypt'); pass('key_contact_decrypt', 3)
@@ -98,11 +106,11 @@ def key_lifecycle
   imported_private.free; copy.free; contact.free; pass('key_contact_free', 3)
   plain = API.vault_key_hex_encode(content); check(API.vault_key_hex_decode(plain) == content, 'plain hex')
   pass('vault_key_hex_encode', 2); pass('vault_key_hex_decode', 2)
-  signing = API.key_signing_generate; pass('key_signing_generate')
+  signing = API.generate_profile_signing_key_pair; pass('key_signing_generate')
   signing_private = signing.private; signing_public = signing.public
   pass('key_signing_private', 2); pass('key_signing_public', 2)
-  API.key_signing_from_private(signing_private).free; pass('key_signing_from_private')
-  API.key_signing_public_from_bytes(signing_public).public_free
+  API.profile_signing_key_pair_from_private(signing_private).free; pass('key_signing_from_private')
+  API.profile_signing_public_key_from_bytes(signing_public).free
   pass('key_signing_public_from_bytes'); pass('key_signing_public_free', 2)
   signing.free; pass('key_signing_free', 3)
 end
@@ -124,8 +132,8 @@ def advanced_archive
   pass('lockbox_get_form_record'); pass('lockbox_get_form_field'); pass('lockbox_list_form_records')
   box.move_form_records(moves('/account.form', '/moved.form')); box.get_form_record('/moved.form')
   box.move_form_records(moves('/moved.form', '/account.form')); pass('lockbox_move_form_records', 3)
-  signing = API.key_signing_generate; contact = API.key_contact_generate
-  public_key = API.key_contact_public_from_bytes(contact.public)
+  signing = API.generate_profile_signing_key_pair; contact = API.key_contact_generate
+  public_key = API.key_contact_public_from_bytes(contact.public_bytes)
   box.set_owner_signing_key(signing); pass('lockbox_set_owner_signing_key')
   slot = box.add_password('archive password'); pass('lockbox_add_password')
   box.add_contact(public_key, 'recipient'); pass('lockbox_add_contact'); box.list_key_slots; pass('lockbox_list_key_slots')
@@ -156,8 +164,8 @@ def vault_lifecycle
   root = File.join(artifact_root, 'vault'); FileUtils.mkdir_p(root)
   password = 'vault password'; changed = 'new vault password'; id = (0xa0..0xaf).to_a.pack('C*')
   profile = API.key_contact_generate; contact = API.key_contact_generate
-  contact_public = API.key_contact_public_from_bytes(contact.public)
-  owner = API.key_signing_generate; owner_public = API.key_signing_public_from_bytes(owner.public)
+  contact_public = API.key_contact_public_from_bytes(contact.public_bytes)
+  owner = API.generate_profile_signing_key_pair; owner_public = owner.public_key
   vault = Revault::Vault.replace(root, password); pass('vault_directory_replace')
   puts("ARTIFACT\truby\tvault-created\t#{root}")
   check(vault.root == root && vault.structure_version > 0, 'vault'); pass('vault_directory_root', 3); pass('vault_directory_structure_version')
@@ -172,11 +180,11 @@ def vault_lifecycle
   pass('vault_directory_store_profile_email'); pass('vault_directory_profile_email', 3)
   vault.list_profile_generations('alice'); vault.rotate_private_key('alice')
   pass('vault_directory_list_profile_generations'); pass('vault_directory_rotate_private_key')
-  vault.load_owner_signing_key('alice').free; vault.load_owner_signing_key_generation('alice', 1).free
+  vault.load_profile_signing_key('alice').free; vault.load_profile_signing_key_generation('alice', 1).free
   pass('vault_directory_load_owner_signing_key'); pass('vault_directory_load_owner_signing_key_generation')
   vault.store_contact('bob', contact_public); vault.contact_exists('bob'); vault.load_contact('bob').public_free; vault.list_contacts
   pass('vault_directory_store_contact'); pass('vault_directory_contact_exists'); pass('vault_directory_load_contact'); pass('vault_directory_list_contacts')
-  vault.store_contact_signing_key('bob', owner_public); vault.load_contact_signing_key('bob').public_free
+  vault.store_contact_signing_key('bob', owner_public); vault.load_contact_signing_key('bob').free
   pass('vault_directory_store_contact_signing_key'); pass('vault_directory_load_contact_signing_key')
   vault.list_private_keys; vault.list_private_key_names; vault.list_contact_names
   pass('vault_directory_list_private_keys'); pass('vault_directory_list_private_key_names'); pass('vault_directory_list_contact_names')
@@ -205,7 +213,7 @@ def vault_lifecycle
   API.vault_directory_change_password(root, password, changed); pass('vault_directory_change_password')
   Revault::Vault.open(root, changed).free; pass('vault_directory_open'); puts("ARTIFACT\truby\tvault-opened\t#{root}")
   Revault::Vault.open_or_create(root, changed).free; pass('vault_directory_open_or_create')
-  owner_public.public_free; owner.free; contact_public.public_free; contact.free; profile.free
+  owner_public.free; owner.free; contact_public.public_free; contact.free; profile.free
 end
 
 def default_vault
@@ -246,7 +254,7 @@ def agent_and_local
   agent.put(id, key); check(agent.get(id) == key, 'agent key'); agent.list
   pass('vault_agent_put'); pass('vault_agent_get', 3); pass('vault_agent_list')
   agent.put_vault_unlock_key('vault-id', key, 120); agent.get_vault_unlock_key('vault-id'); pass('vault_agent_put_vault_unlock_key'); pass('vault_agent_get_vault_unlock_key', 3)
-  owner = API.key_signing_generate; agent.put_owner_signing_key('vault-id', 'alice', owner, 120); agent.get_owner_signing_key('vault-id', 'alice').free
+  owner = API.generate_profile_signing_key_pair; agent.cache_profile_signing_key('vault-id', 'alice', owner, 120); agent.profile_signing_key('vault-id', 'alice').free
   pass('vault_agent_put_owner_signing_key'); pass('vault_agent_get_owner_signing_key')
   activity = agent.begin_activity('open'); pass('vault_agent_begin_activity'); agent.end_activity(activity); pass('vault_agent_end_activity')
   agent.sleep_support; pass('vault_agent_sleep_support'); API.vault_agent_log_path; API.vault_agent_log_destination
@@ -260,11 +268,11 @@ def agent_and_local
   content_path = File.join(root, 'content.lbox'); box = local.create_lockbox_content_key(content_path, key, owner)
   box.add_file('/data.txt', 'local vault data', false); box.commit; box.free; pass('vault_create_lockbox_content_key', 3)
   opened = local.open_lockbox_content_key(content_path, key, owner); opened.get_file('/data.txt'); opened.free; pass('vault_open_lockbox_content_key', 3)
-  contact = API.key_contact_generate; public_key = API.key_contact_public_from_bytes(contact.public)
+  contact = API.key_contact_generate; public_key = API.key_contact_public_from_bytes(contact.public_bytes)
   box = local.create_lockbox_contact(File.join(root, 'contact.lbox'), public_key, 'recipient', owner)
   box.add_file('/data.txt', 'local vault data', false); box.commit; box.free; pass('vault_create_lockbox_contact', 3)
   public_key.public_free; contact.free; local.close_all; pass('vault_close_all'); local.free; pass('vault_free'); owner.free
-  agent.forget_owner_signing_key('vault-id', 'alice'); agent.forget_vault_unlock_key('vault-id'); agent.forget(id)
+  agent.forget_profile_signing_key('vault-id', 'alice'); agent.forget_vault_unlock_key('vault-id'); agent.forget(id)
   pass('vault_agent_forget_owner_signing_key'); pass('vault_agent_forget_vault_unlock_key'); pass('vault_agent_forget')
   agent.stop; pass('vault_agent_stop'); Process.wait(child); check($?.success?, 'agent child')
 end
@@ -284,8 +292,8 @@ when ['--default'] then default_vault
 when ['--platform'] then platform_store
 when ['--agent'] then agent_and_local
 else
-  if ARGV.length == 2 && ARGV[0] == '--interop'
-    interop(ARGV[1])
+  if ARGV.length >= 2 && ARGV[0] == '--interop'
+    ARGV.drop(1).each { |producer| interop(producer) }
   else
     archive_lifecycle; key_lifecycle; advanced_archive; vault_lifecycle
     API.last_error; pass('buffer_last_error')

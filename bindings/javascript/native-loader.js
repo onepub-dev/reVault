@@ -22,7 +22,15 @@ function nativeTarget() {
   return target;
 }
 
-export function nativeLibraryPath() {
+export function nativeLibraryPath(explicitPath = undefined) {
+  if (explicitPath !== undefined && explicitPath !== null) {
+    if (typeof explicitPath !== 'string' || explicitPath.length === 0) {
+      throw new TypeError('nativeLibraryPath must be a non-empty string');
+    }
+    return explicitPath;
+  }
+  const inherited = process.env.REVAULT_LIBRARY;
+  if (inherited != null && inherited.length !== 0) return inherited;
   const [target, library] = nativeTarget();
   const packageName = `@onepub-dev/revault-api-native-${target}`;
   try {

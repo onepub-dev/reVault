@@ -95,8 +95,13 @@ private FlatBuffers schema, license, target
 metadata, SPDX SBOM, and SHA-256 sidecar. Linux requires
 the system `libdbus-1` runtime; macOS and Windows use their native secret-store
 implementations. A package must never select an artifact for another operating
-system, architecture, C runtime, or ABI. `REVAULT_LIBRARY` is a development-only
-override and is deliberately unset during package acceptance tests.
+system, architecture, C runtime, or ABI. Dynamic-language loaders resolve an
+explicit API path, then a non-empty inherited `REVAULT_LIBRARY`, then their
+packaged carrier. Package acceptance deliberately unsets the override to prove
+the final branch; separate loader tests cover the explicit, environment, and
+OS-search-path branches without moving native files. Link-time APIs use their
+language's normal linker/package mechanisms and do not emulate a runtime path
+argument. The source-native Rust and WebAssembly APIs do not load the C ABI.
 
 | API | Public endpoint | Native delivery |
 | --- | --- | --- |
@@ -106,7 +111,7 @@ override and is deliberately unset during package acceptance tests.
 | Java | Maven Central `dev.onepub:revault-api` | native resources extracted by the loader |
 | Kotlin | Maven Central `dev.onepub:revault-api-kotlin` | Java runtime artifact dependency |
 | C# | NuGet `Revault.Api` | `runtimes/<rid>/native` assets |
-| Dart | pub.dev `revault_api` | checked native assets selected by `Vault.load()` |
+| Dart | pub.dev `revault_api` | checked native assets selected by `Revault.load()` |
 | Ruby | RubyGems `revault_api` | platform-specific gems |
 | PHP | Packagist `onepub/revault-api` | Composer package containing checked native assets |
 | Lua | LuaRocks `revault_api` | platform rocks containing checked native assets |
@@ -180,6 +185,12 @@ package layouts have been built. The 94 installed-package checks and the
 registry packages, and promotion jobs are not published until both suites
 pass. The release workflow also uses the protected GitHub environment
 `release`.
+
+The tag or manual workflow input is the single release-version source. Package
+assembly rewrites every staged ecosystem manifest to that version and the
+installation versions in every staged package README. Publication commands
+reject a payload whose manifest does not match it. Do not edit individual
+source manifests or documentation versions while preparing a release.
 
 Create these public companion repositories before tagging a release:
 

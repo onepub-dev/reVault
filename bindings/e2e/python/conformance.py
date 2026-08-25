@@ -43,7 +43,7 @@ class Runtime:
     def __init__(self) -> None:
         # Package acceptance must resolve the carrier from the installed
         # package. Build-tree overrides are deliberately unsupported here.
-        self.facade = binding.Revault.load()
+        self.facade = binding.Revault.load(os.environ.get("REVAULT_E2E_LOAD_PATH"))
         self.lib = self.facade._lib
 
     def error(self) -> str:
@@ -974,8 +974,14 @@ def agent_and_local_vault(runtime: Runtime) -> None:
 def main() -> None:
     """Run the requested Python ABI conformance scenario."""
     runtime = Runtime()
-    if len(sys.argv) == 3 and sys.argv[1] == "--interop":
-        interop_open(runtime, sys.argv[2])
+    if mode := os.environ.get("REVAULT_E2E_LOADER_SMOKE"):
+        version = runtime.lib.lockbox_format_version()
+        check(version > 0, "loader native round trip")
+        print(f"LOADER\tpython\t{mode}\t{version}")
+        return
+    if len(sys.argv) >= 3 and sys.argv[1] == "--interop":
+        for producer in sys.argv[2:]:
+            interop_open(runtime, producer)
         return
     if len(sys.argv) == 2 and sys.argv[1] == "--serve-agent":
         raise SystemExit(0 if runtime.lib.vault_agent_serve() else 1)
@@ -983,6 +989,31 @@ def main() -> None:
         platform_secret_store(runtime)
         return
     if len(sys.argv) == 2 and sys.argv[1] == "--core":
+        check(
+            not hasattr(binding, "SigningKeyPair")
+            and not hasattr(binding, "SigningPublicKey"),
+            "legacy signing classes remain exported",
+        )
+        signing = runtime.facade.generate_profile_signing_key_pair()
+        check(
+            isinstance(signing, binding.ProfileSigningKeyPair),
+            "profile signing facade type",
+        )
+        public = runtime.facade.profile_signing_public_key_from_bytes(
+            signing.public_bytes()
+        )
+        check(
+            isinstance(public, binding.ProfileSigningPublicKey),
+            "profile signing public facade type",
+        )
+        public.free()
+        derived_public = signing.public_key()
+        check(
+            isinstance(derived_public, binding.ProfileSigningPublicKey),
+            "derived profile signing public facade type",
+        )
+        derived_public.free()
+        signing.free()
         archive_lifecycle(runtime)
         key_lifecycle(runtime)
         advanced_archive(runtime)

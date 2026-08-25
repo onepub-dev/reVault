@@ -292,7 +292,7 @@ pub mod vault {
         ///
         /// The private key remains in the session agent; callers should drop
         /// the returned value as soon as signing is complete.
-        pub fn get_profile_signing_key(
+        pub fn profile_signing_key(
             &self,
             vault_id: &str,
             profile: &str,
@@ -300,7 +300,7 @@ pub mod vault {
             revault_vault_api::get_owner_signing_key(vault_id, profile)
         }
         /// Caches a profile signing identity for the requested session TTL.
-        pub fn put_profile_signing_key(
+        pub fn cache_profile_signing_key(
             &self,
             vault_id: &str,
             profile: &str,
