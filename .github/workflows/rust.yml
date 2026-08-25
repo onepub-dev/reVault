@@ -89,8 +89,8 @@ jobs:
       - name: Check workspace at MSRV
         run: cargo check --workspace --all-targets --locked
 
-  required:
-    name: required Linux checks
+  linux-quality:
+    name: Linux formatting and Clippy
     runs-on: ubuntu-latest
 
     defaults:
@@ -110,13 +110,88 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-          key: required-linux
+          key: linux-quality
 
       - name: Install Linux dependencies
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
-      - name: Formatting, Clippy, and required tests
-        run: cargo xtask check-required
+      - name: Check required-package formatting
+        run: >-
+          cargo fmt
+          -p revault_page_api
+          -p revault_lockbox_api
+          -p revault_cli
+          -p revault_vault_api
+          -p revault_migration_format
+          -p revault_migrate_vault_v1
+          -p revault_migrate_archive_v1
+          -p revault_migration
+          -p revault_publish_protocol
+          -p revault_key_server
+          -p xtask
+          --check
+
+      - name: Clippy production workspace
+        run: >-
+          cargo clippy --workspace --all-targets
+          --exclude revault_bindings
+          --exclude revault_wasm_bindings
+          --exclude revault_tooling
+          -- -D warnings
+
+  linux-tests:
+    name: Linux tests / ${{ matrix.group }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - group: secure APIs
+            cache: secure-apis
+            packages: >-
+              -p revault_page_api
+              -p revault_lockbox_api
+          - group: CLI and vault
+            cache: cli-vault
+            packages: >-
+              -p revault_cli
+              -p revault_vault_api
+          - group: migrations
+            cache: migrations
+            packages: >-
+              -p revault_migration_format
+              -p revault_migrate_vault_v1
+              -p revault_migrate_archive_v1
+              -p revault_migration
+          - group: services and tooling
+            cache: services-tooling
+            packages: >-
+              -p revault_publish_protocol
+              -p revault_key_server
+              -p xtask
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: linux-tests-${{ matrix.cache }}
+
+      - name: Install Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Run required package tests
+        run: cargo test --locked ${{ matrix.packages }}
 
   platform:
     name: platform ${{ matrix.os }}
@@ -156,10 +231,8 @@ jobs:
         run: |
           cargo test --locked -p revault_page_api
           cargo test --locked -p revault_vault_api --lib
-          cargo test --locked -p revault_vault_api --test vault_api \
-            standalone_vault_file_can_be_created_and_reopened -- --exact
-          cargo test --locked -p revault_vault_api --test vault_api \
-            vault_mutation_times_out
+          cargo test --locked -p revault_vault_api --test vault_api standalone_vault_file_can_be_created_and_reopened -- --exact
+          cargo test --locked -p revault_vault_api --test vault_api vault_mutation_times_out
 
       - name: Test platform-specific lockbox filesystem behavior
         run: |
