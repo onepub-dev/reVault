@@ -10,7 +10,7 @@ on:
       targets:
         description: Comma-separated publication targets to retry
         required: true
-        default: python,ruby,git
+        default: python,ruby,git,packagist
         type: string
       publish:
         description: Publish after validation (disable for a pre-release matrix run)
@@ -1418,6 +1418,69 @@ jobs:
           release promote-git --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
           --packages packages --destination destination --package api
           --release-assets release-assets --publish
+
+  publish-packagist:
+    if: >-
+      always() &&
+      (needs.promote-api-repository.result == 'success' ||
+       (github.event_name == 'workflow_dispatch' &&
+        inputs.publish && contains(inputs.targets, 'packagist') &&
+        !contains(inputs.targets, 'git'))) &&
+      (startsWith(github.ref_name, 'revault-api-v') ||
+       (github.event_name == 'workflow_dispatch' &&
+        inputs.publish &&
+        (contains(inputs.targets, 'git') || contains(inputs.targets, 'packagist'))))
+    needs: [promote-api-repository]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: release
+    steps:
+      - name: Request authenticated Packagist update
+        env:
+          PACKAGIST_USERNAME: ${{ secrets.PACKAGIST_USERNAME }}
+          PACKAGIST_API_TOKEN: ${{ secrets.PACKAGIST_API_TOKEN }}
+        run: |
+          if [[ -z "$PACKAGIST_USERNAME" || -z "$PACKAGIST_API_TOKEN" ]]; then
+            echo "PACKAGIST_USERNAME and PACKAGIST_API_TOKEN must be configured in the release environment." >&2
+            exit 1
+          fi
+
+          response="$RUNNER_TEMP/packagist-update.json"
+          status=$(curl --silent --show-error \
+            --output "$response" --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --header "Authorization: Bearer ${PACKAGIST_USERNAME}:${PACKAGIST_API_TOKEN}" \
+            --data '{"repository":"https://github.com/onepub-dev/revault-api"}' \
+            https://packagist.org/api/update-package)
+          if [[ "$status" != 2* ]] || [[ "$(jq -r '.status // empty' "$response")" != success ]]; then
+            echo "Packagist update failed with HTTP $status:" >&2
+            jq -c 'del(.token, .apiToken)' "$response" >&2 || true
+            exit 1
+          fi
+          echo "Packagist accepted the update request."
+
+      - name: Verify the released Composer version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          version="${VERSION:-${GITHUB_REF_NAME#revault-api-v}}"
+          metadata="$RUNNER_TEMP/packagist-package.json"
+          for attempt in $(seq 1 18); do
+            if curl --fail --silent --show-error \
+                --output "$metadata" \
+                "https://repo.packagist.org/p2/onepub/revault-api.json?attempt=$attempt" &&
+              jq -e --arg version "$version" \
+                'any(.packages["onepub/revault-api"][]?; .version == $version or .version == ("v" + $version))' \
+                "$metadata" >/dev/null; then
+              echo "Verified onepub/revault-api $version on Packagist."
+              exit 0
+            fi
+            echo "Waiting for onepub/revault-api $version to reach Packagist (attempt $attempt/18)."
+            sleep 10
+          done
+          echo "Packagist accepted the update but onepub/revault-api $version was not visible after 3 minutes." >&2
+          exit 1
 
   promote-homebrew:
     if: always() && needs.github-release.result == 'success' && needs.preflight-artifacts.result == 'success' && (startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'git')))
