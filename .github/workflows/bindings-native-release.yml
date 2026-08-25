@@ -1365,6 +1365,8 @@ jobs:
       - name: Build the corrected publication driver for a retry
         if: github.event_name == 'workflow_dispatch'
         run: cargo build --locked --release --manifest-path rust/Cargo.toml -p revault_tooling
+      - name: Install native dependencies for Cargo's package verification
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - run: chmod +x "$RELEASE_TOOL"
       - id: crates
         uses: rust-lang/crates-io-auth-action@v1
