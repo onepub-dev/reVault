@@ -890,8 +890,10 @@ fn dynamic_library(target: &str) -> String {
 }
 
 fn static_library(target: &str) -> String {
-    if target.starts_with("windows-") {
+    if target == "windows-x86_64-msvc" {
         "librevault_api_go.a"
+    } else if target.starts_with("windows-") {
+        "revault_api.lib"
     } else {
         "librevault_api.a"
     }

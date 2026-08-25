@@ -126,7 +126,7 @@ jobs:
             rust_target: aarch64-pc-windows-msvc
             library: revault_api.dll
             static_library: revault_api.lib
-            go_rust_target: aarch64-pc-windows-gnullvm
+            go_rust_target: ''
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     permissions:
@@ -167,31 +167,26 @@ jobs:
           }
           $msvcTarget = '${{ matrix.target == 'windows-aarch64-msvc' && 'AARCH64_PC_WINDOWS_MSVC' || 'X86_64_PC_WINDOWS_MSVC' }}'
           $msvcCc = '${{ matrix.target == 'windows-aarch64-msvc' && 'CC_aarch64_pc_windows_msvc' || 'CC_x86_64_pc_windows_msvc' }}'
-          $goTarget = '${{ matrix.target == 'windows-aarch64-msvc' && 'AARCH64_PC_WINDOWS_GNULLVM' || 'X86_64_PC_WINDOWS_GNU' }}'
-          $goCc = '${{ matrix.target == 'windows-aarch64-msvc' && 'CC_aarch64_pc_windows_gnullvm' || 'CC_x86_64_pc_windows_gnu' }}'
-          $goCompilerCandidates = if ('${{ matrix.target }}' -eq 'windows-aarch64-msvc') {
-            @(
-              (Join-Path $env:ProgramFiles 'Git\clangarm64\bin\aarch64-w64-mingw32-clang.exe'),
-              (Join-Path $env:ProgramFiles 'Git\clangarm64\bin\clang.exe')
-            )
-          } else {
-            @(
+          @(
+            "CARGO_TARGET_${msvcTarget}_LINKER=$linker",
+            "${msvcCc}=$clang"
+          ) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          if ('${{ matrix.go_rust_target }}') {
+            $goCompilerCandidates = @(
               'C:\mingw64\bin\gcc.exe',
               (Join-Path $env:ProgramFiles 'Git\mingw64\bin\gcc.exe')
             )
+            $goCompiler = $goCompilerCandidates |
+              Where-Object { Test-Path $_ } |
+              Select-Object -First 1
+            if (-not $goCompiler) {
+              throw "Windows x64 Go carrier compiler is missing; checked: $($goCompilerCandidates -join ', ')"
+            }
+            @(
+              "CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=$goCompiler",
+              "CC_x86_64_pc_windows_gnu=$goCompiler"
+            ) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           }
-          $goCompiler = $goCompilerCandidates |
-            Where-Object { Test-Path $_ } |
-            Select-Object -First 1
-          if (-not $goCompiler) {
-            throw "Windows Go carrier compiler is missing; checked: $($goCompilerCandidates -join ', ')"
-          }
-          @(
-            "CARGO_TARGET_${msvcTarget}_LINKER=$linker",
-            "${msvcCc}=$clang",
-            "CARGO_TARGET_${goTarget}_LINKER=$goCompiler",
-            "${goCc}=$goCompiler"
-          ) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
         run: >-
@@ -202,7 +197,7 @@ jobs:
         working-directory: rust
         run: cargo build --locked --release --target ${{ matrix.rust_target }} -p revault_bindings
       - name: Build Windows Go static carrier
-        if: runner.os == 'Windows'
+        if: matrix.go_rust_target != ''
         working-directory: rust
         run: >-
           cargo rustc --locked --release --target ${{ matrix.go_rust_target }}
@@ -364,19 +359,19 @@ jobs:
           }
           $rustTarget = '${{ matrix.target == 'windows-aarch64-msvc' && 'AARCH64_PC_WINDOWS_MSVC' || 'X86_64_PC_WINDOWS_MSVC' }}'
           $rustCc = '${{ matrix.target == 'windows-aarch64-msvc' && 'CC_aarch64_pc_windows_msvc' || 'CC_x86_64_pc_windows_msvc' }}'
-          $goCompilerCandidates = if ('${{ matrix.target }}' -eq 'windows-aarch64-msvc') {
-            @((Join-Path $env:ProgramFiles 'Git\clangarm64\bin\clang.exe'))
+          if ('${{ matrix.target }}' -eq 'windows-aarch64-msvc') {
+            $goCompiler = $clang
           } else {
-            @(
+            $goCompilerCandidates = @(
               'C:\mingw64\bin\gcc.exe',
               (Join-Path $env:ProgramFiles 'Git\mingw64\bin\gcc.exe')
             )
-          }
-          $goCompiler = $goCompilerCandidates |
-            Where-Object { Test-Path $_ } |
-            Select-Object -First 1
-          if (-not $goCompiler) {
-            throw "Windows cgo compiler is missing; checked: $($goCompilerCandidates -join ', ')"
+            $goCompiler = $goCompilerCandidates |
+              Where-Object { Test-Path $_ } |
+              Select-Object -First 1
+            if (-not $goCompiler) {
+              throw "Windows x64 cgo compiler is missing; checked: $($goCompilerCandidates -join ', ')"
+            }
           }
           @(
             "CARGO_TARGET_${rustTarget}_LINKER=$linker",
