@@ -951,7 +951,7 @@ reVault is an encrypted archive and local-vault library for files, credentials, 
 ## Go\n\n```sh\ngo get github.com/onepub-dev/revault-api@v{version}\n```\n\n\
 ## Swift\n\n```swift\n.package(url: \"https://github.com/onepub-dev/revault-api\", exact: \"{version}\")\n```\n\n\
 ## PHP\n\n```sh\ncomposer require onepub/revault-api:{version}\n```\n\n\
-All three packages use the same ABI-v2 native artifacts. Secret variable and form-field reads are callback-scoped and their temporary native storage is wiped after use.\n"
+All three packages use the same ABI-v3 native artifacts. Secret variable and form-field reads are callback-scoped and their temporary native storage is wiped after use.\n"
         ),
     )?;
     Ok(())
@@ -1301,5 +1301,14 @@ mod tests {
             fs::read(destination.path().join("CModule/revault_api.h")).unwrap(),
             b"first\nsecond\n"
         );
+    }
+
+    #[test]
+    fn api_repository_readme_names_the_current_native_abi() {
+        let destination = TempDir::new().unwrap();
+        write_api_repository_readme(destination.path(), "0.3.11").unwrap();
+        let readme = fs::read_to_string(destination.path().join("README.md")).unwrap();
+        assert!(readme.contains("ABI-v3 native artifacts"));
+        assert!(!readme.contains("ABI-v2"));
     }
 }
