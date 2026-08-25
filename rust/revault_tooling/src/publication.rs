@@ -773,20 +773,40 @@ fn luarocks_arch(target: &str) -> Result<&'static str> {
 }
 
 fn rust_foundation(packages: &Path, publish: bool) -> Result {
-    for (name, version) in [
-        ("revault_page_api", "0.0.3"),
-        ("revault_lockbox_api", "0.0.4"),
-        ("revault_vault_api", "0.0.4"),
+    for name in [
+        "revault_page_api",
+        "revault_lockbox_api",
+        "revault_vault_api",
     ] {
-        rust_package(
-            &packages.join("rust").join(name),
-            name,
-            version,
-            publish,
-            false,
-        )?;
+        let package = packages.join("rust").join(name);
+        let version = cargo_package_version(&package.join("Cargo.toml"))?;
+        rust_package(&package, name, &version, publish, false)?;
     }
     Ok(())
+}
+
+fn cargo_package_version(manifest: &Path) -> Result<String> {
+    let source = fs::read_to_string(manifest)?;
+    let mut in_package = false;
+    for line in source.lines() {
+        let line = line.trim();
+        if line.starts_with('[') {
+            in_package = line == "[package]";
+            continue;
+        }
+        if !in_package {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        if key.trim() == "version" {
+            let version = value.trim().trim_matches('"');
+            validate_version(version)?;
+            return Ok(version.to_owned());
+        }
+    }
+    Err(format!("{} has no [package] version", manifest.display()).into())
 }
 
 fn rust_package(package: &Path, name: &str, version: &str, publish: bool, locked: bool) -> Result {
@@ -1156,6 +1176,25 @@ mod tests {
         for value in ["v0.1.0", "0.1", "0.1.0-alpha", "0..1"] {
             assert!(validate_version(value).is_err(), "{value}");
         }
+    }
+
+    #[test]
+    fn rust_foundation_versions_come_from_the_frozen_manifests() {
+        let temp = TempDir::new().unwrap();
+        let manifest = temp.path().join("Cargo.toml");
+        fs::write(
+            &manifest,
+            "[package]\nname = \"foundation\"\nversion = \"0.7.9\"\n\n[dependencies]\n",
+        )
+        .unwrap();
+        assert_eq!(cargo_package_version(&manifest).unwrap(), "0.7.9");
+
+        fs::write(
+            &manifest,
+            "[workspace]\nmembers = []\n\n[package]\nname = \"foundation\"\n",
+        )
+        .unwrap();
+        assert!(cargo_package_version(&manifest).is_err());
     }
 
     #[test]

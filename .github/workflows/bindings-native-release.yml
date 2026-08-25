@@ -1346,12 +1346,25 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      RELEASE_TOOL: ${{ github.event_name == 'workflow_dispatch' && 'rust/target/release/revault-tool' || 'packages/release-tools/revault-tool' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           name: revault-api-publication-trees
           path: packages
+      - uses: dtolnay/rust-toolchain@1.88.0
+        if: github.event_name == 'workflow_dispatch'
+      - uses: Swatinem/rust-cache@v2
+        if: github.event_name == 'workflow_dispatch'
+        with:
+          workspaces: rust
+          shared-key: bindings-tooling-linux-x86_64
+          cache-workspace-crates: true
+      - name: Build the corrected publication driver for a retry
+        if: github.event_name == 'workflow_dispatch'
+        run: cargo build --locked --release --manifest-path rust/Cargo.toml -p revault_tooling
       - run: chmod +x "$RELEASE_TOOL"
       - id: crates
         uses: rust-lang/crates-io-auth-action@v1
