@@ -149,13 +149,13 @@ jobs:
           - group: secure APIs
             cache: secure-apis
             packages: >-
-              -p revault_page_api
-              -p revault_lockbox_api
+              -p revault_page_api@0.0.4
+              -p revault_lockbox_api@0.0.6
           - group: CLI and vault
             cache: cli-vault
             packages: >-
               -p revault_cli
-              -p revault_vault_api
+              -p revault_vault_api@0.0.6
           - group: migrations
             cache: migrations
             packages: >-
