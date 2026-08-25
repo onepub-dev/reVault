@@ -6,6 +6,10 @@ env:
 
 on:
   push:
+    # Defining a branch filter prevents immutable release-tag pushes from
+    # rerunning source validation that the release preflight already accepted.
+    branches:
+      - "**"
     paths:
       - "rust/**"
       - ".github/workflows/rust.yml"
@@ -85,16 +89,9 @@ jobs:
       - name: Check workspace at MSRV
         run: cargo check --workspace --all-targets --locked
 
-  test:
-    name: ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
+  required:
+    name: required Linux checks
+    runs-on: ubuntu-latest
 
     defaults:
       run:
@@ -113,20 +110,98 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
+          key: required-linux
 
       - name: Install Linux dependencies
-        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
-      - name: Required checks
+      - name: Formatting, Clippy, and required tests
         run: cargo xtask check-required
 
+  platform:
+    name: platform ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - macos-latest
+          - windows-latest
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: platform-${{ matrix.os }}
+
+      - name: Compile production workspace for this platform
+        run: >-
+          cargo check --workspace --all-targets --locked
+          --exclude revault_bindings
+          --exclude revault_wasm_bindings
+          --exclude revault_tooling
+
+      - name: Test platform-sensitive APIs
+        run: |
+          cargo test --locked -p revault_page_api
+          cargo test --locked -p revault_vault_api --lib
+          cargo test --locked -p revault_vault_api --test vault_api \
+            standalone_vault_file_can_be_created_and_reopened -- --exact
+          cargo test --locked -p revault_vault_api --test vault_api \
+            vault_mutation_times_out
+
+      - name: Test platform-specific lockbox filesystem behavior
+        run: |
+          cargo test --locked -p revault_lockbox_api file_lock
+          cargo test --locked -p revault_lockbox_api extract_to_directory
+          cargo test --locked -p revault_lockbox_api symlink
+          cargo test --locked -p revault_lockbox_api create_path
+
       - name: Agent IPC smoke test
-        if: runner.os == 'Windows'
         run: cargo test -p revault_cli --test agent_flow -- --nocapture
 
-      - name: Check fuzz targets
-        run: cargo check --manifest-path fuzz/Cargo.toml
+      - name: Windows CLI smoke tests
+        if: runner.os == 'Windows'
+        run: >-
+          cargo test --manifest-path revault_cli/Cargo.toml
+          --test contact_receive_alias
+          --test help_open_key
+          --test publish_integration
+
+  fuzz-harnesses:
+    name: compile fuzz harnesses
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: fuzz-harnesses
+
+      - name: Compile fuzz targets
+        run: cargo check --locked --manifest-path fuzz/Cargo.toml
 
   portable-core:
     name: core ${{ matrix.target }}

@@ -79,10 +79,13 @@ jobs:
       - name: Rust formatting, lint and binding coverage
         working-directory: rust
         run: |
-          cargo fmt --all -- --check
+          cargo fmt \
+            --package revault_bindings \
+            --package revault_tooling \
+            --package revault_wasm_bindings \
+            -- --check
           cargo clippy --locked -p revault_bindings -p revault_tooling -p revault_wasm_bindings --all-targets -- -D warnings
           cargo run --locked -p revault_tooling -- bindings check --repository ..
-          cargo xtask check-required
       - name: Public API documentation
         working-directory: rust
         env:
