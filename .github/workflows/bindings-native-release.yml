@@ -17,6 +17,16 @@ on:
         required: true
         default: true
         type: boolean
+      promotion_run_id:
+        description: Exact successful preflight run to promote on a publication retry
+        required: false
+        default: ''
+        type: string
+      promotion_source_sha:
+        description: Source SHA recorded by the explicit preflight run
+        required: false
+        default: ''
+        type: string
       diagnostic_run_id:
         description: Retained preflight run to use for a Windows Go-only diagnostic
         required: false
@@ -87,6 +97,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       run-id: ${{ steps.find.outputs.run-id }}
+      source-sha: ${{ steps.find.outputs.source-sha }}
     permissions:
       actions: read
       contents: read
@@ -95,31 +106,57 @@ jobs:
         id: find
         env:
           GH_TOKEN: ${{ github.token }}
-          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ inputs.promotion_source_sha != '' && inputs.promotion_source_sha || github.sha }}
           EXPECTED_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('revault-api-v{0}', inputs.version) }}
+          REQUESTED_RUN_ID: ${{ inputs.promotion_run_id }}
         shell: bash
         run: |
           set -euo pipefail
           expected_version="${EXPECTED_VERSION#revault-*-v}"
-          for run_id in $(gh run list \
-            --workflow bindings-native-release.yml \
-            --event workflow_dispatch \
-            --status success \
-            --commit "$EXPECTED_SHA" \
-            --limit 20 \
-            --json databaseId --jq '.[].databaseId'); do
+          if [[ -n "$REQUESTED_RUN_ID" ]]; then
+            ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/revault-api-v$expected_version")
+            tag_type=$(jq -r '.object.type' <<< "$ref")
+            tag_object=$(jq -r '.object.sha' <<< "$ref")
+            if [[ "$tag_type" == tag ]]; then
+              tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" \
+                --jq '.object.sha')
+            fi
+            test "$tag_object" = "$EXPECTED_SHA" || {
+              echo "Release tag resolves to $tag_object, not $EXPECTED_SHA" >&2
+              exit 1
+            }
+            run_ids="$REQUESTED_RUN_ID"
+          else
+            run_ids=$(gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow bindings-native-release.yml \
+              --event workflow_dispatch \
+              --status success \
+              --commit "$EXPECTED_SHA" \
+              --limit 20 \
+              --json databaseId --jq '.[].databaseId')
+          fi
+          for run_id in $run_ids; do
+            metadata=$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" \
+              --json conclusion,event,headSha)
+            test "$(jq -r '.conclusion' <<< "$metadata")" = success || continue
+            test "$(jq -r '.event' <<< "$metadata")" = workflow_dispatch || continue
+            test "$(jq -r '.headSha' <<< "$metadata")" = "$EXPECTED_SHA" || continue
             candidate="$RUNNER_TEMP/preflight-$run_id"
             rm -rf "$candidate"
             mkdir -p "$candidate"
-            if ! gh run download "$run_id" --name registry-publication-payloads --dir "$candidate"; then
+            if ! gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+              --name registry-publication-payloads --dir "$candidate"; then
               continue
             fi
             test "$(cat "$candidate/SOURCE_SHA")" = "$EXPECTED_SHA" || continue
             test "$(cat "$candidate/SOURCE_VERSION")" = "$expected_version" || continue
-            if ! gh run download "$run_id" --name revault-api-publication-trees --dir "$candidate/tree"; then
+            if ! gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
+              --name revault-api-publication-trees --dir "$candidate/tree"; then
               continue
             fi
             echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+            echo "source-sha=$EXPECTED_SHA" >> "$GITHUB_OUTPUT"
             exit 0
           done
           echo "No successful preflight matched SHA $EXPECTED_SHA and version $expected_version" >&2
@@ -129,6 +166,8 @@ jobs:
     if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish)
     needs: [preflight-run]
     runs-on: ubuntu-24.04
+    outputs:
+      source-sha: ${{ needs.preflight-run.outputs.source-sha }}
     permissions:
       actions: read
       contents: read
@@ -757,7 +796,14 @@ jobs:
           fi
 
   github-release:
-    if: always() && inputs.diagnostic_run_id == '' && (startsWith(github.ref_name, 'revault-api-v') || startsWith(github.ref_name, 'revault-dart-v') || github.event_name == 'workflow_dispatch')
+    if: >-
+      always() &&
+      inputs.diagnostic_run_id == '' &&
+      (startsWith(github.ref_name, 'revault-api-v') ||
+       startsWith(github.ref_name, 'revault-dart-v') ||
+       github.event_name == 'workflow_dispatch') &&
+      ((github.event_name == 'workflow_dispatch' && !inputs.publish) ||
+       needs.preflight-artifacts.result == 'success')
     needs: [native, macos-xcframework, ecosystem-layouts, conformance, package-conformance, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -765,20 +811,21 @@ jobs:
       contents: write
     steps:
       - uses: actions/download-artifact@v8
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish)
         with:
           pattern: native-*
           path: dist
           merge-multiple: true
       - uses: actions/download-artifact@v8
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish)
         with:
           name: swift-macos-xcframework
           path: dist
       - name: Publish immutable native archives
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish)
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('revault-api-v{0}', inputs.version) }}
           generate_release_notes: true
           files: dist/*
       - name: Verify immutable release for publication retry
@@ -959,7 +1006,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          test "$(cat artifacts/SOURCE_SHA)" = "$GITHUB_SHA"
+          test "$(cat artifacts/SOURCE_SHA)" = "${{ needs.preflight-artifacts.outputs.source-sha }}"
           sha256sum --check artifacts/SHA256SUMS
           chmod +x "$RELEASE_TOOL"
           "$RELEASE_TOOL" release publish \
@@ -997,7 +1044,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          test "$(cat artifacts/SOURCE_SHA)" = "$GITHUB_SHA"
+          test "$(cat artifacts/SOURCE_SHA)" = "${{ needs.preflight-artifacts.outputs.source-sha }}"
           sha256sum --check artifacts/SHA256SUMS
           chmod +x "$RELEASE_TOOL"
           "$RELEASE_TOOL" release publish \
@@ -1151,7 +1198,7 @@ jobs:
           NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
         run: |
           set -euo pipefail
-          test "$(cat artifacts/SOURCE_SHA)" = "$GITHUB_SHA"
+          test "$(cat artifacts/SOURCE_SHA)" = "${{ needs.preflight-artifacts.outputs.source-sha }}"
           sha256sum --check artifacts/SHA256SUMS
           chmod +x "$RELEASE_TOOL"
           "$RELEASE_TOOL" release publish \
@@ -1209,7 +1256,7 @@ jobs:
       - name: Verify and publish all frozen platform gems
         run: |
           set -euo pipefail
-          test "$(cat artifacts/SOURCE_SHA)" = "$GITHUB_SHA"
+          test "$(cat artifacts/SOURCE_SHA)" = "${{ needs.preflight-artifacts.outputs.source-sha }}"
           sha256sum --check artifacts/SHA256SUMS
           chmod +x "$RELEASE_TOOL"
           "$RELEASE_TOOL" release publish \
