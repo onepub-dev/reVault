@@ -16,7 +16,7 @@ use tempfile::TempDir;
 use walkdir::WalkDir;
 use zip::write::SimpleFileOptions;
 
-const NATIVE_ABI_VERSION: u32 = 3;
+pub(crate) const NATIVE_ABI_VERSION: u32 = 3;
 
 #[derive(Subcommand)]
 pub enum ReleaseCommand {
