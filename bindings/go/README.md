@@ -30,6 +30,7 @@ persistent metadata; `ReplaceVault` is the explicit destructive constructor.
 Vault passphrases, lockbox passwords, and content keys are distinct caller
 owned byte slices. Native failures return `NativeError`. `SessionAgent` is
 explicit and caches only temporary content keys; it does not delete files or
-persistent credentials. Install the platform SDK before building so cgo can
-locate `revault_api`. Secret callbacks receive a temporary byte slice; never
-retain it.
+persistent credentials. The module contains a version-matched static carrier
+for each supported Go target, so cgo links the carrier without a separate SDK
+installation. Secret callbacks receive a temporary byte slice; never retain
+it.

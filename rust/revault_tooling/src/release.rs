@@ -49,6 +49,8 @@ pub struct PackageNative {
     #[arg(long)]
     static_library: PathBuf,
     #[arg(long)]
+    go_static_library: Option<PathBuf>,
+    #[arg(long)]
     output: PathBuf,
     #[arg(long, default_value = ".")]
     repository: PathBuf,
@@ -136,6 +138,10 @@ struct NativeMetadata {
     library_sha256: String,
     static_library: String,
     static_library_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    go_static_library: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    go_static_library_sha256: Option<String>,
     ruby_shim: String,
     ruby_shim_sha256: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -366,6 +372,24 @@ fn package_native(args: PackageNative) -> Result {
     require_file_name(&static_library, &row.static_library, &args.target)?;
     let library = library.canonicalize()?;
     let static_library = static_library.canonicalize()?;
+    let go_static_library = args
+        .go_static_library
+        .as_ref()
+        .map(|path| repository_relative(&repository, path).canonicalize())
+        .transpose()?;
+    if row.os != "windows" && go_static_library.is_some() {
+        return Err("--go-static-library is only valid for Windows targets".into());
+    }
+    if row.os == "windows" && go_static_library.is_none() {
+        return Err(format!(
+            "Windows target {} requires --go-static-library",
+            args.target
+        )
+        .into());
+    }
+    let go_static_library_name = go_static_library
+        .as_ref()
+        .map(|_| "librevault_api_go.a".to_string());
     let import_library = row
         .import_library
         .as_ref()
@@ -403,6 +427,11 @@ fn package_native(args: PackageNative) -> Result {
         library_sha256: sha256(&library)?,
         static_library: row.static_library.clone(),
         static_library_sha256: sha256(&static_library)?,
+        go_static_library: go_static_library_name.clone(),
+        go_static_library_sha256: go_static_library
+            .as_ref()
+            .map(|path| sha256(path))
+            .transpose()?,
         ruby_shim: ruby_shim_name.clone(),
         ruby_shim_sha256: sha256(&ruby_shim)?,
         import_library: row.import_library.clone(),
@@ -454,6 +483,9 @@ fn package_native(args: PackageNative) -> Result {
         (sbom_path, format!("{prefix}/sbom.spdx.json")),
     ];
     if let (Some(source), Some(name)) = (import_library, &row.import_library) {
+        files.push((source, format!("{prefix}/lib/{name}")));
+    }
+    if let (Some(source), Some(name)) = (go_static_library, go_static_library_name) {
         files.push((source, format!("{prefix}/lib/{name}")));
     }
     fs::create_dir_all(&args.output)?;
@@ -580,20 +612,36 @@ fn stage_ecosystems(args: StageEcosystems) -> Result {
                 .join(target)
                 .join(&row.library),
         )?;
+        let (go_static_library, go_static_sha256) = if let (Some(name), Some(expected)) = (
+            &metadata.go_static_library,
+            &metadata.go_static_library_sha256,
+        ) {
+            (root.join("lib").join(name), expected.clone())
+        } else {
+            (
+                static_library.clone(),
+                metadata.static_library_sha256.clone(),
+            )
+        };
+        let go_static_name = go_static_library
+            .file_name()
+            .ok_or("Go static carrier has no file name")?
+            .to_string_lossy()
+            .into_owned();
         copy_file(
-            &static_library,
+            &go_static_library,
             &args
                 .output
                 .join("go/native")
                 .join(target)
-                .join(&row.static_library),
+                .join(&go_static_name),
         )?;
         manifest.push(ManifestTarget {
             target: target.clone(),
             library: row.library.clone(),
             sha256: metadata.library_sha256,
-            static_library: row.static_library.clone(),
-            static_sha256: metadata.static_library_sha256,
+            static_library: go_static_name,
+            static_sha256: go_static_sha256,
         });
     }
     let missing: Vec<_> = rows
@@ -962,11 +1010,7 @@ fn assemble_go(source: &Path, layout: &Path, output: &Path, manifest: &NativeMan
 }
 
 fn go_library_flags(target: &str, static_library: &str) -> String {
-    if target.starts_with("windows-") {
-        format!("-L${{SRCDIR}}/native/{target} -lrevault_api")
-    } else {
-        format!("${{SRCDIR}}/native/{target}/{static_library}")
-    }
+    format!("${{SRCDIR}}/native/{target}/{static_library}")
 }
 
 fn extract_verified(archive: &Path, destination: &Path) -> Result<(PathBuf, NativeMetadata)> {
@@ -1033,6 +1077,22 @@ fn extract_verified(archive: &Path, destination: &Path) -> Result<(PathBuf, Nati
             )
             .into());
         }
+    }
+    match (
+        &metadata.go_static_library,
+        &metadata.go_static_library_sha256,
+    ) {
+        (Some(name), Some(expected)) => {
+            if sha256(&root.join("lib").join(name))? != *expected {
+                return Err(format!(
+                    "native Go static library checksum mismatch: {}",
+                    metadata.target
+                )
+                .into());
+            }
+        }
+        (None, None) => {}
+        _ => return Err("incomplete native Go static library metadata".into()),
     }
     Ok((root, metadata))
 }
@@ -1491,10 +1551,10 @@ mod tests {
     }
 
     #[test]
-    fn go_windows_link_flags_are_accepted_by_cgo_and_clang() {
+    fn go_link_flags_name_the_exact_packaged_carrier() {
         assert_eq!(
-            go_library_flags("windows-x86_64-msvc", "revault_api.lib"),
-            "-L${SRCDIR}/native/windows-x86_64-msvc -lrevault_api"
+            go_library_flags("windows-x86_64-msvc", "librevault_api_go.a"),
+            "${SRCDIR}/native/windows-x86_64-msvc/librevault_api_go.a"
         );
         assert_eq!(
             go_library_flags("linux-x86_64-gnu", "librevault_api.a"),

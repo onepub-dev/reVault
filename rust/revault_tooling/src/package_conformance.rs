@@ -65,9 +65,20 @@ pub fn run(args: PackageConformance) -> Result {
         .into());
     }
     fs::remove_dir_all(&inspected.prefix)?;
+    let runtime_target = if args.language == "php" {
+        php_runtime_target(&args.target)?
+    } else {
+        args.target.clone()
+    };
+    if runtime_target != args.target {
+        println!(
+            "PHP process on {} uses the {runtime_target} bundled carrier",
+            args.target
+        );
+    }
     let prepared = prepare(
         &args.language,
-        &args.target,
+        &runtime_target,
         &inspected.version,
         &repository,
         &packages,
@@ -82,7 +93,7 @@ pub fn run(args: PackageConformance) -> Result {
     std::env::set_var("REVAULT_E2E_NATIVE_ROOT", &prepared.native_root);
     std::env::set_var("REVAULT_E2E_NATIVE_FILE", &prepared.native_file);
     std::env::set_var("REVAULT_E2E_NATIVE_KIND", prepared.native_kind);
-    std::env::set_var("REVAULT_E2E_TARGET", &args.target);
+    std::env::set_var("REVAULT_E2E_TARGET", &runtime_target);
     std::env::set_var("REVAULT_E2E_ARTIFACT_DIR", work.join("artifacts"));
     for (name, value) in prepared.environment {
         std::env::set_var(name, value);
@@ -499,7 +510,9 @@ fn prepare_go(target: &str, repository: &Path, packages: &Path, work: &Path) -> 
         .arg(repository.join("bindings/e2e/go/conformance.go"))
         .current_dir(&package);
     if cfg!(windows) {
-        build.env("CC", "clang");
+        let compiler = std::env::var("REVAULT_GO_CC")
+            .map_err(|_| "REVAULT_GO_CC must name the Windows cgo compiler")?;
+        build.env("CC", compiler);
     }
     run_status(&mut build)?;
     let native_root = package.join("native").join(target);
@@ -878,11 +891,33 @@ fn dynamic_library(target: &str) -> String {
 
 fn static_library(target: &str) -> String {
     if target.starts_with("windows-") {
-        "revault_api.lib"
+        "librevault_api_go.a"
     } else {
         "librevault_api.a"
     }
     .into()
+}
+
+fn php_runtime_target(requested_target: &str) -> Result<String> {
+    if !cfg!(windows) {
+        return Ok(requested_target.to_string());
+    }
+    let output = Command::new("php.exe")
+        .args(["-r", "echo strtolower(php_uname('m')); "])
+        .output()?;
+    if !output.status.success() {
+        return Err("failed to determine the PHP process architecture".into());
+    }
+    let architecture = String::from_utf8(output.stdout)?.trim().to_string();
+    windows_target_for_architecture(&architecture)
+}
+
+fn windows_target_for_architecture(architecture: &str) -> Result<String> {
+    match architecture {
+        "amd64" | "x86_64" => Ok("windows-x86_64-msvc".into()),
+        "arm64" | "aarch64" => Ok("windows-aarch64-msvc".into()),
+        _ => Err(format!("unsupported Windows PHP process architecture: {architecture}").into()),
+    }
 }
 
 fn dotnet_rid(target: &str) -> &'static str {
@@ -1029,4 +1064,22 @@ fn copy_tree(source: &Path, destination: &Path) -> Result {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn windows_php_carrier_matches_the_process_architecture() {
+        assert_eq!(
+            windows_target_for_architecture("amd64").unwrap(),
+            "windows-x86_64-msvc"
+        );
+        assert_eq!(
+            windows_target_for_architecture("arm64").unwrap(),
+            "windows-aarch64-msvc"
+        );
+        assert!(windows_target_for_architecture("ia64").is_err());
+    }
 }

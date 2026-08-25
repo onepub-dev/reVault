@@ -96,31 +96,37 @@ jobs:
             rust_target: x86_64-unknown-linux-gnu
             library: librevault_api.so
             static_library: librevault_api.a
+            go_rust_target: ''
           - target: linux-aarch64-gnu
             runner: ubuntu-24.04-arm
             rust_target: aarch64-unknown-linux-gnu
             library: librevault_api.so
             static_library: librevault_api.a
+            go_rust_target: ''
           - target: macos-x86_64
             runner: macos-15-intel
             rust_target: x86_64-apple-darwin
             library: librevault_api.dylib
             static_library: librevault_api.a
+            go_rust_target: ''
           - target: macos-aarch64
             runner: macos-15
             rust_target: aarch64-apple-darwin
             library: librevault_api.dylib
             static_library: librevault_api.a
+            go_rust_target: ''
           - target: windows-x86_64-msvc
             runner: windows-2025
             rust_target: x86_64-pc-windows-msvc
             library: revault_api.dll
             static_library: revault_api.lib
+            go_rust_target: x86_64-pc-windows-gnu
           - target: windows-aarch64-msvc
             runner: windows-11-arm
             rust_target: aarch64-pc-windows-msvc
             library: revault_api.dll
             static_library: revault_api.lib
+            go_rust_target: aarch64-pc-windows-gnullvm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     permissions:
@@ -131,7 +137,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
-          targets: ${{ matrix.rust_target }}
+          targets: ${{ matrix.go_rust_target != '' && format('{0},{1}', matrix.rust_target, matrix.go_rust_target) || matrix.rust_target }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
@@ -141,6 +147,51 @@ jobs:
         if: runner.os == 'Windows'
         with:
           arch: ${{ matrix.target == 'windows-aarch64-msvc' && 'arm64' || 'x64' }}
+      - name: Configure Windows native compilers
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $hostArch = $env:VSCMD_ARG_HOST_ARCH.ToLowerInvariant()
+          $targetArch = $env:VSCMD_ARG_TGT_ARCH.ToLowerInvariant()
+          $linker = Join-Path $env:VCToolsInstallDir "bin\Host$hostArch\$targetArch\link.exe"
+          $clangCandidates = @(
+            (Join-Path $env:VCINSTALLDIR "Tools\Llvm\$targetArch\bin\clang.exe"),
+            (Join-Path $env:VCINSTALLDIR 'Tools\Llvm\bin\clang.exe')
+          )
+          $clang = $clangCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not (Test-Path $linker)) {
+            throw "MSVC linker is missing: $linker"
+          }
+          if (-not $clang) {
+            throw "Visual Studio clang is missing; checked: $($clangCandidates -join ', ')"
+          }
+          $msvcTarget = '${{ matrix.target == 'windows-aarch64-msvc' && 'AARCH64_PC_WINDOWS_MSVC' || 'X86_64_PC_WINDOWS_MSVC' }}'
+          $msvcCc = '${{ matrix.target == 'windows-aarch64-msvc' && 'CC_aarch64_pc_windows_msvc' || 'CC_x86_64_pc_windows_msvc' }}'
+          $goTarget = '${{ matrix.target == 'windows-aarch64-msvc' && 'AARCH64_PC_WINDOWS_GNULLVM' || 'X86_64_PC_WINDOWS_GNU' }}'
+          $goCc = '${{ matrix.target == 'windows-aarch64-msvc' && 'CC_aarch64_pc_windows_gnullvm' || 'CC_x86_64_pc_windows_gnu' }}'
+          $goCompilerCandidates = if ('${{ matrix.target }}' -eq 'windows-aarch64-msvc') {
+            @(
+              (Join-Path $env:ProgramFiles 'Git\clangarm64\bin\aarch64-w64-mingw32-clang.exe'),
+              (Join-Path $env:ProgramFiles 'Git\clangarm64\bin\clang.exe')
+            )
+          } else {
+            @(
+              'C:\mingw64\bin\gcc.exe',
+              (Join-Path $env:ProgramFiles 'Git\mingw64\bin\gcc.exe')
+            )
+          }
+          $goCompiler = $goCompilerCandidates |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+          if (-not $goCompiler) {
+            throw "Windows Go carrier compiler is missing; checked: $($goCompilerCandidates -join ', ')"
+          }
+          @(
+            "CARGO_TARGET_${msvcTarget}_LINKER=$linker",
+            "${msvcCc}=$clang",
+            "CARGO_TARGET_${goTarget}_LINKER=$goCompiler",
+            "${goCc}=$goCompiler"
+          ) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
         run: >-
@@ -150,6 +201,12 @@ jobs:
       - name: Build release library
         working-directory: rust
         run: cargo build --locked --release --target ${{ matrix.rust_target }} -p revault_bindings
+      - name: Build Windows Go static carrier
+        if: runner.os == 'Windows'
+        working-directory: rust
+        run: >-
+          cargo rustc --locked --release --target ${{ matrix.go_rust_target }}
+          -p revault_bindings --lib -- --crate-type staticlib
       - name: Determine version
         id: version
         shell: bash
@@ -164,12 +221,20 @@ jobs:
         env:
           RUSTFLAGS: ${{ runner.os == 'Windows' && '-Clinker=lld-link.exe' || '' }}
         run: |
+          go_static=()
+          if [[ -n "${{ matrix.go_rust_target }}" ]]; then
+            go_static=(
+              --go-static-library
+              "rust/target/${{ matrix.go_rust_target }}/release/librevault_api.a"
+            )
+          fi
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling -- release package-native \
             --repository . \
             --version "${{ steps.version.outputs.value }}" \
             --target "${{ matrix.target }}" \
             --library "rust/target/${{ matrix.rust_target }}/release/${{ matrix.library }}" \
             --static-library "rust/target/${{ matrix.rust_target }}/release/${{ matrix.static_library }}" \
+            "${go_static[@]}" \
             --output dist
       - name: Install archive and run all 217 native operations
         shell: bash
@@ -298,10 +363,26 @@ jobs:
             throw "Visual Studio clang is missing; checked: $($clangCandidates -join ', ')"
           }
           $rustTarget = '${{ matrix.target == 'windows-aarch64-msvc' && 'AARCH64_PC_WINDOWS_MSVC' || 'X86_64_PC_WINDOWS_MSVC' }}'
-          "CARGO_TARGET_${rustTarget}_LINKER=$linker" |
-            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "CC=`"$clang`"" |
-            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $rustCc = '${{ matrix.target == 'windows-aarch64-msvc' && 'CC_aarch64_pc_windows_msvc' || 'CC_x86_64_pc_windows_msvc' }}'
+          $goCompilerCandidates = if ('${{ matrix.target }}' -eq 'windows-aarch64-msvc') {
+            @((Join-Path $env:ProgramFiles 'Git\clangarm64\bin\clang.exe'))
+          } else {
+            @(
+              'C:\mingw64\bin\gcc.exe',
+              (Join-Path $env:ProgramFiles 'Git\mingw64\bin\gcc.exe')
+            )
+          }
+          $goCompiler = $goCompilerCandidates |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+          if (-not $goCompiler) {
+            throw "Windows cgo compiler is missing; checked: $($goCompilerCandidates -join ', ')"
+          }
+          @(
+            "CARGO_TARGET_${rustTarget}_LINKER=$linker",
+            "${rustCc}=$clang",
+            "REVAULT_GO_CC=$goCompiler"
+          ) | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - uses: ruby/setup-ruby@v1
         if: contains(format(',{0},', matrix.languages), ',ruby,')
         with:
