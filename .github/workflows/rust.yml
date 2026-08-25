@@ -157,22 +157,50 @@ jobs:
             command: >-
               cargo test --locked -p revault_cli
               --test cli_flow vault_
-          - group: CLI flow / other commands
-            cache: cli-flow-other
+          # These filters are complementary: each later shard skips every
+          # earlier category, and the final shard catches all unmatched tests.
+          - group: CLI flow / open and session
+            cache: cli-flow-vault
+            command: |
+              cargo test --locked -p revault_cli --test cli_flow open -- --skip vault_
+              cargo test --locked -p revault_cli --test cli_flow session -- --skip vault_ --skip open
+          - group: CLI flow / data commands
+            cache: cli-flow-vault
+            command: |
+              cargo test --locked -p revault_cli --test cli_flow form -- --skip vault_ --skip open --skip session
+              cargo test --locked -p revault_cli --test cli_flow create -- --skip vault_ --skip open --skip session --skip form
+              cargo test --locked -p revault_cli --test cli_flow remove -- --skip vault_ --skip open --skip session --skip form --skip create
+              cargo test --locked -p revault_cli --test cli_flow list -- --skip vault_ --skip open --skip session --skip form --skip create --skip remove
+          - group: CLI flow / remaining commands
+            cache: cli-flow-vault
+            command: >-
+              cargo test --locked -p revault_cli --test cli_flow --
+              --skip vault_
+              --skip open
+              --skip session
+              --skip form
+              --skip create
+              --skip remove
+              --skip list
+          - group: CLI agent and completion
+            cache: cli-support
             command: >-
               cargo test --locked -p revault_cli
-              --test cli_flow -- --skip vault_
-          - group: CLI support flows
+              --test agent_flow
+              --test completion
+          - group: CLI migration and mirror
+            cache: cli-support
+            command: >-
+              cargo test --locked -p revault_cli
+              --test migration_cli
+              --test mirror_cli
+          - group: CLI unit and smoke flows
             cache: cli-support
             command: >-
               cargo test --locked -p revault_cli
               --bin lockbox
-              --test agent_flow
-              --test completion
               --test contact_receive_alias
               --test help_open_key
-              --test migration_cli
-              --test mirror_cli
               --test publish_integration
           - group: migrations
             cache: migrations
