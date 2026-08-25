@@ -17,6 +17,19 @@ on:
         required: true
         default: true
         type: boolean
+      diagnostic_run_id:
+        description: Retained preflight run to use for a Windows Go-only diagnostic
+        required: false
+        default: ''
+        type: string
+      diagnostic_target:
+        description: Windows target for a retained-package diagnostic
+        required: false
+        default: windows-aarch64-msvc
+        type: choice
+        options:
+          - windows-aarch64-msvc
+          - windows-x86_64-msvc
   push:
     tags:
       - revault-api-v*
@@ -33,7 +46,7 @@ env:
 jobs:
   package-matrix:
     name: define installed package combinations
-    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     runs-on: ubuntu-24.04
     env:
       RELEASE_TARGETS: ${{ inputs.targets }}
@@ -192,7 +205,7 @@ jobs:
 
   conformance:
     name: 16 installed Linux APIs and 480 interoperability paths
-    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -211,9 +224,79 @@ jobs:
         if: ${{ startsWith(github.ref_name, 'revault-dart-v') || (github.event_name == 'workflow_dispatch' && inputs.publish) }}
         run: echo "Publication targets are exercised from their assembled packages on the selected native targets."
 
+  windows-go-diagnostic:
+    name: retained Go package on ${{ inputs.diagnostic_target }}
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id != ''
+    runs-on: ${{ inputs.diagnostic_target == 'windows-aarch64-msvc' && 'windows-11-arm' || 'windows-2025' }}
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          shared-key: bindings-package-${{ inputs.diagnostic_target }}-native-jvm
+          cache-workspace-crates: true
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ inputs.diagnostic_target == 'windows-aarch64-msvc' && 'arm64' || 'x64' }}
+      - uses: actions/cache@v5
+        if: inputs.diagnostic_target == 'windows-aarch64-msvc'
+        with:
+          path: ${{ runner.tool_cache }}/llvm-mingw-20260616-ucrt-aarch64
+          key: llvm-mingw-20260616-ucrt-windows-aarch64
+      - name: Install pinned Windows ARM64 LLVM-MinGW
+        if: inputs.diagnostic_target == 'windows-aarch64-msvc'
+        shell: pwsh
+        run: .github/scripts/install-windows-arm64-llvm-mingw.ps1
+      - name: Build package acceptance driver
+        run: cargo build --locked --manifest-path rust/Cargo.toml -p revault_tooling
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.diagnostic_run_id }}
+          name: native-${{ inputs.diagnostic_target }}
+          path: native
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.diagnostic_run_id }}
+          name: revault-api-publication-trees
+          path: packages
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.24.x'
+          cache: false
+      - name: Configure cgo compiler
+        shell: pwsh
+        run: |
+          if ('${{ inputs.diagnostic_target }}' -eq 'windows-aarch64-msvc') {
+            $compiler = Join-Path $env:REVAULT_LLVM_MINGW_ROOT 'bin\aarch64-w64-mingw32-clang.exe'
+          } else {
+            $compiler = 'C:\mingw64\bin\gcc.exe'
+          }
+          if (-not (Test-Path $compiler)) {
+            throw "Windows cgo compiler is missing: $compiler"
+          }
+          "REVAULT_GO_CC=$compiler" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Exercise retained installed Go package
+        shell: pwsh
+        run: >-
+          rust/target/debug/revault-tool.exe e2e package-conformance
+          --language go
+          --target "${{ inputs.diagnostic_target }}"
+          --archive native
+          --packages packages
+          --repository .
+          --work "package-conformance-go-${{ inputs.diagnostic_target }}"
+
   native:
     name: native ${{ matrix.target }}
-    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     strategy:
       fail-fast: false
       matrix:
@@ -399,7 +482,7 @@ jobs:
           if-no-files-found: error
 
   macos-xcframework:
-    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     needs: native
     runs-on: macos-15
     permissions:
@@ -431,7 +514,7 @@ jobs:
 
   package-conformance:
     name: ${{ matrix.group }} installed packages on ${{ matrix.target }}
-    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     needs: [package-matrix, native, ecosystem-layouts]
     strategy:
       fail-fast: false
@@ -649,7 +732,7 @@ jobs:
           fi
 
   github-release:
-    if: always() && (startsWith(github.ref_name, 'revault-api-v') || startsWith(github.ref_name, 'revault-dart-v') || github.event_name == 'workflow_dispatch')
+    if: always() && inputs.diagnostic_run_id == '' && (startsWith(github.ref_name, 'revault-api-v') || startsWith(github.ref_name, 'revault-dart-v') || github.event_name == 'workflow_dispatch')
     needs: [native, macos-xcframework, ecosystem-layouts, conformance, package-conformance, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -685,7 +768,7 @@ jobs:
           fi
 
   ecosystem-layouts:
-    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     needs: native
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -766,7 +849,7 @@ jobs:
   # parallel packing shortens the critical path without bypassing a gate.
   publication-artifacts:
     name: freeze registry publication payloads
-    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     needs: [ecosystem-layouts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -904,7 +987,7 @@ jobs:
             --packages packages --ecosystem wasm --prebuilt artifacts --publish
 
   build-python-wheels:
-    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     needs: [ecosystem-layouts]
     strategy:
       fail-fast: false
@@ -1109,7 +1192,7 @@ jobs:
             --packages packages --ecosystem ruby --prebuilt artifacts --publish
 
   build-lua-rocks:
-    if: (github.event_name == 'workflow_dispatch' && !inputs.publish) || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'lua'))
+    if: (github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == '') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'lua'))
     needs: [ecosystem-layouts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
