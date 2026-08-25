@@ -293,6 +293,31 @@ jobs:
           --packages packages
           --repository .
           --work "package-conformance-go-${{ inputs.diagnostic_target }}"
+      - name: Report Go executable dependencies after a runtime failure
+        if: failure()
+        shell: pwsh
+        run: |
+          $executable = Get-ChildItem `
+            -Path "package-conformance-go-${{ inputs.diagnostic_target }}" `
+            -Filter 'revault-go-conformance.exe' `
+            -Recurse | Select-Object -First 1
+          if (-not $executable) {
+            Write-Error 'The Go conformance executable was not produced.'
+            exit 0
+          }
+          Write-Host "Dependencies for $($executable.FullName):"
+          dumpbin.exe /DEPENDENTS $executable.FullName
+          Write-Host 'Recent Windows loader events:'
+          Get-WinEvent -FilterHashtable @{
+            LogName = 'Application'
+            StartTime = (Get-Date).AddMinutes(-10)
+          } -ErrorAction SilentlyContinue |
+            Where-Object {
+              $_.Message -like '*revault-go-conformance*' -or
+              $_.ProviderName -eq 'Application Error'
+            } |
+            Select-Object -First 10 TimeCreated, ProviderName, Id, Message |
+            Format-List
 
   native:
     name: native ${{ matrix.target }}
