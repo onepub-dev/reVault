@@ -148,24 +148,45 @@ jobs:
         include:
           - group: secure APIs
             cache: secure-apis
-            packages: >-
+            command: >-
+              cargo test --locked
               -p revault_page_api@0.0.4
               -p revault_lockbox_api@0.0.6
-          - group: CLI and vault
-            cache: cli-vault
-            packages: >-
-              -p revault_cli
-              -p revault_vault_api@0.0.6
+          - group: CLI flow / vault commands
+            cache: cli-flow-vault
+            command: >-
+              cargo test --locked -p revault_cli
+              --test cli_flow vault_
+          - group: CLI flow / other commands
+            cache: cli-flow-other
+            command: >-
+              cargo test --locked -p revault_cli
+              --test cli_flow -- --skip vault_
+          - group: CLI support flows
+            cache: cli-support
+            command: >-
+              cargo test --locked -p revault_cli
+              --bin lockbox
+              --test agent_flow
+              --test completion
+              --test contact_receive_alias
+              --test help_open_key
+              --test migration_cli
+              --test mirror_cli
+              --test publish_integration
           - group: migrations
             cache: migrations
-            packages: >-
+            command: >-
+              cargo test --locked
+              -p revault_vault_api@0.0.6
               -p revault_migration_format
               -p revault_migrate_vault_v1
               -p revault_migrate_archive_v1
               -p revault_migration
           - group: services and tooling
             cache: services-tooling
-            packages: >-
+            command: >-
+              cargo test --locked
               -p revault_publish_protocol
               -p revault_key_server
               -p xtask
@@ -191,7 +212,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
       - name: Run required package tests
-        run: cargo test --locked ${{ matrix.packages }}
+        run: ${{ matrix.command }}
 
   platform:
     name: platform ${{ matrix.os }}
