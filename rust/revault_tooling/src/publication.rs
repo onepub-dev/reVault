@@ -959,6 +959,11 @@ All three packages use the same ABI-v2 native artifacts. Secret variable and for
 
 fn prepare_swift(destination: &Path, version: &str, assets: Option<&Path>) -> Result {
     let assets = assets.ok_or("--release-assets is required for Swift promotion")?;
+    let header = destination.join("CModule/revault_api.h");
+    let header_source = fs::read_to_string(&header)?;
+    if header_source.contains("\r\n") {
+        fs::write(&header, header_source.replace("\r\n", "\n"))?;
+    }
     let archive = assets.join("RevaultC.xcframework.zip");
     let checksum = sha256(&archive)?;
     let url = release_url(version, "RevaultC.xcframework.zip");
@@ -1276,5 +1281,25 @@ mod tests {
         assert!(destination.path().join(".git").is_dir());
         assert!(!destination.path().join("old").exists());
         assert_eq!(fs::read(destination.path().join("new")).unwrap(), b"new");
+    }
+
+    #[test]
+    fn swift_promotion_normalizes_the_generated_header() {
+        let destination = TempDir::new().unwrap();
+        let assets = TempDir::new().unwrap();
+        fs::create_dir(destination.path().join("CModule")).unwrap();
+        fs::write(
+            destination.path().join("CModule/revault_api.h"),
+            b"first\r\nsecond\r\n",
+        )
+        .unwrap();
+        fs::write(assets.path().join("RevaultC.xcframework.zip"), b"archive").unwrap();
+
+        prepare_swift(destination.path(), "0.3.11", Some(assets.path())).unwrap();
+
+        assert_eq!(
+            fs::read(destination.path().join("CModule/revault_api.h")).unwrap(),
+            b"first\nsecond\n"
+        );
     }
 }
