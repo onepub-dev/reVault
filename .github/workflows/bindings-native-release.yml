@@ -113,16 +113,28 @@ jobs:
         run: |
           set -euo pipefail
           expected_version="${EXPECTED_VERSION#revault-*-v}"
+          expected_sha="$EXPECTED_SHA"
+          if [[ "$GITHUB_REF_NAME" == revault-dart-v* ]]; then
+            ref=$(gh api \
+              "repos/$GITHUB_REPOSITORY/git/ref/tags/revault-api-v$expected_version")
+            tag_type=$(jq -r '.object.type' <<< "$ref")
+            expected_sha=$(jq -r '.object.sha' <<< "$ref")
+            if [[ "$tag_type" == tag ]]; then
+              expected_sha=$(gh api \
+                "repos/$GITHUB_REPOSITORY/git/tags/$expected_sha" --jq '.object.sha')
+            fi
+          fi
           if [[ -n "$REQUESTED_RUN_ID" ]]; then
-            ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/revault-api-v$expected_version")
+            ref=$(gh api \
+              "repos/$GITHUB_REPOSITORY/git/ref/tags/revault-api-v$expected_version")
             tag_type=$(jq -r '.object.type' <<< "$ref")
             tag_object=$(jq -r '.object.sha' <<< "$ref")
             if [[ "$tag_type" == tag ]]; then
-              tag_object=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" \
-                --jq '.object.sha')
+              tag_object=$(gh api \
+                "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.object.sha')
             fi
-            test "$tag_object" = "$EXPECTED_SHA" || {
-              echo "Release tag resolves to $tag_object, not $EXPECTED_SHA" >&2
+            test "$tag_object" = "$expected_sha" || {
+              echo "Release tag resolves to $tag_object, not $expected_sha" >&2
               exit 1
             }
             run_ids="$REQUESTED_RUN_ID"
@@ -132,7 +144,7 @@ jobs:
               --workflow bindings-native-release.yml \
               --event workflow_dispatch \
               --status success \
-              --commit "$EXPECTED_SHA" \
+              --commit "$expected_sha" \
               --limit 20 \
               --json databaseId --jq '.[].databaseId')
           fi
@@ -141,7 +153,7 @@ jobs:
               --json conclusion,event,headSha)
             test "$(jq -r '.conclusion' <<< "$metadata")" = success || continue
             test "$(jq -r '.event' <<< "$metadata")" = workflow_dispatch || continue
-            test "$(jq -r '.headSha' <<< "$metadata")" = "$EXPECTED_SHA" || continue
+            test "$(jq -r '.headSha' <<< "$metadata")" = "$expected_sha" || continue
             candidate="$RUNNER_TEMP/preflight-$run_id"
             rm -rf "$candidate"
             mkdir -p "$candidate"
@@ -149,17 +161,17 @@ jobs:
               --name registry-publication-payloads --dir "$candidate"; then
               continue
             fi
-            test "$(cat "$candidate/SOURCE_SHA")" = "$EXPECTED_SHA" || continue
+            test "$(cat "$candidate/SOURCE_SHA")" = "$expected_sha" || continue
             test "$(cat "$candidate/SOURCE_VERSION")" = "$expected_version" || continue
             if ! gh run download "$run_id" --repo "$GITHUB_REPOSITORY" \
               --name revault-api-publication-trees --dir "$candidate/tree"; then
               continue
             fi
             echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
-            echo "source-sha=$EXPECTED_SHA" >> "$GITHUB_OUTPUT"
+            echo "source-sha=$expected_sha" >> "$GITHUB_OUTPUT"
             exit 0
           done
-          echo "No successful preflight matched SHA $EXPECTED_SHA and version $expected_version" >&2
+          echo "No successful preflight matched SHA $expected_sha and version $expected_version" >&2
           exit 1
 
   preflight-artifacts:
@@ -811,30 +823,34 @@ jobs:
       contents: write
     steps:
       - uses: actions/download-artifact@v8
-        if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+        if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish)
         with:
           pattern: native-*
           path: dist
           merge-multiple: true
       - uses: actions/download-artifact@v8
-        if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+        if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish)
         with:
           name: swift-macos-xcframework
           path: dist
       - name: Publish immutable native archives
-        if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+        if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('revault-api-v{0}', inputs.version) }}
           generate_release_notes: true
           files: dist/*
       - name: Verify immutable release for publication retry
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' || startsWith(github.ref_name, 'revault-dart-v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "revault-api-v${RELEASE_VERSION}" --repo onepub-dev/reVault; then
+          version="${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
+          if gh release view "revault-api-v$version" --repo onepub-dev/reVault; then
             echo "Using existing immutable GitHub release for publication retry."
+          elif [[ "$GITHUB_REF_NAME" == revault-dart-v* ]]; then
+            echo "The immutable revault-api-v$version release is required for Dart promotion." >&2
+            exit 1
           else
             echo "No immutable GitHub release exists; continuing with registry-only publication."
           fi
