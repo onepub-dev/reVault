@@ -199,8 +199,9 @@ pub(crate) fn container(args: Container) -> Result {
         return Ok(());
     }
     let runtime = std::env::var_os("XDG_RUNTIME_DIR")
+        .filter(|value| !value.is_empty())
         .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("/tmp/revault-runtime"));
+        .unwrap_or_else(|| default_service_runtime_dir(std::process::id()));
     fs::create_dir_all(&runtime)?;
     #[cfg(unix)]
     {
@@ -315,6 +316,10 @@ pub(crate) fn container(args: Container) -> Result {
         results: vec![results, native],
     })?;
     verify_loader_resolution(&args.language, &root, &file, &service_env)
+}
+
+fn default_service_runtime_dir(process_id: u32) -> PathBuf {
+    std::env::temp_dir().join(format!("revault-runtime-{process_id}"))
 }
 
 fn verify_loader_resolution(
@@ -1582,6 +1587,13 @@ mod tests {
                 .unwrap()
                 .len(),
             16
+        );
+    }
+    #[test]
+    fn concurrent_conformance_processes_use_distinct_service_runtimes() {
+        assert_ne!(
+            default_service_runtime_dir(41),
+            default_service_runtime_dir(42)
         );
     }
     #[test]

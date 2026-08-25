@@ -10,6 +10,7 @@ module Revault
       raise ArgumentError, 'native library path must not be empty' if explicit_path == ''
       inherited = ENV['REVAULT_LIBRARY']
       selected = explicit_path || (inherited unless inherited.nil? || inherited.empty?) || bundled_path
+      selected = resolve_windows_bare_name(selected)
       if defined?(@selected_path) && explicit_path.nil?
         return @selected_path
       end
@@ -17,6 +18,17 @@ module Revault
         raise 'the process-wide reVault native library is already selected'
       end
       @selected_path = selected
+    end
+
+    def resolve_windows_bare_name(path)
+      return path unless RbConfig::CONFIG['host_os'].match?(/mswin|mingw/)
+      return path if path.match?(%r{[/\\]})
+
+      ENV.fetch('PATH', '').split(File::PATH_SEPARATOR).each do |directory|
+        candidate = File.expand_path(path, directory)
+        return candidate if File.file?(candidate)
+      end
+      path
     end
 
     def bundled_path

@@ -79,6 +79,12 @@ def _load(native_library_path: str | os.PathLike[str] | None = None) -> ctypes.C
         if inherited
         else _native_library_path()
     )
+    if sys.platform == "win32" and Path(selected).name == selected:
+        for directory in os.get_exec_path():
+            candidate = Path(directory) / selected
+            if candidate.is_file():
+                selected = str(candidate.resolve())
+                break
     library = ctypes.CDLL(selected)
     library.api_abi_version.argtypes = []
     library.api_abi_version.restype = ctypes.c_uint32

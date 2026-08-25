@@ -6,6 +6,13 @@ $archive = Join-Path $env:RUNNER_TEMP "luajit-$commit.zip"
 $sourceRoot = Join-Path $env:RUNNER_TEMP 'luajit-source'
 $installRoot = Join-Path $env:RUNNER_TEMP 'luajit-arm64'
 $bin = Join-Path $installRoot 'bin'
+$hostArch = $env:VSCMD_ARG_HOST_ARCH.ToLowerInvariant()
+$targetArch = $env:VSCMD_ARG_TGT_ARCH.ToLowerInvariant()
+$linker = Join-Path $env:VCToolsInstallDir "bin\Host$hostArch\$targetArch\link.exe"
+if (-not (Test-Path $linker)) {
+  throw "MSVC linker is missing: $linker"
+}
+$env:PATH = "$(Split-Path $linker);$env:PATH"
 
 Invoke-WebRequest `
   -Uri "https://github.com/LuaJIT/LuaJIT/archive/$commit.zip" `
@@ -20,7 +27,9 @@ $source = Join-Path $sourceRoot "LuaJIT-$commit"
 Push-Location (Join-Path $source 'src')
 try {
   & cmd.exe /d /c msvcbuild.bat
-  if ($LASTEXITCODE -ne 0) {
+  if ($LASTEXITCODE -ne 0 -or
+      -not (Test-Path (Join-Path $source 'src/luajit.exe')) -or
+      -not (Test-Path (Join-Path $source 'src/lua51.dll'))) {
     throw "LuaJIT ARM64 build failed with exit code $LASTEXITCODE"
   }
 } finally {

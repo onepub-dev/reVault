@@ -20,7 +20,9 @@ end
 local function check(value, message) if not value then error(message, 2) end end
 local function quote(path) return '"' .. path:gsub('"', '\\"') .. '"' end
 local function mkdir(path)
-  local command = windows and ('mkdir ' .. quote(path) .. ' 2>NUL') or ('mkdir -p ' .. quote(path))
+  local command = windows and
+    ('if not exist ' .. quote(path) .. ' mkdir ' .. quote(path)) or
+    ('mkdir -p ' .. quote(path))
   local ok = os.execute(command); assert(ok == true or ok == 0)
 end
 local function remove(path)

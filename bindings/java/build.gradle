@@ -20,7 +20,9 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.withType(Javadoc).configureEach {
-    exclude 'flatbuffers/**'
+    exclude 'com/onepub/revault/internal/**'
+    options.addStringOption('Xdoclint:all,-missing', '-quiet')
+    options.addBooleanOption('Werror', true)
 }
 
 sourceSets.main.java.srcDirs = ['src', 'generated']
