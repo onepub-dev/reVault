@@ -201,11 +201,15 @@ jobs:
               cargo test --locked -p revault_cli
               --test agent_flow
               --test completion
-          - group: CLI migration and mirror
+          - group: CLI migration
             cache: cli-support
             command: >-
               cargo test --locked -p revault_cli
               --test migration_cli
+          - group: CLI mirror
+            cache: cli-support
+            command: >-
+              cargo test --locked -p revault_cli
               --test mirror_cli
           - group: CLI unit and smoke flows
             cache: cli-support
