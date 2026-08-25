@@ -269,8 +269,10 @@ pub(crate) fn container(args: Container) -> Result {
         )?;
         if !output.status.success() {
             return Err(format!(
-                "{} conformance failed: {}",
+                "{} conformance {:?} failed with {}: {}",
                 args.language,
+                invocation.args.last(),
+                output.status,
                 String::from_utf8_lossy(&output.stderr)
             )
             .into());
