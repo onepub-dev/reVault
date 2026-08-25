@@ -378,10 +378,14 @@ fn package_native(args: PackageNative) -> Result {
         .map(|path| repository_relative(&repository, path).canonicalize())
         .transpose()?;
     if !uses_separate_go_static_carrier(&args.target) && go_static_library.is_some() {
-        return Err("--go-static-library is only valid for windows-x86_64-msvc".into());
+        return Err("--go-static-library is only valid for Windows targets".into());
     }
     if uses_separate_go_static_carrier(&args.target) && go_static_library.is_none() {
-        return Err("windows-x86_64-msvc requires --go-static-library".into());
+        return Err(format!(
+            "Windows target {} requires --go-static-library",
+            args.target
+        )
+        .into());
     }
     let go_static_library_name = go_static_library
         .as_ref()
@@ -1010,7 +1014,7 @@ fn go_library_flags(target: &str, static_library: &str) -> String {
 }
 
 fn uses_separate_go_static_carrier(target: &str) -> bool {
-    target == "windows-x86_64-msvc"
+    target.starts_with("windows-")
 }
 
 fn extract_verified(archive: &Path, destination: &Path) -> Result<(PathBuf, NativeMetadata)> {
@@ -1557,8 +1561,8 @@ mod tests {
             "${SRCDIR}/native/windows-x86_64-msvc/librevault_api_go.a"
         );
         assert_eq!(
-            go_library_flags("windows-aarch64-msvc", "revault_api.lib"),
-            "${SRCDIR}/native/windows-aarch64-msvc/revault_api.lib"
+            go_library_flags("windows-aarch64-msvc", "librevault_api_go.a"),
+            "${SRCDIR}/native/windows-aarch64-msvc/librevault_api_go.a"
         );
         assert_eq!(
             go_library_flags("linux-x86_64-gnu", "librevault_api.a"),
@@ -1567,9 +1571,9 @@ mod tests {
     }
 
     #[test]
-    fn only_windows_x64_needs_a_separate_go_carrier() {
+    fn windows_targets_need_a_separate_go_carrier() {
         assert!(uses_separate_go_static_carrier("windows-x86_64-msvc"));
-        assert!(!uses_separate_go_static_carrier("windows-aarch64-msvc"));
+        assert!(uses_separate_go_static_carrier("windows-aarch64-msvc"));
         assert!(!uses_separate_go_static_carrier("linux-x86_64-gnu"));
     }
 
