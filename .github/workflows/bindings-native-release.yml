@@ -182,7 +182,7 @@ jobs:
           --repository .
           --work native-conformance
       - name: Attest native archives
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/*
       - uses: actions/upload-artifact@v7
@@ -212,7 +212,7 @@ jobs:
           --x86-64-archive native/native-macos-x86_64/revault-api-native-*-macos-x86_64.tar.gz
           --aarch64-archive native/native-macos-aarch64/revault-api-native-*-macos-aarch64.tar.gz
           --output dist
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/RevaultC.xcframework.zip
       - uses: actions/upload-artifact@v7
