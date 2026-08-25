@@ -48,6 +48,11 @@ pub struct PublishPackages {
     /// Restrict a platform package set to one canonical native target.
     #[arg(long)]
     target: Option<String>,
+    /// Directory containing already-built publication payloads. When set,
+    /// registry upload consumes these files directly and does not rebuild the
+    /// package from the publication tree.
+    #[arg(long)]
+    prebuilt: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
@@ -101,6 +106,16 @@ pub fn publish(args: PublishPackages) -> Result {
     let packages = args.packages.canonicalize()?;
     fs::create_dir_all(&args.output)?;
     let output = args.output.canonicalize()?;
+    if let Some(prebuilt) = args.prebuilt {
+        let prebuilt = prebuilt.canonicalize()?;
+        return publish_prebuilt(
+            args.ecosystem,
+            &prebuilt,
+            &args.version,
+            args.publish,
+            args.target.as_deref(),
+        );
+    }
     match args.ecosystem {
         Ecosystem::NpmNative => npm_native(&packages, &args.version, args.publish, args.target),
         Ecosystem::Npm => npm_package(
@@ -144,6 +159,185 @@ pub fn publish(args: PublishPackages) -> Result {
             false,
         ),
     }
+}
+
+fn publish_prebuilt(
+    ecosystem: Ecosystem,
+    root: &Path,
+    _version: &str,
+    publish: bool,
+    _target: Option<&str>,
+) -> Result {
+    match ecosystem {
+        Ecosystem::NpmNative => {
+            let directory = root.join("npm-native");
+            let files = files_with_extension(&directory, "tgz")?;
+            for file in files {
+                npm_publish_file(&file, publish)?;
+            }
+            Ok(())
+        }
+        Ecosystem::Npm => npm_publish_file(&root.join("npm/revault-api.tgz"), publish),
+        Ecosystem::Wasm => npm_publish_file(&root.join("npm/revault-api-wasm.tgz"), publish),
+        Ecosystem::Python => {
+            let directory = root.join("python");
+            let files = files_with_extension(&directory, "whl")?;
+            if files.is_empty() {
+                return Err(format!("no Python wheels under {}", directory.display()).into());
+            }
+            let mut check = Command::new("python");
+            check.args(["-m", "twine", "check"]);
+            check.args(&files);
+            run(&mut check)?;
+            if publish {
+                let mut upload = Command::new("python");
+                upload.args(["-m", "twine", "upload", "--skip-existing"]);
+                upload.args(&files);
+                run(&mut upload)?;
+            }
+            Ok(())
+        }
+        Ecosystem::Nuget => {
+            let directory = root.join("nuget");
+            let files = files_with_extension(&directory, "nupkg")?;
+            if files.is_empty() {
+                return Err(format!("no NuGet packages under {}", directory.display()).into());
+            }
+            if publish {
+                let api_key = std::env::var("NUGET_API_KEY")
+                    .map_err(|_| "NUGET_API_KEY is required for NuGet publication")?;
+                for file in files {
+                    run_redacted(
+                        Command::new("dotnet")
+                            .args(["nuget", "push"])
+                            .arg(&file)
+                            .args([
+                                "--api-key",
+                                &api_key,
+                                "--source",
+                                "https://api.nuget.org/v3/index.json",
+                            ]),
+                        "dotnet nuget push <package> --api-key <redacted> --source nuget.org",
+                    )?;
+                }
+            }
+            Ok(())
+        }
+        Ecosystem::Ruby => {
+            let directory = root.join("ruby");
+            let files = files_with_extension(&directory, "gem")?;
+            if files.is_empty() {
+                return Err(format!("no Ruby gems under {}", directory.display()).into());
+            }
+            if publish {
+                for file in files {
+                    push_gem(&file)?;
+                }
+            }
+            Ok(())
+        }
+        Ecosystem::Lua => {
+            let directory = root.join("lua");
+            let rocks = files_with_extension(&directory, "rock")?;
+            let rockspecs = files_with_extension(&directory, "rockspec")?;
+            if rocks.is_empty() {
+                return Err(format!("no LuaRocks payloads under {}", directory.display()).into());
+            }
+            if rockspecs.is_empty() {
+                return Err(format!("no LuaRocks rockspec under {}", directory.display()).into());
+            }
+            let rockspec = &rockspecs[0];
+            require_text_version(rockspec, _version)?;
+            if publish {
+                let api_key = std::env::var("LUAROCKS_API_KEY")
+                    .map_err(|_| "LUAROCKS_API_KEY is required for LuaRocks publication")?;
+                let api_key = api_key.trim();
+                if api_key.is_empty() {
+                    return Err("LUAROCKS_API_KEY must not be empty".into());
+                }
+                let version_id = ensure_luarocks_version(api_key, rockspec, _version)?;
+                for rock in rocks {
+                    upload_binary_rock(api_key, version_id, &rock)?;
+                }
+            }
+            Ok(())
+        }
+        Ecosystem::RustFoundation => {
+            for (name, version) in [
+                ("revault_page_api", "0.0.3"),
+                ("revault_lockbox_api", "0.0.4"),
+                ("revault_vault_api", "0.0.4"),
+            ] {
+                publish_prebuilt_crate(root, name, version, publish)?;
+            }
+            Ok(())
+        }
+        Ecosystem::Rust => publish_prebuilt_crate(root, "revault-api", _version, publish),
+        // These registries do not accept the native package files through the
+        // same command-line contract. Keep their existing publication path
+        // until their registry-specific bundle/upload flow is supplied.
+        Ecosystem::MavenJava | Ecosystem::MavenKotlin | Ecosystem::Dart => {
+            Err(format!("prebuilt publication is not implemented for {ecosystem:?}").into())
+        }
+    }
+}
+
+fn publish_prebuilt_crate(root: &Path, name: &str, version: &str, publish: bool) -> Result {
+    let files = files_with_extension(&root.join("rust"), "crate")?;
+    let expected = format!("{name}-{version}.crate");
+    let file = files
+        .into_iter()
+        .find(|file| {
+            file.file_name()
+                .is_some_and(|file_name| file_name == OsStr::new(&expected))
+        })
+        .ok_or_else(|| format!("no prebuilt crate {expected} under {}", root.display()))?;
+    if publish {
+        let token = std::env::var("CARGO_REGISTRY_TOKEN")
+            .map_err(|_| "CARGO_REGISTRY_TOKEN is required for crates.io publication")?;
+        upload_crate(&token, &file)?;
+    }
+    Ok(())
+}
+
+fn upload_crate(token: &str, crate_file: &Path) -> Result {
+    let crate_part = Part::file(crate_file)?.mime_str("application/octet-stream")?;
+    let form = Form::new().part("crate", crate_part);
+    let response = ureq::post("https://crates.io/api/v1/crates/new")
+        .config()
+        .http_status_as_error(false)
+        .build()
+        .header("Authorization", &format!("token {token}"))
+        .send(form)?;
+    let status = response.status();
+    let body = response.into_body().read_to_string()?;
+    if status.is_success() {
+        println!("published crate: {}", crate_file.display());
+        return Ok(());
+    }
+    let message = body.to_ascii_lowercase();
+    if message.contains("already exists") || message.contains("already uploaded") {
+        println!("already published crate: {}", crate_file.display());
+        return Ok(());
+    }
+    Err(format!(
+        "crates.io upload failed for {} with HTTP {status}: {}",
+        crate_file.display(),
+        body.trim()
+    )
+    .into())
+}
+
+fn npm_publish_file(file: &Path, publish: bool) -> Result {
+    if !file.is_file() {
+        return Err(format!("npm payload does not exist: {}", file.display()).into());
+    }
+    if publish {
+        run(Command::new("npm")
+            .args(["publish", "--access", "public", "--provenance"])
+            .arg(file))?;
+    }
+    Ok(())
 }
 
 fn npm_native(packages: &Path, version: &str, publish: bool, target: Option<String>) -> Result {
@@ -1067,6 +1261,21 @@ mod tests {
         ));
         assert!(luarocks_duplicate_error("duplicate binary rock"));
         assert!(!luarocks_duplicate_error("invalid rock format"));
+    }
+
+    #[test]
+    fn prebuilt_lua_payloads_validate_without_rebuilding() {
+        let temporary = TempDir::new().unwrap();
+        let lua = temporary.path().join("lua");
+        fs::create_dir_all(&lua).unwrap();
+        fs::write(lua.join("revault_api-0.2.0-1-linux-x86_64.rock"), b"rock").unwrap();
+        fs::write(
+            lua.join("revault_api-0.2.0-1.rockspec"),
+            "package = 'revault_api'\nversion = '0.2.0-1'\n",
+        )
+        .unwrap();
+
+        publish_prebuilt(Ecosystem::Lua, temporary.path(), "0.2.0", false, None).unwrap();
     }
 
     #[test]

@@ -54,7 +54,7 @@ jobs:
             value=$(jq -c \
               '{include: [.include[] | select(.group == "managed-script") | .languages = "dart"]}' \
               <<< "$value")
-          elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+          elif [[ "$GITHUB_EVENT_NAME" == workflow_dispatch && "${{ inputs.publish }}" == true ]]; then
             value=$(jq -c --arg targets ",${RELEASE_TARGETS}," \
               '{include: [.include[]
                 | .languages as $languages
@@ -65,8 +65,133 @@ jobs:
           fi
           echo "value=$value" >> "$GITHUB_OUTPUT"
 
+  # A tag is a promotion event, not a second validation event. Locate the
+  # successful, non-publishing workflow_dispatch run for this exact SHA and
+  # release version; the next job carries its immutable outputs into this run.
+  preflight-run:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    runs-on: ubuntu-24.04
+    outputs:
+      run-id: ${{ steps.find.outputs.run-id }}
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Locate the matching successful preflight
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ github.sha }}
+          EXPECTED_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || format('revault-api-v{0}', inputs.version) }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_version="${EXPECTED_VERSION#revault-*-v}"
+          for run_id in $(gh run list \
+            --workflow bindings-native-release.yml \
+            --event workflow_dispatch \
+            --status success \
+            --commit "$EXPECTED_SHA" \
+            --limit 20 \
+            --json databaseId --jq '.[].databaseId'); do
+            candidate="$RUNNER_TEMP/preflight-$run_id"
+            rm -rf "$candidate"
+            mkdir -p "$candidate"
+            if ! gh run download "$run_id" --name registry-publication-payloads --dir "$candidate"; then
+              continue
+            fi
+            test "$(cat "$candidate/SOURCE_SHA")" = "$EXPECTED_SHA" || continue
+            test "$(cat "$candidate/SOURCE_VERSION")" = "$expected_version" || continue
+            if ! gh run download "$run_id" --name revault-api-publication-trees --dir "$candidate/tree"; then
+              continue
+            fi
+            echo "run-id=$run_id" >> "$GITHUB_OUTPUT"
+            exit 0
+          done
+          echo "No successful preflight matched SHA $EXPECTED_SHA and version $expected_version" >&2
+          exit 1
+
+  preflight-artifacts:
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    needs: [preflight-run]
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.preflight-run.outputs.run-id }}
+          pattern: native-*
+          path: native
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.preflight-run.outputs.run-id }}
+          name: swift-macos-xcframework
+          path: swift
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.preflight-run.outputs.run-id }}
+          name: revault-api-publication-trees
+          path: packages
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.preflight-run.outputs.run-id }}
+          name: registry-publication-payloads
+          path: registry
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.preflight-run.outputs.run-id }}
+          pattern: python-wheel-*
+          path: python
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.preflight-run.outputs.run-id }}
+          pattern: lua-publication-*
+          path: lua
+          merge-multiple: true
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-preflight
+          path: native
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: swift-macos-xcframework
+          path: swift
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: revault-api-publication-trees
+          path: packages
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: registry-publication-payloads
+          path: registry
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python-wheel-preflight
+          path: python
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lua-publication-preflight
+          path: lua
+          if-no-files-found: error
+
   conformance:
     name: 16 installed Linux APIs and 480 interoperability paths
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -87,6 +212,7 @@ jobs:
 
   native:
     name: native ${{ matrix.target }}
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish
     strategy:
       fail-fast: false
       matrix:
@@ -257,6 +383,7 @@ jobs:
           if-no-files-found: error
 
   macos-xcframework:
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish
     needs: native
     runs-on: macos-15
     permissions:
@@ -288,6 +415,7 @@ jobs:
 
   package-conformance:
     name: ${{ matrix.group }} installed packages on ${{ matrix.target }}
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish
     needs: [package-matrix, native, ecosystem-layouts]
     strategy:
       fail-fast: false
@@ -493,8 +621,8 @@ jobs:
           fi
 
   github-release:
-    if: startsWith(github.ref_name, 'revault-api-v') || startsWith(github.ref_name, 'revault-dart-v') || github.event_name == 'workflow_dispatch'
-    needs: [native, macos-xcframework, ecosystem-layouts, conformance, package-conformance]
+    if: always() && (startsWith(github.ref_name, 'revault-api-v') || startsWith(github.ref_name, 'revault-dart-v') || github.event_name == 'workflow_dispatch')
+    needs: [native, macos-xcframework, ecosystem-layouts, conformance, package-conformance, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -529,6 +657,7 @@ jobs:
           fi
 
   ecosystem-layouts:
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish
     needs: native
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -604,12 +733,85 @@ jobs:
           path: packages
           if-no-files-found: error
 
+  # Build registry payloads only after the assembled trees have passed the
+  # installed-package gates. This job has no protected environment: its
+  # outputs are immutable upload artifacts and are promoted by the jobs below
+  # only after the release environment approval.
+  publication-artifacts:
+    name: freeze registry publication payloads
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish
+    needs: [ecosystem-layouts, package-conformance]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - name: Pack npm, NuGet, and Ruby payloads once
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
+          mkdir -p artifacts/npm-native artifacts/npm artifacts/nuget artifacts/ruby artifacts/rust
+          for package in packages/npm/revault-api-native-*; do
+            npm pack "$package" --pack-destination artifacts/npm-native
+          done
+          npm pack packages/npm/revault-api --pack-destination artifacts/npm
+          npm pack packages/npm/revault-api-wasm --pack-destination artifacts/npm
+          facade=$(find artifacts/npm -type f -name '*revault-api-[0-9]*.tgz' -print -quit)
+          wasm=$(find artifacts/npm -type f -name '*revault-api-wasm-[0-9]*.tgz' -print -quit)
+          test -n "$facade" && mv "$facade" artifacts/npm/revault-api.tgz
+          test -n "$wasm" && mv "$wasm" artifacts/npm/revault-api-wasm.tgz
+          dotnet pack packages/nuget/RevaultBindings.csproj -c Release -o artifacts/nuget --nologo
+          for root in packages/ruby/*; do
+            target=$(basename "$root")
+            gem build "$root/revault_api.gemspec" \
+              --output "artifacts/ruby/revault_api-${version}-${target}.gem"
+          done
+          for package in \
+            packages/rust/revault_page_api \
+            packages/rust/revault_lockbox_api \
+            packages/rust/revault_vault_api \
+            packages/cargo/revault-api
+          do
+            cargo package --allow-dirty --locked --no-verify --manifest-path "$package/Cargo.toml"
+            crate=$(find "$package/target/package" -maxdepth 1 -type f -name '*.crate' -print -quit)
+            test -n "$crate"
+            cp "$crate" artifacts/rust/
+          done
+          sha256sum artifacts/npm-native/* artifacts/npm/* artifacts/nuget/* artifacts/ruby/* artifacts/rust/* \
+            > artifacts/SHA256SUMS
+          git rev-parse HEAD > artifacts/SOURCE_SHA
+          printf '%s\n' "$version" > artifacts/SOURCE_VERSION
+          install -m 0755 packages/release-tools/revault-tool artifacts/revault-tool
+      - uses: actions/upload-artifact@v7
+        with:
+          name: registry-publication-payloads
+          path: artifacts
+          if-no-files-found: error
+
   publish-npm-native:
     if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'npm'))
-    needs: [github-release, ecosystem-layouts]
+    needs: [github-release, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
+    env:
+      RELEASE_TOOL: artifacts/revault-tool
     permissions:
       contents: read
       id-token: write
@@ -617,28 +819,37 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
+          name: registry-publication-payloads
+          path: artifacts
+      - uses: actions/download-artifact@v8
+        with:
           name: revault-api-publication-trees
           path: packages
-      - run: chmod +x "$RELEASE_TOOL"
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
           registry-url: https://registry.npmjs.org
       - run: npm install --global npm@latest
-      - name: Publish native carrier packages first
+      - name: Verify and publish the frozen native carrier packages first
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: >-
-          "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem npm-native --publish
+        run: |
+          set -euo pipefail
+          test "$(cat artifacts/SOURCE_SHA)" = "$GITHUB_SHA"
+          sha256sum --check artifacts/SHA256SUMS
+          chmod +x "$RELEASE_TOOL"
+          "$RELEASE_TOOL" release publish \
+            --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
+            --packages packages --ecosystem npm-native --prebuilt artifacts --publish
 
   publish-npm:
     if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'npm'))
-    needs: [publish-npm-native]
+    needs: [publish-npm-native, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
+    env:
+      RELEASE_TOOL: artifacts/revault-tool
     permissions:
       contents: read
       id-token: write
@@ -646,31 +857,38 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
+          name: registry-publication-payloads
+          path: artifacts
+      - uses: actions/download-artifact@v8
+        with:
           name: revault-api-publication-trees
           path: packages
-      - run: chmod +x "$RELEASE_TOOL"
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
           registry-url: https://registry.npmjs.org
       - run: npm install --global npm@latest
-      - name: Publish JavaScript and TypeScript facade
+      - name: Verify and publish the frozen JavaScript and TypeScript facade
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: >-
-          "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem npm --publish
-      - name: Publish hosted WebAssembly package last
+        run: |
+          set -euo pipefail
+          test "$(cat artifacts/SOURCE_SHA)" = "$GITHUB_SHA"
+          sha256sum --check artifacts/SHA256SUMS
+          chmod +x "$RELEASE_TOOL"
+          "$RELEASE_TOOL" release publish \
+            --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
+            --packages packages --ecosystem npm --prebuilt artifacts --publish
+      - name: Publish the frozen hosted WebAssembly package last
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: >-
-          "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem wasm --publish
+        run: |
+          "$RELEASE_TOOL" release publish \
+            --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
+            --packages packages --ecosystem wasm --prebuilt artifacts --publish
 
   build-python-wheels:
-    if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && contains(inputs.targets, 'python'))
+    if: github.event_name == 'workflow_dispatch' && !inputs.publish
     needs: [github-release, ecosystem-layouts]
     strategy:
       fail-fast: false
@@ -721,7 +939,7 @@ jobs:
 
   publish-python:
     if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'python'))
-    needs: [build-python-wheels]
+    needs: [preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
@@ -740,7 +958,7 @@ jobs:
 
   publish-maven:
     if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'maven'))
-    needs: [github-release, ecosystem-layouts]
+    needs: [github-release, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
@@ -778,10 +996,12 @@ jobs:
 
   publish-nuget:
     if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'nuget'))
-    needs: [github-release, ecosystem-layouts]
+    needs: [github-release, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
+    env:
+      RELEASE_TOOL: artifacts/revault-tool
     permissions:
       contents: read
       id-token: write
@@ -789,9 +1009,12 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
+          name: registry-publication-payloads
+          path: artifacts
+      - uses: actions/download-artifact@v8
+        with:
           name: revault-api-publication-trees
           path: packages
-      - run: chmod +x "$RELEASE_TOOL"
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
@@ -799,17 +1022,21 @@ jobs:
         uses: NuGet/login@v1
         with:
           user: ${{ secrets.NUGET_USER }}
-      - name: Publish NuGet package
+      - name: Verify and publish the frozen NuGet package
         env:
           NUGET_API_KEY: ${{ steps.nuget.outputs.NUGET_API_KEY }}
-        run: >-
-          "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem nuget --output dist --publish
+        run: |
+          set -euo pipefail
+          test "$(cat artifacts/SOURCE_SHA)" = "$GITHUB_SHA"
+          sha256sum --check artifacts/SHA256SUMS
+          chmod +x "$RELEASE_TOOL"
+          "$RELEASE_TOOL" release publish \
+            --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
+            --packages packages --ecosystem nuget --prebuilt artifacts --publish
 
   publish-dart:
     if: startsWith(github.ref_name, 'revault-api-v') || startsWith(github.ref_name, 'revault-dart-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'dart'))
-    needs: [github-release, ecosystem-layouts]
+    needs: [github-release, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
@@ -832,10 +1059,12 @@ jobs:
 
   publish-ruby:
     if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'ruby'))
-    needs: [github-release, ecosystem-layouts]
+    needs: [github-release, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
+    env:
+      RELEASE_TOOL: artifacts/revault-tool
     permissions:
       contents: read
       id-token: write
@@ -843,22 +1072,29 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
+          name: registry-publication-payloads
+          path: artifacts
+      - uses: actions/download-artifact@v8
+        with:
           name: revault-api-publication-trees
           path: packages
-      - run: chmod +x "$RELEASE_TOOL"
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
       - uses: rubygems/configure-rubygems-credentials@v1.0.0
-      - name: Publish all platform gems
-        run: >-
-          "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem ruby --output dist --publish
+      - name: Verify and publish all frozen platform gems
+        run: |
+          set -euo pipefail
+          test "$(cat artifacts/SOURCE_SHA)" = "$GITHUB_SHA"
+          sha256sum --check artifacts/SHA256SUMS
+          chmod +x "$RELEASE_TOOL"
+          "$RELEASE_TOOL" release publish \
+            --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
+            --packages packages --ecosystem ruby --prebuilt artifacts --publish
 
-  publish-lua:
-    if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'lua'))
-    needs: [github-release, ecosystem-layouts]
+  build-lua-rocks:
+    if: (github.event_name == 'workflow_dispatch' && !inputs.publish) || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'lua'))
+    needs: [github-release, ecosystem-layouts, package-conformance]
     strategy:
       fail-fast: false
       matrix:
@@ -871,7 +1107,6 @@ jobs:
           - { target: windows-aarch64-msvc, runner: windows-11-arm }
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
-    environment: release
     steps:
       - uses: actions/checkout@v7
       - uses: ilammy/msvc-dev-cmd@v1
@@ -914,18 +1149,51 @@ jobs:
           & $luarocks --lua-version 5.1 config variables.LUA $lua
           $bin |
             Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Publish platform binary rock
+      - name: Build platform binary rock
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
+          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling -- \
+            release publish --version "$version" \
+            --packages packages --ecosystem lua --target "${{ matrix.target }}" --output dist
+          cp "packages/lua/${{ matrix.target }}/revault_api-${version}-1.rockspec" dist/lua/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: lua-publication-${{ matrix.target }}
+          path: dist/lua
+          if-no-files-found: error
+
+  publish-lua:
+    if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'lua'))
+    needs: [preflight-artifacts]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: revault-api-publication-trees
+          path: packages
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: lua-publication-*
+          path: artifacts/lua
+          merge-multiple: true
+      - name: Publish the frozen LuaRocks payloads
         env:
           LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
-        shell: bash
-        run: >-
-          cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem lua --target "${{ matrix.target }}" --output dist --publish
+        run: |
+          set -euo pipefail
+          chmod +x packages/release-tools/revault-tool
+          packages/release-tools/revault-tool release publish \
+            --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
+            --packages packages --ecosystem lua --prebuilt artifacts --publish
 
   publish-rust:
     if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'rust'))
-    needs: [github-release, ecosystem-layouts]
+    needs: [github-release, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
@@ -936,51 +1204,38 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
+          name: registry-publication-payloads
+          path: artifacts
+      - uses: actions/download-artifact@v8
+        with:
           name: revault-api-publication-trees
           path: packages
-      - uses: dtolnay/rust-toolchain@1.88.0
-      - run: chmod +x "$RELEASE_TOOL"
-      - name: Install Linux Rust publication dependencies
-        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
-      - name: Check crates.io publication state
-        id: crates-state
-        shell: bash
+      - name: Verify the frozen Rust payloads
         run: |
-          needs_publish=false
-          for package in \
-            revault_page_api@0.0.3 \
-            revault_lockbox_api@0.0.4 \
-            revault_vault_api@0.0.4 \
-            "revault-api@${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          do
-            if ! cargo info --registry crates-io "$package" >/dev/null 2>&1; then
-              needs_publish=true
-            fi
-          done
-          echo "needs-publish=$needs_publish" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          test "$(cat artifacts/SOURCE_SHA)" = "$GITHUB_SHA"
+          sha256sum --check artifacts/SHA256SUMS
+          chmod +x "$RELEASE_TOOL"
       - id: crates
-        if: steps.crates-state.outputs.needs-publish == 'true'
         uses: rust-lang/crates-io-auth-action@v1
-      - name: Publish the final page, lockbox, and vault APIs in dependency order
-        if: steps.crates-state.outputs.needs-publish == 'true'
+      - name: Publish the frozen page, lockbox, and vault APIs in dependency order
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-
           "$RELEASE_TOOL"
           release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem rust-foundation --publish
-      - name: Publish crates.io facade
-        if: steps.crates-state.outputs.needs-publish == 'true'
+          --packages packages --ecosystem rust-foundation --prebuilt artifacts --publish
+      - name: Publish the frozen crates.io facade
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-
           "$RELEASE_TOOL"
           release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
-          --packages packages --ecosystem rust --publish
+          --packages packages --ecosystem rust --prebuilt artifacts --publish
 
   promote-api-repository:
     if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'git'))
-    needs: [github-release, ecosystem-layouts]
+    needs: [github-release, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release
@@ -1014,7 +1269,7 @@ jobs:
 
   promote-homebrew:
     if: startsWith(github.ref_name, 'revault-api-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'git'))
-    needs: [github-release, ecosystem-layouts]
+    needs: [github-release, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: release

@@ -178,11 +178,11 @@ pub(crate) fn container(args: Container) -> Result {
         return Err("REVAULT_LIBRARY is forbidden in installed-package conformance".into());
     }
     if args.language == "rust" {
-        rust_source_conformance(RustSourceConformance {
-            repository: PathBuf::from("."),
-            target: "linux-x86_64-gnu".into(),
-            source_archive: None,
-        })?;
+        // The package-conformance matrix is the single Rust source gate. It
+        // runs public_api_suite, vault_api, and the packed-crate consumer
+        // before this container phase. The container only contributes the
+        // Rust artifact producer checks here; rerunning the source suites
+        // would add no coverage to the 94-package gate.
         let output = command_output_with_timeout(
             &mut Command::new("/opt/revault-rust-conformance"),
             CONSUMER_PHASE_TIMEOUT,
