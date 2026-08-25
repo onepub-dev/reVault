@@ -262,70 +262,17 @@ fn publish_prebuilt(
             }
             Ok(())
         }
-        Ecosystem::RustFoundation => {
-            for (name, version) in [
-                ("revault_page_api", "0.0.3"),
-                ("revault_lockbox_api", "0.0.4"),
-                ("revault_vault_api", "0.0.4"),
-            ] {
-                publish_prebuilt_crate(root, name, version, publish)?;
-            }
-            Ok(())
-        }
-        Ecosystem::Rust => publish_prebuilt_crate(root, "revault-api", _version, publish),
         // These registries do not accept the native package files through the
         // same command-line contract. Keep their existing publication path
         // until their registry-specific bundle/upload flow is supplied.
-        Ecosystem::MavenJava | Ecosystem::MavenKotlin | Ecosystem::Dart => {
+        Ecosystem::MavenJava
+        | Ecosystem::MavenKotlin
+        | Ecosystem::Dart
+        | Ecosystem::RustFoundation
+        | Ecosystem::Rust => {
             Err(format!("prebuilt publication is not implemented for {ecosystem:?}").into())
         }
     }
-}
-
-fn publish_prebuilt_crate(root: &Path, name: &str, version: &str, publish: bool) -> Result {
-    let files = files_with_extension(&root.join("rust"), "crate")?;
-    let expected = format!("{name}-{version}.crate");
-    let file = files
-        .into_iter()
-        .find(|file| {
-            file.file_name()
-                .is_some_and(|file_name| file_name == OsStr::new(&expected))
-        })
-        .ok_or_else(|| format!("no prebuilt crate {expected} under {}", root.display()))?;
-    if publish {
-        let token = std::env::var("CARGO_REGISTRY_TOKEN")
-            .map_err(|_| "CARGO_REGISTRY_TOKEN is required for crates.io publication")?;
-        upload_crate(&token, &file)?;
-    }
-    Ok(())
-}
-
-fn upload_crate(token: &str, crate_file: &Path) -> Result {
-    let crate_part = Part::file(crate_file)?.mime_str("application/octet-stream")?;
-    let form = Form::new().part("crate", crate_part);
-    let response = ureq::post("https://crates.io/api/v1/crates/new")
-        .config()
-        .http_status_as_error(false)
-        .build()
-        .header("Authorization", &format!("token {token}"))
-        .send(form)?;
-    let status = response.status();
-    let body = response.into_body().read_to_string()?;
-    if status.is_success() {
-        println!("published crate: {}", crate_file.display());
-        return Ok(());
-    }
-    let message = body.to_ascii_lowercase();
-    if message.contains("already exists") || message.contains("already uploaded") {
-        println!("already published crate: {}", crate_file.display());
-        return Ok(());
-    }
-    Err(format!(
-        "crates.io upload failed for {} with HTTP {status}: {}",
-        crate_file.display(),
-        body.trim()
-    )
-    .into())
 }
 
 fn npm_publish_file(file: &Path, publish: bool) -> Result {
