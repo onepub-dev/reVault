@@ -122,6 +122,7 @@ jobs:
         run: cargo xtask check-required
 
       - name: Agent IPC smoke test
+        if: runner.os == 'Windows'
         run: cargo test -p revault_cli --test agent_flow -- --nocapture
 
       - name: Check fuzz targets

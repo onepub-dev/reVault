@@ -515,6 +515,9 @@ fn prepare_go(target: &str, repository: &Path, packages: &Path, work: &Path) -> 
         build.env("CC", compiler);
     }
     run_status(&mut build)?;
+    if cfg!(windows) {
+        verify_windows_go_dependencies(&output)?;
+    }
     let native_root = package.join("native").join(target);
     Ok(Prepared {
         program: output,
@@ -523,6 +526,46 @@ fn prepare_go(target: &str, repository: &Path, packages: &Path, work: &Path) -> 
         native_file: static_library(target),
         native_kind: "static",
         environment: vec![],
+    })
+}
+
+fn verify_windows_go_dependencies(executable: &Path) -> Result {
+    let output = Command::new("dumpbin.exe")
+        .arg("/DEPENDENTS")
+        .arg(executable)
+        .output()?;
+    if !output.status.success() {
+        return Err(format!(
+            "dumpbin failed for {}: {}",
+            executable.display(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        )
+        .into());
+    }
+    let dependencies = String::from_utf8_lossy(&output.stdout);
+    if let Some(dependency) = forbidden_windows_go_runtime_dependency(&dependencies) {
+        return Err(format!(
+            "Windows Go package imports non-system runtime {dependency}; link it statically"
+        )
+        .into());
+    }
+    Ok(())
+}
+
+fn forbidden_windows_go_runtime_dependency(dependencies: &str) -> Option<&'static str> {
+    [
+        "libunwind.dll",
+        "libc++.dll",
+        "libwinpthread-1.dll",
+        "libgcc_s_seh-1.dll",
+        "libgcc_s_sjlj-1.dll",
+        "libgcc_s_dw2-1.dll",
+    ]
+    .into_iter()
+    .find(|dependency| {
+        dependencies
+            .lines()
+            .any(|line| line.trim().eq_ignore_ascii_case(dependency))
     })
 }
 
@@ -1081,5 +1124,30 @@ mod tests {
             "windows-aarch64-msvc"
         );
         assert!(windows_target_for_architecture("ia64").is_err());
+    }
+
+    #[test]
+    fn windows_go_rejects_dynamic_toolchain_runtimes() {
+        let system_only = "KERNEL32.dll\napi-ms-win-crt-runtime-l1-1-0.dll\nntdll.dll\n";
+        assert_eq!(forbidden_windows_go_runtime_dependency(system_only), None);
+
+        for dependency in [
+            "libunwind.dll",
+            "libc++.dll",
+            "libwinpthread-1.dll",
+            "libgcc_s_seh-1.dll",
+            "libgcc_s_sjlj-1.dll",
+            "libgcc_s_dw2-1.dll",
+        ] {
+            let dumpbin = format!("Image has the following dependencies:\n  {dependency}\n");
+            assert_eq!(
+                forbidden_windows_go_runtime_dependency(&dumpbin),
+                Some(dependency)
+            );
+        }
+        assert_eq!(
+            forbidden_windows_go_runtime_dependency("  LIBUNWIND.DLL\n"),
+            Some("libunwind.dll")
+        );
     }
 }

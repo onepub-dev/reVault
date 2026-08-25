@@ -44,6 +44,9 @@ path = "src/main.rs"
 [[bin]]
 name = "lbx"
 path = "src/bin/lbx.rs"
+# `lbx` is an alias of `lockbox` and includes the same command modules. The
+# lockbox harness owns their unit tests; CLI integration still exercises lbx.
+test = false
 
 [dependencies]
 clap = { version = "4.6.1", default-features = false, features = [

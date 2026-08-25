@@ -1404,12 +1404,12 @@ fn go_platform(target: &str) -> Result<(&'static str, &'static str, &'static str
         "windows-x86_64-msvc" => (
             "windows",
             "amd64",
-            "-lbcrypt -lcrypt32 -lncrypt -luserenv -lws2_32 -ladvapi32 -lntdll",
+            "-lbcrypt -lcrypt32 -lncrypt -luserenv -lws2_32 -ladvapi32 -lntdll -static-libgcc",
         ),
         "windows-aarch64-msvc" => (
             "windows",
             "arm64",
-            "-lbcrypt -lcrypt32 -lncrypt -luserenv -lws2_32 -ladvapi32 -lntdll",
+            "-lbcrypt -lcrypt32 -lncrypt -luserenv -lws2_32 -ladvapi32 -lntdll -Wl,-Bstatic -lunwind -Wl,-Bdynamic",
         ),
         _ => return Err(format!("unsupported Go target {target}").into()),
     })
@@ -1553,6 +1553,11 @@ mod tests {
             assert!(flags.contains("-lws2_32"));
             assert!(flags.contains("-lntdll"));
         }
+        let (_, _, arm64_flags) = go_platform("windows-aarch64-msvc").unwrap();
+        assert!(arm64_flags.ends_with("-Wl,-Bstatic -lunwind -Wl,-Bdynamic"));
+        let (_, _, x64_flags) = go_platform("windows-x86_64-msvc").unwrap();
+        assert!(!x64_flags.contains("-lunwind"));
+        assert!(x64_flags.ends_with("-static-libgcc"));
     }
 
     #[test]
