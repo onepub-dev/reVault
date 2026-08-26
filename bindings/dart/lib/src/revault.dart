@@ -66,7 +66,8 @@ final class Revault {
       );
     }
     final inheritedPath = Platform.environment['REVAULT_LIBRARY'];
-    final selectedPath = nativeLibraryPath ??
+    final selectedPath =
+        nativeLibraryPath ??
         (inheritedPath == null || inheritedPath.isEmpty ? null : inheritedPath);
     final loaded = Revault._(selectedPath);
     _current = loaded;
