@@ -906,17 +906,17 @@ fn generate_flatbuffers(repository: &Path) -> Result {
         } else if language == "--csharp" {
             let generated = output.join("revault_bindings_generated.cs");
             let source = fs::read_to_string(&generated)?
-                .replace("revault.internal", "Revault.Internal.Transport");
+                // Keep the private transport outside the public `Revault`
+                // namespace. `Revault.Revault` otherwise shadows the namespace
+                // in generated type references and prevents C# compilation.
+                .replace("revault.internal", "RevaultTransport");
             let source = source
                 .lines()
                 .map(|line| {
-                    if line.starts_with("namespace Revault.Internal.Transport") {
+                    if line.starts_with("namespace RevaultTransport") {
                         line.to_string()
                     } else {
-                        line.replace(
-                            "Revault.Internal.Transport",
-                            "global::Revault.Internal.Transport",
-                        )
+                        line.replace("RevaultTransport", "global::RevaultTransport")
                     }
                 })
                 .collect::<Vec<_>>()

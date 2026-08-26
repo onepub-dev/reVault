@@ -7,6 +7,7 @@ from model_docs import description, field_description
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = Path(__file__).with_name("revault_bindings.fbs")
 OUTPUT = ROOT / "csharp/DomainModels.cs"
+TRANSPORT_NAMESPACE = "global::RevaultTransport"
 
 SCALARS = {"string": "string", "bool": "bool", "uint": "uint", "ulong": "ulong", "ubyte": "byte"}
 
@@ -77,7 +78,7 @@ for name in base:
         else:
             expr = f"FromInternal(value.{prop})"
         args.append(expr)
-    lines += [f"    private static {name} FromInternal(Revault.Internal.Transport.{name}T value) =>", f"        new({', '.join(args)});", f"    internal static {name} {name}(byte[] bytes) => FromInternal(Revault.Internal.Transport.{name}.GetRootAs{name}(new ByteBuffer(bytes)).UnPack());"]
+    lines += [f"    private static {name} FromInternal({TRANSPORT_NAMESPACE}.{name}T value) =>", f"        new({', '.join(args)});", f"    internal static {name} {name}(byte[] bytes) => FromInternal({TRANSPORT_NAMESPACE}.{name}.GetRootAs{name}(new ByteBuffer(bytes)).UnPack());"]
 
 list_types = {
     "StreamChunkList": "StreamChunk", "PageInspectionList": "PageInspection", "LockboxEntryList": "LockboxEntry",
@@ -87,7 +88,7 @@ list_types = {
 }
 for wrapper, item in list_types.items():
     field = "Entries" if wrapper == "LockboxEntryList" else "Values"
-    lines += [f"    internal static IReadOnlyList<{item}> {wrapper}(byte[] bytes)", "    {", f"        var values = Revault.Internal.Transport.{wrapper}.GetRootAs{wrapper}(new ByteBuffer(bytes)).UnPack().{field};", f"        return values is null ? Array.Empty<{item}>() : values.Select(FromInternal).ToArray();", "    }"]
+    lines += [f"    internal static IReadOnlyList<{item}> {wrapper}(byte[] bytes)", "    {", f"        var values = {TRANSPORT_NAMESPACE}.{wrapper}.GetRootAs{wrapper}(new ByteBuffer(bytes)).UnPack().{field};", f"        return values is null ? Array.Empty<{item}>() : values.Select(FromInternal).ToArray();", "    }"]
 lines += [
     "    internal static IReadOnlyList<string> StringList(byte[] bytes) => Revault.Internal.Transport.StringList.GetRootAsStringList(new ByteBuffer(bytes)).UnPack().Values?.ToArray() ?? Array.Empty<string>();",
     "    internal static LockboxEntry? OptionalLockboxEntry(byte[] bytes) { var value = Revault.Internal.Transport.OptionalLockboxEntry.GetRootAsOptionalLockboxEntry(new ByteBuffer(bytes)).UnPack().Value; return value is null ? null : FromInternal(value); }",
@@ -98,8 +99,4 @@ lines += [
     "    internal static byte[] EncodeFormFields(IReadOnlyList<FormField> values) { var builder = new FlatBufferBuilder(256); var transport = new Revault.Internal.Transport.FormFieldListT { Values = values.Select(value => new Revault.Internal.Transport.FormFieldT { Id = value.Id, Label = value.Label, Kind = value.Kind, Required = value.Required }).ToList() }; var root = Revault.Internal.Transport.FormFieldList.Pack(builder, transport); builder.Finish(root.Value); return builder.SizedByteArray(); }",
     "}", "",
 ]
-OUTPUT.write_text(
-    "\n".join(lines).replace(
-        "Revault.Internal.Transport", "global::Revault.Internal.Transport"
-    )
-)
+OUTPUT.write_text("\n".join(lines).replace("Revault.Internal.Transport", TRANSPORT_NAMESPACE))

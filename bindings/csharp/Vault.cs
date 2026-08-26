@@ -51,7 +51,8 @@ public sealed class Revault
             : this(cacheMode switch { global::Revault.CacheMode.Bytes => "bytes", global::Revault.CacheMode.Pages => "pages", _ => throw new ArgumentOutOfRangeException(nameof(cacheMode)) },
                 cacheBytes,
                 workload switch { WorkloadProfile.Interactive => "interactive", WorkloadProfile.BulkImport => "bulk-import", _ => throw new ArgumentOutOfRangeException(nameof(workload)) },
-                worker switch { WorkerPolicy.Auto => "auto", WorkerPolicy.Single => "single", _ => throw new ArgumentOutOfRangeException(nameof(worker)) }, jobs) { }
+                worker switch { WorkerPolicy.Auto => "auto", WorkerPolicy.Single => "single", _ => throw new ArgumentOutOfRangeException(nameof(worker)) }, jobs)
+        { }
 
         /// <summary>Returns the recommended interactive runtime defaults.</summary>
         public static LockboxOptions Defaults => new("bytes", 64UL << 20, "interactive", "auto", 0);
