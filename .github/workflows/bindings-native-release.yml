@@ -1225,7 +1225,7 @@ jobs:
             --packages packages --ecosystem nuget --prebuilt artifacts --publish
 
   publish-dart:
-    if: always() && needs.github-release.result == 'success' && needs.preflight-artifacts.result == 'success' && (startsWith(github.ref_name, 'revault-api-v') || startsWith(github.ref_name, 'revault-dart-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'dart')))
+    if: always() && needs.github-release.result == 'success' && needs.preflight-artifacts.result == 'success' && (startsWith(github.ref_name, 'revault-dart-v') || (github.event_name == 'workflow_dispatch' && inputs.publish && contains(inputs.targets, 'dart')))
     needs: [github-release, preflight-artifacts]
     runs-on: ubuntu-24.04
     timeout-minutes: 30

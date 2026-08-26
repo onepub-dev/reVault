@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.12
+
 - Restore the optional `Revault.load(nativeLibraryPath: ...)` installer hook
   while retaining native-assets loading as the default.
 - Allow the bundled native client to use a session agent from a different
@@ -9,6 +11,9 @@
 - Added encrypted Lockbox descriptions through `description`, `setDescription`,
   and `clearDescription`. Descriptions use existing encrypted variable storage,
   so the `.lbox` format version is unchanged.
+- Add a runnable vault-and-lockbox quick start and clarify installation,
+  package examples, and links to the reVault manual.
+- Declare WebAssembly as a supported Dart target.
 
 ## 0.3.6
 
