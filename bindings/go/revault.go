@@ -41,6 +41,7 @@ func (e *NativeError) Error() string { return e.Message }
 
 // CacheMode controls decoded-page cache storage.
 type CacheMode string
+
 const (
 	CacheModeBytes CacheMode = "bytes"
 	CacheModePages CacheMode = "pages"
@@ -48,31 +49,40 @@ const (
 
 // WorkloadProfile tunes I/O for the expected workload.
 type WorkloadProfile string
+
 const (
 	WorkloadInteractive WorkloadProfile = "interactive"
-	WorkloadBulkImport WorkloadProfile = "bulk-import"
+	WorkloadBulkImport  WorkloadProfile = "bulk-import"
 )
 
 // WorkerPolicy selects native worker scheduling.
 type WorkerPolicy string
+
 const (
-	WorkerAuto WorkerPolicy = "auto"
+	WorkerAuto   WorkerPolicy = "auto"
 	WorkerSingle WorkerPolicy = "single"
 )
 
 // AgentActivityKind identifies the selected agent operation.
 type AgentActivityKind string
+
 const (
 	AgentActivityLockbox AgentActivityKind = "lockbox"
-	AgentActivityForm AgentActivityKind = "form"
-	AgentActivityKey AgentActivityKind = "key"
+	AgentActivityForm    AgentActivityKind = "form"
+	AgentActivityKey     AgentActivityKind = "key"
 )
 
 // Validate checks closed native policy values before crossing the ABI.
 func (o LockboxOptions) Validate() error {
-	if CacheMode(o.CacheMode) != CacheModeBytes && CacheMode(o.CacheMode) != CacheModePages { return fmt.Errorf("invalid cache mode %q", o.CacheMode) }
-	if WorkloadProfile(o.Workload) != WorkloadInteractive && WorkloadProfile(o.Workload) != WorkloadBulkImport { return fmt.Errorf("invalid workload profile %q", o.Workload) }
-	if WorkerPolicy(o.Worker) != WorkerAuto && WorkerPolicy(o.Worker) != WorkerSingle { return fmt.Errorf("invalid worker policy %q", o.Worker) }
+	if CacheMode(o.CacheMode) != CacheModeBytes && CacheMode(o.CacheMode) != CacheModePages {
+		return fmt.Errorf("invalid cache mode %q", o.CacheMode)
+	}
+	if WorkloadProfile(o.Workload) != WorkloadInteractive && WorkloadProfile(o.Workload) != WorkloadBulkImport {
+		return fmt.Errorf("invalid workload profile %q", o.Workload)
+	}
+	if WorkerPolicy(o.Worker) != WorkerAuto && WorkerPolicy(o.Worker) != WorkerSingle {
+		return fmt.Errorf("invalid worker policy %q", o.Worker)
+	}
 	return nil
 }
 
@@ -426,7 +436,9 @@ func Create(key []byte) (*Lockbox, error) {
 
 // CreateWithOptions creates with options.
 func CreateWithOptions(key []byte, options LockboxOptions) (*Lockbox, error) {
-	if err := options.Validate(); err != nil { return nil, err }
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
 	return adoptLockbox(C.lockbox_create_with_options(bytePointer(key), C.size_t(len(key)), charPointer(options.CacheMode), C.size_t(len(options.CacheMode)), C.uint64_t(options.CacheBytes), charPointer(options.Workload), C.size_t(len(options.Workload)), charPointer(options.Worker), C.size_t(len(options.Worker)), C.size_t(options.Jobs)))
 }
 
@@ -452,7 +464,9 @@ func Open(archive, key []byte) (*Lockbox, error) {
 
 // OpenWithOptions opens with options.
 func OpenWithOptions(archive, key []byte, options LockboxOptions) (*Lockbox, error) {
-	if err := options.Validate(); err != nil { return nil, err }
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
 	return adoptLockbox(C.lockbox_open_with_options(bytePointer(archive), C.size_t(len(archive)), bytePointer(key), C.size_t(len(key)), charPointer(options.CacheMode), C.size_t(len(options.CacheMode)), C.uint64_t(options.CacheBytes), charPointer(options.Workload), C.size_t(len(options.Workload)), charPointer(options.Worker), C.size_t(len(options.Worker)), C.size_t(options.Jobs)))
 }
 
@@ -871,21 +885,24 @@ type vaultStore struct{ handle unsafe.Pointer }
 // Vault is the persistent encrypted local store for profiles, private keys,
 // contacts, signing keys, and remembered lockbox metadata. The embedded
 // implementation owns its native handle and must be closed.
-//
 type Vault struct{ *vaultStore }
 
 // OpenVault opens an existing persistent vault. It never creates or replaces
 // the vault and the vaultPassphrase remains caller-owned.
 func OpenVault(root string, vaultPassphrase []byte) (*Vault, error) {
 	v, err := openVaultStore(root, vaultPassphrase)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &Vault{vaultStore: v}, nil
 }
 
 // OpenOrCreateVault opens an existing vault or creates one when absent.
 func OpenOrCreateVault(root string, vaultPassphrase []byte) (*Vault, error) {
 	v, err := openOrCreateVaultStore(root, vaultPassphrase)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &Vault{vaultStore: v}, nil
 }
 
@@ -893,7 +910,9 @@ func OpenOrCreateVault(root string, vaultPassphrase []byte) (*Vault, error) {
 // operation is destructive and must be selected explicitly.
 func ReplaceVault(root string, vaultPassphrase []byte) (*Vault, error) {
 	v, err := replaceVaultStore(root, vaultPassphrase)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &Vault{vaultStore: v}, nil
 }
 
@@ -907,14 +926,18 @@ func CreateVault(root string, vaultPassphrase []byte) (*Vault, error) {
 // OpenOrCreateDefaultVault opens or creates the default persistent Vault.
 func OpenOrCreateDefaultVault(vaultPassphrase []byte) (*Vault, error) {
 	v, err := openOrCreateDefaultVaultStore(vaultPassphrase)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &Vault{vaultStore: v}, nil
 }
 
 // ReplaceDefaultVault destructively replaces the default persistent Vault.
 func ReplaceDefaultVault(vaultPassphrase []byte) (*Vault, error) {
 	v, err := replaceDefaultVaultStore(vaultPassphrase)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &Vault{vaultStore: v}, nil
 }
 
@@ -926,14 +949,23 @@ func ChangeDefaultVaultPassword(oldPassphrase, newPassphrase []byte) error {
 // OpenVault opens the default persistent vault using platform credentials.
 func (r *Revault) OpenVault(vaultPassphrase []byte) (*Vault, error) {
 	root, err := defaultVaultRoot()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	v, err := openVaultStore(root, vaultPassphrase)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	return &Vault{vaultStore: v}, nil
 }
 
 // Close is idempotent and wipes the native vault handle.
-func (v *Vault) Close() { if v != nil && v.vaultStore != nil { v.vaultStore.Close(); v.vaultStore = nil } }
+func (v *Vault) Close() {
+	if v != nil && v.vaultStore != nil {
+		v.vaultStore.Close()
+		v.vaultStore = nil
+	}
+}
 
 func adoptVaultStore(handle unsafe.Pointer) (*vaultStore, error) {
 	if handle == nil {
@@ -1409,16 +1441,22 @@ type AgentSession struct{}
 
 // SessionAgent returns the process-local agent controller.
 func SessionAgent() *AgentSession { return &AgentSession{} }
+
 // Start starts the optional session agent.
 func (a *AgentSession) Start() error { return StartAgent() }
+
 // Close stops the optional session agent and forgets its temporary entries.
 func (a *AgentSession) Close() error { return StopAgent() }
+
 // IsRunning reports whether the session agent is running.
 func (a *AgentSession) IsRunning() bool { return AgentIsRunning() }
+
 // CloseLockbox forgets the agent's temporary content-key entry for lockboxID.
 func (a *AgentSession) CloseLockbox(lockboxID []byte) error { return ForgetAgentKey(lockboxID) }
+
 // CloseAll forgets every temporary content-key entry held by the agent.
 func (a *AgentSession) CloseAll() error { return ForgetAllAgentSecrets() }
+
 // Begin starts a typed temporary agent activity.
 func (a *AgentSession) Begin(kind AgentActivityKind) (*AgentActivity, error) {
 	return BeginAgentActivity(string(kind))
