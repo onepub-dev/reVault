@@ -748,7 +748,10 @@ jobs:
           PACKAGE_LANGUAGES: ${{ matrix.languages }}
           PACKAGE_TARGET: ${{ matrix.target }}
           CONFORMANCE_TOOL: ${{ runner.os == 'Windows' && 'rust/target/debug/revault-tool.exe' || 'rust/target/debug/revault-tool' }}
-          PACKAGE_CONFORMANCE_JOBS: 2
+          # Windows agent-backed tests use named pipes and are not reliable
+          # when multiple language consumers run concurrently on one runner.
+          # Keep Linux and macOS parallel while serializing Windows consumers.
+          PACKAGE_CONFORMANCE_JOBS: ${{ runner.os == 'Windows' && 1 || 2 }}
         run: |
           failures=()
           pids=()
