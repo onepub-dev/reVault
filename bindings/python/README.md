@@ -3,13 +3,14 @@
 reVault is an encrypted archive and local-vault library for files, credentials,
 keys, and typed records. Platform wheels include the native library and expose
 typed reVault domain values while keeping the native transport private. See the
-[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
+[reVault manual](https://docs.revault.onepub.dev/).
 
 ```shell
 python -m pip install revault-api
 ```
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)
+is maintained in the source repository.
 
 ```python
 from revault_api import Revault, SecretString, Vault

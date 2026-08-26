@@ -3,10 +3,10 @@
 reVault is an encrypted archive and local-vault library for files, credentials,
 keys, and typed records. `Revault.Api` provides owned .NET classes and ships the
 matching native runtime. See the
-[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
+[reVault manual](https://docs.revault.onepub.dev/).
 
 ```shell
-dotnet add package Revault.Api --version 0.2.0
+dotnet add package Revault.Api --version 0.3.11
 ```
 
 `Revault.Load(nativeLibraryPath)` selects an application-owned carrier.
@@ -15,7 +15,8 @@ asset discovery. A bare library name delegates to the operating-system search
 path. Native selection is process-wide and must happen before the first native
 operation.
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)
+is maintained in the source repository.
 
 ```csharp
 using Revault;

@@ -3,7 +3,7 @@
 reVault is an encrypted archive and local-vault library for files, credentials,
 keys, and typed records. Platform gems use Fiddle and contain the matching
 native runtime. See the
-[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
+[reVault manual](https://docs.revault.onepub.dev/).
 
 ```shell
 gem install revault_api
@@ -14,7 +14,8 @@ Otherwise a non-empty inherited `REVAULT_LIBRARY` is used before the matching
 platform gem carrier. A bare library name delegates to the operating-system
 search path. Selection is process-wide and occurs before the Ruby shim loads.
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)
+is maintained in the source repository.
 
 ```ruby
 runtime = Revault.load                 # only loads the native runtime

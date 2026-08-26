@@ -375,6 +375,8 @@ lockbox.commit()?;
 
 ## Documentation
 
+- [reVault manual](https://docs.revault.onepub.dev/): installation, concepts,
+  CLI workflows, language APIs, and operational guidance.
 - [CLI how-to](docs/cli_how_to.md): command examples.
 - [CI/CD with reVault](docs/ci_cd.md): proposed bootstrap and ephemeral CI
   workflow for encrypted deployment secrets.

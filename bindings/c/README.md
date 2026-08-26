@@ -3,7 +3,7 @@
 reVault is an encrypted archive and persistent Vault library for storing files,
 metadata, credentials, keys, and typed form records. The stable C ABI is the
 foundation for the native language packages. See the
-[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs)
+[reVault manual](https://docs.revault.onepub.dev/)
 for archive, vault, key-management, and security concepts.
 
 Use `revault_api.h` with the matching `revault_api` shared or static library
@@ -39,9 +39,9 @@ lockbox_commit(box);
 lockbox_free(box);
 ```
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
-The executable lifecycle examples are in
-[`../e2e/c/conformance.c`](../e2e/c/conformance.c); they run against the
+The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)
+and [executable C conformance example](https://github.com/onepub-dev/reVault/blob/main/bindings/e2e/c/conformance.c)
+are maintained in the source repository. The conformance example runs against the
 installed SDK carrier and release every returned buffer and handle.
 
 Every returned `RevaultBuffer` must be released with `buffer_free`; every

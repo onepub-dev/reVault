@@ -45,11 +45,11 @@ mavenPublishing {
     pom {
         name = 'reVault Java bindings'
         description = 'Complete class-based reVault lockbox and vault API'
-        url = 'https://github.com/onepub-dev/reVault'
+        url = 'https://docs.revault.onepub.dev/'
         licenses {
             license {
                 name = 'reVault Source Available License 1.0'
-                url = 'https://github.com/onepub-dev/reVault/blob/master/rust/revault_lockbox_api/LICENSE'
+                url = 'https://github.com/onepub-dev/reVault/blob/main/rust/revault_lockbox_api/LICENSE'
             }
         }
         scm {

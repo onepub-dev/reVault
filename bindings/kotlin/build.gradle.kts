@@ -33,11 +33,11 @@ mavenPublishing {
     pom {
         name.set("reVault Kotlin bindings")
         description.set("Idiomatic Kotlin classes for the complete reVault API")
-        url.set("https://github.com/onepub-dev/reVault")
+        url.set("https://docs.revault.onepub.dev/")
         licenses {
             license {
                 name.set("reVault Source Available License 1.0")
-                url.set("https://github.com/onepub-dev/reVault/blob/master/rust/revault_lockbox_api/LICENSE")
+                url.set("https://github.com/onepub-dev/reVault/blob/main/rust/revault_lockbox_api/LICENSE")
             }
         }
         scm {

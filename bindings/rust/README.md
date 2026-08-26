@@ -5,16 +5,16 @@ credentials, keys, and typed records. This source-native crate re-exports the
 reviewed `Lockbox`, `Vault`, and `AgentSession` facade over the native core; it
 does not use the C ABI and never discovers a shared library through an
 environment variable. See the
-[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
+[reVault manual](https://docs.revault.onepub.dev/).
 
 ```toml
 [dependencies]
-revault-api = "0.3.0"
+revault-api = "0.3.11"
 ```
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
-The source-native conformance workflow is in
-[`../e2e/rust/src/main.rs`](../e2e/rust/src/main.rs).
+The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)
+and [source-native conformance example](https://github.com/onepub-dev/reVault/blob/main/bindings/e2e/rust/src/main.rs)
+are maintained in the source repository.
 
 ```rust
 use revault_api::{Lockbox, Revault, Vault};

@@ -3,7 +3,7 @@
 reVault is an encrypted archive and local-vault library for files, credentials,
 keys, and typed records. The Node package selects a platform-native carrier and
 returns documented reVault domain values while keeping its binary transport private. See the
-[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
+[reVault manual](https://docs.revault.onepub.dev/).
 
 ```shell
 npm install @onepub-dev/revault-api
@@ -15,7 +15,8 @@ npm native-carrier package. A bare library name delegates to the
 operating-system search path. Native selection is process-wide and must happen
 before the first native operation.
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)
+is maintained in the source repository.
 
 ```js
 import { Revault, SecretString, Vault } from '@onepub-dev/revault-api';

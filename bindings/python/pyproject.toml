@@ -25,11 +25,11 @@ classifiers = [
 ]
 
 [project.urls]
-Documentation = "https://github.com/onepub-dev/reVault/tree/master/docs"
+Documentation = "https://docs.revault.onepub.dev/"
 Repository = "https://github.com/onepub-dev/reVault"
 Issues = "https://github.com/onepub-dev/reVault/issues"
-Changelog = "https://github.com/onepub-dev/reVault/blob/master/bindings/CHANGELOG.md"
-Security = "https://github.com/onepub-dev/reVault/blob/master/SECURITY.md"
+Changelog = "https://github.com/onepub-dev/reVault/blob/main/bindings/CHANGELOG.md"
+Security = "https://github.com/onepub-dev/reVault/blob/main/SECURITY.md"
 
 [tool.setuptools.packages.find]
 include = ["revault_api*"]

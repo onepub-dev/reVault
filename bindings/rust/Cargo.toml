@@ -8,6 +8,7 @@ keywords = ["encryption", "credentials", "archive", "security", "vault"]
 categories = ["cryptography", "filesystem"]
 license-file = "LICENSE"
 repository = "https://github.com/onepub-dev/reVault"
+homepage = "https://docs.revault.onepub.dev/"
 readme = "README.md"
 
 [dependencies]

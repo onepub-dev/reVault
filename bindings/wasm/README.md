@@ -5,14 +5,14 @@ credentials, keys, and typed records. This Node-hosted package runs portable
 lockbox operations through a WebAssembly dispatcher while delegating native
 filesystem, keyring, and `AgentSession` facilities to the installed host
 package. See the
-[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
+[reVault manual](https://docs.revault.onepub.dev/).
 
 ```shell
 npm install @onepub-dev/revault-api-wasm
 ```
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
-The hosted dispatch lifecycle is covered by the TypeScript conformance runner
+The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)
+is maintained in the source repository. The hosted dispatch lifecycle is covered by the TypeScript conformance runner
 and the generated WebAssembly module under `generated/`.
 
 ```js

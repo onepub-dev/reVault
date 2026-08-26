@@ -3,13 +3,14 @@
 reVault is an encrypted archive and local-vault library for files, credentials,
 keys, and typed records. This package supplies idiomatic Kotlin aliases over the
 complete Java 22+ runtime. See the
-[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
+[reVault manual](https://docs.revault.onepub.dev/).
 
 ```kotlin
-implementation("dev.onepub:revault-api-kotlin:0.2.0")
+implementation("dev.onepub:revault-api-kotlin:0.3.11")
 ```
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)
+is maintained in the source repository.
 
 ```kotlin
 val runtime = Revault.load()

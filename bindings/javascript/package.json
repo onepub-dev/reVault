@@ -3,7 +3,7 @@
   "version": "0.2.0",
   "description": "Complete class-based reVault lockbox and vault API",
   "license": "SEE LICENSE IN LICENSE",
-  "homepage": "https://github.com/onepub-dev/reVault#readme",
+  "homepage": "https://docs.revault.onepub.dev/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/onepub-dev/reVault.git",

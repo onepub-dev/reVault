@@ -1,54 +1,144 @@
 # reVault for Dart
 
-`revault_api` opens encrypted Lockbox archives and manages the user's persistent
-local Vault. It supports Linux, macOS, and Windows on x86-64 and ARM64.
+`revault_api` provides typed Dart bindings for creating and opening encrypted
+reVault Lockbox archives and managing the user's persistent local Vault. The
+native core is implemented in Rust, while the public API uses Dart classes and
+explicitly owned secret values.
 
-```yaml
-dependencies:
-  revault_api: ^0.3.0
+The Dart package supports Dart and Flutter desktop applications on Linux,
+macOS, and Windows, on both x86-64 and ARM64. It does not currently support
+Dart web applications: this binding uses `dart:ffi` and `dart:io`. Projects
+targeting browsers or WebAssembly should use the
+[JavaScript/WASM package](https://github.com/onepub-dev/reVault/tree/main/bindings/wasm).
+
+## Installation
+
+Add the current package from pub.dev:
+
+```console
+dart pub add revault_api
 ```
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
-
-Load the native runtime once, then work with the domain objects directly:
+Then load the bundled native runtime once during application startup:
 
 ```dart
 import 'package:revault_api/revault_api.dart';
 
 Future<void> main() async {
   await Revault.load();
+  // Vault, Lockbox, and AgentSession are now ready to use.
+}
+```
 
-  final vaultPassphrase = SecretString.takeUtf8(await prompt.readUtf8());
-  final vault = Vault.open(passphrase: vaultPassphrase);
+The current release is `0.3.11`. Normal applications do not need to download a
+native library or set an environment variable; the package build hook bundles
+the correct native carrier.
+
+## Create a Vault and Lockbox in Dart
+
+The following setup creates or opens a Vault, creates a password-protected
+Lockbox, and stores the Lockbox password inside the encrypted Vault. It uses
+`SecretString.fromString` to keep the example self-contained. A production
+password prompt should supply owned UTF-8 bytes to `SecretString.takeUtf8` so
+the original input buffer can also be wiped.
+
+```dart
+import 'dart:io';
+
+import 'package:revault_api/revault_api.dart';
+
+Future<void> main() async {
+  await Revault.load();
+
+  final workspace = Directory('.revault-example')..createSync();
+  final vaultPassphrase = SecretString.fromString('replace-this-passphrase');
+  final lockboxPassword = SecretString.fromString('replace-this-password');
+  final vault = Vault.openOrCreate(
+    pathTo: '${workspace.path}/vault',
+    passphrase: vaultPassphrase,
+  );
 
   try {
-    final lockbox = Lockbox.open('/secrets/team.lbox', vault: vault);
+    final path = '${workspace.path}/team-secrets.lbox';
+    final lockbox = File(path).existsSync()
+        ? Lockbox.open(path, password: lockboxPassword)
+        : Lockbox.create(path, password: lockboxPassword);
     try {
+      lockbox.setDescription('Team deployment credentials');
+      lockbox.commit();
+      vault.rememberPassword(lockbox.id, lockboxPassword);
+    } finally {
+      lockbox.close();
+    }
+  } finally {
+    vault.close();
+    lockboxPassword.close();
+    vaultPassphrase.close();
+  }
+}
+```
+
+A complete runnable version with interactive password prompts is included in
+[`example/getting_started.dart`](example/getting_started.dart).
+
+## Create a Vault and Lockbox with the CLI
+
+The reVault CLI and Dart binding use the same Vault and Lockbox formats. Install
+the CLI, initialize the default Vault and profile, and create a Lockbox for that
+profile:
+
+```console
+cargo install revault_cli
+lbx vault init
+lbx team-secrets.lbox create \
+  --description 'Team deployment credentials'
+```
+
+The CLI prints recovery material during Vault initialization. Store that
+material securely: losing both the Vault and its recovery material can make
+profile-protected Lockboxes unrecoverable.
+
+The Dart application can then open the CLI-created Vault and Lockbox using the
+Vault passphrase:
+
+```dart
+import 'package:revault_api/revault_api.dart';
+
+Future<void> openExisting(SecretString vaultPassphrase) async {
+  await Revault.load();
+  final vault = Vault.open(passphrase: vaultPassphrase);
+  try {
+    final lockbox = Lockbox.open('team-secrets.lbox', vault: vault);
+    try {
+      print(lockbox.description);
       print(lockbox.list('/', recursive: true));
     } finally {
       lockbox.close();
     }
   } finally {
     vault.close();
-    vaultPassphrase.close();
   }
 }
 ```
 
-## The four API concepts
+## Core API concepts
 
-- `Revault` loads the native runtime. It is not a vault.
+- `Revault` loads the process-wide native runtime and provides key-generation,
+  import, export, and format utilities.
 - `Vault` is the persistent encrypted store for profiles, private keys,
-  contacts, signing keys, and remembered lockbox metadata.
-- `Lockbox` is a portable encrypted `.lbox` archive.
-- `AgentSession` controls the optional, single session-agent process and its
-  temporary cache of decrypted lockbox content keys.
+  contacts, signing keys, and remembered Lockbox credentials and metadata.
+- `Lockbox` is a portable encrypted `.lbox` archive containing files,
+  variables, secrets, and structured forms.
+- `AgentSession` controls the optional session-agent process and its temporary
+  cache of decrypted Lockbox content keys.
 
 Passwords and passphrases use `SecretString`; binary keys use `SecretBytes`.
 Both own wipeable byte storage and must be closed. `SecretString.fromString`
 cannot erase the immutable Dart `String` used to create it, so password-input
-adapters should return owned UTF-8 bytes for `SecretString.takeUtf8` where
+adapters should return owned UTF-8 bytes for `SecretString.takeUtf8` whenever
 possible.
+
+## Use the optional session agent
 
 Ordinary `Lockbox.open` calls are process-local and never start or contact the
 agent. Use `AgentSession` explicitly for CLI-style or multi-process workflows:
@@ -57,35 +147,31 @@ agent. Use `AgentSession` explicitly for CLI-style or multi-process workflows:
 final agent = AgentSession.instance;
 agent.start();
 agent.keepOpenWithPassword(
-  '/secrets/team.lbox',
+  'team-secrets.lbox',
   lockboxPassword,
   duration: const Duration(minutes: 30),
 );
 
-final box = agent.acquireOpenLockbox('/secrets/team.lbox');
+final lockbox = agent.acquireOpenLockbox('team-secrets.lbox');
 try {
-  // Use the process-local Lockbox handle.
+  print(lockbox.list('/', recursive: true));
 } finally {
-  box.close();
+  lockbox.close();
 }
 
-// Explicitly remove the independent key retained by the agent.
-agent.closeLockbox('/secrets/team.lbox');
+agent.closeLockbox('team-secrets.lbox');
 ```
 
-The agent does not keep a file handle open. “Open” means that it temporarily
-holds the content key needed to reopen that lockbox. Acquiring a Lockbox does
-not extend the agent TTL. The returned process-local handle owns a copy of the
-content key and remains usable after agent expiry until `close()` is called. A
-native finalizer is a safety net for forgotten handles, but deterministic
-`close()` remains the preferred way to wipe the process-local key promptly.
+The agent stores a temporary content key, not an open file handle. Acquiring a
+Lockbox does not extend the agent entry's lifetime. The returned process-local
+handle owns an independent key and remains usable after agent expiry until it
+is closed.
 
 ## Lockbox descriptions
 
 A Lockbox can carry a human-readable description of its purpose. The text is
-stored inside the encrypted archive, not its public header, and therefore can
-only be read after the Lockbox is opened. It accepts the same UTF-8 content and
-one-mebibyte limit as a normal variable value.
+stored inside the encrypted archive rather than its public header, so it can be
+read only after the Lockbox is opened.
 
 ```dart
 lockbox.setDescription(
@@ -93,78 +179,40 @@ lockbox.setDescription(
 );
 lockbox.commit();
 print(lockbox.description);
-```
 
-Use `clearDescription()` followed by `commit()` to remove it.
+lockbox.clearDescription();
+lockbox.commit();
+```
 
 ## Platform credentials and unattended access
 
-`Vault.rememberPassphrase` stores the vault passphrase in the operating system
+`Vault.rememberPassphrase` stores the Vault passphrase in the operating-system
 credential store. On platforms without per-use user-presence enforcement, any
-process able to access that user's platform credentials may retrieve it. That
-provides unattended access to the vault and every lockbox for which the vault
-contains a usable credential.
+process able to access that user's platform credentials may be able to retrieve
+it. This grants unattended access to the Vault and every Lockbox for which the
+Vault contains a usable credential.
 
-Remembered lockbox passwords remain encrypted inside the Vault; they are not
-stored as independent operating-system credentials. Consequently,
-`Lockbox.open(path)` first opens the default Vault using its platform-stored
-passphrase, then asks the Vault for the applicable lockbox password or profile
-key. It never persists a raw content key or contacts the session agent.
+Remembered Lockbox passwords remain encrypted inside the Vault; they are not
+stored as independent operating-system credentials. With no explicit
+credential, `Lockbox.open(path)` opens the default Vault using its
+platform-stored passphrase and asks the Vault for a matching Lockbox password
+or profile key. It does not persist a raw content key or contact the session
+agent.
 
-Consequently, agent expiry and `AgentSession.closeAll()` are not authentication
-boundaries while the vault passphrase remains retrievable without interaction.
-The agent provides its strongest isolation when the user unlocks the vault
-interactively, retains only selected lockbox keys in the agent, and then closes
-the vault.
+Agent expiry and `AgentSession.closeAll()` are therefore not authentication
+boundaries while the Vault passphrase remains retrievable without interaction.
+The agent provides stronger isolation when the user unlocks the Vault
+interactively, retains only selected Lockbox keys in the agent, and then closes
+the Vault.
 
-Future releases may support platform-enforced biometric or equivalent user
-presence whenever a vault or lockbox credential is retrieved to open a
-lockbox. Code must feature-detect that capability when introduced.
+For services launched with `sudo`, see
+[Opening a reVault Vault after sudo](https://github.com/onepub-dev/reVault/blob/main/docs/opening_a_vault_after_sudo.md).
 
-### Opening a Vault after sudo
+## Native library loading
 
-On Linux, a process launched by `sudo` normally inherits root's effective
-identity and environment. The user's remembered Vault passphrase is in that
-user's Secret Service session, so both must be restored deliberately:
-
-```dart
-final invokingUid = int.parse(Platform.environment['SUDO_UID']!);
-final invokingGid = int.parse(Platform.environment['SUDO_GID']!);
-final busAddress = 'unix:path=/run/user/$invokingUid/bus';
-
-// Use the platform's setegid/seteuid equivalents before opening the Vault.
-dropEffectivePrivileges(uid: invokingUid, gid: invokingGid);
-
-final vault = Vault.open(
-  pathTo: '/home/the-user/.local/share/lockbox/vault',
-  platformCredentialContext: PlatformCredentialContext.linux(
-    sessionBusAddress: busAddress,
-  ),
-);
-```
-
-`pathTo` is the directory containing `local-vault.lbox`. It also identifies
-the credential-store item, so it must match the path used when the passphrase
-was remembered. The session address is passed directly to native code; reVault
-does not modify `DBUS_SESSION_BUS_ADDRESS` or any other process environment
-variable.
-
-Applications using dcli can use its sudo-user and privilege-release helpers to
-restore the invoking user's effective uid/gid and session values, then pass the
-resulting bus address to `PlatformCredentialContext.linux`. dcli does not need
-to know anything about reVault or its agent.
-
-See [UPGRADING.md](UPGRADING.md) when migrating from 0.2.x. See the
-[repository documentation](https://github.com/onepub-dev/reVault/tree/main/docs)
-for the file format, key management, and security model.
-
-The package build hook publishes the target-specific Revault carrier as a
-native code asset. `Revault.load()` therefore needs no library path or
-environment variable; `dart build cli` and Flutter builds bundle the carrier
-automatically.
-
-An application installer that deliberately maintains one shared carrier can
-open it explicitly without disabling native assets for other applications:
+`Revault.load()` normally loads the target-specific carrier supplied by the
+package. An application installer that deliberately maintains one shared
+carrier can provide its path explicitly:
 
 ```dart
 await Revault.load(
@@ -173,21 +221,15 @@ await Revault.load(
 ```
 
 Resolution order is an explicit path, a non-empty inherited
-`REVAULT_LIBRARY`, then the package carrier. Passing only a library name as the
-explicit or environment value delegates lookup to the operating system's
-standard library search paths. Package acceptance removes `REVAULT_LIBRARY`
-and always exercises the default bundled-carrier path; separate loader tests
-cover every override branch.
+`REVAULT_LIBRARY`, and then the package carrier. A library name rather than a
+path delegates lookup to the operating system's normal library search rules.
 
-Before publishing with `pub_release`, stage all six prebuilt carriers:
+## More information
 
-```console
-REVAULT_DART_NATIVE_SOURCE=/path/to/dart/lib/src/native \
-  dart tool/pre_release_hook/stage_native_assets.dart 0.3.5
-```
-
-`pub_release` discovers scripts under `tool/pre_release_hook/` and supplies
-the version argument automatically. Its dry run passes `--dry-run`; the hook
-then validates the six carriers without copying them. The existing release
-assembler can be used as the source with
-`REVAULT_DART_NATIVE_SOURCE=../../packages/dart/lib/src/native`.
+- See [`UPGRADING.md`](UPGRADING.md) when migrating from `0.2.x`.
+- Browse the [complete API example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md).
+- Read the [reVault manual](https://docs.revault.onepub.dev/) for user guides,
+  file-format concepts, and the security model.
+- See the [binding contribution and release guide](https://github.com/onepub-dev/reVault/blob/main/bindings/CONTRIBUTING.md) before
+  changing generated APIs or publication packaging.
+- Report problems in the [reVault issue tracker](https://github.com/onepub-dev/reVault/issues).

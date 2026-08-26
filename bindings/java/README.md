@@ -3,13 +3,14 @@
 reVault is an encrypted archive and local-vault library for files, credentials,
 keys, and typed records. The Java 22+ package uses the Foreign Function & Memory
 API and includes the matching native runtime. See the
-[reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).
+[reVault manual](https://docs.revault.onepub.dev/).
 
 ```kotlin
-implementation("dev.onepub:revault-api:0.2.0")
+implementation("dev.onepub:revault-api:0.3.11")
 ```
 
-The complete method-example index is in [`../API_EXAMPLES.md`](../API_EXAMPLES.md).
+The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)
+is maintained in the source repository.
 
 ```java
 import java.nio.file.Path;

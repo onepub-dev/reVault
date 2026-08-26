@@ -7,7 +7,7 @@ description = {
     Encrypt files, credentials, keys, and typed records in portable lockboxes,
     and manage local vault metadata through an owned LuaJIT FFI API.
   ]],
-  homepage = "https://github.com/onepub-dev/reVault",
+  homepage = "https://docs.revault.onepub.dev/",
   license = "reVault Source Available License 1.0"
 }
 dependencies = { "lua >= 5.1" }

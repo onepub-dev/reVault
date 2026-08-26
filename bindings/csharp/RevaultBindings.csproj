@@ -10,7 +10,7 @@
     <Version>0.2.0</Version>
     <Authors>OnePub</Authors>
     <Description>Complete class-based reVault lockbox and vault API.</Description>
-    <PackageProjectUrl>https://github.com/onepub-dev/reVault</PackageProjectUrl>
+    <PackageProjectUrl>https://docs.revault.onepub.dev/</PackageProjectUrl>
     <PackageTags>encryption;credentials;archive;security;vault</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
