@@ -2,6 +2,12 @@ use super::Lockbox;
 use crate::checked::read_u32_le;
 use crate::commit_auth::{commit_auth_digest, commit_auth_message, encode_commit_auth, CommitAuth};
 use crate::commit_root::{encode_commit_root, CommitRoot};
+use crate::file_format::current_header::publish_header;
+use crate::file_format::header_v2::{self, Publication};
+use crate::file_format::redaction_manifest::{
+    bounded_ranges, encode_page as encode_redaction_manifest_page, RedactionManifestPage,
+    RANGES_PER_PAGE,
+};
 use crate::file_format::{
     encode_toc_internal, encode_toc_leaf, toc_child_groups, toc_leaf_groups, write_header,
     TocChild, TocInternal, TocLeaf, TocTreeNode,
@@ -155,12 +161,16 @@ impl Lockbox<crate::Writable> {
         fs::write(path.as_path(), self.bytes()?).map_err(|err| Error::Io(err.to_string()))
     }
 
-    /// Persist pending lockbox changes atomically to the backing storage.
+    /// Publish pending lockbox changes to the backing storage.
     ///
     /// Returns storage, encoding, or security-limit errors if pending changes
-    /// cannot be written. On error, in-memory metadata is rolled back to the
-    /// state before the commit attempt.
+    /// cannot be written. Errors before publication roll in-memory metadata
+    /// back to the state before the attempt. If publication succeeds but
+    /// durable redaction cleanup is interrupted, returns
+    /// [`Error::RecoveryRequired`]; the published logical state remains in
+    /// force and must be completed with `Lockbox::recover_transaction`.
     pub fn commit(&mut self) -> Result<()> {
+        self.require_clean_transaction()?;
         if self.read_only {
             return Err(Error::InvalidOperation(
                 "contact-opened lockboxes are read-only; copy the lockbox before editing"
@@ -172,10 +182,33 @@ impl Lockbox<crate::Writable> {
                 "lockbox has an unresolved failed write: {reason}"
             )));
         }
+        if self.access_widening_pending {
+            // Rebuild into fresh storage before publishing a new decryptor.
+            // This excludes abandoned prepare pages and all prior redacted
+            // storage from the archive the new recipient can inspect.
+            return self.compact();
+        }
         let rollback = CommitRollback::capture(self);
         match self.commit_inner() {
             Ok(()) => Ok(()),
             Err(err) => {
+                if self.poisoned.is_some() {
+                    return Err(err);
+                }
+                if self.header_generation > rollback.header_generation {
+                    if let Some(status) = self.transaction_recovery_status() {
+                        return Err(Error::RecoveryRequired {
+                            transaction_sequence: status.transaction_sequence,
+                            range_count: status.range_count,
+                            completed_ranges: status.completed_ranges,
+                            page_count: status.page_count,
+                            completed_pages: status.completed_pages,
+                            total_bytes: status.total_bytes,
+                            completed_bytes: status.completed_bytes,
+                        });
+                    }
+                    return Err(err);
+                }
                 rollback.restore(self);
                 Err(err)
             }
@@ -208,7 +241,17 @@ impl Lockbox<crate::Writable> {
         self.toc_root_offset = self.commit_toc_btree()?;
         let toc_root_offset = self.toc_root_offset;
         self.free_index_offset = self.write_free_index()?;
+        self.post_cleanup_free_index_offset = self.write_post_cleanup_free_index()?;
         self.sequence += 1;
+        let redaction_ranges = self.redacted_free_slots.clone();
+        let (manifest_offset, range_count, total_bytes) =
+            self.append_redaction_manifest_pages(&redaction_ranges)?;
+        self.redaction_manifest_offset = manifest_offset;
+        self.redaction_range_count = range_count;
+        self.redaction_total_bytes = total_bytes;
+        self.cleanup_completed_ranges = 0;
+        self.cleanup_completed_pages = 0;
+        self.cleanup_completed_bytes = 0;
         self.flush_dirty_pages()?;
         self.write_key_directory_mirrors_if_dirty()?;
         let previous_commit_auth_offset = self.commit_auth_offset;
@@ -219,10 +262,14 @@ impl Lockbox<crate::Writable> {
             variable_root_offset: self.variable_root_offset,
             form_root_offset: self.form_root_offset,
             free_index_root_offset: self.free_index_offset,
+            post_cleanup_free_index_root_offset: self.post_cleanup_free_index_offset,
             key_directory_offset: self.key_directory_offset,
             key_directory_mirror_offset: self.key_directory_mirror_offset,
             key_directory_generation: self.key_directory_generation,
             previous_commit_root_offset: self.commit_root_offset,
+            redaction_manifest_offset: self.redaction_manifest_offset,
+            redaction_range_count: u64::from(self.redaction_range_count),
+            redaction_total_bytes: self.redaction_total_bytes,
             flags: 0,
         });
         let commit_root_digest = crate::crypto::strong_checksum(&commit_root_payload);
@@ -248,21 +295,56 @@ impl Lockbox<crate::Writable> {
         self.commit_auth_offset = self.append_commit_auth_page(commit_auth_payload)?;
         self.flush_dirty_pages()?;
         self.storage.sync()?;
-        let sequence = self.sequence;
-        let key_directory_offset = self.key_directory_offset;
-        let lockbox_id = self.lockbox_id;
-        let mut header = vec![0; crate::constants::HEADER_LEN];
-        write_header(
-            &mut header,
-            self.commit_root_offset,
-            sequence,
-            key_directory_offset,
-            lockbox_id,
-            self.commit_auth_offset,
-        );
-        self.storage.write_at(0, &header)?;
-        self.storage.sync()?;
+        let pending_cleanup = self.redaction_manifest_offset != 0;
+        let cleanup_sequence = if pending_cleanup {
+            self.cleanup_sequence
+        } else {
+            self.sequence
+        };
+        self.publish_transaction_header(cleanup_sequence)?;
+        if pending_cleanup {
+            self.cleanup_published_redactions(|_| {})?;
+            self.publish_transaction_header(self.sequence)?;
+            self.free_index_offset = self.post_cleanup_free_index_offset;
+        }
         self.publish_redacted_free_slots();
+        Ok(())
+    }
+
+    pub(crate) fn publish_transaction_header(&mut self, cleanup_sequence: u64) -> Result<()> {
+        let generation = self.header_generation.checked_add(1).ok_or_else(|| {
+            Error::SecurityLimitExceeded("header generation exhausted".to_string())
+        })?;
+        // Once header publication begins, a write/sync error is ambiguous: the
+        // inactive slot may already be durable even though the call returned an
+        // error. Keep this handle poisoned until the complete publication has
+        // succeeded so commit cannot roll back to stale in-memory metadata.
+        self.poisoned = Some(
+            "header publication was interrupted; reopen the lockbox before continuing".to_string(),
+        );
+        let mut publication = Publication {
+            generation,
+            commit_root_offset: self.commit_root_offset,
+            sequence: self.sequence,
+            key_directory_offset: self.key_directory_offset,
+            key_directory_mirror_offset: self.key_directory_mirror_offset,
+            lockbox_id: self.lockbox_id,
+            commit_auth_offset: self.commit_auth_offset,
+            cleanup_sequence,
+            cleanup_completed_ranges: self.cleanup_completed_ranges,
+            cleanup_completed_pages: self.cleanup_completed_pages,
+            cleanup_completed_bytes: self.cleanup_completed_bytes,
+            metadata_auth_tag: [0; 24],
+        };
+        let message = header_v2::metadata_auth_message(publication);
+        publication.metadata_auth_tag = self
+            .key
+            .with_bytes(|key| crate::crypto::metadata_auth_tag(key, &message))?;
+        let next_slot = publish_header(&mut self.storage, self.header_slot, publication)?;
+        self.header_slot = next_slot;
+        self.header_generation = generation;
+        self.cleanup_sequence = cleanup_sequence;
+        self.poisoned = None;
         Ok(())
     }
 
@@ -598,15 +680,29 @@ impl Lockbox<crate::Writable> {
     }
 
     fn write_free_index(&mut self) -> Result<u64> {
-        let mut slots = self.free_space.slots_by_offset();
-        slots.extend(self.redacted_free_slots.iter().copied());
-        slots.sort_by_key(|slot| slot.offset);
+        let slots = self.free_space.slots_by_offset();
+        self.write_free_index_slots(&slots)
+    }
+
+    fn write_post_cleanup_free_index(&mut self) -> Result<u64> {
+        if self.redacted_free_slots.is_empty() {
+            return Ok(0);
+        }
+        let mut post_cleanup = self.free_space.clone();
+        for slot in self.redacted_free_slots.iter().copied() {
+            post_cleanup.add(slot);
+        }
+        let slots = post_cleanup.slots_by_offset();
+        self.write_free_index_slots(&slots)
+    }
+
+    fn write_free_index_slots(&mut self, slots: &[crate::free_slot::FreeSlot]) -> Result<u64> {
         if slots.is_empty() {
             return Ok(0);
         }
         self.sequence += 1;
         let mut level = Vec::new();
-        for group in free_index_leaf_groups(&slots) {
+        for group in free_index_leaf_groups(slots) {
             let offset = self.write_free_index_page(
                 PageObjectKind::FreeIndexLeaf,
                 encode_free_index_leaf(group),
@@ -653,10 +749,54 @@ impl Lockbox<crate::Writable> {
         self.write_decoded_page_at(page_offset, self.sequence, vec![object])?;
         Ok(page_offset)
     }
+
+    fn append_redaction_manifest_pages(
+        &mut self,
+        ranges: &[crate::free_slot::FreeSlot],
+    ) -> Result<(u64, u32, u64)> {
+        let ranges = bounded_ranges(ranges)?;
+        if ranges.is_empty() {
+            return Ok((0, 0, 0));
+        }
+        let total_range_count = u32::try_from(ranges.len()).map_err(|_| {
+            Error::SecurityLimitExceeded("redaction range count exceeds u32".to_string())
+        })?;
+        let total_bytes = ranges.iter().try_fold(0u64, |total, range| {
+            total.checked_add(range.len).ok_or_else(|| {
+                Error::SecurityLimitExceeded("redaction byte count overflow".to_string())
+            })
+        })?;
+        if total_bytes > crate::file_format::redaction_manifest::MAX_REDACTION_TOTAL_BYTES {
+            return Err(Error::SecurityLimitExceeded(format!(
+                "redaction transaction exceeds the {} byte limit",
+                crate::file_format::redaction_manifest::MAX_REDACTION_TOTAL_BYTES
+            )));
+        }
+        let mut next_page_offset = 0;
+        for chunk in ranges.chunks(RANGES_PER_PAGE).rev() {
+            let payload = encode_redaction_manifest_page(&RedactionManifestPage {
+                transaction_sequence: self.sequence,
+                next_page_offset,
+                total_range_count,
+                ranges: chunk.to_vec(),
+            })?;
+            let page_offset = self.next_append_page_offset()?;
+            let object = PageObject::new(PageObjectKind::RedactionManifest, self.sequence, payload);
+            self.write_decoded_page_at(page_offset, self.sequence, vec![object])?;
+            next_page_offset = page_offset;
+        }
+        Ok((next_page_offset, total_range_count, total_bytes))
+    }
 }
 
 pub(crate) struct CommitRollback {
     sequence: u64,
+    header_slot: usize,
+    header_generation: u64,
+    cleanup_sequence: u64,
+    cleanup_completed_ranges: u32,
+    cleanup_completed_pages: u32,
+    cleanup_completed_bytes: u64,
     commit_root_offset: u64,
     commit_auth_offset: u64,
     commit_auth_digest: [u8; 32],
@@ -664,6 +804,10 @@ pub(crate) struct CommitRollback {
     variable_root_offset: u64,
     form_root_offset: u64,
     free_index_offset: u64,
+    post_cleanup_free_index_offset: u64,
+    redaction_manifest_offset: u64,
+    redaction_range_count: u32,
+    redaction_total_bytes: u64,
     key_directory_offset: u64,
     key_directory_mirror_offset: u64,
     key_directory_generation: u64,
@@ -694,6 +838,7 @@ pub(crate) struct CommitRollback {
     pending_small_file_bytes: usize,
     pending_symlinks: std::collections::BTreeMap<crate::LockboxPath, crate::LockboxPath>,
     pending_redactions: std::collections::BTreeMap<u64, super::PendingRedaction>,
+    pending_redaction_object_count: usize,
     redacted_free_slots: Vec<crate::free_slot::FreeSlot>,
     needs_packing: bool,
 }
@@ -702,6 +847,12 @@ impl CommitRollback {
     pub(crate) fn capture(lockbox: &Lockbox) -> Self {
         Self {
             sequence: lockbox.sequence,
+            header_slot: lockbox.header_slot,
+            header_generation: lockbox.header_generation,
+            cleanup_sequence: lockbox.cleanup_sequence,
+            cleanup_completed_ranges: lockbox.cleanup_completed_ranges,
+            cleanup_completed_pages: lockbox.cleanup_completed_pages,
+            cleanup_completed_bytes: lockbox.cleanup_completed_bytes,
             commit_root_offset: lockbox.commit_root_offset,
             commit_auth_offset: lockbox.commit_auth_offset,
             commit_auth_digest: lockbox.commit_auth_digest,
@@ -709,6 +860,10 @@ impl CommitRollback {
             variable_root_offset: lockbox.variable_root_offset,
             form_root_offset: lockbox.form_root_offset,
             free_index_offset: lockbox.free_index_offset,
+            post_cleanup_free_index_offset: lockbox.post_cleanup_free_index_offset,
+            redaction_manifest_offset: lockbox.redaction_manifest_offset,
+            redaction_range_count: lockbox.redaction_range_count,
+            redaction_total_bytes: lockbox.redaction_total_bytes,
             key_directory_offset: lockbox.key_directory_offset,
             key_directory_mirror_offset: lockbox.key_directory_mirror_offset,
             key_directory_generation: lockbox.key_directory_generation,
@@ -735,6 +890,7 @@ impl CommitRollback {
             pending_small_file_bytes: lockbox.pending_small_file_bytes,
             pending_symlinks: lockbox.pending_symlinks.clone(),
             pending_redactions: lockbox.pending_redactions.clone(),
+            pending_redaction_object_count: lockbox.pending_redaction_object_count,
             redacted_free_slots: lockbox.redacted_free_slots.clone(),
             needs_packing: lockbox.needs_packing,
         }
@@ -742,6 +898,12 @@ impl CommitRollback {
 
     pub(crate) fn restore(self, lockbox: &mut Lockbox) {
         lockbox.sequence = self.sequence;
+        lockbox.header_slot = self.header_slot;
+        lockbox.header_generation = self.header_generation;
+        lockbox.cleanup_sequence = self.cleanup_sequence;
+        lockbox.cleanup_completed_ranges = self.cleanup_completed_ranges;
+        lockbox.cleanup_completed_pages = self.cleanup_completed_pages;
+        lockbox.cleanup_completed_bytes = self.cleanup_completed_bytes;
         lockbox.commit_root_offset = self.commit_root_offset;
         lockbox.commit_auth_offset = self.commit_auth_offset;
         lockbox.commit_auth_digest = self.commit_auth_digest;
@@ -749,6 +911,10 @@ impl CommitRollback {
         lockbox.variable_root_offset = self.variable_root_offset;
         lockbox.form_root_offset = self.form_root_offset;
         lockbox.free_index_offset = self.free_index_offset;
+        lockbox.post_cleanup_free_index_offset = self.post_cleanup_free_index_offset;
+        lockbox.redaction_manifest_offset = self.redaction_manifest_offset;
+        lockbox.redaction_range_count = self.redaction_range_count;
+        lockbox.redaction_total_bytes = self.redaction_total_bytes;
         lockbox.key_directory_offset = self.key_directory_offset;
         lockbox.key_directory_mirror_offset = self.key_directory_mirror_offset;
         lockbox.key_directory_generation = self.key_directory_generation;
@@ -775,6 +941,7 @@ impl CommitRollback {
         lockbox.pending_small_file_bytes = self.pending_small_file_bytes;
         lockbox.pending_symlinks = self.pending_symlinks;
         lockbox.pending_redactions = self.pending_redactions;
+        lockbox.pending_redaction_object_count = self.pending_redaction_object_count;
         lockbox.redacted_free_slots = self.redacted_free_slots;
         lockbox.needs_packing = self.needs_packing;
         lockbox.page_manager.borrow_mut().clear();
@@ -1231,40 +1398,85 @@ mod tests {
             Err(Error::NotFound(_))
         ));
 
-        lb.commit().unwrap();
+        assert!(matches!(lb.commit(), Err(Error::InvalidOperation(_))));
+    }
+
+    #[test]
+    fn ambiguous_header_sync_failure_poisons_handle_and_opens_published_commit() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
+
+        // The first sync makes pages and commit metadata durable. The second
+        // follows the inactive-slot header write, so failure is ambiguous even
+        // though the memory backend retains the written header bytes.
+        lb.storage.fail_memory_sync_after_successes(1);
+        assert!(matches!(lb.commit(), Err(Error::Io(_))));
+        assert!(matches!(lb.commit(), Err(Error::InvalidOperation(_))));
+
         let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
         assert_eq!(reopened.get_file(&p("/docs/new.txt")).unwrap(), b"new");
     }
 
     #[test]
-    fn failed_commit_during_delete_redaction_reopens_previous_commit() {
+    fn interrupted_cleanup_requires_explicit_recovery_and_is_idempotent() {
         let mut lb = Lockbox::create("secret");
         add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
         add_file(&mut lb, &p("/docs/keep.txt"), b"keep", false).unwrap();
         lb.commit().unwrap();
-        let old_offset = lb
-            .toc_entries
-            .get(&p("/docs/remove.txt"))
-            .unwrap()
-            .record_offset;
+        let removed_slot = {
+            let entry = lb.toc_entries.get(&p("/docs/remove.txt")).unwrap();
+            crate::free_slot::FreeSlot {
+                offset: entry.record_offset,
+                len: entry.record_len,
+            }
+        };
 
         lb.delete(&p("/docs/remove.txt")).unwrap();
-        lb.storage.fail_memory_next_write_at(old_offset);
-        assert!(matches!(lb.commit(), Err(Error::Io(_))));
-
+        lb.storage.fail_memory_next_write_at(removed_slot.offset);
+        assert!(matches!(lb.commit(), Err(Error::RecoveryRequired { .. })));
+        let interrupted = lb.to_bytes();
         assert!(matches!(
-            lb.get_file(&p("/docs/remove.txt")),
-            Err(Error::NotFound(_))
+            Lockbox::open_bytes_with_key(interrupted.clone(), "secret"),
+            Err(Error::RecoveryRequired { .. })
         ));
-        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
-        assert_eq!(
-            reopened.get_file(&p("/docs/remove.txt")).unwrap(),
-            b"remove me"
-        );
-        assert_eq!(reopened.get_file(&p("/docs/keep.txt")).unwrap(), b"keep");
 
-        lb.commit().unwrap();
-        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
+        let key = crate::SecretVec::try_from_slice(b"secret").unwrap();
+        let mut recovering = Lockbox::open_storage_with_secret_key_mode(
+            crate::storage::StorageBackend::memory(interrupted),
+            key,
+            crate::LockboxOptions::default(),
+            true,
+        )
+        .unwrap();
+        assert!(!recovering.free_space.overlaps(removed_slot));
+        let mut post_cleanup_space = crate::free_slot::FreeSpace::default();
+        post_cleanup_space.replace_slots(
+            recovering
+                .read_free_index_slots(recovering.post_cleanup_free_index_offset, 0)
+                .unwrap(),
+        );
+        assert!(post_cleanup_space.contains(removed_slot));
+        let mut updates = Vec::new();
+        recovering
+            .cleanup_published_redactions(|update| updates.push(update))
+            .unwrap();
+        // Repeating cleanup before sealing is safe after a crash at this boundary.
+        recovering.cleanup_published_redactions(|_| {}).unwrap();
+        recovering
+            .publish_transaction_header(recovering.sequence)
+            .unwrap();
+        let recovered = recovering.to_bytes();
+        assert!(recovered
+            [removed_slot.offset as usize..(removed_slot.offset + removed_slot.len) as usize]
+            .iter()
+            .all(|byte| *byte == 0));
+        assert_eq!(
+            updates.last().unwrap().completed_ranges,
+            updates.last().unwrap().total_ranges
+        );
+
+        let reopened = Lockbox::open_bytes_with_key(recovered, "secret").unwrap();
+        assert!(reopened.free_space.contains(removed_slot));
         assert!(matches!(
             reopened.get_file(&p("/docs/remove.txt")),
             Err(Error::NotFound(_))
@@ -1273,39 +1485,327 @@ mod tests {
     }
 
     #[test]
-    fn failed_commit_during_replace_redaction_reopens_previous_commit() {
+    fn recovery_rejects_a_corrupt_manifest_without_zeroing_untrusted_ranges() {
         let mut lb = Lockbox::create("secret");
-        let old_data = deterministic_bytes(1_100_000, 0x1111_2222);
-        let new_data = deterministic_bytes(1_100_000, 0x3333_4444);
-        add_file(&mut lb, &p("/docs/data.bin"), &old_data, false).unwrap();
+        add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
         lb.commit().unwrap();
-        let old_offset = lb
+        let removed_offset = lb
             .toc_entries
-            .get(&p("/docs/data.bin"))
+            .get(&p("/docs/remove.txt"))
             .unwrap()
             .record_offset;
 
-        add_file(&mut lb, &p("/docs/data.bin"), &new_data, true).unwrap();
-        lb.storage.fail_memory_next_write_at(old_offset);
-        assert!(matches!(lb.commit(), Err(Error::Io(_))));
+        lb.delete(&p("/docs/remove.txt")).unwrap();
+        lb.storage.fail_memory_next_write_at(removed_offset);
+        assert!(matches!(lb.commit(), Err(Error::RecoveryRequired { .. })));
+        let manifest_offset = usize::try_from(lb.redaction_manifest_offset).unwrap();
+        let mut damaged = lb.to_bytes();
+        damaged[manifest_offset + crate::page::PAGE_HEADER_LEN + 8] ^= 0x55;
 
-        assert_eq!(lb.get_file(&p("/docs/data.bin")).unwrap(), new_data);
-        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
-        assert_eq!(reopened.get_file(&p("/docs/data.bin")).unwrap(), old_data);
-
-        lb.commit().unwrap();
-        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
-        assert_eq!(reopened.get_file(&p("/docs/data.bin")).unwrap(), new_data);
+        let key = crate::SecretVec::try_from_slice(b"secret").unwrap();
+        let mut recovering = Lockbox::open_storage_with_secret_key_mode(
+            crate::storage::StorageBackend::memory(damaged),
+            key,
+            crate::LockboxOptions::default(),
+            true,
+        )
+        .unwrap();
+        assert!(recovering.cleanup_published_redactions(|_| {}).is_err());
     }
 
-    fn deterministic_bytes(len: usize, seed: u64) -> Vec<u8> {
-        let mut state = seed;
-        (0..len)
-            .map(|_| {
-                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
-                (state >> 32) as u8
-            })
-            .collect()
+    #[test]
+    fn recovery_rejects_inconsistent_durable_checkpoint_counters() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
+        lb.commit().unwrap();
+        let removed_offset = lb
+            .toc_entries
+            .get(&p("/docs/remove.txt"))
+            .unwrap()
+            .record_offset;
+
+        lb.delete(&p("/docs/remove.txt")).unwrap();
+        lb.storage.fail_memory_next_write_at(removed_offset);
+        assert!(matches!(lb.commit(), Err(Error::RecoveryRequired { .. })));
+        lb.cleanup_completed_pages = 1;
+        lb.cleanup_completed_ranges = 0;
+        lb.cleanup_completed_bytes = 0;
+        lb.publish_transaction_header(lb.cleanup_sequence).unwrap();
+
+        let key = crate::SecretVec::try_from_slice(b"secret").unwrap();
+        let mut recovering = Lockbox::open_storage_with_secret_key_mode(
+            crate::storage::StorageBackend::memory(lb.to_bytes()),
+            key,
+            crate::LockboxOptions::default(),
+            true,
+        )
+        .unwrap();
+        assert!(matches!(
+            recovering.cleanup_published_redactions(|_| {}),
+            Err(Error::CorruptHeader)
+        ));
+    }
+
+    #[test]
+    fn public_recovery_can_inspect_cancel_and_resume_from_a_durable_checkpoint() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
+        lb.commit().unwrap();
+        let removed = lb.toc_entries.get(&p("/docs/remove.txt")).unwrap();
+        let removed_offset = removed.record_offset;
+        lb.delete(&p("/docs/remove.txt")).unwrap();
+        lb.storage.fail_memory_next_write_at(removed_offset);
+        assert!(matches!(lb.commit(), Err(Error::RecoveryRequired { .. })));
+
+        let path = std::env::temp_dir().join(format!(
+            "revault-transaction-recovery-{}-{}.lbox",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(&path, lb.to_bytes()).unwrap();
+        let open =
+            || crate::LockboxOpen::ContentKey(crate::SecretVec::try_from_slice(b"secret").unwrap());
+
+        let initial = Lockbox::inspect_transaction_recovery(&path, open())
+            .unwrap()
+            .unwrap();
+        assert_eq!(initial.completed_pages, 0);
+        let cancelled = Lockbox::recover_transaction_controlled(&path, open(), |_| {
+            crate::TransactionRecoveryControl::Cancel
+        })
+        .unwrap();
+        let crate::TransactionRecoveryOutcome::Cancelled(checkpoint) = cancelled else {
+            panic!("expected a durable cancellation checkpoint");
+        };
+        assert_eq!(checkpoint.completed_pages, checkpoint.page_count);
+        assert!(matches!(
+            Lockbox::open(&path, open()),
+            Err(Error::RecoveryRequired { .. })
+        ));
+
+        let resumed = Lockbox::recover_transaction_controlled(&path, open(), |_| {
+            crate::TransactionRecoveryControl::Continue
+        })
+        .unwrap();
+        assert_eq!(resumed, crate::TransactionRecoveryOutcome::Complete);
+        assert!(Lockbox::inspect_transaction_recovery(&path, open())
+            .unwrap()
+            .is_none());
+        assert!(matches!(
+            Lockbox::open(&path, open())
+                .unwrap()
+                .get_file(&p("/docs/remove.txt")),
+            Err(Error::NotFound(_))
+        ));
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(crate::lock_path_for(&path));
+    }
+
+    #[test]
+    fn recovery_resumes_after_a_progress_callback_panics() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
+        lb.commit().unwrap();
+        let removed_offset = lb
+            .toc_entries
+            .get(&p("/docs/remove.txt"))
+            .unwrap()
+            .record_offset;
+        lb.delete(&p("/docs/remove.txt")).unwrap();
+        lb.storage.fail_memory_next_write_at(removed_offset);
+        assert!(matches!(lb.commit(), Err(Error::RecoveryRequired { .. })));
+
+        let path = std::env::temp_dir().join(format!(
+            "revault-transaction-recovery-panic-{}-{}.lbox",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(&path, lb.to_bytes()).unwrap();
+        let open =
+            || crate::LockboxOpen::ContentKey(crate::SecretVec::try_from_slice(b"secret").unwrap());
+
+        let panicked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _ = Lockbox::recover_transaction_controlled(&path, open(), |_| {
+                panic!("simulated termination after durable checkpoint")
+            });
+        }));
+        assert!(panicked.is_err());
+        let checkpoint = Lockbox::inspect_transaction_recovery(&path, open())
+            .unwrap()
+            .unwrap();
+        assert_eq!(checkpoint.completed_pages, checkpoint.page_count);
+        assert!(Lockbox::recover_transaction(&path, open(), |_| {}).unwrap());
+        assert!(Lockbox::inspect_transaction_recovery(&path, open())
+            .unwrap()
+            .is_none());
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(crate::lock_path_for(&path));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn recovery_survives_a_real_subprocess_kill_after_checkpoint() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
+        lb.commit().unwrap();
+        let removed_offset = lb
+            .toc_entries
+            .get(&p("/docs/remove.txt"))
+            .unwrap()
+            .record_offset;
+        lb.delete(&p("/docs/remove.txt")).unwrap();
+        lb.storage.fail_memory_next_write_at(removed_offset);
+        assert!(matches!(lb.commit(), Err(Error::RecoveryRequired { .. })));
+
+        let path = std::env::temp_dir().join(format!(
+            "revault-transaction-recovery-kill-{}-{}.lbox",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::write(&path, lb.to_bytes()).unwrap();
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg("lockbox::commit::tests::recovery_subprocess_kill_child")
+            .arg("--nocapture")
+            .env("REVAULT_RECOVERY_KILL_TEST_PATH", &path)
+            .status()
+            .unwrap();
+        assert!(!status.success());
+
+        let open =
+            || crate::LockboxOpen::ContentKey(crate::SecretVec::try_from_slice(b"secret").unwrap());
+        let checkpoint = Lockbox::inspect_transaction_recovery(&path, open())
+            .unwrap()
+            .unwrap();
+        assert_eq!(checkpoint.completed_pages, checkpoint.page_count);
+        assert!(Lockbox::recover_transaction(&path, open(), |_| {}).unwrap());
+        assert!(Lockbox::inspect_transaction_recovery(&path, open())
+            .unwrap()
+            .is_none());
+
+        let _ = std::fs::remove_file(&path);
+        let _ = std::fs::remove_file(crate::lock_path_for(&path));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn recovery_subprocess_kill_child() {
+        let Some(path) = std::env::var_os("REVAULT_RECOVERY_KILL_TEST_PATH") else {
+            return;
+        };
+        let key = crate::SecretVec::try_from_slice(b"secret").unwrap();
+        let _ = Lockbox::recover_transaction_controlled(
+            std::path::Path::new(&path),
+            crate::LockboxOpen::ContentKey(key),
+            |_| {
+                // SAFETY: raising SIGKILL for this dedicated child process is
+                // the behavior under test; no pointer or borrowed memory crosses FFI.
+                unsafe { libc::kill(std::process::id() as i32, libc::SIGKILL) };
+                crate::TransactionRecoveryControl::Continue
+            },
+        );
+        panic!("SIGKILL unexpectedly returned");
+    }
+
+    #[test]
+    fn unpublished_recipient_directory_cannot_unlock_archive() {
+        let old_password = crate::SecretString::try_from_bytes(b"old password".to_vec()).unwrap();
+        let new_password = crate::SecretString::try_from_bytes(b"new password".to_vec()).unwrap();
+        let mut lb = Lockbox::create_with_password(&old_password).unwrap();
+        add_file(&mut lb, &p("/docs/secret.txt"), b"secret", false).unwrap();
+        lb.commit().unwrap();
+
+        lb.add_password(&new_password).unwrap();
+        let staged = lb.to_bytes();
+        assert!(Lockbox::open_with_password(staged.clone(), &old_password).is_ok());
+        assert!(matches!(
+            Lockbox::open_with_password(staged, &new_password),
+            Err(Error::InvalidKey)
+        ));
+
+        lb.commit().unwrap();
+        assert!(Lockbox::open_with_password(lb.to_bytes(), &new_password).is_ok());
+    }
+
+    #[test]
+    fn access_widening_compacts_abandoned_prepare_pages_out_of_the_archive() {
+        let old_password = crate::SecretString::try_from_bytes(b"old password".to_vec()).unwrap();
+        let new_password = crate::SecretString::try_from_bytes(b"new password".to_vec()).unwrap();
+        let mut lb = Lockbox::create_with_password(&old_password).unwrap();
+        let signing_key = lb.require_owner_signing_key().unwrap().try_clone().unwrap();
+        add_file(&mut lb, &p("/docs/live.txt"), b"live", false).unwrap();
+        lb.commit().unwrap();
+
+        add_file(
+            &mut lb,
+            &p("/docs/abandoned.txt"),
+            b"abandoned secret",
+            false,
+        )
+        .unwrap();
+        lb.storage.fail_memory_append_after_successes(1);
+        assert!(matches!(lb.commit(), Err(Error::Io(_))));
+        let prior_state = lb.to_bytes();
+
+        let mut reopened = Lockbox::open_bytes_for_write(
+            prior_state,
+            crate::LockboxOpen::Password(&old_password),
+            &signing_key,
+        )
+        .unwrap();
+        reopened.add_password(&new_password).unwrap();
+        reopened.commit().unwrap();
+        let sanitized = reopened.to_bytes();
+        let by_new = Lockbox::open_with_password(sanitized.clone(), &new_password).unwrap();
+        assert_eq!(by_new.get_file(&p("/docs/live.txt")).unwrap(), b"live");
+        assert!(matches!(
+            by_new.get_file(&p("/docs/abandoned.txt")),
+            Err(Error::NotFound(_))
+        ));
+        let report = by_new
+            .key
+            .with_bytes(|key| crate::RecoveryScanner::scan_bytes(sanitized, key))
+            .unwrap();
+        assert!(!report
+            .intact_files
+            .iter()
+            .any(|entry| entry.path == "/docs/abandoned.txt"));
+    }
+
+    #[test]
+    fn recipient_addition_requires_a_clean_separate_transaction() {
+        let first = crate::SecretString::try_from_bytes(b"first password".to_vec()).unwrap();
+        let second = crate::SecretString::try_from_bytes(b"second password".to_vec()).unwrap();
+        let third = crate::SecretString::try_from_bytes(b"third password".to_vec()).unwrap();
+        let mut lb = Lockbox::create_with_password(&first).unwrap();
+        add_file(&mut lb, &p("/docs/original.txt"), b"original", false).unwrap();
+        lb.commit().unwrap();
+
+        add_file(&mut lb, &p("/docs/pending.txt"), b"pending", false).unwrap();
+        assert!(matches!(
+            lb.add_password(&second),
+            Err(Error::InvalidOperation(_))
+        ));
+        lb.commit().unwrap();
+
+        lb.add_password(&second).unwrap();
+        assert!(matches!(
+            lb.add_password(&third),
+            Err(Error::InvalidOperation(_))
+        ));
+        lb.commit().unwrap();
+        assert!(Lockbox::open_with_password(lb.to_bytes(), &second).is_ok());
     }
 
     fn synthetic_toc_entries(count: usize) -> Vec<TocEntry> {

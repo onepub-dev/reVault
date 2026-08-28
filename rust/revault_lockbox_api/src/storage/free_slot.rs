@@ -106,6 +106,31 @@ impl FreeSpace {
             .collect()
     }
 
+    pub(crate) fn contains(&self, slot: FreeSlot) -> bool {
+        let Some((&offset, &len)) = self.by_offset.range(..=slot.offset).next_back() else {
+            return false;
+        };
+        let Some(slot_end) = slot.offset.checked_add(slot.len) else {
+            return false;
+        };
+        offset
+            .checked_add(len)
+            .is_some_and(|free_end| slot.len != 0 && slot_end <= free_end)
+    }
+
+    pub(crate) fn overlaps(&self, slot: FreeSlot) -> bool {
+        let Some(slot_end) = slot.offset.checked_add(slot.len) else {
+            return true;
+        };
+        if slot.len == 0 {
+            return false;
+        }
+        self.by_offset
+            .range(..slot_end)
+            .next_back()
+            .is_some_and(|(&offset, &len)| offset.saturating_add(len) > slot.offset)
+    }
+
     pub(crate) fn replace_slots(&mut self, slots: impl IntoIterator<Item = FreeSlot>) {
         self.clear();
         for slot in slots {
@@ -219,5 +244,48 @@ mod tests {
                 }
             ]
         );
+    }
+
+    #[test]
+    fn contains_only_ranges_fully_inside_free_space() {
+        let mut free = FreeSpace::default();
+        free.add(FreeSlot {
+            offset: 100,
+            len: 100,
+        });
+        assert!(free.contains(FreeSlot {
+            offset: 120,
+            len: 40,
+        }));
+        assert!(!free.contains(FreeSlot {
+            offset: 190,
+            len: 20,
+        }));
+    }
+
+    #[test]
+    fn overlaps_detects_partial_intersections() {
+        let mut free = FreeSpace::default();
+        free.add(FreeSlot {
+            offset: 100,
+            len: 100,
+        });
+
+        assert!(free.overlaps(FreeSlot {
+            offset: 50,
+            len: 51
+        }));
+        assert!(free.overlaps(FreeSlot {
+            offset: 199,
+            len: 50,
+        }));
+        assert!(!free.overlaps(FreeSlot {
+            offset: 50,
+            len: 50
+        }));
+        assert!(!free.overlaps(FreeSlot {
+            offset: 200,
+            len: 50,
+        }));
     }
 }

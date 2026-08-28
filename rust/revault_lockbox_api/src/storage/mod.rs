@@ -7,6 +7,8 @@ pub(crate) mod page_cache;
 use crate::secret_vec::SecureVec;
 use crate::storage::file_lock::{FileLockScope, ScopedFileLock};
 use crate::{Error, Result};
+#[cfg(test)]
+use std::cell::Cell;
 use std::fs::{self, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
@@ -57,6 +59,23 @@ impl StorageBackend {
         let path = path.as_ref();
         let lock = ScopedFileLock::acquire(path, FileLockScope::Lockbox)?;
         Ok(Self::File(FileStore::open(path, Some(Arc::new(lock)))?))
+    }
+
+    pub(crate) fn file_for_recovery(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+        let lock =
+            ScopedFileLock::acquire(path, FileLockScope::Recovery).map_err(|err| match err {
+                Error::Io(message) | Error::LockUnavailable(message) => {
+                    Error::RecoveryBlocked(message)
+                }
+                other => other,
+            })?;
+        FileStore::open(path, Some(Arc::new(lock)))
+            .map(Self::File)
+            .map_err(|err| match err {
+                Error::Io(message) => Error::RecoveryBlocked(message),
+                other => other,
+            })
     }
 
     pub(crate) fn create_file(path: impl AsRef<Path>, initial_bytes: &[u8]) -> Result<Self> {
@@ -129,6 +148,8 @@ pub(crate) struct MemoryStore {
     fail_append_after_successes: Option<usize>,
     #[cfg(test)]
     fail_next_write_at: Option<u64>,
+    #[cfg(test)]
+    fail_sync_after_successes: Cell<Option<usize>>,
 }
 
 impl MemoryStore {
@@ -139,6 +160,8 @@ impl MemoryStore {
             fail_append_after_successes: None,
             #[cfg(test)]
             fail_next_write_at: None,
+            #[cfg(test)]
+            fail_sync_after_successes: Cell::new(None),
         }
     }
 
@@ -150,6 +173,11 @@ impl MemoryStore {
     #[cfg(test)]
     fn fail_next_write_at(&mut self, offset: u64) {
         self.fail_next_write_at = Some(offset);
+    }
+
+    #[cfg(test)]
+    fn fail_sync_after_successes(&mut self, successes: usize) {
+        self.fail_sync_after_successes.set(Some(successes));
     }
 
     #[cfg(test)]
@@ -172,6 +200,20 @@ impl MemoryStore {
             self.fail_next_write_at = None;
             true
         } else {
+            false
+        }
+    }
+
+    #[cfg(test)]
+    fn should_fail_sync(&self) -> bool {
+        let Some(remaining) = self.fail_sync_after_successes.get() else {
+            return false;
+        };
+        if remaining == 0 {
+            self.fail_sync_after_successes.set(None);
+            true
+        } else {
+            self.fail_sync_after_successes.set(Some(remaining - 1));
             false
         }
     }
@@ -232,6 +274,10 @@ impl Storage for MemoryStore {
     }
 
     fn sync(&self) -> Result<()> {
+        #[cfg(test)]
+        if self.should_fail_sync() {
+            return Err(Error::Io("injected storage sync failure".to_string()));
+        }
         Ok(())
     }
 }
@@ -248,6 +294,13 @@ impl StorageBackend {
     pub(crate) fn fail_memory_next_write_at(&mut self, offset: u64) {
         match self {
             Self::Memory(store) => store.fail_next_write_at(offset),
+            Self::File(_) => panic!("failure injection is only available for memory storage"),
+        }
+    }
+
+    pub(crate) fn fail_memory_sync_after_successes(&mut self, successes: usize) {
+        match self {
+            Self::Memory(store) => store.fail_sync_after_successes(successes),
             Self::File(_) => panic!("failure injection is only available for memory storage"),
         }
     }

@@ -2,6 +2,7 @@ use chacha20poly1305::aead::{Aead, AeadInOut, KeyInit, Payload};
 use chacha20poly1305::Tag;
 use chacha20poly1305::{ChaCha20Poly1305, Key, Nonce};
 use getrandom::fill as getrandom;
+use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroize;
 
@@ -96,6 +97,17 @@ pub(crate) fn strong_checksum(data: &[u8]) -> [u8; 32] {
     hasher.update((data.len() as u64).to_le_bytes());
     hasher.update(data);
     hasher.finalize().into()
+}
+
+pub(crate) fn metadata_auth_tag(key: &[u8], message: &[u8]) -> [u8; 24] {
+    let mut mac = Hmac::<Sha256>::new_from_slice(key).expect("HMAC accepts arbitrary key lengths");
+    mac.update(b"lockbox-v2-header-metadata-auth/hmac-sha256");
+    mac.update(&(message.len() as u64).to_le_bytes());
+    mac.update(message);
+    let digest = mac.finalize().into_bytes();
+    let mut tag = [0u8; 24];
+    tag.copy_from_slice(&digest[..24]);
+    tag
 }
 
 fn derive_content_key(key: &[u8]) -> [u8; 32] {

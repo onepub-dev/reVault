@@ -1593,7 +1593,7 @@ impl<'a> LockboxFileMut<'a> {
                         segment.page_offset,
                         segment.page_len,
                         segment.object_id,
-                    );
+                    )?;
                 }
             }
         }

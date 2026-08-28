@@ -4,6 +4,7 @@ use super::output::{output_format_from_matches, print_records, OutputFormat};
 use clap::ArgMatches;
 use revault_lockbox_api::vault_integration::VaultOpen;
 use revault_lockbox_api::{Error, RecoveryReport, RecoveryScanner, SecretVec};
+use revault_lockbox_api::{Lockbox, LockboxOpen, TransactionRecoveryProgress};
 use revault_vault_api::{get as get_cached_content_key, VaultDirectory};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -14,6 +15,9 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
 }
 
 fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
+    if options.transaction {
+        return recover_transaction(&options.lockbox_path, access);
+    }
     if options.dry_run {
         let report = scan_report(&options.lockbox_path, access)?;
         print_report(&report, options.format)?;
@@ -59,6 +63,7 @@ struct RecoverOptions {
     output: Option<String>,
     overwrite: bool,
     dry_run: bool,
+    transaction: bool,
     format: OutputFormat,
 }
 
@@ -83,8 +88,72 @@ impl RecoverOptions {
             output,
             overwrite,
             dry_run,
+            transaction: matches.get_flag("transaction"),
             format: output_format_from_matches(matches)?,
         })
+    }
+}
+
+fn recover_transaction(lockbox_path: &str, access: &Access) -> CliResult<()> {
+    let path = Path::new(lockbox_path);
+    let status =
+        Lockbox::inspect_transaction_recovery(path, transaction_open(lockbox_path, access)?)?;
+    if let Some(status) = status {
+        eprintln!(
+            "Selected transaction {} cleanup: {}/{} pages, {}/{} ranges, {} / {} bytes (safe to interrupt and resume)",
+            status.transaction_sequence,
+            status.completed_pages,
+            status.page_count,
+            status.completed_ranges,
+            status.range_count,
+            status.completed_bytes,
+            status.total_bytes,
+        );
+    }
+    let mut last_percent = None;
+    let recovered =
+        Lockbox::recover_transaction(path, transaction_open(lockbox_path, access)?, |progress| {
+            print_transaction_progress(progress, &mut last_percent);
+        })?;
+    if recovered {
+        eprintln!("Transaction recovery complete: {lockbox_path}");
+    } else {
+        eprintln!("No transaction recovery is required: {lockbox_path}");
+    }
+    Ok(())
+}
+
+fn transaction_open<'a>(lockbox_path: &str, access: &'a Access) -> CliResult<LockboxOpen<'a>> {
+    match access {
+        Access::ContentKey(key) => Ok(LockboxOpen::ContentKey(key.try_clone()?)),
+        Access::CacheOnly => Ok(LockboxOpen::ContentKey(cached_key(lockbox_path)?)),
+        Access::PromptPassword => Err(Error::InvalidInput(
+            "transaction recovery requires --key or an open lockbox".to_string(),
+        )
+        .into()),
+    }
+}
+
+fn print_transaction_progress(
+    progress: TransactionRecoveryProgress,
+    last_percent: &mut Option<u32>,
+) {
+    let percent = if progress.total_bytes == 0 {
+        100
+    } else {
+        ((progress.completed_bytes.saturating_mul(100) / progress.total_bytes).min(100)) as u32
+    };
+    if *last_percent != Some(percent) && (percent == 100 || percent % 5 == 0) {
+        eprintln!(
+            "Transaction recovery: {percent}% ({}/{} pages, {}/{} ranges, {} / {} bytes; safe to interrupt)",
+            progress.completed_pages,
+            progress.total_pages,
+            progress.completed_ranges,
+            progress.total_ranges,
+            progress.completed_bytes,
+            progress.total_bytes,
+        );
+        *last_percent = Some(percent);
     }
 }
 

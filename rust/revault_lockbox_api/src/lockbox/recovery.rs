@@ -11,6 +11,7 @@ use crate::file_format::{
     decode_toc_node, read_header,
 };
 use crate::form_btree::{decode_form_node_secure, FormEntryValue, FormNode};
+use crate::key_directory::{best_key_directory, scan_key_directories};
 use crate::lockbox_id::LockboxId;
 use crate::node_kind::NodeKind;
 use crate::page::PageObjectKind;
@@ -717,9 +718,18 @@ fn recovered_len_from_chunks(entry: &TocEntry) -> Result<u64> {
 }
 
 fn lockbox_id_from_bytes_unchecked(bytes: &[u8]) -> LockboxId {
-    bytes
-        .get(40..56)
+    if let Ok(header) = read_header(bytes) {
+        return header.lockbox_id;
+    }
+    if let Some(directory) = best_key_directory(scan_key_directories(bytes, None)) {
+        return directory.lockbox_id;
+    }
+    if let Some(id) = bytes
+        .get(56..72)
         .and_then(|bytes| bytes.try_into().ok())
         .map(LockboxId::from_bytes)
-        .unwrap_or_else(|| LockboxId::from_bytes([0; 16]))
+    {
+        return id;
+    }
+    LockboxId::from_bytes([0; 16])
 }

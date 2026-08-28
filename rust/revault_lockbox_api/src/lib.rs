@@ -70,8 +70,8 @@ pub(crate) use file_format::{
 pub(crate) use keys::{crypto, key_derivation, key_slot, key_wrap, secret_vec, signing};
 pub(crate) use model::{
     compression_frame_manifest, entry, extract_policy, file_chunk, form, list_options, lockbox_id,
-    node_kind, page_object_packer, record, recovery_report, recovery_report_options, variable_name,
-    variable_sensitivity,
+    node_kind, page_object_packer, record, recovery_report, recovery_report_options,
+    transaction_recovery, variable_name, variable_sensitivity,
 };
 pub(crate) use paths::{host_path, lockbox_path};
 pub(crate) use storage::{cache_options, file_lock, free_index, free_slot, page_cache};
@@ -81,7 +81,7 @@ pub use cache_options::{CacheLimit, CacheStats, LockboxOptions, WorkerPolicy, Wo
 pub use entry::{LockboxEntry, LockboxEntryKind};
 pub use error::{ArtifactKind, Error, Result};
 pub use extract_policy::ExtractPolicy;
-pub use file_format::header::{probe_lockbox_format_version, LOCKBOX_FORMAT_VERSION};
+pub use file_format::current_header::{probe_lockbox_format_version, LOCKBOX_FORMAT_VERSION};
 #[doc(hidden)]
 pub use file_lock::{lock_path_for, FileLockScope, ScopedFileLock};
 pub use form::{
@@ -106,5 +106,22 @@ pub use recovery_report::RecoveryReport;
 pub use recovery_report_options::RecoveryReportOptions;
 pub use secret_vec::{SecretString, SecretVec};
 pub use signing::{OwnerSigningKeyPair, OwnerSigningPublicKey};
+pub use transaction_recovery::{
+    TransactionRecoveryControl, TransactionRecoveryOutcome, TransactionRecoveryPhase,
+    TransactionRecoveryProgress, TransactionRecoveryStatus,
+};
 pub use variable_name::{VariableName, VariableNamePattern};
 pub use variable_sensitivity::VariableSensitivity;
+
+/// Maximum physical ranges scheduled by one crash-recoverable redaction transaction.
+pub const MAX_TRANSACTION_REDACTION_RANGES: usize =
+    file_format::redaction_manifest::MAX_REDACTION_RANGES;
+/// Maximum object references retained by the in-memory redaction scheduler.
+pub const MAX_TRANSACTION_REDACTION_OBJECT_IDS: usize =
+    file_format::redaction_manifest::MAX_REDACTION_OBJECT_IDS;
+/// Maximum encrypted manifest payload bytes for one transaction.
+pub const MAX_TRANSACTION_REDACTION_MANIFEST_BYTES: usize =
+    file_format::redaction_manifest::MAX_REDACTION_MANIFEST_PAYLOAD_BYTES;
+/// Maximum total physical bytes redacted by one transaction.
+pub const MAX_TRANSACTION_REDACTION_BYTES: u64 =
+    file_format::redaction_manifest::MAX_REDACTION_TOTAL_BYTES;

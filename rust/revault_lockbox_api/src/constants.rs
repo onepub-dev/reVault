@@ -1,5 +1,4 @@
-pub(crate) const HEADER_MAGIC: &[u8; 8] = b"LBX1HDR\0";
-pub(crate) const HEADER_LEN: usize = 96;
+pub(crate) const HEADER_LEN: usize = 320;
 pub(crate) const MAX_PATH_BYTES: usize = 4096;
 pub(crate) const MAX_COMPONENT_BYTES: usize = 255;
 pub(crate) const MAX_PATH_DEPTH: usize = 64;

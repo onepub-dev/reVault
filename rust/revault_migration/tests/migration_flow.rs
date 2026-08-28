@@ -1,8 +1,14 @@
 use revault_lockbox_api::{
-    ContactKeyPair, FormFieldDefinition, FormFieldKind, FormTypeId, ListOptions, Lockbox,
-    LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretString,
+    ContactKeyPair, FormTypeId, ListOptions, Lockbox, LockboxOpen, LockboxPath,
+    OwnerSigningKeyPair, SecretString,
 };
-use revault_lockbox_api_v1::{ContactKeyPair as V1ContactKeyPair, SecretString as V1SecretString};
+use revault_lockbox_api_v1::{
+    FormFieldDefinition as V1FormFieldDefinition, FormFieldKind as V1FormFieldKind,
+    FormTypeId as V1FormTypeId, Lockbox as V1Lockbox, LockboxPath as V1LockboxPath,
+    LockboxProtection as V1LockboxProtection, OwnerSigningKeyPair as V1OwnerSigningKeyPair,
+    SecretString as V1SecretString,
+};
+use revault_lockbox_api_vault_v1::ContactKeyPair as V1ContactKeyPair;
 use revault_migrate_archive_v1::export_archive_v1;
 use revault_migrate_vault_v1::export_vault_v1;
 use revault_migration::{
@@ -115,10 +121,11 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
     let upgraded = temp.path().join("archive.latest.migration");
     let output = temp.path().join("imported.lbox");
     let password = secret("archive password");
-    let signing = OwnerSigningKeyPair::generate().unwrap();
+    let v1_password = V1SecretString::try_from_slice(b"archive password").unwrap();
+    let signing = V1OwnerSigningKeyPair::generate().unwrap();
     let mut source =
-        Lockbox::create_in_memory(LockboxProtection::Password(&password), &signing).unwrap();
-    let path = LockboxPath::new("/large.bin").unwrap();
+        V1Lockbox::create_in_memory(V1LockboxProtection::Password(&v1_password), &signing).unwrap();
+    let path = V1LockboxPath::new("/large.bin").unwrap();
     let mut input = PatternReader {
         remaining: 12 * 1024 * 1024 + 137,
         position: 0,
@@ -126,21 +133,21 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
     source
         .add_file_from_reader(&path, &mut input, false)
         .unwrap();
-    let form_type = FormTypeId::new("12345678-1234-1234-1234-123456789abc").unwrap();
+    let form_type = V1FormTypeId::new("12345678-1234-1234-1234-123456789abc").unwrap();
     source
         .define_form_with_type_id(
             form_type.clone(),
             "migration",
             "Migration form v1",
-            vec![FormFieldDefinition {
+            vec![V1FormFieldDefinition {
                 id: "username".into(),
                 label: "Original label".into(),
-                kind: FormFieldKind::Text,
+                kind: V1FormFieldKind::Text,
                 required: true,
             }],
         )
         .unwrap();
-    let form_path = LockboxPath::new("/login.form").unwrap();
+    let form_path = V1LockboxPath::new("/login.form").unwrap();
     source
         .create_form_record(&form_path, "migration", "Login")
         .unwrap();
@@ -152,10 +159,10 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
             &form_type,
             "Migration form v2",
             "new revision",
-            vec![FormFieldDefinition {
+            vec![V1FormFieldDefinition {
                 id: "username".into(),
                 label: "Changed label".into(),
-                kind: FormFieldKind::Text,
+                kind: V1FormFieldKind::Text,
                 required: true,
             }],
         )
@@ -181,11 +188,16 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
         .unwrap()
         .collect::<revault_lockbox_api::Result<Vec<_>>>()
         .unwrap();
+    let imported_path = LockboxPath::new(path.as_str()).unwrap();
     assert_eq!(
-        entries.iter().find(|entry| entry.path == path).unwrap().len,
+        entries
+            .iter()
+            .find(|entry| entry.path == imported_path)
+            .unwrap()
+            .len,
         12 * 1024 * 1024 + 137
     );
-    let mut reader = imported.open_file(&path).unwrap();
+    let mut reader = imported.open_file(&imported_path).unwrap();
     let mut bytes = [0u8; 4096];
     let read = reader.read(&mut bytes).unwrap();
     assert_eq!(read, bytes.len());
@@ -193,9 +205,16 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
         .iter()
         .enumerate()
         .all(|(index, byte)| *byte == (index % 251) as u8));
-    let revisions = imported.list_form_definition_revisions(&form_type).unwrap();
+    let imported_form_type = FormTypeId::new(form_type.as_str()).unwrap();
+    let revisions = imported
+        .list_form_definition_revisions(&imported_form_type)
+        .unwrap();
     assert_eq!(revisions.len(), 2);
-    let form = imported.get_form_record(&form_path).unwrap().unwrap();
+    let imported_form_path = LockboxPath::new(form_path.as_str()).unwrap();
+    let form = imported
+        .get_form_record(&imported_form_path)
+        .unwrap()
+        .unwrap();
     assert_eq!(form.definition_revision, 1);
     assert_eq!(form.values[0].captured_label, "Original label");
 }

@@ -3,13 +3,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::marker::PhantomData;
 use std::path::Path;
 
-use crate::checked::read_u32_le;
 use crate::commit_auth::{commit_auth_digest, commit_auth_message, decode_commit_auth, CommitAuth};
 use crate::commit_root::decode_commit_root;
 use crate::compression_frame_manifest::CompressionFrameSlice;
 use crate::constants::HEADER_LEN;
 use crate::fast_hash::FastBuildHasher;
 use crate::file_chunk::PendingFileChunk;
+use crate::file_format::redaction_manifest::{
+    decode_page as decode_redaction_manifest_page, RedactionManifestPage,
+};
 use crate::file_format::{
     decode_toc_node, read_header, write_header, TocInternal, TocLeaf, TocNode, TocTreeNode,
 };
@@ -17,15 +19,13 @@ use crate::form_btree::{FormLeaf, FormTreeNode};
 use crate::free_index::{decode_free_index_internal, decode_free_index_leaf};
 use crate::free_slot::{FreeSlot, FreeSpace};
 use crate::key_directory::{
-    best_key_directory, decode_key_directory_decoded_page, scan_key_directories,
-    DecodedKeyDirectory,
+    best_key_directory, decode_key_directory_decoded_page, DecodedKeyDirectory,
 };
 use crate::key_slot::{KeySlot, LockboxKeySlot};
 use crate::lockbox_id::LockboxId;
 use crate::lockbox_path::LockboxPath;
 use crate::page::{
-    page_size_for_encoded_objects, page_size_for_objects, physical_page_size_from_page_slice,
-    DecodedPage, PageObject, PageObjectKind, DEFAULT_METADATA_PAGE_BYTES, PAGE_MAGIC,
+    page_size_for_encoded_objects, page_size_for_objects, DecodedPage, PageObject, PageObjectKind,
 };
 use crate::page_cache::{PageCache, PageReadKey, PageSecurity, PageWritePolicy};
 use crate::record::{DecodedRecord, RecordHeader, RecordKind};
@@ -36,7 +36,8 @@ use crate::toc_entry::TocEntry;
 use crate::variable_btree::{VariableLeaf, VariableTreeNode, VariableValue};
 use crate::{
     CacheStats, Error, FormDefinition, FormRecord, LockboxOptions, RecoveryReport, Result,
-    VariableName, WorkerPolicy, WorkloadProfile,
+    TransactionRecoveryPhase, TransactionRecoveryProgress, TransactionRecoveryStatus, VariableName,
+    WorkerPolicy, WorkloadProfile,
 };
 use zeroize::{Zeroize, Zeroizing};
 
@@ -155,13 +156,20 @@ impl WritableLockboxState for Writable {}
 ///
 /// A `Lockbox` owns the encrypted storage backend plus the decrypted metadata
 /// needed to make changes. Mutations are staged in memory until `commit()` is
-/// called; reopening a lockbox after an interrupted commit returns the last
-/// published state.
+/// called. If termination interrupts cleanup after publication, normal opens
+/// return [`Error::RecoveryRequired`] until the explicit recovery API safely
+/// completes the authenticated redaction manifest.
 #[derive(Debug)]
 pub struct Lockbox<State = Writable> {
     storage: StorageBackend,
     key: SecretVec,
     sequence: u64,
+    header_slot: usize,
+    header_generation: u64,
+    cleanup_sequence: u64,
+    cleanup_completed_ranges: u32,
+    cleanup_completed_pages: u32,
+    cleanup_completed_bytes: u64,
     commit_root_offset: u64,
     commit_auth_offset: u64,
     commit_auth_digest: [u8; 32],
@@ -169,6 +177,10 @@ pub struct Lockbox<State = Writable> {
     variable_root_offset: u64,
     form_root_offset: u64,
     free_index_offset: u64,
+    post_cleanup_free_index_offset: u64,
+    redaction_manifest_offset: u64,
+    redaction_range_count: u32,
+    redaction_total_bytes: u64,
     key_directory_offset: u64,
     key_directory_mirror_offset: u64,
     key_directory_generation: u64,
@@ -200,21 +212,108 @@ pub struct Lockbox<State = Writable> {
     free_space: FreeSpace,
     record_ref_counts: std::collections::HashMap<u64, usize, FastBuildHasher>,
     pending_redactions: BTreeMap<u64, PendingRedaction>,
+    pending_redaction_object_count: usize,
     redacted_free_slots: Vec<FreeSlot>,
     pending_small_files: BTreeMap<LockboxPath, PendingFileChunk>,
     pending_small_file_bytes: usize,
     pending_symlinks: BTreeMap<LockboxPath, LockboxPath>,
     mirror_mutation_root: Option<LockboxPath>,
     needs_packing: bool,
+    access_widening_pending: bool,
     state: PhantomData<State>,
 }
 
 impl<State> Lockbox<State> {
+    pub(crate) fn require_clean_transaction(&self) -> Result<()> {
+        if let Some(status) = self.transaction_recovery_status() {
+            return Err(Error::RecoveryRequired {
+                transaction_sequence: status.transaction_sequence,
+                range_count: status.range_count,
+                completed_ranges: status.completed_ranges,
+                page_count: status.page_count,
+                completed_pages: status.completed_pages,
+                total_bytes: status.total_bytes,
+                completed_bytes: status.completed_bytes,
+            });
+        }
+        Ok(())
+    }
+
+    pub(crate) fn require_clean_access_widening(&self) -> Result<()> {
+        self.require_clean_transaction()?;
+        if self.sequence == 0 && self.commit_root_offset == 0 {
+            return Ok(());
+        }
+        if self.dirty_key_directory
+            || !self.dirty_toc_paths.is_empty()
+            || self.dirty_variables
+            || self.dirty_forms
+            || self.has_dirty_pages()
+            || !self.pending_redactions.is_empty()
+            || !self.redacted_free_slots.is_empty()
+            || !self.pending_small_files.is_empty()
+            || !self.pending_symlinks.is_empty()
+            || self.needs_packing
+        {
+            return Err(Error::InvalidOperation(
+                "adding a recipient requires a clean, sealed archive and a separate transaction"
+                    .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Report durable redaction cleanup required by the published transaction.
+    pub fn transaction_recovery_status(&self) -> Option<TransactionRecoveryStatus> {
+        (self.cleanup_sequence < self.sequence && self.redaction_manifest_offset != 0).then_some(
+            TransactionRecoveryStatus {
+                transaction_sequence: self.sequence,
+                cleanup_sequence: self.cleanup_sequence,
+                phase: TransactionRecoveryPhase::Cleanup,
+                range_count: self.redaction_range_count,
+                completed_ranges: self.cleanup_completed_ranges,
+                page_count: self
+                    .redaction_range_count
+                    .div_ceil(crate::file_format::redaction_manifest::RANGES_PER_PAGE as u32),
+                completed_pages: self.cleanup_completed_pages,
+                total_bytes: self.redaction_total_bytes,
+                completed_bytes: self.cleanup_completed_bytes,
+            },
+        )
+    }
+
+    fn read_redaction_manifest_page_at(&self, offset: u64) -> Result<RedactionManifestPage> {
+        let decoded = self.read_page(offset)?;
+        if decoded.sequence != self.sequence {
+            return Err(Error::CorruptRecord);
+        }
+        let Some(object) = decoded
+            .objects
+            .iter()
+            .find(|object| object.kind == PageObjectKind::RedactionManifest)
+        else {
+            return Err(Error::CorruptRecord);
+        };
+        let page = object.with_payload(decode_redaction_manifest_page)??;
+        if page.transaction_sequence != self.sequence
+            || page.total_range_count != self.redaction_range_count
+        {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(page)
+    }
+
     pub(crate) fn try_clone(&self) -> Result<Self> {
         Ok(Self {
             storage: self.storage.clone(),
             key: self.key.try_clone()?,
             sequence: self.sequence,
+            header_slot: self.header_slot,
+            header_generation: self.header_generation,
+            cleanup_sequence: self.cleanup_sequence,
+            cleanup_completed_ranges: self.cleanup_completed_ranges,
+            cleanup_completed_pages: self.cleanup_completed_pages,
+            cleanup_completed_bytes: self.cleanup_completed_bytes,
             commit_root_offset: self.commit_root_offset,
             commit_auth_offset: self.commit_auth_offset,
             commit_auth_digest: self.commit_auth_digest,
@@ -222,6 +321,10 @@ impl<State> Lockbox<State> {
             variable_root_offset: self.variable_root_offset,
             form_root_offset: self.form_root_offset,
             free_index_offset: self.free_index_offset,
+            post_cleanup_free_index_offset: self.post_cleanup_free_index_offset,
+            redaction_manifest_offset: self.redaction_manifest_offset,
+            redaction_range_count: self.redaction_range_count,
+            redaction_total_bytes: self.redaction_total_bytes,
             key_directory_offset: self.key_directory_offset,
             key_directory_mirror_offset: self.key_directory_mirror_offset,
             key_directory_generation: self.key_directory_generation,
@@ -257,12 +360,14 @@ impl<State> Lockbox<State> {
             free_space: self.free_space.clone(),
             record_ref_counts: self.record_ref_counts.clone(),
             pending_redactions: self.pending_redactions.clone(),
+            pending_redaction_object_count: self.pending_redaction_object_count,
             redacted_free_slots: self.redacted_free_slots.clone(),
             pending_small_files: self.pending_small_files.clone(),
             pending_small_file_bytes: self.pending_small_file_bytes,
             pending_symlinks: self.pending_symlinks.clone(),
             mirror_mutation_root: self.mirror_mutation_root.clone(),
             needs_packing: self.needs_packing,
+            access_widening_pending: self.access_widening_pending,
             state: PhantomData,
         })
     }
@@ -272,6 +377,12 @@ impl<State> Lockbox<State> {
             storage,
             key,
             sequence,
+            header_slot,
+            header_generation,
+            cleanup_sequence,
+            cleanup_completed_ranges,
+            cleanup_completed_pages,
+            cleanup_completed_bytes,
             commit_root_offset,
             commit_auth_offset,
             commit_auth_digest,
@@ -279,6 +390,10 @@ impl<State> Lockbox<State> {
             variable_root_offset,
             form_root_offset,
             free_index_offset,
+            post_cleanup_free_index_offset,
+            redaction_manifest_offset,
+            redaction_range_count,
+            redaction_total_bytes,
             key_directory_offset,
             key_directory_mirror_offset,
             key_directory_generation,
@@ -310,18 +425,26 @@ impl<State> Lockbox<State> {
             free_space,
             record_ref_counts,
             pending_redactions,
+            pending_redaction_object_count,
             redacted_free_slots,
             pending_small_files,
             pending_small_file_bytes,
             pending_symlinks,
             mirror_mutation_root,
             needs_packing,
+            access_widening_pending,
             state: _,
         } = self;
         Lockbox {
             storage,
             key,
             sequence,
+            header_slot,
+            header_generation,
+            cleanup_sequence,
+            cleanup_completed_ranges,
+            cleanup_completed_pages,
+            cleanup_completed_bytes,
             commit_root_offset,
             commit_auth_offset,
             commit_auth_digest,
@@ -329,6 +452,10 @@ impl<State> Lockbox<State> {
             variable_root_offset,
             form_root_offset,
             free_index_offset,
+            post_cleanup_free_index_offset,
+            redaction_manifest_offset,
+            redaction_range_count,
+            redaction_total_bytes,
             key_directory_offset,
             key_directory_mirror_offset,
             key_directory_generation,
@@ -360,18 +487,128 @@ impl<State> Lockbox<State> {
             free_space,
             record_ref_counts,
             pending_redactions,
+            pending_redaction_object_count,
             redacted_free_slots,
             pending_small_files,
             pending_small_file_bytes,
             pending_symlinks,
             mirror_mutation_root,
             needs_packing,
+            access_widening_pending,
             state: PhantomData,
         }
     }
 }
 
 impl Lockbox<Writable> {
+    pub(crate) fn cleanup_published_redactions(
+        &mut self,
+        mut progress: impl FnMut(TransactionRecoveryProgress),
+    ) -> Result<()> {
+        self.cleanup_published_redactions_controlled(|update| {
+            progress(update);
+            crate::TransactionRecoveryControl::Continue
+        })?;
+        Ok(())
+    }
+
+    pub(crate) fn cleanup_published_redactions_controlled(
+        &mut self,
+        mut progress: impl FnMut(TransactionRecoveryProgress) -> crate::TransactionRecoveryControl,
+    ) -> Result<bool> {
+        let Some(status) = self.transaction_recovery_status() else {
+            return Ok(true);
+        };
+        if self.post_cleanup_free_index_offset == 0 {
+            return Err(Error::CorruptRecord);
+        }
+        let post_cleanup_slots =
+            self.read_free_index_slots(self.post_cleanup_free_index_offset, 0)?;
+        let mut post_cleanup_space = FreeSpace::default();
+        post_cleanup_space.replace_slots(post_cleanup_slots);
+        let storage_len = self.storage.len()?;
+        let zeroes = [0u8; 64 * 1024];
+        let mut offset = self.redaction_manifest_offset;
+        let mut completed_ranges = 0u32;
+        let mut completed_bytes = 0u64;
+        let mut manifest_pages = 0usize;
+        while offset != 0 {
+            manifest_pages += 1;
+            if manifest_pages > crate::file_format::redaction_manifest::MAX_REDACTION_PAGES {
+                return Err(Error::CorruptRecord);
+            }
+            let page = self.read_redaction_manifest_page_at(offset)?;
+            let skip_page = manifest_pages <= status.completed_pages as usize;
+            for range in &page.ranges {
+                if self.free_space.overlaps(*range) || !post_cleanup_space.contains(*range) {
+                    return Err(Error::CorruptRecord);
+                }
+                let end = range
+                    .offset
+                    .checked_add(range.len)
+                    .filter(|end| *end <= storage_len && range.offset >= HEADER_LEN as u64)
+                    .ok_or(Error::CorruptRecord)?;
+                if !skip_page {
+                    let mut cursor = range.offset;
+                    while cursor < end {
+                        let len = usize::try_from((end - cursor).min(zeroes.len() as u64))
+                            .map_err(|_| Error::CorruptRecord)?;
+                        self.storage.write_at(cursor, &zeroes[..len])?;
+                        cursor += len as u64;
+                    }
+                }
+                completed_ranges = completed_ranges
+                    .checked_add(1)
+                    .ok_or(Error::CorruptRecord)?;
+                completed_bytes = completed_bytes
+                    .checked_add(range.len)
+                    .ok_or(Error::CorruptRecord)?;
+                if completed_ranges > status.range_count || completed_bytes > status.total_bytes {
+                    return Err(Error::CorruptRecord);
+                }
+                if completed_bytes
+                    > crate::file_format::redaction_manifest::MAX_REDACTION_TOTAL_BYTES
+                {
+                    return Err(Error::CorruptRecord);
+                }
+            }
+            offset = page.next_page_offset;
+            if skip_page {
+                if manifest_pages == status.completed_pages as usize
+                    && (completed_ranges != status.completed_ranges
+                        || completed_bytes != status.completed_bytes)
+                {
+                    return Err(Error::CorruptHeader);
+                }
+                continue;
+            }
+            self.storage.sync()?;
+            self.cleanup_completed_ranges = completed_ranges;
+            self.cleanup_completed_pages = manifest_pages as u32;
+            self.cleanup_completed_bytes = completed_bytes;
+            self.publish_transaction_header(self.cleanup_sequence)?;
+            let control = progress(TransactionRecoveryProgress {
+                phase: TransactionRecoveryPhase::Cleanup,
+                completed_ranges,
+                total_ranges: status.range_count,
+                completed_pages: self.cleanup_completed_pages,
+                total_pages: status.page_count,
+                completed_bytes,
+                total_bytes: status.total_bytes,
+            });
+            if control == crate::TransactionRecoveryControl::Cancel {
+                return Ok(false);
+            }
+        }
+        if completed_ranges != status.range_count
+            || completed_bytes != status.total_bytes
+            || manifest_pages != status.page_count as usize
+        {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(true)
+    }
+
     #[cfg(any(test, feature = "bindings", feature = "migration"))]
     /// Creates an uncommitted, in-memory lockbox from a raw content key.
     ///
@@ -433,6 +670,12 @@ impl Lockbox<Writable> {
             storage: StorageBackend::memory(bytes),
             key,
             sequence: 0,
+            header_slot: 0,
+            header_generation: 1,
+            cleanup_sequence: 0,
+            cleanup_completed_ranges: 0,
+            cleanup_completed_pages: 0,
+            cleanup_completed_bytes: 0,
             commit_root_offset: 0,
             commit_auth_offset: 0,
             commit_auth_digest: [0; 32],
@@ -440,6 +683,10 @@ impl Lockbox<Writable> {
             variable_root_offset: 0,
             form_root_offset: 0,
             free_index_offset: 0,
+            post_cleanup_free_index_offset: 0,
+            redaction_manifest_offset: 0,
+            redaction_range_count: 0,
+            redaction_total_bytes: 0,
             key_directory_offset: 0,
             key_directory_mirror_offset: 0,
             key_directory_generation: 0,
@@ -471,12 +718,14 @@ impl Lockbox<Writable> {
             free_space: FreeSpace::default(),
             record_ref_counts: std::collections::HashMap::with_hasher(FastBuildHasher::default()),
             pending_redactions: BTreeMap::new(),
+            pending_redaction_object_count: 0,
             redacted_free_slots: Vec::new(),
             pending_small_files: BTreeMap::new(),
             pending_small_file_bytes: 0,
             pending_symlinks: BTreeMap::new(),
             mirror_mutation_root: None,
             needs_packing: false,
+            access_widening_pending: false,
             state: PhantomData,
         }
     }
@@ -522,39 +771,81 @@ impl Lockbox<Writable> {
         key: SecretVec,
         options: LockboxOptions,
     ) -> Result<Self> {
+        Self::open_storage_with_secret_key_mode(storage, key, options, false)
+    }
+
+    pub(crate) fn open_storage_with_secret_key_mode(
+        storage: StorageBackend,
+        key: SecretVec,
+        options: LockboxOptions,
+        allow_recovery: bool,
+    ) -> Result<Self> {
         let header = storage.read_at(0, HEADER_LEN)?;
         let header_result = read_header(&header);
-        let scanned_key_directory = if header_result.is_err() {
-            let all_bytes = storage.read_all()?;
-            best_key_directory(scan_key_directories(&all_bytes, None))
-        } else {
-            None
-        };
+        let scanned_key_directory: Option<DecodedKeyDirectory> = None;
         let (
             header_root_offset,
             header_auth_offset,
             sequence,
+            header_slot,
+            header_generation,
+            cleanup_sequence,
+            cleanup_completed_ranges,
+            cleanup_completed_pages,
+            cleanup_completed_bytes,
+            header_metadata_auth_tag,
             header_key_directory_offset,
+            header_key_directory_mirror_offset,
             lockbox_id,
         ) = match header_result {
             Ok(header) => (
                 header.commit_root_offset,
                 header.commit_auth_offset,
                 header.sequence,
+                header.slot_index,
+                header.generation,
+                header.cleanup_sequence,
+                header.cleanup_completed_ranges,
+                header.cleanup_completed_pages,
+                header.cleanup_completed_bytes,
+                header.metadata_auth_tag,
                 header.key_directory_offset,
+                header.key_directory_mirror_offset,
                 header.lockbox_id,
             ),
-            Err(_) => {
-                let Some(key_directory) = scanned_key_directory.as_ref() else {
-                    return Err(Error::CorruptHeader);
-                };
-                (0, 0, 0, key_directory.offset, key_directory.lockbox_id)
-            }
+            Err(error) => return Err(error),
         };
+        if sequence > 0 {
+            let publication = crate::file_format::header_v2::Publication {
+                generation: header_generation,
+                commit_root_offset: header_root_offset,
+                sequence,
+                key_directory_offset: header_key_directory_offset,
+                key_directory_mirror_offset: header_key_directory_mirror_offset,
+                lockbox_id,
+                commit_auth_offset: header_auth_offset,
+                cleanup_sequence,
+                cleanup_completed_ranges,
+                cleanup_completed_pages,
+                cleanup_completed_bytes,
+                metadata_auth_tag: header_metadata_auth_tag,
+            };
+            let message = crate::file_format::header_v2::metadata_auth_message(publication);
+            let expected = key.with_bytes(|key| crate::crypto::metadata_auth_tag(key, &message))?;
+            if expected != header_metadata_auth_tag {
+                return Err(Error::CorruptHeader);
+            }
+        }
         let mut lockbox = Self {
             storage,
             key,
             sequence,
+            header_slot,
+            header_generation,
+            cleanup_sequence,
+            cleanup_completed_ranges,
+            cleanup_completed_pages,
+            cleanup_completed_bytes,
             commit_root_offset: 0,
             commit_auth_offset: 0,
             commit_auth_digest: [0; 32],
@@ -562,8 +853,12 @@ impl Lockbox<Writable> {
             variable_root_offset: 0,
             form_root_offset: 0,
             free_index_offset: 0,
+            post_cleanup_free_index_offset: 0,
+            redaction_manifest_offset: 0,
+            redaction_range_count: 0,
+            redaction_total_bytes: 0,
             key_directory_offset: header_key_directory_offset,
-            key_directory_mirror_offset: 0,
+            key_directory_mirror_offset: header_key_directory_mirror_offset,
             key_directory_generation: 0,
             dirty_key_directory: false,
             lockbox_id,
@@ -593,12 +888,14 @@ impl Lockbox<Writable> {
             free_space: FreeSpace::default(),
             record_ref_counts: std::collections::HashMap::with_hasher(FastBuildHasher::default()),
             pending_redactions: BTreeMap::new(),
+            pending_redaction_object_count: 0,
             redacted_free_slots: Vec::new(),
             pending_small_files: BTreeMap::new(),
             pending_small_file_bytes: 0,
             pending_symlinks: BTreeMap::new(),
             mirror_mutation_root: None,
             needs_packing: false,
+            access_widening_pending: false,
             state: PhantomData,
         };
 
@@ -609,6 +906,12 @@ impl Lockbox<Writable> {
             else {
                 return Err(Error::CorruptRecord);
             };
+            if auth_offset != header_auth_offset
+                || auth.commit_root_offset != header_root_offset
+                || commit_root.sequence != sequence
+            {
+                return Err(Error::CorruptRecord);
+            }
             lockbox.commit_auth_offset = auth_offset;
             lockbox.commit_auth_digest = auth_digest;
             lockbox.commit_root_offset = auth.commit_root_offset;
@@ -617,6 +920,14 @@ impl Lockbox<Writable> {
             lockbox.key_directory_mirror_offset = commit_root.key_directory_mirror_offset;
             lockbox.key_directory_generation = commit_root.key_directory_generation;
             lockbox.free_index_offset = commit_root.free_index_root_offset;
+            lockbox.post_cleanup_free_index_offset =
+                commit_root.post_cleanup_free_index_root_offset;
+            lockbox.redaction_manifest_offset = commit_root.redaction_manifest_offset;
+            lockbox.redaction_range_count = commit_root
+                .redaction_range_count
+                .try_into()
+                .map_err(|_| Error::CorruptRecord)?;
+            lockbox.redaction_total_bytes = commit_root.redaction_total_bytes;
             lockbox.variable_root_offset = commit_root.variable_root_offset;
             lockbox.form_root_offset = commit_root.form_root_offset;
             toc_root_offset = commit_root.toc_root_offset;
@@ -627,12 +938,7 @@ impl Lockbox<Writable> {
                     commit_root
                 }
                 Err(_) => {
-                    let Some((offset, commit_root)) = lockbox.find_latest_valid_commit_root()?
-                    else {
-                        return Err(Error::CorruptHeader);
-                    };
-                    lockbox.commit_root_offset = offset;
-                    commit_root
+                    return Err(Error::CorruptHeader);
                 }
             };
             lockbox.sequence = commit_root.sequence;
@@ -640,16 +946,14 @@ impl Lockbox<Writable> {
             lockbox.key_directory_mirror_offset = commit_root.key_directory_mirror_offset;
             lockbox.key_directory_generation = commit_root.key_directory_generation;
             lockbox.free_index_offset = commit_root.free_index_root_offset;
-            lockbox.variable_root_offset = commit_root.variable_root_offset;
-            lockbox.form_root_offset = commit_root.form_root_offset;
-            toc_root_offset = commit_root.toc_root_offset;
-        } else if let Some((offset, commit_root)) = lockbox.find_latest_valid_commit_root()? {
-            lockbox.commit_root_offset = offset;
-            lockbox.sequence = commit_root.sequence;
-            lockbox.key_directory_offset = commit_root.key_directory_offset;
-            lockbox.key_directory_mirror_offset = commit_root.key_directory_mirror_offset;
-            lockbox.key_directory_generation = commit_root.key_directory_generation;
-            lockbox.free_index_offset = commit_root.free_index_root_offset;
+            lockbox.post_cleanup_free_index_offset =
+                commit_root.post_cleanup_free_index_root_offset;
+            lockbox.redaction_manifest_offset = commit_root.redaction_manifest_offset;
+            lockbox.redaction_range_count = commit_root
+                .redaction_range_count
+                .try_into()
+                .map_err(|_| Error::CorruptRecord)?;
+            lockbox.redaction_total_bytes = commit_root.redaction_total_bytes;
             lockbox.variable_root_offset = commit_root.variable_root_offset;
             lockbox.form_root_offset = commit_root.form_root_offset;
             toc_root_offset = commit_root.toc_root_offset;
@@ -669,11 +973,42 @@ impl Lockbox<Writable> {
             lockbox.toc_root = Some(root);
             lockbox.toc_leaves = leaves;
             lockbox.rebuild_record_ref_counts();
+            let total_cleanup_pages = lockbox
+                .redaction_range_count
+                .div_ceil(crate::file_format::redaction_manifest::RANGES_PER_PAGE as u32);
+            if lockbox.cleanup_sequence > lockbox.sequence
+                || lockbox.cleanup_completed_ranges > lockbox.redaction_range_count
+                || lockbox.cleanup_completed_pages > total_cleanup_pages
+                || lockbox.cleanup_completed_bytes > lockbox.redaction_total_bytes
+                || (lockbox.cleanup_completed_pages == 0
+                    && (lockbox.cleanup_completed_ranges != 0
+                        || lockbox.cleanup_completed_bytes != 0))
+            {
+                return Err(Error::CorruptHeader);
+            }
+            if lockbox.cleanup_sequence >= lockbox.sequence
+                && lockbox.post_cleanup_free_index_offset != 0
+            {
+                lockbox.free_index_offset = lockbox.post_cleanup_free_index_offset;
+            }
             if lockbox.free_index_offset > 0 {
                 let slots = lockbox.read_free_index_slots(lockbox.free_index_offset, 0)?;
                 lockbox.free_space.replace_slots(slots);
             } else {
                 lockbox.rebuild_free_slots_from_toc();
+            }
+            if !allow_recovery {
+                if let Some(status) = lockbox.transaction_recovery_status() {
+                    return Err(Error::RecoveryRequired {
+                        transaction_sequence: status.transaction_sequence,
+                        range_count: status.range_count,
+                        completed_ranges: status.completed_ranges,
+                        page_count: status.page_count,
+                        completed_pages: status.completed_pages,
+                        total_bytes: status.total_bytes,
+                        completed_bytes: status.completed_bytes,
+                    });
+                }
             }
             Ok(lockbox)
         } else {
@@ -1125,12 +1460,40 @@ impl<State> Lockbox<State> {
     pub(crate) fn free_entry_slots(&mut self, entry: TocEntry) -> Result<()> {
         self.rewrite_shared_compression_frames_before_removal(&entry)?;
         for record in self.entry_record_refs(&entry)? {
-            self.schedule_page_object_redaction(record.offset, record.len, record.object_id);
+            self.schedule_page_object_redaction(record.offset, record.len, record.object_id)?;
         }
         Ok(())
     }
 
-    pub(crate) fn schedule_page_object_redaction(&mut self, offset: u64, len: u64, object_id: u64) {
+    pub(crate) fn schedule_page_object_redaction(
+        &mut self,
+        offset: u64,
+        len: u64,
+        object_id: u64,
+    ) -> Result<()> {
+        let new_range = !self.pending_redactions.contains_key(&offset);
+        let new_object = self
+            .pending_redactions
+            .get(&offset)
+            .is_none_or(|redaction| !redaction.object_ids.contains(&object_id));
+        if new_range
+            && self.pending_redactions.len()
+                >= crate::file_format::redaction_manifest::MAX_REDACTION_RANGES
+        {
+            return Err(Error::SecurityLimitExceeded(format!(
+                "a transaction may schedule at most {} redaction ranges",
+                crate::file_format::redaction_manifest::MAX_REDACTION_RANGES
+            )));
+        }
+        if new_object
+            && self.pending_redaction_object_count
+                >= crate::file_format::redaction_manifest::MAX_REDACTION_OBJECT_IDS
+        {
+            return Err(Error::SecurityLimitExceeded(format!(
+                "a transaction may schedule at most {} redacted objects",
+                crate::file_format::redaction_manifest::MAX_REDACTION_OBJECT_IDS
+            )));
+        }
         let redaction = self
             .pending_redactions
             .entry(offset)
@@ -1139,11 +1502,15 @@ impl<State> Lockbox<State> {
                 object_ids: BTreeSet::new(),
             });
         redaction.len = len;
-        redaction.object_ids.insert(object_id);
+        if redaction.object_ids.insert(object_id) {
+            self.pending_redaction_object_count += 1;
+        }
+        Ok(())
     }
 
     pub(crate) fn apply_pending_redactions(&mut self) -> Result<()> {
         let pending = std::mem::take(&mut self.pending_redactions);
+        self.pending_redaction_object_count = 0;
         for (offset, redaction) in pending {
             let count = self
                 .record_ref_counts
@@ -1220,9 +1587,6 @@ impl<State> Lockbox<State> {
             Error::SecurityLimitExceeded("page length exceeds addressable memory".to_string())
         })?;
         if slot.offset.saturating_add(slot.len) <= self.storage.len()? {
-            self.page_manager
-                .borrow_mut()
-                .stage_zeroed_page(slot.offset, slot.len);
             self.redacted_free_slots.push(slot);
         }
         Ok(())
@@ -1426,43 +1790,6 @@ impl<State> Lockbox<State> {
         commit_root_object.with_payload(decode_commit_root)?
     }
 
-    fn find_latest_valid_commit_root(
-        &self,
-    ) -> Result<Option<(u64, crate::commit_root::CommitRoot)>> {
-        let mut best = None;
-        let mut offset = HEADER_LEN as u64;
-        let len = self.storage.len()?;
-        while offset + crate::page::PAGE_HEADER_LEN as u64 <= len {
-            let magic = self.storage.read_at(offset, 8)?;
-            if magic.as_slice() == PAGE_MAGIC {
-                let Ok(header) = self.storage.read_at(offset, crate::page::PAGE_HEADER_LEN) else {
-                    break;
-                };
-                let stored_body_len = read_u32_le(&header[44..48])? as u64;
-                let stored_len = crate::page::PAGE_HEADER_LEN as u64 + stored_body_len;
-                if offset + stored_len > len {
-                    break;
-                }
-                let page_bytes = self.storage.read_at(offset, stored_len as usize)?;
-                let page_size = physical_page_size_from_page_slice(&page_bytes)
-                    .unwrap_or(DEFAULT_METADATA_PAGE_BYTES);
-                if let Ok(commit_root) = self.read_commit_root_at(offset) {
-                    if best.as_ref().is_none_or(
-                        |(_, existing): &(u64, crate::commit_root::CommitRoot)| {
-                            commit_root.sequence > existing.sequence
-                        },
-                    ) {
-                        best = Some((offset, commit_root));
-                    }
-                    offset += page_size as u64;
-                    continue;
-                }
-            }
-            offset += 1;
-        }
-        Ok(best)
-    }
-
     fn read_free_index_slots(&self, offset: u64, depth: usize) -> Result<Vec<FreeSlot>> {
         if depth > 8 {
             return Err(Error::CorruptRecord);
@@ -1562,7 +1889,8 @@ fn record_kind_from_object_kind(kind: PageObjectKind) -> Result<RecordKind> {
         | PageObjectKind::VariableLeaf
         | PageObjectKind::VariableInternal
         | PageObjectKind::FormLeaf
-        | PageObjectKind::FormInternal => Err(Error::CorruptRecord),
+        | PageObjectKind::FormInternal
+        | PageObjectKind::RedactionManifest => Err(Error::CorruptRecord),
     }
 }
 

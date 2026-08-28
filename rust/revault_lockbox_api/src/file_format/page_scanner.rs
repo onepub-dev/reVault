@@ -169,6 +169,7 @@ fn record_kind_from_page_object(kind: PageObjectKind) -> Result<RecordKind> {
         | PageObjectKind::VariableLeaf
         | PageObjectKind::VariableInternal
         | PageObjectKind::FormLeaf
-        | PageObjectKind::FormInternal => return Err(Error::CorruptRecord),
+        | PageObjectKind::FormInternal
+        | PageObjectKind::RedactionManifest => return Err(Error::CorruptRecord),
     })
 }

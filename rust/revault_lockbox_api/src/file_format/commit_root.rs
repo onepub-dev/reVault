@@ -1,7 +1,8 @@
 use crate::checked::read_u64_le;
 use crate::{Error, Result};
 
-const COMMIT_ROOT_VERSION: u8 = 1;
+const COMMIT_ROOT_VERSION_V1: u8 = 1;
+const COMMIT_ROOT_VERSION_V2: u8 = 2;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CommitRoot {
@@ -10,16 +11,28 @@ pub(crate) struct CommitRoot {
     pub(crate) variable_root_offset: u64,
     pub(crate) form_root_offset: u64,
     pub(crate) free_index_root_offset: u64,
+    pub(crate) post_cleanup_free_index_root_offset: u64,
     pub(crate) key_directory_offset: u64,
     pub(crate) key_directory_mirror_offset: u64,
     pub(crate) key_directory_generation: u64,
     pub(crate) previous_commit_root_offset: u64,
+    pub(crate) redaction_manifest_offset: u64,
+    pub(crate) redaction_range_count: u64,
+    pub(crate) redaction_total_bytes: u64,
     pub(crate) flags: u64,
 }
 
 pub(crate) fn encode_commit_root(root: &CommitRoot) -> Vec<u8> {
-    let mut out = Vec::with_capacity(1 + 7 + 8 * 10);
-    out.push(COMMIT_ROOT_VERSION);
+    let has_manifest = root.redaction_manifest_offset != 0
+        || root.redaction_range_count != 0
+        || root.redaction_total_bytes != 0;
+    let field_count = if has_manifest { 14 } else { 10 };
+    let mut out = Vec::with_capacity(1 + 7 + 8 * field_count);
+    out.push(if has_manifest {
+        COMMIT_ROOT_VERSION_V2
+    } else {
+        COMMIT_ROOT_VERSION_V1
+    });
     out.extend_from_slice(&[0; 7]);
     out.extend_from_slice(&root.sequence.to_le_bytes());
     out.extend_from_slice(&root.toc_root_offset.to_le_bytes());
@@ -30,12 +43,23 @@ pub(crate) fn encode_commit_root(root: &CommitRoot) -> Vec<u8> {
     out.extend_from_slice(&root.key_directory_mirror_offset.to_le_bytes());
     out.extend_from_slice(&root.key_directory_generation.to_le_bytes());
     out.extend_from_slice(&root.previous_commit_root_offset.to_le_bytes());
+    if has_manifest {
+        out.extend_from_slice(&root.post_cleanup_free_index_root_offset.to_le_bytes());
+        out.extend_from_slice(&root.redaction_manifest_offset.to_le_bytes());
+        out.extend_from_slice(&root.redaction_range_count.to_le_bytes());
+        out.extend_from_slice(&root.redaction_total_bytes.to_le_bytes());
+    }
     out.extend_from_slice(&root.flags.to_le_bytes());
     out
 }
 
 pub(crate) fn decode_commit_root(payload: &[u8]) -> Result<CommitRoot> {
-    if payload.len() != 1 + 7 + 8 * 10 || payload[0] != COMMIT_ROOT_VERSION {
+    let field_count = match payload.first().copied() {
+        Some(COMMIT_ROOT_VERSION_V1) => 10,
+        Some(COMMIT_ROOT_VERSION_V2) => 14,
+        _ => return Err(Error::CorruptRecord),
+    };
+    if payload.len() != 1 + 7 + 8 * field_count {
         return Err(Error::CorruptRecord);
     }
     if payload[1..8].iter().any(|byte| *byte != 0) {
@@ -51,6 +75,21 @@ pub(crate) fn decode_commit_root(payload: &[u8]) -> Result<CommitRoot> {
     let key_directory_mirror_offset = read_u64(payload, &mut offset)?;
     let key_directory_generation = read_u64(payload, &mut offset)?;
     let previous_commit_root_offset = read_u64(payload, &mut offset)?;
+    let (
+        post_cleanup_free_index_root_offset,
+        redaction_manifest_offset,
+        redaction_range_count,
+        redaction_total_bytes,
+    ) = if payload[0] == COMMIT_ROOT_VERSION_V2 {
+        (
+            read_u64(payload, &mut offset)?,
+            read_u64(payload, &mut offset)?,
+            read_u64(payload, &mut offset)?,
+            read_u64(payload, &mut offset)?,
+        )
+    } else {
+        (0, 0, 0, 0)
+    };
     let flags = read_u64(payload, &mut offset)?;
     if toc_root_offset == 0 {
         return Err(Error::CorruptRecord);
@@ -61,10 +100,14 @@ pub(crate) fn decode_commit_root(payload: &[u8]) -> Result<CommitRoot> {
         variable_root_offset,
         form_root_offset,
         free_index_root_offset,
+        post_cleanup_free_index_root_offset,
         key_directory_offset,
         key_directory_mirror_offset,
         key_directory_generation,
         previous_commit_root_offset,
+        redaction_manifest_offset,
+        redaction_range_count,
+        redaction_total_bytes,
         flags,
     })
 }
@@ -87,10 +130,14 @@ mod tests {
             variable_root_offset: 150,
             form_root_offset: 175,
             free_index_root_offset: 200,
+            post_cleanup_free_index_root_offset: 0,
             key_directory_offset: 300,
             key_directory_mirror_offset: 301,
             key_directory_generation: 10,
             previous_commit_root_offset: 400,
+            redaction_manifest_offset: 0,
+            redaction_range_count: 0,
+            redaction_total_bytes: 0,
             flags: 0,
         };
 
@@ -108,15 +155,19 @@ mod tests {
             variable_root_offset: 0x2122_2324_2526_2728,
             form_root_offset: 0x3132_3334_3536_3738,
             free_index_root_offset: 0x4142_4344_4546_4748,
+            post_cleanup_free_index_root_offset: 0,
             key_directory_offset: 0x5152_5354_5556_5758,
             key_directory_mirror_offset: 0x6162_6364_6566_6768,
             key_directory_generation: 0x7172_7374_7576_7778,
             previous_commit_root_offset: 0x8182_8384_8586_8788,
+            redaction_manifest_offset: 0,
+            redaction_range_count: 0,
+            redaction_total_bytes: 0,
             flags: 0x9192_9394_9596_9798,
         };
         let encoded = encode_commit_root(&root);
 
-        assert_eq!(encoded[0], COMMIT_ROOT_VERSION);
+        assert_eq!(encoded[0], COMMIT_ROOT_VERSION_V1);
         assert_eq!(
             &encoded[8..16],
             &[0x08, 0x07, 0x06, 0x05, 0x04, 0x03, 0x02, 0x01]
@@ -168,10 +219,14 @@ mod tests {
             variable_root_offset: 0,
             form_root_offset: 0,
             free_index_root_offset: 0,
+            post_cleanup_free_index_root_offset: 0,
             key_directory_offset: 0,
             key_directory_mirror_offset: 0,
             key_directory_generation: 0,
             previous_commit_root_offset: 0,
+            redaction_manifest_offset: 0,
+            redaction_range_count: 0,
+            redaction_total_bytes: 0,
             flags: 0,
         };
 

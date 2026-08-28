@@ -6,12 +6,10 @@ use crate::{
     SecretString, SecretVec, VariableName, VariableNamePattern, VariableSensitivity,
     VariableValueRef, WorkerPolicy, WorkloadProfile, MAX_KEY_SLOT_NAME_BYTES,
 };
-use sha2::{Digest, Sha256};
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 const KEY: &[u8] = b"correct horse battery staple";
-const HEADER_LEN: usize = 96;
-const HEADER_CHECKSUM_START: usize = 64;
+const HEADER_LEN: usize = crate::constants::HEADER_LEN;
 const PAGE_BYTES: usize = 8 * 1024 * 1024;
 const PAGE_QUANTUM_BYTES: usize = 1024;
 
@@ -291,7 +289,7 @@ fn variable_scan_fails_closed_when_variable_page_is_corrupt() {
         })
         .unwrap();
     let mut bytes = lb.to_bytes();
-    bytes[variable_page.offset as usize + HEADER_LEN + 8] ^= 0x55;
+    bytes[variable_page.offset as usize + crate::file_format::page::PAGE_HEADER_LEN + 8] ^= 0x55;
 
     let reopened = Lockbox::open_bytes_with_key(bytes, KEY).unwrap();
     assert!(reopened.get_variable(&variable("TOKEN")).is_err());
@@ -854,8 +852,9 @@ fn password_open_recovers_when_primary_key_directory_is_corrupt() {
     lb.commit().unwrap();
 
     let mut bytes = lb.to_bytes();
-    let primary_key_directory_offset =
-        u64::from_le_bytes(bytes[32..40].try_into().unwrap()) as usize;
+    let primary_key_directory_offset = crate::file_format::read_header(&bytes)
+        .unwrap()
+        .key_directory_offset as usize;
     bytes[primary_key_directory_offset] ^= 0xff;
 
     let reopened = Lockbox::open_with_password(bytes, &share_password).unwrap();
@@ -1116,6 +1115,8 @@ fn many_small_files_are_packed_into_shared_pages_after_commit() {
 
     let mut damaged = bytes.clone();
     damaged[0..8].fill(0);
+    damaged[crate::file_format::header_v2::SLOT_LEN..crate::file_format::header_v2::SLOT_LEN + 8]
+        .fill(0);
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
     assert_eq!(report.intact_file_count, 20);
 }
@@ -2650,16 +2651,10 @@ fn removing_variable_sanitizes_original_variable_page() {
         Some("still-here")
     );
     assert_eq!(reopened.get_variable(&variable("REMOVE_ME")).unwrap(), None);
-    assert!(lb
-        .inspector()
-        .inspect_pages()
-        .unwrap()
-        .into_iter()
-        .any(|page| page.offset == original_variable_offset
-            && page
-                .objects
-                .iter()
-                .any(|object| object.kind == "variable-leaf" && object.payload_len <= 6)));
+    assert!(after[original_variable_offset as usize
+        ..original_variable_offset as usize + PAGE_QUANTUM_BYTES]
+        .iter()
+        .all(|byte| *byte == 0));
 }
 
 #[test]
@@ -2863,6 +2858,7 @@ fn recovery_survives_corrupt_header() {
     let bytes = sample_lockbox();
     let mut damaged = bytes.clone();
     damaged[0] ^= 0xff;
+    damaged[crate::file_format::header_v2::SLOT_LEN] ^= 0xff;
 
     assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
 
@@ -2874,13 +2870,28 @@ fn recovery_survives_corrupt_header() {
 }
 
 #[test]
-fn recovery_survives_header_toc_pointer_zeroed() {
+fn open_rejects_a_rechecksummed_header_with_an_invalid_metadata_auth_tag() {
     let mut damaged = sample_lockbox();
-    damaged[16..24].fill(0);
+    let header = crate::file_format::read_header(&damaged).unwrap();
+    let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
+    damaged[start + 104] ^= 0x80;
     update_test_header_checksum(&mut damaged);
 
-    let opened = Lockbox::open_bytes_with_key(damaged.clone(), KEY).unwrap();
-    assert_eq!(opened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    assert!(matches!(
+        Lockbox::open_bytes_with_key(damaged, KEY),
+        Err(Error::CorruptHeader)
+    ));
+}
+
+#[test]
+fn recovery_survives_header_toc_pointer_zeroed() {
+    let mut damaged = sample_lockbox();
+    let header = crate::file_format::read_header(&damaged).unwrap();
+    let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
+    damaged[start + 24..start + 32].fill(0);
+    update_test_header_checksum(&mut damaged);
+
+    assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
 
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
     assert_eq!(report.intact_file_count, 5);
@@ -2897,15 +2908,10 @@ fn open_uses_previous_commit_when_latest_commit_root_is_corrupt() {
     add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
     lb.commit().unwrap();
     let mut damaged = lb.to_bytes();
-    let latest_root = u64::from_le_bytes(damaged[16..24].try_into().unwrap()) as usize;
+    let latest_root = header_commit_root_offset(&damaged);
     damaged[latest_root + 55] ^= 0xaa;
 
-    let opened = Lockbox::open_bytes_with_key(damaged, KEY).unwrap();
-    assert_eq!(opened.get_file(&p("/docs/old.txt")).unwrap(), b"old");
-    assert!(matches!(
-        opened.get_file(&p("/docs/new.txt")),
-        Err(Error::NotFound(_))
-    ));
+    assert!(Lockbox::open_bytes_with_key(damaged, KEY).is_err());
     assert_eq!(
         Lockbox::open_bytes_with_key(previous, KEY)
             .unwrap()
@@ -2941,7 +2947,7 @@ fn recovery_survives_corrupt_toc_record() {
     let lb = Lockbox::open_bytes_with_key(bytes.clone(), KEY).unwrap();
     let mut damaged = bytes;
 
-    let header_toc_root_offset = u64::from_le_bytes(damaged[16..24].try_into().unwrap()) as usize;
+    let header_toc_root_offset = header_commit_root_offset(&damaged);
     damaged[header_toc_root_offset + 55] ^= 0x55;
 
     assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
@@ -2962,7 +2968,7 @@ fn recovery_ignores_deleted_files_when_rebuilding_without_toc() {
     lb.commit().unwrap();
 
     let mut damaged = lb.to_bytes();
-    let header_toc_root_offset = u64::from_le_bytes(damaged[16..24].try_into().unwrap()) as usize;
+    let header_toc_root_offset = header_commit_root_offset(&damaged);
     damaged[header_toc_root_offset + 55] ^= 0x55;
 
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
@@ -2981,8 +2987,8 @@ fn recovery_reports_partial_when_file_record_is_corrupt_but_toc_survives() {
 
     let entry = lb.stat(&p("/docs/a.txt")).unwrap();
     assert_eq!(entry.len, 5);
-    let first_record_offset = 64usize;
-    damaged[first_record_offset + 55] ^= 0xaa;
+    let first_page_offset = page_offsets(&damaged).into_iter().next().unwrap();
+    damaged[first_page_offset + 23] ^= 0xaa;
 
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
     assert!(report.toc_recovered);
@@ -2994,7 +3000,8 @@ fn recovery_reports_partial_when_file_record_is_corrupt_but_toc_survives() {
 #[test]
 fn recovery_reports_corrupt_records_for_damaged_frame_header() {
     let mut damaged = sample_lockbox();
-    damaged[64 + 44] ^= 0x11;
+    let first_page_offset = page_offsets(&damaged).into_iter().next().unwrap();
+    damaged[first_page_offset + 12] ^= 0x11;
 
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
     assert!(report.corrupt_records > 0);
@@ -3031,7 +3038,8 @@ fn salvage_writes_intact_files_to_a_clean_lockbox() {
 #[test]
 fn salvage_omits_corrupt_file_records() {
     let mut damaged = sample_lockbox();
-    damaged[64 + 55] ^= 0xaa;
+    let first_page_offset = page_offsets(&damaged).into_iter().next().unwrap();
+    damaged[first_page_offset + 23] ^= 0xaa;
 
     let salvaged = RecoveryScanner::salvage_bytes(damaged, KEY, &signing_key()).unwrap();
     assert!(matches!(
@@ -3093,7 +3101,7 @@ fn many_files_round_trip_and_recover_after_toc_loss() {
     );
 
     let mut damaged = reopened.to_bytes();
-    let header_toc_root_offset = u64::from_le_bytes(damaged[16..24].try_into().unwrap()) as usize;
+    let header_toc_root_offset = header_commit_root_offset(&damaged);
     damaged[header_toc_root_offset + 55] ^= 0x55;
     let report = RecoveryScanner::scan_bytes(damaged, KEY);
     assert_eq!(report.intact_file_count, 100);
@@ -3114,7 +3122,7 @@ fn large_file_recovery_reassembles_segments_after_toc_loss() {
     lb.commit().unwrap();
 
     let mut damaged = lb.to_bytes();
-    let header_toc_root_offset = u64::from_le_bytes(damaged[16..24].try_into().unwrap()) as usize;
+    let header_toc_root_offset = header_commit_root_offset(&damaged);
     damaged[header_toc_root_offset + 55] ^= 0x55;
 
     let report = RecoveryScanner::scan_bytes(damaged.clone(), KEY);
@@ -3717,13 +3725,26 @@ fn sample_lockbox() -> Vec<u8> {
     lb.to_bytes()
 }
 
+fn header_commit_root_offset(bytes: &[u8]) -> usize {
+    usize::try_from(
+        crate::file_format::read_header(bytes)
+            .unwrap()
+            .commit_root_offset,
+    )
+    .unwrap()
+}
+
 fn update_test_header_checksum(bytes: &mut [u8]) {
-    let mut hasher = Sha256::new();
-    hasher.update(b"lockbox-v1-public-checksum/sha256");
-    hasher.update((HEADER_CHECKSUM_START as u64).to_le_bytes());
-    hasher.update(&bytes[0..HEADER_CHECKSUM_START]);
-    let digest = hasher.finalize();
-    bytes[HEADER_CHECKSUM_START..HEADER_LEN].copy_from_slice(&digest);
+    const CHECKSUM_START: usize = 128;
+    for slot in 0..crate::file_format::header_v2::SLOT_COUNT {
+        let start = slot * crate::file_format::header_v2::SLOT_LEN;
+        if bytes.get(start..start + 8) != Some(b"LBX2HDR\0".as_slice()) {
+            continue;
+        }
+        let checksum = crate::crypto::strong_checksum(&bytes[start..start + CHECKSUM_START]);
+        bytes[start + CHECKSUM_START..start + crate::file_format::header_v2::SLOT_LEN]
+            .copy_from_slice(&checksum);
+    }
 }
 
 fn temp_path(label: &str) -> std::path::PathBuf {

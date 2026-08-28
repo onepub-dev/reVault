@@ -24,6 +24,27 @@ impl ArtifactKind {
 pub enum Error {
     /// The public header could not be parsed or authenticated.
     CorruptHeader,
+    /// A published transaction requires explicit, authenticated cleanup.
+    RecoveryRequired {
+        /// Published transaction that owns the cleanup manifest.
+        transaction_sequence: u64,
+        /// Number of redaction ranges still requiring cleanup.
+        range_count: u32,
+        /// Number of ranges durably completed.
+        completed_ranges: u32,
+        /// Number of manifest pages requiring cleanup.
+        page_count: u32,
+        /// Number of manifest pages durably completed.
+        completed_pages: u32,
+        /// Number of bytes still requiring cleanup.
+        total_bytes: u64,
+        /// Number of bytes durably completed.
+        completed_bytes: u64,
+    },
+    /// Another process or thread currently owns the exclusive recovery handle.
+    RecoveryInProgress(String),
+    /// Recovery is required but cannot currently obtain writable storage.
+    RecoveryBlocked(String),
     /// A valid artifact uses a native format this build cannot read.
     UnsupportedFormatVersion {
         /// Kind of persisted artifact that was probed.
@@ -73,6 +94,15 @@ impl Error {
         match self {
             Error::CorruptHeader => {
                 "Verify this is a lockbox file, then try recovery if the file may be damaged."
+            }
+            Error::RecoveryRequired { .. } => {
+                "Run `lbx <path> recover --transaction` with the same credentials before reading or changing the archive."
+            }
+            Error::RecoveryInProgress(_) => {
+                "Wait for the active recovery process to finish, then inspect recovery state again."
+            }
+            Error::RecoveryBlocked(_) => {
+                "Restore write access to the lockbox storage, then resume explicit transaction recovery."
             }
             Error::UnsupportedFormatVersion { artifact, .. } => match artifact {
                 ArtifactKind::Lockbox => {
@@ -144,6 +174,24 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Error::CorruptHeader => write!(f, "corrupt lockbox header"),
+            Error::RecoveryRequired {
+                transaction_sequence,
+                range_count,
+                completed_ranges,
+                page_count,
+                completed_pages,
+                total_bytes,
+                completed_bytes,
+            } => write!(
+                f,
+                "lockbox transaction {transaction_sequence} requires recovery ({completed_pages}/{page_count} pages, {completed_ranges}/{range_count} ranges, {completed_bytes}/{total_bytes} bytes)"
+            ),
+            Error::RecoveryInProgress(message) => {
+                write!(f, "lockbox transaction recovery is already in progress: {message}")
+            }
+            Error::RecoveryBlocked(message) => {
+                write!(f, "lockbox transaction recovery is blocked: {message}")
+            }
             Error::UnsupportedFormatVersion {
                 artifact,
                 found,

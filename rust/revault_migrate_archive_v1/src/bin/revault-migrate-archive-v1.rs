@@ -1,4 +1,4 @@
-use revault_lockbox_api::{Lockbox, LockboxOpen, ReadOnly, SecretString};
+use revault_lockbox_api_v1::{Lockbox, LockboxOpen, ReadOnly, SecretString};
 use revault_migrate_archive_v1::export_archive_v1;
 use revault_vault_api::{local_vault, VaultDirectory};
 use sha2::{Digest, Sha256};

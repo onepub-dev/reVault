@@ -1,4 +1,4 @@
-use revault_lockbox_api::{
+use revault_lockbox_api_v1::{
     FormDefinition, FormFieldKind, FormValue, ListOptions, Lockbox, LockboxEntryKind, LockboxPath,
     VariableSensitivity, LOCKBOX_FORMAT_VERSION,
 };
@@ -205,7 +205,7 @@ fn form_kind_name(value: FormFieldKind) -> &'static str {
     }
 }
 
-fn secret_bytes(value: &revault_lockbox_api::SecretVec) -> Result<Vec<u8>> {
+fn secret_bytes(value: &revault_lockbox_api_v1::SecretVec) -> Result<Vec<u8>> {
     value.with_bytes(|bytes| bytes.to_vec()).map_err(core_error)
 }
 

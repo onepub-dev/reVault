@@ -47,6 +47,7 @@ pub(crate) enum PageObjectKind {
     FormLeaf = 15,
     FormInternal = 16,
     CommitAuth = 17,
+    RedactionManifest = 18,
 }
 
 pub(crate) fn page_size_for_objects(objects: &[PageObject]) -> usize {
@@ -161,6 +162,7 @@ impl PageObjectKind {
             15 => Ok(Self::FormLeaf),
             16 => Ok(Self::FormInternal),
             17 => Ok(Self::CommitAuth),
+            18 => Ok(Self::RedactionManifest),
             _ => Err(Error::CorruptRecord),
         }
     }
@@ -892,7 +894,8 @@ fn record_kind_from_object_kind(kind: PageObjectKind) -> Option<RecordKind> {
         | PageObjectKind::VariableLeaf
         | PageObjectKind::VariableInternal
         | PageObjectKind::FormLeaf
-        | PageObjectKind::FormInternal => None,
+        | PageObjectKind::FormInternal
+        | PageObjectKind::RedactionManifest => None,
     }
 }
 
@@ -915,6 +918,7 @@ fn page_object_kind_name(kind: PageObjectKind) -> &'static str {
         PageObjectKind::VariableInternal => "variable-internal",
         PageObjectKind::FormLeaf => "form-leaf",
         PageObjectKind::FormInternal => "form-internal",
+        PageObjectKind::RedactionManifest => "redaction-manifest",
     }
 }
 

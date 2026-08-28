@@ -18,6 +18,8 @@ pub enum FileLockScope {
     Lockbox,
     /// Lock protects a local vault directory.
     Vault,
+    /// Lock exclusively owns mandatory transaction recovery.
+    Recovery,
 }
 
 impl FileLockScope {
@@ -25,6 +27,7 @@ impl FileLockScope {
         match self {
             Self::Lockbox => "lockbox",
             Self::Vault => "vault",
+            Self::Recovery => "transaction recovery",
         }
     }
 }
@@ -275,13 +278,18 @@ fn timeout_error(
     timeout: Duration,
     owner: Option<&str>,
 ) -> Error {
-    Error::LockUnavailable(format!(
+    let message = format!(
         "{} {} is locked{}; timed out after {}s",
         scope.as_str(),
         target.display(),
         owner.unwrap_or(""),
         timeout.as_secs()
-    ))
+    );
+    if scope == FileLockScope::Recovery {
+        Error::RecoveryInProgress(message)
+    } else {
+        Error::LockUnavailable(message)
+    }
 }
 
 fn metadata_value<'a>(text: &'a str, key: &str) -> Option<&'a str> {

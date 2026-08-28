@@ -1,4 +1,4 @@
-use revault_lockbox_api::{
+use revault_lockbox_api_v1::{
     ContactKeyPair, Lockbox, LockboxOpen, LockboxPath, LockboxProtection, OwnerSigningKeyPair,
     SecretString,
 };

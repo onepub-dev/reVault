@@ -14,9 +14,12 @@ name = "revault_lockbox_api"
 path = "src/lib.rs"
 
 [features]
+default = ["issue303-protocol"]
 vault-integration = []
 bindings = []
 migration = []
+# Compatibility feature name: format-v2 is unconditional in the core.
+issue303-protocol = []
 native-zstd-encoder = ["dep:zstd"]
 
 [dependencies]
@@ -25,6 +28,7 @@ chacha20poly1305 = "0.11"
 ed25519-dalek = "3"
 getrandom = "0.4"
 hkdf = "0.13"
+hmac = "0.13"
 revault_page_api = { version = "0.0.4", path = "../revault_page_api" }
 ml-dsa = { version = "0.1", features = ["getrandom"] }
 ml-kem = { version = "0.3.2", features = ["getrandom"] }

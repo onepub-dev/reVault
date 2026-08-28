@@ -5,7 +5,6 @@ use crate::key_directory::encode_key_directory;
 use crate::key_directory::read_key_directory;
 #[cfg(feature = "vault-integration")]
 use crate::key_directory::read_key_directory_backup;
-use crate::key_directory::{best_key_directory, scan_key_directories};
 use crate::key_slot::{next_key_slot_id, random_content_key, random_salt, KeySlot, LockboxKeySlot};
 use crate::key_wrap::{ContactKeyPair, ContactPublicKey};
 use crate::lockbox_id::LockboxId;
@@ -13,6 +12,10 @@ use crate::secret_vec::{SecretString, SecretVec};
 use crate::signing::OwnerSigningKeyPair;
 use crate::storage::{Storage, StorageBackend};
 use crate::{Error, LockboxEntryKind, LockboxOptions, ReadOnly, Result};
+use crate::{
+    TransactionRecoveryControl, TransactionRecoveryOutcome, TransactionRecoveryProgress,
+    TransactionRecoveryStatus,
+};
 use std::fs;
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
@@ -406,6 +409,56 @@ impl Lockbox {
         Ok(lockbox)
     }
 
+    /// Complete idempotent redaction cleanup for an interrupted published transaction.
+    pub fn recover_transaction(
+        path: &Path,
+        open: LockboxOpen<'_>,
+        mut progress: impl FnMut(TransactionRecoveryProgress),
+    ) -> Result<bool> {
+        Ok(
+            match Self::recover_transaction_controlled(path, open, |update| {
+                progress(update);
+                TransactionRecoveryControl::Continue
+            })? {
+                TransactionRecoveryOutcome::NotRequired => false,
+                TransactionRecoveryOutcome::Complete => true,
+                TransactionRecoveryOutcome::Cancelled(_) => unreachable!("continue never cancels"),
+            },
+        )
+    }
+
+    /// Inspect authenticated recovery state without beginning cleanup.
+    pub fn inspect_transaction_recovery(
+        path: &Path,
+        open: LockboxOpen<'_>,
+    ) -> Result<Option<TransactionRecoveryStatus>> {
+        let storage = StorageBackend::file(path)?;
+        let lockbox = Self::open_locked_storage_mode(storage, open, true)?;
+        Ok(lockbox.transaction_recovery_status())
+    }
+
+    /// Resume cleanup with cancellation at durable manifest-page checkpoints.
+    pub fn recover_transaction_controlled(
+        path: &Path,
+        open: LockboxOpen<'_>,
+        progress: impl FnMut(TransactionRecoveryProgress) -> TransactionRecoveryControl,
+    ) -> Result<TransactionRecoveryOutcome> {
+        let storage = StorageBackend::file_for_recovery(path)?;
+        let mut lockbox = Self::open_locked_storage_mode(storage, open, true)?;
+        if lockbox.transaction_recovery_status().is_none() {
+            return Ok(TransactionRecoveryOutcome::NotRequired);
+        }
+        if !lockbox.cleanup_published_redactions_controlled(progress)? {
+            return Ok(TransactionRecoveryOutcome::Cancelled(
+                lockbox
+                    .transaction_recovery_status()
+                    .ok_or(Error::CorruptHeader)?,
+            ));
+        }
+        lockbox.publish_transaction_header(lockbox.sequence)?;
+        Ok(TransactionRecoveryOutcome::Complete)
+    }
+
     /// Open a lockbox file for mutation after loading its owner signing key.
     ///
     /// This is for lockboxes that store their own owner signing key, such as
@@ -460,17 +513,29 @@ impl Lockbox {
     }
 
     fn open_locked_storage(storage: StorageBackend, open: LockboxOpen<'_>) -> Result<Self> {
+        Self::open_locked_storage_mode(storage, open, false)
+    }
+
+    fn open_locked_storage_mode(
+        storage: StorageBackend,
+        open: LockboxOpen<'_>,
+        allow_recovery: bool,
+    ) -> Result<Self> {
         match open {
-            LockboxOpen::ContentKey(key) => {
-                Self::open_storage_with_secret_key(storage, key, LockboxOptions::default())
-            }
+            LockboxOpen::ContentKey(key) => Self::open_storage_with_secret_key_mode(
+                storage,
+                key,
+                LockboxOptions::default(),
+                allow_recovery,
+            ),
             LockboxOpen::Password(password) => {
                 let bytes = storage.read_all()?;
                 let opened = Self::open_bytes_with_password(&bytes, password)?;
-                let mut lockbox = Self::open_storage_with_secret_key(
+                let mut lockbox = Self::open_storage_with_secret_key_mode(
                     storage,
                     opened.key,
                     LockboxOptions::default(),
+                    allow_recovery,
                 )?;
                 if opened.read_only {
                     lockbox.mark_read_only();
@@ -480,10 +545,11 @@ impl Lockbox {
             LockboxOpen::ContactKeyPair(contact) => {
                 let bytes = storage.read_all()?;
                 let opened = Self::open_bytes_with_contact(&bytes, &contact)?;
-                let mut lockbox = Self::open_storage_with_secret_key(
+                let mut lockbox = Self::open_storage_with_secret_key_mode(
                     storage,
                     opened.key,
                     LockboxOptions::default(),
+                    allow_recovery,
                 )?;
                 if opened.read_only {
                     lockbox.mark_read_only();
@@ -497,7 +563,7 @@ impl Lockbox {
     pub(crate) fn read_lockbox_id(path: &Path) -> Result<LockboxId> {
         let storage = StorageBackend::file(path)?;
         let header = storage.read_at(0, crate::constants::HEADER_LEN)?;
-        crate::file_format::header::read_lockbox_id(&header)
+        crate::file_format::current_header::read_lockbox_id(&header)
     }
 
     #[cfg(any(test, feature = "bindings"))]
@@ -675,6 +741,7 @@ impl Lockbox {
     /// invalid, `Error::InvalidKey` if authenticated key wrapping fails, or
     /// `Error::SecurityLimitExceeded` if secure memory access fails.
     pub fn add_password(&mut self, password: &SecretString) -> Result<u64> {
+        self.require_clean_access_widening()?;
         let id = next_key_slot_id(&self.key_slots);
         let salt = random_salt()?;
         let slot = revault_page_api::read_access(|access| {
@@ -686,6 +753,7 @@ impl Lockbox {
         })???;
         self.key_slots.push(slot);
         self.mark_key_directory_dirty();
+        self.access_widening_pending = self.sequence != 0;
         Ok(id)
     }
 
@@ -701,12 +769,14 @@ impl Lockbox {
     /// Returns `Error::SecurityLimitExceeded` if secure key access or key
     /// wrapping fails.
     pub fn add_contact(&mut self, contact: &ContactPublicKey) -> Result<u64> {
+        self.require_clean_access_widening()?;
         let id = next_key_slot_id(&self.key_slots);
         let slot = self
             .key
             .with_bytes(|content_key| KeySlot::hybrid_contact(id, contact, content_key))??;
         self.key_slots.push(slot);
         self.mark_key_directory_dirty();
+        self.access_widening_pending = self.sequence != 0;
         Ok(id)
     }
 
@@ -741,6 +811,7 @@ impl Lockbox {
     /// `Error::SecurityLimitExceeded` when attempting to remove the last key,
     /// or storage/encoding errors if compaction fails.
     pub fn delete_key(&mut self, id: u64) -> Result<()> {
+        self.require_clean_transaction()?;
         self.remove_key_slot_and_compact(id)
     }
 
@@ -808,6 +879,7 @@ impl Lockbox {
         old_password: &SecretString,
         new_password: &SecretString,
     ) -> Result<u64> {
+        self.require_clean_transaction()?;
         let mut matching_id = None;
         for slot in &self.key_slots {
             if slot.try_password(old_password).is_ok() {
@@ -1218,68 +1290,62 @@ impl Read for FileEntryReader<'_> {
 fn key_directories_from_bytes(
     bytes: &[u8],
 ) -> Result<Vec<crate::key_directory::DecodedKeyDirectory>> {
+    let header = read_header(bytes)?;
     let mut directories = Vec::new();
-    if let Ok(header) = read_header(bytes) {
-        let key_directory_offset = header.key_directory_offset;
-        let lockbox_id = header.lockbox_id;
-        if let Ok(directory) = read_key_directory(bytes, key_directory_offset, Some(lockbox_id)) {
+    for offset in [
+        header.key_directory_offset,
+        header.key_directory_mirror_offset,
+    ] {
+        if offset == 0
+            || directories
+                .iter()
+                .any(|directory: &crate::key_directory::DecodedKeyDirectory| {
+                    directory.offset == offset
+                })
+        {
+            continue;
+        }
+        if let Ok(directory) = read_key_directory(bytes, offset, Some(header.lockbox_id)) {
             directories.push(directory);
         }
-        directories.extend(scan_key_directories(bytes, Some(lockbox_id)));
-    } else {
-        directories.extend(scan_key_directories(bytes, None));
     }
     if directories.is_empty() {
         return Err(Error::CorruptHeader);
     }
-    let Some(best) = best_key_directory(directories.clone()) else {
-        return Err(Error::CorruptHeader);
-    };
-    directories.sort_by_key(|directory| {
-        (
-            std::cmp::Reverse(directory.lockbox_id == best.lockbox_id),
-            std::cmp::Reverse(directory.generation),
-            directory.copy_index,
-        )
-    });
+    directories.sort_by_key(|directory| directory.copy_index);
     Ok(directories)
 }
 
 pub(crate) fn key_directories_from_storage(
     storage: &StorageBackend,
 ) -> Result<Vec<crate::key_directory::DecodedKeyDirectory>> {
-    let header = storage.read_at(0, crate::constants::HEADER_LEN)?;
+    let header_bytes = storage.read_at(0, crate::constants::HEADER_LEN)?;
+    let header = read_header(&header_bytes)?;
     let mut directories = Vec::new();
-    if let Ok(header) = read_header(&header) {
-        let key_directory_offset = header.key_directory_offset;
-        let lockbox_id = header.lockbox_id;
+    for offset in [
+        header.key_directory_offset,
+        header.key_directory_mirror_offset,
+    ] {
+        if offset == 0
+            || directories
+                .iter()
+                .any(|directory: &crate::key_directory::DecodedKeyDirectory| {
+                    directory.offset == offset
+                })
+        {
+            continue;
+        }
         if let Ok(directory) = crate::key_directory::read_key_directory_via_page_cache(
             storage,
-            key_directory_offset,
-            Some(lockbox_id),
+            offset,
+            Some(header.lockbox_id),
         ) {
             directories.push(directory);
         }
-        if directories.is_empty() {
-            let bytes = storage.read_all()?;
-            directories.extend(scan_key_directories(&bytes, Some(lockbox_id)));
-        }
-    } else {
-        let bytes = storage.read_all()?;
-        directories.extend(scan_key_directories(&bytes, None));
     }
     if directories.is_empty() {
         return Err(Error::CorruptHeader);
     }
-    let Some(best) = best_key_directory(directories.clone()) else {
-        return Err(Error::CorruptHeader);
-    };
-    directories.sort_by_key(|directory| {
-        (
-            std::cmp::Reverse(directory.lockbox_id == best.lockbox_id),
-            std::cmp::Reverse(directory.generation),
-            directory.copy_index,
-        )
-    });
+    directories.sort_by_key(|directory| directory.copy_index);
     Ok(directories)
 }

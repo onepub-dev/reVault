@@ -15,58 +15,22 @@ use crate::page_cache::{PageCache, PageReadKey, PageSecurity};
 use crate::storage::StorageBackend;
 use crate::toc_codec::{decode_toc_entries, encode_toc_entries};
 use crate::toc_entry::TocEntry;
-use crate::{CacheLimit, Error, ListOptions, Lockbox, LockboxId, VariableName};
+use crate::{CacheLimit, Error, Lockbox, LockboxId, VariableName};
 
 const FIXTURE_KEY: &[u8] = b"lockbox fixture content key";
 
 #[test]
-fn golden_content_key_basic_lockbox_opens() {
+fn golden_v1_lockbox_requires_external_migration() {
     let bytes = read_fixture("golden/v1/content_key_basic.lbox.hex");
 
-    let reopened = Lockbox::open_bytes_with_key(bytes, FIXTURE_KEY).unwrap();
-
-    assert_eq!(
-        reopened
-            .get_file(&LockboxPath::new("/docs/readme.txt").unwrap())
-            .unwrap(),
-        b"golden fixture readme\n"
-    );
-    assert_eq!(
-        reopened
-            .get_file(&LockboxPath::new("/data/repeated.bin").unwrap())
-            .unwrap(),
-        vec![b'x'; 4096]
-    );
-    assert_eq!(
-        reopened
-            .get_variable(&VariableName::new("FEATURE_FLAG").unwrap())
-            .unwrap()
-            .as_deref(),
-        Some("enabled")
-    );
-    assert_eq!(
-        reopened
-            .get_symlink_target(&LockboxPath::new("/docs/latest.txt").unwrap())
-            .unwrap(),
-        "/docs/readme.txt"
-    );
-
-    let entries = reopened
-        .list(ListOptions {
-            path: LockboxPath::new("/").unwrap(),
-            glob: None,
-            recursive: true,
-            include_files: true,
-            include_symlinks: true,
-            include_directories: true,
-            limit: None,
+    assert!(matches!(
+        Lockbox::open_bytes_with_key(bytes, FIXTURE_KEY),
+        Err(Error::UnsupportedFormatVersion {
+            artifact: crate::ArtifactKind::Lockbox,
+            found: 1,
+            supported: 2,
         })
-        .unwrap()
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-    assert!(entries
-        .iter()
-        .any(|entry| entry.path == "/docs/readme.txt" && entry.permissions == 0o640));
+    ));
 }
 
 #[test]

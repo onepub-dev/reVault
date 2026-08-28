@@ -48,6 +48,10 @@ path = "src/bin/lbx.rs"
 # lockbox harness owns their unit tests; CLI integration still exercises lbx.
 test = false
 
+[features]
+default = ["issue303-protocol"]
+issue303-protocol = ["revault_lockbox_api/issue303-protocol"]
+
 [dependencies]
 clap = { version = "4.6.1", default-features = false, features = [
     "error-context",

@@ -37,6 +37,7 @@ fn bench_small_files(c: &mut Criterion) {
             || vec![b'x'; 1024],
             |payload| {
                 let mut lockbox = new_lockbox();
+                lockbox.create_dir(&p("/tree"), false).unwrap();
                 for i in 0..1000 {
                     lockbox
                         .add_file(&p(format!("/tree/file-{i:06}.bin")), &payload, false)
@@ -145,6 +146,7 @@ fn bench_large_file(c: &mut Criterion) {
     group.bench_function("add_commit_16m_randomish", |b| {
         b.iter(|| {
             let mut lockbox = new_lockbox();
+            lockbox.create_dir(&p("/large"), false).unwrap();
             lockbox
                 .add_file_from_reader(
                     &p("/large/blob.bin"),
@@ -158,6 +160,7 @@ fn bench_large_file(c: &mut Criterion) {
     });
 
     let mut lockbox = new_lockbox();
+    lockbox.create_dir(&p("/large"), false).unwrap();
     lockbox
         .add_file_from_reader(
             &p("/large/blob.bin"),
@@ -184,6 +187,7 @@ fn bench_file_handle_api(c: &mut Criterion) {
     group.sample_size(10);
 
     let mut lockbox = new_lockbox();
+    lockbox.create_dir(&p("/large"), false).unwrap();
     lockbox
         .add_file_from_reader(
             &p("/large/blob.bin"),
@@ -249,6 +253,7 @@ fn bench_file_handle_api(c: &mut Criterion) {
         b.iter_batched(
             || {
                 let mut lockbox = new_lockbox();
+                lockbox.create_dir(&p("/large"), false).unwrap();
                 lockbox
                     .add_file_from_reader(
                         &p("/large/blob.bin"),
@@ -304,6 +309,7 @@ fn bench_append_delete(c: &mut Criterion) {
             || {
                 let payload = vec![b'a'; 2048];
                 let mut lockbox = new_lockbox();
+                lockbox.create_dir(&p("/set"), false).unwrap();
                 for i in 0..1000 {
                     lockbox
                         .add_file(&p(format!("/set/file-{i:06}.bin")), &payload, false)
@@ -396,6 +402,8 @@ fn bench_metadata_operations(c: &mut Criterion) {
         b.iter_batched(
             || {
                 let mut lockbox = new_lockbox();
+                lockbox.create_dir(&p("/large"), false).unwrap();
+                lockbox.create_dir(&p("/archive"), false).unwrap();
                 lockbox
                     .add_file_from_reader(
                         &p("/large/source.bin"),
@@ -473,6 +481,7 @@ fn bench_metadata_operations(c: &mut Criterion) {
         b.iter_batched(
             || {
                 let mut lockbox = new_lockbox();
+                lockbox.create_dir(&p("/large"), false).unwrap();
                 lockbox
                     .add_file_from_reader(
                         &p("/large/blob.bin"),
@@ -501,6 +510,7 @@ fn bench_metadata_operations(c: &mut Criterion) {
 
 fn prepared_forms_lockbox(items: usize) -> BenchLockbox {
     let mut lockbox = new_lockbox();
+    lockbox.create_dir(&p("/forms"), false).unwrap();
     lockbox
         .define_form(
             "login",
@@ -615,6 +625,7 @@ fn bench_secure_string_store(c: &mut Criterion) {
 fn prepared_small_lockbox(files: usize, file_size: usize) -> BenchLockbox {
     let payload = vec![b'x'; file_size];
     let mut lockbox = new_lockbox();
+    lockbox.create_dir(&p("/tree"), false).unwrap();
     for i in 0..files {
         lockbox
             .add_file(&p(format!("/tree/file-{i:06}.bin")), &payload, false)
@@ -670,7 +681,11 @@ impl Drop for BenchLockbox {
 fn add_mixed_tree(lockbox: &mut Lockbox) {
     let tiny = vec![b't'; 512];
     let medium = vec![b'm'; 128 * 1024];
+    lockbox.create_dir(&p("/mixed"), false).unwrap();
     for dir in 0..8 {
+        lockbox
+            .create_dir(&p(format!("/mixed/dir-{dir:02}")), false)
+            .unwrap();
         for file in 0..25 {
             lockbox
                 .add_file(

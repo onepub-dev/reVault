@@ -20,6 +20,9 @@ pub(crate) enum ExitCode {
     VaultUnavailable = 13,
     UnsupportedFormat = 14,
     CorruptData = 15,
+    RecoveryRequired = 16,
+    RecoveryInProgress = 17,
+    RecoveryBlocked = 18,
 }
 
 impl ExitCode {
@@ -50,6 +53,9 @@ fn api_error_exit_code(error: &Error) -> ExitCode {
         Error::NotFound(_) => ExitCode::NotFound,
         Error::VaultUnavailable(_) => ExitCode::VaultUnavailable,
         Error::UnsupportedFormatVersion { .. } => ExitCode::UnsupportedFormat,
+        Error::RecoveryRequired { .. } => ExitCode::RecoveryRequired,
+        Error::RecoveryInProgress(_) => ExitCode::RecoveryInProgress,
+        Error::RecoveryBlocked(_) => ExitCode::RecoveryBlocked,
         Error::CorruptHeader
         | Error::CorruptRecord
         | Error::CorruptVaultRecord(_)
@@ -109,6 +115,31 @@ fn render_api_error(error: &Error, colour: bool) -> String {
         Error::CorruptHeader => (
             "Lockbox header is damaged".to_string(),
             "The file header could not be read or authenticated.".to_string(),
+            Some(error.guidance()),
+        ),
+        Error::RecoveryRequired {
+            transaction_sequence,
+            range_count,
+            completed_ranges,
+            page_count,
+            completed_pages,
+            total_bytes,
+            completed_bytes,
+        } => (
+            "Lockbox recovery is required".to_string(),
+            format!(
+                "Published transaction {transaction_sequence} recovery is at {completed_pages}/{page_count} pages, {completed_ranges}/{range_count} ranges, and {completed_bytes}/{total_bytes} bytes."
+            ),
+            Some(error.guidance()),
+        ),
+        Error::RecoveryInProgress(detail) => (
+            "Lockbox recovery is already in progress".to_string(),
+            detail.clone(),
+            Some(error.guidance()),
+        ),
+        Error::RecoveryBlocked(detail) => (
+            "Lockbox recovery is blocked".to_string(),
+            detail.clone(),
             Some(error.guidance()),
         ),
         Error::UnsupportedFormatVersion {

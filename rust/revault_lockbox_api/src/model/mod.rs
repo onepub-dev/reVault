@@ -10,5 +10,6 @@ pub(crate) mod page_object_packer;
 pub(crate) mod record;
 pub(crate) mod recovery_report;
 pub(crate) mod recovery_report_options;
+pub(crate) mod transaction_recovery;
 pub(crate) mod variable_name;
 pub(crate) mod variable_sensitivity;

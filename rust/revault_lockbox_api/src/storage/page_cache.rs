@@ -216,13 +216,6 @@ impl PageCache {
         Ok(page_offset)
     }
 
-    pub(crate) fn stage_zeroed_page(&mut self, offset: u64, page_size: u64) {
-        self.evict(offset);
-        self.dirty_offsets.remove(&offset);
-        self.discard_after_flush.remove(&offset);
-        self.zeroed_pages.insert(offset, page_size);
-    }
-
     pub(crate) fn flush_dirty_pages(
         &mut self,
         storage: &mut impl Storage,

@@ -179,7 +179,7 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
         println!("Completed the interrupted vault replacement.");
         return Ok(());
     }
-    let source_version = VaultDirectory::probe_structure_version(&source, &source_password)?;
+    let source_version = probe_vault_source_version(&source, &source_password)?;
     let fingerprint = fingerprint_path(&source.join("local-vault.lbox"))?;
     let operation_id = deterministic_operation_id(
         ArtifactKind::Vault,
@@ -689,9 +689,25 @@ fn generated_migration_key() -> CliResult<SecretVec> {
 
 fn probe_archive_path(path: &Path) -> CliResult<u32> {
     let mut file = File::open(path)?;
-    let mut header = [0u8; 96];
-    file.read_exact(&mut header)?;
+    let mut magic = [0u8; 8];
+    file.read_exact(&mut magic)?;
+    let header_len = if &magic == b"LBX1HDR\0" { 96 } else { 320 };
+    let mut header = vec![0u8; header_len];
+    header[..magic.len()].copy_from_slice(&magic);
+    file.read_exact(&mut header[magic.len()..])?;
     Ok(u32::from(probe_lockbox_format_version(&header)?))
+}
+
+fn probe_vault_source_version(root: &Path, password: &SecretString) -> CliResult<u32> {
+    match VaultDirectory::probe_structure_version(root, password) {
+        Ok(version) => Ok(version),
+        Err(revault_lockbox_api::Error::UnsupportedFormatVersion {
+            artifact: revault_lockbox_api::ArtifactKind::Lockbox,
+            found: 1,
+            ..
+        }) => Ok(1),
+        Err(error) => Err(error.into()),
+    }
 }
 
 fn deterministic_operation_id(

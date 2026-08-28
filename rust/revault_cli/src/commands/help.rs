@@ -125,6 +125,13 @@ pub(crate) fn command(verbose: bool) -> Command {
                     "Context:\n  Recover scans a damaged lockbox and writes a new lockbox containing readable entries. By default the recovered file is written next to the original as <name>.recovered.lbox. Use --dry-run first when you want to inspect what can be recovered without writing an output file.",
                 ))
                 .arg(
+                    Arg::new("transaction")
+                        .long("transaction")
+                        .action(ArgAction::SetTrue)
+                        .conflicts_with_all(["output", "overwrite", "dry-run"])
+                        .help("Resume and seal interrupted transaction redaction cleanup in place."),
+                )
+                .arg(
                     Arg::new("output")
                         .long("output")
                         .short('o')
