@@ -375,6 +375,10 @@ lockbox.commit()?;
 
 ## Documentation
 
+Performance results for Lockbox compared with encrypted GPG and unencrypted
+ZIP, including the optimized `zstd-rs` companion checkout, are documented in
+the [benchmark report](docs/lockbox_gpg_zip_benchmark_2026_08_29.md).
+
 - [reVault manual](https://docs.revault.onepub.dev/): installation, concepts,
   CLI workflows, language APIs, and operational guidance.
 - [CLI how-to](docs/cli_how_to.md): command examples.

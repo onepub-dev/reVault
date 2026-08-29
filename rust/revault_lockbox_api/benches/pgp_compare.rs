@@ -189,6 +189,9 @@ struct ScenarioResult {
     pgp_create: Option<Duration>,
     lockbox_extract: Duration,
     pgp_extract: Option<Duration>,
+    zip_size: Option<u64>,
+    zip_create: Option<Duration>,
+    zip_extract: Option<Duration>,
 }
 
 fn build_corpora(root: &Path) -> revault_lockbox_api::Result<Vec<Scenario>> {
@@ -264,8 +267,8 @@ fn run_scenario(
         lockbox_extract.push(started.elapsed());
     }
 
-    let (pgp_size, pgp_create, pgp_extract) = if lockbox_only {
-        (None, None, None)
+    let (pgp_size, pgp_create, pgp_extract, zip_size, zip_create, zip_extract) = if lockbox_only {
+        (None, None, None, None, None, None)
     } else {
         let mut pgp_create = Vec::with_capacity(iterations);
         let mut pgp_extract = Vec::with_capacity(iterations);
@@ -285,10 +288,31 @@ fn run_scenario(
             extract_pgp_archive(gpg_home, scenario, &iter_root, &encrypted, &extract_dir)?;
             pgp_extract.push(started.elapsed());
         }
+        let mut zip_create = Vec::with_capacity(iterations);
+        let mut zip_extract = Vec::with_capacity(iterations);
+        let mut zip_size = 0;
+        for iteration in 0..iterations {
+            let iter_root = scenario_root.join(format!("zip-{iteration}"));
+            reset_dir(&iter_root)?;
+            let archive = iter_root.join("archive.zip");
+            let started = Instant::now();
+            create_zip_archive(scenario, &archive)?;
+            zip_create.push(started.elapsed());
+            zip_size = fs::metadata(&archive).map_err(io_err)?.len();
+
+            let extract_dir = iter_root.join("extract");
+            fs::create_dir_all(&extract_dir).map_err(io_err)?;
+            let started = Instant::now();
+            extract_zip_archive(&archive, &extract_dir)?;
+            zip_extract.push(started.elapsed());
+        }
         (
             Some(pgp_size),
             Some(median_duration(&mut pgp_create)),
             Some(median_duration(&mut pgp_extract)),
+            Some(zip_size),
+            Some(median_duration(&mut zip_create)),
+            Some(median_duration(&mut zip_extract)),
         )
     };
 
@@ -310,7 +334,66 @@ fn run_scenario(
         pgp_create,
         lockbox_extract: median_duration(&mut lockbox_extract),
         pgp_extract,
+        zip_size,
+        zip_create,
+        zip_extract,
     })
+}
+
+fn create_zip_archive(scenario: &Scenario, archive: &Path) -> revault_lockbox_api::Result<()> {
+    match scenario.kind {
+        ScenarioKind::SingleFile => run_command(
+            "zip",
+            [
+                OsString::from("-q"),
+                OsString::from("-X"),
+                OsString::from("-6"),
+                archive.as_os_str().to_os_string(),
+                scenario.input.as_os_str().to_os_string(),
+            ],
+        ),
+        ScenarioKind::Directory => {
+            // `zip` runs in the input directory so entries are relative and do
+            // not expose the benchmark's absolute path. Make the output path
+            // absolute first because `archive` is normally relative to cwd.
+            let archive_parent = archive.parent().ok_or_else(|| {
+                revault_lockbox_api::Error::InvalidPath(
+                    "ZIP archive has no parent directory".to_string(),
+                )
+            })?;
+            let archive_path = fs::canonicalize(archive_parent).map_err(io_err)?.join(
+                archive.file_name().ok_or_else(|| {
+                    revault_lockbox_api::Error::InvalidPath(
+                        "ZIP archive has no file name".to_string(),
+                    )
+                })?,
+            );
+            run_command_in_directory(
+                "zip",
+                &scenario.input,
+                [
+                    OsString::from("-q"),
+                    OsString::from("-X"),
+                    OsString::from("-6"),
+                    archive_path.as_os_str().to_os_string(),
+                    OsString::from("-r"),
+                    OsString::from("."),
+                ],
+            )
+        }
+    }
+}
+
+fn extract_zip_archive(archive: &Path, extract_dir: &Path) -> revault_lockbox_api::Result<()> {
+    run_command(
+        "unzip",
+        [
+            OsString::from("-qq"),
+            archive.as_os_str().to_os_string(),
+            OsString::from("-d"),
+            extract_dir.as_os_str().to_os_string(),
+        ],
+    )
 }
 
 fn create_lockbox_archive(scenario: &Scenario, archive: &Path) -> revault_lockbox_api::Result<()> {
@@ -464,6 +547,28 @@ fn run_command(
     )))
 }
 
+fn run_command_in_directory(
+    program: &str,
+    directory: &Path,
+    args: impl IntoIterator<Item = OsString>,
+) -> revault_lockbox_api::Result<()> {
+    let args = args.into_iter().collect::<Vec<_>>();
+    let output = Command::new(program)
+        .current_dir(directory)
+        .args(&args)
+        .output()
+        .map_err(|err| revault_lockbox_api::Error::Io(format!("run {program}: {err}")))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    Err(revault_lockbox_api::Error::Io(format!(
+        "{program} failed with status {}: {}",
+        output.status,
+        stderr.trim()
+    )))
+}
+
 fn list_regular_files(root: &Path) -> revault_lockbox_api::Result<Vec<PathBuf>> {
     let mut files = Vec::new();
     collect_regular_files(root, &mut files)?;
@@ -603,16 +708,17 @@ fn render_report(results: &[ScenarioResult], iterations: usize, lockbox_only: bo
     out.push_str(&format!("Iterations per operation: `{iterations}`\n\n"));
     out.push_str("Lockbox uses the core archive API directly with `BulkImport` for create ");
     out.push_str("and `ExtractMany` for extract. PGP uses `gpg --symmetric --no-symkey-cache ");
-    out.push_str("--cipher-algo AES256 --compress-algo ZLIB --compress-level 6`; directory ");
+    out.push_str("--cipher-algo AES256 --compress-algo ZLIB --compress-level 6`; ZIP uses ");
+    out.push_str("Info-ZIP `zip -6 -X` and is not encrypted; directory ");
     out.push_str("scenarios include the required `tar` archive and extract steps.\n\n");
     if lockbox_only {
         out.push_str("This run used `--lockbox-only`, so PGP columns are omitted.\n\n");
     }
-    out.push_str("| Scenario | Logical bytes | Lockbox size | PGP size | Lockbox create | PGP create | Lockbox extract | PGP extract | Size ratio L/PGP | Create ratio L/PGP | Extract ratio L/PGP |\n");
-    out.push_str("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n");
+    out.push_str("| Scenario | Logical bytes | Lockbox size | PGP size | ZIP size | Lockbox create | PGP create | ZIP create | Lockbox extract | PGP extract | ZIP extract | Size ratio L/PGP | Size ratio L/ZIP | Create ratio L/PGP | Create ratio L/ZIP | Extract ratio L/PGP | Extract ratio L/ZIP |\n");
+    out.push_str("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n");
     for result in results {
         out.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |\n",
             result.name,
             format_bytes(result.logical_bytes),
             format_bytes(result.lockbox_size),
@@ -620,9 +726,17 @@ fn render_report(results: &[ScenarioResult], iterations: usize, lockbox_only: bo
                 .pgp_size
                 .map(format_bytes)
                 .unwrap_or_else(|| "-".to_string()),
+            result
+                .zip_size
+                .map(format_bytes)
+                .unwrap_or_else(|| "-".to_string()),
             format_duration(result.lockbox_create),
             result
                 .pgp_create
+                .map(format_duration)
+                .unwrap_or_else(|| "-".to_string()),
+            result
+                .zip_create
                 .map(format_duration)
                 .unwrap_or_else(|| "-".to_string()),
             format_duration(result.lockbox_extract),
@@ -631,7 +745,15 @@ fn render_report(results: &[ScenarioResult], iterations: usize, lockbox_only: bo
                 .map(format_duration)
                 .unwrap_or_else(|| "-".to_string()),
             result
+                .zip_extract
+                .map(format_duration)
+                .unwrap_or_else(|| "-".to_string()),
+            result
                 .pgp_size
+                .map(|size| format_ratio(result.lockbox_size as f64, size as f64))
+                .unwrap_or_else(|| "-".to_string()),
+            result
+                .zip_size
                 .map(|size| format_ratio(result.lockbox_size as f64, size as f64))
                 .unwrap_or_else(|| "-".to_string()),
             result
@@ -641,7 +763,19 @@ fn render_report(results: &[ScenarioResult], iterations: usize, lockbox_only: bo
                 })
                 .unwrap_or_else(|| "-".to_string()),
             result
+                .zip_create
+                .map(|duration| {
+                    format_ratio(result.lockbox_create.as_secs_f64(), duration.as_secs_f64())
+                })
+                .unwrap_or_else(|| "-".to_string()),
+            result
                 .pgp_extract
+                .map(|duration| {
+                    format_ratio(result.lockbox_extract.as_secs_f64(), duration.as_secs_f64())
+                })
+                .unwrap_or_else(|| "-".to_string()),
+            result
+                .zip_extract
                 .map(|duration| {
                     format_ratio(result.lockbox_extract.as_secs_f64(), duration.as_secs_f64())
                 })
