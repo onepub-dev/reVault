@@ -3,10 +3,7 @@ use std::sync::Arc;
 
 use crate::checked::{read_u16_le, read_u32_le};
 use crate::constants::DEFAULT_METADATA_MAX_PAGE_BODY_BYTES;
-use crate::page_tree::{
-    decode_page_tree_children, encode_page_tree_children, group_by_encoded_size,
-    page_tree_child_encoded_len, PageTreeChild,
-};
+use crate::page_tree::{PageTreeChild, PageTreeChildren, PageTreeLayout};
 use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::security::{validate_variable_name, validate_variable_value_ref};
 use crate::{Error, Result, SecretString, VariableName, VariableSensitivity};
@@ -58,6 +55,16 @@ pub(crate) enum VariableNode {
 pub(crate) struct VariableChild {
     pub(crate) first_name: String,
     pub(crate) offset: u64,
+}
+
+impl VariableChild {
+    fn encoded_len(&self) -> usize {
+        PageTreeChild {
+            first_key: self.first_name.clone(),
+            offset: self.offset,
+        }
+        .encoded_len()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -188,7 +195,7 @@ pub(crate) fn encode_variable_internal(children: &[VariableChild]) -> Result<Vec
     let mut out = Vec::new();
     out.push(VARIABLE_NODE_VERSION);
     out.push(VARIABLE_INTERNAL);
-    out.extend_from_slice(&encode_page_tree_children(&routing_children));
+    out.extend_from_slice(&PageTreeChildren::new(routing_children).encode());
     if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "variable internal node exceeds maximum page size".to_string(),
@@ -206,24 +213,24 @@ pub(crate) fn variable_leaf_groups(entries: &[VariableEntry]) -> Result<Vec<&[Va
         while end < entries.len() && internal_variable_class(&entries[end].name)? == class {
             end += 1;
         }
-        groups.extend(group_by_encoded_size(
-            &entries[start..end],
-            VARIABLE_NODE_PREFIX_BYTES + ENTRY_COUNT_BYTES,
-            variable_entry_encoded_len,
-            "variable entry",
-        )?);
+        groups.extend(
+            PageTreeLayout::new(
+                VARIABLE_NODE_PREFIX_BYTES + ENTRY_COUNT_BYTES,
+                "variable entry",
+            )
+            .groups(&entries[start..end], variable_entry_encoded_len)?,
+        );
         start = end;
     }
     Ok(groups)
 }
 
 pub(crate) fn variable_child_groups(children: &[VariableChild]) -> Result<Vec<&[VariableChild]>> {
-    group_by_encoded_size(
-        children,
+    PageTreeLayout::new(
         VARIABLE_NODE_PREFIX_BYTES + CHILD_COUNT_BYTES,
-        variable_child_encoded_len,
         "variable child",
     )
+    .groups(children, VariableChild::encoded_len)
 }
 
 pub(crate) fn decode_variable_node_secure(payload: &SecureVec) -> Result<VariableNode> {
@@ -236,7 +243,7 @@ pub(crate) fn decode_variable_node_secure(payload: &SecureVec) -> Result<Variabl
                 VARIABLE_NODE_VERSION => match payload[1] {
                     VARIABLE_LEAF => decode_variable_leaf_secure_metadata(payload),
                     VARIABLE_INTERNAL => Ok(SecureVariableNodeMetadata::Internal(
-                        decode_page_tree_children(&payload[2..], |key| {
+                        PageTreeChildren::decode(&payload[2..], |key| {
                             validate_internal_variable_name(key)
                         })?
                         .into_iter()
@@ -359,13 +366,6 @@ fn variable_entry_encoded_len(entry: &VariableEntry) -> usize {
             .value
             .with_plaintext(str::len)
             .unwrap_or(DEFAULT_METADATA_MAX_PAGE_BODY_BYTES)
-}
-
-fn variable_child_encoded_len(child: &VariableChild) -> usize {
-    page_tree_child_encoded_len(&PageTreeChild {
-        first_key: child.first_name.clone(),
-        offset: child.offset,
-    })
 }
 
 fn sensitivity_tag(sensitivity: VariableSensitivity) -> u8 {

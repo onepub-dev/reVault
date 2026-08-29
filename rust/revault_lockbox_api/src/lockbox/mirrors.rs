@@ -54,6 +54,130 @@ pub struct MirrorProject {
     pub host_identity: Option<String>,
 }
 
+impl MirrorProject {
+    fn validate(&self) -> Result<()> {
+        Self::validate_name(&self.name)?;
+        if !Self::is_absolute_host_path(&self.source) {
+            return Err(Error::InvalidInput(
+                "mirror source must be a canonical absolute path".to_string(),
+            ));
+        }
+        Self::validate_rules(&self.includes)?;
+        Self::validate_rules(&self.excludes)
+    }
+
+    fn validate_name(name: &str) -> Result<()> {
+        let valid = !name.is_empty()
+            && name.len() <= 128
+            && name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'));
+        if valid {
+            Ok(())
+        } else {
+            Err(Error::InvalidInput(format!(
+                "invalid mirror project name: {name}"
+            )))
+        }
+    }
+
+    fn variable_name(name: &str) -> Result<VariableName> {
+        Self::validate_name(name)?;
+        VariableName::new(format!("{MIRROR_PREFIX}{name}"))
+    }
+
+    fn validate_rules(rules: &[String]) -> Result<()> {
+        if let Some(rule) = rules.iter().find(|rule| {
+            rule.is_empty()
+                || rule.starts_with('/')
+                || rule.contains('\\')
+                || Self::is_windows_drive_path(rule)
+                || rule.split('/').any(|component| component == "..")
+        }) {
+            return Err(Error::InvalidInput(format!(
+                "invalid source-relative mirror rule: {rule}"
+            )));
+        }
+        Ok(())
+    }
+
+    fn is_absolute_host_path(path: &str) -> bool {
+        path.starts_with('/') || path.starts_with("\\\\") || Self::is_windows_drive_path(path)
+    }
+
+    fn is_windows_drive_path(path: &str) -> bool {
+        let bytes = path.as_bytes();
+        bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'/' | b'\\')
+    }
+
+    fn overlaps(&self, other: &Self) -> bool {
+        self.destination == other.destination
+            || self.destination.is_descendant_of(&other.destination)
+            || other.destination.is_descendant_of(&self.destination)
+    }
+
+    fn encode(&self) -> String {
+        json!({
+            "version": 1,
+            "name": self.name,
+            "source": self.source,
+            "destination": self.destination.to_string(),
+            "includes": self.includes,
+            "excludes": self.excludes,
+            "missing_file_policy": match self.missing_file_policy {
+                MirrorMissingFilePolicy::Remove => "remove",
+                MirrorMissingFilePolicy::Retain => "retain",
+            },
+            "host_identity": self.host_identity,
+        })
+        .to_string()
+    }
+
+    fn decode(encoded: &str) -> Result<Self> {
+        let value: Value = serde_json::from_str(encoded).map_err(|_| Error::CorruptRecord)?;
+        if value["version"].as_u64() != Some(1) {
+            return Err(Error::CorruptRecord);
+        }
+        let string = |field: &str| {
+            value[field]
+                .as_str()
+                .map(str::to_string)
+                .ok_or(Error::CorruptRecord)
+        };
+        let strings = |field: &str| {
+            value[field]
+                .as_array()
+                .ok_or(Error::CorruptRecord)?
+                .iter()
+                .map(|value| {
+                    value
+                        .as_str()
+                        .map(str::to_string)
+                        .ok_or(Error::CorruptRecord)
+                })
+                .collect::<Result<Vec<_>>>()
+        };
+        let project = Self {
+            name: string("name")?,
+            source: string("source")?,
+            destination: LockboxPath::new(string("destination")?)?,
+            includes: strings("includes")?,
+            excludes: strings("excludes")?,
+            missing_file_policy: match value["missing_file_policy"].as_str() {
+                Some("remove") => MirrorMissingFilePolicy::Remove,
+                Some("retain") => MirrorMissingFilePolicy::Retain,
+                _ => return Err(Error::CorruptRecord),
+            },
+            host_identity: value["host_identity"].as_str().map(str::to_string),
+        };
+        project.validate()?;
+        Ok(project)
+    }
+}
+
 impl<State> Lockbox<State> {
     /// Lists every configured mirror project in stable name order.
     ///
@@ -66,7 +190,7 @@ impl<State> Lockbox<State> {
             .into_iter()
             .filter(|(name, _)| name.as_str().starts_with(MIRROR_PREFIX))
             .filter_map(|(name, _)| self.get_variable(&name).transpose())
-            .map(|value| value.and_then(|value| decode_project(&value)))
+            .map(|value| value.and_then(|value| MirrorProject::decode(&value)))
             .collect::<Result<Vec<_>>>()?;
         projects.sort_by(|left, right| left.name.cmp(&right.name));
         Ok(projects)
@@ -74,10 +198,9 @@ impl<State> Lockbox<State> {
 
     /// Returns the named mirror project, or `None` when it is not configured.
     pub fn mirror_project(&self, name: &str) -> Result<Option<MirrorProject>> {
-        validate_project_name(name)?;
-        let variable = project_variable_name(name)?;
+        let variable = MirrorProject::variable_name(name)?;
         self.get_variable(&variable)?
-            .map(|value| decode_project(&value))
+            .map(|value| MirrorProject::decode(&value))
             .transpose()
     }
 
@@ -110,12 +233,12 @@ impl<State: WritableLockboxState> Lockbox<State> {
     /// destination is rejected unless `adopt` is `true`; adoption makes the
     /// existing subtree managed without changing its current entries.
     pub fn create_mirror_project(&mut self, project: MirrorProject, adopt: bool) -> Result<()> {
-        validate_project(&project)?;
+        project.validate()?;
         if self.mirror_project(&project.name)?.is_some() {
             return Err(Error::AlreadyExists(project.name));
         }
         for existing in self.list_mirror_projects()? {
-            if overlaps(&project.destination, &existing.destination) {
+            if project.overlaps(&existing) {
                 return Err(Error::InvalidOperation(format!(
                     "mirror destination {} overlaps '{}' at {}",
                     project.destination, existing.name, existing.destination
@@ -150,7 +273,7 @@ impl<State: WritableLockboxState> Lockbox<State> {
     /// immutable; changing ownership requires forgetting or deleting the old
     /// project and explicitly creating a new one.
     pub fn update_mirror_project(&mut self, project: &MirrorProject) -> Result<()> {
-        validate_project(project)?;
+        project.validate()?;
         let Some(current) = self.mirror_project(&project.name)? else {
             return Err(Error::NotFound(project.name.clone()));
         };
@@ -160,9 +283,7 @@ impl<State: WritableLockboxState> Lockbox<State> {
             ));
         }
         for existing in self.list_mirror_projects()? {
-            if existing.name != project.name
-                && overlaps(&project.destination, &existing.destination)
-            {
+            if existing.name != project.name && project.overlaps(&existing) {
                 return Err(Error::InvalidOperation(format!(
                     "mirror destination {} overlaps '{}' at {}",
                     project.destination, existing.name, existing.destination
@@ -180,7 +301,7 @@ impl<State: WritableLockboxState> Lockbox<State> {
         if self.mirror_project(name)?.is_none() {
             return Err(Error::NotFound(name.to_string()));
         }
-        self.delete_variable(&project_variable_name(name)?)
+        self.delete_variable(&MirrorProject::variable_name(name)?)
     }
 
     /// Runs a mutation scoped to one mirror's managed directory.
@@ -210,124 +331,11 @@ impl<State: WritableLockboxState> Lockbox<State> {
     }
 
     fn store_mirror_project(&mut self, project: &MirrorProject) -> Result<()> {
-        let encoded = json!({
-            "version": 1,
-            "name": project.name,
-            "source": project.source,
-            "destination": project.destination.to_string(),
-            "includes": project.includes,
-            "excludes": project.excludes,
-            "missing_file_policy": match project.missing_file_policy {
-                MirrorMissingFilePolicy::Remove => "remove",
-                MirrorMissingFilePolicy::Retain => "retain",
-            },
-            "host_identity": project.host_identity,
-        })
-        .to_string();
-        self.set_variable(&project_variable_name(&project.name)?, &encoded)
+        self.set_variable(
+            &MirrorProject::variable_name(&project.name)?,
+            &project.encode(),
+        )
     }
-}
-
-fn validate_project(project: &MirrorProject) -> Result<()> {
-    validate_project_name(&project.name)?;
-    if !is_absolute_host_path(&project.source) {
-        return Err(Error::InvalidInput(
-            "mirror source must be a canonical absolute path".to_string(),
-        ));
-    }
-    validate_rules(&project.includes)?;
-    validate_rules(&project.excludes)
-}
-
-fn validate_project_name(name: &str) -> Result<()> {
-    let valid = !name.is_empty()
-        && name.len() <= 128
-        && name
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'));
-    if valid {
-        Ok(())
-    } else {
-        Err(Error::InvalidInput(format!(
-            "invalid mirror project name: {name}"
-        )))
-    }
-}
-
-fn validate_rules(rules: &[String]) -> Result<()> {
-    if let Some(rule) = rules.iter().find(|rule| {
-        rule.is_empty()
-            || rule.starts_with('/')
-            || rule.contains('\\')
-            || is_windows_drive_path(rule)
-            || rule.split('/').any(|component| component == "..")
-    }) {
-        return Err(Error::InvalidInput(format!(
-            "invalid source-relative mirror rule: {rule}"
-        )));
-    }
-    Ok(())
-}
-
-fn is_absolute_host_path(path: &str) -> bool {
-    path.starts_with('/') || path.starts_with("\\\\") || is_windows_drive_path(path)
-}
-
-fn is_windows_drive_path(path: &str) -> bool {
-    let bytes = path.as_bytes();
-    bytes.len() >= 3
-        && bytes[0].is_ascii_alphabetic()
-        && bytes[1] == b':'
-        && matches!(bytes[2], b'/' | b'\\')
-}
-
-fn overlaps(left: &LockboxPath, right: &LockboxPath) -> bool {
-    left == right || left.is_descendant_of(right) || right.is_descendant_of(left)
-}
-
-fn project_variable_name(name: &str) -> Result<VariableName> {
-    VariableName::new(format!("{MIRROR_PREFIX}{name}"))
-}
-
-fn decode_project(encoded: &str) -> Result<MirrorProject> {
-    let value: Value = serde_json::from_str(encoded).map_err(|_| Error::CorruptRecord)?;
-    if value["version"].as_u64() != Some(1) {
-        return Err(Error::CorruptRecord);
-    }
-    let string = |field: &str| {
-        value[field]
-            .as_str()
-            .map(str::to_string)
-            .ok_or(Error::CorruptRecord)
-    };
-    let strings = |field: &str| {
-        value[field]
-            .as_array()
-            .ok_or(Error::CorruptRecord)?
-            .iter()
-            .map(|value| {
-                value
-                    .as_str()
-                    .map(str::to_string)
-                    .ok_or(Error::CorruptRecord)
-            })
-            .collect::<Result<Vec<_>>>()
-    };
-    let project = MirrorProject {
-        name: string("name")?,
-        source: string("source")?,
-        destination: LockboxPath::new(string("destination")?)?,
-        includes: strings("includes")?,
-        excludes: strings("excludes")?,
-        missing_file_policy: match value["missing_file_policy"].as_str() {
-            Some("remove") => MirrorMissingFilePolicy::Remove,
-            Some("retain") => MirrorMissingFilePolicy::Retain,
-            _ => return Err(Error::CorruptRecord),
-        },
-        host_identity: value["host_identity"].as_str().map(str::to_string),
-    };
-    validate_project(&project)?;
-    Ok(project)
 }
 
 #[cfg(test)]
@@ -336,16 +344,20 @@ mod tests {
 
     #[test]
     fn host_path_validation_is_portable_across_archive_moves() {
-        assert!(is_absolute_host_path("/srv/project"));
-        assert!(is_absolute_host_path(r"C:\Users\alice\project"));
-        assert!(is_absolute_host_path(r"\\server\share\project"));
-        assert!(!is_absolute_host_path("relative/project"));
+        assert!(MirrorProject::is_absolute_host_path("/srv/project"));
+        assert!(MirrorProject::is_absolute_host_path(
+            r"C:\Users\alice\project"
+        ));
+        assert!(MirrorProject::is_absolute_host_path(
+            r"\\server\share\project"
+        ));
+        assert!(!MirrorProject::is_absolute_host_path("relative/project"));
     }
 
     #[test]
     fn rules_use_portable_source_relative_slash_paths() {
-        assert!(validate_rules(&["src/**/*.rs".to_string()]).is_ok());
-        assert!(validate_rules(&[r"src\**\*.rs".to_string()]).is_err());
-        assert!(validate_rules(&["C:/source/**".to_string()]).is_err());
+        assert!(MirrorProject::validate_rules(&["src/**/*.rs".to_string()]).is_ok());
+        assert!(MirrorProject::validate_rules(&[r"src\**\*.rs".to_string()]).is_err());
+        assert!(MirrorProject::validate_rules(&["C:/source/**".to_string()]).is_err());
     }
 }

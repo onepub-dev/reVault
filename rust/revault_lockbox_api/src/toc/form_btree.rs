@@ -4,14 +4,11 @@ use std::sync::Arc;
 use crate::checked::{read_u16_le, read_u32_le};
 use crate::constants::DEFAULT_METADATA_MAX_PAGE_BODY_BYTES;
 use crate::form::{
-    validate_form_alias, validate_form_description, validate_form_field_id, validate_form_label,
-    validate_form_record_name, validate_form_value, FormDefinition, FormFieldDefinition,
-    FormFieldKind, FormFieldValue, FormRecord, FormTypeId, FormValue,
+    FormDefinition, FormFieldDefinition, FormFieldKind, FormFieldValue, FormRecord, FormTypeId,
+    FormValue,
 };
-use crate::page_tree::{
-    decode_page_tree_children, encode_page_tree_children, group_by_encoded_size,
-    page_tree_child_encoded_len, PageTreeChild,
-};
+use crate::incremental_btree::{BTreeEntry, BTreeLeaf};
+use crate::page_tree::{PageTreeChild, PageTreeChildren, PageTreeLayout};
 use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::{Error, LockboxPath, Result, SecretString};
 
@@ -51,11 +48,35 @@ pub(crate) struct FormChild {
     pub(crate) offset: u64,
 }
 
+impl FormChild {
+    fn encoded_len(&self) -> usize {
+        PageTreeChild {
+            first_key: self.first_key.clone(),
+            offset: self.offset,
+        }
+        .encoded_len()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct FormLeaf {
     pub(crate) offset: u64,
     pub(crate) object_id: u64,
     pub(crate) entries: Vec<FormEntry>,
+}
+
+impl BTreeEntry for FormEntry {
+    type Key = String;
+
+    fn key(&self) -> &Self::Key {
+        &self.key
+    }
+}
+
+impl BTreeLeaf<FormEntry> for FormLeaf {
+    fn entries(&self) -> &[FormEntry] {
+        &self.entries
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -169,7 +190,7 @@ pub(crate) fn encode_form_internal(children: &[FormChild]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     out.push(FORM_NODE_VERSION);
     out.push(FORM_INTERNAL);
-    out.extend_from_slice(&encode_page_tree_children(&routing_children));
+    out.extend_from_slice(&PageTreeChildren::new(routing_children).encode());
     if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "form internal node exceeds maximum page size".to_string(),
@@ -179,21 +200,13 @@ pub(crate) fn encode_form_internal(children: &[FormChild]) -> Result<Vec<u8>> {
 }
 
 pub(crate) fn form_leaf_groups(entries: &[FormEntry]) -> Result<Vec<&[FormEntry]>> {
-    group_by_encoded_size(
-        entries,
-        FORM_NODE_PREFIX_BYTES + ENTRY_COUNT_BYTES,
-        form_entry_encoded_len,
-        "form entry",
-    )
+    PageTreeLayout::new(FORM_NODE_PREFIX_BYTES + ENTRY_COUNT_BYTES, "form entry")
+        .groups(entries, form_entry_encoded_len)
 }
 
 pub(crate) fn form_child_groups(children: &[FormChild]) -> Result<Vec<&[FormChild]>> {
-    group_by_encoded_size(
-        children,
-        FORM_NODE_PREFIX_BYTES + CHILD_COUNT_BYTES,
-        form_child_encoded_len,
-        "form child",
-    )
+    PageTreeLayout::new(FORM_NODE_PREFIX_BYTES + CHILD_COUNT_BYTES, "form child")
+        .groups(children, FormChild::encoded_len)
 }
 
 pub(crate) fn decode_form_node_secure(payload: &SecureVec) -> Result<FormNode> {
@@ -205,7 +218,7 @@ pub(crate) fn decode_form_node_secure(payload: &SecureVec) -> Result<FormNode> {
             match payload[1] {
                 FORM_LEAF => decode_form_leaf_metadata(payload),
                 FORM_INTERNAL => Ok(ParsedFormNode::Internal(
-                    decode_page_tree_children(&payload[2..], validate_form_tree_key)?
+                    PageTreeChildren::decode(&payload[2..], validate_form_tree_key)?
                         .into_iter()
                         .map(|child| FormChild {
                             first_key: child.first_key,
@@ -279,7 +292,7 @@ fn decode_form_leaf_metadata(payload: &[u8]) -> Result<ParsedFormNode> {
     if payload.len() < FORM_NODE_PREFIX_BYTES + ENTRY_COUNT_BYTES {
         return Err(Error::CorruptRecord);
     }
-    let mut reader = Reader::new(&payload[FORM_NODE_PREFIX_BYTES..]);
+    let mut reader = FormNodeReader::new(&payload[FORM_NODE_PREFIX_BYTES..]);
     let count = reader.u32()? as usize;
     let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
@@ -312,7 +325,7 @@ fn materialize_record(payload: &SecureVec, parsed: ParsedFormRecord) -> Result<F
                 FormValue::Secret(Arc::new(SecretString::from_secure_vec(bytes)))
             }
         };
-        validate_form_value(value.kind, &form_value)?;
+        value.kind.validate_value(&form_value)?;
         values.push(FormFieldValue {
             field_id: value.field_id,
             captured_label: value.captured_label,
@@ -346,17 +359,17 @@ fn encode_definition_secure(out: &mut SecureVec, definition: &FormDefinition) ->
     Ok(())
 }
 
-fn decode_definition(reader: &mut Reader<'_>) -> Result<FormDefinition> {
+fn decode_definition(reader: &mut FormNodeReader<'_>) -> Result<FormDefinition> {
     let type_id = FormTypeId::new(reader.string()?)?;
-    let alias = validate_form_alias(&reader.string()?)?;
+    let alias = FormDefinition::validated_alias(&reader.string()?)?;
     let revision = reader.u32()?;
     if revision == 0 {
         return Err(Error::CorruptRecord);
     }
-    let name = validate_form_label(&reader.string()?, "form name")?;
+    let name = FormDefinition::validated_name(&reader.string()?)?;
     let description = if reader.peek_u16()? == FORM_DEFINITION_DESCRIPTION_MARKER {
         reader.skip_u16()?;
-        validate_form_description(&reader.string()?)?
+        FormDefinition::validated_description(&reader.string()?)?
     } else {
         String::new()
     };
@@ -364,8 +377,8 @@ fn decode_definition(reader: &mut Reader<'_>) -> Result<FormDefinition> {
     let mut fields = Vec::with_capacity(count);
     for _ in 0..count {
         fields.push(FormFieldDefinition {
-            id: validate_form_field_id(&reader.string()?)?,
-            label: validate_form_label(&reader.string()?, "form field label")?,
+            id: FormFieldDefinition::validated_id(&reader.string()?)?,
+            label: FormFieldDefinition::validated_label(&reader.string()?)?,
             kind: FormFieldKind::from_code(reader.u8()?)?,
             required: match reader.u8()? {
                 0 => false,
@@ -411,11 +424,11 @@ fn encode_record_secure(out: &mut SecureVec, record: &FormRecord) -> Result<()> 
     Ok(())
 }
 
-fn decode_record(reader: &mut Reader<'_>) -> Result<ParsedFormRecord> {
+fn decode_record(reader: &mut FormNodeReader<'_>) -> Result<ParsedFormRecord> {
     let path = LockboxPath::new(reader.string()?)?;
-    let name = validate_form_record_name(&reader.string()?)?;
+    let name = FormRecord::validated_name(&reader.string()?)?;
     let type_id = FormTypeId::new(reader.string()?)?;
-    let definition_alias = validate_form_alias(&reader.string()?)?;
+    let definition_alias = FormDefinition::validated_alias(&reader.string()?)?;
     let definition_revision = reader.u32()?;
     if definition_revision == 0 {
         return Err(Error::CorruptRecord);
@@ -423,8 +436,8 @@ fn decode_record(reader: &mut Reader<'_>) -> Result<ParsedFormRecord> {
     let count = reader.u32()? as usize;
     let mut values = Vec::with_capacity(count);
     for _ in 0..count {
-        let field_id = validate_form_field_id(&reader.string()?)?;
-        let captured_label = validate_form_label(&reader.string()?, "form field label")?;
+        let field_id = FormFieldDefinition::validated_id(&reader.string()?)?;
+        let captured_label = FormFieldDefinition::validated_label(&reader.string()?)?;
         let kind = FormFieldKind::from_code(reader.u8()?)?;
         let value = match reader.u8()? {
             VALUE_NORMAL => ParsedFormValue::Normal(reader.string()?),
@@ -533,19 +546,12 @@ fn record_encoded_len(record: &FormRecord) -> usize {
             .sum::<usize>()
 }
 
-fn form_child_encoded_len(child: &FormChild) -> usize {
-    page_tree_child_encoded_len(&PageTreeChild {
-        first_key: child.first_key.clone(),
-        offset: child.offset,
-    })
-}
-
-struct Reader<'a> {
+struct FormNodeReader<'a> {
     bytes: &'a [u8],
     offset: usize,
 }
 
-impl<'a> Reader<'a> {
+impl<'a> FormNodeReader<'a> {
     fn new(bytes: &'a [u8]) -> Self {
         Self { bytes, offset: 0 }
     }

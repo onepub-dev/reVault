@@ -15,9 +15,9 @@ use crate::file_format::redaction_manifest::{
 use crate::file_format::{
     decode_toc_node, read_header, write_header, TocInternal, TocLeaf, TocNode, TocTreeNode,
 };
-use crate::form_btree::{FormLeaf, FormTreeNode};
 use crate::free_index::{decode_free_index_internal, decode_free_index_leaf};
 use crate::free_slot::{FreeSlot, FreeSpace};
+use crate::incremental_btree::PersistedBTree;
 use crate::key_directory::{
     best_key_directory, decode_key_directory_decoded_page, DecodedKeyDirectory,
 };
@@ -35,7 +35,7 @@ use crate::storage::{Storage, StorageBackend};
 use crate::toc_entry::TocEntry;
 use crate::variable_btree::{VariableLeaf, VariableTreeNode, VariableValue};
 use crate::{
-    CacheStats, Error, FormDefinition, FormRecord, LockboxOptions, RecoveryReport, Result,
+    CacheStats, Error, LockboxOptions, RecoveryReport, Result,
     TransactionRecoveryPhase, TransactionRecoveryProgress, TransactionRecoveryStatus, VariableName,
     WorkerPolicy, WorkloadProfile,
 };
@@ -45,20 +45,25 @@ type CommitAuthChainResult = (u64, [u8; 32], CommitAuth, crate::commit_root::Com
 
 mod commit;
 mod extraction;
+mod file_handles;
+mod file_import_pipeline;
 mod files;
+mod form_store;
 mod forms;
+mod key_directory_candidates;
 mod key_management;
 mod listing;
+mod lockbox_rewrite;
 mod mirrors;
 mod mutation;
 mod recovery;
+mod storage_lifecycle;
 mod symlinks;
 mod variables;
 
-pub use files::{
-    ContentChunk, ContentStreamOptions, ContentStreamOrder, LockboxFileMut, LockboxFileReader,
-    OpenFileOptions,
-};
+pub use file_handles::{LockboxFileMut, LockboxFileReader, OpenFileOptions};
+pub use files::{ContentChunk, ContentStreamOptions, ContentStreamOrder};
+use form_store::FormStore;
 #[cfg(feature = "vault-integration")]
 pub use key_management::OpenedContentKey;
 pub use key_management::{LockboxOpen, LockboxProtection};
@@ -163,52 +168,48 @@ impl WritableLockboxState for Writable {}
 pub struct Lockbox<State = Writable> {
     storage: StorageBackend,
     key: SecretVec,
-    sequence: u64,
+    staged: StagedLockboxState,
+    lockbox_id: LockboxId,
+    read_only: bool,
+    owner_signing_key: Option<OwnerSigningKeyPair>,
+    page_manager: RefCell<PageCache>,
+    compression_frame_cache: RefCell<CompressionFrameCache>,
+    import_stats: RefCell<ImportStats>,
+    workload_profile: WorkloadProfile,
+    worker_policy: WorkerPolicy,
+    state: PhantomData<State>,
+}
+
+/// Mutable lockbox state replaced atomically when a commit fails.
+///
+/// This type is public only because `Lockbox` uses internal deref-based field
+/// access; its fields and behavior remain crate-private.
+#[doc(hidden)]
+#[derive(Debug, Clone)]
+pub struct StagedLockboxState {
+    commit_chain: CommitChain,
     header_slot: usize,
     header_generation: u64,
     cleanup_sequence: u64,
     cleanup_completed_ranges: u32,
     cleanup_completed_pages: u32,
     cleanup_completed_bytes: u64,
-    commit_root_offset: u64,
-    commit_auth_offset: u64,
-    commit_auth_digest: [u8; 32],
-    toc_root_offset: u64,
+    toc_tree: PersistedBTree<TocTreeNode, TocLeaf, LockboxPath>,
     variable_root_offset: u64,
-    form_root_offset: u64,
     free_index_offset: u64,
     post_cleanup_free_index_offset: u64,
     redaction_manifest_offset: u64,
     redaction_range_count: u32,
     redaction_total_bytes: u64,
-    key_directory_offset: u64,
-    key_directory_mirror_offset: u64,
-    key_directory_generation: u64,
-    dirty_key_directory: bool,
-    lockbox_id: LockboxId,
-    read_only: bool,
+    key_directory: KeyDirectoryCopies,
     poisoned: Option<String>,
-    owner_signing_key: Option<OwnerSigningKeyPair>,
     key_slots: Vec<KeySlot>,
     toc_entries: BTreeMap<LockboxPath, TocEntry>,
-    toc_root: Option<TocTreeNode>,
-    toc_leaves: Vec<TocLeaf>,
-    dirty_toc_paths: BTreeSet<LockboxPath>,
     variables: RefCell<Option<BTreeMap<VariableName, VariableValue>>>,
     variable_root: Option<VariableTreeNode>,
     variable_leaves: Vec<VariableLeaf>,
     dirty_variables: bool,
-    form_definitions: RefCell<Option<BTreeMap<String, FormDefinition>>>,
-    form_records: RefCell<Option<BTreeMap<LockboxPath, FormRecord>>>,
-    form_root: Option<FormTreeNode>,
-    form_leaves: Vec<FormLeaf>,
-    dirty_form_keys: BTreeSet<String>,
-    dirty_forms: bool,
-    page_manager: RefCell<PageCache>,
-    compression_frame_cache: RefCell<CompressionFrameCache>,
-    import_stats: RefCell<ImportStats>,
-    workload_profile: WorkloadProfile,
-    worker_policy: WorkerPolicy,
+    forms: FormStore,
     free_space: FreeSpace,
     record_ref_counts: std::collections::HashMap<u64, usize, FastBuildHasher>,
     pending_redactions: BTreeMap<u64, PendingRedaction>,
@@ -220,7 +221,71 @@ pub struct Lockbox<State = Writable> {
     mirror_mutation_root: Option<LockboxPath>,
     needs_packing: bool,
     access_widening_pending: bool,
-    state: PhantomData<State>,
+}
+
+/// Published commit-chain coordinates for the staged transaction.
+#[doc(hidden)]
+#[derive(Debug, Clone)]
+pub struct CommitChain {
+    sequence: u64,
+    commit_root_offset: u64,
+    commit_auth_offset: u64,
+    commit_auth_digest: [u8; 32],
+}
+
+/// Coordinates of the redundant key-directory pages.
+#[derive(Debug, Clone, Copy)]
+struct KeyDirectoryCopies {
+    primary_offset: u64,
+    mirror_offset: u64,
+    generation: u64,
+    dirty: bool,
+}
+
+impl KeyDirectoryCopies {
+    fn offsets(self) -> [u64; 2] {
+        [self.primary_offset, self.mirror_offset]
+    }
+
+    fn clear(&mut self) {
+        self.primary_offset = 0;
+        self.mirror_offset = 0;
+        self.dirty = false;
+    }
+
+    fn publish(&mut self, offsets: [u64; 2]) {
+        self.primary_offset = offsets[0];
+        self.mirror_offset = offsets[1];
+        self.dirty = false;
+    }
+}
+
+impl std::ops::Deref for StagedLockboxState {
+    type Target = CommitChain;
+
+    fn deref(&self) -> &Self::Target {
+        &self.commit_chain
+    }
+}
+
+impl std::ops::DerefMut for StagedLockboxState {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.commit_chain
+    }
+}
+
+impl<State> std::ops::Deref for Lockbox<State> {
+    type Target = StagedLockboxState;
+
+    fn deref(&self) -> &Self::Target {
+        &self.staged
+    }
+}
+
+impl<State> std::ops::DerefMut for Lockbox<State> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.staged
+    }
 }
 
 impl<State> Lockbox<State> {
@@ -244,10 +309,10 @@ impl<State> Lockbox<State> {
         if self.sequence == 0 && self.commit_root_offset == 0 {
             return Ok(());
         }
-        if self.dirty_key_directory
-            || !self.dirty_toc_paths.is_empty()
+        if self.key_directory.dirty
+            || !self.toc_tree.dirty_keys.is_empty()
             || self.dirty_variables
-            || self.dirty_forms
+            || self.forms.dirty
             || self.has_dirty_pages()
             || !self.pending_redactions.is_empty()
             || !self.redacted_free_slots.is_empty()
@@ -307,67 +372,19 @@ impl<State> Lockbox<State> {
         Ok(Self {
             storage: self.storage.clone(),
             key: self.key.try_clone()?,
-            sequence: self.sequence,
-            header_slot: self.header_slot,
-            header_generation: self.header_generation,
-            cleanup_sequence: self.cleanup_sequence,
-            cleanup_completed_ranges: self.cleanup_completed_ranges,
-            cleanup_completed_pages: self.cleanup_completed_pages,
-            cleanup_completed_bytes: self.cleanup_completed_bytes,
-            commit_root_offset: self.commit_root_offset,
-            commit_auth_offset: self.commit_auth_offset,
-            commit_auth_digest: self.commit_auth_digest,
-            toc_root_offset: self.toc_root_offset,
-            variable_root_offset: self.variable_root_offset,
-            form_root_offset: self.form_root_offset,
-            free_index_offset: self.free_index_offset,
-            post_cleanup_free_index_offset: self.post_cleanup_free_index_offset,
-            redaction_manifest_offset: self.redaction_manifest_offset,
-            redaction_range_count: self.redaction_range_count,
-            redaction_total_bytes: self.redaction_total_bytes,
-            key_directory_offset: self.key_directory_offset,
-            key_directory_mirror_offset: self.key_directory_mirror_offset,
-            key_directory_generation: self.key_directory_generation,
-            dirty_key_directory: self.dirty_key_directory,
+            staged: self.staged.clone(),
             lockbox_id: self.lockbox_id,
             read_only: self.read_only,
-            poisoned: self.poisoned.clone(),
             owner_signing_key: self
                 .owner_signing_key
                 .as_ref()
                 .map(OwnerSigningKeyPair::try_clone)
                 .transpose()?,
-            key_slots: self.key_slots.clone(),
-            toc_entries: self.toc_entries.clone(),
-            toc_root: self.toc_root.clone(),
-            toc_leaves: self.toc_leaves.clone(),
-            dirty_toc_paths: self.dirty_toc_paths.clone(),
-            variables: RefCell::new(self.variables.borrow().clone()),
-            variable_root: self.variable_root.clone(),
-            variable_leaves: self.variable_leaves.clone(),
-            dirty_variables: self.dirty_variables,
-            form_definitions: RefCell::new(self.form_definitions.borrow().clone()),
-            form_records: RefCell::new(self.form_records.borrow().clone()),
-            form_root: self.form_root.clone(),
-            form_leaves: self.form_leaves.clone(),
-            dirty_form_keys: self.dirty_form_keys.clone(),
-            dirty_forms: self.dirty_forms,
             page_manager: RefCell::new(self.page_manager.borrow().clone()),
             compression_frame_cache: RefCell::new(CompressionFrameCache::default()),
             import_stats: RefCell::new(ImportStats::default()),
             workload_profile: self.workload_profile,
             worker_policy: self.worker_policy,
-            free_space: self.free_space.clone(),
-            record_ref_counts: self.record_ref_counts.clone(),
-            pending_redactions: self.pending_redactions.clone(),
-            pending_redaction_object_count: self.pending_redaction_object_count,
-            redacted_free_slots: self.redacted_free_slots.clone(),
-            pending_small_files: self.pending_small_files.clone(),
-            pending_small_file_bytes: self.pending_small_file_bytes,
-            pending_symlinks: self.pending_symlinks.clone(),
-            mirror_mutation_root: self.mirror_mutation_root.clone(),
-            needs_packing: self.needs_packing,
-            access_widening_pending: self.access_widening_pending,
             state: PhantomData,
         })
     }
@@ -376,125 +393,29 @@ impl<State> Lockbox<State> {
         let Lockbox {
             storage,
             key,
-            sequence,
-            header_slot,
-            header_generation,
-            cleanup_sequence,
-            cleanup_completed_ranges,
-            cleanup_completed_pages,
-            cleanup_completed_bytes,
-            commit_root_offset,
-            commit_auth_offset,
-            commit_auth_digest,
-            toc_root_offset,
-            variable_root_offset,
-            form_root_offset,
-            free_index_offset,
-            post_cleanup_free_index_offset,
-            redaction_manifest_offset,
-            redaction_range_count,
-            redaction_total_bytes,
-            key_directory_offset,
-            key_directory_mirror_offset,
-            key_directory_generation,
-            dirty_key_directory,
+            staged,
             lockbox_id,
             read_only,
-            poisoned,
             owner_signing_key,
-            key_slots,
-            toc_entries,
-            toc_root,
-            toc_leaves,
-            dirty_toc_paths,
-            variables,
-            variable_root,
-            variable_leaves,
-            dirty_variables,
-            form_definitions,
-            form_records,
-            form_root,
-            form_leaves,
-            dirty_form_keys,
-            dirty_forms,
             page_manager,
             compression_frame_cache,
             import_stats,
             workload_profile,
             worker_policy,
-            free_space,
-            record_ref_counts,
-            pending_redactions,
-            pending_redaction_object_count,
-            redacted_free_slots,
-            pending_small_files,
-            pending_small_file_bytes,
-            pending_symlinks,
-            mirror_mutation_root,
-            needs_packing,
-            access_widening_pending,
             state: _,
         } = self;
         Lockbox {
             storage,
             key,
-            sequence,
-            header_slot,
-            header_generation,
-            cleanup_sequence,
-            cleanup_completed_ranges,
-            cleanup_completed_pages,
-            cleanup_completed_bytes,
-            commit_root_offset,
-            commit_auth_offset,
-            commit_auth_digest,
-            toc_root_offset,
-            variable_root_offset,
-            form_root_offset,
-            free_index_offset,
-            post_cleanup_free_index_offset,
-            redaction_manifest_offset,
-            redaction_range_count,
-            redaction_total_bytes,
-            key_directory_offset,
-            key_directory_mirror_offset,
-            key_directory_generation,
-            dirty_key_directory,
+            staged,
             lockbox_id,
             read_only,
-            poisoned,
             owner_signing_key,
-            key_slots,
-            toc_entries,
-            toc_root,
-            toc_leaves,
-            dirty_toc_paths,
-            variables,
-            variable_root,
-            variable_leaves,
-            dirty_variables,
-            form_definitions,
-            form_records,
-            form_root,
-            form_leaves,
-            dirty_form_keys,
-            dirty_forms,
             page_manager,
             compression_frame_cache,
             import_stats,
             workload_profile,
             worker_policy,
-            free_space,
-            record_ref_counts,
-            pending_redactions,
-            pending_redaction_object_count,
-            redacted_free_slots,
-            pending_small_files,
-            pending_small_file_bytes,
-            pending_symlinks,
-            mirror_mutation_root,
-            needs_packing,
-            access_widening_pending,
             state: PhantomData,
         }
     }
@@ -669,63 +590,62 @@ impl Lockbox<Writable> {
         Self {
             storage: StorageBackend::memory(bytes),
             key,
-            sequence: 0,
-            header_slot: 0,
-            header_generation: 1,
-            cleanup_sequence: 0,
-            cleanup_completed_ranges: 0,
-            cleanup_completed_pages: 0,
-            cleanup_completed_bytes: 0,
-            commit_root_offset: 0,
-            commit_auth_offset: 0,
-            commit_auth_digest: [0; 32],
-            toc_root_offset: 0,
-            variable_root_offset: 0,
-            form_root_offset: 0,
-            free_index_offset: 0,
-            post_cleanup_free_index_offset: 0,
-            redaction_manifest_offset: 0,
-            redaction_range_count: 0,
-            redaction_total_bytes: 0,
-            key_directory_offset: 0,
-            key_directory_mirror_offset: 0,
-            key_directory_generation: 0,
-            dirty_key_directory: false,
+            staged: StagedLockboxState {
+                commit_chain: CommitChain {
+                    sequence: 0,
+                    commit_root_offset: 0,
+                    commit_auth_offset: 0,
+                    commit_auth_digest: [0; 32],
+                },
+                header_slot: 0,
+                header_generation: 1,
+                cleanup_sequence: 0,
+                cleanup_completed_ranges: 0,
+                cleanup_completed_pages: 0,
+                cleanup_completed_bytes: 0,
+                toc_tree: PersistedBTree::default(),
+                variable_root_offset: 0,
+                free_index_offset: 0,
+                post_cleanup_free_index_offset: 0,
+                redaction_manifest_offset: 0,
+                redaction_range_count: 0,
+                redaction_total_bytes: 0,
+                key_directory: KeyDirectoryCopies {
+                    primary_offset: 0,
+                    mirror_offset: 0,
+                    generation: 0,
+                    dirty: false,
+                },
+                poisoned: None,
+                key_slots: Vec::new(),
+                toc_entries: BTreeMap::new(),
+                variables: RefCell::new(Some(BTreeMap::new())),
+                variable_root: None,
+                variable_leaves: Vec::new(),
+                dirty_variables: false,
+                forms: FormStore::loaded(),
+                free_space: FreeSpace::default(),
+                record_ref_counts: std::collections::HashMap::with_hasher(
+                    FastBuildHasher::default(),
+                ),
+                pending_redactions: BTreeMap::new(),
+                pending_redaction_object_count: 0,
+                redacted_free_slots: Vec::new(),
+                pending_small_files: BTreeMap::new(),
+                pending_small_file_bytes: 0,
+                pending_symlinks: BTreeMap::new(),
+                mirror_mutation_root: None,
+                needs_packing: false,
+                access_widening_pending: false,
+            },
             lockbox_id,
             read_only: false,
             owner_signing_key: None,
-            poisoned: None,
-            key_slots: Vec::new(),
-            toc_entries: BTreeMap::new(),
-            toc_root: None,
-            toc_leaves: Vec::new(),
-            dirty_toc_paths: BTreeSet::new(),
-            variables: RefCell::new(Some(BTreeMap::new())),
-            variable_root: None,
-            variable_leaves: Vec::new(),
-            dirty_variables: false,
-            form_definitions: RefCell::new(Some(BTreeMap::new())),
-            form_records: RefCell::new(Some(BTreeMap::new())),
-            form_root: None,
-            form_leaves: Vec::new(),
-            dirty_form_keys: BTreeSet::new(),
-            dirty_forms: false,
             page_manager: RefCell::new(PageCache::new(options.cache_limit)),
             compression_frame_cache: RefCell::new(CompressionFrameCache::default()),
             import_stats: RefCell::new(ImportStats::default()),
             workload_profile: options.workload_profile,
             worker_policy: options.worker_policy,
-            free_space: FreeSpace::default(),
-            record_ref_counts: std::collections::HashMap::with_hasher(FastBuildHasher::default()),
-            pending_redactions: BTreeMap::new(),
-            pending_redaction_object_count: 0,
-            redacted_free_slots: Vec::new(),
-            pending_small_files: BTreeMap::new(),
-            pending_small_file_bytes: 0,
-            pending_symlinks: BTreeMap::new(),
-            mirror_mutation_root: None,
-            needs_packing: false,
-            access_widening_pending: false,
             state: PhantomData,
         }
     }
@@ -839,63 +759,62 @@ impl Lockbox<Writable> {
         let mut lockbox = Self {
             storage,
             key,
-            sequence,
-            header_slot,
-            header_generation,
-            cleanup_sequence,
-            cleanup_completed_ranges,
-            cleanup_completed_pages,
-            cleanup_completed_bytes,
-            commit_root_offset: 0,
-            commit_auth_offset: 0,
-            commit_auth_digest: [0; 32],
-            toc_root_offset: 0,
-            variable_root_offset: 0,
-            form_root_offset: 0,
-            free_index_offset: 0,
-            post_cleanup_free_index_offset: 0,
-            redaction_manifest_offset: 0,
-            redaction_range_count: 0,
-            redaction_total_bytes: 0,
-            key_directory_offset: header_key_directory_offset,
-            key_directory_mirror_offset: header_key_directory_mirror_offset,
-            key_directory_generation: 0,
-            dirty_key_directory: false,
+            staged: StagedLockboxState {
+                commit_chain: CommitChain {
+                    sequence,
+                    commit_root_offset: 0,
+                    commit_auth_offset: 0,
+                    commit_auth_digest: [0; 32],
+                },
+                header_slot,
+                header_generation,
+                cleanup_sequence,
+                cleanup_completed_ranges,
+                cleanup_completed_pages,
+                cleanup_completed_bytes,
+                toc_tree: PersistedBTree::default(),
+                variable_root_offset: 0,
+                free_index_offset: 0,
+                post_cleanup_free_index_offset: 0,
+                redaction_manifest_offset: 0,
+                redaction_range_count: 0,
+                redaction_total_bytes: 0,
+                key_directory: KeyDirectoryCopies {
+                    primary_offset: header_key_directory_offset,
+                    mirror_offset: header_key_directory_mirror_offset,
+                    generation: 0,
+                    dirty: false,
+                },
+                poisoned: None,
+                key_slots: Vec::new(),
+                toc_entries: BTreeMap::new(),
+                variables: RefCell::new(None),
+                variable_root: None,
+                variable_leaves: Vec::new(),
+                dirty_variables: false,
+                forms: FormStore::unloaded(),
+                free_space: FreeSpace::default(),
+                record_ref_counts: std::collections::HashMap::with_hasher(
+                    FastBuildHasher::default(),
+                ),
+                pending_redactions: BTreeMap::new(),
+                pending_redaction_object_count: 0,
+                redacted_free_slots: Vec::new(),
+                pending_small_files: BTreeMap::new(),
+                pending_small_file_bytes: 0,
+                pending_symlinks: BTreeMap::new(),
+                mirror_mutation_root: None,
+                needs_packing: false,
+                access_widening_pending: false,
+            },
             lockbox_id,
             read_only: false,
             owner_signing_key: None,
-            poisoned: None,
-            key_slots: Vec::new(),
-            toc_entries: BTreeMap::new(),
-            toc_root: None,
-            toc_leaves: Vec::new(),
-            dirty_toc_paths: BTreeSet::new(),
-            variables: RefCell::new(None),
-            variable_root: None,
-            variable_leaves: Vec::new(),
-            dirty_variables: false,
-            form_definitions: RefCell::new(None),
-            form_records: RefCell::new(None),
-            form_root: None,
-            form_leaves: Vec::new(),
-            dirty_form_keys: BTreeSet::new(),
-            dirty_forms: false,
             page_manager: RefCell::new(PageCache::new(options.cache_limit)),
             compression_frame_cache: RefCell::new(CompressionFrameCache::default()),
             import_stats: RefCell::new(ImportStats::default()),
             workload_profile: options.workload_profile,
             worker_policy: options.worker_policy,
-            free_space: FreeSpace::default(),
-            record_ref_counts: std::collections::HashMap::with_hasher(FastBuildHasher::default()),
-            pending_redactions: BTreeMap::new(),
-            pending_redaction_object_count: 0,
-            redacted_free_slots: Vec::new(),
-            pending_small_files: BTreeMap::new(),
-            pending_small_file_bytes: 0,
-            pending_symlinks: BTreeMap::new(),
-            mirror_mutation_root: None,
-            needs_packing: false,
-            access_widening_pending: false,
             state: PhantomData,
         };
 
@@ -916,9 +835,9 @@ impl Lockbox<Writable> {
             lockbox.commit_auth_digest = auth_digest;
             lockbox.commit_root_offset = auth.commit_root_offset;
             lockbox.sequence = commit_root.sequence;
-            lockbox.key_directory_offset = commit_root.key_directory_offset;
-            lockbox.key_directory_mirror_offset = commit_root.key_directory_mirror_offset;
-            lockbox.key_directory_generation = commit_root.key_directory_generation;
+            lockbox.key_directory.primary_offset = commit_root.key_directory_offset;
+            lockbox.key_directory.mirror_offset = commit_root.key_directory_mirror_offset;
+            lockbox.key_directory.generation = commit_root.key_directory_generation;
             lockbox.free_index_offset = commit_root.free_index_root_offset;
             lockbox.post_cleanup_free_index_offset =
                 commit_root.post_cleanup_free_index_root_offset;
@@ -929,7 +848,7 @@ impl Lockbox<Writable> {
                 .map_err(|_| Error::CorruptRecord)?;
             lockbox.redaction_total_bytes = commit_root.redaction_total_bytes;
             lockbox.variable_root_offset = commit_root.variable_root_offset;
-            lockbox.form_root_offset = commit_root.form_root_offset;
+            lockbox.forms.tree.root_offset = commit_root.form_root_offset;
             toc_root_offset = commit_root.toc_root_offset;
         } else if header_root_offset > 0 {
             let commit_root = match lockbox.read_commit_root_at(header_root_offset) {
@@ -942,36 +861,28 @@ impl Lockbox<Writable> {
                 }
             };
             lockbox.sequence = commit_root.sequence;
-            lockbox.key_directory_offset = commit_root.key_directory_offset;
-            lockbox.key_directory_mirror_offset = commit_root.key_directory_mirror_offset;
-            lockbox.key_directory_generation = commit_root.key_directory_generation;
+            lockbox.key_directory.primary_offset = commit_root.key_directory_offset;
+            lockbox.key_directory.mirror_offset = commit_root.key_directory_mirror_offset;
+            lockbox.key_directory.generation = commit_root.key_directory_generation;
             lockbox.free_index_offset = commit_root.free_index_root_offset;
-            lockbox.post_cleanup_free_index_offset =
-                commit_root.post_cleanup_free_index_root_offset;
-            lockbox.redaction_manifest_offset = commit_root.redaction_manifest_offset;
-            lockbox.redaction_range_count = commit_root
-                .redaction_range_count
-                .try_into()
-                .map_err(|_| Error::CorruptRecord)?;
-            lockbox.redaction_total_bytes = commit_root.redaction_total_bytes;
             lockbox.variable_root_offset = commit_root.variable_root_offset;
-            lockbox.form_root_offset = commit_root.form_root_offset;
+            lockbox.forms.tree.root_offset = commit_root.form_root_offset;
             toc_root_offset = commit_root.toc_root_offset;
         }
         if let Some(directory) = lockbox
             .read_best_key_directory(scanned_key_directory.as_ref())
             .unwrap_or(None)
         {
-            lockbox.key_directory_generation = directory.generation;
+            lockbox.key_directory.generation = directory.generation;
             lockbox.key_slots = directory.slots;
         }
 
         if toc_root_offset > 0 {
             let (toc_entries, root, leaves) = lockbox.decode_toc_btree(toc_root_offset)?;
-            lockbox.toc_root_offset = toc_root_offset;
+            lockbox.toc_tree.root_offset = toc_root_offset;
             lockbox.toc_entries = toc_entries;
-            lockbox.toc_root = Some(root);
-            lockbox.toc_leaves = leaves;
+            lockbox.toc_tree.root = Some(root);
+            lockbox.toc_tree.leaves = leaves;
             lockbox.rebuild_record_ref_counts();
             let total_cleanup_pages = lockbox
                 .redaction_range_count
@@ -1027,8 +938,9 @@ impl Lockbox {
         let storage = StorageBackend::file(path.as_ref())?;
         let header = storage.read_at(0, HEADER_LEN)?;
         let header_result = read_header(&header);
-        let directories =
-            key_management::key_directories_from_storage(&storage).unwrap_or_default();
+        let directories = key_directory_candidates::KeyDirectoryCandidates::from_storage(&storage)
+            .map(key_directory_candidates::KeyDirectoryCandidates::into_ranked)
+            .unwrap_or_default();
 
         if let Ok(header) = header_result {
             let matching_directories = directories
@@ -1048,7 +960,8 @@ impl Lockbox {
             });
         }
 
-        let directories = key_management::key_directories_from_storage(&storage)?;
+        let directories = key_directory_candidates::KeyDirectoryCandidates::from_storage(&storage)?
+            .into_ranked();
         let Some(best) = directories.first() else {
             return Err(Error::CorruptHeader);
         };
@@ -1172,7 +1085,10 @@ impl<State> Lockbox<State> {
         scanned_fallback: Option<&DecodedKeyDirectory>,
     ) -> Result<Option<DecodedKeyDirectory>> {
         let mut directories = Vec::new();
-        for offset in [self.key_directory_offset, self.key_directory_mirror_offset] {
+        for offset in [
+            self.key_directory.primary_offset,
+            self.key_directory.mirror_offset,
+        ] {
             if offset == 0 {
                 continue;
             }
@@ -1445,7 +1361,7 @@ impl<State> Lockbox<State> {
     }
 
     pub(crate) fn mark_toc_dirty(&mut self, path: &LockboxPath) {
-        self.dirty_toc_paths.insert(path.clone());
+        self.toc_tree.dirty_keys.insert(path.clone());
     }
 
     pub(crate) fn mark_toc_dirty_paths<'a>(

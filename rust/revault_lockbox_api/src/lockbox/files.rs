@@ -1,14 +1,18 @@
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
+use std::io::{self, Cursor, Read, SeekFrom, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use super::{Lockbox, Writable};
+use super::file_handles::LockboxFileReader;
+use super::file_import_pipeline::{
+    CompressionFrameWrite, FileImportPipeline, ParallelCompressionJob, ParallelCompressionResult,
+    PreparedCompressionFrame,
+};
+use super::Lockbox;
 use crate::compression::{
-    decode_compression_frame, encode_compression_frame_with_level,
-    validate_compression_frame_lengths, COMPRESSION_NONE, ZSTD_BULK_IMPORT_LEVEL,
-    ZSTD_DEFAULT_LEVEL,
+    decode_compression_frame, validate_compression_frame_lengths, COMPRESSION_NONE,
+    ZSTD_BULK_IMPORT_LEVEL, ZSTD_DEFAULT_LEVEL,
 };
 use crate::compression_frame_manifest::{CompressionFrameManifest, CompressionFrameSlice};
 use crate::constants::{
@@ -24,6 +28,7 @@ use crate::node_kind::NodeKind;
 use crate::page::{page_size_for_encoded_objects, PageObject, PageObjectKind, DEFAULT_PAGE_BYTES};
 use crate::page_object_packer::PageObjectPacker;
 use crate::security::validate_permissions;
+use crate::storage::atomic_file_replacement::AtomicFileReplacement;
 use crate::toc_entry::TocEntry;
 use crate::{Error, Result, WorkloadProfile};
 use zeroize::{Zeroize, Zeroizing};
@@ -31,55 +36,9 @@ use zeroize::{Zeroize, Zeroizing};
 const SMALL_FILE_PACKING_LIMIT: usize = 1024 * 1024;
 const SMALL_FILE_COMPRESSION_FRAME_BYTES: usize = 4 * 1024;
 const BULK_IMPORT_SMALL_FILE_COMPRESSION_FRAME_BYTES: usize = 2 * 1024 * 1024;
-const FILE_COMPRESSION_FRAME_BYTES: usize = 2 * 1024 * 1024;
+pub(super) const FILE_COMPRESSION_FRAME_BYTES: usize = 2 * 1024 * 1024;
 const MAX_SEGMENT_BYTES: usize = DEFAULT_MAX_PAGE_BODY_BYTES - 64 * 1024;
 const DECODED_COMPRESSION_FRAME_CACHE_BYTES: usize = 64 * 1024 * 1024;
-
-/// Options used when opening a writable file handle inside a lockbox.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct OpenFileOptions {
-    /// Create the file if it does not already exist.
-    pub create: bool,
-    /// Truncate the file to zero bytes when it is opened.
-    pub truncate: bool,
-    /// Unix-style permission bits to use for newly-created files.
-    pub permissions: Option<u32>,
-}
-
-impl OpenFileOptions {
-    /// Open an existing file without creating or truncating it.
-    pub const fn existing() -> Self {
-        Self {
-            create: false,
-            truncate: false,
-            permissions: None,
-        }
-    }
-
-    /// Open a file, creating it when it does not already exist.
-    pub const fn create() -> Self {
-        Self {
-            create: true,
-            truncate: false,
-            permissions: None,
-        }
-    }
-
-    /// Open a file, creating it when needed and truncating it to zero bytes.
-    pub const fn create_truncate() -> Self {
-        Self {
-            create: true,
-            truncate: true,
-            permissions: None,
-        }
-    }
-}
-
-impl Default for OpenFileOptions {
-    fn default() -> Self {
-        Self::existing()
-    }
-}
 
 /// Ordering used by `Lockbox::stream_content`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -90,7 +49,6 @@ pub enum ContentStreamOrder {
     /// Stream stored content chunks by physical page offset where possible.
     Physical,
 }
-
 /// Options for streaming lockbox file content without extracting to disk.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ContentStreamOptions {
@@ -111,29 +69,6 @@ pub struct ContentChunk {
     pub physical_offset: Option<u64>,
     /// Whether the range is a sparse zero-filled hole.
     pub sparse: bool,
-}
-
-/// Seekable read handle over a file inside a lockbox.
-pub struct LockboxFileReader<'a, State = Writable> {
-    lockbox: &'a Lockbox<State>,
-    path: LockboxPath,
-    position: u64,
-    len: u64,
-    cache_page_index: Option<u64>,
-    cache_page: Zeroizing<Vec<u8>>,
-}
-
-/// Seekable read/write handle over a file inside a writable lockbox.
-pub struct LockboxFileMut<'a> {
-    lockbox: &'a mut Lockbox<Writable>,
-    path: LockboxPath,
-    position: u64,
-    len: u64,
-    permissions: u32,
-    exists_on_open: bool,
-    truncate_existing: bool,
-    dirty_pages: BTreeMap<u64, Zeroizing<Vec<u8>>>,
-    closed: bool,
 }
 
 impl<State> Lockbox<State> {
@@ -274,14 +209,7 @@ impl<State> Lockbox<State> {
             .get(path)
             .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
             .ok_or_else(|| Error::NotFound(path.to_string()))?;
-        Ok(LockboxFileReader {
-            lockbox: self,
-            path: entry.path.clone(),
-            position: 0,
-            len: entry.len,
-            cache_page_index: None,
-            cache_page: Zeroizing::new(Vec::new()),
-        })
+        Ok(LockboxFileReader::new(self, entry.path.clone(), entry.len))
     }
 
     /// Add or replace a file from an in-memory byte slice.
@@ -520,6 +448,7 @@ impl<State> Lockbox<State> {
     ) -> Result<(u64, Vec<FileChunk>)> {
         let jobs = jobs.max(1);
         let level = self.compression_frame_zstd_level();
+        let pipeline = FileImportPipeline::new(level, jobs);
         let queue_bound = jobs.saturating_mul(2).max(1);
         let (job_tx, job_rx) = std::sync::mpsc::sync_channel::<ParallelCompressionJob>(queue_bound);
         let (result_tx, result_rx) = std::sync::mpsc::channel::<ParallelCompressionResult>();
@@ -537,7 +466,7 @@ impl<State> Lockbox<State> {
                     let Ok(job) = job else {
                         return;
                     };
-                    let result = prepare_parallel_compression_frame(job, level);
+                    let result = pipeline.prepare_parallel_job(job);
                     if result_tx.send(result).is_err() {
                         return;
                     }
@@ -547,9 +476,7 @@ impl<State> Lockbox<State> {
 
             let mut writer = FilePageWriter::new(self);
             let mut chunks = Vec::new();
-            let mut pending = BTreeMap::new();
-            let mut next_index = 0usize;
-            let mut received_count = 0usize;
+            let mut frame_order = ParallelFrameOrder::new();
             let mut file_offset = 0u64;
             let mut job_count = 0usize;
             let mut buffer = vec![0; FILE_COMPRESSION_FRAME_BYTES];
@@ -574,14 +501,7 @@ impl<State> Lockbox<State> {
                                 Error::Io("compression worker stopped unexpectedly".to_string())
                             })?;
                         job_count += 1;
-                        drain_ready_parallel_results(
-                            &result_rx,
-                            &mut writer,
-                            &mut chunks,
-                            &mut pending,
-                            &mut next_index,
-                            &mut received_count,
-                        )?;
+                        frame_order.drain_ready(&result_rx, &mut writer, &mut chunks)?;
                     }
                     break;
                 }
@@ -600,27 +520,15 @@ impl<State> Lockbox<State> {
                     })?;
                 file_offset += read as u64;
                 job_count += 1;
-                drain_ready_parallel_results(
-                    &result_rx,
-                    &mut writer,
-                    &mut chunks,
-                    &mut pending,
-                    &mut next_index,
-                    &mut received_count,
-                )?;
+                frame_order.drain_ready(&result_rx, &mut writer, &mut chunks)?;
             }
             drop(job_tx);
 
-            while received_count < job_count {
+            while frame_order.received_count < job_count {
                 let result = result_rx.recv().map_err(|_| {
                     Error::Io("compression worker stopped unexpectedly".to_string())
                 })?;
-                received_count += 1;
-                pending.insert(result.index, result.frame);
-                while let Some(frame) = pending.remove(&next_index) {
-                    writer.write_prepared_compression_frame(frame, &mut chunks)?;
-                    next_index += 1;
-                }
+                frame_order.accept(result, &mut writer, &mut chunks)?;
             }
             writer.finish(&mut chunks)?;
             Ok((file_offset, chunks))
@@ -726,16 +634,15 @@ impl<State> Lockbox<State> {
         if !destination.exists() {
             return Err(Error::NotFound(destination.display().to_string()));
         }
-        let parent = destination.parent().unwrap_or_else(|| Path::new("."));
-        let (temp_path, mut temp_file) = create_single_file_extract_temp(parent)?;
+        let (replacement, mut temp_file) =
+            AtomicFileReplacement::create_unique(destination, ".lockbox-extract-file")?;
         let result = self.extract_file_to_writer(source, &mut temp_file);
         if let Err(err) = result {
-            let _ = std::fs::remove_file(&temp_path);
+            replacement.discard();
             return Err(err);
         }
         drop(temp_file);
-        replace_single_file_extract_temp(&temp_path, destination)?;
-        sync_parent_dir(destination)?;
+        replacement.install()?;
         Ok(())
     }
 
@@ -1387,402 +1294,6 @@ impl<State> Lockbox<State> {
     }
 }
 
-impl Lockbox<Writable> {
-    /// Open a seekable read/write handle over a file inside the lockbox.
-    pub fn open_file_for_write(
-        &mut self,
-        path: &LockboxPath,
-        options: OpenFileOptions,
-    ) -> Result<LockboxFileMut<'_>> {
-        let path = path.file_path()?;
-        self.ensure_mirror_path_mutable(&path)?;
-        let permissions = validate_permissions(
-            options.permissions.unwrap_or(
-                self.toc_entries
-                    .get(path.as_str())
-                    .filter(|entry| !entry.deleted)
-                    .map(|entry| entry.permissions)
-                    .unwrap_or(DEFAULT_FILE_PERMISSIONS),
-            ),
-        )?;
-        let existing = self
-            .toc_entries
-            .get(path.as_str())
-            .filter(|entry| !entry.deleted)
-            .cloned();
-        if let Some(entry) = existing.as_ref() {
-            if entry.node_kind != NodeKind::File {
-                return Err(Error::InvalidOperation(format!(
-                    "{} is not a file",
-                    entry.path.as_str()
-                )));
-            }
-        } else if !options.create {
-            return Err(Error::NotFound(path.to_string()));
-        } else {
-            self.ensure_parent_directory(&path)?;
-        }
-        let len = if options.truncate {
-            0
-        } else {
-            existing.as_ref().map(|entry| entry.len).unwrap_or(0)
-        };
-        Ok(LockboxFileMut {
-            lockbox: self,
-            path,
-            position: 0,
-            len,
-            permissions,
-            exists_on_open: existing.is_some(),
-            truncate_existing: options.truncate,
-            dirty_pages: BTreeMap::new(),
-            closed: false,
-        })
-    }
-}
-
-impl<'a, State> LockboxFileReader<'a, State> {
-    /// Current logical file length.
-    pub fn len(&self) -> u64 {
-        self.len
-    }
-
-    /// Whether this file is empty.
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
-    fn read_internal(&mut self, buf: &mut [u8]) -> Result<usize> {
-        if buf.is_empty() || self.position >= self.len {
-            return Ok(0);
-        }
-        let mut total = 0usize;
-        while total < buf.len() && self.position < self.len {
-            let page_index = self.position / FILE_COMPRESSION_FRAME_BYTES as u64;
-            let page_start = page_index * FILE_COMPRESSION_FRAME_BYTES as u64;
-            if self.cache_page_index != Some(page_index) {
-                let page_len = (FILE_COMPRESSION_FRAME_BYTES as u64).min(self.len - page_start);
-                self.cache_page = Zeroizing::new(
-                    self.lockbox
-                        .read_file_range(&self.path, page_start, page_len)?,
-                );
-                self.cache_page_index = Some(page_index);
-            }
-            let page_offset = (self.position - page_start) as usize;
-            let available = self.cache_page.len().saturating_sub(page_offset);
-            if available == 0 {
-                break;
-            }
-            let take = (buf.len() - total)
-                .min(available)
-                .min((self.len - self.position) as usize);
-            buf[total..total + take]
-                .copy_from_slice(&self.cache_page[page_offset..page_offset + take]);
-            self.position += take as u64;
-            total += take;
-        }
-        Ok(total)
-    }
-}
-
-impl<'a, State> Read for LockboxFileReader<'a, State> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.read_internal(buf).map_err(to_io_error)
-    }
-}
-
-impl<'a, State> Seek for LockboxFileReader<'a, State> {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.position = seek_position(self.position, self.len, pos)?;
-        Ok(self.position)
-    }
-}
-
-impl<'a> LockboxFileMut<'a> {
-    /// Current logical file length.
-    pub fn len(&self) -> u64 {
-        self.len
-    }
-
-    /// Whether this file is empty.
-    pub fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
-    /// Flush dirty logical pages into the lockbox state.
-    ///
-    /// This does not call `Lockbox::commit`; callers retain the existing
-    /// lockbox-level transaction boundary.
-    pub fn flush(&mut self) -> Result<()> {
-        let rollback = crate::lockbox::commit::CommitRollback::capture(self.lockbox);
-        match self.flush_inner() {
-            Ok(()) => Ok(()),
-            Err(err) => {
-                rollback.restore(self.lockbox);
-                Err(err)
-            }
-        }
-    }
-
-    fn flush_inner(&mut self) -> Result<()> {
-        if self.dirty_pages.is_empty() && !self.truncate_existing && self.exists_on_open {
-            return Ok(());
-        }
-
-        let old = self
-            .lockbox
-            .toc_entries
-            .get(self.path.as_str())
-            .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::File)
-            .cloned();
-        let mut kept_chunks = Vec::new();
-        let mut removed_chunks = Vec::new();
-        let dirty_ranges = self
-            .dirty_pages
-            .keys()
-            .map(|page_index| {
-                let start = page_index.saturating_mul(FILE_COMPRESSION_FRAME_BYTES as u64);
-                (
-                    start,
-                    start.saturating_add(FILE_COMPRESSION_FRAME_BYTES as u64),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        if let Some(entry) = old.as_ref() {
-            for chunk in &entry.chunks {
-                let chunk_end = chunk.file_offset.saturating_add(chunk.len);
-                let dirty = dirty_ranges
-                    .iter()
-                    .any(|(start, end)| ranges_overlap(chunk.file_offset, chunk_end, *start, *end));
-                if self.truncate_existing || chunk_end > self.len || dirty {
-                    removed_chunks.push(chunk.clone());
-                } else {
-                    kept_chunks.push(chunk.clone());
-                }
-            }
-        }
-
-        if !removed_chunks.is_empty() {
-            let kept_frame_ids = kept_chunks
-                .iter()
-                .map(|chunk| chunk.compression_frame_id)
-                .collect::<BTreeSet<_>>();
-            let removed_entry = TocEntry {
-                path: self.path.clone(),
-                len: old.as_ref().map(|entry| entry.len).unwrap_or(0),
-                record_offset: old.as_ref().map(|entry| entry.record_offset).unwrap_or(0),
-                record_len: old.as_ref().map(|entry| entry.record_len).unwrap_or(0),
-                record_object_id: old
-                    .as_ref()
-                    .map(|entry| entry.record_object_id)
-                    .unwrap_or(0),
-                deleted: false,
-                node_kind: NodeKind::File,
-                permissions: self.permissions,
-                chunks: removed_chunks.clone(),
-            };
-            self.lockbox
-                .rewrite_shared_compression_frames_before_removal(&removed_entry)?;
-            for chunk in &removed_chunks {
-                if kept_frame_ids.contains(&chunk.compression_frame_id) {
-                    continue;
-                }
-                for segment in &chunk.segments {
-                    self.lockbox.schedule_page_object_redaction(
-                        segment.page_offset,
-                        segment.page_len,
-                        segment.object_id,
-                    )?;
-                }
-            }
-        }
-
-        self.lockbox.remove_pending_small_file(&self.path);
-
-        let mut new_chunks = Vec::new();
-        let mut dirty_writes = Vec::new();
-        for (page_index, page) in &self.dirty_pages {
-            let page_start = page_index.saturating_mul(FILE_COMPRESSION_FRAME_BYTES as u64);
-            if page_start >= self.len {
-                continue;
-            }
-            let actual_len =
-                (FILE_COMPRESSION_FRAME_BYTES as u64).min(self.len - page_start) as usize;
-            if let Some((start, end)) = trim_zeroes(&page[..actual_len]) {
-                dirty_writes.push((
-                    page_start + start as u64,
-                    Zeroizing::new(page[start..end].to_vec()),
-                ));
-            }
-        }
-        {
-            let mut writer = FilePageWriter::new(&mut *self.lockbox);
-            for (file_offset, data) in &dirty_writes {
-                writer.write_compression_frame(
-                    CompressionFrameWrite {
-                        path: &self.path,
-                        permissions: self.permissions,
-                        total_len: self.len,
-                        file_offset: *file_offset,
-                        data,
-                    },
-                    &mut new_chunks,
-                )?;
-            }
-            writer.finish(&mut new_chunks)?;
-        }
-
-        kept_chunks.extend(new_chunks.clone());
-        kept_chunks.sort_by_key(|chunk| chunk.file_offset);
-        let record_offset = kept_chunks
-            .first()
-            .and_then(|chunk| chunk.segments.first())
-            .map(|segment| segment.page_offset)
-            .unwrap_or(0);
-        let record_len = kept_chunks
-            .first()
-            .and_then(|chunk| chunk.segments.first())
-            .map(|segment| segment.page_len)
-            .unwrap_or(0);
-        let record_object_id = kept_chunks
-            .first()
-            .and_then(|chunk| chunk.segments.first())
-            .map(|segment| segment.object_id)
-            .unwrap_or(0);
-
-        let entry = TocEntry {
-            path: self.path.clone(),
-            len: self.len,
-            record_offset,
-            record_len,
-            record_object_id,
-            deleted: false,
-            node_kind: NodeKind::File,
-            permissions: self.permissions,
-            chunks: kept_chunks,
-        };
-        if !new_chunks.is_empty() {
-            let new_ref_entry = TocEntry {
-                chunks: new_chunks,
-                ..entry.clone()
-            };
-            self.lockbox.add_entry_record_refs(&new_ref_entry);
-        }
-        self.lockbox.toc_entries.insert(self.path.clone(), entry);
-        self.lockbox.mark_toc_dirty(&self.path);
-        self.lockbox.needs_packing = true;
-        self.dirty_pages.clear();
-        self.exists_on_open = true;
-        self.truncate_existing = false;
-        Ok(())
-    }
-
-    /// Flush and close the handle.
-    pub fn close(mut self) -> Result<()> {
-        self.flush()?;
-        self.closed = true;
-        Ok(())
-    }
-
-    fn read_internal(&mut self, buf: &mut [u8]) -> Result<usize> {
-        if buf.is_empty() || self.position >= self.len {
-            return Ok(0);
-        }
-        let mut total = 0usize;
-        while total < buf.len() && self.position < self.len {
-            let page_index = self.position / FILE_COMPRESSION_FRAME_BYTES as u64;
-            let page_start = page_index * FILE_COMPRESSION_FRAME_BYTES as u64;
-            let page_offset = (self.position - page_start) as usize;
-            let take = (buf.len() - total)
-                .min(FILE_COMPRESSION_FRAME_BYTES - page_offset)
-                .min((self.len - self.position) as usize);
-            if let Some(page) = self.dirty_pages.get(&page_index) {
-                buf[total..total + take].copy_from_slice(&page[page_offset..page_offset + take]);
-            } else if self.exists_on_open && !self.truncate_existing {
-                let data = self
-                    .lockbox
-                    .read_file_range(&self.path, self.position, take as u64)?;
-                let read = data.len().min(take);
-                buf[total..total + read].copy_from_slice(&data[..read]);
-                if read < take {
-                    buf[total + read..total + take].fill(0);
-                }
-            } else {
-                buf[total..total + take].fill(0);
-            }
-            self.position += take as u64;
-            total += take;
-        }
-        Ok(total)
-    }
-
-    fn write_internal(&mut self, buf: &[u8]) -> Result<usize> {
-        let mut total = 0usize;
-        while total < buf.len() {
-            let page_index = self.position / FILE_COMPRESSION_FRAME_BYTES as u64;
-            let page_start = page_index * FILE_COMPRESSION_FRAME_BYTES as u64;
-            let page_offset = (self.position - page_start) as usize;
-            let take = (buf.len() - total).min(FILE_COMPRESSION_FRAME_BYTES - page_offset);
-            if !self.dirty_pages.contains_key(&page_index) {
-                let mut page = if self.exists_on_open && !self.truncate_existing {
-                    self.lockbox.read_file_range(
-                        &self.path,
-                        page_start,
-                        FILE_COMPRESSION_FRAME_BYTES as u64,
-                    )?
-                } else {
-                    Vec::new()
-                };
-                page.resize(FILE_COMPRESSION_FRAME_BYTES, 0);
-                self.dirty_pages.insert(page_index, Zeroizing::new(page));
-            }
-            let page = self
-                .dirty_pages
-                .get_mut(&page_index)
-                .ok_or_else(|| Error::InvalidOperation("dirty page missing".to_string()))?;
-            page[page_offset..page_offset + take].copy_from_slice(&buf[total..total + take]);
-            self.position = self.position.saturating_add(take as u64);
-            self.len = self.len.max(self.position);
-            total += take;
-        }
-        Ok(total)
-    }
-}
-
-impl<'a> Read for LockboxFileMut<'a> {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.read_internal(buf).map_err(to_io_error)
-    }
-}
-
-impl<'a> Write for LockboxFileMut<'a> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.write_internal(buf).map_err(to_io_error)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        LockboxFileMut::flush(self).map_err(to_io_error)
-    }
-}
-
-impl<'a> Seek for LockboxFileMut<'a> {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.position = seek_position(self.position, self.len, pos)?;
-        Ok(self.position)
-    }
-}
-
-impl<'a> Drop for LockboxFileMut<'a> {
-    fn drop(&mut self) {
-        if !self.closed {
-            if let Err(err) = self.flush() {
-                self.lockbox.poisoned = Some(err.to_string());
-            }
-        }
-    }
-}
-
 #[derive(Debug)]
 struct ContentStreamItem {
     path: LockboxPath,
@@ -1887,11 +1398,16 @@ fn entry_has_sparse_ranges(entry: &TocEntry) -> bool {
     cursor != entry.len
 }
 
-fn ranges_overlap(left_start: u64, left_end: u64, right_start: u64, right_end: u64) -> bool {
+pub(super) fn ranges_overlap(
+    left_start: u64,
+    left_end: u64,
+    right_start: u64,
+    right_end: u64,
+) -> bool {
     left_start < right_end && right_start < left_end
 }
 
-fn trim_zeroes(bytes: &[u8]) -> Option<(usize, usize)> {
+pub(super) fn trim_zeroes(bytes: &[u8]) -> Option<(usize, usize)> {
     let start = bytes.iter().position(|byte| *byte != 0)?;
     let end = bytes
         .iter()
@@ -1912,7 +1428,7 @@ fn write_zeroes(writer: &mut impl Write, mut len: u64) -> Result<()> {
     Ok(())
 }
 
-fn seek_position(current: u64, len: u64, pos: SeekFrom) -> io::Result<u64> {
+pub(super) fn seek_position(current: u64, len: u64, pos: SeekFrom) -> io::Result<u64> {
     let absolute = match pos {
         SeekFrom::Start(offset) => offset as i128,
         SeekFrom::End(offset) => len as i128 + offset as i128,
@@ -1927,64 +1443,7 @@ fn seek_position(current: u64, len: u64, pos: SeekFrom) -> io::Result<u64> {
     Ok(absolute as u64)
 }
 
-fn create_single_file_extract_temp(parent: &Path) -> Result<(std::path::PathBuf, std::fs::File)> {
-    let process_id = std::process::id();
-    for attempt in 0..1000u64 {
-        let temp_path = parent.join(format!(".lockbox-extract-file-{process_id}-{attempt}.tmp"));
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temp_path)
-        {
-            Ok(file) => return Ok((temp_path, file)),
-            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
-            Err(err) => return Err(Error::Io(format!("create {}: {err}", temp_path.display()))),
-        }
-    }
-    Err(Error::Io(
-        "unable to create unique extraction temporary file".to_string(),
-    ))
-}
-
-fn replace_single_file_extract_temp(temp_path: &Path, destination: &Path) -> Result<()> {
-    match std::fs::rename(temp_path, destination) {
-        Ok(()) => Ok(()),
-        #[cfg(windows)]
-        Err(err) if destination.exists() => {
-            std::fs::remove_file(destination).map_err(|remove_err| {
-                Error::Io(format!(
-                    "replace {}: remove existing failed after rename error {err}: {remove_err}",
-                    destination.display()
-                ))
-            })?;
-            std::fs::rename(temp_path, destination).map_err(|rename_err| {
-                Error::Io(format!("replace {}: {rename_err}", destination.display()))
-            })
-        }
-        Err(err) => Err(Error::Io(format!(
-            "replace {}: {err}",
-            destination.display()
-        ))),
-    }
-}
-
-fn sync_parent_dir(path: &Path) -> Result<()> {
-    #[cfg(unix)]
-    {
-        let parent = path.parent().unwrap_or_else(|| Path::new("."));
-        let dir = std::fs::File::open(parent)
-            .map_err(|err| Error::Io(format!("open {}: {err}", parent.display())))?;
-        dir.sync_data()
-            .map_err(|err| Error::Io(format!("sync {}: {err}", parent.display())))?;
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = path;
-    }
-    Ok(())
-}
-
-fn to_io_error(err: Error) -> io::Error {
+pub(super) fn to_io_error(err: Error) -> io::Error {
     io::Error::other(err)
 }
 
@@ -2002,30 +1461,53 @@ fn read_next_chunk(reader: &mut impl Read, buffer: &mut [u8]) -> Result<usize> {
     Ok(read_total)
 }
 
-fn drain_ready_parallel_results<State>(
-    result_rx: &std::sync::mpsc::Receiver<ParallelCompressionResult>,
-    writer: &mut FilePageWriter<'_, State>,
-    chunks: &mut Vec<FileChunk>,
-    pending: &mut BTreeMap<usize, PreparedCompressionFrame>,
-    next_index: &mut usize,
-    received_count: &mut usize,
-) -> Result<()> {
-    loop {
-        let result = match result_rx.try_recv() {
-            Ok(result) => result,
-            Err(std::sync::mpsc::TryRecvError::Empty) => return Ok(()),
-            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                return Err(Error::Io(
-                    "compression worker stopped unexpectedly".to_string(),
-                ));
-            }
-        };
-        *received_count += 1;
-        pending.insert(result.index, result.frame);
-        while let Some(frame) = pending.remove(&*next_index) {
-            writer.write_prepared_compression_frame(frame, chunks)?;
-            *next_index += 1;
+struct ParallelFrameOrder {
+    pending: BTreeMap<usize, PreparedCompressionFrame>,
+    next_index: usize,
+    received_count: usize,
+}
+
+impl ParallelFrameOrder {
+    fn new() -> Self {
+        Self {
+            pending: BTreeMap::new(),
+            next_index: 0,
+            received_count: 0,
         }
+    }
+
+    fn drain_ready<State>(
+        &mut self,
+        result_rx: &std::sync::mpsc::Receiver<ParallelCompressionResult>,
+        writer: &mut FilePageWriter<'_, State>,
+        chunks: &mut Vec<FileChunk>,
+    ) -> Result<()> {
+        loop {
+            match result_rx.try_recv() {
+                Ok(result) => self.accept(result, writer, chunks)?,
+                Err(std::sync::mpsc::TryRecvError::Empty) => return Ok(()),
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    return Err(Error::Io(
+                        "compression worker stopped unexpectedly".to_string(),
+                    ));
+                }
+            }
+        }
+    }
+
+    fn accept<State>(
+        &mut self,
+        result: ParallelCompressionResult,
+        writer: &mut FilePageWriter<'_, State>,
+        chunks: &mut Vec<FileChunk>,
+    ) -> Result<()> {
+        self.received_count += 1;
+        self.pending.insert(result.index, result.frame);
+        while let Some(frame) = self.pending.remove(&self.next_index) {
+            writer.write_prepared_compression_frame(frame, chunks)?;
+            self.next_index += 1;
+        }
+        Ok(())
     }
 }
 
@@ -2036,7 +1518,7 @@ struct PendingSegment {
     segment_len: u64,
 }
 
-struct FilePageWriter<'a, State> {
+pub(super) struct FilePageWriter<'a, State> {
     lockbox: &'a mut Lockbox<State>,
     packer: PageObjectPacker<PendingSegment>,
 }
@@ -2055,54 +1537,15 @@ impl Drop for SharedCompressionFrameSurvivor {
     }
 }
 
-#[derive(Clone, Copy)]
-struct CompressionFrameWrite<'a> {
-    path: &'a LockboxPath,
-    permissions: u32,
-    total_len: u64,
-    file_offset: u64,
-    data: &'a [u8],
-}
-
-struct PreparedCompressionFrame {
-    compression: u8,
-    compression_frame_len: u64,
-    compressed_len: u64,
-    compression_frame_digest: [u8; 32],
-    slices: Vec<CompressionFrameSlice>,
-    stored: Zeroizing<Vec<u8>>,
-    prepare_nanos: u128,
-}
-
-struct ParallelCompressionJob {
-    index: usize,
-    path: LockboxPath,
-    permissions: u32,
-    total_len: u64,
-    file_offset: u64,
-    data: Vec<u8>,
-}
-
-impl Drop for ParallelCompressionJob {
-    fn drop(&mut self) {
-        self.data.zeroize();
-    }
-}
-
-struct ParallelCompressionResult {
-    index: usize,
-    frame: PreparedCompressionFrame,
-}
-
 impl<'a, State> FilePageWriter<'a, State> {
-    fn new(lockbox: &'a mut Lockbox<State>) -> Self {
+    pub(super) fn new(lockbox: &'a mut Lockbox<State>) -> Self {
         Self {
             lockbox,
             packer: PageObjectPacker::new(DEFAULT_PAGE_BYTES),
         }
     }
 
-    fn write_compression_frame(
+    pub(super) fn write_compression_frame(
         &mut self,
         frame: CompressionFrameWrite<'_>,
         chunks: &mut Vec<FileChunk>,
@@ -2117,7 +1560,7 @@ impl<'a, State> FilePageWriter<'a, State> {
         chunks: &mut Vec<FileChunk>,
     ) -> Result<Vec<usize>> {
         let prepared =
-            prepare_compression_frame(frames, self.lockbox.compression_frame_zstd_level());
+            FileImportPipeline::new(self.lockbox.compression_frame_zstd_level(), 1).prepare(frames);
         self.write_prepared_compression_frame(prepared, chunks)
     }
 
@@ -2126,11 +1569,11 @@ impl<'a, State> FilePageWriter<'a, State> {
         batches: &[Vec<CompressionFrameWrite<'_>>],
         chunks: &mut Vec<FileChunk>,
     ) -> Result<Vec<Vec<usize>>> {
-        let prepared = prepare_compression_frame_batches(
-            batches,
+        let prepared = FileImportPipeline::new(
             self.lockbox.compression_frame_zstd_level(),
             self.lockbox.worker_jobs(),
-        );
+        )
+        .prepare_batches(batches);
         let mut indices = Vec::with_capacity(prepared.len());
         for frame in prepared {
             indices.push(self.write_prepared_compression_frame(frame, chunks)?);
@@ -2223,7 +1666,7 @@ impl<'a, State> FilePageWriter<'a, State> {
         Ok(())
     }
 
-    fn finish(&mut self, chunks: &mut [FileChunk]) -> Result<()> {
+    pub(super) fn finish(&mut self, chunks: &mut [FileChunk]) -> Result<()> {
         self.flush(chunks)
     }
 
@@ -2268,121 +1711,5 @@ impl<'a, State> FilePageWriter<'a, State> {
         self.lockbox
             .add_page_write_nanos(write_start.elapsed().as_nanos());
         Ok(())
-    }
-}
-
-fn prepare_compression_frame(
-    frames: &[CompressionFrameWrite<'_>],
-    zstd_level: i32,
-) -> PreparedCompressionFrame {
-    let prepare_start = Instant::now();
-    let mut compression_frame_payload = Vec::new();
-    let mut slices = Vec::with_capacity(frames.len());
-    for frame in frames {
-        let compression_frame_offset = compression_frame_payload.len() as u64;
-        compression_frame_payload.extend_from_slice(frame.data);
-        slices.push(CompressionFrameSlice {
-            path: frame.path.clone(),
-            permissions: frame.permissions,
-            total_len: frame.total_len,
-            file_offset: frame.file_offset,
-            compression_frame_offset,
-            len: frame.data.len() as u64,
-        });
-    }
-    prepare_compression_frame_payload(compression_frame_payload, slices, zstd_level, prepare_start)
-}
-
-fn prepare_compression_frame_batches(
-    batches: &[Vec<CompressionFrameWrite<'_>>],
-    zstd_level: i32,
-    jobs: usize,
-) -> Vec<PreparedCompressionFrame> {
-    if jobs <= 1 || batches.len() <= 1 {
-        return batches
-            .iter()
-            .map(|batch| prepare_compression_frame(batch, zstd_level))
-            .collect();
-    }
-
-    let worker_count = jobs.min(batches.len()).max(1);
-    let next_index = std::sync::atomic::AtomicUsize::new(0);
-    let (result_tx, result_rx) = std::sync::mpsc::channel::<(usize, PreparedCompressionFrame)>();
-    std::thread::scope(|scope| {
-        for _ in 0..worker_count {
-            let result_tx = result_tx.clone();
-            let next_index = &next_index;
-            scope.spawn(move || loop {
-                let index = next_index.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                if index >= batches.len() {
-                    return;
-                }
-                let prepared = prepare_compression_frame(&batches[index], zstd_level);
-                if result_tx.send((index, prepared)).is_err() {
-                    return;
-                }
-            });
-        }
-        drop(result_tx);
-    });
-
-    let mut prepared = Vec::with_capacity(batches.len());
-    prepared.resize_with(batches.len(), || None);
-    for (index, frame) in result_rx {
-        prepared[index] = Some(frame);
-    }
-    prepared
-        .into_iter()
-        .enumerate()
-        .map(|(index, frame)| {
-            frame.unwrap_or_else(|| prepare_compression_frame(&batches[index], zstd_level))
-        })
-        .collect()
-}
-
-fn prepare_parallel_compression_frame(
-    mut job: ParallelCompressionJob,
-    zstd_level: i32,
-) -> ParallelCompressionResult {
-    let prepare_start = Instant::now();
-    let index = job.index;
-    let slice = CompressionFrameSlice {
-        path: job.path.clone(),
-        permissions: job.permissions,
-        total_len: job.total_len,
-        file_offset: job.file_offset,
-        compression_frame_offset: 0,
-        len: job.data.len() as u64,
-    };
-    let frame = prepare_compression_frame_payload(
-        std::mem::take(&mut job.data),
-        vec![slice],
-        zstd_level,
-        prepare_start,
-    );
-    ParallelCompressionResult { index, frame }
-}
-
-fn prepare_compression_frame_payload(
-    mut compression_frame_payload: Vec<u8>,
-    slices: Vec<CompressionFrameSlice>,
-    zstd_level: i32,
-    prepare_start: Instant,
-) -> PreparedCompressionFrame {
-    let compression_frame_len = compression_frame_payload.len() as u64;
-    let (compression, stored) =
-        encode_compression_frame_with_level(&compression_frame_payload, zstd_level);
-    compression_frame_payload.zeroize();
-    let stored = Zeroizing::new(stored);
-    let compression_frame_digest = strong_checksum(stored.as_slice());
-    let prepare_nanos = prepare_start.elapsed().as_nanos();
-    PreparedCompressionFrame {
-        compression,
-        compression_frame_len,
-        compressed_len: stored.len() as u64,
-        compression_frame_digest,
-        slices,
-        stored,
-        prepare_nanos,
     }
 }

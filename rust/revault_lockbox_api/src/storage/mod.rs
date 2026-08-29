@@ -1,3 +1,4 @@
+pub(crate) mod atomic_file_replacement;
 pub(crate) mod cache_options;
 pub(crate) mod file_lock;
 pub(crate) mod free_index;

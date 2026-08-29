@@ -173,36 +173,6 @@ pub(crate) fn validate_symlink_paths(link_path: &str, target_path: &str) -> Resu
     Ok(())
 }
 
-pub(crate) fn validate_glob(pattern: &str) -> Result<String> {
-    if pattern.is_empty()
-        || pattern.len() > MAX_PATH_BYTES
-        || pattern.starts_with('/')
-        || pattern.starts_with("//")
-        || pattern.contains('\\')
-        || pattern.contains('\0')
-        || pattern.contains(':')
-        || pattern.chars().any(is_forbidden_unicode)
-    {
-        return Err(Error::InvalidPath(pattern.to_string()));
-    }
-    for component in pattern.split('/') {
-        if component.is_empty() || component == "." || component == ".." {
-            return Err(Error::InvalidPath(pattern.to_string()));
-        }
-    }
-    if pattern.is_ascii() {
-        Ok(pattern.to_string())
-    } else {
-        Ok(pattern.nfc().collect::<String>())
-    }
-}
-
-pub(crate) fn glob_matches(pattern: &str, text: &str) -> bool {
-    let pattern_parts: Vec<&str> = pattern.split('/').collect();
-    let text_parts: Vec<&str> = text.split('/').collect();
-    glob_match_parts(&pattern_parts, &text_parts)
-}
-
 fn validate_lockbox_path(path: &str, allow_dir: bool) -> Result<()> {
     if path.is_ascii() {
         return validate_ascii_lockbox_path(path, allow_dir);
@@ -297,7 +267,7 @@ fn validate_ascii_lockbox_path(path: &str, allow_dir: bool) -> Result<()> {
     Ok(())
 }
 
-fn is_forbidden_unicode(ch: char) -> bool {
+pub(super) fn is_forbidden_unicode(ch: char) -> bool {
     matches!(
         ch,
         '\u{0000}'..='\u{001f}'
@@ -312,51 +282,6 @@ fn is_forbidden_unicode(ch: char) -> bool {
             | '\u{fe00}'..='\u{fe0f}'
             | '\u{e0100}'..='\u{e01ef}'
     )
-}
-
-fn glob_match_parts(pattern: &[&str], text: &[&str]) -> bool {
-    if pattern.is_empty() {
-        return text.is_empty();
-    }
-    if pattern[0] == "**" {
-        return glob_match_parts(&pattern[1..], text)
-            || (!text.is_empty() && glob_match_parts(pattern, &text[1..]));
-    }
-    if text.is_empty() {
-        return false;
-    }
-    glob_match_component(pattern[0], text[0]) && glob_match_parts(&pattern[1..], &text[1..])
-}
-
-fn glob_match_component(pattern: &str, text: &str) -> bool {
-    let pattern: Vec<char> = pattern.chars().collect();
-    let text: Vec<char> = text.chars().collect();
-    let mut p = 0usize;
-    let mut t = 0usize;
-    let mut star = None;
-    let mut star_text = 0usize;
-
-    while t < text.len() {
-        if p < pattern.len() && (pattern[p] == '?' || pattern[p] == text[t]) {
-            p += 1;
-            t += 1;
-        } else if p < pattern.len() && pattern[p] == '*' {
-            star = Some(p);
-            p += 1;
-            star_text = t;
-        } else if let Some(star_pos) = star {
-            p = star_pos + 1;
-            star_text += 1;
-            t = star_text;
-        } else {
-            return false;
-        }
-    }
-
-    while p < pattern.len() && pattern[p] == '*' {
-        p += 1;
-    }
-    p == pattern.len()
 }
 
 #[cfg(test)]

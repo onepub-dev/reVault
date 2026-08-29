@@ -84,85 +84,7 @@ impl RecoveryScanner {
 
 fn recover_bytes(bytes: Vec<u8>, key: impl AsRef<[u8]>) -> RecoveryReport {
     let key = key.as_ref().to_vec();
-    let lockbox_id = lockbox_id_from_bytes_unchecked(&bytes);
-    let scanner = PageScanner::new(&bytes, lockbox_id, &key);
-    let mut toc_entries = BTreeMap::new();
-    let mut toc_recovered = false;
-    let mut metadata = RecoveredMetadata::default();
-
-    if let Some((commit_root, public_header_root)) =
-        header_commit_root_for_recovery(&scanner, &bytes)
-    {
-        metadata = recover_metadata_from_commit_root(&scanner, &commit_root);
-        if let Ok(decoded) = decode_toc_btree_from_offset(&scanner, commit_root.toc_root_offset, 0)
-        {
-            toc_entries = decoded;
-            toc_recovered = public_header_root;
-        }
-    }
-
-    let scan = scanner.scan_records();
-    let scanned_segments = collect_scanned_file_segments(&scan.records);
-    let mut corrupt_records = scan.corrupt_records;
-
-    if toc_entries.is_empty() {
-        for record in &scan.records {
-            match decode_index_records(record) {
-                Ok(entries) => {
-                    for entry in entries {
-                        apply_scanned_entry(&mut toc_entries, entry);
-                    }
-                }
-                Err(_) => corrupt_records += 1,
-            }
-        }
-    }
-    attach_scanned_file_segments(&mut toc_entries, &scanned_segments);
-
-    let mut intact_files = Vec::new();
-    let mut intact_file_count = 0;
-    let mut partial_files = 0;
-
-    for entry in toc_entries.values() {
-        if entry.deleted {
-            continue;
-        }
-        let complete = match entry.node_kind {
-            NodeKind::File => read_page_file_bytes(&scanner, entry).is_ok(),
-            NodeKind::Symlink => recover_symlink_target(&scanner, entry).is_ok(),
-            NodeKind::Directory => true,
-        };
-        if complete {
-            intact_file_count += 1;
-        } else {
-            partial_files += 1;
-        }
-        intact_files.push(LockboxEntry {
-            path: entry.path.clone(),
-            kind: entry.entry_kind(),
-            len: entry.len,
-            permissions: entry.permissions,
-        });
-    }
-
-    RecoveryReport {
-        intact_files,
-        intact_file_count,
-        partial_files,
-        corrupt_records,
-        toc_recovered,
-        variables_recovered: metadata.variables.is_some(),
-        variable_count: metadata.variables.as_ref().map_or(0, BTreeMap::len),
-        forms_recovered: metadata.forms.is_some(),
-        form_definition_count: metadata
-            .forms
-            .as_ref()
-            .map_or(0, |forms| latest_form_definition_count(&forms.definitions)),
-        form_record_count: metadata
-            .forms
-            .as_ref()
-            .map_or(0, |forms| forms.records.len()),
-    }
+    RecoverySession::new(&bytes, &key).report()
 }
 
 fn salvage_bytes(
@@ -171,89 +93,182 @@ fn salvage_bytes(
     signing_key: &OwnerSigningKeyPair,
 ) -> Result<Lockbox> {
     let key_bytes = key.as_ref().to_vec();
-    let lockbox_id = lockbox_id_from_bytes_unchecked(&bytes);
-    let scanner = PageScanner::new(&bytes, lockbox_id, &key_bytes);
-    let metadata = header_commit_root_for_recovery(&scanner, &bytes)
-        .map(|(commit_root, _)| recover_metadata_from_commit_root(&scanner, &commit_root))
-        .unwrap_or_default();
-    let scan = scanner.scan_records();
-    let scanned_segments = collect_scanned_file_segments(&scan.records);
-    let mut recovered = Lockbox::create_with_secret_key_and_options(
-        crate::SecretVec::try_from_slice(&key_bytes)?,
-        lockbox_id,
-        crate::LockboxOptions::default(),
-    );
-    recovered.set_owner_signing_key(signing_key.try_clone()?);
-    let mut latest_paths = BTreeMap::new();
+    RecoverySession::new(&bytes, &key_bytes).salvage(signing_key)
+}
 
-    for record in &scan.records {
-        if let Ok(entries) = decode_index_records(record) {
-            for entry in entries {
-                apply_scanned_entry(&mut latest_paths, entry);
+struct RecoverySession<'a> {
+    bytes: &'a [u8],
+    key: &'a [u8],
+    lockbox_id: LockboxId,
+    scanner: PageScanner<'a>,
+}
+
+impl<'a> RecoverySession<'a> {
+    fn new(bytes: &'a [u8], key: &'a [u8]) -> Self {
+        let lockbox_id = lockbox_id_from_bytes_unchecked(bytes);
+        Self {
+            bytes,
+            key,
+            lockbox_id,
+            scanner: PageScanner::new(bytes, lockbox_id, key),
+        }
+    }
+
+    fn report(&self) -> RecoveryReport {
+        let mut toc_entries = BTreeMap::new();
+        let mut toc_recovered = false;
+        let mut metadata = RecoveredMetadata::default();
+
+        if let Some((commit_root, public_header_root)) =
+            header_commit_root_for_recovery(&self.scanner, self.bytes)
+        {
+            metadata = recover_metadata_from_commit_root(&self.scanner, &commit_root);
+            if let Ok(decoded) =
+                decode_toc_btree_from_offset(&self.scanner, commit_root.toc_root_offset, 0)
+            {
+                toc_entries = decoded;
+                toc_recovered = public_header_root;
             }
         }
-    }
-    attach_scanned_file_segments(&mut latest_paths, &scanned_segments);
 
-    for entry in latest_paths
-        .values()
-        .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::Directory)
-    {
-        recovered.create_dir(&entry.path, true)?;
-        recovered.set_permissions(&entry.path, entry.permissions)?;
-    }
-
-    for entry in latest_paths.values() {
-        if entry.deleted {
-            continue;
-        }
-        if entry.node_kind == NodeKind::Directory {
-            continue;
-        }
-        let record = if entry.record_object_id == 0 {
-            scanner.record_at(entry.record_offset)
-        } else {
-            scanner.record_object_at(entry.record_offset, entry.record_object_id)
-        };
-        if let Ok(record) = record {
-            match record.header.kind {
-                RecordKind::FilePage => {
-                    if let Ok(file_bytes) = read_page_file_bytes(&scanner, entry) {
-                        recovered.create_parent_dirs_for(&entry.path)?;
-                        recovered.add_file_with_permissions(
-                            &entry.path,
-                            &file_bytes,
-                            entry.permissions,
-                            false,
-                        )?;
+        let scan = self.scanner.scan_records();
+        let scanned_segments = collect_scanned_file_segments(&scan.records);
+        let mut corrupt_records = scan.corrupt_records;
+        if toc_entries.is_empty() {
+            for record in &scan.records {
+                match decode_index_records(record) {
+                    Ok(entries) => {
+                        for entry in entries {
+                            apply_scanned_entry(&mut toc_entries, entry);
+                        }
                     }
+                    Err(_) => corrupt_records += 1,
                 }
-                RecordKind::Symlink => {
-                    if let Ok((path, target)) = decode_symlink_payload(&record.payload) {
-                        recovered.create_parent_dirs_for(&path)?;
-                        recovered.add_symlink(&path, &target, false)?;
-                    }
-                }
-                _ => {}
             }
         }
-    }
-    if let Some(variables) = metadata.variables {
-        for (name, value) in variables {
-            recovered.set_variable_value(name, value)?;
+        attach_scanned_file_segments(&mut toc_entries, &scanned_segments);
+
+        let mut intact_files = Vec::new();
+        let mut intact_file_count = 0;
+        let mut partial_files = 0;
+        for entry in toc_entries.values().filter(|entry| !entry.deleted) {
+            let complete = match entry.node_kind {
+                NodeKind::File => read_page_file_bytes(&self.scanner, entry).is_ok(),
+                NodeKind::Symlink => recover_symlink_target(&self.scanner, entry).is_ok(),
+                NodeKind::Directory => true,
+            };
+            if complete {
+                intact_file_count += 1;
+            } else {
+                partial_files += 1;
+            }
+            intact_files.push(LockboxEntry {
+                path: entry.path.clone(),
+                kind: entry.entry_kind(),
+                len: entry.len,
+                permissions: entry.permissions,
+            });
+        }
+
+        RecoveryReport {
+            intact_files,
+            intact_file_count,
+            partial_files,
+            corrupt_records,
+            toc_recovered,
+            variables_recovered: metadata.variables.is_some(),
+            variable_count: metadata.variables.as_ref().map_or(0, BTreeMap::len),
+            forms_recovered: metadata.forms.is_some(),
+            form_definition_count: metadata
+                .forms
+                .as_ref()
+                .map_or(0, |forms| latest_form_definition_count(&forms.definitions)),
+            form_record_count: metadata
+                .forms
+                .as_ref()
+                .map_or(0, |forms| forms.records.len()),
         }
     }
-    if let Some(forms) = metadata.forms {
-        for (key, definition) in forms.definitions {
-            recovered.set_form_definition_value(key, definition)?;
+
+    fn salvage(&self, signing_key: &OwnerSigningKeyPair) -> Result<Lockbox> {
+        let metadata = header_commit_root_for_recovery(&self.scanner, self.bytes)
+            .map(|(commit_root, _)| recover_metadata_from_commit_root(&self.scanner, &commit_root))
+            .unwrap_or_default();
+        let scan = self.scanner.scan_records();
+        let scanned_segments = collect_scanned_file_segments(&scan.records);
+        let mut recovered = Lockbox::create_with_secret_key_and_options(
+            crate::SecretVec::try_from_slice(self.key)?,
+            self.lockbox_id,
+            crate::LockboxOptions::default(),
+        );
+        recovered.set_owner_signing_key(signing_key.try_clone()?);
+        let mut latest_paths = BTreeMap::new();
+        for record in &scan.records {
+            if let Ok(entries) = decode_index_records(record) {
+                for entry in entries {
+                    apply_scanned_entry(&mut latest_paths, entry);
+                }
+            }
         }
-        for (path, record) in forms.records {
-            recovered.create_parent_dirs_for(&path)?;
-            recovered.set_form_record_value(path, record)?;
+        attach_scanned_file_segments(&mut latest_paths, &scanned_segments);
+
+        for entry in latest_paths
+            .values()
+            .filter(|entry| !entry.deleted && entry.node_kind == NodeKind::Directory)
+        {
+            recovered.create_dir(&entry.path, true)?;
+            recovered.set_permissions(&entry.path, entry.permissions)?;
         }
+        for entry in latest_paths
+            .values()
+            .filter(|entry| !entry.deleted && entry.node_kind != NodeKind::Directory)
+        {
+            let record = if entry.record_object_id == 0 {
+                self.scanner.record_at(entry.record_offset)
+            } else {
+                self.scanner
+                    .record_object_at(entry.record_offset, entry.record_object_id)
+            };
+            if let Ok(record) = record {
+                match record.header.kind {
+                    RecordKind::FilePage => {
+                        if let Ok(file_bytes) = read_page_file_bytes(&self.scanner, entry) {
+                            recovered.create_parent_dirs_for(&entry.path)?;
+                            recovered.add_file_with_permissions(
+                                &entry.path,
+                                &file_bytes,
+                                entry.permissions,
+                                false,
+                            )?;
+                        }
+                    }
+                    RecordKind::Symlink => {
+                        if let Ok((path, target)) = decode_symlink_payload(&record.payload) {
+                            recovered.create_parent_dirs_for(&path)?;
+                            recovered.add_symlink(&path, &target, false)?;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+        if let Some(variables) = metadata.variables {
+            for (name, value) in variables {
+                recovered.set_variable_value(name, value)?;
+            }
+        }
+        if let Some(forms) = metadata.forms {
+            for (key, definition) in forms.definitions {
+                recovered.set_form_definition_value(key, definition)?;
+            }
+            for (path, record) in forms.records {
+                recovered.create_parent_dirs_for(&path)?;
+                recovered.set_form_record_value(path, record)?;
+            }
+        }
+        recovered.commit()?;
+        Ok(recovered)
     }
-    recovered.commit()?;
-    Ok(recovered)
 }
 
 fn header_commit_root_for_recovery(

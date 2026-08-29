@@ -21,70 +21,95 @@ pub(crate) fn encode_toc(
     encode_toc_entries(toc_entries.values())
 }
 
+#[cfg(test)]
 pub(crate) fn encode_toc_entries<'a>(entries: impl IntoIterator<Item = &'a TocEntry>) -> Vec<u8> {
-    let entries = entries.into_iter().collect::<Vec<_>>();
-    let descriptors = frame_descriptors(&entries);
-    let mut out = Vec::new();
-    put_varint(entries.len() as u64, &mut out);
-    put_varint(descriptors.len() as u64, &mut out);
-    for descriptor in &descriptors {
-        encode_frame_descriptor(descriptor, &mut out);
-    }
-    let mut previous_path = "";
-    for (index, entry) in entries.iter().enumerate() {
-        let default_permissions = default_permissions(entry.node_kind);
-        let mut flags = 0u8;
-        if entry.deleted {
-            flags |= ENTRY_FLAG_DELETED;
-        }
-        if entry.node_kind == NodeKind::Symlink {
-            flags |= ENTRY_FLAG_SYMLINK;
-        }
-        if entry.node_kind == NodeKind::Directory {
-            flags |= ENTRY_FLAG_DIRECTORY;
-        }
-        if entry.permissions != default_permissions {
-            flags |= ENTRY_FLAG_CUSTOM_PERMISSIONS;
-        }
-
-        out.push(flags);
-        encode_path(entry.path.as_str(), previous_path, index, &mut out);
-        put_varint(entry.len, &mut out);
-        put_varint(entry.record_offset, &mut out);
-        put_varint(entry.record_len, &mut out);
-        put_varint(entry.record_object_id, &mut out);
-        if flags & ENTRY_FLAG_CUSTOM_PERMISSIONS != 0 {
-            put_varint(entry.permissions as u64, &mut out);
-        }
-        put_varint(entry.chunks.len() as u64, &mut out);
-        for chunk in &entry.chunks {
-            let stored_path = if chunk.stored_path == entry.path.as_str() {
-                ""
-            } else {
-                chunk.stored_path.as_str()
-            };
-            put_varint(stored_path.len() as u64, &mut out);
-            out.extend_from_slice(stored_path.as_bytes());
-            put_varint(chunk.file_offset, &mut out);
-            put_varint(chunk.len, &mut out);
-            put_varint(chunk.compression_frame_offset, &mut out);
-            let descriptor_index = frame_descriptor_index(&descriptors, chunk).unwrap_or(0);
-            put_varint(descriptor_index as u64, &mut out);
-        }
-        previous_path = entry.path.as_str();
-    }
-    out
+    TocEncoder::new(entries).encode()
 }
 
+pub(crate) struct TocEncoder<'a> {
+    entries: Vec<&'a TocEntry>,
+    descriptors: Vec<FrameDescriptor>,
+}
+
+impl<'a> TocEncoder<'a> {
+    pub(crate) fn new(entries: impl IntoIterator<Item = &'a TocEntry>) -> Self {
+        let entries = entries.into_iter().collect::<Vec<_>>();
+        let descriptors = frame_descriptors(&entries);
+        Self {
+            entries,
+            descriptors,
+        }
+    }
+
+    pub(crate) fn encode(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        put_varint(self.entries.len() as u64, &mut out);
+        put_varint(self.descriptors.len() as u64, &mut out);
+        for descriptor in &self.descriptors {
+            encode_frame_descriptor(descriptor, &mut out);
+        }
+        let mut previous_path = "";
+        for (index, entry) in self.entries.iter().enumerate() {
+            let default_permissions = default_permissions(entry.node_kind);
+            let mut flags = 0u8;
+            if entry.deleted {
+                flags |= ENTRY_FLAG_DELETED;
+            }
+            if entry.node_kind == NodeKind::Symlink {
+                flags |= ENTRY_FLAG_SYMLINK;
+            }
+            if entry.node_kind == NodeKind::Directory {
+                flags |= ENTRY_FLAG_DIRECTORY;
+            }
+            if entry.permissions != default_permissions {
+                flags |= ENTRY_FLAG_CUSTOM_PERMISSIONS;
+            }
+
+            out.push(flags);
+            encode_path(entry.path.as_str(), previous_path, index, &mut out);
+            put_varint(entry.len, &mut out);
+            put_varint(entry.record_offset, &mut out);
+            put_varint(entry.record_len, &mut out);
+            put_varint(entry.record_object_id, &mut out);
+            if flags & ENTRY_FLAG_CUSTOM_PERMISSIONS != 0 {
+                put_varint(entry.permissions as u64, &mut out);
+            }
+            put_varint(entry.chunks.len() as u64, &mut out);
+            for chunk in &entry.chunks {
+                let stored_path = if chunk.stored_path == entry.path.as_str() {
+                    ""
+                } else {
+                    chunk.stored_path.as_str()
+                };
+                put_varint(stored_path.len() as u64, &mut out);
+                out.extend_from_slice(stored_path.as_bytes());
+                put_varint(chunk.file_offset, &mut out);
+                put_varint(chunk.len, &mut out);
+                put_varint(chunk.compression_frame_offset, &mut out);
+                let descriptor_index =
+                    frame_descriptor_index(&self.descriptors, chunk).unwrap_or(0);
+                put_varint(descriptor_index as u64, &mut out);
+            }
+            previous_path = entry.path.as_str();
+        }
+        out
+    }
+
+    pub(crate) fn encoded_len(&self) -> usize {
+        encoded_toc_count_len(self.entries.len())
+            + encoded_toc_count_len(self.descriptors.len())
+            + self
+                .descriptors
+                .iter()
+                .map(encoded_descriptor_len)
+                .sum::<usize>()
+            + encoded_entries_with_descriptors_len(&self.entries, &self.descriptors)
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn encoded_toc_entries_len(entries: &[TocEntry]) -> usize {
-    let descriptors = frame_descriptors(&entries.iter().collect::<Vec<_>>());
-    encoded_toc_count_len(entries.len())
-        + encoded_toc_count_len(descriptors.len())
-        + descriptors
-            .iter()
-            .map(encoded_descriptor_len)
-            .sum::<usize>()
-        + encoded_entries_with_descriptors_len(entries, &descriptors)
+    TocEncoder::new(entries).encoded_len()
 }
 
 pub(crate) fn encoded_toc_count_len(count: usize) -> usize {
@@ -145,7 +170,7 @@ impl TocEntriesLenEstimator {
 }
 
 fn encoded_entries_with_descriptors_len(
-    entries: &[TocEntry],
+    entries: &[&TocEntry],
     descriptors: &[FrameDescriptor],
 ) -> usize {
     entries
@@ -196,140 +221,159 @@ pub(crate) fn decode_toc(
         .collect())
 }
 
+#[cfg(test)]
 pub(crate) fn decode_toc_entries(payload: &[u8]) -> Result<Vec<TocEntry>> {
-    let mut offset = 0;
-    let count =
-        usize::try_from(take_varint(payload, &mut offset)?).map_err(|_| Error::CorruptRecord)?;
-    if count > payload.len().saturating_sub(offset) {
-        return Err(Error::CorruptRecord);
-    }
-    let descriptor_count =
-        usize::try_from(take_varint(payload, &mut offset)?).map_err(|_| Error::CorruptRecord)?;
-    if descriptor_count > payload.len().saturating_sub(offset) {
-        return Err(Error::CorruptRecord);
-    }
-    let mut descriptors = Vec::with_capacity(descriptor_count);
-    for _ in 0..descriptor_count {
-        descriptors.push(decode_frame_descriptor(payload, &mut offset)?);
+    TocDecoder::new(payload).decode()
+}
+
+pub(crate) struct TocDecoder<'a> {
+    payload: &'a [u8],
+}
+
+impl<'a> TocDecoder<'a> {
+    pub(crate) fn new(payload: &'a [u8]) -> Self {
+        Self { payload }
     }
 
-    let mut entries = Vec::with_capacity(count);
-    let mut previous_path = String::new();
-    for index in 0..count {
-        if offset >= payload.len() {
-            return Err(Error::CorruptRecord);
-        }
-        let flags = payload[offset];
-        offset += 1;
-        if flags
-            & !(ENTRY_FLAG_DELETED
-                | ENTRY_FLAG_SYMLINK
-                | ENTRY_FLAG_CUSTOM_PERMISSIONS
-                | ENTRY_FLAG_DIRECTORY)
-            != 0
-        {
-            return Err(Error::CorruptRecord);
-        }
-        if flags & ENTRY_FLAG_SYMLINK != 0 && flags & ENTRY_FLAG_DIRECTORY != 0 {
-            return Err(Error::CorruptRecord);
-        }
-
-        let path = decode_path(payload, &mut offset, &previous_path, index)?;
-        let path = LockboxPath::from_stored(&path, false)?;
-        let next_previous_path = path.as_str().to_string();
-        let len = take_varint(payload, &mut offset)?;
-        let record_offset = take_varint(payload, &mut offset)?;
-        let record_len = take_varint(payload, &mut offset)?;
-        let record_object_id = take_varint(payload, &mut offset)?;
-        let deleted = flags & ENTRY_FLAG_DELETED != 0;
-        let node_kind = NodeKind::from_u8(if flags & ENTRY_FLAG_DIRECTORY != 0 {
-            3
-        } else if flags & ENTRY_FLAG_SYMLINK != 0 {
-            2
-        } else {
-            1
-        })?;
-        let permissions = if flags & ENTRY_FLAG_CUSTOM_PERMISSIONS == 0 {
-            default_permissions(node_kind)
-        } else {
-            u32::try_from(take_varint(payload, &mut offset)?).map_err(|_| Error::CorruptRecord)?
-        };
-        let permissions = validate_permissions(permissions)?;
-        let chunk_count = usize::try_from(take_varint(payload, &mut offset)?)
+    pub(crate) fn decode(self) -> Result<Vec<TocEntry>> {
+        let payload = self.payload;
+        let mut offset = 0;
+        let count = usize::try_from(take_varint(payload, &mut offset)?)
             .map_err(|_| Error::CorruptRecord)?;
-        if chunk_count > payload.len().saturating_sub(offset) {
+        if count > payload.len().saturating_sub(offset) {
             return Err(Error::CorruptRecord);
         }
-        let mut chunks = Vec::with_capacity(chunk_count);
-        for _ in 0..chunk_count {
-            let stored_path_len = usize::try_from(take_varint(payload, &mut offset)?)
-                .map_err(|_| Error::CorruptRecord)?;
-            if stored_path_len > payload.len().saturating_sub(offset) {
-                return Err(Error::CorruptRecord);
-            }
-            let stored_path = if stored_path_len == 0 {
-                path.clone()
-            } else {
-                let stored_path =
-                    String::from_utf8(payload[offset..offset + stored_path_len].to_vec())
-                        .map_err(|_| Error::CorruptRecord)?;
-                LockboxPath::from_stored(&stored_path, false)?
-            };
-            offset += stored_path_len;
-            let file_offset = take_varint(payload, &mut offset)?;
-            let chunk_len = take_varint(payload, &mut offset)?;
-            let compression_frame_offset = take_varint(payload, &mut offset)?;
-            let descriptor_index = usize::try_from(take_varint(payload, &mut offset)?)
-                .map_err(|_| Error::CorruptRecord)?;
-            let descriptor = descriptors
-                .get(descriptor_index)
-                .ok_or(Error::CorruptRecord)?;
-            chunks.push(FileChunk {
-                stored_path,
-                file_offset,
-                len: chunk_len,
-                compression_frame_offset,
-                compression_frame_len: descriptor.compression_frame_len,
-                compressed_len: descriptor.compressed_len,
-                compression: descriptor.compression,
-                compression_frame_id: descriptor.compression_frame_id,
-                compression_frame_digest: descriptor.compression_frame_digest,
-                segments: descriptor.segments.clone(),
-            });
+        let descriptor_count = usize::try_from(take_varint(payload, &mut offset)?)
+            .map_err(|_| Error::CorruptRecord)?;
+        if descriptor_count > payload.len().saturating_sub(offset) {
+            return Err(Error::CorruptRecord);
         }
-        match node_kind {
-            NodeKind::Symlink if record_offset == 0 || record_len == 0 || record_object_id == 0 => {
+        let mut descriptors = Vec::with_capacity(descriptor_count);
+        for _ in 0..descriptor_count {
+            descriptors.push(decode_frame_descriptor(payload, &mut offset)?);
+        }
+
+        let mut entries = Vec::with_capacity(count);
+        let mut previous_path = String::new();
+        for index in 0..count {
+            if offset >= payload.len() {
                 return Err(Error::CorruptRecord);
             }
-            NodeKind::Symlink if !chunks.is_empty() => return Err(Error::CorruptRecord),
-            NodeKind::Directory
-                if len != 0
-                    || record_offset != 0
-                    || record_len != 0
-                    || record_object_id != 0
-                    || !chunks.is_empty() =>
+            let flags = payload[offset];
+            offset += 1;
+            if flags
+                & !(ENTRY_FLAG_DELETED
+                    | ENTRY_FLAG_SYMLINK
+                    | ENTRY_FLAG_CUSTOM_PERMISSIONS
+                    | ENTRY_FLAG_DIRECTORY)
+                != 0
             {
                 return Err(Error::CorruptRecord);
             }
-            _ => {}
+            if flags & ENTRY_FLAG_SYMLINK != 0 && flags & ENTRY_FLAG_DIRECTORY != 0 {
+                return Err(Error::CorruptRecord);
+            }
+
+            let path = decode_path(payload, &mut offset, &previous_path, index)?;
+            let path = LockboxPath::from_stored(&path, false)?;
+            let next_previous_path = path.as_str().to_string();
+            let len = take_varint(payload, &mut offset)?;
+            let record_offset = take_varint(payload, &mut offset)?;
+            let record_len = take_varint(payload, &mut offset)?;
+            let record_object_id = take_varint(payload, &mut offset)?;
+            let deleted = flags & ENTRY_FLAG_DELETED != 0;
+            let node_kind = NodeKind::from_u8(if flags & ENTRY_FLAG_DIRECTORY != 0 {
+                3
+            } else if flags & ENTRY_FLAG_SYMLINK != 0 {
+                2
+            } else {
+                1
+            })?;
+            let permissions = if flags & ENTRY_FLAG_CUSTOM_PERMISSIONS == 0 {
+                default_permissions(node_kind)
+            } else {
+                u32::try_from(take_varint(payload, &mut offset)?)
+                    .map_err(|_| Error::CorruptRecord)?
+            };
+            let permissions = validate_permissions(permissions)?;
+            let chunk_count = usize::try_from(take_varint(payload, &mut offset)?)
+                .map_err(|_| Error::CorruptRecord)?;
+            if chunk_count > payload.len().saturating_sub(offset) {
+                return Err(Error::CorruptRecord);
+            }
+            let mut chunks = Vec::with_capacity(chunk_count);
+            for _ in 0..chunk_count {
+                let stored_path_len = usize::try_from(take_varint(payload, &mut offset)?)
+                    .map_err(|_| Error::CorruptRecord)?;
+                if stored_path_len > payload.len().saturating_sub(offset) {
+                    return Err(Error::CorruptRecord);
+                }
+                let stored_path = if stored_path_len == 0 {
+                    path.clone()
+                } else {
+                    let stored_path =
+                        String::from_utf8(payload[offset..offset + stored_path_len].to_vec())
+                            .map_err(|_| Error::CorruptRecord)?;
+                    LockboxPath::from_stored(&stored_path, false)?
+                };
+                offset += stored_path_len;
+                let file_offset = take_varint(payload, &mut offset)?;
+                let chunk_len = take_varint(payload, &mut offset)?;
+                let compression_frame_offset = take_varint(payload, &mut offset)?;
+                let descriptor_index = usize::try_from(take_varint(payload, &mut offset)?)
+                    .map_err(|_| Error::CorruptRecord)?;
+                let descriptor = descriptors
+                    .get(descriptor_index)
+                    .ok_or(Error::CorruptRecord)?;
+                chunks.push(FileChunk {
+                    stored_path,
+                    file_offset,
+                    len: chunk_len,
+                    compression_frame_offset,
+                    compression_frame_len: descriptor.compression_frame_len,
+                    compressed_len: descriptor.compressed_len,
+                    compression: descriptor.compression,
+                    compression_frame_id: descriptor.compression_frame_id,
+                    compression_frame_digest: descriptor.compression_frame_digest,
+                    segments: descriptor.segments.clone(),
+                });
+            }
+            match node_kind {
+                NodeKind::Symlink
+                    if record_offset == 0 || record_len == 0 || record_object_id == 0 =>
+                {
+                    return Err(Error::CorruptRecord);
+                }
+                NodeKind::Symlink if !chunks.is_empty() => return Err(Error::CorruptRecord),
+                NodeKind::Directory
+                    if len != 0
+                        || record_offset != 0
+                        || record_len != 0
+                        || record_object_id != 0
+                        || !chunks.is_empty() =>
+                {
+                    return Err(Error::CorruptRecord);
+                }
+                _ => {}
+            }
+            entries.push(TocEntry {
+                path,
+                len,
+                record_offset,
+                record_len,
+                record_object_id,
+                deleted,
+                node_kind,
+                permissions,
+                chunks,
+            });
+            previous_path = next_previous_path;
         }
-        entries.push(TocEntry {
-            path,
-            len,
-            record_offset,
-            record_len,
-            record_object_id,
-            deleted,
-            node_kind,
-            permissions,
-            chunks,
-        });
-        previous_path = next_previous_path;
+        if offset != payload.len() {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(entries)
     }
-    if offset != payload.len() {
-        return Err(Error::CorruptRecord);
-    }
-    Ok(entries)
 }
 
 fn encode_path(path: &str, previous_path: &str, index: usize, out: &mut Vec<u8>) {

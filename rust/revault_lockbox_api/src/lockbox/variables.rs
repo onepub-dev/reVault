@@ -160,7 +160,7 @@ impl<State> Lockbox<State> {
     {
         let value = validate_variable_value(value)?;
         self.ensure_variables_loaded()?;
-        let mut variables = self.variables.borrow_mut();
+        let mut variables = self.staged.variables.borrow_mut();
         let variables = variables.as_mut().ok_or(Error::CorruptRecord)?;
         if matches!(variables.get(name), Some(VariableValue::Secret(_))) {
             return Err(Error::InvalidOperation(
@@ -169,7 +169,7 @@ impl<State> Lockbox<State> {
         }
         ensure_variable_name_available(variables, name)?;
         variables.insert(name.clone(), VariableValue::Normal(value));
-        self.dirty_variables = true;
+        self.staged.dirty_variables = true;
         Ok(())
     }
 
@@ -192,14 +192,14 @@ impl<State> Lockbox<State> {
     {
         value.with_str(validate_variable_value_ref)??;
         self.ensure_variables_loaded()?;
-        let mut variables = self.variables.borrow_mut();
+        let mut variables = self.staged.variables.borrow_mut();
         let variables = variables.as_mut().ok_or(Error::CorruptRecord)?;
         ensure_variable_name_available(variables, name)?;
         variables.insert(
             name.clone(),
             VariableValue::Secret(Arc::new(value.try_clone()?)),
         );
-        self.dirty_variables = true;
+        self.staged.dirty_variables = true;
         Ok(())
     }
 
@@ -283,7 +283,7 @@ impl<State> Lockbox<State> {
             .remove(name)
             .is_some();
         if removed {
-            self.dirty_variables = true;
+            self.staged.dirty_variables = true;
         }
         Ok(())
     }
@@ -298,7 +298,7 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         self.ensure_variables_loaded()?;
-        let mut variables = self.variables.borrow_mut();
+        let mut variables = self.staged.variables.borrow_mut();
         let variables = variables.as_mut().ok_or(Error::CorruptRecord)?;
         let sources = moves
             .iter()
@@ -341,7 +341,7 @@ impl<State> Lockbox<State> {
             .collect::<Result<Vec<_>>>()?;
         if !moved.is_empty() {
             variables.extend(moved);
-            self.dirty_variables = true;
+            self.staged.dirty_variables = true;
         }
         Ok(())
     }
@@ -674,6 +674,7 @@ impl<State> Lockbox<State> {
     ) -> Result<u64> {
         self.flush_dirty_pages()?;
         let mut content_key = self.key.with_bytes(derive_page_content_key)?;
+        let sequence = self.staged.sequence;
         let page_offset = self
             .page_manager
             .borrow_mut()
@@ -682,9 +683,9 @@ impl<State> Lockbox<State> {
                 SecurePageAppend {
                     lockbox_id: self.lockbox_id,
                     content_key: &content_key,
-                    sequence: self.sequence,
+                    sequence,
                     kind,
-                    object_id: self.sequence,
+                    object_id: sequence,
                     payload: &payload,
                 },
             );

@@ -1,18 +1,13 @@
 use crate::constants::DEFAULT_METADATA_MAX_PAGE_BODY_BYTES;
-use crate::page_tree::{
-    decode_page_tree_children, encode_page_tree_children, group_by_encoded_size,
-    page_tree_child_encoded_len, PageTreeChild,
-};
-use crate::toc_codec::{
-    decode_toc_entries, encode_toc_entries, encoded_toc_entries_len, TocEntriesLenEstimator,
-};
+use crate::incremental_btree::{BTreeEntry, BTreeLeaf};
+use crate::page_tree::{PageTreeChild, PageTreeChildren, PageTreeLayout};
+use crate::toc_codec::{TocDecoder, TocEncoder, TocEntriesLenEstimator};
 use crate::toc_entry::TocEntry;
 use crate::{Error, LockboxPath, Result};
 
 const TOC_NODE_VERSION: u8 = 1;
 const TOC_LEAF: u8 = 1;
 const TOC_INTERNAL: u8 = 2;
-pub(crate) const TOC_MIN_FILL_PERCENT: usize = 30;
 const TOC_NODE_PREFIX_BYTES: usize = 2;
 
 #[derive(Debug)]
@@ -27,10 +22,34 @@ pub(crate) struct TocChild {
     pub(crate) offset: u64,
 }
 
+impl TocChild {
+    fn encoded_len(&self) -> usize {
+        PageTreeChild {
+            first_key: self.first_path.as_str().to_string(),
+            offset: self.offset,
+        }
+        .encoded_len()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct TocLeaf {
     pub(crate) offset: u64,
     pub(crate) entries: Vec<TocEntry>,
+}
+
+impl BTreeEntry for TocEntry {
+    type Key = LockboxPath;
+
+    fn key(&self) -> &Self::Key {
+        &self.path
+    }
+}
+
+impl BTreeLeaf<TocEntry> for TocLeaf {
+    fn entries(&self) -> &[TocEntry] {
+        &self.entries
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -84,7 +103,7 @@ pub(crate) fn encode_toc_leaf(entries: &[TocEntry]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     out.push(TOC_NODE_VERSION);
     out.push(TOC_LEAF);
-    out.extend_from_slice(&encode_toc_entries(entries));
+    out.extend_from_slice(&TocEncoder::new(entries).encode());
     if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "TOC leaf exceeds maximum page size".to_string(),
@@ -104,7 +123,7 @@ pub(crate) fn encode_toc_internal(children: &[TocChild]) -> Result<Vec<u8>> {
             offset: child.offset,
         })
         .collect::<Vec<_>>();
-    out.extend_from_slice(&encode_page_tree_children(&routing_children));
+    out.extend_from_slice(&PageTreeChildren::new(routing_children).encode());
     if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "TOC internal node exceeds maximum page size".to_string(),
@@ -122,7 +141,7 @@ pub(crate) fn toc_leaf_groups(entries: &[TocEntry]) -> Result<Vec<&[TocEntry]>> 
     let mut start = 0usize;
     let mut group_len = TocEntriesLenEstimator::new();
     for (index, entry) in entries.iter().enumerate() {
-        let single_len = leaf_base_len() + encoded_toc_entries_len(std::slice::from_ref(entry));
+        let single_len = leaf_base_len() + TocEncoder::new([entry]).encoded_len();
         if single_len > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
             return Err(Error::SecurityLimitExceeded(
                 "TOC entry exceeds maximum page size".to_string(),
@@ -143,20 +162,7 @@ pub(crate) fn toc_leaf_groups(entries: &[TocEntry]) -> Result<Vec<&[TocEntry]>> 
 }
 
 pub(crate) fn toc_child_groups(children: &[TocChild]) -> Result<Vec<&[TocChild]>> {
-    group_by_encoded_size(
-        children,
-        internal_base_len(),
-        toc_child_encoded_len,
-        "TOC child",
-    )
-}
-
-pub(crate) fn toc_leaf_fill_percent(entries: &[TocEntry]) -> usize {
-    encoded_leaf_len(entries).saturating_mul(100) / DEFAULT_METADATA_MAX_PAGE_BODY_BYTES
-}
-
-pub(crate) fn encoded_leaf_len(entries: &[TocEntry]) -> usize {
-    leaf_base_len() + encoded_toc_entries_len(entries)
+    PageTreeLayout::new(internal_base_len(), "TOC child").groups(children, TocChild::encoded_len)
 }
 
 fn leaf_base_len() -> usize {
@@ -167,20 +173,13 @@ fn internal_base_len() -> usize {
     TOC_NODE_PREFIX_BYTES + 4
 }
 
-fn toc_child_encoded_len(child: &TocChild) -> usize {
-    page_tree_child_encoded_len(&PageTreeChild {
-        first_key: child.first_path.as_str().to_string(),
-        offset: child.offset,
-    })
-}
-
 pub(crate) fn decode_toc_node(payload: &[u8]) -> Result<TocNode> {
     if payload.len() < 2 || payload[0] != TOC_NODE_VERSION {
         return Err(Error::CorruptRecord);
     }
     match payload[1] {
         TOC_LEAF => {
-            let entries = decode_toc_entries(&payload[2..])?;
+            let entries = TocDecoder::new(&payload[2..]).decode()?;
             validate_leaf_entries(&entries)?;
             Ok(TocNode::Leaf(entries))
         }
@@ -199,7 +198,7 @@ fn validate_leaf_entries(entries: &[TocEntry]) -> Result<()> {
 }
 
 fn decode_toc_internal(payload: &[u8]) -> Result<TocNode> {
-    let children = decode_page_tree_children(payload, |key| {
+    let children = PageTreeChildren::decode(payload, |key| {
         LockboxPath::from_stored(key, false).map(|_| ())
     })?
     .into_iter()

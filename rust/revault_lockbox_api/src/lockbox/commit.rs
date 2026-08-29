@@ -1,4 +1,4 @@
-use super::Lockbox;
+use super::{Lockbox, StagedLockboxState};
 use crate::checked::read_u32_le;
 use crate::commit_auth::{commit_auth_digest, commit_auth_message, encode_commit_auth, CommitAuth};
 use crate::commit_root::{encode_commit_root, CommitRoot};
@@ -9,159 +9,23 @@ use crate::file_format::redaction_manifest::{
     RANGES_PER_PAGE,
 };
 use crate::file_format::{
-    encode_toc_internal, encode_toc_leaf, toc_child_groups, toc_leaf_groups, write_header,
-    TocChild, TocInternal, TocLeaf, TocTreeNode,
+    encode_toc_internal, encode_toc_leaf, toc_child_groups, toc_leaf_groups, TocChild, TocInternal,
+    TocLeaf, TocTreeNode,
 };
 use crate::free_index::{
     encode_free_index_internal, encode_free_index_leaf, free_index_child_groups,
     free_index_leaf_groups, FreeIndexChild,
 };
-use crate::host_path::HostPath;
+use crate::incremental_btree::{IncrementalBTree, LeafRewrite};
 use crate::key_directory::encode_key_directory;
 use crate::page::{page_size_for_encoded_objects, PageObject, PageObjectKind};
-use crate::storage::{Storage, StorageBackend};
-use crate::{Error, LockboxOptions, Result};
-#[cfg(any(test, feature = "migration"))]
-use std::fs;
-use std::path::Path;
+use crate::storage::Storage;
+use crate::{Error, Result};
 
 const KEY_DIRECTORY_MIRROR_PREFERRED_MIN_DISTANCE: u64 = 1024 * 1024;
 
 impl Lockbox<crate::Writable> {
-    /// Commits pending mutations and serializes the complete lockbox.
-    ///
-    /// File-backed lockboxes should normally use [`Lockbox::commit`] instead.
-    pub fn try_to_bytes(&self) -> Result<Vec<u8>> {
-        self.bytes()
-    }
-
-    #[cfg(test)]
-    /// Serializes the lockbox for tests, panicking if materialization fails.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        self.try_to_bytes()
-            .expect("failed to materialize lockbox bytes")
-    }
-
-    #[cfg(test)]
-    pub(crate) fn open_path(path: impl AsRef<Path>, key: impl AsRef<[u8]>) -> Result<Self> {
-        Self::open_path_with_options(path, key, LockboxOptions::default())
-    }
-
-    #[cfg(test)]
-    pub(crate) fn open_path_with_options(
-        path: impl AsRef<Path>,
-        key: impl AsRef<[u8]>,
-        options: LockboxOptions,
-    ) -> Result<Self> {
-        let key = crate::SecretVec::try_from_slice(key.as_ref())?;
-        let mut lockbox = Self::open_path_with_secret_key_options(path, key, options)?;
-        lockbox.set_owner_signing_key(crate::OwnerSigningKeyPair::generate()?);
-        Ok(lockbox)
-    }
-
-    pub(crate) fn open_path_with_secret_key_options(
-        path: impl AsRef<Path>,
-        key: crate::SecretVec,
-        options: LockboxOptions,
-    ) -> Result<Self> {
-        let path = HostPath::new(path);
-        Self::open_storage_with_secret_key(StorageBackend::file(path.as_path())?, key, options)
-    }
-
-    #[cfg(feature = "vault-integration")]
-    pub(crate) fn open_path_with_secret_key_options_for_write(
-        path: impl AsRef<Path>,
-        key: crate::SecretVec,
-        options: LockboxOptions,
-    ) -> Result<Self> {
-        let path = HostPath::new(path);
-        Self::open_storage_with_secret_key(
-            StorageBackend::file_for_write(path.as_path())?,
-            key,
-            options,
-        )
-    }
-
-    #[cfg(test)]
-    pub(crate) fn create_path(path: impl AsRef<Path>, key: impl AsRef<[u8]>) -> Result<Self> {
-        Self::create_path_with_options(path, key, LockboxOptions::default())
-    }
-
-    #[cfg(test)]
-    pub(crate) fn create_path_with_options(
-        path: impl AsRef<Path>,
-        key: impl AsRef<[u8]>,
-        options: LockboxOptions,
-    ) -> Result<Self> {
-        Self::create_path_with_lockbox_id_and_options(
-            path,
-            key,
-            crate::lockbox_id::LockboxId::new_random()?,
-            options,
-        )
-    }
-
-    #[cfg(test)]
-    pub(crate) fn create_path_with_lockbox_id_and_options(
-        path: impl AsRef<Path>,
-        key: impl AsRef<[u8]>,
-        lockbox_id: crate::lockbox_id::LockboxId,
-        options: LockboxOptions,
-    ) -> Result<Self> {
-        let key = crate::SecretVec::try_from_slice(key.as_ref())?;
-        let mut lockbox =
-            Self::create_path_with_secret_key_and_options(path, key, lockbox_id, options)?;
-        lockbox.set_owner_signing_key(crate::OwnerSigningKeyPair::generate()?);
-        Ok(lockbox)
-    }
-
-    pub(crate) fn create_path_with_secret_key_and_options(
-        path: impl AsRef<Path>,
-        key: crate::SecretVec,
-        lockbox_id: crate::lockbox_id::LockboxId,
-        options: LockboxOptions,
-    ) -> Result<Self> {
-        let path = HostPath::new(path);
-        let mut bytes = vec![0; crate::constants::HEADER_LEN];
-        write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
-        let mut lockbox = Self::open_storage_with_secret_key(
-            StorageBackend::create_file(path.as_path(), &bytes)?,
-            key,
-            options,
-        )?;
-        lockbox.lockbox_id = lockbox_id;
-        Ok(lockbox)
-    }
-
-    pub(crate) fn create_path_with_secret_key_and_options_unlocked(
-        path: impl AsRef<Path>,
-        key: crate::SecretVec,
-        lockbox_id: crate::lockbox_id::LockboxId,
-        options: LockboxOptions,
-    ) -> Result<Self> {
-        let path = HostPath::new(path);
-        let mut bytes = vec![0; crate::constants::HEADER_LEN];
-        write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
-        let mut lockbox = Self::open_storage_with_secret_key(
-            StorageBackend::create_file_unlocked(path.as_path(), &bytes)?,
-            key,
-            options,
-        )?;
-        lockbox.lockbox_id = lockbox_id;
-        Ok(lockbox)
-    }
-
-    /// Write the current lockbox bytes to a host filesystem path.
-    ///
-    /// Returns `Error::Io` if the host write fails. Returns storage or
-    /// serialization errors if pending lockbox state cannot be materialized.
-    #[cfg(any(test, feature = "migration"))]
-    pub fn write_to_path(&self, path: impl AsRef<Path>) -> Result<()> {
-        let path = HostPath::new(path);
-        fs::write(path.as_path(), self.bytes()?).map_err(|err| Error::Io(err.to_string()))
-    }
-
-    /// Publish pending lockbox changes to the backing storage.
+    /// Persist pending lockbox changes atomically to the backing storage.
     ///
     /// Returns storage, encoding, or security-limit errors if pending changes
     /// cannot be written. Errors before publication roll in-memory metadata
@@ -195,7 +59,7 @@ impl Lockbox<crate::Writable> {
                 if self.poisoned.is_some() {
                     return Err(err);
                 }
-                if self.header_generation > rollback.header_generation {
+                if self.header_generation > rollback.0.header_generation {
                     if let Some(status) = self.transaction_recovery_status() {
                         return Err(Error::RecoveryRequired {
                             transaction_sequence: status.transaction_sequence,
@@ -227,19 +91,19 @@ impl Lockbox<crate::Writable> {
         self.stage_variable_tree_redactions()?;
         self.stage_form_tree_redactions()?;
         self.apply_pending_redactions()?;
-        if self.toc_root.is_some()
-            && self.dirty_toc_paths.is_empty()
+        if self.toc_tree.root.is_some()
+            && self.toc_tree.dirty_keys.is_empty()
             && !self.dirty_variables
-            && !self.dirty_forms
-            && !self.dirty_key_directory
+            && !self.forms.dirty
+            && !self.key_directory.dirty
             && !self.has_dirty_pages()
         {
             return Ok(());
         }
         self.variable_root_offset = self.commit_variable_tree()?;
-        self.form_root_offset = self.commit_form_tree()?;
-        self.toc_root_offset = self.commit_toc_btree()?;
-        let toc_root_offset = self.toc_root_offset;
+        self.forms.tree.root_offset = self.commit_form_tree()?;
+        self.toc_tree.root_offset = self.commit_toc_btree()?;
+        let toc_root_offset = self.toc_tree.root_offset;
         self.free_index_offset = self.write_free_index()?;
         self.post_cleanup_free_index_offset = self.write_post_cleanup_free_index()?;
         self.sequence += 1;
@@ -260,12 +124,12 @@ impl Lockbox<crate::Writable> {
             sequence: self.sequence,
             toc_root_offset,
             variable_root_offset: self.variable_root_offset,
-            form_root_offset: self.form_root_offset,
+            form_root_offset: self.forms.tree.root_offset,
             free_index_root_offset: self.free_index_offset,
             post_cleanup_free_index_root_offset: self.post_cleanup_free_index_offset,
-            key_directory_offset: self.key_directory_offset,
-            key_directory_mirror_offset: self.key_directory_mirror_offset,
-            key_directory_generation: self.key_directory_generation,
+            key_directory_offset: self.key_directory.primary_offset,
+            key_directory_mirror_offset: self.key_directory.mirror_offset,
+            key_directory_generation: self.key_directory.generation,
             previous_commit_root_offset: self.commit_root_offset,
             redaction_manifest_offset: self.redaction_manifest_offset,
             redaction_range_count: u64::from(self.redaction_range_count),
@@ -326,8 +190,8 @@ impl Lockbox<crate::Writable> {
             generation,
             commit_root_offset: self.commit_root_offset,
             sequence: self.sequence,
-            key_directory_offset: self.key_directory_offset,
-            key_directory_mirror_offset: self.key_directory_mirror_offset,
+            key_directory_offset: self.key_directory.primary_offset,
+            key_directory_mirror_offset: self.key_directory.mirror_offset,
             lockbox_id: self.lockbox_id,
             commit_auth_offset: self.commit_auth_offset,
             cleanup_sequence,
@@ -340,7 +204,8 @@ impl Lockbox<crate::Writable> {
         publication.metadata_auth_tag = self
             .key
             .with_bytes(|key| crate::crypto::metadata_auth_tag(key, &message))?;
-        let next_slot = publish_header(&mut self.storage, self.header_slot, publication)?;
+        let header_slot = self.header_slot;
+        let next_slot = publish_header(&mut self.storage, header_slot, publication)?;
         self.header_slot = next_slot;
         self.header_generation = generation;
         self.cleanup_sequence = cleanup_sequence;
@@ -349,14 +214,12 @@ impl Lockbox<crate::Writable> {
     }
 
     fn write_key_directory_mirrors_if_dirty(&mut self) -> Result<()> {
-        if !self.dirty_key_directory {
+        if !self.key_directory.dirty {
             return Ok(());
         }
-        let old_offsets = [self.key_directory_offset, self.key_directory_mirror_offset];
+        let old_offsets = self.key_directory.offsets();
         if self.key_slots.is_empty() {
-            self.key_directory_offset = 0;
-            self.key_directory_mirror_offset = 0;
-            self.dirty_key_directory = false;
+            self.key_directory.clear();
             for offset in old_offsets {
                 self.zero_key_directory_page(offset)?;
             }
@@ -368,7 +231,7 @@ impl Lockbox<crate::Writable> {
             let key_directory = encode_key_directory(
                 &key_slots,
                 self.lockbox_id,
-                self.key_directory_generation,
+                self.key_directory.generation,
                 copy_index as u32,
             )?;
             let object =
@@ -382,9 +245,7 @@ impl Lockbox<crate::Writable> {
             self.write_decoded_page_at(page_offset, self.sequence, vec![object])?;
             offsets[copy_index] = page_offset;
         }
-        self.key_directory_offset = offsets[0];
-        self.key_directory_mirror_offset = offsets[1];
-        self.dirty_key_directory = false;
+        self.key_directory.publish(offsets);
         for offset in old_offsets {
             self.zero_key_directory_page(offset)?;
         }
@@ -434,15 +295,15 @@ impl Lockbox<crate::Writable> {
     }
 
     fn commit_toc_btree(&mut self) -> Result<u64> {
-        if self.toc_root.is_some() && self.dirty_toc_paths.is_empty() {
-            return Ok(self.toc_root_offset);
+        if self.toc_tree.root.is_some() && self.toc_tree.is_clean() {
+            return Ok(self.toc_tree.root_offset);
         }
-        let root = if self.toc_leaves.is_empty() {
+        let root = if self.toc_tree.leaves.is_empty() {
             self.rebuild_toc_btree()?
         } else {
             self.write_incremental_toc_btree()?
         };
-        self.dirty_toc_paths.clear();
+        self.toc_tree.dirty_keys.clear();
         Ok(root)
     }
 
@@ -454,8 +315,8 @@ impl Lockbox<crate::Writable> {
                 offset,
                 entries: Vec::new(),
             };
-            self.toc_root = Some(TocTreeNode::Leaf(leaf.clone()));
-            self.toc_leaves = vec![leaf];
+            self.toc_tree.root = Some(TocTreeNode::Leaf(leaf.clone()));
+            self.toc_tree.leaves = vec![leaf];
             return Ok(offset);
         }
 
@@ -469,82 +330,29 @@ impl Lockbox<crate::Writable> {
         }
         let root_node = self.write_toc_tree_for_leaves(&leaves)?;
         let root = root_node.offset();
-        self.toc_root = Some(root_node);
-        self.toc_leaves = leaves;
+        self.toc_tree.replace_topology(root_node, leaves);
         Ok(root)
     }
 
     fn write_incremental_toc_btree(&mut self) -> Result<u64> {
-        let dirty = std::mem::take(&mut self.dirty_toc_paths);
+        let dirty = std::mem::take(&mut self.toc_tree.dirty_keys);
         let all_entries = self.toc_entries.values().cloned().collect::<Vec<_>>();
-
+        let old_leaves = std::mem::take(&mut self.toc_tree.leaves);
+        let rewrites =
+            IncrementalBTree::new(&all_entries, &old_leaves, &dirty).plan(same_leaf_entries);
         let mut rebuilt_leaves = Vec::new();
-        let mut cursor = 0usize;
-        let old_leaves = std::mem::take(&mut self.toc_leaves);
-        for (index, leaf) in old_leaves.iter().enumerate() {
-            let Some(first) = leaf.entries.first().map(|entry| entry.path.as_str()) else {
-                continue;
-            };
-            let next = old_leaves
-                .get(index + 1)
-                .and_then(|leaf| leaf.entries.first())
-                .map(|entry| entry.path.as_str());
-            while cursor < all_entries.len() && all_entries[cursor].path.as_str() < first {
-                let chunk_start = cursor;
-                cursor += 1;
-                while cursor < all_entries.len()
-                    && next.is_none_or(|next| all_entries[cursor].path.as_str() < next)
-                    && dirty
-                        .iter()
-                        .all(|path| path.as_str() != all_entries[cursor].path.as_str())
-                {
-                    cursor += 1;
+        for rewrite in rewrites {
+            match rewrite {
+                LeafRewrite::Reuse(leaf) => rebuilt_leaves.push(leaf),
+                LeafRewrite::Write(entries) => {
+                    for chunk in toc_leaf_groups(&entries)? {
+                        let offset = self.write_toc_leaf(chunk)?;
+                        rebuilt_leaves.push(TocLeaf {
+                            offset,
+                            entries: chunk.to_vec(),
+                        });
+                    }
                 }
-                for chunk in toc_leaf_groups(&all_entries[chunk_start..cursor])? {
-                    let offset = self.write_toc_leaf(chunk)?;
-                    rebuilt_leaves.push(TocLeaf {
-                        offset,
-                        entries: chunk.to_vec(),
-                    });
-                }
-            }
-
-            let start = cursor;
-            while cursor < all_entries.len()
-                && next.is_none_or(|next| all_entries[cursor].path.as_str() < next)
-            {
-                cursor += 1;
-            }
-            let replacement_entries = &all_entries[start..cursor];
-            let overlaps_dirty = replacement_entries
-                .iter()
-                .any(|entry| dirty.contains(&entry.path))
-                || dirty.iter().any(|path| {
-                    path.as_str() >= first && next.is_none_or(|next| path.as_str() < next)
-                });
-            let _should_consider_merge = overlaps_dirty
-                && crate::toc_btree::toc_leaf_fill_percent(replacement_entries)
-                    < crate::file_format::TOC_MIN_FILL_PERCENT;
-            if !overlaps_dirty && same_leaf_entries(&leaf.entries, replacement_entries) {
-                rebuilt_leaves.push(leaf.clone());
-                continue;
-            }
-            for chunk in toc_leaf_groups(replacement_entries)? {
-                let offset = self.write_toc_leaf(chunk)?;
-                rebuilt_leaves.push(TocLeaf {
-                    offset,
-                    entries: chunk.to_vec(),
-                });
-            }
-        }
-
-        if cursor < all_entries.len() {
-            for chunk in toc_leaf_groups(&all_entries[cursor..])? {
-                let offset = self.write_toc_leaf(chunk)?;
-                rebuilt_leaves.push(TocLeaf {
-                    offset,
-                    entries: chunk.to_vec(),
-                });
             }
         }
         if rebuilt_leaves.is_empty() {
@@ -556,14 +364,13 @@ impl Lockbox<crate::Writable> {
         }
         rebuilt_leaves.sort_by(|left, right| leaf_first_path(left).cmp(leaf_first_path(right)));
         let root_node = if leaf_directory_is_compatible(&old_leaves, &rebuilt_leaves) {
-            let old_root = self.toc_root.take().ok_or(Error::CorruptRecord)?;
+            let old_root = self.toc_tree.root.take().ok_or(Error::CorruptRecord)?;
             self.rewrite_compatible_toc_tree(old_root, &rebuilt_leaves)?
         } else {
             self.write_toc_tree_for_leaves(&rebuilt_leaves)?
         };
         let root = root_node.offset();
-        self.toc_root = Some(root_node);
-        self.toc_leaves = rebuilt_leaves;
+        self.toc_tree.replace_topology(root_node, rebuilt_leaves);
         Ok(root)
     }
 
@@ -789,161 +596,15 @@ impl Lockbox<crate::Writable> {
     }
 }
 
-pub(crate) struct CommitRollback {
-    sequence: u64,
-    header_slot: usize,
-    header_generation: u64,
-    cleanup_sequence: u64,
-    cleanup_completed_ranges: u32,
-    cleanup_completed_pages: u32,
-    cleanup_completed_bytes: u64,
-    commit_root_offset: u64,
-    commit_auth_offset: u64,
-    commit_auth_digest: [u8; 32],
-    toc_root_offset: u64,
-    variable_root_offset: u64,
-    form_root_offset: u64,
-    free_index_offset: u64,
-    post_cleanup_free_index_offset: u64,
-    redaction_manifest_offset: u64,
-    redaction_range_count: u32,
-    redaction_total_bytes: u64,
-    key_directory_offset: u64,
-    key_directory_mirror_offset: u64,
-    key_directory_generation: u64,
-    dirty_key_directory: bool,
-    poisoned: Option<String>,
-    key_slots: Vec<crate::key_slot::KeySlot>,
-    toc_entries:
-        std::collections::BTreeMap<crate::lockbox_path::LockboxPath, crate::toc_entry::TocEntry>,
-    toc_root: Option<TocTreeNode>,
-    toc_leaves: Vec<TocLeaf>,
-    dirty_toc_paths: std::collections::BTreeSet<crate::lockbox_path::LockboxPath>,
-    variables: Option<
-        std::collections::BTreeMap<crate::VariableName, crate::variable_btree::VariableValue>,
-    >,
-    variable_root: Option<crate::variable_btree::VariableTreeNode>,
-    variable_leaves: Vec<crate::variable_btree::VariableLeaf>,
-    dirty_variables: bool,
-    form_definitions: Option<std::collections::BTreeMap<String, crate::form::FormDefinition>>,
-    form_records: Option<std::collections::BTreeMap<crate::LockboxPath, crate::form::FormRecord>>,
-    form_root: Option<crate::form_btree::FormTreeNode>,
-    form_leaves: Vec<crate::form_btree::FormLeaf>,
-    dirty_form_keys: std::collections::BTreeSet<String>,
-    dirty_forms: bool,
-    free_space: crate::free_slot::FreeSpace,
-    record_ref_counts: std::collections::HashMap<u64, usize, crate::fast_hash::FastBuildHasher>,
-    pending_small_files:
-        std::collections::BTreeMap<crate::LockboxPath, crate::file_chunk::PendingFileChunk>,
-    pending_small_file_bytes: usize,
-    pending_symlinks: std::collections::BTreeMap<crate::LockboxPath, crate::LockboxPath>,
-    pending_redactions: std::collections::BTreeMap<u64, super::PendingRedaction>,
-    pending_redaction_object_count: usize,
-    redacted_free_slots: Vec<crate::free_slot::FreeSlot>,
-    needs_packing: bool,
-}
+pub(crate) struct CommitRollback(StagedLockboxState);
 
 impl CommitRollback {
     pub(crate) fn capture(lockbox: &Lockbox) -> Self {
-        Self {
-            sequence: lockbox.sequence,
-            header_slot: lockbox.header_slot,
-            header_generation: lockbox.header_generation,
-            cleanup_sequence: lockbox.cleanup_sequence,
-            cleanup_completed_ranges: lockbox.cleanup_completed_ranges,
-            cleanup_completed_pages: lockbox.cleanup_completed_pages,
-            cleanup_completed_bytes: lockbox.cleanup_completed_bytes,
-            commit_root_offset: lockbox.commit_root_offset,
-            commit_auth_offset: lockbox.commit_auth_offset,
-            commit_auth_digest: lockbox.commit_auth_digest,
-            toc_root_offset: lockbox.toc_root_offset,
-            variable_root_offset: lockbox.variable_root_offset,
-            form_root_offset: lockbox.form_root_offset,
-            free_index_offset: lockbox.free_index_offset,
-            post_cleanup_free_index_offset: lockbox.post_cleanup_free_index_offset,
-            redaction_manifest_offset: lockbox.redaction_manifest_offset,
-            redaction_range_count: lockbox.redaction_range_count,
-            redaction_total_bytes: lockbox.redaction_total_bytes,
-            key_directory_offset: lockbox.key_directory_offset,
-            key_directory_mirror_offset: lockbox.key_directory_mirror_offset,
-            key_directory_generation: lockbox.key_directory_generation,
-            dirty_key_directory: lockbox.dirty_key_directory,
-            poisoned: lockbox.poisoned.clone(),
-            key_slots: lockbox.key_slots.clone(),
-            toc_entries: lockbox.toc_entries.clone(),
-            toc_root: lockbox.toc_root.clone(),
-            toc_leaves: lockbox.toc_leaves.clone(),
-            dirty_toc_paths: lockbox.dirty_toc_paths.clone(),
-            variables: lockbox.variables.borrow().clone(),
-            variable_root: lockbox.variable_root.clone(),
-            variable_leaves: lockbox.variable_leaves.clone(),
-            dirty_variables: lockbox.dirty_variables,
-            form_definitions: lockbox.form_definitions.borrow().clone(),
-            form_records: lockbox.form_records.borrow().clone(),
-            form_root: lockbox.form_root.clone(),
-            form_leaves: lockbox.form_leaves.clone(),
-            dirty_form_keys: lockbox.dirty_form_keys.clone(),
-            dirty_forms: lockbox.dirty_forms,
-            free_space: lockbox.free_space.clone(),
-            record_ref_counts: lockbox.record_ref_counts.clone(),
-            pending_small_files: lockbox.pending_small_files.clone(),
-            pending_small_file_bytes: lockbox.pending_small_file_bytes,
-            pending_symlinks: lockbox.pending_symlinks.clone(),
-            pending_redactions: lockbox.pending_redactions.clone(),
-            pending_redaction_object_count: lockbox.pending_redaction_object_count,
-            redacted_free_slots: lockbox.redacted_free_slots.clone(),
-            needs_packing: lockbox.needs_packing,
-        }
+        Self(lockbox.staged.clone())
     }
 
     pub(crate) fn restore(self, lockbox: &mut Lockbox) {
-        lockbox.sequence = self.sequence;
-        lockbox.header_slot = self.header_slot;
-        lockbox.header_generation = self.header_generation;
-        lockbox.cleanup_sequence = self.cleanup_sequence;
-        lockbox.cleanup_completed_ranges = self.cleanup_completed_ranges;
-        lockbox.cleanup_completed_pages = self.cleanup_completed_pages;
-        lockbox.cleanup_completed_bytes = self.cleanup_completed_bytes;
-        lockbox.commit_root_offset = self.commit_root_offset;
-        lockbox.commit_auth_offset = self.commit_auth_offset;
-        lockbox.commit_auth_digest = self.commit_auth_digest;
-        lockbox.toc_root_offset = self.toc_root_offset;
-        lockbox.variable_root_offset = self.variable_root_offset;
-        lockbox.form_root_offset = self.form_root_offset;
-        lockbox.free_index_offset = self.free_index_offset;
-        lockbox.post_cleanup_free_index_offset = self.post_cleanup_free_index_offset;
-        lockbox.redaction_manifest_offset = self.redaction_manifest_offset;
-        lockbox.redaction_range_count = self.redaction_range_count;
-        lockbox.redaction_total_bytes = self.redaction_total_bytes;
-        lockbox.key_directory_offset = self.key_directory_offset;
-        lockbox.key_directory_mirror_offset = self.key_directory_mirror_offset;
-        lockbox.key_directory_generation = self.key_directory_generation;
-        lockbox.dirty_key_directory = self.dirty_key_directory;
-        lockbox.poisoned = self.poisoned;
-        lockbox.key_slots = self.key_slots;
-        lockbox.toc_entries = self.toc_entries;
-        lockbox.toc_root = self.toc_root;
-        lockbox.toc_leaves = self.toc_leaves;
-        lockbox.dirty_toc_paths = self.dirty_toc_paths;
-        lockbox.variables.replace(self.variables);
-        lockbox.variable_root = self.variable_root;
-        lockbox.variable_leaves = self.variable_leaves;
-        lockbox.dirty_variables = self.dirty_variables;
-        lockbox.form_definitions.replace(self.form_definitions);
-        lockbox.form_records.replace(self.form_records);
-        lockbox.form_root = self.form_root;
-        lockbox.form_leaves = self.form_leaves;
-        lockbox.dirty_form_keys = self.dirty_form_keys;
-        lockbox.dirty_forms = self.dirty_forms;
-        lockbox.free_space = self.free_space;
-        lockbox.record_ref_counts = self.record_ref_counts;
-        lockbox.pending_small_files = self.pending_small_files;
-        lockbox.pending_small_file_bytes = self.pending_small_file_bytes;
-        lockbox.pending_symlinks = self.pending_symlinks;
-        lockbox.pending_redactions = self.pending_redactions;
-        lockbox.pending_redaction_object_count = self.pending_redaction_object_count;
-        lockbox.redacted_free_slots = self.redacted_free_slots;
-        lockbox.needs_packing = self.needs_packing;
+        lockbox.staged = self.0;
         lockbox.page_manager.borrow_mut().clear();
     }
 }
@@ -1106,9 +767,10 @@ mod tests {
         }
         lb.commit().unwrap();
         let len_after_create = lb.to_bytes().len();
-        let root_after_create = lb.toc_root_offset;
+        let root_after_create = lb.toc_tree.root_offset;
         let old_leaf_offsets = lb
-            .toc_leaves
+            .toc_tree
+            .leaves
             .iter()
             .map(|leaf| leaf.offset)
             .collect::<Vec<_>>();
@@ -1120,12 +782,13 @@ mod tests {
         lb.mark_toc_dirty(&p(path));
         lb.commit().unwrap();
         let new_leaf_offsets = lb
-            .toc_leaves
+            .toc_tree
+            .leaves
             .iter()
             .map(|leaf| leaf.offset)
             .collect::<Vec<_>>();
 
-        assert_ne!(lb.toc_root_offset, root_after_create);
+        assert_ne!(lb.toc_tree.root_offset, root_after_create);
         assert_eq!(old_leaf_offsets.len(), new_leaf_offsets.len());
         assert!(
             old_leaf_offsets
@@ -1139,18 +802,46 @@ mod tests {
     }
 
     #[test]
+    fn incremental_toc_insert_before_first_leaf_does_not_duplicate_entries() {
+        let mut lb = Lockbox::create("secret");
+        let existing = synthetic_toc_entries(1).remove(0);
+        lb.toc_entries.insert(existing.path.clone(), existing);
+        lb.commit().unwrap();
+
+        let mut inserted = synthetic_toc_entries(1).remove(0);
+        inserted.path = p("/before-first.txt");
+        lb.toc_entries.insert(inserted.path.clone(), inserted);
+        lb.mark_toc_dirty(&p("/before-first.txt"));
+        lb.commit().unwrap();
+
+        let persisted_paths = lb
+            .toc_tree
+            .leaves
+            .iter()
+            .flat_map(|leaf| leaf.entries.iter().map(|entry| entry.path.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            persisted_paths,
+            vec!["/before-first.txt", "/toc-cow/file-00000.txt"]
+        );
+
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
+        assert_eq!(reopened.toc_entries.len(), 2);
+    }
+
+    #[test]
     fn noop_commit_reuses_existing_toc_root() {
         let mut lb = Lockbox::create("secret");
         for entry in synthetic_toc_entries(100) {
             lb.toc_entries.insert(entry.path.clone(), entry);
         }
         lb.commit().unwrap();
-        let root = lb.toc_root_offset;
+        let root = lb.toc_tree.root_offset;
         let len = lb.to_bytes().len();
 
         lb.commit().unwrap();
 
-        assert_eq!(lb.toc_root_offset, root);
+        assert_eq!(lb.toc_tree.root_offset, root);
         assert_eq!(lb.to_bytes().len(), len);
     }
 
@@ -1166,7 +857,7 @@ mod tests {
         assert_eq!(header_root_offset, lb.commit_root_offset);
         assert_eq!(header.commit_auth_offset, lb.commit_auth_offset);
         assert_ne!(header.commit_auth_offset, 0);
-        assert_ne!(header_root_offset, lb.toc_root_offset);
+        assert_ne!(header_root_offset, lb.toc_tree.root_offset);
 
         let page = crate::page::page_decode_slice(&bytes, header_root_offset as usize).unwrap();
         let decoded = lb
@@ -1183,7 +874,7 @@ mod tests {
             .with_payload(crate::commit_root::decode_commit_root)
             .unwrap()
             .unwrap();
-        assert_eq!(commit_root.toc_root_offset, lb.toc_root_offset);
+        assert_eq!(commit_root.toc_root_offset, lb.toc_tree.root_offset);
     }
 
     #[test]
@@ -1269,7 +960,8 @@ mod tests {
         assert!(!reopened.toc_entries.contains_key("/docs/a.txt"));
         assert!(reopened.toc_entries.contains_key("/docs/b.txt"));
         assert!(reopened
-            .toc_leaves
+            .toc_tree
+            .leaves
             .iter()
             .flat_map(|leaf| leaf.entries.iter())
             .all(|entry| !entry.deleted && entry.path != "/docs/a.txt"));

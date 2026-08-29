@@ -73,9 +73,11 @@ pub(crate) use model::{
     node_kind, page_object_packer, record, recovery_report, recovery_report_options,
     transaction_recovery, variable_name, variable_sensitivity,
 };
-pub(crate) use paths::{host_path, lockbox_path};
+pub(crate) use paths::{host_path, lockbox_glob, lockbox_path};
 pub(crate) use storage::{cache_options, file_lock, free_index, free_slot, page_cache};
-pub(crate) use toc::{form_btree, page_tree, toc_btree, toc_codec, toc_entry, variable_btree};
+pub(crate) use toc::{
+    form_btree, incremental_btree, page_tree, toc_btree, toc_codec, toc_entry, variable_btree,
+};
 
 pub use cache_options::{CacheLimit, CacheStats, LockboxOptions, WorkerPolicy, WorkloadProfile};
 pub use entry::{LockboxEntry, LockboxEntryKind};
@@ -100,6 +102,7 @@ pub use lockbox::{
     OpenFileOptions, ReadOnly, RecoveryScanner, VariableValueRef, Writable, WritableLockboxState,
 };
 pub use lockbox_id::LockboxId;
+pub use lockbox_glob::LockboxGlob;
 pub use lockbox_path::LockboxPath;
 pub use page_inspection::{PageInspection, PageObjectInspection};
 pub use recovery_report::RecoveryReport;

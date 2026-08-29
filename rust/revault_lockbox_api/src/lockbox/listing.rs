@@ -1,7 +1,6 @@
 use super::Lockbox;
-use crate::lockbox_path::{glob_matches, validate_glob};
 use crate::node_kind::NodeKind;
-use crate::{ListOptions, LockboxEntry, LockboxPath, Result};
+use crate::{ListOptions, LockboxEntry, LockboxGlob, LockboxPath, Result};
 
 impl<State> Lockbox<State> {
     /// Return an iterator over entries matching listing options.
@@ -15,7 +14,7 @@ impl<State> Lockbox<State> {
     ) -> Result<impl Iterator<Item = Result<LockboxEntry>> + '_> {
         let root = options.path.clone();
         let glob = match &options.glob {
-            Some(pattern) => Some(validate_glob(pattern)?),
+            Some(pattern) => Some(LockboxGlob::new(pattern)?),
             None => None,
         };
         let prefix = root.descendant_prefix();
@@ -41,7 +40,7 @@ impl<State> Lockbox<State> {
                 return None;
             }
             if let Some(pattern) = &glob {
-                if !glob_matches(pattern, rest) && !glob_matches(pattern, &entry.path) {
+                if !pattern.matches(rest) && !pattern.matches(&entry.path) {
                     return None;
                 }
             }

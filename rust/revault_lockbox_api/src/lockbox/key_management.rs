@@ -1,8 +1,7 @@
+use super::key_directory_candidates::KeyDirectoryCandidates;
 use super::Lockbox;
-use crate::file_format::read_header;
 #[cfg(feature = "vault-integration")]
 use crate::key_directory::encode_key_directory;
-use crate::key_directory::read_key_directory;
 #[cfg(feature = "vault-integration")]
 use crate::key_directory::read_key_directory_backup;
 use crate::key_slot::{next_key_slot_id, random_content_key, random_salt, KeySlot, LockboxKeySlot};
@@ -11,14 +10,12 @@ use crate::lockbox_id::LockboxId;
 use crate::secret_vec::{SecretString, SecretVec};
 use crate::signing::OwnerSigningKeyPair;
 use crate::storage::{Storage, StorageBackend};
-use crate::{Error, LockboxEntryKind, LockboxOptions, ReadOnly, Result};
+use crate::{Error, LockboxOptions, ReadOnly, Result};
 use crate::{
     TransactionRecoveryControl, TransactionRecoveryOutcome, TransactionRecoveryProgress,
     TransactionRecoveryStatus,
 };
-use std::fs;
-use std::io::{Cursor, Read};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Decrypted content key produced by opening a key slot.
 #[derive(Debug, PartialEq, Eq)]
@@ -582,7 +579,7 @@ impl Lockbox {
         bytes: &[u8],
         password: &SecretString,
     ) -> Result<OpenedContentKey> {
-        for directory in key_directories_from_bytes(bytes)? {
+        for directory in KeyDirectoryCandidates::from_bytes(bytes)?.into_ranked() {
             for slot in directory.slots {
                 let Ok(key) = slot.try_password(password) else {
                     continue;
@@ -603,7 +600,7 @@ impl Lockbox {
         password: &SecretString,
     ) -> Result<OpenedContentKey> {
         let storage = StorageBackend::file(path)?;
-        for directory in key_directories_from_storage(&storage)? {
+        for directory in KeyDirectoryCandidates::from_storage(&storage)?.into_ranked() {
             for slot in directory.slots {
                 let Ok(key) = slot.try_password(password) else {
                     continue;
@@ -673,7 +670,7 @@ impl Lockbox {
         bytes: &[u8],
         contact: &ContactKeyPair,
     ) -> Result<OpenedContentKey> {
-        for directory in key_directories_from_bytes(bytes)? {
+        for directory in KeyDirectoryCandidates::from_bytes(bytes)?.into_ranked() {
             for slot in directory.slots {
                 let Ok(key) = slot.try_contact(contact) else {
                     continue;
@@ -694,7 +691,7 @@ impl Lockbox {
         contact: &ContactKeyPair,
     ) -> Result<OpenedContentKey> {
         let storage = StorageBackend::file(path)?;
-        for directory in key_directories_from_storage(&storage)? {
+        for directory in KeyDirectoryCandidates::from_storage(&storage)?.into_ranked() {
             for slot in directory.slots {
                 let Ok(key) = slot.try_contact(contact) else {
                     continue;
@@ -842,7 +839,7 @@ impl Lockbox {
         encode_key_directory(
             &self.key_slots,
             self.lockbox_id,
-            self.key_directory_generation,
+            self.key_directory.generation,
             0,
         )
     }
@@ -857,7 +854,7 @@ impl Lockbox {
             return Err(Error::CorruptHeader);
         }
         self.key_slots = decoded.slots;
-        self.key_directory_generation = decoded.generation;
+        self.key_directory.generation = decoded.generation;
         self.mark_key_directory_dirty();
         Ok(())
     }
@@ -896,298 +893,8 @@ impl Lockbox {
         Ok(new_id)
     }
 
-    pub(crate) fn compact(&mut self) -> Result<()> {
-        let entries = self
-            .toc_entries
-            .values()
-            .filter(|entry| !entry.deleted)
-            .cloned()
-            .collect::<Vec<_>>();
-        let variables = self.clone_all_variable_values()?;
-        let forms = self.clone_all_form_state()?;
-        if let Some(path) = self.storage.path().map(Path::to_path_buf) {
-            return self.compact_file_backed(path, entries, variables, forms);
-        }
-
-        let key = self.key.try_clone()?;
-        let signing_key = self.require_owner_signing_key()?.try_clone()?;
-        let mut compacted = Lockbox::create_with_secret_key_and_options(
-            key,
-            self.lockbox_id,
-            self.compaction_options(),
-        );
-        compacted.set_owner_signing_key(signing_key);
-        self.populate_compacted(&mut compacted, entries, variables, forms)?;
-        compacted.commit()?;
-        *self = compacted;
-        Ok(())
-    }
-
-    /// Replace the lockbox content key and grant access to the supplied contacts.
-    ///
-    /// This is the low-level primitive for true revocation. It rewrites the
-    /// archive with a fresh content key and creates a new key directory
-    /// containing only `retained_contacts`. Password slots and contacts not
-    /// supplied by the caller are intentionally not preserved.
-    pub fn replace_content_key_with_contacts(
-        &mut self,
-        retained_contacts: &[(String, ContactPublicKey)],
-    ) -> Result<Vec<(String, u64)>> {
-        if retained_contacts.is_empty() {
-            return Err(Error::SecurityLimitExceeded(
-                "refusing to rekey without retained access".to_string(),
-            ));
-        }
-        let entries = self
-            .toc_entries
-            .values()
-            .filter(|entry| !entry.deleted)
-            .cloned()
-            .collect::<Vec<_>>();
-        let variables = self.clone_all_variable_values()?;
-        let forms = self.clone_all_form_state()?;
-        if let Some(path) = self.storage.path().map(Path::to_path_buf) {
-            return self.rekey_file_backed(path, entries, variables, forms, retained_contacts);
-        }
-
-        let key = SecretVec::try_from_slice(&random_content_key()?)?;
-        let signing_key = self.require_owner_signing_key()?.try_clone()?;
-        let mut rekeyed = Lockbox::create_with_secret_key_and_options(
-            key,
-            self.lockbox_id,
-            self.compaction_options(),
-        );
-        rekeyed.set_owner_signing_key(signing_key);
-        let slot_ids = add_retained_contacts(&mut rekeyed, retained_contacts)?;
-        self.populate_compacted_content(&mut rekeyed, entries, variables, forms)?;
-        rekeyed.commit()?;
-        *self = rekeyed;
-        Ok(slot_ids)
-    }
-
-    fn rekey_file_backed(
-        &mut self,
-        path: PathBuf,
-        entries: Vec<crate::toc_entry::TocEntry>,
-        variables: std::collections::BTreeMap<
-            crate::VariableName,
-            crate::variable_btree::VariableValue,
-        >,
-        forms: (
-            std::collections::BTreeMap<String, crate::form::FormDefinition>,
-            std::collections::BTreeMap<crate::LockboxPath, crate::form::FormRecord>,
-        ),
-        retained_contacts: &[(String, ContactPublicKey)],
-    ) -> Result<Vec<(String, u64)>> {
-        let temp_path = compact_temp_path(&path);
-        let _ = fs::remove_file(&temp_path);
-        let options = self.compaction_options();
-        let signing_key = self.require_owner_signing_key()?.try_clone()?;
-        let result = (|| {
-            let key = SecretVec::try_from_slice(&random_content_key()?)?;
-            let reopen_key = key.try_clone()?;
-            let mut rekeyed = Lockbox::create_path_with_secret_key_and_options(
-                &temp_path,
-                key,
-                self.lockbox_id,
-                options,
-            )?;
-            rekeyed.set_owner_signing_key(signing_key.try_clone()?);
-            let slot_ids = add_retained_contacts(&mut rekeyed, retained_contacts)?;
-            self.populate_compacted_content(&mut rekeyed, entries, variables, forms)?;
-            rekeyed.commit()?;
-            drop(rekeyed);
-            replace_file_with_compacted(&temp_path, &path)?;
-            let mut reopened =
-                Lockbox::open_path_with_secret_key_options(&path, reopen_key, options)?;
-            reopened.set_owner_signing_key(signing_key);
-            *self = reopened;
-            Ok(slot_ids)
-        })();
-        if result.is_err() {
-            let _ = fs::remove_file(&temp_path);
-        }
-        result
-    }
-
-    fn compact_file_backed(
-        &mut self,
-        path: PathBuf,
-        entries: Vec<crate::toc_entry::TocEntry>,
-        variables: std::collections::BTreeMap<
-            crate::VariableName,
-            crate::variable_btree::VariableValue,
-        >,
-        forms: (
-            std::collections::BTreeMap<String, crate::form::FormDefinition>,
-            std::collections::BTreeMap<crate::LockboxPath, crate::form::FormRecord>,
-        ),
-    ) -> Result<()> {
-        let temp_path = compact_temp_path(&path);
-        let _ = fs::remove_file(&temp_path);
-        let options = self.compaction_options();
-        let signing_key = self.require_owner_signing_key()?.try_clone()?;
-        let result = (|| {
-            let key = self.key.try_clone()?;
-            let reopen_key = key.try_clone()?;
-            let mut compacted = Lockbox::create_path_with_secret_key_and_options(
-                &temp_path,
-                key,
-                self.lockbox_id,
-                options,
-            )?;
-            compacted.set_owner_signing_key(signing_key.try_clone()?);
-            self.populate_compacted(&mut compacted, entries, variables, forms)?;
-            compacted.commit()?;
-            drop(compacted);
-            replace_file_with_compacted(&temp_path, &path)?;
-            let mut reopened =
-                Lockbox::open_path_with_secret_key_options(&path, reopen_key, options)?;
-            reopened.set_owner_signing_key(signing_key);
-            *self = reopened;
-            Ok(())
-        })();
-        if result.is_err() {
-            let _ = fs::remove_file(&temp_path);
-        }
-        result
-    }
-
-    fn populate_compacted(
-        &self,
-        compacted: &mut Lockbox,
-        entries: Vec<crate::toc_entry::TocEntry>,
-        variables: std::collections::BTreeMap<
-            crate::VariableName,
-            crate::variable_btree::VariableValue,
-        >,
-        forms: (
-            std::collections::BTreeMap<String, crate::form::FormDefinition>,
-            std::collections::BTreeMap<crate::LockboxPath, crate::form::FormRecord>,
-        ),
-    ) -> Result<()> {
-        compacted.key_slots = self.key_slots.clone();
-        compacted.key_directory_generation = self.key_directory_generation;
-        compacted.dirty_key_directory = !compacted.key_slots.is_empty();
-
-        self.populate_compacted_content(compacted, entries, variables, forms)
-    }
-
-    fn populate_compacted_content(
-        &self,
-        compacted: &mut Lockbox,
-        entries: Vec<crate::toc_entry::TocEntry>,
-        variables: std::collections::BTreeMap<
-            crate::VariableName,
-            crate::variable_btree::VariableValue,
-        >,
-        forms: (
-            std::collections::BTreeMap<String, crate::form::FormDefinition>,
-            std::collections::BTreeMap<crate::LockboxPath, crate::form::FormRecord>,
-        ),
-    ) -> Result<()> {
-        for (name, value) in variables {
-            compacted.set_variable_value(name, value)?;
-        }
-        for (key, definition) in forms.0 {
-            compacted.set_form_definition_value(key, definition)?;
-        }
-        for entry in entries
-            .iter()
-            .filter(|entry| entry.entry_kind() == LockboxEntryKind::Directory)
-        {
-            compacted.create_dir(&entry.path, true)?;
-            compacted.set_permissions(&entry.path, entry.permissions)?;
-        }
-        for (path, record) in forms.1 {
-            compacted.create_parent_dirs_for(&path)?;
-            compacted.set_form_record_value(path, record)?;
-        }
-
-        for entry in entries {
-            match entry.entry_kind() {
-                LockboxEntryKind::File => {
-                    let reader = FileEntryReader::new(self, &entry)?;
-                    compacted.create_parent_dirs_for(&entry.path)?;
-                    compacted.add_file_from_reader_with_permissions(
-                        &entry.path,
-                        reader,
-                        entry.permissions,
-                        false,
-                    )?;
-                }
-                LockboxEntryKind::Symlink => {
-                    let target = self.get_symlink_target(&entry.path)?;
-                    compacted.create_parent_dirs_for(&entry.path)?;
-                    compacted.add_symlink(&entry.path, &target, false)?;
-                }
-                LockboxEntryKind::Directory => {}
-            }
-        }
-        Ok(())
-    }
-
-    fn compaction_options(&self) -> LockboxOptions {
-        LockboxOptions {
-            workload_profile: self.workload_profile,
-            ..LockboxOptions::default()
-        }
-    }
 }
 
-fn compact_temp_path(path: &Path) -> PathBuf {
-    let file_name = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .unwrap_or("lockbox");
-    path.with_file_name(format!(".{file_name}.compact-{}", std::process::id()))
-}
-
-fn replace_file_with_compacted(temp_path: &Path, path: &Path) -> Result<()> {
-    fs::rename(temp_path, path).map_err(|err| {
-        Error::Io(format!(
-            "replace compacted lockbox {}: {err}",
-            path.display()
-        ))
-    })?;
-    sync_parent_dir(path)
-}
-
-fn sync_parent_dir(path: &Path) -> Result<()> {
-    #[cfg(unix)]
-    {
-        let parent = path.parent().unwrap_or_else(|| Path::new("."));
-        let dir = fs::File::open(parent)
-            .map_err(|err| Error::Io(format!("open {}: {err}", parent.display())))?;
-        dir.sync_data()
-            .map_err(|err| Error::Io(format!("sync {}: {err}", parent.display())))?;
-    }
-    #[cfg(not(unix))]
-    {
-        let _ = path;
-    }
-    Ok(())
-}
-
-fn add_retained_contacts(
-    lockbox: &mut Lockbox,
-    retained_contacts: &[(String, ContactPublicKey)],
-) -> Result<Vec<(String, u64)>> {
-    let mut slot_ids = Vec::with_capacity(retained_contacts.len());
-    for (name, contact) in retained_contacts {
-        let slot_id = lockbox.add_contact_named(access_entry_name(name), contact)?;
-        slot_ids.push((name.clone(), slot_id));
-    }
-    Ok(slot_ids)
-}
-
-fn access_entry_name(label: &str) -> String {
-    label
-        .strip_prefix("profile:")
-        .or_else(|| label.strip_prefix("contact:"))
-        .unwrap_or(label)
-        .to_string()
-}
 
 impl<State> Lockbox<State> {
     /// Exports the content key and encoded access directory for a migration
@@ -1201,151 +908,14 @@ impl<State> Lockbox<State> {
             encode_key_directory(
                 &self.key_slots,
                 self.lockbox_id,
-                self.key_directory_generation,
+                self.key_directory.generation,
                 0,
             )?,
         ))
     }
 
     pub(crate) fn mark_key_directory_dirty(&mut self) {
-        self.key_directory_generation = self.key_directory_generation.saturating_add(1);
-        self.dirty_key_directory = true;
+        self.key_directory.generation = self.key_directory.generation.saturating_add(1);
+        self.key_directory.dirty = true;
     }
-}
-
-struct FileEntryReader<'a> {
-    lockbox: &'a Lockbox,
-    entry: &'a crate::toc_entry::TocEntry,
-    chunks: Vec<crate::file_chunk::FileChunk>,
-    next_chunk: usize,
-    current: Cursor<Vec<u8>>,
-    written: u64,
-}
-
-impl<'a> FileEntryReader<'a> {
-    fn new(lockbox: &'a Lockbox, entry: &'a crate::toc_entry::TocEntry) -> Result<Self> {
-        if let Some(pending) = lockbox.pending_small_files.get(&entry.path) {
-            if pending.data.len() as u64 != entry.len {
-                return Err(Error::CorruptRecord);
-            }
-            return Ok(Self {
-                lockbox,
-                entry,
-                chunks: Vec::new(),
-                next_chunk: 0,
-                current: Cursor::new(pending.data.to_vec()),
-                written: 0,
-            });
-        }
-        if entry.chunks.is_empty() {
-            return Err(Error::CorruptRecord);
-        }
-        let mut chunks = entry.chunks.clone();
-        chunks.sort_by_key(|chunk| chunk.file_offset);
-        Ok(Self {
-            lockbox,
-            entry,
-            chunks,
-            next_chunk: 0,
-            current: Cursor::new(Vec::new()),
-            written: 0,
-        })
-    }
-}
-
-impl Read for FileEntryReader<'_> {
-    fn read(&mut self, out: &mut [u8]) -> std::io::Result<usize> {
-        loop {
-            let read = self.current.read(out)?;
-            if read != 0 {
-                self.written = self.written.saturating_add(read as u64);
-                return Ok(read);
-            }
-            if self.next_chunk >= self.chunks.len() {
-                if self.written == self.entry.len {
-                    return Ok(0);
-                }
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "lockbox file length mismatch during compaction",
-                ));
-            }
-            let chunk = &self.chunks[self.next_chunk];
-            if chunk.file_offset != self.written {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    "lockbox file chunk offset mismatch during compaction",
-                ));
-            }
-            self.next_chunk += 1;
-            let decoded = self
-                .lockbox
-                .read_file_chunk_compression_frame(self.entry.len, chunk)
-                .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidData, err))?;
-            self.current = Cursor::new(decoded);
-        }
-    }
-}
-
-fn key_directories_from_bytes(
-    bytes: &[u8],
-) -> Result<Vec<crate::key_directory::DecodedKeyDirectory>> {
-    let header = read_header(bytes)?;
-    let mut directories = Vec::new();
-    for offset in [
-        header.key_directory_offset,
-        header.key_directory_mirror_offset,
-    ] {
-        if offset == 0
-            || directories
-                .iter()
-                .any(|directory: &crate::key_directory::DecodedKeyDirectory| {
-                    directory.offset == offset
-                })
-        {
-            continue;
-        }
-        if let Ok(directory) = read_key_directory(bytes, offset, Some(header.lockbox_id)) {
-            directories.push(directory);
-        }
-    }
-    if directories.is_empty() {
-        return Err(Error::CorruptHeader);
-    }
-    directories.sort_by_key(|directory| directory.copy_index);
-    Ok(directories)
-}
-
-pub(crate) fn key_directories_from_storage(
-    storage: &StorageBackend,
-) -> Result<Vec<crate::key_directory::DecodedKeyDirectory>> {
-    let header_bytes = storage.read_at(0, crate::constants::HEADER_LEN)?;
-    let header = read_header(&header_bytes)?;
-    let mut directories = Vec::new();
-    for offset in [
-        header.key_directory_offset,
-        header.key_directory_mirror_offset,
-    ] {
-        if offset == 0
-            || directories
-                .iter()
-                .any(|directory: &crate::key_directory::DecodedKeyDirectory| {
-                    directory.offset == offset
-                })
-        {
-            continue;
-        }
-        if let Ok(directory) = crate::key_directory::read_key_directory_via_page_cache(
-            storage,
-            offset,
-            Some(header.lockbox_id),
-        ) {
-            directories.push(directory);
-        }
-    }
-    if directories.is_empty() {
-        return Err(Error::CorruptHeader);
-    }
-    directories.sort_by_key(|directory| directory.copy_index);
-    Ok(directories)
 }

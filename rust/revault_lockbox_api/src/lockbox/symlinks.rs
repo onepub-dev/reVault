@@ -109,7 +109,8 @@ impl<State> Lockbox<State> {
                 entry.record_offset = page_offset;
                 entry.record_len = page_size as u64;
                 entry.record_object_id = pending.object.id;
-                self.dirty_toc_paths.insert(entry.path.clone());
+                let path = entry.path.clone();
+                self.staged.toc_tree.dirty_keys.insert(path);
             }
         }
         Ok(())

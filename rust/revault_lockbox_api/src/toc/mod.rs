@@ -1,4 +1,5 @@
 pub(crate) mod form_btree;
+pub(crate) mod incremental_btree;
 pub(crate) mod page_tree;
 pub(crate) mod toc_btree;
 pub(crate) mod toc_codec;
