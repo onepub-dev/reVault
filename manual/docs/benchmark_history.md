@@ -1,0 +1,1667 @@
+# Benchmark History
+
+This file records benchmark runs that are useful for comparing format, dependency, or implementation changes. Keep each entry self-contained: include the change being measured, the command, environment, baseline source, and observed result table.
+
+## 2026-06-01 - Real-World Large File Threading Sweep
+
+Description: measured the merged native worker pipeline against large local real-world files: a 956 MiB analyzer log snapshot, a 249 MiB Git pack, a 350 MiB Android `libflutter.so`, and a 118 MiB MP4 screen recording. The full report is in `docs/real_world_large_file_benchmark_2026_06_01.md`.
+
+Commands:
+
+```bash
+cd /home/bsutton/git/dvault
+cargo build --release -p lockbox_cli --manifest-path rust/Cargo.toml
+# Swept --jobs 1,2,4,6,auto,8,12,16.
+# Each row creates a fresh lockbox and times `lockbox add`.
+```
+
+Environment:
+
+* Host: local Linux workstation, AMD Ryzen 7 3700X, 8 cores / 16 threads
+* Output: `rust/target/real-world-large-files-20260601/results/summary.tsv`
+* Timing source: `/usr/bin/time` plus `LOCKBOX_IMPORT_TIMINGS=1`
+* Compression backend: local `../zstd-rs/ruzstd`
+
+Best observed results:
+
+| Dataset        | Jobs 1 wall s | Best jobs | Best wall s | Speedup | Output ratio |
+| -------------- | ------------: | --------: | ----------: | ------: | -----------: |
+| analyzer-log   |          8.77 |        12 |        1.24 |   7.07x |      0.02036 |
+| git-pack       |          2.53 |         4 |        2.28 |   1.11x |      1.00020 |
+| libflutter-so  |         14.25 |        16 |        2.15 |   6.63x |      0.29951 |
+| screencast-mp4 |          1.01 |        16 |        0.24 |   4.21x |      0.09146 |
+
+Conclusion:
+
+* Native threading is a strong win for large compressible files.
+* The six-worker `--jobs auto` cap remains a sensible default, while explicit `--jobs 12` or `--jobs 16` can improve large compressible imports further.
+* Already-packed data, represented by the Git pack, is dominated by write and commit work and does not materially benefit from more compression threads.
+
+## 2026-05-31 - Native Worker Pipeline Jobs Probe
+
+Description: implemented `lockbox --jobs auto|1|N add ...` and a native worker pipeline for compression-frame preparation. Large-file frames and small-file bulk-import batches can now be prepared on worker threads while the final page writer remains ordered. The full report is in `docs/native_threading_report_2026_05_31.md`.
+
+Commands:
+
+```bash
+cd /home/bsutton/git/dvault
+cargo build --release -p lockbox_cli --manifest-path rust/Cargo.toml
+# Reused fixtures from rust/target/archive-comparison-profile-20260531/fixtures.
+# Swept --jobs 1 through $(nproc); each row creates a fresh lockbox and times
+# only `lockbox add`.
+```
+
+Environment:
+
+* Host: local Linux workstation
+* Output: `rust/target/jobs-sweep-20260531/summary.tsv`
+* Timing source: `/usr/bin/time`, elapsed wall-clock seconds, CPU split, and max RSS
+* Compression backend: local `../zstd-rs/ruzstd`
+
+Best observed results:
+
+| Fixture        | Jobs 1 wall s | Best jobs | Best wall s | Speedup | Jobs 1 RSS KiB | Best RSS KiB |
+| -------------- | ------------: | --------: | ----------: | ------: | -------------: | -----------: |
+| repeated-small |          0.46 |        15 |        0.19 |   2.42x |         20,552 |       37,956 |
+| text-tree      |          0.35 |         7 |        0.13 |   2.69x |         21,776 |       42,104 |
+| mixed-tree     |          0.24 |         7 |        0.21 |   1.14x |         78,636 |       93,504 |
+| high-entropy   |          0.69 |        12 |        0.62 |   1.11x |         78,688 |       94,200 |
+| dvault-source  |          0.04 |         1 |        0.04 |   1.00x |         11,404 |       11,404 |
+
+Conclusion:
+
+* Worker threads are a clear wall-time win for compressible many-file imports: `repeated-small` improved from 0.46 s to 0.19 s, and `text-tree` from 0.35 s to 0.13 s.
+* Output bytes are unchanged because the worker pipeline changes scheduling, not format or compression decisions.
+* RSS increases when workers are enabled because multiple frames can be staged at once.
+* High-entropy and tiny source-tree imports do not benefit in this run; users can choose `--jobs 1` for low-memory or low-overhead operation.
+* A follow-up 2026-06-01 stage-timing sweep on larger fixtures is recorded in `docs/native_threading_report_2026_05_31.md`.
+* Based on that sweep, native `--jobs auto` is capped at six workers while explicit `--jobs N` remains uncapped.
+
+## 2026-05-21 - Current Lockbox vs GPG Archive Comparison
+
+Description: reran the archive comparison harness after commits `afaf754 Optimize compression frame metadata and extraction` and `94ed764 Optimize uncompressed frame reads`. The harness compares current Lockbox output against GPG symmetric encryption using default compression, GPG zlib level 9, and external zstd streams encrypted with GPG compression disabled.
+
+Commands:
+
+```bash
+cd /home/bsutton/git/dvault
+bash rust/tools/compare_archive_compression.sh
+```
+
+Environment:
+
+* Host: local Linux workstation
+* Fixture output: `rust/target/archive-comparison/results/summary.tsv`
+* Timing source: `/usr/bin/time`, elapsed wall-clock seconds and max RSS
+
+Results:
+
+| Fixture        | Tool    |                                 Logical bytes |               Output bytes |     Seconds | Max RSS KiB |
+| -------------- | ------- | --------------------------------------------: | -------------------------: | ----------: | ----------: |
+| repeated-small | Lockbox |                                   104,857,600 |                     97,376 |        0.29 |      20,988 |
+| repeated-small | \`tar   |                                 gpg\` default |                104,857,600 |     463,334 |        0.64 |
+| repeated-small | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                104,857,600 |     200,155 |        0.70 |
+| repeated-small | \`tar   |                                       zstd -1 | gpg --compress-algo none\` | 104,857,600 |      55,627 |
+| repeated-small | \`tar   |                                      zstd -19 | gpg --compress-algo none\` | 104,857,600 |      48,495 |
+| text-tree      | Lockbox |                                    30,193,763 |                  2,929,760 |        0.44 |      22,068 |
+| text-tree      | \`tar   |                                 gpg\` default |                 30,193,763 |   2,494,015 |        0.36 |
+| text-tree      | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                 30,193,763 |   2,007,625 |        0.57 |
+| text-tree      | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |  30,193,763 |   1,763,322 |
+| text-tree      | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |  30,193,763 |   1,126,606 |
+| mixed-tree     | Lockbox |                                    21,947,435 |                 17,037,408 |        0.26 |      71,360 |
+| mixed-tree     | \`tar   |                                 gpg\` default |                 21,947,435 |  17,019,926 |        0.63 |
+| mixed-tree     | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                 21,947,435 |  16,939,281 |        0.73 |
+| mixed-tree     | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |  21,947,435 |  16,984,571 |
+| mixed-tree     | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |  21,947,435 |  16,862,451 |
+| high-entropy   | Lockbox |                                    67,108,880 |                 67,131,488 |        0.64 |      77,532 |
+| high-entropy   | \`tar   |                                 gpg\` default |                 67,108,880 |  67,299,458 |        1.85 |
+| high-entropy   | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                 67,108,880 |  67,177,002 |        2.04 |
+| high-entropy   | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |  67,108,880 |  67,174,412 |
+| high-entropy   | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |  67,108,880 |  67,172,282 |
+| dvault-source  | Lockbox |                                     1,039,364 |                    304,224 |        0.03 |       8,348 |
+| dvault-source  | \`tar   |                                 gpg\` default |                  1,039,364 |     258,947 |        0.17 |
+| dvault-source  | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                  1,039,364 |     226,736 |        0.21 |
+| dvault-source  | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |   1,039,364 |     254,388 |
+| dvault-source  | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |   1,039,364 |     179,158 |
+
+Conclusion:
+
+* Lockbox is much smaller and faster than GPG default or GPG zlib9 on the repeated-small fixture while preserving indexed recovery metadata.
+* Solid zstd archive streams remain smaller on repeated/text/source fixtures because they compress one tar stream rather than bounded random-access frames.
+* Lockbox remains effectively optimal on high-entropy data and smaller than every GPG comparison row for that fixture.
+* `dvault-source` is where dictionary or semi-solid experiments are most interesting: Lockbox is fastest, but still larger than all archive-wide compression rows.
+
+## 2026-05-21 - Dictionary And Exact-Dedupe Probes
+
+Description: measured two larger research ideas without changing the Lockbox format: per-corpus zstd dictionaries for 2 MiB compression frames, and exact file-content dedupe before frame compression. Both probes use the archive comparison fixtures and current 2 MiB frame sizing.
+
+Commands:
+
+```bash
+cd /home/bsutton/git/dvault/rust
+cargo run --release -p lockbox_core --example dict_probe -- \
+  target/archive-comparison/fixtures/{fixture}
+cargo run --release -p lockbox_core --example dedupe_probe -- \
+  target/archive-comparison/fixtures/{fixture}
+```
+
+Dictionary probe results:
+
+| Fixture        | Baseline frame bytes | Best dict size | Dict frame bytes | Dict total bytes | Net delta |
+| -------------- | -------------------: | -------------: | ---------------: | ---------------: | --------: |
+| repeated-small |                3,899 |             16 |            4,103 |            4,119 |      -220 |
+| text-tree      |            2,890,828 |          4,096 |        2,880,382 |        2,884,478 |    +6,350 |
+| mixed-tree     |           17,010,876 |          4,096 |       17,009,224 |       17,013,320 |    -2,444 |
+| high-entropy   |           67,108,880 |             20 |       67,108,880 |       67,108,900 |       -20 |
+| dvault-source  |              294,478 |          4,094 |          293,186 |          297,280 |    -2,802 |
+
+Exact-file dedupe probe results:
+
+| Fixture        | Logical bytes | Duplicate bytes | Hash ms | Baseline frame bytes | Deduped frame bytes | Frame delta |
+| -------------- | ------------: | --------------: | ------: | -------------------: | ------------------: | ----------: |
+| repeated-small |   104,857,600 |     104,832,000 |  49.535 |                3,899 |                  15 |      +3,884 |
+| text-tree      |    30,193,763 |               0 |  14.960 |            2,890,828 |           2,890,828 |           0 |
+| mixed-tree     |    21,947,435 |           2,796 |  10.883 |           17,010,876 |          17,010,871 |          +5 |
+| high-entropy   |    67,108,880 |               0 |  32.645 |           67,108,880 |          67,108,880 |           0 |
+| dvault-source  |     1,039,364 |               0 |   0.565 |              294,478 |             294,478 |           0 |
+
+Conclusion:
+
+* Dictionary compression is not a default-format win in this shape. Only the text fixture had a net positive result after storing the dictionary, and the gain was 6,350 bytes while dictionary training cost about 2.8 seconds.
+* Exact-file dedupe is not worth implementing for this branch. Compression already captures the duplicate repeated-small fixture, and realistic fixtures had no material exact-duplicate savings.
+* Content-defined dedupe remains a separate, higher-complexity research track because it may find shifted or partial duplicates, but it needs a privacy, refcount, and recovery design before implementation.
+
+## 2026-05-21 - Semi-Solid Group Size Probe And CDC Design Gate
+
+Description: measured semi-solid compression groups without changing the Lockbox format, then documented the threat/recovery gate required before any content-defined chunking implementation. The semi-solid probe uses the current pure-Rust zstd backend at level 3 and compares larger group targets against the current 2 MiB compression-frame shape.
+
+Commands:
+
+```bash
+cd /home/bsutton/git/dvault/rust
+cargo run --release -p lockbox_core --example semisolid_probe -- \
+  target/archive-comparison/fixtures/{fixture}
+```
+
+Selected semi-solid results:
+
+| Fixture        | 2 MiB frame bytes | Best larger group | Larger-group bytes | Delta vs 2 MiB | All-files-once read amplification |
+| -------------- | ----------------: | ----------------: | -----------------: | -------------: | --------------------------------: |
+| repeated-small |             3,899 |     solid 100 MiB |              3,213 |           +686 |                        4,096.000x |
+| text-tree      |         2,890,828 |              none |          2,890,828 |              0 |                           69.797x |
+| mixed-tree     |        17,010,876 |             4 MiB |         17,010,859 |            +17 |                          137.219x |
+| high-entropy   |        67,108,880 |              none |         67,108,880 |              0 |                            1.984x |
+| dvault-source  |           294,478 |              none |            294,478 |              0 |                          131.000x |
+
+External zstd sanity check on concatenated `text-tree` payload bytes:
+
+| Tool/shape                   | Compressed bytes |
+| ---------------------------- | ---------------: |
+| `zstd -1`, 2 MiB split       |        1,724,626 |
+| `zstd -1`, solid raw payload |        1,712,429 |
+| `zstd -3`, 2 MiB split       |        2,059,143 |
+| `zstd -3`, solid raw payload |        2,088,798 |
+
+Conclusion:
+
+* Reject semi-solid groups as a default-format size change. The measured gains are tiny or negative while random-access amplification increases sharply.
+* The GPG/zstd archive gap is not explained by group size alone. A zstd CLI raw payload check improved `text-tree` by only about 12 KiB from 2 MiB split to solid at level 1, and level 3 was worse when made solid.
+* The more useful follow-up is a separate backend/strategy comparison, not larger default compression groups.
+* CDC remains separate. The design gate is now documented in `docs/cdc_dedupe_threat_recovery_design.md`; no CDC implementation should proceed until that threat/recovery model is accepted.
+
+## 2026-05-21 - Zstd Backend Gap Probe
+
+Description: investigated why GPG/zstd archive rows are much smaller than Lockbox on `text-tree` and `dvault-source`. The probe compresses the same raw fixture payloads in the same 2 MiB file-boundary groups with both the current `oxiarc-zstd` encoder and the local `zstd` CLI.
+
+Commands:
+
+```bash
+cd /home/bsutton/git/dvault/rust
+cargo run --release -p lockbox_core --example zstd_gap_probe -- \
+  target/archive-comparison/fixtures/{fixture}
+```
+
+Selected results:
+
+| Fixture        | Shape | Backend       | Level | Compressed bytes | Compress ms |
+| -------------- | ----- | ------------- | ----: | ---------------: | ----------: |
+| text-tree      | 2 MiB | `oxiarc-zstd` |     3 |        2,890,828 |     322.197 |
+| text-tree      | 2 MiB | `zstd` CLI    |     1 |        1,726,640 |     119.125 |
+| text-tree      | 2 MiB | `zstd` CLI    |     6 |        1,653,236 |     305.772 |
+| text-tree      | 2 MiB | `zstd` CLI    |    19 |        1,063,211 |  18,684.987 |
+| dvault-source  | 2 MiB | `oxiarc-zstd` |     3 |          294,478 |      23.003 |
+| dvault-source  | 2 MiB | `zstd` CLI    |     1 |          248,149 |       8.150 |
+| dvault-source  | 2 MiB | `zstd` CLI    |     3 |          226,102 |       9.968 |
+| dvault-source  | 2 MiB | `zstd` CLI    |    19 |          173,620 |     329.645 |
+| mixed-tree     | 2 MiB | `oxiarc-zstd` |     3 |       17,010,876 |     530.230 |
+| mixed-tree     | 2 MiB | `zstd` CLI    |     3 |       16,834,770 |      88.920 |
+| high-entropy   | 2 MiB | `oxiarc-zstd` |     3 |       67,108,880 |   1,926.788 |
+| high-entropy   | 2 MiB | `zstd` CLI    |     3 |       67,108,880 |     273.057 |
+| repeated-small | 2 MiB | `oxiarc-zstd` |     3 |            3,899 |      80.021 |
+| repeated-small | 2 MiB | `zstd` CLI    |     3 |            4,358 |     347.108 |
+
+Conclusion:
+
+* The text/source GPG-zstd gap is primarily a zstd backend/strategy gap, not a semi-solid grouping gap.
+* `zstd` CLI level 1 on the same 2 MiB groups nearly matches the archive comparison's `tar | zstd -1 | gpg --compress-algo none` result for `text-tree`, while preserving bounded groups.
+* For `dvault-source`, `zstd` CLI level 3 on one bounded group reaches 226,102 bytes before Lockbox metadata/encryption overhead, matching the GPG zlib9 size class and substantially beating current Lockbox frame bytes.
+* The next size experiment should be a native/libzstd encoder path or an `oxiarc-zstd` strategy investigation, not larger frames, dictionaries, or dedupe.
+
+## 2026-05-21 - Native zstd Encoder Prototype
+
+Description: implemented the backend-gap recommendation as an opt-in `lockbox_core/native-zstd-encoder` feature. The feature uses the `zstd` crate's bulk compressor for compression frames and writes a distinct compression algorithm id. Native-compressed artifacts require a build with the same feature to decode; default builds fail closed with an explicit unsupported native-zstd message.
+
+Commands:
+
+```bash
+cd /home/bsutton/git/dvault/rust
+cargo build --offline --release -p lockbox_cli
+cargo build --offline --release -p lockbox_cli \
+  --features lockbox_core/native-zstd-encoder
+```
+
+Fixture measurement:
+
+| Fixture        | Default bytes | Native-zstd bytes |    Delta | Default add | Native add | Default RSS KiB | Native RSS KiB |
+| -------------- | ------------: | ----------------: | -------: | ----------: | ---------: | --------------: | -------------: |
+| repeated-small |        97,376 |            84,064 |  +13,312 |       0.32s |      0.35s |          20,852 |         21,452 |
+| text-tree      |     2,929,760 |         2,094,176 | +835,584 |       0.43s |      0.15s |          22,128 |         22,432 |
+| mixed-tree     |    17,037,408 |        16,866,400 | +171,008 |       0.26s |      0.22s |          70,904 |         69,484 |
+| high-entropy   |    67,131,488 |        67,131,488 |        0 |       0.63s |      0.64s |          77,432 |         77,512 |
+| dvault-source  |       304,224 |           236,640 |  +67,584 |       0.04s |      0.01s |           8,420 |          8,128 |
+
+Compatibility checks:
+
+```bash
+cargo test --offline -p lockbox_core \
+  native_zstd_compression_frame_requires_feature -- --nocapture
+cargo test --offline -p lockbox_core --features native-zstd-encoder \
+  native_zstd_compression_frame_round_trips_with_feature -- --nocapture
+```
+
+Outcome:
+
+* Keep the prototype as an opt-in native profile. It produces large size wins on text/source workloads while preserving the current bounded compression-frame shape.
+* Do not make it the default yet. Native-compressed artifacts require native decode support, and the project still needs a policy decision for WASM, portability, and long-term format compatibility.
+* The native path is now the leading candidate for closing the GPG/zstd gap without adopting semi-solid groups, dictionaries, or dedupe.
+
+## 2026-05-21 - Follow-Up Compression Performance Sweep
+
+Description: continued from commit `afaf754 Optimize compression frame metadata and extraction`, treating additional size/speed improvement as the goal. Tested descriptor-table deltas, nearby zstd bulk levels, larger bounded frame sizes, and a single-threaded uncompressed-frame read fast path.
+
+Commands:
+
+```bash
+cd rust
+cargo test -p lockbox_core toc_codec -- --nocapture
+cargo test -p lockbox_core extract_many_caches_decoded_compression_frames -- --nocapture
+cargo test -p lockbox_core range_reads_only_return_requested_large_file_slice -- --nocapture
+
+# Lockbox-only fixture loops using:
+# rust/target/archive-comparison/fixtures/{repeated-small,text-tree,...}
+# and rust/target/release/lockbox add/create.
+#
+# Large-file perf:
+# LOCKBOX_PERF_SCENARIO=large LOCKBOX_PERF_LARGE_BYTES=104857600 \
+# LOCKBOX_PERF_PATTERN={zero,randomish} cargo run --release \
+# -p lockbox_core --example perf
+```
+
+Outcome summary:
+
+| Candidate                                              | Decision          | Reason                                                           |
+| ------------------------------------------------------ | ----------------- | ---------------------------------------------------------------- |
+| TOC descriptor-to-descriptor delta varints             | Reject            | No fixture byte changes after compressed TOC pages               |
+| Bulk zstd level 2                                      | Reject            | Faster, but loses text/source size wins                          |
+| Bulk zstd level 4                                      | Reject            | Text-tree regresses by about 93 KiB vs level 3                   |
+| Bulk zstd level 5                                      | Reject            | Text-tree regresses by about 89 KiB vs level 3 and is slower     |
+| 3 MiB bulk small-file frames                           | Reject            | No meaningful size improvement vs 2 MiB                          |
+| 4 MiB bulk small-file frames                           | Reject            | Only about 2 KiB total fixture improvement with higher RSS       |
+| 3 MiB large-file frames                                | Reject            | Tiny size win, worse zero-file add/extract and worse range reads |
+| 4 MiB large-file frames                                | Reject as default | Tiny zero-file size win, worse range reads and randomish size    |
+| Uncompressed-frame direct slice and owned cache insert | Keep              | Improves randomish range/extract and high-entropy extraction     |
+
+Selected measurements:
+
+| Experiment         | repeated-small | text-tree | mixed-tree | high-entropy | dvault-source |
+| ------------------ | -------------: | --------: | ---------: | -----------: | ------------: |
+| Baseline `afaf754` |         97,376 | 2,929,760 | 17,037,408 |   67,131,488 |       304,224 |
+| Descriptor deltas  |         97,376 | 2,929,760 | 17,037,408 |   67,131,488 |       304,224 |
+| zstd level 2       |         97,376 | 3,490,912 | 17,037,408 |   67,131,488 |       350,304 |
+| zstd level 4       |         97,376 | 3,022,944 | 17,017,952 |   67,131,488 |       299,104 |
+| zstd level 5       |         97,376 | 3,018,848 | 17,017,952 |   67,131,488 |       298,080 |
+| 3 MiB bulk frames  |         97,376 | 2,929,760 | 17,037,408 |   67,130,464 |       304,224 |
+| 4 MiB bulk frames  |         97,376 | 2,928,736 | 17,037,408 |   67,130,464 |       304,224 |
+
+Large-frame sweep after `afaf754`:
+
+| Frame target   | Pattern   | Lockbox bytes |     Add | Extract | 1 MiB range read |
+| -------------- | --------- | ------------: | ------: | ------: | ---------------: |
+| 2 MiB baseline | zero      |        15,456 | 162.3ms | 190.0ms |           2.50ms |
+| 3 MiB          | zero      |        13,408 | 232.6ms | 273.3ms |           4.98ms |
+| 4 MiB          | zero      |        12,384 | 166.1ms | 193.2ms |           5.98ms |
+| 2 MiB baseline | randomish |   104,881,248 | 449.1ms | 431.3ms |           7.00ms |
+| 3 MiB          | randomish |   104,880,224 | 448.1ms | 357.8ms |           8.52ms |
+| 4 MiB          | randomish |   104,888,416 | 454.6ms | 326.8ms |           9.64ms |
+
+Accepted fast-path measurements:
+
+| Workload                                | Before                            | After                        |
+| --------------------------------------- | --------------------------------- | ---------------------------- |
+| 100 MiB randomish large-file range read | 7.00ms                            | 5.93ms                       |
+| 100 MiB randomish large-file extract    | 431.3ms                           | 373.2ms                      |
+| High-entropy directory extract, 3 runs  | 0.53-0.55s, \~140.6-140.9 MiB RSS | 0.51s, \~139.7-139.8 MiB RSS |
+
+Conclusion: after this sweep, no additional size changes are worth taking without a larger design change. The only accepted follow-up is the uncompressed-frame read fast path, which improves speed without changing the format.
+
+## 2026-05-21 - Compression Research Stack: TOC Descriptors, 2 MiB Frames, Bulk zstd-3
+
+Description: measured and applied the next compression research stack on top of commit `12bdd2d Compact compression frame metadata`. The accepted changes are shared per-TOC-leaf compression-frame descriptors, 2 MiB bulk small-file frames, 2 MiB large-file frames, zstd level 3 for `BulkImport` compression frames only, and parallel directory extraction grouped by compression frame.
+
+Commands:
+
+```bash
+cd rust
+cargo test --workspace
+
+cd ..
+# Lockbox-only fixture loop using the archive comparison fixtures:
+# rust/target/archive-comparison/fixtures/{repeated-small,text-tree,...}
+# and rust/target/release/lockbox add/create.
+```
+
+Environment:
+
+* Host: local Linux workstation
+* Rust: workspace default toolchain for this checkout
+* Baseline source: commit `12bdd2d`
+* Fixture output: `rust/target/research-comparison/*`
+
+Lockbox-only fixture results:
+
+| Stack                     | repeated-small | text-tree | mixed-tree | high-entropy | dvault-source |
+| ------------------------- | -------------: | --------: | ---------: | -----------: | ------------: |
+| Baseline `12bdd2d`        |        128,096 | 3,496,032 | 17,042,528 |   67,140,704 |       350,304 |
+| Shared TOC descriptors    |        110,688 | 3,495,008 | 17,041,504 |   67,140,704 |       350,304 |
+| + 2 MiB bulk frames       |         97,376 | 3,490,912 | 17,037,408 |   67,131,488 |       350,304 |
+| + BulkImport zstd level 3 |         97,376 | 2,929,760 | 17,037,408 |   67,131,488 |       304,224 |
+
+Final add-time/RSS reading for the combined stack:
+
+| Fixture        |      Bytes | Add seconds | Max RSS KiB |
+| -------------- | ---------: | ----------: | ----------: |
+| repeated-small |     97,376 |        0.38 |      20,960 |
+| text-tree      |  2,929,760 |        0.48 |      21,932 |
+| mixed-tree     | 17,037,408 |        0.28 |      71,196 |
+| high-entropy   | 67,131,488 |        0.67 |      77,020 |
+| dvault-source  |    304,224 |        0.04 |       8,236 |
+
+Large-file perf after changing the large-file frame target to 2 MiB:
+
+| Pattern   | Logical bytes | Lockbox bytes |     Add | Extract | 1 MiB range read |
+| --------- | ------------: | ------------: | ------: | ------: | ---------------: |
+| zero      |   104,857,600 |        15,456 | 162.3ms | 190.0ms |           2.50ms |
+| randomish |   104,857,600 |   104,881,248 | 449.1ms | 431.3ms |           7.00ms |
+
+Repeated-small directory extraction of the final artifact:
+
+| Variant                                  | Runs | Extract seconds | Max RSS KiB     |
+| ---------------------------------------- | ---: | --------------- | --------------- |
+| Before frame-grouped parallel extraction |    3 | 0.14-0.15       | 192,576-195,088 |
+| After frame-grouped parallel extraction  |    3 | 0.11            | 145,196-145,412 |
+
+Conclusion:
+
+* Shared TOC descriptors are the best metadata win: repeated-small drops 13.6% before any frame-size or compression-level change.
+* 2 MiB bulk frames stack cleanly with descriptors, bringing repeated-small to 97,376 bytes.
+* zstd level 3 should remain scoped to `BulkImport`; it materially improves text/source size but costs some CPU.
+* 2 MiB large-file frames are the best default tested so far. They improve the large-file balance without moving to whole-file compression frames.
+* Frame-grouped parallel extraction is a speed/RSS win and does not change the file format.
+
+## 2026-05-20 - TOC Varints, Path Suffixes, and Compressed Manifests
+
+Description: continued the `experiment/compression-group-manifest` branch after adding varint encoding and front-coded path suffixes to TOC leaves. The file compression-frame manifest work from the prior entry is still active: segment payloads store compact frame identity on every segment, the full manifest only on the first segment, and manifest bytes are compressed when worthwhile.
+
+Commands:
+
+```bash
+cd rust/..
+bash rust/tools/compare_archive_compression.sh
+```
+
+Environment:
+
+* Host: local Linux workstation
+* Rust: workspace default toolchain for this checkout
+* GPG: 2.4.8
+* zstd: system `/usr/bin/zstd`
+* Fixture output: `rust/target/archive-comparison/results/summary.tsv`
+* Baseline source: the 2026-05-19 expanded archive comparison and compression group manifest entries below
+
+Results:
+
+| Fixture        | Tool    |                                 Logical bytes |               Output bytes |     Seconds | Max RSS KiB |
+| -------------- | ------- | --------------------------------------------: | -------------------------: | ----------: | ----------: |
+| repeated-small | Lockbox |                                   104,857,600 |                    128,096 |        0.36 |      18,720 |
+| repeated-small | \`tar   |                                 gpg\` default |                104,857,600 |     463,336 |        1.77 |
+| repeated-small | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                104,857,600 |     200,156 |        0.68 |
+| repeated-small | \`tar   |                                       zstd -1 | gpg --compress-algo none\` | 104,857,600 |      55,627 |
+| repeated-small | \`tar   |                                      zstd -19 | gpg --compress-algo none\` | 104,857,600 |      48,495 |
+| text-tree      | Lockbox |                                    30,193,763 |                  3,496,032 |        0.57 |      21,412 |
+| text-tree      | \`tar   |                                 gpg\` default |                 30,193,763 |   2,494,015 |        0.37 |
+| text-tree      | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                 30,193,763 |   2,007,625 |        0.57 |
+| text-tree      | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |  30,193,763 |   1,763,322 |
+| text-tree      | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |  30,193,763 |   1,126,606 |
+| mixed-tree     | Lockbox |                                    21,947,435 |                 17,042,528 |        0.39 |      78,192 |
+| mixed-tree     | \`tar   |                                 gpg\` default |                 21,947,435 |  17,019,926 |        0.61 |
+| mixed-tree     | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                 21,947,435 |  16,939,281 |        0.73 |
+| mixed-tree     | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |  21,947,435 |  16,984,571 |
+| mixed-tree     | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |  21,947,435 |  16,862,451 |
+| high-entropy   | Lockbox |                                    67,108,880 |                 67,140,704 |        0.69 |      75,116 |
+| high-entropy   | \`tar   |                                 gpg\` default |                 67,108,880 |  67,299,458 |        1.86 |
+| high-entropy   | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                 67,108,880 |  67,177,002 |        2.11 |
+| high-entropy   | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |  67,108,880 |  67,174,412 |
+| high-entropy   | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |  67,108,880 |  67,172,282 |
+| dvault-source  | Lockbox |                                     1,039,364 |                    350,304 |        0.05 |       9,028 |
+| dvault-source  | \`tar   |                                 gpg\` default |                  1,039,364 |     258,949 |        0.17 |
+| dvault-source  | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                  1,039,364 |     226,736 |        0.22 |
+| dvault-source  | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |   1,039,364 |     254,388 |
+| dvault-source  | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |   1,039,364 |     179,158 |
+
+Conclusion:
+
+* TOC varints and front-coded path suffixes reduced the repeated-small Lockbox result from 145,504 bytes to 128,096 bytes, about a 12.0% improvement over the previous compression-manifest run.
+* The same metadata encoding change also shaved smaller amounts from the text, mixed, high-entropy, and source-tree fixtures.
+* Lockbox now beats default GPG and high-level GPG zlib on the repeated-small fixture, but whole-stream `tar | zstd | gpg --compress-algo none` remains much smaller because it compresses one archive stream.
+* Text/source fixtures still favor archive-wide compression. The current Lockbox design is optimizing indexed random access and recovery metadata, not solid archive compression.
+
+## 2026-05-19 - Expanded Archive Compression Comparison
+
+Description: added `rust/tools/compare_archive_compression.sh` to generate a broader fixture set and compare Lockbox against default GPG, high-level GPG zlib, and external zstd piped into uncompressed GPG. This run is a caution against over-reading the repeated-small-file result: Lockbox removes its previous padding floor, but external archive compression is still usually smaller on text/source data.
+
+Commands:
+
+```bash
+cd rust/..
+bash rust/tools/compare_archive_compression.sh
+```
+
+Environment:
+
+* Host: local Linux workstation
+* Rust: workspace default toolchain for this checkout
+* GPG: 2.4.8
+* zstd: system `/usr/bin/zstd`
+* Fixture output: `rust/target/archive-comparison/results/summary.tsv`
+
+Fixtures:
+
+* `repeated-small`: 4,096 files x 25,600 repeated `x` bytes
+* `text-tree`: generated JSONL service logs with repeated fields and varied values
+* `mixed-tree`: generated markdown, tiny text files, and deterministic AES-CTR binary blobs
+* `high-entropy`: deterministic AES-CTR binary blobs
+* `dvault-source`: docs plus Rust source/tests/examples/tools from this checkout
+
+Results:
+
+| Fixture        | Tool    |                                 Logical bytes |               Output bytes |     Seconds | Max RSS KiB |
+| -------------- | ------- | --------------------------------------------: | -------------------------: | ----------: | ----------: |
+| repeated-small | Lockbox |                                   104,857,600 |                    145,504 |        0.41 |      19,232 |
+| repeated-small | \`tar   |                                 gpg\` default |                104,857,600 |     463,335 |        0.68 |
+| repeated-small | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                104,857,600 |     200,156 |        0.68 |
+| repeated-small | \`tar   |                                       zstd -1 | gpg --compress-algo none\` | 104,857,600 |      55,627 |
+| repeated-small | \`tar   |                                      zstd -19 | gpg --compress-algo none\` | 104,857,600 |      48,495 |
+| text-tree      | Lockbox |                                    30,193,763 |                  3,504,224 |        0.37 |      21,748 |
+| text-tree      | \`tar   |                                 gpg\` default |                 30,193,763 |   2,494,015 |        0.40 |
+| text-tree      | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                 30,193,763 |   2,007,626 |        0.59 |
+| text-tree      | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |  30,193,763 |   1,763,322 |
+| text-tree      | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |  30,193,763 |   1,126,606 |
+| mixed-tree     | Lockbox |                                    21,947,435 |                 17,047,648 |        0.28 |      78,460 |
+| mixed-tree     | \`tar   |                                 gpg\` default |                 21,947,435 |  17,019,926 |        0.64 |
+| mixed-tree     | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                 21,947,435 |  16,939,281 |        0.73 |
+| mixed-tree     | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |  21,947,435 |  16,984,571 |
+| mixed-tree     | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |  21,947,435 |  16,862,451 |
+| high-entropy   | Lockbox |                                    67,108,880 |                 67,141,728 |        0.70 |      75,144 |
+| high-entropy   | \`tar   |                                 gpg\` default |                 67,108,880 |  67,299,458 |        1.87 |
+| high-entropy   | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                 67,108,880 |  67,177,002 |        2.04 |
+| high-entropy   | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |  67,108,880 |  67,174,412 |
+| high-entropy   | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |  67,108,880 |  67,172,282 |
+| dvault-source  | Lockbox |                                     1,039,364 |                    351,328 |        0.03 |       9,164 |
+| dvault-source  | \`tar   |                                 gpg\` default |                  1,039,364 |     258,947 |        0.17 |
+| dvault-source  | \`tar   | gpg --compress-algo zlib --compress-level 9\` |                  1,039,364 |     226,735 |        0.22 |
+| dvault-source  | \`tar   |                                       zstd -1 | gpg --compress-algo none\` |   1,039,364 |     254,388 |
+| dvault-source  | \`tar   |                                      zstd -19 | gpg --compress-algo none\` |   1,039,364 |     179,158 |
+
+Conclusion:
+
+* Lockbox is not generally beating archive compression. It beats default GPG on the repeated-small fixture because zstd plus compact metadata removes the old padding floor, but `tar | zstd` is still much smaller there.
+* On text-like and source-tree fixtures, archive-wide compression wins materially because it shares dictionary/context across file boundaries and path metadata.
+* On high-entropy data, all tools are close to raw size. Lockbox is in the same range, but uses more memory because it is building encrypted indexed pages.
+* Issue #26 is relevant: larger archive-style compression frames improve some ratios, but decoders must enforce a hard decompressed-frame ceiling before decompression. This branch now rejects declared compression frames above 4 MiB and validates zstd's declared content size before `decode_all`.
+
+## 2026-05-19 - Compression Group Manifest and Encoded Metadata Pages
+
+Description: branch experiment on `experiment/compression-group-manifest`. Compression-frame segment payloads now store compact frame identity on every segment, store the full manifest only on the first segment, and compress the manifest bytes when worthwhile. `BulkImport` uses a 1 MiB small-file compression-frame target. Normal metadata pages are now sized from the encoded stored page body, not from the uncompressed object stream, so highly compressed TOC leaves no longer occupy 128 KiB physical pages.
+
+Commands:
+
+```bash
+cd rust
+cargo build --release -p lockbox_cli
+
+/usr/bin/time -f 'lockbox-cli-create %e %M' \
+  target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
+  create target/bench-tmp/gpg-compare-2/final-1m-encoded-metadata-1779140656.lbx
+
+/usr/bin/time -f 'lockbox-cli-add %e %M' \
+  target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
+  add target/bench-tmp/gpg-compare-2/final-1m-encoded-metadata-1779140656.lbx \
+  target/bench-tmp/gpg-compare-2/src /
+
+/usr/bin/time -f 'lockbox-cli-extract %e %M' \
+  target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
+  extract target/bench-tmp/gpg-compare-2/encoded-metadata-1m-1779140545.lbx \
+  --to target/bench-tmp/gpg-compare-2/extract-encoded-1m-1779140545
+
+LOCKBOX_PERF_DIR="$PWD/target/bench-tmp" \
+LOCKBOX_PERF_SCENARIO=large \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_LARGE_BYTES=104857600 \
+LOCKBOX_PERF_PATTERN=randomish \
+LOCKBOX_PERF_EXTRACT=stream \
+cargo run -p lockbox_core --example perf --release
+
+cargo test --workspace
+cargo test -p lockbox_core --lib repeated_small_files_keep_meaningful_compression -- --ignored --nocapture
+cargo test -p lockbox_core --lib moderately_large_zero_file_uses_few_fixed_pages -- --ignored --nocapture
+```
+
+Environment:
+
+* Host: local Linux workstation
+* Rust: workspace default toolchain for this checkout
+* Corpus: 4,096 files x 25,600 repeated `x` bytes, 104,857,600 logical bytes
+* Baseline: previous same-day GPG comparison entries below
+
+GPG comparison:
+
+| Tool                                          |                Encode time |     Max RSS | Output bytes |       Ratio |
+| --------------------------------------------- | -------------------------: | ----------: | -----------: | ----------: |
+| Lockbox before bulk-frame experiment          |                      0.43s | 117,888 KiB |    1,245,280 |       0.012 |
+| Lockbox 512 KiB bulk frames                   |                      0.42s |  18,880 KiB |      923,744 |       0.009 |
+| Lockbox 1 MiB frames + encoded metadata pages |                      0.40s |  19,172 KiB |      145,504 |       0.001 |
+| \`tar                                         |  gpg\` default compression |       1.75s |    3,964 KiB |     464,960 |
+| \`tar                                         | gpg --compress-algo none\` |       0.81s |    3,760 KiB | 107,004,045 |
+
+Extraction:
+
+| Tool                                          | Extract time |     Max RSS | Files |
+| --------------------------------------------- | -----------: | ----------: | ----: |
+| Lockbox CLI `extract --to`, 1 MiB bulk target |        0.31s | 172,328 KiB | 4,096 |
+
+Large-file regression check:
+
+| Workload                     |      Add |   Commit | Extract stream | Range read | Output bytes |
+| ---------------------------- | -------: | -------: | -------------: | ---------: | -----------: |
+| 100 MiB randomish large file | 485.56ms | 552.04ms |       642.44ms |    14.44ms |  104,893,536 |
+
+Conclusion:
+
+* The main remaining size problem was compressed metadata page padding, not file-data page slack. TOC leaves with about 126 KiB of logical payload were compressing to about 12 KiB but still occupying 128 KiB physical pages.
+* Sizing metadata pages from encoded stored length reduced this repeated-file corpus from 923,744 bytes to 145,504 bytes with the 1 MiB bulk target.
+* A 4 MiB bulk target reached 132,192 bytes, but extraction RSS rose to about 287 MiB in this run. The 1 MiB target is the better current tradeoff.
+* Large randomish file size remains effectively unchanged. The page-size estimator uses the cheap uncompressed sizing path for file-data pages so large writes do not double-encode page bodies.
+
+## 2026-05-18 - Bulk Compression-Frame Size Experiment
+
+Description: branch experiment on `experiment/archive-compression-frames`. `BulkImport` now uses a 512 KiB small-file compression-frame target while retaining the larger page-sized staging flush threshold so file-data pages stay dense. `ReadMostly` and `ExtractMany` can cache decoded compression frames in a bounded zeroizing cache, and the CLI selects `BulkImport` for directory adds and read/extract profiles for extraction.
+
+Commands:
+
+```bash
+cd rust
+cargo build --release -p lockbox_cli
+
+/usr/bin/time -f 'lockbox-cli-create %e %M' \
+  target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
+  create target/bench-tmp/gpg-compare-2/experiment-512k-1779093693.lbx
+
+/usr/bin/time -f 'lockbox-cli-add %e %M' \
+  target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
+  add target/bench-tmp/gpg-compare-2/experiment-512k-1779093693.lbx \
+  target/bench-tmp/gpg-compare-2/src /
+
+/usr/bin/time -f 'lockbox-cli-extract %e %M' \
+  target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
+  extract target/bench-tmp/gpg-compare-2/experiment-512k-1779093693.lbx \
+  --to target/bench-tmp/gpg-compare-2/extract-512k-1779093693
+
+LOCKBOX_PERF_DIR="$PWD/target/bench-tmp" \
+LOCKBOX_PERF_SCENARIO=large \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_LARGE_BYTES=104857600 \
+LOCKBOX_PERF_PATTERN=randomish \
+LOCKBOX_PERF_EXTRACT=stream \
+cargo run -p lockbox_core --example perf --release
+
+cargo test --workspace
+cargo test -p lockbox_core --lib repeated_small_files_keep_meaningful_compression -- --ignored --nocapture
+cargo test -p lockbox_core --lib moderately_large_zero_file_uses_few_fixed_pages -- --ignored --nocapture
+```
+
+Environment:
+
+* Host: local Linux workstation
+* Rust: workspace default toolchain for this checkout
+* Corpus: 4,096 files x 25,600 repeated `x` bytes, 104,857,600 logical bytes
+* Baseline: previous same-day GPG comparison entry below
+
+GPG comparison:
+
+| Tool                                              |                Encode time |     Max RSS | Output bytes |       Ratio |
+| ------------------------------------------------- | -------------------------: | ----------: | -----------: | ----------: |
+| Lockbox CLI bulk import, 4 KiB interactive target |                      0.43s | 117,888 KiB |    1,245,280 |       0.012 |
+| Lockbox CLI bulk import, 512 KiB bulk target      |                      0.42s |  18,880 KiB |      923,744 |       0.009 |
+| \`tar                                             |  gpg\` default compression |       1.75s |    3,964 KiB |     464,960 |
+| \`tar                                             | gpg --compress-algo none\` |       0.81s |    3,760 KiB | 107,004,045 |
+
+Extraction:
+
+| Tool                                            | Extract time |     Max RSS | Files |
+| ----------------------------------------------- | -----------: | ----------: | ----: |
+| Lockbox CLI `extract --to`, 512 KiB bulk target |        0.32s | 153,016 KiB | 4,096 |
+
+Large-file regression check:
+
+| Workload                     |      Add |   Commit | Extract stream | Range read | Output bytes |
+| ---------------------------- | -------: | -------: | -------------: | ---------: | -----------: |
+| 100 MiB randomish large file | 448.18ms | 528.34ms |       619.64ms |    12.35ms |  104,888,416 |
+
+Conclusion:
+
+* Larger bulk compression frames reduced this repeated-small-file corpus from 1,245,280 bytes to 923,744 bytes, a 25.8% size reduction, without slowing the CLI add path in this run.
+* The remaining gap to compressed GPG is still material: Lockbox is about 2.0x the compressed GPG output on this synthetic corpus. That points at metadata overhead and the lack of whole-archive compression context, not page slack.
+* Keeping the bulk flush threshold at the page-sized streaming threshold matters. A short-lived 512 KiB flush creates many underfilled physical pages because each flush owns its own page writer.
+* The decoded compression-frame cache is opt-in through read/extract workload profiles and zeroizes cached plaintext on eviction/drop.
+
+## 2026-05-18 - Compression Frames, Segments, and GPG Comparison
+
+Description: renamed the file-data compression unit to a compression frame and renamed page-bounded stored pieces to compression-frame segments. The serialized TOC/manifest field model now uses `compression_frame_*` names, and the segment payload marker was moved to `LBCS` because this is a pre-release format with no backward-compatibility requirement. File-data and normal metadata pages now use variable physical sizes rounded to a 1 KiB quantum, capped at 8 MiB for file-data and 128 KiB for metadata. The performance example reports page slack from page inspection so page-fill behavior is visible in benchmark output.
+
+Commands:
+
+```bash
+cd rust
+cargo build --release -p lockbox_cli
+mkdir -p target/bench-tmp/gpg-compare-2/src
+perl -e 'print "x" x 25600' > target/bench-tmp/gpg-compare-2/template.bin
+for i in $(seq -w 0 4095); do
+  cp target/bench-tmp/gpg-compare-2/template.bin \
+    target/bench-tmp/gpg-compare-2/src/file-$i.bin
+done
+
+/usr/bin/time -f 'lockbox-cli-create %e %M' \
+  target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
+  create target/bench-tmp/gpg-compare-2/current.lbx
+/usr/bin/time -f 'lockbox-cli-add %e %M' \
+  target/release/lockbox --key 000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f \
+  add target/bench-tmp/gpg-compare-2/current.lbx \
+  target/bench-tmp/gpg-compare-2/src /
+
+GNUPGHOME="$PWD/target/bench-tmp/gpg-compare-2/gnupg" \
+  /usr/bin/time -f 'default %e %M' sh -c \
+  'tar -C target/bench-tmp/gpg-compare-2/src -cf - . |
+   gpg --batch --yes --pinentry-mode loopback --passphrase lockbox-bench
+   --symmetric --cipher-algo AES256
+   -o target/bench-tmp/gpg-compare-2/default.tar.gpg'
+
+GNUPGHOME="$PWD/target/bench-tmp/gpg-compare-2/gnupg" \
+  /usr/bin/time -f 'none %e %M' sh -c \
+  'tar -C target/bench-tmp/gpg-compare-2/src -cf - . |
+   gpg --batch --yes --pinentry-mode loopback --passphrase lockbox-bench
+   --symmetric --cipher-algo AES256 --compress-algo none
+   -o target/bench-tmp/gpg-compare-2/none.tar.gpg'
+
+LOCKBOX_PERF_DIR="$PWD/target/bench-tmp" \
+LOCKBOX_PERF_SCENARIO=small \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_FILES=4096 \
+LOCKBOX_PERF_FILE_BYTES=25600 \
+LOCKBOX_PERF_EXTRACT=stream \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_DIR="$PWD/target/bench-tmp" \
+LOCKBOX_PERF_SCENARIO=large \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_LARGE_BYTES=104857600 \
+LOCKBOX_PERF_PATTERN=randomish \
+LOCKBOX_PERF_EXTRACT=stream \
+cargo run -p lockbox_core --example perf --release
+```
+
+Environment:
+
+* Host: local Linux workstation
+* Rust: workspace default toolchain for this checkout
+* GPG: 2.4.8 with isolated `GNUPGHOME` under `target/bench-tmp`
+* Corpus: 4,096 files x 25,600 repeated `x` bytes, 104,857,600 logical bytes
+
+GPG comparison:
+
+| Tool                    |                Encode time |     Max RSS | Output bytes |       Ratio |
+| ----------------------- | -------------------------: | ----------: | -----------: | ----------: |
+| Lockbox CLI bulk import |                      0.43s | 117,888 KiB |    1,245,280 |       0.012 |
+| \`tar                   |  gpg\` default compression |       1.75s |    3,964 KiB |     464,960 |
+| \`tar                   | gpg --compress-algo none\` |       0.81s |    3,760 KiB | 107,004,045 |
+
+Page slack from the same logical small-file corpus:
+
+| Workload                      | Pages | File-data pages | Metadata pages | Unused bytes | Unused ratio | File-data unused ratio |
+| ----------------------------- | ----: | --------------: | -------------: | -----------: | -----------: | ---------------------: |
+| 4,096 x 25,600 repeated files |    12 |               1 |             11 |        7,938 |        0.013 |                  0.002 |
+| 100 MiB randomish large file  |    17 |              13 |              4 |        4,342 |        0.000 |                  0.000 |
+
+Conclusion:
+
+* On highly repeated data, current Lockbox is faster than `tar | gpg` with default compression and much smaller than uncompressed GPG, but whole-stream GPG compression still wins the size test.
+* Variable-size pages remove the pathological fixed-page tail cost. The repeated small-file corpus is about 98.7% full overall and the randomish large-file corpus is effectively full, with only a few KiB of page slack.
+* The current small-file compression-frame target keeps read/delete behavior sane, but it cannot compete with whole-archive compression on repeated cross-file content.
+
+## 2026-05-17 - Compression-Frame Manifest Layout
+
+Description: replaced page-level file-data compression with compression-frame bundles. Small files are packed into bounded shared compression frames with a compact binary manifest; file-data pages now store their object stream uncompressed so file bytes are compressed exactly once. A first Criterion run with 1 MiB small-file bundles exposed poor repeated small-file extraction and shared-compression-frame delete behavior, so the small-file compression-frame target was tuned to 4 KiB while large streaming compression frames remain about 1 MiB.
+
+Commands:
+
+```bash
+cd rust
+TMPDIR="$PWD/target/bench-tmp" cargo bench -p lockbox_core --bench performance small_files
+TMPDIR="$PWD/target/bench-tmp" cargo bench -p lockbox_core --bench performance large_file
+TMPDIR="$PWD/target/bench-tmp" cargo bench -p lockbox_core --bench performance append_delete
+cargo test -p lockbox_core --lib repeated_small_files_keep_meaningful_compression -- --ignored --nocapture
+cargo test -p lockbox_core --lib moderately_large_zero_file_uses_few_fixed_pages -- --ignored --nocapture
+```
+
+Environment:
+
+* Host: local Linux workstation
+* Rust: workspace default toolchain for this checkout
+* Benchmark harness: Criterion, sample size 10 per benchmark
+* Baseline source: local Criterion history from the previous format runs
+* Note: the full unfiltered bench run was stopped after the harness filled `/tmp` with generated `lockbox-bench-*.lbx` files; focused reruns used `target/bench-tmp`.
+
+Results:
+
+| Benchmark                                    |      Mean |
+| -------------------------------------------- | --------: |
+| `small_files/add_commit_1000x1k`             | 10.809 ms |
+| `small_files/extract_stream_1000x1k`         | 42.139 ms |
+| `small_files/extract_directory_1000x1k`      | 110.81 ms |
+| `large_file/add_commit_16m_randomish`        | 112.33 ms |
+| `large_file/range_read_1m_middle`            | 9.8309 ms |
+| `append_delete/append_delete_replace_commit` | 237.64 ms |
+
+Compression regression checks:
+
+* `repeated_small_files_keep_meaningful_compression`: passed
+* `moderately_large_zero_file_uses_few_fixed_pages`: passed
+
+Conclusion:
+
+* Small-file writes and extraction are viable with 4 KiB small-file compression frames.
+* Large-file randomish writes remain reasonable, but range reads now pay the compression frame reassembly/digest/decode cost and should be watched.
+* Shared-compression-frame delete is correct and redacts old content, but remains the main performance tradeoff because removing one slice requires rewriting the surviving slices in that compression frame.
+
+## 2026-05-09 - Pure-Rust zstd Backend
+
+Description: switched `lockbox_core` compression from the native `zstd` C backend to pure-Rust `oxiarc-zstd` so desktop, mobile, and WASM builds avoid a C zstd dependency. The first run exposed a fixed-page accounting bug in the large-file benchmark; the page size stayed 8 MiB, and max object payload was reduced by 4 KiB to reserve space for page/object/compression/AEAD framing.
+
+Command:
+
+```bash
+cd rust
+cargo bench -p lockbox_core --bench performance
+```
+
+Environment:
+
+* Host: `Linux slayer4 6.11.0-26-generic x86_64`
+* CPU: `AMD Ryzen 7 3700X 8-Core Processor`, 8 cores / 16 threads
+* Rust: `rustc 1.94.1 (e408947bf 2026-03-25)`
+* Commit: recorded by the git revision that adds this entry; the comparison base before the page-sizing fix was `97ecbd8`
+* Benchmark harness: Criterion, sample size 10 per benchmark
+* Baseline source: local Criterion `target/criterion/*/new/estimates.json` saved before the pure-Rust zstd benchmark run
+
+Results:
+
+| Benchmark                                    | Previous mean |   New mean |   Change |
+| -------------------------------------------- | ------------: | ---------: | -------: |
+| `small_files/add_commit_1000x1k`             |      3.005 ms |  34.340 ms | +1042.9% |
+| `small_files/extract_memory_1000x1k`         |      0.880 ms |   0.291 ms |   -66.9% |
+| `small_files/extract_directory_1000x1k`      |     28.650 ms |  23.489 ms |   -18.0% |
+| `mixed_tree/add_commit_mixed`                |     11.746 ms |  81.185 ms |  +591.2% |
+| `mixed_tree/list_recursive_mixed`            |     0.0107 ms |  0.0090 ms |   -16.0% |
+| `mixed_tree/extract_directory_mixed`         |     10.956 ms |  10.885 ms |    -0.7% |
+| `large_file/add_commit_16m_randomish`        |    158.460 ms | 846.612 ms |  +434.3% |
+| `large_file/range_read_1m_middle`            |     19.719 ms |   2.369 ms |   -88.0% |
+| `append_delete/append_delete_replace_commit` |      2.777 ms |  85.320 ms | +2972.4% |
+
+Additional new TOC-structure benchmark results did not have a saved local baseline:
+
+| Benchmark                              |  New mean |
+| -------------------------------------- | --------: |
+| `toc_structure/separator_update_5000`  | 90.258 ms |
+| `toc_structure/leaf_split_append_5000` | 77.648 ms |
+| `toc_structure/leaf_merge_delete_5000` | 73.523 ms |
+
+Conclusion:
+
+* Pure-Rust zstd removes the C dependency successfully, but write-heavy paths are substantially slower because compression dominates page creation.
+* Read/extract/list paths are flat to materially faster in this run, especially the large-file range read.
+* The next performance step should profile compression during commit and decide whether to tune `oxiarc-zstd`, skip compression for incompressible/high-entropy file pages earlier, or make compression level/strategy configurable while still defaulting to a C-free backend.
+
+## 2026-05-09 - High-Entropy Compression Skip
+
+Description: profiled the large low-compressibility write path with `cargo flamegraph`; the resolved samples were dominated by `oxiarc_zstd::lz77::MatchFinder`. Added a page-body precheck that samples large payloads and stores high-entropy bodies uncompressed instead of first running zstd and then discarding the larger result.
+
+Command:
+
+```bash
+cd rust
+cargo bench -p lockbox_core --bench performance
+```
+
+Environment:
+
+* Host: `Linux slayer4 6.11.0-26-generic x86_64`
+* CPU: `AMD Ryzen 7 3700X 8-Core Processor`, 8 cores / 16 threads
+* Rust: `rustc 1.94.1 (e408947bf 2026-03-25)`
+* Benchmark harness: Criterion, sample size 10 per benchmark
+* Baseline source: local Criterion `target/criterion/*/new/estimates.json` saved after the pure-Rust zstd run and before this optimization
+* Profile artifact: `rust/target/flamegraph-large-randomish-zstd.svg`
+
+Results:
+
+| Benchmark                                    | Previous mean |   New mean | Change |
+| -------------------------------------------- | ------------: | ---------: | -----: |
+| `small_files/add_commit_1000x1k`             |     34.340 ms |  34.980 ms |  +1.9% |
+| `small_files/extract_memory_1000x1k`         |      0.291 ms |   0.329 ms | +12.8% |
+| `small_files/extract_directory_1000x1k`      |     23.489 ms |  26.253 ms | +11.8% |
+| `mixed_tree/add_commit_mixed`                |     81.185 ms |  89.475 ms | +10.2% |
+| `mixed_tree/list_recursive_mixed`            |     0.0090 ms |  0.0095 ms |  +6.0% |
+| `mixed_tree/extract_directory_mixed`         |     10.885 ms |  10.413 ms |  -4.3% |
+| `large_file/add_commit_16m_randomish`        |    846.612 ms | 203.331 ms | -76.0% |
+| `large_file/range_read_1m_middle`            |      2.369 ms |   2.729 ms | +15.2% |
+| `append_delete/append_delete_replace_commit` |     85.320 ms |  78.142 ms |  -8.4% |
+| `toc_structure/separator_update_5000`        |     89.577 ms |  72.536 ms | -19.0% |
+| `toc_structure/leaf_split_append_5000`       |     77.450 ms |  83.060 ms |  +7.2% |
+| `toc_structure/leaf_merge_delete_5000`       |     72.636 ms |  79.650 ms |  +9.7% |
+
+Conclusion:
+
+* The entropy skip is a material win for incompressible large-file ingestion and avoids the worst pure-Rust zstd regression while keeping the C-free backend.
+* Compressible small-file packing remains intentionally unchanged; those page bodies still compress well.
+* Several small read/extract results moved backward in this run. Those paths do not execute the new entropy check while reading, so treat them as a signal for follow-up profiling rather than proof of causation.
+* The next step is to profile the post-optimization large write path and the mixed-tree commit path to identify the remaining dominant cost.
+
+## 2026-05-09 - Deterministic File-Page Offsets
+
+Description: after the entropy skip, the large low-compressibility profile shifted from zstd to file writes, page encoding, stream generation, and page crypto. Removed a write-side round trip where file pages were read back through storage/decrypt/decode immediately after writing only to recover `page_inner_offset` values. Those offsets are deterministic from the file page payload layout, so they are now computed before writing.
+
+Command:
+
+```bash
+cd rust
+cargo bench -p lockbox_core --bench performance
+```
+
+Environment:
+
+* Host: `Linux slayer4 6.11.0-26-generic x86_64`
+* CPU: `AMD Ryzen 7 3700X 8-Core Processor`, 8 cores / 16 threads
+* Rust: `rustc 1.94.1 (e408947bf 2026-03-25)`
+* Benchmark harness: Criterion, sample size 10 per benchmark
+* Baseline source: local Criterion `target/criterion/*/new/estimates.json` saved after the high-entropy compression skip run
+* Profile artifact: `rust/target/flamegraph-large-randomish-entropy-skip.svg`
+
+Results:
+
+| Benchmark                                    | Previous mean |   New mean | Change |
+| -------------------------------------------- | ------------: | ---------: | -----: |
+| `small_files/add_commit_1000x1k`             |     34.980 ms |  37.217 ms |  +6.4% |
+| `small_files/extract_memory_1000x1k`         |      0.329 ms |   0.384 ms | +16.9% |
+| `small_files/extract_directory_1000x1k`      |     26.253 ms |  28.656 ms |  +9.2% |
+| `mixed_tree/add_commit_mixed`                |     89.475 ms |  62.288 ms | -30.4% |
+| `mixed_tree/list_recursive_mixed`            |     0.0095 ms |  0.0111 ms | +17.5% |
+| `mixed_tree/extract_directory_mixed`         |     10.413 ms |  11.052 ms |  +6.1% |
+| `large_file/add_commit_16m_randomish`        |    203.331 ms | 175.606 ms | -13.6% |
+| `large_file/range_read_1m_middle`            |      2.729 ms |   2.593 ms |  -5.0% |
+| `append_delete/append_delete_replace_commit` |     78.142 ms |  82.245 ms |  +5.2% |
+| `toc_structure/separator_update_5000`        |     72.536 ms |  75.073 ms |  +3.5% |
+| `toc_structure/leaf_split_append_5000`       |     83.060 ms |  80.108 ms |  -3.6% |
+| `toc_structure/leaf_merge_delete_5000`       |     79.650 ms |  74.567 ms |  -6.4% |
+
+Conclusion:
+
+* Removing the immediate read/decode round trip materially improves large-file and mixed-tree ingestion.
+* Some small-file and read-only benches regressed. The change removed an incidental cache-warming side effect during writes, so follow-up profiling should separate cold-cache and warm-cache extraction/list measurements before adding any write-through cache behavior.
+* The next useful write-side optimization is likely reducing page assembly copies or improving file-backed storage writes; zstd is no longer the main low-compressibility write bottleneck.
+
+## 2026-05-09 - Explicit Write-Through Page Cache
+
+Description: the deterministic-offset change removed an accidental readback that had been warming the page cache. Added explicit cache insertion for newly written decoded pages. This keeps writes going through the page cache intentionally, without rereading encrypted bytes from storage.
+
+Command:
+
+```bash
+cd rust
+cargo bench -p lockbox_core --bench performance
+```
+
+Environment:
+
+* Host: `Linux slayer4 6.11.0-26-generic x86_64`
+* CPU: `AMD Ryzen 7 3700X 8-Core Processor`, 8 cores / 16 threads
+* Rust: `rustc 1.94.1 (e408947bf 2026-03-25)`
+* Benchmark harness: Criterion, sample size 10 per benchmark
+* Baseline source: local Criterion `target/criterion/*/new/estimates.json` saved after deterministic file-page offsets and before write-through cache
+
+Results:
+
+| Benchmark                                    | Previous mean |   New mean | Change |
+| -------------------------------------------- | ------------: | ---------: | -----: |
+| `small_files/add_commit_1000x1k`             |     37.217 ms |  29.170 ms | -21.6% |
+| `small_files/extract_memory_1000x1k`         |      0.384 ms |   0.303 ms | -21.2% |
+| `small_files/extract_directory_1000x1k`      |     28.656 ms |  23.441 ms | -18.2% |
+| `mixed_tree/add_commit_mixed`                |     62.288 ms |  66.803 ms |  +7.2% |
+| `mixed_tree/list_recursive_mixed`            |     0.0111 ms |  0.0084 ms | -25.1% |
+| `mixed_tree/extract_directory_mixed`         |     11.052 ms |   8.967 ms | -18.9% |
+| `large_file/add_commit_16m_randomish`        |    175.606 ms | 113.344 ms | -35.5% |
+| `large_file/range_read_1m_middle`            |      2.593 ms |   1.827 ms | -29.5% |
+| `append_delete/append_delete_replace_commit` |     82.245 ms |  65.059 ms | -20.9% |
+| `toc_structure/separator_update_5000`        |     75.073 ms |  59.269 ms | -21.1% |
+| `toc_structure/leaf_split_append_5000`       |     80.108 ms |  61.706 ms | -23.0% |
+| `toc_structure/leaf_merge_delete_5000`       |     74.567 ms |  59.288 ms | -20.5% |
+
+Conclusion:
+
+* Explicit write-through caching recovers the warm-cache behavior without the old storage/decrypt/decode round trip.
+* Nearly every benchmark improves materially in this pass; the only regression is `mixed_tree/add_commit_mixed`, which remains faster than the pre-offset baseline.
+* The next profiling pass should look at page assembly, storage writes, and remaining compression in mixed compressible workloads.
+
+## 2026-05-09 - Zstd Level 1 Default
+
+Description: the current small-file write profile still showed pure-Rust zstd as a visible cost for highly compressible packed pages. Changed the default page compression level from zstd level 3 to level 1 and benchmarked the effect. This keeps zstd compression enabled by default; it only changes the speed/ratio point.
+
+Command:
+
+```bash
+cd rust
+cargo bench -p lockbox_core --bench performance
+```
+
+Environment:
+
+* Host: `Linux slayer4 6.11.0-26-generic x86_64`
+* CPU: `AMD Ryzen 7 3700X 8-Core Processor`, 8 cores / 16 threads
+* Rust: `rustc 1.94.1 (e408947bf 2026-03-25)`
+* Benchmark harness: Criterion, sample size 10 per benchmark
+* Baseline source: local Criterion `target/criterion/*/new/estimates.json` saved after explicit write-through page caching
+* Profile artifact: `rust/target/flamegraph-small-write-cache.svg`
+
+Results:
+
+| Benchmark                                    | Previous mean |   New mean | Change |
+| -------------------------------------------- | ------------: | ---------: | -----: |
+| `small_files/add_commit_1000x1k`             |     29.170 ms |  27.902 ms |  -4.3% |
+| `small_files/extract_memory_1000x1k`         |      0.303 ms |   0.299 ms |  -1.2% |
+| `small_files/extract_directory_1000x1k`      |     23.441 ms |  23.203 ms |  -1.0% |
+| `mixed_tree/add_commit_mixed`                |     66.803 ms |  63.150 ms |  -5.5% |
+| `mixed_tree/list_recursive_mixed`            |     0.0084 ms |  0.0072 ms | -13.3% |
+| `mixed_tree/extract_directory_mixed`         |      8.967 ms |   8.987 ms |  +0.2% |
+| `large_file/add_commit_16m_randomish`        |    113.344 ms | 112.213 ms |  -1.0% |
+| `large_file/range_read_1m_middle`            |      1.827 ms |   1.559 ms | -14.7% |
+| `append_delete/append_delete_replace_commit` |     65.059 ms |  61.914 ms |  -4.8% |
+| `toc_structure/separator_update_5000`        |     59.269 ms |  67.447 ms | +13.8% |
+| `toc_structure/leaf_split_append_5000`       |     61.706 ms |  56.694 ms |  -8.1% |
+| `toc_structure/leaf_merge_delete_5000`       |     59.288 ms |  54.955 ms |  -7.3% |
+
+Conclusion:
+
+* Level 1 is a net win across the current benchmark set, especially for write-heavy paths that still compress page bodies.
+* `toc_structure/separator_update_5000` regressed in this run, so future TOC profiling should verify whether that is noise, cache state, or a real compression-level interaction.
+* Keep level 1 as the default unless production-size lockbox benchmarks show a meaningful space regression.
+
+## 2026-05-09 - Production-Scale File-Backed Compression Check
+
+Description: ran the file-backed performance example against production-sized inputs after profiling. The initial 1 GiB check showed that compression was not reducing lockbox size for large files because chunks were sized by uncompressed payload and every physical page is fixed at 8 MiB. Added a stronger test that compares fixed-page usage for compressible and high-entropy large files, then changed large-file chunking so a compressed page can represent up to 64 MiB of logical file data. High-entropy data and known already-compressed extensions still use normal page-sized chunks.
+
+Commands:
+
+```bash
+cd rust
+LOCKBOX_PERF_SCENARIO=large \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_LARGE_BYTES=1073741824 \
+LOCKBOX_PERF_PATTERN=zero \
+LOCKBOX_PERF_EXTRACT=memory \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_SCENARIO=large \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_LARGE_BYTES=1073741824 \
+LOCKBOX_PERF_PATTERN=randomish \
+LOCKBOX_PERF_EXTRACT=memory \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_SCENARIO=small \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_FILES=100000 \
+LOCKBOX_PERF_FILE_BYTES=1024 \
+LOCKBOX_PERF_EXTRACT=memory \
+LOCKBOX_PERF_EXTRACT_REPEAT=5 \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_SCENARIO=append-delete \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_INITIAL_FILES=50000 \
+LOCKBOX_PERF_APPEND_FILES=10000 \
+LOCKBOX_PERF_FILE_BYTES=2048 \
+cargo run -p lockbox_core --example perf --release
+```
+
+Environment:
+
+* Host: `Linux slayer4 6.11.0-26-generic x86_64`
+* CPU: `AMD Ryzen 7 3700X 8-Core Processor`, 8 cores / 16 threads
+* Rust: `rustc 1.94.1 (e408947bf 2026-03-25)`
+* Backend: file-backed lockbox storage
+* Profile artifact: `rust/target/flamegraph-file-small-50k.svg`
+
+Results after compressed logical chunking:
+
+| Scenario                                | Logical bytes | Lockbox bytes |       Add |    Commit | Extract/Delete | Range read | Ratio |
+| --------------------------------------- | ------------: | ------------: | --------: | --------: | -------------: | ---------: | ----: |
+| 1 GiB zero large file                   | 1,073,741,824 |   159,383,616 |    2.770s |  15.158ms |         2.454s |  112.452ms | 0.148 |
+| 1 GiB randomish large file              | 1,073,741,824 | 1,098,907,712 |    6.412s |  17.466ms |         1.787s |    6.749ms | 1.023 |
+| 100k x 1 KiB files, 5 memory extracts   |   102,400,000 |   142,606,400 | 205.323ms |    1.299s |      612.156ms |        n/a | 1.393 |
+| 50k initial + 10k append/delete/replace |   122,880,000 |   184,549,440 |  21.900ms | 516.788ms |       25.625ms |        n/a | 1.502 |
+
+Conclusion:
+
+* The old large-file behavior failed a meaningful compression standard: 1 GiB zero and 1 GiB randomish files both used the same lockbox size.
+* The new behavior gives real page-count savings for compressible large files, but the fixed 8 MiB physical page design creates a compression floor. With the current 64 MiB logical cap, the best possible ratio for a huge perfectly compressible file is about 12.5% before metadata.
+* The measured 14.8% ratio is close to that fixed-page floor, but it is not competitive with conventional zstd archives for highly compressible data.
+* Range reads from very compressible large files are slower because one fixed page can now decode to 64 MiB of logical data.
+* A true best-compression design needs variable physical compressed extents or a higher-level compressed-extent mode; tuning zstd alone cannot overcome the fixed-page floor.
+
+Criterion comparison after the compressed logical chunking change:
+
+| Benchmark                                    | Previous mean |   New mean | Change |
+| -------------------------------------------- | ------------: | ---------: | -----: |
+| `small_files/add_commit_1000x1k`             |     27.902 ms |  27.676 ms |  -0.8% |
+| `small_files/extract_memory_1000x1k`         |      0.299 ms |   0.297 ms |  -0.8% |
+| `small_files/extract_directory_1000x1k`      |     23.203 ms |  23.132 ms |  -0.3% |
+| `mixed_tree/add_commit_mixed`                |     63.150 ms |  62.639 ms |  -0.8% |
+| `mixed_tree/list_recursive_mixed`            |     0.0072 ms |  0.0073 ms |  +0.4% |
+| `mixed_tree/extract_directory_mixed`         |      8.987 ms |   8.875 ms |  -1.2% |
+| `large_file/add_commit_16m_randomish`        |    112.213 ms | 118.024 ms |  +5.2% |
+| `large_file/range_read_1m_middle`            |      1.559 ms |   1.787 ms | +14.6% |
+| `append_delete/append_delete_replace_commit` |     61.914 ms |  64.028 ms |  +3.4% |
+| `toc_structure/separator_update_5000`        |     67.447 ms |  56.630 ms | -16.0% |
+| `toc_structure/leaf_split_append_5000`       |     56.694 ms |  58.248 ms |  +2.7% |
+| `toc_structure/leaf_merge_delete_5000`       |     54.955 ms |  56.379 ms |  +2.6% |
+
+The earlier TOC separator regression did not reproduce in this run. The remaining large-file regressions are the expected cost of testing and adapting larger logical chunks before falling back for high-entropy data.
+
+## 2026-05-09 - Page-Packed Compression Frames and Object-Indexed Cache
+
+Description: after moving to the final page-packed file-data model, reran the production-scale file-backed example. The first post-format run showed the right compression behavior for highly compressible data, but exposed two performance issues: page-fit checks were doing full encode/encrypt/compress work for every tentative file segment, and small-file extraction scanned every object in a cached page for each file. Replaced tentative fit checks with a fixed page-budget calculation, tuned large-compression frame size so high-entropy frames pack tightly into 8 MiB pages, and added an object-id index to cached decoded pages.
+
+Commands:
+
+```bash
+cd rust
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=large \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_LARGE_BYTES=1073741824 \
+LOCKBOX_PERF_PATTERN=zero \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=large \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_LARGE_BYTES=1073741824 \
+LOCKBOX_PERF_PATTERN=randomish \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=small \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_FILES=100000 \
+LOCKBOX_PERF_FILE_BYTES=1024 \
+LOCKBOX_PERF_EXTRACT=memory \
+LOCKBOX_PERF_EXTRACT_REPEAT=5 \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=append-delete \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_INITIAL_FILES=50000 \
+LOCKBOX_PERF_APPEND_FILES=10000 \
+LOCKBOX_PERF_FILE_BYTES=2048 \
+cargo run -p lockbox_core --example perf --release
+```
+
+Environment:
+
+* Host: `Linux slayer4 6.11.0-26-generic x86_64`
+* CPU: `AMD Ryzen 7 3700X 8-Core Processor`, 8 cores / 16 threads
+* Rust: `rustc 1.94.1 (e408947bf 2026-03-25)`
+* Backend: file-backed lockbox storage
+* Scratch directory: `rust/.tmp-bench`
+* Verification: `cargo test --workspace` before this optimization, and `cargo test -p lockbox_core` after the optimization
+
+Pre-fix observations from this run:
+
+| Scenario                              | Result                                        |
+| ------------------------------------- | --------------------------------------------- |
+| 1 GiB randomish large file            | 37.103s add, 1,249,902,656 bytes, 1.164 ratio |
+| 20k x 1 KiB files, one memory extract | 28.476s extract                               |
+| 100k x 1 KiB files, 5 memory extracts | aborted after several minutes                 |
+
+Results after page-budget fitting and object-indexed cache:
+
+| Scenario                                | Logical bytes | Lockbox bytes |       Add |    Commit | Extract/Delete | Range read | Ratio |
+| --------------------------------------- | ------------: | ------------: | --------: | --------: | -------------: | ---------: | ----: |
+| 1 GiB zero large file                   | 1,073,741,824 |    25,165,888 | 842.507ms |   8.712ms |      675.549ms |  962.597us | 0.023 |
+| 1 GiB randomish large file              | 1,073,741,824 | 1,098,907,712 |    5.919s |   9.240ms |         1.371s |    1.882ms | 1.023 |
+| 100k x 1 KiB files, 5 memory extracts   |   102,400,000 |    50,331,712 | 216.496ms |    1.433s |      800.422ms |        n/a | 0.492 |
+| 50k initial + 10k append/delete/replace |   122,880,000 |    58,720,320 |  23.830ms | 467.940ms |       26.019ms |        n/a | 0.478 |
+
+Comparison to the previous production-scale file-backed run:
+
+| Scenario                      |    Previous |        New | Change |
+| ----------------------------- | ----------: | ---------: | -----: |
+| 1 GiB zero add                |      2.770s |  842.507ms | -69.6% |
+| 1 GiB zero extract            |      2.454s |  675.549ms | -72.5% |
+| 1 GiB zero lockbox bytes      | 159,383,616 | 25,165,888 | -84.2% |
+| 1 GiB randomish add           |      6.412s |     5.919s |  -7.7% |
+| 1 GiB randomish ratio         |       1.023 |      1.023 |   flat |
+| 100k small-file extract x5    |   612.156ms |  800.422ms | +30.8% |
+| 100k small-file lockbox bytes | 142,606,400 | 50,331,712 | -64.7% |
+| Append/delete commit          |   516.788ms |  467.940ms |  -9.5% |
+| Append/delete lockbox bytes   | 184,549,440 | 58,720,320 | -68.2% |
+
+Conclusion:
+
+* The final page-packed model removes the fixed-page compression floor for highly compressible large files while preserving high-entropy size behavior.
+* Page-budget fitting removes encode/encrypt/compress work from tentative packing checks; this was the main large-file write regression.
+* Object-indexed decoded pages remove the O(files x objects-per-page) small-file extraction path. A 20k-file extraction dropped from 28.476s to 31.065ms.
+* Small-file extraction is slightly slower than the previous 100k baseline but uses far less disk, because many tiny files now co-reside in fewer physical pages. The remaining extraction cost is acceptable for this run, but should be watched in future cold-cache directory extraction benchmarks.
+
+## 2026-05-10 - Archive Compression Comparison
+
+Description: compared the current lockbox page-packed compression behavior with common archive formats on the same local corpus classes. The corpus was kept locally under `rust/.tmp-archive-compare` for follow-up inspection. Large lockbox inputs were generated with the performance harness. Traditional archive inputs were real files/directories so the tools could run normally.
+
+Commands:
+
+```bash
+cd rust
+mkdir -p .tmp-archive-compare/{zero,random,small}
+truncate -s 1073741824 .tmp-archive-compare/zero/blob.bin
+
+cd .tmp-archive-compare/zero
+zip -q -9 zero.zip blob.bin
+tar --zstd -cf zero.tar.zst blob.bin
+7z a -bd -mx=9 zero.7z blob.bin
+
+cd ../random
+# Corpus generated as 1 GiB of high-entropy bytes.
+zip -q -9 random.zip blob.bin
+tar --zstd -cf random.tar.zst blob.bin
+7z a -bd -mx=9 random.7z blob.bin
+
+cd ../small
+# 100k files, each 1 KiB of repeated bytes.
+zip -q -9 -r small.zip .
+tar --zstd -cf small.tar.zst --exclude=small.tar.zst --exclude=small.zip --exclude=small.7z .
+7z a -bd -mx=9 -xr!small.zip -xr!small.tar.zst -xr!small.7z small.7z .
+```
+
+Environment:
+
+* Host: `Linux slayer4 6.11.0-26-generic x86_64`
+* CPU: `AMD Ryzen 7 3700X 8-Core Processor`, 8 cores / 16 threads
+* Rust: `rustc 1.94.1 (e408947bf 2026-03-25)`
+* Tools: `/usr/bin/zip`, `/usr/bin/zstd`, `/usr/bin/tar`, `/usr/bin/7z`
+* Local corpus path retained: `rust/.tmp-archive-compare`
+
+Results:
+
+| Corpus                      | Tool       | Archive bytes |   Ratio |          Time |
+| --------------------------- | ---------- | ------------: | ------: | ------------: |
+| 1 GiB zero file             | lockbox    |    25,165,888 |   0.023 |    0.822s add |
+| 1 GiB zero file             | ZIP `-9`   |     1,042,217 |   0.001 |         4.11s |
+| 1 GiB zero file             | tar.zst    |        33,761 | 0.00003 |         1.66s |
+| 1 GiB zero file             | 7z `-mx=9` |       156,739 | 0.00015 |         3.95s |
+| 1 GiB high-entropy file     | lockbox    | 1,098,907,712 |   1.023 |    5.871s add |
+| 1 GiB high-entropy file     | ZIP `-9`   | 1,073,915,736 |   1.000 |        24.94s |
+| 1 GiB high-entropy file     | tar.zst    | 1,073,766,937 |   1.000 |         1.38s |
+| 1 GiB high-entropy file     | 7z `-mx=9` | 1,073,808,403 |   1.000 |        42.43s |
+| 100k x 1 KiB repeated files | lockbox    |    50,331,712 |   0.492 | 1.329s commit |
+| 100k x 1 KiB repeated files | ZIP `-9`   |    16,700,539 |   0.163 |         9.16s |
+| 100k x 1 KiB repeated files | tar.zst    |     1,113,522 |   0.011 |         2.87s |
+| 100k x 1 KiB repeated files | 7z `-mx=9` |       288,304 |   0.003 |         4.60s |
+
+Conclusion:
+
+* ZIP, tar.zst, and 7z beat lockbox on extreme repeated data because they store variable-length compressed archive streams. Lockbox deliberately stores fixed encrypted pages with recoverable object boundaries.
+* Lockbox is competitive on high-entropy size and much faster than ZIP/7z for the measured high-entropy write path, but tar.zst is faster when encryption, random access, recovery, and key management are not required.
+* The many-small-file repeated corpus shows the expected tradeoff: lockbox is faster than ZIP in this run and far smaller than raw data, but whole-archive compressors win the ratio test by exploiting repetition across file and metadata boundaries.
+* Compression regression coverage now lives in `rust/lockbox_core/tests/compression_regression.rs`. The tests are ignored by default to keep local CI fast, and GitHub Actions runs them explicitly in the `compression regression corpus` job.
+* The GitHub job stores deterministic source corpus files in `actions/cache` under `rust/.ci-compression-corpus`, keyed by `LOCKBOX_COMPRESSION_CORPUS_VERSION`. On a cache miss it rebuilds the corpus with `cargo run --release -p lockbox_core --example compression_corpus -- .ci-compression-corpus`, then runs the ignored regression tests against that cached corpus.
+
+## 2026-05-10 - Commit-Time Dirty Pages and Redaction
+
+Description: measured the disk-backed path after moving dirty page writes to commit time, renaming page terminology, adding visualization support, and adding delete/env redaction that zeroes the original page data before freed pages are reused. This run used the file backend rather than the memory backend.
+
+Validation before profiling:
+
+```bash
+cd rust
+cargo fmt --all
+cargo test --workspace
+```
+
+The workspace test suite passed. The agent IPC, compression regression, and endian interop tests remain explicitly ignored unless their dedicated CI jobs run them.
+
+Disk-backed benchmark commands:
+
+```bash
+cd rust
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=small \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_FILES=50000 \
+LOCKBOX_PERF_FILE_BYTES=1024 \
+LOCKBOX_PERF_EXTRACT=memory \
+LOCKBOX_PERF_EXTRACT_REPEAT=5 \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=append-delete \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_INITIAL_FILES=50000 \
+LOCKBOX_PERF_APPEND_FILES=10000 \
+LOCKBOX_PERF_FILE_BYTES=2048 \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=large \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_LARGE_BYTES=134217728 \
+LOCKBOX_PERF_PATTERN=randomish \
+LOCKBOX_PERF_EXTRACT=memory \
+cargo run -p lockbox_core --example perf --release
+```
+
+Results:
+
+| Scenario                                | Logical bytes | Lockbox bytes |       Add |    Commit |    List | Extract/Delete | Range read | Ratio |
+| --------------------------------------- | ------------: | ------------: | --------: | --------: | ------: | -------------: | ---------: | ----: |
+| 50k x 1 KiB files, 5 memory extracts    |    51,200,000 |    25,165,920 | 123.538ms | 706.034ms | 5.018ms |      385.768ms |        n/a | 0.492 |
+| 50k initial + 10k append/delete/replace |   122,880,000 |    75,497,568 |  21.743ms | 546.710ms | 6.815ms |       24.471ms |        n/a | 0.614 |
+| 128 MiB randomish large file            |   134,217,728 |   159,383,648 | 265.514ms | 492.412ms |     n/a |       87.854ms |  904.272us | 1.188 |
+
+Profiling command:
+
+```bash
+cd rust
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_SCENARIO=small \
+LOCKBOX_PERF_EXTRACT=memory \
+LOCKBOX_PERF_EXTRACT_REPEAT=5 \
+LOCKBOX_PERF_FILES=20000 \
+LOCKBOX_PERF_FILE_BYTES=1024 \
+cargo flamegraph -p lockbox_core --example perf --release \
+  -o target/flamegraph-file-small-20k-dirty-pages.svg
+```
+
+The profiling run produced `rust/target/flamegraph-file-small-20k-dirty-pages.svg`. The measured 20k-file profile run produced:
+
+| Scenario                             | Logical bytes | Lockbox bytes |      Add |    Commit |    List | Extract/Delete | Ratio |
+| ------------------------------------ | ------------: | ------------: | -------: | --------: | ------: | -------------: | ----: |
+| 20k x 1 KiB files, 5 memory extracts |    20,480,000 |    25,165,920 | 43.697ms | 270.149ms | 2.028ms |      133.617ms | 1.229 |
+
+The flamegraph was captured without full dependency debuginfo and with kernel symbol restrictions, so the percentages should be treated as directional. The visible hotspots were:
+
+* zstd hashing/compression paths (`xxhash`, `ZstdEncoder`, match finder).
+* `BTreeMap` subtree cloning.
+* memory pressure sampling.
+* dirty page flushing, which was visible but not dominant in the small profile.
+
+Conclusion:
+
+* The dirty page cache now has the intended transaction shape: modified pages are staged in memory, COW happens at commit, and pages are written once when commit flushes the dirty set.
+* Redaction adds real work to commits because deleted/replaced file and env data is zeroed before the old physical page is returned to the free index. That is the right production behavior, but it raises commit cost compared with the earlier less secure path.
+* Small-file list/extract times are still low. Commit is the main area to keep tuning because it now includes packing, TOC updates, free-index updates, redaction, page checksum/encryption, and final header publication.
+* Next performance candidates are reducing `BTreeMap` cloning during commit, coalescing dirty page flush ordering more aggressively, sampling memory pressure less often, and improving compression skip heuristics for data that zstd cannot shrink meaningfully.
+
+## 2026-05-10 - Performance Target Pass
+
+Description: targeted the visible hotspots from the dirty-page/redaction profile while preserving the production format and transaction model. Changes:
+
+* Dirty page flush now reads storage length once, reuses a zero-page buffer for sparse gaps, and avoids cloning decoded pages before encoding.
+* Auto cache sizing samples OS memory pressure every 1024 cache operations instead of every 256 operations.
+* TOC commit avoids sorting TOC values already ordered by `LogicalPath`.
+* TOC internal rebuild no longer performs a linear child-position search for each child group.
+* Compression entropy probing counts sampled ranges directly instead of allocating a temporary sample buffer.
+* Incompressible extension detection avoids allocating a lowercased extension.
+* Pending small-file bytes are stored as shared immutable data, so commit rollback snapshots do not duplicate the staged file corpus.
+
+Disk-backed benchmark commands matched the previous run:
+
+```bash
+cd rust
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=small \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_FILES=50000 \
+LOCKBOX_PERF_FILE_BYTES=1024 \
+LOCKBOX_PERF_EXTRACT=memory \
+LOCKBOX_PERF_EXTRACT_REPEAT=5 \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=append-delete \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_INITIAL_FILES=50000 \
+LOCKBOX_PERF_APPEND_FILES=10000 \
+LOCKBOX_PERF_FILE_BYTES=2048 \
+cargo run -p lockbox_core --example perf --release
+
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_SCENARIO=large \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_LARGE_BYTES=134217728 \
+LOCKBOX_PERF_PATTERN=randomish \
+LOCKBOX_PERF_EXTRACT=memory \
+cargo run -p lockbox_core --example perf --release
+```
+
+Final run results:
+
+| Scenario                                | Logical bytes | Lockbox bytes |       Add |    Commit |    List | Extract/Delete | Range read | Ratio |
+| --------------------------------------- | ------------: | ------------: | --------: | --------: | ------: | -------------: | ---------: | ----: |
+| 50k x 1 KiB files, 5 memory extracts    |    51,200,000 |    25,165,920 | 102.417ms | 681.244ms | 5.040ms |      359.722ms |        n/a | 0.492 |
+| 50k initial + 10k append/delete/replace |   122,880,000 |    75,497,568 |  24.174ms | 525.359ms | 6.058ms |       25.017ms |        n/a | 0.614 |
+| 128 MiB randomish large file            |   134,217,728 |   159,383,648 | 247.933ms | 524.696ms |     n/a |       86.357ms |  996.695us | 1.188 |
+
+Comparison to the previous dirty-page/redaction baseline:
+
+| Scenario              | Metric     |  Previous |       New | Change |
+| --------------------- | ---------- | --------: | --------: | -----: |
+| 50k x 1 KiB files     | Add        | 123.538ms | 102.417ms | -17.1% |
+| 50k x 1 KiB files     | Commit     | 706.034ms | 681.244ms |  -3.5% |
+| 50k x 1 KiB files     | Extract x5 | 385.768ms | 359.722ms |  -6.8% |
+| Append/delete/replace | Commit     | 546.710ms | 525.359ms |  -3.9% |
+| Append/delete/replace | List       |   6.815ms |   6.058ms | -11.1% |
+| 128 MiB randomish     | Add        | 265.514ms | 247.933ms |  -6.6% |
+| 128 MiB randomish     | Extract    |  87.854ms |  86.357ms |  -1.7% |
+
+Updated profiling command:
+
+```bash
+cd rust
+LOCKBOX_PERF_DIR="$PWD/.tmp-bench" \
+LOCKBOX_PERF_BACKEND=file \
+LOCKBOX_PERF_SCENARIO=small \
+LOCKBOX_PERF_EXTRACT=memory \
+LOCKBOX_PERF_EXTRACT_REPEAT=5 \
+LOCKBOX_PERF_FILES=20000 \
+LOCKBOX_PERF_FILE_BYTES=1024 \
+cargo flamegraph -p lockbox_core --example perf --release \
+  -o target/flamegraph-file-small-20k-perf-pass.svg
+```
+
+The profiling run produced `rust/target/flamegraph-file-small-20k-perf-pass.svg`. The profile workload reported:
+
+| Scenario                             | Logical bytes | Lockbox bytes |      Add |    Commit |    List | Extract/Delete | Ratio |
+| ------------------------------------ | ------------: | ------------: | -------: | --------: | ------: | -------------: | ----: |
+| 20k x 1 KiB files, 5 memory extracts |    20,480,000 |    25,165,920 | 40.983ms | 279.438ms | 1.907ms |      125.960ms | 1.229 |
+
+Conclusion:
+
+* The changes improved every comparable final metric except small variations in large-file commit/range timing, which remain dominated by fixed commit work and normal local disk noise at this workload size.
+* The remaining visible profile cost is mostly allocation/copying around commit rollback and TOC materialization, plus zstd internals. Further reductions likely require a larger structural change: building TOC leaves from borrowed TOC entries and making rollback journal-based instead of snapshot-based.
+
+## 2026-05-13 - Workload-Aware Cache Policy Pass
+
+Description: added explicit workload profiles and wired CLI-created initial imports to `BulkImport`. In that profile, append-only file-data pages are flushed and dropped from the decoded-page cache as they are written. Metadata, redaction, TOC, env, free-index, key-directory, and commit-root writes keep the normal commit-time cache policy.
+
+Verification:
+
+* `cargo test -p lockbox_core`
+* `cargo clippy -p lockbox_core --all-targets -- -D warnings`
+* `cargo build --release -p lockbox_cli`
+* `cargo bench -p lockbox_core --bench performance`
+
+Criterion results:
+
+| Benchmark                                              |  Result | Criterion verdict |
+| ------------------------------------------------------ | ------: | ----------------- |
+| small\_files/add\_commit\_1000x1k                      | 23.70ms | no change         |
+| small\_files/extract\_memory\_1000x1k                  | 1.100ms | +5.2%, regression |
+| small\_files/extract\_directory\_1000x1k               | 23.54ms | no change         |
+| mixed\_tree/add\_commit\_mixed                         | 17.73ms | no change         |
+| mixed\_tree/list\_recursive\_mixed                     |  8.19us | -2.1%, improved   |
+| mixed\_tree/extract\_directory\_mixed                  |  9.61ms | no change         |
+| large\_file/add\_commit\_16m\_randomish                | 78.05ms | within noise      |
+| large\_file/range\_read\_1m\_middle                    | 133.5us | no change         |
+| append\_delete/append\_delete\_replace\_commit         | 36.95ms | no change         |
+| toc\_structure/separator\_update\_5000                 | 47.24ms | no change         |
+| toc\_structure/leaf\_split\_append\_5000               | 30.96ms | no change         |
+| toc\_structure/leaf\_merge\_delete\_5000               | 40.14ms | no change         |
+| metadata\_operations/rename\_16m\_file\_commit         |  5.69ms | no change         |
+| metadata\_operations/list\_env\_1000                   | 575.4us | within noise      |
+| metadata\_operations/compact\_16m\_file\_after\_delete | 79.13ms | no change         |
+
+100 MiB directory comparison used 4,096 files of 25,600 bytes each:
+
+| Tool                    |                Encode time |    Max RSS | Output bytes |
+| ----------------------- | -------------------------: | ---------: | -----------: |
+| Lockbox CLI bulk import |                      3.28s | 78,792 KiB |  110,231,648 |
+| \`tar                   |  gpg\` default compression |      3.94s |    3,672 KiB |
+| \`tar                   | gpg --compress-algo none\` |      0.83s |    3,332 KiB |
+
+Compared with the previous 100 MiB lockbox/GPG pass, lockbox output size is unchanged, encode time is slightly higher, and peak RSS dropped from roughly 266 MiB to 79 MiB. The bulk import path now packs small files through a long-lived `PageObjectPacker` and flushes before the current packed page would overflow, so it keeps roughly one file-data page plus import metadata resident instead of the whole source corpus. A density regression test checks that non-tail file-data pages are not left mostly empty.
+
+## 2026-05-15 - Secure String Store Benchmark and Protection Batching
+
+Description: added Criterion coverage for the page-pooled secure string store after introducing secret env vars. The benchmark separates secure string creation, byte-wise append, slice append, and repeated reads with either one guard per secret or one shared access guard. The first profile showed avoidable page-protection churn around canary checks, data writes, zeroization, and free. The secure heap now checks both canaries and performs the data operation inside one full-allocation page-protection window for those paths.
+
+Command:
+
+```bash
+cd rust
+cargo bench -p lockbox_core --bench performance secure_string_store
+```
+
+An attempted local flamegraph run was blocked by the host kernel's `perf_event_paranoid=4` setting, so this entry records Criterion timing only and does not include a profile artifact.
+
+After lowering `perf_event_paranoid` to `1`, local flamegraph capture worked:
+
+* `rust/target/flamegraph-secure-string-store.svg`
+* `rust/target/flamegraph-secure-string-store-optimized.svg`
+
+Environment:
+
+* Host: `Linux slayer4 6.11.0-26-generic x86_64`
+* CPU: `AMD Ryzen 7 3700X 8-Core Processor`, 8 cores / 16 threads
+* Rust: `rustc 1.94.1 (e408947bf 2026-03-25)`
+* Benchmark harness: Criterion, sample size 10 per benchmark
+* Baseline source: new benchmark group; comparisons below are within the same run
+
+Results:
+
+| Benchmark                                           | Baseline mean | Optimized mean | Change |
+| --------------------------------------------------- | ------------: | -------------: | -----: |
+| `secure_string_store/from_bytes_1000x64`            |     74.675 ms |      19.717 ms | -73.6% |
+| `secure_string_store/push_byte_64`                  |     941.14 us |      325.71 us | -65.4% |
+| `secure_string_store/extend_slice_64`               |     57.249 us |      14.791 us | -74.2% |
+| `secure_string_store/read_1000x64_individual_guard` |     6.3705 ms |      6.1294 ms |  -3.5% |
+| `secure_string_store/read_1000x64_shared_guard`     |     107.15 us |      101.81 us |  -5.8% |
+
+Conclusion:
+
+* Byte-at-a-time construction is expensive because each append touches the protected heap. The CLI secret prompt now appends input in chunks through `SecretString::try_extend_from_slice`.
+* A shared read-access scope is roughly two orders of magnitude faster than creating a scope per string for repeated reads in this workload. Code that reads many secrets should use `lockbox_secure::read_access()`.
+* Construction still has fixed overhead from secure heap locking and page permission changes. The optimized flamegraph still shows `mprotect` as the remaining significant secure-store cost, which is expected for protected pages. Further reductions would require a larger API or policy change, such as a write access guard for batch construction or an explicitly weaker mode.
+
+## 2026-05-22 - Archive V2 Pack Layout Probe
+
+Description: added an experimental `archive_v2_probe` example to estimate a clean-slate append-only pack/checkpoint archive layout. This run used the then-current pure-Rust `oxiarc-zstd` backend, so the recorded numbers are historical and are not directly comparable with later local `ruzstd` reruns.
+
+Command:
+
+```bash
+cd rust
+cargo run --offline -q -p lockbox_core --example archive_v2_probe -- \
+  target/archive-comparison/fixtures/<fixture>
+```
+
+Raw local TSV output:
+
+* `rust/target/archive-comparison/results/archive_v2_probe.tsv`
+
+Selected best estimated v2 sizes compared with current Lockbox artifacts:
+
+| Fixture          | Current Lockbox bytes | Best v2 estimate | Result          |
+| ---------------- | --------------------: | ---------------: | --------------- |
+| `repeated-small` |                97,376 |          167,397 | worse           |
+| `text-tree`      |             2,929,760 |        2,936,280 | roughly equal   |
+| `mixed-tree`     |            17,037,408 |       17,048,782 | roughly equal   |
+| `high-entropy`   |            67,131,488 |       67,111,776 | slightly better |
+| `dvault-source`  |               304,224 |          297,964 | 2.1% smaller    |
+
+Conclusion:
+
+* Changing archive layout alone did not close the gap to `tar | zstd | gpg` with the `oxiarc-zstd` backend used for this run. At that point, the pure-Rust zstd encoder remained the main size limiter on text/source fixtures.
+* Larger packs reduce metadata bytes but quickly increase random-read amplification. The default interactive target should stay around 512 KiB to 1 MiB; 2 MiB to 4 MiB belongs in bulk import or compaction profiles.
+* Extension/content-class grouping did not materially beat path-order grouping on these fixtures, so grouping heuristics should remain experimental.
+* The clean-slate v2 design is still useful for append-only updates, checkpointing, range planning, and recovery, but it should be prototyped as a separate experimental format before replacing the current page format.
+
+## 2026-05-22 - zstd-rs Upstream Compression Experiments
+
+Description: benchmarked the discussed pure-Rust `ruzstd` encoder experiments as separate upstream candidate variants. The benchmark used a release-mode external path-dependency harness so every checked-out variant ran the same fixture generator and timing loop.
+
+Raw artifacts:
+
+* `/tmp/zstd-upstream-bench-run/all-experiments.csv`
+* `/tmp/zstd-upstream-bench-run/all-experiment-totals.csv`
+* `/tmp/zstd-upstream-bench-run/zstd-cli-sizes.csv`
+* Detailed report: `docs/zstd_upstream_experiment_report.md`
+
+Aggregate results across 5.97 MiB of generated fixtures:
+
+| Variant               | Total compressed bytes | Delta vs master | Aggregate measured ns | CPU delta vs master |
+| --------------------- | ---------------------: | --------------: | --------------------: | ------------------: |
+| `master`              |              1,116,962 |               0 |            40,808,252 |                0.0% |
+| `raw-fallback`        |              1,116,954 |              -8 |            40,336,334 |               -1.2% |
+| `literal-choices`     |              1,108,812 |          -8,150 |            42,278,659 |               +3.6% |
+| `huffman-maxheight`   |              1,097,645 |         -19,317 |            40,524,198 |               -0.7% |
+| `huffman-depth-probe` |              1,097,637 |         -19,325 |            46,713,246 |              +14.5% |
+| `fse-predefined`      |              1,268,847 |        +151,885 |            36,502,871 |              -10.6% |
+| `fse-oracle`          |              1,097,629 |         -19,333 |            74,346,322 |              +82.2% |
+
+Native `zstd -1` compressed the same fixtures to 772,083 bytes total.
+
+Conclusion:
+
+* Submit `raw-fallback` first. It is small, tested, and prevents avoidable expansion on incompressible fastest blocks.
+* Submit `huffman-maxheight` next as an independent patch. It is the largest measured Rust-side win and mirrors the C zstd strategy of repairing overlong Huffman trees instead of falling back to rank-only weights.
+* Treat `literal-choices` as optional cleanup. It is correct but modest.
+* Reject Huffman depth probing and FSE oracle selection for now because they save almost nothing beyond `huffman-maxheight` and cost too much CPU.
+* The remaining native zstd gap points at match finding and sequence generation rather than literal Huffman selection.
+
+## 2026-05-22 - zstd-rs Match Finder and Sequence Experiments
+
+Description: tested the next suspected source of the native `zstd -1` size gap: match finding and sequence generation. Each variant was based on the current Huffman max-height patch and used the same release-mode benchmark harness as the upstream compression experiments.
+
+Raw artifacts:
+
+* `/tmp/zstd-upstream-bench-run/minmatch4.csv`
+* `/tmp/zstd-upstream-bench-run/hash-overwrite.csv`
+* `/tmp/zstd-upstream-bench-run/repcode-offsets.csv`
+* `/tmp/zstd-upstream-bench-run/hash-oldest-newest.csv`
+* `/tmp/zstd-upstream-bench-run/hash-oldest-newest-repcode.csv`
+* `/tmp/zstd-upstream-bench-run/hash-two-packed.csv`
+* `/tmp/zstd-upstream-bench-run/hash-two-step2.csv`
+* `/tmp/zstd-upstream-bench-run/current-huffman-step2.csv`
+* `/tmp/zstd-upstream-bench-run/current-profile-optimized2.csv`
+* `/tmp/zstd-upstream-bench-run/current-profile-hash1.csv`
+* `/tmp/zstd-upstream-bench-run/match-sequence-totals.csv`
+* Detailed report: `docs/zstd_match_sequence_experiment_report.md`
+
+Aggregate results across 5.97 MiB of generated fixtures:
+
+| Variant                      | Total compressed bytes | Delta vs Huffman max-height | Aggregate measured ns | Throughput MiB/s |
+| ---------------------------- | ---------------------: | --------------------------: | --------------------: | ---------------: |
+| `huffman-maxheight`          |              1,097,645 |                           0 |            40,524,198 |            140.5 |
+| `repcode-offsets`            |              1,097,645 |                           0 |            41,809,551 |            136.2 |
+| `hash-overwrite`             |              1,054,684 |                     -42,961 |            41,489,884 |            137.3 |
+| `hash-oldest-newest`         |              1,032,338 |                     -65,307 |            51,303,214 |            111.0 |
+| `hash-oldest-newest-repcode` |              1,032,338 |                     -65,307 |            48,999,827 |            116.2 |
+| `hash-two-packed`            |              1,032,338 |                     -65,307 |            45,847,949 |            124.2 |
+| `hash-two-step2`             |              1,039,557 |                     -58,088 |            41,079,658 |            138.6 |
+| `current-huffman-step2`      |              1,039,557 |                     -58,088 |            38,856,287 |            146.6 |
+| `current-profile-optimized2` |              1,039,557 |                     -58,088 |            32,979,753 |            172.7 |
+| `current-profile-hash1`      |                992,288 |                    -105,357 |            31,099,865 |            183.1 |
+
+Native `zstd -1` compressed the same fixtures to 772,083 bytes total.
+
+Conclusion:
+
+* Match finding is the next compression-ratio lever. Keeping both oldest and newest hash candidates preserved repeated-run compression while improving the 4 MiB JSON fixture from 504,060 bytes to 452,147 bytes in the full prototype.
+* The submit candidate is the profiled packed matcher with a one-multiply five-byte hash. It improved the 4 MiB JSON fixture from 504,060 bytes to 419,775 bytes, saved 105,357 bytes aggregate versus Huffman max-height, and measured faster than the baseline harness.
+* Callgrind on the 4 MiB JSON fixture dropped from 380.7M instructions before profiling changes to 335.6M after removing redundant matcher work.
+* Repeat-offset sequence encoding passed tests in isolation but did not improve size on these fixtures. Revisit it only after match generation produces more local repeated offsets.
+* Reject `minmatch4` and simple hash overwrite. Both were useful probes, but they either worsened structured text or regressed repeated text.
+
+## 2026-05-30 - Local ruzstd Encoder vs GPG Archive Comparison
+
+Description: switched the default pure-Rust zstd path from published `oxiarc-zstd` to the local `ruzstd` checkout at `../zstd-rs/ruzstd`, then reran the archive comparison against GPG. This was a local dependency experiment, not a merge-ready dependency layout.
+
+Command:
+
+```bash
+bash rust/tools/compare_archive_compression.sh
+```
+
+Raw local TSV output:
+
+* `rust/target/archive-comparison/results/summary.tsv`
+
+Selected results:
+
+| Fixture          | Tool                   | Logical bytes |               Output bytes |     Seconds | Max RSS KiB |
+| ---------------- | ---------------------- | ------------: | -------------------------: | ----------: | ----------: |
+| `repeated-small` | Lockbox local `ruzstd` |   104,857,600 |                     63,584 |        0.31 |      20,556 |
+| `repeated-small` | \`tar                  |       zstd -1 | gpg --compress-algo none\` | 104,857,600 |      55,627 |
+| `text-tree`      | Lockbox local `ruzstd` |    30,193,763 |                  1,340,512 |        0.41 |      22,004 |
+| `text-tree`      | \`tar                  |       zstd -1 | gpg --compress-algo none\` |  30,193,763 |   1,763,322 |
+| `mixed-tree`     | Lockbox local `ruzstd` |    21,947,435 |                 16,855,136 |        0.32 |      70,728 |
+| `mixed-tree`     | \`tar                  |       zstd -1 | gpg --compress-algo none\` |  21,947,435 |  16,984,571 |
+| `high-entropy`   | Lockbox local `ruzstd` |    67,108,880 |                 67,131,488 |        0.67 |      79,172 |
+| `high-entropy`   | \`tar                  |       zstd -1 | gpg --compress-algo none\` |  67,108,880 |  67,174,412 |
+| `dvault-source`  | Lockbox local `ruzstd` |     1,039,364 |                    258,144 |        0.05 |       9,864 |
+| `dvault-source`  | \`tar                  |       zstd -1 | gpg --compress-algo none\` |   1,039,364 |     254,388 |
+
+Conclusion:
+
+* The local `ruzstd` branch materially improves the default pure-Rust Lockbox size story on structured data: Lockbox is now smaller than `tar | zstd -1 | gpg` on `text-tree`, `mixed-tree`, and `high-entropy`.
+* `repeated-small` and `dvault-source` still leave a small size gap versus the external zstd stream, but Lockbox remains faster on `dvault-source`.
+* Peak RSS is higher for Lockbox on large mixed/high-entropy fixtures. The next pass should profile allocation and streaming behavior rather than only encoder ratio.
