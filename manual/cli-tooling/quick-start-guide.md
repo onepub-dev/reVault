@@ -1,154 +1,193 @@
 # Quick start guide
 
-No cruft just the juicy bits.
+No cruft, just the juicy bits.
 
-This guide focus' on the CLI tooling. You don't need to use the CLI tools as you can perform operations using any of the [language bindings](../apis/revault-api.md). Having said that the CLI tools are a great place to start to familiarize yourself with the core concept or reVault.
+This guide focuses on the CLI. You can perform the same work through the
+[language bindings](../apis/revault-api.md), but the CLI is a good place to
+learn the core reVault concepts.
 
-Read on if you want to take the CLI out for a drive.
+## Install reVault
 
-If you don't have cargo (the Rust package manager) follow the cargo install guide:
-
-[https://doc.rust-lang.org/cargo/getting-started/installation.html](https://doc.rust-lang.org/cargo/getting-started/installation.html)
-
-Once cargo is installed
+If you don't have Cargo, follow the
+[Rust installation guide](https://doc.rust-lang.org/cargo/getting-started/installation.html).
 
 Install reVault:
 
-```
+```bash
 cargo install revault_cli
 ```
 
-We assume here that the cargo bin directory is on your path.&#x20;
+This installs `lockbox` and its short alias, `lbx`. The examples below use
+`lbx`; you can substitute `lockbox` anywhere.
 
-Do the one time initialisation of your vault
+## Initialise and back up your Vault
 
-```
+Initialise your Vault once:
+
+```bash
 lbx vault init
 ```
 
-This will generate a CRITICAL pass phrase - store it someplace VERY safe and do not lose. If you lose it you lose access to all of your lockboxes and we can do nothing to help you!!!!!
+Choose a strong Vault passphrase and store it somewhere safe. Then create an
+encrypted backup:
 
-Create a lockbox:
-
+```bash
+lbx vault backup ./vault-backup.lockbox-backup
 ```
-lbx create mystuff.lbox
+
+{% hint style="danger" %}
+Keep the backup and Vault passphrase on separate, secure storage. If you lose
+the Vault, its backup and the credentials needed by a Lockbox, nobody can
+recover that Lockbox for you.
+{% endhint %}
+
+Run the doctor whenever you want to check the installation, Vault, Auto Open
+and Session Agent:
+
+```bash
+lbx doctor
 ```
 
-Set the lockbox as the default (you don't need to do this but it reduces typing).
+## Create a Lockbox
 
+The Lockbox path comes before the command:
+
+```bash
+lbx mystuff.lbox create
 ```
+
+You can keep writing the path, or make this your default Lockbox:
+
+```bash
 lbx session default mystuff.lbox
 ```
 
-Open the lockbox:
+Open it for an hour:
 
-```
+```bash
 lbx open --duration 1h
 ```
 
-By default the lockbox will be held open for 15min.
+Without `--duration`, the default session duration is 15 minutes. Using a
+Lockbox extends its sliding expiry.
 
-Add a file to a lockbox:
+## Add, list and extract files
 
-```
-lbox add reamde.md
-```
+Add a file:
 
-Add a directory:
-
-```
-lbox add /home/me
+```bash
+lbx add ./readme.md
 ```
 
-Add a file, but store it in a directory in the lockbox:
+Store it at a different path inside the Lockbox. Missing parent directories are
+created automatically:
 
-```
-lbox add readme.md --to /some/place/in/the/lockbox
-```
-
-List the contents of the default lockbox:
-
-```
-lbx ls 
+```bash
+lbx add ./readme.md --to docs/readme.md
 ```
 
-Find all .md files in the lockbox
+Add a complete directory tree:
 
-```
-lbx ls *.md
-```
-
-Remove a file from the lockbox:
-
-```
-lbx rm readme.md
+```bash
+lbx add --recursive ./project --to archive/project/
 ```
 
-Add a variable:
+List the contents:
 
-```
-lbox var set DBPORT 80
-lbox var set --secret PASSWORD --file /my/db/password.txt
-lbox var set name "A developer"
-lbox var set /production/DBPORT 80
-```
-
-Get a variable&#x20;
-
-```
-lbox var get DBPORT
-lbox var get --secret PASSWORD
-lbox var get /production/DBPORT
+```bash
+lbx list
+lbx list /archive --recursive
+lbx list '/archive/**/*.md'
 ```
 
-Delete a variable:
+Extract one file or the complete Lockbox:
 
-```
-lbox var rm DBPORT
-```
-
-Export a variable:
-
-```
-lbx var export --format posix
-DBPORT='80'
-lbx var export --format powershell
-$env:DBPORT = '80'
+```bash
+lbx extract /docs/readme.md ./restored-readme.md
+lbx extract --to ./restored
 ```
 
-Create a form definition:
+Remove an entry:
 
-TODO: complete form examples
-
-```
-lbx form
+```bash
+lbx remove /docs/readme.md
 ```
 
-Share a lockbox:
+## Store variables
 
-Have an associate install reVault and then ask the to run:
+Store and retrieve a normal variable:
 
-```
-lbx vault publish
-```
-
-Ask them for the share code and fingerprint (make certain you initiate the conversation to avoid being being hacked by AI).
-
-On your machine run:
-
-```
-lbx vault receive <share-code> <contact name>
+```bash
+lbx variable set DB_PORT 5432
+lbx variable get DB_PORT
 ```
 
-Enter the fingerprint when prompted.
+Store a secret without putting its value in shell history or the process list:
 
-Now give your associate access to the lockbox:
-
+```bash
+lbx variable set --secret API_TOKEN --interactive
+lbx variable get --secret API_TOKEN
 ```
-lbox access add <contact name>
+
+You can also supply a secret through `--stdin`, `--file` or `--from-env`.
+
+## Store a form record
+
+Create a reusable form definition in your Vault:
+
+```bash
+lbx vault form define login \
+  --field username:text:required:Username \
+  --field password:secret:required:Password
 ```
 
-You can share access to any number of contacts to the lockbox.
+Copy the definition into the default Lockbox and add a record:
 
-You can now safely email the lockbox to each contact.
+```bash
+lbx form use login
+lbx form add /work/github --type login --name GitHub --interactive
+lbx form show /work/github
+```
 
+See [Forms](forms.md) for field types and non-interactive examples.
+
+## Share a Lockbox
+
+Ask your associate to publish their default Profile:
+
+```bash
+lbx vault profile publish
+```
+
+They give you the resulting publish code. Receive it under a local Contact
+name:
+
+```bash
+lbx vault contact receive <publish-code> alice
+```
+
+The command asks you to verify the fingerprint through a second, trusted
+channel. You should initiate that second contact using details you already
+trust.
+
+Grant the Contact access:
+
+```bash
+lbx mystuff.lbox access grant alice
+```
+
+You can now send `mystuff.lbox` to Alice. Read [Sharing](sharing.md) before
+using this workflow for sensitive information.
+
+## Finish the session
+
+Close the default Lockbox when you are done:
+
+```bash
+lbx close
+```
+
+This clears its temporary content key from the Session Agent. If Auto Open is
+enabled, the Vault may still hold a persistent credential that can open the
+Lockbox again. Read [Session Management](session-management.md) to choose the
+right setting for your environment.

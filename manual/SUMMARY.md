@@ -1,68 +1,54 @@
 # Table of contents
 
 * [reVault](README.md)
+
+## Get started
+
 * [CLI tooling](cli-tooling/README.md)
   * [Quick start guide](cli-tooling/quick-start-guide.md)
-  * [Exit Codes](cli-tooling/exit-codes.md)
-  * [Session Management](cli-tooling/session-management.md)
+  * [File operations](cli-tooling/file-operations.md)
   * [Lockbox management](cli-tooling/lockbox-management.md)
   * [Variables](cli-tooling/variables.md)
   * [Forms](cli-tooling/forms.md)
-  * [command-line completion](cli-tooling/command-line-completion.md)
-  * [reVault Session Agent](cli-tooling/revault-session-agent.md)
-  * [The Vault](cli-tooling/the-vault.md)
   * [Secrets](cli-tooling/secrets.md)
+
+## Protect and share
+
+* [The Vault](cli-tooling/the-vault.md)
+  * [Back up and restore](cli-tooling/backup-and-restore.md)
   * [Profiles](cli-tooling/profiles.md)
-  * [Sharing](cli-tooling/sharing.md)
+  * [Rotate Profile keys](cli-tooling/key-rotation.md)
   * [Contacts](cli-tooling/contacts.md)
-  * [sudo](cli-tooling/sudo.md)
-  * [Migrating between versions](cli-tooling/migrating-between-versions.md)
-* [mirror](mirror.md)
-* [CI/CD](ci-cd.md)
-* [Key sharing service](key-sharing-service/README.md)
-  * [Configuration](key-sharing-service/configuration.md)
-* [Topology server](topology-server.md)
+  * [Sharing](cli-tooling/sharing.md)
 * [Keeping secrets a secret](keeping-secrets-a-secret.md)
-* [Configuration File](configuration-file.md)
+
+## Sessions and automation
+
+* [Session management](cli-tooling/session-management.md)
+  * [reVault Session Agent](cli-tooling/revault-session-agent.md)
+* [CI/CD](ci-cd.md)
+* [sudo](cli-tooling/sudo.md)
+* [Configuration file](configuration-file.md)
+
+## Maintain and recover
+
+* [Mirror](mirror.md)
+* [Recover a damaged Lockbox](cli-tooling/recovery.md)
+* [Migrating between versions](cli-tooling/migrating-between-versions.md)
+* [Diagnostics](cli-tooling/diagnostics.md)
+* [Troubleshooting](troubleshooting.md)
+* [Command-line completion](cli-tooling/command-line-completion.md)
+* [Exit codes](cli-tooling/exit-codes.md)
+
+## Operate a key-sharing service
+
+* [Key sharing service](key-sharing-service/README.md)
+  * [Key-server configuration](key-sharing-service/configuration.md)
+  * [Topology and failover](topology-server.md)
+
+## Develop with reVault
+
 * [APIs](apis/README.md)
   * [reVault API](apis/revault-api.md)
-* [reVault Design Specification](agents.md)
-* [docs](docs/README.md)
-  * [Archive Restructure And Upstream Encoder Report](docs/archive_restructure_summary_report.md)
-  * [Lockbox Archive V2 Restructure Proposal](docs/archive_v2_restructure_proposal.md)
-  * [Benchmark History](docs/benchmark_history.md)
-  * [CDC Dedupe Threat And Recovery Design](docs/cdc_dedupe_threat_recovery_design.md)
-  * [CI Secret Storage Comparison](docs/ci_secret_storage_comparison.md)
-  * [Lockbox CLI How-To](docs/cli_how_to.md)
-  * [Compression Optimization Research Report](docs/compression_optimization_report.md)
-  * [Design Discussion](docs/design_discussion.md)
-  * [Encrypted File Comparison](docs/encrypted_file_comparison.md)
-  * [Lockbox Format Notes](docs/file_formats.md)
-  * [Fuzzing](docs/fuzzing.md)
-  * [Implementation Overview](docs/implementation_overview.md)
-  * [Key Management Design](docs/key_management.md)
-  * [Native Threading Report - 2026-05-31](docs/native_threading_report_2026_05_31.md)
-  * [Performance Review](docs/performance_review.md)
-  * [Real-World Large File Benchmark - 2026-06-01](docs/real_world_large_file_benchmark_2026_06_01.md)
-  * [Rust Development Guidance](docs/rust_development.md)
-  * [Rust Idioms Review](docs/rust_idioms_review.md)
-  * [Secure environment pages](docs/secure_env_pages.md)
-  * [Secure String Storage Design](docs/secure_string_design.md)
-  * [Security Audit](docs/security_audit.md)
-  * [Terminology](docs/terminology.md)
-  * [zstd-rs Match and Sequence Experiment Report](docs/zstd_match_sequence_experiment_report.md)
-  * [zstd-rs Upstream Compression Experiment Report](docs/zstd_upstream_experiment_report.md)
-* [epage\_file](epage_file/README.md)
-  * [1.0.0](epage_file/changelog.md)
-  * [doc](epage_file/doc/README.md)
-    * [EPageFile Design Specification](epage_file/doc/design_spec.md)
-* [rust](rust/README.md)
-  * [lockbox\_cli](rust/lockbox_cli/README.md)
-    * [PGP-Signed Lockbox Key Claims](rust/lockbox_cli/pgp_lockbox_key_claims.md)
-  * [lockbox\_share\_server](rust/lockbox_share_server/README.md)
-    * [Lockbox Share Server Benchmarks](rust/lockbox_share_server/benchmarks.md)
-    * [Lockbox Share CLI and Vault Design](rust/lockbox_share_server/cli_vault_share_design.md)
-    * [Lockbox Share Server Design](rust/lockbox_share_server/design.md)
-    * [Redundant Share Server Design](rust/lockbox_share_server/redundancy.md)
-  * [lockbox\_vault](rust/lockbox_vault/README.md)
-    * [Agent Sleep VM Testing](rust/lockbox_vault/agent_sleep_vm_testing.md)
+* [Versions and compatibility](compatibility.md)
+* [Glossary](glossary.md)

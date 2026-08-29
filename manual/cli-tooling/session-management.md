@@ -1,72 +1,98 @@
-# Session Management
+# Session management
 
-On platforms that support reVault Auto Open, your vault password is stored in a platform provided key ring. A key ring is a bit like the little shelf you hang your keys on as you enter the house. We place the reVault password on the shelf (the key ring) and then anyone already in the house can unlock the vault.  In this case 'already in the house' means you have access to your vault after you log in to your desktop session (i.e you enter the house by logging in).
+reVault uses two related features to avoid asking for your Vault passphrase on every command:
 
-Storing your reVault vault password in a platform key ring allows your reVault vault password to be available whilst you are logged in to your desktop environment.&#x20;
+* the **Session Agent** keeps the content keys for open Lockboxes in memory for a limited time;
+* **Auto Open** stores your Vault passphrase in your operating system's secure credential store.
 
-As the vault password is available during your logged in session, you don't need to re-enter your password when doing most lockbox activity.
+They are deliberately separate. You can use the Session Agent without enabling Auto Open.
 
-With Auto Open enabled:
-
-```
-lbx add mystuff.lbox readme.md
-> You must first open the lockbox.
-```
-
-With Auto Open enabled the add just works:
-
-```
-lbx add mystuff.lbox readme.md
+```mermaid
+flowchart LR
+    OS[OS secure credential store] -->|Auto Open retrieves<br/>Vault passphrase| Vault[Vault]
+    Vault -->|unwraps| Key[Lockbox content key]
+    Key -->|open command caches temporarily| Agent[Session Agent]
+    Agent -->|later command acquires a copy| Process[reVault process]
 ```
 
-You can see if your platform supports Auto Open by running:
+Disabling Auto Open removes the first unattended path. Closing a Lockbox removes its cached key from the agent; it does not remove credentials from the Vault or operating-system store.
 
-```
-lbx doctor
-```
+## See what is open
 
-### Managing Auto Open
-
-If you work in a particularly sensitive environment then you may want to disable auto open.
-
-You can enable/disable Auto Open via the command:
-
-```
-lbx session auto-open off
+```bash
+lbx session
 ```
 
-Turning auto open off removes you vault password from the platform key ring.
+Open a Lockbox for one hour:
 
-Auto Open has two levels
-
-* auto open the vault
-* auto open lockboxes
-
-You can set the level via:
-
+```bash
+lbx secrets.lbox open --duration 1h
 ```
+
+Every successful use refreshes the Lockbox's expiry time. Close one Lockbox, all Lockboxes, or the agent itself with:
+
+```bash
+lbx secrets.lbox close
+lbx session close-all
+lbx session stop
+```
+
+`stop` clears the in-memory sessions and stops the Session Agent. A later command starts it again when required.
+
+## The default Lockbox
+
+If you use one Lockbox regularly, make it the default:
+
+```bash
+lbx session default secrets.lbox
+lbx list
+```
+
+Clear the default with:
+
+```bash
+lbx session default --clear
+```
+
+## Auto Open
+
+Check whether Auto Open is enabled:
+
+```bash
+lbx session auto-open status
+```
+
+There are two scopes:
+
+```bash
 lbx session auto-open vault
 lbx session auto-open lockboxes
 ```
 
-You will need to re-enter your vault password.
+`vault` allows reVault to open the Vault automatically but still requires you to open each Lockbox explicitly. `lockboxes` also allows reVault to open Lockboxes as commands need them.
 
+Disable Auto Open and close all current Lockbox sessions with:
 
+```bash
+lbx session auto-open disable
+```
 
-The vault password will be re-inserted into the platform key ring the next time you enter your vault password (for any lockbox command).
+The command removes reVault's stored credential from the operating system's secure store.
 
-### Keeping your data secure
+{% hint style="danger" %}
+With Auto Open enabled, anyone or anything operating as you in your unlocked desktop session may be able to open your Vault or Lockboxes. Lock your desktop whenever you walk away.
+{% endhint %}
 
-When Auto Unlock is enabled all lockboxes on your system are exposed to any user that has access to you logged in session - as such it is CRITICAL that you either log out or lock you desktop session when you walk away from your PC.
+Closing a Lockbox removes its cached content key from the Session Agent. It is not an authentication boundary when Auto Open can immediately obtain the Vault passphrase and open the Lockbox again.
 
-### Platform Secure Key Services (SKS)
+## Platform secure stores
 
-SKS is reVault umbrella terminology for a number of different technologies provided by different platforms.  Here is the list of specific platform technologies that reVault supports.
+reVault uses the secure credential service supplied by the operating system:
 
-|         |                    |
-| ------- | ------------------ |
+| Platform | Secure store |
+| --- | --- |
 | Windows | Credential Manager |
-| LInux   | libsecret          |
-| MacOS   | Keychain           |
+| Linux | Secret Service, commonly provided by libsecret-compatible desktop keyrings |
+| macOS | Keychain |
 
-It is CRITICAL that you backup the pass phrase. If you lose the pass phrase you will lose access to all of you lockboxes.
+Run `lbx doctor` to check the capabilities available on your machine.

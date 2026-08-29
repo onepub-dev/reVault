@@ -1,20 +1,82 @@
-# Topology server
+---
+description: "Understand key-server membership, routing, replication and failover."
+---
 
-The topology server is used to describe the set of key sharing servers and their fall over configuration.
+# Topology and failover
 
-The topology server is just a set of end points within a regular Key Sharing Server that has been enabled to act as a topology server as well as a key server.
+A reVault key-server cluster has no separate master topology process. Every `revault_key_server` member can publish the current topology, accept authenticated heartbeats, and replicate publish state.
 
-We are able to (optionally) run a master-slave pair of topology servers.  The topology servers are responsible for telling each key server who its secondary is.&#x20;
+```mermaid
+flowchart LR
+    Client -->|GET /v1/topology| A[Key server 0]
+    Client -->|publish or receive| A
+    Client -. failover .-> B[Key server 1]
+    A <-->|heartbeats| B
+    A <-->|replication| B
+```
 
-The key servers are arranged in a ring, with each link in the ring acting as a primary as well as a secondary to the prior server in the ring.  A ring of one is possible (in which case no replication occurs).
+## Members and routes
 
-The topology server can insert/remove key servers from the ring as they come and go.
+Each member has a stable `server_id`, a public `/v1/publish` URL and a status:
 
-The topology server expects a heart beat from each key server every five minute, if the heartbeat does not arrive, the topology server will rearrange the ring to remove the missing server.  If the server recovers the ring will once again be reorganised.
+* `active` — accepts work for owners routed to it;
+* `standby` — available as a failover but does not serve another owner without promotion;
+* `promoted` — actively serving a failed owner's work; or
+* `disabled` — excluded from service.
 
-Each key server has a security token used to auth its connection to the topology server. When a key server registered with token server, the token server provides the key server with the security token of its secondary.  The token server must have a list of all potential key servers and their security keys. When a key server registers with the topology server the topology server provides the key with a randomly generated session key which the key server can use to validate communications with the topology server.&#x20;
+A route maps an owner id to its primary and ordered failovers:
 
-If the primary topology server goes down, key servers will failover to the secondary topology server and go through the registration process again.  This means that there is no requirement for synchronisation between the topology servers.&#x20;
+```toml
+[[route]]
+owner = 0
+primary = 0
+failover = [1]
+```
 
+When routes are omitted, reVault builds ring routes from the configured members. Explicit routes are preferable in production because the intended authority is reviewable.
 
+## Heartbeats
 
+Members sharing `cluster_id` and `topology_token` register with one another. The default heartbeat interval is 30 seconds. A member not seen for 90 seconds is filtered from the advertised topology.
+
+The shared topology token authenticates peer registration. It is not published to clients and must not appear in a URL or repository.
+
+Heartbeat filtering changes which servers are considered healthy; it does not silently authorise a standby to serve another owner's retained payloads.
+
+## Replication and promotion
+
+`replication_peer_url` copies live publish state to a peer's `/v1/replicate` endpoint. Replication is authenticated separately with `replication_token`.
+
+If owner `0` fails, an operator may authorise server `1` to serve that owner's replicated state:
+
+```toml
+server_id = 1
+promoted_owner = 0
+```
+
+Restart with the reviewed configuration and update the advertised status/routes as required. When the original owner returns:
+
+1. resynchronise it from the healthy member;
+2. verify that it has caught up;
+3. restore the intended routes; and
+4. remove the temporary promotion.
+
+Do not allow two unsynchronised servers to serve the same owner id.
+
+## Two-member checklist
+
+Both members need the same:
+
+* `cluster_id`
+* member list and routes
+* `topology_token`
+* `replication_token`
+
+Each member needs its own:
+
+* `server_id`
+* `public_url`
+* `state_dir`
+* peer `replication_peer_url`
+
+Expose every endpoint through HTTPS, protect tokens in the root-readable configuration, monitor `doctor` and service logs, and practise promotion and resynchronisation before relying on the cluster.

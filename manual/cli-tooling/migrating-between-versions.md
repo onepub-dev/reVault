@@ -10,14 +10,14 @@ reVault vaults and archives use independent on-disk formats. You can migrate eac
 
 Use the `lockbox migrate` command when a newer reVault release reports that a vault or archive uses an older format. The command migrates archives and the vault to the latest format supported by the installed CLI.&#x20;
 
-You don't need to migrate all of your archives at once, but you will need to migrate them before you can access an archive with the lastest CLI version.
+You don't need to migrate all of your archives at once, but you will need to migrate them before you can access an archive with the latest CLI version.
 
 ### Before you start
 
 Make sure that:
 
 * no other reVault process is writing to the vault or archive;
-* you know the vault pass phrase, unless the platform key store or session agent can provide it;
+* you know the Vault passphrase, unless the platform credential store can provide it;
 * you know the archive password or have opened the archive through the session agent; and
 * you have enough free disk space for a complete new copy of the vault or archive you are migrating.
 
@@ -27,7 +27,7 @@ Migration does not delete the source when an output path is supplied. It creates
 
 The vault command operates on the configured default vault.&#x20;
 
-To migrate you vault, replacing the existing vault use:
+To migrate your Vault and replace the existing file, use:
 
 ```
 lockbox migrate vault --replace
@@ -39,7 +39,7 @@ If you want a safer path you can do a migration to a separate vault via:
 lockbox migrate vault --output ~/.local/share/lockbox/vault-migrated
 ```
 
-The CLI obtains the vault pass phrase from the platform key store, the session cache, or `LOCKBOX_VAULT_PASSWORD`. If none is available, it prompts for the vault pass phrase.
+The CLI obtains the Vault passphrase through the normal Vault access flow, or from `LOCKBOX_VAULT_PASSWORD` in agentless automation. If none is available, it prompts for the passphrase.
 
 For example, in automation where the password is supplied by a protected secret store:
 
@@ -66,18 +66,7 @@ The archive must be readable by the current session. If the archive is not alrea
 
 The vault must already exist and be in the current format. If the vault exists use the above vault migration guide to migrate the vault.
 
-If the vault doesn't exists you must recreate the vault and restore the profile keys from your backup.
-
-
-
-```console
-lockbox vault init
-lockbox vault import-key legacy alice.key alice.pub
-```
-
-Repeat the import for each saved key required by the vault. If neither a vault\
-backup nor the saved private keys are available, recover those first; do not\
-continue with a newly initialized vault.
+If the Vault does not exist, restore a Vault backup or initialise a new Vault and restore the required Profile backups with `lbx vault profile restore`. A newly initialised Vault does not contain the old Profile keys and cannot open Lockboxes that relied on them.
 
 You can now migrate your archives:
 
@@ -94,10 +83,10 @@ LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
 Open the migrated archive and check important paths before replacing or removing the original:
 
 ```console
-lockbox open secrets-migrated.lbox
-lockbox list secrets-migrated.lbox /
-lockbox cat secrets-migrated.lbox /path/to/important-file
-lockbox close secrets-migrated.lbox
+lockbox secrets-migrated.lbox open
+lockbox secrets-migrated.lbox list /
+lockbox secrets-migrated.lbox cat /path/to/important-file
+lockbox secrets-migrated.lbox close
 ```
 
 Archive migration creates a new signed commit chain. The files, forms, and other logical records are migrated, but the old archive's public commit and signature history is not copied into the new archive. This is intentional: the new archive is freshly written and signed using the current format and current signing material.
@@ -168,14 +157,14 @@ lockbox migrate vault --help
 lockbox migrate archive --help
 ```
 
-The stage commands use encrypted migration artifacts and require an explicit migration artifact pass phrase. This is intentional: a manually exported artifact may outlive the source vault and may be transferred to another machine. For example, to verify an artifact without importing it:
+The stage commands use encrypted migration artefacts and require an explicit migration artefact passphrase. This is intentional: a manually exported artefact may outlive the source Vault and may be transferred to another machine. For example, to verify an artefact without importing it:
 
 ```console
 lockbox migrate vault verify vault.migration
 lockbox migrate archive verify archive.migration
 ```
 
-For a manually staged migration, keep the artifact files private and transfer the migration pass phrase through a separate secure channel. Do not put vault, archive, or migration passwords in command-line arguments, because command arguments may be visible to other processes.
+For a manually staged migration, keep the artefact files private and transfer the migration passphrase through a separate secure channel. Do not put Vault, Lockbox or migration passwords in command-line arguments, because command arguments may be visible to other processes.
 
 ### Troubleshooting
 
@@ -192,7 +181,7 @@ If you want the original replaced after validation, use `--replace` instead.
 
 #### The migration cannot open the vault
 
-Check the vault pass phrase and whether the platform key store or session agent is available. You can provide the pass phrase explicitly for one invocation:
+Check the Vault passphrase and whether the platform credential store is available. You can provide the passphrase explicitly for one invocation:
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \

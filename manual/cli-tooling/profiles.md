@@ -1,92 +1,58 @@
 ---
-description: A non technical discussion on advanced identity managed concepts.
+description: Use Profiles to separate Lockbox ownership and access.
 ---
 
 # Profiles
 
-In reVault a profile is essentially a named master key used to secure your lockboxes.&#x20;
+A Profile is a named public/private key pair used to open Lockboxes. Initialising a Vault creates the `default` Profile, which is all many people need.
 
-When you initialise a vault an 'default' profile is created.
-
-If you requirements are simple then the default profile is all you need.&#x20;
-
-So why might you want to create additional profiles?
-
-Separate different parts of you life:
-
-You have work and private lockboxes on your PC.
-
-If you uses separate profiles for work and personal lock boxes then if you change jobs you can just delete the personal profile from the vault and no one will have access to any of your personal lock boxes even if you leave some of them on the PC.
-
-If you are a consultant then you might also create separate profiles for each of the organisations you work for. &#x20;
-
-Having separate profiles requires an extra level of care when creating lock boxes, you need to use the --for switch to ensure that you have used the correct profile on a lockbox.
+Additional Profiles are useful when you want distinct keys for work, personal material, devices, clients or key-rotation policies. Choose the Profile when creating a Lockbox:
 
 ```bash
-lbx mygames.lbox create --for personal 
+lbx personal.lbox create --for personal
 ```
 
-### Create a profile
-
-When you first initialise a vault an default profile will have been automatically created.
-
-You can create a new profile called 'personal' by running:
+## Create and inspect Profiles
 
 ```bash
-lbx vault profile personal create
-```
-
-### Managing Profiles
-
-You can see the existing profile by running:
-
-```bash
+lbx vault profile create personal
 lbx vault profile list
-> name      email
-  default   your@email
+lbx vault profile history personal
+lbx vault profile fingerprint personal
 ```
 
-You can rename your profile via:
+Associate an email address before publishing a Profile through the key-sharing service:
 
 ```bash
-lbx vault profile default rename work
+lbx vault profile email personal alice@example.com
 ```
 
-You can update the email associated with a profile by:
+## Back up a Profile
 
-```
-lbx vault profile work --email my@email
-```
-
-## Backup a profile
-
-A profile contains the keys (public and private) used to access your lockboxes. If you loose your profile then you loose access to those lockboxes created for that profile.
-
-The easiest way to backup your profile is to backup your [vault](../)  but you can also directly backup your profile.
-
-```
-lbx vault profile [name] backup 
+```bash
+lbx vault profile backup ./personal.profile-backup --name personal
 ```
 
-DANGER: the profile backup file contains your profile keys - the backup is NOT encrypted.
+{% hint style="danger" %}
+A Profile backup contains private key material. Anyone who obtains it may be able to open Lockboxes accessible to that Profile. Store it as carefully as the data itself.
+{% endhint %}
 
-Anyone with access to your profile backup can open any of your lockboxes created for this profile.
+Restore a backup with:
 
-Store you profile securely or better use the vault backup option instead.
-
-### Restore a profile
-
-To restore a profile to your existing vault run:
-
-```
- lbx vault profile [name] restore <backup file>
+```bash
+lbx vault profile restore ./personal.profile-backup
 ```
 
-If a profile already exists with the same name then you will need to pass the --overwrite switch:
+Use `--name` to restore it under a different name. If that name already exists, `--overwrite` replaces the Profile after reVault backs up the current Vault.
 
-DANGER - DANGER: overwriting an existing profile destroys its keys removing your access to any lockboxes created using that profile:
+## Rotate or remove a Profile
 
+`lbx vault profile rotate personal` creates a new key generation while retaining the history needed to work with earlier Lockboxes. Use `lbx access refresh` on Lockboxes whose access entry needs the newer generation.
+
+Removing a Profile can remove your ability to open its Lockboxes. Check its use and make a secure backup first:
+
+```bash
+lbx vault profile remove personal
 ```
-lbx vault profile [name] restore --overwrite <backup file>
-```
 
+Publishing a Profile shares only its public key. Read [Sharing](sharing.md) before exchanging keys or granting access.

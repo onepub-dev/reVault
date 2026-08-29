@@ -1,30 +1,28 @@
 # Lockbox management
 
-Moving a lockbox:
+A Lockbox is a single encrypted archive file. You can copy, rename or move it like any other file, but the Vault and Session Agent may remember its path.
 
-You can move a lockbox at anytime without consequences, however if you use `lbx open` or `lbx session default ...` you will get a cleaner result if you tell reVault that you are moving the lockbox.
+The safest way to move a remembered Lockbox is:
 
-If your lockbox is called \`system\_api\_keys.lbox\`
+```bash
+lbx vault lockbox move ./system_api_keys.lbox ./archive/system_api_keys.lbox
+```
 
-`lbx vault lockbox move system_api_keys.lbox /some/new/path/system_api_keys.lbox`
+This moves the file and updates the paths known to the Vault and Session Agent. The destination's parent directories are created when required.
 
-or&#x20;
+Inspect remembered paths with:
 
-`lbx vault lockbox move system_api_keys.lbox /some/new/directory`
+```bash
+lbx vault lockbox list
+```
 
+If you moved or deleted a Lockbox outside reVault, remove its stale record:
 
+```bash
+lbx vault lockbox forget ./old-project.lbox
+```
 
-Manually:
+Forgetting a record does not delete a Lockbox. Likewise, copying a Lockbox does not automatically create a new key or identity: both copies contain the same encrypted material at the moment of copying.
 
-If you are going to move the lockbox manually then you should also move the lock file
-
-mv system\_api\_keys.lbox ...
-
-mv .system\_api\_keys.lbox.lock ...
-
-You should also tell reVault to forget the lockbox:
-
-lbx session forget&#x20;
-
-
+Commands that extract or move data create missing destination parent directories. An existing destination is not silently replaced unless the command explicitly offers and receives an overwrite option.
 

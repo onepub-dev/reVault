@@ -1,0 +1,46 @@
+name: Manual
+
+on:
+  pull_request:
+    paths:
+      - 'manual/**'
+      - 'bindings/*/README.md'
+      - '.github/scripts/check_manual.rb'
+      - '.github/scripts/manual_cli_forms.txt'
+      - '.github/workflows/manual.yml'
+      - 'rust/revault_cli/**'
+      - 'rust/revault_key_server/src/main.rs'
+      - 'rust/revault_cli/Cargo.toml'
+      - 'rust/revault_key_server/Cargo.toml'
+  push:
+    branches: [master]
+    paths:
+      - 'manual/**'
+      - 'bindings/*/README.md'
+      - '.github/scripts/check_manual.rb'
+      - '.github/scripts/manual_cli_forms.txt'
+      - '.github/workflows/manual.yml'
+      - 'rust/revault_cli/**'
+      - 'rust/revault_key_server/src/main.rs'
+      - 'rust/revault_cli/Cargo.toml'
+      - 'rust/revault_key_server/Cargo.toml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Install native CLI dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - name: Build the documented CLI parser
+        working-directory: rust
+        run: cargo build --locked -p revault_cli
+      - name: Validate GitBook and executable command forms
+        run: ruby .github/scripts/check_manual.rb rust/target/debug/lbx

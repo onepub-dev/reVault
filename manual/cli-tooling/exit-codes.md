@@ -20,6 +20,6 @@ The stable exit codes are&#x20;
 
 
 
-In particular, exit code `10` means the caller should ask the user to run `lbx open <lockbox>` and retry.&#x20;
+In particular, exit code `10` means the caller should ask the user to run `lbx <lockbox> open` and retry.&#x20;
 
 Error descriptions and recovery guidance are written to standard error and may change over time without changing these numeric codes.

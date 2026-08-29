@@ -1,55 +1,67 @@
-# Configuration
+---
+description: "Configure and operate a reVault key-sharing server."
+---
 
-## Key Server Configuration
+# Key-server configuration
 
-The reVault key server reads its server configuration from a TOML-style config file.
+Each `revault_key_server` process provides publishing, receiving, topology and optional replication endpoints. There is no separate topology-server program.
 
-Default path:
+Production operation requires a separate commercial licence.
 
-```
-/etc/lockbox/key-server.toml
-```
-
-When installed with:
+## Install the service
 
 ```bash
-cargo install lockbox_key_server
-sudo lockbox_key_server install
+cargo install revault_key_server
+sudo revault_key_server install
+sudo revault_key_server doctor
 ```
 
-the installer creates the config file if it does not already exist. Use `--force-config` only when you intentionally want to replace the existing bootstrap config.
+The Linux installer creates:
 
-Production operation of the key/topology server requires a separate commercial license.
+| Purpose | Path |
+| --- | --- |
+| Executable | `/usr/local/bin/revault_key_server` |
+| Configuration | `/etc/revault/key-server.toml` |
+| State | `/var/lib/revault-key-server` |
+| Log | `/var/log/revault-key-server/server.log` |
+| systemd unit | `/etc/systemd/system/revault_key_server.service` |
 
-### Default Config
+`install` preserves an existing configuration. `install --force-config` deliberately replaces it with the bootstrap template.
+
+{% hint style="danger" %}
+Keep the configuration readable only by the service account and administrators. It may contain SMTP, topology and replication credentials.
+{% endhint %}
+
+## Bootstrap configuration
+
+The installed template listens on loopback so that a production TLS reverse proxy can expose it deliberately:
 
 ```toml
-bind_addr = "0.0.0.0:8089"
-state_dir = "/var/lib/lockbox-key-server"
+bind_addr = "127.0.0.1:8089"
+state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
 cluster_id = "default"
-public_url = "https://keyshare0.revault.onepub.dev/v1/share"
-
+public_url = "https://keyshare0.example.com/v1/publish"
 topology_version = 1
-
 origin_epoch = 1
 
-default_ttl_seconds = 900
-max_ttl_seconds = 900
+verification_ttl_seconds = 1800
+default_receive_ttl_seconds = 7200
+max_receive_ttl_seconds = 7200
 max_payload_bytes = 8192
 max_receives_per_publish = 8
 
 rate_limit_per_minute = 120
 rate_limit_burst = 40
 
-smtp_host = "smtp.gmail.com"
+smtp_host = "smtp.example.com"
 smtp_port = 587
-smtp_username = ""
-smtp_password = ""
-smtp_from = ""
+smtp_username = "publisher@example.com"
+smtp_password = "replace-me"
+smtp_from = "publisher@example.com"
 smtp_tls = "starttls"
-smtp_timeout_seconds = 300
+smtp_timeout_seconds = 30
 
 verification_email_subject = "Verify your reVault publish"
 verification_email_template = "Verify {email} for this reVault publish:\n\n{verification_url}\n\nThis link expires in 30 minutes."
@@ -58,7 +70,7 @@ verification_email_ip_rate_limit_per_hour = 30
 
 [[topology_server]]
 id = 0
-url = "https://keyshare0.revault.onepub.dev/v1/share"
+url = "https://keyshare0.example.com/v1/publish"
 status = "active"
 
 [[route]]
@@ -67,392 +79,78 @@ primary = 0
 failover = []
 ```
 
-### File Format
+The public member URL is always the `/v1/publish` endpoint. Peers and clients derive `/v1/topology`, `/v1/topology/register` and the other endpoints from the same origin.
 
-The config file uses TOML-style scalar `key = value` settings plus arrays of tables for topology members and routes.
+## Core settings
 
-Comments are supported:
+| Key | Runtime default | Purpose |
+| --- | --- | --- |
+| `bind_addr` | `127.0.0.1:8089` | Local listening address. |
+| `state_dir` | `/var/lib/revault-key-server` | Persistent publish, index, replication and server-secret state. |
+| `server_id` | `0` | Stable member/owner identifier from `0` to `35`. |
+| `cluster_id` | `default` | Cluster name; identical on cooperating members. |
+| `public_url` | derived locally | Reachable HTTPS `/v1/publish` URL. Set this explicitly in production. |
+| `developer_mode` | `false` | Enables temporary developer behaviour. Never enable it in production. |
+
+Keep `server_id` stable when replacing a machine. Set `origin_epoch` to a stable deployment value; changing it affects replication conflict and idempotency tracking.
+
+## Publish and email limits
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `verification_ttl_seconds` | `1800` | Lifetime of the email-verification link. |
+| `default_receive_ttl_seconds` | `7200` | Default receive window after verification. |
+| `max_receive_ttl_seconds` | `7200` | Maximum client-requested receive window. |
+| `max_payload_bytes` | `8192` | Maximum encoded public Profile payload. |
+| `max_receives_per_publish` | `8` | Successful receives allowed per publish. |
+| `rate_limit_per_minute` | `120` | Per-IP public request rate; `0` disables it. |
+| `rate_limit_burst` | `40` | Per-IP burst capacity. |
+
+Email settings are `smtp_host`, `smtp_port`, `smtp_username`, `smtp_password`, `smtp_from`, `smtp_tls` and `smtp_timeout_seconds`. Valid TLS modes are `starttls`, `tls` and `none`; do not use `none` across an untrusted network.
+
+The subject and body support `{email}`, `{publish_code}` and `{verification_url}`. Configure them with `verification_email_subject` and `verification_email_template`. The per-address and per-IP hourly controls are `verification_email_rate_limit_per_hour` and `verification_email_ip_rate_limit_per_hour`; `0` disables the corresponding limit.
+
+## Topology and replication
+
+The topology settings are:
+
+* `topology_version`
+* `topology_token`
+* `topology_stale_after_ms` (default `90000`)
+* `topology_heartbeat_interval_ms` (default `30000`)
+* one or more `[[topology_server]]` tables
+* optional `[[route]]` tables
+
+Read [Topology and failover](../topology-server.md) before configuring more than one member.
+
+Replication uses `replication_token` and one or more `replication_peer_url` values pointing to `/v1/replicate`. `promoted_owner` authorises a standby to serve a failed owner's publishes. It may be repeated. Promotion is an explicit operator action.
 
 ```toml
-# Listen on all interfaces
-bind_addr = "0.0.0.0:8089"
-```
-
-String values may be quoted:
-
-```toml
-cluster_id = "production"
-```
-
-Numeric and boolean values do not need quotes:
-
-```toml
-server_id = 0
-developer_mode = false
-```
-
-Some scalar keys may be repeated to create lists:
-
-```toml
+topology_token = "replace-with-a-long-random-topology-secret"
+replication_token = "replace-with-a-different-long-random-secret"
 replication_peer_url = "https://keyshare1.example.com/v1/replicate"
-replication_peer_url = "https://keyshare2.example.com/v1/replicate"
-```
-
-Topology members and routes use TOML arrays of tables:
-
-```toml
-[[topology_server]]
-id = 0
-url = "https://keyshare0.example.com/v1/share"
-status = "active"
-
-[[topology_server]]
-id = 1
-url = "https://keyshare1.example.com/v1/share"
-status = "standby"
-
-[[route]]
-owner = 0
-primary = 0
-failover = [1]
-```
-
-Unknown keys are rejected.
-
-### Core Server Settings
-
-| Key              | Default                                                                               | Description                                                                                                                                                                                                                                                                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `bind_addr`      | `127.0.0.1:8089`                                                                      | Local address and port the HTTP server binds to. The installed config uses `0.0.0.0:8089`.                                                                                                                                                                                                                                           |
-| `state_dir`      | `/var/lib/lockbox-key-server`                                                         | Directory used for persisted publish records, indexes, replication state, and server secret material.                                                                                                                                                                                                                                |
-| `server_id`      | `0`                                                                                   | Stable routing id for this server. Valid ids are `0..35`, written as `0..9`, `a..z`, or numeric values.                                                                                                                                                                                                                              |
-| `cluster_id`     | `default`                                                                             | Public cluster identifier returned in topology documents. All cooperating servers should use the same cluster id. You can use this to create a 'production' and a 'staging' cluster.                                                                                                                                                 |
-| `public_url`     | <p>derived from <code>bind_addr</code><br><code>&#x3C;bindaddr>/v1/publish</code></p> | External endpoint for this server's publish API. Clients and peer servers use this URL for publish, receive, delete, and replication routing. The default will not work on a for a public server as the bind address will normally be private.  A production url should be something like: https://keyserver0.example.com/v1/publish |
-| `developer_mode` | `false`                                                                               | Developer/test mode. Do not enable in production. When enabled, the server uses a temporary state directory which does not survive reboots.                                                                                                                                                                                          |
-
-### Publish Limits
-
-| Key                        | Default | Description                                                                                     |
-| -------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
-| `default_ttl_seconds`      | `900`   | Default publish lifetime when the client does not request a TTL.                                |
-| `max_ttl_seconds`          | `900`   | Maximum allowed publish lifetime. Client-requested TTLs are capped to this value.               |
-| `max_payload_bytes`        | `8192`  | Maximum encoded publish payload size accepted by the server.                                    |
-| `max_receives_per_publish` | `8`     | Maximum number of recieves allowed for a published key. A requested value above this is capped. |
-
-### Rate Limits
-
-We limit requests to each servers end point by IP address. Authenticated end points are generally not rate limited as they are used for inter-server communications which is trusted.
-
-| Key                     | Default | Description                                                                                                  |
-| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------ |
-| `rate_limit_per_minute` | `120`   | Per-IP request rate limit. Use `0` to disable. Unauthenticated `GET /v1/topology` requests use this limiter. |
-| `rate_limit_burst`      | `40`    | Per-IP burst capacity.                                                                                       |
-
-### Email Verification
-
-The key server requires a publisher email address for every publish. It sends an email verification link and keeps the publish pending until the email is verified. Receive attempts before verification fail with `EmailUnverified`, so the receiver can tell the publisher what is blocking the receive.
-
-| Key                                         | Default                       | Description                                                                                                       |
-| ------------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `smtp_host`                                 | empty                         | SMTP server hostname. The installed template uses `smtp.gmail.com` for Gmail.                                     |
-| `smtp_port`                                 | `587`                         | SMTP port. Gmail STARTTLS uses `587`; implicit TLS commonly uses `465`.                                           |
-| `smtp_username`                             | empty                         | SMTP username. For Gmail, use the Gmail address or configured account username.                                   |
-| `smtp_password`                             | empty                         | SMTP password. For Gmail accounts with 2-step verification, use an app password.                                  |
-| `smtp_from`                                 | empty                         | Sender email address. If empty, `smtp_username` is used.                                                          |
-| `smtp_tls`                                  | `starttls`                    | SMTP TLS mode: `starttls`, `tls`, or `none`.                                                                      |
-| `smtp_timeout_seconds`                      | `300`                         | SMTP send timeout. The default allows slow  SMTP transactions to complete.                                        |
-| `verification_email_subject`                | `Verify your reVault publish` | Subject template. Placeholders: `{email}`, `{publish_code}`, `{verification_url}`.                                |
-| `verification_email_template`               | see default config            | Plain text body template. Placeholders: `{email}`, `{publish_code}`, `{verification_url}`. Use `\n` for newlines. |
-| `verification_email_rate_limit_per_hour`    | `5`                           | Maximum verification emails per email address per hour. Use `0` to disable this limit.                            |
-| `verification_email_ip_rate_limit_per_hour` | `30`                          | Maximum verification emails per source IP per hour. Use `0` to disable this limit.                                |
-
-Example:
-
-```toml
-smtp_host = "smtp.gmail.com"
-smtp_port = 587
-smtp_username = "publisher@example.com"
-smtp_password = "gmail-app-password"
-smtp_from = "publisher@example.com"
-smtp_tls = "starttls"
-smtp_timeout_seconds = 300
-verification_email_subject = "Verify your reVault publish"
-verification_email_template = "Verify {email} for publish {publish_code}:\n\n{verification_url}\n\nThis link expires in 30 minutes."
-verification_email_rate_limit_per_hour = 5
-verification_email_ip_rate_limit_per_hour = 30
-```
-
-The SMTP send must succeed. A failed send causes the publish request to fail.
-
-### Topology Settings
-
-The key server exposes public routing metadata through its topology endpoint. Clients use this to route publish, receive, and delete operations to the correct server.
-
-| Key                              | Default        | Description                                                            |
-| -------------------------------- | -------------- | ---------------------------------------------------------------------- |
-| `topology_version`               | `1`            | Public topology version. Increase when making manual topology changes. |
-| `[[topology_server]]`            | none           | Adds a server to the public topology.                                  |
-| `[[route]]`                      | auto-generated | Adds an owner routing rule.                                            |
-| `topology_token`                 | none           | Published token used for topology heartbeat registration.              |
-| `topology_stale_after_ms`        | `90000`        | Ignore topology peers that have not checked in within this age.        |
-| `topology_heartbeat_interval_ms` | `30000`        | Interval between topology heartbeat posts.                             |
-
-#### `topology_server`
-
-Format:
-
-```toml
-[[topology_server]]
-id = 0
-url = "https://keyshare0.example.com/v1/publish"
-status = "active"
-```
-
-Valid statuses:
-
-```
-active
-standby
-promoted
-disabled
-```
-
-If `status` is omitted, `active` is used.
-
-Example:
-
-```toml
-[[topology_server]]
-id = 0
-url = "https://keyshare0.example.com/v1/publish"
-status = "active"
-
-[[topology_server]]
-id = 1
-url = "https://keyshare1.example.com/v1/publish"
-status = "standby"
-```
-
-#### `route`
-
-Format:
-
-```toml
-[[route]]
-owner = 0
-primary = 0
-failover = [1]
-```
-
-Example:
-
-```toml
-[[route]]
-owner = 0
-primary = 0
-failover = [1]
-
-[[route]]
-owner = 1
-primary = 1
-failover = [0]
-```
-
-This means:
-
-* published keys owned by server id `0` are served by server `0`, with server `1` as failover
-* published keys owned by server id `1` are served by server `1`, with server `0` as failover
-
-If no explicit routes are configured, the server builds ring routes from the configured topology servers.
-
-### Replication Settings
-
-Replication is used to copy publish state to peer servers. Replicated shares are not served by a standby unless that standby is explicitly promoted for the owner id.
-
-| Key                    | Default                      | Description                                                                                                  |
-| ---------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `replication_token`    | none                         | Shared secret used to sign and verify peer replication messages. Required for replication and `resync-peer`. |
-| `replication_peer_url` | none                         | Peer `/v1/replicate` endpoint. May be repeated.                                                              |
-| `origin_epoch`         | current time in milliseconds | Local replication epoch used for conflict/idempotency tracking. Installed bootstrap config sets this to `1`. |
-| `promoted_owner`       | none                         | Owner id this server is allowed to serve as a promoted standby. May be repeated.                             |
-
-Example two-server replication pair:
-
-```toml
-# server 0
-server_id = 0
-replication_token = "replace-with-a-long-random-secret"
-replication_peer_url = "https://keyshare1.example.com/v1/replicate"
-
-[[route]]
-owner = 0
-primary = 0
-failover = [1]
-
-[[route]]
-owner = 1
-primary = 1
-failover = [0]
-```
-
-```toml
-# server 1
-server_id = 1
-replication_token = "replace-with-a-long-random-secret"
-replication_peer_url = "https://keyshare0.example.com/v1/replicate"
-
-[[route]]
-owner = 0
-primary = 0
-failover = [1]
-
-[[route]]
-owner = 1
-primary = 1
-failover = [0]
-```
-
-To promote server `1` to serve published keys owned by server `0`:
-
-```toml
-server_id = 1
 promoted_owner = 0
 ```
 
-Only promote a standby when the original owner is no longer serving that owner id.
+Use `revault_key_server resync-peer --peer-url https://keyshare1.example.com/v1/replicate` after a peer has missed replication state.
 
-### Storage Settings
+## Storage settings
 
-| Key                   | Default    | Description                                                             |
-| --------------------- | ---------- | ----------------------------------------------------------------------- |
-| `shard_count`         | `16`       | Number of local store shards. Usually leave unchanged after deployment. |
-| `index_cache_entries` | `65536`    | Maximum cached index entries.                                           |
-| `compact_min_bytes`   | `60000000` | Segment size threshold before background compaction is considered.      |
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `shard_count` | `16` | Number of local store shards. |
+| `index_cache_entries` | `65536` | Maximum cached index entries. |
+| `compact_min_bytes` | `67108864` | Segment threshold before background compaction. |
 
-### Single Server Example
+Choose these before production deployment and change them only with a tested migration plan.
 
-```toml
-bind_addr = "0.0.0.0:8089"
-state_dir = "/var/lib/lockbox-key-server"
+## Operate and diagnose
 
-server_id = 0
-cluster_id = "production"
-public_url = "https://keyshare.example.com/v1/publish"
-
-topology_version = 1
-
-default_ttl_seconds = 900
-max_ttl_seconds = 900
-max_payload_bytes = 8192
-max_receives_per_publish = 8
-
-rate_limit_per_minute = 120
-rate_limit_burst = 40
-
-verification_email_command = "/usr/local/bin/send-revault-verification-email"
-verification_email_rate_limit_per_hour = 5
-verification_email_ip_rate_limit_per_hour = 30
-
-[[topology_server]]
-id = 0
-url = "https://keyshare.example.com/v1/publish"
-status = "active"
-
-[[route]]
-owner = 0
-primary = 0
-failover = []
+```bash
+sudo revault_key_server doctor
+sudo revault_key_server stop
+sudo revault_key_server start
+sudo journalctl -u revault_key_server -n 50 --no-pager
 ```
 
-### Two Server Example
-
-Server 0:
-
-```toml
-bind_addr = "0.0.0.0:8089"
-state_dir = "/var/lib/lockbox-key-server"
-
-server_id = 0
-cluster_id = "production"
-public_url = "https://keyshare0.example.com/v1/publish"
-
-topology_version = 1
-
-[[topology_server]]
-id = 0
-url = "https://keyshare0.example.com/v1/publish"
-status = "active"
-
-[[topology_server]]
-id = 1
-url = "https://keyshare1.example.com/v1/publish"
-status = "active"
-
-[[route]]
-owner = 0
-primary = 0
-failover = [1]
-
-[[route]]
-owner = 1
-primary = 1
-failover = [0]
-
-replication_token = "replace-with-a-long-random-secret"
-replication_peer_url = "https://keyshare1.example.com/v1/replicate"
-
-default_ttl_seconds = 900
-max_ttl_seconds = 900
-max_payload_bytes = 8192
-max_receives_per_publish = 8
-```
-
-Server 1:
-
-```toml
-bind_addr = "0.0.0.0:8089"
-state_dir = "/var/lib/lockbox-key-server"
-
-server_id = 1
-cluster_id = "production"
-public_url = "https://keyshare1.example.com/v1/publish"
-
-topology_version = 1
-
-[[topology_server]]
-id = 0
-url = "https://keyshare0.example.com/v1/publish"
-status = "active"
-
-[[topology_server]]
-id = 1
-url = "https://keyshare1.example.com/v1/publish"
-status = "active"
-
-[[route]]
-owner = 0
-primary = 0
-failover = [1]
-
-[[route]]
-owner = 1
-primary = 1
-failover = [0]
-
-replication_token = "replace-with-a-long-random-secret"
-replication_peer_url = "https://keyshare0.example.com/v1/replicate"
-
-default_ttl_seconds = 900
-max_ttl_seconds = 900
-max_payload_bytes = 8192
-max_receives_per_publish = 8
-```
-
-### Operational Notes
-
-* Keep `server_id` stable. A replacement machine serving the same owner id must use the same `server_id`.
-* Set `public_url` in production. Do not rely on the bind address being publicly meaningful.
-* Protect the config file if it contains `replication_token`.
-* Do not enable `developer_mode` in production.
-* Do not use DNS round-robin as the only failover mechanism. Clients use topology and the publish-code routing id to find the correct owner server.
-* The server stores durable state under `state_dir`; we generally don't recommend that you backup the state directory contents as the records it holds have a short lifespan of 15 minutes so any restored records will have already expired by the time the restore completes. If you specify a longer max\_ttl\_seconds then you might consider restoring records.
+Run the exact installed version's `--help` before using developer or recovery options. Unknown configuration keys are rejected, and `doctor` reports invalid configuration, incomplete SMTP settings, legacy paths and service-account permission problems.

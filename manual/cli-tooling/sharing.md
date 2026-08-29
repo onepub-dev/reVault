@@ -1,157 +1,79 @@
 ---
-description: All of the ways you can share a lockbox.
+description: Exchange trusted public keys and share a Lockbox.
 ---
 
 # Sharing
 
-Lockboxes are great at keeping your critical data secret but they are also designed to be shared.
+A Lockbox may grant access to more than one Profile. To share one, first save the other person's public Profile as a Contact, then grant that Contact access.
 
-You can share a lockbox with an associate by adding their key (public key) to a lockbox.
+Public keys are safe to share. Private keys and Profile backups are not.
 
-Public keys ( the public part of a master key) are designed to be shared and it is completely safe to publish them somewhere publicly visible.  (NEVER share a PRIVATE KEY!).
+## Establish trust
 
-### Trust
+The difficult part of exchanging a public key is proving who owns it. reVault gives the key a fingerprint: a short representation you can compare through a second, independent channel.
 
-The problem with public keys is establishing the owner of a public key, we refer to this a establishing trust - trust that the public key is owned by who you think it is.&#x20;
-
-Establishing trust in a public key is both CRITICAL and difficult. reVault aims to make this process easier but you still need to take a number of actions to ensure that you can trust a public key.&#x20;
-
-Historically, if Alice sent you a public key and said "this is my key", you could often rely on:
-
-* Email address it came from
-* Social media accounts
-* Websites
-* Human-written communications
-
-AI makes impersonation dramatically easier because:
-
-* AI is great at writing convincing Emails (and keeps getting better).
-* Voice calls can be cloned.
-* Video calls can be deepfaked.
-* Websites can be copied.
-* Social media accounts can be automated.
-
-So the question is how do I establish trust in a key.
-
-If you don't establish trust in the key then you may be giving your data away to unscrupulous individuals or organisations!
-
-#### The recommend standard: multiple independent trust channels
-
-The way we attempt to establish trust is to use more than a single communications channel.  To achieve this we use two communications channels and two seperate items.
-
-The items are:
-
-* the public key we wish to receive
-* a fingerprint of the public key
-
-A fingerprint for a public key is very much like a human fingerprint in that it is unique to the public key. The fingerprint is a large number which is generated via some clever maths that we don't need to worry about.  What the fingerprint allows us to do is check that it belongs to the public key.
-
-Now that we have two separate items we can communication each in turn via different communications channels.
-
-
-
-### The gold standard
-
-If security and trust is critical then you should consider exchanging the key and fingerprint IN PERSON as whilst two separate channels being compromised is difficult - it isn't impossible.
-
-### Exchanging Keys
-
-Now we understand the importance of trust we can look at some of the practical methods for sharing keys and their fingerprint.
-
-### Sharing a Key
-
-reVault operates a key server to help solve the trust issue.&#x20;
-
-The reVault server provides one channel of a two channel trust model for the public keys it shares.
-
-NOTE: you should never trust the reVault server on its own - it could be hacked at some point or secretly taken over by a government authority (yes this is a real concern).&#x20;
-
-The reVault Key Server requires a publisher to verify their email address when publishing a key.&#x20;
-
-* When the user issues a publish command they pass in their email address
-* the server sends an email to the user containing a validation link.&#x20;
-* Clicking the link sends a verification token back to the server causing it to mark the published key as verified (but not trusted).
-
-```
-lbx vault publish [identity] 
-> Your public key has been published with the following fingerprint:
-XX XX XX XX XX XX
-Do not send the fingerprint, ask the user to call you to obtain it.
-```
-
-The identity must have an email address associated with it. If not the publish command will fail asking the user to update the identity with an email address.
-
-The publish command prints the email address the key was associated with and informs the user to check their inbox.
-
-NOTE: the reVault server is able to establish that the publisher had access to the email inbox at the time the key was published. It cannot:
-
-* legal identity
-* employment
-* authority
-* long term key ownership
-
-### Receiving a Key
-
-The user runs the receive command to accept a published key:
-
-```
-lbx vault receive [contact name]
-Public Key has been received. You need to verify the Public Key by asking the publisher
-for its fingerprint.
-You MUST be the ONE TO INITIATE the communication. If the PUBLISHER SENDS you the fingerprint 
-DO NOT ACCEPT IT - it may be a phising attack.
-Contact the pubisher over a communications channel that you ALREADY trust - not one just supplied.
-
-fingerprint:
-```
-
-The public key will be added to the list of contacts in your vault.
-
-Now that you have entered the fingerprint you now have a trusted key - at least as much as you trust the communication channels you used.
-
-If uncertain - go back to the [gold standard](sharing.md#the-gold-standard).
-
-### Sharing
-
-Now that you have a trusted public key you can use it to share a lockbox with the owner.
-
-To create a lockbox for a contact:
+For example, Alice can publish her `default` Profile:
 
 ```bash
-lbx create --for <contact name> shared.lbox
+lbx vault profile email default alice@example.com
+lbx vault profile publish default
 ```
 
-To give access to an existing lockbox:
-
-```
-lbx access add shared.lbox <contact name>
-```
-
-You can add access for any number of contacts to a single lockbox.
-
-You can now safely email your lockbox to your associate(s) in the knowledge that only they can open the lockbox.&#x20;
-
-
-
-## Alternate Key Exchange methods
-
-If you don't trust the reVault Key Exchange server you can have your associate export their public key and send it to you.
-
-Export your public key:
+The service verifies control of the email address and returns a publish code. Alice sends that code to Bob. Bob receives the Profile and chooses a local Contact name:
 
 ```bash
-lockbox vault identity export default ./default.pub
-> fingerprint: xx xx xx xx...
+lbx vault contact receive <publish-code> alice
 ```
 
-They can now send you their public key via email or similar and then you can call them, using a number you already trust, to obtain the fingerprint.
+Bob must compare the fingerprint with Alice through a channel he already trusts. He should initiate that contact himself. An email address proves access to an inbox at one point in time; it does not prove a legal identity, employment, authority or continuing ownership.
 
-You then import the public key via:
+{% hint style="warning" %}
+Do not accept a fingerprint that arrives unsolicited alongside the public key. An attacker who replaced one may be able to replace both.
+{% endhint %}
 
+Where the consequences are serious, exchange and compare the key in person.
+
+## Grant access
+
+Once the Contact is trusted, grant access to an existing Lockbox:
+
+```bash
+lbx shared.lbox access grant alice
+lbx shared.lbox access list
 ```
-lbx vault contact import alice ./default.pub
-> Enter the fingerprint: 
+
+You can also create a Lockbox for a Contact from the outset:
+
+```bash
+lbx shared.lbox create --for alice
 ```
 
+The Lockbox file itself can then travel through an untrusted channel. Its encrypted contents are accessible only to Profiles named in its access records.
 
+Revoke future access to copies you control with:
+
+```bash
+lbx shared.lbox access revoke alice
+```
+
+Revocation cannot erase a copy or key the Contact already possesses. If previously shared material must no longer be trusted, create new keys and redistribute a new Lockbox to the remaining recipients.
+
+## Exchange without the service
+
+Export your public Profile:
+
+```bash
+lbx vault profile export ./default.pub
+lbx vault profile fingerprint default
+```
+
+The recipient imports it after independently obtaining and checking the fingerprint:
+
+```bash
+lbx vault contact import alice ./default.pub \
+  --fingerprint <fingerprint-code> \
+  --fingerprint-channel phone-call-to-owner
+```
+
+The channel description records how the verification was performed.
 

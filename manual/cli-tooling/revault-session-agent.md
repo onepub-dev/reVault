@@ -1,207 +1,67 @@
 ---
-description: A technical discussion on what the agent does and how it operates.
+description: How the local Session Agent works and what it protects.
 ---
 
 # reVault Session Agent
 
-The reVault Session Agent is a background process that streamlines access to your local Lockboxes.&#x20;
+The reVault Session Agent is a local, per-user process. It keeps the content keys of open Lockboxes in memory so that a sequence of commands does not require your Vault passphrase each time.
 
-The Session Agent  is a local, per-user process that avoids re-prompting for passphrases while reducing exposure of decrypted keys and secrets.&#x20;
+The first command that needs the agent starts it automatically. It communicates only through a user-scoped local socket on Unix-like systems or a named pipe on Windows.
 
-The session is started automatically when you run you first reVault command after logging into your desktop session.  It remains running until you logout. &#x20;
+## What it does
 
-You should also read the section on [Session Management](session-management.md) to understand how the Session Agent obtains access to the vault passphrase.
+The agent:
 
-The Session performs a number of functions but one of its most important is its ability to cache  caches the content keys of any open lockboxes.&#x20;
+* caches content keys for open Lockboxes;
+* expires inactive entries after their time to live;
+* extends an entry's expiry when it is used;
+* clears cached keys when the machine starts to suspend;
+* can prevent sleep while a secret operation is active; and
+* can terminate an active secret operation if the machine nevertheless suspends.
 
-The Session agent allows you to work with a lockbox without  having to re-enter your vault passphrase every time you access a lockbox.
+The default Lockbox session duration is 15 minutes. You can choose another duration when opening a Lockbox:
 
-If your platform supports secure storage and you have it enabled then you can securely open a lockbox without entering any password.
-
-So there are three scenarios.
-
-1. Not platform secure storage and no session agent
-
-Using `lbx open` provides no benefits
-
-```
-lockbox open mystuff.lbox 
-> enter your vault passphrase
-lockbox add *.dart mystuff.lbox
-lockbox property set APIKEY=XXXXXX
-
+```bash
+lbx secrets.lbox open --duration 1h
 ```
 
-Note: if you have platform integration enable then you won't be asked to enter your password as it can be fetched from the platform's secure storage layer.
+Use `lbx session` to see open sessions, `lbx session close-all` to clear them, or `lbx session stop` to clear them and stop the agent.
 
-2. No platform secure store, session agent operates
+## Agent and Auto Open
 
-Once a lockbox is opened its content key is stored in-memory for the duration of an interactive session.&#x20;
+The agent does **not** normally retain your Vault passphrase. [Auto Open](session-management.md#auto-open) is the separate feature that stores that passphrase in your operating system's secure credential store.
 
-Product name: **Lockbox Session Agent**.
+This distinction matters. Closing a Lockbox clears its cached content key, but Auto Open may still allow a later command to unlock the Vault and open the Lockbox again.
 
-### What it does
+## Suspend protection
 
-* Stores temporary cache entries for lockbox content keys.
-* Returns cached keys to subsequent commands.
-* Evicts entries automatically by TTL or on inactivity.
-* Clears all cached entries when the machine is suspending.
-* Provides diagnostics for running sessions and explicit lock operations.
+The following configuration values default to `true`:
 
-If your platform supports the reVault Session Agent's Sleep Management then the Session Agent attempts to protect your secrets in three ways:
+```toml
+agent.prevent_sleep = true
+agent.terminate_on_suspend = true
+```
 
-1\) on supported platforms it will attempt to stop your PC from suspending if an archive operation is in progress. This is important as a PC suspends by writing all memory to disk which may include secrets held by an open lockbox.&#x20;
+`prevent_sleep` asks the operating system to remain awake while a sensitive operation is active. `terminate_on_suspend` stops registered reVault operations if suspension cannot be prevented. Cached content keys are cleared on a suspend request in either case.
 
-2\)  on supported platforms the session agent is also able to flush secrets from memory if your desktop attempts to suspend the user session.
+Environment variables can override these values:
 
-3\) on supported platforms, if the session agent is unable to stop your PC from suspending then it will terminate any revault process that is running archival operations.
+```text
+LOCKBOX_AGENT_PREVENT_SLEEP
+LOCKBOX_AGENT_TERMINATE_ON_SUSPEND
+```
 
+See [Configuration file](../configuration-file.md) for file locations and precedence.
 
+## Diagnostics and logging
 
-### Design
+Start with:
 
-The feature is implemented in `lockbox_vault`:
+```bash
+lbx doctor
+lbx session
+```
 
-* `lockbox_vault::get` / `put` / `forget` / `forget_all` / `list` / `stop` call into a platform client module.
-* Client calls are made through local IPC transport:
-  * Unix: Unix-domain socket.
-  * Windows: named pipe.
-* The agent process can run in-process (same binary) when started with `__agent`.
-* CLI startup code dispatches `__agent` and `__agent_security_check` internally before normal subcommand parsing.
+Set `LOCKBOX_SESSION_AGENT_LOG` to a file path when you need an explicit agent log. Without it, the agent uses platform logging with a local file fallback.
 
-### Transport + protocol
-
-Requests share a compact binary frame with:
-
-* Header: 9 bytes (`LBX2` magic + message type + u32 payload length LE).
-* Maximum message size: 128 KiB.
-
-#### Cache operations
-
-Cache messages:
-
-* `get` → `cache-miss` / `cache-key` / protocol errors.
-* `put` → store a key with optional path and TTL.
-* `forget` / `forget-all` → remove one or all cached entries.
-* `stop` → clear all cached entries and terminate agent.
-* `list` → list cached lockboxes for diagnostics.
-
-The key payload stores:
-
-* lockbox id
-* key length + key bytes
-* optional path string for diagnostics
-* TTL in seconds
-
-TTL defaults to 15 minutes when omitted. A `get` hit extends the expiry time (sliding TTL).
-
-#### Control path (sleep behavior)
-
-The same transport also supports control messages to track command activity:
-
-* register secret activity (`pid`, `kind`) and returns a token
-* unregister activity (`pid`, `token`)
-
-`SecretActivityKind` values currently include:
-
-* `unlock`
-* `open`
-* `env`
-* `form`
-* `recovery`
-* `vault`
-
-The control path is used by high-level commands that perform secret operations to keep the machine awake for sensitive work and optionally terminate those processes if suspend is requested.
-
-### Lifecycle
-
-* On first cache operation, client code ensures an agent is running.
-* If absent, the client starts the current binary with `__agent` and waits briefly for the endpoint to become available.
-* Server loop runs until:
-  * an explicit `stop` request arrives, or
-  * 10 minutes of inactivity are observed with no cached secrets and no active secret operations.
-
-### TTL and inactivity behavior
-
-* Default TTL: 15 minutes.
-* TTL is validated as positive.
-* Inactive cache entries are pruned on accept loop and when servicing requests.
-* Cache-hit extends expiry by another TTL period.
-* `lockbox vault sessions lock-all` clears all cached entries from the CLI side.
-* `lockbox vault sessions lock <lockbox>` clears one path from the CLI side.
-
-### Platform notes
-
-* Unix
-  * Socket directory defaults to:
-    * `LOCKBOX_SESSION_AGENT_DIR` (if set), else
-    * `${XDG_RUNTIME_DIR}/lockbox`, else
-    * a temporary per-user fallback in `std::env::temp_dir()`.
-  * Socket is created as `agent.sock`.
-  * Parent directory permissions are set to `0700`.
-* Windows
-  * Named pipe is `\\.\pipe\lockbox-agent-<scope>`.
-  * Scope includes user and, when `LOCKBOX_SESSION_AGENT_DIR` is set, a hash of that value to avoid cross-profile collisions.
-  * Pipe ACL is owner-only.
-
-### Sleep and security behavior
-
-Configuration (defaults are true):
-
-* `agent.prevent_sleep` / `agent.suspend_inhibit` (config file)
-* `agent.terminate_on_suspend` (config file)
-* `LOCKBOX_AGENT_PREVENT_SLEEP` (environment override)
-* `LOCKBOX_AGENT_TERMINATE_ON_SUSPEND` (environment override)
-
-Configuration source order:
-
-* `LOCKBOX_AGENT_CONFIG` if set.
-* else `LOCKBOX_CONFIG`.
-* else platform default:
-  * macOS: `~/Library/Application Support/reVault/config.toml`
-  * Windows: `%APPDATA%\reVault\config.toml` or `%LOCALAPPDATA%`
-  * Linux/Unix: `$XDG_CONFIG_HOME/lockbox/config.toml` or `~/.config/lockbox/config.toml`
-
-Behavior:
-
-* If prevent-sleep is enabled and there is at least one active secret activity, the agent acquires a platform-specific sleep inhibitor.
-* On suspend request, cached keys are always cleared.
-* If terminate-on-suspend is enabled, registered active secret processes are terminated; otherwise they are kept in memory but no longer protected by a sleep inhibitor.
-
-### Logging
-
-`LOCKBOX_SESSION_AGENT_LOG` can point to a file path for explicit agent logging. Without it, platform logging is used with a file fallback:
-
-* Unix: platform logs (syslog) with fallback under local state cache.
-* Windows: Event Log source `reVault Agent`.
-
-### CLI surface
-
-The user-facing session controls live under `lockbox vault sessions`:
-
-* `lockbox vault sessions` — list currently unlocked sessions.
-* `lockbox vault sessions lock <lockbox>` — lock one lockbox.
-* `lockbox vault sessions lock-all` — lock everything.
-* `lockbox vault sessions stop` — stop the agent process.
-
-Session-related metadata is also exposed under `lockbox vault sessions auto-unlock` for password-helper integration (`status`, `enable`, `disable`, `forget`).
-
-`lockbox doctor` includes session-agent diagnostics and can help when auto-unlock or transport behavior looks wrong.
-
-### Security notes
-
-* Secrets are stored in-memory in process memory and never intentionally written to disk by the agent cache.
-* The transport is local-only and process-user scoped (`agent` process identity checks are used on Windows).
-* Control requests are plain binary frames; cache requests use secure frame encoding to reduce secret lifetime in transit.
-* The protocol intentionally returns explicit errors for malformed frames, invalid message sizes, and unsupported message types.
-
-### Naming
-
-Primary name: **Lockbox Session Agent**
-
-Alternative names:
-
-* Lockbox Key Relay
-* Lockbox Session Guard
-* reVault Cache Sentinel
-* unlock Cache Sentinel
+The agent is a convenience and exposure-reduction feature, not a sandbox. A process already running as your desktop user may be able to communicate with it. Protect the desktop session itself, and consider disabling Auto Open on particularly sensitive systems.

@@ -1,102 +1,66 @@
 # The Vault
 
-When you install reVault the first action you need to under take is to create a Vault.
+Your Vault stores the Profiles, Contacts and Lockbox records that make reVault practical to use. Its contents are encrypted, and its passphrase protects the keys that open your Lockboxes.
 
-Note: you can create lockboxes without a vault, but a Vault (along with the sesion agent) eliminates having to pass keys to every action on a lockbox.
+You will normally have one Vault on each device. Avoid synchronising a live Vault file between devices: two copies can diverge and overwrite key information. Use Vault and Profile backup commands instead.
 
 {% hint style="danger" %}
-**A vault is used to store all the keys to your lockboxes, so keeping a vault secure is CRITICAL.**&#x20;
+Keep a recoverable copy of the Vault passphrase. If you lose both the passphrase and every usable Profile backup, reVault cannot recover your Lockboxes.
 {% endhint %}
 
-You will (normally) only have a single vault per device; you can share a vault between devices but we don't recommend this as it can be hard to sync the vaults and you risk overwriting lockbox keys ( and losing access to those lockboxes) if you screw up the sync process.&#x20;
+## Create or verify the Vault
 
-reVault does allow you to use external passwords and external keys to access lockboxes but the Vault is the default way to store your passwords and keys and provides significant ergonomics over managing a gaggle of passwords and keys.
-
-The Vault stores its own contents in a standard  lockbox to ensure that its contents are secured.
-
-To access the Vault you must have the pass phrase originally entered or generated when creating the Vault. It is CRITICAL that you backup the vault pass phrase. Losing the vault pass phrase means that you lose access to the vault and ALL of your lockboxes.
-
-### Create the Vault
-
-To create the vault run:
-
-```
+```bash
 lbx vault init
 ```
 
-You will be prompted to enter or generate a passphrase for the vault. &#x20;
+If the Vault already exists, this reports its path and changes nothing. Ask reVault to verify that the existing Vault opens with:
 
-**DANGER**:&#x20;
-
-{% hint style="danger" %}
-It is CRITICAL that you backup the pass phrase. If you lose the passphrase you will lose access to all of you lockboxes.
-{% endhint %}
-
-### Verify the Vault
-
-You can verify the vault is intact by running:
-
-```
-lbx vault verify
+```bash
+lbx vault init --verify
 ```
 
-### Overwrite the vault
+`lbx vault init --overwrite` replaces the existing Vault. Use it only when you intend to discard records stored solely in that Vault; reVault makes a backup before replacing it.
 
-You can create a new vault by overwriting the existing vault. This EXTREMELY DANGEROUS.&#x20;
+## Back up and restore
 
-{% hint style="danger" %}
-Overwriting the existing vault will cause you to lose access to all existing lockboxes.
-{% endhint %}
+Create a checked, consistent backup with:
 
-To overwrite the existing vault run:
-
-```
-lbx vault init --overwrite
+```bash
+lbx vault backup ./vault-backup.rvlt
 ```
 
-The overwrite will backup the existing vault before creating the new vault.&#x20;
+The backup remains encrypted with the Vault passphrase. The command adds integrity metadata and flushes the completed backup before reporting success.
 
-You will be requested to enter a new password for the new vault.  It is CRITICAL that you backup the password. If you lose the password you will lose access to all of you lockboxes.
+Restore it with:
 
-## Backup
+```bash
+lbx vault restore ./vault-backup.rvlt
+```
 
-When you created you vault via 'init' you will have also backed up your vault passphrase, however you should also backup your vault from time to time is it contains important information such as your list of contacts and the public/private keys for each 'profile' used to open/close your Lockboxes.
-
-A vault is simply a Lockbox file, so whilst you can backup the lockbox containing your vault by simply copying the lockbox, we recommend using the backup command as:
-
-Compared with manually copying it, the command:
-
-* Locks the vault while reading, ensuring a consistent snapshot.
-* Stores the already-encrypted vault bytes in a recognised backup format.
-* Adds a manifest containing creation time, size, format version, and SHA-256 checksum.
-* Verifies size and checksum during lbx vault restore.
-* Prevents accidental replacement unless --overwrite is specified.
-* Flushes the completed backup to storage before reporting success.
-
-To backup your vault run:
-
-\`lbx vault backup \<backup path>
-
-NOTE:
-
-The backup file is encrypted using the original pass phrase you used to create the vault.
-
-As such if you loose your pass phrase you can not restore you vault.
-
-### Restore
-
-To restore a vault from backup run:
-
-`lbx vault restore <backup path>`
+Do not rely on a backup you have never tested. Keep at least one copy away from the device that holds the working Vault.
 
 ## Change the passphrase
 
-You can change the pass phrase protecting your vault (providing you know the existing passphrase).
+```bash
+lbx vault passphrase
+```
 
+Changing the passphrase does not change the keys belonging to your Profiles or Lockboxes. Update any separately recorded recovery information and review your Auto Open setting afterwards.
 
+## Remembered Lockboxes
 
-## Technical Details
+The Vault remembers Lockbox paths. If you move a Lockbox through the shell or a file manager, tell reVault where it went:
 
-You don't need to read the following to understand how to use your vault.
+```bash
+lbx vault lockbox move ./old.lbox ./archive/new.lbox
+```
 
-TODO: describe the vault data including the contents of its lockbox.
+You can inspect or remove remembered paths with:
+
+```bash
+lbx vault lockbox list
+lbx vault lockbox forget ./old-project.lbox
+```
+
+Forgetting a path does not delete the Lockbox.

@@ -1,0 +1,50 @@
+# Each prefix must reach the current CLI parser's help successfully.
+create
+secrets.lbox open
+secrets.lbox close
+damaged.lbox recover
+secrets.lbox add
+secrets.lbox extract
+secrets.lbox cat
+secrets.lbox list
+secrets.lbox remove
+secrets.lbox move
+secrets.lbox description set
+secrets.lbox variable set
+secrets.lbox variable export
+secrets.lbox form define
+secrets.lbox form add
+session
+session default
+session auto-open status
+secrets.lbox access grant
+doctor
+vault init
+vault backup
+vault restore
+vault profile create
+vault profile rotate
+vault contact receive
+vault lockbox move
+vault form define
+migrate vault
+migrate archive
+completion install
+
+# Representative documented option and argument forms.
+damaged.lbox recover --dry-run --format json
+damaged.lbox recover --output recovered.lbox
+project.lbox add --recursive ./project --to archive/project/
+project.lbox extract /docs/readme.md ./README.md
+project.lbox remove --recursive /old/
+project.lbox description set Project-Atlas
+secrets.lbox variable set API_TOKEN --secret --interactive
+secrets.lbox variable export --format json
+secrets.lbox form add /work/github --type login --name GitHub --interactive
+session auto-open disable
+vault profile backup ./production.profile-backup --name production
+vault profile restore ./production.profile-backup --name production
+vault contact import alice ./alice.pub --fingerprint example --fingerprint-channel in-person
+access refresh --all production --dry-run
+backup.lbox mirror project create --from ./project --to /projects/project
+backup.lbox mirror project rule add exclude *.tmp
