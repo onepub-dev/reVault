@@ -4,7 +4,8 @@ impl<State> Lockbox<State> {
     /// Creates an empty record from the newest matching form definition.
     ///
     /// `type_reference` may be a type id or unambiguous alias. The record path
-    /// must not already exist.
+    /// must not already exist. Missing parent directories are created with the
+    /// default directory permissions.
     pub fn create_form_record(
         &mut self,
         path: &LockboxPath,
@@ -15,7 +16,6 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         let path = path.file_path()?;
-        self.ensure_parent_directory(&path)?;
         let name = FormRecord::validated_name(name)?;
         self.ensure_forms_loaded()?;
         if self
@@ -29,6 +29,7 @@ impl<State> Lockbox<State> {
             return Err(Error::AlreadyExists(path.to_string()));
         }
         let definition = self.resolve_form_definition(type_reference)?;
+        self.create_parent_dirs_for(&path)?;
         let record = FormRecord {
             path: path.clone(),
             name,
@@ -59,7 +60,6 @@ impl<State> Lockbox<State> {
         State: crate::WritableLockboxState,
     {
         record.path = record.path.file_path()?;
-        self.ensure_parent_directory(&record.path)?;
         record.name = FormRecord::validated_name(&record.name)?;
         self.ensure_forms_loaded()?;
         let definition = self
@@ -115,6 +115,7 @@ impl<State> Lockbox<State> {
         {
             return Err(Error::AlreadyExists(path.to_string()));
         }
+        self.create_parent_dirs_for(&path)?;
         self.set_form_record_value(path, record)
     }
 

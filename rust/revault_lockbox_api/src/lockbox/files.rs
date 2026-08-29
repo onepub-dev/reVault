@@ -214,6 +214,9 @@ impl<State> Lockbox<State> {
 
     /// Add or replace a file from an in-memory byte slice.
     ///
+    /// Missing parent directories are created with the default directory
+    /// permissions when adding a new file.
+    ///
     /// When `replace` is `false`, returns `Error::AlreadyExists` if `path`
     /// already names an existing file or symlink. When `replace` is `true`,
     /// returns `Error::NotFound` if there is no existing entry to replace. Returns
@@ -227,6 +230,9 @@ impl<State> Lockbox<State> {
     }
 
     /// Add or replace a file with explicit Unix-style permissions.
+    ///
+    /// Missing parent directories are created with the default directory
+    /// permissions when adding a new file.
     ///
     /// `permissions` is a Unix mode value containing only the low permission
     /// bits, written in Rust as octal literals such as `0o600`, `0o640`, or
@@ -258,6 +264,9 @@ impl<State> Lockbox<State> {
 
     /// Add or replace a file by streaming bytes from a reader.
     ///
+    /// Missing parent directories are created with the default directory
+    /// permissions when adding a new file.
+    ///
     /// When `replace` is `false`, returns `Error::AlreadyExists` if `path`
     /// already names an existing file or symlink. When `replace` is `true`,
     /// returns `Error::NotFound` if there is no existing entry to replace. Returns
@@ -276,6 +285,9 @@ impl<State> Lockbox<State> {
     }
 
     /// Add or replace a file by reading from a host filesystem path.
+    ///
+    /// Missing parent directories are created with the default directory
+    /// permissions when adding a new file.
     ///
     /// When `replace` is `false`, returns `Error::AlreadyExists` if
     /// `destination` already names an existing file or symlink. When `replace`
@@ -309,6 +321,9 @@ impl<State> Lockbox<State> {
 
     /// Add or replace a streamed file with explicit Unix-style permissions.
     ///
+    /// Missing parent directories are created with the default directory
+    /// permissions when adding a new file.
+    ///
     /// `permissions` is a Unix mode value containing only the low permission
     /// bits, written in Rust as octal literals such as `0o600`, `0o640`, or
     /// `0o755`. File type bits, sticky/setuid/setgid bits, and platform ACLs
@@ -340,11 +355,14 @@ impl<State> Lockbox<State> {
         reader: impl Read,
         permissions: u32,
         replace: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let path = path.file_path()?;
         let permissions = validate_permissions(permissions)?;
-        self.ensure_parent_directory(&path)?;
         self.validate_replace_intent(&path, replace)?;
+        self.create_parent_dirs_for(&path)?;
         if self.should_discard_file_pages_after_flush()
             && self.pending_small_files.contains_key(path.as_str())
         {
@@ -825,11 +843,14 @@ impl<State> Lockbox<State> {
         data: &[u8],
         permissions: u32,
         replace: bool,
-    ) -> Result<()> {
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
         let path = path.file_path()?;
         let permissions = validate_permissions(permissions)?;
-        self.ensure_parent_directory(&path)?;
         self.validate_replace_intent(&path, replace)?;
+        self.create_parent_dirs_for(&path)?;
         if let Some(old) = self.toc_entries.get(path.as_str()).cloned() {
             self.free_entry_slots(old)?;
         }

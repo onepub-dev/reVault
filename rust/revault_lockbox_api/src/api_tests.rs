@@ -34,7 +34,6 @@ fn add_file<State>(
 where
     State: crate::WritableLockboxState,
 {
-    lb.create_parent_dirs_for(path)?;
     Lockbox::add_file(lb, path, data, replace)
 }
 
@@ -48,7 +47,6 @@ fn add_file_with_permissions<State>(
 where
     State: crate::WritableLockboxState,
 {
-    lb.create_parent_dirs_for(path)?;
     Lockbox::add_file_with_permissions(lb, path, data, permissions, replace)
 }
 
@@ -61,7 +59,6 @@ fn add_file_from_reader<State>(
 where
     State: crate::WritableLockboxState,
 {
-    lb.create_parent_dirs_for(path)?;
     Lockbox::add_file_from_reader(lb, path, reader, replace)
 }
 
@@ -74,7 +71,6 @@ fn add_file_from_path<State>(
 where
     State: crate::WritableLockboxState,
 {
-    lb.create_parent_dirs_for(destination)?;
     Lockbox::add_file_from_path(lb, source, destination, replace)
 }
 
@@ -87,7 +83,6 @@ fn add_symlink<State>(
 where
     State: crate::WritableLockboxState,
 {
-    lb.create_parent_dirs_for(path)?;
     Lockbox::add_symlink(lb, path, target, replace)
 }
 
@@ -100,7 +95,6 @@ fn create_form_record<State>(
 where
     State: crate::WritableLockboxState,
 {
-    lb.create_parent_dirs_for(path)?;
     Lockbox::create_form_record(lb, path, type_reference, name)
 }
 
@@ -349,6 +343,7 @@ fn add_file_requires_explicit_replace_intent() {
         add_file(&mut lb, &path, b"missing", true),
         Err(Error::NotFound(_))
     ));
+    assert!(!lb.exists(&p("/docs")));
 
     add_file(&mut lb, &path, b"alpha", false).unwrap();
     assert!(lb.exists(&path));
@@ -551,17 +546,25 @@ fn mutable_file_handle_can_create_and_truncate_files() {
 
     {
         let mut file = lb
-            .open_file_for_write(&p("/created.txt"), crate::OpenFileOptions::create())
+            .open_file_for_write(
+                &p("/generated/files/created.txt"),
+                crate::OpenFileOptions::create(),
+            )
             .unwrap();
         file.write_all(b"created").unwrap();
         file.close().unwrap();
     }
-    assert_eq!(lb.get_file(&p("/created.txt")).unwrap(), b"created");
+    assert!(lb.is_dir(&p("/generated")));
+    assert!(lb.is_dir(&p("/generated/files")));
+    assert_eq!(
+        lb.get_file(&p("/generated/files/created.txt")).unwrap(),
+        b"created"
+    );
 
     {
         let mut file = lb
             .open_file_for_write(
-                &p("/created.txt"),
+                &p("/generated/files/created.txt"),
                 crate::OpenFileOptions::create_truncate(),
             )
             .unwrap();
@@ -569,7 +572,10 @@ fn mutable_file_handle_can_create_and_truncate_files() {
         file.write_all(b"new").unwrap();
         file.close().unwrap();
     }
-    assert_eq!(lb.get_file(&p("/created.txt")).unwrap(), b"new");
+    assert_eq!(
+        lb.get_file(&p("/generated/files/created.txt")).unwrap(),
+        b"new"
+    );
 
     assert!(matches!(
         lb.open_file_for_write(&p("/missing.txt"), Default::default()),

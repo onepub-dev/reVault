@@ -13,6 +13,9 @@ use crate::{Error, Result};
 impl<State> Lockbox<State> {
     /// Add or replace a symbolic link.
     ///
+    /// Missing parent directories are created with the default directory
+    /// permissions when adding a new symbolic link.
+    ///
     /// When `replace` is `false`, returns `Error::AlreadyExists` if `path`
     /// already names an existing file or symlink. When `replace` is `true`,
     /// returns `Error::NotFound` if there is no existing entry to replace. Returns
@@ -30,8 +33,8 @@ impl<State> Lockbox<State> {
         let path = path.file_path()?;
         self.ensure_mirror_path_mutable(&path)?;
         let target = target.file_path()?;
-        self.ensure_parent_directory(&path)?;
         self.validate_replace_intent(&path, replace)?;
+        self.create_parent_dirs_for(&path)?;
         if self.should_discard_file_pages_after_flush()
             && self.pending_small_files.contains_key(path.as_str())
         {

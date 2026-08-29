@@ -101,8 +101,8 @@ pub use lockbox::{
     LockboxOwnerInspection, LockboxProtection, MirrorMissingFilePolicy, MirrorProject,
     OpenFileOptions, ReadOnly, RecoveryScanner, VariableValueRef, Writable, WritableLockboxState,
 };
-pub use lockbox_id::LockboxId;
 pub use lockbox_glob::LockboxGlob;
+pub use lockbox_id::LockboxId;
 pub use lockbox_path::LockboxPath;
 pub use page_inspection::{PageInspection, PageObjectInspection};
 pub use recovery_report::RecoveryReport;

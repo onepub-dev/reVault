@@ -43,10 +43,7 @@ impl KeyDirectoryCandidates {
                 directories.push(directory);
             }
             if directories.is_empty() {
-                directories.extend(scan_key_directories(
-                    &storage.read_all()?,
-                    Some(lockbox_id),
-                ));
+                directories.extend(scan_key_directories(&storage.read_all()?, Some(lockbox_id)));
             }
         } else {
             directories.extend(scan_key_directories(&storage.read_all()?, None));

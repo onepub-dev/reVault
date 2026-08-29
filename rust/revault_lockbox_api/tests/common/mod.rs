@@ -31,7 +31,6 @@ pub fn add_file<State>(
 where
     State: WritableLockboxState,
 {
-    lb.create_parent_dirs_for(path)?;
     Lockbox::add_file(lb, path, data, replace)
 }
 
@@ -45,7 +44,6 @@ pub fn add_file_with_permissions<State>(
 where
     State: WritableLockboxState,
 {
-    lb.create_parent_dirs_for(path)?;
     Lockbox::add_file_with_permissions(lb, path, data, permissions, replace)
 }
 
@@ -58,7 +56,6 @@ pub fn add_file_from_reader<State>(
 where
     State: WritableLockboxState,
 {
-    lb.create_parent_dirs_for(path)?;
     Lockbox::add_file_from_reader(lb, path, reader, replace)
 }
 
@@ -71,7 +68,6 @@ pub fn add_file_from_path<State>(
 where
     State: WritableLockboxState,
 {
-    lb.create_parent_dirs_for(destination)?;
     Lockbox::add_file_from_path(lb, source, destination, replace)
 }
 
@@ -84,7 +80,6 @@ pub fn add_symlink<State>(
 where
     State: WritableLockboxState,
 {
-    lb.create_parent_dirs_for(path)?;
     Lockbox::add_symlink(lb, path, target, replace)
 }
 

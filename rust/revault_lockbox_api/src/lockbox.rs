@@ -35,9 +35,9 @@ use crate::storage::{Storage, StorageBackend};
 use crate::toc_entry::TocEntry;
 use crate::variable_btree::{VariableLeaf, VariableTreeNode, VariableValue};
 use crate::{
-    CacheStats, Error, LockboxOptions, RecoveryReport, Result,
-    TransactionRecoveryPhase, TransactionRecoveryProgress, TransactionRecoveryStatus, VariableName,
-    WorkerPolicy, WorkloadProfile,
+    CacheStats, Error, LockboxOptions, RecoveryReport, Result, TransactionRecoveryPhase,
+    TransactionRecoveryProgress, TransactionRecoveryStatus, VariableName, WorkerPolicy,
+    WorkloadProfile,
 };
 use zeroize::{Zeroize, Zeroizing};
 
@@ -960,8 +960,8 @@ impl Lockbox {
             });
         }
 
-        let directories = key_directory_candidates::KeyDirectoryCandidates::from_storage(&storage)?
-            .into_ranked();
+        let directories =
+            key_directory_candidates::KeyDirectoryCandidates::from_storage(&storage)?.into_ranked();
         let Some(best) = directories.first() else {
             return Err(Error::CorruptHeader);
         };

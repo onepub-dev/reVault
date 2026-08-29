@@ -87,6 +87,9 @@ pub struct LockboxFileMut<'a> {
 
 impl Lockbox<Writable> {
     /// Open a seekable read/write handle over a file inside the lockbox.
+    ///
+    /// When `options.create` is true, missing parent directories are created
+    /// with the default directory permissions.
     pub fn open_file_for_write(
         &mut self,
         path: &LockboxPath,
@@ -118,7 +121,7 @@ impl Lockbox<Writable> {
         } else if !options.create {
             return Err(Error::NotFound(path.to_string()));
         } else {
-            self.ensure_parent_directory(&path)?;
+            self.create_parent_dirs_for(&path)?;
         }
         let len = if options.truncate {
             0

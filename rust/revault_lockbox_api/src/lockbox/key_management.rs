@@ -892,9 +892,7 @@ impl Lockbox {
         self.compact()?;
         Ok(new_id)
     }
-
 }
-
 
 impl<State> Lockbox<State> {
     /// Exports the content key and encoded access directory for a migration
