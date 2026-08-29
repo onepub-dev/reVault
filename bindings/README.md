@@ -88,6 +88,9 @@ for e2e coverage.
 
 ## Distribution and publication
 
+For a concise language-to-registry reference, see
+[`PACKAGE_MANAGERS.md`](PACKAGE_MANAGERS.md).
+
 All foreign-language packages use the same versioned C ABI library. Canonical
 native archives contain the dynamic and static libraries, the Windows DLL
 import library where applicable, the target-built Ruby ABI adapter, C header,
@@ -117,7 +120,7 @@ argument. The source-native Rust and WebAssembly APIs do not load the C ABI.
 | Lua | LuaRocks `revault_api` | platform rocks containing checked native assets |
 | Go | `github.com/onepub-dev/revault-api` | statically linked packaged native libraries |
 | Rust | crates.io `revault-api` | native Rust source; no C ABI dependency |
-| Swift | Swift Package Manager product `RevaultAPI` | macOS XCFramework or Linux native package |
+| Swift | `onepub-dev/revault-swift`, product `RevaultAPI` | macOS XCFramework or Linux native package |
 | C | GitHub Releases, vcpkg, Homebrew, Debian and RPM | canonical SDK archive and `revault_api.h` |
 | C++ | ConanCenter, vcpkg, Homebrew, Debian and RPM | class facade over the canonical C ABI |
 
@@ -192,21 +195,25 @@ installation versions in every staged package README. Publication commands
 reject a payload whose manifest does not match it. Do not edit individual
 source manifests or documentation versions while preparing a release.
 
-Create these public companion repositories before tagging a release:
+Create these public companion repositories before tagging a release. Each
+language repository receives only its own package tree and therefore renders
+its language-specific README and documentation:
 
 | Repository | Registry discovery |
 | --- | --- |
-| `onepub-dev/revault-api` | Go module proxy, Swift Package Manager, and Packagist |
+| `onepub-dev/revault-api` | Go module proxy |
+| `onepub-dev/revault-swift` | Swift Package Manager |
+| `onepub-dev/revault-php` | Packagist source for `onepub/revault-api` |
 | `onepub-dev/revault-homebrew` | Homebrew tap |
 
-Install a GitHub App with contents write access to those two repositories and
+Install a GitHub App with contents write access to those four repositories and
 store its narrowly scoped installation token as the `release` environment
 secret `REVAULT_BINDING_APIS_RELEASE_TOKEN`. Register
-`onepub-dev/revault-api` with Packagist and enable its GitHub integration. The
-Rust release tool replaces each
-repository tree, validates it, commits it, and creates the immutable `vX.Y.Z`
-tag. It generates the Swift binary target and Homebrew formula from the actual
-GitHub release asset SHA-256 values; no mutable download URL is used.
+`onepub-dev/revault-php` with Packagist and enable its GitHub integration. The
+Rust release tool replaces each repository tree with one package, validates
+it, commits it, and creates the immutable `vX.Y.Z` tag. It generates the Swift
+binary target and Homebrew formula from the actual GitHub release asset
+SHA-256 values; no mutable download URL is used.
 
 Configure trusted publishers with owner `onepub-dev`, repository `reVault`,
 workflow file `bindings-native-release.yml`, and environment `release`:

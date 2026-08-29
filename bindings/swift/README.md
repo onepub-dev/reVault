@@ -6,7 +6,7 @@ macOS and Linux. See the
 [reVault manual](https://docs.revault.onepub.dev/).
 
 ```swift
-.package(url: "https://github.com/onepub-dev/revault-api", exact: "0.3.11")
+.package(url: "https://github.com/onepub-dev/revault-swift", exact: "0.3.11")
 ```
 
 The [complete method-example index](https://github.com/onepub-dev/reVault/blob/main/bindings/API_EXAMPLES.md)

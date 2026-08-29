@@ -1,4 +1,3 @@
-use crate::release::NATIVE_ABI_VERSION;
 use crate::Result;
 use clap::{Args, ValueEnum};
 use serde::de::DeserializeOwned;
@@ -58,7 +57,9 @@ pub struct PublishPackages {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum GitPackage {
-    Api,
+    Go,
+    Swift,
+    Php,
     Homebrew,
 }
 
@@ -856,28 +857,15 @@ pub fn promote_git(args: PromoteGitPackage) -> Result {
     }
     clear_checkout_tree(&destination)?;
     match args.package {
-        GitPackage::Api => {
-            for source in [
-                packages.join("go"),
-                packages.join("swift"),
-                packages.join("composer"),
-            ] {
-                if !source.is_dir() {
-                    return Err(
-                        format!("publication source is missing: {}", source.display()).into(),
-                    );
-                }
-                copy_tree(&source, &destination)?;
-            }
-            write_api_repository_readme(&destination, &args.version)?;
-            prepare_swift(&destination, &args.version, args.release_assets.as_deref())?
+        GitPackage::Go => copy_git_package(&packages.join("go"), &destination)?,
+        GitPackage::Swift => {
+            copy_git_package(&packages.join("swift"), &destination)?;
+            prepare_swift(&destination, &args.version, args.release_assets.as_deref())?;
         }
+        GitPackage::Php => copy_git_package(&packages.join("composer"), &destination)?,
         GitPackage::Homebrew => {
             let source = packages.join("native-sdk/package-managers/homebrew");
-            if !source.is_dir() {
-                return Err(format!("publication source is missing: {}", source.display()).into());
-            }
-            copy_tree(&source, &destination)?;
+            copy_git_package(&source, &destination)?;
             prepare_homebrew(&destination, &args.version, args.release_assets.as_deref())?
         }
     }
@@ -943,18 +931,11 @@ pub fn promote_git(args: PromoteGitPackage) -> Result {
         .current_dir(&destination))
 }
 
-fn write_api_repository_readme(destination: &Path, version: &str) -> Result {
-    fs::write(
-        destination.join("README.md"),
-        format!(
-            "# reVault API bindings\n\n\
-reVault is an encrypted archive and local-vault library for files, credentials, keys, and typed records. This companion repository publishes the Go module, Swift package, and PHP Composer package from the same versioned native ABI. See the [reVault documentation](https://github.com/onepub-dev/reVault/tree/main/docs).\n\n\
-## Go\n\n```sh\ngo get github.com/onepub-dev/revault-api@v{version}\n```\n\n\
-## Swift\n\n```swift\n.package(url: \"https://github.com/onepub-dev/revault-api\", exact: \"{version}\")\n```\n\n\
-## PHP\n\n```sh\ncomposer require onepub/revault-api:{version}\n```\n\n\
-All three packages use the same ABI-v{NATIVE_ABI_VERSION} native artifacts. Secret variable and form-field reads are callback-scoped and their temporary native storage is wiped after use.\n"
-        ),
-    )?;
+fn copy_git_package(source: &Path, destination: &Path) -> Result {
+    if !source.is_dir() {
+        return Err(format!("publication source is missing: {}", source.display()).into());
+    }
+    copy_tree(source, destination)?;
     Ok(())
 }
 
@@ -1305,10 +1286,14 @@ mod tests {
     }
 
     #[test]
-    fn api_repository_readme_names_the_current_native_abi() {
+    fn git_package_promotion_preserves_its_language_readme() {
+        let source = TempDir::new().unwrap();
         let destination = TempDir::new().unwrap();
-        write_api_repository_readme(destination.path(), "0.3.11").unwrap();
+        fs::write(source.path().join("README.md"), "# reVault for PHP\n").unwrap();
+
+        copy_git_package(source.path(), destination.path()).unwrap();
+
         let readme = fs::read_to_string(destination.path().join("README.md")).unwrap();
-        assert!(readme.contains(&format!("ABI-v{NATIVE_ABI_VERSION} native artifacts")));
+        assert_eq!(readme, "# reVault for PHP\n");
     }
 }
