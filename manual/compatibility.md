@@ -35,14 +35,3 @@ Read [Migrating between versions](cli-tooling/migrating-between-versions.md) bef
 The repository tag belonging to a release is the permanent documentation snapshot for that source version. The hosted manual follows the active development branch and may describe functionality newer than an installed package.
 
 When reporting a problem, include the exact CLI or package version rather than saying only that the manual is current. Generated class/method documentation belongs to the package release and is the signature authority when it differs from the development manual.
-
-## Release checklist
-
-Before publishing a component:
-
-1. update its version and package README;
-2. regenerate class/method documentation;
-3. run the binding conformance examples;
-4. run the manual validation job;
-5. confirm migration notes and compatibility statements; and
-6. retain the tagged repository documentation as the release snapshot.

@@ -401,6 +401,20 @@ cd rust
 cargo xtask generate-api-docs
 ```
 
+### Release checklist
+
+Before publishing a component:
+
+1. update its version and package README;
+2. regenerate class and method documentation;
+3. run the binding conformance examples;
+4. run the manual validation job;
+5. confirm migration notes and compatibility statements; and
+6. retain the tagged repository documentation as the release snapshot.
+
+For complete procedures, read the [CLI distribution guide](docs/cli_distribution.md)
+and the [binding contribution and release guide](bindings/CONTRIBUTING.md).
+
 ## License
 
 reVault Source Available License 1.0 - see [LICENSE](LICENSE).
