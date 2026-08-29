@@ -1,46 +1,36 @@
-# reVault / Lockbox
+# reVault
 
-reVault creates portable archives that are secure and compressed.
+reVault is a fast, local toolkit for creating secure portable archives called
+Lockboxes. Each Lockbox is encrypted, compressed, and signed. It can store:
 
-The reVault archives are called 'Lockboxes'.
+* files and directory trees
+* file permissions and symbolic links
+* variables such as API keys
+* forms such as login details
 
-You can think of a Lockbox as a zip file on steriods. 
+Lockboxes are easy to copy, share, and back up, and they do not require a
+hosted service. The engine is designed for speed and effective compression.
+Applications can read, write, and seek within stored files without extracting
+the archive, and recover data from partial corruption.
 
-A Lockbox can be used to store:
-* files
-* directories
-* symlinks
-* file/directory permissions
-* variables
-* forms (collection of variables)
+Read the [reVault manual](https://docs.revault.onepub.dev/) for the quick start,
+core concepts, and security model.
 
+reVault runs on Linux, macOS, and Windows. You can use it through the command
+line interface or through libraries for supported programming languages.
 
-A lockbox is encrypted, compressed and signed using modern encryption and compress
-techniques.
+The main components are:
 
-reVault is designed to be simple and safe to use, avoiding overly complex 
-terminology.
+* `revault_cli` for everyday command line use
+* `revault_lockbox_api` for creating and working with Lockboxes
+* `revault_vault_api` for creating and managing Vaults
 
-reVault works on Linux, Windows and MacOS.
+## The main concepts
 
-reVault ships as a:
-  * cli
-  * apis
-  * libraries for multiple languages
-
-
-
-- `revault_cli`, a CLI for everyday use.
-- `revault_lockbox_api`, for creating lockboxes.
-- `revault_vault_api`, for creating and managing vaults.
-
-Terminology is explicit:
-
-- A **lockbox** is a portable archive and uses the `.lbox` extension.
-- A **key** is used to lock and unlock lockboxes. Keys are more secure than passwords.
-- A **vault** is where we store information about lockboxes such as the keys
-used to open and close a lockbox. The vault also holds a contact list which helps us share 
-lockboxes with other people.
+* A **Lockbox** is a portable archive with the `.lbox` extension.
+* A **key** or password controls who can open a Lockbox.
+* A **Vault** stores local profiles, contacts, keys, and remembered access to
+  Lockboxes.
   
 
 > **Pre-release:** the Rust implementation is currently alpha software. The
@@ -413,11 +403,11 @@ cargo xtask generate-api-docs
 
 ## License
 
-Dvault Source Available License 1.0 - see [LICENSE](LICENSE).
+reVault Source Available License 1.0 - see [LICENSE](LICENSE).
 
 The source remains available for inspection, modification, and redistribution.
 Derivative works must publish their corresponding source code in a publicly
 accessible repository such as GitHub or a similar service. The license also
-restricts third parties from offering dvault, modified dvault, or substantially
-similar dvault-derived functionality as a hosted, managed, or
+restricts third parties from offering reVault, modified reVault, or
+substantially similar reVault-derived functionality as a hosted, managed, or
 network-accessible service without a separate written license.

@@ -170,4 +170,4 @@ Read [Keeping secrets a secret](keeping-secrets-a-secret.md) for the complete ch
 
 ## License
 
-reVault is distributed under the Dvault Source Available License 1.0. Read the [complete licence](https://github.com/onepub-dev/reVault/blob/master/LICENSE) before redistributing reVault, publishing a derivative work or offering related functionality as a service.
+reVault is distributed under the reVault Source Available License 1.0. Read the [complete licence](https://github.com/onepub-dev/reVault/blob/master/LICENSE) before redistributing reVault, publishing a derivative work or offering related functionality as a service.
