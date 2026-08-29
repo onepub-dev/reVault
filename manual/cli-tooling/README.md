@@ -1,6 +1,6 @@
 # CLI tooling
 
-The reVault command-line program is installed as both `lockbox` and `lbx`. They are the same program; this manual uses the shorter `lbx` form.
+The reVault command-line program is installed as both `lockbox` and its alias `lbx`. They are the same program; this manual uses the shorter `lbx` form.
 
 Most Lockbox commands put the file first and the action second:
 
@@ -21,4 +21,3 @@ lbx secrets.lbox variable --help
 ```
 
 Add `--verbose` to expose advanced command forms and options that are normally kept out of the way.
-
