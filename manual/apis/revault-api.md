@@ -18,12 +18,14 @@ Names follow each language's normal style, so capitalisation and error handling 
 | PHP | [`onepub/revault-api`](https://packagist.org/packages/onepub/revault-api) | [revault-php](https://github.com/onepub-dev/revault-php) |
 | Go | [`github.com/onepub-dev/revault-api`](https://pkg.go.dev/github.com/onepub-dev/revault-api) | [revault-api](https://github.com/onepub-dev/revault-api) |
 | Swift | Swift Package Manager | [revault-swift](https://github.com/onepub-dev/revault-swift) |
-| JavaScript and TypeScript | `@onepub-dev/revault-api` | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/typescript/README.md) |
+| JavaScript | `@onepub-dev/revault-api` | [JavaScript binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/javascript/README.md) |
+| TypeScript | `@onepub-dev/revault-api` | [TypeScript binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/typescript/README.md) |
 | Python | `revault-api` | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/python/README.md) |
 | Java | `dev.onepub:revault-api` | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/java/README.md) |
 | Kotlin | `dev.onepub:revault-api-kotlin` | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/kotlin/README.md) |
 | C# | `Revault.Api` | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/csharp/README.md) |
-| C and C++ | native SDK | [C README](https://github.com/onepub-dev/reVault/blob/master/bindings/c/README.md) and [C++ README](https://github.com/onepub-dev/reVault/blob/master/bindings/cpp/README.md) |
+| C | native SDK | [C binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/c/README.md) |
+| C++ | native SDK | [C++ binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/cpp/README.md) |
 | Rust | `revault-api` | [crate source](https://github.com/onepub-dev/reVault/tree/master/rust/revault_bindings) |
 | Lua | `revault_api` | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/lua/README.md) |
 | Ruby | `revault_api` | [binding README](https://github.com/onepub-dev/reVault/blob/master/bindings/ruby/README.md) |

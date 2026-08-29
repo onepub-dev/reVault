@@ -45,7 +45,8 @@ Your **Vault** is the encrypted local store that reVault uses for Profiles, priv
 
 You will normally have one Vault on each device. Back it up and keep the Vault passphrase safe: losing both the Vault and its backup may leave you unable to open Lockboxes whose credentials exist nowhere else.
 
-Read [The Vault](cli-tooling/the-vault.md) before relying on it for important data.
+Read [The Vault](https://docs.revault.onepub.dev/cli-tooling/the-vault) before
+relying on it for important data.
 
 ### Profiles
 
@@ -57,13 +58,17 @@ The default Profile is enough for many people. Extra Profiles are useful when yo
 
 A **Contact** is another person's public key saved in your Vault. A Contact can be granted access to a Lockbox, but cannot be used to encrypt or sign a lockbox.
 
-Always verify a Contact's fingerprint through a second, trusted channel before sharing sensitive data.
+Always [verify a Contact's fingerprint through a second, trusted
+channel](cli-tooling/sharing.md#establish-trust) before sharing sensitive data.
+The guide covers exchange through the key sharing service and direct exchange
+without the service.
 
 ### Lockboxes
 
 A **Lockbox** is the portable `.lbox` archive. You can create as many Lockboxes as you need and give each one to a different group of Contacts or Profiles.
 
-Closing a Lockbox releases the current process's access and asks the Session Agent to forget its cached content key. It does not delete the Lockbox or any persistent credential stored in your Vault.
+Closing a Lockbox releases the access held by the current process. It does not
+delete the archive or revoke access granted to Profiles and Contacts.
 
 ### Variables
 
@@ -86,7 +91,15 @@ Supported field types include `text`, `secret`, `password`, `url`, `email`, `dat
 
 The **Session Agent** is an optional per-user process that temporarily caches a Lockbox content key. This avoids repeatedly deriving or loading the same key during a short working session. The Agent does not retain an open file handle and does not permanently store the content key.
 
-**Auto Open** is separate. Where the operating system provides a suitable credential store, reVault can store the Vault passphrase for unattended access during your logged-in desktop session. That is convenient, but it means a process running as you may be able to open every Lockbox for which the Vault contains a credential.
+When the CLI closes a Lockbox, it also asks the Session Agent to forget its
+cached content key. This does not delete the Lockbox or remove credentials
+stored in the Vault.
+
+**Auto Open** is separate. Where the operating system provides a suitable
+credential store, reVault can store the Vault passphrase for unattended access
+during your logged-in desktop session. That is convenient, but it means a
+process running as you may be able to open every Lockbox for which the Vault
+contains a credential.
 
 {% hint style="warning" %}
 Closing an Agent session clears a temporary content key from memory. It is not an authentication boundary while Auto Open can still retrieve the Vault passphrase. Lock your desktop whenever you walk away from it.
@@ -95,6 +108,10 @@ Closing an Agent session clears a temporary content key from memory. It is not a
 See [Session Management](cli-tooling/session-management.md) for the available Auto Open scopes and [the Session Agent](cli-tooling/revault-session-agent.md) for its lifetime and sleep behaviour.
 
 ## Getting started
+
+Building an application? reVault provides
+[16+ language and runtime bindings](apis/revault-api.md#packages-and-documentation)
+so application code can work with Lockboxes and Vaults directly.
 
 Install the CLI with Cargo:
 
