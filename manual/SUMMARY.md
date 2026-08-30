@@ -11,7 +11,9 @@
   * [Variables](cli-tooling/variables.md)
   * [Forms](cli-tooling/forms.md)
   * [Secrets](cli-tooling/secrets.md)
+  * [Mirror](mirror.md)
   * [Command-line completion](cli-tooling/command-line-completion.md)
+  * [Exit codes](cli-tooling/exit-codes.md)
 
 ## Protect and share
 
@@ -33,12 +35,10 @@
 
 ## Maintain and recover
 
-* [Mirror](mirror.md)
 * [Recover a damaged Lockbox](cli-tooling/recovery.md)
 * [Migrating between versions](cli-tooling/migrating-between-versions.md)
 * [Diagnostics](cli-tooling/diagnostics.md)
 * [Troubleshooting](troubleshooting.md)
-* [Exit codes](cli-tooling/exit-codes.md)
 
 ## Operate a key-sharing service
 
