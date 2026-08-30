@@ -77,7 +77,13 @@ pub(crate) fn run() -> CliResult<()> {
         )));
     }
     set_command_lockbox(command_lockbox);
-    let _secret_activity = command_secret_activity(command)
+    let secret_activity =
+        if command == "doctor" && command_matches.subcommand_name() == Some("recover") {
+            Some(SecretActivityKind::Recovery)
+        } else {
+            command_secret_activity(command)
+        };
+    let _secret_activity = secret_activity
         .map(revault_vault_api::begin_secret_activity)
         .transpose()?;
     let access = read_access(&matches, command)?;
@@ -108,7 +114,6 @@ pub(crate) fn run() -> CliResult<()> {
         "variable" => variables::run_matches(command_matches, &access)?,
         "description" => variables::description_matches(command_matches, &access)?,
         "form" => form::run_matches(command_matches, &access)?,
-        "recover" => recovery::run_matches(command_matches, &access)?,
         "visualize" => visualize::run_matches(command_matches, &access)?,
         _ => return Err(Error::InvalidInput(format!("unknown command: {command}")).into()),
     }
@@ -122,7 +127,6 @@ fn command_accepts_lockbox(command: &str) -> bool {
         "create"
             | "open"
             | "close"
-            | "recover"
             | "add"
             | "mirror"
             | "extract"
@@ -131,6 +135,7 @@ fn command_accepts_lockbox(command: &str) -> bool {
             | "ls"
             | "remove"
             | "rm"
+            | "delete"
             | "move"
             | "rename"
             | "mv"
@@ -201,12 +206,11 @@ fn command_secret_activity(command: &str) -> Option<SecretActivityKind> {
     match command {
         "open" => Some(SecretActivityKind::Open),
         "close" => Some(SecretActivityKind::Close),
-        "add" | "mirror" | "extract" | "cat" | "list" | "remove" | "move" | "visualize" => {
-            Some(SecretActivityKind::Open)
-        }
+        "add" | "mirror" | "extract" | "cat" | "list" | "remove" | "delete" | "move"
+        | "visualize" => Some(SecretActivityKind::Open),
         "variable" | "description" => Some(SecretActivityKind::Variables),
         "form" => Some(SecretActivityKind::Form),
-        "recover" | "migrate" => Some(SecretActivityKind::Recovery),
+        "migrate" => Some(SecretActivityKind::Recovery),
         "access" | "open-key" | "session" => Some(SecretActivityKind::Vault),
         _ => None,
     }

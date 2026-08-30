@@ -2310,6 +2310,11 @@ fn encrypted_lockbox_description_round_trips_and_clears() {
         .set_description("Deployment credentials for Project Atlas")
         .unwrap();
     lockbox.commit().unwrap();
+    let signing_key = lockbox
+        .require_owner_signing_key()
+        .unwrap()
+        .try_clone()
+        .unwrap();
 
     let mut reopened = Lockbox::open_bytes_with_key(lockbox.to_bytes(), KEY).unwrap();
     assert_eq!(
@@ -2317,6 +2322,7 @@ fn encrypted_lockbox_description_round_trips_and_clears() {
         Some("Deployment credentials for Project Atlas")
     );
 
+    reopened.set_owner_signing_key(signing_key);
     reopened.clear_description().unwrap();
     reopened.commit().unwrap();
     assert_eq!(reopened.description().unwrap(), None);
@@ -2459,8 +2465,10 @@ fn normal_variables_upgrade_to_secret_but_do_not_downgrade_in_place() {
     lb.set_secret_variable(&variable("API_TOKEN"), &first)
         .unwrap();
     lb.commit().unwrap();
+    let signing_key = lb.require_owner_signing_key().unwrap().try_clone().unwrap();
 
     let mut reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), KEY).unwrap();
+    reopened.set_owner_signing_key(signing_key);
     assert_eq!(
         reopened
             .variable_sensitivity(&variable("API_TOKEN"))

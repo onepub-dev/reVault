@@ -30,7 +30,10 @@ use crate::page::{
 use crate::page_cache::{PageCache, PageReadKey, PageSecurity, PageWritePolicy};
 use crate::record::{DecodedRecord, RecordHeader, RecordKind};
 use crate::secret_vec::SecretVec;
-use crate::signing::{verify_commit_signatures, OwnerSigningKeyPair};
+use crate::signing::{
+    commit_signature_keys_match, commit_signatures_match_keypair, verify_commit_signatures,
+    OwnerSigningKeyPair,
+};
 use crate::storage::{Storage, StorageBackend};
 use crate::toc_entry::TocEntry;
 use crate::variable_btree::{VariableLeaf, VariableTreeNode, VariableValue};
@@ -59,6 +62,8 @@ mod mutation;
 mod recovery;
 mod storage_lifecycle;
 mod symlinks;
+#[cfg(feature = "test-support")]
+pub(crate) mod test_support;
 mod variables;
 
 pub use file_handles::{LockboxFileMut, LockboxFileReader, OpenFileOptions};
@@ -422,6 +427,15 @@ impl<State> Lockbox<State> {
 }
 
 impl Lockbox<Writable> {
+    pub(crate) fn complete_pending_transaction_cleanup(&mut self) -> Result<bool> {
+        if self.transaction_recovery_status().is_none() {
+            return Ok(false);
+        }
+        self.cleanup_published_redactions(|_| {})?;
+        self.publish_transaction_header(self.sequence)?;
+        Ok(true)
+    }
+
     pub(crate) fn cleanup_published_redactions(
         &mut self,
         mut progress: impl FnMut(TransactionRecoveryProgress),
@@ -662,17 +676,16 @@ impl Lockbox<Writable> {
     #[cfg(any(test, feature = "bindings"))]
     /// Opens in-memory lockbox bytes with a raw key and runtime tuning options.
     ///
-    /// The returned lockbox is writable and owns both the archive bytes and a
-    /// secure copy of the content key.
+    /// The returned lockbox owns the archive bytes and a secure copy of the
+    /// content key. It remains read-only until the established owner signing
+    /// key is attached with [`Lockbox::set_owner_signing_key`].
     pub fn open_bytes_with_key_options(
         bytes: Vec<u8>,
         key: impl AsRef<[u8]>,
         options: LockboxOptions,
     ) -> Result<Self> {
         let mut lockbox = Self::open_storage(StorageBackend::memory(bytes), key, options)?;
-        lockbox.set_owner_signing_key(
-            OwnerSigningKeyPair::generate().expect("system random source failed"),
-        );
+        lockbox.mark_read_only();
         Ok(lockbox)
     }
 
@@ -1006,6 +1019,15 @@ impl<State> Lockbox<State> {
         })
     }
 
+    /// Reports whether `keypair` is the established signer of this lockbox.
+    pub fn owner_signing_key_matches(&self, keypair: &OwnerSigningKeyPair) -> Result<bool> {
+        if self.commit_auth_offset == 0 {
+            return Ok(false);
+        }
+        let (auth, _) = self.read_and_verify_commit_auth_at(self.commit_auth_offset)?;
+        Ok(commit_signatures_match_keypair(&auth.signatures, keypair))
+    }
+
     pub(crate) fn mark_read_only(&mut self) {
         self.read_only = true;
     }
@@ -1020,6 +1042,7 @@ impl<State> Lockbox<State> {
         State: WritableLockboxState,
     {
         self.owner_signing_key = Some(keypair);
+        self.read_only = false;
     }
 
     /// Set cache behavior tuned for the caller's expected access pattern.
@@ -1147,6 +1170,8 @@ impl<State> Lockbox<State> {
         mut offset: u64,
     ) -> Result<Option<CommitAuthChainResult>> {
         let mut expected_digest = None;
+        let mut newer_signatures: Option<Vec<crate::commit_auth::CommitSignature>> = None;
+        let mut candidate = None;
         while offset != 0 {
             let Ok((auth, digest)) = self.read_and_verify_commit_auth_at(offset) else {
                 return Ok(None);
@@ -1156,16 +1181,24 @@ impl<State> Lockbox<State> {
                     return Ok(None);
                 }
             }
-            if let Ok(root) = self.read_verified_commit_root_from_auth(&auth) {
-                return Ok(Some((offset, digest, auth, root)));
+            if let Some(signatures) = &newer_signatures {
+                if !commit_signature_keys_match(&auth.signatures, signatures) {
+                    return Ok(None);
+                }
+            }
+            if candidate.is_none() {
+                if let Ok(root) = self.read_verified_commit_root_from_auth(&auth) {
+                    candidate = Some((offset, digest, auth.clone(), root));
+                }
             }
             if auth.previous_auth_offset == 0 {
-                return Ok(None);
+                return Ok(candidate);
             }
             expected_digest = Some(auth.previous_auth_digest);
+            newer_signatures = Some(auth.signatures);
             offset = auth.previous_auth_offset;
         }
-        Ok(None)
+        Ok(candidate)
     }
 
     pub(crate) fn read_verified_commit_root_from_auth(
@@ -1211,6 +1244,21 @@ impl<State> Lockbox<State> {
                 "owner signing key is required before committing this lockbox".to_string(),
             )
         })
+    }
+
+    pub(crate) fn validate_owner_signing_key(&self) -> Result<()> {
+        if self.commit_auth_offset == 0 {
+            return Ok(());
+        }
+        let signer = self.require_owner_signing_key()?;
+        let (auth, _) = self.read_and_verify_commit_auth_at(self.commit_auth_offset)?;
+        if commit_signatures_match_keypair(&auth.signatures, signer) {
+            Ok(())
+        } else {
+            Err(Error::InvalidKeyMaterial(
+                "owner signing key does not match the established lockbox owner".to_string(),
+            ))
+        }
     }
 
     pub(crate) fn read_page(&self, offset: u64) -> Result<crate::page::DecodedPage> {

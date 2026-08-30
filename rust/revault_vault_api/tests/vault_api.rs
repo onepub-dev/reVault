@@ -1,7 +1,7 @@
 use revault_lockbox_api::vault_integration::VaultOpen;
 use revault_lockbox_api::{
     ContactKeyPair, Error, FileLockScope, Lockbox, LockboxOpen, LockboxPath, LockboxProtection,
-    OwnerSigningKeyPair, Result, ScopedFileLock, SecretVec,
+    OwnerSigningKeyPair, Result, ScopedFileLock, SecretVec, VariableName,
 };
 use revault_vault_api::{
     export_private_key, import_private_key_file, ContentKeyStore, KeyFormat,
@@ -362,6 +362,17 @@ fn vault_directory_rejects_older_structure_versions() {
             supported: CURRENT_VAULT_STRUCTURE_VERSION,
         })
     ));
+    let new_password = SecretString::try_from_bytes(b"new-vault-password".to_vec()).unwrap();
+    assert!(matches!(
+        VaultDirectory::change_password(&root, &vault_password, &new_password),
+        Err(Error::UnsupportedFormatVersion {
+            artifact: revault_lockbox_api::ArtifactKind::Vault,
+            found: 0,
+            supported: CURRENT_VAULT_STRUCTURE_VERSION,
+        })
+    ));
+    assert!(Lockbox::open(&vault_path, LockboxOpen::Password(&vault_password)).is_ok());
+    assert!(Lockbox::open(&vault_path, LockboxOpen::Password(&new_password)).is_err());
 
     let _ = fs::remove_dir_all(root);
 }
@@ -559,6 +570,78 @@ fn vault_directory_public_crud_helpers_flow() {
 }
 
 #[test]
+fn deleting_default_profile_does_not_strand_vault_container() {
+    let root = unique_dir("delete-default-profile-reopen");
+    let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &password).unwrap();
+    vault
+        .store_private_key("default", &ContactKeyPair::generate().unwrap())
+        .unwrap();
+    vault.delete_private_key("default").unwrap();
+    drop(vault);
+
+    let reopened = VaultDirectory::open_or_create(&root, &password).unwrap();
+    assert!(reopened.list_private_keys().unwrap().is_empty());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn replacing_default_profile_signer_does_not_replace_vault_container_signer() {
+    let root = unique_dir("replace-default-profile-signer");
+    let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &password).unwrap();
+    vault
+        .store_private_key("default", &ContactKeyPair::generate().unwrap())
+        .unwrap();
+
+    let restored_key = ContactKeyPair::generate().unwrap();
+    let restored_signer = OwnerSigningKeyPair::generate().unwrap();
+    let expected_public = restored_signer.public_key();
+    vault
+        .restore_private_key("default", &restored_key, Some(&restored_signer), true)
+        .unwrap();
+    drop(vault);
+
+    let reopened = VaultDirectory::open_or_create(&root, &password).unwrap();
+    assert_eq!(
+        reopened
+            .load_owner_signing_key("default")
+            .unwrap()
+            .public_key(),
+        expected_public
+    );
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn existing_current_format_vault_migrates_container_signer_record() {
+    let root = unique_dir("migrate-container-signer");
+    let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &password).unwrap();
+    let profile_signer = vault.load_owner_signing_key("default").unwrap();
+    drop(vault);
+
+    let path = root.join("local-vault.lbox");
+    let mut raw =
+        Lockbox::open_for_write(&path, LockboxOpen::Password(&password), &profile_signer).unwrap();
+    raw.delete_variable(&VariableName::new("LOCKBOX_VAULT_CONTAINER_SIGNING_KEY").unwrap())
+        .unwrap();
+    raw.commit().unwrap();
+    drop(raw);
+
+    VaultDirectory::open_or_create(&root, &password).unwrap();
+    let reopened = Lockbox::open(&path, LockboxOpen::Password(&password)).unwrap();
+    assert!(reopened
+        .variable_sensitivity(&VariableName::new("LOCKBOX_VAULT_CONTAINER_SIGNING_KEY").unwrap())
+        .unwrap()
+        .is_some());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
 fn vault_directory_tracks_profile_generations_and_rotation() {
     let root = unique_dir("profile-generations");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
@@ -644,6 +727,87 @@ fn vault_directory_tracks_profile_generations_and_rotation() {
         vault.list_private_keys().unwrap(),
         vec!["default".to_string()]
     );
+
+    drop(vault);
+    let reopened = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    reopened
+        .store_contact(
+            "after-rotation",
+            &ContactKeyPair::generate().unwrap().public_key(),
+        )
+        .unwrap();
+    assert!(reopened.load_contact("after-rotation").is_ok());
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn vault_reopen_uses_container_signer_when_profile_history_is_missing() {
+    let root = unique_dir("missing-historical-signer");
+    let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    vault
+        .store_private_key("default", &ContactKeyPair::generate().unwrap())
+        .unwrap();
+    let established_signer = vault
+        .load_owner_signing_key_generation("default", 1)
+        .unwrap();
+    vault.rotate_private_key("default").unwrap();
+    drop(vault);
+
+    let vault_path = root.join("local-vault.lbox");
+    let mut raw_vault = Lockbox::open_for_write(
+        &vault_path,
+        LockboxOpen::Password(&vault_password),
+        &established_signer,
+    )
+    .unwrap();
+    raw_vault
+        .delete_variable(
+            &VariableName::new("LOCKBOX_VAULT_SIGNING_KEY_64656661756C74_GEN_0001").unwrap(),
+        )
+        .unwrap();
+    raw_vault.commit().unwrap();
+    drop(raw_vault);
+
+    VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn vault_reopen_fails_closed_when_container_and_historical_signers_are_missing() {
+    let root = unique_dir("missing-container-and-historical-signer");
+    let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    vault
+        .store_private_key("default", &ContactKeyPair::generate().unwrap())
+        .unwrap();
+    let established_signer = vault
+        .load_owner_signing_key_generation("default", 1)
+        .unwrap();
+    vault.rotate_private_key("default").unwrap();
+    drop(vault);
+
+    let vault_path = root.join("local-vault.lbox");
+    let mut raw_vault = Lockbox::open_for_write(
+        &vault_path,
+        LockboxOpen::Password(&vault_password),
+        &established_signer,
+    )
+    .unwrap();
+    for name in [
+        "LOCKBOX_VAULT_CONTAINER_SIGNING_KEY",
+        "LOCKBOX_VAULT_SIGNING_KEY_64656661756C74_GEN_0001",
+    ] {
+        raw_vault
+            .delete_variable(&VariableName::new(name).unwrap())
+            .unwrap();
+    }
+    raw_vault.commit().unwrap();
+    drop(raw_vault);
+
+    assert!(VaultDirectory::open_or_create(&root, &vault_password).is_err());
 
     let _ = fs::remove_dir_all(root);
 }

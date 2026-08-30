@@ -16,10 +16,10 @@ fn reports_exact_archive_v1_capabilities() {
         .unwrap();
     assert!(output.status.success());
     let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(value["protocol"], 2);
+    assert_eq!(value["protocol"], 3);
     assert_eq!(value["artifact"], "archive");
     assert_eq!(value["native_version"], 1);
-    assert_eq!(value["migration_schema"], 1);
+    assert_eq!(value["migration_schema"], 2);
 }
 
 #[test]

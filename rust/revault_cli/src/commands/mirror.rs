@@ -95,7 +95,9 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
                 "configure" => configure_project(&lockbox, project, action_matches, access),
                 "rebind" => rebind_project(&lockbox, project, action_matches, access),
                 "forget" => forget_project(&lockbox, project, action_matches, access),
-                "delete" => delete_project(&lockbox, project, action_matches, access),
+                "destroy" | "delete-project" => {
+                    delete_project(&lockbox, project, action_matches, access)
+                }
                 "rule" => rules_project(&lockbox, project, action_matches, access),
                 "add" | "extract" | "cat" | "list" | "remove" | "move" => {
                     project_file_command(&lockbox, project, action, action_matches, access)
@@ -383,6 +385,8 @@ fn validate_project_action_name(name: &str) -> CliResult<()> {
         "rebind",
         "forget",
         "delete",
+        "destroy",
+        "delete-project",
         "rule",
         "rules",
         "add",
@@ -443,7 +447,7 @@ fn project_file_command(
         "extract" => project_extract(lockbox_path, &project, matches, access),
         "cat" => project_cat(lockbox_path, &project, matches, access),
         "list" => project_list(lockbox_path, &project, matches, access),
-        "remove" => project_remove(lockbox_path, &project, matches, access),
+        "remove" | "delete" => project_remove(lockbox_path, &project, matches, access),
         "move" => project_move(lockbox_path, &project, matches, access),
         _ => Err(cli_error(format!("unknown mirror file action: {action}"))),
     }

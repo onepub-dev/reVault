@@ -313,13 +313,13 @@ The format stores only basic permission bits. Special bits and platform-specific
 
 ## Recovery
 
-Inspect a damaged lockbox:
+Preview the recovery operation that applies to a damaged lockbox:
 
 ```bash
-lockbox recover damaged.lbox
+lockbox damaged.lbox doctor recover --dry-run
 ```
 
-`recover` is a read-only inspection command. It should report the state of what it found without implying that files have already been copied out.
+The preview is read-only. It reports either authenticated interrupted cleanup, which can be completed safely in place, or salvage recovery, which writes readable entries to a new lockbox.
 
 Default output should be concise. It should count intact files and focus detail on damaged items:
 
@@ -346,35 +346,27 @@ Corrupt:
   latest TOC
 ```
 
-Use verbose output when the user really wants to list intact files:
+Request machine-readable output when needed:
 
 ```bash
-lockbox recover damaged.lbox --verbose
+lockbox damaged.lbox doctor recover --dry-run --format json
 ```
 
-Verbose output may still be bounded:
+Run the detected operation:
 
 ```bash
-lockbox recover damaged.lbox --verbose --limit 1000
+lockbox damaged.lbox doctor recover
 ```
 
-Example verbose section:
-
-```
-Intact:
-  /docs/a.txt
-  /docs/b.txt
-  /src/main.rs
-  ... 127439 more intact files omitted
-```
-
-Salvage intact files into a clean lockbox:
+Choose the output path when salvage is required:
 
 ```bash
-lockbox salvage damaged.lbox clean.lbox
+lockbox damaged.lbox doctor recover --output clean.lbox
 ```
 
-`salvage` runs recovery and writes intact files into a new valid lockbox. It should skip partial or corrupt files by default and include them in the report.
+Write-capable opens automatically finish authenticated interrupted cleanup. Read-only opens never mutate the lockbox and direct the user to `doctor recover` when cleanup is pending.
+
+When salvage is detected, `doctor recover` writes intact files into a new valid lockbox. It skips partial or corrupt files and includes them in the report.
 
 Recovery scans fixed-size encrypted pages and encrypted metadata. It should identify intact files even if the latest TOC is damaged.
 

@@ -2,7 +2,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
-use clap::ArgMatches;
+use clap::{parser::ValueSource, ArgMatches};
 use revault_lockbox_api::Error;
 use revault_vault_api::{
     get_platform_vault_password, list as list_open_lockboxes, local_vault,
@@ -17,26 +17,42 @@ use super::context::{
 use super::output::{output_format_from_matches, print_records};
 
 pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
+    let format = output_format_from_matches(matches)?;
+    let explicit_format = matches.value_source("format") == Some(ValueSource::CommandLine);
     match matches.subcommand() {
-        Some(("default", sub)) => default_lockbox_matches(sub),
+        Some(("default", sub)) => {
+            reject_session_format(explicit_format, "default")?;
+            default_lockbox_matches(sub)
+        }
         Some(("close-all", _)) => {
+            reject_session_format(explicit_format, "close-all")?;
             local_vault().close_all()?;
             clear_default_lockbox()?;
             println!("All open Lockboxes closed.");
             Ok(())
         }
         Some(("stop", _)) => {
+            reject_session_format(explicit_format, "stop")?;
             stop_agent()?;
             clear_default_lockbox()?;
             println!("Session Agent stopped.");
             Ok(())
         }
-        Some(("auto-open", sub)) => auto_open_matches(sub),
+        Some(("auto-open", sub)) => auto_open_matches(sub, explicit_format.then_some(format)),
         Some((command, _)) => {
             Err(Error::InvalidInput(format!("unknown session command: {command}")).into())
         }
-        None => list_sessions(output_format_from_matches(matches)?),
+        None => list_sessions(format),
     }
+}
+
+fn reject_session_format(explicit: bool, command: &str) -> CliResult<()> {
+    if explicit {
+        return Err(
+            Error::InvalidInput(format!("--format is not supported by session {command}")).into(),
+        );
+    }
+    Ok(())
 }
 
 fn default_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
@@ -150,10 +166,14 @@ fn list_sessions(format: super::output::OutputFormat) -> CliResult<()> {
     Ok(())
 }
 
-fn auto_open_matches(matches: &ArgMatches) -> CliResult<()> {
+fn auto_open_matches(
+    matches: &ArgMatches,
+    inherited_format: Option<super::output::OutputFormat>,
+) -> CliResult<()> {
     match matches.subcommand() {
-        Some(("status", sub)) => auto_open_status(output_format_from_matches(sub)?),
+        Some(("status", sub)) => auto_open_status(auto_open_status_format(sub, inherited_format)?),
         Some(("disable", sub)) => {
+            reject_auto_open_format(inherited_format, "disable")?;
             if !confirm_auto_open_disable(sub.get_flag("yes"))? {
                 println!("Auto-open not disabled.");
                 return Ok(());
@@ -164,6 +184,7 @@ fn auto_open_matches(matches: &ArgMatches) -> CliResult<()> {
             auto_open_status(super::output::OutputFormat::Table)
         }
         Some(("vault", _)) => {
+            reject_auto_open_format(inherited_format, "vault")?;
             let password = read_vault_password("Vault passphrase: ")?;
             open_default_vault_with_password(&password)?;
             set_auto_open_scope(AutoOpenScope::Vault)?;
@@ -172,6 +193,7 @@ fn auto_open_matches(matches: &ArgMatches) -> CliResult<()> {
             auto_open_status(super::output::OutputFormat::Table)
         }
         Some(("lockboxes", _)) => {
+            reject_auto_open_format(inherited_format, "lockboxes")?;
             let password = read_vault_password("Vault passphrase: ")?;
             open_default_vault_with_password(&password)?;
             set_auto_open_scope(AutoOpenScope::Lockboxes)?;
@@ -182,8 +204,32 @@ fn auto_open_matches(matches: &ArgMatches) -> CliResult<()> {
         Some((command, _)) => {
             Err(Error::InvalidInput(format!("unknown session auto-open command: {command}")).into())
         }
-        None => auto_open_status(super::output::OutputFormat::Table),
+        None => auto_open_status(inherited_format.unwrap_or(super::output::OutputFormat::Table)),
     }
+}
+
+fn auto_open_status_format(
+    matches: &ArgMatches,
+    inherited_format: Option<super::output::OutputFormat>,
+) -> CliResult<super::output::OutputFormat> {
+    if matches.value_source("format") == Some(ValueSource::CommandLine) {
+        output_format_from_matches(matches)
+    } else {
+        Ok(inherited_format.unwrap_or(output_format_from_matches(matches)?))
+    }
+}
+
+fn reject_auto_open_format(
+    inherited_format: Option<super::output::OutputFormat>,
+    command: &str,
+) -> CliResult<()> {
+    if inherited_format.is_some() {
+        return Err(Error::InvalidInput(format!(
+            "--format is only supported by session and session auto-open status, not auto-open {command}"
+        ))
+        .into());
+    }
+    Ok(())
 }
 
 fn confirm_auto_open_disable(yes: bool) -> CliResult<bool> {
@@ -300,5 +346,45 @@ fn yes_no(value: bool) -> &'static str {
         "yes"
     } else {
         "no"
+    }
+}
+
+#[cfg(test)]
+mod argument_tests {
+    use super::*;
+    use crate::commands::help;
+
+    #[test]
+    fn session_format_is_inherited_by_auto_open_status() {
+        let matches = help::command(false)
+            .try_get_matches_from([
+                "lockbox",
+                "session",
+                "--format",
+                "json",
+                "auto-open",
+                "status",
+            ])
+            .unwrap();
+        let session = matches.subcommand_matches("session").unwrap();
+        let inherited = output_format_from_matches(session).unwrap();
+        let status = session
+            .subcommand_matches("auto-open")
+            .unwrap()
+            .subcommand_matches("status")
+            .unwrap();
+        assert_eq!(
+            auto_open_status_format(status, Some(inherited)).unwrap(),
+            super::super::output::OutputFormat::Json
+        );
+    }
+
+    #[test]
+    fn session_format_is_rejected_for_non_output_commands() {
+        assert!(reject_session_format(true, "close-all").is_err());
+        assert!(
+            reject_auto_open_format(Some(super::super::output::OutputFormat::Json), "disable")
+                .is_err()
+        );
     }
 }

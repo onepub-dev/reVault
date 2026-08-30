@@ -1,6 +1,6 @@
 [package]
 name = "revault_migrate_vault_v1"
-version = "0.0.2"
+version = "0.0.3"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
@@ -14,7 +14,7 @@ path = "src/bin/revault-migrate-vault-v1.rs"
 
 [dependencies]
 getrandom = "0.4"
-revault_migration_format = { version = ">=0.0.1, <0.0.4", path = "../revault_migration_format" }
+revault_migration_format = { version = ">=0.0.1, <0.0.5", path = "../revault_migration_format" }
 revault_vault_api_v1 = { package = "revault_vault_api", version = "=0.0.2" }
 revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.2" }
 sha2 = "0.11"

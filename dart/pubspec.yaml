@@ -6,7 +6,6 @@ environment:
   sdk: '>=3.7.0 <4.0.0'
 dependencies: 
   archive: ^4.0.7
-  args: ^2.0.0
   async: ^2.11.0
   cryptography: ^2.9.0
   dcli: ^8.2.0
@@ -17,11 +16,8 @@ dependencies:
   meta: ^1.0.0
   path: ^1.0.0
   pointycastle: ^3.0.0
-  strings: ^4.0.1
   web: ^1.1.1
 dev_dependencies: 
   build_web_compilers: ^4.0.0
   lint_hard: ^6.1.1
   test: ^1.24.9
-executables:
-  dvault:

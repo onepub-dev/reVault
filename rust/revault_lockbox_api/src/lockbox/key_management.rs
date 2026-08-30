@@ -107,7 +107,8 @@ impl OpenedContentKey {
         bytes: Vec<u8>,
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Lockbox> {
-        let mut lockbox = self.open_bytes_opened(bytes)?;
+        let mut lockbox = self.open_bytes_opened_mode(bytes, true)?;
+        lockbox.complete_pending_transaction_cleanup()?;
         if lockbox.read_only {
             return Err(Error::InvalidOperation(
                 "lockbox was opened read-only".to_string(),
@@ -117,11 +118,18 @@ impl OpenedContentKey {
         Ok(lockbox)
     }
 
+    #[cfg(any(feature = "vault-integration", feature = "bindings", test))]
     fn open_bytes_opened(self, bytes: Vec<u8>) -> Result<Lockbox> {
-        let mut lockbox = Lockbox::open_storage_with_secret_key(
+        self.open_bytes_opened_mode(bytes, false)
+    }
+
+    #[cfg(any(feature = "vault-integration", feature = "bindings", test))]
+    fn open_bytes_opened_mode(self, bytes: Vec<u8>, allow_recovery: bool) -> Result<Lockbox> {
+        let mut lockbox = Lockbox::open_storage_with_secret_key_mode(
             StorageBackend::memory(bytes),
             self.key,
             LockboxOptions::default(),
+            allow_recovery,
         )?;
         if self.read_only {
             lockbox.mark_read_only();
@@ -356,26 +364,54 @@ impl Lockbox {
         open: LockboxOpen<'_>,
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Self> {
-        let mut lockbox = Self::open_bytes_opened(bytes, open)?;
+        let mut lockbox = Self::open_bytes_opened_mode(bytes, open, true)?;
+        lockbox.complete_pending_transaction_cleanup()?;
         lockbox.read_only = false;
         lockbox.set_owner_signing_key(signing_key.try_clone()?);
         Ok(lockbox)
     }
 
     fn open_bytes_opened(bytes: Vec<u8>, open: LockboxOpen<'_>) -> Result<Self> {
+        Self::open_bytes_opened_mode(bytes, open, false)
+    }
+
+    fn open_bytes_opened_mode(
+        bytes: Vec<u8>,
+        open: LockboxOpen<'_>,
+        allow_recovery: bool,
+    ) -> Result<Self> {
         match open {
-            LockboxOpen::ContentKey(key) => Self::open_storage_with_secret_key(
+            LockboxOpen::ContentKey(key) => Self::open_storage_with_secret_key_mode(
                 StorageBackend::memory(bytes),
                 key,
                 LockboxOptions::default(),
+                allow_recovery,
             ),
             LockboxOpen::Password(password) => {
                 let opened = Self::open_bytes_with_password(&bytes, password)?;
-                opened.open_bytes_opened(bytes)
+                let mut lockbox = Self::open_storage_with_secret_key_mode(
+                    StorageBackend::memory(bytes),
+                    opened.key,
+                    LockboxOptions::default(),
+                    allow_recovery,
+                )?;
+                if opened.read_only {
+                    lockbox.mark_read_only();
+                }
+                Ok(lockbox)
             }
             LockboxOpen::ContactKeyPair(contact) => {
                 let opened = Self::open_bytes_with_contact(&bytes, &contact)?;
-                opened.open_bytes_opened(bytes)
+                let mut lockbox = Self::open_storage_with_secret_key_mode(
+                    StorageBackend::memory(bytes),
+                    opened.key,
+                    LockboxOptions::default(),
+                    allow_recovery,
+                )?;
+                if opened.read_only {
+                    lockbox.mark_read_only();
+                }
+                Ok(lockbox)
             }
         }
     }
@@ -480,7 +516,9 @@ impl Lockbox {
         open: LockboxOpen<'_>,
         load_signing_key: impl FnOnce(&Lockbox<ReadOnly>) -> Result<OwnerSigningKeyPair>,
     ) -> Result<Self> {
-        let mut lockbox = Self::open_file_opened(path, open)?;
+        let storage = StorageBackend::file(path)?;
+        let mut lockbox = Self::open_locked_storage_mode(storage, open, true)?;
+        lockbox.complete_pending_transaction_cleanup()?;
         let read_view = lockbox.try_clone()?.into_state();
         let signing_key = load_signing_key(&read_view)?;
         lockbox.read_only = false;
@@ -506,11 +544,9 @@ impl Lockbox {
 
     fn open_file_opened_for_write(path: &Path, open: LockboxOpen<'_>) -> Result<Self> {
         let storage = StorageBackend::file_for_write(path)?;
-        Self::open_locked_storage(storage, open)
-    }
-
-    fn open_locked_storage(storage: StorageBackend, open: LockboxOpen<'_>) -> Result<Self> {
-        Self::open_locked_storage_mode(storage, open, false)
+        let mut lockbox = Self::open_locked_storage_mode(storage, open, true)?;
+        lockbox.complete_pending_transaction_cleanup()?;
+        Ok(lockbox)
     }
 
     fn open_locked_storage_mode(

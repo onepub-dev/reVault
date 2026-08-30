@@ -625,8 +625,8 @@ fn print_help(dev: bool) {
         "  --preload-published-payloads N     Benchmark published payloads to create before timing"
     );
     println!("  --compact-min-bytes N  Segment size before background compaction");
-    println!("  --rate-limit-per-minute N  Per-IP request rate, 0 disables");
-    println!("  --rate-limit-burst N       Per-IP burst capacity");
+    println!("  --rate-limit-per-minute N  Compatibility option; use TLS proxy limits");
+    println!("  --rate-limit-burst N       Compatibility option; use TLS proxy limits");
     println!("  --verification-ttl-seconds N       Email verification link lifetime");
     println!("  --default-receive-ttl-seconds N    Receive lifetime after email verification");
     println!("  --max-receive-ttl-seconds N        Maximum requested receive lifetime");
@@ -640,7 +640,7 @@ fn print_help(dev: bool) {
     println!("  --verification-email-subject TEXT");
     println!("  --verification-email-template TEXT");
     println!("  --verification-email-rate-limit-per-hour N");
-    println!("  --verification-email-ip-rate-limit-per-hour N");
+    println!("  --verification-email-ip-rate-limit-per-hour N  Direct-store callers only");
 }
 
 fn split_peer_url_args(

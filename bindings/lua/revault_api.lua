@@ -1570,17 +1570,17 @@ function Revault:last_error() return self.operations:last_error_message() end
 --- Returns the last error details.
 function Revault:last_error_details() return self.operations:buffer_last_error_details() end
 
---- Returns the lockbox format version.
+--- Returns the newest Lockbox archive format version supported by this engine.
 function Revault:lockbox_format_version()
   return self.operations:lockbox_format_version()
 end
 
---- Returns the lockbox probe format version.
+--- Reads the format version from serialized Lockbox bytes without opening them.
 function Revault:lockbox_probe_format_version(bytes)
   return self.operations:lockbox_probe_format_version(bytes)
 end
 
---- Returns the lockbox create.
+--- Creates an in memory Lockbox protected by a 32 byte content key.
 function Revault:lockbox_create(key)
   return Lockbox.new(self.operations, self.operations:lockbox_create(key))
 end
@@ -1590,22 +1590,22 @@ function Revault:lockbox_create_with_options(key, cache_mode, cache_bytes, workl
   return Lockbox.new(self.operations, self.operations:lockbox_create_with_options(key, cache_mode, cache_bytes, workload, worker, jobs))
 end
 
---- Returns the lockbox create password.
+--- Creates an in memory Lockbox protected by the supplied password.
 function Revault:lockbox_create_password(password)
   return Lockbox.new(self.operations, self.operations:lockbox_create_password(password))
 end
 
---- Returns the lockbox create contact.
+--- Creates an in memory Lockbox that the supplied contact can open.
 function Revault:lockbox_create_contact(contact)
   return Lockbox.new(self.operations, self.operations:lockbox_create_contact(contact.handle))
 end
 
---- Returns the lockbox create with signing key.
+--- Creates an in memory Lockbox and assigns its profile signing key.
 function Revault:lockbox_create_with_signing_key(content_key, signing_key)
   return Lockbox.new(self.operations, self.operations:lockbox_create_with_signing_key(content_key, signing_key.handle))
 end
 
---- Returns the lockbox open.
+--- Opens serialized Lockbox bytes with a 32 byte content key.
 function Revault:lockbox_open(archive, key)
   return Lockbox.new(self.operations, self.operations:lockbox_open(archive, key))
 end
@@ -1615,47 +1615,47 @@ function Revault:lockbox_open_with_options(archive, key, cache_mode, cache_bytes
   return Lockbox.new(self.operations, self.operations:lockbox_open_with_options(archive, key, cache_mode, cache_bytes, workload, worker, jobs))
 end
 
---- Returns the lockbox open password.
+--- Opens serialized Lockbox bytes with the supplied password.
 function Revault:lockbox_open_password(archive, password)
   return Lockbox.new(self.operations, self.operations:lockbox_open_password(archive, password))
 end
 
---- Returns the lockbox open contact.
+--- Opens serialized Lockbox bytes with the supplied contact private key.
 function Revault:lockbox_open_contact(archive, contact)
   return Lockbox.new(self.operations, self.operations:lockbox_open_contact(archive, contact.handle))
 end
 
---- Returns the lockbox inspect file.
+--- Reads public header, signature, and access slot metadata from a Lockbox file.
 function Revault:lockbox_inspect_file(path)
   return self.operations:lockbox_inspect_file(path)
 end
 
---- Returns the lockbox recovery scan path.
+--- Scans a damaged Lockbox file with its 32 byte content key.
 function Revault:lockbox_recovery_scan_path(path, key)
   return self.operations:lockbox_recovery_scan_path(path, key)
 end
 
---- Returns the lockbox recovery scan.
+--- Scans damaged serialized Lockbox bytes with their 32 byte content key.
 function Revault:lockbox_recovery_scan(bytes, key)
   return self.operations:lockbox_recovery_scan(bytes, key)
 end
 
---- Returns the lockbox recovery salvage.
+--- Builds a new Lockbox from recoverable records without changing the source.
 function Revault:lockbox_recovery_salvage(bytes, key, signing_key)
   return Lockbox.new(self.operations, self.operations:lockbox_recovery_salvage(bytes, key, signing_key.handle))
 end
 
---- Returns the key contact generate.
+--- Generates a contact encryption key pair using secure random data.
 function Revault:key_contact_generate()
   return ContactKeyPair.new(self.operations, self.operations:key_contact_generate())
 end
 
---- Returns the key contact from private.
+--- Imports a contact key pair from its private binary record.
 function Revault:key_contact_from_private(bytes)
   return ContactKeyPair.new(self.operations, self.operations:key_contact_from_private(bytes))
 end
 
---- Returns the key contact public from bytes.
+--- Imports a contact public key from its binary representation.
 function Revault:key_contact_public_from_bytes(bytes)
   return ContactPublicKey.new(self.operations, self.operations:key_contact_public_from_bytes(bytes))
 end
@@ -1675,177 +1675,177 @@ function Revault:profile_signing_public_key_from_bytes(bytes)
   return ProfileSigningPublicKey.new(self.operations, self.operations:key_signing_public_from_bytes(bytes))
 end
 
---- Returns the vault key export private.
+--- Exports a private key in the requested key format.
 function Revault:vault_key_export_private(key, format)
   return self.operations:vault_key_export_private(key.handle, format)
 end
 
---- Returns the vault key export public.
+--- Exports a public key in the requested key format.
 function Revault:vault_key_export_public(key, format)
   return self.operations:vault_key_export_public(key.handle, format)
 end
 
---- Returns the vault key import private.
+--- Imports a private contact key from a detected supported encoding.
 function Revault:vault_key_import_private(bytes)
   return ContactKeyPair.new(self.operations, self.operations:vault_key_import_private(bytes))
 end
 
---- Returns the vault key import public.
+--- Imports a public contact key from a detected supported encoding.
 function Revault:vault_key_import_public(bytes)
   return ContactPublicKey.new(self.operations, self.operations:vault_key_import_public(bytes))
 end
 
---- Returns the vault key fingerprint.
+--- Returns the stable fingerprint used to verify a public key.
 function Revault:vault_key_fingerprint(key)
   return self.operations:vault_key_fingerprint(key.handle)
 end
 
---- Returns the vault key format hex.
+--- Encodes key bytes as hexadecimal text.
 function Revault:vault_key_format_hex(bytes)
   return self.operations:vault_key_format_hex(bytes)
 end
 
---- Returns the vault key decode hex.
+--- Decodes hexadecimal key text and rejects malformed input.
 function Revault:vault_key_decode_hex(text)
   return self.operations:vault_key_decode_hex(text)
 end
 
---- Returns the vault key format crockford.
+--- Encodes key bytes using Crockford Base32.
 function Revault:vault_key_format_crockford(bytes)
   return self.operations:vault_key_format_crockford(bytes)
 end
 
---- Returns the vault key format crockford reading.
+--- Groups a Crockford code for easier reading and transcription.
 function Revault:vault_key_format_crockford_reading(code)
   return self.operations:vault_key_format_crockford_reading(code)
 end
 
---- Returns the vault key decode crockford.
+--- Decodes Crockford Base32 key text and rejects malformed input.
 function Revault:vault_key_decode_crockford(code)
   return self.operations:vault_key_decode_crockford(code)
 end
 
---- Returns the vault key hex encode.
+--- Encodes arbitrary bytes as hexadecimal text.
 function Revault:vault_key_hex_encode(bytes)
   return self.operations:vault_key_hex_encode(bytes)
 end
 
---- Returns the vault key hex decode.
+--- Decodes arbitrary hexadecimal text and rejects malformed input.
 function Revault:vault_key_hex_decode(text)
   return self.operations:vault_key_hex_decode(text)
 end
 
---- Returns the vault directory open.
+--- Opens an existing Vault directory with its passphrase.
 function Revault:vault_directory_open(root, password)
   return VaultStore.new(self.operations, self.operations:vault_directory_open(root, password))
 end
 
---- Returns the vault structure version current.
+--- Returns the newest Vault structure version supported by this engine.
 function Revault:vault_structure_version_current()
   return self.operations:vault_structure_version_current()
 end
 
---- Returns the vault directory probe structure version.
+--- Reads an existing Vault structure version without changing it.
 function Revault:vault_directory_probe_structure_version(root, password)
   return self.operations:vault_directory_probe_structure_version(root, password)
 end
 
---- Returns the vault directory open or create default.
+--- Opens or creates the default Vault without replacing existing state.
 function Revault:vault_directory_open_or_create_default(password)
   return VaultStore.new(self.operations, self.operations:vault_directory_open_or_create_default(password))
 end
 
---- Returns the vault directory replace default.
+--- Replaces the default Vault and all persistent data it contains.
 function Revault:vault_directory_replace_default(password)
   return VaultStore.new(self.operations, self.operations:vault_directory_replace_default(password))
 end
 
---- Returns the vault directory change password.
+--- Changes the passphrase for an existing Vault.
 function Revault:vault_directory_change_password(root, old_password, new_password)
   return self.operations:vault_directory_change_password(root, old_password, new_password)
 end
 
---- Returns the vault directory change default password.
+--- Changes the passphrase for the default Vault.
 function Revault:vault_directory_change_default_password(old_password, new_password)
   return self.operations:vault_directory_change_default_password(old_password, new_password)
 end
 
---- Returns the vault directory replace.
+--- Replaces the selected Vault and all persistent data it contains.
 function Revault:vault_directory_replace(root, password)
   return VaultStore.new(self.operations, self.operations:vault_directory_replace(root, password))
 end
 
---- Returns the vault directory open or create.
+--- Opens the selected Vault, creating it only when absent.
 function Revault:vault_directory_open_or_create(root, password)
   return VaultStore.new(self.operations, self.operations:vault_directory_open_or_create(root, password))
 end
 
---- Returns the vault backup default.
+--- Writes a backup of the default Vault to the selected path.
 function Revault:vault_backup_default(path, overwrite)
   return self.operations:vault_backup_default(path, overwrite)
 end
 
---- Returns the vault restore default.
+--- Restores the default Vault from the selected backup.
 function Revault:vault_restore_default(path, overwrite)
   return self.operations:vault_restore_default(path, overwrite)
 end
 
---- Returns the vault read only open.
+--- Opens an existing Vault metadata view that cannot load private keys.
 function Revault:vault_read_only_open(root, password)
   return ReadOnlyVault.new(self.operations, self.operations:vault_read_only_open(root, password))
 end
 
---- Returns the vault read only open default.
+--- Opens the default Vault metadata view without loading private keys.
 function Revault:vault_read_only_open_default(password)
   return ReadOnlyVault.new(self.operations, self.operations:vault_read_only_open_default(password))
 end
 
---- Returns the vault default directory.
+--- Returns the platform default Vault directory.
 function Revault:vault_default_directory()
   return self.operations:vault_default_directory()
 end
 
---- Returns the vault default path.
+--- Returns the path of the default Vault file.
 function Revault:vault_default_path()
   return self.operations:vault_default_path()
 end
 
---- Returns the vault agent log path.
+--- Returns the session agent log path.
 function Revault:vault_agent_log_path()
   return self.operations:vault_agent_log_path()
 end
 
---- Returns the vault agent log destination.
+--- Returns the configured session agent log destination.
 function Revault:vault_agent_log_destination()
   return self.operations:vault_agent_log_destination()
 end
 
---- Adds file.
+--- Stages a file at the Lockbox path; replace controls an existing entry.
 function Lockbox:add_file(path, data, replace)
   return self.operations:lockbox_add_file(self.handle, path, data, replace)
 end
 
---- Adds file with permissions.
+--- Stages a file and its portable Unix permission bits.
 function Lockbox:add_file_with_permissions(path, data, permissions, replace)
   return self.operations:lockbox_add_file_with_permissions(self.handle, path, data, permissions, replace)
 end
 
---- Returns file.
+--- Reads the complete file stored at the Lockbox path.
 function Lockbox:get_file(path)
   return self.operations:lockbox_get_file(self.handle, path)
 end
 
---- Extracts file.
+--- Writes one Lockbox file to the host filesystem.
 function Lockbox:extract_file(source, destination, replace)
   return self.operations:lockbox_extract_file(self.handle, source, destination, replace)
 end
 
---- Extracts directory.
+--- Extracts the Lockbox with explicit size, count, link, and permission limits.
 function Lockbox:extract_directory(destination, max_file_bytes, max_total_bytes, max_files, restore_symlinks, restore_permissions, overwrite)
   return self.operations:lockbox_extract_directory(self.handle, destination, max_file_bytes, max_total_bytes, max_files, restore_symlinks, restore_permissions, overwrite)
 end
 
---- Returns the stream content.
+--- Lists logical or physical content chunks for streaming diagnostics.
 function Lockbox:stream_content(physical)
   return self.operations:lockbox_stream_content(self.handle, physical)
 end
@@ -1865,22 +1865,22 @@ function Lockbox:reset_import_stats()
   return self.operations:lockbox_reset_import_stats(self.handle)
 end
 
---- Returns the page inspection.
+--- Returns page metadata for diagnostics without exposing plaintext secrets.
 function Lockbox:page_inspection()
   return self.operations:lockbox_page_inspection(self.handle)
 end
 
---- Returns the recovery report.
+--- Scans the open archive and returns its structured recovery report.
 function Lockbox:recovery_report()
   return self.operations:lockbox_recovery_report(self.handle)
 end
 
---- Returns the recovery report render.
+--- Renders the recovery report for a person, capped at maxEntries.
 function Lockbox:recovery_report_render(verbose, max_entries)
   return self.operations:lockbox_recovery_report_render(self.handle, verbose, max_entries)
 end
 
---- Returns the storage len.
+--- Returns the current serialized archive size in bytes.
 function Lockbox:storage_len()
   return self.operations:lockbox_storage_len(self.handle)
 end
@@ -1895,7 +1895,7 @@ function Lockbox:set_worker_policy(mode, jobs)
   return self.operations:lockbox_set_worker_policy(self.handle, mode, jobs)
 end
 
---- Returns the runtime options.
+--- Returns the cache, workload, and worker settings used by this Lockbox.
 function Lockbox:runtime_options()
   return self.operations:lockbox_runtime_options(self.handle)
 end
@@ -1905,37 +1905,37 @@ function Lockbox:commit()
   return self.operations:lockbox_commit(self.handle)
 end
 
---- Creates dir.
+--- Stages a directory entry and optionally creates missing parents.
 function Lockbox:create_dir(path, create_parents)
   return self.operations:lockbox_create_dir(self.handle, path, create_parents)
 end
 
---- Removes delete.
+--- Stages removal of a file, link, or empty directory at path.
 function Lockbox:delete(path)
   return self.operations:lockbox_delete(self.handle, path)
 end
 
---- Removes dir.
+--- Stages removal of a directory, optionally including its descendants.
 function Lockbox:remove_dir(path, recursive)
   return self.operations:lockbox_remove_dir(self.handle, path, recursive)
 end
 
---- Creates parent dirs.
+--- Stages every missing parent directory for path.
 function Lockbox:create_parent_dirs(path)
   return self.operations:lockbox_create_parent_dirs(self.handle, path)
 end
 
---- Updates rename.
+--- Stages an atomic move from one Lockbox path to another.
 function Lockbox:rename(from, to)
   return self.operations:lockbox_rename(self.handle, from, to)
 end
 
---- Lists list.
+--- Lists entries below path, optionally including descendants.
 function Lockbox:list(path, recursive)
   return self.operations:lockbox_list(self.handle, path, recursive)
 end
 
---- Lists with options.
+--- Lists entries using glob, type, recursion, and result limit filters.
 function Lockbox:list_with_options(path, glob, recursive, include_files, include_symlinks, include_directories, limit)
   return self.operations:lockbox_list_with_options(self.handle, path, glob, recursive, include_files, include_symlinks, include_directories, limit)
 end
@@ -1945,7 +1945,7 @@ function Lockbox:stat(path)
   return self.operations:lockbox_stat(self.handle, path)
 end
 
---- Sets variable.
+--- Stages a plain text variable; commit to publish the change.
 function Lockbox:set_variable(name, value)
   return self.operations:lockbox_set_variable(self.handle, name, value)
 end
@@ -1955,7 +1955,7 @@ function Lockbox:set_secret_variable(name, value)
   return self.operations:lockbox_set_secret_variable(self.handle, name, value)
 end
 
---- Returns variable.
+--- Returns a plain variable when it is present.
 function Lockbox:get_variable(name)
   return self.operations:lockbox_get_variable(self.handle, name)
 end
@@ -1983,7 +1983,7 @@ function Lockbox:with_secret_variable(name, callback)
   return self.operations:lockbox_get_secret_variable(self.handle, name, callback)
 end
 
---- Removes variable.
+--- Stages removal of a variable.
 function Lockbox:delete_variable(name)
   return self.operations:lockbox_delete_variable(self.handle, name)
 end
@@ -1993,82 +1993,82 @@ function Lockbox:move_variables(moves)
   return self.operations:lockbox_move_variables(self.handle, flatbuffers.encode_path_moves(moves))
 end
 
---- Lists variables.
+--- Lists variable names and metadata without exposing secret values.
 function Lockbox:list_variables()
   return self.operations:lockbox_list_variables(self.handle)
 end
 
---- Returns the variable sensitivity.
+--- Returns whether a variable is plain or secret.
 function Lockbox:variable_sensitivity(name)
   return self.operations:lockbox_variable_sensitivity(self.handle, name)
 end
 
---- Adds symlink.
+--- Stages a symbolic link with its stored target text.
 function Lockbox:add_symlink(path, target, replace)
   return self.operations:lockbox_add_symlink(self.handle, path, target, replace)
 end
 
---- Returns symlink target.
+--- Returns the target text stored for a symbolic link.
 function Lockbox:get_symlink_target(path)
   return self.operations:lockbox_get_symlink_target(self.handle, path)
 end
 
---- Returns the id.
+--- Returns the stable public identifier stored in the Lockbox header.
 function Lockbox:id()
   return self.operations:lockbox_id(self.handle)
 end
 
---- Reports whether exists.
+--- Reports whether an entry exists at path.
 function Lockbox:exists(path)
   return self.operations:lockbox_exists(self.handle, path)
 end
 
---- Reports whether dir.
+--- Reports whether path names a directory entry.
 function Lockbox:is_dir(path)
   return self.operations:lockbox_is_dir(self.handle, path)
 end
 
---- Returns the permissions.
+--- Returns the portable Unix permission bits stored for path.
 function Lockbox:permissions(path)
   return self.operations:lockbox_permissions(self.handle, path)
 end
 
---- Sets permissions.
+--- Stages portable Unix permission bits for path.
 function Lockbox:set_permissions(path, permissions)
   return self.operations:lockbox_set_permissions(self.handle, path, permissions)
 end
 
---- Returns range.
+--- Reads the requested byte range from a stored file.
 function Lockbox:read_range(path, offset, len)
   return self.operations:lockbox_read_range(self.handle, path, offset, len)
 end
 
---- Adds password.
+--- Adds a password access slot and returns its slot identifier.
 function Lockbox:add_password(password)
   return self.operations:lockbox_add_password(self.handle, password)
 end
 
---- Adds contact.
+--- Grants a named contact access and returns the new slot identifier.
 function Lockbox:add_contact(contact, name)
   return self.operations:lockbox_add_contact(self.handle, contact.handle, name)
 end
 
---- Removes key.
+--- Removes an access slot; at least one usable slot must remain.
 function Lockbox:delete_key(id)
   return self.operations:lockbox_delete_key(self.handle, id)
 end
 
---- Lists key slots.
+--- Lists public access slot metadata without returning credentials.
 function Lockbox:list_key_slots()
   return self.operations:lockbox_list_key_slots(self.handle)
 end
 
---- Sets owner signing key.
+--- Assigns a profile signing key to the Lockbox owner role.
 function Lockbox:set_owner_signing_key(key)
   return self.operations:lockbox_set_owner_signing_key(self.handle, key.handle)
 end
 
---- Returns the owner inspection.
+--- Returns public signing and ownership metadata for the current revision.
 function Lockbox:owner_inspection()
   return self.operations:lockbox_owner_inspection(self.handle)
 end
@@ -2078,27 +2078,27 @@ function Lockbox:define_form(alias, name, description, fields)
   return self.operations:lockbox_define_form(self.handle, alias, name, description, flatbuffers.encode_form_fields(fields))
 end
 
---- Lists form definitions.
+--- Lists the form definitions stored in this Lockbox.
 function Lockbox:list_form_definitions()
   return self.operations:lockbox_list_form_definitions(self.handle)
 end
 
---- Returns the resolve form.
+--- Resolves a form alias, type identifier, or revision.
 function Lockbox:resolve_form(reference)
   return self.operations:lockbox_resolve_form(self.handle, reference)
 end
 
---- Lists form revisions.
+--- Lists every stored revision for a form type identifier.
 function Lockbox:list_form_revisions(type_id)
   return self.operations:lockbox_list_form_revisions(self.handle, type_id)
 end
 
---- Creates form record.
+--- Stages a form record at path using the referenced definition.
 function Lockbox:create_form_record(path, type_reference, name)
   return self.operations:lockbox_create_form_record(self.handle, path, type_reference, name)
 end
 
---- Sets form field.
+--- Stages a plain field value in a form record.
 function Lockbox:set_form_field(path, field, value)
   return self.operations:lockbox_set_form_field(self.handle, path, field, value)
 end
@@ -2108,17 +2108,17 @@ function Lockbox:set_secret_form_field(path, field, value)
   return self.operations:lockbox_set_secret_form_field(self.handle, path, field, value)
 end
 
---- Lists form records.
+--- Lists form records without exposing secret field values.
 function Lockbox:list_form_records()
   return self.operations:lockbox_list_form_records(self.handle)
 end
 
---- Returns form record.
+--- Returns the form record at path when present.
 function Lockbox:get_form_record(path)
   return self.operations:lockbox_get_form_record(self.handle, path)
 end
 
---- Removes form record.
+--- Stages removal of a form record.
 function Lockbox:delete_form_record(path)
   return self.operations:lockbox_delete_form_record(self.handle, path)
 end
@@ -2128,7 +2128,7 @@ function Lockbox:move_form_records(moves)
   return self.operations:lockbox_move_form_records(self.handle, flatbuffers.encode_path_moves(moves))
 end
 
---- Returns form field.
+--- Returns a plain form field when it exists.
 function Lockbox:get_form_field(path, field)
   return self.operations:lockbox_get_form_field(self.handle, path, field)
 end
@@ -2138,7 +2138,7 @@ function Lockbox:with_secret_form_field(path, field, callback)
   return self.operations:lockbox_get_secret_form_field(self.handle, path, field, callback)
 end
 
---- Returns the to bytes.
+--- Serializes the current Lockbox, including committed changes.
 function Lockbox:to_bytes()
   return self.operations:lockbox_to_bytes(self.handle)
 end
@@ -2170,7 +2170,7 @@ function ContactKeyPair:decrypt(wrapped)
   return self.operations:key_contact_decrypt(self.handle, wrapped.handle)
 end
 
---- Returns the public free.
+--- Releases this public contact key.
 function ContactPublicKey:public_free()
   self.operations:key_contact_public_free(self.handle)
   self.handle = nil
@@ -2186,12 +2186,12 @@ function WrappedContactKey:public()
   return self.operations:key_contact_wrapped_public(self.handle)
 end
 
---- Returns the ciphertext.
+--- Returns the encrypted content key bytes.
 function WrappedContactKey:ciphertext()
   return self.operations:key_contact_wrapped_ciphertext(self.handle)
 end
 
---- Returns the encrypted.
+--- Returns the complete wrapped key record for storage or transport.
 function WrappedContactKey:encrypted()
   return self.operations:key_contact_wrapped_encrypted(self.handle)
 end
@@ -2232,12 +2232,12 @@ function ProfileSigningPublicKey:free()
   self.handle = nil
 end
 
---- Returns the root.
+--- Returns the canonical root directory of this Vault.
 function VaultStore:root()
   return self.operations:vault_directory_root(self.handle)
 end
 
---- Returns the structure version.
+--- Returns the persistent structure version of this Vault.
 function VaultStore:structure_version()
   return self.operations:vault_directory_structure_version(self.handle)
 end
@@ -2262,7 +2262,7 @@ function VaultStore:list_form_aliases()
   return self.operations:vault_directory_list_form_aliases(self.handle)
 end
 
---- Returns the private key exists.
+--- Reports whether the named profile private key exists.
 function VaultStore:private_key_exists(name)
   return self.operations:vault_directory_private_key_exists(self.handle, name)
 end
@@ -2297,7 +2297,7 @@ function VaultStore:load_contact(name)
   return ContactPublicKey.new(self.operations, self.operations:vault_directory_load_contact(self.handle, name))
 end
 
---- Returns the contact exists.
+--- Reports whether the named contact exists.
 function VaultStore:contact_exists(name)
   return self.operations:vault_directory_contact_exists(self.handle, name)
 end
@@ -2317,7 +2317,7 @@ function VaultStore:store_profile_email(name, email)
   return self.operations:vault_directory_store_profile_email(self.handle, name, email)
 end
 
---- Returns the profile email.
+--- Returns the email recorded for a profile, when present.
 function VaultStore:profile_email(name)
   return self.operations:vault_directory_profile_email(self.handle, name)
 end
@@ -2332,12 +2332,12 @@ function VaultStore:load_backup(id)
   return self.operations:vault_directory_load_backup(self.handle, id)
 end
 
---- Returns the backup count.
+--- Returns the number of stored key recovery backups.
 function VaultStore:backup_count()
   return self.operations:vault_directory_backup_count(self.handle)
 end
 
---- Returns the restore private key.
+--- Restores a profile private key and signing key from recovery material.
 function VaultStore:restore_private_key(name, key, signing_key, overwrite)
   return self.operations:vault_directory_restore_private_key(self.handle, name, key.handle, signing_key.handle, overwrite)
 end
@@ -2397,7 +2397,7 @@ function VaultStore:list_access_slot_labels(id)
   return self.operations:vault_directory_list_access_slot_labels(self.handle, id)
 end
 
---- Returns the find access slot labels.
+--- Finds access slot labels with the supplied name for one Lockbox.
 function VaultStore:find_access_slot_labels(id, name)
   return self.operations:vault_directory_find_access_slot_labels(self.handle, id, name)
 end
@@ -2412,7 +2412,7 @@ function VaultStore:define_form(alias, name, description, fields)
   return self.operations:vault_directory_define_form(self.handle, alias, name, description, flatbuffers.encode_form_fields(fields))
 end
 
---- Returns the resolve form.
+--- Resolves a form alias, type identifier, or revision.
 function VaultStore:resolve_form(reference)
   return self.operations:vault_directory_resolve_form(self.handle, reference)
 end
@@ -2422,12 +2422,12 @@ function VaultStore:list_forms()
   return self.operations:vault_directory_list_forms(self.handle)
 end
 
---- Lists form revisions.
+--- Lists every stored revision for a form type identifier.
 function VaultStore:list_form_revisions(type_id)
   return self.operations:vault_directory_list_form_revisions(self.handle, type_id)
 end
 
---- Returns the seed forms.
+--- Adds missing standard form definitions and returns the number added.
 function VaultStore:seed_forms()
   return self.operations:vault_directory_seed_forms(self.handle)
 end
@@ -2437,7 +2437,7 @@ function VaultStore:remember_password(id, password)
   return self.operations:vault_directory_remember_password(self.handle, id, password)
 end
 
---- Returns the remembered password.
+--- Returns the Lockbox password encrypted inside this Vault.
 function VaultStore:remembered_password(id)
   return self.operations:vault_directory_remembered_password(self.handle, id)
 end
@@ -2484,7 +2484,7 @@ function Agent:forget_all()
   return self.operations:vault_forget_all()
 end
 
---- Returns the serve.
+--- Runs the session agent server until it is stopped.
 function Agent:serve()
   return self.operations:vault_agent_serve()
 end
@@ -2519,12 +2519,12 @@ function Agent:start()
   return self.operations:vault_agent_start()
 end
 
---- Lists list.
+--- Lists entries below path, optionally including descendants.
 function Agent:list()
   return self.operations:vault_agent_list()
 end
 
---- Returns the sleep support.
+--- Reports how the platform handles agent expiry during system sleep.
 function Agent:sleep_support()
   return self.operations:vault_agent_sleep_support()
 end
@@ -2569,7 +2569,7 @@ function Agent:end_activity(handle)
   return self.operations:vault_agent_end_activity(handle.handle)
 end
 
---- Returns the status.
+--- Returns availability and user presence guarantees for platform storage.
 function Platform:status()
   return self.operations:vault_platform_status()
 end
@@ -2589,17 +2589,17 @@ function Platform:put_password(password)
   return self.operations:vault_platform_put_password(password)
 end
 
---- Returns the enable.
+--- Enables storage of the Vault passphrase in platform credentials.
 function Platform:enable()
   return self.operations:vault_platform_enable()
 end
 
---- Returns the disable.
+--- Disables platform credential use without deleting the stored value.
 function Platform:disable()
   return self.operations:vault_platform_disable()
 end
 
---- Returns the disabled.
+--- Reports whether platform credential use is disabled.
 function Platform:disabled()
   return self.operations:vault_platform_disabled()
 end

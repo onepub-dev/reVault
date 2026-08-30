@@ -90,28 +90,79 @@ pub(crate) enum Access {
 
 pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
     ensure_lockbox_path_accessible(path)?;
-    match access {
+    let mut lockbox = match access {
         Access::ContentKey(key) => {
             let _vault = default_vault()?;
-            Ok(Vault::new(NoopStore)
-                .open_lockbox_with(path, LockboxOpen::ContentKey(key.try_clone()?))?)
+            Vault::new(NoopStore)
+                .open_lockbox_with(path, LockboxOpen::ContentKey(key.try_clone()?))?
         }
-        Access::PromptPassword => Err(cli_error(
-            "password prompting is only used when creating a new lockbox; pass --key or open through the local vault",
-        )),
+        Access::PromptPassword => {
+            return Err(cli_error(
+                "password prompting is only used when creating a new lockbox; pass --key or open through the local vault",
+            ));
+        }
         Access::CacheOnly => match local_vault().open_lockbox(path) {
-            Ok(lockbox) => Ok(lockbox),
+            Ok(lockbox) => lockbox,
             Err(Error::VaultUnavailable(message)) if message.contains("no cached content key") => {
                 match auto_open_lockbox(path) {
-                    Ok(lockbox) => Ok(lockbox),
-                    Err(AutoOpenLockboxError::Disabled) => Err(closed_lockbox_error(path, None)),
+                    Ok(lockbox) => lockbox,
+                    Err(AutoOpenLockboxError::Disabled) => {
+                        return Err(closed_lockbox_error(path, None));
+                    }
                     Err(AutoOpenLockboxError::Unavailable(reason)) => {
-                        Err(closed_lockbox_error(path, Some(reason)))
+                        return Err(closed_lockbox_error(path, Some(reason)));
                     }
                 }
             }
-            Err(err) => Err(err.into()),
+            Err(err) => return Err(err.into()),
         },
+    };
+    attach_established_owner_signing_key(&mut lockbox);
+    Ok(lockbox)
+}
+
+pub(crate) fn open_existing_read_only(
+    path: &str,
+    access: &Access,
+) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
+    ensure_lockbox_path_accessible(path)?;
+    match access {
+        Access::ContentKey(key) => Ok(Lockbox::open(
+            Path::new(path),
+            LockboxOpen::ContentKey(key.try_clone()?),
+        )?),
+        Access::PromptPassword => Err(cli_error(
+            "password prompting is only used when creating a new lockbox; pass --key or open through the local vault",
+        )),
+        Access::CacheOnly => Ok(local_vault().open_lockbox_read_only(path)?),
+    }
+}
+
+fn attach_established_owner_signing_key(lockbox: &mut Lockbox) {
+    let Ok(vault) = default_vault() else {
+        return;
+    };
+    let Ok(profiles) = vault.list_private_keys() else {
+        return;
+    };
+    for profile in profiles {
+        let Ok(history) = vault.list_profile_generations(&profile) else {
+            continue;
+        };
+        for generation in history.generations {
+            let Ok(signing_key) =
+                vault.load_owner_signing_key_generation(&profile, generation.index)
+            else {
+                continue;
+            };
+            if lockbox
+                .owner_signing_key_matches(&signing_key)
+                .unwrap_or(false)
+            {
+                lockbox.set_owner_signing_key(signing_key);
+                return;
+            }
+        }
     }
 }
 

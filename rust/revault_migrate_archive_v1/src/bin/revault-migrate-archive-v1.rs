@@ -1,4 +1,6 @@
-use revault_lockbox_api_v1::{Lockbox, LockboxOpen, ReadOnly, SecretString};
+use revault_lockbox_api_v1::{
+    ContactKeyPair, Lockbox, LockboxOpen, ReadOnly, SecretString, SecretVec,
+};
 use revault_migrate_archive_v1::export_archive_v1;
 use revault_vault_api::{local_vault, VaultDirectory};
 use sha2::{Digest, Sha256};
@@ -10,6 +12,7 @@ use zeroize::Zeroizing;
 
 const IPC_MAGIC: &[u8; 8] = b"LBXMIPC1";
 const MAX_SECRET_BYTES: usize = 1024 * 1024;
+const MAX_SECRET_COUNT: usize = 4096;
 
 fn main() {
     // Windows executables start with a smaller main-thread stack than Rust
@@ -38,7 +41,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args = env::args().skip(1).collect::<Vec<_>>();
     if args.as_slice() == ["capabilities"] {
         println!(
-            "{{\"protocol\":2,\"artifact\":\"archive\",\"native_version\":1,\"migration_schema\":1}}"
+            "{{\"protocol\":3,\"artifact\":\"archive\",\"native_version\":1,\"migration_schema\":2}}"
         );
         return Ok(());
     }
@@ -50,11 +53,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         .map(PathBuf::from)
         .ok_or("historical export requires --output")?;
     let source_fingerprint = fingerprint_file(&PathBuf::from(source))?;
-    let mut secrets = read_secret_frame(2)?;
-    let artifact_password = secrets.pop().expect("framed artifact password");
-    let vault_password = secrets.pop().expect("framed vault password");
+    let mut secrets = read_secret_frame()?;
+    if secrets.len() < 2 {
+        return Err("historical archive export requires two framed passwords".into());
+    }
+    let contact_keys = secrets.split_off(2);
+    let artifact_password = SecretString::from_secure_vec(secrets.pop().unwrap());
+    let vault_password = SecretString::from_secure_vec(secrets.pop().unwrap());
     let artifact_bytes = artifact_password.with_bytes(|bytes| Zeroizing::new(bytes.to_vec()))?;
-    let lockbox = open_archive(source, &vault_password)?;
+    let lockbox = open_archive(source, &vault_password, contact_keys)?;
     export_archive_v1(&lockbox, &output, &artifact_bytes, random_id()?)?;
     if fingerprint_file(&PathBuf::from(source))? != source_fingerprint {
         return Err("v1 archive changed while it was being exported".into());
@@ -65,20 +72,33 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 fn open_archive(
     source: &str,
     vault_password: &SecretString,
+    contact_key_records: Vec<SecretVec>,
 ) -> Result<Lockbox<ReadOnly>, Box<dyn std::error::Error>> {
+    for record in contact_key_records {
+        let key = ContactKeyPair::from_private_key_record(record)?;
+        if let Ok(lockbox) = Lockbox::open(&PathBuf::from(source), LockboxOpen::ContactKeyPair(key))
+        {
+            return Ok(lockbox);
+        }
+    }
     if let Ok(lockbox) = local_vault().open_lockbox_read_only(source) {
         return Ok(lockbox);
     }
 
-    let vault = VaultDirectory::open_or_create_default(vault_password)?;
-    for profile in vault.list_private_keys()? {
-        let history = vault.list_profile_generations(&profile)?;
-        for generation in history.generations {
-            let key = vault.load_private_key_generation(&profile, generation.index)?;
-            if let Ok(lockbox) =
-                Lockbox::open(&PathBuf::from(source), LockboxOpen::ContactKeyPair(key))
-            {
-                return Ok(lockbox);
+    // A direct archive migration is normally run after the vault itself has
+    // been upgraded. This historical binary may therefore be unable to parse
+    // the current vault format; password-only archives must still reach the
+    // explicit password fallback below.
+    if let Ok(vault) = VaultDirectory::open_or_create_default(vault_password) {
+        for profile in vault.list_private_keys()? {
+            let history = vault.list_profile_generations(&profile)?;
+            for generation in history.generations {
+                let key = vault.load_private_key_generation(&profile, generation.index)?;
+                if let Ok(lockbox) =
+                    Lockbox::open(&PathBuf::from(source), LockboxOpen::ContactKeyPair(key))
+                {
+                    return Ok(lockbox);
+                }
             }
         }
     }
@@ -103,7 +123,7 @@ fn option<'a>(args: &'a [String], name: &str) -> Option<&'a str> {
         .map(String::as_str)
 }
 
-fn read_secret_frame(count: usize) -> Result<Vec<SecretString>, Box<dyn std::error::Error>> {
+fn read_secret_frame() -> Result<Vec<SecretVec>, Box<dyn std::error::Error>> {
     let mut input = std::io::stdin().lock();
     let mut magic = [0u8; 8];
     input.read_exact(&mut magic)?;
@@ -112,7 +132,8 @@ fn read_secret_frame(count: usize) -> Result<Vec<SecretString>, Box<dyn std::err
     }
     let mut count_bytes = [0u8; 4];
     input.read_exact(&mut count_bytes)?;
-    if u32::from_le_bytes(count_bytes) as usize != count {
+    let count = u32::from_le_bytes(count_bytes) as usize;
+    if !(2..=MAX_SECRET_COUNT).contains(&count) {
         return Err("unexpected migration secret count".into());
     }
     let mut values = Vec::with_capacity(count);
@@ -125,7 +146,7 @@ fn read_secret_frame(count: usize) -> Result<Vec<SecretString>, Box<dyn std::err
         }
         let mut bytes = vec![0u8; len];
         input.read_exact(&mut bytes)?;
-        values.push(SecretString::try_from_bytes(bytes)?);
+        values.push(SecretVec::try_from_vec(bytes)?);
     }
     Ok(values)
 }

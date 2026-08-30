@@ -123,9 +123,9 @@ pub struct ServerConfig {
     pub compact_min_bytes: u64,
     /// Represents the index cache entries carried by this record case.
     pub index_cache_entries: usize,
-    /// Represents the rate limit per minute carried by this record case.
+    /// Deprecated compatibility setting; HTTP request limiting belongs to the TLS proxy.
     pub rate_limit_per_minute: u32,
-    /// Represents the rate limit burst carried by this record case.
+    /// Deprecated compatibility setting; HTTP request limiting belongs to the TLS proxy.
     pub rate_limit_burst: u32,
     /// Represents the smtp host carried by this record case.
     pub smtp_host: Option<String>,
@@ -147,7 +147,8 @@ pub struct ServerConfig {
     pub verification_email_template: String,
     /// Represents the verification email rate limit per hour carried by this record case.
     pub verification_email_rate_limit_per_hour: u32,
-    /// Represents the verification email ip rate limit per hour carried by this record case.
+    /// Optional source-IP limit for direct `handle_with_peer` callers.
+    /// The HTTP server deliberately does not supply its reverse-proxy socket address.
     pub verification_email_ip_rate_limit_per_hour: u32,
     /// Represents the topology token carried by this record case.
     pub topology_token: Option<String>,
@@ -196,8 +197,8 @@ impl Default for ServerConfig {
             max_receives_per_publish: 8,
             compact_min_bytes: 64 * 1024 * 1024,
             index_cache_entries: 65_536,
-            rate_limit_per_minute: 120,
-            rate_limit_burst: 40,
+            rate_limit_per_minute: 0,
+            rate_limit_burst: 0,
             smtp_host: None,
             smtp_port: 587,
             smtp_username: None,
@@ -209,7 +210,7 @@ impl Default for ServerConfig {
             verification_email_template:
                 "Verify {email} for this reVault publish:\n\n{verification_url}\n\nThis link expires in 30 minutes.".to_string(),
             verification_email_rate_limit_per_hour: 5,
-            verification_email_ip_rate_limit_per_hour: 30,
+            verification_email_ip_rate_limit_per_hour: 0,
             topology_token: None,
             topology_stale_after_ms: DEFAULT_TOPOLOGY_STALE_MS,
             topology_heartbeat_interval_ms: TOPOLOGY_HEARTBEAT_INTERVAL_MS,

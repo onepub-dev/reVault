@@ -104,7 +104,7 @@ public final class Revault {
   /** Returns structured details for the last native error. */
   public ErrorDetails lastErrorDetails() { return operations.bufferLastErrorDetails(); }
 
-  /** Returns the lockbox format version. */
+  /** Returns the newest Lockbox archive format version supported by this engine. */
   public int lockboxFormatVersion() { return operations.lockboxFormatVersion(); }
   /** Determines lockbox format version without fully opening it. */
   public int probeLockboxFormatVersion(byte[] value) { return operations.lockboxProbeFormatVersion(value); }
@@ -137,7 +137,7 @@ public final class Revault {
     private WrappedContactKey(MemorySegment handle) { this.handle = handle; }
     /** Returns the public bytes. */
     public byte[] publicBytes() { ensureOpen(handle); return operations.keyContactWrappedPublic(handle); }
-    /** Returns the ciphertext. */
+    /** Returns the encrypted content key bytes. */
     public byte[] ciphertext() { ensureOpen(handle); return operations.keyContactWrappedCiphertext(handle); }
     /** Returns the encrypted bytes. */
     public byte[] encryptedBytes() { ensureOpen(handle); return operations.keyContactWrappedEncrypted(handle); }
@@ -276,21 +276,21 @@ public final class Revault {
   public final class Lockbox implements AutoCloseable {
     private MemorySegment handle;
     private Lockbox(MemorySegment handle) { this.handle = handle; }
-    /** Adds file. */
+    /** Stages a file at the Lockbox path; replace controls an existing entry. */
     public void addFile(String path, byte[] value, boolean replace) { operations.lockboxAddFile(handle, path, value, replace); }
-    /** Adds file. */
+    /** Stages a file at the Lockbox path; replace controls an existing entry. */
     public void addFile(String path, byte[] value, int permissions, boolean replace) { operations.lockboxAddFileWithPermissions(handle, path, value, permissions, replace); }
-    /** Returns file. */
+    /** Reads the complete file stored at the Lockbox path. */
     public byte[] getFile(String path) { return operations.lockboxGetFile(handle, path); }
-    /** Extracts file. */
+    /** Writes one Lockbox file to the host filesystem. */
     public void extractFile(String source, String destination, boolean replace) { operations.lockboxExtractFile(handle, source, destination, replace); }
-    /** Extracts directory. */
+    /** Extracts the Lockbox with explicit size, count, link, and permission limits. */
     public void extractDirectory(String destination, long maxFileBytes, long maxTotalBytes, long maxFiles,
         boolean restoreSymlinks, boolean restorePermissions, boolean overwrite) {
       operations.lockboxExtractDirectory(handle, destination, maxFileBytes, maxTotalBytes, maxFiles,
           restoreSymlinks, restorePermissions, overwrite);
     }
-    /** Returns the stream content. */
+    /** Lists logical or physical content chunks for streaming diagnostics. */
     public java.util.List<StreamChunk> streamContent(boolean physical) { return operations.lockboxStreamContent(handle, physical); }
     /** Returns cache statistics for this lockbox. */
     public CacheStats cacheStats() { return operations.lockboxCacheStats(handle); }
@@ -298,9 +298,9 @@ public final class Revault {
     public ImportStats importStats() { return operations.lockboxImportStats(handle); }
     /** Updates import stats. */
     public void resetImportStats() { operations.lockboxResetImportStats(handle); }
-    /** Returns the page inspection. */
+    /** Returns page metadata for diagnostics without exposing plaintext secrets. */
     public java.util.List<PageInspection> pageInspection() { return operations.lockboxPageInspection(handle); }
-    /** Returns the recovery report. */
+    /** Scans the open archive and returns its structured recovery report. */
     public RecoveryReport recoveryReport() { return operations.lockboxRecoveryReport(handle); }
     /** Returns the render recovery report. */
     public String renderRecoveryReport(boolean verbose, long maxEntries) { return operations.lockboxRecoveryReportRender(handle, verbose, maxEntries); }
@@ -310,23 +310,23 @@ public final class Revault {
     public void setWorkloadProfile(String profile) { operations.lockboxSetWorkloadProfile(handle, profile); }
     /** Sets worker policy. */
     public void setWorkerPolicy(String mode, long jobs) { operations.lockboxSetWorkerPolicy(handle, mode, jobs); }
-    /** Returns the runtime options. */
+    /** Returns the cache, workload, and worker settings used by this Lockbox. */
     public RuntimeOptions runtimeOptions() { return operations.lockboxRuntimeOptions(handle); }
     /** Authenticates and publishes the staged changes. */
     public void commit() { operations.lockboxCommit(handle); }
     /** Creates directory. */
     public void createDirectory(String path, boolean parents) { operations.lockboxCreateDir(handle, path, parents); }
-    /** Removes delete. */
+    /** Stages removal of a file, link, or empty directory at path. */
     public void delete(String path) { operations.lockboxDelete(handle, path); }
     /** Removes directory. */
     public void removeDirectory(String path, boolean recursive) { operations.lockboxRemoveDir(handle, path, recursive); }
     /** Creates parent directories. */
     public void createParentDirectories(String path) { operations.lockboxCreateParentDirs(handle, path); }
-    /** Updates rename. */
+    /** Stages an atomic move from one Lockbox path to another. */
     public void rename(String from, String to) { operations.lockboxRename(handle, from, to); }
-    /** Lists list. */
+    /** Lists entries below path, optionally including descendants. */
     public java.util.List<LockboxEntry> list(String path, boolean recursive) { return operations.lockboxList(handle, path, recursive); }
-    /** Lists list. */
+    /** Lists entries below path, optionally including descendants. */
     public java.util.List<LockboxEntry> list(String path, String glob, boolean recursive, boolean includeFiles,
         boolean includeSymlinks, boolean includeDirectories, long limit) {
       return operations.lockboxListWithOptions(handle, path, glob, recursive, includeFiles,
@@ -334,11 +334,11 @@ public final class Revault {
     }
     /** Returns metadata for the selected lockbox entry. */
     public LockboxEntry stat(String path) { return operations.lockboxStat(handle, path); }
-    /** Sets variable. */
+    /** Stages a plain text variable; commit to publish the change. */
     public void setVariable(String name, String value) { operations.lockboxSetVariable(handle, name, value); }
     /** Stores a secret variable from mutable bytes. */
     public void setSecretVariable(String name, byte[] value) { operations.lockboxSetSecretVariable(handle, name, value); }
-    /** Returns variable. */
+    /** Returns a plain variable when it is present. */
     public String getVariable(String name) { return operations.lockboxGetVariable(handle, name); }
     /** Returns the encrypted Lockbox description, or {@code null} when unset. Example: {@code box.setDescription("Production credentials"); box.commit(); System.out.println(box.description());} */
     public String description() { return getVariable("/.revault/description"); }
@@ -348,79 +348,79 @@ public final class Revault {
     public void clearDescription() { deleteVariable("/.revault/description"); }
     /** Invokes {@code callback} with temporary secret bytes, then wipes the transfer buffer. */
     public <T> T withSecretVariable(String name, SecretCallback<T> callback) { return operations.lockboxWithSecretVariable(handle, name, callback); }
-    /** Removes variable. */
+    /** Stages removal of a variable. */
     public void deleteVariable(String name) { operations.lockboxDeleteVariable(handle, name); }
     /** Updates variables. */
     public void moveVariables(java.util.List<PathMove> moves) { operations.lockboxMoveVariables(handle, DomainCodec.encodePathMoves(moves)); }
-    /** Lists variables. */
+    /** Lists variable names and metadata without exposing secret values. */
     public java.util.List<Variable> listVariables() { return operations.lockboxListVariables(handle); }
-    /** Returns the variable sensitivity. */
+    /** Returns whether a variable is plain or secret. */
     public String variableSensitivity(String name) { return operations.lockboxVariableSensitivity(handle, name); }
-    /** Adds symlink. */
+    /** Stages a symbolic link with its stored target text. */
     public void addSymlink(String path, String target, boolean replace) { operations.lockboxAddSymlink(handle, path, target, replace); }
     /** Returns the symlink target. */
     public String symlinkTarget(String path) { return operations.lockboxGetSymlinkTarget(handle, path); }
-    /** Returns the id. */
+    /** Returns the stable public identifier stored in the Lockbox header. */
     public byte[] id() { return operations.lockboxId(handle); }
-    /** Reports whether exists. */
+    /** Reports whether an entry exists at path. */
     public boolean exists(String path) { return operations.lockboxExists(handle, path); }
-    /** Reports whether directory. */
+    /** Reports whether path names a directory entry. */
     public boolean isDirectory(String path) { return operations.lockboxIsDir(handle, path); }
-    /** Returns the permissions. */
+    /** Returns the portable Unix permission bits stored for path. */
     public int permissions(String path) { return operations.lockboxPermissions(handle, path); }
-    /** Sets permissions. */
+    /** Stages portable Unix permission bits for path. */
     public void setPermissions(String path, int value) { operations.lockboxSetPermissions(handle, path, value); }
-    /** Returns range. */
+    /** Reads the requested byte range from a stored file. */
     public byte[] readRange(String path, long offset, long length) { return operations.lockboxReadRange(handle, path, offset, length); }
-    /** Adds password. */
+    /** Adds a password access slot and returns its slot identifier. */
     public long addPassword(byte[] password) {
       long result = operations.lockboxAddPassword(handle, password);
       if (result == -1L) throw new IllegalStateException(operations.lastErrorMessage());
       return result;
     }
-    /** Adds contact. */
+    /** Grants a named contact access and returns the new slot identifier. */
     public long addContact(ContactPublicKey contact, String name) {
       long result = operations.lockboxAddContact(handle, contact.handle, name);
       if (result == -1L) throw new IllegalStateException(operations.lastErrorMessage());
       return result;
     }
-    /** Removes key. */
+    /** Removes an access slot; at least one usable slot must remain. */
     public void deleteKey(long id) { operations.lockboxDeleteKey(handle, id); }
-    /** Lists key slots. */
+    /** Lists public access slot metadata without returning credentials. */
     public java.util.List<KeySlot> listKeySlots() { return operations.lockboxListKeySlots(handle); }
-    /** Sets owner signing key. */
+    /** Assigns a profile signing key to the Lockbox owner role. */
     public void setOwnerSigningKey(ProfileSigningKeyPair key) { operations.lockboxSetOwnerSigningKey(handle, key.handle); }
-    /** Returns the owner inspection. */
+    /** Returns public signing and ownership metadata for the current revision. */
     public OwnerInspection ownerInspection() { return operations.lockboxOwnerInspection(handle); }
-    /** Returns the define form. */
+    /** Defines and stores a reusable versioned form. */
     public FormDefinition defineForm(String alias, String name, String description, java.util.List<FormField> fields) {
       return operations.lockboxDefineForm(handle, alias, name, description, DomainCodec.encodeFormFields(fields));
     }
-    /** Lists form definitions. */
+    /** Lists the form definitions stored in this Lockbox. */
     public java.util.List<FormDefinition> listFormDefinitions() { return operations.lockboxListFormDefinitions(handle); }
-    /** Returns the resolve form. */
+    /** Resolves a form alias, type identifier, or revision. */
     public FormDefinition resolveForm(String reference) { return operations.lockboxResolveForm(handle, reference); }
-    /** Lists form revisions. */
+    /** Lists every stored revision for a form type identifier. */
     public java.util.List<FormDefinition> listFormRevisions(String typeId) { return operations.lockboxListFormRevisions(handle, typeId); }
-    /** Creates form record. */
+    /** Stages a form record at path using the referenced definition. */
     public FormRecord createFormRecord(String path, String typeReference, String name) {
       return operations.lockboxCreateFormRecord(handle, path, typeReference, name);
     }
-    /** Sets form field. */
+    /** Stages a plain field value in a form record. */
     public void setFormField(String path, String field, String value) {
       operations.lockboxSetFormField(handle, path, field, value);
     }
     /** Stores a secret form field from mutable bytes. */
     public void setSecretFormField(String path, String field, byte[] value) { operations.lockboxSetSecretFormField(handle, path, field, value); }
-    /** Lists form records. */
+    /** Lists form records without exposing secret field values. */
     public java.util.List<FormRecord> listFormRecords() { return operations.lockboxListFormRecords(handle); }
-    /** Returns form record. */
+    /** Returns the form record at path when present. */
     public FormRecord getFormRecord(String path) { return operations.lockboxGetFormRecord(handle, path); }
-    /** Removes form record. */
+    /** Stages removal of a form record. */
     public void deleteFormRecord(String path) { operations.lockboxDeleteFormRecord(handle, path); }
     /** Updates form records. */
     public void moveFormRecords(java.util.List<PathMove> moves) { operations.lockboxMoveFormRecords(handle, DomainCodec.encodePathMoves(moves)); }
-    /** Returns form field. */
+    /** Returns a plain form field when it exists. */
     public FormValue getFormField(String path, String field) { return operations.lockboxGetFormField(handle, path, field); }
     /** Invokes {@code callback} with temporary field bytes, then wipes the transfer buffer. */
     public <T> T withSecretFormField(String path, String field, SecretCallback<T> callback) { return operations.lockboxWithSecretFormField(handle, path, field, callback); }
@@ -488,9 +488,9 @@ public final class Revault {
     private MemorySegment handle;
     protected VaultHandle(MemorySegment handle) { this.handle = handle; }
     MemorySegment detach() { var value = handle; handle = null; return value; }
-    /** Returns the root. */
+    /** Returns the canonical root directory of this Vault. */
     public String root() { return operations.vaultDirectoryRoot(handle); }
-    /** Returns the structure version. */
+    /** Returns the persistent structure version of this Vault. */
     public int structureVersion() { return operations.vaultDirectoryStructureVersion(handle); }
     /** Lists private keys. */
     public java.util.List<String> listPrivateKeys() { return operations.vaultDirectoryListPrivateKeys(handle); }
@@ -500,7 +500,7 @@ public final class Revault {
     public java.util.List<String> listContactNames() { return operations.vaultDirectoryListContactNames(handle); }
     /** Lists form aliases. */
     public java.util.List<String> listFormAliases() { return operations.vaultDirectoryListFormAliases(handle); }
-    /** Returns the private key exists. */
+    /** Reports whether the named profile private key exists. */
     public boolean privateKeyExists(String name) { return operations.vaultDirectoryPrivateKeyExists(handle, name); }
     /** Removes private key. */
     public void deletePrivateKey(String name) { operations.vaultDirectoryDeletePrivateKey(handle, name); }
@@ -516,7 +516,7 @@ public final class Revault {
     public void storeContact(String name, ContactPublicKey key) { operations.vaultDirectoryStoreContact(handle, name, key.handle); }
     /** Loads contact. */
     public ContactPublicKey loadContact(String name) { return new ContactPublicKey(operations.vaultDirectoryLoadContact(handle, name)); }
-    /** Returns the contact exists. */
+    /** Reports whether the named contact exists. */
     public boolean contactExists(String name) { return operations.vaultDirectoryContactExists(handle, name); }
     /** Removes contact. */
     public void deleteContact(String name) { operations.vaultDirectoryDeleteContact(handle, name); }
@@ -524,15 +524,15 @@ public final class Revault {
     public java.util.List<Contact> listContacts() { return operations.vaultDirectoryListContacts(handle); }
     /** Stores profile email. */
     public void storeProfileEmail(String name, String email) { operations.vaultDirectoryStoreProfileEmail(handle, name, email); }
-    /** Returns the profile email. */
+    /** Returns the email recorded for a profile, when present. */
     public String profileEmail(String name) { return operations.vaultDirectoryProfileEmail(handle, name); }
     /** Stores backup. */
     public void storeBackup(byte[] id, byte[] value) { operations.vaultDirectoryStoreBackup(handle, id, value); }
     /** Loads backup. */
     public byte[] loadBackup(byte[] id) { return operations.vaultDirectoryLoadBackup(handle, id); }
-    /** Returns the backup count. */
+    /** Returns the number of stored key recovery backups. */
     public long backupCount() { return operations.vaultDirectoryBackupCount(handle); }
-    /** Returns the restore private key. */
+    /** Restores a profile private key and signing key from recovery material. */
     public void restorePrivateKey(String name, ContactKeyPair key, ProfileSigningKeyPair signingKey, boolean overwrite) {
       operations.vaultDirectoryRestorePrivateKey(handle, name, key.handle, signingKey.handle, overwrite);
     }
@@ -570,27 +570,27 @@ public final class Revault {
     }
     /** Lists access slot labels. */
     public java.util.List<AccessSlotLabel> listAccessSlotLabels(byte[] id) { return operations.vaultDirectoryListAccessSlotLabels(handle, id); }
-    /** Returns the find access slot labels. */
+    /** Finds access slot labels with the supplied name for one Lockbox. */
     public java.util.List<AccessSlotLabel> findAccessSlotLabels(byte[] id, String name) {
       return operations.vaultDirectoryFindAccessSlotLabels(handle, id, name);
     }
     /** Removes access slot label. */
     public void forgetAccessSlotLabel(byte[] id, long slotId) { operations.vaultDirectoryForgetAccessSlotLabel(handle, id, slotId); }
-    /** Returns the define form. */
+    /** Defines and stores a reusable versioned form. */
     public FormDefinition defineForm(String alias, String name, String description, java.util.List<FormField> fields) {
       return operations.vaultDirectoryDefineForm(handle, alias, name, description, DomainCodec.encodeFormFields(fields));
     }
-    /** Returns the resolve form. */
+    /** Resolves a form alias, type identifier, or revision. */
     public FormDefinition resolveForm(String reference) { return operations.vaultDirectoryResolveForm(handle, reference); }
     /** Lists forms. */
     public java.util.List<FormDefinition> listForms() { return operations.vaultDirectoryListForms(handle); }
-    /** Lists form revisions. */
+    /** Lists every stored revision for a form type identifier. */
     public java.util.List<FormDefinition> listFormRevisions(String typeId) { return operations.vaultDirectoryListFormRevisions(handle, typeId); }
-    /** Returns the seed forms. */
+    /** Adds missing standard form definitions and returns the number added. */
     public long seedForms() { return operations.vaultDirectorySeedForms(handle); }
     /** Stores password. */
     public void rememberPassword(byte[] id, byte[] password) { operations.vaultDirectoryRememberPassword(handle, id, password); }
-    /** Returns the remembered password. */
+    /** Returns the Lockbox password encrypted inside this Vault. */
     public byte[] rememberedPassword(byte[] id) { return operations.vaultDirectoryRememberedPassword(handle, id); }
     /** Releases the native resources held by this object. */
     @Override public void close() { if (handle != null) { operations.vaultDirectoryFree(handle); handle = null; } }

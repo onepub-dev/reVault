@@ -447,8 +447,9 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let doctor_help = run_output(bin, &["doctor", "--help"]);
     assert_success(&doctor_help);
     let doctor_help = String::from_utf8_lossy(&doctor_help.stdout);
-    assert!(doctor_help.contains("Show vault, agent, or lockbox diagnostics."));
+    assert!(doctor_help.contains("Diagnose vault, agent, or lockbox problems."));
     assert!(doctor_help.contains("lockbox secrets.lbox doctor"));
+    assert!(doctor_help.contains("recover"));
 
     let open_help = run_output(bin, &["open", "--help"]);
     assert_success(&open_help);
@@ -480,12 +481,18 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(close_verbose_help.contains("Closes the given Lockbox or the default Lockbox"));
     assert!(close_verbose_help.contains("automatically close the Lockbox after 30 minutes"));
 
-    let recover_help = run_output(bin, &["recover", "--help"]);
+    let recover_help = run_output(bin, &["damaged.lbox", "doctor", "recover", "--help"]);
     assert_success(&recover_help);
     let recover_help = String::from_utf8_lossy(&recover_help.stdout);
-    assert!(recover_help.contains("lockbox damaged.lbox recover"));
+    assert!(recover_help.contains("lockbox damaged.lbox doctor recover"));
     assert!(recover_help.contains("--dry-run"));
+    assert!(!recover_help.contains("--transaction"));
     assert!(!recover_help.contains("--report"));
+
+    let removed_top_level = run_output(bin, &["recover", "--help"]);
+    assert_success(&removed_top_level);
+    assert!(!String::from_utf8_lossy(&removed_top_level.stdout)
+        .contains("Recover a lockbox using the safest applicable operation."));
 }
 
 #[test]
@@ -860,7 +867,7 @@ fn form_definitions_and_records_flow() {
     assert!(visualize.contains("variables recovered: true"));
     assert!(visualize.contains("forms recovered: true"));
 
-    let report = run_output(bin, &[&lockbox, "recover", "--dry-run"]);
+    let report = run_output(bin, &[&lockbox, "doctor", "recover", "--dry-run"]);
     assert_success(&report);
     let report = String::from_utf8_lossy(&report.stdout);
     assert!(report.contains("variables_recovered"));
@@ -2518,6 +2525,7 @@ fn recover_reports_and_writes_recovered_lockbox() {
         bin,
         &[
             damaged.to_str().unwrap(),
+            "doctor",
             "recover",
             "--dry-run",
             "--format",
@@ -2528,7 +2536,7 @@ fn recover_reports_and_writes_recovered_lockbox() {
     assert!(String::from_utf8_lossy(&report.stdout).contains("\"field\":\"intact_file_count\""));
 
     let default_recovered = dir.join("damaged.recovered.lbox");
-    let default_output = run_output(bin, &[damaged.to_str().unwrap(), "recover"]);
+    let default_output = run_output(bin, &[damaged.to_str().unwrap(), "doctor", "recover"]);
     assert_success(&default_output);
     assert!(damaged.exists());
     assert!(default_recovered.exists());
@@ -2540,6 +2548,7 @@ fn recover_reports_and_writes_recovered_lockbox() {
         bin,
         &[
             damaged.to_str().unwrap(),
+            "doctor",
             "recover",
             "--output",
             recovered.to_str().unwrap(),
@@ -2571,6 +2580,7 @@ fn recover_reports_and_writes_recovered_lockbox() {
         bin,
         &[
             in_place.to_str().unwrap(),
+            "doctor",
             "recover",
             "--output",
             in_place.to_str().unwrap(),
@@ -2598,6 +2608,77 @@ fn recover_reports_and_writes_recovered_lockbox() {
     );
     assert_success(&listing);
     assert!(String::from_utf8_lossy(&listing.stdout).contains("/docs/a.txt"));
+}
+
+#[test]
+fn doctor_recover_detects_and_completes_interrupted_cleanup() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("recover-transaction");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let lockbox = dir.join("interrupted.lbox");
+    revault_lockbox_api::write_interrupted_transaction_fixture(&lockbox, b"test-key").unwrap();
+
+    let diagnosis = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
+    assert_success(&diagnosis);
+    assert!(String::from_utf8_lossy(&diagnosis.stdout).contains("open: recovery required"));
+
+    let preview = run_output(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--dry-run",
+            "--format",
+            "json",
+        ],
+    );
+    assert_success(&preview);
+    let preview = String::from_utf8_lossy(&preview.stdout);
+    assert!(preview.contains("\"field\":\"operation\""));
+    assert!(preview.contains("\"value\":\"complete_pending_cleanup\""));
+
+    let still_pending = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
+    assert_success(&still_pending);
+    assert!(String::from_utf8_lossy(&still_pending.stdout).contains("open: recovery required"));
+
+    let recovered = run_output(bin, &[lockbox.to_str().unwrap(), "doctor", "recover"]);
+    assert_success(&recovered);
+    let stderr = String::from_utf8_lossy(&recovered.stderr);
+    assert!(stderr.contains("Detected authenticated interrupted cleanup"));
+    assert!(stderr.contains("Interrupted cleanup complete"));
+
+    let listing = run_output(bin, &[lockbox.to_str().unwrap(), "list", "--recursive"]);
+    assert_success(&listing);
+    let listing = String::from_utf8_lossy(&listing.stdout);
+    assert!(listing.contains("/docs/keep.txt"));
+    assert!(!listing.contains("/docs/remove.txt"));
+}
+
+#[test]
+fn ordinary_write_capable_open_completes_interrupted_cleanup_automatically() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("automatic-cleanup");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let lockbox = dir.join("interrupted.lbox");
+    revault_lockbox_api::write_interrupted_transaction_fixture(&lockbox, b"test-key").unwrap();
+
+    let listing = run_output(bin, &[lockbox.to_str().unwrap(), "list", "--recursive"]);
+    assert_success(&listing);
+    let listing = String::from_utf8_lossy(&listing.stdout);
+    assert!(listing.contains("/docs/keep.txt"));
+    assert!(!listing.contains("/docs/remove.txt"));
+
+    let status = revault_lockbox_api::Lockbox::inspect_transaction_recovery(
+        &lockbox,
+        revault_lockbox_api::LockboxOpen::ContentKey(
+            revault_lockbox_api::SecretVec::try_from_slice(b"test-key").unwrap(),
+        ),
+    )
+    .unwrap();
+    assert!(status.is_none());
 }
 
 #[test]
@@ -5073,7 +5154,14 @@ fn session_default_lockbox_applies_to_lockbox_argument_variants() {
 
     let report = run_output_in(
         bin,
-        &["recover", "--dry-run", "--format", "json"],
+        &[
+            lockbox.to_str().unwrap(),
+            "doctor",
+            "recover",
+            "--dry-run",
+            "--format",
+            "json",
+        ],
         &vault_root,
         &agent_root,
     );
@@ -5692,6 +5780,7 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
         bin,
         &[
             lockbox.to_str().unwrap(),
+            "doctor",
             "recover",
             "--dry-run",
             "--format",

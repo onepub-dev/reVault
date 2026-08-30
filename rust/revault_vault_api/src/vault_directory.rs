@@ -23,6 +23,7 @@ const PROFILE_HISTORY_MAGIC: &[u8; 4] = b"LBPH";
 const PROFILE_HISTORY_VERSION: u16 = 1;
 const PROFILE_EMAIL_MAGIC: &[u8; 4] = b"LBPE";
 const PROFILE_EMAIL_VERSION: u16 = 1;
+const VAULT_CONTAINER_SIGNING_KEY_VARIABLE: &str = "LOCKBOX_VAULT_CONTAINER_SIGNING_KEY";
 const GENERATION_ACTIVE: u16 = 1;
 const GENERATION_RETIRED: u16 = 2;
 const GENERATION_COMPROMISED: u16 = 3;
@@ -300,6 +301,7 @@ impl VaultDirectory {
             path,
             lockbox: RefCell::new(lockbox),
         };
+        vault.store_vault_container_signing_key(&signing_key)?;
         vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
         vault.ensure_structure_version(true)?;
         Ok(vault)
@@ -331,8 +333,8 @@ impl VaultDirectory {
             path,
             lockbox: RefCell::new(lockbox),
         };
-        vault.attach_or_create_default_owner_signing_key()?;
         vault.ensure_structure_version(false)?;
+        vault.ensure_vault_container_signing_key()?;
         Ok(vault)
     }
 
@@ -372,7 +374,8 @@ impl VaultDirectory {
             path,
             lockbox: RefCell::new(lockbox),
         };
-        vault.attach_or_create_default_owner_signing_key()?;
+        vault.ensure_structure_version(false)?;
+        vault.ensure_vault_container_signing_key()?;
         vault
             .lockbox
             .borrow_mut()
@@ -408,17 +411,20 @@ impl VaultDirectory {
             path,
             lockbox: RefCell::new(lockbox),
         };
+        vault.store_vault_container_signing_key(&signing_key)?;
         vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
         vault.ensure_structure_version(true)?;
         Ok(vault)
     }
 
-    /// Creates an empty current-format vault for migration import.
-    ///
-    /// The container still has an ephemeral owner signer, but unlike `replace`
-    /// this does not seed that signer as a user-visible `default` vault key.
+    /// Creates an empty current-format vault for migration import using the
+    /// restored owner signer that will be stored for the default profile.
     #[doc(hidden)]
-    pub fn replace_for_migration(root: impl AsRef<Path>, password: &SecretString) -> Result<Self> {
+    pub fn replace_for_migration(
+        root: impl AsRef<Path>,
+        password: &SecretString,
+        signing_key: &OwnerSigningKeyPair,
+    ) -> Result<Self> {
         let root = root.as_ref().to_path_buf();
         create_private_dir(&root)?;
         let path = root.join(VAULT_FILE_NAME);
@@ -426,11 +432,10 @@ impl VaultDirectory {
         if path.exists() {
             return Err(Error::AlreadyExists(path.display().to_string()));
         }
-        let signing_key = OwnerSigningKeyPair::generate()?;
         let lockbox = Lockbox::create_file_assuming_locked(
             &path,
             LockboxProtection::Password(password),
-            &signing_key,
+            signing_key,
         )?;
         set_private_file_permissions(&path)?;
         let vault = Self {
@@ -438,6 +443,8 @@ impl VaultDirectory {
             path,
             lockbox: RefCell::new(lockbox),
         };
+        vault.store_vault_container_signing_key(signing_key)?;
+        vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, signing_key)?;
         vault.ensure_structure_version(true)?;
         Ok(vault)
     }
@@ -467,6 +474,7 @@ impl VaultDirectory {
                 path,
                 lockbox: RefCell::new(lockbox),
             };
+            vault.store_vault_container_signing_key(&signing_key)?;
             vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
             vault.ensure_structure_version(true)?;
             return Ok(vault);
@@ -476,8 +484,8 @@ impl VaultDirectory {
             path,
             lockbox: RefCell::new(lockbox),
         };
-        vault.attach_or_create_default_owner_signing_key()?;
         vault.ensure_structure_version(!existed)?;
+        vault.ensure_vault_container_signing_key()?;
         Ok(vault)
     }
 
@@ -491,19 +499,32 @@ impl VaultDirectory {
         &self.path
     }
 
-    fn attach_or_create_default_owner_signing_key(&self) -> Result<()> {
-        let signing_key = match self.load_owner_signing_key_existing(Self::DEFAULT_KEY_NAME) {
+    fn ensure_vault_container_signing_key(&self) -> Result<()> {
+        let existing = {
+            let lockbox = self.lockbox.borrow();
+            load_vault_container_signing_key_from_lockbox(&lockbox)
+        };
+        let signing_key = match existing {
             Ok(signing_key) => signing_key,
             Err(Error::NotFound(_)) => {
-                let signing_key = OwnerSigningKeyPair::generate()?;
-                self.lockbox
-                    .borrow_mut()
-                    .set_owner_signing_key(signing_key.try_clone()?);
-                self.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
-                return Ok(());
+                let signing_key = {
+                    let lockbox = self.lockbox.borrow();
+                    find_established_default_profile_signing_key(&lockbox)?
+                };
+                self.store_vault_container_signing_key(&signing_key)?;
+                signing_key
             }
             Err(err) => return Err(err),
         };
+        if !self
+            .lockbox
+            .borrow()
+            .owner_signing_key_matches(&signing_key)?
+        {
+            return Err(Error::InvalidKeyMaterial(
+                "vault container signing key does not match the established owner".to_string(),
+            ));
+        }
         self.lockbox.borrow_mut().set_owner_signing_key(signing_key);
         Ok(())
     }
@@ -1298,6 +1319,12 @@ impl VaultDirectory {
         self.put_secret_variable_record(&owner_signing_key_variable_name(name)?, &value)
     }
 
+    fn store_vault_container_signing_key(&self, keypair: &OwnerSigningKeyPair) -> Result<()> {
+        let value =
+            SecretString::from_secure_vec(hex_encode_secret(keypair.private_key_record()?)?);
+        self.put_secret_variable_record(&vault_container_signing_key_variable_name()?, &value)
+    }
+
     fn store_private_key_generation(
         &self,
         name: &str,
@@ -1602,30 +1629,72 @@ fn open_vault_lockbox_for_write(path: &Path, password: &SecretString) -> Result<
         path,
         LockboxOpen::Password(password),
         |lockbox| {
-            load_owner_signing_key_existing_from_lockbox(lockbox, VaultDirectory::DEFAULT_KEY_NAME)
-                .or_else(|err| match err {
-                    Error::NotFound(_) => OwnerSigningKeyPair::generate(),
-                    other => Err(other),
-                })
+            if lockbox
+                .stat(&vault_structure_version_record_path()?)
+                .is_none()
+            {
+                return Err(Error::Configuration(
+                    "local vault structure version is missing; recreate the vault with this reVault build"
+                        .to_string(),
+                ));
+            }
+            match load_vault_container_signing_key_from_lockbox(lockbox) {
+                Ok(signing_key) => Ok(signing_key),
+                Err(Error::NotFound(_)) => find_established_default_profile_signing_key(lockbox),
+                Err(err) => Err(err),
+            }
         },
     )
+}
+
+fn find_established_default_profile_signing_key<State>(
+    lockbox: &Lockbox<State>,
+) -> Result<OwnerSigningKeyPair> {
+    let current = owner_signing_key_variable_name(VaultDirectory::DEFAULT_KEY_NAME)?;
+    let generation_prefix = format!("{}_GEN_", current.as_str());
+    for (name, _) in lockbox.list_variables()? {
+        if name != current && !name.as_str().starts_with(&generation_prefix) {
+            continue;
+        }
+        let signing_key = load_owner_signing_key_from_variable(lockbox, &name)?;
+        if lockbox.owner_signing_key_matches(&signing_key)? {
+            return Ok(signing_key);
+        }
+    }
+    Err(Error::InvalidKeyMaterial(
+        "vault does not contain its established owner signing key".to_string(),
+    ))
+}
+
+fn load_vault_container_signing_key_from_lockbox<State>(
+    lockbox: &Lockbox<State>,
+) -> Result<OwnerSigningKeyPair> {
+    load_owner_signing_key_from_variable(lockbox, &vault_container_signing_key_variable_name()?)
 }
 
 fn load_owner_signing_key_existing_from_lockbox<State>(
     lockbox: &Lockbox<State>,
     name: &str,
 ) -> Result<OwnerSigningKeyPair> {
+    load_owner_signing_key_from_variable(lockbox, &owner_signing_key_variable_name(name)?)
+}
+
+fn load_owner_signing_key_from_variable<State>(
+    lockbox: &Lockbox<State>,
+    variable_name: &VariableName,
+) -> Result<OwnerSigningKeyPair> {
     let secret = lockbox
-        .with_secret_variable(
-            &owner_signing_key_variable_name(name)?,
-            SecretString::try_clone,
-        )?
+        .with_secret_variable(variable_name, SecretString::try_clone)?
         .transpose()?
-        .ok_or_else(|| Error::NotFound(format!("vault owner signing key {name}")))?;
+        .ok_or_else(|| Error::NotFound(format!("vault signing key {variable_name}")))?;
     let mut bytes = SecretVec::new();
     secret.append_to_secure_vec(&mut bytes)?;
     decode_hex_secret_in_place(&mut bytes)?;
     OwnerSigningKeyPair::from_private_key_record(bytes)
+}
+
+fn vault_container_signing_key_variable_name() -> Result<VariableName> {
+    VariableName::new(VAULT_CONTAINER_SIGNING_KEY_VARIABLE)
 }
 
 fn owner_signing_key_variable_name(name: &str) -> Result<VariableName> {

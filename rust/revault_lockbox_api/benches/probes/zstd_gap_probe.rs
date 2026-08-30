@@ -1,8 +1,8 @@
-#[path = "common/probe_ruzstd.rs"]
-mod probe_ruzstd;
+#[path = "common/probe_zstd_complete.rs"]
+mod probe_zstd_complete;
 
-use probe_ruzstd::ruzstd_level;
-use ruzstd::encoding::compress_to_vec;
+use probe_zstd_complete::zstd_complete_level;
+use zstd_complete::encoding::compress_to_vec;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -41,11 +41,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &root,
                 files.len(),
                 logical_bytes,
-                "ruzstd-local",
+                "zstd-complete-0.1.0",
                 shape,
                 *level,
                 &groups,
-                compress_ruzstd_group,
+                compress_zstd_complete_group,
             )?;
             print_result(
                 &root,
@@ -156,8 +156,11 @@ fn collect_files_recursive(
     Ok(())
 }
 
-fn compress_ruzstd_group(payload: &[u8], level: i32) -> Result<usize, Box<dyn std::error::Error>> {
-    let compressed = compress_to_vec(payload, ruzstd_level(level));
+fn compress_zstd_complete_group(
+    payload: &[u8],
+    level: i32,
+) -> Result<usize, Box<dyn std::error::Error>> {
+    let compressed = compress_to_vec(payload, zstd_complete_level(level));
     Ok(compressed.len().min(payload.len()))
 }
 

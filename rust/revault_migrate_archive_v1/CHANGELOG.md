@@ -1,8 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.0.4 - 2026-08-30
 
 - Restored the minimum supported Rust version to Rust 1.88.
+- Emit archive migration schema 2 so empty directories and custom directory or
+  symlink permissions survive migration.
+- Use IPC protocol 3 to accept contact key records from the current CLI, so
+  contact-only v1 archives remain migratable after the vault is upgraded.
 
 ## 0.0.2
 

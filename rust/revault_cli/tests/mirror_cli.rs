@@ -281,7 +281,7 @@ fn mirror_retain_forget_and_delete_have_distinct_results() {
 }
 
 #[test]
-fn mirror_file_commands_match_archive_file_command_shapes_and_delete_removes_root() {
+fn mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_root() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let temp = TestTempDir::new("mirror-file-commands");
     let lockbox = temp.path().join("backup.lbox");
@@ -371,7 +371,7 @@ fn mirror_file_commands_match_archive_file_command_shapes_and_delete_removes_roo
     success(&run(
         bin,
         temp.path(),
-        &[lockbox.to_str().unwrap(), "mirror", "delete", "--force"],
+        &[lockbox.to_str().unwrap(), "mirror", "destroy", "--force"],
     ));
     let listing = run(bin, temp.path(), &[lockbox.to_str().unwrap(), "list", "-R"]);
     success(&listing);

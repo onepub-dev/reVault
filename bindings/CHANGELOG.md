@@ -1,5 +1,13 @@
 # Binding changelog
 
+## 0.3.13 - 2026-08-30
+
+- Correct native FFI safety contracts for caller-owned pointers and returned
+  buffers, and update generated language documentation with operation-specific
+  descriptions and ownership guidance.
+- Align binding examples and facades with the current signed Lockbox and Vault
+  APIs without adding legacy-format handling to the core bindings.
+
 ## 0.3.12
 
 - Fix the C# package's private FlatBuffers namespace so the public

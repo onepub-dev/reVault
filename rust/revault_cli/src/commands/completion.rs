@@ -503,7 +503,6 @@ fn is_command_name(value: &OsStr) -> bool {
             "create"
                 | "open"
                 | "close"
-                | "recover"
                 | "add"
                 | "mirror"
                 | "extract"

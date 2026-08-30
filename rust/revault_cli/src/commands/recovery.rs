@@ -4,7 +4,9 @@ use super::output::{output_format_from_matches, print_records, OutputFormat};
 use clap::ArgMatches;
 use revault_lockbox_api::vault_integration::VaultOpen;
 use revault_lockbox_api::{Error, RecoveryReport, RecoveryScanner, SecretVec};
-use revault_lockbox_api::{Lockbox, LockboxOpen, TransactionRecoveryProgress};
+use revault_lockbox_api::{
+    Lockbox, LockboxOpen, TransactionRecoveryProgress, TransactionRecoveryStatus,
+};
 use revault_vault_api::{get as get_cached_content_key, VaultDirectory};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,8 +17,21 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
 }
 
 fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
-    if options.transaction {
-        return recover_transaction(&options.lockbox_path, access);
+    match inspect_pending_cleanup(&options.lockbox_path, access) {
+        Ok(Some(status)) => {
+            if options.dry_run {
+                print_pending_cleanup(&status, options.format)?;
+                return Ok(());
+            }
+            return recover_pending_cleanup(&options.lockbox_path, access, &status);
+        }
+        Ok(None) => {}
+        Err(err)
+            if matches!(
+                err.downcast_ref::<Error>(),
+                Some(Error::CorruptHeader | Error::CorruptRecord | Error::Truncated)
+            ) => {}
+        Err(err) => return Err(err),
     }
     if options.dry_run {
         let report = scan_report(&options.lockbox_path, access)?;
@@ -63,7 +78,6 @@ struct RecoverOptions {
     output: Option<String>,
     overwrite: bool,
     dry_run: bool,
-    transaction: bool,
     format: OutputFormat,
 }
 
@@ -88,50 +102,97 @@ impl RecoverOptions {
             output,
             overwrite,
             dry_run,
-            transaction: matches.get_flag("transaction"),
             format: output_format_from_matches(matches)?,
         })
     }
 }
 
-fn recover_transaction(lockbox_path: &str, access: &Access) -> CliResult<()> {
+fn inspect_pending_cleanup(
+    lockbox_path: &str,
+    access: &Access,
+) -> CliResult<Option<TransactionRecoveryStatus>> {
     let path = Path::new(lockbox_path);
-    let status =
-        Lockbox::inspect_transaction_recovery(path, transaction_open(lockbox_path, access)?)?;
-    if let Some(status) = status {
-        eprintln!(
-            "Selected transaction {} cleanup: {}/{} pages, {}/{} ranges, {} / {} bytes (safe to interrupt and resume)",
-            status.transaction_sequence,
-            status.completed_pages,
-            status.page_count,
-            status.completed_ranges,
-            status.range_count,
-            status.completed_bytes,
-            status.total_bytes,
-        );
-    }
+    Ok(Lockbox::inspect_transaction_recovery(
+        path,
+        recovery_open(lockbox_path, access)?,
+    )?)
+}
+
+fn recover_pending_cleanup(
+    lockbox_path: &str,
+    access: &Access,
+    status: &TransactionRecoveryStatus,
+) -> CliResult<()> {
+    eprintln!(
+        "Detected authenticated interrupted cleanup for transaction {}: {}/{} pages, {}/{} ranges, {} / {} bytes (safe to interrupt and resume)",
+        status.transaction_sequence,
+        status.completed_pages,
+        status.page_count,
+        status.completed_ranges,
+        status.range_count,
+        status.completed_bytes,
+        status.total_bytes,
+    );
     let mut last_percent = None;
-    let recovered =
-        Lockbox::recover_transaction(path, transaction_open(lockbox_path, access)?, |progress| {
+    let recovered = Lockbox::recover_transaction(
+        Path::new(lockbox_path),
+        recovery_open(lockbox_path, access)?,
+        |progress| {
             print_transaction_progress(progress, &mut last_percent);
-        })?;
+        },
+    )?;
     if recovered {
-        eprintln!("Transaction recovery complete: {lockbox_path}");
+        eprintln!("Interrupted cleanup complete: {lockbox_path}");
     } else {
-        eprintln!("No transaction recovery is required: {lockbox_path}");
+        eprintln!("No interrupted cleanup is required: {lockbox_path}");
     }
     Ok(())
 }
 
-fn transaction_open<'a>(lockbox_path: &str, access: &'a Access) -> CliResult<LockboxOpen<'a>> {
+fn recovery_open<'a>(lockbox_path: &str, access: &'a Access) -> CliResult<LockboxOpen<'a>> {
     match access {
         Access::ContentKey(key) => Ok(LockboxOpen::ContentKey(key.try_clone()?)),
         Access::CacheOnly => Ok(LockboxOpen::ContentKey(cached_key(lockbox_path)?)),
         Access::PromptPassword => Err(Error::InvalidInput(
-            "transaction recovery requires --key or an open lockbox".to_string(),
+            "doctor recover requires --key or an open lockbox".to_string(),
         )
         .into()),
     }
+}
+
+fn print_pending_cleanup(
+    status: &TransactionRecoveryStatus,
+    format: OutputFormat,
+) -> CliResult<()> {
+    print_records(
+        &["field", "value"],
+        vec![
+            vec![
+                "operation".to_string(),
+                "complete_pending_cleanup".to_string(),
+            ],
+            vec![
+                "transaction_sequence".to_string(),
+                status.transaction_sequence.to_string(),
+            ],
+            vec![
+                "completed_pages".to_string(),
+                status.completed_pages.to_string(),
+            ],
+            vec!["page_count".to_string(), status.page_count.to_string()],
+            vec![
+                "completed_ranges".to_string(),
+                status.completed_ranges.to_string(),
+            ],
+            vec!["range_count".to_string(), status.range_count.to_string()],
+            vec![
+                "completed_bytes".to_string(),
+                status.completed_bytes.to_string(),
+            ],
+            vec!["total_bytes".to_string(), status.total_bytes.to_string()],
+        ],
+        format,
+    )
 }
 
 fn print_transaction_progress(
@@ -212,7 +273,7 @@ fn salvage_bytes(
 fn cached_key(lockbox_path: &str) -> CliResult<SecretVec> {
     let lockbox_id = VaultOpen::read_lockbox_id(Path::new(lockbox_path)).map_err(|_| {
         cli_error(format!(
-            "cannot read lockbox id from {lockbox_path}; run recover with --key for badly damaged headers"
+            "cannot read lockbox id from {lockbox_path}; run `lockbox {lockbox_path} doctor recover --key <key>` for badly damaged headers"
         ))
     })?;
     get_cached_content_key(lockbox_id)?.ok_or_else(|| {

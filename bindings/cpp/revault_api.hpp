@@ -217,7 +217,7 @@ class WrappedContactKey {
   ~WrappedContactKey() { if (handle_) key_contact_wrapped_free(handle_); }
   /** Returns the public bytes. */
   std::vector<std::uint8_t> public_bytes() const { return detail::take_bytes(key_contact_wrapped_public(handle_)); }
-  /** Returns the ciphertext. */
+  /** Returns the encrypted content key bytes. */
   std::vector<std::uint8_t> ciphertext() const { return detail::take_bytes(key_contact_wrapped_ciphertext(handle_)); }
   /** Returns the encrypted bytes. */
   std::vector<std::uint8_t> encrypted_bytes() const { return detail::take_bytes(key_contact_wrapped_encrypted(handle_)); }
@@ -498,7 +498,7 @@ class Lockbox {
         contact_name.data(), contact_name.size(), signing_key.native_handle()));
   }
 
-  /** Adds file. */
+  /** Stages a file at the Lockbox path; replace controls an existing entry. */
   void add_file(const std::string& path, const std::vector<std::uint8_t>& data, bool replace = false) {
     if (!lockbox_add_file(handle_, path.data(), path.size(), data.data(), data.size(), replace))
       throw std::runtime_error(buffer_last_error());
@@ -509,7 +509,7 @@ class Lockbox {
   }
   /** Returns the storage length. */
   std::uint64_t storage_length() const { return lockbox_storage_len(handle_); }
-  /** Returns the id. */
+  /** Returns the stable public identifier stored in the Lockbox header. */
   std::vector<std::uint8_t> id() const { return detail::take_bytes(lockbox_id(handle_)); }
   /** Inspects file. */
   static bindings::FileInspection inspect_file(const std::string& path) {
@@ -541,7 +541,7 @@ class Lockbox {
         archive.data(), archive.size(), key.data(), key.size(),
         signing_key ? signing_key->native_handle() : nullptr));
   }
-  /** Returns file. */
+  /** Reads the complete file stored at the Lockbox path. */
   std::vector<std::uint8_t> get_file(const std::string& path) const {
     auto result = lockbox_get_file(handle_, path.data(), path.size());
     if (!result.ptr) throw std::runtime_error(buffer_last_error());
@@ -549,28 +549,28 @@ class Lockbox {
     buffer_free(result);
     return value;
   }
-  /** Adds file with permissions. */
+  /** Stages a file and its portable Unix permission bits. */
   void add_file_with_permissions(const std::string& path, const std::vector<std::uint8_t>& data,
                                  std::uint32_t permissions, bool replace = false) {
     if (!lockbox_add_file_with_permissions(handle_, path.data(), path.size(), data.data(), data.size(), permissions, replace))
       throw std::runtime_error(buffer_last_error());
   }
-  /** Creates dir. */
+  /** Stages a directory entry and optionally creates missing parents. */
   void create_dir(const std::string& path, bool create_parents = true) {
     if (!lockbox_create_dir(handle_, path.data(), path.size(), create_parents)) throw std::runtime_error(buffer_last_error());
   }
-  /** Creates parent dirs. */
+  /** Stages every missing parent directory for path. */
   void create_parent_dirs(const std::string& path) {
     if (!lockbox_create_parent_dirs(handle_, path.data(), path.size())) throw std::runtime_error(buffer_last_error());
   }
-  /** Extracts file. */
+  /** Writes one Lockbox file to the host filesystem. */
   void extract_file(const std::string& source, const std::string& destination,
                     bool replace = false) const {
     if (!lockbox_extract_file(handle_, source.data(), source.size(), destination.data(),
                               destination.size(), replace))
       throw std::runtime_error(buffer_last_error());
   }
-  /** Extracts directory. */
+  /** Extracts the Lockbox with explicit size, count, link, and permission limits. */
   void extract_directory(const std::string& destination, std::uint64_t max_file_bytes,
                          std::uint64_t max_total_bytes, std::size_t max_files,
                          bool restore_symlinks, bool restore_permissions,
@@ -580,7 +580,7 @@ class Lockbox {
                                    restore_symlinks, restore_permissions, overwrite))
       throw std::runtime_error(buffer_last_error());
   }
-  /** Removes dir. */
+  /** Stages removal of a directory, optionally including its descendants. */
   void remove_dir(const std::string& path, bool recursive = false) {
     if (!lockbox_remove_dir(handle_, path.data(), path.size(), recursive)) throw std::runtime_error(buffer_last_error());
   }
@@ -588,11 +588,11 @@ class Lockbox {
   void remove(const std::string& path) {
     if (!lockbox_delete(handle_, path.data(), path.size())) throw std::runtime_error(buffer_last_error());
   }
-  /** Updates rename. */
+  /** Stages an atomic move from one Lockbox path to another. */
   void rename(const std::string& from, const std::string& to) {
     if (!lockbox_rename(handle_, from.data(), from.size(), to.data(), to.size())) throw std::runtime_error(buffer_last_error());
   }
-  /** Adds symlink. */
+  /** Stages a symbolic link with its stored target text. */
   void add_symlink(const std::string& path, const std::string& target, bool replace = false) {
     if (!lockbox_add_symlink(handle_, path.data(), path.size(), target.data(), target.size(), replace)) throw std::runtime_error(buffer_last_error());
   }
@@ -600,11 +600,11 @@ class Lockbox {
   std::vector<std::uint8_t> symlink_target(const std::string& path) const {
     return detail::take_bytes(lockbox_get_symlink_target(handle_, path.data(), path.size()));
   }
-  /** Returns range. */
+  /** Reads the requested byte range from a stored file. */
   std::vector<std::uint8_t> read_range(const std::string& path, std::uint64_t offset, std::uint64_t length) const {
     return detail::take_bytes(lockbox_read_range(handle_, path.data(), path.size(), offset, length));
   }
-  /** Lists list. */
+  /** Lists entries below path, optionally including descendants. */
   bindings::LockboxEntryList list(const std::string& path = "/", bool recursive = false) const {
     return decoded<bindings::LockboxEntryList>(lockbox_list(handle_, path.data(), path.size(), recursive));
   }
@@ -612,7 +612,7 @@ class Lockbox {
   bindings::OptionalLockboxEntry stat(const std::string& path) const {
     return decoded<bindings::OptionalLockboxEntry>(lockbox_stat(handle_, path.data(), path.size()));
   }
-  /** Lists with options. */
+  /** Lists entries using glob, type, recursion, and result limit filters. */
   bindings::LockboxEntryList list_with_options(
       const std::string& path, const std::string& glob, bool recursive,
       bool include_files, bool include_symlinks, bool include_directories,
@@ -621,17 +621,17 @@ class Lockbox {
         handle_, path.data(), path.size(), glob.data(), glob.size(), recursive,
         include_files, include_symlinks, include_directories, limit));
   }
-  /** Reports whether exists. */
+  /** Reports whether an entry exists at path. */
   bool exists(const std::string& path) const { return lockbox_exists(handle_, path.data(), path.size()); }
-  /** Reports whether dir. */
+  /** Reports whether path names a directory entry. */
   bool is_dir(const std::string& path) const { return lockbox_is_dir(handle_, path.data(), path.size()); }
-  /** Returns the permissions. */
+  /** Returns the portable Unix permission bits stored for path. */
   std::uint32_t permissions(const std::string& path) const { return lockbox_permissions(handle_, path.data(), path.size()); }
-  /** Sets permissions. */
+  /** Stages portable Unix permission bits for path. */
   void set_permissions(const std::string& path, std::uint32_t value) {
     if (!lockbox_set_permissions(handle_, path.data(), path.size(), value)) throw std::runtime_error(buffer_last_error());
   }
-  /** Sets variable. */
+  /** Stages a plain text variable; commit to publish the change. */
   void set_variable(const std::string& name, const std::string& value) {
     if (!lockbox_set_variable(handle_, name.data(), name.size(), value.data(), value.size())) throw std::runtime_error(buffer_last_error());
   }
@@ -639,7 +639,7 @@ class Lockbox {
   void set_secret_variable(const std::string& name, std::span<const std::uint8_t> value) {
     if (!lockbox_set_secret_variable(handle_, name.data(), name.size(), value.data(), value.size())) throw std::runtime_error(buffer_last_error());
   }
-  /** Returns variable. */
+  /** Returns a plain variable when it is present. */
   std::optional<std::string> get_variable(const std::string& name) const {
     return decoded<bindings::OptionalString>(
         lockbox_get_variable(handle_, name.data(), name.size()));
@@ -660,7 +660,7 @@ class Lockbox {
   void clear_description() {
     delete_variable("/.revault/description");
   }
-  /** Returns the with secret variable. */
+  /** Invokes a callback with temporary secret variable bytes, then clears them. */
   bool with_secret_variable(const std::string& name,
       const std::function<void(std::span<const std::uint8_t>)>& callback) const {
     void* secret{};
@@ -668,7 +668,7 @@ class Lockbox {
       throw std::runtime_error(buffer_last_error());
     return detail::with_secret_handle(secret, callback);
   }
-  /** Removes variable. */
+  /** Stages removal of a variable. */
   void delete_variable(const std::string& name) {
     if (!lockbox_delete_variable(handle_, name.data(), name.size())) throw std::runtime_error(buffer_last_error());
   }
@@ -678,9 +678,9 @@ class Lockbox {
     if (!lockbox_move_variables(handle_, reinterpret_cast<const std::uint8_t*>(encoded.data()), encoded.size()))
       throw std::runtime_error(buffer_last_error());
   }
-  /** Lists variables. */
+  /** Lists variable names and metadata without exposing secret values. */
   bindings::VariableList list_variables() const { return decoded<bindings::VariableList>(lockbox_list_variables(handle_)); }
-  /** Returns the variable sensitivity. */
+  /** Returns whether a variable is plain or secret. */
   bindings::OptionalString variable_sensitivity(const std::string& name) const {
     return decoded<bindings::OptionalString>(
         lockbox_variable_sensitivity(handle_, name.data(), name.size()));
@@ -693,43 +693,43 @@ class Lockbox {
   bindings::CacheStats cache_stats() const { return decoded<bindings::CacheStats>(lockbox_cache_stats(handle_)); }
   /** Returns import statistics for this lockbox. */
   bindings::ImportStats import_stats() const { return decoded<bindings::ImportStats>(lockbox_import_stats(handle_)); }
-  /** Lists key slots. */
+  /** Lists public access slot metadata without returning credentials. */
   bindings::KeySlotList list_key_slots() const { return decoded<bindings::KeySlotList>(lockbox_list_key_slots(handle_)); }
-  /** Adds password. */
+  /** Adds a password access slot and returns its slot identifier. */
   std::uint64_t add_password(const std::string& password) {
     auto id = lockbox_add_password(handle_, reinterpret_cast<const std::uint8_t*>(password.data()), password.size());
     if (id == UINT64_MAX) throw std::runtime_error(buffer_last_error());
     return id;
   }
-  /** Adds contact. */
+  /** Grants a named contact access and returns the new slot identifier. */
   std::uint64_t add_contact(const ContactPublicKey& contact, const std::string& name) {
     auto id = lockbox_add_contact(handle_, contact.native_handle(), name.data(), name.size());
     if (id == UINT64_MAX) throw std::runtime_error(buffer_last_error());
     return id;
   }
-  /** Removes key. */
+  /** Removes an access slot; at least one usable slot must remain. */
   void delete_key(std::uint64_t id) {
     if (!lockbox_delete_key(handle_, id)) throw std::runtime_error(buffer_last_error());
   }
-  /** Returns the owner inspection. */
+  /** Returns public signing and ownership metadata for the current revision. */
   bindings::OwnerInspection owner_inspection() const { return decoded<bindings::OwnerInspection>(lockbox_owner_inspection(handle_)); }
-  /** Sets owner signing key. */
+  /** Assigns a profile signing key to the Lockbox owner role. */
   void set_owner_signing_key(const ProfileSigningKeyPair& key) {
     if (!lockbox_set_owner_signing_key(handle_, key.native_handle()))
       throw std::runtime_error(buffer_last_error());
   }
-  /** Returns the stream content. */
+  /** Lists logical or physical content chunks for streaming diagnostics. */
   bindings::StreamChunkList stream_content(bool physical = false) const { return decoded<bindings::StreamChunkList>(lockbox_stream_content(handle_, physical)); }
-  /** Returns the page inspection. */
+  /** Returns page metadata for diagnostics without exposing plaintext secrets. */
   bindings::PageInspectionList page_inspection() const { return decoded<bindings::PageInspectionList>(lockbox_page_inspection(handle_)); }
-  /** Returns the recovery report. */
+  /** Scans the open archive and returns its structured recovery report. */
   bindings::RecoveryReport recovery_report() const { return decoded<bindings::RecoveryReport>(lockbox_recovery_report(handle_)); }
-  /** Returns the runtime options. */
+  /** Returns the cache, workload, and worker settings used by this Lockbox. */
   bindings::RuntimeOptions runtime_options() const { return decoded<bindings::RuntimeOptions>(lockbox_runtime_options(handle_)); }
-  /** Returns the to bytes. */
+  /** Serializes the current Lockbox, including committed changes. */
   std::vector<std::uint8_t> to_bytes() const { return detail::take_bytes(lockbox_to_bytes(handle_)); }
 
-  /** Returns the define form. */
+  /** Defines and stores a reusable versioned form. */
   bindings::FormDefinition define_form(const std::string& alias,
                                        const std::string& name,
                                        const std::string& description,
@@ -740,21 +740,21 @@ class Lockbox {
         description.data(), description.size(),
         reinterpret_cast<const std::uint8_t*>(encoded.data()), encoded.size()));
   }
-  /** Lists form definitions. */
+  /** Lists the form definitions stored in this Lockbox. */
   bindings::FormDefinitionList list_form_definitions() const {
     return decoded<bindings::FormDefinitionList>(lockbox_list_form_definitions(handle_));
   }
-  /** Returns the resolve form. */
+  /** Resolves a form alias, type identifier, or revision. */
   bindings::FormDefinition resolve_form(const std::string& reference) const {
     return decoded<bindings::FormDefinition>(
         lockbox_resolve_form(handle_, reference.data(), reference.size()));
   }
-  /** Lists form revisions. */
+  /** Lists every stored revision for a form type identifier. */
   bindings::FormDefinitionList list_form_revisions(const std::string& type_id) const {
     return decoded<bindings::FormDefinitionList>(
         lockbox_list_form_revisions(handle_, type_id.data(), type_id.size()));
   }
-  /** Creates form record. */
+  /** Stages a form record at path using the referenced definition. */
   bindings::FormRecord create_form_record(const std::string& path,
                                           const std::string& type_reference,
                                           const std::string& name) {
@@ -762,7 +762,7 @@ class Lockbox {
         handle_, path.data(), path.size(), type_reference.data(), type_reference.size(),
         name.data(), name.size()));
   }
-  /** Sets form field. */
+  /** Stages a plain field value in a form record. */
   void set_form_field(const std::string& path, const std::string& field,
                       const std::string& value) {
     if (!lockbox_set_form_field(handle_, path.data(), path.size(), field.data(), field.size(),
@@ -776,16 +776,16 @@ class Lockbox {
                                        value.data(), value.size()))
       throw std::runtime_error(buffer_last_error());
   }
-  /** Lists form records. */
+  /** Lists form records without exposing secret field values. */
   bindings::FormRecordList list_form_records() const {
     return decoded<bindings::FormRecordList>(lockbox_list_form_records(handle_));
   }
-  /** Returns form record. */
+  /** Returns the form record at path when present. */
   bindings::OptionalFormRecord get_form_record(const std::string& path) const {
     return decoded<bindings::OptionalFormRecord>(
         lockbox_get_form_record(handle_, path.data(), path.size()));
   }
-  /** Removes form record. */
+  /** Stages removal of a form record. */
   void delete_form_record(const std::string& path) {
     if (!lockbox_delete_form_record(handle_, path.data(), path.size()))
       throw std::runtime_error(buffer_last_error());
@@ -796,13 +796,13 @@ class Lockbox {
     if (!lockbox_move_form_records(handle_, reinterpret_cast<const std::uint8_t*>(encoded.data()), encoded.size()))
       throw std::runtime_error(buffer_last_error());
   }
-  /** Returns form field. */
+  /** Returns a plain form field when it exists. */
   bindings::OptionalFormValue get_form_field(const std::string& path,
                                              const std::string& field) const {
     return decoded<bindings::OptionalFormValue>(lockbox_get_form_field(
         handle_, path.data(), path.size(), field.data(), field.size()));
   }
-  /** Returns the with secret form field. */
+  /** Invokes a callback with temporary secret field bytes, then clears them. */
   bool with_secret_form_field(const std::string& path, const std::string& field,
       const std::function<void(std::span<const std::uint8_t>)>& callback) const {
     void* secret{};
@@ -934,9 +934,9 @@ class Vault {
   /** Returns the vault directory. */
   ~Vault() { if (handle_) vault_directory_free(handle_); }
 
-  /** Returns the root. */
+  /** Returns the canonical root directory of this Vault. */
   std::string root() const { return detail::take_string(vault_directory_root(handle_)); }
-  /** Returns the structure version. */
+  /** Returns the persistent structure version of this Vault. */
   std::uint32_t structure_version() const { return vault_directory_structure_version(handle_); }
   /** Lists private keys. */
   bindings::StringList list_private_keys() const {
@@ -954,7 +954,7 @@ class Vault {
   bindings::StringList list_form_aliases() const {
     return detail::take_message<bindings::StringList>(vault_directory_list_form_aliases(handle_));
   }
-  /** Returns the private key exists. */
+  /** Reports whether the named profile private key exists. */
   bool private_key_exists(const std::string& name) const {
     return vault_directory_private_key_exists(handle_, name.data(), name.size());
   }
@@ -986,7 +986,7 @@ class Vault {
   ContactPublicKey load_contact(const std::string& name) const {
     return ContactPublicKey(vault_directory_load_contact(handle_, name.data(), name.size()));
   }
-  /** Returns the contact exists. */
+  /** Reports whether the named contact exists. */
   bool contact_exists(const std::string& name) const {
     return vault_directory_contact_exists(handle_, name.data(), name.size());
   }
@@ -1003,7 +1003,7 @@ class Vault {
     checked(vault_directory_store_profile_email(
         handle_, name.data(), name.size(), email.data(), email.size()));
   }
-  /** Returns the profile email. */
+  /** Returns the email recorded for a profile, when present. */
   bindings::OptionalString profile_email(const std::string& name) const {
     return detail::take_message<bindings::OptionalString>(
         vault_directory_profile_email(handle_, name.data(), name.size()));
@@ -1018,9 +1018,9 @@ class Vault {
   std::vector<std::uint8_t> load_backup(const std::vector<std::uint8_t>& id) const {
     return detail::take_bytes(vault_directory_load_backup(handle_, id.data(), id.size()));
   }
-  /** Returns the backup count. */
+  /** Returns the number of stored key recovery backups. */
   std::uint64_t backup_count() const { return vault_directory_backup_count(handle_); }
-  /** Returns the restore private key. */
+  /** Restores a profile private key and signing key from recovery material. */
   void restore_private_key(const std::string& name, const ContactKeyPair& key,
                            const ProfileSigningKeyPair& signing_key, bool overwrite = false) const {
     checked(vault_directory_restore_private_key(
@@ -1086,7 +1086,7 @@ class Vault {
     return detail::take_message<bindings::AccessSlotLabelList>(
         vault_directory_list_access_slot_labels(handle_, id.data(), id.size()));
   }
-  /** Returns the find access slot labels. */
+  /** Finds access slot labels with the supplied name for one Lockbox. */
   bindings::AccessSlotLabelList find_access_slot_labels(
       const std::vector<std::uint8_t>& id, const std::string& name) const {
     return detail::take_message<bindings::AccessSlotLabelList>(vault_directory_find_access_slot_labels(
@@ -1097,7 +1097,7 @@ class Vault {
                            std::uint64_t slot_id) const {
     checked(vault_directory_forget_access_slot_label(handle_, id.data(), id.size(), slot_id));
   }
-  /** Returns the define form. */
+  /** Defines and stores a reusable versioned form. */
   bindings::FormDefinition define_form(const std::string& alias,
                                        const std::string& name,
                                        const std::string& description,
@@ -1108,7 +1108,7 @@ class Vault {
         description.data(), description.size(),
         reinterpret_cast<const std::uint8_t*>(encoded.data()), encoded.size()));
   }
-  /** Returns the resolve form. */
+  /** Resolves a form alias, type identifier, or revision. */
   bindings::FormDefinition resolve_form(const std::string& reference) const {
     return detail::take_message<bindings::FormDefinition>(
         vault_directory_resolve_form(handle_, reference.data(), reference.size()));
@@ -1117,12 +1117,12 @@ class Vault {
   bindings::FormDefinitionList list_forms() const {
     return detail::take_message<bindings::FormDefinitionList>(vault_directory_list_forms(handle_));
   }
-  /** Lists form revisions. */
+  /** Lists every stored revision for a form type identifier. */
   bindings::FormDefinitionList list_form_revisions(const std::string& type_id) const {
     return detail::take_message<bindings::FormDefinitionList>(
         vault_directory_list_form_revisions(handle_, type_id.data(), type_id.size()));
   }
-  /** Returns the seed forms. */
+  /** Adds missing standard form definitions and returns the number added. */
   std::size_t seed_forms() const { return vault_directory_seed_forms(handle_); }
   /** Stores password. */
   void remember_password(const std::vector<std::uint8_t>& id,
@@ -1131,7 +1131,7 @@ class Vault {
         handle_, id.data(), id.size(),
         reinterpret_cast<const std::uint8_t*>(password.data()), password.size()));
   }
-  /** Returns the remembered password. */
+  /** Returns the Lockbox password encrypted inside this Vault. */
   std::vector<std::uint8_t> remembered_password(
       const std::vector<std::uint8_t>& id) const {
     return detail::take_bytes(vault_directory_remembered_password(handle_, id.data(), id.size()));
@@ -1256,7 +1256,7 @@ class AgentSession {
   static void start() { checked(vault_agent_start()); }
   /** Reports whether running. */
   static bool is_running() { return vault_is_running(); }
-  /** Returns the serve. */
+  /** Runs the session agent server until it is stopped. */
   static void serve() { checked(vault_agent_serve()); }
   /** Verifies transport. */
   static void verify_transport() { checked(vault_agent_verify_transport()); }
@@ -1277,11 +1277,11 @@ class AgentSession {
   static void forget(const std::vector<std::uint8_t>& id) {
     checked(vault_agent_forget(id.data(), id.size()));
   }
-  /** Lists list. */
+  /** Lists entries below path, optionally including descendants. */
   static bindings::AgentEntryList list() {
     return detail::take_message<bindings::AgentEntryList>(vault_agent_list());
   }
-  /** Returns the sleep support. */
+  /** Reports how the platform handles agent expiry during system sleep. */
   static bindings::SleepSupport sleep_support() {
     return detail::take_message<bindings::SleepSupport>(vault_agent_sleep_support());
   }
@@ -1359,7 +1359,7 @@ class AgentSession {
 /** Access to the platform credential store for a scoped Vault passphrase. */
 class PlatformSecretStore {
  public:
-  /** Returns the status. */
+  /** Returns availability and user presence guarantees for platform storage. */
   static bindings::PlatformStatus status() {
     return detail::take_message<bindings::PlatformStatus>(vault_platform_status());
   }
@@ -1367,11 +1367,11 @@ class PlatformSecretStore {
   static void set_scope(const std::string& scope) {
     checked(vault_platform_set_scope(scope.data(), scope.size()));
   }
-  /** Returns the enable. */
+  /** Enables storage of the Vault passphrase in platform credentials. */
   static void enable() { checked(vault_platform_enable()); }
-  /** Returns the disable. */
+  /** Disables platform credential use without deleting the stored value. */
   static void disable() { checked(vault_platform_disable()); }
-  /** Returns the disabled. */
+  /** Reports whether platform credential use is disabled. */
   static bool disabled() { return vault_platform_disabled(); }
   /** Stores password. */
   static void put_password(const std::string& password) {

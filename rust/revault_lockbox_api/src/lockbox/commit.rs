@@ -32,7 +32,8 @@ impl Lockbox<crate::Writable> {
     /// back to the state before the attempt. If publication succeeds but
     /// durable redaction cleanup is interrupted, returns
     /// [`Error::RecoveryRequired`]; the published logical state remains in
-    /// force and must be completed with `Lockbox::recover_transaction`.
+    /// force. A subsequent write-capable open completes cleanup automatically;
+    /// read-only callers can use `Lockbox::recover_transaction` explicitly.
     pub fn commit(&mut self) -> Result<()> {
         self.require_clean_transaction()?;
         if self.read_only {
@@ -41,6 +42,7 @@ impl Lockbox<crate::Writable> {
                     .to_string(),
             ));
         }
+        self.validate_owner_signing_key()?;
         if let Some(reason) = &self.poisoned {
             return Err(Error::InvalidOperation(format!(
                 "lockbox has an unresolved failed write: {reason}"
@@ -649,7 +651,10 @@ mod tests {
     use crate::lockbox_path::LockboxPath;
     use crate::node_kind::NodeKind;
     use crate::toc_entry::TocEntry;
-    use crate::{Error, LockboxOpen, LockboxProtection, OwnerSigningKeyPair, SecretString};
+    use crate::{
+        Error, FormFieldDefinition, FormFieldKind, LockboxOpen, LockboxProtection,
+        OwnerSigningKeyPair, SecretString, VariableName,
+    };
     use std::path::PathBuf;
 
     fn p(path: impl AsRef<str>) -> LockboxPath {
@@ -883,8 +888,10 @@ mod tests {
         add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
         lb.commit().unwrap();
         let first_auth = lb.commit_auth_offset;
+        let signing_key = lb.require_owner_signing_key().unwrap().try_clone().unwrap();
 
         let mut reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
+        reopened.set_owner_signing_key(signing_key);
         add_file(&mut reopened, &p("/docs/b.txt"), b"bravo", false).unwrap();
         reopened.commit().unwrap();
 
@@ -944,6 +951,67 @@ mod tests {
             Err(crate::Error::InvalidOperation(message))
                 if message.contains("contact-opened lockboxes are read-only")
         ));
+    }
+
+    #[test]
+    fn contact_cannot_replace_the_established_owner_signing_key() {
+        let contact = crate::ContactKeyPair::generate().unwrap();
+        let mut lb = Lockbox::create_with_contact(&contact.public_key()).unwrap();
+        add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+        lb.commit().unwrap();
+
+        let attacker_signing_key = OwnerSigningKeyPair::generate().unwrap();
+        let mut opened = Lockbox::open_bytes_for_write(
+            lb.to_bytes(),
+            crate::LockboxOpen::ContactKeyPair(contact),
+            &attacker_signing_key,
+        )
+        .unwrap();
+        add_file(&mut opened, &p("/docs/b.txt"), b"bravo", false).unwrap();
+
+        assert!(matches!(
+            opened.commit(),
+            Err(crate::Error::InvalidKeyMaterial(message))
+                if message.contains("established lockbox owner")
+        ));
+    }
+
+    #[test]
+    fn established_owner_can_widen_access_through_compaction() {
+        let original_contact = crate::ContactKeyPair::generate().unwrap();
+        let added_contact = crate::ContactKeyPair::generate().unwrap();
+        let mut lb = Lockbox::create_with_contact(&original_contact.public_key()).unwrap();
+        add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+        lb.commit().unwrap();
+        let signing_key = lb.require_owner_signing_key().unwrap().try_clone().unwrap();
+
+        let mut opened = Lockbox::open_bytes_for_write(
+            lb.to_bytes(),
+            crate::LockboxOpen::ContactKeyPair(original_contact),
+            &signing_key,
+        )
+        .unwrap();
+        opened.add_contact(&added_contact.public_key()).unwrap();
+        opened.commit().unwrap();
+
+        let reopened = Lockbox::open_with_contact(opened.to_bytes(), &added_contact).unwrap();
+        assert!(reopened.owner_inspection().unwrap().signed);
+        assert!(reopened.owner_signing_key_matches(&signing_key).unwrap());
+    }
+
+    #[test]
+    fn open_rejects_a_commit_chain_that_switches_owner_keys() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/a.txt"), b"alpha", false).unwrap();
+        lb.commit().unwrap();
+
+        lb.set_owner_signing_key(OwnerSigningKeyPair::generate().unwrap());
+        add_file(&mut lb, &p("/docs/b.txt"), b"bravo", false).unwrap();
+        // Bypass the public commit guard to construct the hostile on-disk chain
+        // that the open path must independently reject.
+        lb.commit_inner().unwrap();
+
+        assert!(Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").is_err());
     }
 
     #[test]
@@ -1072,6 +1140,290 @@ mod tests {
         assert_eq!(reopened.get_file(&p("/docs/new.txt")).unwrap(), b"new");
     }
 
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum ReopenedTransactionState {
+        PreviousCommit,
+        PublishedCommit,
+        RecoveryRequired,
+    }
+
+    fn reopened_transaction_state(bytes: Vec<u8>) -> ReopenedTransactionState {
+        match Lockbox::open_bytes_with_key(bytes, "secret") {
+            Ok(opened) => {
+                if opened.get_file(&p("/docs/new.txt")).is_ok() {
+                    assert!(matches!(
+                        opened.get_file(&p("/docs/remove.txt")),
+                        Err(Error::NotFound(_))
+                    ));
+                    ReopenedTransactionState::PublishedCommit
+                } else {
+                    assert_eq!(
+                        opened.get_file(&p("/docs/remove.txt")).unwrap(),
+                        b"remove me"
+                    );
+                    ReopenedTransactionState::PreviousCommit
+                }
+            }
+            Err(Error::RecoveryRequired { .. }) => ReopenedTransactionState::RecoveryRequired,
+            Err(err) => panic!("failure produced an unreopenable lockbox: {err}"),
+        }
+    }
+
+    fn recover_memory_transaction(bytes: Vec<u8>) -> Vec<u8> {
+        let original = bytes.clone();
+        let key = crate::SecretVec::try_from_slice(b"secret").unwrap();
+        let mut recovering = Lockbox::open_storage_with_secret_key_mode(
+            crate::storage::StorageBackend::memory(bytes),
+            key,
+            crate::LockboxOptions::default(),
+            true,
+        )
+        .unwrap();
+        if recovering.transaction_recovery_status().is_none() {
+            return original;
+        }
+        recovering.cleanup_published_redactions(|_| {}).unwrap();
+        recovering
+            .publish_transaction_header(recovering.sequence)
+            .unwrap();
+        recovering.to_bytes()
+    }
+
+    fn redaction_transaction() -> Lockbox {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
+        add_file(&mut lb, &p("/docs/keep.txt"), b"keep", false).unwrap();
+        lb.commit().unwrap();
+        lb.delete(&p("/docs/remove.txt")).unwrap();
+        add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
+        lb
+    }
+
+    #[test]
+    fn every_storage_failure_yields_previous_published_or_recoverable_state() {
+        let mut successful = redaction_transaction();
+        successful.storage.reset_memory_operation_count();
+        successful.commit().unwrap();
+        let operation_count = successful.storage.memory_operation_count();
+        assert!(
+            operation_count > 4,
+            "transaction did not exercise enough boundaries"
+        );
+
+        let mut saw_previous_retryable = false;
+        let mut saw_previous_poisoned = false;
+        let mut saw_recovery = false;
+        let mut saw_published = false;
+
+        for failure_after in 0..operation_count {
+            let mut lb = redaction_transaction();
+            lb.storage
+                .fail_memory_operation_after_successes(failure_after);
+            assert!(
+                lb.commit().is_err(),
+                "operation {failure_after} did not fail"
+            );
+            let bytes = lb.to_bytes();
+
+            match reopened_transaction_state(bytes.clone()) {
+                ReopenedTransactionState::PreviousCommit => {
+                    assert_eq!(lb.get_file(&p("/docs/new.txt")).unwrap(), b"new");
+                    if lb.poisoned.is_some() {
+                        saw_previous_poisoned = true;
+                        assert!(lb.commit().is_err(), "poisoned handle allowed a retry");
+                    } else {
+                        saw_previous_retryable = true;
+                        lb.commit().unwrap();
+                        assert_eq!(
+                            reopened_transaction_state(lb.to_bytes()),
+                            ReopenedTransactionState::PublishedCommit
+                        );
+                    }
+                }
+                ReopenedTransactionState::RecoveryRequired => {
+                    saw_recovery = true;
+                    let recovered = recover_memory_transaction(bytes);
+                    assert_eq!(
+                        reopened_transaction_state(recovered.clone()),
+                        ReopenedTransactionState::PublishedCommit
+                    );
+                    assert_eq!(recover_memory_transaction(recovered.clone()), recovered);
+                }
+                ReopenedTransactionState::PublishedCommit => saw_published = true,
+            }
+        }
+
+        assert!(
+            saw_previous_retryable,
+            "no pre-publication rollback was exercised"
+        );
+        assert!(
+            saw_previous_poisoned,
+            "no ambiguous header write was exercised"
+        );
+        assert!(saw_recovery, "no published cleanup state was exercised");
+        assert!(
+            saw_published,
+            "no ambiguous final publication was exercised"
+        );
+    }
+
+    #[test]
+    fn prepublication_rollback_preserves_all_staged_domain_changes_for_retry() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/original.txt"), b"original", false).unwrap();
+        lb.commit().unwrap();
+
+        lb.rename(&p("/docs/original.txt"), &p("/docs/renamed.txt"))
+            .unwrap();
+        lb.add_symlink(&p("/docs/current.txt"), &p("/docs/renamed.txt"), false)
+            .unwrap();
+        let variable = VariableName::new("/deploy/REGION").unwrap();
+        lb.set_variable(&variable, "ap-southeast-2").unwrap();
+        lb.set_description("staged description").unwrap();
+        lb.define_form(
+            "login",
+            "Login",
+            vec![FormFieldDefinition {
+                id: "username".to_string(),
+                label: "Username".to_string(),
+                kind: FormFieldKind::Text,
+                required: true,
+            }],
+        )
+        .unwrap();
+        lb.create_form_record(&p("/forms/account"), "login", "Account")
+            .unwrap();
+        lb.set_form_field_normal(&p("/forms/account"), "username", "alice")
+            .unwrap();
+
+        lb.storage.fail_memory_operation_after_successes(0);
+        assert!(lb.commit().is_err());
+        let disk_after_failure = lb.to_bytes();
+        let previous = Lockbox::open_bytes_with_key(disk_after_failure, "secret").unwrap();
+        assert!(previous.stat(&p("/docs/original.txt")).is_some());
+        assert!(previous.stat(&p("/docs/renamed.txt")).is_none());
+        assert_eq!(previous.get_variable(&variable).unwrap(), None);
+
+        assert_eq!(lb.get_file(&p("/docs/renamed.txt")).unwrap(), b"original");
+        assert!(lb.stat(&p("/docs/current.txt")).is_some());
+        assert_eq!(
+            lb.get_variable(&variable).unwrap().as_deref(),
+            Some("ap-southeast-2")
+        );
+        assert_eq!(
+            lb.description().unwrap().as_deref(),
+            Some("staged description")
+        );
+        assert!(lb
+            .get_form_field(&p("/forms/account"), "username")
+            .unwrap()
+            .is_some());
+
+        lb.commit().unwrap();
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
+        assert_eq!(
+            reopened.get_file(&p("/docs/renamed.txt")).unwrap(),
+            b"original"
+        );
+        assert!(reopened.stat(&p("/docs/current.txt")).is_some());
+        assert_eq!(
+            reopened.get_variable(&variable).unwrap().as_deref(),
+            Some("ap-southeast-2")
+        );
+        assert!(reopened
+            .get_form_field(&p("/forms/account"), "username")
+            .unwrap()
+            .is_some());
+    }
+
+    #[test]
+    fn transaction_recovery_resumes_from_a_genuinely_intermediate_manifest_page() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/keep.txt"), b"keep", false).unwrap();
+        lb.commit().unwrap();
+
+        let padding = vec![0x5a; RANGES_PER_PAGE * 2 + 1];
+        let padding_offset = lb.storage.append(&padding).unwrap();
+        lb.redacted_free_slots
+            .extend(
+                (0..=RANGES_PER_PAGE).map(|index| crate::free_slot::FreeSlot {
+                    offset: padding_offset + (index * 2) as u64,
+                    len: 1,
+                }),
+            );
+        add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
+        lb.storage.fail_memory_next_write_at(padding_offset);
+        assert!(matches!(lb.commit(), Err(Error::RecoveryRequired { .. })));
+
+        let key = crate::SecretVec::try_from_slice(b"secret").unwrap();
+        let mut recovering = Lockbox::open_storage_with_secret_key_mode(
+            crate::storage::StorageBackend::memory(lb.to_bytes()),
+            key,
+            crate::LockboxOptions::default(),
+            true,
+        )
+        .unwrap();
+        let initial = recovering.transaction_recovery_status().unwrap();
+        assert_eq!(initial.page_count, 2);
+        assert_eq!(initial.completed_pages, 0);
+
+        let completed = recovering
+            .cleanup_published_redactions_controlled(|progress| {
+                assert_eq!(progress.completed_pages, 1);
+                crate::TransactionRecoveryControl::Cancel
+            })
+            .unwrap();
+        assert!(!completed);
+        let checkpoint = recovering.transaction_recovery_status().unwrap();
+        assert_eq!(checkpoint.completed_pages, 1);
+        assert!(checkpoint.completed_ranges > 0);
+        assert!(checkpoint.completed_ranges < checkpoint.range_count);
+
+        recovering.cleanup_published_redactions(|_| {}).unwrap();
+        recovering
+            .publish_transaction_header(recovering.sequence)
+            .unwrap();
+        let bytes = recovering.to_bytes();
+        let reopened = Lockbox::open_bytes_with_key(bytes.clone(), "secret").unwrap();
+        assert_eq!(reopened.get_file(&p("/docs/keep.txt")).unwrap(), b"keep");
+        assert_eq!(reopened.get_file(&p("/docs/new.txt")).unwrap(), b"new");
+        assert!(
+            bytes[padding_offset as usize..padding_offset as usize + padding.len()]
+                .iter()
+                .enumerate()
+                .all(|(index, byte)| index % 2 == 1 || *byte == 0)
+        );
+    }
+
+    #[test]
+    fn torn_inactive_header_slot_reopens_the_previous_commit() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
+        lb.commit().unwrap();
+        let previous = lb.to_bytes();
+
+        add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
+        lb.commit().unwrap();
+        let mut torn = lb.to_bytes();
+        let slot_start = lb.header_slot * crate::file_format::header_v2::SLOT_LEN;
+        let tear = crate::file_format::header_v2::SLOT_LEN / 2;
+        torn[slot_start + tear..slot_start + crate::file_format::header_v2::SLOT_LEN]
+            .copy_from_slice(
+                &previous[slot_start + tear..slot_start + crate::file_format::header_v2::SLOT_LEN],
+            );
+
+        let reopened = Lockbox::open_bytes_with_key(torn, "secret").unwrap();
+        assert_eq!(
+            reopened.get_file(&p("/docs/remove.txt")).unwrap(),
+            b"remove me"
+        );
+        assert!(matches!(
+            reopened.get_file(&p("/docs/new.txt")),
+            Err(Error::NotFound(_))
+        ));
+    }
+
     #[test]
     fn failed_commit_header_publish_reopens_previous_commit() {
         let mut lb = Lockbox::create("secret");
@@ -1110,7 +1462,7 @@ mod tests {
     }
 
     #[test]
-    fn interrupted_cleanup_requires_explicit_recovery_and_is_idempotent() {
+    fn interrupted_cleanup_blocks_read_only_open_but_write_open_completes_it() {
         let mut lb = Lockbox::create("secret");
         add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
         add_file(&mut lb, &p("/docs/keep.txt"), b"keep", false).unwrap();
@@ -1130,6 +1482,21 @@ mod tests {
         assert!(matches!(
             Lockbox::open_bytes_with_key(interrupted.clone(), "secret"),
             Err(Error::RecoveryRequired { .. })
+        ));
+
+        let signing_key = lb.owner_signing_key.as_ref().unwrap().try_clone().unwrap();
+        let automatically_recovered = Lockbox::open_bytes_for_write(
+            interrupted.clone(),
+            crate::LockboxOpen::ContentKey(crate::SecretVec::try_from_slice(b"secret").unwrap()),
+            &signing_key,
+        )
+        .unwrap();
+        assert!(automatically_recovered
+            .transaction_recovery_status()
+            .is_none());
+        assert!(matches!(
+            automatically_recovered.get_file(&p("/docs/remove.txt")),
+            Err(Error::NotFound(_))
         ));
 
         let key = crate::SecretVec::try_from_slice(b"secret").unwrap();

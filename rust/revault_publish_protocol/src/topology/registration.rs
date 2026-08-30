@@ -38,7 +38,8 @@ pub fn decode_topology_registration(bytes: &[u8]) -> Result<TopologyRegistration
         )));
     }
     let cluster_id = reader.string().map_err(topology_protocol_error)?;
-    let server_id = reader.u64().map_err(topology_protocol_error)? as u8;
+    let server_id = u8::try_from(reader.u64().map_err(topology_protocol_error)?)
+        .map_err(|_| ClientError::Topology("topology server id exceeds 255".to_string()))?;
     let server_url = reader.string().map_err(topology_protocol_error)?;
     let status = server_status_from_u8(reader.u8().map_err(topology_protocol_error)?)?;
     let security_token = reader.string().map_err(topology_protocol_error)?;
@@ -49,4 +50,26 @@ pub fn decode_topology_registration(bytes: &[u8]) -> Result<TopologyRegistration
         status,
         security_token,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decode_rejects_server_ids_that_do_not_fit_the_wire_type() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(TOPOLOGY_REGISTRATION_MAGIC);
+        protocol::put_u16(&mut bytes, TOPOLOGY_REGISTRATION_VERSION);
+        protocol::put_string(&mut bytes, "cluster");
+        protocol::put_u64(&mut bytes, 256);
+        protocol::put_string(&mut bytes, "https://server.example/v1/publish");
+        bytes.push(0);
+        protocol::put_string(&mut bytes, "token");
+
+        assert!(matches!(
+            decode_topology_registration(&bytes),
+            Err(ClientError::Topology(message)) if message.contains("exceeds 255")
+        ));
+    }
 }

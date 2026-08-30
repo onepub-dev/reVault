@@ -119,8 +119,8 @@ topology members and routes use TOML arrays of tables.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `compact_min_bytes` | integer | `67108864` | Bytes in storage before background compaction runs. |
-| `rate_limit_per_minute` | integer | `120` | Per-IP request limit. `0` disables rate limiting. Unauthenticated `GET /v1/topology`, `GET /v1/status`, `GET /v1/verify`, and non-tokened topology registration or replication requests use this limiter. |
-| `rate_limit_burst` | integer | `40` | Per-IP rate limit burst capacity. |
+| `rate_limit_per_minute` | integer | `0` | Deprecated compatibility setting. Configure request limiting at the TLS proxy. |
+| `rate_limit_burst` | integer | `0` | Deprecated compatibility setting. Configure request limiting at the TLS proxy. |
 | `verification_ttl_seconds` | integer | `1800` | Email verification link lifetime. |
 | `default_receive_ttl_seconds` | integer | `7200` | Default receive lifetime after email verification. |
 | `max_receive_ttl_seconds` | integer | `7200` | Maximum requested receive lifetime after email verification. |
@@ -134,7 +134,7 @@ topology members and routes use TOML arrays of tables.
 | `verification_email_subject` | string | `Verify your reVault publish` | Subject template. Supports `{email}`, `{publish_code}`, and `{verification_url}`. |
 | `verification_email_template` | string | built-in text | Plain text body template. Supports `{email}`, `{publish_code}`, and `{verification_url}`. |
 | `verification_email_rate_limit_per_hour` | integer | `5` | Per-email verification email rate limit per hour on the deterministic primary and backup servers. |
-| `verification_email_ip_rate_limit_per_hour` | integer | `30` | Per-source-IP verification email rate limit (per hour). |
+| `verification_email_ip_rate_limit_per_hour` | integer | `0` | Used only by direct `handle_with_peer` callers; the HTTP server delegates source-IP limiting to its TLS proxy. |
 
 ## `install`, `uninstall`, `start`, `stop`, `doctor`
 

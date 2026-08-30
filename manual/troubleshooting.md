@@ -41,10 +41,10 @@ Stop. Remove the unverified Contact and restart the exchange using contact detai
 Keep the original and run:
 
 ```bash
-lbx damaged.lbox recover --dry-run
+lbx damaged.lbox doctor recover --dry-run
 ```
 
-Follow [Recover a damaged Lockbox](cli-tooling/recovery.md). Use `recover --transaction` only when the error specifically requests transaction redaction cleanup.
+Follow [Recover a damaged Lockbox](cli-tooling/recovery.md). The command automatically distinguishes authenticated interrupted cleanup from salvage recovery; no recovery-mode flag is required.
 
 ## Migration fails
 

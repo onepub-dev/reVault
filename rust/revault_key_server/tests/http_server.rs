@@ -14,8 +14,8 @@ use revault_publish_protocol::{
 };
 
 #[test]
-fn axum_server_rate_limits_topology_and_allows_server_token_header() {
-    let (_guard, mut config) = temp_server_config("axum-topology-rate-limit");
+fn axum_server_leaves_topology_rate_limiting_to_the_tls_proxy() {
+    let (_guard, mut config) = temp_server_config("axum-topology-proxy-rate-limit");
     config.topology_token = Some("server-token".to_string());
     config.rate_limit_per_minute = 60;
     config.rate_limit_burst = 1;
@@ -25,8 +25,7 @@ fn axum_server_rate_limits_topology_and_allows_server_token_header() {
     decode_topology(http_body(&first)).unwrap();
 
     let second = get_request(addr, "/v1/topology", "");
-    let response = protocol::decode_response(http_body(&second), 1024).unwrap();
-    assert_eq!(response.status, protocol::Status::RateLimited);
+    decode_topology(http_body(&second)).unwrap();
 
     let authenticated = get_request(
         addr,
@@ -37,8 +36,8 @@ fn axum_server_rate_limits_topology_and_allows_server_token_header() {
 }
 
 #[test]
-fn axum_server_token_header_does_not_bypass_publish_rate_limit() {
-    let (_guard, mut config) = temp_server_config("axum-publish-rate-limit");
+fn axum_server_leaves_publish_rate_limiting_to_the_tls_proxy() {
+    let (_guard, mut config) = temp_server_config("axum-publish-proxy-rate-limit");
     config.topology_token = Some("server-token".to_string());
     config.rate_limit_per_minute = 60;
     config.rate_limit_burst = 1;
@@ -61,7 +60,7 @@ fn axum_server_token_header_does_not_bypass_publish_rate_limit() {
         body,
     );
     let response = protocol::decode_response(http_body(&second), 1024).unwrap();
-    assert_eq!(response.status, protocol::Status::RateLimited);
+    assert_eq!(response.status, protocol::Status::MalformedRequest);
 }
 
 #[test]

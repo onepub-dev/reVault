@@ -147,10 +147,14 @@ pub(crate) struct MemoryStore {
     bytes: Vec<u8>,
     #[cfg(test)]
     fail_append_after_successes: Option<usize>,
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fail_next_write_at: Option<u64>,
     #[cfg(test)]
     fail_sync_after_successes: Cell<Option<usize>>,
+    #[cfg(test)]
+    fail_operation_after_successes: Cell<Option<usize>>,
+    #[cfg(test)]
+    operation_count: Cell<usize>,
 }
 
 impl MemoryStore {
@@ -159,10 +163,14 @@ impl MemoryStore {
             bytes,
             #[cfg(test)]
             fail_append_after_successes: None,
-            #[cfg(test)]
+            #[cfg(any(test, feature = "test-support"))]
             fail_next_write_at: None,
             #[cfg(test)]
             fail_sync_after_successes: Cell::new(None),
+            #[cfg(test)]
+            fail_operation_after_successes: Cell::new(None),
+            #[cfg(test)]
+            operation_count: Cell::new(0),
         }
     }
 
@@ -171,7 +179,7 @@ impl MemoryStore {
         self.fail_append_after_successes = Some(successes);
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn fail_next_write_at(&mut self, offset: u64) {
         self.fail_next_write_at = Some(offset);
     }
@@ -179,6 +187,38 @@ impl MemoryStore {
     #[cfg(test)]
     fn fail_sync_after_successes(&mut self, successes: usize) {
         self.fail_sync_after_successes.set(Some(successes));
+    }
+
+    #[cfg(test)]
+    fn fail_operation_after_successes(&mut self, successes: usize) {
+        self.operation_count.set(0);
+        self.fail_operation_after_successes.set(Some(successes));
+    }
+
+    #[cfg(test)]
+    fn operation_count(&self) -> usize {
+        self.operation_count.get()
+    }
+
+    #[cfg(test)]
+    fn reset_operation_count(&self) {
+        self.operation_count.set(0);
+        self.fail_operation_after_successes.set(None);
+    }
+
+    #[cfg(test)]
+    fn should_fail_operation(&self) -> bool {
+        self.operation_count.set(self.operation_count.get() + 1);
+        let Some(remaining) = self.fail_operation_after_successes.get() else {
+            return false;
+        };
+        if remaining == 0 {
+            self.fail_operation_after_successes.set(None);
+            true
+        } else {
+            self.fail_operation_after_successes.set(Some(remaining - 1));
+            false
+        }
     }
 
     #[cfg(test)]
@@ -195,7 +235,7 @@ impl MemoryStore {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-support"))]
     fn should_fail_write_at(&mut self, offset: u64) -> bool {
         if self.fail_next_write_at == Some(offset) {
             self.fail_next_write_at = None;
@@ -250,6 +290,10 @@ impl Storage for MemoryStore {
 
     fn append(&mut self, bytes: &[u8]) -> Result<u64> {
         #[cfg(test)]
+        if self.should_fail_operation() {
+            return Err(Error::Io("injected storage operation failure".to_string()));
+        }
+        #[cfg(test)]
         if self.should_fail_append() {
             return Err(Error::Io("injected storage append failure".to_string()));
         }
@@ -260,6 +304,10 @@ impl Storage for MemoryStore {
 
     fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
         #[cfg(test)]
+        if self.should_fail_operation() {
+            return Err(Error::Io("injected storage operation failure".to_string()));
+        }
+        #[cfg(any(test, feature = "test-support"))]
         if self.should_fail_write_at(offset) {
             return Err(Error::Io("injected storage write failure".to_string()));
         }
@@ -276,6 +324,10 @@ impl Storage for MemoryStore {
 
     fn sync(&self) -> Result<()> {
         #[cfg(test)]
+        if self.should_fail_operation() {
+            return Err(Error::Io("injected storage operation failure".to_string()));
+        }
+        #[cfg(test)]
         if self.should_fail_sync() {
             return Err(Error::Io("injected storage sync failure".to_string()));
         }
@@ -285,6 +337,27 @@ impl Storage for MemoryStore {
 
 #[cfg(test)]
 impl StorageBackend {
+    pub(crate) fn fail_memory_operation_after_successes(&mut self, successes: usize) {
+        match self {
+            Self::Memory(store) => store.fail_operation_after_successes(successes),
+            Self::File(_) => panic!("failure injection is only available for memory storage"),
+        }
+    }
+
+    pub(crate) fn memory_operation_count(&self) -> usize {
+        match self {
+            Self::Memory(store) => store.operation_count(),
+            Self::File(_) => panic!("operation counting is only available for memory storage"),
+        }
+    }
+
+    pub(crate) fn reset_memory_operation_count(&self) {
+        match self {
+            Self::Memory(store) => store.reset_operation_count(),
+            Self::File(_) => panic!("operation counting is only available for memory storage"),
+        }
+    }
+
     pub(crate) fn fail_memory_append_after_successes(&mut self, successes: usize) {
         match self {
             Self::Memory(store) => store.fail_append_after_successes(successes),
@@ -303,6 +376,16 @@ impl StorageBackend {
         match self {
             Self::Memory(store) => store.fail_sync_after_successes(successes),
             Self::File(_) => panic!("failure injection is only available for memory storage"),
+        }
+    }
+}
+
+#[cfg(feature = "test-support")]
+impl StorageBackend {
+    pub(crate) fn inject_test_write_failure_at(&mut self, offset: u64) {
+        match self {
+            Self::Memory(store) => store.fail_next_write_at(offset),
+            Self::File(_) => panic!("test write failure is only available for memory storage"),
         }
     }
 }

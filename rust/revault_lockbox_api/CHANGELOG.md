@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.0.7 - 2026-08-30
+
+- Replace the pinned `zstd-rs` Git revision with the published pure-Rust
+  `zstd-complete` 0.1.0 crate. Compression remains parallelized by reVault
+  across independent frames; the crate's optional internal multithreading is
+  intentionally not enabled.
+- Enforce owner-signing-key continuity across the authenticated commit chain.
+  Opens reject chains that switch signing identities, hybrid signatures must
+  contain exactly one Ed25519 and one ML-DSA-65 signature, and commits reject a
+  signing key that does not match the established owner.
+- Make post-publication cleanup crash-safe and automatically resumable by
+  write-capable opens. Explicit read-only opens remain non-mutating and return
+  authenticated recovery status for diagnostic or controlled recovery tools.
+- Harden extraction against pre-existing symlink components in destination
+  paths for sequential, parallel, directory, file, and symlink extraction.
+- Add exhaustive storage-failure, torn-header, recovery-checkpoint, signer
+  substitution, corrupt-manifest, and symlink-parent regression tests.
+- Keep historical archive formats out of the core API; current-format probes
+  return unsupported-version errors for migration tooling to handle.
+
 ## 0.0.4
 
 - Added persistent mirror-project metadata and core-enforced exclusive subtree

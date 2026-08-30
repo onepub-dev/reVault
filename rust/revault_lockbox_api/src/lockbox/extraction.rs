@@ -81,11 +81,18 @@ impl<State: Send> Lockbox<State> {
                         )));
                     }
                     fs::create_dir_all(&out_path).map_err(|err| Error::Io(err.to_string()))?;
+                    reject_symlink_components(destination, &out_path)?;
                     restore_permissions(&out_path, entry.permissions, policy)?;
                 }
                 NodeKind::File => {
                     let out_path = checked_destination(destination, &entry.path)?;
-                    self.extract_file_entry_to_path(entry, &out_path, policy, index as u64)?;
+                    self.extract_file_entry_to_path(
+                        entry,
+                        destination,
+                        &out_path,
+                        policy,
+                        index as u64,
+                    )?;
                 }
                 NodeKind::Symlink => {
                     if !policy.restore_symlinks {
@@ -103,6 +110,7 @@ impl<State: Send> Lockbox<State> {
                     if let Some(parent) = out_path.parent() {
                         fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
                     }
+                    reject_symlink_components(destination, &out_path)?;
                     create_symlink(target.as_str(), &out_path, policy.overwrite)?;
                 }
             }
@@ -136,6 +144,7 @@ impl<State: Send> Lockbox<State> {
         {
             let out_path = checked_destination(destination, &entry.path)?;
             fs::create_dir_all(&out_path).map_err(|err| Error::Io(err.to_string()))?;
+            reject_symlink_components(destination, &out_path)?;
             restore_permissions(&out_path, entry.permissions, policy)?;
         }
 
@@ -161,6 +170,7 @@ impl<State: Send> Lockbox<State> {
                         let out_path = checked_destination(destination, &entry.path)?;
                         worker.extract_file_entry_to_path(
                             entry,
+                            destination,
                             &out_path,
                             policy,
                             path_id as u64,
@@ -203,6 +213,7 @@ impl<State: Send> Lockbox<State> {
             if let Some(parent) = out_path.parent() {
                 fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
             }
+            reject_symlink_components(destination, &out_path)?;
             create_symlink(target.as_str(), &out_path, policy.overwrite)?;
         }
 
@@ -260,6 +271,7 @@ impl<State: Send> Lockbox<State> {
     fn extract_file_entry_to_path(
         &self,
         entry: &TocEntry,
+        root: &Path,
         out_path: &Path,
         policy: &ExtractPolicy,
         path_id: u64,
@@ -268,6 +280,7 @@ impl<State: Send> Lockbox<State> {
             .parent()
             .ok_or_else(|| Error::InvalidPath(entry.path.to_string()))?;
         fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
+        reject_symlink_components(root, out_path)?;
 
         if !policy.overwrite {
             let mut out = match OpenOptions::new()
@@ -433,7 +446,35 @@ fn checked_destination(root: &Path, lockbox_path: &str) -> Result<PathBuf> {
             "extraction destination escaped root".to_string(),
         ));
     }
+    reject_symlink_components(root, &out)?;
     Ok(out)
+}
+
+fn reject_symlink_components(root: &Path, destination: &Path) -> Result<()> {
+    let relative = destination.strip_prefix(root).map_err(|_| {
+        Error::SecurityLimitExceeded("extraction destination escaped root".to_string())
+    })?;
+    let mut current = root.to_path_buf();
+    for component in relative.components() {
+        let Component::Normal(part) = component else {
+            return Err(Error::SecurityLimitExceeded(
+                "extraction destination contains an unsafe component".to_string(),
+            ));
+        };
+        current.push(part);
+        match fs::symlink_metadata(&current) {
+            Ok(metadata) if metadata.file_type().is_symlink() => {
+                return Err(Error::SecurityLimitExceeded(format!(
+                    "extraction destination contains a symlink: {}",
+                    current.display()
+                )));
+            }
+            Ok(_) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(Error::Io(err.to_string())),
+        }
+    }
+    Ok(())
 }
 
 fn create_temp_file(parent: &Path, index: u64) -> Result<(PathBuf, File)> {
@@ -600,6 +641,14 @@ fn create_symlink(_target: &str, _path: &Path, _overwrite: bool) -> Result<()> {
 mod tests {
     use super::*;
 
+    fn unique_test_root(label: &str) -> PathBuf {
+        let suffix = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("lockbox-{label}-{}-{suffix}", std::process::id()))
+    }
+
     #[test]
     fn copy_directory_recursive_copies_nested_files() {
         let root =
@@ -616,6 +665,83 @@ mod tests {
             fs::read(destination.join("nested/file.txt")).unwrap(),
             b"content"
         );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn checked_destination_rejects_existing_symlink_parent() {
+        let root = unique_test_root("extract-symlink-helper");
+        let outside = root.with_extension("outside");
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&outside);
+        fs::create_dir_all(&root).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        std::os::unix::fs::symlink(&outside, root.join("docs")).unwrap();
+
+        assert!(matches!(
+            checked_destination(&root, "/docs/secret.txt"),
+            Err(Error::SecurityLimitExceeded(message)) if message.contains("symlink")
+        ));
+
+        let _ = fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(&outside);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn sequential_extraction_rejects_existing_symlink_parent() {
+        let root = unique_test_root("extract-symlink-sequential");
+        let destination = root.join("destination");
+        let outside = root.join("outside");
+        fs::create_dir_all(&destination).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        std::os::unix::fs::symlink(&outside, destination.join("docs")).unwrap();
+        let mut lockbox = Lockbox::create("secret");
+        let path = crate::LockboxPath::new("/docs/secret.txt").unwrap();
+        lockbox.create_parent_dirs_for(&path).unwrap();
+        lockbox.add_file(&path, b"secret", false).unwrap();
+
+        assert!(matches!(
+            lockbox.extract_to_directory(&destination, &ExtractPolicy::default()),
+            Err(Error::SecurityLimitExceeded(message)) if message.contains("symlink")
+        ));
+        assert!(!outside.join("secret.txt").exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn parallel_extraction_rejects_existing_symlink_parent() {
+        let root = unique_test_root("extract-symlink-parallel");
+        fs::create_dir_all(&root).unwrap();
+        let archive = root.join("source.lbox");
+        let destination = root.join("destination");
+        let outside = root.join("outside");
+        fs::create_dir_all(&destination).unwrap();
+        fs::create_dir_all(&outside).unwrap();
+        std::os::unix::fs::symlink(&outside, destination.join("docs")).unwrap();
+        let mut lockbox = Lockbox::create_path(&archive, "secret").unwrap();
+        for index in 0..256 {
+            let path = crate::LockboxPath::new(format!("/docs/file-{index:03}.txt")).unwrap();
+            lockbox.create_parent_dirs_for(&path).unwrap();
+            lockbox.add_file(&path, b"content", false).unwrap();
+        }
+        lockbox.commit().unwrap();
+
+        assert!(lockbox.should_extract_files_in_parallel(
+            &lockbox
+                .validate_extract_plan(&ExtractPolicy::default())
+                .unwrap()
+        ));
+        assert!(matches!(
+            lockbox.extract_to_directory(&destination, &ExtractPolicy::default()),
+            Err(Error::SecurityLimitExceeded(message)) if message.contains("symlink")
+        ));
+        assert!(fs::read_dir(&outside).unwrap().next().is_none());
+
+        drop(lockbox);
         let _ = fs::remove_dir_all(&root);
     }
 }

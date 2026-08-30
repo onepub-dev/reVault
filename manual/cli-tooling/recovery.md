@@ -13,19 +13,19 @@ Work from a copy whenever possible. Keep the original unchanged until the recove
 ## Preview recovery
 
 ```bash
-lbx damaged.lbox recover --dry-run
+lbx damaged.lbox doctor recover --dry-run
 ```
 
-The report identifies readable, partial and unrecoverable material without writing an output file. For automation:
+The report identifies pending authenticated cleanup or, for salvage, readable, partial and unrecoverable material without writing an output file. For automation:
 
 ```bash
-lbx damaged.lbox recover --dry-run --format json
+lbx damaged.lbox doctor recover --dry-run --format json
 ```
 
 ## Write a recovered Lockbox
 
 ```bash
-lbx damaged.lbox recover --output recovered.lbox
+lbx damaged.lbox doctor recover --output recovered.lbox
 ```
 
 If `--output` is omitted, reVault writes a sibling named like `damaged.recovered.lbox`. It refuses to replace an existing output unless you pass `--overwrite`.
@@ -40,15 +40,13 @@ lbx recovered.lbox extract --to ./recovery-check
 
 Recovery writes only complete entries whose metadata can still be associated with a valid Lockbox path. A surviving name with missing data is reported rather than padded with invented bytes.
 
-## Interrupted redaction cleanup
+## Interrupted cleanup
 
-An interrupted transaction may leave a Lockbox in a special state that requires its cleanup to be sealed before ordinary reads or writes continue. The error explicitly asks for:
+If a transaction published its new logical state before cleanup was interrupted, reVault must roll that cleanup forward. It cannot roll back because the new state is already authoritative.
 
-```bash
-lbx affected.lbox recover --transaction
-```
+Write-capable opens detect this authenticated state and finish cleanup automatically. Callers that explicitly request a read-only open remain non-mutating and receive a recovery-required result. `doctor recover` detects the same state and completes it in place; there is no separate transaction option to choose.
 
-This resumes in-place transaction/redaction cleanup using the same credentials. It is different from salvage recovery and should be used only when reVault reports that specific condition.
+Use `--dry-run` to see which operation was detected without changing the Lockbox. If no interrupted cleanup is pending, `doctor recover` uses salvage recovery instead.
 
 ## What recovery cannot do
 

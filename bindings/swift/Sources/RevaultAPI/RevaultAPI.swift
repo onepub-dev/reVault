@@ -1461,17 +1461,17 @@ public final class Revault {
     /// Returns the last error details.
     public func lastErrorDetails() throws -> ErrorDetails { try operations.bufferLastErrorDetails() }
 
-    /// Returns the lockbox format version.
+    /// Returns the newest Lockbox archive format version supported by this engine.
     public func lockboxFormatVersion() throws -> UInt16 {
         return try operations.lockboxFormatVersion()
     }
 
-    /// Returns the lockbox probe format version.
+    /// Reads the format version from serialized Lockbox bytes without opening them.
     public func lockboxProbeFormatVersion(_ bytes: Data) throws -> UInt16 {
         return try operations.lockboxProbeFormatVersion(bytes)
     }
 
-    /// Returns the lockbox create.
+    /// Creates an in memory Lockbox protected by a 32 byte content key.
     public func lockboxCreate(_ key: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreate(key))
     }
@@ -1487,22 +1487,22 @@ public final class Revault {
         try lockboxCreateWithOptions(key, cacheMode.rawValue, cacheBytes, workload.rawValue, worker.rawValue, jobs)
     }
 
-    /// Returns the lockbox create password.
+    /// Creates an in memory Lockbox protected by the supplied password.
     public func lockboxCreatePassword(_ password: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreatePassword(password))
     }
 
-    /// Returns the lockbox create contact.
+    /// Creates an in memory Lockbox that the supplied contact can open.
     public func lockboxCreateContact(_ contact: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreateContact(contact.handle!))
     }
 
-    /// Returns the lockbox create with signing key.
+    /// Creates an in memory Lockbox and assigns its profile signing key.
     public func lockboxCreateWithProfileSigningKey(_ contentKey: Data, _ signingKey: ProfileSigningKeyPair) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreateWithSigningKey(contentKey, signingKey.handle!))
     }
 
-    /// Returns the lockbox open.
+    /// Opens serialized Lockbox bytes with a 32 byte content key.
     public func lockboxOpen(_ archive: Data, _ key: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxOpen(archive, key))
     }
@@ -1518,47 +1518,47 @@ public final class Revault {
         try lockboxOpenWithOptions(archive, key, cacheMode.rawValue, cacheBytes, workload.rawValue, worker.rawValue, jobs)
     }
 
-    /// Returns the lockbox open password.
+    /// Opens serialized Lockbox bytes with the supplied password.
     public func lockboxOpenPassword(_ archive: Data, _ password: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxOpenPassword(archive, password))
     }
 
-    /// Returns the lockbox open contact.
+    /// Opens serialized Lockbox bytes with the supplied contact private key.
     public func lockboxOpenContact(_ archive: Data, _ contact: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxOpenContact(archive, contact.handle!))
     }
 
-    /// Returns the lockbox inspect file.
+    /// Reads public header, signature, and access slot metadata from a Lockbox file.
     public func lockboxInspectFile(_ path: String) throws -> FileInspection {
         return try operations.lockboxInspectFile(path)
     }
 
-    /// Returns the lockbox recovery scan path.
+    /// Scans a damaged Lockbox file with its 32 byte content key.
     public func lockboxRecoveryScanPath(_ path: String, _ key: Data) throws -> RecoveryReport {
         return try operations.lockboxRecoveryScanPath(path, key)
     }
 
-    /// Returns the lockbox recovery scan.
+    /// Scans damaged serialized Lockbox bytes with their 32 byte content key.
     public func lockboxRecoveryScan(_ bytes: Data, _ key: Data) throws -> RecoveryReport {
         return try operations.lockboxRecoveryScan(bytes, key)
     }
 
-    /// Returns the lockbox recovery salvage.
+    /// Builds a new Lockbox from recoverable records without changing the source.
     public func lockboxRecoverySalvage(_ bytes: Data, _ key: Data, _ signingKey: ProfileSigningKeyPair) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxRecoverySalvage(bytes, key, signingKey.handle!))
     }
 
-    /// Returns the key contact generate.
+    /// Generates a contact encryption key pair using secure random data.
     public func keyContactGenerate() throws -> ContactKeyPair {
         return ContactKeyPair(operations, try operations.keyContactGenerate())
     }
 
-    /// Returns the key contact from private.
+    /// Imports a contact key pair from its private binary record.
     public func keyContactFromPrivate(_ bytes: Data) throws -> ContactKeyPair {
         return ContactKeyPair(operations, try operations.keyContactFromPrivate(bytes))
     }
 
-    /// Returns the key contact public from bytes.
+    /// Imports a contact public key from its binary representation.
     public func keyContactPublicFromBytes(_ bytes: Data) throws -> ContactPublicKey {
         return ContactPublicKey(operations, try operations.keyContactPublicFromBytes(bytes))
     }
@@ -1578,149 +1578,149 @@ public final class Revault {
         return ProfileSigningPublicKey(operations, try operations.keySigningPublicFromBytes(bytes))
     }
 
-    /// Returns the vault key export private.
+    /// Exports a private key in the requested key format.
     public func vaultKeyExportPrivate(_ key: OwnedHandle, _ format: String) throws -> Data {
         return try operations.vaultKeyExportPrivate(key.handle!, format)
     }
 
-    /// Returns the vault key export public.
+    /// Exports a public key in the requested key format.
     public func vaultKeyExportPublic(_ key: OwnedHandle, _ format: String) throws -> Data {
         return try operations.vaultKeyExportPublic(key.handle!, format)
     }
 
-    /// Returns the vault key import private.
+    /// Imports a private contact key from a detected supported encoding.
     public func vaultKeyImportPrivate(_ bytes: Data) throws -> ContactKeyPair {
         return ContactKeyPair(operations, try operations.vaultKeyImportPrivate(bytes))
     }
 
-    /// Returns the vault key import public.
+    /// Imports a public contact key from a detected supported encoding.
     public func vaultKeyImportPublic(_ bytes: Data) throws -> ContactPublicKey {
         return ContactPublicKey(operations, try operations.vaultKeyImportPublic(bytes))
     }
 
-    /// Returns the vault key fingerprint.
+    /// Returns the stable fingerprint used to verify a public key.
     public func vaultKeyFingerprint(_ key: OwnedHandle) throws -> Data {
         return try operations.vaultKeyFingerprint(key.handle!)
     }
 
-    /// Returns the vault key format hex.
+    /// Encodes key bytes as hexadecimal text.
     public func vaultKeyFormatHex(_ bytes: Data) throws -> String {
         return try operations.vaultKeyFormatHex(bytes)
     }
 
-    /// Returns the vault key decode hex.
+    /// Decodes hexadecimal key text and rejects malformed input.
     public func vaultKeyDecodeHex(_ text: String) throws -> Data {
         return try operations.vaultKeyDecodeHex(text)
     }
 
-    /// Returns the vault key format crockford.
+    /// Encodes key bytes using Crockford Base32.
     public func vaultKeyFormatCrockford(_ bytes: Data) throws -> String {
         return try operations.vaultKeyFormatCrockford(bytes)
     }
 
-    /// Returns the vault key format crockford reading.
+    /// Groups a Crockford code for easier reading and transcription.
     public func vaultKeyFormatCrockfordReading(_ code: String) throws -> String {
         return try operations.vaultKeyFormatCrockfordReading(code)
     }
 
-    /// Returns the vault key decode crockford.
+    /// Decodes Crockford Base32 key text and rejects malformed input.
     public func vaultKeyDecodeCrockford(_ code: String) throws -> Data {
         return try operations.vaultKeyDecodeCrockford(code)
     }
 
-    /// Returns the vault key hex encode.
+    /// Encodes arbitrary bytes as hexadecimal text.
     public func vaultKeyHexEncode(_ bytes: Data) throws -> String {
         return try operations.vaultKeyHexEncode(bytes)
     }
 
-    /// Returns the vault key hex decode.
+    /// Decodes arbitrary hexadecimal text and rejects malformed input.
     public func vaultKeyHexDecode(_ text: String) throws -> Data {
         return try operations.vaultKeyHexDecode(text)
     }
 
-    /// Returns the vault directory open.
+    /// Opens an existing Vault directory with its passphrase.
     public func openVault(_ root: String, _ password: Data) throws -> Vault {
         return Vault(operations, try operations.vaultDirectoryOpen(root, password))
     }
 
-    /// Returns the vault structure version current.
+    /// Returns the newest Vault structure version supported by this engine.
     public func vaultStructureVersionCurrent() throws -> UInt32 {
         return try operations.vaultStructureVersionCurrent()
     }
 
-    /// Returns the vault directory probe structure version.
+    /// Reads an existing Vault structure version without changing it.
     public func probeVaultStructureVersion(_ root: String, _ password: Data) throws -> UInt32 {
         return try operations.vaultDirectoryProbeStructureVersion(root, password)
     }
 
-    /// Returns the vault directory open or create default.
+    /// Opens or creates the default Vault without replacing existing state.
     public func openOrCreateDefaultVault(_ password: Data) throws -> Vault {
         return Vault(operations, try operations.vaultDirectoryOpenOrCreateDefault(password))
     }
 
-    /// Returns the vault directory replace default.
+    /// Replaces the default Vault and all persistent data it contains.
     public func replaceDefaultVault(_ password: Data) throws -> Vault {
         return Vault(operations, try operations.vaultDirectoryReplaceDefault(password))
     }
 
-    /// Returns the vault directory change password.
+    /// Changes the passphrase for an existing Vault.
     @discardableResult
     public func changeVaultPassword(_ root: String, _ oldPassword: Data, _ newPassword: Data) throws -> Bool {
         return try operations.vaultDirectoryChangePassword(root, oldPassword, newPassword)
     }
 
-    /// Returns the vault directory change default password.
+    /// Changes the passphrase for the default Vault.
     @discardableResult
     public func changeDefaultVaultPassword(_ oldPassword: Data, _ newPassword: Data) throws -> Bool {
         return try operations.vaultDirectoryChangeDefaultPassword(oldPassword, newPassword)
     }
 
-    /// Returns the vault directory replace.
+    /// Replaces the selected Vault and all persistent data it contains.
     public func replaceVault(_ root: String, _ password: Data) throws -> Vault {
         return Vault(operations, try operations.vaultDirectoryReplace(root, password))
     }
 
-    /// Returns the vault directory open or create.
+    /// Opens the selected Vault, creating it only when absent.
     public func openOrCreateVault(_ root: String, _ password: Data) throws -> Vault {
         return Vault(operations, try operations.vaultDirectoryOpenOrCreate(root, password))
     }
 
-    /// Returns the vault backup default.
+    /// Writes a backup of the default Vault to the selected path.
     public func vaultBackupDefault(_ path: String, _ overwrite: Bool) throws -> VaultBackupManifest {
         return try operations.vaultBackupDefault(path, overwrite)
     }
 
-    /// Returns the vault restore default.
+    /// Restores the default Vault from the selected backup.
     public func vaultRestoreDefault(_ path: String, _ overwrite: Bool) throws -> VaultBackupManifest {
         return try operations.vaultRestoreDefault(path, overwrite)
     }
 
-    /// Returns the vault read only open.
+    /// Opens an existing Vault metadata view that cannot load private keys.
     public func openReadOnlyVault(_ root: String, _ password: Data) throws -> ReadOnlyVault {
         return ReadOnlyVault(operations, try operations.vaultReadOnlyOpen(root, password))
     }
 
-    /// Returns the vault read only open default.
+    /// Opens the default Vault metadata view without loading private keys.
     public func openDefaultReadOnlyVault(_ password: Data) throws -> ReadOnlyVault {
         return ReadOnlyVault(operations, try operations.vaultReadOnlyOpenDefault(password))
     }
 
-    /// Returns the vault default directory.
+    /// Returns the platform default Vault directory.
     public func defaultVaultRoot() throws -> String {
         return try operations.vaultDefaultDirectory()
     }
 
-    /// Returns the vault default path.
+    /// Returns the path of the default Vault file.
     public func vaultDefaultPath() throws -> String {
         return try operations.vaultDefaultPath()
     }
 
-    /// Returns the vault agent log path.
+    /// Returns the session agent log path.
     public func vaultAgentLogPath() throws -> String {
         return try operations.vaultAgentLogPath()
     }
 
-    /// Returns the vault agent log destination.
+    /// Returns the configured session agent log destination.
     public func vaultAgentLogDestination() throws -> String {
         return try operations.vaultAgentLogDestination()
     }
@@ -1748,36 +1748,36 @@ public final class Revault {
 
 /// Returns the member.
 extension Lockbox {
-    /// Adds file.
+    /// Stages a file at the Lockbox path; replace controls an existing entry.
     @discardableResult
     public func addFile(_ path: String, _ data: Data, _ replace: Bool) throws -> Bool {
         return try operations.lockboxAddFile(handle!, path, data, replace)
     }
 
-    /// Adds file with permissions.
+    /// Stages a file and its portable Unix permission bits.
     @discardableResult
     public func addFileWithPermissions(_ path: String, _ data: Data, _ permissions: UInt32, _ replace: Bool) throws -> Bool {
         return try operations.lockboxAddFileWithPermissions(handle!, path, data, permissions, replace)
     }
 
-    /// Returns file.
+    /// Reads the complete file stored at the Lockbox path.
     public func getFile(_ path: String) throws -> Data {
         return try operations.lockboxGetFile(handle!, path)
     }
 
-    /// Extracts file.
+    /// Writes one Lockbox file to the host filesystem.
     @discardableResult
     public func extractFile(_ source: String, _ destination: String, _ replace: Bool) throws -> Bool {
         return try operations.lockboxExtractFile(handle!, source, destination, replace)
     }
 
-    /// Extracts directory.
+    /// Extracts the Lockbox with explicit size, count, link, and permission limits.
     @discardableResult
     public func extractDirectory(_ destination: String, _ maxFileBytes: UInt64, _ maxTotalBytes: UInt64, _ maxFiles: Int, _ restoreSymlinks: Bool, _ restorePermissions: Bool, _ overwrite: Bool) throws -> Bool {
         return try operations.lockboxExtractDirectory(handle!, destination, maxFileBytes, maxTotalBytes, maxFiles, restoreSymlinks, restorePermissions, overwrite)
     }
 
-    /// Returns the stream content.
+    /// Lists logical or physical content chunks for streaming diagnostics.
     public func streamContent(_ physical: Bool) throws -> [StreamChunk] {
         return try operations.lockboxStreamContent(handle!, physical)
     }
@@ -1798,22 +1798,22 @@ extension Lockbox {
         return try operations.lockboxResetImportStats(handle!)
     }
 
-    /// Returns the page inspection.
+    /// Returns page metadata for diagnostics without exposing plaintext secrets.
     public func pageInspection() throws -> [PageInspection] {
         return try operations.lockboxPageInspection(handle!)
     }
 
-    /// Returns the recovery report.
+    /// Scans the open archive and returns its structured recovery report.
     public func recoveryReport() throws -> RecoveryReport {
         return try operations.lockboxRecoveryReport(handle!)
     }
 
-    /// Returns the recovery report render.
+    /// Renders the recovery report for a person, capped at maxEntries.
     public func recoveryReportRender(_ verbose: Bool, _ maxEntries: Int) throws -> String {
         return try operations.lockboxRecoveryReportRender(handle!, verbose, maxEntries)
     }
 
-    /// Returns the storage len.
+    /// Returns the current serialized archive size in bytes.
     public func storageLen() throws -> UInt64 {
         return try operations.lockboxStorageLen(handle!)
     }
@@ -1842,7 +1842,7 @@ extension Lockbox {
         try setWorkerPolicy(mode.rawValue, jobs)
     }
 
-    /// Returns the runtime options.
+    /// Returns the cache, workload, and worker settings used by this Lockbox.
     public func runtimeOptions() throws -> RuntimeOptions {
         return try operations.lockboxRuntimeOptions(handle!)
     }
@@ -1853,42 +1853,42 @@ extension Lockbox {
         return try operations.lockboxCommit(handle!)
     }
 
-    /// Creates dir.
+    /// Stages a directory entry and optionally creates missing parents.
     @discardableResult
     public func createDir(_ path: String, _ createParents: Bool) throws -> Bool {
         return try operations.lockboxCreateDir(handle!, path, createParents)
     }
 
-    /// Removes delete.
+    /// Stages removal of a file, link, or empty directory at path.
     @discardableResult
     public func delete(_ path: String) throws -> Bool {
         return try operations.lockboxDelete(handle!, path)
     }
 
-    /// Removes dir.
+    /// Stages removal of a directory, optionally including its descendants.
     @discardableResult
     public func removeDir(_ path: String, _ recursive: Bool) throws -> Bool {
         return try operations.lockboxRemoveDir(handle!, path, recursive)
     }
 
-    /// Creates parent dirs.
+    /// Stages every missing parent directory for path.
     @discardableResult
     public func createParentDirs(_ path: String) throws -> Bool {
         return try operations.lockboxCreateParentDirs(handle!, path)
     }
 
-    /// Updates rename.
+    /// Stages an atomic move from one Lockbox path to another.
     @discardableResult
     public func rename(_ from: String, _ to: String) throws -> Bool {
         return try operations.lockboxRename(handle!, from, to)
     }
 
-    /// Lists list.
+    /// Lists entries below path, optionally including descendants.
     public func list(_ path: String, _ recursive: Bool) throws -> [LockboxEntry] {
         return try operations.lockboxList(handle!, path, recursive)
     }
 
-    /// Lists with options.
+    /// Lists entries using glob, type, recursion, and result limit filters.
     public func listWithOptions(_ path: String, _ glob: String, _ recursive: Bool, _ includeFiles: Bool, _ includeSymlinks: Bool, _ includeDirectories: Bool, _ limit: Int) throws -> [LockboxEntry] {
         return try operations.lockboxListWithOptions(handle!, path, glob, recursive, includeFiles, includeSymlinks, includeDirectories, limit)
     }
@@ -1898,7 +1898,7 @@ extension Lockbox {
         return try operations.lockboxStat(handle!, path)
     }
 
-    /// Sets variable.
+    /// Stages a plain text variable; commit to publish the change.
     @discardableResult
     public func setVariable(_ name: String, _ value: String) throws -> Bool {
         return try operations.lockboxSetVariable(handle!, name, value)
@@ -1910,7 +1910,7 @@ extension Lockbox {
         return try operations.lockboxSetSecretVariable(handle!, name, value)
     }
 
-    /// Returns variable.
+    /// Returns a plain variable when it is present.
     public func getVariable(_ name: String) throws -> String? {
         return try operations.lockboxGetVariable(handle!, name)
     }
@@ -1935,12 +1935,12 @@ extension Lockbox {
         return try deleteVariable("/.revault/description")
     }
 
-    /// Returns the with secret variable.
+    /// Invokes a callback with temporary secret variable bytes, then clears them.
     public func withSecretVariable<T>(_ name: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
         return try operations.lockboxWithSecretVariable(handle!, name, callback)
     }
 
-    /// Removes variable.
+    /// Stages removal of a variable.
     @discardableResult
     public func deleteVariable(_ name: String) throws -> Bool {
         return try operations.lockboxDeleteVariable(handle!, name)
@@ -1952,118 +1952,118 @@ extension Lockbox {
         return try operations.lockboxMoveVariables(handle!, DomainCodec.encodePathMoves(moves))
     }
 
-    /// Lists variables.
+    /// Lists variable names and metadata without exposing secret values.
     public func listVariables() throws -> [Variable] {
         return try operations.lockboxListVariables(handle!)
     }
 
-    /// Returns the variable sensitivity.
+    /// Returns whether a variable is plain or secret.
     public func variableSensitivity(_ name: String) throws -> String? {
         return try operations.lockboxVariableSensitivity(handle!, name)
     }
 
-    /// Adds symlink.
+    /// Stages a symbolic link with its stored target text.
     @discardableResult
     public func addSymlink(_ path: String, _ target: String, _ replace: Bool) throws -> Bool {
         return try operations.lockboxAddSymlink(handle!, path, target, replace)
     }
 
-    /// Returns symlink target.
+    /// Returns the target text stored for a symbolic link.
     public func getSymlinkTarget(_ path: String) throws -> String {
         return try operations.lockboxGetSymlinkTarget(handle!, path)
     }
 
-    /// Returns the id.
+    /// Returns the stable public identifier stored in the Lockbox header.
     public func id() throws -> Data {
         return try operations.lockboxId(handle!)
     }
 
-    /// Reports whether exists.
+    /// Reports whether an entry exists at path.
     @discardableResult
     public func exists(_ path: String) throws -> Bool {
         return try operations.lockboxExists(handle!, path)
     }
 
-    /// Reports whether dir.
+    /// Reports whether path names a directory entry.
     @discardableResult
     public func isDir(_ path: String) throws -> Bool {
         return try operations.lockboxIsDir(handle!, path)
     }
 
-    /// Returns the permissions.
+    /// Returns the portable Unix permission bits stored for path.
     public func permissions(_ path: String) throws -> UInt32 {
         return try operations.lockboxPermissions(handle!, path)
     }
 
-    /// Sets permissions.
+    /// Stages portable Unix permission bits for path.
     @discardableResult
     public func setPermissions(_ path: String, _ permissions: UInt32) throws -> Bool {
         return try operations.lockboxSetPermissions(handle!, path, permissions)
     }
 
-    /// Returns range.
+    /// Reads the requested byte range from a stored file.
     public func readRange(_ path: String, _ offset: UInt64, _ len: UInt64) throws -> Data {
         return try operations.lockboxReadRange(handle!, path, offset, len)
     }
 
-    /// Adds password.
+    /// Adds a password access slot and returns its slot identifier.
     public func addPassword(_ password: Data) throws -> UInt64 {
         return try operations.lockboxAddPassword(handle!, password)
     }
 
-    /// Adds contact.
+    /// Grants a named contact access and returns the new slot identifier.
     public func addContact(_ contact: OwnedHandle, _ name: String) throws -> UInt64 {
         return try operations.lockboxAddContact(handle!, contact.handle!, name)
     }
 
-    /// Removes key.
+    /// Removes an access slot; at least one usable slot must remain.
     @discardableResult
     public func deleteKey(_ id: UInt64) throws -> Bool {
         return try operations.lockboxDeleteKey(handle!, id)
     }
 
-    /// Lists key slots.
+    /// Lists public access slot metadata without returning credentials.
     public func listKeySlots() throws -> [KeySlot] {
         return try operations.lockboxListKeySlots(handle!)
     }
 
-    /// Sets owner signing key.
+    /// Assigns a profile signing key to the Lockbox owner role.
     @discardableResult
     public func setOwnerSigningKey(_ key: ProfileSigningKeyPair) throws -> Bool {
         return try operations.lockboxSetOwnerSigningKey(handle!, key.handle!)
     }
 
-    /// Returns the owner inspection.
+    /// Returns public signing and ownership metadata for the current revision.
     public func ownerInspection() throws -> OwnerInspection {
         return try operations.lockboxOwnerInspection(handle!)
     }
 
-    /// Returns the define form.
+    /// Defines and stores a reusable versioned form.
     public func defineForm(_ alias: String, _ name: String, _ description: String, _ fields: [FormField]) throws -> FormDefinition {
         return try operations.lockboxDefineForm(handle!, alias, name, description, DomainCodec.encodeFormFields(fields))
     }
 
-    /// Lists form definitions.
+    /// Lists the form definitions stored in this Lockbox.
     public func listFormDefinitions() throws -> [FormDefinition] {
         return try operations.lockboxListFormDefinitions(handle!)
     }
 
-    /// Returns the resolve form.
+    /// Resolves a form alias, type identifier, or revision.
     public func resolveForm(_ reference: String) throws -> FormDefinition {
         return try operations.lockboxResolveForm(handle!, reference)
     }
 
-    /// Lists form revisions.
+    /// Lists every stored revision for a form type identifier.
     public func listFormRevisions(_ typeId: String) throws -> [FormDefinition] {
         return try operations.lockboxListFormRevisions(handle!, typeId)
     }
 
-    /// Creates form record.
+    /// Stages a form record at path using the referenced definition.
     public func createFormRecord(_ path: String, _ typeReference: String, _ name: String) throws -> FormRecord {
         return try operations.lockboxCreateFormRecord(handle!, path, typeReference, name)
     }
 
-    /// Sets form field.
+    /// Stages a plain field value in a form record.
     @discardableResult
     public func setFormField(_ path: String, _ field: String, _ value: String) throws -> Bool {
         return try operations.lockboxSetFormField(handle!, path, field, value)
@@ -2075,17 +2075,17 @@ extension Lockbox {
         return try operations.lockboxSetSecretFormField(handle!, path, field, value)
     }
 
-    /// Lists form records.
+    /// Lists form records without exposing secret field values.
     public func listFormRecords() throws -> [FormRecord] {
         return try operations.lockboxListFormRecords(handle!)
     }
 
-    /// Returns form record.
+    /// Returns the form record at path when present.
     public func getFormRecord(_ path: String) throws -> FormRecord? {
         return try operations.lockboxGetFormRecord(handle!, path)
     }
 
-    /// Removes form record.
+    /// Stages removal of a form record.
     @discardableResult
     public func deleteFormRecord(_ path: String) throws -> Bool {
         return try operations.lockboxDeleteFormRecord(handle!, path)
@@ -2097,17 +2097,17 @@ extension Lockbox {
         return try operations.lockboxMoveFormRecords(handle!, DomainCodec.encodePathMoves(moves))
     }
 
-    /// Returns form field.
+    /// Returns a plain form field when it exists.
     public func getFormField(_ path: String, _ field: String) throws -> FormValue? {
         return try operations.lockboxGetFormField(handle!, path, field)
     }
 
-    /// Returns the with secret form field.
+    /// Invokes a callback with temporary secret field bytes, then clears them.
     public func withSecretFormField<T>(_ path: String, _ field: String, _ callback: (UnsafeRawBufferPointer) throws -> T) throws -> T? {
         return try operations.lockboxWithSecretFormField(handle!, path, field, callback)
     }
 
-    /// Returns the to bytes.
+    /// Serializes the current Lockbox, including committed changes.
     public func toBytes() throws -> Data {
         return try operations.lockboxToBytes(handle!)
     }
@@ -2147,7 +2147,7 @@ extension ContactKeyPair {
 
 /// Returns the member.
 extension ContactPublicKey {
-    /// Returns the public free.
+    /// Releases this public contact key.
     public func publicFree() throws -> Void {
         try operations.keyContactPublicFree(handle!)
         handle = nil
@@ -2167,12 +2167,12 @@ extension WrappedContactKey {
         return try operations.keyContactWrappedPublic(handle!)
     }
 
-    /// Returns the ciphertext.
+    /// Returns the encrypted content key bytes.
     public func ciphertext() throws -> Data {
         return try operations.keyContactWrappedCiphertext(handle!)
     }
 
-    /// Returns the encrypted.
+    /// Returns the complete wrapped key record for storage or transport.
     public func encrypted() throws -> Data {
         return try operations.keyContactWrappedEncrypted(handle!)
     }
@@ -2225,12 +2225,12 @@ extension ProfileSigningPublicKey {
 
 /// Returns the member.
 extension Vault {
-    /// Returns the root.
+    /// Returns the canonical root directory of this Vault.
     public func root() throws -> String {
         return try operations.vaultDirectoryRoot(handle!)
     }
 
-    /// Returns the structure version.
+    /// Returns the persistent structure version of this Vault.
     public func structureVersion() throws -> UInt32 {
         return try operations.vaultDirectoryStructureVersion(handle!)
     }
@@ -2255,7 +2255,7 @@ extension Vault {
         return try operations.vaultDirectoryListFormAliases(handle!)
     }
 
-    /// Returns the private key exists.
+    /// Reports whether the named profile private key exists.
     @discardableResult
     public func privateKeyExists(_ name: String) throws -> Bool {
         return try operations.vaultDirectoryPrivateKeyExists(handle!, name)
@@ -2294,7 +2294,7 @@ extension Vault {
         return ContactPublicKey(operations, try operations.vaultDirectoryLoadContact(handle!, name))
     }
 
-    /// Returns the contact exists.
+    /// Reports whether the named contact exists.
     @discardableResult
     public func contactExists(_ name: String) throws -> Bool {
         return try operations.vaultDirectoryContactExists(handle!, name)
@@ -2317,7 +2317,7 @@ extension Vault {
         return try operations.vaultDirectoryStoreProfileEmail(handle!, name, email)
     }
 
-    /// Returns the profile email.
+    /// Returns the email recorded for a profile, when present.
     public func profileEmail(_ name: String) throws -> String? {
         return try operations.vaultDirectoryProfileEmail(handle!, name)
     }
@@ -2333,12 +2333,12 @@ extension Vault {
         return try operations.vaultDirectoryLoadBackup(handle!, id)
     }
 
-    /// Returns the backup count.
+    /// Returns the number of stored key recovery backups.
     public func backupCount() throws -> UInt64 {
         return try operations.vaultDirectoryBackupCount(handle!)
     }
 
-    /// Returns the restore private key.
+    /// Restores a profile private key and signing key from recovery material.
     @discardableResult
     public func restorePrivateKey(_ name: String, _ key: OwnedHandle, _ signingKey: ProfileSigningKeyPair, _ overwrite: Bool) throws -> Bool {
         return try operations.vaultDirectoryRestorePrivateKey(handle!, name, key.handle!, signingKey.handle!, overwrite)
@@ -2403,7 +2403,7 @@ extension Vault {
         return try operations.vaultDirectoryListAccessSlotLabels(handle!, id)
     }
 
-    /// Returns the find access slot labels.
+    /// Finds access slot labels with the supplied name for one Lockbox.
     public func findAccessSlotLabels(_ id: Data, _ name: String) throws -> [AccessSlotLabel] {
         return try operations.vaultDirectoryFindAccessSlotLabels(handle!, id, name)
     }
@@ -2414,12 +2414,12 @@ extension Vault {
         return try operations.vaultDirectoryForgetAccessSlotLabel(handle!, id, slotId)
     }
 
-    /// Returns the define form.
+    /// Defines and stores a reusable versioned form.
     public func defineForm(_ alias: String, _ name: String, _ description: String, _ fields: [FormField]) throws -> FormDefinition {
         return try operations.vaultDirectoryDefineForm(handle!, alias, name, description, DomainCodec.encodeFormFields(fields))
     }
 
-    /// Returns the resolve form.
+    /// Resolves a form alias, type identifier, or revision.
     public func resolveForm(_ reference: String) throws -> FormDefinition {
         return try operations.vaultDirectoryResolveForm(handle!, reference)
     }
@@ -2429,12 +2429,12 @@ extension Vault {
         return try operations.vaultDirectoryListForms(handle!)
     }
 
-    /// Lists form revisions.
+    /// Lists every stored revision for a form type identifier.
     public func listFormRevisions(_ typeId: String) throws -> [FormDefinition] {
         return try operations.vaultDirectoryListFormRevisions(handle!, typeId)
     }
 
-    /// Returns the seed forms.
+    /// Adds missing standard form definitions and returns the number added.
     public func seedForms() throws -> Int {
         return try operations.vaultDirectorySeedForms(handle!)
     }
@@ -2445,7 +2445,7 @@ extension Vault {
         return try operations.vaultDirectoryRememberPassword(handle!, id, password)
     }
 
-    /// Returns the remembered password.
+    /// Returns the Lockbox password encrypted inside this Vault.
     public func rememberedPassword(_ id: Data) throws -> Data {
         return try operations.vaultDirectoryRememberedPassword(handle!, id)
     }
@@ -2502,7 +2502,7 @@ extension AgentSession {
         return try operations.vaultForgetAll()
     }
 
-    /// Returns the serve.
+    /// Runs the session agent server until it is stopped.
     @discardableResult
     public func serve() throws -> Bool {
         return try operations.vaultAgentServe()
@@ -2543,12 +2543,12 @@ extension AgentSession {
         return try operations.vaultAgentStart()
     }
 
-    /// Lists list.
+    /// Lists entries below path, optionally including descendants.
     public func list() throws -> [AgentEntry] {
         return try operations.vaultAgentList()
     }
 
-    /// Returns the sleep support.
+    /// Reports how the platform handles agent expiry during system sleep.
     public func sleepSupport() throws -> SleepSupport {
         return try operations.vaultAgentSleepSupport()
     }
@@ -2661,7 +2661,7 @@ extension AgentActivity {
 
 /// Returns the member.
 extension Platform {
-    /// Returns the status.
+    /// Returns availability and user presence guarantees for platform storage.
     public func status() throws -> PlatformStatus {
         return try operations.vaultPlatformStatus()
     }
@@ -2684,19 +2684,19 @@ extension Platform {
         return try operations.vaultPlatformPutPassword(password)
     }
 
-    /// Returns the enable.
+    /// Enables storage of the Vault passphrase in platform credentials.
     @discardableResult
     public func enable() throws -> Bool {
         return try operations.vaultPlatformEnable()
     }
 
-    /// Returns the disable.
+    /// Disables platform credential use without deleting the stored value.
     @discardableResult
     public func disable() throws -> Bool {
         return try operations.vaultPlatformDisable()
     }
 
-    /// Returns the disabled.
+    /// Reports whether platform credential use is disabled.
     @discardableResult
     public func disabled() throws -> Bool {
         return try operations.vaultPlatformDisabled()

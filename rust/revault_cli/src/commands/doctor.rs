@@ -1,7 +1,7 @@
 use super::command_lockbox;
-use super::context::{cli_error, open_existing, Access, CliResult};
+use super::context::{cli_error, open_existing_read_only, Access, CliResult};
 use clap::ArgMatches;
-use revault_lockbox_api::{Lockbox, LockboxFileInspection, LockboxKeySlotProtection};
+use revault_lockbox_api::{Error, Lockbox, LockboxFileInspection, LockboxKeySlotProtection};
 use revault_vault_api::{
     agent_log_destination, agent_sleep_support, default_vault_path, get_platform_vault_password,
     is_running, list, platform_secret_store_disabled, platform_secret_store_status,
@@ -11,7 +11,14 @@ use std::fs::OpenOptions;
 use std::path::Path;
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    let _ = matches;
+    if let Some(("recover", recover_matches)) = matches.subcommand() {
+        if command_lockbox().is_none() {
+            return Err(cli_error(
+                "doctor recover requires a lockbox path before `doctor`",
+            ));
+        }
+        return super::recovery::run_matches(recover_matches, access);
+    }
     match command_lockbox() {
         Some(lockbox) => run_lockbox(&lockbox, access),
         None => run_global(),
@@ -233,7 +240,7 @@ fn print_revault_vault_api(inspection: &LockboxFileInspection) {
 
 fn print_open_checks(lockbox_path: &str, access: &Access) {
     println!("Open checks");
-    match open_existing(lockbox_path, access) {
+    match open_existing_read_only(lockbox_path, access) {
         Ok(lockbox) => {
             match lockbox.description() {
                 Ok(Some(description)) => {
@@ -261,6 +268,14 @@ fn print_open_checks(lockbox_path: &str, access: &Access) {
             println!("  partial files: {}", report.partial_files);
         }
         Err(err) => {
+            if matches!(
+                err.downcast_ref::<Error>(),
+                Some(Error::RecoveryRequired { .. })
+            ) {
+                println!("  open: recovery required");
+                println!("  run: lockbox {lockbox_path} doctor recover --dry-run");
+                return;
+            }
             println!("  open: no");
             println!("  additional checks unavailable: {err}");
             println!("  run: lockbox {lockbox_path} open");

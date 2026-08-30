@@ -141,19 +141,7 @@ tar \
   -czf target/vm/mac/share/lockbox-src.tgz \
   -C /home/bsutton/git/reVault rust
 
-tar \
-  --exclude=target \
-  --exclude=.git \
-  --exclude=benchmarks \
-  --exclude=.agents \
-  --exclude=.codex \
-  --exclude=.mcp_logs \
-  -czf target/vm/mac/share/zstd-rs.tgz \
-  -C /home/bsutton/git zstd-rs
 ```
-
-`zstd-rs.tgz` must include the top-level `Readme.md`; `ruzstd` uses it in
-`include_str!`.
 
 Place this runner on the ISO as
 `target/vm/mac/share/run-lockbox-mac-test.command`:
@@ -170,10 +158,6 @@ WORK="$HOME/lockbox-mac-test-src"
 rm -rf "$WORK"
 mkdir -p "$WORK"
 tar -xzf "$SCRIPT_DIR/lockbox-src.tgz" -C "$WORK" --strip-components=1
-mkdir -p "$WORK/zstd-rs"
-tar -xzf "$SCRIPT_DIR/zstd-rs.tgz" -C "$WORK/zstd-rs" --strip-components=1
-perl -0pi -e 's#\.\./\.\./\.\./zstd-rs/ruzstd#../zstd-rs/ruzstd#g' \
-  "$WORK/revault_lockbox_api/Cargo.toml"
 
 if ! xcode-select -p >/dev/null 2>&1; then
   echo "Command Line Tools are not installed."

@@ -1,7 +1,20 @@
 # Changelog
 
-## Unreleased
+## 0.0.8 - 2026-08-30
 
+- Install the current v1 vault and archive exporter releases during automatic
+  migration so schema-2 archive metadata and migration-format 0.0.4 are used.
+- Moved the infrequently used `recover` operation under `doctor`. `doctor
+  recover` now detects authenticated interrupted cleanup automatically and
+  rolls it forward in place; otherwise it salvages readable records into a
+  new Lockbox. `--dry-run` remains non-mutating, and the separate transaction
+  recovery mode flag has been removed.
+- Write-capable Lockbox opens now complete authenticated pending cleanup
+  automatically, while `doctor` diagnostics use an explicitly read-only open
+  and report the recovery action without changing the Lockbox.
+- Improved recovery, migration, session, file, variable, and form command
+  coverage, including failure-injection tests for interrupted commits and
+  recovery checkpoints.
 - Added encrypted Lockbox descriptions. `create --description` records the
   initial purpose, `description get|set|clear` manages it, `doctor LOCKBOX`
   shows it after a successful open, and `vault lockbox list

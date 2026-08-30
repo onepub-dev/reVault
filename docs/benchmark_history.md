@@ -5,6 +5,61 @@ dependency, or implementation changes. Keep each entry self-contained: include
 the change being measured, the command, environment, baseline source, and
 observed result table.
 
+## 2026-08-30 - Published zstd-complete 0.1.0 Release Benchmarks
+
+Description: replaced the pinned `zstd-rs` Git dependency with the published
+pure-Rust `zstd-complete 0.1.0` crate and reran both release benchmark suites.
+No local Cargo patch was used. reVault's independent-frame worker policy was
+enabled as normal; the codec's optional internal multithreading was not.
+
+Commands:
+
+```bash
+cd rust
+cargo xtask compare-archive-compression \
+  target/archive-comparison-zstd-complete-0.1.0
+cargo bench -p revault_lockbox_api --bench pgp_compare -- \
+  --iterations 5 \
+  --root target/lockbox-zstd-complete-0.1.0 \
+  --output target/lockbox-zstd-complete-0.1.0/results.md
+```
+
+Environment:
+
+- Host: AMD Ryzen 7 3700X, 8 cores / 16 threads, Linux `7.0.0-30-generic`
+- Rust: `rustc 1.88.0`, Cargo `1.88.0`
+- Dependency: crates.io `zstd-complete 0.1.0`, checksum
+  `989d8ad3ab75a470a7cf02f8e5194f203cb8b32ac72920c6f8a599a8817b9699`
+- Detailed report: `docs/lockbox_gpg_zip_benchmark_2026_08_30.md`
+
+Selected archive-comparison results:
+
+| Fixture | Lockbox bytes | Lockbox seconds | GPG ZLIB 9 bytes | zstd 1 + GPG bytes |
+| --- | ---: | ---: | ---: | ---: |
+| repeated-small | 75,072 | 0.82 | 194,301 | 51,773 |
+| text-tree | 1,354,048 | 0.91 | 2,012,028 | 1,773,153 |
+| mixed-tree | 16,865,600 | 0.95 | 16,939,966 | 16,985,787 |
+| high-entropy | 67,144,000 | 1.45 | 67,177,057 | 67,174,412 |
+| revault-source | 664,896 | 0.73 | 597,354 | 663,680 |
+
+Five-iteration PGP/ZIP median results:
+
+| Workload | Lockbox size | Create | Extract | Size vs PGP | Create vs PGP |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| large-text | 22.31 KiB | 158.5 ms | 136.5 ms | 0.40x | 0.90x |
+| large-randomish | 16.02 MiB | 303.5 ms | 211.3 ms | 1.00x | 0.56x |
+| small-tree | 1.98 MiB | 184.3 ms | 271.1 ms | 1.00x | 0.94x |
+
+Conclusion:
+
+- The crates.io release preserves the compression behavior measured from the
+  optimized Git revision while removing the unreleased dependency.
+- Lockbox is smaller than GPG default for every archive fixture and smaller
+  than GPG ZLIB 9 for four of five fixtures.
+- The archive xtask now uses the target-first CLI and initializes a fully
+  isolated benchmark vault, with a regression test for its invocation and
+  environment.
+
 ## 2026-06-01 - Real-World Large File Threading Sweep
 
 Description: measured the merged native worker pipeline against large local

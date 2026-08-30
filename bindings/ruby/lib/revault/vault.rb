@@ -54,17 +54,17 @@ module Revault
     # Returns the last error details.
     def last_error_details = @operations.buffer_last_error_details()
 
-    # Returns the lockbox format version.
+    # Returns the newest Lockbox archive format version supported by this engine.
     def lockbox_format_version()
       @operations.lockbox_format_version()
     end
 
-    # Returns the lockbox probe format version.
+    # Reads the format version from serialized Lockbox bytes without opening them.
     def lockbox_probe_format_version(bytes)
       @operations.lockbox_probe_format_version(bytes)
     end
 
-    # Returns the lockbox create.
+    # Creates an in memory Lockbox protected by a 32 byte content key.
     def lockbox_create(key)
       Lockbox.new(@operations, @operations.lockbox_create(key))
     end
@@ -74,22 +74,22 @@ module Revault
       Lockbox.new(@operations, @operations.lockbox_create_with_options(key, cache_mode, cache_bytes, workload, worker, jobs))
     end
 
-    # Returns the lockbox create password.
+    # Creates an in memory Lockbox protected by the supplied password.
     def lockbox_create_password(password)
       Lockbox.new(@operations, @operations.lockbox_create_password(password))
     end
 
-    # Returns the lockbox create contact.
+    # Creates an in memory Lockbox that the supplied contact can open.
     def lockbox_create_contact(contact)
       Lockbox.new(@operations, @operations.lockbox_create_contact(contact.native_handle))
     end
 
-    # Returns the lockbox create with signing key.
+    # Creates an in memory Lockbox and assigns its profile signing key.
     def lockbox_create_with_signing_key(content_key, signing_key)
       Lockbox.new(@operations, @operations.lockbox_create_with_signing_key(content_key, signing_key.native_handle))
     end
 
-    # Returns the lockbox open.
+    # Opens serialized Lockbox bytes with a 32 byte content key.
     def lockbox_open(archive, key)
       Lockbox.new(@operations, @operations.lockbox_open(archive, key))
     end
@@ -99,47 +99,47 @@ module Revault
       Lockbox.new(@operations, @operations.lockbox_open_with_options(archive, key, cache_mode, cache_bytes, workload, worker, jobs))
     end
 
-    # Returns the lockbox open password.
+    # Opens serialized Lockbox bytes with the supplied password.
     def lockbox_open_password(archive, password)
       Lockbox.new(@operations, @operations.lockbox_open_password(archive, password))
     end
 
-    # Returns the lockbox open contact.
+    # Opens serialized Lockbox bytes with the supplied contact private key.
     def lockbox_open_contact(archive, contact)
       Lockbox.new(@operations, @operations.lockbox_open_contact(archive, contact.native_handle))
     end
 
-    # Returns the lockbox inspect file.
+    # Reads public header, signature, and access slot metadata from a Lockbox file.
     def lockbox_inspect_file(path)
       @operations.lockbox_inspect_file(path)
     end
 
-    # Returns the lockbox recovery scan path.
+    # Scans a damaged Lockbox file with its 32 byte content key.
     def lockbox_recovery_scan_path(path, key)
       @operations.lockbox_recovery_scan_path(path, key)
     end
 
-    # Returns the lockbox recovery scan.
+    # Scans damaged serialized Lockbox bytes with their 32 byte content key.
     def lockbox_recovery_scan(bytes, key)
       @operations.lockbox_recovery_scan(bytes, key)
     end
 
-    # Returns the lockbox recovery salvage.
+    # Builds a new Lockbox from recoverable records without changing the source.
     def lockbox_recovery_salvage(bytes, key, signing_key)
       Lockbox.new(@operations, @operations.lockbox_recovery_salvage(bytes, key, signing_key.native_handle))
     end
 
-    # Returns the key contact generate.
+    # Generates a contact encryption key pair using secure random data.
     def key_contact_generate()
       ContactKeyPair.new(@operations, @operations.key_contact_generate())
     end
 
-    # Returns the key contact from private.
+    # Imports a contact key pair from its private binary record.
     def key_contact_from_private(bytes)
       ContactKeyPair.new(@operations, @operations.key_contact_from_private(bytes))
     end
 
-    # Returns the key contact public from bytes.
+    # Imports a contact public key from its binary representation.
     def key_contact_public_from_bytes(bytes)
       ContactPublicKey.new(@operations, @operations.key_contact_public_from_bytes(bytes))
     end
@@ -159,147 +159,147 @@ module Revault
       ProfileSigningPublicKey.new(@operations, @operations.key_signing_public_from_bytes(bytes))
     end
 
-    # Returns the vault key export private.
+    # Exports a private key in the requested key format.
     def vault_key_export_private(key, format)
       @operations.vault_key_export_private(key.native_handle, format)
     end
 
-    # Returns the vault key export public.
+    # Exports a public key in the requested key format.
     def vault_key_export_public(key, format)
       @operations.vault_key_export_public(key.native_handle, format)
     end
 
-    # Returns the vault key import private.
+    # Imports a private contact key from a detected supported encoding.
     def vault_key_import_private(bytes)
       ContactKeyPair.new(@operations, @operations.vault_key_import_private(bytes))
     end
 
-    # Returns the vault key import public.
+    # Imports a public contact key from a detected supported encoding.
     def vault_key_import_public(bytes)
       ContactPublicKey.new(@operations, @operations.vault_key_import_public(bytes))
     end
 
-    # Returns the vault key fingerprint.
+    # Returns the stable fingerprint used to verify a public key.
     def vault_key_fingerprint(key)
       @operations.vault_key_fingerprint(key.native_handle)
     end
 
-    # Returns the vault key format hex.
+    # Encodes key bytes as hexadecimal text.
     def vault_key_format_hex(bytes)
       @operations.vault_key_format_hex(bytes)
     end
 
-    # Returns the vault key decode hex.
+    # Decodes hexadecimal key text and rejects malformed input.
     def vault_key_decode_hex(text)
       @operations.vault_key_decode_hex(text)
     end
 
-    # Returns the vault key format crockford.
+    # Encodes key bytes using Crockford Base32.
     def vault_key_format_crockford(bytes)
       @operations.vault_key_format_crockford(bytes)
     end
 
-    # Returns the vault key format crockford reading.
+    # Groups a Crockford code for easier reading and transcription.
     def vault_key_format_crockford_reading(code)
       @operations.vault_key_format_crockford_reading(code)
     end
 
-    # Returns the vault key decode crockford.
+    # Decodes Crockford Base32 key text and rejects malformed input.
     def vault_key_decode_crockford(code)
       @operations.vault_key_decode_crockford(code)
     end
 
-    # Returns the vault key hex encode.
+    # Encodes arbitrary bytes as hexadecimal text.
     def vault_key_hex_encode(bytes)
       @operations.vault_key_hex_encode(bytes)
     end
 
-    # Returns the vault key hex decode.
+    # Decodes arbitrary hexadecimal text and rejects malformed input.
     def vault_key_hex_decode(text)
       @operations.vault_key_hex_decode(text)
     end
 
-    # Returns the vault directory open.
+    # Opens an existing Vault directory with its passphrase.
     def vault_directory_open(root, password)
       Vault.new(@operations, @operations.vault_directory_open(root, password))
     end
 
-    # Returns the vault structure version current.
+    # Returns the newest Vault structure version supported by this engine.
     def vault_structure_version_current()
       @operations.vault_structure_version_current()
     end
 
-    # Returns the vault directory probe structure version.
+    # Reads an existing Vault structure version without changing it.
     def vault_directory_probe_structure_version(root, password)
       @operations.vault_directory_probe_structure_version(root, password)
     end
 
-    # Returns the vault directory open or create default.
+    # Opens or creates the default Vault without replacing existing state.
     def vault_directory_open_or_create_default(password)
       Vault.new(@operations, @operations.vault_directory_open_or_create_default(password))
     end
 
-    # Returns the vault directory replace default.
+    # Replaces the default Vault and all persistent data it contains.
     def vault_directory_replace_default(password)
       Vault.new(@operations, @operations.vault_directory_replace_default(password))
     end
 
-    # Returns the vault directory change password.
+    # Changes the passphrase for an existing Vault.
     def vault_directory_change_password(root, old_password, new_password)
       @operations.vault_directory_change_password(root, old_password, new_password)
     end
 
-    # Returns the vault directory change default password.
+    # Changes the passphrase for the default Vault.
     def vault_directory_change_default_password(old_password, new_password)
       @operations.vault_directory_change_default_password(old_password, new_password)
     end
 
-    # Returns the vault directory replace.
+    # Replaces the selected Vault and all persistent data it contains.
     def vault_directory_replace(root, password)
       Vault.new(@operations, @operations.vault_directory_replace(root, password))
     end
 
-    # Returns the vault directory open or create.
+    # Opens the selected Vault, creating it only when absent.
     def vault_directory_open_or_create(root, password)
       Vault.new(@operations, @operations.vault_directory_open_or_create(root, password))
     end
 
-    # Returns the vault backup default.
+    # Writes a backup of the default Vault to the selected path.
     def vault_backup_default(path, overwrite)
       @operations.vault_backup_default(path, overwrite)
     end
 
-    # Returns the vault restore default.
+    # Restores the default Vault from the selected backup.
     def vault_restore_default(path, overwrite)
       @operations.vault_restore_default(path, overwrite)
     end
 
-    # Returns the vault read only open.
+    # Opens an existing Vault metadata view that cannot load private keys.
     def vault_read_only_open(root, password)
       ReadOnlyVault.new(@operations, @operations.vault_read_only_open(root, password))
     end
 
-    # Returns the vault read only open default.
+    # Opens the default Vault metadata view without loading private keys.
     def vault_read_only_open_default(password)
       ReadOnlyVault.new(@operations, @operations.vault_read_only_open_default(password))
     end
 
-    # Returns the vault default directory.
+    # Returns the platform default Vault directory.
     def vault_default_directory()
       @operations.vault_default_directory()
     end
 
-    # Returns the vault default path.
+    # Returns the path of the default Vault file.
     def vault_default_path()
       @operations.vault_default_path()
     end
 
-    # Returns the vault agent log path.
+    # Returns the session agent log path.
     def vault_agent_log_path()
       @operations.vault_agent_log_path()
     end
 
-    # Returns the vault agent log destination.
+    # Returns the configured session agent log destination.
     def vault_agent_log_destination()
       @operations.vault_agent_log_destination()
     end
@@ -352,32 +352,32 @@ module Revault
       box
     end
 
-    # Adds file.
+    # Stages a file at the Lockbox path; replace controls an existing entry.
     def add_file(path, data, replace)
       @operations.lockbox_add_file(@native_handle, path, data, replace)
     end
 
-    # Adds file with permissions.
+    # Stages a file and its portable Unix permission bits.
     def add_file_with_permissions(path, data, permissions, replace)
       @operations.lockbox_add_file_with_permissions(@native_handle, path, data, permissions, replace)
     end
 
-    # Returns file.
+    # Reads the complete file stored at the Lockbox path.
     def get_file(path)
       @operations.lockbox_get_file(@native_handle, path)
     end
 
-    # Extracts file.
+    # Writes one Lockbox file to the host filesystem.
     def extract_file(source, destination, replace)
       @operations.lockbox_extract_file(@native_handle, source, destination, replace)
     end
 
-    # Extracts directory.
+    # Extracts the Lockbox with explicit size, count, link, and permission limits.
     def extract_directory(destination, max_file_bytes, max_total_bytes, max_files, restore_symlinks, restore_permissions, overwrite)
       @operations.lockbox_extract_directory(@native_handle, destination, max_file_bytes, max_total_bytes, max_files, restore_symlinks, restore_permissions, overwrite)
     end
 
-    # Returns the stream content.
+    # Lists logical or physical content chunks for streaming diagnostics.
     def stream_content(physical)
       @operations.lockbox_stream_content(@native_handle, physical)
     end
@@ -397,22 +397,22 @@ module Revault
       @operations.lockbox_reset_import_stats(@native_handle)
     end
 
-    # Returns the page inspection.
+    # Returns page metadata for diagnostics without exposing plaintext secrets.
     def page_inspection()
       @operations.lockbox_page_inspection(@native_handle)
     end
 
-    # Returns the recovery report.
+    # Scans the open archive and returns its structured recovery report.
     def recovery_report()
       @operations.lockbox_recovery_report(@native_handle)
     end
 
-    # Returns the recovery report render.
+    # Renders the recovery report for a person, capped at maxEntries.
     def recovery_report_render(verbose, max_entries)
       @operations.lockbox_recovery_report_render(@native_handle, verbose, max_entries)
     end
 
-    # Returns the storage len.
+    # Returns the current serialized archive size in bytes.
     def storage_len()
       @operations.lockbox_storage_len(@native_handle)
     end
@@ -427,7 +427,7 @@ module Revault
       @operations.lockbox_set_worker_policy(@native_handle, mode, jobs)
     end
 
-    # Returns the runtime options.
+    # Returns the cache, workload, and worker settings used by this Lockbox.
     def runtime_options()
       @operations.lockbox_runtime_options(@native_handle)
     end
@@ -439,37 +439,37 @@ module Revault
       result
     end
 
-    # Creates dir.
+    # Stages a directory entry and optionally creates missing parents.
     def create_dir(path, create_parents)
       @operations.lockbox_create_dir(@native_handle, path, create_parents)
     end
 
-    # Removes delete.
+    # Stages removal of a file, link, or empty directory at path.
     def delete(path)
       @operations.lockbox_delete(@native_handle, path)
     end
 
-    # Removes dir.
+    # Stages removal of a directory, optionally including its descendants.
     def remove_dir(path, recursive)
       @operations.lockbox_remove_dir(@native_handle, path, recursive)
     end
 
-    # Creates parent dirs.
+    # Stages every missing parent directory for path.
     def create_parent_dirs(path)
       @operations.lockbox_create_parent_dirs(@native_handle, path)
     end
 
-    # Updates rename.
+    # Stages an atomic move from one Lockbox path to another.
     def rename(from, to)
       @operations.lockbox_rename(@native_handle, from, to)
     end
 
-    # Lists list.
+    # Lists entries below path, optionally including descendants.
     def list(path, recursive)
       @operations.lockbox_list(@native_handle, path, recursive)
     end
 
-    # Lists with options.
+    # Lists entries using glob, type, recursion, and result limit filters.
     def list_with_options(path, glob, recursive, include_files, include_symlinks, include_directories, limit)
       @operations.lockbox_list_with_options(@native_handle, path, glob, recursive, include_files, include_symlinks, include_directories, limit)
     end
@@ -479,7 +479,7 @@ module Revault
       @operations.lockbox_stat(@native_handle, path)
     end
 
-    # Sets variable.
+    # Stages a plain text variable; commit to publish the change.
     def set_variable(name, value)
       @operations.lockbox_set_variable(@native_handle, name, value)
     end
@@ -489,7 +489,7 @@ module Revault
       @operations.lockbox_set_secret_variable(@native_handle, name, value)
     end
 
-    # Returns variable.
+    # Returns a plain variable when it is present.
     def get_variable(name)
       @operations.lockbox_get_variable(@native_handle, name)
     end
@@ -517,7 +517,7 @@ module Revault
       @operations.lockbox_get_secret_variable(@native_handle, name, &callback)
     end
 
-    # Removes variable.
+    # Stages removal of a variable.
     def delete_variable(name)
       @operations.lockbox_delete_variable(@native_handle, name)
     end
@@ -527,82 +527,82 @@ module Revault
       @operations.lockbox_move_variables(@native_handle, Internal::DomainCodec.encode_path_moves(moves))
     end
 
-    # Lists variables.
+    # Lists variable names and metadata without exposing secret values.
     def list_variables()
       @operations.lockbox_list_variables(@native_handle)
     end
 
-    # Returns the variable sensitivity.
+    # Returns whether a variable is plain or secret.
     def variable_sensitivity(name)
       @operations.lockbox_variable_sensitivity(@native_handle, name)
     end
 
-    # Adds symlink.
+    # Stages a symbolic link with its stored target text.
     def add_symlink(path, target, replace)
       @operations.lockbox_add_symlink(@native_handle, path, target, replace)
     end
 
-    # Returns symlink target.
+    # Returns the target text stored for a symbolic link.
     def get_symlink_target(path)
       @operations.lockbox_get_symlink_target(@native_handle, path)
     end
 
-    # Returns the id.
+    # Returns the stable public identifier stored in the Lockbox header.
     def id()
       @operations.lockbox_id(@native_handle)
     end
 
-    # Reports whether exists.
+    # Reports whether an entry exists at path.
     def exists(path)
       @operations.lockbox_exists(@native_handle, path)
     end
 
-    # Reports whether dir.
+    # Reports whether path names a directory entry.
     def is_dir(path)
       @operations.lockbox_is_dir(@native_handle, path)
     end
 
-    # Returns the permissions.
+    # Returns the portable Unix permission bits stored for path.
     def permissions(path)
       @operations.lockbox_permissions(@native_handle, path)
     end
 
-    # Sets permissions.
+    # Stages portable Unix permission bits for path.
     def set_permissions(path, permissions)
       @operations.lockbox_set_permissions(@native_handle, path, permissions)
     end
 
-    # Returns range.
+    # Reads the requested byte range from a stored file.
     def read_range(path, offset, len)
       @operations.lockbox_read_range(@native_handle, path, offset, len)
     end
 
-    # Adds password.
+    # Adds a password access slot and returns its slot identifier.
     def add_password(password)
       @operations.lockbox_add_password(@native_handle, password)
     end
 
-    # Adds contact.
+    # Grants a named contact access and returns the new slot identifier.
     def add_contact(contact, name)
       @operations.lockbox_add_contact(@native_handle, contact.native_handle, name)
     end
 
-    # Removes key.
+    # Removes an access slot; at least one usable slot must remain.
     def delete_key(id)
       @operations.lockbox_delete_key(@native_handle, id)
     end
 
-    # Lists key slots.
+    # Lists public access slot metadata without returning credentials.
     def list_key_slots()
       @operations.lockbox_list_key_slots(@native_handle)
     end
 
-    # Sets owner signing key.
+    # Assigns a profile signing key to the Lockbox owner role.
     def set_owner_signing_key(key)
       @operations.lockbox_set_owner_signing_key(@native_handle, key.native_handle)
     end
 
-    # Returns the owner inspection.
+    # Returns public signing and ownership metadata for the current revision.
     def owner_inspection()
       @operations.lockbox_owner_inspection(@native_handle)
     end
@@ -612,27 +612,27 @@ module Revault
       @operations.lockbox_define_form(@native_handle, alias_name, name, description, Internal::DomainCodec.encode_form_fields(fields))
     end
 
-    # Lists form definitions.
+    # Lists the form definitions stored in this Lockbox.
     def list_form_definitions()
       @operations.lockbox_list_form_definitions(@native_handle)
     end
 
-    # Returns the resolve form.
+    # Resolves a form alias, type identifier, or revision.
     def resolve_form(reference)
       @operations.lockbox_resolve_form(@native_handle, reference)
     end
 
-    # Lists form revisions.
+    # Lists every stored revision for a form type identifier.
     def list_form_revisions(type_id)
       @operations.lockbox_list_form_revisions(@native_handle, type_id)
     end
 
-    # Creates form record.
+    # Stages a form record at path using the referenced definition.
     def create_form_record(path, type_reference, name)
       @operations.lockbox_create_form_record(@native_handle, path, type_reference, name)
     end
 
-    # Sets form field.
+    # Stages a plain field value in a form record.
     def set_form_field(path, field, value)
       @operations.lockbox_set_form_field(@native_handle, path, field, value)
     end
@@ -642,17 +642,17 @@ module Revault
       @operations.lockbox_set_secret_form_field(@native_handle, path, field, value)
     end
 
-    # Lists form records.
+    # Lists form records without exposing secret field values.
     def list_form_records()
       @operations.lockbox_list_form_records(@native_handle)
     end
 
-    # Returns form record.
+    # Returns the form record at path when present.
     def get_form_record(path)
       @operations.lockbox_get_form_record(@native_handle, path)
     end
 
-    # Removes form record.
+    # Stages removal of a form record.
     def delete_form_record(path)
       @operations.lockbox_delete_form_record(@native_handle, path)
     end
@@ -662,7 +662,7 @@ module Revault
       @operations.lockbox_move_form_records(@native_handle, Internal::DomainCodec.encode_path_moves(moves))
     end
 
-    # Returns form field.
+    # Returns a plain form field when it exists.
     def get_form_field(path, field)
       @operations.lockbox_get_form_field(@native_handle, path, field)
     end
@@ -672,7 +672,7 @@ module Revault
       @operations.lockbox_get_secret_form_field(@native_handle, path, field, &callback)
     end
 
-    # Returns the to bytes.
+    # Serializes the current Lockbox, including committed changes.
     def to_bytes()
       @operations.lockbox_to_bytes(@native_handle)
     end
@@ -712,7 +712,7 @@ module Revault
 
   # A recipient's shareable encryption identity used when granting access.
   class ContactPublicKey < OwnedHandle
-    # Returns the public free.
+    # Releases this public contact key.
     def public_free()
       @operations.key_contact_public_free(@native_handle)
       @native_handle = nil
@@ -732,12 +732,12 @@ module Revault
       @operations.key_contact_wrapped_public(@native_handle)
     end
 
-    # Returns the ciphertext.
+    # Returns the encrypted content key bytes.
     def ciphertext()
       @operations.key_contact_wrapped_ciphertext(@native_handle)
     end
 
-    # Returns the encrypted.
+    # Returns the complete wrapped key record for storage or transport.
     def encrypted()
       @operations.key_contact_wrapped_encrypted(@native_handle)
     end
@@ -790,12 +790,12 @@ module Revault
 
   # Password-protected storage for Profile keys, contacts, forms, backups, and lockbox paths.
   class VaultStore < OwnedHandle
-    # Returns the root.
+    # Returns the canonical root directory of this Vault.
     def root()
       @operations.vault_directory_root(@native_handle)
     end
 
-    # Returns the structure version.
+    # Returns the persistent structure version of this Vault.
     def structure_version()
       @operations.vault_directory_structure_version(@native_handle)
     end
@@ -820,7 +820,7 @@ module Revault
       @operations.vault_directory_list_form_aliases(@native_handle)
     end
 
-    # Returns the private key exists.
+    # Reports whether the named profile private key exists.
     def private_key_exists(name)
       @operations.vault_directory_private_key_exists(@native_handle, name)
     end
@@ -855,7 +855,7 @@ module Revault
       ContactPublicKey.new(@operations, @operations.vault_directory_load_contact(@native_handle, name))
     end
 
-    # Returns the contact exists.
+    # Reports whether the named contact exists.
     def contact_exists(name)
       @operations.vault_directory_contact_exists(@native_handle, name)
     end
@@ -875,7 +875,7 @@ module Revault
       @operations.vault_directory_store_profile_email(@native_handle, name, email)
     end
 
-    # Returns the profile email.
+    # Returns the email recorded for a profile, when present.
     def profile_email(name)
       @operations.vault_directory_profile_email(@native_handle, name)
     end
@@ -890,12 +890,12 @@ module Revault
       @operations.vault_directory_load_backup(@native_handle, id)
     end
 
-    # Returns the backup count.
+    # Returns the number of stored key recovery backups.
     def backup_count()
       @operations.vault_directory_backup_count(@native_handle)
     end
 
-    # Returns the restore private key.
+    # Restores a profile private key and signing key from recovery material.
     def restore_private_key(name, key, signing_key, overwrite)
       @operations.vault_directory_restore_private_key(@native_handle, name, key.native_handle, signing_key.native_handle, overwrite)
     end
@@ -955,7 +955,7 @@ module Revault
       @operations.vault_directory_list_access_slot_labels(@native_handle, id)
     end
 
-    # Returns the find access slot labels.
+    # Finds access slot labels with the supplied name for one Lockbox.
     def find_access_slot_labels(id, name)
       @operations.vault_directory_find_access_slot_labels(@native_handle, id, name)
     end
@@ -970,7 +970,7 @@ module Revault
       @operations.vault_directory_define_form(@native_handle, alias_name, name, description, Internal::DomainCodec.encode_form_fields(fields))
     end
 
-    # Returns the resolve form.
+    # Resolves a form alias, type identifier, or revision.
     def resolve_form(reference)
       @operations.vault_directory_resolve_form(@native_handle, reference)
     end
@@ -980,12 +980,12 @@ module Revault
       @operations.vault_directory_list_forms(@native_handle)
     end
 
-    # Lists form revisions.
+    # Lists every stored revision for a form type identifier.
     def list_form_revisions(type_id)
       @operations.vault_directory_list_form_revisions(@native_handle, type_id)
     end
 
-    # Returns the seed forms.
+    # Adds missing standard form definitions and returns the number added.
     def seed_forms()
       @operations.vault_directory_seed_forms(@native_handle)
     end
@@ -995,7 +995,7 @@ module Revault
       @operations.vault_directory_remember_password(@native_handle, id, password)
     end
 
-    # Returns the remembered password.
+    # Returns the Lockbox password encrypted inside this Vault.
     def remembered_password(id)
       @operations.vault_directory_remembered_password(@native_handle, id)
     end
@@ -1054,7 +1054,7 @@ module Revault
       @operations.vault_forget_all()
     end
 
-    # Returns the serve.
+    # Runs the session agent server until it is stopped.
     def serve()
       @operations.vault_agent_serve()
     end
@@ -1089,12 +1089,12 @@ module Revault
       @operations.vault_agent_start()
     end
 
-    # Lists list.
+    # Lists entries below path, optionally including descendants.
     def list()
       @operations.vault_agent_list()
     end
 
-    # Returns the sleep support.
+    # Reports how the platform handles agent expiry during system sleep.
     def sleep_support()
       @operations.vault_agent_sleep_support()
     end
@@ -1152,7 +1152,7 @@ module Revault
       @operations = operations
     end
 
-    # Returns the status.
+    # Returns availability and user presence guarantees for platform storage.
     def status()
       @operations.vault_platform_status()
     end
@@ -1172,17 +1172,17 @@ module Revault
       @operations.vault_platform_put_password(password)
     end
 
-    # Returns the enable.
+    # Enables storage of the Vault passphrase in platform credentials.
     def enable()
       @operations.vault_platform_enable()
     end
 
-    # Returns the disable.
+    # Disables platform credential use without deleting the stored value.
     def disable()
       @operations.vault_platform_disable()
     end
 
-    # Returns the disabled.
+    # Reports whether platform credential use is disabled.
     def disabled()
       @operations.vault_platform_disabled()
     end

@@ -95,6 +95,9 @@ pub use key_slot::{
 };
 pub use key_wrap::{ContactKeyPair, ContactPublicKey, ContactWrappedKey};
 pub use list_options::ListOptions;
+#[cfg(feature = "test-support")]
+#[doc(hidden)]
+pub use lockbox::test_support::write_interrupted_transaction_fixture;
 pub use lockbox::{
     ContentChunk, ContentStreamOptions, ContentStreamOrder, ImportStats, Lockbox,
     LockboxFileInspection, LockboxFileMut, LockboxFileReader, LockboxInspector, LockboxOpen,

@@ -509,7 +509,7 @@ fn set_file_permissions(_path: &str, _mode: u32) -> Result<(), Box<dyn std::erro
 }
 
 fn default_config() -> &'static str {
-    "bind_addr = \"0.0.0.0:8089\"\n\
+    "bind_addr = \"127.0.0.1:8089\"\n\
 state_dir = \"/var/lib/revault-key-server\"\n\
 server_id = 0\n\
 cluster_id = \"default\"\n\
@@ -521,8 +521,8 @@ default_receive_ttl_seconds = 7200\n\
 max_receive_ttl_seconds = 7200\n\
 max_payload_bytes = 8192\n\
 max_receives_per_publish = 8\n\
-rate_limit_per_minute = 120\n\
-rate_limit_burst = 40\n\
+rate_limit_per_minute = 0\n\
+rate_limit_burst = 0\n\
 smtp_host = \"smtp.gmail.com\"\n\
 smtp_port = 587\n\
 smtp_username = \"\"\n\
@@ -533,7 +533,7 @@ smtp_timeout_seconds = 30\n\
 verification_email_subject = \"Verify your reVault publish\"\n\
 verification_email_template = \"Verify {email} for this reVault publish:\\n\\n{verification_url}\\n\\nThis link expires in 30 minutes.\"\n\
 verification_email_rate_limit_per_hour = 5\n\
-verification_email_ip_rate_limit_per_hour = 30\n\
+verification_email_ip_rate_limit_per_hour = 0\n\
 \n\
 [[topology_server]]\n\
 id = 0\n\
@@ -619,6 +619,10 @@ mod tests {
     #[test]
     fn default_config_includes_public_single_server_topology() {
         let config = default_config();
+        assert!(config.contains("bind_addr = \"127.0.0.1:8089\""));
+        assert!(config.contains("rate_limit_per_minute = 0"));
+        assert!(config.contains("rate_limit_burst = 0"));
+        assert!(config.contains("verification_email_ip_rate_limit_per_hour = 0"));
         assert!(config.contains("server_id = 0"));
         assert!(config.contains("public_url = \"https://keyshare0.revault.onepub.dev/v1/publish\""));
         assert!(config.contains("[[topology_server]]"));

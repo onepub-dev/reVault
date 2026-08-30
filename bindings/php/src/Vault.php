@@ -15,14 +15,21 @@ use FFI\CData;
  * repository README for installation and examples:
  * https://github.com/onepub-dev/reVault#readme
  */
-/** Native runtime loader and archive/key factory. */
+/**
+ * Loads the reVault engine and provides archive, key, Vault, agent, and
+ * platform operations.
+ *
+ * Loading the engine does not open a Vault or Lockbox. Most applications
+ * should call load() once, then use the Vault and Lockbox classes shown in the
+ * package README.
+ */
 final class Revault
 {
     private readonly BindingOperations $operations;
     private readonly Agent $agent;
     private readonly Platform $platform;
 
-    /** Returns the construct. */
+    /** Loads the bundled native library, or the explicit library path when supplied. */
     public function __construct(?string $nativeLibraryPath = null)
     {
         if ($nativeLibraryPath === '') {
@@ -51,13 +58,13 @@ final class Revault
             default => throw new \RuntimeException('unsupported reVault operating system: '.PHP_OS_FAMILY),
         };
         $bundled = dirname(__DIR__)."/native/$target/$file";
-        if (!is_file($bundled)) { throw new \RuntimeException("revault-api native carrier is missing for $target; install the matching platform package"); }
+        if (!is_file($bundled)) { throw new \RuntimeException("revault-api native library is missing for $target; install the matching platform package"); }
         return $bundled;
     }
 
-    /** Returns the agent. */
+    /** Returns the optional session agent controller without starting the agent. */
     public function agent(): Agent { return $this->agent; }
-    /** Returns the platform. */
+    /** Returns the operating system credential store facade. */
     public function platform(): Platform { return $this->platform; }
     public static function load(?string $nativeLibraryPath = null): self
     { return new self($nativeLibraryPath); }
@@ -69,19 +76,19 @@ final class Revault
     /** Returns the last error details. */
     public function lastErrorDetails(): object { return $this->operations->bufferLastErrorDetails(); }
 
-    /** Returns the lockbox format version. */
+    /** Returns the newest Lockbox archive format version supported by this engine. */
     public function lockboxFormatVersion(): int
     {
         return $this->operations->lockboxFormatVersion();
     }
 
-    /** Returns the lockbox probe format version. */
+    /** Reads the format version from serialized Lockbox bytes without opening them. */
     public function lockboxProbeFormatVersion(string $bytes): int
     {
         return $this->operations->lockboxProbeFormatVersion($bytes);
     }
 
-    /** Returns the lockbox create. */
+    /** Creates an in memory Lockbox protected by a 32 byte content key. */
     public function lockboxCreate(string $key): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxCreate($key));
@@ -93,25 +100,25 @@ final class Revault
         return new Lockbox($this->operations, $this->operations->lockboxCreateWithOptions($key, $cacheMode, $cacheBytes, $workload, $worker, $jobs));
     }
 
-    /** Returns the lockbox create password. */
+    /** Creates an in memory Lockbox protected by the supplied password. */
     public function lockboxCreatePassword(string $password): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxCreatePassword($password));
     }
 
-    /** Returns the lockbox create contact. */
+    /** Creates an in memory Lockbox that the supplied contact can open. */
     public function lockboxCreateContact(OwnedHandle $contact): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxCreateContact($contact->nativeHandle()));
     }
 
-    /** Returns the lockbox create with signing key. */
+    /** Creates an in memory Lockbox and assigns its profile signing key. */
     public function lockboxCreateWithSigningKey(string $contentKey, OwnedHandle $signingKey): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxCreateWithSigningKey($contentKey, $signingKey->nativeHandle()));
     }
 
-    /** Returns the lockbox open. */
+    /** Opens serialized Lockbox bytes with a 32 byte content key. */
     public function lockboxOpen(string $archive, string $key): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxOpen($archive, $key));
@@ -123,247 +130,247 @@ final class Revault
         return new Lockbox($this->operations, $this->operations->lockboxOpenWithOptions($archive, $key, $cacheMode, $cacheBytes, $workload, $worker, $jobs));
     }
 
-    /** Returns the lockbox open password. */
+    /** Opens serialized Lockbox bytes with the supplied password. */
     public function lockboxOpenPassword(string $archive, string $password): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxOpenPassword($archive, $password));
     }
 
-    /** Returns the lockbox open contact. */
+    /** Opens serialized Lockbox bytes with the supplied contact private key. */
     public function lockboxOpenContact(string $archive, OwnedHandle $contact): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxOpenContact($archive, $contact->nativeHandle()));
     }
 
-    /** Returns the lockbox inspect file. */
+    /** Reads public header, signature, and access slot metadata from a Lockbox file. */
     public function lockboxInspectFile(string $path): \Revault\FileInspection
     {
         return $this->operations->lockboxInspectFile($path);
     }
 
-    /** Returns the lockbox recovery scan path. */
+    /** Scans a damaged Lockbox file with its 32 byte content key. */
     public function lockboxRecoveryScanPath(string $path, string $key): \Revault\RecoveryReport
     {
         return $this->operations->lockboxRecoveryScanPath($path, $key);
     }
 
-    /** Returns the lockbox recovery scan. */
+    /** Scans damaged serialized Lockbox bytes with their 32 byte content key. */
     public function lockboxRecoveryScan(string $bytes, string $key): \Revault\RecoveryReport
     {
         return $this->operations->lockboxRecoveryScan($bytes, $key);
     }
 
-    /** Returns the lockbox recovery salvage. */
+    /** Builds a new Lockbox from recoverable records without changing the source. */
     public function lockboxRecoverySalvage(string $bytes, string $key, OwnedHandle $signingKey): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxRecoverySalvage($bytes, $key, $signingKey->nativeHandle()));
     }
 
-    /** Returns the key contact generate. */
+    /** Generates a contact encryption key pair using secure random data. */
     public function keyContactGenerate(): ContactKeyPair
     {
         return new ContactKeyPair($this->operations, $this->operations->keyContactGenerate());
     }
 
-    /** Returns the key contact from private. */
+    /** Imports a contact key pair from its private binary record. */
     public function keyContactFromPrivate(string $bytes): ContactKeyPair
     {
         return new ContactKeyPair($this->operations, $this->operations->keyContactFromPrivate($bytes));
     }
 
-    /** Returns the key contact public from bytes. */
+    /** Imports a contact public key from its binary representation. */
     public function keyContactPublicFromBytes(string $bytes): ContactPublicKey
     {
         return new ContactPublicKey($this->operations, $this->operations->keyContactPublicFromBytes($bytes));
     }
 
-    /** Returns the key signing generate. */
+    /** Generates a profile signing key pair using secure random data. */
     public function generateProfileSigningKeyPair(): ProfileSigningKeyPair
     {
         return new ProfileSigningKeyPair($this->operations, $this->operations->keySigningGenerate());
     }
 
-    /** Returns the key signing from private. */
+    /** Imports a profile signing key pair from its private binary record. */
     public function profileSigningKeyPairFromPrivate(string $bytes): ProfileSigningKeyPair
     {
         return new ProfileSigningKeyPair($this->operations, $this->operations->keySigningFromPrivate($bytes));
     }
 
-    /** Returns the key signing public from bytes. */
+    /** Imports a profile signing public key from its binary representation. */
     public function profileSigningPublicKeyFromBytes(string $bytes): ProfileSigningPublicKey
     {
         return new ProfileSigningPublicKey($this->operations, $this->operations->keySigningPublicFromBytes($bytes));
     }
 
-    /** Returns the vault key export private. */
+    /** Exports a private key in the requested KeyExportFormat. */
     public function vaultKeyExportPrivate(OwnedHandle $key, string $format): string
     {
         return $this->operations->vaultKeyExportPrivate($key->nativeHandle(), $format);
     }
 
-    /** Returns the vault key export public. */
+    /** Exports a public key in the requested KeyExportFormat. */
     public function vaultKeyExportPublic(OwnedHandle $key, string $format): string
     {
         return $this->operations->vaultKeyExportPublic($key->nativeHandle(), $format);
     }
 
-    /** Returns the vault key import private. */
+    /** Imports a private contact key from a detected supported encoding. */
     public function vaultKeyImportPrivate(string $bytes): ContactKeyPair
     {
         return new ContactKeyPair($this->operations, $this->operations->vaultKeyImportPrivate($bytes));
     }
 
-    /** Returns the vault key import public. */
+    /** Imports a public contact key from a detected supported encoding. */
     public function vaultKeyImportPublic(string $bytes): ContactPublicKey
     {
         return new ContactPublicKey($this->operations, $this->operations->vaultKeyImportPublic($bytes));
     }
 
-    /** Returns the vault key fingerprint. */
+    /** Returns the stable fingerprint used to verify a public key. */
     public function vaultKeyFingerprint(OwnedHandle $key): string
     {
         return $this->operations->vaultKeyFingerprint($key->nativeHandle());
     }
 
-    /** Returns the vault key format hex. */
+    /** Encodes key bytes as hexadecimal text. */
     public function vaultKeyFormatHex(string $bytes): string
     {
         return $this->operations->vaultKeyFormatHex($bytes);
     }
 
-    /** Returns the vault key decode hex. */
+    /** Decodes hexadecimal key text and rejects malformed input. */
     public function vaultKeyDecodeHex(string $text): string
     {
         return $this->operations->vaultKeyDecodeHex($text);
     }
 
-    /** Returns the vault key format crockford. */
+    /** Encodes key bytes using Crockford Base32. */
     public function vaultKeyFormatCrockford(string $bytes): string
     {
         return $this->operations->vaultKeyFormatCrockford($bytes);
     }
 
-    /** Returns the vault key format crockford reading. */
+    /** Groups a Crockford code for easier reading and transcription. */
     public function vaultKeyFormatCrockfordReading(string $code): string
     {
         return $this->operations->vaultKeyFormatCrockfordReading($code);
     }
 
-    /** Returns the vault key decode crockford. */
+    /** Decodes Crockford Base32 key text and rejects malformed input. */
     public function vaultKeyDecodeCrockford(string $code): string
     {
         return $this->operations->vaultKeyDecodeCrockford($code);
     }
 
-    /** Returns the vault key hex encode. */
+    /** Encodes arbitrary bytes as hexadecimal text. */
     public function vaultKeyHexEncode(string $bytes): string
     {
         return $this->operations->vaultKeyHexEncode($bytes);
     }
 
-    /** Returns the vault key hex decode. */
+    /** Decodes arbitrary hexadecimal text and rejects malformed input. */
     public function vaultKeyHexDecode(string $text): string
     {
         return $this->operations->vaultKeyHexDecode($text);
     }
 
-    /** Returns the vault directory open. */
+    /** Opens an existing Vault directory with its passphrase. */
     public function vaultDirectoryOpen(string $root, string $password): Vault
     {
         return new Vault($this->operations, $this->operations->vaultDirectoryOpen($root, $password));
     }
 
-    /** Returns the vault structure version current. */
+    /** Returns the newest Vault structure version supported by this engine. */
     public function vaultStructureVersionCurrent(): int
     {
         return $this->operations->vaultStructureVersionCurrent();
     }
 
-    /** Returns the vault directory probe structure version. */
+    /** Reads an existing Vault structure version without changing it. */
     public function vaultDirectoryProbeStructureVersion(string $root, string $password): int
     {
         return $this->operations->vaultDirectoryProbeStructureVersion($root, $password);
     }
 
-    /** Returns the vault directory open or create default. */
+    /** Opens or creates the default Vault without replacing existing state. */
     public function vaultDirectoryOpenOrCreateDefault(string $password): Vault
     {
         return new Vault($this->operations, $this->operations->vaultDirectoryOpenOrCreateDefault($password));
     }
 
-    /** Returns the vault directory replace default. */
+    /** Replaces the default Vault and all persistent data it contains. */
     public function vaultDirectoryReplaceDefault(string $password): Vault
     {
         return new Vault($this->operations, $this->operations->vaultDirectoryReplaceDefault($password));
     }
 
-    /** Returns the vault directory change password. */
+    /** Changes the passphrase for an existing Vault at root. */
     public function vaultDirectoryChangePassword(string $root, string $oldPassword, string $newPassword): bool
     {
         return $this->operations->vaultDirectoryChangePassword($root, $oldPassword, $newPassword);
     }
 
-    /** Returns the vault directory change default password. */
+    /** Changes the passphrase for the default Vault. */
     public function vaultDirectoryChangeDefaultPassword(string $oldPassword, string $newPassword): bool
     {
         return $this->operations->vaultDirectoryChangeDefaultPassword($oldPassword, $newPassword);
     }
 
-    /** Returns the vault directory replace. */
+    /** Replaces the Vault at root and all persistent data it contains. */
     public function vaultDirectoryReplace(string $root, string $password): Vault
     {
         return new Vault($this->operations, $this->operations->vaultDirectoryReplace($root, $password));
     }
 
-    /** Returns the vault directory open or create. */
+    /** Opens the Vault at root, creating it only when absent. */
     public function vaultDirectoryOpenOrCreate(string $root, string $password): Vault
     {
         return new Vault($this->operations, $this->operations->vaultDirectoryOpenOrCreate($root, $password));
     }
 
-    /** Returns the vault backup default. */
+    /** Writes a backup of the default Vault to path. */
     public function vaultBackupDefault(string $path, bool $overwrite): \Revault\VaultBackupManifest
     {
         return $this->operations->vaultBackupDefault($path, $overwrite);
     }
 
-    /** Returns the vault restore default. */
+    /** Restores the default Vault from a backup at path. */
     public function vaultRestoreDefault(string $path, bool $overwrite): \Revault\VaultBackupManifest
     {
         return $this->operations->vaultRestoreDefault($path, $overwrite);
     }
 
-    /** Returns the vault read only open. */
+    /** Opens an existing Vault metadata view that cannot load private keys. */
     public function vaultReadOnlyOpen(string $root, string $password): ReadOnlyVault
     {
         return new ReadOnlyVault($this->operations, $this->operations->vaultReadOnlyOpen($root, $password));
     }
 
-    /** Returns the vault read only open default. */
+    /** Opens the default Vault metadata view without loading private keys. */
     public function vaultReadOnlyOpenDefault(string $password): ReadOnlyVault
     {
         return new ReadOnlyVault($this->operations, $this->operations->vaultReadOnlyOpenDefault($password));
     }
 
-    /** Returns the vault default directory. */
+    /** Returns the platform default Vault directory. */
     public function vaultDefaultDirectory(): string
     {
         return $this->operations->vaultDefaultDirectory();
     }
 
-    /** Returns the vault default path. */
+    /** Returns the path of the default Vault file. */
     public function vaultDefaultPath(): string
     {
         return $this->operations->vaultDefaultPath();
     }
 
-    /** Returns the vault agent log path. */
+    /** Returns the session agent log path. */
     public function vaultAgentLogPath(): string
     {
         return $this->operations->vaultAgentLogPath();
     }
 
-    /** Returns the vault agent log destination. */
+    /** Returns the configured session agent log destination. */
     public function vaultAgentLogDestination(): string
     {
         return $this->operations->vaultAgentLogDestination();
@@ -374,14 +381,21 @@ final class Revault
 /** Base type for disposable API values; applications use its concrete subclasses. */
 abstract class OwnedHandle
 {
-    /** Returns the construct. */
+    /** Adopts an owned native handle; application code uses concrete subclasses. */
     public function __construct(protected readonly BindingOperations $operations, protected CData $handle) {}
     final public function nativeHandle(): CData { return $this->handle; }
     /** Release native memory; concrete handles implement free(). */
     public function close(): void { if (method_exists($this, 'free')) $this->free(); }
 }
 
-/** An open encrypted archive containing files, variables, secrets, and forms. */
+/**
+ * An open Lockbox containing files, variables, and forms.
+ *
+ * Create or open a Lockbox with exactly one password, content key, or contact.
+ * Mutations remain pending until commit(). Call close() in a finally block to
+ * release the content key held by this process. See the package README and
+ * bindings/e2e/php/conformance.php for complete examples.
+ */
 class Lockbox extends OwnedHandle
 {
     /** Host path for handles returned by the path factory; null for bytes-only handles. */
@@ -431,37 +445,37 @@ class Lockbox extends OwnedHandle
         return $box;
     }
 
-    /** Adds file. */
+    /** Stages a file at the Lockbox path; replace controls an existing entry. */
     public function addFile(string $path, string $data, bool $replace): bool
     {
         return $this->operations->lockboxAddFile($this->handle, $path, $data, $replace);
     }
 
-    /** Adds file with permissions. */
+    /** Stages a file and its portable Unix permission bits. */
     public function addFileWithPermissions(string $path, string $data, int $permissions, bool $replace): bool
     {
         return $this->operations->lockboxAddFileWithPermissions($this->handle, $path, $data, $permissions, $replace);
     }
 
-    /** Returns file. */
+    /** Reads the complete file stored at the Lockbox path. */
     public function getFile(string $path): string
     {
         return $this->operations->lockboxGetFile($this->handle, $path);
     }
 
-    /** Extracts file. */
+    /** Writes one Lockbox file to the host filesystem. */
     public function extractFile(string $source, string $destination, bool $replace): bool
     {
         return $this->operations->lockboxExtractFile($this->handle, $source, $destination, $replace);
     }
 
-    /** Extracts directory. */
+    /** Extracts the Lockbox with explicit size, count, link, and permission limits. */
     public function extractDirectory(string $destination, int $maxFileBytes, int $maxTotalBytes, int $maxFiles, bool $restoreSymlinks, bool $restorePermissions, bool $overwrite): bool
     {
         return $this->operations->lockboxExtractDirectory($this->handle, $destination, $maxFileBytes, $maxTotalBytes, $maxFiles, $restoreSymlinks, $restorePermissions, $overwrite);
     }
 
-    /** Returns the stream content. */
+    /** Lists logical or physical content chunks for streaming diagnostics. */
     public function streamContent(bool $physical): \Revault\StreamChunkList
     {
         return $this->operations->lockboxStreamContent($this->handle, $physical);
@@ -485,43 +499,43 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxResetImportStats($this->handle);
     }
 
-    /** Returns the page inspection. */
+    /** Returns page metadata for diagnostics without exposing plaintext secrets. */
     public function pageInspection(): \Revault\PageInspectionList
     {
         return $this->operations->lockboxPageInspection($this->handle);
     }
 
-    /** Returns the recovery report. */
+    /** Scans the open archive and returns its structured recovery report. */
     public function recoveryReport(): \Revault\RecoveryReport
     {
         return $this->operations->lockboxRecoveryReport($this->handle);
     }
 
-    /** Returns the recovery report render. */
+    /** Renders the recovery report for a person, capped at maxEntries. */
     public function recoveryReportRender(bool $verbose, int $maxEntries): string
     {
         return $this->operations->lockboxRecoveryReportRender($this->handle, $verbose, $maxEntries);
     }
 
-    /** Returns the storage len. */
+    /** Returns the current serialized archive size in bytes. */
     public function storageLen(): int
     {
         return $this->operations->lockboxStorageLen($this->handle);
     }
 
-    /** Sets workload profile. */
+    /** Selects the predefined workload policy for later operations. */
     public function setWorkloadProfile(string $profile): bool
     {
         return $this->operations->lockboxSetWorkloadProfile($this->handle, $profile);
     }
 
-    /** Sets worker policy. */
+    /** Selects worker scheduling and the maximum job count. */
     public function setWorkerPolicy(string $mode, int $jobs): bool
     {
         return $this->operations->lockboxSetWorkerPolicy($this->handle, $mode, $jobs);
     }
 
-    /** Returns the runtime options. */
+    /** Returns the cache, workload, and worker settings used by this Lockbox. */
     public function runtimeOptions(): \Revault\RuntimeOptions
     {
         return $this->operations->lockboxRuntimeOptions($this->handle);
@@ -535,43 +549,43 @@ class Lockbox extends OwnedHandle
         return $committed;
     }
 
-    /** Creates dir. */
+    /** Stages a directory entry and optionally creates missing parents. */
     public function createDir(string $path, bool $createParents): bool
     {
         return $this->operations->lockboxCreateDir($this->handle, $path, $createParents);
     }
 
-    /** Removes delete. */
+    /** Stages removal of a file, link, or empty directory at path. */
     public function delete(string $path): bool
     {
         return $this->operations->lockboxDelete($this->handle, $path);
     }
 
-    /** Removes dir. */
+    /** Stages removal of a directory, optionally including its descendants. */
     public function removeDir(string $path, bool $recursive): bool
     {
         return $this->operations->lockboxRemoveDir($this->handle, $path, $recursive);
     }
 
-    /** Creates parent dirs. */
+    /** Stages every missing parent directory for path. */
     public function createParentDirs(string $path): bool
     {
         return $this->operations->lockboxCreateParentDirs($this->handle, $path);
     }
 
-    /** Updates rename. */
+    /** Stages an atomic move from one Lockbox path to another. */
     public function rename(string $from, string $to): bool
     {
         return $this->operations->lockboxRename($this->handle, $from, $to);
     }
 
-    /** Lists list. */
+    /** Lists entries below path, optionally including descendants. */
     public function list(string $path, bool $recursive): \Revault\LockboxEntryList
     {
         return $this->operations->lockboxList($this->handle, $path, $recursive);
     }
 
-    /** Lists with options. */
+    /** Lists entries using glob, type, recursion, and result limit filters. */
     public function listWithOptions(string $path, string $glob, bool $recursive, bool $includeFiles, bool $includeSymlinks, bool $includeDirectories, int $limit): \Revault\LockboxEntryList
     {
         return $this->operations->lockboxListWithOptions($this->handle, $path, $glob, $recursive, $includeFiles, $includeSymlinks, $includeDirectories, $limit);
@@ -583,7 +597,7 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxStat($this->handle, $path);
     }
 
-    /** Sets variable. */
+    /** Stages a plain text variable; call commit() to publish the change. */
     public function setVariable(string $name, string $value): bool
     {
         return $this->operations->lockboxSetVariable($this->handle, $name, $value);
@@ -595,7 +609,7 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxSetSecretVariable($this->handle, $name, $value);
     }
 
-    /** Returns variable. */
+    /** Returns a plain variable, or null when it is absent. */
     public function getVariable(string $name): ?string
     {
         $value = $this->operations->lockboxGetVariable($this->handle, $name);
@@ -626,7 +640,7 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxWithSecretVariable($this->handle, $name, $callback);
     }
 
-    /** Removes variable. */
+    /** Stages removal of a variable. */
     public function deleteVariable(string $name): bool
     {
         return $this->operations->lockboxDeleteVariable($this->handle, $name);
@@ -638,97 +652,97 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxMoveVariables($this->handle, DomainCodec::encodePathMoves($moves));
     }
 
-    /** Lists variables. */
+    /** Lists variable names and metadata without exposing secret values. */
     public function listVariables(): \Revault\VariableList
     {
         return $this->operations->lockboxListVariables($this->handle);
     }
 
-    /** Returns the variable sensitivity. */
+    /** Returns whether a variable is plain or secret. */
     public function variableSensitivity(string $name): \Revault\OptionalString
     {
         return $this->operations->lockboxVariableSensitivity($this->handle, $name);
     }
 
-    /** Adds symlink. */
+    /** Stages a symbolic link with its stored target text. */
     public function addSymlink(string $path, string $target, bool $replace): bool
     {
         return $this->operations->lockboxAddSymlink($this->handle, $path, $target, $replace);
     }
 
-    /** Returns symlink target. */
+    /** Returns the target text stored for a symbolic link. */
     public function getSymlinkTarget(string $path): string
     {
         return $this->operations->lockboxGetSymlinkTarget($this->handle, $path);
     }
 
-    /** Returns the id. */
+    /** Returns the stable public identifier stored in the Lockbox header. */
     public function id(): string
     {
         return $this->operations->lockboxId($this->handle);
     }
 
-    /** Reports whether exists. */
+    /** Reports whether an entry exists at path. */
     public function exists(string $path): bool
     {
         return $this->operations->lockboxExists($this->handle, $path);
     }
 
-    /** Reports whether dir. */
+    /** Reports whether path names a directory entry. */
     public function isDir(string $path): bool
     {
         return $this->operations->lockboxIsDir($this->handle, $path);
     }
 
-    /** Returns the permissions. */
+    /** Returns the portable Unix permission bits stored for path. */
     public function permissions(string $path): int
     {
         return $this->operations->lockboxPermissions($this->handle, $path);
     }
 
-    /** Sets permissions. */
+    /** Stages portable Unix permission bits for path. */
     public function setPermissions(string $path, int $permissions): bool
     {
         return $this->operations->lockboxSetPermissions($this->handle, $path, $permissions);
     }
 
-    /** Returns range. */
+    /** Reads len bytes from a file starting at its logical offset. */
     public function readRange(string $path, int $offset, int $len): string
     {
         return $this->operations->lockboxReadRange($this->handle, $path, $offset, $len);
     }
 
-    /** Adds password. */
+    /** Adds a password access slot and returns its slot identifier. */
     public function addPassword(string $password): int
     {
         return $this->operations->lockboxAddPassword($this->handle, $password);
     }
 
-    /** Adds contact. */
+    /** Grants a named contact access and returns the new slot identifier. */
     public function addContact(OwnedHandle $contact, string $name): int
     {
         return $this->operations->lockboxAddContact($this->handle, $contact->nativeHandle(), $name);
     }
 
-    /** Removes key. */
+    /** Removes an access slot; at least one usable slot must remain. */
     public function deleteKey(int $id): bool
     {
         return $this->operations->lockboxDeleteKey($this->handle, $id);
     }
 
-    /** Lists key slots. */
+    /** Lists public access slot metadata without returning credentials. */
     public function listKeySlots(): \Revault\KeySlotList
     {
         return $this->operations->lockboxListKeySlots($this->handle);
     }
 
-    /** Sets owner signing key. */
+    /** Assigns a profile signing key to the Lockbox owner role. */
     public function setOwnerSigningKey(OwnedHandle $key): bool
     {
         return $this->operations->lockboxSetOwnerSigningKey($this->handle, $key->nativeHandle());
     }
 
-    /** Returns the owner inspection. */
+    /** Returns public signing and ownership metadata for the current revision. */
     public function ownerInspection(): \Revault\OwnerInspection
     {
         return $this->operations->lockboxOwnerInspection($this->handle);
@@ -740,31 +754,31 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxDefineForm($this->handle, $alias, $name, $description, DomainCodec::encodeFormFields($fields));
     }
 
-    /** Lists form definitions. */
+    /** Lists the form definitions stored in this Lockbox. */
     public function listFormDefinitions(): \Revault\FormDefinitionList
     {
         return $this->operations->lockboxListFormDefinitions($this->handle);
     }
 
-    /** Returns the resolve form. */
+    /** Resolves a form alias, type identifier, or revision. */
     public function resolveForm(string $reference): \Revault\FormDefinition
     {
         return $this->operations->lockboxResolveForm($this->handle, $reference);
     }
 
-    /** Lists form revisions. */
+    /** Lists every stored revision for a form type identifier. */
     public function listFormRevisions(string $typeId): \Revault\FormDefinitionList
     {
         return $this->operations->lockboxListFormRevisions($this->handle, $typeId);
     }
 
-    /** Creates form record. */
+    /** Stages a form record at path using the referenced definition. */
     public function createFormRecord(string $path, string $typeReference, string $name): \Revault\FormRecord
     {
         return $this->operations->lockboxCreateFormRecord($this->handle, $path, $typeReference, $name);
     }
 
-    /** Sets form field. */
+    /** Stages a plain field value in a form record. */
     public function setFormField(string $path, string $field, string $value): bool
     {
         return $this->operations->lockboxSetFormField($this->handle, $path, $field, $value);
@@ -776,19 +790,19 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxSetSecretFormField($this->handle, $path, $field, $value);
     }
 
-    /** Lists form records. */
+    /** Lists form records without exposing secret field values. */
     public function listFormRecords(): \Revault\FormRecordList
     {
         return $this->operations->lockboxListFormRecords($this->handle);
     }
 
-    /** Returns form record. */
+    /** Returns a form record when path exists. */
     public function getFormRecord(string $path): \Revault\OptionalFormRecord
     {
         return $this->operations->lockboxGetFormRecord($this->handle, $path);
     }
 
-    /** Removes form record. */
+    /** Stages removal of a form record. */
     public function deleteFormRecord(string $path): bool
     {
         return $this->operations->lockboxDeleteFormRecord($this->handle, $path);
@@ -800,7 +814,7 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxMoveFormRecords($this->handle, DomainCodec::encodePathMoves($moves));
     }
 
-    /** Returns form field. */
+    /** Returns a plain form field when it exists. */
     public function getFormField(string $path, string $field): \Revault\OptionalFormValue
     {
         return $this->operations->lockboxGetFormField($this->handle, $path, $field);
@@ -812,7 +826,7 @@ class Lockbox extends OwnedHandle
         return $this->operations->lockboxWithSecretFormField($this->handle, $path, $field, $callback);
     }
 
-    /** Returns the to bytes. */
+    /** Serializes the current Lockbox, including committed changes. */
     public function toBytes(): string
     {
         return $this->operations->lockboxToBytes($this->handle);
@@ -860,7 +874,7 @@ class ContactKeyPair extends OwnedHandle
 class ContactPublicKey extends OwnedHandle
 {
 
-    /** Returns the public free. */
+    /** Releases this public contact key. */
     public function publicFree(): void
     {
         $this->operations->keyContactPublicFree($this->handle);
@@ -878,19 +892,19 @@ class ContactPublicKey extends OwnedHandle
 class WrappedContactKey extends OwnedHandle
 {
 
-    /** Returns the public. */
+    /** Returns the ephemeral public key stored in this wrapped key. */
     public function public(): string
     {
         return $this->operations->keyContactWrappedPublic($this->handle);
     }
 
-    /** Returns the ciphertext. */
+    /** Returns the encrypted content key bytes. */
     public function ciphertext(): string
     {
         return $this->operations->keyContactWrappedCiphertext($this->handle);
     }
 
-    /** Returns the encrypted. */
+    /** Returns the complete wrapped key record for storage or transport. */
     public function encrypted(): string
     {
         return $this->operations->keyContactWrappedEncrypted($this->handle);
@@ -908,13 +922,13 @@ class WrappedContactKey extends OwnedHandle
 class ProfileSigningKeyPair extends OwnedHandle
 {
 
-    /** Returns the public. */
+    /** Returns the canonical public bytes for this signing identity. */
     public function public(): string
     {
         return $this->operations->keySigningPublic($this->handle);
     }
 
-    /** Returns the private. */
+    /** Returns the private signing key record for secure backup. */
     public function private(): string
     {
         return $this->operations->keySigningPrivate($this->handle);
@@ -953,13 +967,13 @@ class ProfileSigningPublicKey extends OwnedHandle
 class VaultStore extends OwnedHandle
 {
 
-    /** Returns the root. */
+    /** Returns the canonical root directory of this Vault. */
     public function root(): string
     {
         return $this->operations->vaultDirectoryRoot($this->handle);
     }
 
-    /** Returns the structure version. */
+    /** Returns the persistent structure version of this Vault. */
     public function structureVersion(): int
     {
         return $this->operations->vaultDirectoryStructureVersion($this->handle);
@@ -989,7 +1003,7 @@ class VaultStore extends OwnedHandle
         return $this->operations->vaultDirectoryListFormAliases($this->handle);
     }
 
-    /** Returns the private key exists. */
+    /** Reports whether the named profile private key exists. */
     public function privateKeyExists(string $name): bool
     {
         return $this->operations->vaultDirectoryPrivateKeyExists($this->handle, $name);
@@ -1031,7 +1045,7 @@ class VaultStore extends OwnedHandle
         return new ContactPublicKey($this->operations, $this->operations->vaultDirectoryLoadContact($this->handle, $name));
     }
 
-    /** Returns the contact exists. */
+    /** Reports whether the named contact exists. */
     public function contactExists(string $name): bool
     {
         return $this->operations->vaultDirectoryContactExists($this->handle, $name);
@@ -1055,7 +1069,7 @@ class VaultStore extends OwnedHandle
         return $this->operations->vaultDirectoryStoreProfileEmail($this->handle, $name, $email);
     }
 
-    /** Returns the profile email. */
+    /** Returns the email recorded for a profile, when present. */
     public function profileEmail(string $name): \Revault\OptionalString
     {
         return $this->operations->vaultDirectoryProfileEmail($this->handle, $name);
@@ -1073,13 +1087,13 @@ class VaultStore extends OwnedHandle
         return $this->operations->vaultDirectoryLoadBackup($this->handle, $id);
     }
 
-    /** Returns the backup count. */
+    /** Returns the number of stored key recovery backups. */
     public function backupCount(): int
     {
         return $this->operations->vaultDirectoryBackupCount($this->handle);
     }
 
-    /** Returns the restore private key. */
+    /** Restores a profile private key and signing key from recovery material. */
     public function restorePrivateKey(string $name, OwnedHandle $key, OwnedHandle $signingKey, bool $overwrite): bool
     {
         return $this->operations->vaultDirectoryRestorePrivateKey($this->handle, $name, $key->nativeHandle(), $signingKey->nativeHandle(), $overwrite);
@@ -1151,7 +1165,7 @@ class VaultStore extends OwnedHandle
         return $this->operations->vaultDirectoryListAccessSlotLabels($this->handle, $id);
     }
 
-    /** Returns the find access slot labels. */
+    /** Finds access slot labels with the supplied name for one Lockbox. */
     public function findAccessSlotLabels(string $id, string $name): \Revault\AccessSlotLabelList
     {
         return $this->operations->vaultDirectoryFindAccessSlotLabels($this->handle, $id, $name);
@@ -1169,7 +1183,7 @@ class VaultStore extends OwnedHandle
         return $this->operations->vaultDirectoryDefineForm($this->handle, $alias, $name, $description, DomainCodec::encodeFormFields($fields));
     }
 
-    /** Returns the resolve form. */
+    /** Resolves a Vault form alias, type identifier, or revision. */
     public function resolveForm(string $reference): \Revault\FormDefinition
     {
         return $this->operations->vaultDirectoryResolveForm($this->handle, $reference);
@@ -1187,7 +1201,7 @@ class VaultStore extends OwnedHandle
         return $this->operations->vaultDirectoryListFormRevisions($this->handle, $typeId);
     }
 
-    /** Returns the seed forms. */
+    /** Adds any missing standard form definitions and returns the number added. */
     public function seedForms(): int
     {
         return $this->operations->vaultDirectorySeedForms($this->handle);
@@ -1199,7 +1213,7 @@ class VaultStore extends OwnedHandle
         return $this->operations->vaultDirectoryRememberPassword($this->handle, $id, $password);
     }
 
-    /** Returns the remembered password. */
+    /** Returns the Lockbox password encrypted inside this Vault. */
     public function rememberedPassword(string $id): string
     {
         return $this->operations->vaultDirectoryRememberedPassword($this->handle, $id);
@@ -1216,7 +1230,7 @@ class VaultStore extends OwnedHandle
 /** A metadata view for discovery and diagnostics that never loads an owner signing key. */
 class ReadOnlyVault
 {
-    /** Returns the construct. */
+    /** Adopts a read only Vault handle returned by Revault. */
     public function __construct(protected readonly BindingOperations $operations, protected CData $handle) {}
 
     /** Lists profile names. */
@@ -1257,10 +1271,10 @@ class ReadOnlyVault
 /** Client for the session service that temporarily caches vault unlock and signing keys. */
 class Agent
 {
-    /** Returns the construct. */
+    /** Creates a controller for the optional session agent. */
     public function __construct(protected readonly BindingOperations $operations) {}
 
-    /** Reports whether running. */
+    /** Reports whether the session agent is running. */
     public function isRunning(): bool
     {
         return $this->operations->vaultIsRunning();
@@ -1272,7 +1286,7 @@ class Agent
         return $this->operations->vaultForgetAll();
     }
 
-    /** Returns the serve. */
+    /** Runs the session agent server until it is stopped. */
     public function serve(): bool
     {
         return $this->operations->vaultAgentServe();
@@ -1314,13 +1328,13 @@ class Agent
         return $this->operations->vaultAgentStart();
     }
 
-    /** Lists list. */
+    /** Lists the content keys currently cached by the session agent. */
     public function list(): \Revault\AgentEntryList
     {
         return $this->operations->vaultAgentList();
     }
 
-    /** Returns the sleep support. */
+    /** Reports how the platform handles agent expiry during system sleep. */
     public function sleepSupport(): \Revault\SleepSupport
     {
         return $this->operations->vaultAgentSleepSupport();
@@ -1385,16 +1399,16 @@ class AgentActivity extends OwnedHandle
 /** Access to the platform credential store for a scoped Vault passphrase. */
 class Platform
 {
-    /** Returns the construct. */
+    /** Creates a facade for the operating system credential store. */
     public function __construct(protected readonly BindingOperations $operations) {}
 
-    /** Returns the status. */
+    /** Returns availability and user presence guarantees for platform storage. */
     public function status(): \Revault\PlatformStatus
     {
         return $this->operations->vaultPlatformStatus();
     }
 
-    /** Sets scope. */
+    /** Selects the application scope used for platform credentials. */
     public function setScope(string $scope): bool
     {
         return $this->operations->vaultPlatformSetScope($scope);
@@ -1412,19 +1426,19 @@ class Platform
         return $this->operations->vaultPlatformPutPassword($password);
     }
 
-    /** Returns the enable. */
+    /** Enables storage of the Vault passphrase in platform credentials. */
     public function enable(): bool
     {
         return $this->operations->vaultPlatformEnable();
     }
 
-    /** Returns the disable. */
+    /** Disables platform credential use without deleting the stored value. */
     public function disable(): bool
     {
         return $this->operations->vaultPlatformDisable();
     }
 
-    /** Returns the disabled. */
+    /** Reports whether platform credential use is disabled. */
     public function disabled(): bool
     {
         return $this->operations->vaultPlatformDisabled();
@@ -1498,15 +1512,26 @@ class LocalSession extends OwnedHandle
 
 }
 
-/** Persistent encrypted local store for profiles, keys, contacts and metadata. */
+/**
+ * Persistent encrypted local store for profiles, keys, contacts, forms, and
+ * remembered Lockbox access.
+ *
+ * open() requires an existing Vault. openOrCreate() preserves existing state
+ * and creates only when absent. create() and replace() deliberately replace
+ * persistent state.
+ */
 final class Vault extends VaultStore
 {
+    /** Opens an existing Vault with its passphrase. */
     public static function open(string $root, string $vaultPassphrase): self
     { return Revault::load()->vaultDirectoryOpen($root, $vaultPassphrase); }
+    /** Opens the Vault at root, creating it only when it does not exist. */
     public static function openOrCreate(string $root, string $vaultPassphrase): self
     { return Revault::load()->vaultDirectoryOpenOrCreate($root, $vaultPassphrase); }
+    /** Creates a fresh Vault and replaces any existing state at root. */
     public static function create(string $root, string $vaultPassphrase): self
     { return Revault::load()->vaultDirectoryReplace($root, $vaultPassphrase); }
+    /** Explicit destructive alias for create(). */
     public static function replace(string $root, string $vaultPassphrase): self
     { return Revault::load()->vaultDirectoryReplace($root, $vaultPassphrase); }
 }
@@ -1542,6 +1567,7 @@ final class AgentSession extends Agent
     public function free(): void { $this->close(); }
 }
 
+/** A caller owned secret buffer that close() overwrites. */
 class SecretBytes
 {
     private string $bytes;
@@ -1552,6 +1578,7 @@ class SecretBytes
     /** Wipe the stored bytes in place. */
     public function close(): void { $this->bytes = str_repeat("\0", strlen($this->bytes)); }
 }
+/** A UTF-8 secret stored in the same wipeable buffer as SecretBytes. */
 final class SecretString extends SecretBytes {}
 final class LockboxCacheMode { public const BYTES = 'bytes', DISABLED = 'disabled', AUTOMATIC = 'automatic'; }
 final class LockboxWorkload { public const INTERACTIVE = 'interactive', BULK_IMPORT = 'bulk-import', READ_MOSTLY = 'read-mostly'; }

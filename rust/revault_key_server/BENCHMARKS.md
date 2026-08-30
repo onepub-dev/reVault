@@ -144,7 +144,8 @@ index files plus a bounded in-memory recent-published-payload cache. This benchm
 12-digit publish codes because 8-digit codes have too much collision pressure at
 one million live published payloads.
 
-Benchmarks disable the per-IP rate limiter so they measure server throughput.
+Benchmarks exercise the key server directly; client-IP limiting belongs to the
+TLS proxy and is not part of these throughput measurements.
 Production defaults enable a per-IP token bucket.
 
 ## Compaction
@@ -180,10 +181,9 @@ verification_ttl=30 minutes
 default_receive_ttl=2 hours
 max_receive_ttl=2 hours
 max_receives_per_publish=8
-rate_limit_per_ip=120 requests/minute
-rate_limit_burst=40
+request_rate_limit=TLS proxy responsibility
 verification_email_rate_limit=5/hour/email/cluster
-verification_email_ip_rate_limit=30/hour/source-ip
+verification_email_ip_rate_limit=TLS proxy responsibility
 ```
 
 The server validates typed, versioned reVault publish payloads before storing

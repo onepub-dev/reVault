@@ -81,15 +81,22 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
                 VariableValueRef::Secret(_) => Ok(()),
             })?;
         }
-        "remove" | "rm" => {
+        "remove" | "rm" | "delete" => {
             let args = optional_lockbox_positionals(positional_values(sub, "args"), 1)?;
-            let name = VariableName::new(require_arg(&args, 1, "name")?)?;
             let mut lb = open_existing(&args[0], access)?;
-            lb.delete_variable(&name)?;
+            let names = args[1..]
+                .iter()
+                .map(VariableName::new)
+                .collect::<Result<Vec<_>, _>>()?;
+            for name in &names {
+                lb.delete_variable(name)?;
+            }
             lb.commit()?;
-            println!("Variable removed: {name}");
+            for name in names {
+                println!("Variable removed: {name}");
+            }
         }
-        "move" | "mv" => {
+        "move" | "mv" | "rename" => {
             let args = optional_lockbox_positionals(positional_values(sub, "args"), 2)?;
             move_variables(
                 &args[0],

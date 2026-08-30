@@ -1,6 +1,6 @@
 [package]
 name = "revault_cli"
-version = "0.0.7"
+version = "0.0.8"
 edition = "2021"
 rust-version = "1.88"
 authors = ["OnePub IP Pty Ltd <support@onepub.dev>"]
@@ -63,10 +63,10 @@ clap = { version = "4.6.1", default-features = false, features = [
 clap_complete = { version = "4.6.7", default-features = false, features = [
     "unstable-dynamic",
 ] }
-revault_lockbox_api = { version = "0.0.6", path = "../revault_lockbox_api" }
-revault_publish_protocol = { version = "0.0.4", path = "../revault_publish_protocol" }
-revault_vault_api = { version = "0.0.6", path = "../revault_vault_api" }
-revault_migration = { version = "0.0.3", path = "../revault_migration" }
+revault_lockbox_api = { version = "0.0.7", path = "../revault_lockbox_api" }
+revault_publish_protocol = { version = "0.0.5", path = "../revault_publish_protocol" }
+revault_vault_api = { version = "0.0.7", path = "../revault_vault_api" }
+revault_migration = { version = "0.0.4", path = "../revault_migration" }
 
 getrandom = "0.4"
 serde_json = "1"
@@ -82,7 +82,9 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [dev-dependencies]
+revault_lockbox_api = { path = "../revault_lockbox_api", features = ["test-support"] }
 revault_key_server = { path = "../revault_key_server" }
 revault_vault_api_v1 = { package = "revault_vault_api", version = "=0.0.2" }
-revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.2" }
+revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.3" }
+revault_lockbox_api_vault_v1 = { package = "revault_lockbox_api", version = "=0.0.2" }
 tempfile = "3"

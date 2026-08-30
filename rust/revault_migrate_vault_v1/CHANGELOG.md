@@ -1,8 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.0.3 - 2026-08-30
 
 - Restored the minimum supported Rust version to Rust 1.88.
+- Accept migration format 0.0.4 so the v1 exporter remains installable with
+  the current migration coordinator.
 
 ## 0.0.1
 

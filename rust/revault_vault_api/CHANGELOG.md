@@ -1,7 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.0.7 - 2026-08-30
 
+- Persist the vault container signer separately from the removable `default`
+  profile so deleting or restoring that profile cannot strand the vault.
+  Existing current-format vaults add the dedicated record only after an
+  authenticated open, while missing or mismatched signer material fails closed.
+- Reject vault password changes when the vault structure version is not the
+  current version, before changing any key material.
+- Allow migration import to create a vault container with its restored owner
+  signing key instead of an unrelated ephemeral signer.
 - Treat the session-agent protocol version as the compatibility contract so
   clients and agents from different package releases can interoperate when
   their wire protocol is unchanged.

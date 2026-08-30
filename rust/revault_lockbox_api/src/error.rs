@@ -24,7 +24,7 @@ impl ArtifactKind {
 pub enum Error {
     /// The public header could not be parsed or authenticated.
     CorruptHeader,
-    /// A published transaction requires explicit, authenticated cleanup.
+    /// A published transaction requires authenticated cleanup.
     RecoveryRequired {
         /// Published transaction that owns the cleanup manifest.
         transaction_sequence: u64,
@@ -96,13 +96,13 @@ impl Error {
                 "Verify this is a lockbox file, then try recovery if the file may be damaged."
             }
             Error::RecoveryRequired { .. } => {
-                "Run `lbx <path> recover --transaction` with the same credentials before reading or changing the archive."
+                "A write-capable open completes cleanup automatically. For a read-only workflow, run `lbx <path> doctor recover`."
             }
             Error::RecoveryInProgress(_) => {
                 "Wait for the active recovery process to finish, then inspect recovery state again."
             }
             Error::RecoveryBlocked(_) => {
-                "Restore write access to the lockbox storage, then resume explicit transaction recovery."
+                "Restore write access to the lockbox storage, then retry the write or run `lbx <path> doctor recover`."
             }
             Error::UnsupportedFormatVersion { artifact, .. } => match artifact {
                 ArtifactKind::Lockbox => {

@@ -2,7 +2,7 @@
 create
 secrets.lbox open
 secrets.lbox close
-damaged.lbox recover
+damaged.lbox doctor recover
 secrets.lbox add
 secrets.lbox extract
 secrets.lbox cat
@@ -32,8 +32,8 @@ migrate archive
 completion install
 
 # Representative documented option and argument forms.
-damaged.lbox recover --dry-run --format json
-damaged.lbox recover --output recovered.lbox
+damaged.lbox doctor recover --dry-run --format json
+damaged.lbox doctor recover --output recovered.lbox
 project.lbox add --recursive ./project --to archive/project/
 project.lbox extract /docs/readme.md ./README.md
 project.lbox remove --recursive /old/

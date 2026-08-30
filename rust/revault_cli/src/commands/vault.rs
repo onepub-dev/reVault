@@ -138,7 +138,9 @@ fn vault_profile_matches(matches: &ArgMatches) -> CliResult<()> {
             ProfileExportArgs::from_matches(sub),
             KeyFormat::parse(optional_value(sub, "format").unwrap_or("lockbox"))?,
         ),
-        "remove" | "rm" => remove_key_options(optional_value(sub, "name"), sub.get_flag("force")),
+        "remove" | "rm" | "delete" => {
+            remove_key_options(optional_value(sub, "name"), sub.get_flag("force"))
+        }
         "rotate" => rotate_key(&optional_string_arg(sub, "name")),
         _ => Err(Error::InvalidInput(format!("unknown vault profile command: {command}")).into()),
     }
@@ -155,7 +157,7 @@ fn vault_contact_matches(matches: &ArgMatches) -> CliResult<()> {
         "list" | "ls" => list_contacts_with_format(output_format_from_matches(sub)?),
         "import" => contact_import_options(ContactImportOptions::from_matches(sub)),
         "receive" => receive_publish_options(PublishCliOptions::from_receive_matches(sub)?),
-        "remove" | "rm" => remove_contact_name(&required_value(sub, "name")),
+        "remove" | "rm" | "delete" => remove_contact_name(&required_value(sub, "name")),
         _ => Err(Error::InvalidInput(format!("unknown vault contact command: {command}")).into()),
     }
 }
@@ -172,7 +174,7 @@ fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
             output_format_from_matches(sub)?,
             sub.get_flag("with-description"),
         ),
-        "move" | "mv" => move_known_lockbox(
+        "move" | "mv" | "rename" => move_known_lockbox(
             &required_value(sub, "source"),
             &required_value(sub, "destination"),
         ),

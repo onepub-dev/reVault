@@ -51,6 +51,7 @@ pub(crate) fn command(verbose: bool) -> Command {
         )
         .subcommands([
             archive_command("create", "Create a new encrypted lockbox.")
+                .override_usage("lockbox <LOCKBOX> create [OPTIONS]")
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault init\n  lockbox secrets.lbox create\n  lockbox secrets.lbox create --password\n  lockbox secrets.lbox create --for alice",
@@ -118,41 +119,6 @@ pub(crate) fn command(verbose: bool) -> Command {
                     "Examples:\n  lockbox secrets.lbox close\n  lockbox close",
                     "Context:\n  Closes the given Lockbox or the default Lockbox if no argument is given. On supported platforms the Session Agent will automatically close the Lockbox after 30 minutes.",
                 )),
-            archive_command("recover", "Recover readable entries from a damaged lockbox.")
-                .after_help(verbose_help(
-                    verbose,
-                    "Examples:\n  lockbox damaged.lbox recover\n  lockbox damaged.lbox recover --output recovered.lbox\n  lockbox damaged.lbox recover --dry-run --format table",
-                    "Context:\n  Recover scans a damaged lockbox and writes a new lockbox containing readable entries. By default the recovered file is written next to the original as <name>.recovered.lbox. Use --dry-run first when you want to inspect what can be recovered without writing an output file.",
-                ))
-                .arg(
-                    Arg::new("transaction")
-                        .long("transaction")
-                        .action(ArgAction::SetTrue)
-                        .conflicts_with_all(["output", "overwrite", "dry-run"])
-                        .help("Resume and seal interrupted transaction redaction cleanup in place."),
-                )
-                .arg(
-                    Arg::new("output")
-                        .long("output")
-                        .short('o')
-                        .value_name("RECOVERED_LOCKBOX")
-                        .value_hint(ValueHint::AnyPath)
-                        .help("Write recovered entries to this new lockbox."),
-                )
-                .arg(
-                    Arg::new("overwrite")
-                        .long("overwrite")
-                        .action(ArgAction::SetTrue)
-                        .help("Replace the recovered lockbox output file if it already exists."),
-                )
-                .arg(
-                    Arg::new("dry-run")
-                        .long("dry-run")
-                        .action(ArgAction::SetTrue)
-                        .conflicts_with_all(["output", "overwrite"])
-                        .help("Print a recovery report without writing a recovered lockbox."),
-                )
-                .arg(output_format_arg()),
             file_command("add", "Add a file or directory to a lockbox.")
                 .after_help(verbose_help(
                     verbose,
@@ -237,18 +203,19 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .help("Stored path and host destination; omit both to extract the selected lockbox with --to.")
                         .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
-            file_command("cat", "Write a stored file to stdout.")
+            file_command("cat", "Write stored files to stdout.")
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox secrets.lbox cat /notes.txt\n  lockbox secrets.lbox cat /notes.txt > notes.txt",
-                    "Context:\n  Cat streams one stored file to stdout. Use it for inspection, piping, or shell redirection when you do not want reVault to create a host file directly.",
+                    "Context:\n  Cat streams one or more stored files to stdout. Use it for inspection, piping, or shell redirection when you do not want reVault to create host files directly.",
                 ))
                 .arg(
                     Arg::new("args")
                         .value_name("PATH")
-                        .num_args(1)
+                        .num_args(1..)
                         .action(ArgAction::Append)
-                        .help("Stored path in the selected lockbox.")
+                        .required(true)
+                        .help("One or more stored paths in the selected lockbox.")
                         .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
             file_command("list", "List stored entries.")
@@ -275,7 +242,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
             file_command("remove", "Remove a stored entry.")
-                .visible_alias("rm")
+                .visible_aliases(["rm", "delete"])
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox secrets.lbox remove notes.txt\n  lockbox secrets.lbox remove package.json package-lock.json\n  lockbox secrets.lbox rm '*.json'\n  lockbox secrets.lbox rm '**/*.json'\n  lockbox secrets.lbox remove --recursive old/\n  lockbox secrets.lbox remove --force old.txt",
@@ -300,6 +267,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("PATH_OR_GLOB...")
                         .num_args(1..)
                         .action(ArgAction::Append)
+                        .required(true)
                         .help("One or more stored paths or archive globs in the selected lockbox.")
                         .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
@@ -312,9 +280,9 @@ pub(crate) fn command(verbose: bool) -> Command {
                 ))
                 .arg(
                     Arg::new("args")
-                        .value_name("FROM TO")
+                        .value_names(["FROM", "TO"])
                         .num_args(2)
-                        .action(ArgAction::Append)
+                        .required(true)
                         .help("Stored source and destination paths in the selected lockbox.")
                         .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
@@ -325,12 +293,13 @@ pub(crate) fn command(verbose: bool) -> Command {
             completion_command(),
             migration_command(verbose),
             access_command(verbose),
-            archive_command("doctor", "Show vault, agent, or lockbox diagnostics.")
+            archive_command("doctor", "Diagnose vault, agent, or lockbox problems.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox doctor\n  lockbox secrets.lbox doctor",
-                    "Context:\n  With no Lockbox path, doctor reports local configuration and runtime state, including the Vault path, Auto Open support, and whether the Session Agent is reachable. With a Lockbox path, doctor inspects public Lockbox metadata without opening it and adds the encrypted description and deeper checks when the Lockbox can be opened.",
-                )),
+                    "Examples:\n  lockbox doctor\n  lockbox secrets.lbox doctor\n  lockbox damaged.lbox doctor recover --dry-run",
+                    "Context:\n  With no Lockbox path, doctor reports local configuration and runtime state, including the Vault path, Auto Open support, and whether the Session Agent is reachable. With a Lockbox path, doctor inspects public Lockbox metadata without opening it and adds the encrypted description and deeper checks when the Lockbox can be opened. Doctor recover automatically completes authenticated interrupted cleanup in place; otherwise it salvages readable entries to a new Lockbox.",
+                ))
+                .subcommand(recovery_command(verbose)),
             vault_command(verbose),
             developer_command("visualize", "Print internal lockbox structure.")
                 .visible_alias("visualise"),
@@ -372,7 +341,6 @@ Archives
   create          Create a new encrypted lockbox.
   open            Open a lockbox for later commands.
   close           Close the lockbox.
-  recover         Recover readable entries from a damaged lockbox.
 
 Files
   add             Add a file or directory to a lockbox.
@@ -380,7 +348,7 @@ Files
   extract         Extract files from a lockbox.
   cat             Write a stored file to stdout.
   list            List stored entries.
-  remove          Remove stored entries (alias: rm).
+  remove          Remove stored entries (aliases: rm, delete).
   move            Move or rename a stored entry (aliases: mv, rename).
 
 Data
@@ -398,7 +366,7 @@ Sharing
   access          Grant or revoke who can open a lockbox.
 
 Diagnostics
-  doctor          Show vault, agent, or lockbox diagnostics.
+  doctor          Diagnose and recover vault, agent, or lockbox problems.
 
 Vault
   vault           Manage profiles, contacts, and reusable forms."
@@ -423,8 +391,8 @@ Migration commands:
 
 Process variables:
   LOCKBOX_KEY=<raw-content-key> lockbox <command> ...
-    LOCKBOX_PASSWORD=<password> lockbox open <lockbox>
-  LOCKBOX_OPEN_DURATION=30m lockbox open <lockbox>
+    LOCKBOX_PASSWORD=<password> lockbox <lockbox> open
+  LOCKBOX_OPEN_DURATION=30m lockbox <lockbox> open
   LOCKBOX_VAULT_PASSWORD=<password> lockbox vault <command>
   LOCKBOX_PLATFORM_SECRET_STORE=auto|disabled lockbox vault <command>
   LOCKBOX_SESSION_AGENT_DIR=<dir> lockbox <command> ...
@@ -443,6 +411,38 @@ Run \"lockbox <command> --help\" for more information about a command."
 
 fn archive_command(name: &'static str, about: &'static str) -> Command {
     base_command(name, about)
+}
+
+fn recovery_command(verbose: bool) -> Command {
+    Command::new("recover")
+        .about("Recover a lockbox using the safest applicable operation.")
+        .after_help(verbose_help(
+            verbose,
+            "Examples:\n  lockbox damaged.lbox doctor recover\n  lockbox damaged.lbox doctor recover --output recovered.lbox\n  lockbox damaged.lbox doctor recover --dry-run --format table",
+            "Context:\n  Recover first detects authenticated interrupted transaction cleanup and completes it in place. If no cleanup is pending, it scans the damaged lockbox and writes a new lockbox containing readable entries. By default the recovered file is written next to the original as <name>.recovered.lbox. Use --dry-run to inspect the operation without changing files.",
+        ))
+        .arg(
+            Arg::new("output")
+                .long("output")
+                .short('o')
+                .value_name("RECOVERED_LOCKBOX")
+                .value_hint(ValueHint::AnyPath)
+                .help("Write salvaged entries to this new lockbox."),
+        )
+        .arg(
+            Arg::new("overwrite")
+                .long("overwrite")
+                .action(ArgAction::SetTrue)
+                .help("Replace the salvage output file if it already exists."),
+        )
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(ArgAction::SetTrue)
+                .conflicts_with_all(["output", "overwrite"])
+                .help("Report the detected recovery operation without changing files."),
+        )
+        .arg(output_format_arg())
 }
 
 fn file_command(name: &'static str, about: &'static str) -> Command {
@@ -551,7 +551,8 @@ fn mirror_command(verbose: bool) -> Command {
                     .action(ArgAction::SetTrue)
                     .help("Forget without prompting."),
             ),
-        Command::new("delete")
+        Command::new("destroy")
+            .visible_alias("delete-project")
             .about("Delete the project and its complete managed directory.")
             .arg(
                 Arg::new("force")
@@ -583,7 +584,7 @@ fn mirror_command(verbose: bool) -> Command {
                     .add(ArgValueCompleter::new(completion::mirror_entry_candidates)),
             ),
         Command::new("remove")
-            .visible_alias("rm")
+            .visible_aliases(["rm", "delete"])
             .about("Remove project entries.")
             .arg(
                 Arg::new("force")
@@ -632,6 +633,7 @@ fn mirror_rule_command() -> Command {
         .arg_required_else_help(true)
         .subcommands([
             Command::new("list")
+                .visible_alias("ls")
                 .arg(
                     Arg::new("kind")
                         .value_name("include|exclude")
@@ -642,7 +644,7 @@ fn mirror_rule_command() -> Command {
                 .arg(required_rule_kind())
                 .arg(rule_patterns()),
             Command::new("remove")
-                .visible_alias("rm")
+                .visible_aliases(["rm", "delete"])
                 .arg(required_rule_kind())
                 .arg(
                     rule_patterns().add(ArgValueCompleter::new(completion::mirror_rule_candidates)),
@@ -802,6 +804,7 @@ fn variables_command(verbose: bool) -> Command {
                     .value_name("NAME[=VALUE] [VALUE]")
                     .num_args(1..=2)
                     .action(ArgAction::Append)
+                    .required(true)
                     .add(ArgValueCompleter::new(completion::archive_value_candidates))
                     .help("Variable name and optional value in the selected lockbox."),
             )
@@ -875,7 +878,7 @@ fn variables_command(verbose: bool) -> Command {
                 Arg::new("args")
                     .value_name("NAME")
                     .num_args(1)
-                    .action(ArgAction::Append)
+                    .required(true)
                     .add(ArgValueCompleter::new(completion::archive_value_candidates))
                     .help("Variable name in the selected lockbox."),
             ),
@@ -932,7 +935,7 @@ fn variables_command(verbose: bool) -> Command {
     )
     .subcommand(
         Command::new("move")
-            .visible_alias("mv")
+            .visible_aliases(["mv", "rename"])
             .about("Move matching variables into another path.")
             .override_usage("lockbox [LOCKBOX] variable move [OPTIONS] <SOURCE> <DESTINATION>")
             .after_help(verbose_help(
@@ -952,20 +955,21 @@ fn variables_command(verbose: bool) -> Command {
     )
     .subcommand(
         Command::new("remove")
-            .visible_alias("rm")
-            .about("Remove a variable value.")
+            .visible_aliases(["rm", "delete"])
+            .about("Remove variable values.")
             .after_help(verbose_help(
                 verbose,
                 "Examples:\n  lockbox secrets.lbox variable remove APP_MODE\n  lockbox secrets.lbox variable remove API_TOKEN",
-                "Context:\n  Variables remove deletes one named value from a lockbox. It affects only the lockbox record, not the current process environment.",
+                "Context:\n  Variables remove deletes one or more named values from a lockbox. It affects only lockbox records, not the current process environment.",
             ))
             .arg(
                 Arg::new("args")
                     .value_name("NAME")
-                    .num_args(1)
+                    .num_args(1..)
                     .action(ArgAction::Append)
+                    .required(true)
                     .add(ArgValueCompleter::new(completion::archive_value_candidates))
-                    .help("Variable name in the selected lockbox."),
+                    .help("One or more variable names in the selected lockbox."),
             ),
     )
 }
@@ -1108,6 +1112,7 @@ fn form_command(verbose: bool) -> Command {
                         .value_name("FORM NEW_NAME")
                         .num_args(1..=2)
                         .action(ArgAction::Append)
+                        .required(true)
                         .help("Form name and optional vault name."),
                 ),
         )
@@ -1123,7 +1128,7 @@ fn form_command(verbose: bool) -> Command {
                     Arg::new("args")
                         .value_name("PATH")
                         .num_args(1)
-                        .action(ArgAction::Append)
+                        .required(true)
                         .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("Form record path in the selected lockbox."),
                 )
@@ -1168,7 +1173,7 @@ fn form_command(verbose: bool) -> Command {
                     Arg::new("args")
                         .value_name("PATH")
                         .num_args(1)
-                        .action(ArgAction::Append)
+                        .required(true)
                         .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("Form record path in the selected lockbox."),
                 )
@@ -1197,15 +1202,16 @@ fn form_command(verbose: bool) -> Command {
                 ))
                 .arg(
                     Arg::new("args")
-                        .value_name("PATH FIELD VALUE")
+                        .value_names(["PATH", "FIELD", "VALUE"])
                         .num_args(2..=3)
-                        .action(ArgAction::Append)
+                        .required(true)
                         .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("Form record path, field id, and optional value."),
                 )
                 .arg(
                     Arg::new("secret")
                         .long("secret")
+                        .short('s')
                         .action(ArgAction::SetTrue)
                         .help("Set a secret field value."),
                 )
@@ -1240,7 +1246,7 @@ fn form_command(verbose: bool) -> Command {
                         .short('e')
                         .value_name("NAME")
                         .conflicts_with_all(["explicit-value", "stdin", "file", "interactive"])
-                        .help("Read the field value from an variable."),
+                        .help("Read the field value from a variable."),
                 )
                 .arg(
                     Arg::new("interactive")
@@ -1261,15 +1267,16 @@ fn form_command(verbose: bool) -> Command {
                 ))
                 .arg(
                     Arg::new("args")
-                        .value_name("PATH FIELD")
+                        .value_names(["PATH", "FIELD"])
                         .num_args(2)
-                        .action(ArgAction::Append)
+                        .required(true)
                         .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("Form record path and field id."),
                 )
                 .arg(
                     Arg::new("secret")
                         .long("secret")
+                        .short('s')
                         .action(ArgAction::SetTrue)
                         .help("Print a secret field value."),
                 )
@@ -1295,7 +1302,7 @@ fn form_command(verbose: bool) -> Command {
                     Arg::new("args")
                         .value_name("PATH")
                         .num_args(1)
-                        .action(ArgAction::Append)
+                        .required(true)
                         .add(ArgValueCompleter::new(completion::archive_value_candidates))
                         .help("Form record path in the selected lockbox."),
                 ),
@@ -1316,7 +1323,7 @@ fn form_command(verbose: bool) -> Command {
         )
         .subcommand(
             Command::new("move")
-                .visible_alias("mv")
+                .visible_aliases(["mv", "rename"])
                 .about("Move matching form records into another path.")
                 .after_help(verbose_help(
                     verbose,
@@ -1335,15 +1342,16 @@ fn form_command(verbose: bool) -> Command {
         )
         .subcommand(
             Command::new("remove")
-                .visible_alias("rm")
-                .about("Remove one form record.")
+                .visible_aliases(["rm", "delete"])
+                .about("Remove form records.")
                 .arg(
                     Arg::new("args")
                         .value_name("PATH")
-                        .num_args(1)
+                        .num_args(1..)
                         .action(ArgAction::Append)
+                        .required(true)
                         .add(ArgValueCompleter::new(completion::archive_value_candidates))
-                        .help("Form record path in the selected lockbox."),
+                        .help("One or more form record paths in the selected lockbox."),
                 ),
         )
 }
@@ -1454,6 +1462,7 @@ fn access_command(verbose: bool) -> Command {
                         .value_name("PROFILE PUBLIC_KEY")
                         .num_args(1..=2)
                         .action(ArgAction::Append)
+                        .required(true)
                         .help(
                             "Profile name, contact name, profile:name, or contact:name. \
                              Public key path may follow a new contact name.",
@@ -1484,6 +1493,7 @@ fn access_command(verbose: bool) -> Command {
                         .value_name("NAME_OR_SLOT_ID...")
                         .num_args(1..)
                         .action(ArgAction::Append)
+                        .required(true)
                         .help("Local access names or slot ids in the selected lockbox."),
                 ),
         )
@@ -1779,7 +1789,7 @@ fn vault_command(verbose: bool) -> Command {
                 )
                 .subcommand(
                     Command::new("remove")
-                        .visible_alias("rm")
+                        .visible_aliases(["rm", "delete"])
                         .about("Remove a contact.")
                         .after_help(verbose_help(
                             verbose,
@@ -1822,7 +1832,7 @@ fn vault_command(verbose: bool) -> Command {
                 )
                 .subcommand(
                     Command::new("move")
-                        .visible_alias("mv")
+                        .visible_aliases(["mv", "rename"])
                         .about("Move a lockbox and update its session and vault paths.")
                         .after_help(verbose_help(
                             verbose,
@@ -2036,7 +2046,7 @@ fn vault_profile_command(verbose: bool) -> Command {
         )
         .subcommand(
             Command::new("remove")
-                .visible_alias("rm")
+                .visible_aliases(["rm", "delete"])
                 .about("Remove a profile.")
                 .after_help(verbose_help(
                     verbose,
@@ -2166,6 +2176,7 @@ fn migration_command(verbose: bool) -> Command {
 fn migration_vault_command(verbose: bool) -> Command {
     Command::new("vault")
         .about("Migrate the configured vault to the latest format.")
+        .args_conflicts_with_subcommands(true)
         .arg(migration_output_arg())
         .arg(migration_replace_arg())
         .arg(migration_exporter_arg())
@@ -2196,6 +2207,7 @@ fn migration_vault_command(verbose: bool) -> Command {
 fn migration_archive_command(verbose: bool) -> Command {
     Command::new("archive")
         .about("Migrate an archive to the latest format.")
+        .args_conflicts_with_subcommands(true)
         .arg(optional("lockbox", "Archive to migrate."))
         .arg(migration_output_arg())
         .arg(migration_replace_arg())
@@ -2341,22 +2353,28 @@ mod migration_inventory_tests {
         let command = command(false);
         let expected = [
             ("list", &["ls"][..]),
-            ("remove", &["rm"][..]),
+            ("remove", &["delete", "rm"][..]),
             ("move", &["mv", "rename"][..]),
+            ("mirror/list", &["ls"][..]),
+            ("mirror/remove", &["delete", "rm"][..]),
+            ("mirror/move", &["mv", "rename"][..]),
+            ("mirror/destroy", &["delete-project"][..]),
+            ("mirror/rule/list", &["ls"][..]),
+            ("mirror/rule/remove", &["delete", "rm"][..]),
             ("variable/list", &["ls"][..]),
-            ("variable/remove", &["rm"][..]),
-            ("variable/move", &["mv"][..]),
+            ("variable/remove", &["delete", "rm"][..]),
+            ("variable/move", &["mv", "rename"][..]),
             ("form/list", &["ls"][..]),
-            ("form/remove", &["rm"][..]),
-            ("form/move", &["mv"][..]),
+            ("form/remove", &["delete", "rm"][..]),
+            ("form/move", &["mv", "rename"][..]),
             ("access/list", &["ls"][..]),
             ("vault/form/list", &["ls"][..]),
             ("vault/profile/list", &["ls"][..]),
-            ("vault/profile/remove", &["rm"][..]),
+            ("vault/profile/remove", &["delete", "rm"][..]),
             ("vault/contact/list", &["ls"][..]),
-            ("vault/contact/remove", &["rm"][..]),
+            ("vault/contact/remove", &["delete", "rm"][..]),
             ("vault/lockbox/list", &["ls"][..]),
-            ("vault/lockbox/move", &["mv"][..]),
+            ("vault/lockbox/move", &["mv", "rename"][..]),
         ];
         for (path, aliases) in expected {
             let command = command_at(&command, path);
@@ -2366,12 +2384,149 @@ mod migration_inventory_tests {
         }
     }
 
+    #[test]
+    fn required_positionals_are_enforced_by_clap() {
+        let cases = [
+            vec!["lockbox", "cat"],
+            vec!["lockbox", "remove"],
+            vec!["lockbox", "move"],
+            vec!["lockbox", "variable", "set"],
+            vec!["lockbox", "variable", "get"],
+            vec!["lockbox", "variable", "remove"],
+            vec!["lockbox", "form", "capture"],
+            vec!["lockbox", "form", "add", "--type", "login"],
+            vec!["lockbox", "form", "edit"],
+            vec!["lockbox", "form", "set"],
+            vec!["lockbox", "form", "get"],
+            vec!["lockbox", "form", "show"],
+            vec!["lockbox", "form", "remove"],
+            vec!["lockbox", "access", "grant"],
+            vec!["lockbox", "access", "revoke"],
+        ];
+        for args in cases {
+            let error = command(false)
+                .try_get_matches_from(&args)
+                .expect_err(&format!("{args:?} should require a positional argument"));
+            assert_eq!(
+                error.kind(),
+                clap::error::ErrorKind::MissingRequiredArgument,
+                "wrong error for {args:?}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn batch_commands_accept_multiple_values_and_singletons_reject_them() {
+        for (args, path, expected) in [
+            (
+                vec!["lockbox", "secrets.lbox", "cat", "one", "two"],
+                "cat",
+                vec!["one", "two"],
+            ),
+            (
+                vec![
+                    "lockbox",
+                    "secrets.lbox",
+                    "variable",
+                    "remove",
+                    "one",
+                    "two",
+                ],
+                "variable/remove",
+                vec!["one", "two"],
+            ),
+            (
+                vec!["lockbox", "secrets.lbox", "form", "remove", "/one", "/two"],
+                "form/remove",
+                vec!["/one", "/two"],
+            ),
+        ] {
+            let matches = command(false).try_get_matches_from(args).unwrap();
+            let values = matches_at(&matches, path)
+                .get_many::<String>("args")
+                .unwrap()
+                .map(String::as_str)
+                .collect::<Vec<_>>();
+            assert_eq!(values, expected, "batch values for {path}");
+        }
+
+        for args in [
+            vec!["lockbox", "variable", "get", "one", "two"],
+            vec!["lockbox", "form", "add", "--type", "login", "/one", "/two"],
+            vec!["lockbox", "form", "show", "/one", "/two"],
+        ] {
+            assert!(
+                command(false).try_get_matches_from(&args).is_err(),
+                "{args:?} should reject surplus operands"
+            );
+        }
+    }
+
+    #[test]
+    fn create_usage_requires_an_explicit_lockbox_name() {
+        let command = command(false);
+        let mut create = command_at(&command, "create").clone();
+        let help = create.render_help().to_string();
+        assert!(help.contains("Usage: lockbox <LOCKBOX> create [OPTIONS]"));
+    }
+
+    #[test]
+    fn secret_options_consistently_support_short_s() {
+        let command = command(false);
+        for path in ["variable/set", "variable/get", "form/set", "form/get"] {
+            let secret = command_at(&command, path)
+                .get_arguments()
+                .find(|argument| argument.get_id() == "secret")
+                .unwrap_or_else(|| panic!("missing --secret on {path}"));
+            assert_eq!(
+                secret.get_short(),
+                Some('s'),
+                "short secret option for {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn direct_migration_options_conflict_with_nested_commands() {
+        for args in [
+            vec![
+                "lockbox",
+                "--verbose",
+                "migrate",
+                "vault",
+                "--replace",
+                "verify",
+                "artifact",
+            ],
+            vec![
+                "lockbox",
+                "--verbose",
+                "migrate",
+                "archive",
+                "source.lbox",
+                "verify",
+                "artifact",
+            ],
+        ] {
+            let error = command(true).try_get_matches_from(&args).unwrap_err();
+            assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
+        }
+    }
+
     fn command_at<'a>(root: &'a Command, path: &str) -> &'a Command {
         path.split('/').fold(root, |command, name| {
             command
                 .get_subcommands()
                 .find(|child| child.get_name() == name)
                 .unwrap_or_else(|| panic!("missing command {path}"))
+        })
+    }
+
+    fn matches_at<'a>(root: &'a clap::ArgMatches, path: &str) -> &'a clap::ArgMatches {
+        path.split('/').fold(root, |matches, name| {
+            matches
+                .subcommand_matches(name)
+                .unwrap_or_else(|| panic!("missing command matches for {path}"))
         })
     }
 

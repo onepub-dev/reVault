@@ -7,6 +7,7 @@ use std::process::{Command, Stdio};
 
 const KEY: &str = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
 const PASSPHRASE: &str = "lockbox-bench";
+const VAULT_PASSPHRASE: &str = "lockbox-benchmark-vault-passphrase";
 
 pub fn run(args: &[String]) -> TaskResult {
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
@@ -39,6 +40,8 @@ pub fn run(args: &[String]) -> TaskResult {
         "revault_cli/Cargo.toml",
     ]))?;
     let lockbox = rust_dir.join("target/release/lockbox");
+    let lockbox_environment = lockbox_environment(&out);
+    initialize_benchmark_vault(&lockbox, &lockbox_environment)?;
     generate_fixtures(&fixtures, &repo)?;
 
     let jobs = env::var("LOCKBOX_JOBS").unwrap_or_else(|_| "auto".to_owned());
@@ -65,7 +68,15 @@ pub fn run(args: &[String]) -> TaskResult {
     ];
     for fixture in fixture_names {
         for tool in tools {
-            let row = run_tool(&out, &lockbox, &gnupg, fixture, tool, &jobs)?;
+            let row = run_tool(
+                &out,
+                &lockbox,
+                &gnupg,
+                fixture,
+                tool,
+                &jobs,
+                &lockbox_environment,
+            )?;
             println!("{row}");
             writeln!(summary, "{row}").map_err(to_string)?;
             summary.flush().map_err(to_string)?;
@@ -250,6 +261,7 @@ fn run_tool(
     fixture: &str,
     tool: &str,
     jobs: &str,
+    lockbox_environment: &[(String, String)],
 ) -> TaskResult<String> {
     let source = out.join("fixtures").join(fixture);
     let result_dir = out.join("results").join(fixture);
@@ -263,9 +275,19 @@ fn run_tool(
         "lockbox" => {
             artifact = result_dir.join("lockbox.lbx");
             remove_if_exists(&artifact)?;
-            timed(&metric, lockbox, &["--key", KEY, "create", &artifact.to_string_lossy()], &[])?;
+            timed(
+                &metric,
+                lockbox,
+                &lockbox_create_args(&artifact),
+                lockbox_environment,
+            )?;
             let add_metric = result_dir.join("lockbox.add.time");
-            timed(&add_metric, lockbox, &["--key", KEY, "--jobs", jobs, "add", &artifact.to_string_lossy(), &source.to_string_lossy(), "/"], &[])?;
+            timed(
+                &add_metric,
+                lockbox,
+                &lockbox_add_args(&artifact, &source, jobs),
+                lockbox_environment,
+            )?;
             fs::copy(add_metric, &metric).map_err(to_string)?;
         }
         "gpg-default" => pipeline(&metric, gnupg, &source, &artifact, "gpg --batch --yes --pinentry-mode loopback --passphrase \"$PASSPHRASE\" --symmetric --cipher-algo AES256 -o \"$ARTIFACT\"")?,
@@ -282,15 +304,81 @@ fn run_tool(
     ))
 }
 
-fn timed(metric: &Path, program: &Path, args: &[&str], environment: &[(&str, &str)]) -> TaskResult {
+fn lockbox_create_args(artifact: &Path) -> Vec<String> {
+    vec![
+        "--key".to_owned(),
+        KEY.to_owned(),
+        artifact.to_string_lossy().into_owned(),
+        "create".to_owned(),
+    ]
+}
+
+fn lockbox_add_args(artifact: &Path, source: &Path, jobs: &str) -> Vec<String> {
+    vec![
+        "--key".to_owned(),
+        KEY.to_owned(),
+        artifact.to_string_lossy().into_owned(),
+        "add".to_owned(),
+        "--recursive".to_owned(),
+        "--jobs".to_owned(),
+        jobs.to_owned(),
+        source.to_string_lossy().into_owned(),
+        "--to".to_owned(),
+        "/".to_owned(),
+    ]
+}
+
+fn lockbox_environment(out: &Path) -> Vec<(String, String)> {
+    let agent = out.join("agent");
+    vec![
+        (
+            "LOCKBOX_VAULT_DIR".to_owned(),
+            out.join("vault").to_string_lossy().into_owned(),
+        ),
+        (
+            "LOCKBOX_VAULT_PASSWORD".to_owned(),
+            VAULT_PASSPHRASE.to_owned(),
+        ),
+        (
+            "LOCKBOX_PLATFORM_SECRET_STORE".to_owned(),
+            "disabled".to_owned(),
+        ),
+        (
+            "LOCKBOX_SESSION_AGENT_DIR".to_owned(),
+            agent.to_string_lossy().into_owned(),
+        ),
+        (
+            "LOCKBOX_SESSION_AGENT_LOG".to_owned(),
+            agent.join("agent.log").to_string_lossy().into_owned(),
+        ),
+    ]
+}
+
+fn initialize_benchmark_vault(lockbox: &Path, environment: &[(String, String)]) -> TaskResult {
+    let mut command = Command::new(lockbox);
+    command.args(["vault", "init"]);
+    apply_environment(&mut command, environment);
+    command::run(&mut command)
+}
+
+fn apply_environment(command: &mut Command, environment: &[(String, String)]) {
+    for (key, value) in environment {
+        command.env(key, value);
+    }
+}
+
+fn timed(
+    metric: &Path,
+    program: &Path,
+    args: &[String],
+    environment: &[(String, String)],
+) -> TaskResult {
     let mut timer = Command::new("/usr/bin/time");
     timer
         .args(["-f", "%e\t%M", "-o", &metric.to_string_lossy()])
         .arg(program)
         .args(args);
-    for (key, value) in environment {
-        timer.env(key, value);
-    }
+    apply_environment(&mut timer, environment);
     command::run(&mut timer)
 }
 
@@ -370,4 +458,49 @@ fn set_owner_only(_path: &Path) -> TaskResult {
 
 fn to_string(error: impl std::fmt::Display) -> String {
     error.to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        lockbox_add_args, lockbox_create_args, lockbox_environment, KEY, VAULT_PASSPHRASE,
+    };
+    use std::path::Path;
+
+    #[test]
+    fn lockbox_benchmark_uses_target_first_cli_forms() {
+        assert_eq!(
+            lockbox_create_args(Path::new("result.lbx")),
+            ["--key", KEY, "result.lbx", "create"]
+        );
+        assert_eq!(
+            lockbox_add_args(Path::new("result.lbx"), Path::new("fixture"), "6"),
+            [
+                "--key",
+                KEY,
+                "result.lbx",
+                "add",
+                "--recursive",
+                "--jobs",
+                "6",
+                "fixture",
+                "--to",
+                "/",
+            ]
+        );
+
+        let environment = lockbox_environment(Path::new("benchmark-root"));
+        assert!(environment.contains(&(
+            "LOCKBOX_VAULT_PASSWORD".to_owned(),
+            VAULT_PASSPHRASE.to_owned()
+        )));
+        assert!(environment.contains(&(
+            "LOCKBOX_PLATFORM_SECRET_STORE".to_owned(),
+            "disabled".to_owned()
+        )));
+        assert!(environment.contains(&(
+            "LOCKBOX_VAULT_DIR".to_owned(),
+            "benchmark-root/vault".to_owned()
+        )));
+    }
 }

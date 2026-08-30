@@ -14,7 +14,7 @@ use std::path::Path;
 
 const FILE_CHUNK_BYTES: usize = 4 * 1024 * 1024;
 
-/// Streams a native archive-format-v1 lockbox into migration schema 1.
+/// Streams a native archive-format-v1 lockbox into migration schema 2.
 pub fn export_archive_v1<State>(
     lockbox: &Lockbox<State>,
     output: &Path,
@@ -29,7 +29,7 @@ pub fn export_archive_v1<State>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
         source_native_version: 1,
-        migration_schema_version: 1,
+        migration_schema_version: 2,
         target_native_version: None,
         operation_id,
     };
@@ -46,6 +46,7 @@ pub fn export_archive_v1<State>(
         format_version: 1,
         content_key: SecretBytes::new(secret_bytes(&content_key)?),
         key_directory: SecretBytes::new(key_directory),
+        description: None,
     }))?;
 
     let root = LockboxPath::new("/").map_err(core_error)?;
@@ -55,7 +56,12 @@ pub fn export_archive_v1<State>(
     for entry in lockbox.list(options).map_err(core_error)? {
         let entry = entry.map_err(core_error)?;
         match entry.kind {
-            LockboxEntryKind::Directory => {}
+            LockboxEntryKind::Directory => {
+                writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Directory {
+                    path: entry.path.to_string(),
+                    permissions: Some(entry.permissions),
+                }))?;
+            }
             LockboxEntryKind::Symlink => {
                 let target = lockbox
                     .get_symlink_target(&entry.path)
@@ -63,6 +69,7 @@ pub fn export_archive_v1<State>(
                 writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Symlink {
                     path: entry.path.to_string(),
                     target: target.to_string(),
+                    permissions: Some(entry.permissions),
                 }))?;
             }
             LockboxEntryKind::File => {

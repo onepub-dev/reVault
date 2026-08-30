@@ -631,7 +631,7 @@ def _Lockbox_add_file(self, path, data, replace):
 Lockbox.add_file = _Lockbox_add_file
 
 def _Lockbox_add_file_with_permissions(self, path, data, permissions, replace):
-    """Returns the permissions."""
+    """Returns the portable Unix permission bits stored for path."""
     return _call(self, 'lockbox_add_file_with_permissions', (path, data, permissions, replace))
 Lockbox.add_file_with_permissions = _Lockbox_add_file_with_permissions
 
@@ -722,7 +722,7 @@ def _Lockbox_create_dir(self, path, create_parents):
 Lockbox.create_dir = _Lockbox_create_dir
 
 def _Lockbox_delete(self, path):
-    """Removes delete."""
+    """Stages removal of a file, link, or empty directory at path."""
     return _call(self, 'lockbox_delete', (path,))
 Lockbox.delete = _Lockbox_delete
 
@@ -737,12 +737,12 @@ def _Lockbox_create_parent_dirs(self, path):
 Lockbox.create_parent_dirs = _Lockbox_create_parent_dirs
 
 def _Lockbox_rename(self, source, destination):
-    """Updates rename."""
+    """Stages an atomic move from one Lockbox path to another."""
     return _call(self, 'lockbox_rename', (source, destination))
 Lockbox.rename = _Lockbox_rename
 
 def _Lockbox_list(self, path, recursive):
-    """Lists list."""
+    """Lists entries below path, optionally including descendants."""
     return _call(self, 'lockbox_list', (path, recursive))
 Lockbox.list = _Lockbox_list
 
@@ -839,12 +839,12 @@ def _Lockbox_get_symlink_target(self, path):
 Lockbox.get_symlink_target = _Lockbox_get_symlink_target
 
 def _Lockbox_id(self):
-    """Returns the id."""
+    """Returns the stable public identifier stored in the Lockbox header."""
     return _call(self, 'lockbox_id', ())
 Lockbox.id = _Lockbox_id
 
 def _Lockbox_exists(self, path):
-    """Reports whether exists."""
+    """Reports whether an entry exists at path."""
     return _call(self, 'lockbox_exists', (path,))
 Lockbox.exists = _Lockbox_exists
 
@@ -854,12 +854,12 @@ def _Lockbox_is_dir(self, path):
 Lockbox.is_dir = _Lockbox_is_dir
 
 def _Lockbox_permissions(self, path):
-    """Returns the permissions."""
+    """Returns the portable Unix permission bits stored for path."""
     return _call(self, 'lockbox_permissions', (path,))
 Lockbox.permissions = _Lockbox_permissions
 
 def _Lockbox_set_permissions(self, path, permissions):
-    """Returns the permissions."""
+    """Returns the portable Unix permission bits stored for path."""
     return _call(self, 'lockbox_set_permissions', (path, permissions))
 Lockbox.set_permissions = _Lockbox_set_permissions
 
@@ -1017,12 +1017,12 @@ def _WrappedContactKey_public(self):
 WrappedContactKey.public = _WrappedContactKey_public
 
 def _WrappedContactKey_ciphertext(self):
-    """Returns the ciphertext."""
+    """Returns the encrypted content key bytes."""
     return _call(self, 'key_contact_wrapped_ciphertext', ())
 WrappedContactKey.ciphertext = _WrappedContactKey_ciphertext
 
 def _WrappedContactKey_encrypted(self):
-    """Returns the encrypted."""
+    """Returns the complete wrapped key record for storage or transport."""
     return _call(self, 'key_contact_wrapped_encrypted', ())
 WrappedContactKey.encrypted = _WrappedContactKey_encrypted
 
@@ -1057,7 +1057,7 @@ def _ProfileSigningPublicKey_free(self):
 ProfileSigningPublicKey.free = _ProfileSigningPublicKey_free
 
 def _VaultDirectory_root(self):
-    """Returns the root."""
+    """Returns the canonical root directory of this Vault."""
     return _call(self, 'vault_directory_root', ())
 VaultDirectory.root = _VaultDirectory_root
 
@@ -1087,7 +1087,7 @@ def _VaultDirectory_list_form_aliases(self):
 VaultDirectory.list_form_aliases = _VaultDirectory_list_form_aliases
 
 def _VaultDirectory_private_key_exists(self, name):
-    """Reports whether exists."""
+    """Reports whether an entry exists at path."""
     return _call(self, 'vault_directory_private_key_exists', (name,))
 VaultDirectory.private_key_exists = _VaultDirectory_private_key_exists
 
@@ -1122,7 +1122,7 @@ def _VaultDirectory_load_contact(self, name):
 VaultDirectory.load_contact = _VaultDirectory_load_contact
 
 def _VaultDirectory_contact_exists(self, name):
-    """Reports whether exists."""
+    """Reports whether an entry exists at path."""
     return _call(self, 'vault_directory_contact_exists', (name,))
 VaultDirectory.contact_exists = _VaultDirectory_contact_exists
 
@@ -1307,7 +1307,7 @@ def _Agent_forget_all(self):
 Agent.forget_all = _Agent_forget_all
 
 def _Agent_serve(self):
-    """Returns the serve."""
+    """Runs the session agent server until it is stopped."""
     return _call(self, 'vault_agent_serve', ())
 Agent.serve = _Agent_serve
 
@@ -1342,7 +1342,7 @@ def _Agent_start(self):
 Agent.start = _Agent_start
 
 def _Agent_list(self):
-    """Lists list."""
+    """Lists entries below path, optionally including descendants."""
     return _call(self, 'vault_agent_list', ())
 Agent.list = _Agent_list
 
@@ -1392,7 +1392,7 @@ def _Agent_end_activity(self, handle):
 Agent.end_activity = _Agent_end_activity
 
 def _Platform_status(self):
-    """Returns the status."""
+    """Returns availability and user presence guarantees for platform storage."""
     return _call(self, 'vault_platform_status', ())
 Platform.status = _Platform_status
 
@@ -1412,17 +1412,17 @@ def _Platform_put_password(self, password):
 Platform.put_password = _Platform_put_password
 
 def _Platform_enable(self):
-    """Returns the enable."""
+    """Enables storage of the Vault passphrase in platform credentials."""
     return _call(self, 'vault_platform_enable', ())
 Platform.enable = _Platform_enable
 
 def _Platform_disable(self):
-    """Returns the disable."""
+    """Disables platform credential use without deleting the stored value."""
     return _call(self, 'vault_platform_disable', ())
 Platform.disable = _Platform_disable
 
 def _Platform_disabled(self):
-    """Returns the disabled."""
+    """Reports whether platform credential use is disabled."""
     return _call(self, 'vault_platform_disabled', ())
 Platform.disabled = _Platform_disabled
 

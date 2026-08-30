@@ -1,16 +1,15 @@
-use std::collections::HashMap;
 use std::io::{Read, Write};
-use std::net::{IpAddr, SocketAddr, TcpListener, TcpStream};
+use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use crate::server_log::log_server_event;
 use crate::store::{PublishStore, ServerConfig};
 use axum::body::Bytes;
-use axum::extract::{ConnectInfo, DefaultBodyLimit, Query, State};
-use axum::http::{header, HeaderMap, StatusCode};
+use axum::extract::{DefaultBodyLimit, Query, State};
+use axum::http::{header, StatusCode};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
@@ -21,7 +20,6 @@ use revault_publish_protocol::topology;
 use serde::Deserialize;
 
 const MAX_WIRE_OVERHEAD: usize = 128;
-const CLUSTER_RATE_LIMIT_BLOCK_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// Returns the run server.
 pub fn run_server(bind: &str, store: Arc<PublishStore>) -> std::io::Result<()> {
@@ -73,15 +71,10 @@ fn start_background_maintenance(store: &Arc<PublishStore>) {
 #[derive(Clone)]
 struct AppState {
     store: Arc<PublishStore>,
-    limiter: Arc<RateLimiter>,
 }
 
 fn make_app(store: Arc<PublishStore>) -> Router {
     let body_limit = store.max_payload_bytes() + MAX_WIRE_OVERHEAD;
-    let limiter = Arc::new(RateLimiter::new(
-        store.rate_limit_per_minute(),
-        store.rate_limit_burst(),
-    ));
     Router::new()
         .route("/v1/publish", post(publish_handler))
         .route("/v1/replicate", post(replicate_handler))
@@ -90,83 +83,29 @@ fn make_app(store: Arc<PublishStore>) -> Router {
         .route("/v1/status", get(status_handler))
         .route("/v1/verify", get(verify_handler))
         .layer(DefaultBodyLimit::max(body_limit))
-        .with_state(AppState { store, limiter })
+        .with_state(AppState { store })
 }
 
-async fn publish_handler(
-    State(state): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Response {
-    binary_post_handler(
-        state,
-        headers,
-        Some(peer.ip()),
-        BinaryEndpoint::Publish,
-        body,
-    )
-    .await
+async fn publish_handler(State(state): State<AppState>, body: Bytes) -> Response {
+    binary_post_handler(state, BinaryEndpoint::Publish, body).await
 }
 
-async fn replicate_handler(
-    State(state): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Response {
-    binary_post_handler(
-        state,
-        headers,
-        Some(peer.ip()),
-        BinaryEndpoint::Replicate,
-        body,
-    )
-    .await
+async fn replicate_handler(State(state): State<AppState>, body: Bytes) -> Response {
+    binary_post_handler(state, BinaryEndpoint::Replicate, body).await
 }
 
-async fn topology_register_handler(
-    State(state): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-    body: Bytes,
-) -> Response {
-    binary_post_handler(
-        state,
-        headers,
-        Some(peer.ip()),
-        BinaryEndpoint::TopologyRegister,
-        body,
-    )
-    .await
+async fn topology_register_handler(State(state): State<AppState>, body: Bytes) -> Response {
+    binary_post_handler(state, BinaryEndpoint::TopologyRegister, body).await
 }
 
-async fn topology_handler(
-    State(state): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-) -> Response {
-    if !request_has_server_token_headers(&headers, &state.store)
-        && !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip()))
-    {
-        return rate_limited_response();
-    }
+async fn topology_handler(State(state): State<AppState>) -> Response {
     match topology::encode_topology(&state.store.topology()) {
         Ok(body) => binary_response(StatusCode::OK, body),
         Err(err) => (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()).into_response(),
     }
 }
 
-async fn status_handler(
-    State(state): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
-    headers: HeaderMap,
-) -> Response {
-    if !request_has_server_token_headers(&headers, &state.store)
-        && !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip()))
-    {
-        return rate_limited_response();
-    }
+async fn status_handler(State(state): State<AppState>) -> Response {
     binary_response(
         StatusCode::OK,
         status::encode_status(&state.store.status_document()),
@@ -181,15 +120,8 @@ struct VerifyQuery {
 
 async fn verify_handler(
     State(state): State<AppState>,
-    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     Query(query): Query<VerifyQuery>,
-    headers: HeaderMap,
 ) -> Response {
-    if !request_has_server_token_headers(&headers, &state.store)
-        && !allow_anonymous_request(&state.store, &state.limiter, Some(peer.ip()))
-    {
-        return rate_limited_response();
-    }
     let page = match (query.code, query.token) {
         (Some(code), Some(token)) => state.store.verify_email(&code, &token),
         _ => verify_error(
@@ -212,22 +144,7 @@ enum BinaryEndpoint {
     TopologyRegister,
 }
 
-async fn binary_post_handler(
-    state: AppState,
-    headers: HeaderMap,
-    peer_ip: Option<IpAddr>,
-    endpoint: BinaryEndpoint,
-    body: Bytes,
-) -> Response {
-    let inter_server_authenticated = matches!(
-        endpoint,
-        BinaryEndpoint::Replicate | BinaryEndpoint::TopologyRegister
-    ) && request_has_server_token_headers(&headers, &state.store);
-    if !inter_server_authenticated
-        && !allow_anonymous_request(&state.store, &state.limiter, peer_ip)
-    {
-        return rate_limited_response();
-    }
+async fn binary_post_handler(state: AppState, endpoint: BinaryEndpoint, body: Bytes) -> Response {
     if body.len() > state.store.max_payload_bytes() + MAX_WIRE_OVERHEAD {
         return protocol_response(protocol::encode_error(
             Operation::Publish,
@@ -264,7 +181,7 @@ async fn binary_post_handler(
                             "publish endpoint does not accept replication operations",
                         )
                     } else {
-                        store.handle_with_peer(request.operation, &request.payload, peer_ip)
+                        store.handle(request.operation, &request.payload)
                     }
                 }
                 Err(err) => protocol::encode_error(
@@ -290,14 +207,6 @@ fn protocol_response(body: Vec<u8>) -> Response {
     binary_response(StatusCode::OK, body)
 }
 
-fn rate_limited_response() -> Response {
-    protocol_response(protocol::encode_error(
-        Operation::Publish,
-        Status::RateLimited,
-        "rate limited",
-    ))
-}
-
 fn binary_response(status: StatusCode, body: Vec<u8>) -> Response {
     (
         status,
@@ -305,114 +214,6 @@ fn binary_response(status: StatusCode, body: Vec<u8>) -> Response {
         body,
     )
         .into_response()
-}
-
-fn request_has_server_token_headers(headers: &HeaderMap, store: &PublishStore) -> bool {
-    headers
-        .get(header::AUTHORIZATION)
-        .and_then(|value| value.to_str().ok())
-        .and_then(bearer_token_header)
-        .or_else(|| header_string(headers, "x-lockbox-server-token"))
-        .or_else(|| header_string(headers, "x-topology-token"))
-        .as_deref()
-        .is_some_and(|token| store.topology_token_matches(token))
-}
-
-fn header_string(headers: &HeaderMap, name: &str) -> Option<String> {
-    headers
-        .get(name)
-        .and_then(|value| value.to_str().ok())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-}
-
-fn bearer_token_header(value: &str) -> Option<String> {
-    value
-        .strip_prefix("Bearer ")
-        .map(str::trim)
-        .filter(|token| !token.is_empty())
-        .map(str::to_string)
-}
-
-/// Represents rate limiter.
-pub struct RateLimiter {
-    per_minute: u32,
-    burst: u32,
-    clients: Mutex<HashMap<IpAddr, ClientBucket>>,
-}
-
-struct ClientBucket {
-    tokens: f64,
-    last_refill: Instant,
-}
-
-impl RateLimiter {
-    fn new(per_minute: u32, burst: u32) -> Self {
-        Self {
-            per_minute,
-            burst: burst.max(1),
-            clients: Mutex::new(HashMap::new()),
-        }
-    }
-
-    fn allow(&self, peer_ip: Option<IpAddr>) -> bool {
-        if self.per_minute == 0 {
-            return true;
-        }
-        let Some(peer_ip) = peer_ip else {
-            return false;
-        };
-        let now = Instant::now();
-        let refill_per_second = self.per_minute as f64 / 60.0;
-        let Ok(mut clients) = self.clients.lock() else {
-            return false;
-        };
-        let bucket = clients.entry(peer_ip).or_insert(ClientBucket {
-            tokens: self.burst as f64,
-            last_refill: now,
-        });
-        let elapsed = now.duration_since(bucket.last_refill).as_secs_f64();
-        bucket.tokens = (bucket.tokens + elapsed * refill_per_second).min(self.burst as f64);
-        bucket.last_refill = now;
-        if bucket.tokens >= 1.0 {
-            bucket.tokens -= 1.0;
-            true
-        } else {
-            false
-        }
-    }
-}
-
-fn allow_anonymous_request(
-    store: &PublishStore,
-    limiter: &RateLimiter,
-    peer_ip: Option<IpAddr>,
-) -> bool {
-    if store.is_rate_limit_blocked(peer_ip) {
-        return false;
-    }
-    if limiter.allow(peer_ip) {
-        return true;
-    }
-    if let Some(peer_ip) = peer_ip {
-        let _ = store.block_rate_limited_client_until(peer_ip, rate_limit_block_expires_at_ms());
-    }
-    false
-}
-
-fn rate_limit_block_expires_at_ms() -> u64 {
-    unix_ms(
-        SystemTime::now()
-            .checked_add(CLUSTER_RATE_LIMIT_BLOCK_TTL)
-            .unwrap_or_else(SystemTime::now),
-    )
-}
-
-fn unix_ms(time: SystemTime) -> u64 {
-    time.duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis() as u64
 }
 
 /// Returns the bench http.
@@ -873,31 +674,4 @@ fn escape_html(value: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
         .replace('"', "&quot;")
-}
-
-#[cfg(test)]
-mod tests {
-    use std::net::{IpAddr, Ipv4Addr};
-
-    use super::RateLimiter;
-
-    #[test]
-    fn rate_limiter_enforces_burst_capacity() {
-        let limiter = RateLimiter::new(60, 2);
-        let ip = Some(IpAddr::V4(Ipv4Addr::LOCALHOST));
-
-        assert!(limiter.allow(ip));
-        assert!(limiter.allow(ip));
-        assert!(!limiter.allow(ip));
-    }
-
-    #[test]
-    fn zero_rate_limit_disables_limiter() {
-        let limiter = RateLimiter::new(0, 1);
-        let ip = Some(IpAddr::V4(Ipv4Addr::LOCALHOST));
-
-        assert!(limiter.allow(ip));
-        assert!(limiter.allow(ip));
-        assert!(limiter.allow(None));
-    }
 }

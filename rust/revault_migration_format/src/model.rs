@@ -257,6 +257,17 @@ pub enum ArchiveRecord {
         content_key: SecretBytes,
         /// Represents the key directory carried by this record case.
         key_directory: SecretBytes,
+        /// Optional encrypted archive description.
+        #[serde(default)]
+        description: Option<String>,
+    },
+    /// Represents an explicit directory, including empty directories.
+    Directory {
+        /// Absolute lockbox path.
+        path: String,
+        /// Portable permission bits, when supplied by the source format.
+        #[serde(default)]
+        permissions: Option<u32>,
     },
     /// Represents the file start case.
     FileStart {
@@ -293,6 +304,9 @@ pub enum ArchiveRecord {
         path: String,
         /// Represents the target carried by this record case.
         target: String,
+        /// Portable permission bits, when supplied by the source format.
+        #[serde(default)]
+        permissions: Option<u32>,
     },
     /// Represents the variable case.
     Variable {
@@ -322,4 +336,50 @@ pub enum MigrationRecord {
     Vault(VaultRecord),
     /// Represents the archive case.
     Archive(ArchiveRecord),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn schema_one_archive_records_default_new_optional_metadata() {
+        let start = ArchiveRecord::Start {
+            archive_id: [1; 16],
+            format_version: 1,
+            content_key: SecretBytes::new(vec![2; 32]),
+            key_directory: SecretBytes::new(vec![3; 8]),
+            description: Some("new".to_string()),
+        };
+        let mut encoded = serde_json::to_value(start).unwrap();
+        encoded["value"]
+            .as_object_mut()
+            .unwrap()
+            .remove("description");
+        assert!(matches!(
+            serde_json::from_value::<ArchiveRecord>(encoded).unwrap(),
+            ArchiveRecord::Start {
+                description: None,
+                ..
+            }
+        ));
+
+        let symlink = ArchiveRecord::Symlink {
+            path: "/link".to_string(),
+            target: "/target".to_string(),
+            permissions: Some(0o700),
+        };
+        let mut encoded = serde_json::to_value(symlink).unwrap();
+        encoded["value"]
+            .as_object_mut()
+            .unwrap()
+            .remove("permissions");
+        assert!(matches!(
+            serde_json::from_value::<ArchiveRecord>(encoded).unwrap(),
+            ArchiveRecord::Symlink {
+                permissions: None,
+                ..
+            }
+        ));
+    }
 }

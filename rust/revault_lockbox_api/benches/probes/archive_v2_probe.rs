@@ -1,8 +1,8 @@
-#[path = "common/probe_ruzstd.rs"]
-mod probe_ruzstd;
+#[path = "common/probe_zstd_complete.rs"]
+mod probe_zstd_complete;
 
-use probe_ruzstd::ruzstd_level;
-use ruzstd::encoding::compress_to_vec;
+use probe_zstd_complete::zstd_complete_level;
+use zstd_complete::encoding::compress_to_vec;
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
@@ -406,7 +406,7 @@ fn extension_key(path: &str) -> String {
 }
 
 fn compress_len(payload: &[u8]) -> Result<usize, Box<dyn std::error::Error>> {
-    let compressed = compress_to_vec(payload, ruzstd_level(LEVEL));
+    let compressed = compress_to_vec(payload, zstd_complete_level(LEVEL));
     Ok(compressed.len().min(payload.len()))
 }
 

@@ -593,7 +593,11 @@ pub unsafe extern "C" fn lockbox_probe_format_version(bytes: *const u8, len: usi
 
 #[no_mangle]
 /// Releases the native resources held by this object.
-pub extern "C" fn buffer_free(value: RevaultBuffer) {
+///
+/// # Safety
+/// `value` must be an owned buffer returned by this library and must not have
+/// been freed previously. Its pointer and length must be unchanged.
+pub unsafe extern "C" fn buffer_free(value: RevaultBuffer) {
     if !value.ptr.is_null() {
         // SAFETY: buffers are only constructed by `buffer` and are freed once.
         unsafe {
@@ -733,7 +737,11 @@ fn optional_secret_output(
 
 #[no_mangle]
 /// Creates a new lockbox.
-pub extern "C" fn lockbox_create(key: *const u8, key_len: usize) -> *mut c_void {
+///
+/// # Safety
+/// When `key_len` is non-zero, `key` must point to `key_len` readable bytes for
+/// the duration of this call.
+pub unsafe extern "C" fn lockbox_create(key: *const u8, key_len: usize) -> *mut c_void {
     let Some(key) = (unsafe { input(key, key_len) }) else {
         set_error("key pointer is null");
         return ptr::null_mut();
@@ -963,7 +971,11 @@ pub unsafe extern "C" fn lockbox_create_with_signing_key(
 
 #[no_mangle]
 /// Opens an existing lockbox.
-pub extern "C" fn lockbox_open(
+///
+/// # Safety
+/// Each non-empty input must point to the documented number of readable bytes
+/// for the duration of this call.
+pub unsafe extern "C" fn lockbox_open(
     archive: *const u8,
     archive_len: usize,
     key: *const u8,
@@ -7119,7 +7131,11 @@ pub extern "C" fn vault_platform_get_password() -> RevaultBuffer {
 /// This Dart-facing transport operation keeps session selection out of the
 /// process environment. An empty session bus address selects the platform
 /// default platform credential store connection.
-pub extern "C" fn dart_vault_platform_get_password_for(
+///
+/// # Safety
+/// Each non-empty input must point to the documented number of readable bytes
+/// for the duration of this call.
+pub unsafe extern "C" fn dart_vault_platform_get_password_for(
     path_to: *const c_char,
     path_to_len: usize,
     session_bus_address: *const c_char,
@@ -8049,7 +8065,7 @@ mod tests {
     #[test]
     fn c_abi_covers_core_object_operations() {
         let key = [7u8; 32];
-        let handle = lockbox_create(key.as_ptr(), key.len());
+        let handle = unsafe { lockbox_create(key.as_ptr(), key.len()) };
         assert!(
             !handle.is_null(),
             "{}",
@@ -8127,7 +8143,7 @@ mod tests {
             unsafe { std::slice::from_raw_parts(result.ptr, result.len) },
             contents
         );
-        buffer_free(result);
+        unsafe { buffer_free(result) };
         let listed = unsafe { lockbox_list(handle, b"/".as_ptr().cast(), 1, true) };
         let listed_bytes = unsafe { std::slice::from_raw_parts(listed.ptr, listed.len) };
         let listing =
@@ -8137,11 +8153,11 @@ mod tests {
             .unwrap()
             .iter()
             .any(|entry| entry.path() == Some("/docs/readme.txt")));
-        buffer_free(listed);
+        unsafe { buffer_free(listed) };
         let stats = unsafe { lockbox_cache_stats(handle) };
         let stats_bytes = unsafe { std::slice::from_raw_parts(stats.ptr, stats.len) };
         flatbuffers::root::<bindings_transport::CacheStats<'_>>(stats_bytes).unwrap();
-        buffer_free(stats);
+        unsafe { buffer_free(stats) };
 
         let missing_path = b"/missing";
         let stat =
@@ -8153,7 +8169,7 @@ mod tests {
                 .value()
                 .is_none()
         );
-        buffer_free(stat);
+        unsafe { buffer_free(stat) };
 
         let record = unsafe {
             lockbox_get_form_record(handle, missing_path.as_ptr().cast(), missing_path.len())
@@ -8165,7 +8181,7 @@ mod tests {
                 .value()
                 .is_none()
         );
-        buffer_free(record);
+        unsafe { buffer_free(record) };
 
         let field = b"username";
         let value = unsafe {
@@ -8184,7 +8200,7 @@ mod tests {
                 .value()
                 .is_none()
         );
-        buffer_free(value);
+        unsafe { buffer_free(value) };
         unsafe { lockbox_free(handle) };
     }
 }

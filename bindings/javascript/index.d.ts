@@ -50,11 +50,11 @@ export class Revault {
   lastError(): string;
   /** Returns the last error details. */
   lastErrorDetails(): import('./domain.js').ErrorDetails;
-  /** Returns the lockbox format version. */
+  /** Returns the newest Lockbox archive format version supported by this engine. */
   lockboxFormatVersion(): number;
-  /** Returns the lockbox probe format version. */
+  /** Reads the format version from serialized Lockbox bytes without opening them. */
   lockboxProbeFormatVersion(bytes: BinaryInput): number;
-  /** Returns the lockbox create. */
+  /** Creates an in memory Lockbox protected by a 32 byte content key. */
   lockboxCreate(key: BinaryInput): Lockbox;
   /**
    * Creates a lockbox with explicit runtime tuning.
@@ -63,33 +63,33 @@ export class Revault {
    * `jobs` lets the library select the worker count.
    */
   lockboxCreateWithOptions(key: BinaryInput, cacheMode: string, cacheBytes: number, workload: string, worker: string, jobs: number): Lockbox;
-  /** Returns the lockbox create password. */
+  /** Creates an in memory Lockbox protected by the supplied password. */
   lockboxCreatePassword(password: BinaryInput): Lockbox;
-  /** Returns the lockbox create contact. */
+  /** Creates an in memory Lockbox that the supplied contact can open. */
   lockboxCreateContact(contact: NativeHandle): Lockbox;
-  /** Returns the lockbox create with signing key. */
+  /** Creates an in memory Lockbox and assigns its profile signing key. */
   lockboxCreateWithSigningKey(contentKey: BinaryInput, signingKey: NativeHandle): Lockbox;
-  /** Returns the lockbox open. */
+  /** Opens serialized Lockbox bytes with a 32 byte content key. */
   lockboxOpen(archive: BinaryInput, key: BinaryInput): Lockbox;
   /** Opens a lockbox using the cache and worker tuning described by `lockboxCreateWithOptions`. */
   lockboxOpenWithOptions(archive: BinaryInput, key: BinaryInput, cacheMode: string, cacheBytes: number, workload: string, worker: string, jobs: number): Lockbox;
-  /** Returns the lockbox open password. */
+  /** Opens serialized Lockbox bytes with the supplied password. */
   lockboxOpenPassword(archive: BinaryInput, password: BinaryInput): Lockbox;
-  /** Returns the lockbox open contact. */
+  /** Opens serialized Lockbox bytes with the supplied contact private key. */
   lockboxOpenContact(archive: BinaryInput, contact: NativeHandle): Lockbox;
-  /** Returns the lockbox inspect file. */
+  /** Reads public header, signature, and access slot metadata from a Lockbox file. */
   lockboxInspectFile(path: string): import('./domain.js').FileInspection;
-  /** Returns the lockbox recovery scan path. */
+  /** Scans a damaged Lockbox file with its 32 byte content key. */
   lockboxRecoveryScanPath(path: string, key: BinaryInput): import('./domain.js').RecoveryReport;
-  /** Returns the lockbox recovery scan. */
+  /** Scans damaged serialized Lockbox bytes with their 32 byte content key. */
   lockboxRecoveryScan(bytes: BinaryInput, key: BinaryInput): import('./domain.js').RecoveryReport;
-  /** Returns the lockbox recovery salvage. */
+  /** Builds a new Lockbox from recoverable records without changing the source. */
   lockboxRecoverySalvage(bytes: BinaryInput, key: BinaryInput, signingKey: NativeHandle): Lockbox;
-  /** Returns the key contact generate. */
+  /** Generates a contact encryption key pair using secure random data. */
   keyContactGenerate(): ContactKeyPair;
-  /** Returns the key contact from private. */
+  /** Imports a contact key pair from its private binary record. */
   keyContactFromPrivate(bytes: BinaryInput): ContactKeyPair;
-  /** Returns the key contact public from bytes. */
+  /** Imports a contact public key from its binary representation. */
   keyContactPublicFromBytes(bytes: BinaryInput): ContactPublicKey;
   /** Generates a signing identity owned by a Vault Profile. */
   generateProfileSigningKeyPair(): ProfileSigningKeyPair;
@@ -97,63 +97,63 @@ export class Revault {
   profileSigningKeyPairFromPrivate(bytes: BinaryInput): ProfileSigningKeyPair;
   /** Imports the public half of a Vault Profile signing identity. */
   profileSigningPublicKeyFromBytes(bytes: BinaryInput): ProfileSigningPublicKey;
-  /** Returns the vault key export private. */
+  /** Exports a private key in the requested key format. */
   vaultKeyExportPrivate(key: NativeHandle, format: string): Binary;
-  /** Returns the vault key export public. */
+  /** Exports a public key in the requested key format. */
   vaultKeyExportPublic(key: NativeHandle, format: string): Binary;
-  /** Returns the vault key import private. */
+  /** Imports a private contact key from a detected supported encoding. */
   vaultKeyImportPrivate(bytes: BinaryInput): ContactKeyPair;
-  /** Returns the vault key import public. */
+  /** Imports a public contact key from a detected supported encoding. */
   vaultKeyImportPublic(bytes: BinaryInput): ContactPublicKey;
-  /** Returns the vault key fingerprint. */
+  /** Returns the stable fingerprint used to verify a public key. */
   vaultKeyFingerprint(key: NativeHandle): Binary;
-  /** Returns the vault key format hex. */
+  /** Encodes key bytes as hexadecimal text. */
   vaultKeyFormatHex(bytes: BinaryInput): string;
-  /** Returns the vault key decode hex. */
+  /** Decodes hexadecimal key text and rejects malformed input. */
   vaultKeyDecodeHex(text: string): Binary;
-  /** Returns the vault key format crockford. */
+  /** Encodes key bytes using Crockford Base32. */
   vaultKeyFormatCrockford(bytes: BinaryInput): string;
-  /** Returns the vault key format crockford reading. */
+  /** Groups a Crockford code for easier reading and transcription. */
   vaultKeyFormatCrockfordReading(code: string): string;
-  /** Returns the vault key decode crockford. */
+  /** Decodes Crockford Base32 key text and rejects malformed input. */
   vaultKeyDecodeCrockford(code: string): Binary;
-  /** Returns the vault key hex encode. */
+  /** Encodes arbitrary bytes as hexadecimal text. */
   vaultKeyHexEncode(bytes: BinaryInput): string;
-  /** Returns the vault key hex decode. */
+  /** Decodes arbitrary hexadecimal text and rejects malformed input. */
   vaultKeyHexDecode(text: string): Binary;
-  /** Returns the vault directory open. */
+  /** Opens an existing Vault directory with its passphrase. */
   vaultDirectoryOpen(root: string, password: BinaryInput): Vault;
-  /** Returns the vault structure version current. */
+  /** Returns the newest Vault structure version supported by this engine. */
   vaultStructureVersionCurrent(): number;
-  /** Returns the vault directory probe structure version. */
+  /** Reads an existing Vault structure version without changing it. */
   vaultDirectoryProbeStructureVersion(root: string, password: BinaryInput): number;
-  /** Returns the vault directory open or create default. */
+  /** Opens or creates the default Vault without replacing existing state. */
   vaultDirectoryOpenOrCreateDefault(password: BinaryInput): Vault;
-  /** Returns the vault directory replace default. */
+  /** Replaces the default Vault and all persistent data it contains. */
   vaultDirectoryReplaceDefault(password: BinaryInput): Vault;
-  /** Returns the vault directory change password. */
+  /** Changes the passphrase for an existing Vault. */
   vaultDirectoryChangePassword(root: string, oldPassword: BinaryInput, newPassword: BinaryInput): boolean;
-  /** Returns the vault directory change default password. */
+  /** Changes the passphrase for the default Vault. */
   vaultDirectoryChangeDefaultPassword(oldPassword: BinaryInput, newPassword: BinaryInput): boolean;
-  /** Returns the vault directory replace. */
+  /** Replaces the selected Vault and all persistent data it contains. */
   vaultDirectoryReplace(root: string, password: BinaryInput): Vault;
-  /** Returns the vault directory open or create. */
+  /** Opens the selected Vault, creating it only when absent. */
   vaultDirectoryOpenOrCreate(root: string, password: BinaryInput): Vault;
-  /** Returns the vault backup default. */
+  /** Writes a backup of the default Vault to the selected path. */
   vaultBackupDefault(path: string, overwrite: boolean): import('./domain.js').VaultBackupManifest;
-  /** Returns the vault restore default. */
+  /** Restores the default Vault from the selected backup. */
   vaultRestoreDefault(path: string, overwrite: boolean): import('./domain.js').VaultBackupManifest;
-  /** Returns the vault read only open. */
+  /** Opens an existing Vault metadata view that cannot load private keys. */
   vaultReadOnlyOpen(root: string, password: BinaryInput): ReadOnlyVault;
-  /** Returns the vault read only open default. */
+  /** Opens the default Vault metadata view without loading private keys. */
   vaultReadOnlyOpenDefault(password: BinaryInput): ReadOnlyVault;
-  /** Returns the vault default directory. */
+  /** Returns the platform default Vault directory. */
   vaultDefaultDirectory(): string;
-  /** Returns the vault default path. */
+  /** Returns the path of the default Vault file. */
   vaultDefaultPath(): string;
-  /** Returns the vault agent log path. */
+  /** Returns the session agent log path. */
   vaultAgentLogPath(): string;
-  /** Returns the vault agent log destination. */
+  /** Returns the configured session agent log destination. */
   vaultAgentLogDestination(): string;
   /** Returns the vault local. */
 }
@@ -173,17 +173,17 @@ export class Lockbox {
   /** Release the process-local content key; repeated calls are safe. */
   /** Release this owned handle and wipe any native secret state. */
   close(): void;
-  /** Adds file. */
+  /** Stages a file at the Lockbox path; replace controls an existing entry. */
   addFile(path: string, data: BinaryInput, replace: boolean): boolean;
-  /** Adds file with permissions. */
+  /** Stages a file and its portable Unix permission bits. */
   addFileWithPermissions(path: string, data: BinaryInput, permissions: number, replace: boolean): boolean;
-  /** Returns file. */
+  /** Reads the complete file stored at the Lockbox path. */
   getFile(path: string): Binary;
-  /** Extracts file. */
+  /** Writes one Lockbox file to the host filesystem. */
   extractFile(source: string, destination: string, replace: boolean): boolean;
-  /** Extracts directory. */
+  /** Extracts the Lockbox with explicit size, count, link, and permission limits. */
   extractDirectory(destination: string, maxFileBytes: number, maxTotalBytes: number, maxFiles: number, restoreSymlinks: boolean, restorePermissions: boolean, overwrite: boolean): boolean;
-  /** Returns the stream content. */
+  /** Lists logical or physical content chunks for streaming diagnostics. */
   streamContent(physical: boolean): ReadonlyArray<import('./domain.js').StreamChunk>;
   /** Returns cache statistics for this lockbox. */
   cacheStats(): import('./domain.js').CacheStats;
@@ -191,43 +191,43 @@ export class Lockbox {
   importStats(): import('./domain.js').ImportStats;
   /** Updates import stats. */
   resetImportStats(): boolean;
-  /** Returns the page inspection. */
+  /** Returns page metadata for diagnostics without exposing plaintext secrets. */
   pageInspection(): ReadonlyArray<import('./domain.js').PageInspection>;
-  /** Returns the recovery report. */
+  /** Scans the open archive and returns its structured recovery report. */
   recoveryReport(): import('./domain.js').RecoveryReport;
-  /** Returns the recovery report render. */
+  /** Renders the recovery report for a person, capped at maxEntries. */
   recoveryReportRender(verbose: boolean, maxEntries: number): string;
-  /** Returns the storage len. */
+  /** Returns the current serialized archive size in bytes. */
   storageLen(): number;
   /** Sets workload profile. */
   setWorkloadProfile(profile: string): boolean;
   /** Sets worker policy. */
   setWorkerPolicy(mode: string, jobs: number): boolean;
-  /** Returns the runtime options. */
+  /** Returns the cache, workload, and worker settings used by this Lockbox. */
   runtimeOptions(): import('./domain.js').RuntimeOptions;
   /** Authenticates and publishes the staged changes. */
   commit(): boolean;
-  /** Creates dir. */
+  /** Stages a directory entry and optionally creates missing parents. */
   createDir(path: string, createParents: boolean): boolean;
-  /** Removes delete. */
+  /** Stages removal of a file, link, or empty directory at path. */
   delete(path: string): boolean;
-  /** Removes dir. */
+  /** Stages removal of a directory, optionally including its descendants. */
   removeDir(path: string, recursive: boolean): boolean;
-  /** Creates parent dirs. */
+  /** Stages every missing parent directory for path. */
   createParentDirs(path: string): boolean;
-  /** Updates rename. */
+  /** Stages an atomic move from one Lockbox path to another. */
   rename(from: string, to: string): boolean;
-  /** Lists list. */
+  /** Lists entries below path, optionally including descendants. */
   list(path: string, recursive: boolean): ReadonlyArray<import('./domain.js').LockboxEntry>;
-  /** Lists with options. */
+  /** Lists entries using glob, type, recursion, and result limit filters. */
   listWithOptions(path: string, glob: string, recursive: boolean, includeFiles: boolean, includeSymlinks: boolean, includeDirectories: boolean, limit: number): ReadonlyArray<import('./domain.js').LockboxEntry>;
   /** Returns metadata for the selected lockbox entry. */
   stat(path: string): import('./domain.js').LockboxEntry | undefined;
-  /** Sets variable. */
+  /** Stages a plain text variable; commit to publish the change. */
   setVariable(name: string, value: string): boolean;
   /** Stores a secret value without first converting it to a JavaScript string. */
   setSecretVariable(name: string, value: BinaryInput): boolean;
-  /** Returns variable. */
+  /** Returns a plain variable when it is present. */
   getVariable(name: string): string | undefined;
   /** Encrypted Lockbox description, or undefined when unset. Example lifecycle: set it, commit, then print this property. */
   readonly description: string | undefined;
@@ -241,69 +241,69 @@ export class Lockbox {
    * resulting security tradeoff is intentional.
    */
   withSecretVariable<T>(name: string, callback: (value: Uint8Array) => T): T | undefined;
-  /** Removes variable. */
+  /** Stages removal of a variable. */
   deleteVariable(name: string): boolean;
   /** Updates variables. */
   moveVariables(moves: ReadonlyArray<import('./domain.js').PathMoveInput>): boolean;
-  /** Lists variables. */
+  /** Lists variable names and metadata without exposing secret values. */
   listVariables(): ReadonlyArray<import('./domain.js').Variable>;
-  /** Returns the variable sensitivity. */
+  /** Returns whether a variable is plain or secret. */
   variableSensitivity(name: string): string | undefined;
-  /** Adds symlink. */
+  /** Stages a symbolic link with its stored target text. */
   addSymlink(path: string, target: string, replace: boolean): boolean;
-  /** Returns symlink target. */
+  /** Returns the target text stored for a symbolic link. */
   getSymlinkTarget(path: string): string;
-  /** Returns the id. */
+  /** Returns the stable public identifier stored in the Lockbox header. */
   id(): Binary;
-  /** Reports whether exists. */
+  /** Reports whether an entry exists at path. */
   exists(path: string): boolean;
-  /** Reports whether dir. */
+  /** Reports whether path names a directory entry. */
   isDir(path: string): boolean;
-  /** Returns the permissions. */
+  /** Returns the portable Unix permission bits stored for path. */
   permissions(path: string): number;
-  /** Sets permissions. */
+  /** Stages portable Unix permission bits for path. */
   setPermissions(path: string, permissions: number): boolean;
-  /** Returns range. */
+  /** Reads the requested byte range from a stored file. */
   readRange(path: string, offset: number, len: number): Binary;
-  /** Adds password. */
+  /** Adds a password access slot and returns its slot identifier. */
   addPassword(password: BinaryInput): number;
-  /** Adds contact. */
+  /** Grants a named contact access and returns the new slot identifier. */
   addContact(contact: NativeHandle, name: string): number;
-  /** Removes key. */
+  /** Removes an access slot; at least one usable slot must remain. */
   deleteKey(id: number): boolean;
-  /** Lists key slots. */
+  /** Lists public access slot metadata without returning credentials. */
   listKeySlots(): ReadonlyArray<import('./domain.js').KeySlot>;
-  /** Sets owner signing key. */
+  /** Assigns a profile signing key to the Lockbox owner role. */
   setOwnerSigningKey(key: NativeHandle): boolean;
-  /** Returns the owner inspection. */
+  /** Returns public signing and ownership metadata for the current revision. */
   ownerInspection(): import('./domain.js').OwnerInspection;
-  /** Returns the define form. */
+  /** Defines and stores a reusable versioned form. */
   defineForm(alias: string, name: string, description: string, fields: ReadonlyArray<import('./domain.js').FormFieldInput>): import('./domain.js').FormDefinition;
-  /** Lists form definitions. */
+  /** Lists the form definitions stored in this Lockbox. */
   listFormDefinitions(): ReadonlyArray<import('./domain.js').FormDefinition>;
-  /** Returns the resolve form. */
+  /** Resolves a form alias, type identifier, or revision. */
   resolveForm(reference: string): import('./domain.js').FormDefinition;
-  /** Lists form revisions. */
+  /** Lists every stored revision for a form type identifier. */
   listFormRevisions(typeId: string): ReadonlyArray<import('./domain.js').FormDefinition>;
-  /** Creates form record. */
+  /** Stages a form record at path using the referenced definition. */
   createFormRecord(path: string, typeReference: string, name: string): import('./domain.js').FormRecord;
-  /** Sets form field. */
+  /** Stages a plain field value in a form record. */
   setFormField(path: string, field: string, value: string): boolean;
   /** Stores a secret form field from bytes without creating an immutable string. */
   setSecretFormField(path: string, field: string, value: BinaryInput): boolean;
-  /** Lists form records. */
+  /** Lists form records without exposing secret field values. */
   listFormRecords(): ReadonlyArray<import('./domain.js').FormRecord>;
-  /** Returns form record. */
+  /** Returns the form record at path when present. */
   getFormRecord(path: string): import('./domain.js').FormRecord | undefined;
-  /** Removes form record. */
+  /** Stages removal of a form record. */
   deleteFormRecord(path: string): boolean;
   /** Updates form records. */
   moveFormRecords(moves: ReadonlyArray<import('./domain.js').PathMoveInput>): boolean;
-  /** Returns form field. */
+  /** Returns a plain form field when it exists. */
   getFormField(path: string, field: string): import('./domain.js').FormValue | undefined;
   /** Calls `callback` with temporary secret field bytes, then overwrites the transfer buffer. */
   withSecretFormField<T>(path: string, field: string, callback: (value: Uint8Array) => T): T | undefined;
-  /** Returns the to bytes. */
+  /** Serializes the current Lockbox, including committed changes. */
   toBytes(): Binary;
   /** Releases the native resources held by this object. */
   free(): void;
@@ -327,7 +327,7 @@ export class ContactKeyPair {
 /** A recipient's shareable encryption identity. Use it when granting that
  * recipient lockbox access; it contains no private key material. */
 export class ContactPublicKey {
-  /** Returns the public free. */
+  /** Releases this public contact key. */
   publicFree(): void;
   /** Release this owned handle and wipe any native secret state. */
   close(): void;
@@ -340,9 +340,9 @@ export class ContactPublicKey {
 export class WrappedContactKey {
   /** Returns the public. */
   public(): Binary;
-  /** Returns the ciphertext. */
+  /** Returns the encrypted content key bytes. */
   ciphertext(): Binary;
-  /** Returns the encrypted. */
+  /** Returns the complete wrapped key record for storage or transport. */
   encrypted(): Binary;
   /** Releases the native resources held by this object. */
   free(): void;
@@ -379,9 +379,9 @@ export class Vault {
   static create(root: string, vaultPassphrase: BinaryInput): Vault;
   /** Replace a Vault explicitly; destructive. */
   static replace(root: string, vaultPassphrase: BinaryInput): Vault;
-  /** Returns the root. */
+  /** Returns the canonical root directory of this Vault. */
   root(): string;
-  /** Returns the structure version. */
+  /** Returns the persistent structure version of this Vault. */
   structureVersion(): number;
   /** Lists private keys. */
   listPrivateKeys(): ReadonlyArray<string>;
@@ -391,7 +391,7 @@ export class Vault {
   listContactNames(): ReadonlyArray<string>;
   /** Lists form aliases. */
   listFormAliases(): ReadonlyArray<string>;
-  /** Returns the private key exists. */
+  /** Reports whether the named profile private key exists. */
   privateKeyExists(name: string): boolean;
   /** Removes private key. */
   deletePrivateKey(name: string): boolean;
@@ -405,7 +405,7 @@ export class Vault {
   storeContact(name: string, key: NativeHandle): boolean;
   /** Loads contact. */
   loadContact(name: string): ContactPublicKey;
-  /** Returns the contact exists. */
+  /** Reports whether the named contact exists. */
   contactExists(name: string): boolean;
   /** Removes contact. */
   deleteContact(name: string): boolean;
@@ -413,15 +413,15 @@ export class Vault {
   listContacts(): ReadonlyArray<import('./domain.js').Contact>;
   /** Stores profile email. */
   storeProfileEmail(name: string, email: string): boolean;
-  /** Returns the profile email. */
+  /** Returns the email recorded for a profile, when present. */
   profileEmail(name: string): string | undefined;
   /** Stores backup. */
   storeBackup(id: BinaryInput, bytes: BinaryInput): boolean;
   /** Loads backup. */
   loadBackup(id: BinaryInput): Binary;
-  /** Returns the backup count. */
+  /** Returns the number of stored key recovery backups. */
   backupCount(): number;
-  /** Returns the restore private key. */
+  /** Restores a profile private key and signing key from recovery material. */
   restorePrivateKey(name: string, key: NativeHandle, signingKey: NativeHandle, overwrite: boolean): boolean;
   /** Loads owner signing key. */
   loadProfileSigningKey(name: string): ProfileSigningKeyPair;
@@ -445,23 +445,23 @@ export class Vault {
   rememberAccessSlotLabel(id: BinaryInput, slotId: number, name: string): boolean;
   /** Lists access slot labels. */
   listAccessSlotLabels(id: BinaryInput): ReadonlyArray<import('./domain.js').AccessSlotLabel>;
-  /** Returns the find access slot labels. */
+  /** Finds access slot labels with the supplied name for one Lockbox. */
   findAccessSlotLabels(id: BinaryInput, name: string): ReadonlyArray<import('./domain.js').AccessSlotLabel>;
   /** Removes access slot label. */
   forgetAccessSlotLabel(id: BinaryInput, slotId: number): boolean;
-  /** Returns the define form. */
+  /** Defines and stores a reusable versioned form. */
   defineForm(alias: string, name: string, description: string, fields: ReadonlyArray<import('./domain.js').FormFieldInput>): import('./domain.js').FormDefinition;
-  /** Returns the resolve form. */
+  /** Resolves a form alias, type identifier, or revision. */
   resolveForm(reference: string): import('./domain.js').FormDefinition;
   /** Lists forms. */
   listForms(): ReadonlyArray<import('./domain.js').FormDefinition>;
-  /** Lists form revisions. */
+  /** Lists every stored revision for a form type identifier. */
   listFormRevisions(typeId: string): ReadonlyArray<import('./domain.js').FormDefinition>;
-  /** Returns the seed forms. */
+  /** Adds missing standard form definitions and returns the number added. */
   seedForms(): number;
   /** Stores password. */
   rememberPassword(id: BinaryInput, password: BinaryInput): boolean;
-  /** Returns the remembered password. */
+  /** Returns the Lockbox password encrypted inside this Vault. */
   rememberedPassword(id: BinaryInput): Binary;
   /** Releases the native resources held by this object. */
   free(): void;
@@ -493,7 +493,7 @@ declare class Agent {
   isRunning(): boolean;
   /** Removes all. */
   forgetAll(): boolean;
-  /** Returns the serve. */
+  /** Runs the session agent server until it is stopped. */
   serve(): boolean;
   /** Verifies transport. */
   verifyTransport(): boolean;
@@ -507,9 +507,9 @@ declare class Agent {
   stop(): boolean;
   /** Starts start. */
   start(): boolean;
-  /** Lists list. */
+  /** Lists entries below path, optionally including descendants. */
   list(): ReadonlyArray<import('./domain.js').AgentEntry>;
-  /** Returns the sleep support. */
+  /** Reports how the platform handles agent expiry during system sleep. */
   sleepSupport(): import('./domain.js').SleepSupport;
   /** Returns vault unlock key. */
   getVaultUnlockKey(vaultId: string): Binary;
@@ -561,7 +561,7 @@ export class AgentActivity {
 
 /** Access to the platform credential store for a scoped Vault passphrase. */
 declare class Platform {
-  /** Returns the status. */
+  /** Returns availability and user presence guarantees for platform storage. */
   status(): import('./domain.js').PlatformStatus;
   /** Sets scope. */
   setScope(scope: string): boolean;
@@ -569,11 +569,11 @@ declare class Platform {
   forgetPassword(): boolean;
   /** Stores password. */
   putPassword(password: BinaryInput): boolean;
-  /** Returns the enable. */
+  /** Enables storage of the Vault passphrase in platform credentials. */
   enable(): boolean;
-  /** Returns the disable. */
+  /** Disables platform credential use without deleting the stored value. */
   disable(): boolean;
-  /** Returns the disabled. */
+  /** Reports whether platform credential use is disabled. */
   disabled(): boolean;
   /** Returns password. */
   getPassword(): Binary;

@@ -154,8 +154,11 @@ pub fn import_vault_v2<P: MigrationPassphrase + ?Sized>(
     let mut reader =
         ArtifactReader::new_with_passphrase(BufReader::new(file), artifact_passphrase)?;
     require_vault_header(reader.header())?;
+    let vault_owner_signing = migration_vault_owner_signing_key(artifact, artifact_passphrase)?;
+    let expected_owner_public = vault_owner_signing.public_key().to_bytes();
     let vault =
-        VaultDirectory::replace_for_migration(output_root, vault_password).map_err(core_error)?;
+        VaultDirectory::replace_for_migration(output_root, vault_password, &vault_owner_signing)
+            .map_err(core_error)?;
     let mut records = 0u64;
     let mut saw_start = false;
     let mut saw_end = false;
@@ -174,7 +177,9 @@ pub fn import_vault_v2<P: MigrationPassphrase + ?Sized>(
                 }
                 saw_start = true;
             }
-            VaultRecord::Profile(profile) => import_profile(&vault, profile)?,
+            VaultRecord::Profile(profile) => {
+                import_profile(&vault, profile, &expected_owner_public)?
+            }
             VaultRecord::Contact {
                 name,
                 public_key,
@@ -355,7 +360,13 @@ fn upgrade_vault_record(record: MigrationRecord) -> Result<MigrationRecord> {
     }
 }
 
-fn import_profile(vault: &VaultDirectory, profile: ProfileRecord) -> Result<()> {
+fn import_profile(
+    vault: &VaultDirectory,
+    profile: ProfileRecord,
+    expected_owner_public: &[u8],
+) -> Result<()> {
+    let is_default = profile.name == VaultDirectory::DEFAULT_KEY_NAME;
+    let active_generation = profile.active_generation;
     let mut history_items = Vec::with_capacity(profile.generations.len());
     let mut key_items = Vec::with_capacity(profile.generations.len());
     for item in profile.generations {
@@ -367,6 +378,14 @@ fn import_profile(vault: &VaultDirectory, profile: ProfileRecord) -> Result<()> 
             SecretVec::try_from_vec(item.owner_signing_key.into_vec()).map_err(core_error)?,
         )
         .map_err(core_error)?;
+        if is_default
+            && item.index == active_generation
+            && signing.public_key().to_bytes() != expected_owner_public
+        {
+            return Err(MigrationError::CorruptFrame(
+                "default profile signer changed while importing the vault".to_string(),
+            ));
+        }
         history_items.push(ProfileGeneration {
             index: item.index,
             status: parse_generation_status(&item.status)?,
@@ -388,6 +407,50 @@ fn import_profile(vault: &VaultDirectory, profile: ProfileRecord) -> Result<()> 
             true,
         )
         .map_err(core_error)
+}
+
+fn migration_vault_owner_signing_key<P: MigrationPassphrase + ?Sized>(
+    artifact: &Path,
+    artifact_passphrase: &P,
+) -> Result<OwnerSigningKeyPair> {
+    let file = File::open(artifact).map_err(io_error)?;
+    let mut reader =
+        ArtifactReader::new_with_passphrase(BufReader::new(file), artifact_passphrase)?;
+    require_vault_header(reader.header())?;
+    let mut owner = None;
+    while let Some(record) = reader.next_json::<MigrationRecord>()? {
+        let MigrationRecord::Vault(VaultRecord::Profile(profile)) = record else {
+            continue;
+        };
+        if profile.name != VaultDirectory::DEFAULT_KEY_NAME {
+            continue;
+        }
+        if owner.is_some() {
+            return Err(MigrationError::CorruptFrame(
+                "vault artifact contains duplicate default profiles".to_string(),
+            ));
+        }
+        let generation = profile
+            .generations
+            .into_iter()
+            .find(|item| item.index == profile.active_generation)
+            .ok_or_else(|| {
+                MigrationError::CorruptFrame(
+                    "default profile active signing generation is missing".to_string(),
+                )
+            })?;
+        owner = Some(
+            OwnerSigningKeyPair::from_private_key_record(
+                SecretVec::try_from_vec(generation.owner_signing_key.into_vec())
+                    .map_err(core_error)?,
+            )
+            .map_err(core_error)?,
+        );
+    }
+    if !reader.is_complete() {
+        return Err(MigrationError::Incomplete);
+    }
+    owner.map_or_else(|| OwnerSigningKeyPair::generate().map_err(core_error), Ok)
 }
 
 fn require_vault_header(header: &MigrationHeader) -> Result<()> {

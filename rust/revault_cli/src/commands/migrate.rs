@@ -395,6 +395,7 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
                     &exporter,
                     &source,
                     &artifact,
+                    &vault,
                     &vault_password,
                     &artifact_password,
                 )?;
@@ -537,7 +538,7 @@ fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterR
     match (kind, source_version) {
         (ArtifactKind::Vault, 1) => Some(ExporterRelease {
             package: "revault_migrate_vault_v1",
-            version: "0.0.1",
+            version: "0.0.3",
             binary: "revault-migrate-vault-v1",
             protocol: 1,
             artifact: "vault",
@@ -546,12 +547,12 @@ fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterR
         }),
         (ArtifactKind::Archive, 1) => Some(ExporterRelease {
             package: "revault_migrate_archive_v1",
-            version: "0.0.2",
+            version: "0.0.4",
             binary: "revault-migrate-archive-v1",
-            protocol: 2,
+            protocol: 3,
             artifact: "archive",
             native_version: 1,
-            migration_schema: 1,
+            migration_schema: 2,
         }),
         _ => None,
     }
@@ -599,7 +600,7 @@ fn run_historical_vault_exporter(
         .arg(source)
         .stdin(Stdio::piped())
         .spawn()?;
-    write_subprocess_secrets(&mut child, &[vault_password, artifact_password])?;
+    write_subprocess_secrets(&mut child, &[vault_password, artifact_password], &[])?;
     let status = child.wait()?;
     if !status.success() {
         return Err(cli_error(format!(
@@ -613,9 +614,11 @@ fn run_historical_archive_exporter(
     exporter: &Path,
     source: &Path,
     output: &Path,
+    vault: &VaultDirectory,
     vault_password: &SecretString,
     artifact_password: &SecretString,
 ) -> CliResult<()> {
+    let contact_keys = migration_contact_keys(vault)?;
     let mut child = Command::new(exporter)
         .args(["migrate", "archive", "export"])
         .arg(source)
@@ -623,7 +626,11 @@ fn run_historical_archive_exporter(
         .arg(output)
         .stdin(Stdio::piped())
         .spawn()?;
-    write_subprocess_secrets(&mut child, &[vault_password, artifact_password])?;
+    write_subprocess_secrets(
+        &mut child,
+        &[vault_password, artifact_password],
+        &contact_keys,
+    )?;
     let status = child.wait()?;
     if !status.success() {
         return Err(cli_error(format!(
@@ -636,6 +643,7 @@ fn run_historical_archive_exporter(
 fn write_subprocess_secrets(
     child: &mut std::process::Child,
     secrets: &[&SecretString],
+    binary_secrets: &[SecretVec],
 ) -> CliResult<()> {
     let mut stdin = child
         .stdin
@@ -643,7 +651,7 @@ fn write_subprocess_secrets(
         .ok_or_else(|| cli_error("exporter stdin unavailable"))?;
     stdin.write_all(b"LBXMIPC1")?;
     stdin.write_all(
-        &u32::try_from(secrets.len())
+        &u32::try_from(secrets.len() + binary_secrets.len())
             .map_err(|_| cli_error("too many migration secrets"))?
             .to_le_bytes(),
     )?;
@@ -659,8 +667,38 @@ fn write_subprocess_secrets(
             stdin.write_all(bytes)
         })??;
     }
+    for secret in binary_secrets {
+        secret.with_bytes(|bytes| -> std::io::Result<()> {
+            let len = u32::try_from(bytes.len()).map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "migration secret too long",
+                )
+            })?;
+            stdin.write_all(&len.to_le_bytes())?;
+            stdin.write_all(bytes)
+        })??;
+    }
     drop(stdin);
     Ok(())
+}
+
+fn migration_contact_keys(vault: &VaultDirectory) -> CliResult<Vec<SecretVec>> {
+    let mut records = Vec::new();
+    for profile in vault.list_private_keys()? {
+        let active = vault.load_private_key(&profile)?;
+        records.push(active.private_key_record()?);
+        if let Ok(history) = vault.list_profile_generations(&profile) {
+            for generation in history.generations {
+                if generation.index == history.active_generation {
+                    continue;
+                }
+                let key = vault.load_private_key_generation(&profile, generation.index)?;
+                records.push(key.private_key_record()?);
+            }
+        }
+    }
+    Ok(records)
 }
 
 fn migration_password() -> CliResult<SecretString> {
@@ -1092,6 +1130,7 @@ mod tests {
         let vault = exporter_release(ArtifactKind::Vault, 1).unwrap();
         assert_eq!(vault.package, "revault_migrate_vault_v1");
         assert_eq!(vault.binary, "revault-migrate-vault-v1");
+        assert_eq!(vault.version, "0.0.3");
         assert!(capabilities_match(
             br#"{"protocol":1,"artifact":"vault","native_version":1,"migration_schema":1}"#,
             vault
@@ -1104,9 +1143,9 @@ mod tests {
         let archive = exporter_release(ArtifactKind::Archive, 1).unwrap();
         assert_eq!(archive.package, "revault_migrate_archive_v1");
         assert_eq!(archive.binary, "revault-migrate-archive-v1");
-        assert_eq!(archive.version, "0.0.2");
+        assert_eq!(archive.version, "0.0.4");
         assert!(capabilities_match(
-            br#"{"protocol":2,"artifact":"archive","native_version":1,"migration_schema":1}"#,
+            br#"{"protocol":3,"artifact":"archive","native_version":1,"migration_schema":2}"#,
             archive
         ));
         assert!(!capabilities_match(

@@ -1,8 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.0.4 - 2026-08-30
 
 - Restored the minimum supported Rust version to Rust 1.88.
+- Added archive migration schema 2 with explicit directories, directory and
+  symlink permissions, and optional archive descriptions while retaining
+  schema-1 decoding compatibility.
 
 ## 0.0.1
 

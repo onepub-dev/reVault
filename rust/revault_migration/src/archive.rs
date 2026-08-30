@@ -27,7 +27,7 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
         source_native_version: u32::from(LOCKBOX_FORMAT_VERSION),
-        migration_schema_version: 1,
+        migration_schema_version: 2,
         target_native_version: Some(u32::from(LOCKBOX_FORMAT_VERSION)),
         operation_id,
     };
@@ -44,6 +44,7 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
         format_version: u32::from(LOCKBOX_FORMAT_VERSION),
         content_key: SecretBytes::new(secret_bytes(&content_key)?),
         key_directory: SecretBytes::new(key_directory),
+        description: lockbox.description().map_err(core_error)?,
     }))?;
 
     let root = LockboxPath::new("/").map_err(core_error)?;
@@ -53,7 +54,12 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
     for entry in lockbox.list(options).map_err(core_error)? {
         let entry = entry.map_err(core_error)?;
         match entry.kind {
-            LockboxEntryKind::Directory => {}
+            LockboxEntryKind::Directory => {
+                writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Directory {
+                    path: entry.path.to_string(),
+                    permissions: Some(entry.permissions),
+                }))?;
+            }
             LockboxEntryKind::Symlink => {
                 let target = lockbox
                     .get_symlink_target(&entry.path)
@@ -61,6 +67,7 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
                 writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Symlink {
                     path: entry.path.to_string(),
                     target: target.to_string(),
+                    permissions: Some(entry.permissions),
                 }))?;
             }
             LockboxEntryKind::File => {
@@ -214,6 +221,7 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                 archive_id,
                 content_key,
                 key_directory,
+                description,
                 ..
             } => {
                 if lockbox.is_some() || count != 0 {
@@ -227,7 +235,22 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                 created
                     .import_migration_key_directory(key_directory.as_slice())
                     .map_err(core_error)?;
+                if let Some(description) = description {
+                    created.set_description(&description).map_err(core_error)?;
+                }
                 lockbox = Some(created);
+            }
+            ArchiveRecord::Directory { path, permissions } => {
+                let lockbox = lockbox.as_mut().ok_or_else(|| {
+                    MigrationError::CorruptFrame("archive start is missing".to_string())
+                })?;
+                let path = LockboxPath::new(path).map_err(core_error)?;
+                lockbox.create_dir(&path, true).map_err(core_error)?;
+                if let Some(permissions) = permissions {
+                    lockbox
+                        .set_permissions(&path, permissions)
+                        .map_err(core_error)?;
+                }
             }
             ArchiveRecord::FileStart {
                 file_id,
@@ -311,16 +334,23 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                     break;
                 }
             }
-            ArchiveRecord::Symlink { path, target } => {
+            ArchiveRecord::Symlink {
+                path,
+                target,
+                permissions,
+            } => {
+                let lockbox = lockbox.as_mut().ok_or_else(|| {
+                    MigrationError::CorruptFrame("archive start is missing".into())
+                })?;
+                let path = LockboxPath::new(path).map_err(core_error)?;
                 lockbox
-                    .as_mut()
-                    .ok_or_else(|| MigrationError::CorruptFrame("archive start is missing".into()))?
-                    .add_symlink(
-                        &LockboxPath::new(path).map_err(core_error)?,
-                        &LockboxPath::new(target).map_err(core_error)?,
-                        false,
-                    )
+                    .add_symlink(&path, &LockboxPath::new(target).map_err(core_error)?, false)
                     .map_err(core_error)?;
+                if let Some(permissions) = permissions {
+                    lockbox
+                        .set_permissions(&path, permissions)
+                        .map_err(core_error)?;
+                }
             }
             ArchiveRecord::Variable {
                 name,
@@ -528,8 +558,9 @@ pub fn verify_archive_artifact<P: MigrationPassphrase + ?Sized>(
 }
 
 /// Re-encrypts and advances an archive migration artifact through each
-/// registered logical schema step. Schema 1 is currently the latest schema,
-/// so this performs a validated canonical rewrite.
+/// registered logical schema step. Schema 2 adds explicit directories,
+/// symlink permissions, and archive descriptions. Schema-1 artifacts remain
+/// readable, but data never recorded by schema 1 cannot be reconstructed.
 pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
     input: &Path,
     output: &Path,
@@ -542,7 +573,7 @@ pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
             "artifact is not an archive migration".to_string(),
         ));
     }
-    if reader.header().migration_schema_version > 1 {
+    if reader.header().migration_schema_version > 2 {
         return Err(MigrationError::InvalidHeader(format!(
             "archive migration schema {} is newer than this build supports",
             reader.header().migration_schema_version
@@ -551,7 +582,7 @@ pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
         source_native_version: reader.header().source_native_version,
-        migration_schema_version: 1,
+        migration_schema_version: 2,
         target_native_version: Some(u32::from(LOCKBOX_FORMAT_VERSION)),
         operation_id: reader.header().operation_id,
     };

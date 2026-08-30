@@ -57,11 +57,14 @@ impl Lockbox<crate::Writable> {
         options: LockboxOptions,
     ) -> Result<Self> {
         let path = HostPath::new(path);
-        Self::open_storage_with_secret_key(
+        let mut lockbox = Self::open_storage_with_secret_key_mode(
             StorageBackend::file_for_write(path.as_path())?,
             key,
             options,
-        )
+            true,
+        )?;
+        lockbox.complete_pending_transaction_cleanup()?;
+        Ok(lockbox)
     }
 
     #[cfg(test)]

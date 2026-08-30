@@ -1,8 +1,8 @@
 use crate::checked::{read_u16_le, read_u32_le, read_u64_le};
 use crate::constants::DEFAULT_MAX_PAGE_LOGICAL_BYTES;
 use crate::{Error, Result};
-use ruzstd::decoding::FrameDecoder;
-use ruzstd::encoding::{compress_to_vec, CompressionLevel};
+use zstd_complete::decoding::FrameDecoder;
+use zstd_complete::encoding::{compress_to_vec, CompressionLevel};
 
 pub(crate) const COMPRESSION_NONE: u8 = 0;
 pub(crate) const COMPRESSION_ZSTD: u8 = 1;
@@ -69,7 +69,7 @@ pub(crate) fn decode_page_body(body: &[u8]) -> Result<Vec<u8>> {
 }
 
 fn zstd_encode(payload: &[u8], level: i32) -> Vec<u8> {
-    compress_to_vec(payload, ruzstd_level(level))
+    compress_to_vec(payload, zstd_complete_level(level))
 }
 
 #[cfg(feature = "native-zstd-encoder")]
@@ -92,7 +92,7 @@ fn zstd_decode(stored: &[u8], expected_len: u64) -> Result<Vec<u8>> {
     Ok(decoded)
 }
 
-fn ruzstd_level(level: i32) -> CompressionLevel {
+fn zstd_complete_level(level: i32) -> CompressionLevel {
     match level {
         i32::MIN..=0 => CompressionLevel::Uncompressed,
         1 => CompressionLevel::Fastest,

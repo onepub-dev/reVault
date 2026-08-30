@@ -67,17 +67,17 @@ export class Revault {
   /** Returns the last error details. */
   lastErrorDetails() { return this.operations.bufferLastErrorDetails(); }
 
-  /** Returns the lockbox format version. */
+  /** Returns the newest Lockbox archive format version supported by this engine. */
   lockboxFormatVersion() {
     return this.operations.lockboxFormatVersion();
   }
 
-  /** Returns the lockbox probe format version. */
+  /** Reads the format version from serialized Lockbox bytes without opening them. */
   lockboxProbeFormatVersion(bytes) {
     return this.operations.lockboxProbeFormatVersion(bytes);
   }
 
-  /** Returns the lockbox create. */
+  /** Creates an in memory Lockbox protected by a 32 byte content key. */
   lockboxCreate(key) {
     return new Lockbox(this.operations, this.operations.lockboxCreate(key));
   }
@@ -87,22 +87,22 @@ export class Revault {
     return new Lockbox(this.operations, this.operations.lockboxCreateWithOptions(key, cacheMode, cacheBytes, workload, worker, jobs));
   }
 
-  /** Returns the lockbox create password. */
+  /** Creates an in memory Lockbox protected by the supplied password. */
   lockboxCreatePassword(password) {
     return new Lockbox(this.operations, this.operations.lockboxCreatePassword(password));
   }
 
-  /** Returns the lockbox create contact. */
+  /** Creates an in memory Lockbox that the supplied contact can open. */
   lockboxCreateContact(contact) {
     return new Lockbox(this.operations, this.operations.lockboxCreateContact(contact?.nativeHandle ?? null));
   }
 
-  /** Returns the lockbox create with signing key. */
+  /** Creates an in memory Lockbox and assigns its profile signing key. */
   lockboxCreateWithSigningKey(contentKey, signingKey) {
     return new Lockbox(this.operations, this.operations.lockboxCreateWithSigningKey(contentKey, signingKey?.nativeHandle ?? null));
   }
 
-  /** Returns the lockbox open. */
+  /** Opens serialized Lockbox bytes with a 32 byte content key. */
   lockboxOpen(archive, key) {
     return new Lockbox(this.operations, this.operations.lockboxOpen(archive, key));
   }
@@ -112,47 +112,47 @@ export class Revault {
     return new Lockbox(this.operations, this.operations.lockboxOpenWithOptions(archive, key, cacheMode, cacheBytes, workload, worker, jobs));
   }
 
-  /** Returns the lockbox open password. */
+  /** Opens serialized Lockbox bytes with the supplied password. */
   lockboxOpenPassword(archive, password) {
     return new Lockbox(this.operations, this.operations.lockboxOpenPassword(archive, password));
   }
 
-  /** Returns the lockbox open contact. */
+  /** Opens serialized Lockbox bytes with the supplied contact private key. */
   lockboxOpenContact(archive, contact) {
     return new Lockbox(this.operations, this.operations.lockboxOpenContact(archive, contact?.nativeHandle ?? null));
   }
 
-  /** Returns the lockbox inspect file. */
+  /** Reads public header, signature, and access slot metadata from a Lockbox file. */
   lockboxInspectFile(path) {
     return this.operations.lockboxInspectFile(path);
   }
 
-  /** Returns the lockbox recovery scan path. */
+  /** Scans a damaged Lockbox file with its 32 byte content key. */
   lockboxRecoveryScanPath(path, key) {
     return this.operations.lockboxRecoveryScanPath(path, key);
   }
 
-  /** Returns the lockbox recovery scan. */
+  /** Scans damaged serialized Lockbox bytes with their 32 byte content key. */
   lockboxRecoveryScan(bytes, key) {
     return this.operations.lockboxRecoveryScan(bytes, key);
   }
 
-  /** Returns the lockbox recovery salvage. */
+  /** Builds a new Lockbox from recoverable records without changing the source. */
   lockboxRecoverySalvage(bytes, key, signingKey) {
     return new Lockbox(this.operations, this.operations.lockboxRecoverySalvage(bytes, key, signingKey?.nativeHandle ?? null));
   }
 
-  /** Returns the key contact generate. */
+  /** Generates a contact encryption key pair using secure random data. */
   keyContactGenerate() {
     return new ContactKeyPair(this.operations, this.operations.keyContactGenerate());
   }
 
-  /** Returns the key contact from private. */
+  /** Imports a contact key pair from its private binary record. */
   keyContactFromPrivate(bytes) {
     return new ContactKeyPair(this.operations, this.operations.keyContactFromPrivate(bytes));
   }
 
-  /** Returns the key contact public from bytes. */
+  /** Imports a contact public key from its binary representation. */
   keyContactPublicFromBytes(bytes) {
     return new ContactPublicKey(this.operations, this.operations.keyContactPublicFromBytes(bytes));
   }
@@ -172,147 +172,147 @@ export class Revault {
     return new ProfileSigningPublicKey(this.operations, this.operations.keySigningPublicFromBytes(bytes));
   }
 
-  /** Returns the vault key export private. */
+  /** Exports a private key in the requested key format. */
   vaultKeyExportPrivate(key, format) {
     return this.operations.vaultKeyExportPrivate(key?.nativeHandle ?? null, format);
   }
 
-  /** Returns the vault key export public. */
+  /** Exports a public key in the requested key format. */
   vaultKeyExportPublic(key, format) {
     return this.operations.vaultKeyExportPublic(key?.nativeHandle ?? null, format);
   }
 
-  /** Returns the vault key import private. */
+  /** Imports a private contact key from a detected supported encoding. */
   vaultKeyImportPrivate(bytes) {
     return new ContactKeyPair(this.operations, this.operations.vaultKeyImportPrivate(bytes));
   }
 
-  /** Returns the vault key import public. */
+  /** Imports a public contact key from a detected supported encoding. */
   vaultKeyImportPublic(bytes) {
     return new ContactPublicKey(this.operations, this.operations.vaultKeyImportPublic(bytes));
   }
 
-  /** Returns the vault key fingerprint. */
+  /** Returns the stable fingerprint used to verify a public key. */
   vaultKeyFingerprint(key) {
     return this.operations.vaultKeyFingerprint(key?.nativeHandle ?? null);
   }
 
-  /** Returns the vault key format hex. */
+  /** Encodes key bytes as hexadecimal text. */
   vaultKeyFormatHex(bytes) {
     return this.operations.vaultKeyFormatHex(bytes);
   }
 
-  /** Returns the vault key decode hex. */
+  /** Decodes hexadecimal key text and rejects malformed input. */
   vaultKeyDecodeHex(text) {
     return this.operations.vaultKeyDecodeHex(text);
   }
 
-  /** Returns the vault key format crockford. */
+  /** Encodes key bytes using Crockford Base32. */
   vaultKeyFormatCrockford(bytes) {
     return this.operations.vaultKeyFormatCrockford(bytes);
   }
 
-  /** Returns the vault key format crockford reading. */
+  /** Groups a Crockford code for easier reading and transcription. */
   vaultKeyFormatCrockfordReading(code) {
     return this.operations.vaultKeyFormatCrockfordReading(code);
   }
 
-  /** Returns the vault key decode crockford. */
+  /** Decodes Crockford Base32 key text and rejects malformed input. */
   vaultKeyDecodeCrockford(code) {
     return this.operations.vaultKeyDecodeCrockford(code);
   }
 
-  /** Returns the vault key hex encode. */
+  /** Encodes arbitrary bytes as hexadecimal text. */
   vaultKeyHexEncode(bytes) {
     return this.operations.vaultKeyHexEncode(bytes);
   }
 
-  /** Returns the vault key hex decode. */
+  /** Decodes arbitrary hexadecimal text and rejects malformed input. */
   vaultKeyHexDecode(text) {
     return this.operations.vaultKeyHexDecode(text);
   }
 
-  /** Returns the vault directory open. */
+  /** Opens an existing Vault directory with its passphrase. */
   vaultDirectoryOpen(root, password) {
     return new Vault(this.operations, this.operations.vaultDirectoryOpen(root, password));
   }
 
-  /** Returns the vault structure version current. */
+  /** Returns the newest Vault structure version supported by this engine. */
   vaultStructureVersionCurrent() {
     return this.operations.vaultStructureVersionCurrent();
   }
 
-  /** Returns the vault directory probe structure version. */
+  /** Reads an existing Vault structure version without changing it. */
   vaultDirectoryProbeStructureVersion(root, password) {
     return this.operations.vaultDirectoryProbeStructureVersion(root, password);
   }
 
-  /** Returns the vault directory open or create default. */
+  /** Opens or creates the default Vault without replacing existing state. */
   vaultDirectoryOpenOrCreateDefault(password) {
     return new Vault(this.operations, this.operations.vaultDirectoryOpenOrCreateDefault(password));
   }
 
-  /** Returns the vault directory replace default. */
+  /** Replaces the default Vault and all persistent data it contains. */
   vaultDirectoryReplaceDefault(password) {
     return new Vault(this.operations, this.operations.vaultDirectoryReplaceDefault(password));
   }
 
-  /** Returns the vault directory change password. */
+  /** Changes the passphrase for an existing Vault. */
   vaultDirectoryChangePassword(root, oldPassword, newPassword) {
     return this.operations.vaultDirectoryChangePassword(root, oldPassword, newPassword);
   }
 
-  /** Returns the vault directory change default password. */
+  /** Changes the passphrase for the default Vault. */
   vaultDirectoryChangeDefaultPassword(oldPassword, newPassword) {
     return this.operations.vaultDirectoryChangeDefaultPassword(oldPassword, newPassword);
   }
 
-  /** Returns the vault directory replace. */
+  /** Replaces the selected Vault and all persistent data it contains. */
   vaultDirectoryReplace(root, password) {
     return new Vault(this.operations, this.operations.vaultDirectoryReplace(root, password));
   }
 
-  /** Returns the vault directory open or create. */
+  /** Opens the selected Vault, creating it only when absent. */
   vaultDirectoryOpenOrCreate(root, password) {
     return new Vault(this.operations, this.operations.vaultDirectoryOpenOrCreate(root, password));
   }
 
-  /** Returns the vault backup default. */
+  /** Writes a backup of the default Vault to the selected path. */
   vaultBackupDefault(path, overwrite) {
     return this.operations.vaultBackupDefault(path, overwrite);
   }
 
-  /** Returns the vault restore default. */
+  /** Restores the default Vault from the selected backup. */
   vaultRestoreDefault(path, overwrite) {
     return this.operations.vaultRestoreDefault(path, overwrite);
   }
 
-  /** Returns the vault read only open. */
+  /** Opens an existing Vault metadata view that cannot load private keys. */
   vaultReadOnlyOpen(root, password) {
     return new ReadOnlyVault(this.operations, this.operations.vaultReadOnlyOpen(root, password));
   }
 
-  /** Returns the vault read only open default. */
+  /** Opens the default Vault metadata view without loading private keys. */
   vaultReadOnlyOpenDefault(password) {
     return new ReadOnlyVault(this.operations, this.operations.vaultReadOnlyOpenDefault(password));
   }
 
-  /** Returns the vault default directory. */
+  /** Returns the platform default Vault directory. */
   vaultDefaultDirectory() {
     return this.operations.vaultDefaultDirectory();
   }
 
-  /** Returns the vault default path. */
+  /** Returns the path of the default Vault file. */
   vaultDefaultPath() {
     return this.operations.vaultDefaultPath();
   }
 
-  /** Returns the vault agent log path. */
+  /** Returns the session agent log path. */
   vaultAgentLogPath() {
     return this.operations.vaultAgentLogPath();
   }
 
-  /** Returns the vault agent log destination. */
+  /** Returns the configured session agent log destination. */
   vaultAgentLogDestination() {
     return this.operations.vaultAgentLogDestination();
   }
@@ -364,32 +364,32 @@ export class Lockbox extends OwnedHandle {
     return lockbox;
   }
 
-  /** Adds file. */
+  /** Stages a file at the Lockbox path; replace controls an existing entry. */
   addFile(path, data, replace) {
     return this.operations.lockboxAddFile(this.nativeHandle, path, data, replace);
   }
 
-  /** Adds file with permissions. */
+  /** Stages a file and its portable Unix permission bits. */
   addFileWithPermissions(path, data, permissions, replace) {
     return this.operations.lockboxAddFileWithPermissions(this.nativeHandle, path, data, permissions, replace);
   }
 
-  /** Returns file. */
+  /** Reads the complete file stored at the Lockbox path. */
   getFile(path) {
     return this.operations.lockboxGetFile(this.nativeHandle, path);
   }
 
-  /** Extracts file. */
+  /** Writes one Lockbox file to the host filesystem. */
   extractFile(source, destination, replace) {
     return this.operations.lockboxExtractFile(this.nativeHandle, source, destination, replace);
   }
 
-  /** Extracts directory. */
+  /** Extracts the Lockbox with explicit size, count, link, and permission limits. */
   extractDirectory(destination, maxFileBytes, maxTotalBytes, maxFiles, restoreSymlinks, restorePermissions, overwrite) {
     return this.operations.lockboxExtractDirectory(this.nativeHandle, destination, maxFileBytes, maxTotalBytes, maxFiles, restoreSymlinks, restorePermissions, overwrite);
   }
 
-  /** Returns the stream content. */
+  /** Lists logical or physical content chunks for streaming diagnostics. */
   streamContent(physical) {
     return this.operations.lockboxStreamContent(this.nativeHandle, physical);
   }
@@ -409,22 +409,22 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxResetImportStats(this.nativeHandle);
   }
 
-  /** Returns the page inspection. */
+  /** Returns page metadata for diagnostics without exposing plaintext secrets. */
   pageInspection() {
     return this.operations.lockboxPageInspection(this.nativeHandle);
   }
 
-  /** Returns the recovery report. */
+  /** Scans the open archive and returns its structured recovery report. */
   recoveryReport() {
     return this.operations.lockboxRecoveryReport(this.nativeHandle);
   }
 
-  /** Returns the recovery report render. */
+  /** Renders the recovery report for a person, capped at maxEntries. */
   recoveryReportRender(verbose, maxEntries) {
     return this.operations.lockboxRecoveryReportRender(this.nativeHandle, verbose, maxEntries);
   }
 
-  /** Returns the storage len. */
+  /** Returns the current serialized archive size in bytes. */
   storageLen() {
     return this.operations.lockboxStorageLen(this.nativeHandle);
   }
@@ -439,7 +439,7 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxSetWorkerPolicy(this.nativeHandle, mode, jobs);
   }
 
-  /** Returns the runtime options. */
+  /** Returns the cache, workload, and worker settings used by this Lockbox. */
   runtimeOptions() {
     return this.operations.lockboxRuntimeOptions(this.nativeHandle);
   }
@@ -453,37 +453,37 @@ export class Lockbox extends OwnedHandle {
     return result;
   }
 
-  /** Creates dir. */
+  /** Stages a directory entry and optionally creates missing parents. */
   createDir(path, createParents) {
     return this.operations.lockboxCreateDir(this.nativeHandle, path, createParents);
   }
 
-  /** Removes delete. */
+  /** Stages removal of a file, link, or empty directory at path. */
   delete(path) {
     return this.operations.lockboxDelete(this.nativeHandle, path);
   }
 
-  /** Removes dir. */
+  /** Stages removal of a directory, optionally including its descendants. */
   removeDir(path, recursive) {
     return this.operations.lockboxRemoveDir(this.nativeHandle, path, recursive);
   }
 
-  /** Creates parent dirs. */
+  /** Stages every missing parent directory for path. */
   createParentDirs(path) {
     return this.operations.lockboxCreateParentDirs(this.nativeHandle, path);
   }
 
-  /** Updates rename. */
+  /** Stages an atomic move from one Lockbox path to another. */
   rename(from, to) {
     return this.operations.lockboxRename(this.nativeHandle, from, to);
   }
 
-  /** Lists list. */
+  /** Lists entries below path, optionally including descendants. */
   list(path, recursive) {
     return this.operations.lockboxList(this.nativeHandle, path, recursive);
   }
 
-  /** Lists with options. */
+  /** Lists entries using glob, type, recursion, and result limit filters. */
   listWithOptions(path, glob, recursive, includeFiles, includeSymlinks, includeDirectories, limit) {
     return this.operations.lockboxListWithOptions(this.nativeHandle, path, glob, recursive, includeFiles, includeSymlinks, includeDirectories, limit);
   }
@@ -493,7 +493,7 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxStat(this.nativeHandle, path);
   }
 
-  /** Sets variable. */
+  /** Stages a plain text variable; commit to publish the change. */
   setVariable(name, value) {
     return this.operations.lockboxSetVariable(this.nativeHandle, name, value);
   }
@@ -503,7 +503,7 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxSetSecretVariable(this.nativeHandle, name, value);
   }
 
-  /** Returns variable. */
+  /** Returns a plain variable when it is present. */
   getVariable(name) {
     return this.operations.lockboxGetVariable(this.nativeHandle, name);
   }
@@ -529,12 +529,12 @@ export class Lockbox extends OwnedHandle {
     return this.deleteVariable('/.revault/description');
   }
 
-  /** Returns the with secret variable. */
+  /** Invokes a callback with temporary secret variable bytes, then clears them. */
   withSecretVariable(name, callback) {
     return this.operations.lockboxWithSecretVariable(this.nativeHandle, name, callback);
   }
 
-  /** Removes variable. */
+  /** Stages removal of a variable. */
   deleteVariable(name) {
     return this.operations.lockboxDeleteVariable(this.nativeHandle, name);
   }
@@ -544,112 +544,112 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxMoveVariables(this.nativeHandle, encodePathMoves(moves));
   }
 
-  /** Lists variables. */
+  /** Lists variable names and metadata without exposing secret values. */
   listVariables() {
     return this.operations.lockboxListVariables(this.nativeHandle);
   }
 
-  /** Returns the variable sensitivity. */
+  /** Returns whether a variable is plain or secret. */
   variableSensitivity(name) {
     return this.operations.lockboxVariableSensitivity(this.nativeHandle, name);
   }
 
-  /** Adds symlink. */
+  /** Stages a symbolic link with its stored target text. */
   addSymlink(path, target, replace) {
     return this.operations.lockboxAddSymlink(this.nativeHandle, path, target, replace);
   }
 
-  /** Returns symlink target. */
+  /** Returns the target text stored for a symbolic link. */
   getSymlinkTarget(path) {
     return this.operations.lockboxGetSymlinkTarget(this.nativeHandle, path);
   }
 
-  /** Returns the id. */
+  /** Returns the stable public identifier stored in the Lockbox header. */
   id() {
     return this.operations.lockboxId(this.nativeHandle);
   }
 
-  /** Reports whether exists. */
+  /** Reports whether an entry exists at path. */
   exists(path) {
     return this.operations.lockboxExists(this.nativeHandle, path);
   }
 
-  /** Reports whether dir. */
+  /** Reports whether path names a directory entry. */
   isDir(path) {
     return this.operations.lockboxIsDir(this.nativeHandle, path);
   }
 
-  /** Returns the permissions. */
+  /** Returns the portable Unix permission bits stored for path. */
   permissions(path) {
     return this.operations.lockboxPermissions(this.nativeHandle, path);
   }
 
-  /** Sets permissions. */
+  /** Stages portable Unix permission bits for path. */
   setPermissions(path, permissions) {
     return this.operations.lockboxSetPermissions(this.nativeHandle, path, permissions);
   }
 
-  /** Returns range. */
+  /** Reads the requested byte range from a stored file. */
   readRange(path, offset, len) {
     return this.operations.lockboxReadRange(this.nativeHandle, path, offset, len);
   }
 
-  /** Adds password. */
+  /** Adds a password access slot and returns its slot identifier. */
   addPassword(password) {
     return this.operations.lockboxAddPassword(this.nativeHandle, password);
   }
 
-  /** Adds contact. */
+  /** Grants a named contact access and returns the new slot identifier. */
   addContact(contact, name) {
     return this.operations.lockboxAddContact(this.nativeHandle, contact?.nativeHandle ?? null, name);
   }
 
-  /** Removes key. */
+  /** Removes an access slot; at least one usable slot must remain. */
   deleteKey(id) {
     return this.operations.lockboxDeleteKey(this.nativeHandle, id);
   }
 
-  /** Lists key slots. */
+  /** Lists public access slot metadata without returning credentials. */
   listKeySlots() {
     return this.operations.lockboxListKeySlots(this.nativeHandle);
   }
 
-  /** Sets owner signing key. */
+  /** Assigns a profile signing key to the Lockbox owner role. */
   setOwnerSigningKey(key) {
     return this.operations.lockboxSetOwnerSigningKey(this.nativeHandle, key?.nativeHandle ?? null);
   }
 
-  /** Returns the owner inspection. */
+  /** Returns public signing and ownership metadata for the current revision. */
   ownerInspection() {
     return this.operations.lockboxOwnerInspection(this.nativeHandle);
   }
 
-  /** Returns the define form. */
+  /** Defines and stores a reusable versioned form. */
   defineForm(alias, name, description, fields) {
     return this.operations.lockboxDefineForm(this.nativeHandle, alias, name, description, encodeFormFields(fields));
   }
 
-  /** Lists form definitions. */
+  /** Lists the form definitions stored in this Lockbox. */
   listFormDefinitions() {
     return this.operations.lockboxListFormDefinitions(this.nativeHandle);
   }
 
-  /** Returns the resolve form. */
+  /** Resolves a form alias, type identifier, or revision. */
   resolveForm(reference) {
     return this.operations.lockboxResolveForm(this.nativeHandle, reference);
   }
 
-  /** Lists form revisions. */
+  /** Lists every stored revision for a form type identifier. */
   listFormRevisions(typeId) {
     return this.operations.lockboxListFormRevisions(this.nativeHandle, typeId);
   }
 
-  /** Creates form record. */
+  /** Stages a form record at path using the referenced definition. */
   createFormRecord(path, typeReference, name) {
     return this.operations.lockboxCreateFormRecord(this.nativeHandle, path, typeReference, name);
   }
 
-  /** Sets form field. */
+  /** Stages a plain field value in a form record. */
   setFormField(path, field, value) {
     return this.operations.lockboxSetFormField(this.nativeHandle, path, field, value);
   }
@@ -659,17 +659,17 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxSetSecretFormField(this.nativeHandle, path, field, value);
   }
 
-  /** Lists form records. */
+  /** Lists form records without exposing secret field values. */
   listFormRecords() {
     return this.operations.lockboxListFormRecords(this.nativeHandle);
   }
 
-  /** Returns form record. */
+  /** Returns the form record at path when present. */
   getFormRecord(path) {
     return this.operations.lockboxGetFormRecord(this.nativeHandle, path);
   }
 
-  /** Removes form record. */
+  /** Stages removal of a form record. */
   deleteFormRecord(path) {
     return this.operations.lockboxDeleteFormRecord(this.nativeHandle, path);
   }
@@ -679,17 +679,17 @@ export class Lockbox extends OwnedHandle {
     return this.operations.lockboxMoveFormRecords(this.nativeHandle, encodePathMoves(moves));
   }
 
-  /** Returns form field. */
+  /** Returns a plain form field when it exists. */
   getFormField(path, field) {
     return this.operations.lockboxGetFormField(this.nativeHandle, path, field);
   }
 
-  /** Returns the with secret form field. */
+  /** Invokes a callback with temporary secret field bytes, then clears them. */
   withSecretFormField(path, field, callback) {
     return this.operations.lockboxWithSecretFormField(this.nativeHandle, path, field, callback);
   }
 
-  /** Returns the to bytes. */
+  /** Serializes the current Lockbox, including committed changes. */
   toBytes() {
     return this.operations.lockboxToBytes(this.nativeHandle);
   }
@@ -730,7 +730,7 @@ export class ContactKeyPair extends OwnedHandle {
 
 /** A recipient's shareable encryption identity, used when granting access. */
 export class ContactPublicKey extends OwnedHandle {
-  /** Returns the public free. */
+  /** Releases this public contact key. */
   publicFree() {
     this.operations.keyContactPublicFree(this.nativeHandle);
     this.nativeHandle = null;
@@ -752,12 +752,12 @@ export class WrappedContactKey extends OwnedHandle {
     return this.operations.keyContactWrappedPublic(this.nativeHandle);
   }
 
-  /** Returns the ciphertext. */
+  /** Returns the encrypted content key bytes. */
   ciphertext() {
     return this.operations.keyContactWrappedCiphertext(this.nativeHandle);
   }
 
-  /** Returns the encrypted. */
+  /** Returns the complete wrapped key record for storage or transport. */
   encrypted() {
     return this.operations.keyContactWrappedEncrypted(this.nativeHandle);
   }
@@ -820,12 +820,12 @@ export class Vault extends OwnedHandle {
   static create(root, vaultPassphrase) { return new Revault().vaultDirectoryReplace(root, vaultPassphrase); }
   /** Replace a persistent Vault explicitly; existing contents are discarded. */
   static replace(root, vaultPassphrase) { return new Revault().vaultDirectoryReplace(root, vaultPassphrase); }
-  /** Returns the root. */
+  /** Returns the canonical root directory of this Vault. */
   root() {
     return this.operations.vaultDirectoryRoot(this.nativeHandle);
   }
 
-  /** Returns the structure version. */
+  /** Returns the persistent structure version of this Vault. */
   structureVersion() {
     return this.operations.vaultDirectoryStructureVersion(this.nativeHandle);
   }
@@ -850,7 +850,7 @@ export class Vault extends OwnedHandle {
     return this.operations.vaultDirectoryListFormAliases(this.nativeHandle);
   }
 
-  /** Returns the private key exists. */
+  /** Reports whether the named profile private key exists. */
   privateKeyExists(name) {
     return this.operations.vaultDirectoryPrivateKeyExists(this.nativeHandle, name);
   }
@@ -885,7 +885,7 @@ export class Vault extends OwnedHandle {
     return new ContactPublicKey(this.operations, this.operations.vaultDirectoryLoadContact(this.nativeHandle, name));
   }
 
-  /** Returns the contact exists. */
+  /** Reports whether the named contact exists. */
   contactExists(name) {
     return this.operations.vaultDirectoryContactExists(this.nativeHandle, name);
   }
@@ -905,7 +905,7 @@ export class Vault extends OwnedHandle {
     return this.operations.vaultDirectoryStoreProfileEmail(this.nativeHandle, name, email);
   }
 
-  /** Returns the profile email. */
+  /** Returns the email recorded for a profile, when present. */
   profileEmail(name) {
     return this.operations.vaultDirectoryProfileEmail(this.nativeHandle, name);
   }
@@ -920,12 +920,12 @@ export class Vault extends OwnedHandle {
     return this.operations.vaultDirectoryLoadBackup(this.nativeHandle, id);
   }
 
-  /** Returns the backup count. */
+  /** Returns the number of stored key recovery backups. */
   backupCount() {
     return this.operations.vaultDirectoryBackupCount(this.nativeHandle);
   }
 
-  /** Returns the restore private key. */
+  /** Restores a profile private key and signing key from recovery material. */
   restorePrivateKey(name, key, signingKey, overwrite) {
     return this.operations.vaultDirectoryRestorePrivateKey(this.nativeHandle, name, key?.nativeHandle ?? null, signingKey?.nativeHandle ?? null, overwrite);
   }
@@ -985,7 +985,7 @@ export class Vault extends OwnedHandle {
     return this.operations.vaultDirectoryListAccessSlotLabels(this.nativeHandle, id);
   }
 
-  /** Returns the find access slot labels. */
+  /** Finds access slot labels with the supplied name for one Lockbox. */
   findAccessSlotLabels(id, name) {
     return this.operations.vaultDirectoryFindAccessSlotLabels(this.nativeHandle, id, name);
   }
@@ -995,12 +995,12 @@ export class Vault extends OwnedHandle {
     return this.operations.vaultDirectoryForgetAccessSlotLabel(this.nativeHandle, id, slotId);
   }
 
-  /** Returns the define form. */
+  /** Defines and stores a reusable versioned form. */
   defineForm(alias, name, description, fields) {
     return this.operations.vaultDirectoryDefineForm(this.nativeHandle, alias, name, description, encodeFormFields(fields));
   }
 
-  /** Returns the resolve form. */
+  /** Resolves a form alias, type identifier, or revision. */
   resolveForm(reference) {
     return this.operations.vaultDirectoryResolveForm(this.nativeHandle, reference);
   }
@@ -1010,12 +1010,12 @@ export class Vault extends OwnedHandle {
     return this.operations.vaultDirectoryListForms(this.nativeHandle);
   }
 
-  /** Lists form revisions. */
+  /** Lists every stored revision for a form type identifier. */
   listFormRevisions(typeId) {
     return this.operations.vaultDirectoryListFormRevisions(this.nativeHandle, typeId);
   }
 
-  /** Returns the seed forms. */
+  /** Adds missing standard form definitions and returns the number added. */
   seedForms() {
     return this.operations.vaultDirectorySeedForms(this.nativeHandle);
   }
@@ -1025,7 +1025,7 @@ export class Vault extends OwnedHandle {
     return this.operations.vaultDirectoryRememberPassword(this.nativeHandle, id, password);
   }
 
-  /** Returns the remembered password. */
+  /** Returns the Lockbox password encrypted inside this Vault. */
   rememberedPassword(id) {
     return this.operations.vaultDirectoryRememberedPassword(this.nativeHandle, id);
   }
@@ -1087,7 +1087,7 @@ class Agent {
     return this.operations.vaultForgetAll();
   }
 
-  /** Returns the serve. */
+  /** Runs the session agent server until it is stopped. */
   serve() {
     return this.operations.vaultAgentServe();
   }
@@ -1122,12 +1122,12 @@ class Agent {
     return this.operations.vaultAgentStart();
   }
 
-  /** Lists list. */
+  /** Lists entries below path, optionally including descendants. */
   list() {
     return this.operations.vaultAgentList();
   }
 
-  /** Returns the sleep support. */
+  /** Reports how the platform handles agent expiry during system sleep. */
   sleepSupport() {
     return this.operations.vaultAgentSleepSupport();
   }
@@ -1216,7 +1216,7 @@ class Platform {
   /** Creates a new facade over the bundled native library. */
   constructor(operations) { this.operations = operations; }
 
-  /** Returns the status. */
+  /** Returns availability and user presence guarantees for platform storage. */
   status() {
     return this.operations.vaultPlatformStatus();
   }
@@ -1236,17 +1236,17 @@ class Platform {
     return this.operations.vaultPlatformPutPassword(password);
   }
 
-  /** Returns the enable. */
+  /** Enables storage of the Vault passphrase in platform credentials. */
   enable() {
     return this.operations.vaultPlatformEnable();
   }
 
-  /** Returns the disable. */
+  /** Disables platform credential use without deleting the stored value. */
   disable() {
     return this.operations.vaultPlatformDisable();
   }
 
-  /** Returns the disabled. */
+  /** Reports whether platform credential use is disabled. */
   disabled() {
     return this.operations.vaultPlatformDisabled();
   }

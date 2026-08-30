@@ -2203,18 +2203,18 @@ checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
 
 [[package]]
 name = "revault_bindings"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "criterion",
  "flatbuffers",
- "revault_lockbox_api 0.0.6",
- "revault_vault_api 0.0.6",
+ "revault_lockbox_api 0.0.7",
+ "revault_vault_api 0.0.7",
  "zeroize",
 ]
 
 [[package]]
 name = "revault_cli"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2222,11 +2222,12 @@ dependencies = [
  "libc",
  "revault_key_server",
  "revault_lockbox_api 0.0.2",
- "revault_lockbox_api 0.0.6",
+ "revault_lockbox_api 0.0.3",
+ "revault_lockbox_api 0.0.7",
  "revault_migration",
  "revault_publish_protocol",
  "revault_vault_api 0.0.2",
- "revault_vault_api 0.0.6",
+ "revault_vault_api 0.0.7",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
@@ -2235,7 +2236,7 @@ dependencies = [
 
 [[package]]
 name = "revault_key_server"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "axum",
  "bytes",
@@ -2267,7 +2268,7 @@ dependencies = [
  "ml-dsa",
  "ml-kem",
  "revault_page_api 0.0.2",
- "ruzstd 0.8.3",
+ "ruzstd",
  "sha2 0.11.0",
  "sysinfo",
  "unicode-normalization",
@@ -2290,7 +2291,7 @@ dependencies = [
  "ml-dsa",
  "ml-kem",
  "revault_page_api 0.0.2",
- "ruzstd 0.8.3",
+ "ruzstd",
  "sha2 0.11.0",
  "sysinfo",
  "unicode-normalization",
@@ -2300,7 +2301,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -2314,7 +2315,6 @@ dependencies = [
  "ml-kem",
  "oxiarc-zstd",
  "revault_page_api 0.0.4",
- "ruzstd 0.8.4",
  "serde_json",
  "sha2 0.11.0",
  "unicode-normalization",
@@ -2322,11 +2322,12 @@ dependencies = [
  "x25519-dalek 3.0.0",
  "zeroize",
  "zstd",
+ "zstd-complete",
 ]
 
 [[package]]
 name = "revault_migrate_archive_v1"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.3",
@@ -2340,7 +2341,7 @@ dependencies = [
 
 [[package]]
 name = "revault_migrate_vault_v1"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.2",
@@ -2354,17 +2355,17 @@ dependencies = [
 
 [[package]]
 name = "revault_migration"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
- "revault_lockbox_api 0.0.6",
+ "revault_lockbox_api 0.0.7",
  "revault_migrate_archive_v1",
  "revault_migrate_vault_v1",
  "revault_migration_format",
  "revault_vault_api 0.0.2",
- "revault_vault_api 0.0.6",
+ "revault_vault_api 0.0.7",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2374,7 +2375,7 @@ dependencies = [
 
 [[package]]
 name = "revault_migration_format"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -2411,7 +2412,7 @@ dependencies = [
 
 [[package]]
 name = "revault_publish_protocol"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "httparse",
  "sha2 0.11.0",
@@ -2481,7 +2482,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.6"
+version = "0.0.7"
 dependencies = [
  "base64ct",
  "chacha20poly1305",
@@ -2491,7 +2492,7 @@ dependencies = [
  "libc",
  "objc2-core-foundation",
  "objc2-io-kit",
- "revault_lockbox_api 0.0.6",
+ "revault_lockbox_api 0.0.7",
  "secret-service",
  "serde",
  "serde_json",
@@ -2503,12 +2504,12 @@ dependencies = [
 
 [[package]]
 name = "revault_wasm_bindings"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "js-sys",
- "revault_lockbox_api 0.0.6",
+ "revault_lockbox_api 0.0.7",
  "revault_page_api 0.0.4",
- "revault_vault_api 0.0.6",
+ "revault_vault_api 0.0.7",
  "wasm-bindgen",
 ]
 
@@ -2594,14 +2595,6 @@ name = "ruzstd"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7c1c839d570d835527c9a5e4db7cb2198683a988cb9d7293fc8674e6bd58fc8"
-dependencies = [
- "twox-hash",
-]
-
-[[package]]
-name = "ruzstd"
-version = "0.8.4"
-source = "git+https://github.com/bsutton/zstd-rs?rev=3f877ed916fd2a8687913f5c130f5f81c7dbcd2b#3f877ed916fd2a8687913f5c130f5f81c7dbcd2b"
 dependencies = [
  "twox-hash",
 ]
@@ -3979,6 +3972,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e91ee311a569c327171651566e07972200e76fcfe2242a4fa446149a3881c08a"
 dependencies = [
  "zstd-safe",
+]
+
+[[package]]
+name = "zstd-complete"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "989d8ad3ab75a470a7cf02f8e5194f203cb8b32ac72920c6f8a599a8817b9699"
+dependencies = [
+ "twox-hash",
 ]
 
 [[package]]

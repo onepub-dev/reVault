@@ -349,11 +349,13 @@ pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
 
 pub(crate) fn cat(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let path = cli_lockbox_path(require_arg(args, 1, "lockbox path")?)?;
     let lb = open_existing(lockbox_path, access)?;
     let stdout = io::stdout();
     let mut lock = stdout.lock();
-    lb.extract_file_to_writer(&path, &mut lock)?;
+    for path in args.get(1..).unwrap_or_default() {
+        let path = cli_lockbox_path(path)?;
+        lb.extract_file_to_writer(&path, &mut lock)?;
+    }
     Ok(())
 }
 

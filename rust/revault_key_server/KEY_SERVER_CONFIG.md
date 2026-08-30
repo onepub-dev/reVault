@@ -31,7 +31,7 @@ See [Troubleshooting](TROUBLESHOOTING.md) for runtime diagnosis.
 ## Default Config
 
 ```toml
-bind_addr = "0.0.0.0:8089"
+bind_addr = "127.0.0.1:8089"
 state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
@@ -48,8 +48,8 @@ max_receive_ttl_seconds = 7200
 max_payload_bytes = 8192
 max_receives_per_publish = 8
 
-rate_limit_per_minute = 120
-rate_limit_burst = 40
+rate_limit_per_minute = 0
+rate_limit_burst = 0
 
 smtp_host = "smtp.gmail.com"
 smtp_port = 587
@@ -61,7 +61,7 @@ smtp_timeout_seconds = 30
 verification_email_subject = "Verify your reVault publish"
 verification_email_template = "Verify {email} for this reVault publish:\n\n{verification_url}\n\nThis link expires in 30 minutes."
 verification_email_rate_limit_per_hour = 5
-verification_email_ip_rate_limit_per_hour = 30
+verification_email_ip_rate_limit_per_hour = 0
 
 [[topology_server]]
 id = 0
@@ -82,8 +82,8 @@ tables for topology members and routes.
 Comments are supported:
 
 ```toml
-# Listen on all interfaces
-bind_addr = "0.0.0.0:8089"
+# Listen on loopback; expose it through the production TLS proxy.
+bind_addr = "127.0.0.1:8089"
 ```
 
 String values may be quoted:
@@ -131,7 +131,7 @@ Unknown keys are rejected.
 
 | Key | Default | Description |
 | --- | --- | --- |
-| `bind_addr` | `127.0.0.1:8089` | Local address and port the HTTP server binds to. The installed config uses `0.0.0.0:8089`. |
+| `bind_addr` | `127.0.0.1:8089` | Local address and port the HTTP server binds to. The installed config stays on loopback so a TLS reverse proxy can expose it deliberately. |
 | `state_dir` | `/var/lib/revault-key-server` | Directory used for persisted publish records, indexes, replication state, and server secret material. |
 | `server_id` | `0` | Stable routing id for this server. Valid ids are `0..35`, written as `0..9`, `a..z`, or numeric values. |
 | `cluster_id` | `default` | Public cluster identifier returned in topology documents. All cooperating servers should use the same cluster id. |
@@ -156,10 +156,15 @@ TTL settings use seconds in the config file:
 
 ## Rate Limits
 
+Apply client-IP request limits at the TLS reverse proxy. The key server binds to
+loopback and deliberately does not trust forwarded-IP headers or rate-limit the
+proxy's socket address. The compatibility settings below are accepted but ignored by
+the HTTP server.
+
 | Key | Default | Description |
 | --- | --- | --- |
-| `rate_limit_per_minute` | `120` | Per-IP request rate limit. Use `0` to disable. Unauthenticated `GET /v1/topology`, `GET /v1/status`, `GET /v1/verify`, and non-tokened topology registration or replication requests use this limiter. |
-| `rate_limit_burst` | `40` | Per-IP burst capacity. |
+| `rate_limit_per_minute` | `0` | Deprecated compatibility setting. Configure the TLS proxy instead. |
+| `rate_limit_burst` | `0` | Deprecated compatibility setting. Configure the TLS proxy instead. |
 
 ## Email Verification
 
@@ -180,7 +185,7 @@ receiver can tell the publisher what is blocking the receive.
 | `verification_email_subject` | `Verify your reVault publish` | Subject template. Placeholders: `{email}`, `{publish_code}`, `{verification_url}`. |
 | `verification_email_template` | see default config | Plain text body template. Placeholders: `{email}`, `{publish_code}`, `{verification_url}`. Use `\n` for newlines. |
 | `verification_email_rate_limit_per_hour` | `5` | Maximum verification emails per email address per hour across the cluster. Use `0` to disable this limit. |
-| `verification_email_ip_rate_limit_per_hour` | `30` | Maximum verification emails per source IP per hour. Use `0` to disable this limit. |
+| `verification_email_ip_rate_limit_per_hour` | `0` | Only used by direct `handle_with_peer` callers. The HTTP server leaves source-IP limiting to its TLS proxy. |
 
 Example:
 
@@ -195,7 +200,7 @@ smtp_timeout_seconds = 30
 verification_email_subject = "Verify your reVault publish"
 verification_email_template = "Verify {email} for publish {publish_code}:\n\n{verification_url}\n\nThis link expires in 30 minutes."
 verification_email_rate_limit_per_hour = 5
-verification_email_ip_rate_limit_per_hour = 30
+verification_email_ip_rate_limit_per_hour = 0
 ```
 
 Publish requests queue verification email work on a bounded background worker.
@@ -381,7 +386,7 @@ id.
 ## Single Server Example
 
 ```toml
-bind_addr = "0.0.0.0:8089"
+bind_addr = "127.0.0.1:8089"
 state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
@@ -396,8 +401,8 @@ max_receive_ttl_seconds = 7200
 max_payload_bytes = 8192
 max_receives_per_publish = 8
 
-rate_limit_per_minute = 120
-rate_limit_burst = 40
+rate_limit_per_minute = 0
+rate_limit_burst = 0
 
 smtp_host = "smtp.gmail.com"
 smtp_port = 587
@@ -408,7 +413,7 @@ smtp_tls = "starttls"
 verification_email_subject = "Verify your reVault publish"
 verification_email_template = "Verify {email} for this reVault publish:\n\n{verification_url}\n\nThis link expires in 30 minutes."
 verification_email_rate_limit_per_hour = 5
-verification_email_ip_rate_limit_per_hour = 30
+verification_email_ip_rate_limit_per_hour = 0
 
 [[topology_server]]
 id = 0
@@ -432,7 +437,7 @@ never place them in public URLs.
 Server 0:
 
 ```toml
-bind_addr = "0.0.0.0:8089"
+bind_addr = "127.0.0.1:8089"
 state_dir = "/var/lib/revault-key-server"
 
 server_id = 0
@@ -475,7 +480,7 @@ max_receives_per_publish = 8
 Server 1:
 
 ```toml
-bind_addr = "0.0.0.0:8089"
+bind_addr = "127.0.0.1:8089"
 state_dir = "/var/lib/revault-key-server"
 
 server_id = 1

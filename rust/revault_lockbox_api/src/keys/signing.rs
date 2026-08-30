@@ -149,11 +149,17 @@ pub(crate) fn verify_commit_signatures(
     message: &[u8],
     signatures: &[CommitSignature],
 ) -> Result<()> {
+    if signatures.len() != 2 {
+        return Err(Error::CorruptRecord);
+    }
     let mut saw_ed25519 = false;
     let mut saw_ml_dsa65 = false;
     for signature in signatures {
         match signature.algorithm {
             SIGNATURE_ALGORITHM_ED25519 => {
+                if saw_ed25519 {
+                    return Err(Error::CorruptRecord);
+                }
                 let public_key = Ed25519VerifyingKey::from_bytes(
                     signature
                         .public_key
@@ -170,6 +176,9 @@ pub(crate) fn verify_commit_signatures(
                 saw_ed25519 = true;
             }
             SIGNATURE_ALGORITHM_ML_DSA_65 => {
+                if saw_ml_dsa65 {
+                    return Err(Error::CorruptRecord);
+                }
                 let public_key = MlDsaVerifyingKey::<MlDsa65>::decode(
                     &signature
                         .public_key
@@ -192,6 +201,27 @@ pub(crate) fn verify_commit_signatures(
     } else {
         Err(Error::CorruptRecord)
     }
+}
+
+pub(crate) fn commit_signature_keys_match(
+    left: &[CommitSignature],
+    right: &[CommitSignature],
+) -> bool {
+    left.len() == 2
+        && right.len() == 2
+        && left.iter().all(|signature| {
+            right.iter().any(|candidate| {
+                candidate.algorithm == signature.algorithm
+                    && candidate.public_key == signature.public_key
+            })
+        })
+}
+
+pub(crate) fn commit_signatures_match_keypair(
+    signatures: &[CommitSignature],
+    keypair: &OwnerSigningKeyPair,
+) -> bool {
+    commit_signature_keys_match(signatures, &keypair.empty_signatures())
 }
 
 fn encode_public_key(key: &OwnerSigningPublicKey) -> Vec<u8> {
@@ -338,5 +368,34 @@ impl<'a> Reader<'a> {
                 "owner signing key has trailing bytes".to_string(),
             ))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hybrid_signature_verification_rejects_missing_algorithm() {
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let mut signatures = signer.sign(b"commit");
+        signatures.pop();
+
+        assert!(matches!(
+            verify_commit_signatures(b"commit", &signatures),
+            Err(Error::CorruptRecord)
+        ));
+    }
+
+    #[test]
+    fn hybrid_signature_verification_rejects_duplicate_algorithm() {
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let mut signatures = signer.sign(b"commit");
+        signatures[1] = signatures[0].clone();
+
+        assert!(matches!(
+            verify_commit_signatures(b"commit", &signatures),
+            Err(Error::CorruptRecord)
+        ));
     }
 }

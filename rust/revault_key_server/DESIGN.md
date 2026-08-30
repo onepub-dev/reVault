@@ -584,7 +584,7 @@ email verification TTL: 30 minutes
 default receive TTL after verification: 2 hours
 max receive TTL after verification: 2 hours
 max receives per publish: 8
-per-IP rate limit: 120 requests/minute with burst 40
+client-IP request limits are enforced by the TLS reverse proxy
 ```
 
 Typed payload validation prevents arbitrary blobs from being stored as published payloads.

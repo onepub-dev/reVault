@@ -47,11 +47,11 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
             access,
             output_format_from_matches(sub)?,
         ),
-        "remove" | "rm" => remove(
+        "remove" | "rm" | "delete" => remove(
             &optional_lockbox_positionals(positional_values(sub, "args"), 1)?,
             access,
         ),
-        "move" | "mv" => move_records(
+        "move" | "mv" | "rename" => move_records(
             &optional_lockbox_positionals(positional_values(sub, "args"), 2)?,
             access,
         ),
@@ -414,11 +414,18 @@ fn set_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
 
 fn remove(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let path = form_record_path(require_arg(args, 1, "form path")?)?;
     let mut lb = open_existing(lockbox_path, access)?;
-    lb.delete_form_record(&path)?;
+    let paths = args[1..]
+        .iter()
+        .map(|path| form_record_path(path))
+        .collect::<CliResult<Vec<_>>>()?;
+    for path in &paths {
+        lb.delete_form_record(path)?;
+    }
     lb.commit()?;
-    println!("Form removed: {path}");
+    for path in paths {
+        println!("Form removed: {path}");
+    }
     Ok(())
 }
 

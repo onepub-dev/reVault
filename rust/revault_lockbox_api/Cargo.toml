@@ -1,6 +1,6 @@
 [package]
 name = "revault_lockbox_api"
-version = "0.0.6"
+version = "0.0.7"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
@@ -18,6 +18,7 @@ default = ["issue303-protocol"]
 vault-integration = []
 bindings = []
 migration = []
+test-support = []
 # Compatibility feature name: format-v2 is unconditional in the core.
 issue303-protocol = []
 native-zstd-encoder = ["dep:zstd"]
@@ -37,7 +38,7 @@ serde_json = "1"
 unicode-normalization = "0.1"
 x25519-dalek = { version = "3", features = ["static_secrets"] }
 zeroize = "1.9"
-ruzstd = { version = "0.8.3", git = "https://github.com/bsutton/zstd-rs", rev = "3f877ed916fd2a8687913f5c130f5f81c7dbcd2b" }
+zstd-complete = "0.1.0"
 zstd = { version = "0.13.3", default-features = false, optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
