@@ -11,6 +11,7 @@
   * [Variables](cli-tooling/variables.md)
   * [Forms](cli-tooling/forms.md)
   * [Secrets](cli-tooling/secrets.md)
+  * [Command-line completion](cli-tooling/command-line-completion.md)
 
 ## Protect and share
 
@@ -37,7 +38,6 @@
 * [Migrating between versions](cli-tooling/migrating-between-versions.md)
 * [Diagnostics](cli-tooling/diagnostics.md)
 * [Troubleshooting](troubleshooting.md)
-* [Command-line completion](cli-tooling/command-line-completion.md)
 * [Exit codes](cli-tooling/exit-codes.md)
 
 ## Operate a key-sharing service
