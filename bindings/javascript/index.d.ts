@@ -65,8 +65,12 @@ export class Revault {
   lockboxCreateWithOptions(key: BinaryInput, cacheMode: string, cacheBytes: number, workload: string, worker: string, jobs: number): Lockbox;
   /** Creates an in memory Lockbox protected by the supplied password. */
   lockboxCreatePassword(password: BinaryInput): Lockbox;
+  /** Creates a password-protected Lockbox whose first commit establishes the supplied owner signing key. */
+  lockboxCreatePasswordWithSigningKey(password: BinaryInput, signingKey: NativeHandle): Lockbox;
   /** Creates an in memory Lockbox that the supplied contact can open. */
   lockboxCreateContact(contact: NativeHandle): Lockbox;
+  /** Creates a contact-protected Lockbox whose first commit establishes the supplied owner signing key. */
+  lockboxCreateContactWithSigningKey(contact: NativeHandle, signingKey: NativeHandle): Lockbox;
   /** Creates an in memory Lockbox and assigns its profile signing key. */
   lockboxCreateWithSigningKey(contentKey: BinaryInput, signingKey: NativeHandle): Lockbox;
   /** Opens serialized Lockbox bytes with a 32 byte content key. */

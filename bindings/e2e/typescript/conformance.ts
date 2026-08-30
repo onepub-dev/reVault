@@ -158,6 +158,8 @@ function advancedArchive() {
   const contactBox = api.lockboxCreateContact(publicKey); contactBox.addFile('/contact.txt', 'contact protected', false); contactBox.commit();
   const contactArchive = contactBox.toBytes(); contactBox.free(); pass('lockbox_create_contact');
   const contactOpen = api.lockboxOpenContact(contactArchive, contact); contactOpen.getFile('/contact.txt'); contactOpen.free(); pass('lockbox_open_contact', 2);
+  const signedPassword = api.lockboxCreatePasswordWithSigningKey('archive password', signing); signedPassword.commit(); signedPassword.free(); pass('lockbox_create_password_with_signing_key');
+  const signedContact = api.lockboxCreateContactWithSigningKey(publicKey, signing); signedContact.commit(); signedContact.free(); pass('lockbox_create_contact_with_signing_key');
   const signed = api.lockboxCreateWithSigningKey(key, signing); signed.commit(); signed.free(); pass('lockbox_create_with_signing_key', 2);
   const extract = fs.mkdtempSync(path.join(os.tmpdir(), 'revault-typescript-extract-'));
   box.extractFile('/account.txt', path.join(extract, 'account.txt'), false); pass('lockbox_extract_file', 2);
