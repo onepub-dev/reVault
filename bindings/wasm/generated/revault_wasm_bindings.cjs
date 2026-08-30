@@ -17,6 +17,9 @@ class Runtime {
         wasm.__wbg_runtime_free(ptr, 0);
     }
     /**
+     * Validates an operation name and records one hosted dispatch.
+     *
+     * Unknown names are rejected before control reaches the native host.
      * @param {string} operation
      */
     before_call(operation) {
@@ -28,12 +31,16 @@ class Runtime {
         }
     }
     /**
+     * Returns the number of successfully validated hosted calls.
      * @returns {number}
      */
     get calls() {
         const ret = wasm.runtime_calls(this.__wbg_ptr);
         return ret >>> 0;
     }
+    /**
+     * Creates a dispatcher with no recorded calls.
+     */
     constructor() {
         const ret = wasm.runtime_new();
         this.__wbg_ptr = ret;
@@ -44,6 +51,9 @@ class Runtime {
 if (Symbol.dispose) Runtime.prototype[Symbol.dispose] = Runtime.prototype.free;
 exports.Runtime = Runtime;
 
+/**
+ * Hybrid contact key pair used to wrap and unwrap lockbox content keys.
+ */
 class WasmContactKey {
     static __wrap(ptr) {
         const obj = Object.create(WasmContactKey.prototype);
@@ -62,6 +72,7 @@ class WasmContactKey {
         wasm.__wbg_wasmcontactkey_free(ptr, 0);
     }
     /**
+     * Imports a contact key pair from its encrypted private-key record bytes.
      * @param {Uint8Array} record
      * @returns {WasmContactKey}
      */
@@ -74,6 +85,9 @@ class WasmContactKey {
         }
         return WasmContactKey.__wrap(ret[0]);
     }
+    /**
+     * Generates a new contact key pair from the runtime random source.
+     */
     constructor() {
         const ret = wasm.wasmcontactkey_generate();
         if (ret[2]) {
@@ -84,6 +98,10 @@ class WasmContactKey {
         return this;
     }
     /**
+     * Exports the private-key record.
+     *
+     * The returned JavaScript bytes contain secret material and should be
+     * persisted only in an appropriately protected vault.
      * @returns {Uint8Array}
      */
     private_record() {
@@ -96,6 +114,7 @@ class WasmContactKey {
         return v1;
     }
     /**
+     * Exports the public key bytes safe to share with a sender.
      * @returns {Uint8Array}
      */
     public_key() {
@@ -108,6 +127,9 @@ class WasmContactKey {
 if (Symbol.dispose) WasmContactKey.prototype[Symbol.dispose] = WasmContactKey.prototype.free;
 exports.WasmContactKey = WasmContactKey;
 
+/**
+ * Metadata for one file, directory, or symbolic link in a lockbox.
+ */
 class WasmEntry {
     static __wrap(ptr) {
         const obj = Object.create(WasmEntry.prototype);
@@ -126,6 +148,7 @@ class WasmEntry {
         wasm.__wbg_wasmentry_free(ptr, 0);
     }
     /**
+     * Returns `file`, `directory`, or `symlink`.
      * @returns {string}
      */
     get kind() {
@@ -141,6 +164,7 @@ class WasmEntry {
         }
     }
     /**
+     * Returns the logical file length in bytes.
      * @returns {bigint}
      */
     get length() {
@@ -148,6 +172,7 @@ class WasmEntry {
         return BigInt.asUintN(64, ret);
     }
     /**
+     * Returns the absolute lockbox path.
      * @returns {string}
      */
     get path() {
@@ -163,6 +188,7 @@ class WasmEntry {
         }
     }
     /**
+     * Returns the stored Unix permission bits.
      * @returns {number}
      */
     get permissions() {
@@ -173,6 +199,9 @@ class WasmEntry {
 if (Symbol.dispose) WasmEntry.prototype[Symbol.dispose] = WasmEntry.prototype.free;
 exports.WasmEntry = WasmEntry;
 
+/**
+ * Metadata for one password or contact access slot.
+ */
 class WasmKeySlot {
     static __wrap(ptr) {
         const obj = Object.create(WasmKeySlot.prototype);
@@ -191,6 +220,7 @@ class WasmKeySlot {
         wasm.__wbg_wasmkeyslot_free(ptr, 0);
     }
     /**
+     * Returns the cryptographic algorithm name stored by the slot.
      * @returns {string}
      */
     get algorithm() {
@@ -206,6 +236,7 @@ class WasmKeySlot {
         }
     }
     /**
+     * Returns the stable key-slot identifier.
      * @returns {bigint}
      */
     get id() {
@@ -213,6 +244,7 @@ class WasmKeySlot {
         return BigInt.asUintN(64, ret);
     }
     /**
+     * Returns the slot protection type, such as `password` or `contact`.
      * @returns {string}
      */
     get protection() {
@@ -231,6 +263,9 @@ class WasmKeySlot {
 if (Symbol.dispose) WasmKeySlot.prototype[Symbol.dispose] = WasmKeySlot.prototype.free;
 exports.WasmKeySlot = WasmKeySlot;
 
+/**
+ * In-memory encrypted lockbox exposed to JavaScript.
+ */
 class WasmLockbox {
     static __wrap(ptr) {
         const obj = Object.create(WasmLockbox.prototype);
@@ -249,6 +284,7 @@ class WasmLockbox {
         wasm.__wbg_wasmlockbox_free(ptr, 0);
     }
     /**
+     * Adds a contact-recipient access slot and returns its stable id.
      * @param {Uint8Array} public_key
      * @returns {bigint}
      */
@@ -262,6 +298,7 @@ class WasmLockbox {
         return BigInt.asUintN(64, ret[0]);
     }
     /**
+     * Adds a file at `path`, optionally replacing an existing file.
      * @param {string} path
      * @param {Uint8Array} data
      * @param {boolean} replace
@@ -277,6 +314,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Adds a file and stores its Unix permission bits.
      * @param {string} path
      * @param {Uint8Array} data
      * @param {number} permissions
@@ -293,6 +331,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Adds a password access slot and returns its stable id.
      * @param {string} password
      * @returns {bigint}
      */
@@ -306,6 +345,7 @@ class WasmLockbox {
         return BigInt.asUintN(64, ret[0]);
     }
     /**
+     * Adds a symbolic link whose target is another normalized lockbox path.
      * @param {string} path
      * @param {string} target
      * @param {boolean} replace
@@ -320,6 +360,19 @@ class WasmLockbox {
             throw takeFromExternrefTable0(ret[0]);
         }
     }
+    /**
+     * Stages removal of the encrypted description; call `commit`.
+     * For example: `box.clear_description(); box.commit()`.
+     */
+    clear_description() {
+        const ret = wasm.wasmlockbox_clear_description(this.__wbg_ptr);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * Authenticates and commits all pending mutations.
+     */
     commit() {
         const ret = wasm.wasmlockbox_commit(this.__wbg_ptr);
         if (ret[1]) {
@@ -327,6 +380,9 @@ class WasmLockbox {
         }
     }
     /**
+     * Creates an uncommitted lockbox using a raw content key.
+     *
+     * Add an access slot and call [`WasmLockbox::commit`] before sharing it.
      * @param {Uint8Array} key
      */
     constructor(key) {
@@ -338,6 +394,7 @@ class WasmLockbox {
         return this;
     }
     /**
+     * Creates a directory, optionally creating missing ancestors.
      * @param {string} path
      * @param {boolean} create_parents
      */
@@ -350,6 +407,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Creates every missing parent directory of `path`.
      * @param {string} path
      */
     create_parent_dirs(path) {
@@ -361,6 +419,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Creates an uncommitted lockbox with a generated key wrapped by a password.
      * @param {string} password
      * @returns {WasmLockbox}
      */
@@ -374,6 +433,7 @@ class WasmLockbox {
         return WasmLockbox.__wrap(ret[0]);
     }
     /**
+     * Deletes a file or symbolic link at `path`.
      * @param {string} path
      */
     delete(path) {
@@ -385,6 +445,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Deletes the access slot identified by `id`.
      * @param {bigint} id
      */
     delete_key(id) {
@@ -394,6 +455,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Deletes the variable named `name`.
      * @param {string} name
      */
     delete_variable(name) {
@@ -405,6 +467,24 @@ class WasmLockbox {
         }
     }
     /**
+     * Returns the encrypted lockbox description, or `undefined` when unset.
+     * For example, set it, commit, then display `box.description` in JavaScript.
+     * @returns {string | undefined}
+     */
+    get description() {
+        const ret = wasm.wasmlockbox_description(this.__wbg_ptr);
+        if (ret[3]) {
+            throw takeFromExternrefTable0(ret[2]);
+        }
+        let v1;
+        if (ret[0] !== 0) {
+            v1 = getStringFromWasm0(ret[0], ret[1]).slice();
+            wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+        }
+        return v1;
+    }
+    /**
+     * Returns whether any entry exists at `path`.
      * @param {string} path
      * @returns {boolean}
      */
@@ -418,6 +498,7 @@ class WasmLockbox {
         return ret[0] !== 0;
     }
     /**
+     * Decrypts and returns the complete file at `path`.
      * @param {string} path
      * @returns {Uint8Array}
      */
@@ -433,6 +514,7 @@ class WasmLockbox {
         return v2;
     }
     /**
+     * Returns the stored target of the symbolic link at `path`.
      * @param {string} path
      * @returns {string}
      */
@@ -457,6 +539,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Returns a non-secret variable, or `undefined` when it does not exist.
      * @param {string} name
      * @returns {string | undefined}
      */
@@ -475,6 +558,7 @@ class WasmLockbox {
         return v2;
     }
     /**
+     * Returns whether `path` names a directory.
      * @param {string} path
      * @returns {boolean}
      */
@@ -488,6 +572,7 @@ class WasmLockbox {
         return ret[0] !== 0;
     }
     /**
+     * Lists entries beneath `path`, optionally including all descendants.
      * @param {string} path
      * @param {boolean} recursive
      * @returns {Array<any>}
@@ -502,6 +587,7 @@ class WasmLockbox {
         return takeFromExternrefTable0(ret[0]);
     }
     /**
+     * Returns metadata for every access slot without exposing wrapped secrets.
      * @returns {Array<any>}
      */
     list_key_slots() {
@@ -509,6 +595,7 @@ class WasmLockbox {
         return ret;
     }
     /**
+     * Lists variable names and sensitivity without returning their values.
      * @returns {Array<any>}
      */
     list_variables() {
@@ -519,6 +606,7 @@ class WasmLockbox {
         return takeFromExternrefTable0(ret[0]);
     }
     /**
+     * Returns the stable 16-byte lockbox identifier.
      * @returns {Uint8Array}
      */
     lockbox_id() {
@@ -528,6 +616,7 @@ class WasmLockbox {
         return v1;
     }
     /**
+     * Moves one typed form record to another lockbox path.
      * @param {string} source
      * @param {string} destination
      */
@@ -542,6 +631,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Renames one variable atomically.
      * @param {string} source
      * @param {string} destination
      */
@@ -556,6 +646,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Opens lockbox bytes for writing using a raw content key.
      * @param {Uint8Array} bytes
      * @param {Uint8Array} key
      * @returns {WasmLockbox}
@@ -572,6 +663,7 @@ class WasmLockbox {
         return WasmLockbox.__wrap(ret[0]);
     }
     /**
+     * Opens lockbox bytes for writing using a password access slot.
      * @param {Uint8Array} bytes
      * @param {string} password
      * @returns {WasmLockbox}
@@ -588,6 +680,7 @@ class WasmLockbox {
         return WasmLockbox.__wrap(ret[0]);
     }
     /**
+     * Returns stored Unix permission bits, or `undefined` if absent.
      * @param {string} path
      * @returns {number | undefined}
      */
@@ -601,6 +694,7 @@ class WasmLockbox {
         return ret[0] === Number.MAX_SAFE_INTEGER ? undefined : ret[0];
     }
     /**
+     * Reads at most `len` file bytes beginning at `offset`.
      * @param {string} path
      * @param {bigint} offset
      * @param {bigint} len
@@ -618,6 +712,7 @@ class WasmLockbox {
         return v2;
     }
     /**
+     * Removes a directory, including descendants when `recursive` is true.
      * @param {string} path
      * @param {boolean} recursive
      */
@@ -630,6 +725,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Moves one lockbox entry from `from` to `to`.
      * @param {string} from
      * @param {string} to
      */
@@ -644,6 +740,20 @@ class WasmLockbox {
         }
     }
     /**
+     * Stages encrypted description text; call `commit` to publish it.
+     * For example: `box.set_description("Production credentials"); box.commit()`.
+     * @param {string} description
+     */
+    set_description(description) {
+        const ptr0 = passStringToWasm0(description, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmlockbox_set_description(this.__wbg_ptr, ptr0, len0);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * Updates the stored Unix permission bits for an entry.
      * @param {string} path
      * @param {number} permissions
      */
@@ -656,6 +766,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Stores a secret variable in secure memory until it is encrypted.
      * @param {string} name
      * @param {Uint8Array} value
      */
@@ -670,6 +781,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Stores a non-secret UTF-8 variable.
      * @param {string} name
      * @param {string} value
      */
@@ -684,6 +796,9 @@ class WasmLockbox {
         }
     }
     /**
+     * Selects the `auto`, `single`, or `threads` worker policy.
+     *
+     * `jobs` is used only by the `threads` policy.
      * @param {string} policy
      * @param {number} jobs
      */
@@ -696,6 +811,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Selects an `interactive`, `bulk-import`, `read-mostly`, or `extract-many` profile.
      * @param {string} profile
      */
     set_workload_profile(profile) {
@@ -707,6 +823,7 @@ class WasmLockbox {
         }
     }
     /**
+     * Returns entry metadata, or JavaScript `null` when `path` is absent.
      * @param {string} path
      * @returns {any}
      */
@@ -720,6 +837,9 @@ class WasmLockbox {
         return takeFromExternrefTable0(ret[0]);
     }
     /**
+     * Serializes the committed encrypted lockbox.
+     *
+     * Call [`WasmLockbox::commit`] first when the lockbox has pending changes.
      * @returns {Uint8Array}
      */
     to_bytes() {
@@ -732,6 +852,7 @@ class WasmLockbox {
         return v1;
     }
     /**
+     * Returns `normal`, `secret`, or `undefined` for an absent variable.
      * @param {string} name
      * @returns {string | undefined}
      */
@@ -750,6 +871,10 @@ class WasmLockbox {
         return v2;
     }
     /**
+     * Calls `callback` with a temporary copy of a secret variable.
+     *
+     * The temporary `Uint8Array` is overwritten immediately after the callback
+     * returns. Retaining a copy inside the callback is the caller's responsibility.
      * @param {string} name
      * @param {Function} callback
      * @returns {any}
@@ -767,6 +892,9 @@ class WasmLockbox {
 if (Symbol.dispose) WasmLockbox.prototype[Symbol.dispose] = WasmLockbox.prototype.free;
 exports.WasmLockbox = WasmLockbox;
 
+/**
+ * Name and sensitivity metadata for a lockbox variable.
+ */
 class WasmVariable {
     static __wrap(ptr) {
         const obj = Object.create(WasmVariable.prototype);
@@ -785,6 +913,7 @@ class WasmVariable {
         wasm.__wbg_wasmvariable_free(ptr, 0);
     }
     /**
+     * Returns the variable name.
      * @returns {string}
      */
     get name() {
@@ -800,6 +929,7 @@ class WasmVariable {
         }
     }
     /**
+     * Returns `normal` or `secret`.
      * @returns {string}
      */
     get sensitivity() {
@@ -819,6 +949,7 @@ if (Symbol.dispose) WasmVariable.prototype[Symbol.dispose] = WasmVariable.protot
 exports.WasmVariable = WasmVariable;
 
 /**
+ * Decodes hexadecimal text, rejecting malformed input.
  * @param {string} value
  * @returns {Uint8Array}
  */
@@ -836,6 +967,7 @@ function decode_hex(value) {
 exports.decode_hex = decode_hex;
 
 /**
+ * Encodes bytes as lowercase hexadecimal text.
  * @param {Uint8Array} bytes
  * @returns {string}
  */
@@ -856,6 +988,7 @@ function encode_hex(bytes) {
 exports.encode_hex = encode_hex;
 
 /**
+ * Returns the lockbox file-format version written by this build.
  * @returns {number}
  */
 function lockbox_format_version() {
@@ -865,6 +998,7 @@ function lockbox_format_version() {
 exports.lockbox_format_version = lockbox_format_version;
 
 /**
+ * Reads a lockbox file-format version without decrypting the archive.
  * @param {Uint8Array} bytes
  * @returns {number}
  */

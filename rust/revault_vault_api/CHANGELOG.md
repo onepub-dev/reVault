@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.8 - 2026-08-30
+
+- Pin the Linux Secret Service implementation to the Rust-1.88-compatible
+  5.1.0 release so a fresh dependency resolution cannot select `aes 0.9.3`,
+  which requires Rust 1.89.
+
 ## 0.0.7 - 2026-08-30
 
 - Persist the vault container signer separately from the removable `default`

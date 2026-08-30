@@ -9,6 +9,8 @@
   APIs without adding legacy-format handling to the core bindings.
 - Establish caller-supplied owner signing keys in the first commit of password-
   and contact-protected Lockboxes, preserving owner continuity on later writes.
+- Preserve the advertised Rust 1.88 minimum in fresh Rust package resolutions
+  by using `revault_vault_api 0.0.8`.
 
 ## 0.3.12
 

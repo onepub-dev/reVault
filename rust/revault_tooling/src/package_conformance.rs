@@ -158,7 +158,7 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
     fs::write(
         consumer.join("Cargo.toml"),
         format!(
-            "[package]\nname = \"revault-api-consumer\"\nversion = \"0.0.0\"\nedition = \"2021\"\n\n[dependencies]\nrevault-api = {{ path = {:?} }}\n\n[patch.crates-io]\nrevault_lockbox_api = {{ path = {:?} }}\nrevault_vault_api = {{ path = {:?} }}\n",
+            "[package]\nname = \"revault-api-consumer\"\nversion = \"0.0.0\"\nedition = \"2021\"\nrust-version = \"1.88\"\n\n[dependencies]\nrevault-api = {{ path = {:?} }}\n\n[patch.crates-io]\nrevault_lockbox_api = {{ path = {:?} }}\nrevault_vault_api = {{ path = {:?} }}\n",
             unpacked.join(unpacked_name),
             repository.join("rust/revault_lockbox_api"),
             repository.join("rust/revault_vault_api"),

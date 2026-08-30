@@ -1,6 +1,6 @@
 [package]
 name = "revault_migration"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
@@ -16,7 +16,7 @@ sha2 = "0.11"
 zeroize = "1.9"
 revault_migration_format = { version = "0.0.4", path = "../revault_migration_format" }
 revault_lockbox_api = { version = "0.0.7", path = "../revault_lockbox_api", features = ["migration", "issue303-protocol"] }
-revault_vault_api = { version = "0.0.7", path = "../revault_vault_api" }
+revault_vault_api = { version = "0.0.8", path = "../revault_vault_api" }
 
 [dev-dependencies]
 tempfile = "3"

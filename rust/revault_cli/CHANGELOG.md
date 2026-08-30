@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.9 - 2026-08-30
+
+- Preserve the advertised Rust 1.88 minimum for fresh Cargo installations by
+  using the vault API release that pins its Linux Secret Service dependency to
+  the last Rust-1.88-compatible version.
+
 ## 0.0.8 - 2026-08-30
 
 - Install the current v1 vault and archive exporter releases during automatic

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.5 - 2026-08-30
+
+- Use `revault_vault_api 0.0.8` so fresh migration-tool installations preserve
+  the advertised Rust 1.88 minimum.
+
 ## 0.0.4 - 2026-08-30
 
 - Restored the minimum supported Rust version to Rust 1.88.

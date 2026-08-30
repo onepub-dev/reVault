@@ -2208,13 +2208,13 @@ dependencies = [
  "criterion",
  "flatbuffers",
  "revault_lockbox_api 0.0.7",
- "revault_vault_api 0.0.7",
+ "revault_vault_api 0.0.8",
  "zeroize",
 ]
 
 [[package]]
 name = "revault_cli"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2227,7 +2227,7 @@ dependencies = [
  "revault_migration",
  "revault_publish_protocol",
  "revault_vault_api 0.0.2",
- "revault_vault_api 0.0.7",
+ "revault_vault_api 0.0.8",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
@@ -2355,7 +2355,7 @@ dependencies = [
 
 [[package]]
 name = "revault_migration"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.2",
@@ -2365,7 +2365,7 @@ dependencies = [
  "revault_migrate_vault_v1",
  "revault_migration_format",
  "revault_vault_api 0.0.2",
- "revault_vault_api 0.0.7",
+ "revault_vault_api 0.0.8",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2482,7 +2482,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "base64ct",
  "chacha20poly1305",
@@ -2509,7 +2509,7 @@ dependencies = [
  "js-sys",
  "revault_lockbox_api 0.0.7",
  "revault_page_api 0.0.4",
- "revault_vault_api 0.0.7",
+ "revault_vault_api 0.0.8",
  "wasm-bindgen",
 ]
 
