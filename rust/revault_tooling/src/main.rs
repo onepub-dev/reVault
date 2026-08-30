@@ -44,6 +44,15 @@ enum Command {
         #[arg(long, default_value = ".")]
         repository: PathBuf,
     },
+    /// Publish native and WebAssembly binding implementation crates.
+    PublishBindings {
+        #[arg(long, conflicts_with = "publish")]
+        dry_run: bool,
+        #[arg(long, conflicts_with = "dry_run")]
+        publish: bool,
+        #[arg(long, default_value = ".")]
+        repository: PathBuf,
+    },
 }
 
 fn main() {
@@ -64,5 +73,10 @@ fn run() -> Result {
             publish,
             repository,
         } => release::publish_cli(&repository, publish && !dry_run),
+        Command::PublishBindings {
+            dry_run,
+            publish,
+            repository,
+        } => release::publish_bindings(&repository, publish && !dry_run),
     }
 }

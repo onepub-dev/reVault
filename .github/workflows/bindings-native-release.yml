@@ -1380,6 +1380,12 @@ jobs:
           "$RELEASE_TOOL"
           release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
           --packages packages --ecosystem rust-foundation --publish
+      - name: Publish binding implementation crates
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: >-
+          "$RELEASE_TOOL"
+          publish-bindings --repository . --publish
       - name: Publish crates.io facade
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}

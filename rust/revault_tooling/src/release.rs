@@ -1428,9 +1428,19 @@ const CLI_PUBLISH_PACKAGES: &[&str] = &[
     "revault_cli",
 ];
 
+const BINDING_IMPLEMENTATION_PACKAGES: &[&str] = &["revault_bindings", "revault_wasm_bindings"];
+
 pub fn publish_cli(repository: &Path, publish: bool) -> Result {
+    publish_workspace_packages(repository, publish, CLI_PUBLISH_PACKAGES)
+}
+
+pub fn publish_bindings(repository: &Path, publish: bool) -> Result {
+    publish_workspace_packages(repository, publish, BINDING_IMPLEMENTATION_PACKAGES)
+}
+
+fn publish_workspace_packages(repository: &Path, publish: bool, packages: &[&str]) -> Result {
     let rust = repository.canonicalize()?.join("rust");
-    for package in CLI_PUBLISH_PACKAGES {
+    for package in packages {
         let manifest = find_package_manifest(&rust, package)?;
         let version = manifest_value(&manifest, "version")?;
         let release = format!("{package}@{version}");
@@ -1636,5 +1646,9 @@ mod tests {
         assert!(CLI_PUBLISH_PACKAGES.contains(&"revault_cli"));
         assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_bindings"));
         assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_wasm_bindings"));
+        assert_eq!(
+            BINDING_IMPLEMENTATION_PACKAGES,
+            &["revault_bindings", "revault_wasm_bindings"]
+        );
     }
 }
