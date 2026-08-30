@@ -57,11 +57,9 @@ String artifactRoot() {
 }
 
 List<FormField> fields() => [
-      FormField(
-          id: 'username', label: 'Username', kind: 'text', required: true),
-      FormField(
-          id: 'password', label: 'Password', kind: 'secret', required: true),
-    ];
+  FormField(id: 'username', label: 'Username', kind: 'text', required: true),
+  FormField(id: 'password', label: 'Password', kind: 'secret', required: true),
+];
 
 void archiveLifecycle() {
   final key = SecretBytes.copyOf(repeat('K'.codeUnitAt(0), 32));
@@ -475,10 +473,8 @@ void advancedArchive() {
   pass('lockbox_open_contact', 2);
   final signedPassword = withSecretString(
     'archive password',
-    (password) => Lockbox.createInMemory(
-      password: password,
-      signingKey: signing,
-    ),
+    (password) =>
+        Lockbox.createInMemory(password: password, signingKey: signing),
   );
   signedPassword.commit();
   signedPassword.close();
@@ -766,12 +762,9 @@ Future<void> agentAndLocal() async {
   final agent = AgentSession.instance;
   agent.clearAllSecrets();
   pass('vault_forget_all');
-  final child = await Process.start(
-      Platform.resolvedExecutable,
-      [
-        '--serve-agent',
-      ],
-      mode: ProcessStartMode.inheritStdio);
+  final child = await Process.start(Platform.resolvedExecutable, [
+    '--serve-agent',
+  ], mode: ProcessStartMode.inheritStdio);
   var running = false;
   for (var attempt = 0; attempt < 200; attempt++) {
     if (agent.isRunning) {
@@ -915,7 +908,8 @@ Future<void> agentAndLocal() async {
 }
 
 void interop(String producer) {
-  final root = Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
+  final root =
+      Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
       '/tmp/revault-e2e-artifacts';
   final box = Lockbox.openBytes(
     Uint8List.fromList(File('$root/$producer/archive.lbox').readAsBytesSync()),
