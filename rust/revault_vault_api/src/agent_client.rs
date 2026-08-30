@@ -19,7 +19,7 @@ mod platform {
     pub(crate) fn serve_agent() -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "lockbox session agent is not supported on this platform",
+            "Session Agent is not supported on this platform",
         ))
     }
 
@@ -43,7 +43,7 @@ mod platform {
     ) -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "lockbox session agent is not supported on this platform",
+            "Session Agent is not supported on this platform",
         ))
     }
 
@@ -55,7 +55,7 @@ mod platform {
     ) -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "lockbox session agent is not supported on this platform",
+            "Session Agent is not supported on this platform",
         ))
     }
 
@@ -74,7 +74,7 @@ mod platform {
     pub(crate) fn start() -> io::Result<()> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "lockbox session agent is not supported on this platform",
+            "Session Agent is not supported on this platform",
         ))
     }
 
@@ -93,7 +93,7 @@ mod platform {
     pub(crate) fn register_secret_activity(_kind: SecretActivityKind) -> io::Result<u64> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            "lockbox session agent is not supported on this platform",
+            "Session Agent is not supported on this platform",
         ))
     }
 
@@ -102,7 +102,7 @@ mod platform {
     }
 }
 
-/// Content-key store backed by the platform session agent.
+/// Content-key store backed by the platform Session Agent.
 ///
 /// On Unix this uses the crate's Unix-domain-socket transport. On Windows it
 /// uses the named-pipe transport. Unsupported platforms expose a client that
@@ -308,7 +308,7 @@ pub fn is_running() -> bool {
     platform::is_running()
 }
 
-/// Starts the session agent if it is not already running.
+/// Starts the Session Agent if it is not already running.
 ///
 /// Callers must only invoke this after checking the user's auto-open policy.
 /// Secret-cache writes deliberately do not start the agent themselves because

@@ -1,9 +1,9 @@
 # reVault key server
 
 `revault_key_server` is the temporary rendezvous service used by reVault users
-to exchange candidate public profile keys. It stores short-lived published
+to exchange candidate public Profile keys. It stores short-lived published
 payloads, sends email-verification links, and returns self-routing publish
-codes. It never stores private profile keys and does not decide whether a
+codes. It never stores private Profile keys and does not decide whether a
 candidate key is trusted; recipients establish trust by checking its
 fingerprint over an independent channel.
 

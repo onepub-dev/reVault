@@ -13,8 +13,8 @@ format supported by the installed CLI.
 Make sure that:
 
 - no other reVault process is writing to the vault or archive;
-- you know the vault pass phrase, unless the platform key store or session
-  agent can provide it;
+- you know the Vault passphrase, unless the platform credential store or
+  Session Agent can provide it;
 - the migrated vault contains a Profile key or remembered Lockbox password
   that can open the archive; if it does not, and the archive has password
   access, you know that password; and
@@ -34,9 +34,9 @@ untouched:
 lockbox migrate vault --output ~/.local/share/lockbox/vault-migrated
 ```
 
-The CLI obtains the vault pass phrase from the platform key store, the session
-cache, or `LOCKBOX_VAULT_PASSWORD`. If none is available, it prompts for the
-pass phrase.
+The CLI obtains the Vault passphrase from the platform credential store, the
+Session Agent, or `LOCKBOX_VAULT_PASSWORD`. If none is available, it prompts
+for the passphrase.
 
 For example, in automation where the password is supplied by a protected
 secret store:
@@ -65,9 +65,9 @@ lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
 ```
 
 The migration first tries the current and historical Profile keys stored in
-the migrated vault. It can also use an archive password remembered by the
-vault. You only need to supply a password when the vault does not hold a
-credential that can open the archive and the archive has password access.
+the migrated Vault. It can also use a Lockbox password remembered by the Vault.
+You only need to supply a password when the Vault does not hold a credential
+that can open the Lockbox and the Lockbox has password access.
 
 The CLI generates and manages the migration key automatically. The archive
 migration also needs a vault containing the keys used to manage the archive.
@@ -95,7 +95,7 @@ lockbox migrate vault --replace
 lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
 ```
 
-For automation, provide the vault password through the protected environment:
+For automation, provide the Vault passphrase through the protected environment:
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
@@ -252,8 +252,9 @@ If you want the original replaced after validation, use `--replace` instead.
 
 ### The migration cannot open the vault
 
-Check the vault pass phrase and whether the platform key store or session agent
-is available. You can provide the pass phrase explicitly for one invocation:
+Check the Vault passphrase and whether the platform credential store or Session
+Agent is available. You can provide the passphrase explicitly for one
+invocation:
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
@@ -262,8 +263,8 @@ LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
 
 ### The migration cannot open the archive
 
-Confirm that you migrated or restored the correct vault and that all saved
-profile keys were imported.
+Confirm that you migrated or restored the correct Vault and that all saved
+Profile keys were imported.
 
 If the vault does not hold a credential that can open the archive and the
 archive has password access, provide that password through `LOCKBOX_PASSWORD`:

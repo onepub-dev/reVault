@@ -29,7 +29,7 @@ try signing.dispose()
 ```
 
 `Revault()` loads the installed runtime facade; loading does not open a Vault or
-Lockbox. A vault passphrase, lockbox password, and content key are distinct
+Lockbox. A Vault passphrase, Lockbox password, and content key are distinct
 caller-owned secrets. Native failures are thrown as `RevaultError`. Agent use
 is explicit via `AgentSession`; closing an entry forgets only temporary cached
 content keys. Secret callbacks receive a temporary raw buffer that is zeroed

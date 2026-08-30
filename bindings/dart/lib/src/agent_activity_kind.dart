@@ -1,4 +1,4 @@
-/// Categories used to tell the session agent why secrets are active.
+/// Categories used to tell the Session Agent why secrets are active.
 ///
 /// Example:
 /// ```dart

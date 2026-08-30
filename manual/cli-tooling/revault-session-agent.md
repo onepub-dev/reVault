@@ -2,9 +2,9 @@
 description: How the local Session Agent works and what it protects.
 ---
 
-# reVault Session Agent
+# Session Agent
 
-The reVault Session Agent is a local, per-user process. It keeps the content keys of open Lockboxes in memory so that a sequence of commands does not require your Vault passphrase each time.
+The Session Agent is a local process for one user. It keeps the content keys of open Lockboxes in memory so that a sequence of commands does not require your Vault passphrase each time.
 
 The first command that needs the agent starts it automatically. It communicates only through a user-scoped local socket on Unix-like systems or a named pipe on Windows.
 
@@ -19,7 +19,7 @@ The agent:
 * can prevent sleep while a secret operation is active; and
 * can terminate an active secret operation if the machine nevertheless suspends.
 
-The default Lockbox session duration is 15 minutes. You can choose another duration when opening a Lockbox:
+By default, a cached Lockbox key expires after 15 minutes. You can choose another duration when opening a Lockbox:
 
 ```bash
 lbx secrets.lbox open --duration 1h
@@ -29,7 +29,7 @@ Use `lbx session` to see open sessions, `lbx session close-all` to clear them, o
 
 ## Agent and Auto Open
 
-The agent does **not** normally retain your Vault passphrase. [Auto Open](session-management.md#auto-open) is the separate feature that stores that passphrase in your operating system's secure credential store.
+The agent does **not** normally retain your Vault passphrase. [Auto Open](session-management.md#auto-open) is the separate feature that stores that passphrase in the platform credential store.
 
 This distinction matters. Closing a Lockbox clears its cached content key, but Auto Open may still allow a later command to unlock the Vault and open the Lockbox again.
 

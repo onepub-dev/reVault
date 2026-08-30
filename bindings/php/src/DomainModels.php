@@ -354,7 +354,7 @@ final class Contact
     public function getKey(): mixed { return $this->key; }
 }
 
-/** A lockbox key currently held by the local session agent, identified by lockbox and path. */
+/** A lockbox key currently held by the local Session Agent, identified by lockbox and path. */
 final class AgentEntry
 {
     /** Creates a value from fields returned by the reVault API. */
@@ -378,18 +378,18 @@ final class SleepSupport
     public function getSupported(): mixed { return $this->supported; }
 }
 
-/** Availability and configuration of the operating-system credential store used for the vault password. */
+/** Availability and configuration of the platform credential store used for the Vault passphrase. */
 final class PlatformStatus
 {
     /** Creates a value from fields returned by the reVault API. */
     public function __construct(public readonly bool $supported, public readonly bool $disabled, public readonly string $scope, public readonly string $backend, public readonly string $item) {}
-    /** Whether a usable operating-system credential store exists. */
+    /** Whether a usable platform credential store exists. */
     public function getSupported(): mixed { return $this->supported; }
-    /** Whether the user disabled credential-store integration. */
+    /** Whether the user disabled platform credential store integration. */
     public function getDisabled(): mixed { return $this->disabled; }
     /** Application-specific scope used to isolate the stored password. */
     public function getScope(): mixed { return $this->scope; }
-    /** Operating-system credential-store backend in use. */
+    /** Platform credential store backend in use. */
     public function getBackend(): mixed { return $this->backend; }
     /** Credential item name used by the backend. */
     public function getItem(): mixed { return $this->item; }

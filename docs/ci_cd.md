@@ -54,8 +54,8 @@ The command creates:
 .revault/ci/production.lockbox-ci
 ```
 
-The bundle contains an encrypted, minimal vault with one profile. It does not
-contain the vault passphrase. The command prints the generated passphrase once
+The bundle contains an encrypted, minimal Vault with one Profile. It does not
+contain the Vault passphrase. The command prints the generated passphrase once
 and instructs the operator to save it as this CI secret:
 
 ```text
@@ -131,7 +131,7 @@ The command should:
 1. Create an isolated temporary vault without changing the user's normal
    vault.
 2. Create exactly one profile named after the CI identity.
-3. Generate a strong random vault passphrase when one is not supplied through
+3. Generate a strong random Vault passphrase when one is not supplied through
    `LOCKBOX_VAULT_PASSWORD` or `--password-stdin`.
 4. Create one encrypted CI bundle containing the minimal vault plus public
    metadata such as its name, format version, and fingerprint.
@@ -194,16 +194,16 @@ can guarantee setup and cleanup.
 
 1. Require `LOCKBOX_VAULT_PASSWORD`, unless a secure password input option was
    selected explicitly.
-2. Create private temporary vault and session-agent directories.
+2. Create private temporary Vault and Session Agent directories.
 3. Restore and verify the encrypted CI bundle.
-4. Disable platform credential-store integration for the temporary vault.
-5. Open every requested lockbox using the CI profile.
-6. Run the child command with the temporary vault and agent settings inherited.
+4. Disable platform credential store integration for the temporary Vault.
+5. Open every requested Lockbox using the CI Profile.
+6. Run the child command with the temporary Vault and agent settings inherited.
 7. Forward termination signals and return the child command's exit status.
-8. Close all opened lockboxes, stop the session agent, zeroize in-memory secret
-   material, and remove temporary state on success or failure.
+8. Close all open Lockboxes, stop the Session Agent, zeroize secret material in
+   memory, and remove temporary state on success or failure.
 
-The command must not echo the vault passphrase, decrypted variables, or the
+The command must not echo the Vault passphrase, decrypted variables, or the
 child command's environment.
 
 ### Explicit environment injection
@@ -268,7 +268,7 @@ jobs:
             -- ./ci/deploy.sh
 ```
 
-Do not provide the vault password to a job that runs unreviewed pull-request
+Do not provide the Vault passphrase to a job that runs unreviewed pull-request
 code. A workflow that receives the password can decrypt every lockbox granted
 to that CI profile. GitHub notes that secret redaction is not guaranteed for
 transformed values, so scripts must still avoid printing secrets.
@@ -340,16 +340,16 @@ compromised job.
 
 ## Password-Protected Lockboxes
 
-A dedicated, randomly generated lockbox password is also a valid CI design:
+A dedicated, randomly generated Lockbox password is also a valid CI design:
 
 ```text
-lockbox password -> lockbox access
+Lockbox password -> Lockbox access
 ```
 
 The profile-based design uses two inputs:
 
 ```text
-encrypted CI bundle + vault password -> CI profile -> lockbox access
+encrypted CI bundle + Vault passphrase -> CI Profile -> Lockbox access
 ```
 
 Both inputs are present while the job is running, so control of the job means

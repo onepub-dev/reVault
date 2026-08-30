@@ -50,8 +50,8 @@ fn open_populates_cache_and_close_clears_it() {
         &vault_dir,
         &[vault.to_str().unwrap(), "open"],
     );
-    if String::from_utf8_lossy(&open.stderr).contains("lockbox session agent did not start") {
-        eprintln!("skipping session agent cache assertions: lockbox session agent did not start");
+    if String::from_utf8_lossy(&open.stderr).contains("Session Agent did not start") {
+        eprintln!("skipping Session Agent cache assertions: Session Agent did not start");
         stop_agent(bin, &agent_dir, &vault_dir);
         return;
     }
@@ -142,7 +142,7 @@ fn open_populates_cache_and_close_clears_it() {
         String::from_utf8_lossy(&output.stderr)
     );
     let session = String::from_utf8_lossy(&output.stdout);
-    assert!(session.contains("Session agent:"));
+    assert!(session.contains("Session Agent:"));
     assert!(session.contains("Auto-open:"));
     assert!(session.contains("Default lockbox:"));
     assert!(session.contains("Open lockboxes:"));

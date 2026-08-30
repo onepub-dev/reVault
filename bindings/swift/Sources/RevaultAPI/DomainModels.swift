@@ -449,7 +449,7 @@ public struct Contact {
     }
 }
 
-/// A lockbox key currently held by the local session agent, identified by lockbox and path.
+/// A lockbox key currently held by the local Session Agent, identified by lockbox and path.
 public struct AgentEntry {
     /// Stable lockbox identifier for the cached key.
     public let id: String
@@ -478,15 +478,15 @@ public struct SleepSupport {
     }
 }
 
-/// Availability and configuration of the operating-system credential store used for the vault password.
+/// Availability and configuration of the platform credential store used for the Vault passphrase.
 public struct PlatformStatus {
-    /// Whether a usable operating-system credential store exists.
+    /// Whether a usable platform credential store exists.
     public let supported: Bool
-    /// Whether the user disabled credential-store integration.
+    /// Whether the user disabled platform credential store integration.
     public let disabled: Bool
     /// Application-specific scope used to isolate the stored password.
     public let scope: String
-    /// Operating-system credential-store backend in use.
+    /// Platform credential store backend in use.
     public let backend: String
     /// Credential item name used by the backend.
     public let item: String

@@ -3,7 +3,7 @@
 reVault is an encrypted `Lockbox` archive and persistent `Vault` for files,
 credentials, keys, and typed records. This Node-hosted package runs portable
 lockbox operations through a WebAssembly dispatcher while delegating native
-filesystem, keyring, and `AgentSession` facilities to the installed host
+filesystem, platform credential store, and `AgentSession` facilities to the installed host
 package. See the
 [reVault manual](https://docs.revault.onepub.dev/).
 
@@ -35,7 +35,7 @@ console.log(wasmDispatchCount());
 `Revault` is the native-runtime entry point; it is not a persistent Vault. The
 exported `Vault` is the host package's persistent encrypted store, and
 `ProfileSigningKeyPair` names a profile identity. Browsers cannot provide Vault
-directories, an OS keyring, or a session agent, so those operations require the
+directories, a platform credential store, or a Session Agent, so those operations require the
 installed host package.
 
 Before creating a standalone browser lockbox, call

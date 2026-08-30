@@ -1,68 +1,110 @@
-# Terminology
+# reVault terminology
 
-Lockbox uses these terms consistently:
+This is the vocabulary standard for the manual, READMEs, CLI help, API guides,
+and other material written for users. The published
+[glossary](../manual/glossary.md) gives readers the corresponding definitions.
 
-## Vault
+Use product terms with the capitalisation shown here. Use lowercase only for a
+command, file name, code identifier, or generic concept.
 
-A vault is the user's local private security store on their own machine. It may
-contain the user's private key, trusted public keys, local key-directory
-backups, preferences, and other user-local state.
+| Preferred term | Avoid | Usage |
+| --- | --- | --- |
+| reVault | Revault, ReVault | The product and project. |
+| Lockbox | archive, lockbox archive | The portable `.lbox` file. “Archive format” remains appropriate when discussing the file format as a category. |
+| Vault | local vault | The encrypted store on one device. Use “local Vault” only when location matters. |
+| Vault passphrase | Vault password, Vault pass phrase | The secret that opens the Vault. API identifiers may retain `password` where compatibility requires it. |
+| Lockbox password | archive password | An optional password that can open one Lockbox. Profile access remains the normal path. |
+| Profile | identity, recipient profile | One of the user's named public and private key identities in the Vault. |
+| Profile key | contact key, recipient key | A Profile's key material. Use the more precise public key or private key when it matters. |
+| Contact | recipient | Another person's public Profile stored in the Vault. “Recipient” is acceptable for the role in a specific sharing operation. |
+| credential | password, key | The general category for material that can provide access. Name the specific Profile key, Lockbox password, or Vault passphrase when the distinction matters. |
+| platform credential store | platform key store, platform secret store, OS key store, Secret Service session | The operating system facility used by Auto Open. Name Credential Manager, Secret Service, or Keychain only when describing a platform implementation. |
+| Auto Open | auto-open | The feature that stores the Vault passphrase in the platform credential store. Use `auto-open` only for the CLI command or configuration key. |
+| Session Agent | Lockbox Session Agent, open cache | The optional local process that temporarily caches Lockbox content keys. |
+| `AgentSession` | agent session | The language binding API used to connect to and control the Session Agent. |
+| open Lockbox, cached Lockbox key | Lockbox session, agent session | Describe the Lockbox state or cached key directly. Use `session` only for the CLI command name. |
+| content key | archive key, direct key | The internal symmetric key that encrypts a Lockbox. Discuss it only in API, format, security, or Session Agent material where the detail is useful. |
+| Key Sharing Service | key service | The reVault service used to exchange Profile public keys. A key server is one server running that service. |
 
-The vault is not the portable archive file. It is controlled by the local user
-and should be protected with OS facilities such as Keychain, DPAPI, Secret
-Service, file permissions, or equivalent platform storage.
+## Core definitions
 
-The CLI may use the vault for convenience features such as:
+### Lockbox
 
-- storing the user's long-term private key
-- caching trusted public keys
-- retaining local backups of lockbox key directories
-- remembering lockbox-specific preferences
+A Lockbox is a portable `.lbox` file. It stores compressed, encrypted, and
+signed files, variables, Forms, and access information. It is designed to be
+copied, shared, backed up, uploaded, or downloaded without a hosted reVault
+service.
 
-The vault must not be required to read a lockbox shared by password only.
+### Vault
 
-In the Rust workspace, `revault_vault_api` owns the local vault API and reusable
-agent transport. `revault_lockbox_api` does not know about vaults; it only implements
-the lockbox file format and operations on an opened lockbox.
+A Vault is the encrypted store reVault maintains on one device. It contains
+Profiles, Contacts, reusable Form definitions, and remembered Lockbox access.
+It is not a collection of Lockboxes and should not be synchronised as a live
+file between devices.
 
-`revault_vault_api::VaultDirectory` is the native single-file vault store. It keeps
-user-local private keys, trusted recipient public keys, and local key-directory
-backups inside `local-vault.lbox`, protected by the normal password-based
-lockbox mechanism. The open agent remains in-memory and separate from this
-persistent vault file.
+### Profile and Contact
 
-## Lockbox
+A Profile is one of the user's named public and private key identities. A
+Contact is another person's public Profile. Use Profile when discussing the
+owner's identity and Contact when discussing someone whose public key has been
+saved for sharing.
 
-A lockbox is the portable `.lbox` file format. It stores compressed and
-encrypted data, encrypted metadata, key slots, the TOC, recovery data, and the
-free-space index.
+### Credentials and passwords
 
-A lockbox is designed to be copied, uploaded, downloaded, emailed, backed up, or
-served by a web service. It should contain enough open metadata for intended
-recipients to open it using a password slot, public-key recipient slot, or other
-supported access method.
+Credential is the umbrella term for material that grants access. Do not switch
+between credential, key, password, and passphrase as if they were synonyms:
 
-## Lockbox ID
+- a Vault passphrase opens the Vault;
+- a Profile private key opens Lockboxes granted access to that Profile;
+- a Lockbox password is an optional access method for one Lockbox; and
+- a remembered Lockbox password is a credential stored inside the Vault.
 
-Each lockbox has a public random UUID in its header. The UUID identifies the
-lockbox for cache lookup and local vault records. It is not derived from paths,
-contents, passwords, keys, or recipients.
+Profiles are the normal way to create and open Lockboxes. Describe password
+access as an option for a recipient whose Contact details are not available,
+or as a fallback when the Vault does not contain a usable credential.
 
-## Content Key
+### Platform credential store and Auto Open
 
-Each lockbox has a random content-encryption key. Pages are encrypted
-with keys derived from that content key. Password slots and recipient slots wrap
-the content key.
+The platform credential store is the operating system facility in which Auto
+Open can store the Vault passphrase. On Windows it is Credential Manager, on
+Linux it is normally Secret Service, and on macOS it is Keychain. A desktop or
+D-Bus session may be required to reach the store, but it is not itself a
+credential store or a reVault session.
 
-Use "content key" for this concept in code, APIs, and documentation.
+### Session Agent and `AgentSession`
 
-## Key Directory
+The Session Agent is the optional process for one user that temporarily caches
+Lockbox content keys. `AgentSession` is the language binding API that
+applications use when Lockbox access needs to be shared across processes or
+process restarts. Describe each entry as an open Lockbox or cached Lockbox key,
+not as a separate agent session.
 
-The key directory is lockbox metadata containing key slots and wrapping
-parameters needed to unwrap the lockbox content key. It lives inside the
-lockbox, and critical copies may also be retained in the user's local vault as a
-CLI recovery feature.
+These are separate from Auto Open. Asking `AgentSession` to close a Lockbox
+clears its cached content key. It does not delete a persistent credential from
+the Vault or the Vault passphrase from the platform credential store.
 
-Local vault backups are recovery aids, not the canonical format. A lockbox
-should remain self-describing for the access methods intentionally embedded in
-it.
+## Technical format terms
+
+Use the following terms in format and API documentation when the detail is
+needed:
+
+- **Lockbox ID:** the public random identifier in a Lockbox header, used for
+  cache lookup and Vault records.
+- **content key:** the random symmetric key that encrypts the private content
+  of one Lockbox.
+- **access directory:** the Lockbox metadata containing the entries that allow
+  authorised Profile keys or Lockbox passwords to unwrap the content key.
+
+Do not introduce these details into introductory material unless they explain
+a benefit visible to users or a security decision.
+
+## Review checklist
+
+Before publishing documentation or help text:
+
+- check new wording against the preferred terms table;
+- search changed files for the discouraged alternatives;
+- keep compatibility names such as `LOCKBOX_VAULT_PASSWORD` and API methods
+  containing `password`, but describe their value as the Vault passphrase; and
+- use Credential Manager, Secret Service, or Keychain only when the text is
+  explaining behaviour specific to that platform.

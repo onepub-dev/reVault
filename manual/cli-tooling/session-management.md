@@ -3,13 +3,13 @@
 reVault uses two related features to avoid asking for your Vault passphrase on every command:
 
 * the **Session Agent** keeps the content keys for open Lockboxes in memory for a limited time;
-* **Auto Open** stores your Vault passphrase in your operating system's secure credential store.
+* **Auto Open** stores your Vault passphrase in the platform credential store.
 
 They are deliberately separate. You can use the Session Agent without enabling Auto Open.
 
 ```mermaid
 flowchart LR
-    OS[OS secure credential store] -->|Auto Open retrieves<br/>Vault passphrase| Vault[Vault]
+    OS[Platform credential store] -->|Auto Open retrieves<br/>Vault passphrase| Vault[Vault]
     Vault -->|unwraps| Key[Lockbox content key]
     Key -->|open command caches temporarily| Agent[Session Agent]
     Agent -->|later command acquires a copy| Process[reVault process]
@@ -37,7 +37,7 @@ lbx session close-all
 lbx session stop
 ```
 
-`stop` clears the in-memory sessions and stops the Session Agent. A later command starts it again when required.
+`stop` clears the cached Lockbox keys and stops the Session Agent. A later command starts it again when required.
 
 ## The default Lockbox
 
@@ -71,13 +71,13 @@ lbx session auto-open lockboxes
 
 `vault` allows reVault to open the Vault automatically but still requires you to open each Lockbox explicitly. `lockboxes` also allows reVault to open Lockboxes as commands need them.
 
-Disable Auto Open and close all current Lockbox sessions with:
+Disable Auto Open and close all open Lockboxes with:
 
 ```bash
 lbx session auto-open disable
 ```
 
-The command removes reVault's stored credential from the operating system's secure store.
+The command removes the Vault passphrase from the platform credential store.
 
 {% hint style="danger" %}
 With Auto Open enabled, anyone or anything operating as you in your unlocked desktop session may be able to open your Vault or Lockboxes. Lock your desktop whenever you walk away.
@@ -85,9 +85,9 @@ With Auto Open enabled, anyone or anything operating as you in your unlocked des
 
 Closing a Lockbox removes its cached content key from the Session Agent. It is not an authentication boundary when Auto Open can immediately obtain the Vault passphrase and open the Lockbox again.
 
-## Platform secure stores
+## Platform credential stores
 
-reVault uses the secure credential service supplied by the operating system:
+reVault uses the credential store supplied by the operating system:
 
 | Platform | Secure store |
 | --- | --- |

@@ -29,7 +29,7 @@ box:commit()
 box:free()
 public_signing_key:free(); signing:free()
 
-local persistent = revault.Vault.open_or_create('/tmp/revault-vault', 'vault passphrase')
+local persistent = revault.Vault.open_or_create('/tmp/revault-vault', 'Vault passphrase')
 persistent:close()
 ```
 

@@ -8,7 +8,7 @@ import java.nio.file.Path;
 
 /**
  * Entry point for encrypted lockboxes, keys, local vault metadata, the session
- * agent, and the platform secret store.
+ * Session Agent, and the platform credential store.
  *
  * <p>Create one when the application starts, then use it to open lockboxes and
  * manage keys and local services. Owned objects implement {@link AutoCloseable}. Secret variables and form
@@ -480,7 +480,7 @@ public final class Revault {
   }
 
   /**
-   * Password-protected storage for profile keys, contacts, forms, backups,
+   * Password-protected storage for Profile keys, contacts, forms, backups,
    * and known lockbox paths. This internal implementation base is exposed
    * through the public {@link Vault} facade.
    */
@@ -651,11 +651,11 @@ public final class Revault {
   public byte[] getAgentVaultUnlockKey(String vaultId) { return operations.vaultAgentGetVaultUnlockKey(vaultId); }
   /** Removes agent vault unlock key. */
   public void forgetAgentVaultUnlockKey(String vaultId) { operations.vaultAgentForgetVaultUnlockKey(vaultId); }
-  /** Caches a profile signing key in the session agent. */
+  /** Caches a profile signing key in the Session Agent. */
   public void cacheProfileSigningKey(String vaultId, String profile, ProfileSigningKeyPair key, long ttlSeconds) {
     operations.vaultAgentPutOwnerSigningKey(vaultId, profile, key.handle, ttlSeconds);
   }
-  /** Returns a profile signing key cached by the session agent. */
+  /** Returns a profile signing key cached by the Session Agent. */
   public ProfileSigningKeyPair profileSigningKey(String vaultId, String profile) {
     return new ProfileSigningKeyPair(operations.vaultAgentGetOwnerSigningKey(vaultId, profile));
   }
@@ -668,7 +668,7 @@ public final class Revault {
   public AgentActivity beginAgentActivity(String kind) {
     return new AgentActivity(operations.vaultAgentBeginActivity(kind));
   }
-  /** A token kept alive while an operation needs secrets cached by the session agent. */
+  /** A token kept alive while an operation needs secrets cached by the Session Agent. */
   public final class AgentActivity implements AutoCloseable {
     private MemorySegment handle;
     private AgentActivity(MemorySegment handle) { this.handle = handle; }

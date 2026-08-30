@@ -109,7 +109,7 @@ impl<S: ContentKeyStore> Vault<S> {
     ///
     /// This variant lets interactive callers reuse an already-open encrypted
     /// vault instead of requiring its passphrase to also be available through
-    /// process environment or platform secret-store state. Private signing
+    /// process environment or platform credential store state. Private signing
     /// material remains owned by [`OwnerSigningKeyPair`], whose serialized
     /// private key is held in secure, zeroizing memory.
     pub fn create_lockbox_with_signing_key(

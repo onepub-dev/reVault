@@ -7,7 +7,7 @@
 //! for storing files, symlinks, variable values, and key slots. Dot-prefixed
 //! variable components may be used by applications for hidden metadata; they
 //! remain ordinary encrypted variables at the API layer. It does not
-//! know about a user's local vault or open-cache agent; those are implemented in
+//! know about a user's Vault or Session Agent; those are implemented in
 //! `revault_vault_api`.
 //!
 //! Start with [`Lockbox::create_in_memory`] for an in-memory archive or

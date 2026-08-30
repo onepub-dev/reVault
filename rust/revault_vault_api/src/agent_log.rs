@@ -14,7 +14,7 @@ pub fn agent_log_path() -> PathBuf {
     fallback_log_path()
 }
 
-/// Describes where session-agent events are currently written.
+/// Describes where Session Agent events are currently written.
 ///
 /// The result is either the configured log file or a human-readable platform
 /// log destination suitable for diagnostics and user interfaces.

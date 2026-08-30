@@ -28,7 +28,7 @@ _ = box.Commit()
 
 `Revault.Load` does not open a Vault or Lockbox. `OpenVault` opens existing
 persistent metadata; `ReplaceVault` is the explicit destructive constructor.
-Vault passphrases, lockbox passwords, and content keys are distinct caller
+Vault passphrases, Lockbox passwords, and content keys are distinct caller
 owned byte slices. Native failures return `NativeError`. `SessionAgent` is
 explicit and caches only temporary content keys; it does not delete files or
 persistent credentials. The module contains a version-matched static carrier

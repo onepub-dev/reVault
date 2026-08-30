@@ -6,8 +6,8 @@ import java.util.Objects;
 /**
  * An opened persistent reVault Vault.
  *
- * <p>Use {@link #open()} when the vault passphrase is in platform storage, or
- * {@link #open(byte[])} when the caller has acquired the vault passphrase. The
+ * <p>Use {@link #open()} when the Vault passphrase is in platform storage, or
+ * {@link #open(byte[])} when the caller has acquired the Vault passphrase. The
  * byte array remains caller-owned and should be wiped after this call returns.
  * The returned object owns the native vault directory and must be closed.
  *
@@ -39,13 +39,13 @@ public final class Vault extends Revault.VaultHandle {
     finally { java.util.Arrays.fill(passphrase, (byte) 0); }
   }
 
-  /** Opens the default Vault with an explicitly supplied vault passphrase. */
+  /** Opens the default Vault with an explicitly supplied Vault passphrase. */
   public static Vault open(byte[] vaultPassphrase) {
     var runtime = Revault.load();
     return new Vault(runtime, runtime.openVault(runtime.defaultVaultRoot(), vaultPassphrase));
   }
 
-  /** Opens an existing Vault directory with its vault passphrase. */
+  /** Opens an existing Vault directory with its Vault passphrase. */
   public static Vault open(Path root, byte[] vaultPassphrase) {
     var runtime = Revault.load();
     return new Vault(runtime, runtime.openVault(root.toString(), vaultPassphrase));
@@ -80,7 +80,7 @@ public final class Vault extends Revault.VaultHandle {
     return new ReadOnlyVault(runtime, runtime.openDefaultReadOnlyVault(vaultPassphrase));
   }
 
-  /** Returns controls for the optional session-agent process. */
+  /** Returns controls for the optional Session Agent process. */
   public AgentSession agentSession() { return agent; }
 
   /** Opens a password-protected lockbox and retains its key until close. */
@@ -93,7 +93,7 @@ public final class Vault extends Revault.VaultHandle {
     return local.createWithPassword(path.toString(), lockboxPassword);
   }
 
-  /** Forgets every temporary key cached by this Vault's agent session. */
+  /** Forgets every temporary key cached by this Vault's Session Agent. */
   public void closeAllAgentEntries() { agent.closeAll(); }
 
   /** Closes lockbox/local-vault resources and the persistent Vault handle. */

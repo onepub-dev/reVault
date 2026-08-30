@@ -24,7 +24,7 @@ pub(crate) struct SleepInhibitor {
     _inner: platform::SleepInhibitor,
 }
 
-/// Platform sleep/suspend capabilities used by the lockbox session agent.
+/// Platform sleep and suspend capabilities used by the Session Agent.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AgentSleepSupport {
     /// True when the agent can receive suspend/resume notifications.

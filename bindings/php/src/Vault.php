@@ -7,7 +7,7 @@ use FFI\CData;
 
 /**
  * Entry point for encrypted lockboxes, cryptographic keys, local vault
- * metadata, the session agent, and the platform secret store.
+ * metadata, the Session Agent, and the platform credential store.
  *
  * Create one when the application starts, then use it to open lockboxes and
  * manage keys and local services. Release disposable values promptly and use
@@ -401,7 +401,7 @@ class Lockbox extends OwnedHandle
         return $box;
     }
 
-    /** Open serialized archive bytes without consulting the session agent. */
+    /** Open serialized archive bytes without consulting the Session Agent. */
     public static function openBytes(string $archive, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?array $options = null): self
     {
         if (count(array_filter([$password, $contentKey, $contact], static fn($value) => $value !== null)) !== 1) {
@@ -423,7 +423,7 @@ class Lockbox extends OwnedHandle
         return $box;
     }
 
-    /** Open a host archive file without consulting the session agent. */
+    /** Open a host archive file without consulting the Session Agent. */
     public static function open(string $path, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?array $options = null): self
     {
         $box = self::openBytes(file_get_contents($path), $password, $contentKey, $contact, $options);
@@ -949,7 +949,7 @@ class ProfileSigningPublicKey extends OwnedHandle
 
 }
 
-/** Password-protected storage for profile keys, contacts, forms, backups, and known lockbox paths. */
+/** Password-protected storage for Profile keys, contacts, forms, backups, and known lockbox paths. */
 class VaultStore extends OwnedHandle
 {
 
@@ -1376,13 +1376,13 @@ class Agent
 
 }
 
-/** A token kept alive while an operation needs secrets cached by the session agent. */
+/** A token kept alive while an operation needs secrets cached by the Session Agent. */
 class AgentActivity extends OwnedHandle
 {
 
 }
 
-/** Access to operating-system credential storage for a scoped vault password. */
+/** Access to the platform credential store for a scoped Vault passphrase. */
 class Platform
 {
     /** Returns the construct. */
@@ -1442,13 +1442,13 @@ class Platform
 class LocalSession extends OwnedHandle
 {
 
-    /** Creates lockbox password. */
+    /** Creates Lockbox password. */
     public function createLockboxPassword(string $path, string $password): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->vaultCreateLockboxPassword($this->handle, $path, $password));
     }
 
-    /** Opens lockbox password. */
+    /** Opens Lockbox password. */
     public function openLockboxPassword(string $path, string $password): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->vaultOpenLockboxPassword($this->handle, $path, $password));
@@ -1472,7 +1472,7 @@ class LocalSession extends OwnedHandle
         return new Lockbox($this->operations, $this->operations->vaultOpenLockboxContentKey($this->handle, $path, $contentKey, $signingKey->nativeHandle()));
     }
 
-    /** Stores lockbox password. */
+    /** Stores Lockbox password. */
     public function cacheLockboxPassword(string $path, string $password, int $ttlSeconds): bool
     {
         return $this->operations->vaultCacheLockboxPassword($this->handle, $path, $password, $ttlSeconds);
@@ -1511,7 +1511,7 @@ final class Vault extends VaultStore
     { return Revault::load()->vaultDirectoryReplace($root, $vaultPassphrase); }
 }
 
-/** Explicit session-agent controller; cached content keys are temporary. */
+/** Explicit Session Agent controller; cached content keys are temporary. */
 final class AgentSession extends Agent
 {
     private CData $local;

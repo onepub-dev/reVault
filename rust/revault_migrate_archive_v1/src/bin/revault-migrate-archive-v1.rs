@@ -91,7 +91,7 @@ fn open_archive(
     }
 
     Err(
-        "no vault profile key can open the archive; if it is password-only, set LOCKBOX_PASSWORD"
+        "no vault Profile key can open the archive; if it is password-only, set LOCKBOX_PASSWORD"
             .into(),
     )
 }

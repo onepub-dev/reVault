@@ -39,7 +39,7 @@ module Revault
   end
 
   # Primary API used to open lockboxes, manage keys and metadata, use the
-  # session agent, and access operating-system credential storage.
+  # Session Agent, and access to the platform credential store.
   class Runtime
     attr_reader :agent, :platform
     # Returns the initialize.
@@ -326,7 +326,7 @@ module Revault
       box
     end
 
-    # Opens serialized archive bytes without consulting the session agent.
+    # Opens serialized archive bytes without consulting the Session Agent.
     def self.open_bytes(archive, password: nil, content_key: nil, contact: nil, options: nil)
       credentials = [password, content_key, contact].compact
       raise ArgumentError, 'supply exactly one of password, content_key, or contact' unless credentials.length == 1
@@ -345,7 +345,7 @@ module Revault
       box
     end
 
-    # Opens an archive file without consulting the session agent.
+    # Opens an archive file without consulting the Session Agent.
     def self.open(path, **options)
       box = open_bytes(File.binread(path), **options)
       box.instance_variable_set(:@backing_path, path)
@@ -788,7 +788,7 @@ module Revault
 
   end
 
-  # Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
+  # Password-protected storage for Profile keys, contacts, forms, backups, and lockbox paths.
   class VaultStore < OwnedHandle
     # Returns the root.
     def root()
@@ -1145,7 +1145,7 @@ module Revault
   class AgentActivity < OwnedHandle
   end
 
-  # Access to operating-system credential storage for a scoped vault password.
+  # Access to the platform credential store for a scoped Vault passphrase.
   class Platform
     # Returns the initialize.
     def initialize(operations)
@@ -1196,12 +1196,12 @@ module Revault
 
   # A session that opens lockboxes by host path, caches passwords, and closes local files.
   class LocalSession < OwnedHandle
-    # Creates lockbox password.
+    # Creates Lockbox password.
     def create_lockbox_password(path, password)
       Lockbox.new(@operations, @operations.vault_create_lockbox_password(@native_handle, path, password))
     end
 
-    # Opens lockbox password.
+    # Opens Lockbox password.
     def open_lockbox_password(path, password)
       Lockbox.new(@operations, @operations.vault_open_lockbox_password(@native_handle, path, password))
     end
@@ -1221,7 +1221,7 @@ module Revault
       Lockbox.new(@operations, @operations.vault_open_lockbox_content_key(@native_handle, path, content_key, signing_key.native_handle))
     end
 
-    # Stores lockbox password.
+    # Stores Lockbox password.
     def cache_lockbox_password(path, password, ttl_seconds)
       @operations.vault_cache_lockbox_password(@native_handle, path, password, ttl_seconds)
     end
@@ -1323,7 +1323,7 @@ module Revault
     # Release the local session handle.
     alias close free
   end
-  # Explicit session-agent controller with process-local lockbox operations.
+  # Explicit Session Agent controller with process-local lockbox operations.
   class AgentSession < Agent
     # Return the process-wide explicit session controller.
     def self.instance

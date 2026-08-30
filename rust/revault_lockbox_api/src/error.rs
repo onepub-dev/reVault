@@ -72,7 +72,7 @@ pub enum Error {
     InvalidKeyMaterial(String),
     /// The requested operation conflicts with the current lockbox state.
     InvalidOperation(String),
-    /// A vault-backed operation could not use the local vault or open cache.
+    /// A Vault operation could not use the Vault or Session Agent.
     VaultUnavailable(String),
     /// A lockbox or vault write lock could not be acquired.
     LockUnavailable(String),

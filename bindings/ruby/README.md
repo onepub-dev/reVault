@@ -34,7 +34,7 @@ box.commit
 box.free
 public_signing_key.free; signing.free
 
-persistent = Revault::Vault.open_or_create('/tmp/revault-vault', Revault::SecretString.new('vault passphrase'))
+persistent = Revault::Vault.open_or_create('/tmp/revault-vault', Revault::SecretString.new('Vault passphrase'))
 persistent.close
 ```
 

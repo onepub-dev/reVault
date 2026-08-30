@@ -34,7 +34,7 @@ box.commit();
 box.free();
 publicSigningKey.dispose(); signing.dispose();
 
-const vaultPassphrase = new SecretString('vault passphrase');
+const vaultPassphrase = new SecretString('Vault passphrase');
 const persistent = Vault.openOrCreate('/tmp/revault-vault', vaultPassphrase);
 persistent.close(); vaultPassphrase.close();
 ```
@@ -42,4 +42,4 @@ persistent.close(); vaultPassphrase.close();
 Secret callback buffers are cleared after use. `AgentSession` is explicit;
 ordinary Lockbox operations never contact the agent. The hosted WebAssembly package
 has the same API; the standalone browser module cannot provide OS vault or
-session-agent facilities.
+Session Agent facilities.

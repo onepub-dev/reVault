@@ -36,7 +36,6 @@ lbx ci.lbox variable get --secret DEPLOY_TOKEN
 
 Avoid command tracing around secret-handling steps, and do not print the result. reVault deliberately excludes secret variables from `variable export`.
 
-The runner still needs a way to unlock its Vault. Supply that through the CI platform's protected secret mechanism or provision the machine's secure credential store. Treat Auto Open on a shared runner with care: any process operating as that account may be able to use it.
+The runner still needs a way to open its Vault. Supply that through the CI platform's protected secret mechanism or provision the machine's platform credential store. Treat Auto Open on a shared runner with care: any process operating as that account may be able to use it.
 
 Rotate runner credentials regularly and immediately after suspected exposure. Revoking a Contact from a Lockbox cannot invalidate a secret the runner has already read.
-

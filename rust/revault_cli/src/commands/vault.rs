@@ -210,7 +210,7 @@ fn print_fingerprint_lines(prefix: &str, fingerprint: &[u8]) {
 fn change_passphrase(args: &[String]) -> CliResult<()> {
     if !args.is_empty() {
         return Err(
-            Error::InvalidInput("vault passphrase does not accept arguments".to_string()).into(),
+            Error::InvalidInput("Vault passphrase does not accept arguments".to_string()).into(),
         );
     }
     let path = default_vault_path()?;
@@ -221,7 +221,7 @@ fn change_passphrase(args: &[String]) -> CliResult<()> {
         .into());
     }
 
-    let old_password = read_vault_password("Current vault pass phrase: ")?;
+    let old_password = read_vault_password("Current Vault passphrase: ")?;
     open_default_vault_with_password(&old_password)?;
 
     let backup_path = passphrase_change_backup_path()?;
@@ -230,10 +230,10 @@ fn change_passphrase(args: &[String]) -> CliResult<()> {
     VaultDirectory::change_default_password(&old_password, &new_password)?;
     remember_default_vault_password_with_warning(
         &new_password,
-        "the vault passphrase changed successfully",
+        "the Vault passphrase changed successfully",
     );
 
-    println!("Vault pass phrase changed successfully.");
+    println!("Vault passphrase changed successfully.");
     println!("Backup:");
     println!("  {}", backup_path.display());
     Ok(())
@@ -358,7 +358,7 @@ key-directory backups stored in this vault."
             return Ok(());
         }
         if verify {
-            let password = read_vault_password("Vault pass phrase: ")?;
+            let password = read_vault_password("Vault passphrase: ")?;
             open_default_vault_with_password(&password)?;
             remember_default_vault_password_with_warning(
                 &password,
@@ -399,9 +399,9 @@ key-directory backups stored in this vault."
         print_default_profile_backup(&vault)?;
     }
     println!();
-    println!("Pass phrase reminder:");
-    println!("  Store the vault pass phrase somewhere safe.");
-    println!("  If it is lost, reVault cannot recover this vault.");
+    println!("Passphrase reminder:");
+    println!("  Store the Vault passphrase somewhere safe.");
+    println!("  If it is lost, reVault cannot recover this Vault.");
     Ok(())
 }
 
@@ -1775,7 +1775,7 @@ fn write_profile_backup(
 
     writeln!(
         writer,
-        "Store the following private keys and your vault passphrase somewhere safe."
+        "Store the following private keys and your Vault passphrase somewhere safe."
     )?;
     writeln!(
         writer,

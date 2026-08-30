@@ -1,10 +1,11 @@
 # Opening a reVault Vault after `sudo`
 
 On Linux, a process started with `sudo` normally runs with root's effective
-identity and environment. A reVault passphrase remembered by a desktop user is
-stored in that user's Secret Service session. Running as root therefore changes
-both the identity used to access the credential store and the D-Bus session
-used to find it.
+identity and environment. A Vault passphrase remembered by Auto Open is stored
+in that desktop user's platform credential store. Linux normally provides that
+store through Secret Service over the user's D-Bus session. Running as root
+therefore changes both the identity used to access the store and the D-Bus
+session used to reach it.
 
 Do not copy the user's Vault passphrase into root's credential store. Run the
 reVault operation as the original user, or restore that user's identity and
@@ -71,7 +72,7 @@ Future<void> openInvokingUsersVault() async {
 ```
 
 `pathTo` is the directory containing `local-vault.lbox`. It also identifies the
-credential-store entry, so it must match the path used when the passphrase was
+credential store entry, so it must match the path used when the passphrase was
 remembered. `PlatformCredentialContext.linux` passes the selected D-Bus address
 directly to native code; reVault does not modify `DBUS_SESSION_BUS_ADDRESS` or
 other process environment variables.
@@ -89,6 +90,7 @@ and saved IDs carefully and avoid retaining an unintended route back to root.
   user-owned Vault files.
 - Confirm `pathTo` points to the same Vault directory used when the passphrase
   was remembered.
-- Treat an unavailable Secret Service session as an authentication failure;
-  prompt for an explicit `SecretString` rather than silently using root's
-  credentials.
+- Treat an unavailable platform credential store as an authentication failure.
+  On Linux, check that the user's Secret Service provider is reachable through
+  the selected D-Bus session. Prompt for the Vault passphrase and hold it in a
+  `SecretString` rather than silently using root's credentials.

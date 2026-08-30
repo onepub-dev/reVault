@@ -47,7 +47,7 @@ class LockboxWorker(str, Enum):
 
 
 class AgentActivityKind(str, Enum):
-    """Kind of operation currently using the session agent."""
+    """Kind of operation currently using the Session Agent."""
 
     OPEN = "open"
     CLOSE = "close"
@@ -89,7 +89,7 @@ class _OwnedSecret:
 
 
 class SecretString(_OwnedSecret):
-    """Owning UTF-8 vault passphrase or lockbox password."""
+    """Owning UTF-8 Vault passphrase or Lockbox password."""
 
 
 class SecretBytes(_OwnedSecret):
@@ -167,7 +167,7 @@ class Revault:
     """Primary API used to open lockboxes and access reVault's local services.
 
     Create one when the application starts, then use it to manage keys, metadata,
-    the session agent, and operating-system credential storage.
+        the Session Agent, and the platform credential store.
     """
     def __init__(self, native_library_path: str | PathLike[str] | None = None):
         """Load an explicit, inherited, or packaged native carrier."""
@@ -212,7 +212,7 @@ class Lockbox(_OwnedHandle):
 
     @staticmethod
     def open_bytes(archive, *, password=None, content_key=None, contact=None, options=None):
-        """Open serialized archive bytes without consulting the session agent."""
+        """Open serialized archive bytes without consulting the Session Agent."""
         credentials = [value for value in (password, content_key, contact) if value is not None]
         if len(credentials) != 1:
             raise ValueError('Supply exactly one of password, content_key, or contact.')
@@ -238,7 +238,7 @@ class Lockbox(_OwnedHandle):
 
     @staticmethod
     def open(path, *, password=None, content_key=None, contact=None, options=None):
-        """Open an archive file without consulting the session agent."""
+        """Open an archive file without consulting the Session Agent."""
         box = Lockbox.open_bytes(Path(path).read_bytes(), password=password, content_key=content_key, contact=contact, options=options)
         box._backing_path = Path(path)
         return box
@@ -286,7 +286,7 @@ class ProfileSigningPublicKey(_OwnedHandle):
 class VaultDirectory(_OwnedHandle):
     """A writable, password-protected metadata store for one installation.
 
-    It keeps profile keys, contacts, forms, backups, and remembered lockbox
+    It keeps Profile keys, contacts, forms, backups, and remembered lockbox
     paths; lockbox file contents remain separate.
     """
     pass
@@ -309,7 +309,7 @@ class Agent(_OwnedHandle):
 
 
 class AgentSession(Agent):
-    """Explicit controller for the optional session agent and path workflow.
+    """Explicit controller for the optional Session Agent and path workflow.
 
     Constructing this object does not start the agent.  The path handle is a
     process-local lockbox workflow; ``close_lockbox`` and ``close_all`` only
@@ -331,7 +331,7 @@ class AgentSession(Agent):
         return self._local.close_lockbox(lockbox_path)
 
     def close_all(self):
-        """Forget every lockbox key cached by the session agent."""
+        """Forget every lockbox key cached by the Session Agent."""
         return self._local.close_all()
 
     def __getattr__(self, name):
@@ -346,7 +346,7 @@ class AgentSession(Agent):
         raise AttributeError(name)
 
     def close(self):
-        """Release local-vault and session-agent handles."""
+        """Release local-vault and Session Agent handles."""
         if getattr(self, '_local', None) is not None:
             self._local.close()
             self._local = None
@@ -360,7 +360,7 @@ class AgentActivity(_OwnedHandle):
     pass
 
 class Platform(_OwnedHandle):
-    """Access to the operating system credential store used for vault passwords.
+    """Access to the platform credential store used for Vault passphrases.
 
     Select an application scope, then enable, save, retrieve, or forget the
     password associated with that scope.

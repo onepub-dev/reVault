@@ -10,8 +10,9 @@ Symbols use descriptive namespaces: `lockbox_*`, `vault_*`, `key_*`, and
 `revault_vault_api`.
 
 The ABI covers lockbox data and metadata operations, key management, recovery,
-vault directories, local-vault integration, session-agent controls, platform
-secret-store controls, key formatting, and explicit buffer/handle ownership.
+Vault directories, Vault integration, Session Agent controls, platform
+credential store controls, key formatting, and explicit buffer and handle
+ownership.
 Structured responses use the private FlatBuffers schema in
 `bindings/flatbuffers`. Each language facade retains the returned buffer and
 exposes reVault domain objects; generated transport tables are not public API.
@@ -22,11 +23,11 @@ Every public facade method has a contextual worked example. See
 the canonical lifecycle, and links to the native-language examples and
 executable conformance runners.
 The hosted WebAssembly package runs every API call through a real WASM
-dispatcher and uses its Node host adapter for filesystem, native vault,
-keyring, and agent facilities. The standalone browser module retains portable
-lockbox/key operations, but browser-only execution is not represented as the
-complete API because browsers cannot provide vault directories, an OS keyring,
-or a session-agent process.
+dispatcher and uses its Node host adapter for filesystem, Vault, platform
+credential store, and Session Agent facilities. The standalone browser module
+retains portable Lockbox and key operations, but browser execution does not
+provide the complete API because browsers cannot provide Vault directories, a
+platform credential store, or a Session Agent process.
 
 ## Language targets
 
@@ -96,7 +97,7 @@ native archives contain the dynamic and static libraries, the Windows DLL
 import library where applicable, the target-built Ruby ABI adapter, C header,
 private FlatBuffers schema, license, target
 metadata, SPDX SBOM, and SHA-256 sidecar. Linux requires
-the system `libdbus-1` runtime; macOS and Windows use their native secret-store
+the system `libdbus-1` runtime; macOS and Windows use their native platform credential store
 implementations. A package must never select an artifact for another operating
 system, architecture, C runtime, or ABI. Dynamic-language loaders resolve an
 explicit API path, then a non-empty inherited `REVAULT_LIBRARY`, then their

@@ -474,7 +474,7 @@ module Revault
       def initialize(values: []) = (@values = values)
     end
 
-    # A lockbox key currently held by the local session agent, identified by lockbox and path.
+    # A lockbox key currently held by the local Session Agent, identified by lockbox and path.
     class AgentEntry
       # Stable lockbox identifier for the cached key.
       attr_reader :id
@@ -504,15 +504,15 @@ module Revault
       def initialize(suspend_notifications: false, sleep_inhibition: false, supported: false) = (@suspend_notifications = suspend_notifications; @sleep_inhibition = sleep_inhibition; @supported = supported)
     end
 
-    # Availability and configuration of the operating-system credential store used for the vault password.
+    # Availability and configuration of the platform credential store used for the Vault passphrase.
     class PlatformStatus
-      # Whether a usable operating-system credential store exists.
+      # Whether a usable platform credential store exists.
       attr_reader :supported
-      # Whether the user disabled credential-store integration.
+      # Whether the user disabled platform credential store integration.
       attr_reader :disabled
       # Application-specific scope used to isolate the stored password.
       attr_reader :scope
-      # Operating-system credential-store backend in use.
+      # Platform credential store backend in use.
       attr_reader :backend
       # Credential item name used by the backend.
       attr_reader :item

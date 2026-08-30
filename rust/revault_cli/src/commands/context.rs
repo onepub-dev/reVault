@@ -173,7 +173,7 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
         .or(get_platform_vault_password().unwrap_or_default())
         .ok_or_else(|| {
             AutoOpenLockboxError::Unavailable(Error::VaultUnavailable(
-                "vault pass phrase is not stored for auto-open".to_string(),
+                "Vault passphrase is not stored for Auto Open".to_string(),
             ))
         })?;
     let vault = VaultDirectory::open_or_create_default(&password)
@@ -314,7 +314,7 @@ fn read_new_vault_password_with_cancel(cancel_action: &str) -> CliResult<SecretS
         "2" => read_manual_vault_pass_phrase(),
         "3" => Err(Error::InvalidInput(format!("{cancel_action} cancelled")).into()),
         value => {
-            Err(Error::InvalidInput(format!("unknown vault passphrase choice: {value}")).into())
+            Err(Error::InvalidInput(format!("unknown Vault passphrase choice: {value}")).into())
         }
     }
 }
@@ -330,7 +330,7 @@ pub(crate) fn read_new_secondary_vault_password(cancel_action: &str) -> CliResul
     }
     if !io::stdin().is_terminal() {
         return Err(cli_error(
-            "new vault pass phrase is unavailable; set LOCKBOX_NEW_VAULT_PASSWORD",
+            "new Vault passphrase is unavailable; set LOCKBOX_NEW_VAULT_PASSWORD",
         ));
     }
     read_new_vault_password_with_cancel(cancel_action)
@@ -351,7 +351,7 @@ fn read_vault_passphrase_mode(cancel_action: &str) -> CliResult<String> {
 fn read_generated_vault_pass_phrase() -> CliResult<SecretString> {
     let phrase = generated_vault_pass_phrase()?;
     println!();
-    println!("Generated vault passphrase:");
+    println!("Generated Vault passphrase:");
     println!();
     println!("  {phrase}");
     println!();
@@ -361,7 +361,7 @@ fn read_generated_vault_pass_phrase() -> CliResult<SecretString> {
     validate_new_vault_pass_phrase(&password)?;
     if !confirm_generated_vault_pass_phrase_stored()? {
         return Err(Error::InvalidInput(
-            "vault passphrase was not confirmed as stored".to_string(),
+            "Vault passphrase was not confirmed as stored".to_string(),
         )
         .into());
     }
@@ -377,9 +377,9 @@ fn confirm_generated_vault_pass_phrase_stored() -> CliResult<bool> {
 }
 
 fn read_manual_vault_pass_phrase() -> CliResult<SecretString> {
-    let password = prompt_secret("New vault passphrase (minimum 15 characters): ")?;
+    let password = prompt_secret("New Vault passphrase (minimum 15 characters): ")?;
     validate_new_vault_pass_phrase(&password)?;
-    let mut confirm = prompt_secret("Confirm vault passphrase: ")?;
+    let mut confirm = prompt_secret("Confirm Vault passphrase: ")?;
     if password != confirm {
         confirm.zeroize()?;
         return Err(Error::InvalidInput("pass phrases do not match".to_string()).into());
@@ -407,7 +407,7 @@ fn validate_new_vault_pass_phrase(password: &SecretString) -> CliResult<()> {
     let chars = password.with_str(|text| text.chars().count())?;
     if chars < MIN_VAULT_PASS_PHRASE_CHARS {
         return Err(Error::InvalidInput(format!(
-            "vault passphrase must be at least {MIN_VAULT_PASS_PHRASE_CHARS} characters"
+            "Vault passphrase must be at least {MIN_VAULT_PASS_PHRASE_CHARS} characters"
         ))
         .into());
     }
@@ -424,9 +424,9 @@ pub(crate) fn remember_default_vault_password(password: &SecretString) -> Result
 pub(crate) fn remember_default_vault_password_with_warning(password: &SecretString, success: &str) {
     if let Err(err) = remember_default_vault_password(password) {
         eprintln!(
-            "WARNING: {success}, but its passphrase could not be stored in the platform secret store. You will be prompted again."
+            "WARNING: {success}, but its passphrase could not be stored in the platform credential store. You will be prompted again."
         );
-        eprintln!("Platform secret-store error: {err}");
+        eprintln!("Platform credential store error: {err}");
     }
 }
 
@@ -460,8 +460,7 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
         return open_default_vault_with_password(&password);
     }
 
-    let password =
-        prompt_secret("Vault pass phrase: ").map_err(|err| Error::Io(err.to_string()))?;
+    let password = prompt_secret("Vault passphrase: ").map_err(|err| Error::Io(err.to_string()))?;
     let vault = open_default_vault_with_password(&password)?;
     if platform_enabled {
         remember_default_vault_password_with_warning(&password, "the vault opened successfully");
@@ -469,7 +468,7 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
     Ok(vault)
 }
 
-/// Resolves the configured vault password without opening the native vault.
+/// Resolves the configured Vault passphrase without opening the Vault.
 /// Migration uses this before selecting the historical reader for the source
 /// format.
 pub(crate) fn vault_password_without_open() -> CliResult<SecretString> {
@@ -485,7 +484,7 @@ pub(crate) fn vault_password_without_open() -> CliResult<SecretString> {
     if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
         return Ok(password);
     }
-    prompt_secret("Vault pass phrase: ").map_err(|err| Error::Io(err.to_string()).into())
+    prompt_secret("Vault passphrase: ").map_err(|err| Error::Io(err.to_string()).into())
 }
 
 pub(crate) fn open_default_vault_with_password(
@@ -502,7 +501,7 @@ pub(crate) fn open_default_vault_with_password(
             Ok(vault)
         }
         Err(Error::InvalidKey | Error::CorruptHeader) => Err(cli_error(
-            "vault open failed: check the vault pass phrase. If the pass phrase is correct, the local vault file may be damaged",
+            "Vault open failed: check the Vault passphrase. If the passphrase is correct, the Vault file may be damaged",
         )),
         Err(err) => Err(err.into()),
     }

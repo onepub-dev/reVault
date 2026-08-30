@@ -4,7 +4,7 @@ import 'package:revault_api/src/owned.dart';
 /// A lifetime token for an operation that currently needs cached secrets.
 ///
 /// Keep the token returned by the agent activity API alive for the duration of
-/// the operation, then call [dispose] so the session agent can expire secrets
+/// the operation, then call [dispose] so the Session Agent can expire secrets
 /// when no other activity needs them.
 ///
 /// Example:

@@ -1298,7 +1298,7 @@ final class Contact {
   Contact._from(this._view) : _name = null, _key = null;
 }
 
-/// A lockbox key currently held by the local session agent, identified by lockbox and path.
+/// A lockbox key currently held by the local Session Agent, identified by lockbox and path.
 ///
 /// Example:
 /// ```dart
@@ -1379,7 +1379,7 @@ final class SleepSupport {
       _supported = null;
 }
 
-/// Availability and configuration of the operating-system credential store used for the vault password.
+/// Availability and configuration of the platform credential store used for the Vault passphrase.
 ///
 /// Example:
 /// ```dart
@@ -1390,11 +1390,11 @@ final class PlatformStatus {
   final fb.PlatformStatus? _view;
   final bool? _supported;
 
-  /// Whether a usable operating-system credential store exists.
+  /// Whether a usable platform credential store exists.
   late final bool supported = _view == null ? _supported! : _view.supported;
   final bool? _disabled;
 
-  /// Whether the user disabled credential-store integration.
+  /// Whether the user disabled platform credential store integration.
   late final bool disabled = _view == null ? _disabled! : _view.disabled;
   final String? _scope;
 
@@ -1402,7 +1402,7 @@ final class PlatformStatus {
   late final String scope = _view == null ? _scope! : _view.scope ?? '';
   final String? _backend;
 
-  /// Operating-system credential-store backend in use.
+  /// Platform credential store backend in use.
   late final String backend = _view == null ? _backend! : _view.backend ?? '';
   final String? _item;
 

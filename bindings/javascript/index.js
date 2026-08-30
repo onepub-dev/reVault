@@ -15,7 +15,7 @@ export const LockboxCacheMode = Object.freeze({ BYTES: 'bytes', DISABLED: 'disab
 export const LockboxWorkload = Object.freeze({ INTERACTIVE: 'interactive', BULK_IMPORT: 'bulk-import', READ_MOSTLY: 'read-mostly' });
 /** Worker policies used by archive operations. */
 export const LockboxWorker = Object.freeze({ AUTO: 'auto', SINGLE: 'single', THREADS: 'threads' });
-/** Categories recorded by the explicit session agent. */
+/** Categories recorded by the explicit Session Agent. */
 export const AgentActivityKind = Object.freeze({ OPEN: 'open', CLOSE: 'close', VARIABLES: 'variables', FORM: 'form', RECOVERY: 'recovery', VAULT: 'vault' });
 /** Stable key export encodings. */
 export const KeyExportFormat = Object.freeze({ LOCKBOX_PEM: 'lockbox-pem', JWK: 'jwk', JWKS: 'jwks', RAW_HEX: 'raw-hex' });
@@ -53,7 +53,7 @@ class OwnedHandle {
 }
 
 /** Primary API used to open lockboxes, manage keys and metadata, use the
- * session agent, and access operating-system credential storage. */
+ * Session Agent, and access the platform credential store. */
 /** Native runtime loader and archive/key factory. */
 export class Revault {
   /** Load an explicit, inherited, or installed native carrier asynchronously. */
@@ -357,7 +357,7 @@ export class Lockbox extends OwnedHandle {
     return lockbox;
   }
 
-  /** Open an archive file without consulting the session agent. */
+  /** Open an archive file without consulting the Session Agent. */
   static open(path, options = {}) {
     const lockbox = Lockbox.openBytes(fs.readFileSync(path), options);
     lockbox._backingPath = path;
@@ -808,7 +808,7 @@ export class ProfileSigningPublicKey extends OwnedHandle {
 
 }
 
-/** A password-protected local store for profile keys, contacts, forms, backups,
+/** A password-protected local store for Profile keys, contacts, forms, backups,
  * and remembered lockbox paths; it does not contain lockbox file contents. */
 /** Persistent encrypted local store for profiles, keys, contacts and metadata. */
 export class Vault extends OwnedHandle {
@@ -1174,7 +1174,7 @@ class Agent {
 
 }
 
-/** Explicit session-agent controller; it caches content keys only when asked. */
+/** Explicit Session Agent controller; it caches content keys only when asked. */
 export class AgentSession extends Agent {
   /** Create an explicit session controller over a native runtime. */
   constructor(operations) { super(operations); this._vaultHandle = operations.vaultLocal(); }
@@ -1211,7 +1211,7 @@ export class AgentActivity extends OwnedHandle {
   }
 }
 
-/** Access to operating-system credential storage for a scoped vault password. */
+/** Access to the platform credential store for a scoped Vault passphrase. */
 class Platform {
   /** Creates a new facade over the bundled native library. */
   constructor(operations) { this.operations = operations; }
@@ -1261,12 +1261,12 @@ class Platform {
 /** A session for opening lockboxes by host path, caching short-lived passwords,
  * and committing and closing locally used lockbox files. */
 class LocalVault extends OwnedHandle {
-  /** Creates lockbox password. */
+  /** Creates Lockbox password. */
   createLockboxPassword(path, password) {
     return new Lockbox(this.operations, this.operations.vaultCreateLockboxPassword(this.nativeHandle, path, password));
   }
 
-  /** Opens lockbox password. */
+  /** Opens Lockbox password. */
   openLockboxPassword(path, password) {
     return new Lockbox(this.operations, this.operations.vaultOpenLockboxPassword(this.nativeHandle, path, password));
   }
@@ -1286,7 +1286,7 @@ class LocalVault extends OwnedHandle {
     return new Lockbox(this.operations, this.operations.vaultOpenLockboxContentKey(this.nativeHandle, path, contentKey, signingKey?.nativeHandle ?? null));
   }
 
-  /** Stores lockbox password. */
+  /** Stores Lockbox password. */
   cacheLockboxPassword(path, password, ttlSeconds) {
     return this.operations.vaultCacheLockboxPassword(this.nativeHandle, path, password, ttlSeconds);
   }

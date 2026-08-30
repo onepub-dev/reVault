@@ -31,9 +31,9 @@ LEGACY_DESCRIPTIONS = {
     "Variable": "The name and sensitivity classification of a lockbox variable.",
     "OwnerInspection": "The owner-signature state and fingerprint of an open lockbox.",
     "Contact": "A named recipient and their public contact-encryption key.",
-    "AgentEntry": "A secret currently cached by the local session agent.",
+    "AgentEntry": "A secret currently cached by the local Session Agent.",
     "SleepSupport": "The host capabilities used to protect cached secrets across sleep.",
-    "PlatformStatus": "Availability and configuration of the operating-system credential store.",
+    "PlatformStatus": "Availability and configuration of the platform credential store.",
     "VaultBackupManifest": "Identity, size, and digest of a local-vault backup archive.",
     "ErrorDetails": "Actionable classification and recovery guidance for a native API failure.",
 }

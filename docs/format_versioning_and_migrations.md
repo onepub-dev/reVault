@@ -65,10 +65,10 @@ verbose subcommand help when diagnosing or manually controlling a migration.
   exporter over the private stdin protocol, never as a command argument, and is
   retained only in the encrypted source-bound journal for resumability. Manual
   export/import commands continue to use an explicit artifact passphrase.
-  Archive exporters first try the profile key generations in the migrated
-  current-format vault. `LOCKBOX_PASSWORD` is used only for password-only
-  archives; an existing session-agent content key remains an optional fast
-  path.
+  Lockbox exporters first try the Profile key generations in the migrated
+  current-format Vault. `LOCKBOX_PASSWORD` is used only when the Vault cannot
+  provide access and the Lockbox has password access. A key already cached by
+  the Session Agent remains an optional fast path.
 - Archive file bodies are processed as bounded chunks and must never be loaded
   wholly into memory.
 - Import creates a new archive commit chain. Old public commits and signatures

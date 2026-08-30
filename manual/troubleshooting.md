@@ -10,7 +10,7 @@ Start with `lbx doctor`, then use the symptom below. The [exit-code reference](c
 
 Run `lbx vault init --verify`. Confirm that you are operating as the expected desktop user and that `LOCKBOX_CONFIG` or platform paths do not select another environment. When using `sudo`, follow the [sudo guide](cli-tooling/sudo.md) rather than copying a passphrase into root's credential store.
 
-## The Lockbox session is closed
+## The Lockbox is not open
 
 ```bash
 lbx secrets.lbox open

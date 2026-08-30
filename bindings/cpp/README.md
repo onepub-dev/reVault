@@ -27,7 +27,7 @@ box.commit();
 
 Use `revault::Vault` for the persistent encrypted store and
 `revault::AgentSession` only when explicitly delegating selected lockbox
-content keys to the optional session agent. `revault::ProfileSigningKeyPair`
+content keys to the optional Session Agent. `revault::ProfileSigningKeyPair`
 names a profile identity; `owner` is used only for the role assigned by
 `Lockbox::set_owner_signing_key`. Every lockbox handle owns its content key and
 must be destroyed (or moved) when the operation ends. Host-path lockbox

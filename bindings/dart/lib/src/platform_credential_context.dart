@@ -1,6 +1,6 @@
-/// Selects the operating-system credential-store session used by a Vault.
+/// Selects the platform credential store connection used by a Vault.
 ///
-/// Context is passed directly to the native credential-store client. It does
+/// This context is passed directly to the native platform credential store client. It does
 /// not alter the process environment.
 final class PlatformCredentialContext {
   /// Uses the Linux Secret Service available on [sessionBusAddress].

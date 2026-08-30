@@ -346,8 +346,8 @@ let reopened = Lockbox::open(
 let file = reopened.get_file(&LockboxPath::new("/docs/a.txt")?)?;
 ```
 
-Use `revault_vault_api` for native applications that want the local vault and
-open-cache behavior:
+Use `revault_vault_api` for native applications that want the Vault and
+Session Agent behavior:
 
 ```rust
 use revault_vault_api::{local_vault, SecretString};
@@ -374,7 +374,7 @@ the [benchmark report](docs/lockbox_gpg_zip_benchmark_2026_08_29.md).
 - [CLI how-to](docs/cli_how_to.md): command examples.
 - [CI/CD with reVault](docs/ci_cd.md): proposed bootstrap and ephemeral CI
   workflow for encrypted deployment secrets.
-- [Lockbox Session Agent](docs/lockbox_session_agent.md): local open cache
+- [Session Agent](docs/lockbox_session_agent.md): temporary Lockbox access
   lifecycle, protocol, and security model.
 - [Archive format](rust/revault_lockbox_api/ARCHIVE_FORMAT.md): lockbox archive details and page
   layout.
@@ -383,6 +383,9 @@ the [benchmark report](docs/lockbox_gpg_zip_benchmark_2026_08_29.md).
   review notes.
 
 ## Development
+
+Follow the [reVault terminology standard](docs/terminology.md) when updating
+the manual, READMEs, CLI help, API guides, or other user-facing material.
 
 Run the Rust checks:
 

@@ -1,6 +1,6 @@
 package com.onepub.revault;
 
-/** Controls the optional process-wide session agent and its temporary cache. */
+/** Controls the optional process-wide Session Agent and its temporary cache. */
 public final class AgentSession {
   /** Kinds of short-lived activity that may retain an agent cache entry. */
   public enum ActivityKind { lockbox, form, key }
@@ -27,7 +27,7 @@ public final class AgentSession {
     runtime.cacheProfileSigningKey(vaultId, profile, key, ttlSeconds);
   }
 
-  /** Returns a profile signing identity cached by the session agent. */
+  /** Returns a profile signing identity cached by the Session Agent. */
   public Revault.ProfileSigningKeyPair profileSigningKey(String vaultId, String profile) {
     return runtime.profileSigningKey(vaultId, profile);
   }

@@ -11,7 +11,7 @@ The stable exit codes are&#x20;
 * `0` for success
 * `1` for an unclassified failure
 * `2` for invalid command usage or input
-* `10` when the lockbox session is closed,
+* `10` when the required Lockbox is not open,
 * `11` when authentication fails
 * `12` when an entry is not found
 * `13` when the local vault is unavailable

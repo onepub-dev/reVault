@@ -35,7 +35,7 @@ box.commit();
 box.free();
 publicSigningKey.dispose(); signing.dispose();
 
-const passphrase = new SecretString('vault passphrase');
+const passphrase = new SecretString('Vault passphrase');
 const persistent = Vault.openOrCreate('/tmp/revault-vault', passphrase);
 persistent.close(); passphrase.close();
 ```

@@ -1,10 +1,10 @@
 # Agent Sleep VM Testing
 
-This document records how to set up the Linux, macOS, and Windows VM environments used to test that the session agent clears cached lockbox keys on system sleep.
+This document records how to set up the Linux, macOS, and Windows VM environments used to test that the Session Agent clears cached lockbox keys on system sleep.
 
 The invariant under test is:
 
-1. unlock a lockbox so the session agent caches its content key;
+1. unlock a lockbox so the Session Agent caches its content key;
 2. verify `vault sessions` reports the lockbox as `unlocked`;
 3. put the guest operating system into sleep from inside the guest;
 4. resume the guest;
@@ -438,7 +438,7 @@ The script:
 
 1. runs `powercfg /hibernate off`;
 2. verifies `powercfg /a` reports S0/S1/S2/S3 availability;
-3. populates the lockbox session cache;
+3. populates the Session Agent cache;
 4. calls `rundll32.exe powrprof.dll,SetSuspendState 0,1,0`;
 5. verifies the cache is empty after resume.
 

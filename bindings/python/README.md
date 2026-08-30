@@ -28,7 +28,7 @@ with runtime.lockbox_create(bytes(32)) as box:  # process-local Lockbox
 public_signing_key.close()
 signing.close()
 
-with SecretString("vault passphrase") as vault_passphrase:
+with SecretString("Vault passphrase") as vault_passphrase:
     persistent = Vault.open_or_create("/tmp/revault-vault", vault_passphrase)
     persistent.close()
 ```

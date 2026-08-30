@@ -49,7 +49,7 @@ fn run_global() -> CliResult<()> {
     println!("  scope: {}", auto_open.scope.as_str());
     println!("  backend: {}", auto_open.backend);
     println!();
-    println!("Session agent");
+    println!("Session Agent");
     let sleep_support = agent_sleep_support();
     println!(
         "  transport security: {}",

@@ -14,7 +14,7 @@ import 'package:revault_api/src/secret_bytes.dart';
 import 'package:revault_api/src/secret_string.dart';
 import 'package:revault_api/src/vault.dart';
 
-/// Controls the single platform session-agent process and its temporary keys.
+/// Controls the single platform Session Agent process and its temporary keys.
 ///
 /// Ordinary [Lockbox.open] and [Lockbox.create] calls do not use this service.
 /// The agent is useful when access must survive a short-lived CLI process or be
@@ -34,7 +34,7 @@ final class AgentSession extends Owned {
 
   static AgentSession? _instance;
 
-  /// The process-wide client for the single platform session agent.
+  /// The process-wide client for the single platform Session Agent.
   ///
   /// Retrieving the client does not start the agent.
   ///
@@ -52,7 +52,7 @@ final class AgentSession extends Owned {
     return _instance = AgentSession._(runtime);
   }
 
-  /// Whether the session-agent process is currently reachable.
+  /// Whether the Session Agent process is currently reachable.
   ///
   /// Example:
   /// ```dart
@@ -60,7 +60,7 @@ final class AgentSession extends Owned {
   /// ```
   bool get isRunning => runtime.operations.vaultIsRunning();
 
-  /// Starts the platform session-agent service if it is not already running.
+  /// Starts the platform Session Agent service if it is not already running.
   ///
   /// Example:
   /// ```dart

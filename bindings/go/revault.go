@@ -877,7 +877,7 @@ func HexDecode(value string) ([]byte, error) {
 	return takeBuffer(C.vault_key_hex_decode(charPointer(value), C.size_t(len(value))))
 }
 
-// vaultStore is password-protected storage for profile keys, contacts,
+// vaultStore is password-protected storage for Profile keys, contacts,
 // forms, backups, and remembered lockbox paths. Lockbox contents remain in
 // their separate archive files.
 type vaultStore struct{ handle unsafe.Pointer }
@@ -1421,7 +1421,7 @@ func ForgetAgentProfileSigningKey(vaultID, profile string) error {
 }
 
 // AgentActivity is a token kept alive while an operation needs secrets cached
-// by the session agent. Close it afterward so unused secrets can expire.
+// by the Session Agent. Close it afterward so unused secrets can expire.
 type AgentActivity struct{ handle unsafe.Pointer }
 
 // BeginAgentActivity starts agent activity.
@@ -1433,7 +1433,7 @@ func BeginAgentActivity(kind string) (*AgentActivity, error) {
 	return &AgentActivity{handle: h}, nil
 }
 
-// AgentSession explicitly controls the single optional session-agent process.
+// AgentSession explicitly controls the single optional Session Agent process.
 // It caches temporary lockbox content keys; it does not keep archive file
 // handles open and it is not an authentication boundary while a persistent
 // vault credential can be retrieved without user interaction.
@@ -1442,13 +1442,13 @@ type AgentSession struct{}
 // SessionAgent returns the process-local agent controller.
 func SessionAgent() *AgentSession { return &AgentSession{} }
 
-// Start starts the optional session agent.
+// Start starts the optional Session Agent.
 func (a *AgentSession) Start() error { return StartAgent() }
 
-// Close stops the optional session agent and forgets its temporary entries.
+// Close stops the optional Session Agent and forgets its temporary entries.
 func (a *AgentSession) Close() error { return StopAgent() }
 
-// IsRunning reports whether the session agent is running.
+// IsRunning reports whether the Session Agent is running.
 func (a *AgentSession) IsRunning() bool { return AgentIsRunning() }
 
 // CloseLockbox forgets the agent's temporary content-key entry for lockboxID.
@@ -1513,7 +1513,7 @@ func openLockboxSession() (*LockboxSession, error) {
 	return &LockboxSession{handle: h}, nil
 }
 
-// OpenLockboxSession opens the path-based lockbox workflow. The session agent
+// OpenLockboxSession opens the path-based lockbox workflow. The Session Agent
 // remains independent and is never contacted implicitly.
 func OpenLockboxSession() (*LockboxSession, error) { return openLockboxSession() }
 

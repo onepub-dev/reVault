@@ -217,7 +217,7 @@ Vault record names are local user metadata. They are encrypted inside the local 
 
 These records are local recovery and convenience data. They are not required for a password-shared lockbox to be portable, and they are not the canonical copy of lockbox metadata.
 
-Local vault private keys are protected by the vault lockbox password. The CLI prompts for that password interactively, or reads `LOCKBOX_VAULT_PASSWORD` for automation. Trusted public keys and key-directory backups are records inside the vault lockbox.
+Private Profile keys in the Vault are protected by the Vault passphrase. The CLI prompts for that passphrase interactively, or reads `LOCKBOX_VAULT_PASSWORD` for automation. Trusted public keys and access directory backups are records inside the Vault.
 
 When loaded, the long-lived ML-KEM private seed is held in `SecretVec`. Unlock/export operations derive the ML-KEM decapsulation key only for the duration of the operation. Export remains explicit plaintext output and is not protected after it is written to a caller-owned buffer or file.
 

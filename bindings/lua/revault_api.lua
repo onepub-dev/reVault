@@ -343,7 +343,7 @@ model("AccessSlotLabel")
 --- Ordered AccessSlotLabel values returned by the corresponding list operation.
 -- @type AccessSlotLabelList
 model("AccessSlotLabelList")
---- A lockbox key currently held by the local session agent, identified by lockbox and path.
+--- A lockbox key currently held by the local Session Agent, identified by lockbox and path.
 -- @type AgentEntry
 model("AgentEntry")
 --- Ordered AgentEntry values returned by the corresponding list operation.
@@ -439,7 +439,7 @@ model("PathMove")
 --- Atomic variable or form-record renames supplied to a move operation.
 -- @type PathMoveList
 model("PathMoveList")
---- Availability and configuration of the operating-system credential store used for the vault password.
+--- Availability and configuration of the platform credential store used for the Vault passphrase.
 -- @type PlatformStatus
 model("PlatformStatus")
 --- One active or retired generation of the contact keys belonging to a named vault profile.
@@ -1516,7 +1516,7 @@ local function owned(name)
 end
 
 --- Primary API for opening lockboxes, managing keys and metadata, using the
---- session agent, and accessing operating-system credential storage.
+--- Session Agent, and accessing the platform credential store.
 -- @type Vault
 local Revault = owned("Revault")
 --- An open encrypted archive containing files, variables, secrets, and forms.
@@ -1537,7 +1537,7 @@ local ProfileSigningKeyPair = owned("ProfileSigningKeyPair")
 --- The public half of a Vault Profile signing identity.
 -- @type ProfileSigningPublicKey
 local ProfileSigningPublicKey = owned("ProfileSigningPublicKey")
---- Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
+--- Password-protected storage for Profile keys, contacts, forms, backups, and lockbox paths.
 -- @type VaultStore
 local VaultStore = owned("VaultStore")
 --- A metadata view for discovery that never loads an owner signing key.
@@ -1549,7 +1549,7 @@ local Agent = owned("Agent")
 --- A token kept alive while an operation needs secrets cached by the agent.
 -- @type AgentActivity
 local AgentActivity = owned("AgentActivity")
---- Access to operating-system credential storage for a scoped vault password.
+--- Access to the platform credential store for a scoped Vault passphrase.
 -- @type Platform
 local Platform = owned("Platform")
 --- A session that opens lockboxes by host path, caches passwords, and closes local files.
@@ -2609,12 +2609,12 @@ function Platform:get_password()
   return self.operations:vault_platform_get_password()
 end
 
---- Creates lockbox password.
+--- Creates Lockbox password.
 function LocalSession:create_lockbox_password(path, password)
   return Lockbox.new(self.operations, self.operations:vault_create_lockbox_password(self.handle, path, password))
 end
 
---- Opens lockbox password.
+--- Opens Lockbox password.
 function LocalSession:open_lockbox_password(path, password)
   return Lockbox.new(self.operations, self.operations:vault_open_lockbox_password(self.handle, path, password))
 end
@@ -2634,7 +2634,7 @@ function LocalSession:open_lockbox_content_key(path, content_key, signing_key)
   return Lockbox.new(self.operations, self.operations:vault_open_lockbox_content_key(self.handle, path, content_key, signing_key.handle))
 end
 
---- Stores lockbox password.
+--- Stores Lockbox password.
 function LocalSession:cache_lockbox_password(path, password, ttl_seconds)
   return self.operations:vault_cache_lockbox_password(self.handle, path, password, ttl_seconds)
 end
@@ -2701,7 +2701,7 @@ function Lockbox.create_in_memory(options)
   if options.signing_key then box:set_owner_signing_key(options.signing_key) end
   return box
 end
---- Opens serialized archive bytes without consulting the session agent.
+--- Opens serialized archive bytes without consulting the Session Agent.
 function Lockbox.open_bytes(archive, options)
   options = options or {}
   local credentials = 0
@@ -2725,7 +2725,7 @@ function Lockbox.create(path, options)
   local file = assert(io.open(path, 'wb')); file:write(box:to_bytes()); file:close()
   return box
 end
---- Opens an archive file without consulting the session agent.
+--- Opens an archive file without consulting the Session Agent.
 function Lockbox.open(path, options)
   local file = assert(io.open(path, 'rb')); local archive = file:read('*a'); file:close()
   return Lockbox.open_bytes(archive, options)
@@ -2735,7 +2735,7 @@ Lockbox.close = Lockbox.free
 VaultStore.close = VaultStore.free
 ReadOnlyVault.close = ReadOnlyVault.free
 LocalSession.close = LocalSession.free
---- Explicit session-agent controller with process-local lockbox operations.
+--- Explicit Session Agent controller with process-local lockbox operations.
 local AgentSession = setmetatable({}, { __index = Agent })
 AgentSession.__index = AgentSession
 function AgentSession.new(operations, handle) return setmetatable({ operations = operations, handle = handle }, AgentSession) end

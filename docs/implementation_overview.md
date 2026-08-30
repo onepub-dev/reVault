@@ -21,7 +21,7 @@ Exact on-disk structures are in [ARCHIVE_FORMAT.md](../rust/revault_lockbox_api/
 for Linux, macOS, Windows, Android, iOS, WASI, and browser-style
 `wasm32-unknown-unknown` builds.
 
-`revault_vault_api` owns native local-vault behavior, open-cache agent transport,
+`revault_vault_api` owns native Vault behavior, Session Agent transport,
 private key storage, trusted recipient storage, and key-directory backups.
 Mobile and WASM applications should use platform-specific vault integration
 instead of embedding the native agent.

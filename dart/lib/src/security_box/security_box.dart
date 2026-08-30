@@ -182,7 +182,7 @@
 //       writeLine(securityBox, _saltLine(dotVaultFile.salt));
 //       writeLine(securityBox, _ivLine(dotVaultFile.iv));
 //       // we include a copy of the user's private key encrypted
-//       // with their vault password.
+//       // with their Vault passphrase.
 //       // This allows them to open the security box even if their
 //       // vault is deleted provided they know the vaults password.
 //       writeLine(securityBox, dotVaultFile.extractPrivateKeyLines().join('\n'));

@@ -222,7 +222,7 @@ pub enum VaultRecord {
         /// Represents the updated at unix ms carried by this record case.
         updated_at_unix_ms: u64,
     },
-    /// Represents the lockbox password case.
+    /// Represents the Lockbox password case.
     LockboxPassword {
         /// Represents the id carried by this record case.
         lockbox_id: [u8; 16],

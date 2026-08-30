@@ -97,7 +97,7 @@ pub struct ProfileGeneration {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Lifecycle state of one profile key generation.
+/// Lifecycle state of one Profile key generation.
 pub enum ProfileGenerationStatus {
     /// The generation currently used for new operations.
     Active,
@@ -659,7 +659,7 @@ impl VaultDirectory {
         Ok(key)
     }
 
-    /// Loads one owner-signing key using the enabled session-agent cache when
+    /// Loads one owner-signing key using the enabled Session Agent cache when
     /// available, then refreshes that cache after the normal vault load.
     pub fn load_owner_signing_key_cached(&self, name: &str) -> Result<OwnerSigningKeyPair> {
         self.load_owner_signing_key(name)

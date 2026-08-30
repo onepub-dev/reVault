@@ -101,7 +101,7 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     return lockbox;
   }
 
-  /// Opens serialized [archive] bytes without using the session agent.
+  /// Opens serialized [archive] bytes without using the Session Agent.
   ///
   /// Supply exactly one of [password], [contentKey], or [contact]. Use [open]
   /// instead when a host file should be updated by [commit].
@@ -148,7 +148,7 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   ///
   /// Supply exactly one of [password], [contentKey], or [contact]. A password is
   /// the lockbox-specific secret used by a password access slot; it is not the
-  /// vault passphrase. Existing files require [overwrite]. Call [commit] after
+  /// Vault passphrase. Existing files require [overwrite]. Call [commit] after
   /// mutations and [close] when finished.
   ///
   /// Example:
@@ -189,12 +189,12 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     return lockbox;
   }
 
-  /// Opens the lockbox file at [path] without using the session agent.
+  /// Opens the lockbox file at [path] without using the Session Agent.
   ///
   /// Supply one explicit credential or an open [vault]. With no credential,
   /// reVault opens the default Vault using its platform-stored passphrase and
-  /// asks that Vault for a remembered lockbox password or matching profile
-  /// key. It never consults or starts the session agent.
+  /// asks that Vault for a remembered Lockbox password or matching profile
+  /// key. It never consults or starts the Session Agent.
   ///
   /// The decrypted content key remains only in this process and is wiped by
   /// [close].
@@ -307,7 +307,7 @@ final class Lockbox extends Owned implements ffi.Finalizable {
         remembered.close();
       }
     } on RevaultException {
-      // This vault may instead hold a matching private profile key.
+      // This vault may instead hold a matching private Profile key.
     }
     for (final profile in persistentVault.listPrivateKeyNames()) {
       final key = persistentVault.loadPrivateKey(profile);

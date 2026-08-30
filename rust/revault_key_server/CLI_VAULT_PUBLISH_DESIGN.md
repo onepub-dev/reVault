@@ -656,7 +656,7 @@ signing key material: sign profile replacement claims
 
 The old profile generation signs the replacement claim with its old signing
 private key. Contacts verify that claim with the old signing public key they
-already trust. If a future profile key type can both unwrap and sign safely,
+already trust. If a future Profile key type can both unwrap and sign safely,
 the record format can encode that as one cryptographic keypair. The current
 hybrid contact key cannot do that, so a signing component is required inside
 the same profile generation.
@@ -715,7 +715,7 @@ Default behavior:
 ```text
 generate a new contact keypair
 generate a new signing keypair
-keep the old profile key material
+keep the old Profile key material
 mark the previous active generation as retired
 make the new generation active
 print a warning that existing lockboxes may still depend on retired keys

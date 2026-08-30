@@ -24,7 +24,7 @@ public enum WorkerPolicy
     /// Use one worker.
     Single
 }
-/// Temporary operation retained by the optional session agent.
+/// Temporary operation retained by the optional Session Agent.
 public enum AgentActivityKind
 {
     /// A lockbox operation.
@@ -43,26 +43,26 @@ public sealed class RevaultException : Exception
     public RevaultException(string message) : base(message) { }
 }
 
-/// Controls the single optional session-agent process and temporary cache.
+/// Controls the single optional Session Agent process and temporary cache.
 public sealed class AgentSession
 {
     private readonly Revault owner;
     internal AgentSession(Revault owner) => this.owner = owner;
-    /// Starts the optional session agent.
+    /// Starts the optional Session Agent.
     public void Start() => owner.StartAgent();
-    /// Stops the optional session agent.
+    /// Stops the optional Session Agent.
     public void Close() => owner.StopAgent();
-    /// Reports whether the session agent is running.
+    /// Reports whether the Session Agent is running.
     public bool IsRunning => owner.AgentIsRunning;
-    /// Forgets all secrets retained by the session agent.
+    /// Forgets all secrets retained by the Session Agent.
     public void CloseAll() => owner.ForgetAllAgentSecrets();
-    /// Forgets one lockbox key retained by the session agent.
+    /// Forgets one lockbox key retained by the Session Agent.
     public void CloseLockbox(byte[] lockboxId) => owner.ForgetAgentKey(lockboxId);
     /// Caches a profile signing identity for the requested session TTL.
     public void CacheProfileSigningKey(string vaultId, string profile,
         Revault.ProfileSigningKeyPair key, ulong ttlSeconds) =>
         owner.CacheProfileSigningKey(vaultId, profile, key, ttlSeconds);
-    /// Returns a profile signing identity cached by the session agent.
+    /// Returns a profile signing identity cached by the Session Agent.
     public Revault.ProfileSigningKeyPair ProfileSigningKey(string vaultId, string profile) =>
         owner.ProfileSigningKey(vaultId, profile);
     /// Forgets one cached profile signing identity.

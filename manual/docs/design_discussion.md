@@ -75,23 +75,23 @@ Security notes:
 * Do not cache GPG passphrases ourselves.
 * Surface exactly which GPG binary and home directory are used.
 
-## OS Keyring
+## Platform credential store
 
-OS keyrings can improve secret storage for local agent material, but they do not replace the lockbox format.
+Platform credential stores can improve secret storage for local agent material, but they do not replace the Lockbox format.
 
-Recommendation: support OS keyrings as an optional backend for cached content keys or local vault unlock helpers, not as the only place where lockbox access is recoverable.
+Recommendation: support platform credential stores as an optional backend for cached content keys or Vault access, not as the only place where Lockbox access is recoverable.
 
 Tradeoffs:
 
 * macOS Keychain, Windows Credential Manager, and Linux Secret Service/libsecret integrate with user login/session protections and platform prompts.
-* OS keyrings are not portable and can be hard to use in headless automation, containers, and remote shells.
-* Attributes/metadata may be searchable or less protected than the secret value itself; never store sensitive path names or env names as keyring attributes.
-* A compromised logged-in user session can often request the same keyring item unless platform access controls require user presence.
+* Platform credential stores are not portable and can be hard to use in headless automation, containers, and remote shells.
+* Attributes and metadata may be searchable or less protected than the secret value itself; never store sensitive path names or environment variable names as credential attributes.
+* A compromised logged-in user session can often request the same credential unless platform access controls require user presence.
 
 Likely design:
 
 * Keep `local-vault.lbox` as the portable encrypted store.
-* Add `ContentKeyStore` implementations for platform keyrings.
+* Add `ContentKeyStore` implementations for platform credential stores.
 * Keep the current agent as the default minimal backend on unsupported or headless platforms.
 * Store only content keys or vault-unlock helper keys, not raw passwords.
 
@@ -139,7 +139,7 @@ Remaining caution:
 
 * Private-key export is explicitly plaintext output requested by the caller. Exported PEM/JWK/raw files are outside mlock and outside the secret store, and cannot provide zeroization guarantees once handed to the OS or another process.
 
-The local vault password path is now better: passwords are owned as `SecretString`, prompt input appends directly into `SecretString`, and env-var passwords use `SecretString::try_from_env` rather than first allocating a Rust `String`.
+The Vault passphrase path is now better: passphrases are owned as `SecretString`, prompt input appends directly into `SecretString`, and environment variable values use `SecretString::try_from_env` rather than first allocating a Rust `String`.
 
 ## Bombs and Malformed Lockboxes
 

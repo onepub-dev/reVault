@@ -1,17 +1,15 @@
-# Lockbox Session Agent
+# Session Agent
 
-The Lockbox session agent caches opened lockbox content keys in-memory for the
-duration of an interactive session. It is a local, per-user process that avoids
-re-prompting for passphrases while reducing exposure of decrypted keys on disk.
-
-Product name: **Lockbox Session Agent**.
+The Session Agent temporarily caches the content keys of open Lockboxes. It is
+a local process for one user that avoids repeated prompts while reducing the
+exposure of decrypted keys on disk.
 
 ## What it does
 
-- Stores temporary cache entries for lockbox content keys.
-- May also cache a vault unlock secret and an owner-signing key after the
-  normal vault flow has legitimately obtained them. These entries are typed,
-  scoped to one vault/profile, and are never included in the session listing.
+- Stores temporary cache entries for Lockbox content keys.
+- May also cache a Vault passphrase and an owner signing key after the normal
+  Vault flow has obtained them. These entries are typed, scoped to one Vault
+  and Profile, and are never included in the session listing.
 - Returns cached keys to subsequent commands.
 - Evicts entries automatically by TTL or on inactivity.
 - Clears all cached entries when the machine is suspending.
@@ -104,8 +102,8 @@ agent operation. Users do not normally need to restart the agent manually.
 - TTL is validated as positive.
 - Inactive cache entries are pruned on accept loop and when servicing requests.
 - Cache hits do not extend expiry; TTL is absolute from the cache `put`.
-- `lockbox vault sessions close-all` clears all cached entries from the CLI side.
-- `lockbox vault sessions close <lockbox>` clears one path from the CLI side.
+- `lbx session close-all` clears all cached entries from the CLI side.
+- `lbx <LOCKBOX> close` clears one cached Lockbox key from the CLI side.
 
 ## Platform notes
 
@@ -164,12 +162,12 @@ Without it, platform logging is used with a file fallback:
 
 ## CLI surface
 
-The user-facing session controls live under `lockbox vault sessions`:
+The user-facing session controls live under `lbx session` and each Lockbox:
 
-- `lockbox vault sessions` — list currently opened sessions.
-- `lockbox vault sessions close <lockbox>` — close one lockbox.
-- `lockbox vault sessions close-all` — close everything.
-- `lockbox vault sessions stop` — stop the agent process.
+- `lbx session` — list open Lockboxes.
+- `lbx <LOCKBOX> close` — clear one cached Lockbox key.
+- `lbx session close-all` — close every open Lockbox.
+- `lbx session stop` — stop the Session Agent.
 
 ## Shell completion
 
@@ -180,20 +178,19 @@ and `completion uninstall` use per-user standard completion directories; pass
 completion directory, so install adds a marked, idempotent block to the user's
 PowerShell profile and uninstall removes only that managed block.
 
-Completion reads only public command metadata, an explicitly supplied vault
-pass phrase, or an already-cached vault unlock secret. It never prompts, opens
-the owner-signing key, or requests signing material. If the vault or session
-agent is unavailable it returns static clap suggestions.
+Completion reads only public command metadata, an explicitly supplied Vault
+passphrase, or a Vault passphrase already cached by the Session Agent. It never
+prompts, opens the owner signing key, or requests signing material. If the
+Vault or Session Agent is unavailable, it returns static clap suggestions.
 
-Session-related metadata is also exposed under `lockbox vault sessions auto-open`
-for password-helper integration (`status`, `enable`, `disable`, `forget`).
+Auto Open is controlled through `lbx session auto-open`.
 
-`lockbox doctor` includes session-agent diagnostics and can help when auto-open
+`lbx doctor` includes Session Agent diagnostics and can help when Auto Open
 or transport behavior looks wrong.
 
 ## Security notes
 
-- Secrets are stored in-memory in process memory and never intentionally written
+- Secrets are stored in process memory and never intentionally written
   to disk by the agent cache.
 - The transport is local-only and process-user scoped (`agent` process profile
   checks are used on Windows).
@@ -201,14 +198,3 @@ or transport behavior looks wrong.
   encoding to reduce secret lifetime in transit.
 - The protocol intentionally returns explicit errors for malformed frames, invalid
   message sizes, and unsupported message types.
-
-## Naming
-
-Primary name: **Lockbox Session Agent**
-
-Alternative names:
-
-- Lockbox Key Relay
-- Lockbox Session Guard
-- reVault Cache Sentinel
-- open Cache Sentinel

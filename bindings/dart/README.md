@@ -129,7 +129,7 @@ Future<void> openExisting(SecretString vaultPassphrase) async {
   contacts, signing keys, and remembered Lockbox credentials and metadata.
 - `Lockbox` is a portable encrypted `.lbox` archive containing files,
   variables, secrets, and structured forms.
-- `AgentSession` controls the optional session-agent process and its temporary
+- `AgentSession` controls the optional Session Agent process and its temporary
   cache of decrypted Lockbox content keys.
 
 Passwords and passphrases use `SecretString`; binary keys use `SecretBytes`.
@@ -138,7 +138,7 @@ cannot erase the immutable Dart `String` used to create it, so password-input
 adapters should return owned UTF-8 bytes for `SecretString.takeUtf8` whenever
 possible.
 
-## Use the optional session agent
+## Use the optional Session Agent
 
 Ordinary `Lockbox.open` calls are process-local and never start or contact the
 agent. Use `AgentSession` explicitly for CLI-style or multi-process workflows:
@@ -186,17 +186,17 @@ lockbox.commit();
 
 ## Platform credentials and unattended access
 
-`Vault.rememberPassphrase` stores the Vault passphrase in the operating-system
-credential store. On platforms without per-use user-presence enforcement, any
+`Vault.rememberPassphrase` stores the Vault passphrase in the platform
+credential store. On platforms without a user presence check for each use, any
 process able to access that user's platform credentials may be able to retrieve
 it. This grants unattended access to the Vault and every Lockbox for which the
 Vault contains a usable credential.
 
 Remembered Lockbox passwords remain encrypted inside the Vault; they are not
-stored as independent operating-system credentials. With no explicit
+stored as independent entries in the platform credential store. With no explicit
 credential, `Lockbox.open(path)` opens the default Vault using its
 platform-stored passphrase and asks the Vault for a matching Lockbox password
-or profile key. It does not persist a raw content key or contact the session
+or Profile key. It does not persist a raw content key or contact the session
 agent.
 
 Agent expiry and `AgentSession.closeAll()` are therefore not authentication

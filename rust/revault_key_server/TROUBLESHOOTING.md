@@ -181,4 +181,4 @@ When reporting a problem, include:
   replication.
 
 Never include SMTP passwords, topology/replication tokens, delete tokens,
-private profile keys, or complete sensitive payloads.
+private Profile keys, or complete sensitive payloads.

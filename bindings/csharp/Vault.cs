@@ -9,7 +9,7 @@ public delegate T SecretCallback<T>(ReadOnlySpan<byte> secret);
 
 /// <summary>
 /// Entry point for encrypted lockboxes, cryptographic keys, the local metadata
-/// vault, the session agent, and the platform secret store.
+/// Vault, Session Agent, and the platform credential store.
 /// </summary>
 /// <remarks>
 /// Create one when the application starts, then use it to open lockboxes and
@@ -33,7 +33,7 @@ public sealed class Revault
         NativeLibraryResolver.Configure(nativeLibraryPath);
         operations = new BindingOperations();
     }
-    /// Explicit controls for the optional session agent.
+    /// Explicit controls for the optional Session Agent.
     public AgentSession AgentSession => new(this);
     private static void Open(IntPtr handle) { if (handle == IntPtr.Zero) throw new ObjectDisposedException("native object"); }
 
@@ -383,7 +383,7 @@ public sealed class Revault
     /// <summary>Returns the restore default vault.</summary>
     public VaultBackupManifest RestoreDefaultVault(string path, bool overwrite = false) => operations.VaultRestoreDefault(path, overwrite);
 
-    /// <summary>Password-protected storage for profile keys, contacts, forms, backups, and known lockbox paths.</summary>
+    /// <summary>Password-protected storage for Profile keys, contacts, forms, backups, and known lockbox paths.</summary>
     public class VaultStore : IDisposable
     {
         private readonly Revault owner; internal IntPtr Handle;
@@ -538,17 +538,17 @@ public sealed class Revault
     public byte[] GetAgentVaultUnlockKey(string vaultId) => operations.VaultAgentGetVaultUnlockKey(vaultId);
     /// <summary>Removes agent vault unlock key.</summary>
     public void ForgetAgentVaultUnlockKey(string vaultId) => operations.VaultAgentForgetVaultUnlockKey(vaultId);
-    /// <summary>Caches a profile signing key in the session agent.</summary>
+    /// <summary>Caches a profile signing key in the Session Agent.</summary>
     public void CacheProfileSigningKey(string vaultId, string profile, ProfileSigningKeyPair key, ulong ttlSeconds) =>
         operations.VaultAgentPutOwnerSigningKey(vaultId, profile, key.Handle, ttlSeconds);
-    /// <summary>Returns a profile signing key cached by the session agent.</summary>
+    /// <summary>Returns a profile signing key cached by the Session Agent.</summary>
     public ProfileSigningKeyPair ProfileSigningKey(string vaultId, string profile) => new(this, operations.VaultAgentGetOwnerSigningKey(vaultId, profile));
     /// <summary>Removes a cached profile signing key.</summary>
     public void ForgetProfileSigningKey(string vaultId, string profile) => operations.VaultAgentForgetOwnerSigningKey(vaultId, profile);
     /// <summary>Starts agent activity.</summary>
     public AgentActivity BeginAgentActivity(string kind) => new(this, operations.VaultAgentBeginActivity(kind));
 
-    /// <summary>A token kept alive while an operation needs secrets cached by the session agent.</summary>
+    /// <summary>A token kept alive while an operation needs secrets cached by the Session Agent.</summary>
     public sealed class AgentActivity : IDisposable
     {
         private readonly Revault owner; private IntPtr handle;

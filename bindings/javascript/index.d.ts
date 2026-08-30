@@ -26,14 +26,14 @@ export const LockboxCacheMode: { readonly BYTES: 'bytes'; readonly DISABLED: 'di
 export const LockboxWorkload: { readonly INTERACTIVE: 'interactive'; readonly BULK_IMPORT: 'bulk-import'; readonly READ_MOSTLY: 'read-mostly'; };
 /** Worker policies used by archive operations. */
 export const LockboxWorker: { readonly AUTO: 'auto'; readonly SINGLE: 'single'; readonly THREADS: 'threads'; };
-/** Categories recorded by the explicit session agent. */
+/** Categories recorded by the explicit Session Agent. */
 export const AgentActivityKind: { readonly OPEN: 'open'; readonly CLOSE: 'close'; readonly VARIABLES: 'variables'; readonly FORM: 'form'; readonly RECOVERY: 'recovery'; readonly VAULT: 'vault'; };
 /** Stable key export encodings accepted by Revault key methods. */
 export const KeyExportFormat: { readonly LOCKBOX_PEM: 'lockbox-pem'; readonly JWK: 'jwk'; readonly JWKS: 'jwks'; readonly RAW_HEX: 'raw-hex'; };
 /** Returns the native handle. */
 export type NativeHandle = ContactKeyPair | ContactPublicKey | WrappedContactKey | ProfileSigningKeyPair | ProfileSigningPublicKey | AgentActivity;
 /** Primary API used to open lockboxes, manage keys and metadata, use the
- * session agent, and access operating-system credential storage. Create one
+ * Session Agent, and access the platform credential store. Create one
  * when the application starts. */
 export class Revault {
   /** Creates a new facade over the bundled native library. */
@@ -168,7 +168,7 @@ export class Lockbox {
   static openBytes(archive: BinaryInput, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; options?: object }): Lockbox;
   /** Create a host archive file and return its owned handle. */
   static create(path: string, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; signingKey?: NativeHandle; options?: object; overwrite?: boolean }): Lockbox;
-  /** Open a host archive file without consulting the session agent. */
+  /** Open a host archive file without consulting the Session Agent. */
   static open(path: string, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; options?: object }): Lockbox;
   /** Release the process-local content key; repeated calls are safe. */
   /** Release this owned handle and wipe any native secret state. */
@@ -368,7 +368,7 @@ export class ProfileSigningPublicKey {
   dispose(): void;
 }
 
-/** A writable, password-protected store for profile keys, contacts, forms,
+/** A writable, password-protected store for Profile keys, contacts, forms,
  * backups, and remembered lockbox paths. Lockbox contents remain separate. */
 export class Vault {
   /** Open an existing Vault; does not create or replace it. */
@@ -528,7 +528,7 @@ declare class Agent {
   /** Stops activity. */
   endActivity(handle: NativeHandle): void;
 }
-/** Explicit controller for the optional session agent. */
+/** Explicit controller for the optional Session Agent. */
 export class AgentSession extends Agent {
   static readonly instance: AgentSession;
   /** Remove one cached lockbox key from this explicit session. */
@@ -553,13 +553,13 @@ export class AgentSession extends Agent {
 /** Profile-oriented names for the signing identities used by persistent Vault records. */
 
 /** A lifetime token kept alive while an operation needs cached secrets. Release
- * it afterward so the session agent can expire unused secrets. */
+ * it afterward so the Session Agent can expire unused secrets. */
 export class AgentActivity {
   /** Release this owned handle and wipe any native secret state. */
   close(): void;
 }
 
-/** Access to operating-system credential storage for a scoped vault password. */
+/** Access to the platform credential store for a scoped Vault passphrase. */
 declare class Platform {
   /** Returns the status. */
   status(): import('./domain.js').PlatformStatus;
@@ -582,9 +582,9 @@ declare class Platform {
 /** A session for creating or opening lockboxes by host path, caching short-lived
  * passwords, and committing and closing the files used by a local application. */
 declare class LocalVault {
-  /** Creates lockbox password. */
+  /** Creates Lockbox password. */
   createLockboxPassword(path: string, password: BinaryInput): Lockbox;
-  /** Opens lockbox password. */
+  /** Opens Lockbox password. */
   openLockboxPassword(path: string, password: BinaryInput): Lockbox;
   /** Creates lockbox content key. */
   createLockboxContentKey(path: string, contentKey: BinaryInput, signingKey: NativeHandle): Lockbox;
@@ -592,7 +592,7 @@ declare class LocalVault {
   createLockboxContact(path: string, contact: NativeHandle, name: string, signingKey: NativeHandle): Lockbox;
   /** Opens lockbox content key. */
   openLockboxContentKey(path: string, contentKey: BinaryInput, signingKey: NativeHandle): Lockbox;
-  /** Stores lockbox password. */
+  /** Stores Lockbox password. */
   cacheLockboxPassword(path: string, password: BinaryInput, ttlSeconds: number): boolean;
   /** Releases the native resources held by lockbox. */
   closeLockbox(path: string): boolean;

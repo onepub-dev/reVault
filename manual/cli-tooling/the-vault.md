@@ -43,7 +43,7 @@ Do not rely on a backup you have never tested. Keep at least one copy away from 
 ## Change the passphrase
 
 ```bash
-lbx vault passphrase
+lbx Vault passphrase
 ```
 
 Changing the passphrase does not change the keys belonging to your Profiles or Lockboxes. Update any separately recorded recovery information and review your Auto Open setting afterwards.

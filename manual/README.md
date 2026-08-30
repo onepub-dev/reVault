@@ -102,7 +102,7 @@ process running as you may be able to open every Lockbox for which the Vault
 contains a credential.
 
 {% hint style="warning" %}
-Closing an Agent session clears a temporary content key from memory. It is not an authentication boundary while Auto Open can still retrieve the Vault passphrase. Lock your desktop whenever you walk away from it.
+Closing a Lockbox clears its temporary content key from the Session Agent. It is not an authentication boundary while Auto Open can still retrieve the Vault passphrase. Lock your desktop whenever you walk away from it.
 {% endhint %}
 
 See [Session Management](cli-tooling/session-management.md) for the available Auto Open scopes and [the Session Agent](cli-tooling/revault-session-agent.md) for its lifetime and sleep behaviour.

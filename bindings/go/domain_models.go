@@ -302,7 +302,7 @@ type Contact struct {
 	Key []byte
 }
 
-// AgentEntry represents a lockbox key currently held by the local session agent, identified by lockbox and path.
+// AgentEntry represents a lockbox key currently held by the local Session Agent, identified by lockbox and path.
 type AgentEntry struct {
 	// Id: Stable lockbox identifier for the cached key.
 	Id string
@@ -320,15 +320,15 @@ type SleepSupport struct {
 	Supported bool
 }
 
-// PlatformCredentialStatus represents availability and configuration of the operating-system credential store used for the vault password.
+// PlatformCredentialStatus represents availability and configuration of the platform credential store used for the Vault passphrase.
 type PlatformCredentialStatus struct {
-	// Supported: Whether a usable operating-system credential store exists.
+	// Supported: Whether a usable platform credential store exists.
 	Supported bool
-	// Disabled: Whether the user disabled credential-store integration.
+	// Disabled: Whether the user disabled platform credential store integration.
 	Disabled bool
 	// Scope: Application-specific scope used to isolate the stored password.
 	Scope string
-	// Backend: Operating-system credential-store backend in use.
+	// Backend: Platform credential store backend in use.
 	Backend string
 	// Item: Credential item name used by the backend.
 	Item string

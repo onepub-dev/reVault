@@ -22,13 +22,13 @@ pub(crate) fn run_matches(matches: &ArgMatches) -> CliResult<()> {
         Some(("close-all", _)) => {
             local_vault().close_all()?;
             clear_default_lockbox()?;
-            println!("All lockbox sessions closed.");
+            println!("All open Lockboxes closed.");
             Ok(())
         }
         Some(("stop", _)) => {
             stop_agent()?;
             clear_default_lockbox()?;
-            println!("Session agent stopped.");
+            println!("Session Agent stopped.");
             Ok(())
         }
         Some(("auto-open", sub)) => auto_open_matches(sub),
@@ -91,7 +91,7 @@ fn list_sessions(format: super::output::OutputFormat) -> CliResult<()> {
         ]);
         rows.push(vec![
             "auto-open".to_string(),
-            "vault pass phrase stored".to_string(),
+            "Vault passphrase stored".to_string(),
             yes_no(vault_pass_phrase_stored).to_string(),
             String::new(),
             String::new(),
@@ -121,14 +121,14 @@ fn list_sessions(format: super::output::OutputFormat) -> CliResult<()> {
         return Ok(());
     }
 
-    println!("Session agent:");
+    println!("Session Agent:");
     println!("  enabled: {}", yes_no(agent_enabled));
     println!("  running: {}", yes_no(agent_running));
     println!();
     println!("Auto-open:");
     println!("  scope: {}", auto_open.scope.as_str());
     println!(
-        "  vault pass phrase stored: {}",
+        "  Vault passphrase stored: {}",
         yes_no(vault_pass_phrase_stored)
     );
     println!();
@@ -164,7 +164,7 @@ fn auto_open_matches(matches: &ArgMatches) -> CliResult<()> {
             auto_open_status(super::output::OutputFormat::Table)
         }
         Some(("vault", _)) => {
-            let password = read_vault_password("Vault pass phrase: ")?;
+            let password = read_vault_password("Vault passphrase: ")?;
             open_default_vault_with_password(&password)?;
             set_auto_open_scope(AutoOpenScope::Vault)?;
             put_platform_vault_password(&password)?;
@@ -172,7 +172,7 @@ fn auto_open_matches(matches: &ArgMatches) -> CliResult<()> {
             auto_open_status(super::output::OutputFormat::Table)
         }
         Some(("lockboxes", _)) => {
-            let password = read_vault_password("Vault pass phrase: ")?;
+            let password = read_vault_password("Vault passphrase: ")?;
             open_default_vault_with_password(&password)?;
             set_auto_open_scope(AutoOpenScope::Lockboxes)?;
             put_platform_vault_password(&password)?;
@@ -191,10 +191,10 @@ fn confirm_auto_open_disable(yes: bool) -> CliResult<bool> {
         return Ok(true);
     }
 
-    eprintln!("Disable auto-open?");
-    eprintln!("The stored vault pass phrase will be removed from the OS key store.");
-    eprintln!("All open lockbox sessions will be closed.");
-    eprint!("Type 'yes' to disable auto-open: ");
+    eprintln!("Disable Auto Open?");
+    eprintln!("The stored Vault passphrase will be removed from the platform credential store.");
+    eprintln!("All open Lockboxes will be closed.");
+    eprint!("Type 'yes' to disable Auto Open: ");
     io::stderr().flush()?;
     let mut answer = String::new();
     io::stdin().read_line(&mut answer)?;
@@ -213,7 +213,7 @@ fn auto_open_status(format: super::output::OutputFormat) -> CliResult<()> {
             ],
             vec!["scope".to_string(), status.scope.as_str().to_string()],
             vec![
-                "vault pass phrase stored".to_string(),
+                "Vault passphrase stored".to_string(),
                 yes_no(stored).to_string(),
             ],
             vec!["backend".to_string(), status.backend.to_string()],

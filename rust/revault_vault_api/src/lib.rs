@@ -1,13 +1,13 @@
 #![deny(unsafe_op_in_unsafe_fn)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 #![deny(missing_docs)]
-//! Native vault and open-cache support for reVault.
+//! Native Vault and Session Agent support for reVault.
 //!
-//! This crate includes the **Lockbox Session Agent**, a local open-cache service
+//! This crate includes the **Session Agent**, a local service
 //! that reduces password prompts by keeping lockbox content keys in a short-lived,
 //! in-memory process cache.
 //!
-//! The Lockbox Session Agent is started as a platform-specific local service
+//! The Session Agent is started as a platform-specific local service
 //! (Unix socket on Unix, named pipe on Windows), and is used automatically by
 //! `lockbox` operations when a secret-dependent command needs a cached key.
 //! Its cache uses secure frames for key-bearing traffic, supports TTL-based expiry,
@@ -15,7 +15,7 @@
 //! entries during suspend events.
 //!
 //! Key public entry points:
-//! - `serve_agent` starts the session agent in-process.
+//! - `serve_agent` starts the Session Agent in-process.
 //! - `get`, `put`, `forget`, `forget_all`, `list`, and `stop` operate the
 //!   session cache.
 //! - `begin_secret_activity` and `SecretActivityGuard` support suspend-protection

@@ -2,9 +2,9 @@
 
 Public Rust API for creating and managing reVault local vaults.
 
-The vault API stores profiles, contacts, signing keys, lockbox key-directory
-backups, and content-key integrations. It also provides platform secret-store
-integration and the local open-cache/session service.
+The Vault API stores Profiles, Contacts, signing keys, Lockbox access-directory
+backups, and content-key integrations. It also provides platform credential
+store integration and the local Session Agent.
 
 Use it above `revault_lockbox_api` when an application needs local profile and
 key lifecycle management, rather than only direct access to a `.lbox` archive.

@@ -4591,7 +4591,7 @@ pub unsafe extern "C" fn vault_directory_open_or_create_default(
     password_len: usize,
 ) -> *mut c_void {
     let Some(password) = (unsafe { vault_password(password, password_len) }) else {
-        set_error("invalid vault password");
+        set_error("invalid Vault passphrase");
         return ptr::null_mut();
     };
     vault_handle(revault_vault_api::VaultDirectory::open_or_create_default(
@@ -4613,7 +4613,7 @@ pub unsafe extern "C" fn vault_directory_replace_default(
     password_len: usize,
 ) -> *mut c_void {
     let Some(password) = (unsafe { vault_password(password, password_len) }) else {
-        set_error("invalid vault password");
+        set_error("invalid Vault passphrase");
         return ptr::null_mut();
     };
     vault_handle(revault_vault_api::VaultDirectory::replace_default(
@@ -4706,7 +4706,7 @@ pub unsafe extern "C" fn vault_directory_change_password(
         unsafe { vault_password(old_password, old_len) },
         unsafe { vault_password(new_password, new_len) },
     ) else {
-        set_error("invalid vault password input");
+        set_error("invalid Vault passphrase input");
         return false;
     };
     vault_bool(revault_vault_api::VaultDirectory::change_password(
@@ -4736,7 +4736,7 @@ pub unsafe extern "C" fn vault_directory_change_default_password(
             vault_password(new_password, new_len)
         })
     else {
-        set_error("invalid vault password input");
+        set_error("invalid Vault passphrase input");
         return false;
     };
     vault_bool(revault_vault_api::VaultDirectory::change_default_password(
@@ -6593,7 +6593,7 @@ pub unsafe extern "C" fn vault_read_only_open_default(
     password_len: usize,
 ) -> *mut c_void {
     let Some(password) = (unsafe { vault_password(password, password_len) }) else {
-        set_error("invalid read-only vault password");
+        set_error("invalid read-only Vault passphrase");
         return ptr::null_mut();
     };
     read_only_vault_handle(ReadOnlyVaultDirectoryHandle::open_default(&password))
@@ -7118,7 +7118,7 @@ pub extern "C" fn vault_platform_get_password() -> RevaultBuffer {
 ///
 /// This Dart-facing transport operation keeps session selection out of the
 /// process environment. An empty session bus address selects the platform
-/// default credential-store connection.
+/// default platform credential store connection.
 pub extern "C" fn dart_vault_platform_get_password_for(
     path_to: *const c_char,
     path_to_len: usize,
@@ -7576,7 +7576,7 @@ pub extern "C" fn vault_local() -> *mut c_void {
 }
 
 #[no_mangle]
-/// Creates lockbox password.
+/// Creates Lockbox password.
 ///
 /// # Safety
 /// Opaque handles must come from the matching reVault constructor or import,
@@ -7622,7 +7622,7 @@ pub unsafe extern "C" fn vault_create_lockbox_password(
 }
 
 #[no_mangle]
-/// Opens lockbox password.
+/// Opens Lockbox password.
 ///
 /// # Safety
 /// Opaque handles must come from the matching reVault constructor or import,
@@ -7831,7 +7831,7 @@ pub unsafe extern "C" fn vault_open_lockbox_content_key(
 }
 
 #[no_mangle]
-/// Stores lockbox password.
+/// Stores Lockbox password.
 ///
 /// # Safety
 /// Opaque handles must come from the matching reVault constructor or import,

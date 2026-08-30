@@ -20,12 +20,12 @@ normal conventions rather than preserving older facade concepts.
   `Lockbox.setOwnerSigningKey` and `OwnerInspection`. A Contact may carry the
   public verification key for a Profile but cannot sign.
 - `Lockbox` is a portable encrypted `.lbox` archive.
-- `AgentSession` controls the single optional session-agent process and its
+- `AgentSession` controls the single optional Session Agent process and its
   temporary content-key cache. Do not call it `LocalVault`, and do not describe
   each cached lockbox as a separate session.
 - Use `open` and `close` for lockbox availability, matching the CLI. Explain
   that the agent caches a content key rather than retaining an open file handle.
-- Distinguish a vault passphrase, a lockbox password, and a lockbox content key
+- Distinguish a Vault passphrase, a Lockbox password, and a Lockbox content key
   in every name and comment. Never call all three `password` or `key` when the
   distinction is known.
 
@@ -33,7 +33,7 @@ normal conventions rather than preserving older facade concepts.
 
 - Normal library operations are process-local. `Lockbox.open` retains its key
   in the returned object until `close` and must not implicitly start, contact,
-  or populate the session agent.
+  or populate the Session Agent.
 - Agent use is explicit. It exists for short-lived CLI commands, cooperating
   processes, and time-limited delegation of selected lockbox content keys.
 - `Lockbox.close` releases the current process's handle and key.
@@ -49,22 +49,22 @@ normal conventions rather than preserving older facade concepts.
 
 ## Credential security
 
-- A platform-stored vault passphrase provides unattended same-user access on
+- A Vault passphrase stored in the platform credential store provides unattended same-user access on
   platforms that do not enforce user presence per retrieval. It therefore
   permits opening every lockbox for which that vault contains a credential.
 - Do not present agent TTL, `close`, or `closeAll` as an authentication boundary
   while an applicable persistent credential remains available without user
   interaction. They still provide memory hygiene and operational cache control.
-- Remembered lockbox passwords are encrypted records inside the Vault, not
-  independent operating-system credentials. Never persist a raw content key
+- Remembered Lockbox passwords are encrypted records inside the Vault, not
+  independent entries in the platform credential store. Never persist a raw content key
   permanently; agent content-key entries are temporary.
 - Credential-free lockbox opening may use the platform-stored Vault passphrase
   to open the Vault and resolve a lockbox credential there. It must never
-  implicitly consult the session agent.
+  implicitly consult the Session Agent.
 - Design credential acquisition so a future platform provider can require
   user-mediated biometric or equivalent authentication for each import. Expose
   and feature-detect user-presence guarantees; never infer them merely from the
-  existence of an OS credential store.
+  existence of a platform credential store.
 - Secret byte arrays are wiped as soon as their required lifetime ends. Public
   docs state who owns each secret and when callers must wipe or close it.
 - Use an owning secret type for passphrases, passwords, and binary keys when the

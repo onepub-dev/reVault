@@ -60,7 +60,7 @@ try {
 final passphrase = api.getPlatformPassword();
 final vault = api.openVaultDirectory(api.defaultVaultDirectory, passphrase);
 
-// 0.3.0: omission means use the OS credential store.
+// 0.3.0: omission means use the platform credential store.
 final vault = Vault.open();
 
 // Supply the passphrase explicitly when it must not be persisted.
@@ -102,7 +102,7 @@ final memoryOpen = Lockbox.openBytes(
 );
 ```
 
-To let reVault choose a remembered password or profile key from an already-open
+To let reVault choose a remembered password or Profile key from an already-open
 vault:
 
 ```dart
@@ -122,9 +122,9 @@ platform credential. With no explicit credential, `Lockbox.open(path)` opens
 the default Vault with its platform-stored passphrase and then performs the
 same lookup. Raw lockbox content keys are never persisted by this workflow.
 
-`Lockbox.open` is process-local and never contacts or starts the session agent.
+`Lockbox.open` is process-local and never contacts or starts the Session Agent.
 
-## Use the session agent explicitly
+## Use the Session Agent explicitly
 
 `LocalVault` has been removed. It was not a persistent vault; it was an
 agent-backed lockbox helper. Agent state now has its own API:
@@ -148,7 +148,7 @@ agent.stop();
 
 The agent caches a decrypted content key, not an open file handle. Its strongest
 security use is granting time-limited access to one lockbox after an interactive
-vault unlock, without retaining the vault passphrase.
+vault unlock, without retaining the Vault passphrase.
 
 ## Close resources
 
@@ -229,7 +229,7 @@ AgentSession.instance.beginActivity(AgentActivityKind.open);
 ## Platform credential warning
 
 On platforms that do not enforce user presence for each credential retrieval,
-remembering the vault passphrase permits unattended same-user processes to open
+remembering the Vault passphrase permits unattended same-user processes to open
 the vault and every lockbox for which it contains a usable credential. Closing
 an agent entry does not restore an authentication boundary while that
 passphrase remains available.
@@ -237,5 +237,5 @@ passphrase remains available.
 Future platform integrations may require user-mediated biometric or equivalent
 authentication whenever the Vault credential is retrieved to open a lockbox.
 Applications must feature-detect that capability when it becomes
-available rather than assuming credential-store presence implies user-presence
+available rather than assuming credential store presence implies user presence
 enforcement.

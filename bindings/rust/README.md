@@ -34,7 +34,7 @@ box_.commit()?;
 `Vault` is the persistent encrypted store; a directory is only its storage
 detail. `ProfileSigningKeyPair` and `ProfileSigningPublicKey` name profile
 identity keys. A key has the `owner` role only after it is assigned to a
-`Lockbox`. The optional session-agent operations remain under
+`Lockbox`. The optional Session Agent operations remain under
 `revault_api::vault` and are explicit; ordinary `Lockbox` operations do not
 contact an agent.
 

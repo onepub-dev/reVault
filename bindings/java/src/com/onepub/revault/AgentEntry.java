@@ -1,6 +1,6 @@
 package com.onepub.revault;
 
-/** A lockbox key currently held by the local session agent, identified by lockbox and path. */
+/** A lockbox key currently held by the local Session Agent, identified by lockbox and path. */
 public final class AgentEntry {
   private final com.onepub.revault.internal.AgentEntry view;
   private final String id;

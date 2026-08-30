@@ -283,7 +283,7 @@ export interface Contact {
   readonly key: Uint8Array;
 }
 
-/** A lockbox key currently held by the local session agent, identified by lockbox and path. */
+/** A lockbox key currently held by the local Session Agent, identified by lockbox and path. */
 export interface AgentEntry {
   /** Stable lockbox identifier for the cached key. */
   readonly id: string;
@@ -301,15 +301,15 @@ export interface SleepSupport {
   readonly supported: boolean;
 }
 
-/** Availability and configuration of the operating-system credential store used for the vault password. */
+/** Availability and configuration of the platform credential store used for the Vault passphrase. */
 export interface PlatformStatus {
-  /** Whether a usable operating-system credential store exists. */
+  /** Whether a usable platform credential store exists. */
   readonly supported: boolean;
-  /** Whether the user disabled credential-store integration. */
+  /** Whether the user disabled platform credential store integration. */
   readonly disabled: boolean;
   /** Application-specific scope used to isolate the stored password. */
   readonly scope: string;
-  /** Operating-system credential-store backend in use. */
+  /** Platform credential store backend in use. */
   readonly backend: string;
   /** Credential item name used by the backend. */
   readonly item: string;

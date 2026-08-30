@@ -28,7 +28,7 @@
 ## Sessions and automation
 
 * [Session management](cli-tooling/session-management.md)
-  * [reVault Session Agent](cli-tooling/revault-session-agent.md)
+  * [Session Agent](cli-tooling/revault-session-agent.md)
 * [CI/CD](ci-cd.md)
 * [sudo](cli-tooling/sudo.md)
 * [Configuration file](configuration-file.md)

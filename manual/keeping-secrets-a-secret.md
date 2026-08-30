@@ -39,9 +39,9 @@ Never put credentials in command arguments, source code, shell history, crash re
 
 ## Session Agent and Auto Open
 
-The Session Agent caches selected content keys in user-scoped memory. Closing a session clears the cached key, and suspend handling clears cached keys and can stop sensitive work.
+The Session Agent caches selected content keys in memory scoped to the current user. Closing a Lockbox clears its cached key, and suspend handling clears cached keys and can stop sensitive work.
 
-Auto Open is a different trust decision: it stores the Vault passphrase in the operating system's secure credential store. On platforms without per-use user presence, a process already running as your unlocked desktop user may be able to retrieve that credential and reopen the Vault.
+Auto Open is a different trust decision: it stores the Vault passphrase in the platform credential store. On platforms without a user presence check for each use, a process already running as your unlocked desktop user may be able to retrieve that credential and reopen the Vault.
 
 Closing the Session Agent is therefore not an authentication boundary while Auto Open remains available. Lock the desktop when unattended and disable Auto Open on shared, high-risk or unattended systems where that access is unacceptable.
 

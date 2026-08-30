@@ -178,7 +178,7 @@ public sealed record OwnerInspection(bool Signed, string Fingerprint, bool HasFi
 /// <param name="Key">Serialized contact public key used to grant lockbox access.</param>
 public sealed record Contact(string Name, byte[] Key);
 
-/// <summary>A lockbox key currently held by the local session agent, identified by lockbox and path.</summary>
+/// <summary>A lockbox key currently held by the local Session Agent, identified by lockbox and path.</summary>
 /// <param name="Id">Stable lockbox identifier for the cached key.</param>
 /// <param name="Path">Host path associated with the cached lockbox key.</param>
 public sealed record AgentEntry(string Id, string Path);
@@ -189,11 +189,11 @@ public sealed record AgentEntry(string Id, string Path);
 /// <param name="Supported">Whether the host supplies enough integration for safe caching.</param>
 public sealed record SleepSupport(bool SuspendNotifications, bool SleepInhibition, bool Supported);
 
-/// <summary>Availability and configuration of the operating-system credential store used for the vault password.</summary>
-/// <param name="Supported">Whether a usable operating-system credential store exists.</param>
-/// <param name="Disabled">Whether the user disabled credential-store integration.</param>
+/// <summary>Availability and configuration of the platform credential store used for the Vault passphrase.</summary>
+/// <param name="Supported">Whether a usable platform credential store exists.</param>
+/// <param name="Disabled">Whether the user disabled platform credential store integration.</param>
 /// <param name="Scope">Application-specific scope used to isolate the stored password.</param>
-/// <param name="Backend">Operating-system credential-store backend in use.</param>
+/// <param name="Backend">Platform credential store backend in use.</param>
 /// <param name="Item">Credential item name used by the backend.</param>
 public sealed record PlatformStatus(bool Supported, bool Disabled, string Scope, string Backend, string Item);
 

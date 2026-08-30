@@ -21,7 +21,7 @@ const MODE_ENV: &str = "LOCKBOX_PLATFORM_SECRET_STORE";
 /// Scope controlled by the session auto-open setting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AutoOpenScope {
-    /// Do not use the platform secret store for automatic opening.
+    /// Do not use the platform credential store for Auto Open.
     Off,
     /// Automatically open only the local metadata vault.
     Vault,
@@ -40,12 +40,12 @@ impl AutoOpenScope {
     }
 }
 
-/// Current platform secret-store state for the default local vault.
+/// Current platform credential store state for the default Vault.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlatformSecretStoreStatus {
-    /// Whether the current target has a compiled platform secret-store backend.
+    /// Whether the current target has a compiled platform credential store backend.
     pub supported: bool,
-    /// Whether platform secret-store use is disabled by environment or marker.
+    /// Whether platform credential store use is disabled by environment or marker.
     pub disabled: bool,
     /// Auto-open scope configured for this vault.
     pub scope: AutoOpenScope,
@@ -55,7 +55,7 @@ pub struct PlatformSecretStoreStatus {
     pub item: String,
 }
 
-/// Returns the platform secret-store status for the default local vault.
+/// Returns the platform credential store status for the default Vault.
 pub fn platform_secret_store_status() -> Result<PlatformSecretStoreStatus> {
     let scope = auto_open_scope()?;
     Ok(PlatformSecretStoreStatus {
@@ -67,12 +67,12 @@ pub fn platform_secret_store_status() -> Result<PlatformSecretStoreStatus> {
     })
 }
 
-/// Enables platform secret-store lookup for the default local vault.
+/// Enables platform credential store lookup for the default Vault.
 pub fn enable_platform_secret_store() -> Result<()> {
     set_auto_open_scope(AutoOpenScope::Vault)
 }
 
-/// Disables platform secret-store lookup for the default local vault.
+/// Disables platform credential store lookup for the default Vault.
 ///
 /// The stored vault open secret is removed before the disable marker is
 /// written.
@@ -80,7 +80,7 @@ pub fn disable_platform_secret_store() -> Result<()> {
     set_auto_open_scope(AutoOpenScope::Off)
 }
 
-/// Returns true when platform secret-store lookup should not be attempted.
+/// Returns true when platform credential store lookup should not be attempted.
 pub fn platform_secret_store_disabled() -> Result<bool> {
     if let Ok(value) = env::var(MODE_ENV) {
         return parse_disabled_mode(&value);
@@ -116,7 +116,7 @@ pub fn auto_open_scope() -> Result<AutoOpenScope> {
 
 /// Persists the automatic-open scope for the default local vault.
 ///
-/// Selecting [`AutoOpenScope::Off`] also removes the stored vault password and
+/// Selecting [`AutoOpenScope::Off`] also removes the stored Vault passphrase and
 /// cached vault keys. Enabling a scope removes the disabled marker.
 pub fn set_auto_open_scope(scope: AutoOpenScope) -> Result<()> {
     match scope {
@@ -140,7 +140,7 @@ pub fn set_auto_open_scope(scope: AutoOpenScope) -> Result<()> {
     }
 }
 
-/// Loads the default local vault password from the platform secret store.
+/// Loads the default Vault passphrase from the platform credential store.
 pub fn get_platform_vault_password() -> Result<Option<SecretString>> {
     if platform_secret_store_disabled()? || !platform_supported() {
         return Ok(None);
@@ -148,10 +148,11 @@ pub fn get_platform_vault_password() -> Result<Option<SecretString>> {
     platform_get_vault_password()
 }
 
-/// Loads the password for the vault directory at `path_to`.
+/// Loads the passphrase for the Vault directory at `path_to`.
 ///
-/// On Linux, `session_bus_address` selects the user's Secret Service session
-/// without changing the process environment. Other platforms ignore it.
+/// On Linux, `session_bus_address` selects the D-Bus session used to reach the
+/// user's Secret Service provider without changing the process environment.
+/// Other platforms ignore it.
 ///
 /// ```no_run
 /// use std::path::Path;
@@ -195,7 +196,7 @@ fn platform_secret_store_disabled_for(path_to: &Path) -> Result<bool> {
     }
 }
 
-/// Stores the default local vault password in the platform secret store.
+/// Stores the default Vault passphrase in the platform credential store.
 pub fn put_platform_vault_password(password: &SecretString) -> Result<()> {
     if platform_secret_store_disabled()? || !platform_supported() {
         return Ok(());
@@ -203,7 +204,7 @@ pub fn put_platform_vault_password(password: &SecretString) -> Result<()> {
     platform_put_vault_password(password)
 }
 
-/// Removes the default local vault password from the platform secret store.
+/// Removes the default Vault passphrase from the platform credential store.
 pub fn forget_platform_vault_password() -> Result<()> {
     if !platform_supported() {
         return Ok(());
@@ -422,7 +423,7 @@ fn linux_platform_get_vault_password(
                 .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))
         }
         _ => Err(Error::VaultUnavailable(format!(
-            "platform secret store has multiple credentials for {item}"
+            "platform credential store has multiple credentials for {item}"
         ))),
     }
 }
@@ -430,7 +431,7 @@ fn linux_platform_get_vault_password(
 #[cfg(all(not(test), target_os = "linux"))]
 fn platform_session_error(message: String) -> Error {
     Error::VaultUnavailable(format!(
-        "platform secret store session is unavailable: {message}"
+        "platform credential store is unavailable in this user session: {message}"
     ))
 }
 
@@ -539,7 +540,7 @@ fn keyring_entry() -> Result<keyring::Entry> {
     any(target_os = "linux", target_os = "macos", target_os = "windows")
 ))]
 fn platform_error(err: keyring::Error) -> Error {
-    Error::VaultUnavailable(format!("platform secret store is unavailable: {err}"))
+    Error::VaultUnavailable(format!("platform credential store is unavailable: {err}"))
 }
 
 #[cfg(test)]
@@ -586,7 +587,7 @@ mod tests {
         let password = SecretString::try_from_bytes(b"stored vault secret".to_vec())?;
         put_platform_vault_password(&password)?;
 
-        let stored = get_platform_vault_password()?.expect("stored vault password");
+        let stored = get_platform_vault_password()?.expect("stored Vault passphrase");
         assert_eq!(stored.with_str(str::to_owned)?, "stored vault secret");
 
         set_auto_open_scope(AutoOpenScope::Off)?;
@@ -601,7 +602,7 @@ mod tests {
         .map_err(|err| revault_lockbox_api::Error::Io(err.to_string()))?;
         assert!(
             !crate::is_running(),
-            "disabled auto-open must not start the session agent"
+            "disabled Auto Open must not start the Session Agent"
         );
 
         set_auto_open_scope(AutoOpenScope::Vault)?;

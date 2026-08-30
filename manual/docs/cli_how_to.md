@@ -386,7 +386,7 @@ Initialize the local vault lockbox:
 lockbox vault init
 ```
 
-This creates `local-vault.lbox` in the platform-specific vault directory and prompts for the vault password. For automation, `LOCKBOX_VAULT_PASSWORD` can supply that password.
+This creates `local-vault.lbox` in the platform-specific Vault directory and prompts for the Vault passphrase. For automation, `LOCKBOX_VAULT_PASSWORD` can supply that passphrase.
 
 Generate the default local recipient keypair and export its public key:
 

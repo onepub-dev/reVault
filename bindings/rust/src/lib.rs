@@ -2,7 +2,7 @@
 //! Complete source-native Rust API for reVault `Lockbox` archives and `Vault`s.
 //!
 //! Use [`lockbox`] for portable encrypted archives and [`vault`] for local key,
-//! contact, form, platform-keyring, and session-agent operations. This package
+//! Contact, Form, platform credential store, and Session Agent operations. This package
 //! re-exports the native core directly; transport framing exists only at the
 //! foreign-language boundary. Rust links the implementation at build time, so
 //! there is no runtime library path or `REVAULT_LIBRARY` setting.
@@ -37,7 +37,7 @@ pub mod lockbox {
     pub type WrappedContactKey = revault_lockbox_api::ContactWrappedKey;
 }
 
-/// Local vault, keyring, and session-agent API.
+/// Vault, platform credential store, and Session Agent API.
 pub mod vault {
     use revault_lockbox_api::{ContactKeyPair, ContactPublicKey};
 
@@ -162,7 +162,7 @@ pub mod vault {
         pub fn profile_email(&self, name: &str) -> revault_lockbox_api::Result<Option<String>> {
             self.0.profile_email(name)
         }
-        /// Lists profile key generations.
+        /// Lists Profile key generations.
         pub fn list_profile_generations(
             &self,
             name: &str,
@@ -266,7 +266,7 @@ pub mod vault {
         }
     }
 
-    /// Explicit controller for the optional session agent. It caches selected
+    /// Explicit controller for the optional Session Agent. It caches selected
     /// content keys only when asked and never represents persistent Vault data.
     #[derive(Debug, Clone, Copy, Default)]
     pub struct AgentSession;
@@ -276,21 +276,21 @@ pub mod vault {
         pub const fn instance() -> Self {
             Self
         }
-        /// Starts the optional session-agent process.
+        /// Starts the optional Session Agent process.
         pub fn start(&self) -> std::io::Result<()> {
             revault_vault_api::start()
         }
-        /// Stops the optional session-agent process.
+        /// Stops the optional Session Agent process.
         pub fn stop(&self) -> std::io::Result<()> {
             revault_vault_api::stop()
         }
-        /// Forgets every cached lockbox and profile key.
+        /// Forgets every cached lockbox and Profile key.
         pub fn close_all(&self) -> std::io::Result<()> {
             revault_vault_api::forget_all()
         }
         /// Reads a cached profile signing identity, if one is present.
         ///
-        /// The private key remains in the session agent; callers should drop
+        /// The private key remains in the Session Agent; callers should drop
         /// the returned value as soon as signing is complete.
         pub fn profile_signing_key(
             &self,
@@ -317,11 +317,11 @@ pub mod vault {
         ) -> std::io::Result<()> {
             revault_vault_api::forget_owner_signing_key(vault_id, profile)
         }
-        /// Reports whether the session-agent process is running.
+        /// Reports whether the Session Agent process is running.
         pub fn is_running(&self) -> bool {
             revault_vault_api::is_running()
         }
-        /// Serves the session-agent protocol in the current process.
+        /// Serves the Session Agent protocol in the current process.
         pub fn serve(&self) -> std::io::Result<()> {
             revault_vault_api::serve_agent()
         }
@@ -361,7 +361,7 @@ mod tests {
         let _runtime = Revault::load();
         let session = AgentSession::instance();
         let _running = session.is_running();
-        let signing_key = ProfileSigningKeyPair::generate().expect("generate profile key");
+        let signing_key = ProfileSigningKeyPair::generate().expect("generate Profile key");
         let public_key = signing_key.public_key();
         assert!(!public_key.to_bytes().is_empty());
 
@@ -371,7 +371,7 @@ mod tests {
             public_key.to_bytes()[0]
         ));
         let passphrase = super::vault::SecretString::try_from_slice(b"facade test passphrase")
-            .expect("construct vault passphrase");
+            .expect("construct Vault passphrase");
         let vault = Vault::replace(&root, &passphrase).expect("replace test Vault");
         assert!(vault.structure_version().expect("read structure version") > 0);
         drop(vault);

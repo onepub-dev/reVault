@@ -31,7 +31,7 @@ signing.close()
 
 `Revault.load()` loads the installed carrier but does not open a Vault or
 Lockbox. `Vault.open` and `Lockbox.open` are non-creating operations. The
-vault passphrase, lockbox password, and content key are distinct secrets;
+Vault passphrase, Lockbox password, and content key are distinct secrets;
 callers own their `ByteArray`s and should clear them as soon as the operation
 returns. Native failures are typed Java/Kotlin exceptions. Agent use is
 explicit through `vault.agentSession()` and caches only temporary content keys.

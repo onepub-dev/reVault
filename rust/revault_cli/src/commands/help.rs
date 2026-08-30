@@ -81,7 +81,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox secrets.lbox open\n  lockbox secrets.lbox open --duration 30m\n  LOCKBOX_PASSWORD=secret lockbox secrets.lbox open\n  printf '%s\\n' \"$LOCKBOX_PASSWORD\" | lockbox secrets.lbox open --password-stdin",
-                    "Context:\n  Opens the lockbox for later commands. Close the lockbox when you have finished working with it. On supported platforms, the Lockbox Session Agent will automatically close the lockbox after 30 minutes.",
+                    "Context:\n  Opens the Lockbox for later commands. Close the Lockbox when you have finished working with it. On supported platforms, the Session Agent will automatically close the Lockbox after 30 minutes.",
                 ))
                 .arg(
                     Arg::new("duration")
@@ -95,7 +95,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .long("password-env")
                         .value_name("NAME")
                         .conflicts_with_all(["password-file", "password-stdin"])
-                        .help("Read the lockbox password from this variable."),
+                        .help("Read the Lockbox password from this variable."),
                 )
                 .arg(
                     Arg::new("password-file")
@@ -103,20 +103,20 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("FILE")
                         .value_hint(ValueHint::FilePath)
                         .conflicts_with_all(["password-env", "password-stdin"])
-                        .help("Read the lockbox password from a file."),
+                        .help("Read the Lockbox password from a file."),
                 )
                 .arg(
                     Arg::new("password-stdin")
                         .long("password-stdin")
                         .action(ArgAction::SetTrue)
                         .conflicts_with_all(["password-env", "password-file"])
-                        .help("Read the lockbox password from stdin."),
+                        .help("Read the Lockbox password from stdin."),
                 ),
             archive_command("close", "Close the lockbox.")
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox secrets.lbox close\n  lockbox close",
-                    "Context:\n  Closes the given lockbox or the session default lockbox if no argument is given. On supported platforms the Lockbox Session Agent will automatically close the lockbox after 30 minutes.",
+                    "Context:\n  Closes the given Lockbox or the default Lockbox if no argument is given. On supported platforms the Session Agent will automatically close the Lockbox after 30 minutes.",
                 )),
             archive_command("recover", "Recover readable entries from a damaged lockbox.")
                 .after_help(verbose_help(
@@ -329,7 +329,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox doctor\n  lockbox secrets.lbox doctor",
-                    "Context:\n  With no lockbox path, doctor reports local configuration and runtime state, including vault path, auto-open support, and whether the session agent is reachable. With a lockbox path, doctor inspects public lockbox metadata without opening and adds the encrypted description and deeper checks when the lockbox can be opened.",
+                    "Context:\n  With no Lockbox path, doctor reports local configuration and runtime state, including the Vault path, Auto Open support, and whether the Session Agent is reachable. With a Lockbox path, doctor inspects public Lockbox metadata without opening it and adds the encrypted description and deeper checks when the Lockbox can be opened.",
                 )),
             vault_command(verbose),
             developer_command("visualize", "Print internal lockbox structure.")
@@ -389,7 +389,7 @@ Data
   form            Manage typed multi-field form records.
 
 Session
-  session         Manage the default lockbox and open lockbox sessions.
+  session         Manage the default Lockbox and keys cached by the Session Agent.
 
 Completion
   completion      Generate or install dynamic shell completion.
@@ -1349,13 +1349,13 @@ fn form_command(verbose: bool) -> Command {
 }
 
 fn session_command(verbose: bool) -> Command {
-    base_command("session", "Manage the default lockbox and open lockbox sessions.")
+    base_command("session", "Manage the default Lockbox and keys cached by the Session Agent.")
         .disable_help_subcommand(true)
         .arg_required_else_help(false)
         .after_help(verbose_help(
             verbose,
             "Examples:\n  lockbox session\n  lockbox session default secrets.lbox\n  lockbox session default --clear\n  lockbox session auto-open lockboxes",
-            "Context:\n  Session shows the default lockbox and lockboxes currently open in the session agent. The default lockbox is the path used by commands that can safely omit a lockbox argument. An open lockbox has cached unlock material and can be read or changed without opening it again.",
+            "Context:\n  Session shows the default Lockbox and Lockboxes with keys cached by the Session Agent. The default Lockbox is the path used by commands that can safely omit a Lockbox argument. An open Lockbox can be read or changed without opening it again.",
         ))
         .arg(output_format_arg())
         .subcommand(
@@ -1364,7 +1364,7 @@ fn session_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox session default secrets.lbox\n  lockbox session default --clear",
-                    "Context:\n  Default sets the lockbox path used by commands that can safely omit a lockbox argument. Clearing the default only removes that path; it does not close any open lockbox sessions or change auto-open keys.",
+                    "Context:\n  Default sets the Lockbox path used by commands that can safely omit a Lockbox argument. Clearing the default only removes that path; it does not clear cached Lockbox keys or change Auto Open credentials.",
                 ))
                 .arg(
                     Arg::new("clear")
@@ -1381,16 +1381,16 @@ fn session_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox session close-all",
-                    "Context:\n  Close-all clears every cached lockbox content key from the session agent and clears the default lockbox.",
+                    "Context:\n  Close-all clears every cached Lockbox content key from the Session Agent and clears the default Lockbox.",
                 )),
         )
         .subcommand(
             Command::new("stop")
-                .about("Close all sessions and stop the session agent.")
+                .about("Close all open Lockboxes and stop the Session Agent.")
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox session stop",
-                    "Context:\n  Stop clears cached open sessions, clears the default lockbox, and shuts down the session agent process. Later commands can start it again when needed.",
+                    "Context:\n  Stop clears cached Lockbox keys, clears the default Lockbox, and shuts down the Session Agent process. Later commands can start it again when needed.",
                 )),
         )
         .subcommand(
@@ -1405,22 +1405,22 @@ fn session_command(verbose: bool) -> Command {
                 ))
                 .subcommand(
                     Command::new("status")
-                        .about("Show the current auto-open scope.")
+                        .about("Show the current Auto Open scope.")
                         .arg(output_format_arg()),
                 )
                 .subcommand(
                     Command::new("disable")
-                        .about("Disable auto-open and close all open lockbox sessions.")
+                        .about("Disable Auto Open and close all open Lockboxes.")
                         .after_help(verbose_help(
                             verbose,
                             "Examples:\n  lockbox session auto-open disable\n  lockbox session auto-open disable --yes",
-                            "Context:\n  Disabling auto-open removes the stored vault pass phrase from the OS key store and closes all open lockbox sessions.",
+                            "Context:\n  Disabling Auto Open removes the stored Vault passphrase from the platform credential store and closes all open Lockboxes.",
                         ))
                         .arg(
                             Arg::new("yes")
                                 .long("yes")
                                 .action(ArgAction::SetTrue)
-                                .help("Disable auto-open without prompting."),
+                                .help("Disable Auto Open without prompting."),
                         ),
                 )
                 .subcommand(Command::new("vault").about(
@@ -1493,7 +1493,7 @@ fn access_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox project.lbox access refresh alice\n  lockbox access refresh --all alice\n  lockbox access refresh --all --dry-run",
-                    "Context:\n  Access refresh checks named contact access entries and rewrites matching entries to the current vault profile key. Use --dry-run first to see the planned changes and missing known lockboxes.",
+                    "Context:\n  Access refresh checks named contact access entries and rewrites matching entries to the current vault Profile key. Use --dry-run first to see the planned changes and missing known lockboxes.",
                 ))
                 .arg(
                     Arg::new("all")
@@ -1533,14 +1533,14 @@ fn vault_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "If the vault already exists, init reports the path and makes no changes. Use --verify to validate the pass phrase, or --overwrite only when replacing the vault and losing records stored only there.",
-                    "Context:\n  The local vault stores profiles, contacts, and key-directory backups. New vault pass phrases must be at least 15 characters. A new vault also gets a default profile. Store the vault pass phrase safely; reVault cannot recover the vault without it.",
+                    "Context:\n  The Vault stores Profiles, Contacts, and access-directory backups. New Vault passphrases must be at least 15 characters. A new Vault also gets a default Profile. Store the Vault passphrase safely; reVault cannot recover the Vault without it.",
                 ))
                 .arg(
                     Arg::new("verify")
                         .long("verify")
                         .conflicts_with("overwrite")
                         .action(ArgAction::SetTrue)
-                        .help("Ask for the vault pass phrase and verify the existing vault opens."),
+                        .help("Ask for the Vault passphrase and verify the existing Vault opens."),
                 )
                 .arg(
                     Arg::new("overwrite")
@@ -1604,11 +1604,11 @@ fn vault_command(verbose: bool) -> Command {
         )
         .subcommand(
             Command::new("passphrase")
-                .about("Change the local vault pass phrase.")
+                .about("Change the Vault passphrase.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault passphrase",
-                    "Context:\n  The command verifies the current vault pass phrase, creates an encrypted backup of the vault file, then replaces the vault pass phrase. Store the new pass phrase safely; reVault cannot recover the vault without it.",
+                    "Examples:\n  lockbox Vault passphrase",
+                    "Context:\n  The command verifies the current Vault passphrase, creates an encrypted backup of the Vault file, then replaces the Vault passphrase. Store the new passphrase safely; reVault cannot recover the Vault without it.",
                 )),
         )
         .subcommand(
@@ -1903,7 +1903,7 @@ fn vault_profile_command(verbose: bool) -> Command {
         )
         .subcommand(
             Command::new("history")
-                .about("Show profile key generations.")
+                .about("Show Profile key generations.")
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault profile history\n  lockbox vault profile history laptop --format json",

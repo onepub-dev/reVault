@@ -34,7 +34,7 @@ box.WithSecretVariable("token", token => token.Length);
 box.Commit();
 ```
 
-`Revault.Load` does not open a Vault or Lockbox. A vault passphrase, lockbox
+`Revault.Load` does not open a Vault or Lockbox. A Vault passphrase, lockbox
 password, and content key are distinct caller-owned secrets. Native failures
 are `RevaultException`; `vault.AgentSession` explicitly controls temporary
 agent content-key entries. Dispose all owned objects. Secret callbacks receive

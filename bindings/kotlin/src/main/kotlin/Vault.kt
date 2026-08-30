@@ -32,7 +32,7 @@ typealias ProfileSigningPublicKey = com.onepub.revault.Revault.ProfileSigningPub
 /** A token kept alive while an operation needs secrets cached by the agent. */
 typealias AgentActivity = com.onepub.revault.Revault.AgentActivity
 
-/** Explicit controller for the optional single session-agent process. */
+/** Explicit controller for the optional single Session Agent process. */
 typealias AgentSession = com.onepub.revault.AgentSession
 /** Closed cache policy values. */
 typealias CacheMode = com.onepub.revault.CacheMode

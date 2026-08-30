@@ -17,7 +17,7 @@ export const WrappedContactKey = host.WrappedContactKey;
 export const ProfileSigningKeyPair = host.ProfileSigningKeyPair;
 /** The shareable verification half of a profile signing identity. */
 export const ProfileSigningPublicKey = host.ProfileSigningPublicKey;
-/** Operating-system credential-store facade supplied by the host. */
+/** Platform credential store facade supplied by the host. */
 export const Platform = host.Platform;
 /** Mutable binary secret that can be wiped deterministically. */
 export const SecretBytes = host.SecretBytes;
@@ -141,7 +141,7 @@ function wrap(value) {
 }
 
 /** Hosted runtime entry point. WebAssembly performs portable lockbox work and
- * delegates filesystem, Vault, credential-store, and AgentSession operations
+ * delegates filesystem, Vault, platform credential store, and AgentSession operations
  * to the installed host package. */
 export class Revault {
   /** Creates a facade whose binding calls are dispatched through the WASM runtime. */
@@ -150,7 +150,7 @@ export class Revault {
   static async load() { return new Revault(); }
 }
 
-/** Explicit controller for the optional host session agent. */
+/** Explicit controller for the optional host Session Agent. */
 export class AgentSession {
   /** Connects to the installed host's single agent controller. */
   constructor() { return wrap(new host.AgentSession()); }

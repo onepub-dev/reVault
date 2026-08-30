@@ -6,7 +6,7 @@ reVault's core is written in Rust and exposed through native bindings. The APIs 
 * `Vault` manages local Profiles, Contacts and Lockbox records;
 * `Profile` represents one of your public/private key identities;
 * `Lockbox` manages an encrypted archive; and
-* `AgentSession` controls cached, open Lockbox sessions where the binding supports them.
+* `AgentSession` controls the keys cached by the Session Agent where the binding supports it.
 
 Names follow each language's normal style, so capitalisation and error handling differ slightly. Use the package README for complete examples and the generated API reference for exact signatures.
 
@@ -37,6 +37,6 @@ The PHP, Go and Swift bindings have their own repositories so their package land
 
 Vault and Lockbox objects own native resources. Close them explicitly when the binding provides `close` or `dispose`, or use the language's scoped resource construct. Do not depend on garbage collection to decide when secret material leaves memory.
 
-Process-local API operations do not implicitly share the CLI's Session Agent unless the binding explicitly exposes and uses `AgentSession`. A closed object and a closed agent session are different things.
+API operations within one process do not implicitly use the Session Agent unless the binding exposes and uses `AgentSession`. Closing a Vault or Lockbox object releases that process's resources. Calling `AgentSession.closeLockbox` clears the corresponding key from the Session Agent; these are different operations.
 
 For end-to-end examples of the common operations, see the repository's [API examples](https://github.com/onepub-dev/reVault/blob/master/bindings/API_EXAMPLES.md).

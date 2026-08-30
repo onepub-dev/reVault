@@ -1,6 +1,6 @@
 """Encrypt files, variables, and typed records in portable reVault lockboxes.
 
-``Revault`` loads the native runtime for lockboxes, keys, the session agent,
+``Revault`` loads the native runtime for lockboxes, keys, the Session Agent,
 and platform services; ``Vault`` is the persistent encrypted metadata store.
 Owned handles are context
 managers; secret values use callback-scoped accessors to limit plaintext

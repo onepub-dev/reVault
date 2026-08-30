@@ -231,7 +231,7 @@ pub fn export_vault_v1(
         let id_bytes = decode_hex(hex_id)?;
         let id: [u8; 16] = id_bytes
             .try_into()
-            .map_err(|_| MigrationError::Serialization("invalid lockbox password id".into()))?;
+            .map_err(|_| MigrationError::Serialization("invalid Lockbox password id".into()))?;
         let value = secret_variable(&lockbox, &name)?;
         writer.write_json(&MigrationRecord::Vault(VaultRecord::LockboxPassword {
             lockbox_id: id,

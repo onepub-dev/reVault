@@ -87,7 +87,7 @@ final class VaultPassphraseUnavailableException extends RevaultException {
   /// ```
   const VaultPassphraseUnavailableException()
     : super(
-        'No vault passphrase is remembered; supply passphrase to Vault.open().',
+        'No Vault passphrase is remembered; supply passphrase to Vault.open().',
       );
 
   @override
@@ -101,11 +101,11 @@ final class VaultPassphraseUnavailableException extends RevaultException {
 }
 
 /// The remembered Vault passphrase could not be read from the platform
-/// credential-store.
+/// credential store.
 ///
 /// This differs from [VaultPassphraseUnavailableException]: a credential may
 /// exist, but the current process cannot retrieve it. Common causes include
-/// running as a user who cannot access the platform credential-store containing
+/// running as a user who cannot access the platform credential store containing
 /// the Vault passphrase. Callers may prompt for the Vault passphrase and retry
 /// with `Vault.open(passphrase: suppliedPassphrase)`.
 ///
@@ -119,7 +119,7 @@ final class VaultPassphraseUnavailableException extends RevaultException {
 /// }
 /// ```
 final class VaultPassphraseAccessException extends RevaultException {
-  /// Creates an actionable exception from the platform credential-store
+  /// Creates an actionable exception from the platform credential store
   /// [cause].
   ///
   /// The Dart facade constructs this when `Vault.open()` cannot retrieve a
@@ -135,20 +135,20 @@ final class VaultPassphraseAccessException extends RevaultException {
   /// ```
   VaultPassphraseAccessException(this.cause)
     : super(
-        'The remembered vault passphrase could not be read from the '
-        'platform credential-store.',
+        'The remembered Vault passphrase could not be read from the '
+        'platform credential store.',
         details: ErrorDetails(
           category: 'platform_credential_store',
           message: cause.message,
           guidance:
               'Run the application as the user with access to the '
-              'platform credential-store containing the vault passphrase, or '
-              'supply the vault passphrase to '
+              'platform credential store containing the Vault passphrase, or '
+              'supply the Vault passphrase to '
               'Vault.open(passphrase: ...).',
         ),
       );
 
-  /// The original native platform credential-store failure.
+  /// The original native platform credential store failure.
   final RevaultException cause;
 
   @override
@@ -164,7 +164,7 @@ final class VaultPassphraseAccessException extends RevaultException {
   }
 }
 
-/// The requested Lockbox does not currently have a key in the session agent.
+/// The requested Lockbox does not currently have a key in the Session Agent.
 ///
 /// This represents an ordinary cache miss. Agent transport, permission, and
 /// protocol failures continue to surface as [RevaultException].

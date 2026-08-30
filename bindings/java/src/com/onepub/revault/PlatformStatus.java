@@ -1,6 +1,6 @@
 package com.onepub.revault;
 
-/** Availability and configuration of the operating-system credential store used for the vault password. */
+/** Availability and configuration of the platform credential store used for the Vault passphrase. */
 public final class PlatformStatus {
   private final com.onepub.revault.internal.PlatformStatus view;
   private final boolean supported;
@@ -28,12 +28,12 @@ public final class PlatformStatus {
     this.item = null;
   }
 
-  /** Whether a usable operating-system credential store exists. */
+  /** Whether a usable platform credential store exists. */
   public boolean supported() {
     return view == null ? supported : view.supported();
   }
 
-  /** Whether the user disabled credential-store integration. */
+  /** Whether the user disabled platform credential store integration. */
   public boolean disabled() {
     return view == null ? disabled : view.disabled();
   }
@@ -43,7 +43,7 @@ public final class PlatformStatus {
     return view == null ? scope : view.scope();
   }
 
-  /** Operating-system credential-store backend in use. */
+  /** Platform credential store backend in use. */
   public String backend() {
     return view == null ? backend : view.backend();
   }

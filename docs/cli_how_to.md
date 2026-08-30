@@ -42,11 +42,11 @@ lockbox secrets.lbox close
 
 Scripts should use the CLI exit status instead of parsing human-readable error
 messages. The stable exit codes are `0` for success, `1` for an unclassified
-failure, `2` for invalid command usage or input, `10` when the lockbox session
-is closed, `11` when authentication fails, `12` when an entry is not found,
+failure, `2` for invalid command usage or input, `10` when the Lockbox is not
+open, `11` when authentication fails, `12` when an entry is not found,
 `13` when the local vault is unavailable, `14` for an unsupported lockbox or
 vault format, and `15` for corrupt or truncated data. In particular, exit code
-`10` means the caller should ask the user to run `lbx open <lockbox>` and retry.
+`10` means the caller should ask the user to run `lbx <LOCKBOX> open` and retry.
 Error descriptions and recovery guidance are written to standard error and may
 be improved without changing these numeric codes.
 
@@ -426,8 +426,8 @@ lockbox vault init
 ```
 
 This creates `local-vault.lbox` in the platform-specific vault directory and
-prompts for the vault password. For automation, `LOCKBOX_VAULT_PASSWORD` can
-supply that password.
+prompts for the Vault passphrase. For automation, `LOCKBOX_VAULT_PASSWORD` can
+supply that passphrase.
 
 Generate the default local recipient keypair and export its public key:
 

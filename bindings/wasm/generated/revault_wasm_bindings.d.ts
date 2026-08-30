@@ -4,7 +4,7 @@
 /**
  * WebAssembly-side dispatcher used by the full hosted API. Browser-only
  * lockbox methods can remain self-contained, while OS-backed vault, agent and
- * keyring operations are supplied by an explicit host adapter.
+ * platform credential store operations are supplied by an explicit host adapter.
  */
 export class Runtime {
     free(): void;

@@ -233,7 +233,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&vault_init_verbose_help);
     let vault_init_verbose_help = String::from_utf8_lossy(&vault_init_verbose_help.stdout);
     assert!(vault_init_verbose_help.contains("Context:"));
-    assert!(vault_init_verbose_help.contains("A new vault also gets a default profile."));
+    assert!(vault_init_verbose_help.contains("A new Vault also gets a default Profile."));
 
     let vault_beget_help = run_output(bin, &["vault", "beget", "--help"]);
     assert_success(&vault_beget_help);
@@ -247,7 +247,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let vault_passphrase_help = run_output(bin, &["vault", "passphrase", "--help"]);
     assert_success(&vault_passphrase_help);
     let vault_passphrase_help = String::from_utf8_lossy(&vault_passphrase_help.stdout);
-    assert!(vault_passphrase_help.contains("Change the local vault pass phrase."));
+    assert!(vault_passphrase_help.contains("Change the Vault passphrase."));
 
     let vault_profile_create_help = run_output(bin, &["vault", "profile", "create", "--help"]);
     assert_success(&vault_profile_create_help);
@@ -425,7 +425,9 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let sessions_help = run_output(bin, &["session", "--help"]);
     assert_success(&sessions_help);
     let sessions_help = String::from_utf8_lossy(&sessions_help.stdout);
-    assert!(sessions_help.contains("Manage the default lockbox and open lockbox sessions."));
+    assert!(
+        sessions_help.contains("Manage the default Lockbox and keys cached by the Session Agent.")
+    );
     assert!(sessions_help.contains("default"));
     assert!(sessions_help.contains("--clear"));
     assert!(sessions_help.contains("close-all"));
@@ -461,8 +463,8 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let open_verbose_help = run_output(bin, &["open", "--help", "--verbose"]);
     assert_success(&open_verbose_help);
     let open_verbose_help = String::from_utf8_lossy(&open_verbose_help.stdout);
-    assert!(open_verbose_help.contains("Close the lockbox when you have finished working"));
-    assert!(open_verbose_help.contains("automatically close the lockbox after 30 minutes"));
+    assert!(open_verbose_help.contains("Close the Lockbox when you have finished working"));
+    assert!(open_verbose_help.contains("automatically close the Lockbox after 30 minutes"));
 
     let close_help = run_output(bin, &["close", "--help"]);
     assert_success(&close_help);
@@ -475,8 +477,8 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let close_verbose_help = run_output(bin, &["close", "--help", "--verbose"]);
     assert_success(&close_verbose_help);
     let close_verbose_help = String::from_utf8_lossy(&close_verbose_help.stdout);
-    assert!(close_verbose_help.contains("Closes the given lockbox or the session default lockbox"));
-    assert!(close_verbose_help.contains("automatically close the lockbox after 30 minutes"));
+    assert!(close_verbose_help.contains("Closes the given Lockbox or the default Lockbox"));
+    assert!(close_verbose_help.contains("automatically close the Lockbox after 30 minutes"));
 
     let recover_help = run_output(bin, &["recover", "--help"]);
     assert_success(&recover_help);
@@ -2044,7 +2046,7 @@ fn doctor_and_session_report_agent_state() {
     let doctor = run_output_in(bin, &["doctor"], &vault_root, &agent_root);
     assert_success(&doctor);
     let doctor = String::from_utf8_lossy(&doctor.stdout);
-    assert!(doctor.contains("Session agent"));
+    assert!(doctor.contains("Session Agent"));
     assert!(doctor.contains("suspend management:"));
     assert!(doctor.contains("suspend notifications:"));
     assert!(doctor.contains("sleep prevention:"));
@@ -2059,7 +2061,7 @@ fn doctor_and_session_report_agent_state() {
             "supported:",
             "scope:",
             "backend:",
-            "Session agent",
+            "Session Agent",
         ],
     );
     assert!(!doctor.contains("  vault:"));
@@ -2068,7 +2070,7 @@ fn doctor_and_session_report_agent_state() {
     let open = run_output_in(bin, &["session"], &vault_root, &agent_root);
     assert_success(&open);
     let open = String::from_utf8_lossy(&open.stdout);
-    assert!(open.contains("Session agent:"));
+    assert!(open.contains("Session Agent:"));
     assert!(open.contains("  enabled:"));
     assert!(open.contains("  running:"));
     assert!(open.contains("Auto-open:"));
@@ -2079,7 +2081,7 @@ fn doctor_and_session_report_agent_state() {
 
     let stop = run_output_in(bin, &["session", "stop"], &vault_root, &agent_root);
     assert_success(&stop);
-    assert!(String::from_utf8_lossy(&stop.stdout).contains("Session agent stopped"));
+    assert!(String::from_utf8_lossy(&stop.stdout).contains("Session Agent stopped"));
 
     let auto_open = run_output_in(
         bin,
@@ -2094,7 +2096,7 @@ fn doctor_and_session_report_agent_state() {
         &[
             "supported\t",
             "scope\t",
-            "vault pass phrase stored\t",
+            "Vault passphrase stored\t",
             "backend\t",
             "vault\t",
         ],
@@ -2173,7 +2175,7 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
         &agent_root,
     );
     if is_session_agent_unavailable(&open) {
-        eprintln!("skipping doctor open checks: lockbox session agent unavailable");
+        eprintln!("skipping doctor open checks: Session Agent unavailable");
         return;
     }
     assert_success(&open);
@@ -2681,7 +2683,7 @@ fn create_defaults_lbox_extension_and_reports_before_prompting() {
     .output()
     .unwrap();
     if is_session_agent_unavailable(&listing) {
-        eprintln!("skipping create extension listing assertion: session agent unavailable");
+        eprintln!("skipping create extension listing assertion: Session Agent unavailable");
         return;
     }
     assert_success(&listing);
@@ -3174,7 +3176,7 @@ fn password_create_requires_explicit_vault_init() {
     assert!(init.contains("Profile: default"));
     assert!(init.contains("Default forms: 7"));
     assert!(
-        init.contains("Store the following private keys and your vault passphrase somewhere safe.")
+        init.contains("Store the following private keys and your Vault passphrase somewhere safe.")
     );
     assert!(init.contains(
         "Anyone with the profile private key can open lockboxes granted to this profile."
@@ -3188,7 +3190,7 @@ fn password_create_requires_explicit_vault_init() {
     assert!(init.contains("Owner signing private key record (hex):"));
     assert!(init.contains("Owner signing private key record (hex):\n4c42583153505256"));
     assert!(init.contains(
-        "Pass phrase reminder:\n  Store the vault pass phrase somewhere safe.\n  If it is lost, reVault cannot recover this vault."
+        "Passphrase reminder:\n  Store the Vault passphrase somewhere safe.\n  If it is lost, reVault cannot recover this Vault."
     ));
     assert!(!init.contains("Path:"));
     assert!(!init.contains("Default profile:\n  default"));
@@ -3208,15 +3210,15 @@ fn password_create_requires_explicit_vault_init() {
             "Directory:",
             "Profile: default",
             "Default forms: 7",
-            "Store the following private keys and your vault passphrase somewhere safe.",
+            "Store the following private keys and your Vault passphrase somewhere safe.",
             "Profile backup:",
             "Public key fingerprint:",
             "Profile private key:",
             "-----BEGIN LOCKBOX PRIVATE KEY-----",
             "Owner signing private key record (hex):",
             "4c42583153505256",
-            "Pass phrase reminder:",
-            "If it is lost, reVault cannot recover this vault.",
+            "Passphrase reminder:",
+            "If it is lost, reVault cannot recover this Vault.",
         ],
     );
     assert!(!init.contains("-----BEGIN LOCKBOX PUBLIC KEY-----"));
@@ -3461,7 +3463,7 @@ fn vault_init_rejects_blank_pass_phrase() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("vault passphrase must be at least 15 characters"),
+        stderr.contains("Vault passphrase must be at least 15 characters"),
         "{stderr}"
     );
     assert!(!vault_root.join("local-vault.lbox").exists());
@@ -3593,8 +3595,8 @@ fn vault_init_prompt_mentions_minimum_pass_phrase_length() {
     assert!(stdout.contains("1. Generate a strong passphrase"));
     assert!(stdout.contains("2. Enter my own passphrase"));
     assert!(stdout.contains("3. Cancel vault init"));
-    assert!(stdout.contains("New vault passphrase (minimum 15 characters):"));
-    assert!(stderr.contains("vault passphrase must be at least 15 characters"));
+    assert!(stdout.contains("New Vault passphrase (minimum 15 characters):"));
+    assert!(stderr.contains("Vault passphrase must be at least 15 characters"));
     assert!(!vault_root.join("local-vault.lbox").exists());
 }
 
@@ -3625,10 +3627,10 @@ fn vault_init_generated_pass_phrase_requires_stored_confirmation() {
     assert!(!output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stdout.contains("Generated vault passphrase:"));
+    assert!(stdout.contains("Generated Vault passphrase:"));
     assert!(stdout.contains("Store this in your password manager before continuing."));
     assert!(stdout.contains("Continue after storing it? [y/N]:"));
-    assert!(stderr.contains("vault passphrase was not confirmed as stored"));
+    assert!(stderr.contains("Vault passphrase was not confirmed as stored"));
     assert!(!vault_root.join("local-vault.lbox").exists());
 }
 
@@ -3850,7 +3852,7 @@ fn vault_init_generated_pass_phrase_accepts_stored_confirmation() {
 
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Generated vault passphrase:"));
+    assert!(stdout.contains("Generated Vault passphrase:"));
     assert!(stdout.contains("Continue after storing it? [y/N]:"));
     assert!(stdout.contains("Vault created successfully."));
     assert!(vault_root.join("local-vault.lbox").exists());
@@ -3935,12 +3937,12 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
     let output = open.wait_with_output().unwrap();
 
     if is_session_agent_unavailable(&output) {
-        eprintln!("skipping profile open assertions: session agent unavailable");
+        eprintln!("skipping Profile open assertions: Session Agent unavailable");
         return;
     }
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Vault pass phrase:"));
+    assert!(stdout.contains("Vault passphrase:"));
     assert!(!stdout.contains("Password:"));
     assert!(stdout.contains("Lockbox opened:"));
 
@@ -3968,7 +3970,7 @@ fn interactive_create_and_profile_open_reuse_the_prompted_vault() {
 
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Vault pass phrase:"));
+    assert!(stdout.contains("Vault passphrase:"));
     assert!(!stdout.contains("Password:"));
     assert!(stdout.contains("Lockbox opened:"));
 }
@@ -4032,12 +4034,12 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
     let output = open.wait_with_output().unwrap();
 
     if is_session_agent_unavailable(&output) {
-        eprintln!("skipping password open assertions: session agent unavailable");
+        eprintln!("skipping password open assertions: Session Agent unavailable");
         return;
     }
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Vault pass phrase:"));
+    assert!(stdout.contains("Vault passphrase:"));
     assert!(stdout.contains("Password:"));
     assert!(stdout.contains("Lockbox opened:"));
 }
@@ -4114,7 +4116,7 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
     assert!(!output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stdout.contains("Vault pass phrase:"));
+    assert!(stdout.contains("Vault passphrase:"));
     assert!(!stdout.contains("Password:"));
     assert!(stderr.contains("none of the local vault profiles can open"));
     assert!(stderr.contains("lockbox has no password access"));
@@ -4200,8 +4202,8 @@ fn vault_init_verify_wrong_password_reports_vault_specific_error() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("vault open failed: check the vault pass phrase"));
-    assert!(stderr.contains("local vault file may be damaged"));
+    assert!(stderr.contains("Vault open failed: check the Vault passphrase"));
+    assert!(stderr.contains("Vault file may be damaged"));
     assert!(!stderr.contains("content key"));
     assert!(!stderr.contains("contact keypair"));
     assert!(!stderr.contains("local vault open state"));
@@ -4217,8 +4219,8 @@ fn vault_init_verify_wrong_password_reports_vault_specific_error() {
         .unwrap();
     assert!(!fingerprint.status.success());
     let stderr = String::from_utf8_lossy(&fingerprint.stderr);
-    assert!(stderr.contains("vault open failed: check the vault pass phrase"));
-    assert!(stderr.contains("local vault file may be damaged"));
+    assert!(stderr.contains("Vault open failed: check the Vault passphrase"));
+    assert!(stderr.contains("Vault file may be damaged"));
     assert!(!stderr.contains("corrupt lockbox header"));
 }
 
@@ -4304,7 +4306,7 @@ fn vault_passphrase_changes_password_and_creates_backup() {
         .unwrap();
     assert_success(&changed);
     let changed = String::from_utf8_lossy(&changed.stdout);
-    assert!(changed.contains("Vault pass phrase changed successfully."));
+    assert!(changed.contains("Vault passphrase changed successfully."));
     assert!(changed.contains("Backup:"));
     assert!(fs::read_dir(&vault_root).unwrap().any(|entry| {
         entry
@@ -4325,7 +4327,7 @@ fn vault_passphrase_changes_password_and_creates_backup() {
         .unwrap();
     assert!(!old_password.status.success());
     assert!(String::from_utf8_lossy(&old_password.stderr)
-        .contains("vault open failed: check the vault pass phrase"));
+        .contains("Vault open failed: check the Vault passphrase"));
 
     let new_password_list = Command::new(bin)
         .args(["vault", "profile", "list", "--format", "tsv"])
@@ -4701,7 +4703,7 @@ fn session_and_close_report_empty_cache_and_already_closed_state() {
     let close_all =
         run_output_without_content_key(bin, &["session", "close-all"], &vault_root, &agent_root);
     assert_success(&close_all);
-    assert!(String::from_utf8_lossy(&close_all.stdout).contains("sessions closed"));
+    assert!(String::from_utf8_lossy(&close_all.stdout).contains("open Lockboxes closed"));
 
     let refused_auto_open_disable = run_output_without_content_key_with_stdin(
         bin,
@@ -4712,7 +4714,7 @@ fn session_and_close_report_empty_cache_and_already_closed_state() {
     );
     assert_success(&refused_auto_open_disable);
     assert!(
-        String::from_utf8_lossy(&refused_auto_open_disable.stderr).contains("Disable auto-open?")
+        String::from_utf8_lossy(&refused_auto_open_disable.stderr).contains("Disable Auto Open?")
     );
     assert!(String::from_utf8_lossy(&refused_auto_open_disable.stdout)
         .contains("Auto-open not disabled."));
@@ -5139,7 +5141,7 @@ fn auto_open_lockboxes_uses_remembered_password() {
 
     let init = run_output_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     if is_platform_secret_store_unavailable(&init) {
-        eprintln!("skipping auto-open lockbox assertions: platform secret store unavailable");
+        eprintln!("skipping Auto Open Lockbox assertions: platform credential store unavailable");
         return;
     }
     assert_success(&init);
@@ -5167,7 +5169,7 @@ fn auto_open_lockboxes_uses_remembered_password() {
     .output()
     .unwrap();
     if is_session_agent_unavailable(&close) {
-        eprintln!("skipping auto-open lockbox assertions: session agent unavailable");
+        eprintln!("skipping Auto Open Lockbox assertions: Session Agent unavailable");
         return;
     }
     assert_success(&close);
@@ -5197,7 +5199,7 @@ fn auto_open_lockboxes_with_vault_profile_allows_first_add() {
 
     let init = run_output_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
     if is_platform_secret_store_unavailable(&init) {
-        eprintln!("skipping auto-open profile assertions: platform secret store unavailable");
+        eprintln!("skipping Auto Open Profile assertions: platform credential store unavailable");
         return;
     }
     assert_success(&init);
@@ -5229,7 +5231,7 @@ fn auto_open_lockboxes_with_vault_profile_allows_first_add() {
     .output()
     .unwrap();
     if is_session_agent_unavailable(&add) {
-        eprintln!("skipping auto-open profile assertions: session agent unavailable");
+        eprintln!("skipping Auto Open Profile assertions: Session Agent unavailable");
         return;
     }
     assert_success(&add);
@@ -5282,7 +5284,7 @@ fn open_accepts_password_sources_and_session_duration() {
     .output()
     .unwrap();
     if is_session_agent_unavailable(&env_open) {
-        eprintln!("skipping session agent assertions: lockbox session agent unavailable");
+        eprintln!("skipping Session Agent assertions: Session Agent unavailable");
         return;
     }
     assert_success(&env_open);
@@ -5344,7 +5346,7 @@ fn open_accepts_password_sources_and_session_duration() {
         &agent_root,
     );
     if is_session_agent_unavailable(&sessions) {
-        eprintln!("skipping session agent assertions: lockbox session agent unavailable");
+        eprintln!("skipping Session Agent assertions: Session Agent unavailable");
         return;
     }
     assert_success(&sessions);
@@ -5371,14 +5373,14 @@ fn open_accepts_password_sources_and_session_duration() {
 fn is_session_agent_unavailable(output: &Output) -> bool {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    stdout.contains("lockbox session agent did not start")
-        || stderr.contains("lockbox session agent did not start")
-        || stdout.contains("lockbox session agent is not supported on this platform")
-        || stderr.contains("lockbox session agent is not supported on this platform")
+    stdout.contains("Session Agent did not start")
+        || stderr.contains("Session Agent did not start")
+        || stdout.contains("Session Agent is not supported on this platform")
+        || stderr.contains("Session Agent is not supported on this platform")
 }
 
 fn is_platform_secret_store_unavailable(output: &Output) -> bool {
-    String::from_utf8_lossy(&output.stderr).contains("platform secret store is unavailable")
+    String::from_utf8_lossy(&output.stderr).contains("platform credential store is unavailable")
 }
 
 #[test]

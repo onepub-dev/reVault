@@ -119,7 +119,7 @@ fn lock_cache(
 ) -> io::Result<std::sync::MutexGuard<'_, BTreeMap<String, CacheEntry>>> {
     cache
         .lock()
-        .map_err(|_| io::Error::other("session agent cache lock was poisoned"))
+        .map_err(|_| io::Error::other("Session Agent cache lock was poisoned"))
 }
 
 fn lock_active(
@@ -127,7 +127,7 @@ fn lock_active(
 ) -> io::Result<std::sync::MutexGuard<'_, ActiveSecretRegistry>> {
     active
         .lock()
-        .map_err(|_| io::Error::other("session agent activity lock was poisoned"))
+        .map_err(|_| io::Error::other("Session Agent activity lock was poisoned"))
 }
 
 #[cfg(test)]
@@ -362,15 +362,12 @@ fn stop_incompatible_agent() -> io::Result<()> {
     }
     Err(io::Error::new(
         io::ErrorKind::TimedOut,
-        "incompatible lockbox session agent did not stop",
+        "incompatible Session Agent did not stop",
     ))
 }
 
 fn agent_start_timeout_error() -> io::Error {
-    io::Error::new(
-        io::ErrorKind::TimedOut,
-        "lockbox session agent did not start",
-    )
+    io::Error::new(io::ErrorKind::TimedOut, "Session Agent did not start")
 }
 
 fn handle_client(
@@ -763,7 +760,7 @@ fn validate_socket_dir_owner(dir: &Path) -> io::Result<()> {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             format!(
-                "session agent directory is not owned by the current user: {}",
+                "Session Agent directory is not owned by the current user: {}",
                 dir.display()
             ),
         ));
@@ -777,7 +774,7 @@ fn validate_socket_dir(dir: &Path) -> io::Result<()> {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             format!(
-                "session agent directory is not owned by the current user: {}",
+                "Session Agent directory is not owned by the current user: {}",
                 dir.display()
             ),
         ));
@@ -787,7 +784,7 @@ fn validate_socket_dir(dir: &Path) -> io::Result<()> {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             format!(
-                "session agent directory is accessible by other users: {} (mode {mode:o})",
+                "Session Agent directory is accessible by other users: {} (mode {mode:o})",
                 dir.display()
             ),
         ));
@@ -801,7 +798,7 @@ fn socket_dir_metadata(dir: &Path) -> io::Result<fs::Metadata> {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             format!(
-                "session agent directory must not be a symlink: {}",
+                "Session Agent directory must not be a symlink: {}",
                 dir.display()
             ),
         ));
@@ -810,7 +807,7 @@ fn socket_dir_metadata(dir: &Path) -> io::Result<fs::Metadata> {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!(
-                "session agent directory path is not a directory: {}",
+                "Session Agent directory path is not a directory: {}",
                 dir.display()
             ),
         ));
@@ -829,7 +826,7 @@ fn remove_stale_socket(socket: &Path) -> io::Result<()> {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
             format!(
-                "refusing to remove symlink at session agent socket path: {}",
+                "refusing to remove symlink at Session Agent socket path: {}",
                 socket.display()
             ),
         ));
@@ -838,7 +835,7 @@ fn remove_stale_socket(socket: &Path) -> io::Result<()> {
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
             format!(
-                "session agent socket path exists and is not a socket: {}",
+                "Session Agent socket path exists and is not a socket: {}",
                 socket.display()
             ),
         ));

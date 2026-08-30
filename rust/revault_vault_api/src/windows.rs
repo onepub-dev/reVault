@@ -165,7 +165,7 @@ fn lock_cache(
 ) -> io::Result<std::sync::MutexGuard<'_, BTreeMap<String, CacheEntry>>> {
     cache
         .lock()
-        .map_err(|_| io::Error::other("session agent cache lock was poisoned"))
+        .map_err(|_| io::Error::other("Session Agent cache lock was poisoned"))
 }
 
 fn lock_active(
@@ -173,7 +173,7 @@ fn lock_active(
 ) -> io::Result<std::sync::MutexGuard<'_, ActiveSecretRegistry>> {
     active
         .lock()
-        .map_err(|_| io::Error::other("session agent activity lock was poisoned"))
+        .map_err(|_| io::Error::other("Session Agent activity lock was poisoned"))
 }
 
 pub(crate) fn verify_agent_transport_security() -> io::Result<()> {
@@ -383,7 +383,7 @@ fn ensure_agent() -> io::Result<()> {
             AgentCompatibility::Incompatible => {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
-                    "incompatible lockbox session agent remained after restart",
+                    "incompatible Session Agent remained after restart",
                 ));
             }
             AgentCompatibility::Unavailable => thread::sleep(Duration::from_millis(25)),
@@ -391,7 +391,7 @@ fn ensure_agent() -> io::Result<()> {
     }
     Err(io::Error::new(
         io::ErrorKind::TimedOut,
-        "lockbox session agent did not start",
+        "Session Agent did not start",
     ))
 }
 
@@ -451,7 +451,7 @@ fn stop_incompatible_agent() -> io::Result<()> {
     }
     Err(io::Error::new(
         io::ErrorKind::TimedOut,
-        "incompatible lockbox session agent did not stop",
+        "incompatible Session Agent did not stop",
     ))
 }
 

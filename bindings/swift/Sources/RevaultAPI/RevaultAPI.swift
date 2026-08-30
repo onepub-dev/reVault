@@ -1429,7 +1429,7 @@ public final class ProfileSigningKeyPair: OwnedHandle {}
 /// The public profile identity readers use to verify authorized revisions.
 public final class ProfileSigningPublicKey: OwnedHandle {}
 
-/// Password-protected storage for profile keys, contacts, forms, backups, and lockbox paths.
+/// Password-protected storage for Profile keys, contacts, forms, backups, and lockbox paths.
 public final class Vault: OwnedHandle {}
 
 /// A metadata view for discovery that never loads private profile signing material.
@@ -1437,17 +1437,17 @@ public final class ReadOnlyVault: OwnedHandle {}
 
 /// Client for the session service that temporarily caches unlock and signing keys.
 public final class AgentSession: OwnedHandle {}
-/// Explicit controller for the single optional session-agent process.
+/// Explicit controller for the single optional Session Agent process.
 
 
 /// A token kept alive while an operation needs secrets cached by the agent.
 public final class AgentActivity: OwnedHandle {}
 
-/// Access to operating-system credential storage for a scoped vault password.
+/// Access to the platform credential store for a scoped Vault passphrase.
 public final class Platform: OwnedHandle {}
 
 /// Runtime API used to create/open lockboxes, reach Vault metadata, use the
-/// explicit session agent, and access operating-system credential storage.
+/// explicit Session Agent, and access the platform credential store.
 public final class Revault {
     fileprivate let operations = BindingOperations()
     /// Returns the agent.
@@ -2570,7 +2570,7 @@ extension AgentSession {
         return try operations.vaultAgentForgetVaultUnlockKey(vaultId)
     }
 
-    /// Returns a profile signing identity cached by the session agent.
+    /// Returns a profile signing identity cached by the Session Agent.
     public func profileSigningKey(_ vaultId: String, _ profile: String) throws -> ProfileSigningKeyPair {
         return ProfileSigningKeyPair(operations, try operations.vaultAgentGetOwnerSigningKey(vaultId, profile))
     }
@@ -2598,7 +2598,7 @@ extension AgentSession {
     }
 
     private func localHandle() throws -> UnsafeMutableRawPointer {
-        guard let handle else { throw RevaultError.native("session agent local handle is unavailable") }
+        guard let handle else { throw RevaultError.native("Session Agent local handle is unavailable") }
         return handle
     }
 

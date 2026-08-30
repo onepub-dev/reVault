@@ -294,7 +294,7 @@ struct Contact {
   std::vector<std::uint8_t> key{};
 };
 
-/** A lockbox key currently held by the local session agent, identified by lockbox and path. */
+/** A lockbox key currently held by the local Session Agent, identified by lockbox and path. */
 struct AgentEntry {
   /** Stable lockbox identifier for the cached key. */
   std::string id{};
@@ -312,15 +312,15 @@ struct SleepSupport {
   bool supported{};
 };
 
-/** Availability and configuration of the operating-system credential store used for the vault password. */
+/** Availability and configuration of the platform credential store used for the Vault passphrase. */
 struct PlatformStatus {
-  /** Whether a usable operating-system credential store exists. */
+  /** Whether a usable platform credential store exists. */
   bool supported{};
-  /** Whether the user disabled credential-store integration. */
+  /** Whether the user disabled platform credential store integration. */
   bool disabled{};
   /** Application-specific scope used to isolate the stored password. */
   std::string scope{};
-  /** Operating-system credential-store backend in use. */
+  /** Platform credential store backend in use. */
   std::string backend{};
   /** Credential item name used by the backend. */
   std::string item{};

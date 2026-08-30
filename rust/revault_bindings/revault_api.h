@@ -6,7 +6,7 @@
  *
  * The API stores files, variables, and typed form records in portable encrypted
  * lockboxes. It also manages contact keys, signing keys, the local metadata
- * vault, the session agent, and the platform secret store.
+ * Vault, Session Agent, and the platform credential store.
  *
  * Native objects are returned as opaque pointers. Every non-null handle passed
  * to this API must have been returned by the matching reVault constructor or
@@ -463,9 +463,9 @@ void *vault_agent_begin_activity(const char *kind, size_t len);
 void vault_agent_end_activity(void *handle);
 /** Returns the local. */
 void *vault_local(void);
-/** Creates lockbox password. */
+/** Creates Lockbox password. */
 void *vault_create_lockbox_password(const void *vault, const char *path, size_t path_len, const uint8_t *password, size_t password_len);
-/** Opens lockbox password. */
+/** Opens Lockbox password. */
 void *vault_open_lockbox_password(const void *vault, const char *path, size_t path_len, const uint8_t *password, size_t password_len);
 /** Creates lockbox content key. */
 void *vault_create_lockbox_content_key(const void *vault, const char *path, size_t path_len, const uint8_t *content_key, size_t key_len, const void *signing_key);
@@ -473,7 +473,7 @@ void *vault_create_lockbox_content_key(const void *vault, const char *path, size
 void *vault_create_lockbox_contact(const void *vault, const char *path, size_t path_len, const void *contact, const char *name, size_t name_len, const void *signing_key);
 /** Opens lockbox content key. */
 void *vault_open_lockbox_content_key(const void *vault, const char *path, size_t path_len, const uint8_t *content_key, size_t key_len, const void *signing_key);
-/** Stores lockbox password. */
+/** Stores Lockbox password. */
 bool vault_cache_lockbox_password(const void *vault, const char *path, size_t path_len, const uint8_t *password, size_t password_len, uint64_t ttl_seconds);
 /** Releases the native resources held by lockbox. */
 bool vault_close_lockbox(const void *vault, const char *path, size_t path_len);

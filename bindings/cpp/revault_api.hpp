@@ -840,7 +840,7 @@ class Lockbox {
   void* handle_;
 };
 
-/** A writable, password-protected store for profile keys, contacts, forms,
+/** A writable, password-protected store for Profile keys, contacts, forms,
  * backups, and remembered lockbox paths; lockbox contents remain separate. */
 class Vault {
  public:
@@ -1222,7 +1222,7 @@ class KeyFormat {
 };
 
 /** A lifetime token kept alive while an operation needs cached secrets; destroy
- * it afterward so the session agent can expire unused secrets. */
+ * it afterward so the Session Agent can expire unused secrets. */
 class AgentActivity {
  public:
   /** Returns the agent activity. */
@@ -1325,7 +1325,7 @@ class AgentSession {
     checked(vault_agent_forget_owner_signing_key(
         vault_id.data(), vault_id.size(), profile.data(), profile.size()));
   }
-  /** Retains a lockbox password in the optional session agent for a bounded
+  /** Retains a Lockbox password in the optional Session Agent for a bounded
    * duration. This is independent of any Lockbox handle. */
   static void cache_lockbox_password(const std::string& path,
                                      const std::string& lockbox_password,
@@ -1336,12 +1336,12 @@ class AgentSession {
         reinterpret_cast<const std::uint8_t*>(lockbox_password.data()),
         lockbox_password.size(), ttl_seconds));
   }
-  /** Forgets one lockbox key retained by the session agent. */
+  /** Forgets one lockbox key retained by the Session Agent. */
   static void close_lockbox(const std::string& path) {
     detail::VaultIntegrationHandle vault;
     checked(vault_close_lockbox(vault.get(), path.data(), path.size()));
   }
-  /** Forgets all lockbox keys retained by the session agent. */
+  /** Forgets all lockbox keys retained by the Session Agent. */
   static void close_all() {
     detail::VaultIntegrationHandle vault;
     checked(vault_close_all(vault.get()));
@@ -1356,7 +1356,7 @@ class AgentSession {
   }
 };
 
-/** Access to operating-system credential storage for a scoped vault password. */
+/** Access to the platform credential store for a scoped Vault passphrase. */
 class PlatformSecretStore {
  public:
   /** Returns the status. */

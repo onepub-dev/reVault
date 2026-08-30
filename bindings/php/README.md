@@ -29,7 +29,7 @@ $box->commit();
 $box->free();
 $publicSigningKey->free(); $signing->free();
 
-$persistent = Revault\Vault::openOrCreate('/tmp/revault-vault', 'vault passphrase');
+$persistent = Revault\Vault::openOrCreate('/tmp/revault-vault', 'Vault passphrase');
 $persistent->close();
 ```
 
