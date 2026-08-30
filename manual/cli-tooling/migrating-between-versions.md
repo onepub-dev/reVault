@@ -2,7 +2,7 @@
 
 reVault aims to have a stable format for archives and the vault.
 
-However from time to time format revisions may be necessary. To facilitate migration vaults and archives between version reVault includes a set of migration commands.
+From time to time, a format revision may be necessary. reVault includes migration commands for upgrading Vaults and Lockboxes between versions.
 
 ## Migrating a reVault vault or archive
 
@@ -18,7 +18,7 @@ Make sure that:
 
 * no other reVault process is writing to the vault or archive;
 * you know the Vault passphrase, unless the platform credential store can provide it;
-* you know the archive password or have opened the archive through the session agent; and
+* the migrated Vault contains a Profile key or remembered Lockbox password that can open the Lockbox; if it does not, and the Lockbox has password access, you know that password; and
 * you have enough free disk space for a complete new copy of the vault or archive you are migrating.
 
 Migration does not delete the source when an output path is supplied. It creates and validates the new artifact first, so the source can be kept until you have confirmed the result.
@@ -62,7 +62,7 @@ Pass the archive path and a separate output path:
 lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
 ```
 
-The archive must be readable by the current session. If the archive is not already open, the CLI uses the session agent or prompts through the normal archive access flow. For agentless automation, configure the archive password using an environment variable: `LOCKBOX_PASSWORD`.
+The CLI first tries the current and historical Profile keys stored in the migrated Vault. It can also use a Lockbox password remembered by the Vault. You only need to supply a password when the Vault does not hold a credential that can open the Lockbox and the Lockbox has password access.
 
 The vault must already exist and be in the current format. If the vault exists use the above vault migration guide to migrate the vault.
 
@@ -72,7 +72,14 @@ You can now migrate your archives:
 
 `lockbox migrate archive secrets.lbox --output secrets-migrated.lbox`
 
-For agentless automation, provide the archive password and vault password through protected environment variables:
+For agentless automation, provide the Vault passphrase through a protected environment variable:
+
+```console
+LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
+  lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+```
+
+Add `LOCKBOX_PASSWORD` only when the Vault does not contain a Profile key or remembered Lockbox password that can open the Lockbox:
 
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
@@ -190,9 +197,9 @@ LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
 
 #### The migration cannot open the archive
 
-Confirm that you migrated or restored the correct vault and that all saved profile keys were imported.
+Confirm that you migrated or restored the correct Vault and that all saved Profile keys were imported.
 
-If the archive is password-only, provide its password through `LOCKBOX_PASSWORD`:
+If the Vault does not hold a credential that can open the Lockbox and the Lockbox has password access, provide that password through `LOCKBOX_PASSWORD`:
 
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \

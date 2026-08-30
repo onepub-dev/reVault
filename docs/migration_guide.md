@@ -15,7 +15,9 @@ Make sure that:
 - no other reVault process is writing to the vault or archive;
 - you know the vault pass phrase, unless the platform key store or session
   agent can provide it;
-- for a password-only archive, you know its archive password; and
+- the migrated vault contains a Profile key or remembered Lockbox password
+  that can open the archive; if it does not, and the archive has password
+  access, you know that password; and
 - you have enough free disk space for a complete new copy.
 
 Migration does not delete the source when an output path is supplied. It
@@ -62,9 +64,10 @@ Pass the archive path and a separate output path:
 lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
 ```
 
-The migration obtains access to the source archive automatically using the
-keys in the migrated vault. A password is needed only when the archive is
-password-only.
+The migration first tries the current and historical Profile keys stored in
+the migrated vault. It can also use an archive password remembered by the
+vault. You only need to supply a password when the vault does not hold a
+credential that can open the archive and the archive has password access.
 
 The CLI generates and manages the migration key automatically. The archive
 migration also needs a vault containing the keys used to manage the archive.
@@ -92,8 +95,15 @@ lockbox migrate vault --replace
 lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
 ```
 
-For automation, provide the vault password through the protected environment.
-Add `LOCKBOX_PASSWORD` only when the archive is password-only:
+For automation, provide the vault password through the protected environment:
+
+```console
+LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
+  lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+```
+
+Add `LOCKBOX_PASSWORD` only when the vault does not contain a Profile key or
+remembered Lockbox password that can open the archive:
 
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
@@ -255,8 +265,8 @@ LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
 Confirm that you migrated or restored the correct vault and that all saved
 profile keys were imported.
 
-If the archive is password-only, provide its password through
-`LOCKBOX_PASSWORD`:
+If the vault does not hold a credential that can open the archive and the
+archive has password access, provide that password through `LOCKBOX_PASSWORD`:
 
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
