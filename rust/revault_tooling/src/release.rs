@@ -1415,23 +1415,22 @@ fn go_platform(target: &str) -> Result<(&'static str, &'static str, &'static str
     })
 }
 
+const CLI_PUBLISH_PACKAGES: &[&str] = &[
+    "revault_page_api",
+    "revault_lockbox_api",
+    "revault_migration_format",
+    "revault_migrate_vault_v1",
+    "revault_vault_api",
+    "revault_migrate_archive_v1",
+    "revault_migration",
+    "revault_publish_protocol",
+    "revault_key_server",
+    "revault_cli",
+];
+
 pub fn publish_cli(repository: &Path, publish: bool) -> Result {
     let rust = repository.canonicalize()?.join("rust");
-    let packages = [
-        "revault_page_api",
-        "revault_lockbox_api",
-        "revault_migration_format",
-        "revault_migrate_vault_v1",
-        "revault_vault_api",
-        "revault_migrate_archive_v1",
-        "revault_migration",
-        "revault_publish_protocol",
-        "revault_key_server",
-        "revault_bindings",
-        "revault_wasm_bindings",
-        "revault_cli",
-    ];
-    for package in packages {
+    for package in CLI_PUBLISH_PACKAGES {
         let manifest = find_package_manifest(&rust, package)?;
         let version = manifest_value(&manifest, "version")?;
         let release = format!("{package}@{version}");
@@ -1630,5 +1629,12 @@ mod tests {
             replace_semver_triplets(source, "9.8.7"),
             "install package@9.8.7\nrequire ^9.8.7\nLua 9.8.7-1\nUTF-8: Profile → Lockbox\n"
         );
+    }
+
+    #[test]
+    fn cli_publication_excludes_binding_implementation_crates() {
+        assert!(CLI_PUBLISH_PACKAGES.contains(&"revault_cli"));
+        assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_bindings"));
+        assert!(!CLI_PUBLISH_PACKAGES.contains(&"revault_wasm_bindings"));
     }
 }
