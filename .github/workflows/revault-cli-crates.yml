@@ -7,11 +7,6 @@ on:
         description: The cargo-dist release plan
         required: true
         type: string
-      expected_version:
-        description: Optional CLI version guard for a manual publication repair
-        required: false
-        default: ''
-        type: string
 
 permissions:
   contents: read
@@ -27,13 +22,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.88.0
-      - name: Validate the requested CLI version
-        if: ${{ inputs.expected_version != '' }}
-        env:
-          EXPECTED_VERSION: ${{ inputs.expected_version }}
-        run: |
-          actual_version="$(cargo metadata --no-deps --format-version 1 --manifest-path rust/Cargo.toml | jq -r '.packages[] | select(.name == "revault_cli") | .version')"
-          test "$actual_version" = "$EXPECTED_VERSION"
       - name: Install Linux Rust publication dependencies
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - id: crates
