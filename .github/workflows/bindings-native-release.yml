@@ -537,7 +537,7 @@ jobs:
             --static-library "rust/target/${{ matrix.rust_target }}/release/${{ matrix.static_library }}" \
             "${go_static[@]}" \
             --output dist
-      - name: Install archive and run all 217 native operations
+      - name: Install archive and run all 219 native operations
         shell: bash
         env:
           RUSTFLAGS: ${{ runner.os == 'Windows' && '-Clinker=lld-link.exe' || '' }}

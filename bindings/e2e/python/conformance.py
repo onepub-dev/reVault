@@ -506,6 +506,22 @@ def advanced_archive(runtime: Runtime) -> None:
     lib.lockbox_free(opened_contact)
     lib.lockbox_free(contact_box)
 
+    signed_password_bytes = b"archive password"
+    signed_password_data = data(signed_password_bytes)
+    signed_password = lib.lockbox_create_password_with_signing_key(
+        signed_password_data, len(signed_password_bytes), signing
+    )
+    check(bool(signed_password), runtime.error())
+    runtime.bool(lib.lockbox_commit(signed_password), "signed password commit")
+    passed("lockbox_create_password_with_signing_key", 1)
+    lib.lockbox_free(signed_password)
+
+    signed_contact = lib.lockbox_create_contact_with_signing_key(public, signing)
+    check(bool(signed_contact), runtime.error())
+    runtime.bool(lib.lockbox_commit(signed_contact), "signed contact commit")
+    passed("lockbox_create_contact_with_signing_key", 1)
+    lib.lockbox_free(signed_contact)
+
     signed_box = lib.lockbox_create_with_signing_key(key, 32, signing)
     check(bool(signed_box), runtime.error())
     runtime.bool(lib.lockbox_commit(signed_box), "signed commit")

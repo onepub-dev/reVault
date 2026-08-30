@@ -19,7 +19,9 @@ module Revault
     extern 'void * lockbox_create(void *, size_t)'
     extern 'void * lockbox_create_with_options(void *, size_t, void *, size_t, uint64_t, void *, size_t, void *, size_t, size_t)'
     extern 'void * lockbox_create_password(void *, size_t)'
+    extern 'void * lockbox_create_password_with_signing_key(void *, size_t, void *)'
     extern 'void * lockbox_create_contact(void *)'
+    extern 'void * lockbox_create_contact_with_signing_key(void *, void *)'
     extern 'void * lockbox_create_with_signing_key(void *, size_t, void *)'
     extern 'void * lockbox_open(void *, size_t, void *, size_t)'
     extern 'void * lockbox_open_with_options(void *, size_t, void *, size_t, void *, size_t, uint64_t, void *, size_t, void *, size_t, size_t)'
@@ -304,8 +306,16 @@ module Revault
       require_handle(Native.lockbox_create_password(Fiddle::Pointer[password], password.bytesize))
     end
 
+    def lockbox_create_password_with_signing_key(password, signing_key)
+      require_handle(Native.lockbox_create_password_with_signing_key(Fiddle::Pointer[password], password.bytesize, signing_key))
+    end
+
     def lockbox_create_contact(contact)
       require_handle(Native.lockbox_create_contact(contact))
+    end
+
+    def lockbox_create_contact_with_signing_key(contact, signing_key)
+      require_handle(Native.lockbox_create_contact_with_signing_key(contact, signing_key))
     end
 
     def lockbox_create_with_signing_key(content_key, signing_key)

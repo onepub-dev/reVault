@@ -127,9 +127,19 @@ final class BindingOperations
         return $this->withBytes($password, fn(CData $passwordPointer, int $passwordLength) => $this->requireHandle($this->ffi->lockbox_create_password($passwordPointer, $passwordLength)));
     }
 
+    public function lockboxCreatePasswordWithSigningKey(string $password, CData $signingKey): CData
+    {
+        return $this->withBytes($password, fn(CData $passwordPointer, int $passwordLength) => $this->requireHandle($this->ffi->lockbox_create_password_with_signing_key($passwordPointer, $passwordLength, $signingKey)));
+    }
+
     public function lockboxCreateContact(CData $contact): CData
     {
         return $this->requireHandle($this->ffi->lockbox_create_contact($contact));
+    }
+
+    public function lockboxCreateContactWithSigningKey(CData $contact, CData $signingKey): CData
+    {
+        return $this->requireHandle($this->ffi->lockbox_create_contact_with_signing_key($contact, $signingKey));
     }
 
     public function lockboxCreateWithSigningKey(string $contentKey, CData $signingKey): CData

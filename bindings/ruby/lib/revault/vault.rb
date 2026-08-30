@@ -79,9 +79,19 @@ module Revault
       Lockbox.new(@operations, @operations.lockbox_create_password(password))
     end
 
+    # Creates a password protected Lockbox with its profile signing key.
+    def lockbox_create_password_with_signing_key(password, signing_key)
+      Lockbox.new(@operations, @operations.lockbox_create_password_with_signing_key(password, signing_key.native_handle))
+    end
+
     # Creates an in memory Lockbox that the supplied contact can open.
     def lockbox_create_contact(contact)
       Lockbox.new(@operations, @operations.lockbox_create_contact(contact.native_handle))
+    end
+
+    # Creates a contact protected Lockbox with its profile signing key.
+    def lockbox_create_contact_with_signing_key(contact, signing_key)
+      Lockbox.new(@operations, @operations.lockbox_create_contact_with_signing_key(contact.native_handle, signing_key.native_handle))
     end
 
     # Creates an in memory Lockbox and assigns its profile signing key.
@@ -314,15 +324,15 @@ module Revault
       raise ArgumentError, 'supply exactly one of password, content_key, or contact' unless credentials.length == 1
       runtime = Revault.runtime
       box = if password
-              runtime.lockbox_create_password(password.to_str)
+              signing_key ? runtime.lockbox_create_password_with_signing_key(password.to_str, signing_key) : runtime.lockbox_create_password(password.to_str)
             elsif contact
-              runtime.lockbox_create_contact(contact)
+              signing_key ? runtime.lockbox_create_contact_with_signing_key(contact, signing_key) : runtime.lockbox_create_contact(contact)
             elsif options
               runtime.lockbox_create_with_options(content_key, options[:cache_mode], options[:cache_bytes] || 0, options[:workload], options[:worker], options[:jobs] || 0)
             else
               runtime.lockbox_create(content_key)
             end
-      box.set_owner_signing_key(signing_key) if signing_key
+      box.set_owner_signing_key(signing_key) if signing_key && !password && !contact
       box
     end
 

@@ -400,6 +400,12 @@ static void advanced_archive() {
   auto contact_open = Lockbox::open_with_contact(contact_archive, contact);
   check(contact_open.get_file("/contact.txt") == bytes("contact protected"), "contact open");
   pass("lockbox_open_contact", 2);
+  auto signed_password = Lockbox::create_with_password_and_signing_key("archive password", signing);
+  signed_password.commit();
+  pass("lockbox_create_password_with_signing_key");
+  auto signed_contact = Lockbox::create_for_contact_with_signing_key(contact_public, signing);
+  signed_contact.commit();
+  pass("lockbox_create_contact_with_signing_key");
   auto signed_box = Lockbox::create_signed(key, signing);
   signed_box.commit();
   check(signed_box.owner_inspection().is_signed, "signed create");

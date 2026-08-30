@@ -39,7 +39,8 @@ use windows_sys::Win32::Security::{
     SECURITY_ATTRIBUTES, TOKEN_QUERY, TOKEN_USER,
 };
 use windows_sys::Win32::Storage::FileSystem::{
-    CreateFileW, ReadFile, WriteFile, FILE_ATTRIBUTE_NORMAL, OPEN_EXISTING, PIPE_ACCESS_DUPLEX,
+    CreateFileW, FlushFileBuffers, ReadFile, WriteFile, FILE_ATTRIBUTE_NORMAL, OPEN_EXISTING,
+    PIPE_ACCESS_DUPLEX,
 };
 use windows_sys::Win32::System::Pipes::{
     ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, ImpersonateNamedPipeClient,
@@ -578,10 +579,10 @@ fn connect_pipe(pipe: HANDLE) -> io::Result<()> {
 
 fn disconnect_pipe(pipe: HANDLE) {
     // SAFETY: Disconnection does not close the handle; `OwnedHandle` closes it
-    // later. The response frame has already been written synchronously; forcing
-    // a server-side flush can deadlock with clients that issue a follow-up
-    // control request while the agent is still waiting for the pipe to drain.
+    // later. A synchronous write may still be buffered by Windows, so wait for
+    // the client to consume the response before disconnecting the instance.
     unsafe {
+        FlushFileBuffers(pipe);
         DisconnectNamedPipe(pipe);
     }
 }

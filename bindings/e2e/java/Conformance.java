@@ -243,6 +243,14 @@ public final class Conformance {
           }
           pass("lockbox_open_contact", 2);
         }
+        try (var signedPassword = API.createLockboxWithPasswordAndSigningKey("archive password".getBytes(), signing)) {
+          signedPassword.commit();
+        }
+        pass("lockbox_create_password_with_signing_key");
+        try (var signedContact = API.createLockboxForContactWithSigningKey(publicKey, signing)) {
+          signedContact.commit();
+        }
+        pass("lockbox_create_contact_with_signing_key");
         try (var signed = API.createLockboxWithProfileSigningKey(key, signing)) {
           signed.commit(); check(signed.ownerInspection().signed(), "signed box");
         }

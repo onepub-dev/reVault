@@ -57,9 +57,11 @@ String artifactRoot() {
 }
 
 List<FormField> fields() => [
-  FormField(id: 'username', label: 'Username', kind: 'text', required: true),
-  FormField(id: 'password', label: 'Password', kind: 'secret', required: true),
-];
+      FormField(
+          id: 'username', label: 'Username', kind: 'text', required: true),
+      FormField(
+          id: 'password', label: 'Password', kind: 'secret', required: true),
+    ];
 
 void archiveLifecycle() {
   final key = SecretBytes.copyOf(repeat('K'.codeUnitAt(0), 32));
@@ -471,6 +473,23 @@ void advancedArchive() {
   );
   contactOpen.close();
   pass('lockbox_open_contact', 2);
+  final signedPassword = withSecretString(
+    'archive password',
+    (password) => Lockbox.createInMemory(
+      password: password,
+      signingKey: signing,
+    ),
+  );
+  signedPassword.commit();
+  signedPassword.close();
+  pass('lockbox_create_password_with_signing_key');
+  final signedContact = Lockbox.createInMemory(
+    contact: publicKey,
+    signingKey: signing,
+  );
+  signedContact.commit();
+  signedContact.close();
+  pass('lockbox_create_contact_with_signing_key');
   final signed = Lockbox.createInMemory(contentKey: key, signingKey: signing);
   signed.commit();
   check(signed.ownerInspection().signed, 'signed');
@@ -747,9 +766,12 @@ Future<void> agentAndLocal() async {
   final agent = AgentSession.instance;
   agent.clearAllSecrets();
   pass('vault_forget_all');
-  final child = await Process.start(Platform.resolvedExecutable, [
-    '--serve-agent',
-  ], mode: ProcessStartMode.inheritStdio);
+  final child = await Process.start(
+      Platform.resolvedExecutable,
+      [
+        '--serve-agent',
+      ],
+      mode: ProcessStartMode.inheritStdio);
   var running = false;
   for (var attempt = 0; attempt < 200; attempt++) {
     if (agent.isRunning) {
@@ -817,11 +839,16 @@ Future<void> agentAndLocal() async {
   final passwordPath = '${root.path}/password.lbox';
   final passwordBox = withSecretString(
     'local password',
-    (password) =>
-        Lockbox.create(passwordPath, password: password, overwrite: true),
+    (password) => Lockbox.create(
+      passwordPath,
+      password: password,
+      signingKey: owner,
+      overwrite: true,
+    ),
   );
   passwordBox.addFile('/data.txt', payload);
   passwordBox.commit();
+  check(passwordBox.ownerInspection().signed, 'password owner');
   passwordBox.close();
   pass('vault_create_lockbox_password', 3);
   withSecretString('local password', (password) {
@@ -888,8 +915,7 @@ Future<void> agentAndLocal() async {
 }
 
 void interop(String producer) {
-  final root =
-      Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
+  final root = Platform.environment['REVAULT_E2E_ARTIFACT_DIR'] ??
       '/tmp/revault-e2e-artifacts';
   final box = Lockbox.openBytes(
     Uint8List.fromList(File('$root/$producer/archive.lbox').readAsBytesSync()),

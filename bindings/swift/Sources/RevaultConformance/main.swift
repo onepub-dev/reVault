@@ -134,6 +134,8 @@ func advancedArchive() throws {
     let contactBox = try api.lockboxCreateContact(publicKey); try contactBox.addFile("/contact.txt", data("contact protected"), false); try contactBox.commit()
     let contactArchive = try contactBox.toBytes(); try contactBox.free(); pass("lockbox_create_contact")
     let contactOpen = try api.lockboxOpenContact(contactArchive, contact); _ = try contactOpen.getFile("/contact.txt"); try contactOpen.free(); pass("lockbox_open_contact", 2)
+    let signedPassword = try api.lockboxCreatePasswordWithProfileSigningKey(data("archive password"), signing); try signedPassword.commit(); try signedPassword.free(); pass("lockbox_create_password_with_signing_key")
+    let signedContact = try api.lockboxCreateContactWithProfileSigningKey(publicKey, signing); try signedContact.commit(); try signedContact.free(); pass("lockbox_create_contact_with_signing_key")
     let signed = try api.lockboxCreateWithProfileSigningKey(key, signing); try signed.commit(); try signed.free(); pass("lockbox_create_with_signing_key", 2)
     let extract = "/tmp/revault-swift-extract"; try resetDirectory(extract); try box.extractFile("/account.txt", extract + "/account.txt", false); pass("lockbox_extract_file", 2)
     let tree = extract + "/tree"; try makeDirectory(tree); try box.extractDirectory(tree, 1 << 20, 4 << 20, 100, false, true, false); pass("lockbox_extract_directory", 2)

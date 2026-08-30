@@ -86,18 +86,30 @@ final class Lockbox extends Owned implements ffi.Finalizable {
           'LockboxOptions are currently supported only with a content key.',
         );
       }
-      lockbox = runtime.createLockboxWithPasswordInternal(password);
+      lockbox = signingKey == null
+          ? runtime.createLockboxWithPasswordInternal(password)
+          : runtime.createLockboxWithPasswordAndSigningKeyInternal(
+              password,
+              signingKey,
+            );
     } else if (contact != null) {
       if (options != null) {
         throw UnsupportedError(
           'LockboxOptions are currently supported only with a content key.',
         );
       }
-      lockbox = runtime.createLockboxForContactInternal(contact);
+      lockbox = signingKey == null
+          ? runtime.createLockboxForContactInternal(contact)
+          : runtime.createLockboxForContactWithSigningKeyInternal(
+              contact,
+              signingKey,
+            );
     } else {
       lockbox = runtime.createLockboxInternal(contentKey!, options);
     }
-    if (signingKey != null) lockbox.setOwnerSigningKey(signingKey);
+    if (signingKey != null && contact == null && password == null) {
+      lockbox.setOwnerSigningKey(signingKey);
+    }
     return lockbox;
   }
 

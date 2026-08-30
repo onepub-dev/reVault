@@ -393,10 +393,37 @@ final class Revault {
             Lockbox.internal(this, operations.lockboxCreatePassword(bytes)),
       );
 
+  /// Creates a password-protected lockbox whose first commit is signed by
+  /// [signingKey].
+  /// @nodoc
+  Lockbox createLockboxWithPasswordAndSigningKeyInternal(
+    SecretString password,
+    ProfileSigningKeyPair signingKey,
+  ) => password.withBytes(
+    (bytes) => Lockbox.internal(
+      this,
+      operations.lockboxCreatePasswordWithSigningKey(bytes, signingKey.handle),
+    ),
+  );
+
   /// Creates a lockbox whose content key is wrapped for [contact].
   /// @nodoc
   Lockbox createLockboxForContactInternal(ContactPublicKey contact) =>
       Lockbox.internal(this, operations.lockboxCreateContact(contact.handle));
+
+  /// Creates a contact-protected lockbox whose first commit is signed by
+  /// [signingKey].
+  /// @nodoc
+  Lockbox createLockboxForContactWithSigningKeyInternal(
+    ContactPublicKey contact,
+    ProfileSigningKeyPair signingKey,
+  ) => Lockbox.internal(
+    this,
+    operations.lockboxCreateContactWithSigningKey(
+      contact.handle,
+      signingKey.handle,
+    ),
+  );
 
   /// Opens [archive] using its content [key].
   ///

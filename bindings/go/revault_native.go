@@ -46,8 +46,14 @@ func (native) LockboxCreateWithOptions(key unsafe.Pointer, key_len C.size_t, cac
 func (native) LockboxCreatePassword(password unsafe.Pointer, len C.size_t) unsafe.Pointer {
 	return C.lockbox_create_password((*C.uint8_t)(password), len)
 }
+func (native) LockboxCreatePasswordWithSigningKey(password unsafe.Pointer, len C.size_t, signing_key unsafe.Pointer) unsafe.Pointer {
+	return C.lockbox_create_password_with_signing_key((*C.uint8_t)(password), len, signing_key)
+}
 func (native) LockboxCreateContact(contact unsafe.Pointer) unsafe.Pointer {
 	return C.lockbox_create_contact(contact)
+}
+func (native) LockboxCreateContactWithSigningKey(contact unsafe.Pointer, signing_key unsafe.Pointer) unsafe.Pointer {
+	return C.lockbox_create_contact_with_signing_key(contact, signing_key)
 }
 func (native) LockboxCreateWithSigningKey(content_key unsafe.Pointer, key_len C.size_t, signing_key unsafe.Pointer) unsafe.Pointer {
 	return C.lockbox_create_with_signing_key((*C.uint8_t)(content_key), key_len, signing_key)

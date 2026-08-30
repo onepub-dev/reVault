@@ -185,8 +185,29 @@ final class BindingOperations {
     ),
   );
 
+  ffi.Pointer<ffi.Void> lockboxCreatePasswordWithSigningKey(
+    Uint8List password,
+    ffi.Pointer<ffi.Void> signingKey,
+  ) => _withBytes(
+    password,
+    (passwordPointer, passwordLength) => _requireHandle(
+      native.lockbox_create_password_with_signing_key(
+        passwordPointer,
+        passwordLength,
+        signingKey,
+      ),
+    ),
+  );
+
   ffi.Pointer<ffi.Void> lockboxCreateContact(ffi.Pointer<ffi.Void> contact) =>
       _requireHandle(native.lockbox_create_contact(contact));
+
+  ffi.Pointer<ffi.Void> lockboxCreateContactWithSigningKey(
+    ffi.Pointer<ffi.Void> contact,
+    ffi.Pointer<ffi.Void> signingKey,
+  ) => _requireHandle(
+    native.lockbox_create_contact_with_signing_key(contact, signingKey),
+  );
 
   ffi.Pointer<ffi.Void> lockboxCreateWithSigningKey(
     Uint8List contentKey,

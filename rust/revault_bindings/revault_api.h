@@ -69,8 +69,12 @@ void *lockbox_create(const uint8_t *key, size_t key_len);
 void *lockbox_create_with_options(const uint8_t *key, size_t key_len, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs);
 /** Creates password. */
 void *lockbox_create_password(const uint8_t *password, size_t len);
+/** Creates a password-protected lockbox with the supplied owner signing key. */
+void *lockbox_create_password_with_signing_key(const uint8_t *password, size_t len, const void *signing_key);
 /** Creates contact. */
 void *lockbox_create_contact(const void *contact);
+/** Creates a contact-protected lockbox with the supplied owner signing key. */
+void *lockbox_create_contact_with_signing_key(const void *contact, const void *signing_key);
 /** Creates with signing key. */
 void *lockbox_create_with_signing_key(const uint8_t *content_key, size_t key_len, const void *signing_key);
 /** Opens an existing lockbox. */

@@ -164,6 +164,8 @@ function advancedArchive(ApiRuntime $api): void {
     $contactBox = $api->lockboxCreateContact($public); $contactBox->addFile('/contact.txt', 'contact protected', false); $contactBox->commit();
     $contactArchive = $contactBox->toBytes(); $contactBox->free(); pass('lockbox_create_contact');
     $contactOpen = $api->lockboxOpenContact($contactArchive, $contact); $contactOpen->getFile('/contact.txt'); $contactOpen->free(); pass('lockbox_open_contact', 2);
+    $signedPassword = $api->lockboxCreatePasswordWithSigningKey('archive password', $signing); $signedPassword->commit(); $signedPassword->free(); pass('lockbox_create_password_with_signing_key');
+    $signedContact = $api->lockboxCreateContactWithSigningKey($public, $signing); $signedContact->commit(); $signedContact->free(); pass('lockbox_create_contact_with_signing_key');
     $signed = $api->lockboxCreateWithSigningKey($key, $signing); $signed->commit(); $signed->free(); pass('lockbox_create_with_signing_key', 2);
     $extract = sys_get_temp_dir() . '/revault-php-extract-' . bin2hex(random_bytes(4)); mkdir($extract, 0700, true);
     $box->extractFile('/account.txt', "$extract/account.txt", false); pass('lockbox_extract_file', 2);

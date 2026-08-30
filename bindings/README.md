@@ -63,8 +63,8 @@ files live only in internal package locations; Ruby, Lua, and C use small
 private readers because the official compiler does not provide a suitable
 generator for those targets.
 
-The generated declaration surface covers all 218 exported C ABI functions:
-the ABI-version query plus 217 domain functions. C++, C, PHP, Swift, Lua, and Ruby
+The generated declaration surface covers all 220 exported C ABI functions:
+the ABI-version query plus 219 domain functions. C++, C, PHP, Swift, Lua, and Ruby
 consume the header or the complete native symbol table directly; Java/Kotlin
 use the generated Java FFM method-handle surface and typed facade.
 The generated low-level surfaces are intentionally separate from the typed
@@ -151,7 +151,7 @@ inputs consumed by the Rust tool rather than release scripts.
    ecosystem package exclusively from them.
 3. Install every claimed language/target package in a clean GitHub Actions
    consumer with no build tree or native-library override. The test must record
-   the installed native path and archive hash before exercising all 217 calls.
+   the installed native path and archive hash before exercising all 219 calls.
    Rust is the explicit source-native exception: its consumer runs the complete
    `public_api_suite` and `vault_api` suites after `cargo package`, securely
    unpacks the `.crate` into a clean consumer, and records that archive's hash;

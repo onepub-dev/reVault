@@ -153,6 +153,8 @@ def advanced_archive
   contact_box = API.lockbox_create_contact(public_key); contact_box.add_file('/contact.txt', 'contact protected', false); contact_box.commit
   contact_archive = contact_box.to_bytes; contact_box.free; pass('lockbox_create_contact')
   contact_open = API.lockbox_open_contact(contact_archive, contact); contact_open.get_file('/contact.txt'); contact_open.free; pass('lockbox_open_contact', 2)
+  signed_password = API.lockbox_create_password_with_signing_key('archive password', signing); signed_password.commit; signed_password.free; pass('lockbox_create_password_with_signing_key')
+  signed_contact = API.lockbox_create_contact_with_signing_key(public_key, signing); signed_contact.commit; signed_contact.free; pass('lockbox_create_contact_with_signing_key')
   signed = API.lockbox_create_with_signing_key(key, signing); signed.commit; signed.free; pass('lockbox_create_with_signing_key', 2)
   extract = Dir.mktmpdir('revault-ruby-extract-'); box.extract_file('/account.txt', File.join(extract, 'account.txt'), false); pass('lockbox_extract_file', 2)
   tree = File.join(extract, 'tree'); Dir.mkdir(tree); box.extract_directory(tree, 1 << 20, 4 << 20, 100, false, true, false); pass('lockbox_extract_directory', 2)

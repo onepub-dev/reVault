@@ -68,10 +68,32 @@ typedef _LockboxCreatePasswordNative =
     ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, ffi.Size);
 typedef _LockboxCreatePasswordDart =
     ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Uint8>, int);
+typedef _LockboxCreatePasswordWithSigningKeyNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _LockboxCreatePasswordWithSigningKeyDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+    );
 typedef _LockboxCreateContactNative =
     ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>);
 typedef _LockboxCreateContactDart =
     ffi.Pointer<ffi.Void> Function(ffi.Pointer<ffi.Void>);
+typedef _LockboxCreateContactWithSigningKeyNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+    );
+typedef _LockboxCreateContactWithSigningKeyDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+    );
 typedef _LockboxCreateWithSigningKeyNative =
     ffi.Pointer<ffi.Void> Function(
       ffi.Pointer<ffi.Uint8>,
@@ -1716,12 +1738,31 @@ external ffi.Pointer<ffi.Void> _native_lockbox_create_password(
   int p1,
 );
 
+@ffi.Native<_LockboxCreatePasswordWithSigningKeyNative>(
+  symbol: 'lockbox_create_password_with_signing_key',
+  assetId: _assetId,
+)
+external ffi.Pointer<ffi.Void> _native_lockbox_create_password_with_signing_key(
+  ffi.Pointer<ffi.Uint8> p0,
+  int p1,
+  ffi.Pointer<ffi.Void> p2,
+);
+
 @ffi.Native<_LockboxCreateContactNative>(
   symbol: 'lockbox_create_contact',
   assetId: _assetId,
 )
 external ffi.Pointer<ffi.Void> _native_lockbox_create_contact(
   ffi.Pointer<ffi.Void> p0,
+);
+
+@ffi.Native<_LockboxCreateContactWithSigningKeyNative>(
+  symbol: 'lockbox_create_contact_with_signing_key',
+  assetId: _assetId,
+)
+external ffi.Pointer<ffi.Void> _native_lockbox_create_contact_with_signing_key(
+  ffi.Pointer<ffi.Void> p0,
+  ffi.Pointer<ffi.Void> p1,
 );
 
 @ffi.Native<_LockboxCreateWithSigningKeyNative>(
@@ -3647,11 +3688,21 @@ final class RevaultNative {
             _LockboxCreatePasswordNative,
             _LockboxCreatePasswordDart
           >('lockbox_create_password'),
+      _lockbox_create_password_with_signing_key = library
+          .lookupFunction<
+            _LockboxCreatePasswordWithSigningKeyNative,
+            _LockboxCreatePasswordWithSigningKeyDart
+          >('lockbox_create_password_with_signing_key'),
       _lockbox_create_contact = library
           .lookupFunction<
             _LockboxCreateContactNative,
             _LockboxCreateContactDart
           >('lockbox_create_contact'),
+      _lockbox_create_contact_with_signing_key = library
+          .lookupFunction<
+            _LockboxCreateContactWithSigningKeyNative,
+            _LockboxCreateContactWithSigningKeyDart
+          >('lockbox_create_contact_with_signing_key'),
       _lockbox_create_with_signing_key = library
           .lookupFunction<
             _LockboxCreateWithSigningKeyNative,
@@ -4605,7 +4656,11 @@ final class RevaultNative {
       _lockbox_create = _native_lockbox_create,
       _lockbox_create_with_options = _native_lockbox_create_with_options,
       _lockbox_create_password = _native_lockbox_create_password,
+      _lockbox_create_password_with_signing_key =
+          _native_lockbox_create_password_with_signing_key,
       _lockbox_create_contact = _native_lockbox_create_contact,
+      _lockbox_create_contact_with_signing_key =
+          _native_lockbox_create_contact_with_signing_key,
       _lockbox_create_with_signing_key =
           _native_lockbox_create_with_signing_key,
       _lockbox_open = _native_lockbox_open,
@@ -4916,9 +4971,22 @@ final class RevaultNative {
     ffi.Pointer<ffi.Uint8> password,
     int len,
   ) => _lockbox_create_password(password, len);
+  final _LockboxCreatePasswordWithSigningKeyDart
+  _lockbox_create_password_with_signing_key;
+  ffi.Pointer<ffi.Void> lockbox_create_password_with_signing_key(
+    ffi.Pointer<ffi.Uint8> password,
+    int len,
+    ffi.Pointer<ffi.Void> signingKey,
+  ) => _lockbox_create_password_with_signing_key(password, len, signingKey);
   final _LockboxCreateContactDart _lockbox_create_contact;
   ffi.Pointer<ffi.Void> lockbox_create_contact(ffi.Pointer<ffi.Void> contact) =>
       _lockbox_create_contact(contact);
+  final _LockboxCreateContactWithSigningKeyDart
+  _lockbox_create_contact_with_signing_key;
+  ffi.Pointer<ffi.Void> lockbox_create_contact_with_signing_key(
+    ffi.Pointer<ffi.Void> contact,
+    ffi.Pointer<ffi.Void> signingKey,
+  ) => _lockbox_create_contact_with_signing_key(contact, signingKey);
   final _LockboxCreateWithSigningKeyDart _lockbox_create_with_signing_key;
   ffi.Pointer<ffi.Void> lockbox_create_with_signing_key(
     ffi.Pointer<ffi.Uint8> content_key,

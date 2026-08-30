@@ -31,7 +31,9 @@ uint16_t lockbox_probe_format_version(const uint8_t * bytes, size_t len);
 void * lockbox_create(const uint8_t * key, size_t key_len);
 void * lockbox_create_with_options(const uint8_t * key, size_t key_len, const char * cache_mode, size_t cache_len, uint64_t cache_bytes, const char * workload, size_t workload_len, const char * worker, size_t worker_len, size_t jobs);
 void * lockbox_create_password(const uint8_t * password, size_t len);
+void * lockbox_create_password_with_signing_key(const uint8_t * password, size_t len, const void * signing_key);
 void * lockbox_create_contact(const void * contact);
+void * lockbox_create_contact_with_signing_key(const void * contact, const void * signing_key);
 void * lockbox_create_with_signing_key(const uint8_t * content_key, size_t key_len, const void * signing_key);
 void * lockbox_open(const uint8_t * archive, size_t archive_len, const uint8_t * key, size_t key_len);
 void * lockbox_open_with_options(const uint8_t * archive, size_t archive_len, const uint8_t * key, size_t key_len, const char * cache_mode, size_t cache_len, uint64_t cache_bytes, const char * workload, size_t workload_len, const char * worker, size_t worker_len, size_t jobs);
@@ -544,8 +546,20 @@ function Operations:lockbox_create_password(password)
   return value
 end
 
+function Operations:lockbox_create_password_with_signing_key(password, signing_key)
+  local value = native.lockbox_create_password_with_signing_key(password, #password, signing_key)
+  if value == nil then error(last_error(), 2) end
+  return value
+end
+
 function Operations:lockbox_create_contact(contact)
   local value = native.lockbox_create_contact(contact)
+  if value == nil then error(last_error(), 2) end
+  return value
+end
+
+function Operations:lockbox_create_contact_with_signing_key(contact, signing_key)
+  local value = native.lockbox_create_contact_with_signing_key(contact, signing_key)
   if value == nil then error(last_error(), 2) end
   return value
 end
@@ -1595,9 +1609,19 @@ function Revault:lockbox_create_password(password)
   return Lockbox.new(self.operations, self.operations:lockbox_create_password(password))
 end
 
+--- Creates a password protected Lockbox with the supplied profile signing key.
+function Revault:lockbox_create_password_with_signing_key(password, signing_key)
+  return Lockbox.new(self.operations, self.operations:lockbox_create_password_with_signing_key(password, signing_key.handle))
+end
+
 --- Creates an in memory Lockbox that the supplied contact can open.
 function Revault:lockbox_create_contact(contact)
   return Lockbox.new(self.operations, self.operations:lockbox_create_contact(contact.handle))
+end
+
+--- Creates a contact protected Lockbox with the supplied profile signing key.
+function Revault:lockbox_create_contact_with_signing_key(contact, signing_key)
+  return Lockbox.new(self.operations, self.operations:lockbox_create_contact_with_signing_key(contact.handle, signing_key.handle))
 end
 
 --- Creates an in memory Lockbox and assigns its profile signing key.
@@ -2692,13 +2716,13 @@ function Lockbox.create_in_memory(options)
   if credentials ~= 1 then error('supply exactly one of password, content_key, or contact') end
   local runtime = Revault.runtime()
   local box
-  if options.password then box = runtime:lockbox_create_password(options.password)
-  elseif options.contact then box = runtime:lockbox_create_contact(options.contact)
+  if options.password then box = options.signing_key and runtime:lockbox_create_password_with_signing_key(options.password, options.signing_key) or runtime:lockbox_create_password(options.password)
+  elseif options.contact then box = options.signing_key and runtime:lockbox_create_contact_with_signing_key(options.contact, options.signing_key) or runtime:lockbox_create_contact(options.contact)
   elseif options.options then
     local tuning = options.options
     box = runtime:lockbox_create_with_options(options.content_key, tuning.cache_mode, tuning.cache_bytes or 0, tuning.workload, tuning.worker, tuning.jobs or 0)
   else box = runtime:lockbox_create(options.content_key) end
-  if options.signing_key then box:set_owner_signing_key(options.signing_key) end
+  if options.signing_key and not options.password and not options.contact then box:set_owner_signing_key(options.signing_key) end
   return box
 end
 --- Opens serialized archive bytes without consulting the Session Agent.

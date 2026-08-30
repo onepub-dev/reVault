@@ -136,6 +136,8 @@ static class Conformance
         Pass("lockbox_create_password"); using (var opened = Api.OpenLockboxWithPassword(passwordArchive, Bytes("archive password"))) Check(opened.GetFile("/password.txt").SequenceEqual(Bytes("password protected")), "password open"); Pass("lockbox_open_password", 2);
         byte[] contactArchive; using (var contactBox = Api.CreateLockboxForContact(publicKey)) { contactBox.AddFile("/contact.txt", Bytes("contact protected")); contactBox.Commit(); contactArchive = contactBox.Bytes; }
         Pass("lockbox_create_contact"); using (var opened = Api.OpenLockboxForContact(contactArchive, contact)) Check(opened.GetFile("/contact.txt").SequenceEqual(Bytes("contact protected")), "contact open"); Pass("lockbox_open_contact", 2);
+        using (var signedPassword = Api.CreateLockboxWithPasswordAndSigningKey(Bytes("archive password"), signing)) signedPassword.Commit(); Pass("lockbox_create_password_with_signing_key");
+        using (var signedContact = Api.CreateLockboxForContactWithSigningKey(publicKey, signing)) signedContact.Commit(); Pass("lockbox_create_contact_with_signing_key");
         using (var signed = Api.CreateLockboxWithProfileSigningKey(key, signing)) { signed.Commit(); Check(signed.OwnerInspection().Signed, "signed"); } Pass("lockbox_create_with_signing_key", 2);
         var extract = Path.Combine(Root(), "extract"); if (Directory.Exists(extract)) Directory.Delete(extract, true); Directory.CreateDirectory(extract);
         var extracted = Path.Combine(extract, "account.txt"); box.ExtractFile("/account.txt", extracted); Check(File.Exists(extracted), "extract file"); Pass("lockbox_extract_file", 2);

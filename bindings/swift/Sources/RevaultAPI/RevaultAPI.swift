@@ -103,8 +103,20 @@ final class BindingOperations {
         }
     }
 
+    func lockboxCreatePasswordWithSigningKey(_ password: Data, _ signingKey: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer {
+        return try password.withUnsafeBytes { passwordBytes in
+            guard let value = lockbox_create_password_with_signing_key(passwordBytes.bindMemory(to: UInt8.self).baseAddress, password.count, signingKey) else { throw RevaultError.native(lastError()) }
+            return value
+        }
+    }
+
     func lockboxCreateContact(_ contact: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer {
         guard let value = lockbox_create_contact(contact) else { throw RevaultError.native(lastError()) }
+        return value
+    }
+
+    func lockboxCreateContactWithSigningKey(_ contact: UnsafeMutableRawPointer, _ signingKey: UnsafeMutableRawPointer) throws -> UnsafeMutableRawPointer {
+        guard let value = lockbox_create_contact_with_signing_key(contact, signingKey) else { throw RevaultError.native(lastError()) }
         return value
     }
 
@@ -1492,9 +1504,19 @@ public final class Revault {
         return Lockbox(operations, try operations.lockboxCreatePassword(password))
     }
 
+    /// Creates a password-protected Lockbox with its owner signing key.
+    public func lockboxCreatePasswordWithProfileSigningKey(_ password: Data, _ signingKey: ProfileSigningKeyPair) throws -> Lockbox {
+        return Lockbox(operations, try operations.lockboxCreatePasswordWithSigningKey(password, signingKey.handle!))
+    }
+
     /// Creates an in memory Lockbox that the supplied contact can open.
     public func lockboxCreateContact(_ contact: OwnedHandle) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreateContact(contact.handle!))
+    }
+
+    /// Creates a contact-protected Lockbox with its owner signing key.
+    public func lockboxCreateContactWithProfileSigningKey(_ contact: OwnedHandle, _ signingKey: ProfileSigningKeyPair) throws -> Lockbox {
+        return Lockbox(operations, try operations.lockboxCreateContactWithSigningKey(contact.handle!, signingKey.handle!))
     }
 
     /// Creates an in memory Lockbox and assigns its profile signing key.

@@ -7,6 +7,8 @@
   descriptions and ownership guidance.
 - Align binding examples and facades with the current signed Lockbox and Vault
   APIs without adding legacy-format handling to the core bindings.
+- Establish caller-supplied owner signing keys in the first commit of password-
+  and contact-protected Lockboxes, preserving owner continuity on later writes.
 
 ## 0.3.12
 

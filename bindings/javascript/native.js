@@ -50,7 +50,9 @@ let lockbox_probe_format_version;
 let lockbox_create;
 let lockbox_create_with_options;
 let lockbox_create_password;
+let lockbox_create_password_with_signing_key;
 let lockbox_create_contact;
+let lockbox_create_contact_with_signing_key;
 let lockbox_create_with_signing_key;
 let lockbox_open;
 let lockbox_open_with_options;
@@ -277,7 +279,9 @@ export function configureNativeLibrary(explicitPath = undefined) {
   lockbox_create = library.func('void * lockbox_create(void *, size_t)');
   lockbox_create_with_options = library.func('void * lockbox_create_with_options(void *, size_t, const char *, size_t, uint64_t, const char *, size_t, const char *, size_t, size_t)');
   lockbox_create_password = library.func('void * lockbox_create_password(void *, size_t)');
+  lockbox_create_password_with_signing_key = library.func('void * lockbox_create_password_with_signing_key(void *, size_t, void *)');
   lockbox_create_contact = library.func('void * lockbox_create_contact(void *)');
+  lockbox_create_contact_with_signing_key = library.func('void * lockbox_create_contact_with_signing_key(void *, void *)');
   lockbox_create_with_signing_key = library.func('void * lockbox_create_with_signing_key(void *, size_t, void *)');
   lockbox_open = library.func('void * lockbox_open(void *, size_t, void *, size_t)');
   lockbox_open_with_options = library.func('void * lockbox_open_with_options(void *, size_t, void *, size_t, const char *, size_t, uint64_t, const char *, size_t, const char *, size_t, size_t)');
@@ -562,7 +566,11 @@ export class BindingOperations {
 
   lockboxCreatePassword(password) { return requireHandle(lockbox_create_password(Buffer.from(password), Buffer.byteLength(password))); }
 
+  lockboxCreatePasswordWithSigningKey(password, signingKey) { return requireHandle(lockbox_create_password_with_signing_key(Buffer.from(password), Buffer.byteLength(password), signingKey)); }
+
   lockboxCreateContact(contact) { return requireHandle(lockbox_create_contact(contact)); }
+
+  lockboxCreateContactWithSigningKey(contact, signingKey) { return requireHandle(lockbox_create_contact_with_signing_key(contact, signingKey)); }
 
   lockboxCreateWithSigningKey(contentKey, signingKey) { return requireHandle(lockbox_create_with_signing_key(Buffer.from(contentKey), Buffer.byteLength(contentKey), signingKey)); }
 

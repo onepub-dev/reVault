@@ -404,6 +404,14 @@ class Lockbox {
     return adopt(lockbox_create_password(
         reinterpret_cast<const std::uint8_t*>(password.data()), password.size()));
   }
+  /** Creates with password and establishes the supplied owner signing key. */
+  static Lockbox create_with_password_and_signing_key(
+      const std::string& password,
+      const ProfileSigningKeyPair& signing_key) {
+    return adopt(lockbox_create_password_with_signing_key(
+        reinterpret_cast<const std::uint8_t*>(password.data()), password.size(),
+        signing_key.native_handle()));
+  }
   /** Creates with options. */
   static Lockbox create_with_options(const std::vector<std::uint8_t>& key,
                                      const LockboxOptions& options) {
@@ -415,6 +423,13 @@ class Lockbox {
   /** Creates for contact. */
   static Lockbox create_for_contact(const ContactPublicKey& contact) {
     return adopt(lockbox_create_contact(contact.native_handle()));
+  }
+  /** Creates for contact and establishes the supplied owner signing key. */
+  static Lockbox create_for_contact_with_signing_key(
+      const ContactPublicKey& contact,
+      const ProfileSigningKeyPair& signing_key) {
+    return adopt(lockbox_create_contact_with_signing_key(
+        contact.native_handle(), signing_key.native_handle()));
   }
   /** Creates signed. */
   static Lockbox create_signed(const std::vector<std::uint8_t>& key,

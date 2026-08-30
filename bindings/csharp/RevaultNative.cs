@@ -35,7 +35,11 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr lockbox_create_password(IntPtr password, nuint len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr lockbox_create_password_with_signing_key(IntPtr password, nuint len, IntPtr signing_key);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr lockbox_create_contact(IntPtr contact);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    public static extern IntPtr lockbox_create_contact_with_signing_key(IntPtr contact, IntPtr signing_key);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr lockbox_create_with_signing_key(IntPtr content_key, nuint key_len, IntPtr signing_key);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]

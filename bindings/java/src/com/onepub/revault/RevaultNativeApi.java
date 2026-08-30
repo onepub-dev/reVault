@@ -20,7 +20,9 @@ final class RevaultNativeApi {
   public final MethodHandle lockbox_create;
   public final MethodHandle lockbox_create_with_options;
   public final MethodHandle lockbox_create_password;
+  public final MethodHandle lockbox_create_password_with_signing_key;
   public final MethodHandle lockbox_create_contact;
+  public final MethodHandle lockbox_create_contact_with_signing_key;
   public final MethodHandle lockbox_create_with_signing_key;
   public final MethodHandle lockbox_open;
   public final MethodHandle lockbox_open_with_options;
@@ -242,7 +244,9 @@ final class RevaultNativeApi {
     lockbox_create = linker.downcallHandle(symbols.find("lockbox_create").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_create_with_options = linker.downcallHandle(symbols.find("lockbox_create_with_options").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));
     lockbox_create_password = linker.downcallHandle(symbols.find("lockbox_create_password").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
+    lockbox_create_password_with_signing_key = linker.downcallHandle(symbols.find("lockbox_create_password_with_signing_key").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
     lockbox_create_contact = linker.downcallHandle(symbols.find("lockbox_create_contact").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
+    lockbox_create_contact_with_signing_key = linker.downcallHandle(symbols.find("lockbox_create_contact_with_signing_key").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
     lockbox_create_with_signing_key = linker.downcallHandle(symbols.find("lockbox_create_with_signing_key").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
     lockbox_open = linker.downcallHandle(symbols.find("lockbox_open").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_open_with_options = linker.downcallHandle(symbols.find("lockbox_open_with_options").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));

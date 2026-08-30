@@ -113,8 +113,18 @@ final class BindingOperations {
     }
   }
 
+  public MemorySegment lockboxCreatePasswordWithSigningKey(byte[] password, MemorySegment signingKey) {
+    try (var arena = Arena.ofConfined()) {
+      return require((MemorySegment) call(api.lockbox_create_password_with_signing_key, bytes(arena, password), (long) password.length, signingKey));
+    }
+  }
+
   public MemorySegment lockboxCreateContact(MemorySegment contact) {
     return require((MemorySegment) call(api.lockbox_create_contact, contact));
+  }
+
+  public MemorySegment lockboxCreateContactWithSigningKey(MemorySegment contact, MemorySegment signingKey) {
+    return require((MemorySegment) call(api.lockbox_create_contact_with_signing_key, contact, signingKey));
   }
 
   public MemorySegment lockboxCreateWithSigningKey(byte[] contentKey, MemorySegment signingKey) {

@@ -236,9 +236,18 @@ public final class Revault {
   }
   /** Creates lockbox with password. */
   public Lockbox createLockboxWithPassword(byte[] password) { return new Lockbox(operations.lockboxCreatePassword(password)); }
+  /** Creates a password-protected lockbox and establishes the supplied owner signing key. */
+  public Lockbox createLockboxWithPasswordAndSigningKey(byte[] password, ProfileSigningKeyPair signingKey) {
+    ensureOpen(signingKey.handle); return new Lockbox(operations.lockboxCreatePasswordWithSigningKey(password, signingKey.handle));
+  }
   /** Creates lockbox for contact. */
   public Lockbox createLockboxForContact(ContactPublicKey contact) {
     ensureOpen(contact.handle); return new Lockbox(operations.lockboxCreateContact(contact.handle));
+  }
+  /** Creates a contact-protected lockbox and establishes the supplied owner signing key. */
+  public Lockbox createLockboxForContactWithSigningKey(ContactPublicKey contact, ProfileSigningKeyPair signingKey) {
+    ensureOpen(contact.handle); ensureOpen(signingKey.handle);
+    return new Lockbox(operations.lockboxCreateContactWithSigningKey(contact.handle, signingKey.handle));
   }
   /** Creates signed lockbox. */
   public Lockbox createLockboxWithProfileSigningKey(byte[] contentKey, ProfileSigningKeyPair signingKey) {

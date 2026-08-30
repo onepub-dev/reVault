@@ -106,10 +106,24 @@ final class Revault
         return new Lockbox($this->operations, $this->operations->lockboxCreatePassword($password));
     }
 
+    /** Creates a password-protected Lockbox whose first commit establishes
+     * the supplied profile signing key; close the returned handle after use. */
+    public function lockboxCreatePasswordWithSigningKey(string $password, OwnedHandle $signingKey): Lockbox
+    {
+        return new Lockbox($this->operations, $this->operations->lockboxCreatePasswordWithSigningKey($password, $signingKey->nativeHandle()));
+    }
+
     /** Creates an in memory Lockbox that the supplied contact can open. */
     public function lockboxCreateContact(OwnedHandle $contact): Lockbox
     {
         return new Lockbox($this->operations, $this->operations->lockboxCreateContact($contact->nativeHandle()));
+    }
+
+    /** Creates a contact-protected Lockbox whose first commit establishes
+     * the supplied profile signing key; close the returned handle after use. */
+    public function lockboxCreateContactWithSigningKey(OwnedHandle $contact, OwnedHandle $signingKey): Lockbox
+    {
+        return new Lockbox($this->operations, $this->operations->lockboxCreateContactWithSigningKey($contact->nativeHandle(), $signingKey->nativeHandle()));
     }
 
     /** Creates an in memory Lockbox and assigns its profile signing key. */
@@ -407,11 +421,11 @@ class Lockbox extends OwnedHandle
             throw new \InvalidArgumentException('Supply exactly one of password, contentKey, or contact.');
         }
         $runtime = Revault::runtime();
-        $box = $password !== null ? $runtime->lockboxCreatePassword($password)
-            : ($contact !== null ? $runtime->lockboxCreateContact($contact)
+        $box = $password !== null ? ($signingKey === null ? $runtime->lockboxCreatePassword($password) : $runtime->lockboxCreatePasswordWithSigningKey($password, $signingKey))
+            : ($contact !== null ? ($signingKey === null ? $runtime->lockboxCreateContact($contact) : $runtime->lockboxCreateContactWithSigningKey($contact, $signingKey))
                 : ($options !== null ? $runtime->lockboxCreateWithOptions($contentKey, $options['cacheMode'], $options['cacheBytes'] ?? 0, $options['workload'], $options['worker'], $options['jobs'] ?? 0)
                     : $runtime->lockboxCreate($contentKey)));
-        if ($signingKey !== null) $box->setOwnerSigningKey($signingKey);
+        if ($signingKey !== null && $password === null && $contact === null) $box->setOwnerSigningKey($signingKey);
         return $box;
     }
 

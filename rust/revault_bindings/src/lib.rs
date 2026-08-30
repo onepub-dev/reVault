@@ -886,6 +886,43 @@ pub unsafe extern "C" fn lockbox_create_with_options(
 }
 
 #[no_mangle]
+/// Creates a password-protected lockbox with its owner signing key.
+///
+/// # Safety
+/// The password pointer must be valid for `len` readable bytes. The signing
+/// key handle must come from reVault and remain live for this call.
+pub unsafe extern "C" fn lockbox_create_password_with_signing_key(
+    password: *const u8,
+    len: usize,
+    signing_key: *const c_void,
+) -> *mut c_void {
+    let (Some(password), Some(signing_key)) = (
+        unsafe { input(password, len) },
+        (!signing_key.is_null()).then(|| unsafe { &*(signing_key.cast::<OwnerSigningKeyPair>()) }),
+    ) else {
+        set_error("password or signing key handle is null");
+        return ptr::null_mut();
+    };
+    let password = match revault_lockbox_api::SecretString::try_from_slice(password) {
+        Ok(value) => value,
+        Err(error) => {
+            set_error(error);
+            return ptr::null_mut();
+        }
+    };
+    match Lockbox::create_in_memory(LockboxProtection::Password(&password), signing_key) {
+        Ok(value) => {
+            clear_error();
+            Box::into_raw(Box::new(value)).cast()
+        }
+        Err(error) => {
+            set_error(error);
+            ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
 /// Creates contact.
 ///
 /// # Safety
@@ -914,6 +951,41 @@ pub unsafe extern "C" fn lockbox_create_contact(contact: *const c_void) -> *mut 
             contact: contact.clone(),
         },
         &signing,
+    ) {
+        Ok(value) => {
+            clear_error();
+            Box::into_raw(Box::new(value)).cast()
+        }
+        Err(error) => {
+            set_error(error);
+            ptr::null_mut()
+        }
+    }
+}
+
+#[no_mangle]
+/// Creates a contact-protected lockbox with its owner signing key.
+///
+/// # Safety
+/// Both opaque handles must come from the matching reVault constructors,
+/// remain live for this call, and have the documented types.
+pub unsafe extern "C" fn lockbox_create_contact_with_signing_key(
+    contact: *const c_void,
+    signing_key: *const c_void,
+) -> *mut c_void {
+    let (Some(contact), Some(signing_key)) = (
+        (!contact.is_null()).then(|| unsafe { &*(contact.cast::<ContactPublicKey>()) }),
+        (!signing_key.is_null()).then(|| unsafe { &*(signing_key.cast::<OwnerSigningKeyPair>()) }),
+    ) else {
+        set_error("contact or signing key handle is null");
+        return ptr::null_mut();
+    };
+    match Lockbox::create_in_memory(
+        LockboxProtection::ContactPublicKey {
+            name: None,
+            contact: contact.clone(),
+        },
+        signing_key,
     ) {
         Ok(value) => {
             clear_error();
@@ -1085,15 +1157,7 @@ pub unsafe extern "C" fn lockbox_open_password(
         }
     };
     match Lockbox::open_with_password(bytes.to_vec(), &password) {
-        Ok(mut value) => {
-            let signing = match OwnerSigningKeyPair::generate() {
-                Ok(value) => value,
-                Err(error) => {
-                    set_error(error);
-                    return ptr::null_mut();
-                }
-            };
-            value.set_owner_signing_key(signing);
+        Ok(value) => {
             clear_error();
             Box::into_raw(Box::new(value)).cast()
         }
@@ -8201,6 +8265,40 @@ mod tests {
                 .is_none()
         );
         unsafe { buffer_free(value) };
+        unsafe { lockbox_free(handle) };
+    }
+
+    #[test]
+    fn contact_creation_establishes_the_supplied_owner() {
+        let contact = ContactKeyPair::generate().unwrap();
+        let public = contact.public_key();
+        let signing = OwnerSigningKeyPair::generate().unwrap();
+        let handle = unsafe {
+            lockbox_create_contact_with_signing_key(
+                (&public as *const ContactPublicKey).cast(),
+                (&signing as *const OwnerSigningKeyPair).cast(),
+            )
+        };
+        assert!(!handle.is_null());
+        let lockbox = unsafe { lockbox_ref(handle) }.unwrap();
+        assert!(lockbox.owner_signing_key_matches(&signing).unwrap());
+        unsafe { lockbox_free(handle) };
+    }
+
+    #[test]
+    fn password_creation_establishes_the_supplied_owner() {
+        let password = b"test password";
+        let signing = OwnerSigningKeyPair::generate().unwrap();
+        let handle = unsafe {
+            lockbox_create_password_with_signing_key(
+                password.as_ptr(),
+                password.len(),
+                (&signing as *const OwnerSigningKeyPair).cast(),
+            )
+        };
+        assert!(!handle.is_null());
+        let lockbox = unsafe { lockbox_ref(handle) }.unwrap();
+        assert!(lockbox.owner_signing_key_matches(&signing).unwrap());
         unsafe { lockbox_free(handle) };
     }
 }

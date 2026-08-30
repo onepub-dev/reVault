@@ -452,6 +452,18 @@ func CreateForContact(contact *ContactPublicKey) (*Lockbox, error) {
 	return adoptLockbox(C.lockbox_create_contact(contact.handle))
 }
 
+// CreateWithPasswordAndSigningKey creates a password-protected lockbox whose
+// first commit establishes signing as its owner.
+func CreateWithPasswordAndSigningKey(password []byte, signing *ProfileSigningKeyPair) (*Lockbox, error) {
+	return adoptLockbox(C.lockbox_create_password_with_signing_key(bytePointer(password), C.size_t(len(password)), signing.handle))
+}
+
+// CreateForContactWithSigningKey creates a contact-protected lockbox whose
+// first commit establishes signing as its owner.
+func CreateForContactWithSigningKey(contact *ContactPublicKey, signing *ProfileSigningKeyPair) (*Lockbox, error) {
+	return adoptLockbox(C.lockbox_create_contact_with_signing_key(contact.handle, signing.handle))
+}
+
 // CreateSigned creates signed.
 func CreateSigned(contentKey []byte, signing *ProfileSigningKeyPair) (*Lockbox, error) {
 	return adoptLockbox(C.lockbox_create_with_signing_key(bytePointer(contentKey), C.size_t(len(contentKey)), signing.handle))

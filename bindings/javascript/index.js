@@ -92,9 +92,23 @@ export class Revault {
     return new Lockbox(this.operations, this.operations.lockboxCreatePassword(password));
   }
 
+  /** Creates a password-protected archive whose first commit establishes the
+   * supplied profile signing key as owner. The returned Lockbox must be freed.
+   * @example `runtime.lockboxCreatePasswordWithSigningKey(password, owner)` */
+  lockboxCreatePasswordWithSigningKey(password, signingKey) {
+    return new Lockbox(this.operations, this.operations.lockboxCreatePasswordWithSigningKey(password, signingKey?.nativeHandle ?? null));
+  }
+
   /** Creates an in memory Lockbox that the supplied contact can open. */
   lockboxCreateContact(contact) {
     return new Lockbox(this.operations, this.operations.lockboxCreateContact(contact?.nativeHandle ?? null));
+  }
+
+  /** Creates a contact-protected archive whose first commit establishes the
+   * supplied profile signing key as owner. The returned Lockbox must be freed.
+   * @example `runtime.lockboxCreateContactWithSigningKey(contact, owner)` */
+  lockboxCreateContactWithSigningKey(contact, signingKey) {
+    return new Lockbox(this.operations, this.operations.lockboxCreateContactWithSigningKey(contact?.nativeHandle ?? null, signingKey?.nativeHandle ?? null));
   }
 
   /** Creates an in memory Lockbox and assigns its profile signing key. */
@@ -328,11 +342,15 @@ export class Lockbox extends OwnedHandle {
     if (credentials.length !== 1) throw new TypeError('Supply exactly one of password, contentKey, or contact.');
     const runtime = Revault.runtime;
     let lockbox;
-    if (password != null) lockbox = runtime.lockboxCreatePassword(password);
-    else if (contact != null) lockbox = runtime.lockboxCreateContact(contact);
+    if (password != null) lockbox = signingKey == null
+      ? runtime.lockboxCreatePassword(password)
+      : runtime.lockboxCreatePasswordWithSigningKey(password, signingKey);
+    else if (contact != null) lockbox = signingKey == null
+      ? runtime.lockboxCreateContact(contact)
+      : runtime.lockboxCreateContactWithSigningKey(contact, signingKey);
     else if (options != null) lockbox = runtime.lockboxCreateWithOptions(contentKey, options.cacheMode, options.cacheBytes ?? 0, options.workload, options.worker, options.jobs ?? 0);
     else lockbox = runtime.lockboxCreate(contentKey);
-    if (signingKey != null) lockbox.setOwnerSigningKey(signingKey);
+    if (signingKey != null && password == null && contact == null) lockbox.setOwnerSigningKey(signingKey);
     return lockbox;
   }
 

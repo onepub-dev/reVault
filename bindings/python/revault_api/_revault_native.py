@@ -25,8 +25,12 @@ def configure_native(library, buffer_type):
     library.lockbox_create_with_options.restype = ctypes.c_void_p
     library.lockbox_create_password.argtypes = [ctypes.c_void_p, ctypes.c_size_t]
     library.lockbox_create_password.restype = ctypes.c_void_p
+    library.lockbox_create_password_with_signing_key.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p]
+    library.lockbox_create_password_with_signing_key.restype = ctypes.c_void_p
     library.lockbox_create_contact.argtypes = [ctypes.c_void_p]
     library.lockbox_create_contact.restype = ctypes.c_void_p
+    library.lockbox_create_contact_with_signing_key.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    library.lockbox_create_contact_with_signing_key.restype = ctypes.c_void_p
     library.lockbox_create_with_signing_key.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p]
     library.lockbox_create_with_signing_key.restype = ctypes.c_void_p
     library.lockbox_open.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t]

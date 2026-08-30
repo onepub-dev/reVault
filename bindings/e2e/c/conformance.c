@@ -1463,6 +1463,19 @@ static void archive_advanced(void) {
   lockbox_free(contact_box);
   buffer_free(contact_archive);
 
+  void *signed_password_box = lockbox_create_password_with_signing_key(
+      (const uint8_t *)"archive password", 16, signing);
+  CHECK(signed_password_box != NULL && lockbox_commit(signed_password_box),
+        "create password archive with owner");
+  PASS(lockbox_create_password_with_signing_key, 1);
+  lockbox_free(signed_password_box);
+  void *signed_contact_box =
+      lockbox_create_contact_with_signing_key(contact_public, signing);
+  CHECK(signed_contact_box != NULL && lockbox_commit(signed_contact_box),
+        "create contact archive with owner");
+  PASS(lockbox_create_contact_with_signing_key, 1);
+  lockbox_free(signed_contact_box);
+
   void *signed_box =
       lockbox_create_with_signing_key(key, sizeof(key), signing);
   CHECK(signed_box != NULL, "create signed archive");

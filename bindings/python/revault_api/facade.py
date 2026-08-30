@@ -199,14 +199,16 @@ class Lockbox(_OwnedHandle):
             raise ValueError('Supply exactly one of password, content_key, or contact.')
         runtime = Revault.load()
         if password is not None:
-            box = runtime.lockbox_create_password(password)
+            box = (runtime.lockbox_create_password(password) if signing_key is None
+                   else runtime.lockbox_create_password_with_signing_key(password, signing_key))
         elif contact is not None:
-            box = runtime.lockbox_create_contact(contact)
+            box = (runtime.lockbox_create_contact(contact) if signing_key is None
+                   else runtime.lockbox_create_contact_with_signing_key(contact, signing_key))
         elif options is not None:
             box = runtime.lockbox_create_with_options(content_key, options.cache_mode, options.cache_bytes, options.workload, options.worker, options.jobs)
         else:
             box = runtime.lockbox_create(content_key)
-        if signing_key is not None:
+        if signing_key is not None and password is None and contact is None:
             box.set_owner_signing_key(signing_key)
         return box
 
@@ -400,10 +402,20 @@ def _Vault_lockbox_create_password(self, password):
     return _call(self, 'lockbox_create_password', (password,))
 Revault.lockbox_create_password = _Vault_lockbox_create_password
 
+def _Vault_lockbox_create_password_with_signing_key(self, password, signing_key):
+    """Creates a password-protected lockbox with its owner signing key."""
+    return _call(self, 'lockbox_create_password_with_signing_key', (password, signing_key))
+Revault.lockbox_create_password_with_signing_key = _Vault_lockbox_create_password_with_signing_key
+
 def _Vault_lockbox_create_contact(self, contact):
     """Returns the contact."""
     return _call(self, 'lockbox_create_contact', (contact,))
 Revault.lockbox_create_contact = _Vault_lockbox_create_contact
+
+def _Vault_lockbox_create_contact_with_signing_key(self, contact, signing_key):
+    """Creates a contact-protected lockbox with its owner signing key."""
+    return _call(self, 'lockbox_create_contact_with_signing_key', (contact, signing_key))
+Revault.lockbox_create_contact_with_signing_key = _Vault_lockbox_create_contact_with_signing_key
 
 def _Vault_lockbox_create_with_signing_key(self, content_key, signing_key):
     """Returns the key."""
@@ -1520,7 +1532,9 @@ _ROUTES = {
     'lockbox_create': (('bytes',), 'handle:Lockbox', False),
     'lockbox_create_with_options': (('bytes', 'text', 'value', 'text', 'text', 'value'), 'handle:Lockbox', False),
     'lockbox_create_password': (('bytes',), 'handle:Lockbox', False),
+    'lockbox_create_password_with_signing_key': (('bytes', 'handle'), 'handle:Lockbox', False),
     'lockbox_create_contact': (('handle',), 'handle:Lockbox', False),
+    'lockbox_create_contact_with_signing_key': (('handle', 'handle'), 'handle:Lockbox', False),
     'lockbox_create_with_signing_key': (('bytes', 'handle'), 'handle:Lockbox', False),
     'lockbox_open': (('bytes', 'bytes'), 'handle:Lockbox', False),
     'lockbox_open_with_options': (('bytes', 'bytes', 'text', 'value', 'text', 'text', 'value'), 'handle:Lockbox', False),

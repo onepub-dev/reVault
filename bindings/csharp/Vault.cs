@@ -193,8 +193,12 @@ public sealed class Revault
         operations.LockboxCreateWithOptions(key, options.CacheMode, options.CacheBytes, options.Workload, options.Worker, options.Jobs));
     /// <summary>Creates lockbox with password.</summary>
     public Lockbox CreateLockboxWithPassword(byte[] password) => new(this, operations.LockboxCreatePassword(password));
+    /// <summary>Creates a password-protected lockbox and establishes the supplied owner signing key.</summary>
+    public Lockbox CreateLockboxWithPasswordAndSigningKey(byte[] password, ProfileSigningKeyPair signing) => new(this, operations.LockboxCreatePasswordWithSigningKey(password, signing.Handle));
     /// <summary>Creates lockbox for contact.</summary>
     public Lockbox CreateLockboxForContact(ContactPublicKey contact) => new(this, operations.LockboxCreateContact(contact.Handle));
+    /// <summary>Creates a contact-protected lockbox and establishes the supplied owner signing key.</summary>
+    public Lockbox CreateLockboxForContactWithSigningKey(ContactPublicKey contact, ProfileSigningKeyPair signing) => new(this, operations.LockboxCreateContactWithSigningKey(contact.Handle, signing.Handle));
     /// <summary>Creates signed lockbox.</summary>
     public Lockbox CreateLockboxWithProfileSigningKey(byte[] key, ProfileSigningKeyPair signing) => new(this, operations.LockboxCreateWithSigningKey(key, signing.Handle));
     /// <summary>Opens lockbox.</summary>

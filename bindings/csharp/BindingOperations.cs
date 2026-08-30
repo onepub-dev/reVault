@@ -98,9 +98,20 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_create_password((IntPtr)passwordPointer, (nuint)password.Length)); }
     }
 
+    public unsafe IntPtr LockboxCreatePasswordWithSigningKey(byte[] password, IntPtr signingKey)
+    {
+        fixed (byte* passwordPointer = password)
+        { return Require(RevaultNative.lockbox_create_password_with_signing_key((IntPtr)passwordPointer, (nuint)password.Length, signingKey)); }
+    }
+
     public unsafe IntPtr LockboxCreateContact(IntPtr contact)
     {
         return Require(RevaultNative.lockbox_create_contact(contact));
+    }
+
+    public unsafe IntPtr LockboxCreateContactWithSigningKey(IntPtr contact, IntPtr signingKey)
+    {
+        return Require(RevaultNative.lockbox_create_contact_with_signing_key(contact, signingKey));
     }
 
     public unsafe IntPtr LockboxCreateWithSigningKey(byte[] contentKey, IntPtr signingKey)
