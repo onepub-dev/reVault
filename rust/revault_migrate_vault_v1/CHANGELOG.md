@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.0.4 - 2026-08-31
+
+- Export Vault structure versions 1 and 2 from historical Lockbox container
+  format 1. The exporter now reads the structure discriminator before choosing
+  the corresponding identity/profile record paths, preventing migration from
+  confusing the outer container version with the encrypted Vault structure
+  version.
+- Advertise both supported Vault structures and migration schemas through the
+  versioned capability response.
+
 ## 0.0.3 - 2026-08-30
 
 - Restored the minimum supported Rust version to Rust 1.88.

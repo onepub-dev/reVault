@@ -1,6 +1,6 @@
 [package]
 name = "revault_cli"
-version = "0.0.9"
+version = "0.0.10"
 edition = "2021"
 rust-version = "1.88"
 authors = ["OnePub IP Pty Ltd <support@onepub.dev>"]
@@ -87,4 +87,6 @@ revault_key_server = { path = "../revault_key_server" }
 revault_vault_api_v1 = { package = "revault_vault_api", version = "=0.0.2" }
 revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.3" }
 revault_lockbox_api_vault_v1 = { package = "revault_lockbox_api", version = "=0.0.2" }
+revault_vault_api_container_v1 = { package = "revault_vault_api", version = "=0.0.6" }
+revault_lockbox_api_container_v1 = { package = "revault_lockbox_api", version = "=0.0.6" }
 tempfile = "3"

@@ -1,12 +1,13 @@
 use crate::secret_prompt::prompt_secret;
 use revault_lockbox_api::vault_integration::VaultOpen;
 use revault_lockbox_api::{
-    ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxOpen, LockboxProtection, SecretVec,
+    ArtifactKind, ContactKeyPair, ContactPublicKey, Error, Lockbox, LockboxOpen, LockboxProtection,
+    SecretVec,
 };
 use revault_vault_api::{
-    auto_open_scope, default_vault_path, forget_platform_vault_password,
-    get_platform_vault_password, import_public_key, local_vault, platform_secret_store_disabled,
-    put_platform_vault_password, AutoOpenScope, NoopStore, SecretString, Vault, VaultDirectory,
+    auto_open_scope, default_vault_path, get_platform_vault_password, import_public_key,
+    local_vault, platform_secret_store_disabled, put_platform_vault_password, AutoOpenScope,
+    NoopStore, SecretString, Vault, VaultDirectory,
 };
 use std::fmt;
 use std::fs;
@@ -175,27 +176,27 @@ fn closed_lockbox_error(path: &str, reason: Option<Error>) -> Box<dyn std::error
     let mut details = vec![("Lockbox".to_string(), path.to_string())];
     let next_step = match reason {
         Some(Error::UnsupportedFormatVersion {
-            artifact: revault_lockbox_api::ArtifactKind::Vault,
+            artifact: revault_lockbox_api::ArtifactKind::Lockbox,
             found,
             supported,
         }) if found < supported => {
             details.push((
                 "Auto-open".to_string(),
                 format!(
-                    "Your local vault uses format version {found}; this reVault build uses version {supported}."
+                    "Your local vault uses Lockbox container format {found}; this reVault build uses container format {supported}."
                 ),
             ));
             "Migrate the vault, then retry:\n  lbx migrate vault --replace".to_string()
         }
         Some(Error::UnsupportedFormatVersion {
-            artifact: revault_lockbox_api::ArtifactKind::Vault,
+            artifact: revault_lockbox_api::ArtifactKind::Lockbox,
             found,
             supported,
         }) => {
             details.push((
                 "Auto-open".to_string(),
                 format!(
-                    "Your local vault uses format version {found}; this reVault build supports version {supported}."
+                    "Your local vault uses Lockbox container format {found}; this reVault build supports container format {supported}."
                 ),
             ));
             "Install a newer reVault release, then retry.".to_string()
@@ -219,14 +220,17 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
     if scope != AutoOpenScope::Lockboxes {
         return Err(AutoOpenLockboxError::Disabled);
     }
-    let password = revault_lockbox_api::SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
+    let password = match revault_lockbox_api::SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")
         .map_err(|err| AutoOpenLockboxError::Unavailable(err.into()))?
-        .or(get_platform_vault_password().unwrap_or_default())
-        .ok_or_else(|| {
-            AutoOpenLockboxError::Unavailable(Error::VaultUnavailable(
-                "Vault passphrase is not stored for Auto Open".to_string(),
-            ))
-        })?;
+    {
+        Some(password) => Some(password),
+        None => get_platform_vault_password().map_err(AutoOpenLockboxError::Unavailable)?,
+    }
+    .ok_or_else(|| {
+        AutoOpenLockboxError::Unavailable(Error::VaultUnavailable(
+            "Vault passphrase is not stored for Auto Open".to_string(),
+        ))
+    })?;
     let vault = VaultDirectory::open_or_create_default(&password)
         .map_err(AutoOpenLockboxError::Unavailable)?;
     let lockbox_id =
@@ -489,22 +493,17 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
     }
     let platform_enabled = !platform_secret_store_disabled()?;
     if platform_enabled {
-        if let Ok(Some(password)) = get_platform_vault_password() {
-            match open_default_vault_with_password(&password) {
-                Ok(vault) => return Ok(vault),
-                Err(_) => {
-                    let _ = forget_platform_vault_password();
-                }
-            }
+        if let Some(password) = get_platform_vault_password()? {
+            // A stored credential is authoritative. Preserve and report any
+            // open error: it may describe a required migration, damaged data,
+            // or an unavailable file rather than an invalid passphrase.
+            return open_default_vault_with_password(&password);
         }
     }
 
     let vault_id = default_vault_path()?.to_string_lossy().into_owned();
     if let Ok(Some(password)) = revault_vault_api::get_vault_unlock_key(&vault_id) {
-        if let Ok(vault) = open_default_vault_with_password(&password) {
-            return Ok(vault);
-        }
-        let _ = revault_vault_api::forget_vault_unlock_key(&vault_id);
+        return open_default_vault_with_password(&password);
     }
 
     if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
@@ -512,11 +511,14 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
     }
 
     let password = prompt_secret("Vault passphrase: ").map_err(|err| Error::Io(err.to_string()))?;
-    let vault = open_default_vault_with_password(&password)?;
     if platform_enabled {
-        remember_default_vault_password_with_warning(&password, "the vault opened successfully");
+        // Entering the Vault passphrase explicitly authorizes Auto Open to
+        // remember it. Store it before opening so a required format migration
+        // does not cause every subsequent command, including migration, to
+        // prompt for the same passphrase again.
+        remember_default_vault_password_with_warning(&password, "the passphrase was entered");
     }
-    Ok(vault)
+    open_default_vault_with_password(&password)
 }
 
 /// Resolves the configured Vault passphrase without opening the Vault.
@@ -524,7 +526,7 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
 /// format.
 pub(crate) fn vault_password_without_open() -> CliResult<SecretString> {
     if !platform_secret_store_disabled()? {
-        if let Ok(Some(password)) = get_platform_vault_password() {
+        if let Some(password) = get_platform_vault_password()? {
             return Ok(password);
         }
     }
@@ -551,10 +553,27 @@ pub(crate) fn open_default_vault_with_password(
             );
             Ok(vault)
         }
-        Err(Error::InvalidKey | Error::CorruptHeader) => Err(cli_error(
-            "Vault open failed: check the Vault passphrase. If the passphrase is correct, the Vault file may be damaged",
+        Err(Error::UnsupportedFormatVersion {
+            artifact: ArtifactKind::Lockbox,
+            found,
+            supported,
+        }) => Err(cli_diagnostic(
+            ExitCode::UnsupportedFormat,
+            "Unsupported Vault container format",
+            vec![(
+                "Details".to_string(),
+                format!(
+                    "Found Lockbox container version {found}; this reVault build supports container version {supported}. The encrypted Vault structure is detected separately during migration."
+                ),
+            )],
+            "Run `lbx migrate vault --output <directory>` or use `--replace`.",
         )),
-        Err(err) => Err(err.into()),
+        Err(err) => match err {
+            Error::InvalidKey | Error::CorruptHeader => Err(cli_error(
+                "Vault open failed: check the Vault passphrase. If the passphrase is correct, the Vault file may be damaged",
+            )),
+            err => Err(err.into()),
+        },
     }
 }
 

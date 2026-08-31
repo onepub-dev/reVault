@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.0.10 - 2026-08-31
+
+- Fixed automatic migration of Vault structure version 2 when it is stored in
+  historical Lockbox container format 1. Migration now installs the 0.0.4
+  historical Vault exporter, which detects the embedded structure independently
+  and reads the corresponding profile records before rebuilding a current
+  format Vault.
+- Preserve platform credential-store errors instead of treating them as a
+  missing or invalid passphrase, and retain an explicitly entered Vault
+  passphrase when the Vault requires migration so the migration command can
+  continue without an avoidable second prompt.
+- Refreshed the packaged Cargo lockfile to use `chacha20` 0.10.2 after 0.10.1
+  was yanked. This removes the warning from locked CLI installations and
+  includes the upstream correction for an SSE4.1 intrinsic used by the SSE2
+  backend's RNG and legacy-counter variants. reVault's Lockbox format and
+  encryption behavior are unchanged.
+
 ## 0.0.9 - 2026-08-30
 
 - Preserve the advertised Rust 1.88 minimum for fresh Cargo installations by

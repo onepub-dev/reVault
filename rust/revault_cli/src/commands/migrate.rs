@@ -1,6 +1,6 @@
 use super::context::{
     cli_error, default_vault, open_default_vault_with_password, open_existing,
-    vault_password_without_open, Access, CliResult,
+    remember_default_vault_password_with_warning, vault_password_without_open, Access, CliResult,
 };
 use crate::secret_prompt::prompt_secret;
 use clap::ArgMatches;
@@ -176,6 +176,10 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
     if !source.exists()
         && recover_interrupted_replacement(&source, ArtifactKind::Vault, &source_password)?
     {
+        remember_default_vault_password_with_warning(
+            &source_password,
+            "the interrupted vault replacement completed successfully",
+        );
         println!("Completed the interrupted vault replacement.");
         return Ok(());
     }
@@ -299,6 +303,10 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
         }
         println!("Vault migrated to format version {CURRENT_VAULT_STRUCTURE_VERSION}.");
         println!("Previous vault retained at {}", backup.display());
+        remember_default_vault_password_with_warning(
+            &source_password,
+            "the vault migrated successfully",
+        );
     } else {
         println!("Vault migrated to {}", output.display());
     }
@@ -538,12 +546,12 @@ fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterR
     match (kind, source_version) {
         (ArtifactKind::Vault, 1) => Some(ExporterRelease {
             package: "revault_migrate_vault_v1",
-            version: "0.0.3",
+            version: "0.0.4",
             binary: "revault-migrate-vault-v1",
-            protocol: 1,
+            protocol: 2,
             artifact: "vault",
             native_version: 1,
-            migration_schema: 1,
+            migration_schema: 2,
         }),
         (ArtifactKind::Archive, 1) => Some(ExporterRelease {
             package: "revault_migrate_archive_v1",
@@ -583,7 +591,28 @@ fn capabilities_match(bytes: &[u8], release: ExporterRelease) -> bool {
             .get("migration_schema")
             .and_then(|value| value.as_u64())
             == Some(u64::from(release.migration_schema));
-    valid
+    if !valid || release.artifact != "vault" || release.protocol < 2 {
+        return valid;
+    }
+    value
+        .get("container_version")
+        .and_then(|value| value.as_u64())
+        == Some(1)
+        && json_u64_array(&value, "structure_versions") == [1, 2]
+        && json_u64_array(&value, "migration_schemas") == [1, 2]
+}
+
+fn json_u64_array(value: &serde_json::Value, field: &str) -> Vec<u64> {
+    value
+        .get(field)
+        .and_then(|value| value.as_array())
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(serde_json::Value::as_u64)
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn run_historical_vault_exporter(
@@ -1130,9 +1159,9 @@ mod tests {
         let vault = exporter_release(ArtifactKind::Vault, 1).unwrap();
         assert_eq!(vault.package, "revault_migrate_vault_v1");
         assert_eq!(vault.binary, "revault-migrate-vault-v1");
-        assert_eq!(vault.version, "0.0.3");
+        assert_eq!(vault.version, "0.0.4");
         assert!(capabilities_match(
-            br#"{"protocol":1,"artifact":"vault","native_version":1,"migration_schema":1}"#,
+            br#"{"protocol":2,"artifact":"vault","native_version":1,"migration_schema":2,"container_version":1,"structure_versions":[1,2],"migration_schemas":[1,2]}"#,
             vault
         ));
         assert!(!capabilities_match(

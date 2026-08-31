@@ -1,25 +1,81 @@
+use revault_lockbox_api_container_v1::ContactKeyPair as StructureV2ContactKeyPair;
 use revault_lockbox_api_v1::{
     ContactKeyPair, Lockbox, LockboxOpen, LockboxPath, SecretString, VariableName,
 };
 use revault_migrate_vault_v1::export_vault_v1;
 use revault_migration_format::{ArtifactKind, ArtifactReader, MigrationRecord, VaultRecord};
+use revault_vault_api_container_v1::{
+    SecretString as StructureV2SecretString, VaultDirectory as StructureV2VaultDirectory,
+};
 use revault_vault_api_v1::VaultDirectory;
 use std::fs::File;
 use std::io::{BufReader, Write};
 use std::process::{Command, Stdio};
 
 #[test]
-fn reports_exact_vault_v1_capabilities() {
+fn reports_exact_historical_container_capabilities() {
     let output = Command::new(env!("CARGO_BIN_EXE_revault-migrate-vault-v1"))
         .arg("capabilities")
         .output()
         .unwrap();
     assert!(output.status.success());
     let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(value["protocol"], 1);
+    assert_eq!(value["protocol"], 2);
     assert_eq!(value["artifact"], "vault");
     assert_eq!(value["native_version"], 1);
-    assert_eq!(value["migration_schema"], 1);
+    assert_eq!(value["migration_schema"], 2);
+    assert_eq!(value["container_version"], 1);
+    assert_eq!(value["structure_versions"], serde_json::json!([1, 2]));
+    assert_eq!(value["migration_schemas"], serde_json::json!([1, 2]));
+}
+
+#[test]
+fn exports_structure_v2_from_lockbox_container_v1_without_modifying_source() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("vault-v2-container-v1");
+    let output = temp.path().join("vault.migration");
+    let password = StructureV2SecretString::try_from_slice(b"vault password").unwrap();
+    let vault = StructureV2VaultDirectory::replace(&root, &password).unwrap();
+    vault
+        .store_private_key("default", &StructureV2ContactKeyPair::generate().unwrap())
+        .unwrap();
+    vault
+        .store_profile_email("default", "mixed@example.test")
+        .unwrap();
+    drop(vault);
+    let vault_path = root.join("local-vault.lbox");
+    let before = std::fs::read(&vault_path).unwrap();
+
+    let mut child = Command::new(env!("CARGO_BIN_EXE_revault-migrate-vault-v1"))
+        .args(["migrate", "vault", "export", "--source"])
+        .arg(&root)
+        .arg("--output")
+        .arg(&output)
+        .stdin(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let mut stdin = child.stdin.take().unwrap();
+    write_secret_frame(&mut stdin, &[b"vault password", b"artifact password"]);
+    drop(stdin);
+    assert!(child.wait().unwrap().success());
+    assert_eq!(std::fs::read(&vault_path).unwrap(), before);
+
+    let mut reader = ArtifactReader::new(
+        BufReader::new(File::open(output).unwrap()),
+        b"artifact password",
+    )
+    .unwrap();
+    assert_eq!(reader.header().source_native_version, 2);
+    assert_eq!(reader.header().migration_schema_version, 2);
+    let mut found_profile = false;
+    while let Some(record) = reader.next_json::<MigrationRecord>().unwrap() {
+        if let MigrationRecord::Vault(VaultRecord::Profile(profile)) = record {
+            assert_eq!(profile.name, "default");
+            assert_eq!(profile.email.as_deref(), Some("mixed@example.test"));
+            found_profile = true;
+        }
+    }
+    assert!(found_profile);
 }
 
 #[test]

@@ -16,9 +16,13 @@ use std::path::Path;
 const VAULT_FILE_NAME: &str = "local-vault.lbox";
 const _: () = assert!(revault_vault_api_v1::CURRENT_VAULT_STRUCTURE_VERSION == 1);
 
-/// Exports native Vault structure version 1 without exposing that reader to
-/// the current `revault_vault_api`. This function is intended for the
-/// crates.io-published historical exporter executable.
+/// Exports a Vault stored in Lockbox container format 1 without exposing that
+/// reader to the current `revault_vault_api`.
+///
+/// Container format 1 was used by both Vault structure versions 1 and 2. This
+/// function deliberately supports both combinations so migration selection
+/// does not confuse the outer container version with the encrypted Vault
+/// structure version.
 pub fn export_vault_v1(
     root: &Path,
     vault_password: &[u8],
@@ -39,38 +43,44 @@ pub fn export_vault_v1(
         .trim()
         .parse::<u32>()
         .map_err(|_| MigrationError::Serialization("vault version is invalid".into()))?;
-    if structure != 1 {
+    if !matches!(structure, 1 | 2) {
         return Err(MigrationError::InvalidHeader(format!(
-            "v1 exporter cannot export vault structure version {structure}"
+            "container-format-v1 exporter cannot export vault structure version {structure}"
         )));
     }
+    let (history_directory, email_directory, history_magic, email_magic, migration_schema_version) =
+        match structure {
+            1 => ("identity_histories", "identity_emails", b"LBIH", b"LBIE", 1),
+            2 => ("profile_histories", "profile_emails", b"LBPH", b"LBPE", 2),
+            _ => unreachable!("validated Vault structure version"),
+        };
     let file = create_new(output)?;
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Vault,
-        source_native_version: 1,
-        migration_schema_version: 1,
+        source_native_version: structure,
+        migration_schema_version,
         target_native_version: Some(2),
         operation_id,
     };
     let mut writer = ArtifactWriter::new(BufWriter::new(file), header, artifact_passphrase)?;
     writer.write_json(&MigrationRecord::Vault(VaultRecord::Start {
-        structure_version: 1,
+        structure_version: structure,
     }))?;
 
-    for name in v1_profile_names(&lockbox)? {
+    for name in historical_profile_names(&lockbox)? {
         let history_path =
-            LockboxPath::new(format!("/identity_histories/{name}.lbih")).map_err(core_error)?;
+            LockboxPath::new(format!("/{history_directory}/{name}.lbih")).map_err(core_error)?;
         let history = lockbox
             .get_file(&history_path)
             .ok()
-            .map(|bytes| decode_history(&name, &bytes))
+            .map(|bytes| decode_history(&name, &bytes, history_magic, structure))
             .transpose()?;
         let email_path =
-            LockboxPath::new(format!("/identity_emails/{name}.lbie")).map_err(core_error)?;
+            LockboxPath::new(format!("/{email_directory}/{name}.lbie")).map_err(core_error)?;
         let email = lockbox
             .get_file(&email_path)
             .ok()
-            .map(|bytes| decode_email(&bytes))
+            .map(|bytes| decode_email(&bytes, email_magic, structure))
             .transpose()?;
         let mut generations = Vec::new();
         if let Some(history) = history.as_ref() {
@@ -251,7 +261,7 @@ pub fn export_vault_v1(
     Ok(count + 1)
 }
 
-fn v1_profile_names<State>(lockbox: &Lockbox<State>) -> Result<Vec<String>> {
+fn historical_profile_names<State>(lockbox: &Lockbox<State>) -> Result<Vec<String>> {
     let mut names = Vec::new();
     for (name, _) in lockbox.list_variables().map_err(core_error)? {
         let raw = name.as_str().trim_start_matches('/');
@@ -331,11 +341,16 @@ struct LegacyGeneration {
     contact_fingerprint: Vec<u8>,
 }
 
-fn decode_history(name: &str, bytes: &[u8]) -> Result<LegacyHistory> {
+fn decode_history(
+    name: &str,
+    bytes: &[u8],
+    expected_magic: &[u8; 4],
+    structure: u32,
+) -> Result<LegacyHistory> {
     let mut reader = Reader::new(bytes);
-    if reader.bytes(4)? != b"LBIH" || reader.u16()? != 1 {
+    if reader.bytes(4)? != expected_magic || reader.u16()? != 1 {
         return Err(MigrationError::Serialization(format!(
-            "invalid v1 profile history for {name}"
+            "invalid structure-v{structure} profile history for {name}"
         )));
     }
     let active_generation = reader.u16()?;
@@ -373,12 +388,12 @@ fn decode_history(name: &str, bytes: &[u8]) -> Result<LegacyHistory> {
     })
 }
 
-fn decode_email(bytes: &[u8]) -> Result<String> {
+fn decode_email(bytes: &[u8], expected_magic: &[u8; 4], structure: u32) -> Result<String> {
     let mut reader = Reader::new(bytes);
-    if reader.bytes(4)? != b"LBIE" || reader.u16()? != 1 {
-        return Err(MigrationError::Serialization(
-            "invalid v1 profile email".into(),
-        ));
+    if reader.bytes(4)? != expected_magic || reader.u16()? != 1 {
+        return Err(MigrationError::Serialization(format!(
+            "invalid structure-v{structure} profile email"
+        )));
     }
     let value = reader.string()?;
     reader.finish()?;

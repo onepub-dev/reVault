@@ -4,12 +4,16 @@ use common::TestTempDir;
 use revault_lockbox_api::{
     ContactKeyPair, Lockbox, LockboxOpen, SecretString, SecretVec, LOCKBOX_FORMAT_VERSION,
 };
+use revault_lockbox_api_container_v1::ContactKeyPair as StructureV2ContactKeyPair;
 use revault_lockbox_api_v1::{
     Lockbox as V1Lockbox, LockboxPath as V1LockboxPath, LockboxProtection as V1LockboxProtection,
     OwnerSigningKeyPair as V1OwnerSigningKeyPair, SecretString as V1SecretString,
 };
 use revault_lockbox_api_vault_v1::ContactKeyPair as V1VaultContactKeyPair;
 use revault_vault_api::VaultDirectory;
+use revault_vault_api_container_v1::{
+    SecretString as StructureV2SecretString, VaultDirectory as StructureV2VaultDirectory,
+};
 use revault_vault_api_v1::VaultDirectory as V1VaultDirectory;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -186,6 +190,34 @@ fn vault_v1_replace_uses_the_explicit_historical_exporter() {
 }
 
 #[test]
+fn vault_structure_v2_in_container_v1_migrates_end_to_end() {
+    let fixture = Fixture::new("migration-v2-container-v1-e2e");
+    fixture.init_structure_v2_container_v1_vault();
+    let exporter = build_historical_vault_exporter();
+
+    let before = fixture.run(&["vault", "profile", "list"]);
+    assert_failure_contains(&before, "Unsupported Vault container format");
+    assert_failure_contains(&before, "Found Lockbox container version 1");
+
+    let output = fixture.run(&[
+        "migrate",
+        "vault",
+        "--replace",
+        "--exporter",
+        path(&exporter),
+    ]);
+    assert_success(&output);
+    assert_current_vault(&fixture.vault);
+    assert!(fixture.root.join("vault.v1.pre-migration").is_dir());
+    let password = SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
+    let migrated = VaultDirectory::open_or_create(&fixture.vault, &password).unwrap();
+    assert_eq!(
+        migrated.profile_email("default").unwrap().as_deref(),
+        Some("mixed@example.test")
+    );
+}
+
+#[test]
 fn archive_v1_migrates_end_to_end_with_the_historical_exporter() {
     let fixture = Fixture::new("migration-archive-v1-e2e");
     fixture.init_current_vault();
@@ -344,6 +376,17 @@ impl Fixture {
             .unwrap();
         vault
             .store_identity_email("default", "migration@example.test")
+            .unwrap();
+    }
+
+    fn init_structure_v2_container_v1_vault(&self) {
+        let password = StructureV2SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
+        let vault = StructureV2VaultDirectory::replace(&self.vault, &password).unwrap();
+        vault
+            .store_private_key("default", &StructureV2ContactKeyPair::generate().unwrap())
+            .unwrap();
+        vault
+            .store_profile_email("default", "mixed@example.test")
             .unwrap();
     }
 
