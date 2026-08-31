@@ -80,7 +80,7 @@ fn list_sessions(format: super::output::OutputFormat) -> CliResult<()> {
     let agent_enabled = agent_enabled();
     let agent_running = revault_vault_api::is_running();
     let auto_open = platform_secret_store_status()?;
-    let vault_pass_phrase_stored = platform_vault_pass_phrase_stored()?;
+    let vault_pass_phrase_stored = platform_vault_pass_phrase_stored();
     if !matches!(format, super::output::OutputFormat::Table) {
         let default = default_lockbox_path_value()?;
         let mut rows = Vec::new();
@@ -249,7 +249,7 @@ fn confirm_auto_open_disable(yes: bool) -> CliResult<bool> {
 
 fn auto_open_status(format: super::output::OutputFormat) -> CliResult<()> {
     let status = platform_secret_store_status()?;
-    let stored = platform_vault_pass_phrase_stored()?;
+    let stored = platform_vault_pass_phrase_stored();
     print_records(
         &["property", "value"],
         vec![
@@ -274,8 +274,10 @@ fn agent_enabled() -> bool {
     verify_agent_transport_security().is_ok()
 }
 
-fn platform_vault_pass_phrase_stored() -> CliResult<bool> {
-    Ok(get_platform_vault_password()?.is_some())
+fn platform_vault_pass_phrase_stored() -> bool {
+    get_platform_vault_password()
+        .map(|password| password.is_some())
+        .unwrap_or(false)
 }
 
 fn default_lockbox_path_value() -> CliResult<Option<String>> {

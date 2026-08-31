@@ -313,7 +313,7 @@ fn default_vault_noninteractive() -> Result<Option<VaultDirectory>, Box<dyn std:
         return Ok(Some(VaultDirectory::open_or_create_default(&password)?));
     }
     if !platform_secret_store_disabled()? {
-        if let Some(password) = get_platform_vault_password()? {
+        if let Ok(Some(password)) = get_platform_vault_password() {
             return Ok(Some(VaultDirectory::open_or_create_default(&password)?));
         }
     }

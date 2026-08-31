@@ -55,7 +55,7 @@ jobs:
           cargo check
           -p revault_page_api@0.0.4
           -p revault_lockbox_api@0.0.7
-          -p revault_vault_api@0.0.7
+          -p revault_vault_api@0.0.8
           --all-targets
           --locked
 
@@ -223,7 +223,7 @@ jobs:
             cache: migrations
             command: >-
               cargo test --locked
-              -p revault_vault_api@0.0.7
+              -p revault_vault_api@0.0.8
               -p revault_migration_format
               -p revault_migrate_vault_v1
               -p revault_migrate_archive_v1

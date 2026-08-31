@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.11 - 2026-08-31
+
+- Allow explicit and prompted Vault passphrases to remain usable when the
+  optional platform credential service is unavailable, as on headless Linux.
+  `LOCKBOX_VAULT_PASSWORD` now takes precedence over the credential store, and
+  credential lookup failure falls back to the remaining passphrase sources.
+- Refresh CI's current Vault API selector and invalidate pre-format-2 endian
+  fixtures so release validation exercises the current formats.
+
 ## 0.0.10 - 2026-08-31
 
 - Fixed automatic migration of Vault structure version 2 when it is stored in

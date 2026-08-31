@@ -492,8 +492,11 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
         let _ = revault_vault_api::start();
     }
     let platform_enabled = !platform_secret_store_disabled()?;
+    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
+        return open_default_vault_with_password(&password);
+    }
     if platform_enabled {
-        if let Some(password) = get_platform_vault_password()? {
+        if let Ok(Some(password)) = get_platform_vault_password() {
             // A stored credential is authoritative. Preserve and report any
             // open error: it may describe a required migration, damaged data,
             // or an unavailable file rather than an invalid passphrase.
@@ -503,10 +506,6 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
 
     let vault_id = default_vault_path()?.to_string_lossy().into_owned();
     if let Ok(Some(password)) = revault_vault_api::get_vault_unlock_key(&vault_id) {
-        return open_default_vault_with_password(&password);
-    }
-
-    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
         return open_default_vault_with_password(&password);
     }
 
@@ -525,16 +524,16 @@ pub(crate) fn default_vault() -> CliResult<VaultDirectory> {
 /// Migration uses this before selecting the historical reader for the source
 /// format.
 pub(crate) fn vault_password_without_open() -> CliResult<SecretString> {
+    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
+        return Ok(password);
+    }
     if !platform_secret_store_disabled()? {
-        if let Some(password) = get_platform_vault_password()? {
+        if let Ok(Some(password)) = get_platform_vault_password() {
             return Ok(password);
         }
     }
     let vault_id = default_vault_path()?.to_string_lossy().into_owned();
     if let Ok(Some(password)) = revault_vault_api::get_vault_unlock_key(&vault_id) {
-        return Ok(password);
-    }
-    if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
         return Ok(password);
     }
     prompt_secret("Vault passphrase: ").map_err(|err| Error::Io(err.to_string()).into())
