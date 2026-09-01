@@ -1358,7 +1358,7 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
         || !persisted_plan.directories.is_empty()
     {
         return Err(cli_error(format!(
-            "mirror '{}' update did not persist the planned contents; no success was reported",
+            "mirror '{}' update verification failed: the committed lockbox contents do not match the source",
             request.project.name
         )));
     }
