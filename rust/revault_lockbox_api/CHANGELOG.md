@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.0.9 - 2026-09-02
+
+- Fix secure page relocation retaining the old physical page length in live
+  file references. Repeated packed-file deletion transactions no longer use a
+  stale oversized extent that can overwrite adjacent live pages and damage the
+  lockbox.
+- Add verified host-path imports that hash the exact bytes consumed, allowing
+  mirror updates to reject a source file changed after inventory collection.
+- Add exact-destination extraction for a selected stored directory, including
+  subtree limits, symlink protections, and optional permission restoration.
+- Handle an existing non-directory extraction destination consistently with
+  the overwrite policy.
+
 ## 0.0.8 - 2026-09-01
 
 - Keep the last published transaction sequence separate from sequence numbers

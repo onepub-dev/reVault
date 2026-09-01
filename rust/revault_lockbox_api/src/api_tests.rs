@@ -230,6 +230,25 @@ fn add_file_stages_small_disk_files_until_commit() {
 }
 
 #[test]
+fn verified_path_import_checks_the_exact_imported_bytes() {
+    use sha2::{Digest, Sha256};
+
+    let source = temp_path("verified-path-import-source");
+    std::fs::write(&source, b"planned bytes").unwrap();
+    let expected: [u8; 32] = Sha256::digest(b"planned bytes").into();
+    let mut lb = Lockbox::create(KEY);
+    lb.add_file_from_path_verified(&source, &p("/verified.txt"), false, &expected)
+        .unwrap();
+    assert_eq!(lb.get_file(&p("/verified.txt")).unwrap(), b"planned bytes");
+
+    let wrong: [u8; 32] = Sha256::digest(b"different bytes").into();
+    let result = lb.add_file_from_path_verified(&source, &p("/wrong.txt"), false, &wrong);
+    assert!(matches!(result, Err(Error::InvalidOperation(_))));
+
+    let _ = std::fs::remove_file(source);
+}
+
+#[test]
 fn small_variable_pages_use_variable_page_quantum() {
     let mut lb = Lockbox::create(KEY);
     let before = lb.to_bytes().len();
@@ -1441,6 +1460,7 @@ fn file_backed_mirror_recursive_removals_persist_after_reopen() {
             includes: Vec::new(),
             excludes: Vec::new(),
             missing_file_policy: crate::MirrorMissingFilePolicy::Remove,
+            strict: false,
             host_identity: None,
         },
         false,

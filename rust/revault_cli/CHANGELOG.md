@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.0.13 - 2026-09-02
+
+- Fix repeated bulk removals of packed files corrupting unrelated live pages.
+  Mirror updates and direct file removals now use corrected relocated-page
+  extents from `revault_lockbox_api` 0.0.9.
+- Bound mirror comparison memory with a temporary disk-backed inventory and
+  plan, while retaining verified imports and rejecting source-tree changes
+  between comparison and commit.
+- Add per-project strict mirror verification. `--strict` re-hashes every
+  selected source file before commit; normal mode avoids unchanged-file hashes
+  when size and modification time still match.
+- Allow `extract PATH --to DESTINATION` and `mirror NAME extract PATH --to
+  DESTINATION` to restore either a selected file or directory to an exact host
+  path, with symlink and permission options available for directory extraction.
+- Correct closed-lockbox guidance to show the supported target-first `lbx
+  LOCKBOX open` form and clarify file, directory, and destination help text.
+- Add mutation-sequence fuzz coverage for add, replace, delete, commit, and
+  reopen lifecycles, including a packed-page relocation regression seed.
+
 ## 0.0.12 - 2026-09-01
 
 - Moved format migration under the `doctor` maintenance namespace. Use

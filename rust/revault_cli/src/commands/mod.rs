@@ -9,6 +9,7 @@ mod help;
 mod keys;
 mod migrate;
 mod mirror;
+mod mirror_index;
 mod output;
 mod recovery;
 mod session;

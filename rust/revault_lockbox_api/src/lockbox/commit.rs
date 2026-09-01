@@ -1037,6 +1037,44 @@ mod tests {
     }
 
     #[test]
+    fn packed_page_relocation_updates_the_survivor_page_length() {
+        let mut lb = Lockbox::create("secret");
+        let mut state = 0x8a5c_39d2_u64;
+        let contents = (0..80)
+            .map(|index| {
+                let data = (0..10 * 1024)
+                    .map(|_| {
+                        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                        (state >> 32) as u8
+                    })
+                    .collect::<Vec<_>>();
+                let path = p(format!("/docs/file-{index:02}.bin"));
+                add_file(&mut lb, &path, &data, false).unwrap();
+                (path, data)
+            })
+            .collect::<Vec<_>>();
+        lb.commit().unwrap();
+
+        for (index, (path, _)) in contents.iter().enumerate() {
+            if index != 40 {
+                lb.delete(path).unwrap();
+            }
+        }
+        lb.commit().unwrap();
+
+        let survivor = lb.toc_entries.get(contents[40].0.as_str()).unwrap();
+        let segment = &survivor.chunks[0].segments[0];
+        let relocated = lb.read_page(segment.page_offset).unwrap();
+        assert_eq!(
+            segment.page_len,
+            crate::page::page_size_for_objects(&relocated.objects) as u64
+        );
+
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
+        assert_eq!(reopened.get_file(&contents[40].0).unwrap(), contents[40].1);
+    }
+
+    #[test]
     fn commit_root_restores_persisted_free_index_on_open() {
         let mut lb = Lockbox::create("secret");
         let mut state = 0x1234_5678u64;

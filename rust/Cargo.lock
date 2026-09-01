@@ -2207,14 +2207,14 @@ version = "0.2.2"
 dependencies = [
  "criterion",
  "flatbuffers",
- "revault_lockbox_api 0.0.8",
+ "revault_lockbox_api 0.0.9",
  "revault_vault_api 0.0.9",
  "zeroize",
 ]
 
 [[package]]
 name = "revault_cli"
-version = "0.0.12"
+version = "0.0.13"
 dependencies = [
  "clap",
  "clap_complete",
@@ -2224,7 +2224,7 @@ dependencies = [
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
  "revault_lockbox_api 0.0.6",
- "revault_lockbox_api 0.0.8",
+ "revault_lockbox_api 0.0.9",
  "revault_migration",
  "revault_publish_protocol",
  "revault_vault_api 0.0.2",
@@ -2327,7 +2327,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -2389,7 +2389,7 @@ dependencies = [
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
  "revault_lockbox_api 0.0.6",
- "revault_lockbox_api 0.0.8",
+ "revault_lockbox_api 0.0.9",
  "revault_migrate_archive_v1",
  "revault_migrate_vault_v1",
  "revault_migration_format",
@@ -2535,7 +2535,7 @@ dependencies = [
  "libc",
  "objc2-core-foundation",
  "objc2-io-kit",
- "revault_lockbox_api 0.0.8",
+ "revault_lockbox_api 0.0.9",
  "secret-service",
  "serde",
  "serde_json",
@@ -2550,7 +2550,7 @@ name = "revault_wasm_bindings"
 version = "0.0.3"
 dependencies = [
  "js-sys",
- "revault_lockbox_api 0.0.8",
+ "revault_lockbox_api 0.0.9",
  "revault_page_api 0.0.4",
  "revault_vault_api 0.0.9",
  "wasm-bindgen",

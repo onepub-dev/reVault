@@ -220,15 +220,21 @@ fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
     if let Some(destination) = matches.get_one::<String>("to") {
         let values = positional_values(matches, "args");
         if values.len() > 1 {
-            return Err(cli_error("extract --to accepts at most one lockbox path"));
+            return Err(cli_error("extract --to accepts at most one stored path"));
         }
-        let mut args = if let Some(lockbox) = values.first() {
-            vec![lockbox.clone()]
+        let mut args = if let Some(path) = values.first() {
+            vec![
+                default_lockbox_for_command()?,
+                path.clone(),
+                destination.clone(),
+            ]
         } else {
-            vec![default_lockbox_for_command()?]
+            vec![
+                default_lockbox_for_command()?,
+                "--to".to_string(),
+                destination.clone(),
+            ]
         };
-        args.push("--to".to_string());
-        args.push(destination.clone());
         for (name, flag) in [
             ("overwrite", "--overwrite"),
             ("restore-symlinks", "--restore-symlinks"),
@@ -241,8 +247,14 @@ fn extract_args_from_matches(matches: &ArgMatches) -> CliResult<Vec<String>> {
         return Ok(args);
     }
     let mut args = optional_lockbox_positionals(positional_values(matches, "args"), 2)?;
-    if matches.get_flag("overwrite") {
-        args.push("--overwrite".to_string());
+    for (name, flag) in [
+        ("overwrite", "--overwrite"),
+        ("restore-symlinks", "--restore-symlinks"),
+        ("restore-permissions", "--restore-permissions"),
+    ] {
+        if matches.get_flag(name) {
+            args.push(flag.to_string());
+        }
     }
     Ok(args)
 }
@@ -363,9 +375,26 @@ pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
     } else {
         let path = cli_lockbox_path(require_arg(args, 1, "lockbox path")?)?;
         let dest = require_arg(args, 2, "destination")?;
-        let replace = args.iter().skip(3).any(|arg| arg == "--overwrite");
-        lb.set_workload_profile(WorkloadProfile::ReadMostly);
-        lb.extract_file_to(&path, Path::new(dest), replace)?;
+        let policy = extract_policy_from_args(&args[3..]);
+        let entry = lb
+            .stat(&path)
+            .ok_or_else(|| Error::NotFound(path.to_string()))?;
+        match entry.kind {
+            LockboxEntryKind::Directory => {
+                lb.set_workload_profile(WorkloadProfile::ExtractMany);
+                lb.extract_directory_to(&path, Path::new(dest), &policy)?;
+            }
+            LockboxEntryKind::File => {
+                lb.set_workload_profile(WorkloadProfile::ReadMostly);
+                let replace = policy.overwrite && Path::new(dest).exists();
+                lb.extract_file_to(&path, Path::new(dest), replace)?;
+            }
+            LockboxEntryKind::Symlink => {
+                return Err(cli_error(format!(
+                    "{path} is a symlink; extract its containing directory with --restore-symlinks"
+                )));
+            }
+        }
         println!("Extracted {path} to {dest}.");
     }
     Ok(())

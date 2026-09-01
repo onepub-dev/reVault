@@ -31,6 +31,7 @@ use crate::security::validate_permissions;
 use crate::storage::atomic_file_replacement::AtomicFileReplacement;
 use crate::toc_entry::TocEntry;
 use crate::{Error, Result, WorkloadProfile};
+use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, Zeroizing};
 
 const SMALL_FILE_PACKING_LIMIT: usize = 1024 * 1024;
@@ -317,6 +318,62 @@ impl<State> Lockbox<State> {
         let file = std::fs::File::open(source)
             .map_err(|err| Error::Io(format!("open {}: {err}", source.display())))?;
         self.add_file_from_reader(destination, file, replace)
+    }
+
+    /// Add or replace a host file and require the exact bytes consumed by the
+    /// import to match `expected_sha256`.
+    ///
+    /// This preserves bulk small-file packing while allowing callers that
+    /// scanned a changing filesystem to prove that the imported bytes match
+    /// their scan. A mismatch leaves the change uncommitted and returns an
+    /// error.
+    pub fn add_file_from_path_verified(
+        &mut self,
+        source: &Path,
+        destination: &LockboxPath,
+        replace: bool,
+        expected_sha256: &[u8; 32],
+    ) -> Result<()>
+    where
+        State: crate::WritableLockboxState,
+    {
+        struct HashingReader<R> {
+            inner: R,
+            hasher: Sha256,
+        }
+        impl<R: Read> Read for HashingReader<R> {
+            fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+                let count = self.inner.read(buffer)?;
+                self.hasher.update(&buffer[..count]);
+                Ok(count)
+            }
+        }
+
+        let metadata = std::fs::metadata(source)
+            .map_err(|err| Error::Io(format!("stat {}: {err}", source.display())))?;
+        let actual: [u8; 32] = if metadata.len() <= SMALL_FILE_PACKING_LIMIT as u64 {
+            let data = std::fs::read(source)
+                .map_err(|err| Error::Io(format!("read {}: {err}", source.display())))?;
+            let digest = Sha256::digest(&data).into();
+            self.add_file(destination, &data, replace)?;
+            digest
+        } else {
+            let file = std::fs::File::open(source)
+                .map_err(|err| Error::Io(format!("open {}: {err}", source.display())))?;
+            let mut reader = HashingReader {
+                inner: file,
+                hasher: Sha256::new(),
+            };
+            self.add_file_from_reader(destination, &mut reader, replace)?;
+            reader.hasher.finalize().into()
+        };
+        if &actual != expected_sha256 {
+            return Err(Error::InvalidOperation(format!(
+                "source file changed while it was imported: {}",
+                source.display()
+            )));
+        }
+        Ok(())
     }
 
     /// Add or replace a streamed file with explicit Unix-style permissions.

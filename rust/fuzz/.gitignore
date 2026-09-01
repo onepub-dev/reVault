@@ -1,0 +1,3 @@
+/artifacts/
+/corpus/*/*
+!/corpus/mutation_sequences/packed-delete-sequence

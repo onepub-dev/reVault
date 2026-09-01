@@ -171,18 +171,18 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .help("One or more host files or directories; directories require --recursive."),
                 ),
             mirror_command(verbose),
-            file_command("extract", "Extract files from a lockbox.")
+            file_command("extract", "Extract a file, directory, or complete lockbox.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox extract /notes.txt ./notes.txt\n  lockbox secrets.lbox extract --to ./restore\n  lockbox secrets.lbox extract --to ./restore --overwrite",
-                    "Context:\n  Extract copies encrypted content back to the host filesystem. Use the single-file form for one stored path, or --to when restoring the whole lockbox into a directory.",
+                    "Examples:\n  lockbox secrets.lbox extract /notes.txt ./notes.txt\n  lockbox secrets.lbox extract /docs ./docs\n  lockbox secrets.lbox extract /docs --to ./docs\n  lockbox secrets.lbox extract --to ./restore\n  lockbox secrets.lbox extract --to ./restore --overwrite",
+                    "Context:\n  Extract copies encrypted content back to the host filesystem. Supply a stored file or directory and its exact host destination to extract one selection. Omit the stored path and use --to to restore the whole lockbox.",
                 ))
                 .arg(
                     Arg::new("to")
                         .long("to")
                         .value_name("DESTINATION")
-                        .value_hint(ValueHint::DirPath)
-                        .help("Extract the full lockbox to a directory."),
+                        .value_hint(ValueHint::AnyPath)
+                        .help("Exact host destination for a selected path, or directory for the full lockbox."),
                 )
                 .arg(
                     Arg::new("overwrite")
@@ -207,7 +207,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .value_name("PATH DESTINATION")
                         .num_args(0..=2)
                         .action(ArgAction::Append)
-                        .help("Stored path and host destination; omit both to extract the selected lockbox with --to.")
+                        .help("Stored file/directory and exact host destination; omit both to extract the full lockbox with --to.")
                         .add(ArgValueCompleter::new(completion::archive_value_candidates)),
                 ),
             file_command("cat", "Write stored files to stdout.")
@@ -509,6 +509,12 @@ fn mirror_command(verbose: bool) -> Command {
                     .long("adopt")
                     .action(ArgAction::SetTrue)
                     .help("Allow the project to take ownership of an existing non-empty directory."),
+            )
+            .arg(
+                Arg::new("strict")
+                    .long("strict")
+                    .action(ArgAction::SetTrue)
+                    .help("Re-hash every selected source file before committing each update."),
             ),
         Command::new("projects")
             .about("List configured mirror projects.")
@@ -555,15 +561,33 @@ fn mirror_command(verbose: bool) -> Command {
             ),
         Command::new("configure")
             .about("Change persistent mirror behaviour.")
+            .group(
+                clap::ArgGroup::new("setting")
+                    .required(true)
+                    .multiple(true)
+                    .args(["missing-files", "strict", "no-strict"]),
+            )
             .arg(
                 Arg::new("missing-files")
                     .long("missing-files")
                     .value_name("remove|retain")
-                    .required(true)
                     .value_parser(["remove", "retain"])
                     .help(
-                        "Choose whether updates remove or retain archive files absent from the selected host content.",
+                        "Choose whether updates remove or retain lockbox files absent from the selected host content.",
                     ),
+            )
+            .arg(
+                Arg::new("strict")
+                    .long("strict")
+                    .action(ArgAction::SetTrue)
+                    .conflicts_with("no-strict")
+                    .help("Re-hash every selected source file before committing updates."),
+            )
+            .arg(
+                Arg::new("no-strict")
+                    .long("no-strict")
+                    .action(ArgAction::SetTrue)
+                    .help("Re-hash only source files whose metadata changes."),
             ),
         Command::new("rebind")
             .about("Bind the project to a moved or replaced host directory.")
@@ -758,33 +782,41 @@ fn mirror_add_command(verbose: bool) -> Command {
 
 fn mirror_extract_command() -> Command {
     Command::new("extract")
-        .about("Extract project files.")
+        .about("Extract a project file, directory, or the complete project.")
+        .after_help(
+            "Examples:\n  lbx house.lbox mirror home extract notes.txt ./notes.txt\n  lbx house.lbox mirror home extract docs ./docs\n  lbx house.lbox mirror home extract docs --to ./docs\n  lbx house.lbox mirror home extract --to ./restore",
+        )
         .arg(
             Arg::new("to")
                 .long("to")
                 .value_name("DESTINATION")
-                .value_hint(ValueHint::DirPath),
+                .value_hint(ValueHint::AnyPath)
+                .help("Exact host destination for a selected path, or directory for the complete project."),
         )
         .arg(
             Arg::new("overwrite")
                 .long("overwrite")
-                .action(ArgAction::SetTrue),
+                .action(ArgAction::SetTrue)
+                .help("Overwrite existing files at the host destination."),
         )
         .arg(
             Arg::new("restore-symlinks")
                 .long("restore-symlinks")
-                .action(ArgAction::SetTrue),
+                .action(ArgAction::SetTrue)
+                .help("Restore symlinks when extracting a directory."),
         )
         .arg(
             Arg::new("restore-permissions")
                 .long("restore-permissions")
-                .action(ArgAction::SetTrue),
+                .action(ArgAction::SetTrue)
+                .help("Restore stored permissions when extracting a directory."),
         )
         .arg(
             Arg::new("args")
                 .value_name("PATH DESTINATION")
                 .num_args(0..=2)
-                .action(ArgAction::Append),
+                .action(ArgAction::Append)
+                .help("Project-relative file/directory and exact host destination; omit both to extract the complete project with --to."),
         )
 }
 

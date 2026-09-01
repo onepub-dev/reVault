@@ -36,3 +36,9 @@ name = "paths"
 path = "fuzz_targets/paths.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "mutation_sequences"
+path = "fuzz_targets/mutation_sequences.rs"
+test = false
+doc = false

@@ -23,11 +23,120 @@ impl<State: Send> Lockbox<State> {
             return self.extract_to_new_directory(destination, policy);
         }
 
+        match fs::symlink_metadata(destination) {
+            Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => {}
+            Ok(_) if !policy.overwrite => {
+                return Err(Error::SecurityLimitExceeded(format!(
+                    "destination exists: {}",
+                    destination.display()
+                )));
+            }
+            Ok(_) => {
+                fs::remove_file(destination).map_err(|err| Error::Io(err.to_string()))?;
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(Error::Io(err.to_string())),
+        }
         fs::create_dir_all(destination).map_err(|err| Error::Io(err.to_string()))?;
         let destination = destination
             .canonicalize()
             .map_err(|err| Error::Io(err.to_string()))?;
         self.extract_entries_to_directory(&destination, policy)
+    }
+
+    /// Extract one stored directory and its contents to an exact host directory.
+    ///
+    /// Unlike [`Self::extract_to_directory`], paths below `source` are written
+    /// relative to `destination`; the stored source directory name is not added
+    /// automatically.
+    pub fn extract_directory_to(
+        &self,
+        source: &crate::LockboxPath,
+        destination: &Path,
+        policy: &ExtractPolicy,
+    ) -> Result<()> {
+        let source = source.as_file_path()?;
+        let source_entry = self
+            .toc_entries
+            .get(source)
+            .filter(|entry| !entry.deleted)
+            .ok_or_else(|| Error::NotFound(source.to_string()))?;
+        if source_entry.node_kind != NodeKind::Directory {
+            return Err(Error::InvalidOperation(format!(
+                "{} is not a directory",
+                source_entry.path
+            )));
+        }
+
+        let prefix = format!("{}/", source.trim_end_matches('/'));
+        let entries = self
+            .toc_entries
+            .values()
+            .filter(|entry| {
+                !entry.deleted
+                    && (entry.path.as_str() == source || entry.path.as_str().starts_with(&prefix))
+            })
+            .collect::<Vec<_>>();
+        self.validate_extract_entries(&entries, policy)?;
+
+        fs::create_dir_all(destination).map_err(|err| Error::Io(err.to_string()))?;
+        let destination = destination
+            .canonicalize()
+            .map_err(|err| Error::Io(err.to_string()))?;
+        let mut directories = Vec::new();
+        for (index, entry) in entries.into_iter().enumerate() {
+            let relative = entry
+                .path
+                .as_str()
+                .strip_prefix(source)
+                .ok_or_else(|| Error::InvalidPath(entry.path.to_string()))?
+                .trim_start_matches('/');
+            let out_path = if relative.is_empty() {
+                destination.clone()
+            } else {
+                checked_destination(&destination, &format!("/{relative}"))?
+            };
+            match entry.node_kind {
+                NodeKind::Directory => {
+                    if out_path.exists() && !out_path.is_dir() && !policy.overwrite {
+                        return Err(Error::SecurityLimitExceeded(format!(
+                            "destination exists: {}",
+                            out_path.display()
+                        )));
+                    }
+                    fs::create_dir_all(&out_path).map_err(|err| Error::Io(err.to_string()))?;
+                    reject_symlink_components(&destination, &out_path)?;
+                    directories.push((out_path, entry.permissions));
+                }
+                NodeKind::File => self.extract_file_entry_to_path(
+                    entry,
+                    &destination,
+                    &out_path,
+                    policy,
+                    index as u64,
+                )?,
+                NodeKind::Symlink if policy.restore_symlinks => {
+                    let target = self.get_symlink_target(&entry.path)?;
+                    validate_symlink(entry.path.as_str(), target.as_str())?;
+                    if out_path.exists() && !policy.overwrite {
+                        return Err(Error::SecurityLimitExceeded(format!(
+                            "destination exists: {}",
+                            out_path.display()
+                        )));
+                    }
+                    if let Some(parent) = out_path.parent() {
+                        fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
+                    }
+                    reject_symlink_components(&destination, &out_path)?;
+                    create_symlink(target.as_str(), &out_path, policy.overwrite)?;
+                }
+                NodeKind::Symlink => {}
+            }
+        }
+        for (directory, permissions) in directories.into_iter().rev() {
+            restore_permissions(&directory, permissions, policy)?;
+        }
+        Ok(())
     }
 
     fn extract_to_new_directory(&self, destination: &Path, policy: &ExtractPolicy) -> Result<()> {
@@ -227,6 +336,15 @@ impl<State: Send> Lockbox<State> {
             .filter(|entry| !entry.deleted)
             .collect();
 
+        self.validate_extract_entries(&current_entries, policy)?;
+        Ok(current_entries)
+    }
+
+    fn validate_extract_entries(
+        &self,
+        current_entries: &[&TocEntry],
+        policy: &ExtractPolicy,
+    ) -> Result<()> {
         if current_entries.len() > policy.max_files {
             return Err(Error::SecurityLimitExceeded(format!(
                 "node count {} exceeds limit {}",
@@ -236,7 +354,7 @@ impl<State: Send> Lockbox<State> {
         }
 
         let mut total = 0u64;
-        for entry in &current_entries {
+        for entry in current_entries {
             match entry.node_kind {
                 NodeKind::File => {
                     if entry.len > policy.max_file_bytes {
@@ -265,7 +383,7 @@ impl<State: Send> Lockbox<State> {
             }
         }
 
-        Ok(current_entries)
+        Ok(())
     }
 
     fn extract_file_entry_to_path(
@@ -665,6 +783,36 @@ mod tests {
             fs::read(destination.join("nested/file.txt")).unwrap(),
             b"content"
         );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn extract_directory_to_writes_only_the_selected_subtree() {
+        let root = unique_test_root("extract-selected-directory");
+        let destination = root.join("destination");
+        let mut lockbox = Lockbox::create("secret");
+        for (path, contents) in [
+            ("/docs/selected/nested/keep.txt", b"keep".as_slice()),
+            ("/docs/outside.txt", b"outside".as_slice()),
+        ] {
+            let path = crate::LockboxPath::new(path).unwrap();
+            lockbox.create_parent_dirs_for(&path).unwrap();
+            lockbox.add_file(&path, contents, false).unwrap();
+        }
+
+        lockbox
+            .extract_directory_to(
+                &crate::LockboxPath::new("/docs/selected").unwrap(),
+                &destination,
+                &ExtractPolicy::default(),
+            )
+            .unwrap();
+
+        assert_eq!(
+            fs::read(destination.join("nested/keep.txt")).unwrap(),
+            b"keep"
+        );
+        assert!(!destination.join("outside.txt").exists());
         let _ = fs::remove_dir_all(&root);
     }
 

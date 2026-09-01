@@ -238,9 +238,9 @@ fn closed_lockbox_error(path: &str, reason: Option<Error>) -> Box<dyn std::error
         }
         Some(reason) => {
             details.push(("Auto-open".to_string(), reason.to_string()));
-            format!("Open the lockbox explicitly:\n  lbx open {path}")
+            format!("Open the lockbox explicitly:\n  lbx {path} open")
         }
-        None => format!("Open the lockbox first:\n  lbx open {path}"),
+        None => format!("Open the lockbox first:\n  lbx {path} open"),
     };
     cli_diagnostic(
         ExitCode::LockboxClosed,

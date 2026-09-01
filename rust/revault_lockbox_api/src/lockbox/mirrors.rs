@@ -45,6 +45,9 @@ pub struct MirrorProject {
     pub excludes: Vec<String>,
     /// Behaviour for destination entries absent from the selected source set.
     pub missing_file_policy: MirrorMissingFilePolicy,
+    /// Re-hash every selected source file immediately before committing an
+    /// update. Normal mode re-hashes only files whose metadata changes.
+    pub strict: bool,
     /// Opaque platform-specific directory identity, when available.
     ///
     /// Higher-level code compares this value before updating so replacing a
@@ -131,6 +134,7 @@ impl MirrorProject {
                 MirrorMissingFilePolicy::Remove => "remove",
                 MirrorMissingFilePolicy::Retain => "retain",
             },
+            "strict": self.strict,
             "host_identity": self.host_identity,
         })
         .to_string()
@@ -171,6 +175,8 @@ impl MirrorProject {
                 Some("retain") => MirrorMissingFilePolicy::Retain,
                 _ => return Err(Error::CorruptRecord),
             },
+            // Older version 1 project records predate this optional setting.
+            strict: value["strict"].as_bool().unwrap_or(false),
             host_identity: value["host_identity"].as_str().map(str::to_string),
         };
         project.validate()?;
@@ -182,7 +188,7 @@ impl<State> Lockbox<State> {
     /// Lists every configured mirror project in stable name order.
     ///
     /// Project definitions are encrypted as hidden variables inside the
-    /// lockbox, so they travel with the archive rather than relying on a
+    /// lockbox, so they travel with it rather than relying on a
     /// separate host-side manifest.
     pub fn list_mirror_projects(&self) -> Result<Vec<MirrorProject>> {
         let mut projects = self
@@ -343,7 +349,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn host_path_validation_is_portable_across_archive_moves() {
+    fn host_path_validation_is_portable_across_lockbox_moves() {
         assert!(MirrorProject::is_absolute_host_path("/srv/project"));
         assert!(MirrorProject::is_absolute_host_path(
             r"C:\Users\alice\project"
@@ -359,5 +365,25 @@ mod tests {
         assert!(MirrorProject::validate_rules(&["src/**/*.rs".to_string()]).is_ok());
         assert!(MirrorProject::validate_rules(&[r"src\**\*.rs".to_string()]).is_err());
         assert!(MirrorProject::validate_rules(&["C:/source/**".to_string()]).is_err());
+    }
+
+    #[test]
+    fn strict_consistency_round_trips_and_old_records_default_to_normal() {
+        let mut project = MirrorProject {
+            name: "docs".to_string(),
+            source: "/srv/docs".to_string(),
+            destination: LockboxPath::new("/docs").unwrap(),
+            includes: Vec::new(),
+            excludes: Vec::new(),
+            missing_file_policy: MirrorMissingFilePolicy::Remove,
+            strict: true,
+            host_identity: None,
+        };
+        assert!(MirrorProject::decode(&project.encode()).unwrap().strict);
+
+        project.strict = false;
+        let mut encoded: Value = serde_json::from_str(&project.encode()).unwrap();
+        encoded.as_object_mut().unwrap().remove("strict");
+        assert!(!MirrorProject::decode(&encoded.to_string()).unwrap().strict);
     }
 }

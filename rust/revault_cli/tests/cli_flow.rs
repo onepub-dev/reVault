@@ -79,6 +79,21 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert!(mirror_help.contains(
         "lockbox [LOCKBOX] mirror <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>"
     ));
+
+    let extract_help = run_output(bin, &["extract", "--help"]);
+    assert_success(&extract_help);
+    let extract_help = String::from_utf8_lossy(&extract_help.stdout);
+    assert!(extract_help.contains("extract /notes.txt ./notes.txt"));
+    assert!(extract_help.contains("extract /docs ./docs"));
+    assert!(extract_help.contains("Stored file/directory"));
+
+    let mirror_extract_help = run_output(bin, &["mirror", "extract", "--help"]);
+    assert_success(&mirror_extract_help);
+    let mirror_extract_help = String::from_utf8_lossy(&mirror_extract_help.stdout);
+    assert!(mirror_extract_help.contains("mirror home extract notes.txt ./notes.txt"));
+    assert!(mirror_extract_help.contains("mirror home extract docs ./docs"));
+    assert!(mirror_extract_help.contains("Project-relative file/directory"));
+
     assert!(add_verbose_help.contains("--key <RAW_CONTENT_KEY>"));
     assert!(add_verbose_help.contains("Context:"));
     assert!(add_verbose_help.contains("Pass --recursive for a directory source"));
@@ -5245,7 +5260,8 @@ fn session_and_close_report_empty_cache_and_already_closed_state() {
     assert!(!listing.status.success());
     assert!(String::from_utf8_lossy(&listing.stderr).contains("Lockbox is closed"));
     assert!(String::from_utf8_lossy(&listing.stderr).contains("Next step:"));
-    assert!(String::from_utf8_lossy(&listing.stderr).contains("lbx open"));
+    assert!(String::from_utf8_lossy(&listing.stderr)
+        .contains(&format!("lbx {} open", lockbox.display())));
     assert!(!String::from_utf8_lossy(&listing.stderr).contains("use the API intended"));
 }
 

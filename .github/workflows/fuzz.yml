@@ -1,0 +1,63 @@
+name: Fuzz
+
+on:
+  push:
+    branches:
+      - "**"
+    paths:
+      - "rust/fuzz/**"
+      - "rust/revault_lockbox_api/**"
+      - ".github/workflows/fuzz.yml"
+  pull_request:
+    paths:
+      - "rust/fuzz/**"
+      - "rust/revault_lockbox_api/**"
+      - ".github/workflows/fuzz.yml"
+  schedule:
+    - cron: "37 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation-sequences:
+    name: mutation sequences
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FUZZ_SECONDS: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '600' || '30' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/fuzz -> target
+          key: mutation-sequences
+      - id: cargo-fuzz-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-fuzz
+          key: cargo-fuzz-${{ runner.os }}-0.13.2
+      - name: Install cargo-fuzz
+        if: steps.cargo-fuzz-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-fuzz --version 0.13.2 --locked
+      - name: Fuzz add, replace, delete and reopen sequences
+        working-directory: rust
+        run: >-
+          cargo +nightly fuzz run mutation_sequences --
+          -max_total_time="$FUZZ_SECONDS"
+          -max_len=512
+          -rss_limit_mb=4096
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-sequence-fuzz-failures
+          path: rust/fuzz/artifacts/mutation_sequences
+          if-no-files-found: ignore
+          retention-days: 7

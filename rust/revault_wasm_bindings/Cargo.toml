@@ -12,7 +12,7 @@ documentation = "https://docs.rs/revault_wasm_bindings"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-revault_lockbox_api = { version = "0.0.8", path = "../revault_lockbox_api", features = ["bindings"] }
+revault_lockbox_api = { version = "0.0.9", path = "../revault_lockbox_api", features = ["bindings"] }
 revault_page_api = { version = "0.0.4", path = "../revault_page_api" }
 revault_vault_api = { version = "0.0.9", path = "../revault_vault_api" }
 wasm-bindgen = "0.2"

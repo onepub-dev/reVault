@@ -85,6 +85,7 @@ fn mirror_create_rules_status_update_and_ownership() {
             "project",
             "--to",
             "/projects/project",
+            "--strict",
         ],
     );
     success(&created);
@@ -120,7 +121,9 @@ fn mirror_create_rules_status_update_and_ownership() {
         ],
     );
     success(&info);
-    assert!(String::from_utf8_lossy(&info.stdout).contains("/projects/project"));
+    let info: serde_json::Value = serde_json::from_slice(&info.stdout).unwrap();
+    assert_eq!(info["destination"], "/projects/project");
+    assert_eq!(info["strict"], true);
 
     success(&run(
         bin,
@@ -940,8 +943,24 @@ fn mirror_retain_forget_and_delete_have_distinct_results() {
             "configure",
             "--missing-files",
             "retain",
+            "--no-strict",
         ],
     ));
+    let configured = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "mirror",
+            "info",
+            "--format",
+            "json",
+        ],
+    );
+    success(&configured);
+    let configured: serde_json::Value = serde_json::from_slice(&configured.stdout).unwrap();
+    assert_eq!(configured["missing_files"], "retain");
+    assert_eq!(configured["strict"], false);
     fs::remove_file(temp.path().join("source/a.txt")).unwrap();
     success(&run(
         bin,
@@ -1062,6 +1081,57 @@ fn mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_ro
     );
     success(&json_listing);
     assert!(String::from_utf8_lossy(&json_listing.stdout).contains("keep.txt"));
+
+    let selected_file = temp.path().join("selected-file.txt");
+    success(&run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "mirror",
+            "extract",
+            "notes/manual.txt",
+            "--to",
+            selected_file.to_str().unwrap(),
+        ],
+    ));
+    assert_eq!(fs::read_to_string(selected_file).unwrap(), "manual\n");
+
+    let selected_directory = temp.path().join("selected-directory");
+    success(&run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "mirror",
+            "extract",
+            "bulk/nested",
+            "--to",
+            selected_directory.to_str().unwrap(),
+        ],
+    ));
+    assert_eq!(
+        fs::read_to_string(selected_directory.join("keep.txt")).unwrap(),
+        "keep\n"
+    );
+    assert!(!selected_directory.join("skip.tmp").exists());
+
+    let archive_directory = temp.path().join("archive-directory");
+    success(&run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "extract",
+            "/docs/bulk/nested",
+            "--to",
+            archive_directory.to_str().unwrap(),
+        ],
+    ));
+    assert_eq!(
+        fs::read_to_string(archive_directory.join("keep.txt")).unwrap(),
+        "keep\n"
+    );
 
     let extracted_tree = temp.path().join("extracted-tree");
     success(&run(

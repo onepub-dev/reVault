@@ -1594,9 +1594,10 @@ impl<State> Lockbox<State> {
         }
 
         self.sequence += 1;
-        let new_offset = self.allocate_page_offset(page_size_for_objects(&kept_objects) as u64)?;
+        let new_len = page_size_for_objects(&kept_objects) as u64;
+        let new_offset = self.allocate_page_offset(new_len)?;
         self.write_decoded_page_at(new_offset, self.sequence, kept_objects)?;
-        self.repoint_live_entries(old_offset, new_offset, &kept_object_ids);
+        self.repoint_live_entries(old_offset, new_offset, new_len, &kept_object_ids);
         self.record_ref_counts.remove(&old_offset);
         self.record_ref_counts.insert(new_offset, remaining_refs);
         self.zero_page_and_free(FreeSlot {
@@ -1610,6 +1611,7 @@ impl<State> Lockbox<State> {
         &mut self,
         old_offset: u64,
         new_offset: u64,
+        new_len: u64,
         kept_object_ids: &BTreeSet<u64>,
     ) {
         let mut dirty = Vec::new();
@@ -1621,6 +1623,7 @@ impl<State> Lockbox<State> {
             if entry.chunks.is_empty() {
                 if entry.record_offset == old_offset {
                     entry.record_offset = new_offset;
+                    entry.record_len = new_len;
                     changed = true;
                 }
             } else {
@@ -1630,6 +1633,7 @@ impl<State> Lockbox<State> {
                             && kept_object_ids.contains(&segment.object_id)
                         {
                             segment.page_offset = new_offset;
+                            segment.page_len = new_len;
                             changed = true;
                         }
                     }

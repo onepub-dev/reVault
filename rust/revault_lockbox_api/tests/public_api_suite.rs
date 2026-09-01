@@ -578,6 +578,7 @@ fn public_api_mirror_projects_enforce_exclusive_subtree_ownership() {
         includes: vec!["**/*.md".to_string()],
         excludes: vec!["target/**".to_string()],
         missing_file_policy: MirrorMissingFilePolicy::Remove,
+        strict: false,
         host_identity: Some("test-host".to_string()),
     };
 

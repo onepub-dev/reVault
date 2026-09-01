@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 use super::context::{cli_error, open_existing, Access, CliResult};
 use super::default_lockbox_for_add;
 use super::filters::{excluded, included, normalize as normalize_rules};
+use super::mirror_index::BinaryTable;
 use super::output::{human_size, output_format_from_matches, print_records};
 
 const LARGE_DELETE_PERCENT: usize = 50;
@@ -21,26 +22,12 @@ const LARGE_DELETE_PERCENT: usize = 50;
 /// A complete, inspectable one-way mirror update plan.
 #[derive(Debug)]
 pub(crate) struct MirrorPlan {
-    pub additions: Vec<MirrorAddition>,
-    pub replacements: Vec<MirrorReplacement>,
-    pub removals: Vec<LockboxPath>,
+    pub additions: usize,
+    pub replacements: usize,
+    pub removals: usize,
     pub unchanged: usize,
-    directories: Vec<LockboxPath>,
+    directories: usize,
     removed_files: usize,
-}
-
-#[derive(Debug)]
-pub(crate) struct MirrorAddition {
-    source: PathBuf,
-    destination: LockboxPath,
-    fingerprint: FileFingerprint,
-}
-
-#[derive(Debug)]
-pub(crate) struct MirrorReplacement {
-    source: PathBuf,
-    destination: LockboxPath,
-    fingerprint: FileFingerprint,
 }
 
 /// Safety controls that affect mirror application.
@@ -55,6 +42,24 @@ struct FileFingerprint {
     len: u64,
     modified_nanos: Option<u128>,
     digest: String,
+}
+
+#[derive(Debug)]
+enum SourceEntryValue {
+    Directory,
+    File {
+        host_path: PathBuf,
+        fingerprint: FileFingerprint,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
+enum PlanOperation {
+    Add = 1,
+    Replace = 2,
+    Remove = 3,
+    MakeDirectory = 4,
 }
 
 #[derive(Debug)]
@@ -175,10 +180,19 @@ impl Drop for MirrorProgress {
     }
 }
 
-#[derive(Debug)]
 struct SourceSnapshot {
-    files: BTreeMap<String, (PathBuf, FileFingerprint)>,
-    directories: BTreeSet<String>,
+    _temporary_directory: tempfile::TempDir,
+    source: BinaryTable,
+    plan: BinaryTable,
+    verification: BinaryTable,
+    file_count: usize,
+    directory_count: usize,
+}
+
+impl SourceSnapshot {
+    fn files_empty(&self) -> bool {
+        self.file_count == 0
+    }
 }
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
@@ -221,26 +235,27 @@ fn configure_project(
     matches: &ArgMatches,
     access: &Access,
 ) -> CliResult<()> {
-    project.missing_file_policy = match matches
-        .get_one::<String>("missing-files")
-        .map(String::as_str)
-    {
-        Some("remove") => MirrorMissingFilePolicy::Remove,
-        Some("retain") => MirrorMissingFilePolicy::Retain,
-        _ => return Err(cli_error("missing-files must be remove or retain")),
-    };
+    if let Some(policy) = matches.get_one::<String>("missing-files") {
+        project.missing_file_policy = match policy.as_str() {
+            "remove" => MirrorMissingFilePolicy::Remove,
+            "retain" => MirrorMissingFilePolicy::Retain,
+            _ => return Err(cli_error("missing-files must be remove or retain")),
+        };
+    }
+    if matches.get_flag("strict") {
+        project.strict = true;
+    } else if matches.get_flag("no-strict") {
+        project.strict = false;
+    }
     let mut lb = open_existing(lockbox_path, access)?;
     lb.update_mirror_project(&project)?;
     commit_mirror_change(lb, lockbox_path, access)?;
+    println!("Updated mirror '{}'.", project.name);
     println!(
-        "Mirror '{}' now {} archive-only files.",
-        project.name,
-        if project.missing_file_policy == MirrorMissingFilePolicy::Remove {
-            "removes"
-        } else {
-            "retains"
-        }
+        "  missing files: {}",
+        policy_name(project.missing_file_policy)
     );
+    println!("  strict:        {}", yes_no(project.strict));
     Ok(())
 }
 
@@ -461,6 +476,7 @@ fn project_json(project: &MirrorProject) -> serde_json::Value {
         "include": project.includes,
         "exclude": project.excludes,
         "missing_files": policy_name(project.missing_file_policy),
+        "strict": project.strict,
         "host_identity": project.host_identity,
     })
 }
@@ -469,6 +485,14 @@ fn policy_name(policy: MirrorMissingFilePolicy) -> &'static str {
     match policy {
         MirrorMissingFilePolicy::Remove => "remove",
         MirrorMissingFilePolicy::Retain => "retain",
+    }
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value {
+        "yes"
+    } else {
+        "no"
     }
 }
 
@@ -529,7 +553,7 @@ fn print_status_warnings(
             eprintln!("Blocked update: {message}");
         }
     };
-    if source.files.is_empty() && !plan.removals.is_empty() {
+    if source.files_empty() && plan.removals > 0 {
         warning("no source files match; update requires --allow-empty.".to_string());
     }
     let count = destination_file_count(lb, &request.destination)?;
@@ -611,20 +635,25 @@ fn project_add(
                 &ignored_paths,
                 &mut progress,
             )?;
-            for directory in snapshot.directories {
-                directories.insert(project_join(
-                    project,
-                    &join_relative_destination(destination_value, &directory),
-                )?);
-            }
-            for (relative, (path, _)) in snapshot.files {
-                additions.push((
-                    path,
-                    project_join(
-                        project,
-                        &join_relative_destination(destination_value, &relative),
-                    )?,
-                ));
+            for record in snapshot.source.iter()? {
+                let (relative, value) = decode_source_record(record?)?;
+                match value {
+                    SourceEntryValue::Directory => {
+                        directories.insert(project_join(
+                            project,
+                            &join_relative_destination(destination_value, &relative),
+                        )?);
+                    }
+                    SourceEntryValue::File { host_path, .. } => {
+                        additions.push((
+                            host_path,
+                            project_join(
+                                project,
+                                &join_relative_destination(destination_value, &relative),
+                            )?,
+                        ));
+                    }
+                }
             }
         } else if metadata.is_file() {
             let name = source
@@ -691,30 +720,76 @@ fn project_extract(
     access: &Access,
 ) -> CliResult<()> {
     let lb = open_existing(lockbox_path, access)?;
-    if let Some(destination) = matches.get_one::<String>("to") {
-        let policy = ExtractPolicy {
-            overwrite: matches.get_flag("overwrite"),
-            restore_permissions: matches.get_flag("restore-permissions"),
-            restore_symlinks: matches.get_flag("restore-symlinks"),
-            ..ExtractPolicy::default()
-        };
-        extract_project_tree(&lb, project, Path::new(destination), &policy)?;
-        println!("Extracted mirror '{}' to {}.", project.name, destination);
-        return Ok(());
-    }
     let args = matches
         .get_many::<String>("args")
         .into_iter()
         .flatten()
         .collect::<Vec<_>>();
+    let policy = ExtractPolicy {
+        overwrite: matches.get_flag("overwrite"),
+        restore_permissions: matches.get_flag("restore-permissions"),
+        restore_symlinks: matches.get_flag("restore-symlinks"),
+        ..ExtractPolicy::default()
+    };
+    if let Some(destination) = matches.get_one::<String>("to") {
+        if args.len() > 1 {
+            return Err(cli_error(
+                "mirror extract --to accepts at most one project path",
+            ));
+        }
+        if let Some(source) = args.first() {
+            extract_project_entry(&lb, project, source, Path::new(destination), &policy)?;
+            println!("Extracted {source} to {destination}.");
+            return Ok(());
+        }
+        extract_project_tree(&lb, project, Path::new(destination), &policy)?;
+        println!("Extracted mirror '{}' to {}.", project.name, destination);
+        return Ok(());
+    }
     if args.len() != 2 {
         return Err(cli_error(
             "mirror extract requires PATH DESTINATION or --to DESTINATION",
         ));
     }
-    let source = project_join(project, args[0])?;
-    lb.extract_file_to(&source, Path::new(args[1]), matches.get_flag("overwrite"))?;
+    extract_project_entry(&lb, project, args[0], Path::new(args[1]), &policy)?;
     println!("Extracted {} to {}.", args[0], args[1]);
+    Ok(())
+}
+
+fn extract_project_entry(
+    lb: &Lockbox,
+    project: &MirrorProject,
+    relative: &str,
+    destination: &Path,
+    policy: &ExtractPolicy,
+) -> CliResult<()> {
+    let source = project_join(project, relative)?;
+    let entry = lb
+        .stat(&source)
+        .ok_or_else(|| Error::NotFound(source.to_string()))?;
+    match entry.kind {
+        LockboxEntryKind::Directory => {
+            lb.extract_directory_to(&source, destination, policy)?;
+        }
+        LockboxEntryKind::File => {
+            if entry.len > policy.max_file_bytes {
+                return Err(cli_error(format!(
+                    "{} is {}, exceeding the per-file extraction limit of {}",
+                    entry.path,
+                    human_size(entry.len),
+                    human_size(policy.max_file_bytes)
+                )));
+            }
+            let replace = policy.overwrite && destination.exists();
+            lb.extract_file_to(&source, destination, replace)?;
+            restore_host_permissions(destination, entry.permissions, policy.restore_permissions)?;
+        }
+        LockboxEntryKind::Symlink => {
+            return Err(cli_error(format!(
+                "{source} is a symlink; extract its containing directory with --restore-symlinks"
+            )));
+        }
+    }
     Ok(())
 }
 
@@ -1088,6 +1163,7 @@ fn create_project(
         includes: Vec::new(),
         excludes: Vec::new(),
         missing_file_policy: MirrorMissingFilePolicy::Remove,
+        strict: matches.get_flag("strict"),
         host_identity: identity,
     };
     let mut lb = open_existing(archive_path, access)?;
@@ -1143,11 +1219,12 @@ fn list_projects(lockbox_path: &str, matches: &ArgMatches, access: &Access) -> C
                     project.source,
                     project.destination.to_string(),
                     policy_name(project.missing_file_policy).to_string(),
+                    yes_no(project.strict).to_string(),
                 ]
             })
             .collect();
         print_records(
-            &["name", "source", "destination", "missing files"],
+            &["name", "source", "destination", "missing files", "strict"],
             rows,
             output_format_from_matches(matches)?,
         )?;
@@ -1161,11 +1238,12 @@ fn show_project(project: &MirrorProject, matches: &ArgMatches) -> CliResult<()> 
         println!("{}", project_json(project));
     } else if format == "tsv" {
         println!(
-            "{}\t{}\t{}\t{}\t{}",
+            "{}\t{}\t{}\t{}\t{}\t{}",
             project.name,
             project.source,
             project.destination,
             policy_name(project.missing_file_policy),
+            project.strict,
             project.host_identity.as_deref().unwrap_or("")
         );
         for rule in &project.includes {
@@ -1182,6 +1260,7 @@ fn show_project(project: &MirrorProject, matches: &ArgMatches) -> CliResult<()> 
             "  missing files: {}",
             policy_name(project.missing_file_policy)
         );
+        println!("  strict:        {}", yes_no(project.strict));
         println!(
             "  host identity: {}",
             project.host_identity.as_deref().unwrap_or("unavailable")
@@ -1256,22 +1335,20 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
     )?;
     progress.stage(format!(
         "source scan found {} files and {} directories.",
-        source_entries.files.len(),
-        source_entries.directories.len()
+        source_entries.file_count, source_entries.directory_count
     ));
     progress.begin_counted(format!(
         "comparing {} source files with the lockbox.",
-        source_entries.files.len()
+        source_entries.file_count
     ));
-    let plan = build_plan(&lb, &request, &source_entries, &mut progress)?;
+    let plan = build_plan(&lb, &request, &source_entries, &mut progress, true)?;
     progress.finish("comparison complete.");
-    print_plan(&plan, &canonical, &request)?;
+    print_plan(&plan, &source_entries, &canonical, &request)?;
     if !apply {
         print_status_warnings(&plan, &source_entries, &request, &lb)?;
         return Ok(());
     }
-    if source_entries.files.is_empty() && !plan.removals.is_empty() && !request.options.allow_empty
-    {
+    if source_entries.files_empty() && plan.removals > 0 && !request.options.allow_empty {
         return Err(cli_error(
             "no source files match the project rules; pass --allow-empty after inspecting mirror status",
         ));
@@ -1281,10 +1358,7 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
         request.options,
         destination_file_count(&lb, &request.destination)?,
     )?;
-    if plan.additions.is_empty()
-        && plan.replacements.is_empty()
-        && plan.removals.is_empty()
-        && plan.directories.is_empty()
+    if plan.additions == 0 && plan.replacements == 0 && plan.removals == 0 && plan.directories == 0
     {
         println!("Mirror '{}' is up to date.", request.project.name);
         return Ok(());
@@ -1293,69 +1367,100 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
         println!("Mirror update cancelled.");
         return Ok(());
     }
-    progress.stage("verifying source files before the update.");
-    verify_source_snapshot(&plan)?;
-    progress.stage("source verification complete.");
     let project_name = request.project.name.clone();
-    let removals = removal_roots(&plan.removals, &lb);
-    let change_count =
-        removals.len() + plan.directories.len() + plan.additions.len() + plan.replacements.len();
+    let change_count = plan.removals + plan.directories + plan.additions + plan.replacements;
     progress.begin_counted(format!("applying {change_count} lockbox changes."));
     let mut completed = 0;
     lb.with_mirror_project_mutation(&project_name, |lb, _| {
-        for path in &removals {
-            if lb.is_dir(path) {
-                lb.remove_dir_recursive(path)?;
+        for record in source_entries.plan.iter().map_err(mirror_inventory_error)? {
+            let (operation, destination, _) =
+                decode_plan_record(record.map_err(mirror_inventory_error)?)
+                    .map_err(|error| Error::InvalidOperation(error.to_string()))?;
+            if operation != PlanOperation::Remove {
+                continue;
+            }
+            if lb.is_dir(&destination) {
+                lb.remove_dir_recursive(&destination)?;
             } else {
-                lb.delete(path)?;
+                lb.delete(&destination)?;
             }
             completed += 1;
             progress.counted("applied", completed, change_count);
         }
-        for directory in &plan.directories {
-            if !lb.is_dir(directory) {
-                lb.create_dir(directory, true)?;
+        for record in source_entries.plan.iter().map_err(mirror_inventory_error)? {
+            let (operation, destination, _) =
+                decode_plan_record(record.map_err(mirror_inventory_error)?)
+                    .map_err(|error| Error::InvalidOperation(error.to_string()))?;
+            if operation != PlanOperation::MakeDirectory {
+                continue;
+            }
+            if !lb.is_dir(&destination) {
+                lb.create_dir(&destination, true)?;
             }
             completed += 1;
             progress.counted("applied", completed, change_count);
         }
-        for addition in &plan.additions {
-            lb.create_parent_dirs_for(&addition.destination)?;
-            lb.add_file_from_path(&addition.source, &addition.destination, false)?;
-            completed += 1;
-            progress.counted("applied", completed, change_count);
-        }
-        for replacement in &plan.replacements {
-            lb.create_parent_dirs_for(&replacement.destination)?;
-            lb.add_file_from_path(&replacement.source, &replacement.destination, true)?;
-            completed += 1;
-            progress.counted("applied", completed, change_count);
+        for (operation, replace) in [(PlanOperation::Add, false), (PlanOperation::Replace, true)] {
+            for record in source_entries.plan.iter().map_err(mirror_inventory_error)? {
+                let (record_operation, destination, value) =
+                    decode_plan_record(record.map_err(mirror_inventory_error)?)
+                        .map_err(|error| Error::InvalidOperation(error.to_string()))?;
+                if record_operation != operation {
+                    continue;
+                }
+                let SourceEntryValue::File {
+                    host_path,
+                    fingerprint,
+                } = decode_source_value(&value)
+                    .map_err(|error| Error::InvalidOperation(error.to_string()))?
+                else {
+                    return Err(Error::InvalidOperation(
+                        "mirror file plan has no source file".to_string(),
+                    ));
+                };
+                lb.create_parent_dirs_for(&destination)?;
+                lb.add_file_from_path_verified(
+                    &host_path,
+                    &destination,
+                    replace,
+                    &parse_sha256(&fingerprint.digest)?,
+                )?;
+                completed += 1;
+                progress.counted("applied", completed, change_count);
+            }
         }
         Ok(())
     })?;
-    progress.stage("verifying source files after the update.");
-    verify_source_snapshot(&plan)?;
     let mut applied_progress = MirrorProgress::new(false);
-    let applied_plan = build_plan(&lb, &request, &source_entries, &mut applied_progress)?;
-    if !applied_plan.additions.is_empty()
-        || !applied_plan.replacements.is_empty()
-        || !applied_plan.removals.is_empty()
-        || !applied_plan.directories.is_empty()
+    let applied_plan = build_plan(&lb, &request, &source_entries, &mut applied_progress, false)?;
+    if applied_plan.additions > 0
+        || applied_plan.replacements > 0
+        || applied_plan.removals > 0
+        || applied_plan.directories > 0
     {
         return Err(cli_error(format!(
             "mirror '{}' could not apply the planned contents before commit",
             request.project.name
         )));
     }
+    progress.stage("checking the source for changes before commit.");
+    verify_source_tree(
+        &canonical,
+        &request.includes,
+        &request.excludes,
+        &ignored_paths,
+        &source_entries,
+        request.project.strict,
+    )?;
     progress.stage("committing the encrypted update.");
     commit_mirror_change(lb, &request.lockbox, access)?;
     progress.begin_counted("verifying the committed mirror contents.");
     let persisted = open_existing(&request.lockbox, access)?;
-    let persisted_plan = build_plan(&persisted, &request, &source_entries, &mut progress)?;
-    if !persisted_plan.additions.is_empty()
-        || !persisted_plan.replacements.is_empty()
-        || !persisted_plan.removals.is_empty()
-        || !persisted_plan.directories.is_empty()
+    let persisted_plan = build_plan(&persisted, &request, &source_entries, &mut progress, false)?;
+    if persisted_plan.additions > 0
+        || persisted_plan.replacements > 0
+        || persisted_plan.removals > 0
+        || persisted_plan.directories > 0
     {
         return Err(cli_error(format!(
             "mirror '{}' update verification failed: the committed lockbox contents do not match the source",
@@ -1367,9 +1472,9 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
         println!(
             "Updated mirror '{}': {} added, {} replaced, {} directories created, {} removed, {} unchanged.",
             request.project.name,
-            plan.additions.len(),
-            plan.replacements.len(),
-            plan.directories.len(),
+            plan.additions,
+            plan.replacements,
+            plan.directories,
             plan.removed_files,
             plan.unchanged
         );
@@ -1455,8 +1560,9 @@ fn walk_source(
         current: &Path,
         options: &WalkOptions<'_>,
         progress: &mut MirrorProgress,
-        files: &mut BTreeMap<String, (PathBuf, FileFingerprint)>,
-        directories: &mut BTreeSet<String>,
+        database: &BinaryTable,
+        file_count: &mut usize,
+        directory_count: &mut usize,
     ) -> CliResult<()> {
         let entries = fs::read_dir(current).map_err(|err| {
             cli_error(format!(
@@ -1491,9 +1597,16 @@ fn walk_source(
             }
             if kind.is_dir() {
                 if options.includes.is_empty() {
-                    directories.insert(relative);
+                    insert_source_directory(database, &relative, directory_count)?;
                 }
-                visit(&path, options, progress, files, directories)?;
+                visit(
+                    &path,
+                    options,
+                    progress,
+                    database,
+                    file_count,
+                    directory_count,
+                )?;
             } else if kind.is_file() {
                 if included(&relative, options.includes) {
                     for directory in Path::new(&relative).ancestors().skip(1) {
@@ -1501,11 +1614,23 @@ fn walk_source(
                         if directory.is_empty() {
                             break;
                         }
-                        directories.insert(directory);
+                        insert_source_directory(database, &directory, directory_count)?;
                     }
                     let fingerprint = fingerprint_with_progress(&path, progress)?;
                     progress.scanned_file();
-                    files.insert(relative, (path.clone(), fingerprint));
+                    path.to_str().ok_or_else(|| {
+                        cli_error(format!(
+                            "source path is not valid UTF-8: {}",
+                            path.display()
+                        ))
+                    })?;
+                    let encoded = encode_source_file(&path, &fingerprint)?;
+                    if !database.insert_if_absent(relative.as_bytes(), &encoded)? {
+                        return Err(cli_error(format!(
+                            "duplicate source path while scanning: {relative}"
+                        )));
+                    }
+                    *file_count += 1;
                 }
             } else {
                 return Err(cli_error(format!(
@@ -1516,16 +1641,47 @@ fn walk_source(
         }
         Ok(())
     }
-    let mut files = BTreeMap::new();
-    let mut directories = BTreeSet::new();
+    let temporary_directory = tempfile::Builder::new()
+        .prefix("revault-mirror-")
+        .tempdir()?;
+    let database = BinaryTable::create(temporary_directory.path(), "source")?;
     let options = WalkOptions {
         root,
         includes,
         excludes,
         ignored_paths,
     };
-    visit(root, &options, progress, &mut files, &mut directories)?;
-    Ok(SourceSnapshot { files, directories })
+    let mut file_count = 0;
+    let mut directory_count = 0;
+    visit(
+        root,
+        &options,
+        progress,
+        &database,
+        &mut file_count,
+        &mut directory_count,
+    )?;
+    let plan = BinaryTable::create(temporary_directory.path(), "plan")?;
+    let verification = BinaryTable::create(temporary_directory.path(), "verification")?;
+    Ok(SourceSnapshot {
+        _temporary_directory: temporary_directory,
+        source: database,
+        plan,
+        verification,
+        file_count,
+        directory_count,
+    })
+}
+
+fn insert_source_directory(
+    database: &BinaryTable,
+    relative: &str,
+    directory_count: &mut usize,
+) -> CliResult<()> {
+    if database.insert_if_absent(relative.as_bytes(), &[0])? {
+        *directory_count += 1;
+    }
+    Ok(())
 }
 
 fn build_plan(
@@ -1533,99 +1689,337 @@ fn build_plan(
     request: &MirrorRequest,
     source: &SourceSnapshot,
     progress: &mut MirrorProgress,
+    store: bool,
 ) -> CliResult<MirrorPlan> {
-    let mut archive = BTreeMap::new();
-    let mut options = ListOptions::new(&request.destination);
-    options.recursive = true;
-    for entry in lb.list(options)? {
-        let entry = entry?;
-        let relative = relative_lockbox_path(&request.destination, &entry.path);
-        if !relative.is_empty() {
-            archive.insert(relative, entry);
-        }
+    if store {
+        source.plan.clear()?;
     }
     let mut plan = MirrorPlan {
-        additions: Vec::new(),
-        replacements: Vec::new(),
-        removals: Vec::new(),
+        additions: 0,
+        replacements: 0,
+        removals: 0,
         unchanged: 0,
-        directories: Vec::new(),
+        directories: 0,
         removed_files: 0,
     };
     if request.destination.as_str() != "/" && lb.stat(&request.destination).is_none() {
-        plan.directories.push(request.destination.clone());
+        plan.directories += 1;
+        store_plan_path(
+            source,
+            store,
+            PlanOperation::MakeDirectory,
+            &request.destination,
+        )?;
     }
-    for relative in &source.directories {
-        let destination = join_destination(&request.destination, relative)?;
-        match archive.remove(relative) {
-            Some(entry) if entry.kind != LockboxEntryKind::Directory => {
-                plan.removed_files += 1;
-                plan.removals.push(entry.path);
-                plan.directories.push(destination);
-            }
-            Some(_) => {}
-            None => plan.directories.push(destination),
-        }
-    }
-    let source_file_count = source.files.len();
-    for (index, (relative, (host_path, host_fingerprint))) in source.files.iter().enumerate() {
-        let destination = join_destination(&request.destination, relative)?;
-        match archive.remove(relative) {
-            None => plan.additions.push(MirrorAddition {
-                source: host_path.clone(),
-                destination,
-                fingerprint: host_fingerprint.clone(),
-            }),
-            Some(entry) if entry.kind == LockboxEntryKind::Directory => {
-                let directory = entry.path.clone();
-                plan.removed_files += archive
-                    .values()
-                    .filter(|candidate| {
-                        candidate.path.is_descendant_of(&directory)
-                            && candidate.kind != LockboxEntryKind::Directory
-                    })
-                    .count();
-                plan.removals.push(directory.clone());
-                archive.retain(|_, candidate| !candidate.path.is_descendant_of(&directory));
-                plan.additions.push(MirrorAddition {
-                    source: host_path.clone(),
-                    destination,
-                    fingerprint: host_fingerprint.clone(),
-                });
-            }
-            Some(entry) if entry.kind != LockboxEntryKind::File => {
-                plan.removed_files += 1;
-                plan.removals.push(entry.path);
-                plan.additions.push(MirrorAddition {
-                    source: host_path.clone(),
-                    destination,
-                    fingerprint: host_fingerprint.clone(),
-                });
-            }
-            Some(entry) => {
-                let archive_digest = archive_digest(lb, &entry.path)?;
-                if entry.len == host_fingerprint.len && archive_digest == host_fingerprint.digest {
-                    plan.unchanged += 1;
-                } else {
-                    plan.replacements.push(MirrorReplacement {
-                        source: host_path.clone(),
-                        destination,
-                        fingerprint: host_fingerprint.clone(),
-                    });
+    let source_file_count = source.file_count;
+    let mut compared = 0;
+    for record in source.source.iter()? {
+        let (relative, value) = decode_source_record(record?)?;
+        let destination = join_destination(&request.destination, &relative)?;
+        match value {
+            SourceEntryValue::Directory => match lb.stat(&destination) {
+                Some(entry) if entry.kind != LockboxEntryKind::Directory => {
+                    plan.removed_files += 1;
+                    plan.removals += 1;
+                    store_plan_path(source, store, PlanOperation::Remove, &entry.path)?;
+                    plan.directories += 1;
+                    store_plan_path(source, store, PlanOperation::MakeDirectory, &destination)?;
                 }
+                Some(_) => {}
+                None => {
+                    plan.directories += 1;
+                    store_plan_path(source, store, PlanOperation::MakeDirectory, &destination)?;
+                }
+            },
+            SourceEntryValue::File {
+                host_path,
+                fingerprint: host_fingerprint,
+            } => {
+                match lb.stat(&destination) {
+                    None => {
+                        plan.additions += 1;
+                        store_plan_file(
+                            source,
+                            store,
+                            PlanOperation::Add,
+                            &host_path,
+                            &destination,
+                            &host_fingerprint,
+                        )?;
+                    }
+                    Some(entry) if entry.kind == LockboxEntryKind::Directory => {
+                        let directory = entry.path.clone();
+                        plan.removed_files += destination_file_count(lb, &directory)?;
+                        plan.removals += 1;
+                        store_plan_path(source, store, PlanOperation::Remove, &directory)?;
+                        plan.additions += 1;
+                        store_plan_file(
+                            source,
+                            store,
+                            PlanOperation::Add,
+                            &host_path,
+                            &destination,
+                            &host_fingerprint,
+                        )?;
+                    }
+                    Some(entry) if entry.kind != LockboxEntryKind::File => {
+                        plan.removed_files += 1;
+                        plan.removals += 1;
+                        store_plan_path(source, store, PlanOperation::Remove, &entry.path)?;
+                        plan.additions += 1;
+                        store_plan_file(
+                            source,
+                            store,
+                            PlanOperation::Add,
+                            &host_path,
+                            &destination,
+                            &host_fingerprint,
+                        )?;
+                    }
+                    Some(entry) => {
+                        let archive_digest = archive_digest(lb, &entry.path)?;
+                        if entry.len == host_fingerprint.len
+                            && archive_digest == host_fingerprint.digest
+                        {
+                            plan.unchanged += 1;
+                        } else {
+                            plan.replacements += 1;
+                            store_plan_file(
+                                source,
+                                store,
+                                PlanOperation::Replace,
+                                &host_path,
+                                &destination,
+                                &host_fingerprint,
+                            )?;
+                        }
+                    }
+                }
+                compared += 1;
+                progress.counted("compared", compared, source_file_count);
             }
         }
-        progress.counted("compared", index + 1, source_file_count);
     }
     if request.project.missing_file_policy == MirrorMissingFilePolicy::Remove {
-        for entry in archive.into_values() {
-            if entry.kind != LockboxEntryKind::Directory {
-                plan.removed_files += 1;
+        let mut options = ListOptions::new(&request.destination);
+        options.recursive = true;
+        for entry in lb.list(options)? {
+            let entry = entry?;
+            let relative = relative_lockbox_path(&request.destination, &entry.path);
+            if relative.is_empty() || source_entry_exists(source, &relative)? {
+                continue;
             }
-            plan.removals.push(entry.path);
+            if plan_removal_contains(source, store, &entry.path)? {
+                continue;
+            }
+            plan.removals += 1;
+            plan.removed_files += if entry.kind == LockboxEntryKind::Directory {
+                destination_file_count(lb, &entry.path)?
+            } else {
+                1
+            };
+            store_plan_path(source, store, PlanOperation::Remove, &entry.path)?;
         }
     }
     Ok(plan)
+}
+
+fn source_entry_exists(source: &SourceSnapshot, relative: &str) -> CliResult<bool> {
+    Ok(source.source.contains(relative.as_bytes())?)
+}
+
+fn plan_removal_contains(
+    source: &SourceSnapshot,
+    store: bool,
+    path: &LockboxPath,
+) -> CliResult<bool> {
+    if !store {
+        // Check-only plans do not need exact operation roots; any difference
+        // is sufficient for verification.
+        return Ok(false);
+    }
+    let mut candidate = path.as_str();
+    loop {
+        if source
+            .plan
+            .contains(&plan_key(PlanOperation::Remove, candidate))?
+        {
+            return Ok(true);
+        }
+        let Some(index) = candidate.rfind('/') else {
+            return Ok(false);
+        };
+        if index == 0 {
+            return Ok(false);
+        }
+        candidate = &candidate[..index];
+    }
+}
+
+fn store_plan_path(
+    source: &SourceSnapshot,
+    store: bool,
+    operation: PlanOperation,
+    destination: &LockboxPath,
+) -> CliResult<()> {
+    if store {
+        source
+            .plan
+            .insert_if_absent(&plan_key(operation, destination.as_str()), &[])?;
+    }
+    Ok(())
+}
+
+fn store_plan_file(
+    source: &SourceSnapshot,
+    store: bool,
+    operation: PlanOperation,
+    host_path: &Path,
+    destination: &LockboxPath,
+    fingerprint: &FileFingerprint,
+) -> CliResult<()> {
+    if store {
+        let value = encode_source_file(host_path, fingerprint)?;
+        if !source
+            .plan
+            .insert_if_absent(&plan_key(operation, destination.as_str()), &value)?
+        {
+            return Err(cli_error(format!(
+                "duplicate mirror plan entry: {destination}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn encode_source_file(path: &Path, fingerprint: &FileFingerprint) -> CliResult<Vec<u8>> {
+    let path = path
+        .to_str()
+        .ok_or_else(|| cli_error("source path is not valid UTF-8"))?;
+    let path_bytes = path.as_bytes();
+    let path_len = u32::try_from(path_bytes.len())
+        .map_err(|_| cli_error("source path is too long for the mirror index"))?;
+    let mut value = Vec::with_capacity(1 + 8 + 1 + 16 + 32 + 4 + path_bytes.len());
+    value.push(1);
+    value.extend_from_slice(&fingerprint.len.to_le_bytes());
+    match fingerprint.modified_nanos {
+        Some(modified) => {
+            value.push(1);
+            value.extend_from_slice(&modified.to_le_bytes());
+        }
+        None => {
+            value.push(0);
+            value.extend_from_slice(&0_u128.to_le_bytes());
+        }
+    }
+    value.extend_from_slice(&parse_sha256(&fingerprint.digest)?);
+    value.extend_from_slice(&path_len.to_le_bytes());
+    value.extend_from_slice(path_bytes);
+    Ok(value)
+}
+
+fn decode_source_record(record: (Vec<u8>, Vec<u8>)) -> CliResult<(String, SourceEntryValue)> {
+    Ok((
+        utf8_string(record.0, "source path")?,
+        decode_source_value(&record.1)?,
+    ))
+}
+
+fn decode_source_value(value: &[u8]) -> CliResult<SourceEntryValue> {
+    let Some(kind) = value.first().copied() else {
+        return Err(cli_error("temporary mirror index contains an empty record"));
+    };
+    if kind == 0 {
+        if value.len() != 1 {
+            return Err(cli_error(
+                "temporary mirror index contains an invalid directory record",
+            ));
+        }
+        return Ok(SourceEntryValue::Directory);
+    }
+    if kind != 1 {
+        return Err(cli_error(
+            "temporary mirror index contains an unknown record type",
+        ));
+    }
+    let mut cursor = io::Cursor::new(&value[1..]);
+    let len = read_index_u64(&mut cursor)?;
+    let mut present = [0_u8; 1];
+    cursor.read_exact(&mut present)?;
+    let mut modified_bytes = [0_u8; 16];
+    cursor.read_exact(&mut modified_bytes)?;
+    let modified_nanos = match present[0] {
+        0 => None,
+        1 => Some(u128::from_le_bytes(modified_bytes)),
+        _ => {
+            return Err(cli_error(
+                "temporary mirror index has invalid file metadata",
+            ))
+        }
+    };
+    let mut digest = [0_u8; 32];
+    cursor.read_exact(&mut digest)?;
+    let path_len = read_index_u32(&mut cursor)? as usize;
+    let mut path = vec![0_u8; path_len];
+    cursor.read_exact(&mut path)?;
+    if cursor.position() != (value.len() - 1) as u64 {
+        return Err(cli_error(
+            "temporary mirror index file record has trailing data",
+        ));
+    }
+    Ok(SourceEntryValue::File {
+        host_path: PathBuf::from(utf8_string(path, "source path")?),
+        fingerprint: FileFingerprint {
+            len,
+            modified_nanos,
+            digest: hex_digest(&digest),
+        },
+    })
+}
+
+fn plan_key(operation: PlanOperation, destination: &str) -> Vec<u8> {
+    let mut key = Vec::with_capacity(1 + destination.len());
+    key.push(operation as u8);
+    key.extend_from_slice(destination.as_bytes());
+    key
+}
+
+fn decode_plan_record(
+    record: (Vec<u8>, Vec<u8>),
+) -> CliResult<(PlanOperation, LockboxPath, Vec<u8>)> {
+    let (key, value) = record;
+    let Some((&operation, destination)) = key.split_first() else {
+        return Err(cli_error("temporary mirror plan contains an empty key"));
+    };
+    let operation = match operation {
+        1 => PlanOperation::Add,
+        2 => PlanOperation::Replace,
+        3 => PlanOperation::Remove,
+        4 => PlanOperation::MakeDirectory,
+        _ => return Err(cli_error("temporary mirror plan has an unknown operation")),
+    };
+    let destination = LockboxPath::new(utf8_string(destination.to_vec(), "lockbox path")?)?;
+    Ok((operation, destination, value))
+}
+
+fn utf8_string(value: Vec<u8>, label: &str) -> CliResult<String> {
+    String::from_utf8(value).map_err(|_| {
+        cli_error(format!(
+            "temporary mirror index has invalid UTF-8 in {label}"
+        ))
+    })
+}
+
+fn read_index_u32(reader: &mut impl Read) -> CliResult<u32> {
+    let mut bytes = [0_u8; 4];
+    reader.read_exact(&mut bytes)?;
+    Ok(u32::from_le_bytes(bytes))
+}
+
+fn read_index_u64(reader: &mut impl Read) -> CliResult<u64> {
+    let mut bytes = [0_u8; 8];
+    reader.read_exact(&mut bytes)?;
+    Ok(u64::from_le_bytes(bytes))
 }
 
 fn fingerprint(path: &Path) -> CliResult<FileFingerprint> {
@@ -1683,21 +2077,139 @@ fn archive_digest(lb: &Lockbox, path: &LockboxPath) -> CliResult<String> {
     Ok(hex_digest(writer.0.finalize().as_slice()))
 }
 
-fn verify_source_snapshot(plan: &MirrorPlan) -> CliResult<()> {
-    for (path, expected) in plan
-        .additions
-        .iter()
-        .map(|item| (&item.source, &item.fingerprint))
-        .chain(
-            plan.replacements
-                .iter()
-                .map(|item| (&item.source, &item.fingerprint)),
-        )
-    {
-        if fingerprint(path)? != *expected {
+fn verify_source_tree(
+    root: &Path,
+    includes: &[String],
+    excludes: &[String],
+    ignored_paths: &BTreeSet<PathBuf>,
+    source: &SourceSnapshot,
+    strict: bool,
+) -> CliResult<()> {
+    fn mark_seen(source: &SourceSnapshot, relative: &str) -> CliResult<()> {
+        if !source.source.contains(relative.as_bytes())? {
             return Err(cli_error(format!(
-                "source file changed while updating the mirror: {}",
-                path.display()
+                "source changed while updating the mirror; new entry found: {relative}"
+            )));
+        }
+        source
+            .verification
+            .insert_if_absent(relative.as_bytes(), &[])?;
+        Ok(())
+    }
+
+    fn visit(
+        current: &Path,
+        root: &Path,
+        includes: &[String],
+        excludes: &[String],
+        ignored_paths: &BTreeSet<PathBuf>,
+        source: &SourceSnapshot,
+        strict: bool,
+    ) -> CliResult<()> {
+        let entries = fs::read_dir(current).map_err(|err| {
+            cli_error(format!(
+                "source changed while updating the mirror; cannot read {}: {err}",
+                current.display()
+            ))
+        })?;
+        for entry in entries {
+            let entry = entry.map_err(|err| {
+                cli_error(format!(
+                    "source changed while updating the mirror; cannot read {}: {err}",
+                    current.display()
+                ))
+            })?;
+            let path = entry.path();
+            if ignored_paths.contains(&path) {
+                continue;
+            }
+            let relative = slash_path(
+                path.strip_prefix(root)
+                    .map_err(|err| cli_error(err.to_string()))?,
+            )?;
+            if excluded(&relative, excludes) {
+                continue;
+            }
+            let kind = entry.file_type()?;
+            if kind.is_symlink() {
+                return Err(cli_error(format!(
+                    "source changed while updating the mirror; symbolic link found: {}",
+                    path.display()
+                )));
+            }
+            if kind.is_dir() {
+                if includes.is_empty() {
+                    mark_seen(source, &relative)?;
+                }
+                visit(
+                    &path,
+                    root,
+                    includes,
+                    excludes,
+                    ignored_paths,
+                    source,
+                    strict,
+                )?;
+            } else if kind.is_file() && included(&relative, includes) {
+                for directory in Path::new(&relative).ancestors().skip(1) {
+                    let directory = slash_path(directory)?;
+                    if directory.is_empty() {
+                        break;
+                    }
+                    mark_seen(source, &directory)?;
+                }
+                let Some(expected) = source.source.get(relative.as_bytes())? else {
+                    return Err(cli_error(format!(
+                        "source changed while updating the mirror; new file found: {}",
+                        path.display()
+                    )));
+                };
+                let SourceEntryValue::File {
+                    fingerprint: expected,
+                    ..
+                } = decode_source_value(&expected)?
+                else {
+                    return Err(cli_error(format!(
+                        "source changed while updating the mirror; file replaced another entry: {}",
+                        path.display()
+                    )));
+                };
+                mark_seen(source, &relative)?;
+                let metadata = entry.metadata()?;
+                let metadata_matches = metadata.len() == expected.len
+                    && modified_nanos(&metadata) == expected.modified_nanos;
+                if (strict || !metadata_matches) && fingerprint(&path)?.digest != expected.digest {
+                    return Err(cli_error(format!(
+                        "source file changed while updating the mirror: {}",
+                        path.display()
+                    )));
+                }
+            } else if !kind.is_file() {
+                return Err(cli_error(format!(
+                    "source changed while updating the mirror; unsupported entry found: {}",
+                    path.display()
+                )));
+            }
+        }
+        Ok(())
+    }
+
+    source.verification.clear()?;
+    visit(
+        root,
+        root,
+        includes,
+        excludes,
+        ignored_paths,
+        source,
+        strict,
+    )?;
+    for record in source.source.iter()? {
+        let (key, _) = record?;
+        if !source.verification.contains(&key)? {
+            return Err(cli_error(format!(
+                "source changed while updating the mirror; entry was removed: {}",
+                utf8_string(key, "source path")?
             )));
         }
     }
@@ -1733,35 +2245,56 @@ fn destination_file_count(lb: &Lockbox, destination: &LockboxPath) -> CliResult<
     Ok(count)
 }
 
-fn print_plan(plan: &MirrorPlan, source: &Path, request: &MirrorRequest) -> CliResult<()> {
+fn print_plan(
+    plan: &MirrorPlan,
+    inventory: &SourceSnapshot,
+    source: &Path,
+    request: &MirrorRequest,
+) -> CliResult<()> {
     if request.format == "json" {
-        println!(
-            "{}",
-            json!({
-                "source": source.display().to_string(),
-                "destination": request.destination.to_string(),
-                "add": plan.additions.iter().map(|v| v.destination.to_string()).collect::<Vec<_>>(),
-                "replace": plan.replacements.iter().map(|v| v.destination.to_string()).collect::<Vec<_>>(),
-                "create_directory": plan.directories.iter().map(ToString::to_string).collect::<Vec<_>>(),
-                "remove": plan.removals.iter().map(ToString::to_string).collect::<Vec<_>>(),
-                "remove_file_count": plan.removed_files,
-                "unchanged": plan.unchanged,
-            })
-        );
+        let mut stdout = io::stdout().lock();
+        write!(
+            stdout,
+            "{{\"source\":{},\"destination\":{}",
+            serde_json::to_string(&source.display().to_string())?,
+            serde_json::to_string(&request.destination.to_string())?,
+        )?;
+        for (field, operation) in [
+            ("add", PlanOperation::Add),
+            ("replace", PlanOperation::Replace),
+            ("create_directory", PlanOperation::MakeDirectory),
+            ("remove", PlanOperation::Remove),
+        ] {
+            write!(stdout, ",\"{field}\":[")?;
+            let mut first = true;
+            for_each_plan_path(inventory, operation, |path| {
+                if !first {
+                    write!(stdout, ",")?;
+                }
+                first = false;
+                write!(stdout, "{}", serde_json::to_string(&path)?)?;
+                Ok(())
+            })?;
+            write!(stdout, "]")?;
+        }
+        writeln!(
+            stdout,
+            ",\"remove_file_count\":{},\"unchanged\":{}}}",
+            plan.removed_files, plan.unchanged
+        )?;
         return Ok(());
     }
     if request.format == "tsv" {
-        for addition in &plan.additions {
-            println!("add\t{}", addition.destination);
-        }
-        for replacement in &plan.replacements {
-            println!("replace\t{}", replacement.destination);
-        }
-        for directory in &plan.directories {
-            println!("create-directory\t{directory}");
-        }
-        for removal in &plan.removals {
-            println!("remove\t{removal}");
+        for (label, operation) in [
+            ("add", PlanOperation::Add),
+            ("replace", PlanOperation::Replace),
+            ("create-directory", PlanOperation::MakeDirectory),
+            ("remove", PlanOperation::Remove),
+        ] {
+            for_each_plan_path(inventory, operation, |path| {
+                println!("{label}\t{path}");
+                Ok(())
+            })?;
         }
         println!("unchanged\t{}", plan.unchanged);
         return Ok(());
@@ -1769,15 +2302,30 @@ fn print_plan(plan: &MirrorPlan, source: &Path, request: &MirrorRequest) -> CliR
     println!("Mirror status for '{}'", request.project.name);
     println!();
     println!("  source:    {}", source.display());
-    println!("  add:       {} files", plan.additions.len());
-    println!("  replace:   {} files", plan.replacements.len());
-    println!("  mkdir:     {} directories", plan.directories.len());
+    println!("  add:       {} files", plan.additions);
+    println!("  replace:   {} files", plan.replacements);
+    println!("  mkdir:     {} directories", plan.directories);
     println!("  remove:    {} files", plan.removed_files);
     println!("  unchanged: {} files", plan.unchanged);
-    if !plan.removals.is_empty() {
+    if plan.removals > 0 {
         println!("\nEntries to remove:");
-        for path in &plan.removals {
+        for_each_plan_path(inventory, PlanOperation::Remove, |path| {
             println!("  {path}");
+            Ok(())
+        })?;
+    }
+    Ok(())
+}
+
+fn for_each_plan_path(
+    inventory: &SourceSnapshot,
+    operation: PlanOperation,
+    mut action: impl FnMut(String) -> CliResult<()>,
+) -> CliResult<()> {
+    for record in inventory.plan.iter()? {
+        let (record_operation, destination, _) = decode_plan_record(record?)?;
+        if record_operation == operation {
+            action(destination.to_string())?;
         }
     }
     Ok(())
@@ -1869,6 +2417,26 @@ fn hex_digest(bytes: &[u8]) -> String {
     output
 }
 
+fn parse_sha256(value: &str) -> Result<[u8; 32], Error> {
+    if value.len() != 64 {
+        return Err(Error::InvalidOperation(
+            "invalid SHA-256 checksum in mirror inventory".to_string(),
+        ));
+    }
+    let mut digest = [0_u8; 32];
+    for (index, pair) in value.as_bytes().chunks_exact(2).enumerate() {
+        let encoded = std::str::from_utf8(pair)
+            .map_err(|_| Error::InvalidOperation("invalid mirror checksum".to_string()))?;
+        digest[index] = u8::from_str_radix(encoded, 16)
+            .map_err(|_| Error::InvalidOperation("invalid mirror checksum".to_string()))?;
+    }
+    Ok(digest)
+}
+
+fn mirror_inventory_error(error: io::Error) -> Error {
+    Error::InvalidOperation(format!("cannot read temporary mirror inventory: {error}"))
+}
+
 #[cfg(unix)]
 fn platform_identity(path: &Path) -> CliResult<Option<String>> {
     use std::os::unix::fs::MetadataExt;
@@ -1887,4 +2455,41 @@ fn modified_nanos(metadata: &fs::Metadata) -> Option<u128> {
         .ok()
         .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|duration| duration.as_nanos())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn source_inventory_is_disk_backed_and_tree_changes_are_rejected() {
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join("nested")).unwrap();
+        fs::write(root.path().join("nested/file.txt"), b"planned bytes").unwrap();
+        let mut progress = MirrorProgress::new(false);
+        let ignored = BTreeSet::new();
+        let inventory = walk_source(root.path(), &[], &[], &ignored, &mut progress).unwrap();
+
+        assert!(inventory
+            ._temporary_directory
+            .path()
+            .join("source.records")
+            .is_file());
+        let SourceEntryValue::File { fingerprint, .. } =
+            decode_source_value(&inventory.source.get(b"nested/file.txt").unwrap().unwrap())
+                .unwrap()
+        else {
+            panic!("file record was stored as a directory")
+        };
+        assert_eq!(
+            fingerprint.digest,
+            hex_digest(Sha256::digest(b"planned bytes").as_slice())
+        );
+
+        fs::write(root.path().join("new.txt"), b"new").unwrap();
+        let error = verify_source_tree(root.path(), &[], &[], &ignored, &inventory, false)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("new file found"), "{error}");
+    }
 }
