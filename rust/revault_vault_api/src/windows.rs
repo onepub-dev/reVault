@@ -21,6 +21,7 @@ use std::ffi::c_void;
 use std::hash::{Hash, Hasher};
 use std::io;
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::ptr::{null, null_mut};
 use std::sync::{Arc, Mutex};
