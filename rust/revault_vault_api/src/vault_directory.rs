@@ -840,6 +840,15 @@ impl VaultDirectory {
         self.put_record(&contact_record_path(name)?, &key.to_bytes())
     }
 
+    /// Replaces a contact public key stored under `name`.
+    ///
+    /// Any signing key associated with the old contact is removed so it cannot
+    /// be mistaken for the signing key belonging to the replacement key.
+    pub fn replace_contact(&self, name: &str, key: &ContactPublicKey) -> Result<()> {
+        self.delete_record_if_exists(&contact_signing_record_path(name)?)?;
+        self.put_record_replace(&contact_record_path(name)?, &key.to_bytes())
+    }
+
     /// Stores the contact signing public key associated with a contact.
     pub fn store_contact_signing_key(&self, name: &str, key: &OwnerSigningPublicKey) -> Result<()> {
         self.put_record_replace(&contact_signing_record_path(name)?, &key.to_bytes())
@@ -922,7 +931,16 @@ impl VaultDirectory {
         lockbox_id: LockboxId,
         path: impl AsRef<Path>,
     ) -> Result<()> {
-        let path = path.as_ref().to_string_lossy().to_string();
+        let path = fs::canonicalize(path.as_ref())
+            .map_err(|err| Error::Io(err.to_string()))?
+            .to_string_lossy()
+            .to_string();
+        let stale_paths = self
+            .list_known_lockboxes()?
+            .into_iter()
+            .filter(|known| known.lockbox_id == lockbox_id && known.path != path)
+            .map(|known| known.path)
+            .collect::<Vec<_>>();
         let record = KnownLockbox {
             lockbox_id,
             path,
@@ -931,7 +949,11 @@ impl VaultDirectory {
         self.put_record_replace(
             &known_lockbox_record_path(record.path.as_str())?,
             &encode_known_lockbox(&record),
-        )
+        )?;
+        for stale_path in stale_paths {
+            self.forget_known_lockbox(stale_path)?;
+        }
+        Ok(())
     }
 
     /// Restores a known-lockbox record without replacing its source timestamp.
@@ -957,7 +979,13 @@ impl VaultDirectory {
     /// Removes one remembered lockbox path. The lockbox file itself is not
     /// deleted or modified.
     pub fn forget_known_lockbox(&self, path: impl AsRef<Path>) -> Result<()> {
-        self.delete_record_if_exists(&known_lockbox_record_path(path.as_ref())?)
+        let path = path.as_ref();
+        if let Ok(canonical) = fs::canonicalize(path) {
+            if canonical != path {
+                self.delete_record_if_exists(&known_lockbox_record_path(canonical)?)?;
+            }
+        }
+        self.delete_record_if_exists(&known_lockbox_record_path(path)?)
     }
 
     /// Remember a local name for one lockbox access slot.

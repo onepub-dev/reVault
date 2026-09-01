@@ -4,8 +4,9 @@ reVault vaults and archives have independent on-disk formats and may be
 upgraded at different times. Migrate the vault first: archive migration uses
 the profile and signing keys from the current-format vault.
 
-Use the `lockbox migrate` command when a newer reVault release reports that a
-vault or archive uses an older format. The command migrates to the latest
+Use the `lockbox doctor migrate` command when a newer reVault release reports
+that a vault or archive uses an older format. `doctor` groups health checks,
+recovery, and format maintenance in one place. Migration upgrades to the latest
 format supported by the installed CLI.
 
 ## Before you start
@@ -31,7 +32,7 @@ output directory for the first migration so that the original vault remains
 untouched:
 
 ```console
-lockbox migrate vault --output ~/.local/share/lockbox/vault-migrated
+lockbox doctor migrate vault --output ~/.local/share/lockbox/vault-migrated
 ```
 
 The CLI obtains the Vault passphrase from the platform credential store, the
@@ -43,7 +44,7 @@ secret store:
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox migrate vault --output "$WORK_DIR/vault-migrated"
+  lockbox doctor migrate vault --output "$WORK_DIR/vault-migrated"
 ```
 
 The CLI generates and manages a temporary key for the encrypted migration
@@ -61,7 +62,7 @@ vault.
 Pass the archive path and a separate output path:
 
 ```console
-lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
 The migration first tries the current and historical Profile keys stored in
@@ -91,15 +92,15 @@ Once the original vault has been restored, migrate it if it is older than the
 current format:
 
 ```console
-lockbox migrate vault --replace
-lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+lockbox doctor migrate vault --replace
+lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
 For automation, provide the Vault passphrase through the protected environment:
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+  lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
 Add `LOCKBOX_PASSWORD` only when the vault does not contain a Profile key or
@@ -108,7 +109,7 @@ remembered Lockbox password that can open the archive:
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
   LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+  lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
 Open the migrated archive and check important paths before replacing or
@@ -133,8 +134,8 @@ Once you have tested a migration, `--replace` can perform the replacement
 automatically:
 
 ```console
-lockbox migrate vault --replace
-lockbox migrate archive secrets.lbox --replace
+lockbox doctor migrate vault --replace
+lockbox doctor migrate lockbox secrets.lbox --replace
 ```
 
 `--replace` cannot be combined with `--output`. The CLI validates the migrated
@@ -191,7 +192,7 @@ temporary artifacts beside the source. If the process is interrupted, repeat
 the same command:
 
 ```console
-lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
 Completed export, upgrade, and import stages are verified and reused. An
@@ -218,8 +219,8 @@ To view them:
 
 ```console
 lockbox --verbose --help
-lockbox --verbose migrate vault --help
-lockbox --verbose migrate archive --help
+lockbox --verbose doctor migrate vault --help
+lockbox --verbose doctor migrate lockbox --help
 ```
 
 The stage commands use encrypted migration artifacts and require an explicit
@@ -228,8 +229,8 @@ artifact may outlive the source vault and may be transferred to another
 machine. For example, to verify an artifact without importing it:
 
 ```console
-lockbox migrate vault verify vault.migration
-lockbox migrate archive verify archive.migration
+lockbox doctor migrate vault verify vault.migration
+lockbox doctor migrate lockbox verify archive.migration
 ```
 
 For a manually staged migration, keep the artifact files private and transfer
@@ -244,8 +245,8 @@ arguments may be visible to other processes.
 Run the matching direct command and provide a destination:
 
 ```console
-lockbox migrate vault --output ./vault-v2
-lockbox migrate archive old-secrets.lbox --output ./old-secrets-v2.lbox
+lockbox doctor migrate vault --output ./vault-v2
+lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-v2.lbox
 ```
 
 If you want the original replaced after validation, use `--replace` instead.
@@ -258,7 +259,7 @@ invocation:
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox migrate vault --output ./vault-v2
+  lockbox doctor migrate vault --output ./vault-v2
 ```
 
 ### The migration cannot open the archive
@@ -271,7 +272,7 @@ archive has password access, provide that password through `LOCKBOX_PASSWORD`:
 
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
-  lockbox migrate archive old-secrets.lbox --output ./old-secrets-v2.lbox
+  lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-v2.lbox
 ```
 
 ### The exporter cannot be installed
@@ -286,7 +287,7 @@ and pass it with the advanced `--exporter <path>` option.
 Choose a new output path. Migration never overwrites an existing destination:
 
 ```console
-lockbox migrate archive secrets.lbox --output secrets-v2-new.lbox
+lockbox doctor migrate lockbox secrets.lbox --output secrets-v2-new.lbox
 ```
 
 ### The source changed while migration was in progress

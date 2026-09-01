@@ -5,7 +5,7 @@ use super::context::{
     CliResult,
 };
 use super::form::{default_form_alias, parse_field_spec, print_form_definition_saved};
-use super::output::{output_format_from_matches, print_records, OutputFormat};
+use super::output::{human_size, output_format_from_matches, print_records, OutputFormat};
 use super::session::{default_matches, replace_default_after_move};
 use clap::ArgMatches;
 use revault_lockbox_api::vault_integration::VaultOpen;
@@ -165,7 +165,7 @@ fn vault_contact_matches(matches: &ArgMatches) -> CliResult<()> {
 fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
     let (command, sub) = matches.subcommand().ok_or_else(|| {
         Error::InvalidInput(
-            "missing vault lockbox command; use `lockbox vault lockbox list`, `lockbox vault lockbox move <source> <destination>`, or `lockbox vault lockbox forget <lockbox>`"
+            "missing vault lockbox command; use `lockbox vault lockbox list`, `lockbox vault lockbox remember <lockbox>`, `lockbox vault lockbox move <source> <destination>`, or `lockbox vault lockbox forget <lockbox>`"
                 .to_string(),
         )
     })?;
@@ -174,6 +174,7 @@ fn vault_lockbox_matches(matches: &ArgMatches) -> CliResult<()> {
             output_format_from_matches(sub)?,
             sub.get_flag("with-description"),
         ),
+        "remember" => remember_known_lockbox_path(&required_value(sub, "lockbox")),
         "move" | "mv" | "rename" => move_known_lockbox(
             &required_value(sub, "source"),
             &required_value(sub, "destination"),
@@ -646,7 +647,11 @@ fn contact_import_options(options: ContactImportOptions) -> CliResult<()> {
         ))
         .into());
     }
-    vault.store_contact(name, &contact)?;
+    if options.overwrite {
+        vault.replace_contact(name, &contact)?;
+    } else {
+        vault.store_contact(name, &contact)?;
+    }
     println!("contact={name}");
     print_fingerprint_lines("public_key_fingerprint", &computed_fingerprint);
     println!("fingerprint_verified=yes");
@@ -814,7 +819,11 @@ fn receive_publish_options(options: PublishCliOptions) -> CliResult<()> {
     if vault.contact_exists(&contact_name)? && !options.overwrite {
         return Err(Error::AlreadyExists(format!("contact {contact_name}")).into());
     }
-    vault.store_contact(&contact_name, &contact_public_key)?;
+    if options.overwrite {
+        vault.replace_contact(&contact_name, &contact_public_key)?;
+    } else {
+        vault.store_contact(&contact_name, &contact_public_key)?;
+    }
     vault.store_contact_signing_key(&contact_name, &signing_public)?;
     println!("contact={contact_name}");
     println!("profile={}", published_contact.profile);
@@ -1639,29 +1648,24 @@ fn column_width<'a>(header: &str, values: impl Iterator<Item = &'a str>) -> usiz
     values.fold(header.len(), |width, value| width.max(value.len()))
 }
 
-fn human_size(bytes: u64) -> String {
-    const UNITS: [&str; 7] = ["B", "K", "M", "G", "T", "P", "E"];
-    let mut value = bytes as f64;
-    let mut unit = 0usize;
-    while value >= 1024.0 && unit + 1 < UNITS.len() {
-        value /= 1024.0;
-        unit += 1;
-    }
-    if unit == 0 {
-        return format!("{bytes}B");
-    }
-    if value >= 100.0 {
-        format!("{value:.0}{}", UNITS[unit])
-    } else if value >= 10.0 {
-        format!("{value:.1}{}", UNITS[unit])
-    } else {
-        format!("{value:.2}{}", UNITS[unit])
-    }
-}
-
 fn forget_known_lockbox_path(path: &str) -> CliResult<()> {
     default_vault()?.forget_known_lockbox(path)?;
     println!("Forgot known lockbox: {path}");
+    Ok(())
+}
+
+fn remember_known_lockbox_path(path: &str) -> CliResult<()> {
+    let path = fs::canonicalize(path)
+        .map_err(|err| cli_error(format!("could not resolve lockbox path {path}: {err}")))?;
+    if !path.is_file() {
+        return Err(cli_error(format!(
+            "lockbox path is not a file: {}",
+            path.display()
+        )));
+    }
+    let lockbox_id = VaultOpen::read_lockbox_id(&path)?;
+    default_vault()?.remember_known_lockbox(lockbox_id, &path)?;
+    println!("Remembered lockbox: {}", path.display());
     Ok(())
 }
 

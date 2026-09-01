@@ -104,3 +104,30 @@ fn print_json(headers: &[&str], rows: &[Vec<String>]) -> CliResult<()> {
 pub(crate) fn json_string(value: &str) -> String {
     serde_json::to_string(value).expect("serializing a string to JSON cannot fail")
 }
+
+/// Formats a byte count for terminal output using decimal SI units.
+pub(crate) fn human_size(bytes: u64) -> String {
+    const UNITS: [&str; 7] = ["B", "KB", "MB", "GB", "TB", "PB", "EB"];
+    if bytes < 1_000 {
+        return format!("{bytes}B");
+    }
+    let mut value = bytes as f64;
+    let mut unit = 0usize;
+    while value >= 1_000.0 && unit + 1 < UNITS.len() {
+        value /= 1_000.0;
+        unit += 1;
+    }
+    format!("{value:.3}{}", UNITS[unit])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::human_size;
+
+    #[test]
+    fn human_sizes_use_compact_decimal_units() {
+        assert_eq!(human_size(999), "999B");
+        assert_eq!(human_size(1_000), "1.000KB");
+        assert_eq!(human_size(19_265_189_184), "19.265GB");
+    }
+}

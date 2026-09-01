@@ -1,5 +1,6 @@
 use super::command_lockbox;
 use super::context::{cli_error, open_existing_read_only, Access, CliResult};
+use super::output::human_size;
 use clap::ArgMatches;
 use revault_lockbox_api::{Error, Lockbox, LockboxFileInspection, LockboxKeySlotProtection};
 use revault_vault_api::{
@@ -11,16 +12,26 @@ use std::fs::OpenOptions;
 use std::path::Path;
 
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    if let Some(("recover", recover_matches)) = matches.subcommand() {
-        if command_lockbox().is_none() {
-            return Err(cli_error(
-                "doctor recover requires a lockbox path before `doctor`",
-            ));
+    if let Some((command, command_matches)) = matches.subcommand() {
+        match command {
+            "recover" => {
+                if command_lockbox().is_none() {
+                    return Err(cli_error(
+                        "doctor recover requires a lockbox path before `doctor`",
+                    ));
+                }
+                return super::recovery::run_matches(command_matches, access);
+            }
+            "migrate" => return super::migrate::run_matches(command_matches, access),
+            other => {
+                return Err(cli_error(format!(
+                    "unknown doctor maintenance command: {other}"
+                )))
+            }
         }
-        return super::recovery::run_matches(recover_matches, access);
     }
     match command_lockbox() {
-        Some(lockbox) => run_lockbox(&lockbox, access),
+        Some(lockbox) => run_lockbox(&lockbox, access, matches.get_flag("verbose")),
         None => run_global(),
     }
 }
@@ -122,7 +133,7 @@ fn run_global() -> CliResult<()> {
     Ok(())
 }
 
-fn run_lockbox(lockbox_path: &str, access: &Access) -> CliResult<()> {
+fn run_lockbox(lockbox_path: &str, access: &Access, verbose: bool) -> CliResult<()> {
     let path = Path::new(lockbox_path);
     let metadata = std::fs::metadata(path).map_err(|err| {
         if err.kind() == std::io::ErrorKind::NotFound {
@@ -142,10 +153,21 @@ fn run_lockbox(lockbox_path: &str, access: &Access) -> CliResult<()> {
     let inspection = Lockbox::inspect_file(path)?;
     println!("Lockbox");
     println!("  path: {lockbox_path}");
-    println!("  readable: {}", yes_no(std::fs::File::open(path).is_ok()));
-    println!("  size: {} bytes", metadata.len());
-    println!("  id: {}", inspection.lockbox_id);
-    println!("  header: {}", header_status(&inspection));
+    println!("  size: {}", human_size(metadata.len()));
+    if !inspection.header_readable {
+        println!("  warning: primary header is damaged; backup metadata was used");
+    }
+    if verbose {
+        println!();
+        println!("Technical details");
+        println!("  lockbox id: {}", inspection.lockbox_id);
+        println!("  physical bytes: {}", metadata.len());
+        println!("  primary header: {}", header_status(&inspection));
+        println!(
+            "  key directory: generation {}, {} readable copies",
+            inspection.key_directory_generation, inspection.key_directory_copy_count
+        );
+    }
     println!();
     print_access_methods(&inspection);
     println!();
@@ -153,7 +175,7 @@ fn run_lockbox(lockbox_path: &str, access: &Access) -> CliResult<()> {
     println!();
     print_revault_vault_api(&inspection);
     println!();
-    print_open_checks(lockbox_path, access);
+    print_encrypted_content(lockbox_path, access, verbose);
     Ok(())
 }
 
@@ -168,20 +190,9 @@ fn print_access_methods(inspection: &LockboxFileInspection) {
         .iter()
         .filter(|slot| slot.protection == LockboxKeySlotProtection::Contact)
         .count();
-    println!("Access methods");
+    println!("Configured access (public header)");
     println!("  pass phrase slots: {password_count}");
     println!("  contact-key slots: {contact_count}");
-    println!(
-        "  key directory: {}",
-        if inspection.key_directory_copy_count == 0 {
-            "not found".to_string()
-        } else {
-            format!(
-                "generation {}, {} readable copy/copies",
-                inspection.key_directory_generation, inspection.key_directory_copy_count
-            )
-        }
-    );
     if !inspection.key_slots.is_empty() {
         println!("  slots:");
         for slot in &inspection.key_slots {
@@ -238,10 +249,11 @@ fn print_revault_vault_api(inspection: &LockboxFileInspection) {
     }
 }
 
-fn print_open_checks(lockbox_path: &str, access: &Access) {
-    println!("Open checks");
+fn print_encrypted_content(lockbox_path: &str, access: &Access, verbose: bool) {
+    println!("Encrypted content");
     match open_existing_read_only(lockbox_path, access) {
         Ok(lockbox) => {
+            println!("  state: healthy");
             match lockbox.description() {
                 Ok(Some(description)) => {
                     let mut lines = description.lines();
@@ -253,33 +265,29 @@ fn print_open_checks(lockbox_path: &str, access: &Access) {
                 Ok(None) => println!("  description: not set"),
                 Err(err) => println!("  description: not checked: {err}"),
             }
-            let inspector = lockbox.inspector();
-            println!("  open: yes");
-            match inspector.storage_len() {
-                Ok(len) => println!("  storage length: {len} bytes"),
-                Err(err) => println!("  storage length: not checked: {err}"),
+            if verbose {
+                println!("  transaction recovery: not required");
             }
-            match inspector.inspect_pages() {
-                Ok(pages) => println!("  pages: {}", pages.len()),
-                Err(err) => println!("  pages: not checked: {err}"),
-            }
-            let report = inspector.recovery_report();
-            println!("  intact files: {}", report.intact_file_count);
-            println!("  partial files: {}", report.partial_files);
         }
         Err(err) => {
             if matches!(
                 err.downcast_ref::<Error>(),
                 Some(Error::RecoveryRequired { .. })
             ) {
-                println!("  open: recovery required");
-                println!("  run: lockbox {lockbox_path} doctor recover --dry-run");
+                println!("  state: cleanup required");
+                println!("  preview: lbx {lockbox_path} doctor recover --dry-run");
+                println!("  recover: lbx {lockbox_path} doctor recover");
                 return;
             }
-            println!("  open: no");
-            println!("  additional checks unavailable: {err}");
-            println!("  run: lockbox {lockbox_path} open");
-            println!("  then: lockbox {lockbox_path} doctor");
+            if matches!(err.downcast_ref::<Error>(), Some(Error::VaultUnavailable(message)) if message.contains("no cached content key"))
+            {
+                println!("  state: not checked (lockbox is closed)");
+                println!("  next: open the lockbox, then run doctor again to check its health:");
+                println!("    lbx {lockbox_path} open");
+                println!("    lbx {lockbox_path} doctor");
+                return;
+            }
+            println!("  checks failed: {err}");
         }
     }
 }

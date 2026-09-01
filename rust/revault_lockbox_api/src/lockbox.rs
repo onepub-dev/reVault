@@ -193,6 +193,7 @@ pub struct Lockbox<State = Writable> {
 #[derive(Debug, Clone)]
 pub struct StagedLockboxState {
     commit_chain: CommitChain,
+    published_sequence: u64,
     header_slot: usize,
     header_generation: u64,
     cleanup_sequence: u64,
@@ -335,9 +336,9 @@ impl<State> Lockbox<State> {
 
     /// Report durable redaction cleanup required by the published transaction.
     pub fn transaction_recovery_status(&self) -> Option<TransactionRecoveryStatus> {
-        (self.cleanup_sequence < self.sequence && self.redaction_manifest_offset != 0).then_some(
-            TransactionRecoveryStatus {
-                transaction_sequence: self.sequence,
+        (self.cleanup_sequence < self.published_sequence && self.redaction_manifest_offset != 0)
+            .then_some(TransactionRecoveryStatus {
+                transaction_sequence: self.published_sequence,
                 cleanup_sequence: self.cleanup_sequence,
                 phase: TransactionRecoveryPhase::Cleanup,
                 range_count: self.redaction_range_count,
@@ -348,8 +349,7 @@ impl<State> Lockbox<State> {
                 completed_pages: self.cleanup_completed_pages,
                 total_bytes: self.redaction_total_bytes,
                 completed_bytes: self.cleanup_completed_bytes,
-            },
-        )
+            })
     }
 
     fn read_redaction_manifest_page_at(&self, offset: u64) -> Result<RedactionManifestPage> {
@@ -611,6 +611,7 @@ impl Lockbox<Writable> {
                     commit_auth_offset: 0,
                     commit_auth_digest: [0; 32],
                 },
+                published_sequence: 0,
                 header_slot: 0,
                 header_generation: 1,
                 cleanup_sequence: 0,
@@ -779,6 +780,7 @@ impl Lockbox<Writable> {
                     commit_auth_offset: 0,
                     commit_auth_digest: [0; 32],
                 },
+                published_sequence: sequence,
                 header_slot,
                 header_generation,
                 cleanup_sequence,

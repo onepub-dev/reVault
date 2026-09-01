@@ -62,6 +62,33 @@ fn cli_publish_and_receive_with_two_servers() {
     assert!(receive_text.contains(&format!("publish_code={}", publish.publish_code)));
     assert!(receive_text.contains("contact=received"));
     assert!(receive_text.contains("fingerprint_verified=yes"));
+
+    let direct = publish_contact_to_server(bin, &vault_root, &agent_root, &cluster.primary_url());
+    let verified = cluster
+        .primary
+        .store
+        .verify_email(&direct.verified_query_code, &direct.verified_query_token);
+    assert!(verified.success, "{}", verified.message);
+    let overwritten = run_output_in(
+        bin,
+        &[
+            "vault",
+            "contact",
+            "receive",
+            &direct.publish_code,
+            "received",
+            "--server",
+            &cluster.primary_url(),
+            "--fingerprint",
+            &direct.contact_fingerprint,
+            "--fingerprint-channel",
+            "phone-call-to-owner",
+            "--overwrite",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&overwritten);
 }
 
 #[test]
@@ -156,6 +183,32 @@ fn publish_contact(
             "publish",
             "--topology-url",
             topology_url,
+            "--ttl",
+            "300",
+            "--max-receives",
+            "10",
+        ],
+        vault_root,
+        agent_root,
+    );
+    assert_success(&publish);
+    parse_publish_output(&String::from_utf8_lossy(&publish.stdout))
+}
+
+fn publish_contact_to_server(
+    bin: &str,
+    vault_root: &PathBuf,
+    agent_root: &PathBuf,
+    server: &str,
+) -> PublishedProfile {
+    let publish = run_output_in(
+        bin,
+        &[
+            "vault",
+            "profile",
+            "publish",
+            "--server",
+            server,
             "--ttl",
             "300",
             "--max-receives",

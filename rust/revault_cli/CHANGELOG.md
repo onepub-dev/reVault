@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.0.12 - 2026-09-01
+
+- Moved format migration under the `doctor` maintenance namespace. Use
+  `lockbox doctor migrate vault` and `lockbox doctor migrate lockbox`; the
+  former top-level `migrate` command is no longer accepted.
+- Fixed large mirror updates being reported as unpersisted after staging many
+  additions or recursive removals. Mirror updates now verify the committed
+  contents through a fresh open before reporting success.
+- Exclude the selected lockbox and its active lock file when mirroring or
+  recursively adding a directory that contains the lockbox itself.
+- Redraw mirror progress on one terminal line when supported, retain
+  line-oriented redirected logs, and add `--quiet` to mirror, add, and recovery
+  workflows.
+- Make `doctor` report user-facing health states and recovery commands, hide
+  implementation counters unless `--verbose` is requested, show human-readable
+  sizes, and tell users to open a closed lockbox before rerunning health checks.
+- Store the default lockbox in Session Agent state, remember lockboxes by
+  absolute canonical paths, and add an explicit command for remembering an
+  existing lockbox.
+- Install the historical lockbox migration helper alongside `lockbox` and
+  `lbx` when installing from source with `cargo xtask install-cli`.
+
 ## 0.0.11 - 2026-08-31
 
 - Allow explicit and prompted Vault passphrases to remain usable when the

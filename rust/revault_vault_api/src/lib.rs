@@ -106,3 +106,23 @@ pub use vault_directory::{
     ProfileGenerationStatus, ProfileHistory, ReadOnlyVaultDirectory, StoredContact,
     VaultBackupManifest, VaultDirectory, CURRENT_VAULT_STRUCTURE_VERSION,
 };
+
+/// Returns the platform-specific directory used for Session Agent state.
+///
+/// `LOCKBOX_SESSION_AGENT_DIR` overrides the platform default.
+pub fn session_agent_dir() -> std::path::PathBuf {
+    #[cfg(unix)]
+    {
+        unix::session_agent_dir()
+    }
+    #[cfg(windows)]
+    {
+        windows::session_agent_dir()
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        std::env::var("LOCKBOX_SESSION_AGENT_DIR")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| std::env::temp_dir().join("lockbox"))
+    }
+}

@@ -54,8 +54,8 @@ jobs:
         run: >-
           cargo check
           -p revault_page_api@0.0.4
-          -p revault_lockbox_api@0.0.7
-          -p revault_vault_api@0.0.8
+          -p revault_lockbox_api@0.0.8
+          -p revault_vault_api@0.0.9
           --all-targets
           --locked
 
@@ -151,7 +151,7 @@ jobs:
             command: >-
               cargo test --locked
               -p revault_page_api@0.0.4
-              -p revault_lockbox_api@0.0.7
+              -p revault_lockbox_api@0.0.8
           - group: CLI flow / vault commands
             cache: cli-flow-vault
             command: >-
@@ -223,7 +223,7 @@ jobs:
             cache: migrations
             command: >-
               cargo test --locked
-              -p revault_vault_api@0.0.8
+              -p revault_vault_api@0.0.9
               -p revault_migration_format
               -p revault_migrate_vault_v1
               -p revault_migrate_archive_v1
@@ -317,6 +317,45 @@ jobs:
           --test contact_receive_alias
           --test help_open_key
           --test publish_integration
+
+  cli-e2e:
+    name: CLI E2E / ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Linux x86_64
+            os: ubuntu-latest
+            cache: linux-x86_64
+          - platform: Windows x86_64
+            os: windows-latest
+            cache: windows-x86_64
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: cli-e2e-${{ matrix.cache }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+
+      - name: Run realistic CLI E2E contract
+        run: cargo xtask test-cli-e2e
 
   fuzz-harnesses:
     name: compile fuzz harnesses

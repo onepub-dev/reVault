@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.8 - 2026-09-01
+
+- Keep the last published transaction sequence separate from sequence numbers
+  allocated while staging new pages. Large mirror deletions after an earlier
+  cleanup transaction now commit and remain visible after reopening instead of
+  being misclassified as unfinished recovery.
+- Use “lockbox” consistently in unsupported-format and recovery guidance.
+
 ## 0.0.7 - 2026-08-30
 
 - Replace the pinned `zstd-rs` Git revision with the published pure-Rust

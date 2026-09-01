@@ -24,8 +24,8 @@ Package registries and a language binding's own README are authoritative for tha
 Vault and Lockbox formats are versioned independently. A current CLI may require the Vault to be migrated before it can migrate an older Lockbox:
 
 ```bash
-lbx migrate vault --output ./vault-migrated
-lbx migrate archive old.lbox --output migrated.lbox
+lbx doctor migrate vault --output ./vault-migrated
+lbx doctor migrate lockbox old.lbox --output migrated.lbox
 ```
 
 Read [Migrating between versions](cli-tooling/migrating-between-versions.md) before replacing either source. Keep the pre-migration copy until the new one has been opened and checked.

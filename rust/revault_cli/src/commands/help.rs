@@ -122,7 +122,7 @@ pub(crate) fn command(verbose: bool) -> Command {
             file_command("add", "Add a file or directory to a lockbox.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox add ./notes.txt\n  lockbox secrets.lbox add ./*.key\n  lockbox secrets.lbox add ./*.key --to keys/\n  lockbox secrets.lbox add ./notes.txt --to docs/readme.txt\n  lockbox secrets.lbox add ./notes.txt --to docs/readme.txt --overwrite\n  lockbox secrets.lbox add --recursive ./project --to archive/project/",
+                    "Examples:\n  lockbox add ./notes.txt\n  lockbox add --recursive .\n  lockbox secrets.lbox add ./*.key\n  lockbox secrets.lbox add ./*.key --to keys/\n  lockbox secrets.lbox add ./notes.txt --to docs/readme.txt\n  lockbox secrets.lbox add ./notes.txt --to docs/readme.txt --overwrite\n  lockbox secrets.lbox add --recursive ./src ./assets README.md",
                     "Context:\n  Add imports one or more host files into the selected lockbox. Put the lockbox before the command, or omit it to use the session default. Every positional argument is a source; use --to for the logical destination. Relative logical destinations are rooted at the lockbox root. Existing files are protected unless --overwrite is explicit. Pass --recursive for a directory source. Use --jobs in verbose mode to tune large imports.",
                 ))
                 .arg(
@@ -152,6 +152,13 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .action(ArgAction::SetTrue)
                         .help("Replace mapped files that already exist in the lockbox."),
                 )
+                .arg(
+                    Arg::new("quiet")
+                        .short('q')
+                        .long("quiet")
+                        .action(ArgAction::SetTrue)
+                        .help("Suppress progress messages; result output is unchanged."),
+                )
                 .arg(filter_arg("include"))
                 .arg(filter_arg("exclude"))
                 .arg(
@@ -161,7 +168,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                         .action(ArgAction::Append)
                         .required(true)
                         .value_hint(ValueHint::AnyPath)
-                        .help("One or more host files, or one directory with --recursive."),
+                        .help("One or more host files or directories; directories require --recursive."),
                 ),
             mirror_command(verbose),
             file_command("extract", "Extract files from a lockbox.")
@@ -291,15 +298,14 @@ pub(crate) fn command(verbose: bool) -> Command {
             form_command(verbose),
             session_command(verbose),
             completion_command(),
-            migration_command(verbose),
             access_command(verbose),
-            archive_command("doctor", "Diagnose vault, agent, or lockbox problems.")
+            archive_command("doctor", "Diagnose and maintain vaults and lockboxes.")
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox doctor\n  lockbox secrets.lbox doctor\n  lockbox damaged.lbox doctor recover --dry-run",
-                    "Context:\n  With no Lockbox path, doctor reports local configuration and runtime state, including the Vault path, Auto Open support, and whether the Session Agent is reachable. With a Lockbox path, doctor inspects public Lockbox metadata without opening it and adds the encrypted description and deeper checks when the Lockbox can be opened. Doctor recover automatically completes authenticated interrupted cleanup in place; otherwise it salvages readable entries to a new Lockbox.",
+                    "Examples:\n  lockbox doctor\n  lockbox secrets.lbox doctor\n  lockbox damaged.lbox doctor recover --dry-run\n  lockbox doctor migrate vault --replace\n  lockbox doctor migrate lockbox secrets.lbox --replace",
+                    "Context:\n  Doctor is the maintenance namespace for Vault and Lockbox health. With no Lockbox path, it reports local configuration and runtime state. With a Lockbox path, it inspects public metadata and performs deeper checks when the Lockbox can be opened. Recover repairs or salvages damaged Lockboxes; migrate upgrades valid Vaults and Lockboxes between native format versions.",
                 ))
-                .subcommand(recovery_command(verbose)),
+                .subcommands([recovery_command(verbose), migration_command(verbose)]),
             vault_command(verbose),
             developer_command("visualize", "Print internal lockbox structure.")
                 .visible_alias("visualise"),
@@ -366,7 +372,7 @@ Sharing
   access          Grant or revoke who can open a lockbox.
 
 Diagnostics
-  doctor          Diagnose and recover vault, agent, or lockbox problems.
+  doctor          Diagnose and maintain vaults and lockboxes.
 
 Vault
   vault           Manage profiles, contacts, and reusable forms."
@@ -386,8 +392,9 @@ Developer and compatibility commands:
   open-key        Open a lockbox using a vault private key.
   visualize       Print internal lockbox structure.
 
-Migration commands:
-  migrate         Migrate vaults and archives between native format versions.
+Maintenance commands:
+  doctor recover  Recover damaged Lockboxes.
+  doctor migrate  Migrate Vaults and Lockboxes between native format versions.
 
 Process variables:
   LOCKBOX_KEY=<raw-content-key> lockbox <command> ...
@@ -442,6 +449,13 @@ fn recovery_command(verbose: bool) -> Command {
                 .conflicts_with_all(["output", "overwrite"])
                 .help("Report the detected recovery operation without changing files."),
         )
+        .arg(
+            Arg::new("quiet")
+                .short('q')
+                .long("quiet")
+                .action(ArgAction::SetTrue)
+                .help("Suppress progress messages; recovery output is unchanged."),
+        )
         .arg(output_format_arg())
 }
 
@@ -454,6 +468,9 @@ fn mirror_command(verbose: bool) -> Command {
         "mirror",
         "Manage named host-to-lockbox directory mirrors.",
     )
+    .override_usage(
+        "lockbox [LOCKBOX] mirror <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>\n       lockbox [LOCKBOX] mirror [NAME] <COMMAND>",
+    )
     .subcommand_required(true)
     .arg_required_else_help(true)
     .subcommand_precedence_over_arg(true)
@@ -462,23 +479,29 @@ fn mirror_command(verbose: bool) -> Command {
             .value_name("NAME")
             .required(false)
             .add(ArgValueCompleter::new(completion::mirror_project_candidates))
-            .help("Mirror project name. Omit when exactly one project exists."),
+            .help("Mirror project name. Required before 'create'; otherwise omit when exactly one project exists."),
     )
     .subcommands([
         Command::new("create")
             .about("Create a mirror project without importing files.")
+            .override_usage(
+                "lockbox [LOCKBOX] mirror <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>",
+            )
+            .arg(
+                Arg::new("misplaced-project")
+                    .value_name("MISPLACED_NAME")
+                    .hide(true),
+            )
             .arg(
                 Arg::new("from")
                     .long("from")
                     .value_name("HOST_DIRECTORY")
-                    .required(true)
                     .value_hint(ValueHint::DirPath),
             )
             .arg(
                 Arg::new("to")
                     .long("to")
                     .value_name("LOCKBOX_DIRECTORY")
-                    .required(true)
                     .add(ArgValueCompleter::new(completion::archive_directory_candidates)),
             )
             .arg(
@@ -495,6 +518,13 @@ fn mirror_command(verbose: bool) -> Command {
             .arg(output_format_arg()),
         Command::new("status")
             .about("Calculate the complete update plan without changing the lockbox.")
+            .arg(
+                Arg::new("quiet")
+                    .short('q')
+                    .long("quiet")
+                    .action(ArgAction::SetTrue)
+                    .help("Suppress progress messages; status output is unchanged."),
+            )
             .arg(output_format_arg()),
         Command::new("update")
             .about("Update the managed directory from its configured host source.")
@@ -515,6 +545,13 @@ fn mirror_command(verbose: bool) -> Command {
                     .long("allow-large-delete")
                     .action(ArgAction::SetTrue)
                     .help("Allow removal of more than half the managed files."),
+            )
+            .arg(
+                Arg::new("quiet")
+                    .short('q')
+                    .long("quiet")
+                    .action(ArgAction::SetTrue)
+                    .help("Suppress progress messages; result output is unchanged."),
             ),
         Command::new("configure")
             .about("Change persistent mirror behaviour.")
@@ -699,6 +736,12 @@ fn mirror_add_command(verbose: bool) -> Command {
         .arg(
             Arg::new("overwrite")
                 .long("overwrite")
+                .action(ArgAction::SetTrue),
+        )
+        .arg(
+            Arg::new("quiet")
+                .short('q')
+                .long("quiet")
                 .action(ArgAction::SetTrue),
         )
         .arg(filter_arg("include"))
@@ -1808,7 +1851,7 @@ fn vault_command(verbose: bool) -> Command {
                 .disable_help_subcommand(true)
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault lockbox list\n  lockbox vault lockbox move ./old.lbox ./archive/new.lbox\n  lockbox vault lockbox forget ./old-project.lbox",
+                    "Examples:\n  lockbox vault lockbox list\n  lockbox vault lockbox remember ./existing.lbox\n  lockbox vault lockbox move ./old.lbox ./archive/new.lbox\n  lockbox vault lockbox forget ./old-project.lbox",
                     "Context:\n  The vault remembers lockboxes it has created, opened, or modified so bulk maintenance commands can find them later. Move coordinates the file, session cache, default path, lock sidecar, and vault record. Forget removes only the vault reference; it does not delete the lockbox file.",
                 ))
                 .subcommand_required(true)
@@ -1829,6 +1872,16 @@ fn vault_command(verbose: bool) -> Command {
                                 .action(ArgAction::SetTrue)
                                 .help("Open each available lockbox and include its encrypted description."),
                         ),
+                )
+                .subcommand(
+                    Command::new("remember")
+                        .about("Remember an existing lockbox by its absolute path.")
+                        .after_help(verbose_help(
+                            verbose,
+                            "Examples:\n  lockbox vault lockbox remember ./secrets.lbox",
+                            "Context:\n  Remember validates the lockbox header, stores its canonical absolute path, and replaces a stale remembered path for the same lockbox id. It does not open or modify the lockbox.",
+                        ))
+                        .arg(required("lockbox", "Existing lockbox path to remember.")),
                 )
                 .subcommand(
                     Command::new("move")
@@ -2162,14 +2215,13 @@ fn completion_command() -> Command {
 
 fn migration_command(verbose: bool) -> Command {
     Command::new("migrate")
-        .about("Migrate vaults and archives between native format versions.")
-        .hide(!verbose)
+        .about("Migrate vaults and lockboxes between native format versions.")
         .disable_help_subcommand(true)
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommands([
             migration_vault_command(verbose),
-            migration_archive_command(verbose),
+            migration_lockbox_command(verbose),
         ])
 }
 
@@ -2204,33 +2256,33 @@ fn migration_vault_command(verbose: bool) -> Command {
         ])
 }
 
-fn migration_archive_command(verbose: bool) -> Command {
-    Command::new("archive")
-        .about("Migrate an archive to the latest format.")
+fn migration_lockbox_command(verbose: bool) -> Command {
+    Command::new("lockbox")
+        .about("Migrate a lockbox to the latest format.")
         .args_conflicts_with_subcommands(true)
-        .arg(optional("lockbox", "Archive to migrate."))
+        .arg(optional("lockbox", "Lockbox to migrate."))
         .arg(migration_output_arg())
         .arg(migration_replace_arg())
         .arg(migration_exporter_arg())
         .subcommands([
             Command::new("export")
-                .about("Export an archive to a migration artifact.")
+                .about("Export a lockbox to a migration artifact.")
                 .hide(!verbose)
-                .arg(required("lockbox", "Archive to export."))
+                .arg(required("lockbox", "Lockbox to export."))
                 .arg(migration_output_arg().required(true))
                 .arg(hidden_secret_stdin_arg("migration-password-stdin")),
             Command::new("upgrade")
-                .about("Upgrade an archive migration artifact to the latest schema.")
+                .about("Upgrade a lockbox migration artifact to the latest schema.")
                 .hide(!verbose)
                 .arg(required("artifact", "Input migration artifact."))
                 .arg(migration_output_arg().required(true)),
             Command::new("import")
-                .about("Import an archive migration artifact.")
+                .about("Import a lockbox migration artifact.")
                 .hide(!verbose)
                 .arg(required("artifact", "Input migration artifact."))
                 .arg(migration_output_arg().required(true)),
             Command::new("verify")
-                .about("Verify an archive migration artifact.")
+                .about("Verify a lockbox migration artifact.")
                 .hide(!verbose)
                 .arg(required("artifact", "Migration artifact to verify.")),
         ])
@@ -2306,44 +2358,51 @@ mod migration_inventory_tests {
 
     #[test]
     fn migration_command_and_option_inventory_is_explicit() {
-        let command = migration_command(true);
+        let command = command(true);
+        let migration = command_at(&command, "doctor/migrate");
         let mut actual = BTreeMap::new();
-        collect(&command, "migrate", &mut actual);
+        collect(migration, "doctor/migrate", &mut actual);
         let expected = BTreeMap::from([
             (
-                "migrate/archive".to_string(),
+                "doctor/migrate/lockbox".to_string(),
                 strings(&["exporter", "lockbox", "output", "replace"]),
             ),
             (
-                "migrate/archive/export".to_string(),
+                "doctor/migrate/lockbox/export".to_string(),
                 strings(&["lockbox", "migration-password-stdin", "output"]),
             ),
             (
-                "migrate/archive/import".to_string(),
+                "doctor/migrate/lockbox/import".to_string(),
                 strings(&["artifact", "output"]),
             ),
             (
-                "migrate/archive/upgrade".to_string(),
+                "doctor/migrate/lockbox/upgrade".to_string(),
                 strings(&["artifact", "output"]),
             ),
-            ("migrate/archive/verify".to_string(), strings(&["artifact"])),
             (
-                "migrate/vault".to_string(),
+                "doctor/migrate/lockbox/verify".to_string(),
+                strings(&["artifact"]),
+            ),
+            (
+                "doctor/migrate/vault".to_string(),
                 strings(&["exporter", "output", "replace"]),
             ),
             (
-                "migrate/vault/export".to_string(),
+                "doctor/migrate/vault/export".to_string(),
                 strings(&["migration-password-stdin", "output", "vault-password-stdin"]),
             ),
             (
-                "migrate/vault/import".to_string(),
+                "doctor/migrate/vault/import".to_string(),
                 strings(&["artifact", "output"]),
             ),
             (
-                "migrate/vault/upgrade".to_string(),
+                "doctor/migrate/vault/upgrade".to_string(),
                 strings(&["artifact", "output"]),
             ),
-            ("migrate/vault/verify".to_string(), strings(&["artifact"])),
+            (
+                "doctor/migrate/vault/verify".to_string(),
+                strings(&["artifact"]),
+            ),
         ]);
         assert_eq!(actual, expected);
     }
@@ -2492,6 +2551,7 @@ mod migration_inventory_tests {
             vec![
                 "lockbox",
                 "--verbose",
+                "doctor",
                 "migrate",
                 "vault",
                 "--replace",
@@ -2501,8 +2561,9 @@ mod migration_inventory_tests {
             vec![
                 "lockbox",
                 "--verbose",
+                "doctor",
                 "migrate",
-                "archive",
+                "lockbox",
                 "source.lbox",
                 "verify",
                 "artifact",
@@ -2535,7 +2596,7 @@ mod migration_inventory_tests {
     }
 
     fn collect(command: &Command, path: &str, output: &mut BTreeMap<String, Vec<String>>) {
-        if path != "migrate" {
+        if path != "doctor/migrate" {
             let mut arguments = command
                 .get_arguments()
                 .map(|argument| argument.get_id().as_str().to_string())
@@ -2547,5 +2608,34 @@ mod migration_inventory_tests {
         for child in command.get_subcommands() {
             collect(child, &format!("{path}/{}", child.get_name()), output);
         }
+    }
+
+    #[test]
+    #[ignore = "developer inventory aid; coverage is enforced by the E2E contract suite"]
+    fn print_complete_command_inventory() {
+        fn print_leaves(command: &Command, path: &str) {
+            if command.get_subcommands().next().is_none() {
+                let mut arguments = command
+                    .get_arguments()
+                    .filter(|argument| {
+                        argument.get_id() != "help"
+                            && (argument.get_long().is_some() || argument.get_short().is_some())
+                    })
+                    .map(|argument| argument.get_id().as_str().to_string())
+                    .collect::<Vec<_>>();
+                arguments.sort_unstable();
+                println!("{path}\t{}", arguments.join(","));
+            }
+            for child in command.get_subcommands() {
+                let child_path = if path.is_empty() {
+                    child.get_name().to_string()
+                } else {
+                    format!("{path}/{}", child.get_name())
+                };
+                print_leaves(child, &child_path);
+            }
+        }
+
+        print_leaves(&command(true), "");
     }
 }

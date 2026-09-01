@@ -1,5 +1,6 @@
 use super::context::{open_existing, Access, CliResult};
 use super::optional_lockbox_value;
+use super::output::human_size;
 use clap::ArgMatches;
 use revault_lockbox_api::{ListOptions, Lockbox, LockboxPath};
 
@@ -13,7 +14,7 @@ fn print_lockbox_visualization(lb: &Lockbox) -> CliResult<()> {
     println!("Lockbox");
     println!("  id: {}", lb.lockbox_id());
     let inspector = lb.inspector();
-    println!("  size: {} bytes", inspector.storage_len()?);
+    println!("  size: {}", human_size(inspector.storage_len()?));
 
     let key_slot_count = lb.list_key_slots().len();
     let variable_count = lb.list_variables()?.len();
@@ -49,7 +50,7 @@ fn print_lockbox_visualization(lb: &Lockbox) -> CliResult<()> {
     println!("    form definitions: {form_definition_count}");
     println!("    form records: {form_record_count}");
     println!("    key slots: {key_slot_count}");
-    println!("    logical file bytes: {total_file_bytes}");
+    println!("    logical file size: {}", human_size(total_file_bytes));
 
     println!("  pages:");
     let pages = inspector.inspect_pages()?;
@@ -61,12 +62,17 @@ fn print_lockbox_visualization(lb: &Lockbox) -> CliResult<()> {
             println!("    offset: {}", page.offset);
             println!("    page id: {}", page.page_id);
             println!("    sequence: {}", page.sequence);
-            println!("    encrypted body: {} bytes", page.encrypted_body_len);
+            println!(
+                "    encrypted body: {}",
+                human_size(u64::from(page.encrypted_body_len))
+            );
             println!("    objects: {}", page.object_count);
             for object in page.objects {
                 println!(
-                    "      {:<18} id={:<8} payload={} bytes",
-                    object.kind, object.id, object.payload_len
+                    "      {:<18} id={:<8} payload={}",
+                    object.kind,
+                    object.id,
+                    human_size(object.payload_len as u64)
                 );
             }
         }

@@ -302,8 +302,23 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
     let known = vault.list_known_lockboxes().unwrap();
     assert_eq!(known.len(), 1);
     assert_eq!(known[0].lockbox_id, lockbox.lockbox_id());
-    assert_eq!(known[0].path, lockbox_path.to_string_lossy());
-    vault.forget_known_lockbox(&lockbox_path).unwrap();
+    assert_eq!(
+        known[0].path,
+        lockbox_path.canonicalize().unwrap().to_string_lossy()
+    );
+
+    let relocated_path = root.join("relocated-backup-source.lbox");
+    fs::copy(&lockbox_path, &relocated_path).unwrap();
+    vault
+        .remember_known_lockbox(lockbox.lockbox_id(), &relocated_path)
+        .unwrap();
+    let known = vault.list_known_lockboxes().unwrap();
+    assert_eq!(known.len(), 1);
+    assert_eq!(
+        known[0].path,
+        relocated_path.canonicalize().unwrap().to_string_lossy()
+    );
+    vault.forget_known_lockbox(&relocated_path).unwrap();
     assert!(vault.list_known_lockboxes().unwrap().is_empty());
 
     let _ = fs::remove_dir_all(root);
@@ -538,6 +553,10 @@ fn vault_directory_public_crud_helpers_flow() {
     assert_eq!(contacts.len(), 1);
     assert_eq!(contacts[0].name, "alice");
     assert_eq!(contacts[0].key, contact);
+    let replacement = ContactKeyPair::generate().unwrap().public_key();
+    vault.replace_contact("alice", &replacement).unwrap();
+    assert_eq!(vault.load_contact("alice").unwrap(), replacement);
+    assert!(vault.load_contact_signing_key("alice").is_err());
     vault.delete_contact("alice").unwrap();
     assert!(!vault.contact_exists("alice").unwrap());
     assert!(vault.load_contact_signing_key("alice").is_err());

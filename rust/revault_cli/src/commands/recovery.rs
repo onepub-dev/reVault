@@ -1,5 +1,6 @@
-use super::context::{cli_error, default_vault, Access, CliResult};
+use super::context::{cli_error, default_vault, lockbox_open_error, Access, CliResult};
 use super::optional_lockbox_value;
+use super::output::human_size;
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use clap::ArgMatches;
 use revault_lockbox_api::vault_integration::VaultOpen;
@@ -23,7 +24,7 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
                 print_pending_cleanup(&status, options.format)?;
                 return Ok(());
             }
-            return recover_pending_cleanup(&options.lockbox_path, access, &status);
+            return recover_pending_cleanup(&options.lockbox_path, access, &status, options.quiet);
         }
         Ok(None) => {}
         Err(err)
@@ -34,7 +35,7 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
         Err(err) => return Err(err),
     }
     if options.dry_run {
-        let report = scan_report(&options.lockbox_path, access)?;
+        let report = scan_report(&options.lockbox_path, access, options.quiet)?;
         print_report(&report, options.format)?;
         return Ok(());
     }
@@ -49,8 +50,8 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
     if output_path.exists() && !options.overwrite {
         return Err(Error::AlreadyExists(output).into());
     }
-    let bytes = fs::read(&options.lockbox_path)
-        .map_err(|err| Error::Io(format!("read lockbox {}: {err}", options.lockbox_path)))?;
+    let bytes = read_recovery_bytes(&options.lockbox_path, options.quiet)?;
+    recovery_stage(options.quiet, "scanning readable encrypted records.");
     let recovered = salvage_bytes(&options.lockbox_path, bytes, access)?;
     let damaged_original = if in_place {
         let backup = next_damaged_backup_path(input_path);
@@ -67,7 +68,7 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
     };
     fs::write(&output, recovered.try_to_bytes()?)
         .map_err(|err| Error::Io(format!("write recovered lockbox {output}: {err}")))?;
-    let report = scan_report(&output, access)?;
+    let report = scan_report(&output, access, options.quiet)?;
     let rows = report_rows(&report, Some(&output), damaged_original.as_deref());
     print_records(&["field", "value"], rows, options.format)?;
     Ok(())
@@ -78,6 +79,7 @@ struct RecoverOptions {
     output: Option<String>,
     overwrite: bool,
     dry_run: bool,
+    quiet: bool,
     format: OutputFormat,
 }
 
@@ -102,6 +104,7 @@ impl RecoverOptions {
             output,
             overwrite,
             dry_run,
+            quiet: matches.get_flag("quiet"),
             format: output_format_from_matches(matches)?,
         })
     }
@@ -122,31 +125,54 @@ fn recover_pending_cleanup(
     lockbox_path: &str,
     access: &Access,
     status: &TransactionRecoveryStatus,
+    quiet: bool,
 ) -> CliResult<()> {
-    eprintln!(
-        "Detected authenticated interrupted cleanup for transaction {}: {}/{} pages, {}/{} ranges, {} / {} bytes (safe to interrupt and resume)",
-        status.transaction_sequence,
-        status.completed_pages,
-        status.page_count,
-        status.completed_ranges,
-        status.range_count,
-        status.completed_bytes,
-        status.total_bytes,
-    );
+    if !quiet {
+        eprintln!(
+            "Lockbox cleanup is required. The changes are already committed; cleanup is safe to interrupt and resume ({} of {} complete).",
+            human_size(status.completed_bytes), human_size(status.total_bytes),
+        );
+    }
     let mut last_percent = None;
     let recovered = Lockbox::recover_transaction(
         Path::new(lockbox_path),
         recovery_open(lockbox_path, access)?,
         |progress| {
-            print_transaction_progress(progress, &mut last_percent);
+            if !quiet {
+                print_transaction_progress(progress, &mut last_percent);
+            }
         },
     )?;
-    if recovered {
-        eprintln!("Interrupted cleanup complete: {lockbox_path}");
-    } else {
-        eprintln!("No interrupted cleanup is required: {lockbox_path}");
+    if !quiet {
+        if recovered {
+            eprintln!("Lockbox cleanup complete: {lockbox_path}");
+        } else {
+            eprintln!("No interrupted cleanup is required: {lockbox_path}");
+        }
     }
     Ok(())
+}
+
+/// Completes authenticated cleanup before an ordinary writable command opens
+/// the lockbox, while making the automatic state change visible to the user.
+pub(crate) fn complete_pending_cleanup_if_available(
+    lockbox_path: &str,
+    access: &Access,
+) -> CliResult<()> {
+    let open = match access {
+        Access::ContentKey(key) => Some(LockboxOpen::ContentKey(key.try_clone()?)),
+        Access::CacheOnly => cached_key_if_available(lockbox_path)?.map(LockboxOpen::ContentKey),
+        Access::PromptPassword => None,
+    };
+    let Some(open) = open else {
+        return Ok(());
+    };
+    let Some(status) = Lockbox::inspect_transaction_recovery(Path::new(lockbox_path), open)
+        .map_err(|error| lockbox_open_error(lockbox_path, error))?
+    else {
+        return Ok(());
+    };
+    recover_pending_cleanup(lockbox_path, access, &status, false)
 }
 
 fn recovery_open<'a>(lockbox_path: &str, access: &'a Access) -> CliResult<LockboxOpen<'a>> {
@@ -206,34 +232,42 @@ fn print_transaction_progress(
     };
     if *last_percent != Some(percent) && (percent == 100 || percent % 5 == 0) {
         eprintln!(
-            "Transaction recovery: {percent}% ({}/{} pages, {}/{} ranges, {} / {} bytes; safe to interrupt)",
-            progress.completed_pages,
-            progress.total_pages,
-            progress.completed_ranges,
-            progress.total_ranges,
-            progress.completed_bytes,
-            progress.total_bytes,
+            "Lockbox cleanup: {percent}% ({} of {}; safe to interrupt)",
+            human_size(progress.completed_bytes),
+            human_size(progress.total_bytes),
         );
         *last_percent = Some(percent);
     }
 }
 
-fn scan_report(lockbox_path: &str, access: &Access) -> CliResult<RecoveryReport> {
+fn scan_report(lockbox_path: &str, access: &Access, quiet: bool) -> CliResult<RecoveryReport> {
+    let bytes = read_recovery_bytes(lockbox_path, quiet)?;
+    recovery_stage(quiet, "scanning readable encrypted records.");
     match access {
-        Access::ContentKey(key) => {
-            let bytes = fs::read(lockbox_path)
-                .map_err(|err| Error::Io(format!("read lockbox {lockbox_path}: {err}")))?;
-            scan_bytes_with_secret_key(bytes, key)
-        }
+        Access::ContentKey(key) => scan_bytes_with_secret_key(bytes, key),
         Access::CacheOnly => {
             let key = cached_key(lockbox_path)?;
-            let bytes = fs::read(lockbox_path)
-                .map_err(|err| Error::Io(format!("read lockbox {lockbox_path}: {err}")))?;
             scan_bytes_with_secret_key(bytes, &key)
         }
         Access::PromptPassword => {
             Err(Error::InvalidInput("recover requires --key or an open lockbox".to_string()).into())
         }
+    }
+}
+
+fn read_recovery_bytes(lockbox_path: &str, quiet: bool) -> CliResult<Vec<u8>> {
+    let size = fs::metadata(lockbox_path)?.len();
+    recovery_stage(
+        quiet,
+        format!("reading {} from {lockbox_path}.", human_size(size)),
+    );
+    fs::read(lockbox_path)
+        .map_err(|err| Error::Io(format!("read lockbox {lockbox_path}: {err}")).into())
+}
+
+fn recovery_stage(quiet: bool, message: impl AsRef<str>) {
+    if !quiet {
+        eprintln!("Recovery: {}", message.as_ref());
     }
 }
 
@@ -281,6 +315,13 @@ fn cached_key(lockbox_path: &str) -> CliResult<SecretVec> {
             "lockbox is closed: {lockbox_path}. Run `lockbox open {lockbox_path}` first or pass --key."
         ))
     })
+}
+
+fn cached_key_if_available(lockbox_path: &str) -> CliResult<Option<SecretVec>> {
+    let Ok(lockbox_id) = VaultOpen::read_lockbox_id(Path::new(lockbox_path)) else {
+        return Ok(None);
+    };
+    Ok(get_cached_content_key(lockbox_id).ok().flatten())
 }
 
 fn print_report(report: &RecoveryReport, format: OutputFormat) -> CliResult<()> {

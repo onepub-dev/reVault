@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.9 - 2026-09-01
+
+- Store Session Agent state, including the session default lockbox, in the
+  platform session directory rather than beside the encrypted Vault.
+- Canonicalize remembered lockbox paths, remove stale paths for the same
+  lockbox identity, and support replacing a contact without retaining the old
+  signing key.
+
 ## 0.0.8 - 2026-08-30
 
 - Pin the Linux Secret Service implementation to the Rust-1.88-compatible

@@ -4,7 +4,11 @@ use common::TestTempDir;
 use revault_lockbox_api::{
     ContactKeyPair, Lockbox, LockboxOpen, SecretString, SecretVec, LOCKBOX_FORMAT_VERSION,
 };
-use revault_lockbox_api_container_v1::ContactKeyPair as StructureV2ContactKeyPair;
+use revault_lockbox_api_container_v1::{
+    ContactKeyPair as StructureV2ContactKeyPair, Lockbox as ContainerV1Lockbox,
+    LockboxProtection as ContainerV1LockboxProtection,
+    OwnerSigningKeyPair as ContainerV1OwnerSigningKeyPair,
+};
 use revault_lockbox_api_v1::{
     Lockbox as V1Lockbox, LockboxPath as V1LockboxPath, LockboxProtection as V1LockboxProtection,
     OwnerSigningKeyPair as V1OwnerSigningKeyPair, SecretString as V1SecretString,
@@ -30,6 +34,7 @@ fn vault_migration_commands_and_options_execute_end_to_end() {
 
     let direct_output = fixture.root.join("direct-vault");
     fixture.success(&[
+        "doctor",
         "migrate",
         "vault",
         "--output",
@@ -40,6 +45,7 @@ fn vault_migration_commands_and_options_execute_end_to_end() {
     assert_current_vault(&direct_output);
 
     let conflict = fixture.run(&[
+        "doctor",
         "migrate",
         "vault",
         "--replace",
@@ -51,6 +57,7 @@ fn vault_migration_commands_and_options_execute_end_to_end() {
     let export = fixture.root.join("vault-export.migration");
     let exported = fixture.run_with_stdin(
         &[
+            "doctor",
             "migrate",
             "vault",
             "export",
@@ -65,9 +72,10 @@ fn vault_migration_commands_and_options_execute_end_to_end() {
     assert_success(&exported);
     assert!(export.is_file());
 
-    fixture.success(&["migrate", "vault", "verify", path(&export)]);
+    fixture.success(&["doctor", "migrate", "vault", "verify", path(&export)]);
     let upgraded = fixture.root.join("vault-upgraded.migration");
     fixture.success(&[
+        "doctor",
         "migrate",
         "vault",
         "upgrade",
@@ -75,10 +83,11 @@ fn vault_migration_commands_and_options_execute_end_to_end() {
         "--output",
         path(&upgraded),
     ]);
-    fixture.success(&["migrate", "vault", "verify", path(&upgraded)]);
+    fixture.success(&["doctor", "migrate", "vault", "verify", path(&upgraded)]);
 
     let imported = fixture.root.join("vault-imported");
     fixture.success(&[
+        "doctor",
         "migrate",
         "vault",
         "import",
@@ -88,9 +97,11 @@ fn vault_migration_commands_and_options_execute_end_to_end() {
     ]);
     assert_current_vault(&imported);
 
-    fixture.success(&["migrate", "vault", "--replace"]);
+    let already_current = fixture.run(&["doctor", "migrate", "vault", "--replace"]);
+    assert_success(&already_current);
+    assert!(String::from_utf8_lossy(&already_current.stdout).contains("No migration needed"));
     assert_current_vault(&fixture.vault);
-    assert_current_vault(&fixture.root.join("vault.v2.pre-migration"));
+    assert!(!fixture.root.join("vault.v2.pre-migration").exists());
 }
 
 #[test]
@@ -102,8 +113,9 @@ fn archive_migration_commands_and_options_execute_end_to_end() {
     let artifact = fixture.root.join("archive-export.migration");
     let exported = fixture.run_with_stdin(
         &[
+            "doctor",
             "migrate",
-            "archive",
+            "lockbox",
             "export",
             path(&advanced_source),
             "-o",
@@ -114,23 +126,25 @@ fn archive_migration_commands_and_options_execute_end_to_end() {
         false,
     );
     assert_success(&exported);
-    fixture.success(&["migrate", "archive", "verify", path(&artifact)]);
+    fixture.success(&["doctor", "migrate", "lockbox", "verify", path(&artifact)]);
 
     let upgraded = fixture.root.join("archive-upgraded.migration");
     fixture.success(&[
+        "doctor",
         "migrate",
-        "archive",
+        "lockbox",
         "upgrade",
         path(&artifact),
         "--output",
         path(&upgraded),
     ]);
-    fixture.success(&["migrate", "archive", "verify", path(&upgraded)]);
+    fixture.success(&["doctor", "migrate", "lockbox", "verify", path(&upgraded)]);
 
     let imported = fixture.root.join("archive-imported.lbox");
     fixture.success(&[
+        "doctor",
         "migrate",
-        "archive",
+        "lockbox",
         "import",
         path(&upgraded),
         "--output",
@@ -141,8 +155,9 @@ fn archive_migration_commands_and_options_execute_end_to_end() {
     let direct_source = fixture.create_archive("direct.lbox");
     let direct_output = fixture.root.join("direct-migrated.lbox");
     fixture.success(&[
+        "doctor",
         "migrate",
-        "archive",
+        "lockbox",
         path(&direct_source),
         "--output",
         path(&direct_output),
@@ -152,16 +167,27 @@ fn archive_migration_commands_and_options_execute_end_to_end() {
     Lockbox::inspect_file(&direct_output).unwrap();
 
     let replace_source = fixture.create_archive("replace.lbox");
-    fixture.success(&["migrate", "archive", path(&replace_source), "--replace"]);
+    let already_current = fixture.run(&[
+        "doctor",
+        "migrate",
+        "lockbox",
+        path(&replace_source),
+        "--replace",
+    ]);
+    assert_success(&already_current);
+    assert!(String::from_utf8_lossy(&already_current.stdout).contains("No migration needed"));
     Lockbox::inspect_file(&replace_source).unwrap();
-    Lockbox::inspect_file(fixture.root.join(format!(
-        "replace.lbox.v{LOCKBOX_FORMAT_VERSION}.pre-migration"
-    )))
-    .unwrap();
+    assert!(!fixture
+        .root
+        .join(format!(
+            "replace.lbox.v{LOCKBOX_FORMAT_VERSION}.pre-migration"
+        ))
+        .exists());
 
     let conflict = fixture.run(&[
+        "doctor",
         "migrate",
-        "archive",
+        "lockbox",
         path(&replace_source),
         "--replace",
         "--output",
@@ -177,6 +203,7 @@ fn vault_v1_replace_uses_the_explicit_historical_exporter() {
     let exporter = build_historical_vault_exporter();
 
     let output = fixture.run(&[
+        "doctor",
         "migrate",
         "vault",
         "--replace",
@@ -187,6 +214,10 @@ fn vault_v1_replace_uses_the_explicit_historical_exporter() {
     assert!(String::from_utf8_lossy(&output.stdout).contains("format version 2"));
     assert_current_vault(&fixture.vault);
     assert!(fixture.root.join("vault.v1.pre-migration").is_dir());
+    let repeated = fixture.run(&["doctor", "migrate", "vault", "--replace"]);
+    assert_success(&repeated);
+    assert!(String::from_utf8_lossy(&repeated.stdout).contains("No migration needed"));
+    assert!(!fixture.root.join("vault.v2.pre-migration").exists());
 }
 
 #[test]
@@ -200,6 +231,7 @@ fn vault_structure_v2_in_container_v1_migrates_end_to_end() {
     assert_failure_contains(&before, "Found Lockbox container version 1");
 
     let output = fixture.run(&[
+        "doctor",
         "migrate",
         "vault",
         "--replace",
@@ -239,8 +271,9 @@ fn archive_v1_migrates_end_to_end_with_the_historical_exporter() {
     let output = fixture.root.join("migrated.lbox");
     let exporter = build_historical_archive_exporter();
     fixture.success(&[
+        "doctor",
         "migrate",
-        "archive",
+        "lockbox",
         path(&source),
         "--output",
         path(&output),
@@ -257,6 +290,49 @@ fn archive_v1_migrates_end_to_end_with_the_historical_exporter() {
             .get_file(&revault_lockbox_api::LockboxPath::new("/legacy.txt").unwrap())
             .unwrap(),
         b"legacy archive"
+    );
+}
+
+#[test]
+fn lockbox_v1_with_description_migrates_and_default_error_names_its_path() {
+    let fixture = Fixture::new("migration-described-lockbox-v1-e2e");
+    fixture.init_current_vault();
+    let source = fixture.root.join("described.lbox");
+    let password = StructureV2SecretString::try_from_slice(LOCKBOX_PASSWORD.as_bytes()).unwrap();
+    let signing = ContainerV1OwnerSigningKeyPair::generate().unwrap();
+    let mut legacy = ContainerV1Lockbox::create_in_memory(
+        ContainerV1LockboxProtection::Password(&password),
+        &signing,
+    )
+    .unwrap();
+    legacy.set_description("Production API keys").unwrap();
+    legacy.commit().unwrap();
+    std::fs::write(&source, legacy.try_to_bytes().unwrap()).unwrap();
+
+    fixture.success(&["session", "default", path(&source)]);
+    let before = fixture.run(&["list"]);
+    assert_failure_contains(&before, "Unsupported lockbox format");
+    assert_failure_contains(&before, path(&source.canonicalize().unwrap()));
+    assert_failure_contains(&before, "doctor migrate lockbox");
+
+    let exporter = build_historical_archive_exporter();
+    fixture.success(&[
+        "doctor",
+        "migrate",
+        "lockbox",
+        path(&source),
+        "--replace",
+        "--exporter",
+        path(&exporter),
+    ]);
+    let migrated = Lockbox::open(
+        &source,
+        LockboxOpen::Password(&SecretString::try_from_slice(LOCKBOX_PASSWORD.as_bytes()).unwrap()),
+    )
+    .unwrap();
+    assert_eq!(
+        migrated.description().unwrap().as_deref(),
+        Some("Production API keys")
     );
 }
 
@@ -298,8 +374,9 @@ fn archive_v1_contact_only_migration_uses_keys_from_the_current_vault() {
     let output = fixture.root.join("migrated-contact.lbox");
     let exporter = build_historical_archive_exporter();
     fixture.success(&[
+        "doctor",
         "migrate",
-        "archive",
+        "lockbox",
         path(&source),
         "--output",
         path(&output),
@@ -324,10 +401,11 @@ fn automatic_historical_exporter_install_hides_cargo_output() {
     let home = fixture.root.join("home");
 
     let output = fixture
-        .command(&["migrate", "vault", "--replace"])
+        .command(&["doctor", "migrate", "vault", "--replace"])
         .env("CARGO", fake_cargo)
         .env("HOME", home)
         .env("FAKE_EXPORTER_SOURCE", exporter)
+        .env("LOCKBOX_TEST_IGNORE_INSTALLED_EXPORTER", "1")
         .output()
         .unwrap();
     assert_success(&output);

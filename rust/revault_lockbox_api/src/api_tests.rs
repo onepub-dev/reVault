@@ -2,8 +2,8 @@ use crate::{
     CacheLimit, ContactKeyPair, ContactPublicKey, Error, ExtractPolicy, FormFieldDefinition,
     FormFieldKind, FormRecord, FormValue, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind,
     LockboxKeySlotAlgorithm, LockboxKeySlotProtection, LockboxOpen, LockboxOptions, LockboxPath,
-    LockboxProtection, OwnerSigningKeyPair, RecoveryReportOptions, RecoveryScanner, Result,
-    SecretString, SecretVec, VariableName, VariableNamePattern, VariableSensitivity,
+    LockboxProtection, MirrorProject, OwnerSigningKeyPair, RecoveryReportOptions, RecoveryScanner,
+    Result, SecretString, SecretVec, VariableName, VariableNamePattern, VariableSensitivity,
     VariableValueRef, WorkerPolicy, WorkloadProfile, MAX_KEY_SLOT_NAME_BYTES,
 };
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
@@ -1423,6 +1423,92 @@ fn delete_removes_file_after_commit_and_reopen() {
             .unwrap()
             .count(),
         1
+    );
+}
+
+#[test]
+fn file_backed_mirror_recursive_removals_persist_after_reopen() {
+    let path = temp_path("mirror-recursive-removals");
+    let host_file = temp_path("mirror-recursive-removals-source");
+    std::fs::write(&host_file, b"content").unwrap();
+    let mut lb = Lockbox::create_path(&path, KEY).unwrap();
+    lb.set_workload_profile(WorkloadProfile::BulkImport);
+    lb.create_mirror_project(
+        MirrorProject {
+            name: "house".to_string(),
+            source: "/tmp/house-source".to_string(),
+            destination: p("/house"),
+            includes: Vec::new(),
+            excludes: Vec::new(),
+            missing_file_policy: crate::MirrorMissingFilePolicy::Remove,
+            host_identity: None,
+        },
+        false,
+    )
+    .unwrap();
+    lb.with_mirror_project_mutation("house", |lb, _| {
+        for directory in 0..4 {
+            lb.create_dir(&p(format!("/house/directory-{directory}")), true)?;
+            for file in 0..23 {
+                lb.add_file_from_path(
+                    &host_file,
+                    &p(format!("/house/directory-{directory}/file-{file:02}.txt")),
+                    false,
+                )?;
+            }
+        }
+        Ok(())
+    })
+    .unwrap();
+    lb.commit().unwrap();
+    let owner = lb.require_owner_signing_key().unwrap().try_clone().unwrap();
+    drop(lb);
+
+    let mut lb = Lockbox::open_path(&path, KEY).unwrap();
+    lb.set_owner_signing_key(owner.try_clone().unwrap());
+    lb.set_workload_profile(WorkloadProfile::BulkImport);
+    lb.with_mirror_project_mutation("house", |lb, _| {
+        lb.add_file_from_path(&host_file, &p("/house/directory-0/file-00.txt"), true)?;
+        lb.delete(&p("/house/directory-0/file-01.txt"))?;
+        lb.add_file_from_path(&host_file, &p("/house/directory-0/new.txt"), false)
+    })
+    .unwrap();
+    lb.commit().unwrap();
+    drop(lb);
+
+    let mut lb = Lockbox::open_path(&path, KEY).unwrap();
+    lb.set_owner_signing_key(owner);
+    lb.set_workload_profile(WorkloadProfile::BulkImport);
+    lb.with_mirror_project_mutation("house", |lb, _| {
+        lb.remove_dir_recursive(&p("/house/directory-0"))?;
+        lb.remove_dir_recursive(&p("/house/directory-1"))?;
+        lb.delete(&p("/house/directory-2/file-00.txt"))
+    })
+    .unwrap();
+    lb.commit().unwrap();
+    drop(lb);
+
+    let reopened = Lockbox::open_path(&path, KEY).unwrap();
+    let paths = reopened
+        .list(ListOptions {
+            recursive: true,
+            ..ListOptions::new(&p("/house"))
+        })
+        .unwrap()
+        .map(|entry| entry.unwrap().path.to_string())
+        .collect::<Vec<_>>();
+    assert!(!paths
+        .iter()
+        .any(|path| path.starts_with("/house/directory-0")));
+    assert!(!paths
+        .iter()
+        .any(|path| path.starts_with("/house/directory-1")));
+    assert!(!paths
+        .iter()
+        .any(|path| path == "/house/directory-2/file-00.txt"));
+    assert_eq!(
+        paths.iter().filter(|path| path.ends_with(".txt")).count(),
+        45
     );
 }
 

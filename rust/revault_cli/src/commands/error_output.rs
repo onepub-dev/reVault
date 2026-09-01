@@ -1,4 +1,5 @@
 use super::context::CliMessage;
+use super::output::human_size;
 use revault_lockbox_api::Error;
 use std::env;
 use std::fmt::Write as _;
@@ -118,17 +119,20 @@ fn render_api_error(error: &Error, colour: bool) -> String {
             Some(error.guidance()),
         ),
         Error::RecoveryRequired {
-            transaction_sequence,
-            range_count,
-            completed_ranges,
-            page_count,
-            completed_pages,
             total_bytes,
             completed_bytes,
+            ..
         } => (
-            "Lockbox recovery is required".to_string(),
+            "Lockbox changes were committed, but secure cleanup was interrupted".to_string(),
             format!(
-                "Published transaction {transaction_sequence} recovery is at {completed_pages}/{page_count} pages, {completed_ranges}/{range_count} ranges, and {completed_bytes}/{total_bytes} bytes."
+                "Secure cleanup is {}% complete ({} of {}).",
+                if *total_bytes == 0 {
+                    100
+                } else {
+                    completed_bytes.saturating_mul(100) / total_bytes
+                },
+                human_size(*completed_bytes),
+                human_size(*total_bytes)
             ),
             Some(error.guidance()),
         ),
@@ -279,13 +283,13 @@ mod tests {
                 ),
             ],
             next_step: Some(
-                "Migrate the vault, then retry:\n  lbx migrate vault --replace".to_string(),
+                "Migrate the vault, then retry:\n  lbx doctor migrate vault --replace".to_string(),
             ),
         };
 
         assert_eq!(
             render_error(&message, false),
-            "Error:\n  Lockbox is closed\n\nLockbox:\n  /tmp/secrets.lbox\n\nAuto-open:\n  Your local vault uses format version 1; this reVault build uses version 2.\n\nNext step:\n  Migrate the vault, then retry:\n    lbx migrate vault --replace\n"
+            "Error:\n  Lockbox is closed\n\nLockbox:\n  /tmp/secrets.lbox\n\nAuto-open:\n  Your local vault uses format version 1; this reVault build uses version 2.\n\nNext step:\n  Migrate the vault, then retry:\n    lbx doctor migrate vault --replace\n"
         );
     }
 
@@ -299,7 +303,7 @@ mod tests {
         let rendered = render_error(&error, false);
         assert!(rendered.contains("Error:\n  Unsupported vault format"));
         assert!(rendered.contains("Details:\n  Found version 1"));
-        assert!(rendered.contains("Next step:\n  Run `lockbox migrate vault"));
+        assert!(rendered.contains("Next step:\n  Run `lockbox doctor migrate vault"));
     }
 
     #[test]

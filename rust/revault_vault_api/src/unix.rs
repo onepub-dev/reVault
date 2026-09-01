@@ -867,6 +867,10 @@ fn socket_dir() -> PathBuf {
     env::temp_dir().join(format!("lockbox-{}", current_effective_uid()))
 }
 
+pub(crate) fn session_agent_dir() -> PathBuf {
+    socket_dir()
+}
+
 fn runtime_dir_belongs_to_current_user(path: &Path) -> bool {
     match fs::metadata(path) {
         Ok(metadata) => metadata.uid() == current_effective_uid(),

@@ -46,7 +46,7 @@ pub fn export_archive_v1<State>(
         format_version: 1,
         content_key: SecretBytes::new(secret_bytes(&content_key)?),
         key_directory: SecretBytes::new(key_directory),
-        description: None,
+        description: lockbox.description().map_err(core_error)?,
     }))?;
 
     let root = LockboxPath::new("/").map_err(core_error)?;

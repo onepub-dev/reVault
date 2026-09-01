@@ -40,12 +40,14 @@ replace_content_key_with_contacts	Advanced true-revocation primitive retained in
 replace_password	Atomic password-slot replacement retained in Rust; foreign callers can add and remove slots explicitly without passing an old password back across the ABI.
 recover_transaction	Rust CLI recovery orchestration with filesystem locking and progress callbacks; foreign writable opens resume authenticated cleanup automatically.
 recover_transaction_controlled	Rust CLI checkpoint and cancellation primitive; foreign writable opens resume authenticated cleanup automatically without exposing internal manifest checkpoints.
+replace_contact	Rust CLI atomic contact-replacement helper; foreign bindings retain explicit delete and store operations.
 replace_for_migration	Hidden migration-only destructive replacement; migration executables remain Rust-only by design.
 restore_access_slot_label	Migration restore primitive preserving internal revision metadata; current-format foreign APIs use remember_access_slot_label.
 restore_known_lockbox	Migration restore primitive preserving internal revision metadata; current-format foreign APIs use remember_known_lockbox.
 restore_private_key	Migration restore primitive preserving historical metadata; current-format foreign APIs use store_private_key.
 restore_profile_generations	Migration restore primitive preserving historical revisions; current-format foreign APIs rotate and load generations.
 secret	Language-native FormValue constructor represented by the scoped secret form-field setter.
+session_agent_dir	Platform-specific CLI state-location helper; foreign bindings use agent operations without managing the native state directory.
 set_glob	Language-native ListOptions builder represented by lockbox_list_with_options arguments.
 store	Rust generic dependency-injection accessor; foreign bindings deliberately expose the concrete local-vault service.
 try_clone	Rust ownership helper; foreign handles have explicit ownership and do not expose clone semantics.

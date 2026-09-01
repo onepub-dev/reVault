@@ -12,7 +12,7 @@ use revault_vault_api::{
 use std::fmt;
 use std::fs;
 use std::io::{self, IsTerminal, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::error_output::ExitCode;
 
@@ -91,11 +91,16 @@ pub(crate) enum Access {
 
 pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
     ensure_lockbox_path_accessible(path)?;
+    super::recovery::complete_pending_cleanup_if_available(path, access)?;
     let mut lockbox = match access {
         Access::ContentKey(key) => {
             let _vault = default_vault()?;
-            Vault::new(NoopStore)
-                .open_lockbox_with(path, LockboxOpen::ContentKey(key.try_clone()?))?
+            match Vault::new(NoopStore)
+                .open_lockbox_with(path, LockboxOpen::ContentKey(key.try_clone()?))
+            {
+                Ok(lockbox) => lockbox,
+                Err(err) => return Err(lockbox_open_error(path, err)),
+            }
         }
         Access::PromptPassword => {
             return Err(cli_error(
@@ -115,7 +120,7 @@ pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
                     }
                 }
             }
-            Err(err) => return Err(err.into()),
+            Err(err) => return Err(lockbox_open_error(path, err)),
         },
     };
     attach_established_owner_signing_key(&mut lockbox);
@@ -128,15 +133,45 @@ pub(crate) fn open_existing_read_only(
 ) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
     ensure_lockbox_path_accessible(path)?;
     match access {
-        Access::ContentKey(key) => Ok(Lockbox::open(
+        Access::ContentKey(key) => Lockbox::open(
             Path::new(path),
             LockboxOpen::ContentKey(key.try_clone()?),
-        )?),
+        )
+        .map_err(|err| lockbox_open_error(path, err)),
         Access::PromptPassword => Err(cli_error(
             "password prompting is only used when creating a new lockbox; pass --key or open through the local vault",
         )),
-        Access::CacheOnly => Ok(local_vault().open_lockbox_read_only(path)?),
+        Access::CacheOnly => local_vault()
+            .open_lockbox_read_only(path)
+            .map_err(|err| lockbox_open_error(path, err)),
     }
+}
+
+pub(crate) fn lockbox_open_error(path: &str, error: Error) -> Box<dyn std::error::Error> {
+    let Error::UnsupportedFormatVersion {
+        artifact: revault_lockbox_api::ArtifactKind::Lockbox,
+        found,
+        supported,
+    } = error
+    else {
+        return error.into();
+    };
+    let path = fs::canonicalize(path)
+        .unwrap_or_else(|_| PathBuf::from(path))
+        .to_string_lossy()
+        .into_owned();
+    cli_diagnostic(
+        ExitCode::UnsupportedFormat,
+        "Unsupported lockbox format",
+        vec![
+            ("Lockbox".to_string(), path.clone()),
+            (
+                "Format".to_string(),
+                format!("Found version {found}; this reVault build supports version {supported}."),
+            ),
+        ],
+        format!("Run `lbx doctor migrate lockbox {path} --replace`."),
+    )
 }
 
 fn attach_established_owner_signing_key(lockbox: &mut Lockbox) {
@@ -186,7 +221,7 @@ fn closed_lockbox_error(path: &str, reason: Option<Error>) -> Box<dyn std::error
                     "Your local vault uses Lockbox container format {found}; this reVault build uses container format {supported}."
                 ),
             ));
-            "Migrate the vault, then retry:\n  lbx migrate vault --replace".to_string()
+            "Migrate the vault, then retry:\n  lbx doctor migrate vault --replace".to_string()
         }
         Some(Error::UnsupportedFormatVersion {
             artifact: revault_lockbox_api::ArtifactKind::Lockbox,
@@ -565,7 +600,7 @@ pub(crate) fn open_default_vault_with_password(
                     "Found Lockbox container version {found}; this reVault build supports container version {supported}. The encrypted Vault structure is detected separately during migration."
                 ),
             )],
-            "Run `lbx migrate vault --output <directory>` or use `--replace`.",
+            "Run `lbx doctor migrate vault --output <directory>` or use `--replace`.",
         )),
         Err(err) => match err {
             Error::InvalidKey | Error::CorruptHeader => Err(cli_error(

@@ -13,7 +13,7 @@ impl ArtifactKind {
     /// Returns the user-facing artifact name used in diagnostics.
     pub fn as_str(self) -> &'static str {
         match self {
-            Self::Lockbox => "archive",
+            Self::Lockbox => "lockbox",
             Self::Vault => "vault",
         }
     }
@@ -96,7 +96,7 @@ impl Error {
                 "Verify this is a lockbox file, then try recovery if the file may be damaged."
             }
             Error::RecoveryRequired { .. } => {
-                "A write-capable open completes cleanup automatically. For a read-only workflow, run `lbx <path> doctor recover`."
+                "Rerun the write command; reopening the lockbox completes cleanup automatically. For a read-only workflow, run `lbx <path> doctor recover`."
             }
             Error::RecoveryInProgress(_) => {
                 "Wait for the active recovery process to finish, then inspect recovery state again."
@@ -106,10 +106,10 @@ impl Error {
             }
             Error::UnsupportedFormatVersion { artifact, .. } => match artifact {
                 ArtifactKind::Lockbox => {
-                    "Run `lockbox migrate archive <path> --output <path>` or use `--replace`."
+                    "Run `lockbox doctor migrate lockbox <path> --output <path>` or use `--replace`."
                 }
                 ArtifactKind::Vault => {
-                    "Run `lockbox migrate vault --output <directory>` or use `--replace`."
+                    "Run `lockbox doctor migrate vault --output <directory>` or use `--replace`."
                 }
             },
             Error::CorruptRecord => {

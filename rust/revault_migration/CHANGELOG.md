@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.6 - 2026-09-01
+
+- Use `revault_lockbox_api 0.0.8` and `revault_vault_api 0.0.9` for the CLI
+  0.0.12 migration path.
+
 ## 0.0.5 - 2026-08-30
 
 - Use `revault_vault_api 0.0.8` so fresh migration-tool installations preserve

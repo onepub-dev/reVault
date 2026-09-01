@@ -210,6 +210,7 @@ impl Lockbox<crate::Writable> {
         let next_slot = publish_header(&mut self.storage, header_slot, publication)?;
         self.header_slot = next_slot;
         self.header_generation = generation;
+        self.published_sequence = self.sequence;
         self.cleanup_sequence = cleanup_sequence;
         self.poisoned = None;
         Ok(())

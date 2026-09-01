@@ -24,9 +24,9 @@ use std::process::{Command, Stdio};
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     match matches.subcommand() {
         Some(("vault", sub)) => vault_matches(sub),
-        Some(("archive", sub)) => archive_matches(sub, access),
+        Some(("lockbox", sub)) => lockbox_matches(sub, access),
         Some((other, _)) => Err(cli_error(format!("unknown migration command: {other}"))),
-        None => Err(cli_error("migrate requires vault or archive")),
+        None => Err(cli_error("migrate requires vault or lockbox")),
     }
 }
 
@@ -43,14 +43,14 @@ fn vault_matches(matches: &ArgMatches) -> CliResult<()> {
     }
 }
 
-fn archive_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+fn lockbox_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     match matches.subcommand() {
         Some(("export", sub)) => archive_export(sub, access),
         Some(("upgrade", sub)) => archive_upgrade(sub),
         Some(("import", sub)) => archive_import(sub),
         Some(("verify", sub)) => archive_verify(sub),
         Some((other, _)) => Err(cli_error(format!(
-            "unknown archive migration command: {other}"
+            "unknown lockbox migration command: {other}"
         ))),
         None => migrate_archive_direct(matches, access),
     }
@@ -127,7 +127,7 @@ fn archive_export(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     let operation_id = random_id()?;
     let count = export_archive(&lockbox, &output, &artifact_password, operation_id)?;
     println!(
-        "Exported {count} archive migration records to {}",
+        "Exported {count} lockbox migration records to {}",
         output.display()
     );
     Ok(())
@@ -140,10 +140,9 @@ fn archive_import(matches: &ArgMatches) -> CliResult<()> {
     let signing = default_signing_key()?;
     let count = import_archive(&input, &password, &output, &signing)?;
     println!(
-        "Imported {count} archive migration records into {}",
+        "Imported {count} lockbox migration records into {}",
         output.display()
     );
-    println!("A new signed commit chain was created for the migrated archive.");
     Ok(())
 }
 
@@ -153,7 +152,7 @@ fn archive_upgrade(matches: &ArgMatches) -> CliResult<()> {
     let password = migration_password()?;
     let count = upgrade_archive_artifact(&input, &output, &password)?;
     println!(
-        "Upgraded {count} archive migration frames to {}",
+        "Upgraded {count} lockbox migration frames to {}",
         output.display()
     );
     Ok(())
@@ -163,7 +162,7 @@ fn archive_verify(matches: &ArgMatches) -> CliResult<()> {
     let input = required_path(matches, "artifact")?;
     let password = migration_password()?;
     let count = verify_archive_artifact(&input, &password)?;
-    println!("Archive migration artifact is valid ({count} frames).");
+    println!("Lockbox migration artifact is valid ({count} frames).");
     Ok(())
 }
 
@@ -184,6 +183,16 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
         return Ok(());
     }
     let source_version = probe_vault_source_version(&source, &source_password)?;
+    if replace && source_version == CURRENT_VAULT_STRUCTURE_VERSION {
+        remember_default_vault_password_with_warning(
+            &source_password,
+            "the vault passphrase was verified successfully",
+        );
+        println!(
+            "Vault already uses format version {CURRENT_VAULT_STRUCTURE_VERSION}. No migration needed."
+        );
+        return Ok(());
+    }
     let fingerprint = fingerprint_path(&source.join("local-vault.lbox"))?;
     let operation_id = deterministic_operation_id(
         ArtifactKind::Vault,
@@ -318,37 +327,43 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
     let source = PathBuf::from(
         matches
             .get_one::<String>("lockbox")
-            .ok_or_else(|| cli_error("archive migration requires a lockbox path"))?,
+            .ok_or_else(|| cli_error("lockbox migration requires a lockbox path"))?,
     );
     let replace = matches.get_flag("replace");
     let requested_output = matches.get_one::<String>("output").map(PathBuf::from);
-    require_destination(replace, requested_output.as_deref(), "archive")?;
+    require_destination(replace, requested_output.as_deref(), "lockbox")?;
     let vault_root = default_vault_dir()?;
     if !vault_root.join("local-vault.lbox").exists() {
         return Err(cli_error(
-            "archive migration requires a current vault; run `lockbox vault init` first",
+            "lockbox migration requires a current vault; run `lockbox vault init` first",
         ));
     }
     let vault_password = vault_password_without_open()?;
     let vault_version = VaultDirectory::probe_structure_version(&vault_root, &vault_password)?;
     if vault_version < CURRENT_VAULT_STRUCTURE_VERSION {
         return Err(cli_error(format!(
-            "archive migration requires the vault to be migrated first; vault format version {vault_version} is older than the current version {CURRENT_VAULT_STRUCTURE_VERSION}. Run `lockbox migrate vault --replace` or migrate it with `--output <directory>`"
+            "lockbox migration requires the vault to be migrated first; vault format version {vault_version} is older than the current version {CURRENT_VAULT_STRUCTURE_VERSION}. Run `lockbox doctor migrate vault --replace` or migrate it with `--output <directory>`"
         )));
     }
     if vault_version > CURRENT_VAULT_STRUCTURE_VERSION {
         return Err(cli_error(format!(
-            "archive migration cannot run with a newer vault format version {vault_version}; this build supports version {CURRENT_VAULT_STRUCTURE_VERSION}. Install a newer reVault release"
+            "lockbox migration cannot run with a newer vault format version {vault_version}; this build supports version {CURRENT_VAULT_STRUCTURE_VERSION}. Install a newer reVault release"
         )));
     }
-    let vault = open_default_vault_with_password(&vault_password)?;
     if !source.exists()
         && recover_interrupted_replacement(&source, ArtifactKind::Archive, &vault_password)?
     {
-        println!("Completed the interrupted archive replacement.");
+        println!("Completed the interrupted lockbox replacement.");
         return Ok(());
     }
     let source_version = probe_archive_path(&source)?;
+    if replace && source_version == u32::from(LOCKBOX_FORMAT_VERSION) {
+        println!(
+            "Lockbox already uses format version {LOCKBOX_FORMAT_VERSION}. No migration needed."
+        );
+        return Ok(());
+    }
+    let vault = open_default_vault_with_password(&vault_password)?;
     let fingerprint = fingerprint_path(&source)?;
     let operation_id = deterministic_operation_id(
         ArtifactKind::Archive,
@@ -455,12 +470,11 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
             let _ = fs::rename(&backup, &source);
             return Err(err.into());
         }
-        println!("Archive migrated to format version {LOCKBOX_FORMAT_VERSION}.");
-        println!("Previous archive retained at {}", backup.display());
+        println!("Lockbox migrated to format version {LOCKBOX_FORMAT_VERSION}.");
+        println!("Previous lockbox retained at {}", backup.display());
     } else {
-        println!("Archive migrated to {}", output.display());
+        println!("Lockbox migrated to {}", output.display());
     }
-    println!("A new signed commit chain was created for the migrated archive.");
     cleanup_work_dir(&work_dir);
     Ok(())
 }
@@ -479,12 +493,18 @@ fn resolve_exporter(
         validate_exporter_capabilities(&path, release)?;
         return Ok(path);
     }
-    let root = exporter_cache_root()?.join(format!("{}-{}", release.package, release.version));
     let binary_name = if cfg!(windows) {
         format!("{}.exe", release.binary)
     } else {
         release.binary.to_string()
     };
+    if env::var_os("LOCKBOX_TEST_IGNORE_INSTALLED_EXPORTER").is_none() {
+        if let Some(binary) = installed_exporter(&binary_name) {
+            validate_exporter_capabilities(&binary, release)?;
+            return Ok(binary);
+        }
+    }
+    let root = exporter_cache_root()?.join(format!("{}-{}", release.package, release.version));
     let binary = root.join("bin").join(binary_name);
     if binary.exists() {
         validate_exporter_capabilities(&binary, release)?;
@@ -531,6 +551,11 @@ fn resolve_exporter(
     Ok(binary)
 }
 
+fn installed_exporter(binary_name: &str) -> Option<PathBuf> {
+    let binary = env::current_exe().ok()?.parent()?.join(binary_name);
+    binary.is_file().then_some(binary)
+}
+
 #[derive(Clone, Copy)]
 struct ExporterRelease {
     package: &'static str,
@@ -555,7 +580,7 @@ fn exporter_release(kind: ArtifactKind, source_version: u32) -> Option<ExporterR
         }),
         (ArtifactKind::Archive, 1) => Some(ExporterRelease {
             package: "revault_migrate_archive_v1",
-            version: "0.0.4",
+            version: "0.0.5",
             binary: "revault-migrate-archive-v1",
             protocol: 3,
             artifact: "archive",
@@ -663,7 +688,7 @@ fn run_historical_archive_exporter(
     let status = child.wait()?;
     if !status.success() {
         return Err(cli_error(format!(
-            "historical archive exporter exited with {status}"
+            "historical lockbox exporter exited with {status}"
         )));
     }
     Ok(())
@@ -1172,7 +1197,7 @@ mod tests {
         let archive = exporter_release(ArtifactKind::Archive, 1).unwrap();
         assert_eq!(archive.package, "revault_migrate_archive_v1");
         assert_eq!(archive.binary, "revault-migrate-archive-v1");
-        assert_eq!(archive.version, "0.0.4");
+        assert_eq!(archive.version, "0.0.5");
         assert!(capabilities_match(
             br#"{"protocol":3,"artifact":"archive","native_version":1,"migration_schema":2}"#,
             archive

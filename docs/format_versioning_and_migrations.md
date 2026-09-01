@@ -15,8 +15,8 @@ lockbox or vault API.
 The normal command migrates directly to the latest format:
 
 ```console
-lockbox migrate vault --output ~/.local/share/lockbox/vault-v2
-lockbox migrate archive secrets.lbox --output secrets-v2.lbox
+lockbox doctor migrate vault --output ~/.local/share/lockbox/vault-v2
+lockbox doctor migrate lockbox secrets.lbox --output secrets-v2.lbox
 ```
 
 Archive migration requires a vault that is already in the current format. The
@@ -27,8 +27,8 @@ one-off signing key.
 To replace the source, use `--replace`:
 
 ```console
-lockbox migrate vault --replace
-lockbox migrate archive secrets.lbox --replace
+lockbox doctor migrate vault --replace
+lockbox doctor migrate lockbox secrets.lbox --replace
 ```
 
 Replacement is deliberately explicit. The completed output is validated first,

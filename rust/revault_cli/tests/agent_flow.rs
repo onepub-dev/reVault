@@ -17,7 +17,11 @@ fn open_populates_cache_and_close_clears_it() {
     let dir = temp.path();
     let vault = dir.join("test.lbox");
     let source = dir.join("source.txt");
-    let agent_dir = dir.join("agent");
+    let agent_temp = tempfile::Builder::new()
+        .prefix("lbx-agent-")
+        .tempdir()
+        .unwrap();
+    let agent_dir = agent_temp.path().to_path_buf();
     let vault_dir = dir.join("vault");
     fs::create_dir_all(&agent_dir).unwrap();
     fs::create_dir_all(&vault_dir).unwrap();
@@ -148,6 +152,164 @@ fn open_populates_cache_and_close_clears_it() {
     assert!(session.contains("Open lockboxes:"));
     assert!(session.contains("none"));
     stop_agent(bin, &agent_dir, &vault_dir);
+}
+
+#[test]
+#[ignore = "serial E2E contract for the platform Session Agent"]
+fn open_and_open_key_complete_real_session_flows() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let temp = TestTempDir::new("lockbox-cli-open-contract");
+    let dir = temp.path();
+    let lockbox = dir.join("open-contract.lbox");
+    let password_file = dir.join("password.txt");
+    let agent_temp = tempfile::Builder::new()
+        .prefix("lbx-agent-")
+        .tempdir()
+        .unwrap();
+    let agent_dir = agent_temp.path().to_path_buf();
+    let vault_dir = dir.join("vault");
+    fs::create_dir_all(&agent_dir).unwrap();
+    fs::create_dir_all(&vault_dir).unwrap();
+    fs::write(&password_file, "test-password\n").unwrap();
+
+    let mut agent = command(bin, &agent_dir, &vault_dir, &["__agent"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    #[cfg(unix)]
+    {
+        let deadline = Instant::now() + COMMAND_TIMEOUT;
+        while !agent_dir.join("agent.sock").exists() {
+            if let Some(status) = agent.try_wait().unwrap() {
+                panic!("Session Agent exited during startup with {status}");
+            }
+            assert!(
+                Instant::now() < deadline,
+                "Session Agent did not create its socket after {COMMAND_TIMEOUT:?}"
+            );
+            thread::sleep(Duration::from_millis(25));
+        }
+    }
+    #[cfg(windows)]
+    {
+        thread::sleep(Duration::from_millis(500));
+        if let Some(status) = agent.try_wait().unwrap() {
+            panic!("Session Agent exited during startup with {status}");
+        }
+    }
+
+    run(bin, &agent_dir, &vault_dir, &["vault", "init"]);
+    run(
+        bin,
+        &agent_dir,
+        &vault_dir,
+        &[lockbox.to_str().unwrap(), "create", "--password"],
+    );
+    let env_open = command(
+        bin,
+        &agent_dir,
+        &vault_dir,
+        &[
+            lockbox.to_str().unwrap(),
+            "open",
+            "--duration",
+            "2m",
+            "--password-env",
+            "E2E_LOCKBOX_PASSWORD",
+        ],
+    )
+    .env("E2E_LOCKBOX_PASSWORD", "test-password")
+    .output()
+    .unwrap();
+    if !env_open.status.success() {
+        let log = fs::read_to_string(agent_dir.join("agent.log"))
+            .unwrap_or_else(|error| format!("unable to read agent log: {error}"));
+        panic!(
+            "open --password-env failed\nstatus: {}\nstdout:\n{}\nstderr:\n{}\nagent log:\n{log}",
+            env_open.status,
+            String::from_utf8_lossy(&env_open.stdout),
+            String::from_utf8_lossy(&env_open.stderr)
+        );
+    }
+    run(
+        bin,
+        &agent_dir,
+        &vault_dir,
+        &[
+            lockbox.to_str().unwrap(),
+            "access",
+            "grant",
+            "profile:default",
+        ],
+    );
+    run(
+        bin,
+        &agent_dir,
+        &vault_dir,
+        &[lockbox.to_str().unwrap(), "close"],
+    );
+
+    let file_open = run_output(
+        bin,
+        &agent_dir,
+        &vault_dir,
+        &[
+            lockbox.to_str().unwrap(),
+            "open",
+            "--password-file",
+            password_file.to_str().unwrap(),
+        ],
+    );
+    assert_command_success(&file_open, "open --password-file");
+    run(
+        bin,
+        &agent_dir,
+        &vault_dir,
+        &[lockbox.to_str().unwrap(), "close"],
+    );
+
+    let mut stdin_open = command(
+        bin,
+        &agent_dir,
+        &vault_dir,
+        &[lockbox.to_str().unwrap(), "open", "--password-stdin"],
+    )
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .unwrap();
+    std::io::Write::write_all(stdin_open.stdin.as_mut().unwrap(), b"test-password\n").unwrap();
+    let stdin_open = stdin_open.wait_with_output().unwrap();
+    assert_command_success(&stdin_open, "open --password-stdin");
+    run(
+        bin,
+        &agent_dir,
+        &vault_dir,
+        &[lockbox.to_str().unwrap(), "close"],
+    );
+
+    let key_open = run_output(
+        bin,
+        &agent_dir,
+        &vault_dir,
+        &[lockbox.to_str().unwrap(), "open-key", "default"],
+    );
+    assert_command_success(&key_open, "open-key default");
+    stop_agent(bin, &agent_dir, &vault_dir);
+    assert!(agent.wait().unwrap().success());
+}
+
+fn assert_command_success(output: &Output, command_name: &str) {
+    assert!(
+        output.status.success(),
+        "{command_name} failed\nstatus: {}\nstdout:\n{}\nstderr:\n{}",
+        output.status,
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
 }
 
 fn stop_agent(bin: &str, agent_dir: &PathBuf, vault_dir: &PathBuf) {

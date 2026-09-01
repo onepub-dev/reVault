@@ -2,13 +2,14 @@ use revault_lockbox_api::{
     ContactKeyPair, FormTypeId, ListOptions, Lockbox, LockboxOpen, LockboxPath, LockboxProtection,
     OwnerSigningKeyPair, RecoveryScanner, SecretString, SecretVec,
 };
-use revault_lockbox_api_v1::{
+use revault_lockbox_api_export_v1::{
     ContactKeyPair as V1ArchiveContactKeyPair, FormFieldDefinition as V1FormFieldDefinition,
     FormFieldKind as V1FormFieldKind, FormTypeId as V1FormTypeId, Lockbox as V1Lockbox,
     LockboxOpen as V1LockboxOpen, LockboxPath as V1LockboxPath,
     LockboxProtection as V1LockboxProtection, OwnerSigningKeyPair as V1OwnerSigningKeyPair,
     SecretString as V1SecretString, SecretVec as V1SecretVec, VariableName as V1VariableName,
 };
+use revault_lockbox_api_v1::SecretString as V1VaultSecretString;
 use revault_lockbox_api_vault_v1::ContactKeyPair as V1ContactKeyPair;
 use revault_migrate_archive_v1::export_archive_v1;
 use revault_migrate_vault_v1::export_vault_v1;
@@ -212,7 +213,7 @@ fn vault_v1_fixture_exports_upgrades_and_imports_as_v2() {
     let upgraded = temp.path().join("vault-v2.migration");
     let imported_root = temp.path().join("vault-v2");
     let password = secret("v1 vault password");
-    let v1_password = V1SecretString::try_from_slice(b"v1 vault password").unwrap();
+    let v1_password = V1VaultSecretString::try_from_slice(b"v1 vault password").unwrap();
     let fixture = V1VaultDirectory::replace(&source_root, &v1_password).unwrap();
     fixture
         .store_private_key("default", &V1ContactKeyPair::generate().unwrap())

@@ -520,7 +520,6 @@ fn is_command_name(value: &OsStr) -> bool {
                 | "form"
                 | "session"
                 | "completion"
-                | "migrate"
                 | "doctor"
                 | "vault"
                 | "access"

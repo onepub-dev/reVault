@@ -1,6 +1,7 @@
 mod build;
 mod command;
 mod compression;
+mod e2e;
 mod install;
 mod quality;
 mod sleep;
@@ -31,6 +32,7 @@ fn run() -> Result<(), String> {
         "clippy-advisory" => no_args(&task, &args, quality::clippy_advisory),
         "generate-api-docs" => no_args(&task, &args, quality::generate_api_docs),
         "install-cli" => no_args(&task, &args, install::cli),
+        "test-cli-e2e" => no_args(&task, &args, e2e::cli),
         "build-cli" => build::cli(&args),
         "run-network-tests" => no_args(&task, &args, quality::run_network_tests),
         "measure-key-server-performance" => quality::measure_key_server_performance(&args),
@@ -69,7 +71,8 @@ Tasks:
   check-required                 Run formatting, hard Clippy, and required tests
   clippy-advisory                Run the advisory Clippy lint groups
   generate-api-docs              Generate revault_lockbox_api documentation
-  install-cli                    Install local lockbox and lbx executables
+  install-cli                    Install local CLI and migration executables
+  test-cli-e2e                   Run realistic CLI journeys and enforce command/option coverage
   build-cli                      Build portable CLI binaries in Docker (glibc 2.31)
   run-network-tests              Run ignored network integration tests
   measure-key-server-performance Run and capture the heavy failover benchmark

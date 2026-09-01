@@ -1,6 +1,6 @@
 [package]
 name = "revault_migration"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
@@ -15,8 +15,8 @@ serde_json = "1"
 sha2 = "0.11"
 zeroize = "1.9"
 revault_migration_format = { version = "0.0.4", path = "../revault_migration_format" }
-revault_lockbox_api = { version = "0.0.7", path = "../revault_lockbox_api", features = ["migration", "issue303-protocol"] }
-revault_vault_api = { version = "0.0.8", path = "../revault_vault_api" }
+revault_lockbox_api = { version = "0.0.8", path = "../revault_lockbox_api", features = ["migration", "issue303-protocol"] }
+revault_vault_api = { version = "0.0.9", path = "../revault_vault_api" }
 
 [dev-dependencies]
 tempfile = "3"
@@ -24,4 +24,5 @@ revault_migrate_vault_v1 = { path = "../revault_migrate_vault_v1" }
 revault_migrate_archive_v1 = { path = "../revault_migrate_archive_v1" }
 revault_vault_api_v1 = { package = "revault_vault_api", version = "=0.0.2" }
 revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.3" }
+revault_lockbox_api_export_v1 = { package = "revault_lockbox_api", version = "=0.0.6" }
 revault_lockbox_api_vault_v1 = { package = "revault_lockbox_api", version = "=0.0.2" }

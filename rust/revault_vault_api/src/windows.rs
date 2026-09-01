@@ -1117,6 +1117,18 @@ fn pipe_scope() -> String {
     format!("{user}-{:016x}", hash_value(&agent_dir))
 }
 
+pub(crate) fn session_agent_dir() -> PathBuf {
+    if let Ok(dir) = env::var("LOCKBOX_SESSION_AGENT_DIR") {
+        return PathBuf::from(dir);
+    }
+    env::var("LOCALAPPDATA")
+        .or_else(|_| env::var("APPDATA"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| env::temp_dir())
+        .join("reVault")
+        .join("session")
+}
+
 fn hash_value(value: &str) -> u64 {
     let mut hasher = DefaultHasher::new();
     value.hash(&mut hasher);

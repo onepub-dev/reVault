@@ -6,8 +6,8 @@ use clap::{parser::ValueSource, ArgMatches};
 use revault_lockbox_api::Error;
 use revault_vault_api::{
     get_platform_vault_password, list as list_open_lockboxes, local_vault,
-    platform_secret_store_status, put_platform_vault_password, set_auto_open_scope,
-    stop as stop_agent, verify_agent_transport_security, AutoOpenScope,
+    platform_secret_store_status, put_platform_vault_password, session_agent_dir,
+    set_auto_open_scope, stop as stop_agent, verify_agent_transport_security, AutoOpenScope,
 };
 
 use super::context::{
@@ -308,7 +308,7 @@ fn write_default_lockbox(lockbox_path: &str) -> CliResult<()> {
 }
 
 fn default_lockbox_path() -> CliResult<PathBuf> {
-    Ok(revault_vault_api::default_vault_dir()?.join(".default-lockbox"))
+    Ok(session_agent_dir().join("default-lockbox"))
 }
 
 pub(crate) fn default_lockbox_or_none() -> CliResult<Option<String>> {

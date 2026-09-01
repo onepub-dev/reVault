@@ -8,7 +8,7 @@ From time to time, a format revision may be necessary. reVault includes migratio
 
 reVault vaults and archives use independent on-disk formats. You can migrate each independently, however your vault must be migrated first.
 
-Use the `lockbox migrate` command when a newer reVault release reports that a vault or archive uses an older format. The command migrates archives and the vault to the latest format supported by the installed CLI.&#x20;
+Use the `lockbox doctor migrate` command when a newer reVault release reports that a vault or archive uses an older format. `doctor` groups health checks, recovery, and format maintenance in one place. The migration command upgrades Lockboxes and the Vault to the latest format supported by the installed CLI.&#x20;
 
 You don't need to migrate all of your archives at once, but you will need to migrate them before you can access an archive with the latest CLI version.
 
@@ -30,13 +30,13 @@ The vault command operates on the configured default vault.&#x20;
 To migrate your Vault and replace the existing file, use:
 
 ```
-lockbox migrate vault --replace
+lockbox doctor migrate vault --replace
 ```
 
 If you want a safer path you can do a migration to a separate vault via:
 
 ```console
-lockbox migrate vault --output ~/.local/share/lockbox/vault-migrated
+lockbox doctor migrate vault --output ~/.local/share/lockbox/vault-migrated
 ```
 
 The CLI obtains the Vault passphrase through the normal Vault access flow, or from `LOCKBOX_VAULT_PASSWORD` in agentless automation. If none is available, it prompts for the passphrase.
@@ -45,7 +45,7 @@ For example, in automation where the password is supplied by a protected secret 
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox migrate vault --output "$WORK_DIR/vault-migrated"
+  lockbox doctor migrate vault --output "$WORK_DIR/vault-migrated"
 ```
 
 Temporary file artifacts created to facilitate the migration are encrypted with a temporary migration key.&#x20;
@@ -59,7 +59,7 @@ Before you migrate an archive you must first migrate the local vault.
 Pass the archive path and a separate output path:
 
 ```console
-lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
 The CLI first tries the current and historical Profile keys stored in the migrated Vault. It can also use a Lockbox password remembered by the Vault. You only need to supply a password when the Vault does not hold a credential that can open the Lockbox and the Lockbox has password access.
@@ -70,13 +70,13 @@ If the Vault does not exist, restore a Vault backup or initialise a new Vault an
 
 You can now migrate your archives:
 
-`lockbox migrate archive secrets.lbox --output secrets-migrated.lbox`
+`lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox`
 
 For agentless automation, provide the Vault passphrase through a protected environment variable:
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+  lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
 Add `LOCKBOX_PASSWORD` only when the Vault does not contain a Profile key or remembered Lockbox password that can open the Lockbox:
@@ -84,7 +84,7 @@ Add `LOCKBOX_PASSWORD` only when the Vault does not contain a Profile key or rem
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
   LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+  lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
 Open the migrated archive and check important paths before replacing or removing the original:
@@ -103,8 +103,8 @@ Archive migration creates a new signed commit chain. The files, forms, and other
 If you have backups of your archives then you can use the  `--replace` switch perform the replacement automatically:
 
 ```console
-lockbox migrate vault --replace
-lockbox migrate archive secrets.lbox --replace
+lockbox doctor migrate vault --replace
+lockbox doctor migrate lockbox secrets.lbox --replace
 ```
 
 `--replace` cannot be combined with `--output`. The CLI validates the migrated artifact, renames the original to a versioned backup, and then renames the new artifact into the original location.
@@ -143,7 +143,7 @@ If the machine cannot access crates.io, install the matching exporter by some ot
 Migration is resumable. The CLI stores an encrypted migration journal and temporary artifacts beside the source. If the process is interrupted, repeat the same command:
 
 ```console
-lockbox migrate archive secrets.lbox --output secrets-migrated.lbox
+lockbox doctor migrate lockbox secrets.lbox --output secrets-migrated.lbox
 ```
 
 Completed export, upgrade, and import stages are verified and reused. An incomplete stage is discarded and rebuilt. The CLI refuses to resume when the source path, source format version, or source contents no longer match the saved journal.
@@ -160,15 +160,15 @@ To view them:
 
 ```console
 lockbox --verbose --help
-lockbox migrate vault --help
-lockbox migrate archive --help
+lockbox doctor migrate vault --help
+lockbox doctor migrate lockbox --help
 ```
 
 The stage commands use encrypted migration artefacts and require an explicit migration artefact passphrase. This is intentional: a manually exported artefact may outlive the source Vault and may be transferred to another machine. For example, to verify an artefact without importing it:
 
 ```console
-lockbox migrate vault verify vault.migration
-lockbox migrate archive verify archive.migration
+lockbox doctor migrate vault verify vault.migration
+lockbox doctor migrate lockbox verify archive.migration
 ```
 
 For a manually staged migration, keep the artefact files private and transfer the migration passphrase through a separate secure channel. Do not put Vault, Lockbox or migration passwords in command-line arguments, because command arguments may be visible to other processes.
@@ -180,8 +180,8 @@ For a manually staged migration, keep the artefact files private and transfer th
 Run the matching direct command and provide a destination:
 
 ```console
-lockbox migrate vault --output ./vault-v2
-lockbox migrate archive old-secrets.lbox --output ./old-secrets-v2.lbox
+lockbox doctor migrate vault --output ./vault-v2
+lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-v2.lbox
 ```
 
 If you want the original replaced after validation, use `--replace` instead.
@@ -192,7 +192,7 @@ Check the Vault passphrase and whether the platform credential store is availabl
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox migrate vault --output ./vault-v2
+  lockbox doctor migrate vault --output ./vault-v2
 ```
 
 #### The migration cannot open the archive
@@ -203,7 +203,7 @@ If the Vault does not hold a credential that can open the Lockbox and the Lockbo
 
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
-  lockbox migrate archive old-secrets.lbox --output ./old-secrets-v2.lbox
+  lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-v2.lbox
 ```
 
 #### The exporter cannot be installed
@@ -215,7 +215,7 @@ The current CLI needs the historical exporter for an old native format. Check ne
 Choose a new output path. Migration never overwrites an existing destination:
 
 ```console
-lockbox migrate archive secrets.lbox --output secrets-v2-new.lbox
+lockbox doctor migrate lockbox secrets.lbox --output secrets-v2-new.lbox
 ```
 
 #### The source changed while migration was in progress

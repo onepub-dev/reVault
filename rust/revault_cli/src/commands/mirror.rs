@@ -1,7 +1,7 @@
 use clap::ArgMatches;
 use revault_lockbox_api::{
-    ExtractPolicy, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind, LockboxPath,
-    MirrorMissingFilePolicy, MirrorProject, WorkloadProfile,
+    lock_path_for, Error, ExtractPolicy, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind,
+    LockboxPath, MirrorMissingFilePolicy, MirrorProject, WorkloadProfile,
 };
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -9,11 +9,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{self, IsTerminal, Read, Write};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use super::context::{cli_error, open_existing, Access, CliResult};
 use super::default_lockbox_for_add;
 use super::filters::{excluded, included, normalize as normalize_rules};
-use super::output::{output_format_from_matches, print_records};
+use super::output::{human_size, output_format_from_matches, print_records};
 
 const LARGE_DELETE_PERCENT: usize = 50;
 
@@ -66,6 +67,112 @@ struct MirrorRequest {
     options: MirrorUpdateOptions,
     force: bool,
     format: String,
+    quiet: bool,
+}
+
+struct MirrorProgress {
+    enabled: bool,
+    redraw: bool,
+    line_width: usize,
+    line_active: bool,
+    next_percent: usize,
+    scanned_files: usize,
+    scanned_bytes: u64,
+    last_scan_write: Instant,
+}
+
+impl MirrorProgress {
+    fn new(enabled: bool) -> Self {
+        let redraw = enabled
+            && io::stderr().is_terminal()
+            && std::env::var("TERM").map_or(true, |term| term != "dumb");
+        Self {
+            enabled,
+            redraw,
+            line_width: 0,
+            line_active: false,
+            next_percent: 10,
+            scanned_files: 0,
+            scanned_bytes: 0,
+            last_scan_write: Instant::now(),
+        }
+    }
+
+    fn scanned(&mut self, bytes: usize) {
+        self.scanned_bytes = self.scanned_bytes.saturating_add(bytes as u64);
+        if self.enabled && self.last_scan_write.elapsed() >= Duration::from_secs(1) {
+            self.write(
+                format!(
+                    "scanning ({} files complete, {} read).",
+                    self.scanned_files,
+                    human_size(self.scanned_bytes)
+                ),
+                false,
+            );
+            self.last_scan_write = Instant::now();
+        }
+    }
+
+    fn scanned_file(&mut self) {
+        self.scanned_files += 1;
+    }
+
+    fn stage(&mut self, message: impl AsRef<str>) {
+        self.write(message, false);
+    }
+
+    fn finish(&mut self, message: impl AsRef<str>) {
+        self.write(message, true);
+    }
+
+    fn begin_counted(&mut self, message: impl AsRef<str>) {
+        self.next_percent = 10;
+        self.stage(message);
+    }
+
+    fn counted(&mut self, label: &str, completed: usize, total: usize) {
+        if !self.enabled || total == 0 {
+            return;
+        }
+        let percent = completed.saturating_mul(100) / total;
+        if percent >= self.next_percent || completed == total {
+            self.write(format!("{label} {completed}/{total} ({percent}%)"), false);
+            while self.next_percent <= percent {
+                self.next_percent += 10;
+            }
+        }
+    }
+
+    fn write(&mut self, message: impl AsRef<str>, finish: bool) {
+        if !self.enabled {
+            return;
+        }
+        let rendered = format!("Mirror: {}", message.as_ref());
+        if !self.redraw {
+            eprintln!("{rendered}");
+            return;
+        }
+        let padding = self.line_width.saturating_sub(rendered.len());
+        let mut stderr = io::stderr().lock();
+        let _ = write!(stderr, "\r{rendered}{:padding$}", "", padding = padding);
+        if finish {
+            let _ = writeln!(stderr);
+            self.line_width = 0;
+            self.line_active = false;
+        } else {
+            let _ = stderr.flush();
+            self.line_width = rendered.len().max(self.line_width);
+            self.line_active = true;
+        }
+    }
+}
+
+impl Drop for MirrorProgress {
+    fn drop(&mut self) {
+        if self.redraw && self.line_active {
+            eprintln!();
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -124,7 +231,7 @@ fn configure_project(
     };
     let mut lb = open_existing(lockbox_path, access)?;
     lb.update_mirror_project(&project)?;
-    lb.commit()?;
+    commit_mirror_change(lb, lockbox_path, access)?;
     println!(
         "Mirror '{}' now {} archive-only files.",
         project.name,
@@ -165,7 +272,7 @@ fn rebind_project(
     project.host_identity = identity;
     let mut lb = open_existing(lockbox_path, access)?;
     lb.update_mirror_project(&project)?;
-    lb.commit()?;
+    commit_mirror_change(lb, lockbox_path, access)?;
     println!("Rebound mirror '{}'.", project.name);
     Ok(())
 }
@@ -184,7 +291,7 @@ fn forget_project(
     }
     let mut lb = open_existing(lockbox_path, access)?;
     lb.forget_mirror_project(&project.name)?;
-    lb.commit()?;
+    commit_mirror_change(lb, lockbox_path, access)?;
     println!(
         "Forgot mirror '{}'; files under {} are now unmanaged.",
         project.name, project.destination
@@ -228,7 +335,7 @@ fn delete_project(
         Ok(())
     })?;
     lb.forget_mirror_project(&project.name)?;
-    lb.commit()?;
+    commit_mirror_change(lb, lockbox_path, access)?;
     println!("Deleted mirror '{}' and its managed files.", project.name);
     Ok(())
 }
@@ -321,7 +428,7 @@ fn rules_project(
     }
     let mut lb = open_existing(lockbox_path, access)?;
     lb.update_mirror_project(&project)?;
-    lb.commit()?;
+    commit_mirror_change(lb, lockbox_path, access)?;
     println!(
         "Updated {} rules for mirror '{}'. Run mirror status before updating.",
         kind, project.name
@@ -494,7 +601,16 @@ fn project_add(
             if let Some(destination) = destination_value {
                 directories.insert(project_join(project, destination)?);
             }
-            let snapshot = walk_source(source, &includes, &excludes)?;
+            let canonical = canonical_source(source)?;
+            let ignored_paths = mirror_ignored_host_paths(Path::new(lockbox_path))?;
+            let mut progress = MirrorProgress::new(false);
+            let snapshot = walk_source(
+                &canonical,
+                &includes,
+                &excludes,
+                &ignored_paths,
+                &mut progress,
+            )?;
             for directory in snapshot.directories {
                 directories.insert(project_join(
                     project,
@@ -557,7 +673,7 @@ fn project_add(
         }
         Ok(())
     })?;
-    lb.commit()?;
+    commit_mirror_change(lb, lockbox_path, access)?;
     println!(
         "Added {added} files and replaced {replaced} files in mirror '{}'.",
         project.name
@@ -636,8 +752,10 @@ fn extract_project_tree(
             LockboxEntryKind::File => {
                 if entry.len > policy.max_file_bytes {
                     return Err(cli_error(format!(
-                        "{} is {} bytes, exceeding the per-file extraction limit of {}",
-                        entry.path, entry.len, policy.max_file_bytes
+                        "{} is {}, exceeding the per-file extraction limit of {}",
+                        entry.path,
+                        human_size(entry.len),
+                        human_size(policy.max_file_bytes)
                     )));
                 }
                 total_bytes = total_bytes
@@ -645,14 +763,15 @@ fn extract_project_tree(
                     .ok_or_else(|| cli_error("total extracted size overflow"))?;
                 if total_bytes > policy.max_total_bytes {
                     return Err(cli_error(format!(
-                        "project extraction exceeds the total byte limit of {}",
-                        policy.max_total_bytes
+                        "project extraction exceeds the total size limit of {}",
+                        human_size(policy.max_total_bytes)
                     )));
                 }
                 if let Some(parent) = host.parent() {
                     fs::create_dir_all(parent)?;
                 }
-                lb.extract_file_to(&entry.path, &host, policy.overwrite)?;
+                let replace = policy.overwrite && fs::symlink_metadata(&host).is_ok();
+                lb.extract_file_to(&entry.path, &host, replace)?;
                 restore_host_permissions(&host, entry.permissions, policy.restore_permissions)?;
             }
             LockboxEntryKind::Symlink if policy.restore_symlinks => {
@@ -763,27 +882,26 @@ fn project_list(
         options.set_glob(target.trim_start_matches('/'));
     }
     let lb = open_existing(lockbox_path, access)?;
+    let format = output_format_from_matches(matches)?;
     if !options.recursive {
-        return print_records(
-            &["kind", "len", "name"],
-            super::files::direct_listing_rows(&lb, &base)?,
-            output_format_from_matches(matches)?,
-        );
+        let mut rows = super::files::direct_listing_rows(&lb, &base)?;
+        super::files::humanize_listing_rows(&mut rows, format);
+        return print_records(&["kind", "len", "name"], rows, format);
     }
     let mut rows = Vec::new();
     for entry in lb.list(options)? {
         let entry = entry?;
         rows.push(vec![
             entry_kind_name(&entry.kind).to_string(),
-            entry.len.to_string(),
+            if format == super::output::OutputFormat::Table {
+                human_size(entry.len)
+            } else {
+                entry.len.to_string()
+            },
             relative_lockbox_path(&project.destination, &entry.path),
         ]);
     }
-    print_records(
-        &["kind", "len", "path"],
-        rows,
-        output_format_from_matches(matches)?,
-    )?;
+    print_records(&["kind", "len", "path"], rows, format)?;
     Ok(())
 }
 
@@ -854,7 +972,7 @@ fn project_remove(
         }
         Ok(())
     })?;
-    lb.commit()?;
+    commit_mirror_change(lb, lockbox_path, access)?;
     println!("Removed {} project entries.", entries.len());
     print_direct_change_warning(project);
     Ok(())
@@ -876,7 +994,7 @@ fn project_move(
     let to = project_join(project, to_value)?;
     let mut lb = open_existing(lockbox_path, access)?;
     lb.with_mirror_project_mutation(&project.name, |lb, _| lb.rename(&from, &to))?;
-    lb.commit()?;
+    commit_mirror_change(lb, lockbox_path, access)?;
     println!("Moved {from_value} to {to_value}.");
     print_direct_change_warning(project);
     Ok(())
@@ -936,7 +1054,17 @@ fn create_project(
     matches: &ArgMatches,
     access: &Access,
 ) -> CliResult<()> {
-    let name = name.ok_or_else(|| cli_error("mirror create requires an explicit project name"))?;
+    if let Some(misplaced) = matches.get_one::<String>("misplaced-project") {
+        let intended = name.unwrap_or(misplaced);
+        return Err(cli_error(format!(
+            "the mirror project name must appear before 'create'; use:\n  lbx mirror {intended} create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>"
+        )));
+    }
+    let name = name.ok_or_else(|| {
+        cli_error(
+            "mirror create requires a project name before 'create'; use:\n  lbx mirror <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>",
+        )
+    })?;
     validate_project_action_name(name)?;
     let source = PathBuf::from(
         matches
@@ -964,9 +1092,9 @@ fn create_project(
     };
     let mut lb = open_existing(archive_path, access)?;
     lb.create_mirror_project(project.clone(), matches.get_flag("adopt"))?;
-    lb.commit()?;
+    commit_mirror_change(lb, archive_path, access)?;
     println!(
-        "Created mirror '{}': {} -> {}.\nNo files were copied. Run `lbx {} mirror {} status` to inspect the first update.",
+        "Created mirror '{}': {} -> {}.\nNo files were copied. Add them with:\n  lbx {} mirror {} update",
         project.name, project.source, project.destination, archive_path, project.name
     );
     Ok(())
@@ -1101,10 +1229,13 @@ fn mirror_request(
         },
         force: update && matches.get_flag("force"),
         format: selected_format(matches).to_string(),
+        quiet: matches.get_flag("quiet"),
     }
 }
 
 fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult<()> {
+    let mut progress = MirrorProgress::new(!request.quiet);
+    progress.stage(format!("scanning source '{}'.", request.project.source));
     let canonical = canonical_source(Path::new(&request.project.source))?;
     let identity = platform_identity(&canonical)?;
     if request.project.host_identity.as_deref() != identity.as_deref() {
@@ -1115,8 +1246,25 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
     }
     let mut lb = open_existing(&request.lockbox, access)?;
     lb.set_workload_profile(WorkloadProfile::BulkImport);
-    let source_entries = walk_source(&canonical, &request.includes, &request.excludes)?;
-    let plan = build_plan(&lb, &request, &source_entries)?;
+    let ignored_paths = mirror_ignored_host_paths(Path::new(&request.lockbox))?;
+    let source_entries = walk_source(
+        &canonical,
+        &request.includes,
+        &request.excludes,
+        &ignored_paths,
+        &mut progress,
+    )?;
+    progress.stage(format!(
+        "source scan found {} files and {} directories.",
+        source_entries.files.len(),
+        source_entries.directories.len()
+    ));
+    progress.begin_counted(format!(
+        "comparing {} source files with the lockbox.",
+        source_entries.files.len()
+    ));
+    let plan = build_plan(&lb, &request, &source_entries, &mut progress)?;
+    progress.finish("comparison complete.");
     print_plan(&plan, &canonical, &request)?;
     if !apply {
         print_status_warnings(&plan, &source_entries, &request, &lb)?;
@@ -1145,33 +1293,76 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
         println!("Mirror update cancelled.");
         return Ok(());
     }
+    progress.stage("verifying source files before the update.");
     verify_source_snapshot(&plan)?;
+    progress.stage("source verification complete.");
     let project_name = request.project.name.clone();
+    let removals = removal_roots(&plan.removals, &lb);
+    let change_count =
+        removals.len() + plan.directories.len() + plan.additions.len() + plan.replacements.len();
+    progress.begin_counted(format!("applying {change_count} lockbox changes."));
+    let mut completed = 0;
     lb.with_mirror_project_mutation(&project_name, |lb, _| {
-        for path in removal_roots(&plan.removals, lb) {
-            if lb.is_dir(&path) {
-                lb.remove_dir_recursive(&path)?;
+        for path in &removals {
+            if lb.is_dir(path) {
+                lb.remove_dir_recursive(path)?;
             } else {
-                lb.delete(&path)?;
+                lb.delete(path)?;
             }
+            completed += 1;
+            progress.counted("applied", completed, change_count);
         }
         for directory in &plan.directories {
             if !lb.is_dir(directory) {
                 lb.create_dir(directory, true)?;
             }
+            completed += 1;
+            progress.counted("applied", completed, change_count);
         }
         for addition in &plan.additions {
             lb.create_parent_dirs_for(&addition.destination)?;
             lb.add_file_from_path(&addition.source, &addition.destination, false)?;
+            completed += 1;
+            progress.counted("applied", completed, change_count);
         }
         for replacement in &plan.replacements {
             lb.create_parent_dirs_for(&replacement.destination)?;
             lb.add_file_from_path(&replacement.source, &replacement.destination, true)?;
+            completed += 1;
+            progress.counted("applied", completed, change_count);
         }
         Ok(())
     })?;
+    progress.stage("verifying source files after the update.");
     verify_source_snapshot(&plan)?;
-    lb.commit()?;
+    let mut applied_progress = MirrorProgress::new(false);
+    let applied_plan = build_plan(&lb, &request, &source_entries, &mut applied_progress)?;
+    if !applied_plan.additions.is_empty()
+        || !applied_plan.replacements.is_empty()
+        || !applied_plan.removals.is_empty()
+        || !applied_plan.directories.is_empty()
+    {
+        return Err(cli_error(format!(
+            "mirror '{}' could not apply the planned contents before commit",
+            request.project.name
+        )));
+    }
+    progress.stage("committing the encrypted update.");
+    commit_mirror_change(lb, &request.lockbox, access)?;
+    progress.begin_counted("verifying the committed mirror contents.");
+    let persisted = open_existing(&request.lockbox, access)?;
+    let persisted_plan = build_plan(&persisted, &request, &source_entries, &mut progress)?;
+    if !persisted_plan.additions.is_empty()
+        || !persisted_plan.replacements.is_empty()
+        || !persisted_plan.removals.is_empty()
+        || !persisted_plan.directories.is_empty()
+    {
+        return Err(cli_error(format!(
+            "mirror '{}' update did not persist the planned contents; no success was reported",
+            request.project.name
+        )));
+    }
+    progress.finish("update complete.");
     if request.format != "json" {
         println!(
             "Updated mirror '{}': {} added, {} replaced, {} directories created, {} removed, {} unchanged.",
@@ -1184,6 +1375,25 @@ fn run_mirror(request: MirrorRequest, access: &Access, apply: bool) -> CliResult
         );
     }
     Ok(())
+}
+
+fn commit_mirror_change(
+    mut lockbox: Lockbox,
+    lockbox_path: &str,
+    access: &Access,
+) -> CliResult<()> {
+    match lockbox.commit() {
+        Ok(()) => Ok(()),
+        Err(Error::RecoveryRequired { .. }) => {
+            drop(lockbox);
+            // The logical transaction is already published. A fresh writable
+            // open authenticates it and completes its secure cleanup before
+            // the mirror command reports success.
+            drop(open_existing(lockbox_path, access)?);
+            Ok(())
+        }
+        Err(error) => Err(error.into()),
+    }
 }
 
 fn canonical_source(source: &Path) -> CliResult<PathBuf> {
@@ -1205,12 +1415,46 @@ fn canonical_source(source: &Path) -> CliResult<PathBuf> {
     Ok(canonical)
 }
 
-fn walk_source(root: &Path, includes: &[String], excludes: &[String]) -> CliResult<SourceSnapshot> {
+fn mirror_ignored_host_paths(lockbox: &Path) -> CliResult<BTreeSet<PathBuf>> {
+    let absolute = if lockbox.is_absolute() {
+        lockbox.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(lockbox)
+    };
+    let canonical = fs::canonicalize(lockbox).map_err(|err| {
+        cli_error(format!(
+            "cannot resolve lockbox path {}: {err}",
+            lockbox.display()
+        ))
+    })?;
+    Ok([
+        absolute.clone(),
+        lock_path_for(&absolute),
+        canonical.clone(),
+        lock_path_for(&canonical),
+    ]
+    .into_iter()
+    .collect())
+}
+
+fn walk_source(
+    root: &Path,
+    includes: &[String],
+    excludes: &[String],
+    ignored_paths: &BTreeSet<PathBuf>,
+    progress: &mut MirrorProgress,
+) -> CliResult<SourceSnapshot> {
+    struct WalkOptions<'a> {
+        root: &'a Path,
+        includes: &'a [String],
+        excludes: &'a [String],
+        ignored_paths: &'a BTreeSet<PathBuf>,
+    }
+
     fn visit(
-        root: &Path,
         current: &Path,
-        includes: &[String],
-        excludes: &[String],
+        options: &WalkOptions<'_>,
+        progress: &mut MirrorProgress,
         files: &mut BTreeMap<String, (PathBuf, FileFingerprint)>,
         directories: &mut BTreeSet<String>,
     ) -> CliResult<()> {
@@ -1228,11 +1472,14 @@ fn walk_source(root: &Path, includes: &[String], excludes: &[String]) -> CliResu
                 ))
             })?;
             let path = entry.path();
+            if options.ignored_paths.contains(&path) {
+                continue;
+            }
             let relative = slash_path(
-                path.strip_prefix(root)
+                path.strip_prefix(options.root)
                     .map_err(|err| cli_error(err.to_string()))?,
             )?;
-            if excluded(&relative, excludes) {
+            if excluded(&relative, options.excludes) {
                 continue;
             }
             let kind = entry.file_type()?;
@@ -1243,12 +1490,12 @@ fn walk_source(root: &Path, includes: &[String], excludes: &[String]) -> CliResu
                 )));
             }
             if kind.is_dir() {
-                if includes.is_empty() {
+                if options.includes.is_empty() {
                     directories.insert(relative);
                 }
-                visit(root, &path, includes, excludes, files, directories)?;
+                visit(&path, options, progress, files, directories)?;
             } else if kind.is_file() {
-                if included(&relative, includes) {
+                if included(&relative, options.includes) {
                     for directory in Path::new(&relative).ancestors().skip(1) {
                         let directory = slash_path(directory)?;
                         if directory.is_empty() {
@@ -1256,7 +1503,9 @@ fn walk_source(root: &Path, includes: &[String], excludes: &[String]) -> CliResu
                         }
                         directories.insert(directory);
                     }
-                    files.insert(relative, (path.clone(), fingerprint(&path)?));
+                    let fingerprint = fingerprint_with_progress(&path, progress)?;
+                    progress.scanned_file();
+                    files.insert(relative, (path.clone(), fingerprint));
                 }
             } else {
                 return Err(cli_error(format!(
@@ -1269,7 +1518,13 @@ fn walk_source(root: &Path, includes: &[String], excludes: &[String]) -> CliResu
     }
     let mut files = BTreeMap::new();
     let mut directories = BTreeSet::new();
-    visit(root, root, includes, excludes, &mut files, &mut directories)?;
+    let options = WalkOptions {
+        root,
+        includes,
+        excludes,
+        ignored_paths,
+    };
+    visit(root, &options, progress, &mut files, &mut directories)?;
     Ok(SourceSnapshot { files, directories })
 }
 
@@ -1277,6 +1532,7 @@ fn build_plan(
     lb: &Lockbox,
     request: &MirrorRequest,
     source: &SourceSnapshot,
+    progress: &mut MirrorProgress,
 ) -> CliResult<MirrorPlan> {
     let mut archive = BTreeMap::new();
     let mut options = ListOptions::new(&request.destination);
@@ -1311,7 +1567,8 @@ fn build_plan(
             None => plan.directories.push(destination),
         }
     }
-    for (relative, (host_path, host_fingerprint)) in &source.files {
+    let source_file_count = source.files.len();
+    for (index, (relative, (host_path, host_fingerprint))) in source.files.iter().enumerate() {
         let destination = join_destination(&request.destination, relative)?;
         match archive.remove(relative) {
             None => plan.additions.push(MirrorAddition {
@@ -1358,6 +1615,7 @@ fn build_plan(
                 }
             }
         }
+        progress.counted("compared", index + 1, source_file_count);
     }
     if request.project.missing_file_policy == MirrorMissingFilePolicy::Remove {
         for entry in archive.into_values() {
@@ -1371,6 +1629,17 @@ fn build_plan(
 }
 
 fn fingerprint(path: &Path) -> CliResult<FileFingerprint> {
+    fingerprint_inner(path, |_| {})
+}
+
+fn fingerprint_with_progress(
+    path: &Path,
+    progress: &mut MirrorProgress,
+) -> CliResult<FileFingerprint> {
+    fingerprint_inner(path, |bytes| progress.scanned(bytes))
+}
+
+fn fingerprint_inner(path: &Path, mut on_read: impl FnMut(usize)) -> CliResult<FileFingerprint> {
     let before = fs::metadata(path)?;
     let mut file = fs::File::open(path)?;
     let mut hasher = Sha256::new();
@@ -1381,6 +1650,7 @@ fn fingerprint(path: &Path) -> CliResult<FileFingerprint> {
             break;
         }
         hasher.update(&buffer[..count]);
+        on_read(count);
     }
     let after = fs::metadata(path)?;
     let result = FileFingerprint {

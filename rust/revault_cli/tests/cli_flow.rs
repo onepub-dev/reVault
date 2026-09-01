@@ -75,7 +75,10 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let mirror_help = run_output(bin, &["mirror", "--help"]);
     assert_success(&mirror_help);
     let mirror_help = String::from_utf8_lossy(&mirror_help.stdout);
-    assert!(mirror_help.contains("Usage: lockbox mirror [OPTIONS] [NAME] <COMMAND>"));
+    assert!(mirror_help.contains("lockbox [LOCKBOX] mirror [NAME] <COMMAND>"));
+    assert!(mirror_help.contains(
+        "lockbox [LOCKBOX] mirror <NAME> create --from <HOST_DIRECTORY> --to <LOCKBOX_DIRECTORY>"
+    ));
     assert!(add_verbose_help.contains("--key <RAW_CONTENT_KEY>"));
     assert!(add_verbose_help.contains("Context:"));
     assert!(add_verbose_help.contains("Pass --recursive for a directory source"));
@@ -447,7 +450,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     let doctor_help = run_output(bin, &["doctor", "--help"]);
     assert_success(&doctor_help);
     let doctor_help = String::from_utf8_lossy(&doctor_help.stdout);
-    assert!(doctor_help.contains("Diagnose vault, agent, or lockbox problems."));
+    assert!(doctor_help.contains("Diagnose and maintain vaults and lockboxes."));
     assert!(doctor_help.contains("lockbox secrets.lbox doctor"));
     assert!(doctor_help.contains("recover"));
 
@@ -564,6 +567,32 @@ fn form_definitions_and_records_flow() {
     assert!(define.contains("revision: 1"));
     assert!(define.contains("description: Website sign-in credentials"));
     assert!(define.contains("fields: 3"));
+    let definition_id = define
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("definition_id:"))
+        .map(str::trim)
+        .expect("definition id");
+    run(
+        bin,
+        &[
+            &lockbox,
+            "form",
+            "define",
+            "login",
+            "--definition-id",
+            definition_id,
+            "--name",
+            "Login",
+            "--description",
+            "Website sign-in credentials",
+            "--field",
+            "username:text:required:Username",
+            "--field",
+            "password:secret:required:Password",
+            "--field",
+            "site:url",
+        ],
+    );
 
     let aliasless_lockbox = dir.join("aliasless.lbox");
     let aliasless_lockbox = aliasless_lockbox.to_string_lossy().to_string();
@@ -650,6 +679,46 @@ fn form_definitions_and_records_flow() {
     let username = run_output(bin, &[&lockbox, "form", "get", "/work/github", "username"]);
     assert_success(&username);
     assert_eq!(String::from_utf8_lossy(&username.stdout), "alice\n");
+    let from_env = run_output_with_env(
+        bin,
+        &[
+            &lockbox,
+            "form",
+            "set",
+            "--from-env",
+            "E2E_FORM_VALUE",
+            "/work/github",
+            "username",
+        ],
+        "E2E_FORM_VALUE",
+        "environment-user",
+    );
+    assert_success(&from_env);
+    let interactive_set = run_output_with_stdin(
+        bin,
+        &[
+            &lockbox,
+            "form",
+            "set",
+            "--interactive",
+            "/work/github",
+            "username",
+        ],
+        "prompt-user\n",
+    );
+    assert_success(&interactive_set);
+    run(
+        bin,
+        &[
+            &lockbox,
+            "form",
+            "set",
+            "--value",
+            "alice",
+            "/work/github",
+            "username",
+        ],
+    );
 
     let site_file = dir.join("site.txt");
     fs::write(&site_file, "https://example.com\n").unwrap();
@@ -823,6 +892,21 @@ fn form_definitions_and_records_flow() {
     assert!(interactive_show.contains("field\tusername\tUsername\talice"));
     assert!(interactive_show.contains("field\tpassword\tPassword\t<secret>"));
     assert!(!interactive_show.contains("interactive secret"));
+    run(
+        bin,
+        &[
+            &lockbox,
+            "form",
+            "move",
+            "/work/gitlab",
+            "/work/moved-gitlab",
+        ],
+    );
+    let moved = run_output(
+        bin,
+        &[&lockbox, "form", "show", "/work/moved-gitlab/gitlab"],
+    );
+    assert_success(&moved);
 
     run(
         bin,
@@ -1119,6 +1203,38 @@ fn clap_errors_are_not_double_prefixed() {
 }
 
 #[test]
+fn unambiguous_misspelled_top_level_commands_are_not_treated_as_lockboxes() {
+    let bin = env!("CARGO_BIN_EXE_lbx");
+
+    for (args, misspelling, wrongly_blamed) in [
+        (
+            vec!["migrage", "vault", "--replace"],
+            "migrage",
+            "--replace",
+        ),
+        (vec!["docter", "vault"], "docter", "vault"),
+        (vec!["opne", "secrets.lbox"], "opne", "secrets.lbox"),
+        (
+            vec!["--verbose", "migrage", "vault", "--replace"],
+            "migrage",
+            "--replace",
+        ),
+    ] {
+        let output = run_output(bin, &args);
+        assert!(!output.status.success(), "unexpected success for {args:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains(&format!("error: unrecognized subcommand '{misspelling}'")),
+            "wrong error for {args:?}: {stderr}"
+        );
+        assert!(
+            !stderr.contains(&format!("unexpected argument '{wrongly_blamed}'")),
+            "later token blamed for {args:?}: {stderr}"
+        );
+    }
+}
+
+#[test]
 fn open_list_flag_is_not_supported() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
 
@@ -1172,9 +1288,18 @@ fn top_level_help_pins_command_groups_and_hidden_commands() {
     assert!(verbose_help.contains("keygen          Generate raw keypair files."));
     assert!(verbose_help.contains("LOCKBOX_KEY=<raw-content-key>"));
     assert!(verbose_help.contains("LOCKBOX_SESSION_AGENT_DIR=<dir>"));
-    assert!(verbose_help.contains("migrate         Migrate"));
+    assert!(verbose_help.contains("doctor migrate"));
 
-    let migrate_help = run_output(bin, &["migrate", "vault", "--help"]);
+    let doctor_help = run_output(bin, &["doctor", "--help"]);
+    assert_success(&doctor_help);
+    assert!(String::from_utf8_lossy(&doctor_help.stdout).contains("migrate"));
+
+    let removed_top_level_migrate = run_output(bin, &["migrate", "vault", "--help"]);
+    assert!(!removed_top_level_migrate.status.success());
+    assert!(String::from_utf8_lossy(&removed_top_level_migrate.stderr)
+        .contains("unrecognized subcommand 'migrate'"));
+
+    let migrate_help = run_output(bin, &["doctor", "migrate", "vault", "--help"]);
     assert_success(&migrate_help);
     let migrate_help = String::from_utf8_lossy(&migrate_help.stderr);
     assert!(!migrate_help.contains("export"));
@@ -1182,7 +1307,8 @@ fn top_level_help_pins_command_groups_and_hidden_commands() {
     assert!(!migrate_help.contains("import"));
     assert!(!migrate_help.contains("verify"));
 
-    let migrate_verbose_help = run_output(bin, &["migrate", "vault", "--help", "--verbose"]);
+    let migrate_verbose_help =
+        run_output(bin, &["doctor", "migrate", "vault", "--help", "--verbose"]);
     assert_success(&migrate_verbose_help);
     let migrate_verbose_help = format!(
         "{}{}",
@@ -1194,24 +1320,31 @@ fn top_level_help_pins_command_groups_and_hidden_commands() {
     assert!(migrate_verbose_help.contains("import"));
     assert!(migrate_verbose_help.contains("verify"));
 
-    let archive_migrate_help = run_output(bin, &["migrate", "archive", "--help"]);
-    assert_success(&archive_migrate_help);
-    let archive_migrate_help = format!(
+    let lockbox_migrate_help = run_output(bin, &["doctor", "migrate", "lockbox", "--help"]);
+    assert_success(&lockbox_migrate_help);
+    let lockbox_migrate_help = format!(
         "{}{}",
-        String::from_utf8_lossy(&archive_migrate_help.stdout),
-        String::from_utf8_lossy(&archive_migrate_help.stderr)
+        String::from_utf8_lossy(&lockbox_migrate_help.stdout),
+        String::from_utf8_lossy(&lockbox_migrate_help.stderr)
     );
-    assert!(!archive_migrate_help.contains("upgrade"));
+    assert!(!lockbox_migrate_help.contains("upgrade"));
 
-    let archive_migrate_verbose_help =
-        run_output(bin, &["migrate", "archive", "--help", "--verbose"]);
-    assert_success(&archive_migrate_verbose_help);
-    let archive_migrate_verbose_help = format!(
-        "{}{}",
-        String::from_utf8_lossy(&archive_migrate_verbose_help.stdout),
-        String::from_utf8_lossy(&archive_migrate_verbose_help.stderr)
+    let lockbox_migrate_verbose_help = run_output(
+        bin,
+        &["doctor", "migrate", "lockbox", "--help", "--verbose"],
     );
-    assert!(archive_migrate_verbose_help.contains("upgrade"));
+    assert_success(&lockbox_migrate_verbose_help);
+    let lockbox_migrate_verbose_help = format!(
+        "{}{}",
+        String::from_utf8_lossy(&lockbox_migrate_verbose_help.stdout),
+        String::from_utf8_lossy(&lockbox_migrate_verbose_help.stderr)
+    );
+    assert!(lockbox_migrate_verbose_help.contains("upgrade"));
+
+    let removed_archive = run_output(bin, &["doctor", "migrate", "archive", "--help"]);
+    assert!(!removed_archive.status.success());
+    assert!(String::from_utf8_lossy(&removed_archive.stderr)
+        .contains("unrecognized subcommand 'archive'"));
 
     for removed in ["add-contact", "list-keys", "remove-key", "contact"] {
         let output = run_output(bin, &["removed-command-test.lbox", removed, "--help"]);
@@ -1234,29 +1367,30 @@ fn top_level_help_pins_command_groups_and_hidden_commands() {
 fn direct_migration_requires_an_output_or_explicit_replacement() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
 
-    let archive = run_output(bin, &["migrate", "archive", "missing.lbox"]);
-    assert!(!archive.status.success());
-    assert!(String::from_utf8_lossy(&archive.stderr)
-        .contains("archive migration requires --output <path>, or pass --replace"));
+    let lockbox = run_output(bin, &["doctor", "migrate", "lockbox", "missing.lbox"]);
+    assert!(!lockbox.status.success());
+    assert!(String::from_utf8_lossy(&lockbox.stderr)
+        .contains("lockbox migration requires --output <path>, or pass --replace"));
 
-    let vault = run_output(bin, &["migrate", "vault"]);
+    let vault = run_output(bin, &["doctor", "migrate", "vault"]);
     assert!(!vault.status.success());
     assert!(String::from_utf8_lossy(&vault.stderr)
         .contains("vault migration requires --output <path>, or pass --replace"));
 
-    let archive_without_vault = run_output(
+    let lockbox_without_vault = run_output(
         bin,
         &[
+            "doctor",
             "migrate",
-            "archive",
+            "lockbox",
             "missing.lbox",
             "--output",
             "migrated.lbox",
         ],
     );
-    assert!(!archive_without_vault.status.success());
-    assert!(String::from_utf8_lossy(&archive_without_vault.stderr)
-        .contains("archive migration requires a current vault"));
+    assert!(!lockbox_without_vault.status.success());
+    assert!(String::from_utf8_lossy(&lockbox_without_vault.stderr)
+        .contains("lockbox migration requires a current vault"));
 }
 
 #[test]
@@ -1397,6 +1531,19 @@ fn vault_commands_execute_real_flows() {
     );
     run_without_content_key(
         bin,
+        &["vault", "profile", "create", "alias", "--overwrite"],
+        &vault_root,
+        &agent_root,
+    );
+    let alias_lockbox = dir.join("alias-owned.lbox");
+    run_without_content_key(
+        bin,
+        &[alias_lockbox.to_str().unwrap(), "create", "--for", "alias"],
+        &vault_root,
+        &agent_root,
+    );
+    run_without_content_key(
+        bin,
         &[
             "vault",
             "profile",
@@ -1463,6 +1610,23 @@ fn vault_commands_execute_real_flows() {
         &vault_root,
         &agent_root,
     );
+    run_without_content_key(
+        bin,
+        &[
+            "vault",
+            "contact",
+            "import",
+            "friend",
+            public_key.to_str().unwrap(),
+            "--fingerprint",
+            &contact_fingerprint,
+            "--fingerprint-channel",
+            "phone-call-to-owner",
+            "--overwrite",
+        ],
+        &vault_root,
+        &agent_root,
+    );
     let list = run_output_without_content_key(
         bin,
         &["vault", "contact", "list", "--format", "tsv"],
@@ -1516,6 +1680,28 @@ fn vault_form_definitions_can_be_used_and_captured() {
     let shared_lockbox = dir.join("forms-published.lbox");
 
     run_without_content_key(bin, &["vault", "init"], &vault_root, &agent_root);
+    let login_definition = run_output_without_content_key(
+        bin,
+        &[
+            "vault",
+            "form",
+            "define",
+            "login",
+            "--field",
+            "username:text",
+            "--field",
+            "password:secret",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&login_definition);
+    let login_definition = String::from_utf8_lossy(&login_definition.stdout);
+    let definition_id = login_definition
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("definition_id:"))
+        .map(str::trim)
+        .expect("vault form definition id");
     run_without_content_key(
         bin,
         &[
@@ -1523,6 +1709,8 @@ fn vault_form_definitions_can_be_used_and_captured() {
             "form",
             "define",
             "login",
+            "--definition-id",
+            definition_id,
             "--field",
             "username:text",
             "--field",
@@ -2146,12 +2334,32 @@ fn doctor_lockbox_reports_closed_metadata_and_open_guidance() {
     let doctor = String::from_utf8_lossy(&doctor.stdout);
     assert!(doctor.contains("Lockbox"));
     assert!(doctor.contains(lockbox.to_str().unwrap()));
-    assert!(doctor.contains("header: ok"));
-    assert!(doctor.contains("Access methods"));
+    assert!(doctor.contains("Configured access (public header)"));
     assert!(doctor.contains("pass phrase slots: 1"));
     assert!(doctor.contains("contact-key slots: 0"));
-    assert!(doctor.contains("Open checks"));
-    assert!(doctor.contains("open: yes") || doctor.contains("additional checks"));
+    assert!(doctor.contains("Encrypted content"));
+    assert!(doctor.contains("state: not checked (lockbox is closed)"));
+    assert!(doctor.contains("next: open the lockbox, then run doctor again to check its health:"));
+    assert!(doctor.contains(&format!("lbx {} open", lockbox.display())));
+    assert!(doctor.contains(&format!("lbx {} doctor", lockbox.display())));
+    assert!(!doctor.contains("no cached content key"));
+    assert!(!doctor.contains("key directory:"));
+
+    let verbose_doctor = run_output_without_lockbox_password(
+        bin,
+        &[lockbox.to_str().unwrap(), "doctor", "--verbose"],
+        &vault_root,
+        &agent_root,
+    )
+    .output()
+    .unwrap();
+    assert_success(&verbose_doctor);
+    let verbose_doctor = String::from_utf8_lossy(&verbose_doctor.stdout);
+    assert!(verbose_doctor.contains("Technical details"));
+    assert!(verbose_doctor.contains("lockbox id:"));
+    assert!(verbose_doctor.contains("physical bytes:"));
+    assert!(verbose_doctor.contains("primary header: ok"));
+    assert!(verbose_doctor.contains("key directory: generation"));
 }
 
 #[test]
@@ -2235,11 +2443,11 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
     .unwrap();
     assert_success(&doctor);
     let doctor = String::from_utf8_lossy(&doctor.stdout);
-    assert!(doctor.contains("Open checks"));
-    assert!(doctor.contains("open: yes"));
+    assert!(doctor.contains("Encrypted content"));
     assert!(doctor.contains("description: Updated encrypted purpose"));
-    assert!(doctor.contains("pages:"));
-    assert!(doctor.contains("intact files:"));
+    assert!(doctor.contains("state: healthy"));
+    assert!(!doctor.contains("storage length:"));
+    assert!(!doctor.contains("partial files:"));
 
     let global_doctor =
         run_output_without_lockbox_password(bin, &["doctor"], &vault_root, &agent_root)
@@ -2621,7 +2829,16 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
 
     let diagnosis = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
     assert_success(&diagnosis);
-    assert!(String::from_utf8_lossy(&diagnosis.stdout).contains("open: recovery required"));
+    let diagnosis_stdout = String::from_utf8_lossy(&diagnosis.stdout);
+    assert!(diagnosis_stdout.contains("state: cleanup required"));
+    assert!(diagnosis_stdout.contains(&format!(
+        "preview: lbx {} doctor recover --dry-run",
+        lockbox.display()
+    )));
+    assert!(diagnosis_stdout.contains(&format!(
+        "recover: lbx {} doctor recover",
+        lockbox.display()
+    )));
 
     let preview = run_output(
         bin,
@@ -2632,22 +2849,25 @@ fn doctor_recover_detects_and_completes_interrupted_cleanup() {
             "--dry-run",
             "--format",
             "json",
+            "--quiet",
         ],
     );
     assert_success(&preview);
+    assert!(preview.stderr.is_empty());
     let preview = String::from_utf8_lossy(&preview.stdout);
     assert!(preview.contains("\"field\":\"operation\""));
     assert!(preview.contains("\"value\":\"complete_pending_cleanup\""));
 
     let still_pending = run_output(bin, &[lockbox.to_str().unwrap(), "doctor"]);
     assert_success(&still_pending);
-    assert!(String::from_utf8_lossy(&still_pending.stdout).contains("open: recovery required"));
+    assert!(String::from_utf8_lossy(&still_pending.stdout).contains("state: cleanup required"));
 
     let recovered = run_output(bin, &[lockbox.to_str().unwrap(), "doctor", "recover"]);
     assert_success(&recovered);
     let stderr = String::from_utf8_lossy(&recovered.stderr);
-    assert!(stderr.contains("Detected authenticated interrupted cleanup"));
-    assert!(stderr.contains("Interrupted cleanup complete"));
+    assert!(stderr.contains("Lockbox cleanup is required"));
+    assert!(stderr.contains("Lockbox cleanup complete"));
+    assert!(!stderr.contains("ranges"));
 
     let listing = run_output(bin, &[lockbox.to_str().unwrap(), "list", "--recursive"]);
     assert_success(&listing);
@@ -2667,6 +2887,10 @@ fn ordinary_write_capable_open_completes_interrupted_cleanup_automatically() {
 
     let listing = run_output(bin, &[lockbox.to_str().unwrap(), "list", "--recursive"]);
     assert_success(&listing);
+    let cleanup = String::from_utf8_lossy(&listing.stderr);
+    assert!(cleanup.contains("Lockbox cleanup is required"));
+    assert!(cleanup.contains("Lockbox cleanup complete"));
+    assert!(!cleanup.contains("ranges"));
     let listing = String::from_utf8_lossy(&listing.stdout);
     assert!(listing.contains("/docs/keep.txt"));
     assert!(!listing.contains("/docs/remove.txt"));
@@ -2712,6 +2936,57 @@ fn content_key_create_does_not_mirror_empty_key_directory() {
     let remembered = run_output_in(bin, &["vault", "lockbox", "list"], &vault_root, &agent_root);
     assert_success(&remembered);
     assert_eq!(String::from_utf8_lossy(&remembered.stdout).trim(), "empty");
+}
+
+#[test]
+fn vault_lockbox_remembers_an_existing_lockbox_by_absolute_path() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("remember-existing");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let lockbox = dir.join("wayward.lbox");
+    let vault_root = dir.join("vault");
+    let agent_root = dir.join("agent");
+
+    run_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "create"],
+        &vault_root,
+        &agent_root,
+    );
+    let remembered = run_output_in(
+        bin,
+        &["vault", "lockbox", "remember", lockbox.to_str().unwrap()],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&remembered);
+
+    let listing = run_output_in(
+        bin,
+        &["vault", "lockbox", "list", "--format", "json"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&listing);
+    let canonical = lockbox.canonicalize().unwrap();
+    assert!(String::from_utf8_lossy(&listing.stdout).contains(canonical.to_str().unwrap()));
+
+    let forgotten = run_output_in(
+        bin,
+        &["vault", "lockbox", "forget", lockbox.to_str().unwrap()],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&forgotten);
+    let listing = run_output_in(
+        bin,
+        &["vault", "lockbox", "list", "--format", "json"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&listing);
+    assert!(!String::from_utf8_lossy(&listing.stdout).contains(canonical.to_str().unwrap()));
 }
 
 #[test]
@@ -2799,6 +3074,9 @@ fn add_can_default_destination_and_list_recursively() {
     fs::write(source_dir.join("one.txt"), "one").unwrap();
     fs::write(source_dir.join("two.txt"), "two").unwrap();
     fs::write(source_dir.join("ignored.tmp"), "ignored").unwrap();
+    let second_source_dir = dir.join("assets");
+    fs::create_dir_all(&second_source_dir).unwrap();
+    fs::write(second_source_dir.join("logo.txt"), "logo").unwrap();
 
     let first_add = run_output(
         bin,
@@ -2894,6 +3172,8 @@ fn add_can_default_destination_and_list_recursively() {
             source_dir.to_str().unwrap(),
             "--to",
             "/copy",
+            "--include",
+            "*.txt",
             "--exclude",
             "*.tmp",
         ],
@@ -2931,6 +3211,38 @@ fn add_can_default_destination_and_list_recursively() {
         1,
         "{progress_stderr:?}"
     );
+    let quiet_progress = Command::new(bin)
+        .args([
+            lockbox.to_str().unwrap(),
+            "add",
+            "--recursive",
+            source_dir.to_str().unwrap(),
+            "--to",
+            "/quiet",
+            "--exclude",
+            "*.tmp",
+            "--quiet",
+        ])
+        .env("LOCKBOX_KEY", "test-key")
+        .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_SESSION_AGENT_DIR", &progress_agent_root)
+        .env(
+            "LOCKBOX_SESSION_AGENT_LOG",
+            agent_log_path(&progress_agent_root),
+        )
+        .env("LOCKBOX_VAULT_DIR", &progress_vault_root)
+        .env("LOCKBOX_ADD_PROGRESS", "always")
+        .output()
+        .unwrap();
+    assert_success(&quiet_progress);
+    assert!(quiet_progress.stderr.is_empty());
+
+    let quiet_stored = run_output(bin, &[lockbox.to_str().unwrap(), "cat", "/quiet/two.txt"]);
+    assert_success(&quiet_stored);
+    assert_eq!(
+        quiet_stored.stdout,
+        fs::read(source_dir.join("two.txt")).unwrap()
+    );
 
     let listing = run_output(bin, &[lockbox.to_str().unwrap(), "ls"]);
     assert_success(&listing);
@@ -2950,6 +3262,26 @@ fn add_can_default_destination_and_list_recursively() {
     assert!(recursive.contains("/copy/one.txt"));
     assert!(recursive.contains("/copy/two.txt"));
 
+    let mixed_lockbox = dir.join("mixed.lbox");
+    let mixed_add = run_output(
+        bin,
+        &[
+            mixed_lockbox.to_str().unwrap(),
+            "add",
+            "--recursive",
+            source_dir.to_str().unwrap(),
+            second_source_dir.to_str().unwrap(),
+            second_file.to_str().unwrap(),
+        ],
+    );
+    assert_success(&mixed_add);
+    let mixed_listing = run_output(bin, &[mixed_lockbox.to_str().unwrap(), "ls", "--recursive"]);
+    assert_success(&mixed_listing);
+    let mixed_listing = String::from_utf8_lossy(&mixed_listing.stdout);
+    assert!(mixed_listing.contains("/src/one.txt"));
+    assert!(mixed_listing.contains("/assets/logo.txt"));
+    assert!(mixed_listing.contains("/beta.txt"));
+
     let nested = run_output(bin, &[lockbox.to_str().unwrap(), "ls", "/some/path"]);
     assert_success(&nested);
     assert!(String::from_utf8_lossy(&nested.stdout).contains("alpha.txt"));
@@ -2962,6 +3294,59 @@ fn add_can_default_destination_and_list_recursively() {
     assert_eq!(
         String::from_utf8_lossy(&relative_cat.stdout),
         "alpha updated"
+    );
+}
+
+#[test]
+fn add_recursive_dot_imports_the_current_directory_contents() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("add-recursive-dot");
+    let _ = fs::remove_dir_all(&dir);
+    let source_dir = dir.join("source");
+    fs::create_dir_all(source_dir.join("nested")).unwrap();
+    fs::write(source_dir.join("visible.txt"), "visible").unwrap();
+    fs::write(source_dir.join(".hidden"), "hidden").unwrap();
+    fs::write(source_dir.join("nested/child.txt"), "child").unwrap();
+    let lockbox = source_dir.join("dot.lbox");
+    let vault_root = dir.join("vault");
+    let agent_root = dir.join("agent");
+
+    let add = Command::new(bin)
+        .current_dir(&source_dir)
+        .args([lockbox.to_str().unwrap(), "add", "--recursive", "."])
+        .env("LOCKBOX_KEY", "test-key")
+        .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_SESSION_AGENT_DIR", &agent_root)
+        .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
+        .env("LOCKBOX_VAULT_DIR", &vault_root)
+        .output()
+        .unwrap();
+    assert_success(&add);
+
+    let listing = run_output_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "ls", "--recursive"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&listing);
+    let listing = String::from_utf8_lossy(&listing.stdout);
+    assert!(listing.contains("/visible.txt"));
+    assert!(listing.contains("/.hidden"));
+    assert!(listing.contains("/nested/child.txt"));
+    assert!(!listing.contains("dot.lbox"));
+    assert!(!listing.contains(".dot.lbox.lock"));
+
+    let stored = run_output_in(
+        bin,
+        &[lockbox.to_str().unwrap(), "cat", "/nested/child.txt"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&stored);
+    assert_eq!(
+        stored.stdout,
+        fs::read(source_dir.join("nested/child.txt")).unwrap()
     );
 }
 
@@ -3106,6 +3491,18 @@ fn access_subcommands_manage_lockbox_access() {
         &vault_root,
         &agent_root,
     );
+
+    run_in(bin, &["session", "close-all"], &vault_root, &agent_root);
+    let opened_with_key = run_output_without_content_key(
+        bin,
+        &[lockbox.to_str().unwrap(), "open-key", "sharee"],
+        &vault_root,
+        &agent_root,
+    );
+    if !is_session_agent_unavailable(&opened_with_key) {
+        assert_success(&opened_with_key);
+        assert!(String::from_utf8_lossy(&opened_with_key.stdout).contains("Lockbox opened:"));
+    }
 
     let access = run_output_in(
         bin,
@@ -3597,7 +3994,7 @@ fn vault_profile_fingerprint_displays_publish_fingerprint() {
 
     let output = run_output_without_content_key(
         bin,
-        &["vault", "profile", "fingerprint"],
+        &["vault", "profile", "fingerprint", "default"],
         &vault_root,
         &agent_root,
     );
@@ -3751,8 +4148,16 @@ fn vault_lockbox_list_reports_owner_size_and_path() {
     assert_eq!(columns[0], "listed.lbox");
     assert_eq!(columns[1], "present");
     assert_eq!(columns[2], "signed");
-    assert!(columns[3].len() <= 6, "size was {}", columns[3]);
-    assert_eq!(columns[5], lockbox.to_str().unwrap());
+    let size_digits = columns[3]
+        .chars()
+        .take_while(|character| character.is_ascii_digit() || *character == '.')
+        .count();
+    assert!(size_digits <= 6, "size was {}", columns[3]);
+    assert!(columns[3].ends_with('B'), "size was {}", columns[3]);
+    assert_eq!(
+        columns[5],
+        lockbox.canonicalize().unwrap().to_str().unwrap()
+    );
     assert!(!table.contains("last_seen_unix_ms"));
 
     let json = run_output_without_content_key(
@@ -3767,6 +4172,22 @@ fn vault_lockbox_list_reports_owner_size_and_path() {
     assert!(json.contains("\"owner\":\"signed\""));
     assert!(json.contains("\"size\":\""));
     assert!(json.contains("\"path\":\""));
+
+    let described = run_output_without_content_key(
+        bin,
+        &[
+            "vault",
+            "lockbox",
+            "list",
+            "--with-description",
+            "--format",
+            "json",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&described);
+    assert!(String::from_utf8_lossy(&described.stdout).contains("\"description\""));
 
     fs::remove_file(&lockbox).unwrap();
     let tsv = run_output_without_content_key(
@@ -3852,7 +4273,7 @@ fn vault_lockbox_move_updates_file_sidecar_vault_and_default_session() {
     );
     assert_success(&known);
     let known = String::from_utf8_lossy(&known.stdout);
-    assert!(known.contains(destination.to_str().unwrap()));
+    assert!(known.contains(destination.canonicalize().unwrap().to_str().unwrap()));
     assert!(!known.contains(source.to_str().unwrap()));
 
     let session = run_output_without_content_key(bin, &["session"], &vault_root, &agent_root);
@@ -4461,6 +4882,13 @@ fn vault_backup_and_restore_round_trip_encrypted_vault() {
     assert!(!backed_up.contains("backup="));
     assert!(!backed_up.contains("vault_sha256="));
     assert!(!backed_up.contains("created_at_utc="));
+    let overwritten_backup = run_output_without_content_key(
+        bin,
+        &["vault", "backup", backup.to_str().unwrap(), "--overwrite"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&overwritten_backup);
 
     fs::remove_file(vault_root.join("local-vault.lbox")).unwrap();
 
@@ -4845,6 +5273,8 @@ fn session_default_sets_default_lockbox_for_commands() {
         &agent_root,
     );
     assert_success(&use_output);
+    assert!(agent_root.join("default-lockbox").is_file());
+    assert!(!vault_root.join(".default-lockbox").exists());
 
     let session = run_output_without_content_key(bin, &["session"], &vault_root, &agent_root);
     assert_success(&session);
@@ -5197,6 +5627,13 @@ fn session_default_lockbox_applies_to_lockbox_argument_variants() {
     );
     assert_success(&refresh);
     assert!(String::from_utf8_lossy(&refresh.stdout).contains("matching access entries"));
+    let refresh_all = run_output_in(
+        bin,
+        &["access", "refresh", "--all", "--dry-run", "--yes"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&refresh_all);
 
     let remove_access = run_output_in(
         bin,
@@ -5233,6 +5670,14 @@ fn auto_open_lockboxes_uses_remembered_password() {
         return;
     }
     assert_success(&init);
+    let vault_auto = run_output_without_content_key(
+        bin,
+        &["session", "auto-open", "vault"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&vault_auto);
+    assert!(String::from_utf8_lossy(&vault_auto.stdout).contains("vault"));
     let auto = run_output_without_content_key(
         bin,
         &["session", "auto-open", "lockboxes"],
@@ -5509,6 +5954,20 @@ fn add_accepts_jobs_option_for_large_files() {
     );
 
     assert_eq!(fs::read(extracted).unwrap(), data);
+    let extracted_tree = dir.join("extracted-tree");
+    run(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "extract",
+            "--to",
+            extracted_tree.to_str().unwrap(),
+            "--overwrite",
+            "--restore-permissions",
+            "--restore-symlinks",
+        ],
+    );
+    assert_eq!(fs::read(extracted_tree.join("large.bin")).unwrap(), data);
 }
 
 #[test]
@@ -5561,6 +6020,44 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     let secret_set = String::from_utf8_lossy(&secret_set.stdout);
     assert!(secret_set.contains("Variable set: /API_TOKEN"));
     assert!(!secret_set.contains("file-secret"));
+    let from_env = run_output_with_env(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "variable",
+            "set",
+            "FROM_ENV",
+            "--from-env",
+            "E2E_VARIABLE_VALUE",
+        ],
+        "E2E_VARIABLE_VALUE",
+        "environment-value",
+    );
+    assert_success(&from_env);
+    let from_stdin = run_output_with_stdin(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "variable",
+            "set",
+            "FROM_STDIN",
+            "--stdin",
+        ],
+        "stdin-value",
+    );
+    assert_success(&from_stdin);
+    let interactive = run_output_with_stdin(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "variable",
+            "set",
+            "INTERACTIVE",
+            "--interactive",
+        ],
+        "interactive-value\n",
+    );
+    assert_success(&interactive);
     run(
         bin,
         &[
@@ -5611,6 +6108,20 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     assert!(listing.contains("/EMPTY_VALUE"));
     assert!(listing.contains("/API_TOKEN\tsecret"));
     assert!(listing.contains("/production/APP_MODE"));
+
+    let all_listing = run_output(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "variable",
+            "list",
+            "--all",
+            "--format",
+            "tsv",
+        ],
+    );
+    assert_success(&all_listing);
+    assert!(String::from_utf8_lossy(&all_listing.stdout).contains("/FROM_ENV"));
 
     let production_listing = run_output(
         bin,
@@ -5790,7 +6301,7 @@ fn cli_secret_variables_require_explicit_source_and_redact_export() {
     assert_success(&report);
     let report = String::from_utf8_lossy(&report.stdout);
     assert!(report.contains("variables_recovered\ttrue"));
-    assert!(report.contains("variable_count\t6"));
+    assert!(report.contains("variable_count\t9"));
 
     let token_output = dir.join("api-token.txt");
     run(
@@ -5961,6 +6472,84 @@ fn variable_set_secret_upgrades_a_normal_variable() {
 }
 
 #[test]
+fn description_commands_support_every_value_source_and_clear() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("description-sources");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let lockbox = dir.join("description.lbox");
+    let description_file = dir.join("description.txt");
+    fs::write(&description_file, "from file").unwrap();
+
+    run(bin, &[lockbox.to_str().unwrap(), "create"]);
+
+    run(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "description",
+            "set",
+            "positional description",
+        ],
+    );
+    let get = run_output(bin, &[lockbox.to_str().unwrap(), "description", "get"]);
+    assert_success(&get);
+    assert_eq!(
+        String::from_utf8_lossy(&get.stdout),
+        "positional description\n"
+    );
+
+    run(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "description",
+            "set",
+            "--file",
+            description_file.to_str().unwrap(),
+        ],
+    );
+    let from_env = run_output_with_env(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "description",
+            "set",
+            "--from-env",
+            "E2E_DESCRIPTION",
+        ],
+        "E2E_DESCRIPTION",
+        "from environment",
+    );
+    assert_success(&from_env);
+    let from_stdin = run_output_with_stdin(
+        bin,
+        &[lockbox.to_str().unwrap(), "description", "set", "--stdin"],
+        "from stdin",
+    );
+    assert_success(&from_stdin);
+    let interactive = run_output_with_stdin(
+        bin,
+        &[
+            lockbox.to_str().unwrap(),
+            "description",
+            "set",
+            "--interactive",
+        ],
+        "from prompt\n",
+    );
+    assert_success(&interactive);
+    let prompted = run_output(bin, &[lockbox.to_str().unwrap(), "description", "get"]);
+    assert_success(&prompted);
+    assert_eq!(String::from_utf8_lossy(&prompted.stdout), "from prompt\n");
+
+    run(bin, &[lockbox.to_str().unwrap(), "description", "clear"]);
+    let missing = run_output(bin, &[lockbox.to_str().unwrap(), "description", "get"]);
+    assert!(!missing.status.success());
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("not found"));
+}
+
+#[test]
 fn vault_profile_public_export_and_backup_restore_are_accepted_by_cli() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let dir = unique_dir_named("key-formats");
@@ -6043,6 +6632,21 @@ fn vault_profile_public_export_and_backup_restore_are_accepted_by_cli() {
     assert!(backup_text.contains("Profile: default"));
     assert!(backup_text.contains("BEGIN LOCKBOX PRIVATE KEY"));
     assert!(backup_text.contains("Owner signing private key record (hex):"));
+    let overwritten_backup = run_output_in(
+        bin,
+        &[
+            "vault",
+            "profile",
+            "backup",
+            backup.to_str().unwrap(),
+            "--name",
+            "default",
+            "--overwrite",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&overwritten_backup);
 
     let shortened_boundary_backup = dir.join("shortened-boundary.profile-backup");
     fs::write(
@@ -6270,6 +6874,21 @@ fn run_output(bin: &str, args: &[&str]) -> Output {
         &unique_dir().join("vault"),
         &unique_dir().join("agent"),
     )
+}
+
+fn run_output_with_env(bin: &str, args: &[&str], name: &str, value: &str) -> Output {
+    let vault_root = unique_dir().join("vault");
+    let agent_root = unique_dir().join("agent");
+    Command::new(bin)
+        .args(args)
+        .env("LOCKBOX_KEY", "test-key")
+        .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_SESSION_AGENT_DIR", &agent_root)
+        .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
+        .env("LOCKBOX_VAULT_DIR", &vault_root)
+        .env(name, value)
+        .output()
+        .unwrap()
 }
 
 fn run_output_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &PathBuf) -> Output {

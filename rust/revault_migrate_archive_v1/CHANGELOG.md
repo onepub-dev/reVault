@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.0.5 - 2026-09-01
+
+- Preserve the encrypted lockbox description when exporting a format-version-1
+  lockbox for migration.
+- Use the historical 0.0.6 lockbox and vault readers so current migration
+  records are accepted without treating internal metadata as user paths.
+
 ## 0.0.4 - 2026-08-30
 
 - Restored the minimum supported Rust version to Rust 1.88.

@@ -1,14 +1,14 @@
 use super::context::{cli_error, open_existing, open_or_create, require_arg, Access, CliResult};
 use super::filters::{excluded, included, normalize as normalize_rules};
-use super::output::{output_format_from_matches, print_records, OutputFormat};
+use super::output::{human_size, output_format_from_matches, print_records, OutputFormat};
 use super::{
     default_lockbox_for_add, default_lockbox_for_command, optional_lockbox_positionals,
     positional_values,
 };
 use clap::ArgMatches;
 use revault_lockbox_api::{
-    Error, ExtractPolicy, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind, LockboxPath,
-    WorkerPolicy, WorkloadProfile,
+    lock_path_for, Error, ExtractPolicy, ListOptions, Lockbox, LockboxEntry, LockboxEntryKind,
+    LockboxPath, WorkerPolicy, WorkloadProfile,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -69,6 +69,7 @@ struct AddRequest {
     overwrite: bool,
     includes: Vec<String>,
     excludes: Vec<String>,
+    quiet: bool,
 }
 
 struct AddSource {
@@ -130,6 +131,7 @@ fn add_request_from_matches(matches: &ArgMatches) -> CliResult<AddRequest> {
         overwrite: matches.get_flag("overwrite"),
         includes,
         excludes,
+        quiet: matches.get_flag("quiet"),
     })
 }
 
@@ -154,11 +156,6 @@ fn prepare_add_sources(
                 path.display()
             )));
         }
-        if is_directory && values.len() > 1 {
-            return Err(cli_error(
-                "add directory sources separately so their stored roots are unambiguous",
-            ));
-        }
         let destination = add_destination(&path, is_directory, values.len(), destination)?;
         sources.push(AddSource {
             path,
@@ -170,7 +167,7 @@ fn prepare_add_sources(
     for source in &sources {
         if !destinations.insert(source.destination.to_string()) {
             return Err(cli_error(format!(
-                "multiple sources map to the same lockbox path: {}",
+                "multiple sources map to the same lockbox path: {}; add them separately with distinct --to paths",
                 source.destination
             )));
         }
@@ -185,14 +182,14 @@ fn add_destination(
     destination: Option<&str>,
 ) -> CliResult<LockboxPath> {
     let Some(destination) = destination else {
-        return if is_directory {
+        return if is_directory && source_count == 1 {
             Ok(LockboxPath::new("/")?)
         } else {
             cli_lockbox_path(source_file_name(source)?)
         };
     };
     let destination_path = cli_lockbox_path(destination)?;
-    if is_directory {
+    if is_directory && source_count == 1 {
         return Ok(destination_path);
     }
     if source_count > 1 || destination.ends_with('/') {
@@ -266,25 +263,31 @@ fn add(request: AddRequest, access: &Access, worker_policy: WorkerPolicy) -> Cli
         }
     }
     lb.reset_import_stats();
+    let ignored_paths = add_ignored_host_paths(Path::new(&request.lockbox_path))?;
     let add_start = Instant::now();
-    let mut progress = AddProgress::for_source(&request.sources[0].path);
+    let mut progress = AddProgress::for_sources(&request.sources, request.quiet);
     let add_result: CliResult<AddOutcome> = (|| {
         let mut outcome = AddOutcome::default();
         for source in &request.sources {
-            let source_name = source_file_name(&source.path)?;
-            if source.path.is_file()
-                && (!included(source_name, &request.includes)
-                    || excluded(source_name, &request.excludes))
-            {
-                continue;
+            if source.path.is_file() {
+                let source_name = source_file_name(&source.path)?;
+                if !included(source_name, &request.includes)
+                    || excluded(source_name, &request.excludes)
+                {
+                    continue;
+                }
             }
+            let options = AddSourceOptions {
+                lockbox_root: source.destination.as_str(),
+                overwrite: request.overwrite,
+                includes: &request.includes,
+                excludes: &request.excludes,
+                ignored_paths: &ignored_paths,
+            };
             outcome.merge(add_source_path(
                 &mut lb,
                 &source.path,
-                source.destination.as_str(),
-                request.overwrite,
-                &request.includes,
-                &request.excludes,
+                &options,
                 &mut progress,
             )?);
         }
@@ -311,6 +314,27 @@ fn add(request: AddRequest, access: &Access, worker_policy: WorkerPolicy) -> Cli
     }
     print_add_outcome(&outcome, &request.lockbox_path);
     Ok(())
+}
+
+fn add_ignored_host_paths(lockbox: &Path) -> CliResult<BTreeSet<PathBuf>> {
+    let canonical = fs::canonicalize(lockbox)?;
+    let supplied = if lockbox.is_absolute() {
+        lockbox.to_path_buf()
+    } else {
+        std::env::current_dir()?.join(lockbox)
+    };
+    let supplied = match (supplied.parent(), supplied.file_name()) {
+        (Some(parent), Some(name)) => fs::canonicalize(parent)?.join(name),
+        _ => supplied,
+    };
+    Ok([
+        canonical.clone(),
+        lock_path_for(&canonical),
+        supplied.clone(),
+        lock_path_for(&supplied),
+    ]
+    .into_iter()
+    .collect())
 }
 
 fn source_metadata(source: &Path) -> CliResult<fs::Metadata> {
@@ -386,16 +410,38 @@ fn list_with_format(args: &[String], access: &Access, format: OutputFormat) -> C
             let entry = entry?;
             rows.push(vec![
                 kind_name(&entry.kind).to_string(),
-                entry.len.to_string(),
+                listing_size(entry.len, format),
                 entry.path.to_string(),
             ]);
         }
         print_records(&["kind", "len", "path"], rows, format)?;
     } else {
-        let rows = direct_listing_rows(&lb, &path)?;
+        let mut rows = direct_listing_rows(&lb, &path)?;
+        humanize_listing_rows(&mut rows, format);
         print_records(&["kind", "len", "name"], rows, format)?;
     }
     Ok(())
+}
+
+pub(crate) fn humanize_listing_rows(rows: &mut [Vec<String>], format: OutputFormat) {
+    if format != OutputFormat::Table {
+        return;
+    }
+    for row in rows {
+        if let Some(length) = row.get_mut(1) {
+            if let Ok(bytes) = length.parse::<u64>() {
+                *length = human_size(bytes);
+            }
+        }
+    }
+}
+
+fn listing_size(bytes: u64, format: OutputFormat) -> String {
+    if format == OutputFormat::Table {
+        human_size(bytes)
+    } else {
+        bytes.to_string()
+    }
 }
 
 fn contains_glob(value: &str) -> bool {
@@ -611,37 +657,49 @@ fn extract_policy_from_args(args: &[String]) -> ExtractPolicy {
     policy
 }
 
+struct AddSourceOptions<'a> {
+    lockbox_root: &'a str,
+    overwrite: bool,
+    includes: &'a [String],
+    excludes: &'a [String],
+    ignored_paths: &'a BTreeSet<PathBuf>,
+}
+
 fn add_source_path(
     lockbox: &mut Lockbox,
     source: &Path,
-    lockbox_root: &str,
-    overwrite: bool,
-    includes: &[String],
-    excludes: &[String],
+    options: &AddSourceOptions<'_>,
     progress: &mut AddProgress,
 ) -> CliResult<AddOutcome> {
-    let lockbox_root = LockboxPath::new(lockbox_root)?;
+    let lockbox_root = LockboxPath::new(options.lockbox_root)?;
     if source.is_file() {
+        if options.ignored_paths.contains(&fs::canonicalize(source)?) {
+            return Err(cli_error(
+                "the selected lockbox and its lock file cannot be added to itself",
+            ));
+        }
         let replaced = lockbox.stat(&lockbox_root).is_some();
         progress.record(source)?;
         lockbox.create_parent_dirs_for(&lockbox_root)?;
-        lockbox.add_file_from_path(source, &lockbox_root, overwrite)?;
+        lockbox.add_file_from_path(source, &lockbox_root, options.overwrite)?;
         let mut outcome = AddOutcome::default();
         outcome.record_file(replaced);
         return Ok(outcome);
     }
     if source.is_dir() {
+        let canonical = fs::canonicalize(source)?;
         if lockbox_root.as_str() != "/" {
             create_lockbox_dir_if_missing(lockbox, &lockbox_root, true)?;
         }
         let options = AddDirectoryOptions {
-            root: source,
+            root: &canonical,
             lockbox_root: &lockbox_root,
-            overwrite,
-            includes,
-            excludes,
+            overwrite: options.overwrite,
+            includes: options.includes,
+            excludes: options.excludes,
+            ignored_paths: options.ignored_paths,
         };
-        return add_directory(lockbox, source, &options, progress);
+        return add_directory(lockbox, &canonical, &options, progress);
     }
     Err(Error::UnsupportedHostPath(source.display().to_string()).into())
 }
@@ -652,6 +710,7 @@ struct AddDirectoryOptions<'a> {
     overwrite: bool,
     includes: &'a [String],
     excludes: &'a [String],
+    ignored_paths: &'a BTreeSet<PathBuf>,
 }
 
 fn add_directory(
@@ -664,6 +723,9 @@ fn add_directory(
     for entry in fs::read_dir(current)? {
         let entry = entry?;
         let path = entry.path();
+        if options.ignored_paths.contains(&path) {
+            continue;
+        }
         let relative = path.strip_prefix(options.root)?;
         let relative_rule = relative
             .components()
@@ -745,14 +807,15 @@ struct AddProgress {
 }
 
 impl AddProgress {
-    fn for_source(source: &Path) -> Self {
+    fn for_sources(sources: &[AddSource], quiet: bool) -> Self {
         let mode = std::env::var("LOCKBOX_ADD_PROGRESS").ok();
         let terminal = io::stderr().is_terminal();
-        let enabled = match mode.as_deref() {
-            Some("0" | "off" | "false" | "never") => false,
-            Some("1" | "on" | "true" | "always") => true,
-            _ => source.is_dir() && terminal,
-        };
+        let enabled = !quiet
+            && match mode.as_deref() {
+                Some("0" | "off" | "false" | "never") => false,
+                Some("1" | "on" | "true" | "always") => true,
+                _ => sources.iter().any(|source| source.is_directory) && terminal,
+            };
         Self {
             enabled,
             terminal,
