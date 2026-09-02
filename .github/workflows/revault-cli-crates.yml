@@ -1,6 +1,7 @@
 name: Publish reVault Rust crates
 
 on:
+  workflow_dispatch:
   workflow_call:
     inputs:
       plan:
