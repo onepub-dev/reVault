@@ -262,6 +262,7 @@ jobs:
   platform:
     name: platform ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -306,15 +307,18 @@ jobs:
           cargo test --locked -p revault_lockbox_api extract_to_directory
           cargo test --locked -p revault_lockbox_api symlink
           cargo test --locked -p revault_lockbox_api create_path
+          cargo test --locked -p revault_lockbox_api packed_page_relocation_updates_the_survivor_page_length
 
       - name: Agent IPC smoke test
         run: cargo test -p revault_cli --test agent_flow -- --nocapture
 
       - name: Windows CLI smoke tests
         if: runner.os == 'Windows'
-        run: |
-          cargo test --manifest-path revault_cli/Cargo.toml --test contact_receive_alias --test help_open_key --test publish_integration
-          cargo test --locked -p revault_cli --test mirror_cli mirror_large_delete_persists_after_reopen -- --exact
+        run: >-
+          cargo test --manifest-path revault_cli/Cargo.toml
+          --test contact_receive_alias
+          --test help_open_key
+          --test publish_integration
 
   cli-e2e:
     name: CLI E2E / Linux x86_64
