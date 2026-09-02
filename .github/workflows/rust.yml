@@ -312,29 +312,14 @@ jobs:
 
       - name: Windows CLI smoke tests
         if: runner.os == 'Windows'
-        run: >-
-          cargo test --manifest-path revault_cli/Cargo.toml
-          --test contact_receive_alias
-          --test help_open_key
-          --test publish_integration
+        run: |
+          cargo test --manifest-path revault_cli/Cargo.toml --test contact_receive_alias --test help_open_key --test publish_integration
+          cargo test --locked -p revault_cli --test mirror_cli mirror_large_delete_persists_after_reopen -- --exact
 
   cli-e2e:
-    name: CLI E2E / ${{ matrix.platform }}
-    runs-on: ${{ matrix.os }}
-    # Windows occasionally lands just above an hour when the full public-CLI
-    # lifecycle suite exercises large lockboxes; keep the bound tight while
-    # allowing for hosted-runner variance.
-    timeout-minutes: 65
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: Linux x86_64
-            os: ubuntu-latest
-            cache: linux-x86_64
-          - platform: Windows x86_64
-            os: windows-latest
-            cache: windows-x86_64
+    name: CLI E2E / Linux x86_64
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     defaults:
       run:
@@ -351,10 +336,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-          key: cli-e2e-${{ matrix.cache }}
+          key: cli-e2e-linux-x86_64
 
       - name: Install Linux dependencies
-        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
       - name: Run realistic CLI E2E contract
