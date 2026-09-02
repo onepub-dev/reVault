@@ -132,6 +132,33 @@ fn mirror_create_rules_status_update_and_ownership() {
             lockbox.to_str().unwrap(),
             "mirror",
             "project",
+            "configure",
+            "--no-strict",
+        ],
+    ));
+    let info = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "mirror",
+            "project",
+            "info",
+            "--format",
+            "json",
+        ],
+    );
+    success(&info);
+    let info: serde_json::Value = serde_json::from_slice(&info.stdout).unwrap();
+    assert_eq!(info["strict"], false);
+
+    success(&run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "mirror",
+            "project",
             "rule",
             "add",
             "exclude",
