@@ -5735,6 +5735,47 @@ fn auto_open_lockboxes_uses_remembered_password() {
 }
 
 #[test]
+fn auto_open_scope_commands_persist_without_a_platform_secret_store() {
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = short_target_dir("autoscope");
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    let vault_root = dir.join("vault");
+    let agent_root = dir.join("agent");
+
+    let init = run_output_without_content_key_with_env(
+        bin,
+        &["vault", "init"],
+        &vault_root,
+        &agent_root,
+        "LOCKBOX_PLATFORM_SECRET_STORE",
+        "disabled",
+    );
+    assert_success(&init);
+
+    for scope in ["vault", "lockboxes"] {
+        let configured = run_output_without_content_key_with_env(
+            bin,
+            &["session", "auto-open", scope],
+            &vault_root,
+            &agent_root,
+            "LOCKBOX_PLATFORM_SECRET_STORE",
+            "disabled",
+        );
+        assert_success(&configured);
+
+        let status = run_output_without_content_key(
+            bin,
+            &["session", "auto-open", "status", "--format", "tsv"],
+            &vault_root,
+            &agent_root,
+        );
+        assert_success(&status);
+        assert!(String::from_utf8_lossy(&status.stdout).contains(&format!("scope\t{scope}")));
+    }
+}
+
+#[test]
 fn auto_open_lockboxes_with_vault_profile_allows_first_add() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     let dir = short_target_dir("autoprofile");
@@ -6970,6 +7011,26 @@ fn run_output_without_content_key(
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
+        .output()
+        .unwrap()
+}
+
+fn run_output_without_content_key_with_env(
+    bin: &str,
+    args: &[&str],
+    vault_root: &PathBuf,
+    agent_root: &PathBuf,
+    name: &str,
+    value: &str,
+) -> Output {
+    Command::new(bin)
+        .args(args)
+        .env("LOCKBOX_PASSWORD", "test-lockbox-password")
+        .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
+        .env("LOCKBOX_SESSION_AGENT_DIR", agent_root)
+        .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
+        .env("LOCKBOX_VAULT_DIR", vault_root)
+        .env(name, value)
         .output()
         .unwrap()
 }

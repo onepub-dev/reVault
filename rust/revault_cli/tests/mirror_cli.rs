@@ -961,6 +961,25 @@ fn mirror_retain_forget_and_delete_have_distinct_results() {
     let configured: serde_json::Value = serde_json::from_slice(&configured.stdout).unwrap();
     assert_eq!(configured["missing_files"], "retain");
     assert_eq!(configured["strict"], false);
+    success(&run(
+        bin,
+        temp.path(),
+        &[lockbox.to_str().unwrap(), "mirror", "configure", "--strict"],
+    ));
+    let configured = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "mirror",
+            "info",
+            "--format",
+            "json",
+        ],
+    );
+    success(&configured);
+    let configured: serde_json::Value = serde_json::from_slice(&configured.stdout).unwrap();
+    assert_eq!(configured["strict"], true);
     fs::remove_file(temp.path().join("source/a.txt")).unwrap();
     success(&run(
         bin,
