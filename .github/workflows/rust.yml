@@ -323,7 +323,10 @@ jobs:
   cli-e2e:
     name: CLI E2E / ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    # The full public-CLI lifecycle suite is slower on Windows and can land
+    # just above an hour on hosted runners. Keep it bounded without dropping
+    # any of the cross-platform E2E coverage.
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
