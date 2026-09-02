@@ -39,14 +39,29 @@ permissions:
 # If there's a prerelease-style suffix to the version, then the release(s)
 # will be marked as a prerelease.
 on:
+  workflow_dispatch:
   pull_request:
   push:
     tags:
       - 'revault_cli-v**[0-9]+.[0-9]+.[0-9]+*'
 
 jobs:
+  # Retry trusted crates.io publication without rebuilding release artifacts.
+  # crates.io authorizes this caller workflow filename in its OIDC policy.
+  retry-publish-crates:
+    if: github.event_name == 'workflow_dispatch'
+    uses: ./.github/workflows/revault-cli-crates.yml
+    with:
+      plan: '{}'
+    secrets: inherit
+    permissions:
+      "contents": "read"
+      "id-token": "write"
+      "packages": "write"
+
   # Run 'dist plan' (or host) to determine what tasks we need to do
   plan:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: "ubuntu-24.04"
     outputs:
       val: ${{ steps.plan.outputs.manifest }}
