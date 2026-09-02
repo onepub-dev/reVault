@@ -27,8 +27,8 @@ vault profile rotate
 vault contact receive
 vault lockbox move
 vault form define
-migrate vault
-migrate archive
+doctor migrate vault
+doctor migrate lockbox
 completion install
 
 # Representative documented option and argument forms.
