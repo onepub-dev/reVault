@@ -321,9 +321,19 @@ jobs:
           --test publish_integration
 
   cli-e2e:
-    name: CLI E2E / Linux x86_64
-    runs-on: ubuntu-latest
+    name: CLI E2E / ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            os: ubuntu-latest
+            cache: linux-x86_64
+          - name: Windows x86_64
+            os: windows-latest
+            cache: windows-x86_64
 
     defaults:
       run:
@@ -340,9 +350,10 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-          key: cli-e2e-linux-x86_64
+          key: cli-e2e-${{ matrix.cache }}
 
       - name: Install Linux dependencies
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
       - name: Run realistic CLI E2E contract
