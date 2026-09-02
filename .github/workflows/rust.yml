@@ -321,7 +321,10 @@ jobs:
   cli-e2e:
     name: CLI E2E / ${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    # Windows occasionally lands just above an hour when the full public-CLI
+    # lifecycle suite exercises large lockboxes; keep the bound tight while
+    # allowing for hosted-runner variance.
+    timeout-minutes: 65
     strategy:
       fail-fast: false
       matrix:
