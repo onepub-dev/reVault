@@ -339,36 +339,36 @@ jobs:
             os: windows-latest
             cache: windows-x86_64-vault-open
             command: >-
-              cargo test --locked -p revault_cli --test cli_flow vault_ &&
-              cargo test --locked -p revault_cli --test cli_flow open -- --skip vault_
+              cargo test --locked -p revault_cli --test cli_flow vault_ -- --test-threads=1 &&
+              cargo test --locked -p revault_cli --test cli_flow open -- --skip vault_ --test-threads=1
           - name: Windows x86_64 / session form and create
             os: windows-latest
             cache: windows-x86_64-session-form-create
             command: >-
-              cargo test --locked -p revault_cli --test cli_flow session -- --skip vault_ --skip open &&
-              cargo test --locked -p revault_cli --test cli_flow form -- --skip vault_ --skip open --skip session &&
-              cargo test --locked -p revault_cli --test cli_flow create -- --skip vault_ --skip open --skip session --skip form
+              cargo test --locked -p revault_cli --test cli_flow session -- --skip vault_ --skip open --test-threads=1 &&
+              cargo test --locked -p revault_cli --test cli_flow form -- --skip vault_ --skip open --skip session --test-threads=1 &&
+              cargo test --locked -p revault_cli --test cli_flow create -- --skip vault_ --skip open --skip session --skip form --test-threads=1
           - name: Windows x86_64 / remaining CLI flows
             os: windows-latest
             cache: windows-x86_64-remaining-flows
             command: >-
-              cargo test --locked -p revault_cli --test cli_flow remove -- --skip vault_ --skip open --skip session --skip form --skip create &&
-              cargo test --locked -p revault_cli --test cli_flow list -- --skip vault_ --skip open --skip session --skip form --skip create --skip remove &&
-              cargo test --locked -p revault_cli --test cli_flow -- --skip vault_ --skip open --skip session --skip form --skip create --skip remove --skip list
+              cargo test --locked -p revault_cli --test cli_flow remove -- --skip vault_ --skip open --skip session --skip form --skip create --test-threads=1 &&
+              cargo test --locked -p revault_cli --test cli_flow list -- --skip vault_ --skip open --skip session --skip form --skip create --skip remove --test-threads=1 &&
+              cargo test --locked -p revault_cli --test cli_flow -- --skip vault_ --skip open --skip session --skip form --skip create --skip remove --skip list --test-threads=1
           - name: Windows x86_64 / mirror and migration
             os: windows-latest
             cache: windows-x86_64-mirror-migration
             command: >-
               cargo test --locked -p revault_cli
               --test mirror_cli
-              --test migration_cli
+              --test migration_cli -- --test-threads=1
           - name: Windows x86_64 / agent and support
             os: windows-latest
             cache: windows-x86_64-agent-support
             command: >-
-              cargo test --locked -p revault_cli --bin lockbox --test agent_flow --test completion --test contact_receive_alias --test help_open_key --test publish_integration &&
-              cargo test --locked -p revault_cli --test agent_flow open_and_open_key_complete_real_session_flows -- --ignored --exact &&
-              cargo test --locked -p revault_cli --test publish_integration -- --ignored
+              cargo test --locked -p revault_cli --bin lockbox --test agent_flow --test completion --test contact_receive_alias --test help_open_key --test publish_integration -- --test-threads=1 &&
+              cargo test --locked -p revault_cli --test agent_flow open_and_open_key_complete_real_session_flows -- --ignored --exact --test-threads=1 &&
+              cargo test --locked -p revault_cli --test publish_integration -- --ignored --test-threads=1
 
     defaults:
       run:
