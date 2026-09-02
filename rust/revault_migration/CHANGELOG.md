@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.7 - 2026-09-02
+
+- Align migration with `revault_lockbox_api` 0.0.9 and
+  `revault_vault_api` 0.0.10 for the CLI 0.0.13 dependency chain.
+
 ## 0.0.6 - 2026-09-01
 
 - Use `revault_lockbox_api 0.0.8` and `revault_vault_api 0.0.9` for the CLI

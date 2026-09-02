@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.10 - 2026-09-02
+
+- Align the vault API with `revault_lockbox_api` 0.0.9 so downstream crates
+  use one set of lockbox key, path, and protection types.
+
 ## 0.0.9 - 2026-09-01
 
 - Store Session Agent state, including the session default lockbox, in the
