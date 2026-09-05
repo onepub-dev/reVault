@@ -282,7 +282,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .visible_aliases(["mv", "rename"])
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox secrets.lbox move draft.txt final.txt\n  lockbox secrets.lbox mv old-dir archive/old-dir\n  lockbox secrets.lbox rename old.txt new.txt",
+                    "Examples:\n  lockbox secrets.lbox move draft.txt final.txt\n  lockbox secrets.lbox mv old-dir archive/old-dir\n  lockbox secrets.lbox rename old.txt new.txt\n\nTo move the lockbox file itself:\n  lockbox vault lockbox move SOURCE DESTINATION",
                     "Context:\n  Move changes the path stored inside the lockbox. It does not touch host filesystem paths; both arguments are lockbox paths. Use the short mv alias or the equally descriptive rename synonym.",
                 ))
                 .arg(
@@ -1922,7 +1922,7 @@ fn vault_command(verbose: bool) -> Command {
                         .after_help(verbose_help(
                             verbose,
                             "Examples:\n  lockbox vault lockbox move ./secrets.lbox ./archive/\n  lockbox vault lockbox move ./secrets.lbox ./archive/renamed.lbox",
-                            "Context:\n  Move closes the old cached path, moves the lockbox and hidden lock sidecar, updates the remembered vault path, and updates the session default when it points at the source. Source and destination must be on the same filesystem.",
+                            "Context:\n  Move closes the old cached path, moves the lockbox and manages its hidden lock sidecar, updates the remembered vault path, and updates the session default when it points at the source. Across filesystems, it copies and syncs the destination before removing the source, preserving file permissions.",
                         ))
                         .arg(required("source", "Current lockbox path."))
                         .arg(required(
