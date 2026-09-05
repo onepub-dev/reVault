@@ -191,6 +191,13 @@ pub enum VaultRecord {
     },
     /// Represents the profile case.
     Profile(ProfileRecord),
+    /// A vault-managed password credential. No public or signing key is implied.
+    PasswordProfile {
+        /// Local profile name.
+        name: String,
+        /// Secret password bytes.
+        password: SecretBytes,
+    },
     /// Represents the contact case.
     Contact {
         /// Represents the name carried by this record case.

@@ -4,7 +4,7 @@ description: Exchange trusted public keys and share a Lockbox.
 
 # Sharing
 
-A Lockbox may grant access to more than one Profile. To share one, first save the other person's public Profile as a Contact, then grant that Contact access.
+A Lockbox may grant access to more than one Profile. To share with another person's key-pair Profile, first save its public key as a Contact, then grant that Contact access. For a server that needs a password managed by your Vault, use a [password Profile](profiles.md#give-a-server-password-access).
 
 Public keys are safe to share. Private keys and Profile backups are not.
 
@@ -56,7 +56,7 @@ Revoke future access to copies you control with:
 lbx shared.lbox access revoke alice
 ```
 
-Revocation cannot erase a copy or key the Contact already possesses. If previously shared material must no longer be trusted, create new keys and redistribute a new Lockbox to the remaining recipients.
+Revocation replaces the content key in the Lockbox you control and reconstructs retained access. It cannot erase a copy or key the Contact already possesses. Distribute the updated Lockbox to the remaining recipients.
 
 ## Exchange without the service
 
@@ -76,4 +76,3 @@ lbx vault contact import alice ./default.pub \
 ```
 
 The channel description records how the verification was performed.
-

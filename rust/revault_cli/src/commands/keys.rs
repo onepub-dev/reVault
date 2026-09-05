@@ -77,6 +77,23 @@ fn create_with_description(
         ensure_default_vault_initialized()?;
         let vault = default_vault()?;
         let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
+        if let Some(password) = resolve_profile_password(contact_name, &vault)? {
+            let mut lb = local_vault().create_lockbox_with_signing_key(
+                &lockbox_path,
+                LockboxProtection::Password(&password),
+                &signing_key,
+            )?;
+            set_initial_description(&mut lb, description)?;
+            mirror_key_directory_with_vault(&lb, &lockbox_path, &vault)?;
+            let slot = lb
+                .list_key_slots()
+                .into_iter()
+                .find(|slot| slot.protection == LockboxKeySlotProtection::Password)
+                .ok_or_else(|| cli_error("created password slot is missing"))?;
+            vault.remember_access_slot_label(lb.lockbox_id(), slot.id, contact_name)?;
+            println!("Lockbox created: {}", lockbox_path.display());
+            return Ok(());
+        }
         let contact = load_contact_from_vault(contact_name, &vault)?;
         println!("Creating lockbox: {}", lockbox_path.display());
         let mut lb = Vault::new(NoopStore).create_lockbox_with_signing_key(
@@ -145,6 +162,19 @@ pub(crate) fn open_matches(matches: &ArgMatches) -> CliResult<()> {
 
 fn open_options(options: OpenOptions) -> CliResult<()> {
     ensure_lockbox_path_accessible(&options.lockbox_path)?;
+    if !matches!(options.password_source, PasswordSource::Prompt)
+        || (env::var_os("LOCKBOX_PASSWORD").is_some()
+            && !revault_vault_api::default_vault_path()?.exists())
+    {
+        let password = options.read_password()?;
+        local_vault().open_password_read_only(
+            &options.lockbox_path,
+            &password,
+            options.ttl_seconds,
+        )?;
+        println!("Lockbox opened: {}", options.lockbox_path);
+        return Ok(());
+    }
     // Opening a lockbox must never initialise the local vault as a side
     // effect.  Apart from being surprising, doing so makes an arbitrary
     // passphrase look like a successful vault setup and can produce a
@@ -226,6 +256,28 @@ fn open_with_vault_profile(
                 LockboxOpen::ContactKeyPair(keypair),
                 &signing_key,
             )
+        };
+        match opened {
+            Ok(lockbox) => return Ok(Some(lockbox)),
+            Err(Error::InvalidKey) => {}
+            Err(err) => return Err(err.into()),
+        }
+    }
+    for name in vault.list_password_profiles()? {
+        let password = vault.load_profile_password(&name)?;
+        let signing_key = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
+        let opened = match options.ttl_seconds {
+            Some(ttl) => local_vault().open_lockbox_with_for_duration_and_signing_key(
+                &options.lockbox_path,
+                LockboxOpen::Password(&password),
+                ttl,
+                &signing_key,
+            ),
+            None => local_vault().open_lockbox_with_signing_key(
+                &options.lockbox_path,
+                LockboxOpen::Password(&password),
+                &signing_key,
+            ),
         };
         match opened {
             Ok(lockbox) => return Ok(Some(lockbox)),
@@ -386,6 +438,28 @@ pub(crate) fn access_matches(matches: &ArgMatches, access: &Access) -> CliResult
 pub(crate) fn grant_access(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let contact_arg = require_arg(args, 1, "profile or contact")?;
+    let vault = default_vault()?;
+    if args.len() == 2 {
+        if let Some(password) = resolve_profile_password(contact_arg, &vault)? {
+            let mut lb = open_existing(lockbox_path, access)?;
+            let name = access_entry_name(contact_arg);
+            for label in vault.list_access_slot_labels(lb.lockbox_id())? {
+                if !label.name.starts_with("contact:") && access_entry_name(&label.name) == name {
+                    if lb.password_opens_slot(label.slot_id, &password)? {
+                        println!("Access already granted: {contact_arg}");
+                        return Ok(());
+                    }
+                    return Err(cli_error("profile credential differs from its existing access entry; revoke that entry before granting the replacement"));
+                }
+            }
+            let slot_id = lb.add_password(&password)?;
+            lb.commit()?;
+            mirror_key_directory_with_vault(&lb, lockbox_path, &vault)?;
+            vault.remember_access_slot_label(lb.lockbox_id(), slot_id, contact_arg)?;
+            println!("Access granted: slot {slot_id}");
+            return Ok(());
+        }
+    }
     let contact = if let Some(public_key_path) = args.get(2) {
         load_contact_file(contact_arg, public_key_path)?
     } else {
@@ -408,6 +482,25 @@ pub(crate) fn grant_access(args: &[String], access: &Access) -> CliResult<()> {
     default_vault()?.remember_access_slot_label(lb.lockbox_id(), slot_id, name)?;
     println!("Access granted: slot {slot_id}");
     Ok(())
+}
+
+fn resolve_profile_password(
+    arg: &str,
+    vault: &VaultDirectory,
+) -> CliResult<Option<revault_vault_api::SecretString>> {
+    if arg.starts_with("contact:") || Path::new(arg).exists() {
+        return Ok(None);
+    }
+    let name = arg.strip_prefix("profile:").unwrap_or(arg);
+    if !vault.password_profile_exists(name)? {
+        return Ok(None);
+    }
+    if name == arg && vault.contact_exists(name)? {
+        return Err(cli_error(format!(
+            "ambiguous access target: {name}; use profile:{name} or contact:{name}"
+        )));
+    }
+    Ok(Some(vault.load_profile_password(name)?))
 }
 
 fn required_value(matches: &ArgMatches, name: &str) -> String {
@@ -484,9 +577,9 @@ pub(crate) fn revoke_access(args: &[String], access: &Access) -> CliResult<()> {
     for target in targets {
         revoked_slot_ids.insert(resolve_access_revoke_target(&lb, target)?);
     }
-    let retained_contacts = retained_contacts_after_revoke(&lb, &revoked_slot_ids)?;
+    let retained = retained_access_after_revoke(&lb, &revoked_slot_ids)?;
     let old_labels = access_slot_labels_by_slot(lb.lockbox_id());
-    let new_labels = lb.replace_content_key_with_contacts(&retained_contacts)?;
+    let new_labels = lb.replace_content_key_with_access(&retained.contacts, &retained.passwords)?;
     mirror_key_directory(&lb, lockbox_path)?;
     let _ = local_vault().close_lockbox(lockbox_path);
     let vault = default_vault()?;
@@ -648,6 +741,13 @@ fn access_slot_labels_by_slot(lockbox_id: revault_lockbox_api::LockboxId) -> BTr
 
 fn resolve_access_revoke_target(lockbox: &Lockbox, target: &str) -> CliResult<u64> {
     if let Ok(slot_id) = target.parse::<u64>() {
+        if !lockbox
+            .list_key_slots()
+            .iter()
+            .any(|slot| slot.id == slot_id)
+        {
+            return Err(cli_error(format!("access slot {slot_id} does not exist")));
+        }
         return Ok(slot_id);
     }
     let vault = default_vault()?;
@@ -671,10 +771,15 @@ fn resolve_access_revoke_target(lockbox: &Lockbox, target: &str) -> CliResult<u6
     }
 }
 
-fn retained_contacts_after_revoke(
+struct RetainedAccess {
+    contacts: Vec<(String, ContactPublicKey)>,
+    passwords: Vec<(String, revault_vault_api::SecretString)>,
+}
+
+fn retained_access_after_revoke(
     lockbox: &Lockbox,
     revoked_slot_ids: &BTreeSet<u64>,
-) -> CliResult<Vec<(String, ContactPublicKey)>> {
+) -> CliResult<RetainedAccess> {
     let slots = lockbox.list_key_slots();
     if revoked_slot_ids.len() >= slots.len() {
         return Err(cli_error(
@@ -683,17 +788,34 @@ fn retained_contacts_after_revoke(
     }
     let labels = access_slot_labels_by_slot(lockbox.lockbox_id());
     let mut retained = Vec::new();
+    let mut passwords = Vec::new();
+    let vault = default_vault()?;
     for slot in slots {
         if revoked_slot_ids.contains(&slot.id) {
             continue;
         }
         if slot.protection != LockboxKeySlotProtection::Contact {
+            if let Some(name) = labels.get(&slot.id) {
+                if let Some(password) = resolve_profile_password(name, &vault)? {
+                    if !lockbox.password_opens_slot(slot.id, &password)? {
+                        return Err(cli_error(format!("stored password no longer opens retained slot {}; restore its original profile password before revoking", slot.id)));
+                    }
+                    passwords.push((name.clone(), password));
+                    continue;
+                }
+            }
             return Err(cli_error(format!(
                 "cannot true-revoke while retaining non-contact access slot {}; rekey requires a vault-resolvable contact or profile",
                 slot.id
             )));
         }
         let Some(name) = labels.get(&slot.id) else {
+            // Older CLI creates did not label the initial owner slot. Verify
+            // possession of its private key before reconstructing that access.
+            if let Some(contact) = resolve_unlabelled_profile_slot(lockbox, slot.id, &vault)? {
+                retained.push(contact);
+                continue;
+            }
             return Err(cli_error(format!(
                 "cannot true-revoke because retained access slot {} has no local vault label; use `lockbox access list` and restore the contact label before revoking",
                 slot.id
@@ -702,12 +824,31 @@ fn retained_contacts_after_revoke(
         let contact = load_contact_from_arg(name)?;
         retained.push((name.clone(), contact.public_key));
     }
-    if retained.is_empty() {
+    if retained.is_empty() && passwords.is_empty() {
         return Err(cli_error(
             "cannot true-revoke without at least one retained contact or profile",
         ));
     }
-    Ok(retained)
+    Ok(RetainedAccess {
+        contacts: retained,
+        passwords,
+    })
+}
+
+fn resolve_unlabelled_profile_slot(
+    lockbox: &Lockbox,
+    slot: u64,
+    vault: &VaultDirectory,
+) -> CliResult<Option<(String, ContactPublicKey)>> {
+    for name in vault.list_private_keys()? {
+        for generation in vault.list_profile_generations(&name)?.generations {
+            let key = vault.load_private_key_generation(&name, generation.index)?;
+            if lockbox.contact_opens_slot(slot, &key)? {
+                return Ok(Some((format!("profile:{name}"), key.public_key())));
+            }
+        }
+    }
+    Ok(None)
 }
 
 fn access_entry_name(label: &str) -> String {

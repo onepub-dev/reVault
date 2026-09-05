@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.8 - 2026-09-06
+
+- Migrate vault structure v2 to v3 and preserve password profiles in export/import.
+
 ## 0.0.7 - 2026-09-02
 
 - Align migration with `revault_lockbox_api` 0.0.9 and

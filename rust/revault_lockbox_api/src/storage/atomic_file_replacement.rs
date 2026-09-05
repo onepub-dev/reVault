@@ -11,7 +11,10 @@ pub(crate) struct AtomicFileReplacement {
 
 impl AtomicFileReplacement {
     pub(crate) fn create_unique(destination: &Path, stem: &str) -> Result<(Self, File)> {
-        let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+        let parent = destination
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
         let process_id = std::process::id();
         for attempt in 0..1000u64 {
             let temp_path = parent.join(format!("{stem}-{process_id}-{attempt}.tmp"));
@@ -92,7 +95,11 @@ impl AtomicFileReplacement {
     fn sync_parent(&self) -> Result<()> {
         #[cfg(unix)]
         {
-            let parent = self.destination.parent().unwrap_or_else(|| Path::new("."));
+            let parent = self
+                .destination
+                .parent()
+                .filter(|path| !path.as_os_str().is_empty())
+                .unwrap_or_else(|| Path::new("."));
             let dir = File::open(parent)
                 .map_err(|err| Error::Io(format!("open {}: {err}", parent.display())))?;
             dir.sync_data()

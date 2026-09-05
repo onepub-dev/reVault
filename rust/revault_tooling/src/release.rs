@@ -1420,6 +1420,7 @@ const CLI_PUBLISH_PACKAGES: &[&str] = &[
     "revault_lockbox_api",
     "revault_migration_format",
     "revault_migrate_vault_v1",
+    "revault_migrate_vault_v2",
     "revault_vault_api",
     "revault_migrate_archive_v1",
     "revault_migration",

@@ -427,6 +427,13 @@ impl<State> Lockbox<State> {
 }
 
 impl Lockbox<Writable> {
+    /// Consumes an opened lockbox and removes its write capability and signer.
+    pub fn into_read_only(mut self) -> Lockbox<ReadOnly> {
+        self.owner_signing_key = None;
+        self.mark_read_only();
+        self.into_state()
+    }
+
     pub(crate) fn complete_pending_transaction_cleanup(&mut self) -> Result<bool> {
         if self.transaction_recovery_status().is_none() {
             return Ok(false);

@@ -8,7 +8,9 @@ use revault_lockbox_api::{
     Error, SecretString, VariableName, VariableNamePattern, VariableSensitivity, VariableValueRef,
 };
 
-use super::context::{open_existing, open_or_create, require_arg, Access, CliResult};
+use super::context::{
+    open_existing, open_for_reading, open_or_create, require_arg, Access, CliResult,
+};
 use super::output::{json_string, output_format_from_matches, print_records};
 use super::{default_lockbox_for_command, optional_lockbox_positionals, positional_values};
 use crate::secret_prompt::prompt_secret;
@@ -40,7 +42,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
                     .into());
                 }
             };
-            let lb = open_existing(&args[0], access)?;
+            let lb = open_for_reading(&args[0], access)?;
             let show_all = sub.get_flag("all");
             let mut rows = Vec::new();
             for (name, sensitivity) in lb.list_variables()? {
@@ -67,7 +69,7 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         "export" => {
             let args = optional_lockbox_positionals(positional_values(sub, "args"), 0)?;
             let request = VariableExportRequest::from_matches(sub, &args[1..])?;
-            let lb = open_existing(&args[0], access)?;
+            let lb = open_for_reading(&args[0], access)?;
             lb.visit_variables(|name, value| match value {
                 VariableValueRef::Normal(value) => {
                     if is_hidden_variable(name) {
@@ -121,7 +123,7 @@ pub(crate) fn description_matches(matches: &ArgMatches, access: &Access) -> CliR
     let lockbox_path = default_lockbox_for_command()?;
     match subcommand {
         "get" => {
-            let lockbox = open_existing(&lockbox_path, access)?;
+            let lockbox = open_for_reading(&lockbox_path, access)?;
             let description = lockbox
                 .description()?
                 .ok_or_else(|| Error::NotFound("lockbox description".to_string()))?;
@@ -317,7 +319,7 @@ fn get_variable_request(
     access: &Access,
 ) -> CliResult<()> {
     let name = VariableName::new(&request.name)?;
-    let lb = open_existing(lockbox_path, access)?;
+    let lb = open_for_reading(lockbox_path, access)?;
     if request.secret {
         if let Some(write_result) = lb.with_secret_variable(&name, |value| {
             value.with_bytes(|value| request.write_value_bytes(value))
@@ -383,7 +385,7 @@ impl VariableGetRequest {
     }
 }
 
-fn write_output_file(path: &str, bytes: &[u8], overwrite: bool) -> CliResult<()> {
+pub(crate) fn write_output_file(path: &str, bytes: &[u8], overwrite: bool) -> CliResult<()> {
     let mut options = fs::OpenOptions::new();
     options.write(true);
     if overwrite {

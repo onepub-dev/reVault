@@ -9,7 +9,8 @@ use revault_lockbox_api::{
 };
 
 use super::context::{
-    cli_error, default_vault, open_existing, open_or_create, require_arg, Access, CliResult,
+    cli_error, default_vault, open_existing, open_for_reading, open_or_create, require_arg, Access,
+    CliResult,
 };
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use super::{default_lockbox_for_command, optional_lockbox_positionals, positional_values};
@@ -238,7 +239,7 @@ fn capture_definition(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let form_name = require_arg(args, 1, "form name")?;
     let new_name = args.get(2).map(String::as_str);
-    let lb = open_existing(lockbox_path, access)?;
+    let lb = open_for_reading(lockbox_path, access)?;
     let mut definition = lb.resolve_form_definition(form_name)?;
     let vault = default_vault()?;
     if let Some(new_name) = new_name {
@@ -264,7 +265,7 @@ fn definitions_with_format(
     format: OutputFormat,
 ) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let lb = open_existing(lockbox_path, access)?;
+    let lb = open_for_reading(lockbox_path, access)?;
     let rows = lb
         .list_form_definitions()?
         .into_iter()
@@ -440,7 +441,7 @@ fn get_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         overwrite: matches.get_flag("overwrite"),
     };
     let path = form_record_path(&request.path)?;
-    let lb = open_existing(&request.lockbox_path, access)?;
+    let lb = open_for_reading(&request.lockbox_path, access)?;
     let value = lb
         .get_form_field(&path, &request.field_id)?
         .ok_or_else(|| Error::NotFound(format!("form field {}", request.field_id)))?;
@@ -526,7 +527,7 @@ fn set_private_output_permissions(_file: &fs::File) -> CliResult<()> {
 fn inspect(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let path = form_record_path(require_arg(args, 1, "form path")?)?;
-    let lb = open_existing(lockbox_path, access)?;
+    let lb = open_for_reading(lockbox_path, access)?;
     let record = lb
         .get_form_record(&path)?
         .ok_or_else(|| Error::NotFound(format!("form record {path}")))?;
@@ -566,7 +567,7 @@ fn inspect(args: &[String], access: &Access) -> CliResult<()> {
 fn list_with_format(args: &[String], access: &Access, format: OutputFormat) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let pattern = args.get(1).map(String::as_str);
-    let lb = open_existing(lockbox_path, access)?;
+    let lb = open_for_reading(lockbox_path, access)?;
     let rows = lb
         .list_form_records()?
         .into_iter()

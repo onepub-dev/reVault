@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.5 - 2026-09-06
+
+- Add schema v3 password-profile records while preserving schema v1 and v2 decoding.
+
 ## 0.0.4 - 2026-08-30
 
 - Restored the minimum supported Rust version to Rust 1.88.

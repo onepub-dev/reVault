@@ -4768,12 +4768,14 @@ fn open_requires_explicit_vault_init() {
     let lockbox = dir.join("existing.lbox");
     fs::write(&lockbox, b"not a lockbox").unwrap();
 
-    let open = run_output_without_content_key(
+    let open = run_output_without_lockbox_password(
         bin,
         &[lockbox.to_str().unwrap(), "open"],
         &vault_root,
         &agent_root,
-    );
+    )
+    .output()
+    .unwrap();
     assert!(!open.status.success());
     assert!(String::from_utf8_lossy(&open.stderr)
         .contains("local vault is not initialized; run `lockbox vault init` first"));

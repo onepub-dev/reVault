@@ -15,8 +15,8 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter};
 use std::path::Path;
 
-/// Exports vault v2.
-pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
+/// Exports the current vault structure, including password profiles.
+pub fn export_vault<P: MigrationPassphrase + ?Sized>(
     vault: &VaultDirectory,
     output: &Path,
     artifact_passphrase: &P,
@@ -26,7 +26,7 @@ pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Vault,
         source_native_version: vault.structure_version().map_err(core_error)?,
-        migration_schema_version: 2,
+        migration_schema_version: 3,
         target_native_version: Some(CURRENT_VAULT_STRUCTURE_VERSION),
         operation_id,
     };
@@ -68,6 +68,17 @@ pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
                 generations,
             },
         )))?;
+    }
+
+    for name in vault.list_password_profiles().map_err(core_error)? {
+        let password = vault.load_profile_password(&name).map_err(core_error)?;
+        let bytes = password
+            .with_bytes(|bytes| bytes.to_vec())
+            .map_err(core_error)?;
+        writer.write_json(&MigrationRecord::Vault(VaultRecord::PasswordProfile {
+            name,
+            password: SecretBytes::new(bytes),
+        }))?;
     }
 
     for contact in vault.list_contacts().map_err(core_error)? {
@@ -137,8 +148,8 @@ pub fn export_vault_v2<P: MigrationPassphrase + ?Sized>(
     Ok(count + 1)
 }
 
-/// Imports vault v2.
-pub fn import_vault_v2<P: MigrationPassphrase + ?Sized>(
+/// Imports supported migration records into the current vault structure.
+pub fn import_vault<P: MigrationPassphrase + ?Sized>(
     artifact: &Path,
     artifact_passphrase: &P,
     output_root: &Path,
@@ -176,6 +187,13 @@ pub fn import_vault_v2<P: MigrationPassphrase + ?Sized>(
                     ));
                 }
                 saw_start = true;
+            }
+            VaultRecord::PasswordProfile { name, password } => {
+                let password =
+                    SecretString::try_from_bytes(password.into_vec()).map_err(core_error)?;
+                vault
+                    .store_password_profile(&name, &password, false)
+                    .map_err(core_error)?;
             }
             VaultRecord::Profile(profile) => {
                 import_profile(&vault, profile, &expected_owner_public)?
@@ -259,8 +277,8 @@ pub fn import_vault_v2<P: MigrationPassphrase + ?Sized>(
 }
 
 /// Re-encrypts and advances a vault migration artifact through each registered
-/// logical schema step. Vault schema 1→2 is a terminology/schema normalization;
-/// its logical profile records are already represented by stable migration IDs.
+/// logical schema step. Schema 3 adds password profiles; existing schema 1 and
+/// 2 records remain valid and require no credential conversion.
 pub fn upgrade_vault_artifact<P: MigrationPassphrase + ?Sized>(
     input: &Path,
     output: &Path,
@@ -269,7 +287,7 @@ pub fn upgrade_vault_artifact<P: MigrationPassphrase + ?Sized>(
     let file = File::open(input).map_err(io_error)?;
     let mut reader = ArtifactReader::new_with_passphrase(BufReader::new(file), passphrase)?;
     require_vault_header(reader.header())?;
-    if reader.header().migration_schema_version > 2 {
+    if reader.header().migration_schema_version > 3 {
         return Err(MigrationError::InvalidHeader(format!(
             "vault migration schema {} is newer than this build supports",
             reader.header().migration_schema_version
@@ -278,7 +296,7 @@ pub fn upgrade_vault_artifact<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Vault,
         source_native_version: reader.header().source_native_version,
-        migration_schema_version: 2,
+        migration_schema_version: 3,
         target_native_version: Some(CURRENT_VAULT_STRUCTURE_VERSION),
         operation_id: reader.header().operation_id,
     };
@@ -454,6 +472,12 @@ fn migration_vault_owner_signing_key<P: MigrationPassphrase + ?Sized>(
 }
 
 fn require_vault_header(header: &MigrationHeader) -> Result<()> {
+    if !(1..=3).contains(&header.migration_schema_version) {
+        return Err(MigrationError::InvalidHeader(format!(
+            "unsupported vault migration schema {}",
+            header.migration_schema_version
+        )));
+    }
     if header.artifact_kind != ArtifactKind::Vault {
         return Err(MigrationError::InvalidHeader(
             "artifact is not a vault migration".to_string(),

@@ -4,6 +4,14 @@ reVault aims to have a stable format for archives and the vault.
 
 From time to time, a format revision may be necessary. reVault includes migration commands for upgrading Vaults and Lockboxes between versions.
 
+Vault structure version 3 adds password Profiles. Upgrade an existing version 2 Vault before using this feature:
+
+```bash
+lbx doctor migrate vault --replace
+```
+
+The migration retains the previous Vault as a versioned backup. Older clients reject version 3 Vaults for normal Vault operations, protecting password Profiles from tools that do not understand them. This Vault upgrade does not change the Lockbox file format or require rewriting your Lockboxes.
+
 ## Migrating a reVault vault or archive
 
 reVault vaults and archives use independent on-disk formats. You can migrate each independently, however your vault must be migrated first.

@@ -2,8 +2,10 @@ use crate::command::{self, TaskResult};
 
 pub fn cli() -> TaskResult {
     install_path("revault_cli")?;
+    install_path("revault_migrate_vault_v1")?;
+    install_path("revault_migrate_vault_v2")?;
     install_path("revault_migrate_archive_v1")?;
-    println!("Installed local `lockbox`, `lbx`, and `revault-migrate-archive-v1` executables.");
+    println!("Installed local `lockbox`, `lbx`, and Vault/Lockbox migration exporters.");
     Ok(())
 }
 
