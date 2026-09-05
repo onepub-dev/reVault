@@ -155,6 +155,8 @@ fn vault_contact_matches(matches: &ArgMatches) -> CliResult<()> {
     })?;
     match command {
         "list" | "ls" => list_contacts_with_format(output_format_from_matches(sub)?),
+        "exchange" | "accept" | "exchanges" | "verify" | "verify-author" | "cancel-exchange"
+        | "forget-exchange" => super::exchange::run(command, sub),
         "import" => contact_import_options(ContactImportOptions::from_matches(sub)),
         "receive" => receive_publish_options(PublishCliOptions::from_receive_matches(sub)?),
         "remove" | "rm" | "delete" => remove_contact_name(&required_value(sub, "name")),

@@ -1021,6 +1021,22 @@ impl<State> Lockbox<State> {
         })
     }
 
+    /// Reports whether the verified commit signer matches this public key.
+    ///
+    /// # Errors
+    /// Returns an error if the committed authentication record cannot be read
+    /// or either hybrid signature fails verification.
+    pub fn owner_signing_public_key_matches(
+        &self,
+        key: &crate::OwnerSigningPublicKey,
+    ) -> Result<bool> {
+        if self.commit_auth_offset == 0 {
+            return Ok(false);
+        }
+        let (auth, _) = self.read_and_verify_commit_auth_at(self.commit_auth_offset)?;
+        Ok(key.matches_signatures(&auth.signatures))
+    }
+
     /// Reports whether `keypair` is the established signer of this lockbox.
     pub fn owner_signing_key_matches(&self, keypair: &OwnerSigningKeyPair) -> Result<bool> {
         if self.commit_auth_offset == 0 {

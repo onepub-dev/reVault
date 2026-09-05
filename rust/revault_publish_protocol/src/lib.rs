@@ -3,18 +3,25 @@
 //! Client and wire primitives for publishing encrypted reVault payloads.
 
 /// Publish-client transports and retry behavior.
+#[cfg(feature = "http")]
 pub mod client;
+/// Reciprocal, invitation-scoped contact exchange.
+pub mod exchange;
 /// Represents payload.
 pub mod payload;
 /// Represents protocol.
 pub mod protocol;
 /// Represents replication.
+#[cfg(feature = "http")]
 pub mod replication;
 /// Represents status.
+#[cfg(feature = "http")]
 pub mod status;
 /// Represents topology.
+#[cfg(feature = "http")]
 pub mod topology;
 
+#[cfg(feature = "http")]
 pub use client::{
     ClientError, ContactPublish, HttpTransport, PublishClient, PublishClientPool, PublishResult,
     ReceivedPublish, StickyPublishServer, Transport,
@@ -26,11 +33,14 @@ pub use payload::{
     SignedKeyReplacement, UnsignedKeyReplacement, CONTACT_FINGERPRINT_LEN,
 };
 pub use protocol::{EmailVerification, PublishResponse, ReceiveResponse};
+#[cfg(feature = "http")]
 pub use replication::{
     decode_replication_request, encode_replication_request, sign_replication_event,
     ReplicationEvent, ReplicationEventKind, ReplicationRequest,
 };
+#[cfg(feature = "http")]
 pub use status::{decode_status, encode_status, KeyServerStatus};
+#[cfg(feature = "http")]
 pub use topology::{
     build_ring_routes, decode_topology, decode_topology_registration, encode_topology,
     encode_topology_registration, parse_publish_locator, publish_code_locator,

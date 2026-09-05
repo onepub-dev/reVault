@@ -1777,11 +1777,12 @@ fn vault_command(verbose: bool) -> Command {
                 .disable_help_subcommand(true)
                 .after_help(verbose_help(
                     verbose,
-                    "Examples:\n  lockbox vault contact list\n  lockbox vault contact receive <publish-code> alice\n  lockbox vault contact import alice ./alice.pub --fingerprint <fingerprint-code> --fingerprint-channel phone-call-to-owner\n  lockbox vault contact remove alice",
+                    "Examples:\n  lockbox vault contact exchange alice@example.com --profile default --key-server https://keys.example.com\n  lockbox vault contact accept '<invitation-url>' --profile default\n  lockbox vault contact exchanges\n  lockbox vault contact verify <exchange-id> alice\n  lockbox vault contact list\n  lockbox vault contact remove alice",
                     "Context:\n  Contacts are saved public keys for other people or systems. A contact can be added to a lockbox access list, but cannot open a lockbox by itself; opening requires the matching private profile.",
                 ))
                 .subcommand_required(true)
                 .arg_required_else_help(true)
+                .subcommands(super::exchange::commands())
                 .subcommand(
                     Command::new("list")
                         .about("List saved contacts.")
@@ -1789,7 +1790,7 @@ fn vault_command(verbose: bool) -> Command {
                         .after_help(verbose_help(
                             verbose,
                             "Examples:\n  lockbox vault contact list\n  lockbox vault contact list --format json",
-                            "Context:\n  Contact list shows public keys you have saved for other profiles. Saved contacts have already passed fingerprint verification during import or receive; there is no separate trust-state that changes over time. Use these names with access grant when granting lockbox access.",
+                            "Context:\n  Contact list shows saved contacts available for access grant. Pending reciprocal exchanges are separate: use contact exchanges to retrieve replies and contact verify to compare the shared fingerprint and save both keys together.",
                         ))
                         .arg(output_format_arg()),
                 )

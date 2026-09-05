@@ -15,6 +15,26 @@ surface only; it does not run a server or manage vault storage.
 - Cluster topology encoding, decoding, routing, and cache helpers.
 - Replication request encoding, decoding, and signing helpers.
 - Server status document encoding and decoding.
+- Reciprocal invitation records, hybrid signatures and one full shared
+  verification fingerprint covering both participants' complete key bundles.
+- An HTTPS invitation client with bounded messages and redirects disabled.
+
+## Reciprocal exchange
+
+Use `exchange::{Offer, Acceptance, LocalExchange}` for the invitation-scoped
+flow. Each participant selects one profile. The recipient signs the exact
+offer and returns both public keys. Each client pins its contribution and
+independently compares the entire value returned by `exchange::verification`
+before marking the other participant trusted. There is no receive-only mode.
+
+The default `http` feature provides the network clients and publication
+topology/replication helpers. Set `default-features = false` when using the
+protocol types from the vault or WebAssembly without an HTTP/TLS dependency.
+
+See [the protocol design](../../docs/reciprocal_exchange.md) and
+[the user flow](../../manual/cli-tooling/sharing.md). The reciprocal endpoint
+is `/v2/exchange`; it uses one explicitly selected relay and does not inherit
+publication-cluster failover.
 
 ## Example
 

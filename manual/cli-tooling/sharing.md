@@ -12,23 +12,66 @@ Public keys are safe to share. Private keys and Profile backups are not.
 
 The difficult part of exchanging a public key is proving who owns it. reVault gives the key a fingerprint: a short representation you can compare through a second, independent channel.
 
-For example, Alice can publish her `default` Profile:
+Exchange both encryption and signing public keys with one invitation. Alice
+selects the Profile she wants to share and the invitation relay:
 
 ```bash
 lbx vault profile email default alice@example.com
-lbx vault profile publish default
+lbx vault contact exchange bob@example.com --profile default \
+  --key-server https://keys.example.com
 ```
 
-The service verifies control of the email address and returns a publish code. Alice sends that code to Bob. Bob receives the Profile and chooses a local Contact name:
+Alice sends the generated invitation URL to Bob. Bob selects his Profile and
+accepts; this returns his complete public bundle automatically:
 
 ```bash
-lbx vault contact receive <publish-code> alice
+lbx vault profile email default bob@example.com
+lbx vault contact accept '<invitation-url>' --profile default
 ```
 
-Bob must compare the fingerprint with Alice through a channel he already trusts. He should initiate that contact himself. An email address proves access to an inbox at one point in time; it does not prove a legal identity, employment, authority or continuing ownership.
+Alice retrieves the reply with `lbx vault contact exchanges`. Neither person
+needs to stay online while waiting. Invitations expire after 24 hours by default;
+`--ttl-hours` accepts 1–168 hours. Running `accept` again with the same invitation
+and Profile safely retries a lost response. `exchanges` retries pending delivery.
+
+Both users now see the same full shared fingerprint. It covers both identities,
+both encryption keys, both signing keys, Profile generations and this particular
+exchange. Compare every group and both identities through an independently
+trusted phone call, messenger conversation, or in person.
+
+Each person confirms locally, choosing their own Contact name:
+
+```bash
+# Alice, using the shared fingerprint Bob independently supplied:
+lbx vault contact verify <exchange-id> bob \
+  --fingerprint '<full-shared-fingerprint>' --channel known-phone-call
+
+# Bob, using the shared fingerprint Alice independently supplied:
+lbx vault contact verify <exchange-id> alice \
+  --fingerprint '<full-shared-fingerprint>' --channel known-phone-call
+```
+
+Omit `--fingerprint` and `--channel` for interactive prompts. All 256 bits
+(16 groups of four hexadecimal characters) must match; a short prefix or PIN is
+rejected. Do not copy your own displayed code into the confirmation without
+comparing it with the other person.
+
+The invitation service is not an identity authority. Names and email addresses
+in this flow are signed claims, not server-verified identities. Possession of
+an invitation URL permits acceptance; an intercepted invitation can be consumed
+by someone else, but cannot establish trust without your independent comparison.
+If that happens, reject the comparison and start a fresh invitation.
+
+Keys awaiting verification are kept separately from usable Contacts. Confirming
+on Alice's device does not mark Bob's Contact verified. Saving a Contact commits
+both keys and the verification transcript together. A different existing key
+under the same Contact name is refused; inspect and remove the old Contact
+explicitly before saving a verified replacement.
 
 {% hint style="warning" %}
-Do not accept a fingerprint that arrives unsolicited alongside the public key. An attacker who replaced one may be able to replace both.
+Do not compare using the invitation message or a new contact channel supplied
+with it. An attacker controlling that channel could replace both the invitation
+and comparison. The relay never marks a Contact trusted.
 {% endhint %}
 
 Where the consequences are serious, exchange and compare the key in person.
@@ -58,22 +101,27 @@ lbx shared.lbox access revoke alice
 
 Revocation cannot erase a copy or key the Contact already possesses. If previously shared material must no longer be trusted, create new keys and redistribute a new Lockbox to the remaining recipients.
 
-## Exchange without the service
+## Authenticate the sender
 
-Export your public Profile:
-
-```bash
-lbx vault profile export ./default.pub
-lbx vault profile fingerprint default
-```
-
-The recipient imports it after independently obtaining and checking the fingerprint:
+After opening a received Lockbox, check its commit signatures against the
+Contact's verified signing key:
 
 ```bash
-lbx vault contact import alice ./default.pub \
-  --fingerprint <fingerprint-code> \
-  --fingerprint-channel phone-call-to-owner
+lbx vault contact verify-author alice ./shared.lbox
 ```
 
-The channel description records how the verification was performed.
+This command requires a local Profile that can decrypt the Lockbox. It fails
+for an unsigned archive or a different signer, even if decryption succeeds.
 
+## Manage invitations
+
+```bash
+lbx vault contact exchanges
+lbx vault contact exchanges --offline
+lbx vault contact cancel-exchange <exchange-id>
+lbx vault contact forget-exchange <exchange-id>
+```
+
+Only the inviter can cancel, and only before acceptance. Forgetting local
+exchange state does not delete a verified Contact or revoke previously granted
+Lockbox access. There is no receive-only invitation mode.

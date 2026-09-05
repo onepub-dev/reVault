@@ -1189,6 +1189,9 @@ fn apply_config_value(
         "shard_count" => config.shard_count = value.parse()?,
         "max_receives_per_publish" => config.max_receives_per_publish = value.parse()?,
         "index_cache_entries" => config.index_cache_entries = value.parse()?,
+        "exchange_max_invitations" => config.exchange_max_invitations = value.parse()?,
+        "exchange_max_bytes" => config.exchange_max_bytes = value.parse()?,
+        "exchange_per_identity" => config.exchange_per_identity = value.parse()?,
         "developer_mode" => config.developer_mode = value.parse()?,
         other => return Err(format!("unknown config key `{other}`").into()),
     }

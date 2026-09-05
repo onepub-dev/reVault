@@ -12,23 +12,26 @@ Read [Sharing](sharing.md) before adding a Contact. Saving a public key is easy;
 
 ```bash
 lbx vault contact list
-lbx vault contact receive <publish-code> alice
+lbx vault contact exchanges
+lbx vault contact verify <exchange-id> alice
 lbx vault contact remove alice
 ```
 
-For a public Profile exchanged as a file:
+Start a reciprocal invitation using one explicitly selected Profile:
 
 ```bash
-lbx vault contact import alice ./alice.pub \
-  --fingerprint <fingerprint-code> \
-  --fingerprint-channel in-person
+lbx vault contact exchange alice@example.com --profile default \
+  --key-server https://keys.example.com
 ```
 
-Grant the Contact access to a Lockbox with:
+Follow [Sharing](sharing.md) to accept and compare the shared fingerprint.
+Both public keys are saved together only after local verification. Pending
+invitations are listed by `exchanges`, not by `contact list`.
+
+Grant the verified Contact access to a Lockbox with:
 
 ```bash
 lbx shared.lbox access grant alice
 ```
 
 Removing a Contact from your Vault does not alter Lockboxes and cannot revoke copies already held by that person. Revoke the relevant Lockbox access entries separately, then rotate or replace shared material when the threat calls for it.
-

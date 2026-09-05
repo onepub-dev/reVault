@@ -58,6 +58,13 @@ fn start_background_maintenance(store: &Arc<PublishStore>) {
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(1));
         purge_store.purge_expired();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        if let Err(error) = purge_store.exchanges.purge_expired(now) {
+            log_server_event(format!("invitation expiry cleanup failed: {error}"));
+        }
     });
     let compact_store = Arc::clone(store);
     thread::spawn(move || loop {
@@ -76,6 +83,13 @@ struct AppState {
 fn make_app(store: Arc<PublishStore>) -> Router {
     let body_limit = store.max_payload_bytes() + MAX_WIRE_OVERHEAD;
     Router::new()
+        .route("/exchange", get(exchange_landing))
+        .route(
+            "/v2/exchange",
+            post(exchange_handler).layer(DefaultBodyLimit::max(
+                revault_publish_protocol::exchange::MAX_MESSAGE_BYTES,
+            )),
+        )
         .route("/v1/publish", post(publish_handler))
         .route("/v1/replicate", post(replicate_handler))
         .route("/v1/topology/register", post(topology_register_handler))
@@ -84,6 +98,42 @@ fn make_app(store: Arc<PublishStore>) -> Router {
         .route("/v1/verify", get(verify_handler))
         .layer(DefaultBodyLimit::max(body_limit))
         .with_state(AppState { store })
+}
+
+async fn exchange_landing() -> Html<&'static str> {
+    Html(
+        r#"<!doctype html><html lang="en"><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>reVault key exchange invitation</title>
+<main><h1>Exchange public keys with reVault</h1>
+<p>Copy the complete address from your browser, including the part after #.
+On your computer, select the profile you want to share and run:</p>
+<pre>lbx vault contact accept '&lt;complete invitation URL&gt;' --profile &lt;your profile&gt;</pre>
+<p>This exchanges both encryption and signing public keys. Private keys stay in your vault.
+After acceptance, compare both identities and the complete shared fingerprint
+with the other person through a channel you already trust.</p>
+<p>This page cannot verify the identity of the person who sent the invitation.</p></main></html>"#,
+    )
+}
+
+async fn exchange_handler(State(state): State<AppState>, body: Bytes) -> Response {
+    use revault_publish_protocol::exchange::{decode, encode, Request};
+    let request = match decode::<Request>(&body) {
+        Ok(request) => request,
+        Err(_) => return (StatusCode::BAD_REQUEST, "invalid exchange request").into_response(),
+    };
+    let response = tokio::task::spawn_blocking(move || {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64;
+        state.store.exchanges.handle(request, now)
+    })
+    .await;
+    match response.ok().and_then(|value| encode(&value).ok()) {
+        Some(bytes) => binary_response(StatusCode::OK, bytes),
+        None => (StatusCode::INTERNAL_SERVER_ERROR, "exchange unavailable").into_response(),
+    }
 }
 
 async fn publish_handler(State(state): State<AppState>, body: Bytes) -> Response {

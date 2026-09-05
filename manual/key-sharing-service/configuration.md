@@ -8,6 +8,39 @@ Each `revault_key_server` process provides publishing, receiving, topology and o
 
 Production operation requires a separate commercial licence.
 
+## Reciprocal invitation capacity
+
+`POST /v2/exchange` retains signed bundles only within an unguessable invitation.
+There is no email search or public directory. Use one active server instance and
+durable state; invitation records are not replicated through the publication
+cluster protocol.
+
+Optional TOML settings:
+
+```toml
+exchange_max_invitations = 1000000
+exchange_max_bytes = 1073741824
+exchange_per_identity = 100
+```
+
+Admission reserves 128 KiB per invitation for the complete response. With the
+default 1 GiB byte budget, at most 8192 invitations can be admitted regardless
+of the larger count limit. Raise the byte budget deliberately to support more.
+These are capacity limits, not a claim of measured million-invitation throughput.
+
+Active invitations are pinned until their signed expiry; capacity pressure
+refuses new work rather than evicting an exchange someone has already accepted.
+Payloads and acknowledgement state expire together, after at most seven days.
+Completed acknowledgements are retryable until expiry. The server purges expired
+records on startup and during periodic maintenance.
+
+Place the service behind HTTPS and enforce connection, body-size, concurrency,
+and request-rate limits at the reverse proxy. Identity quotas alone cannot stop
+someone generating many fresh identities. Do not log request bodies or
+management capabilities. Backups and access logs need their own retention policy.
+The server sees public identities and exchange relationships but never receives
+private Profile keys, and cannot mark a local Contact verified.
+
 ## Install the service
 
 ```bash

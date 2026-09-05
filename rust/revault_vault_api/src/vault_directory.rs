@@ -1,3 +1,5 @@
+mod exchange;
+
 use revault_lockbox_api::{
     ArtifactKind, ContactKeyPair, ContactPublicKey, Error, FileLockScope, FormDefinition,
     FormFieldDefinition, FormFieldKind, FormTypeId, ListOptions, Lockbox, LockboxEntryKind,
@@ -845,6 +847,10 @@ impl VaultDirectory {
     /// Any signing key associated with the old contact is removed so it cannot
     /// be mistaken for the signing key belonging to the replacement key.
     pub fn replace_contact(&self, name: &str, key: &ContactPublicKey) -> Result<()> {
+        self.delete_record_if_exists(&LockboxPath::new(format!(
+            "/contacts/{}.exchange.json",
+            validate_record_name(name)?
+        ))?)?;
         self.delete_record_if_exists(&contact_signing_record_path(name)?)?;
         self.put_record_replace(&contact_record_path(name)?, &key.to_bytes())
     }
@@ -875,6 +881,10 @@ impl VaultDirectory {
 
     /// Deletes the contact stored under `name`, if present.
     pub fn delete_contact(&self, name: &str) -> Result<()> {
+        self.delete_record_if_exists(&LockboxPath::new(format!(
+            "/contacts/{}.exchange.json",
+            validate_record_name(name)?
+        ))?)?;
         self.delete_record_if_exists(&contact_signing_record_path(name)?)?;
         self.delete_record_if_exists(&contact_record_path(name)?)
     }

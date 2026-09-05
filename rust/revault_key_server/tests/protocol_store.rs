@@ -1060,6 +1060,9 @@ fn temp_config(name: &str) -> (TempGuard, ServerConfig) {
         verification_email_template: "Verify {email}: {verification_url}".to_string(),
         verification_email_rate_limit_per_hour: 5,
         verification_email_ip_rate_limit_per_hour: 30,
+        exchange_max_invitations: 1_000_000,
+        exchange_max_bytes: 1024 * 1024 * 1024,
+        exchange_per_identity: 100,
     };
     (TempGuard(path), config)
 }

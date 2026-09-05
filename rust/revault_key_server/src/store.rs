@@ -73,6 +73,12 @@ struct ReplicationOriginState {
 #[derive(Clone, Debug)]
 /// Represents server config.
 pub struct ServerConfig {
+    /// Maximum admitted reciprocal invitations; active invitations are never evicted.
+    pub exchange_max_invitations: usize,
+    /// Reserved reciprocal exchange payload capacity in bytes.
+    pub exchange_max_bytes: usize,
+    /// Maximum pending reciprocal invitations per signing identity.
+    pub exchange_per_identity: usize,
     /// Represents the bind addr carried by this record case.
     pub bind_addr: String,
     /// Represents the state dir carried by this record case.
@@ -172,6 +178,9 @@ pub enum SmtpTlsMode {
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
+            exchange_max_invitations: 1_000_000,
+            exchange_max_bytes: 1024 * 1024 * 1024,
+            exchange_per_identity: 100,
             bind_addr: "127.0.0.1:8089".to_string(),
             state_dir: PathBuf::from("/var/lib/revault-key-server"),
             server_id: 0,
@@ -347,6 +356,7 @@ struct Shard {
 
 /// Represents publish store.
 pub struct PublishStore {
+    pub(crate) exchanges: crate::exchange_store::ExchangeStore,
     config: ServerConfig,
     auto_routes: bool,
     secret: [u8; 32],
@@ -578,7 +588,17 @@ impl PublishStore {
         }
         let email_tx = spawn_verification_email_worker(&config);
         let topology = Self::build_initial_topology(&config);
+        let exchanges = crate::exchange_store::ExchangeStore::open(
+            &config.state_dir.join("exchanges"),
+            crate::exchange_store::ExchangeLimits {
+                invitations: config.exchange_max_invitations,
+                bytes: config.exchange_max_bytes,
+                per_identity: config.exchange_per_identity,
+            },
+            unix_ms(SystemTime::now()),
+        )?;
         Ok(Self {
+            exchanges,
             config,
             auto_routes,
             secret,
