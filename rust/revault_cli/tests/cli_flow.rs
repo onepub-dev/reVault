@@ -525,6 +525,24 @@ fn target_first_lockbox_is_rejected_for_global_commands() {
 }
 
 #[test]
+fn move_lockbox_file_attempt_points_to_vault_command() {
+    for bin in [env!("CARGO_BIN_EXE_lockbox"), env!("CARGO_BIN_EXE_lbx")] {
+        for command in ["move", "mv", "rename"] {
+            let output = run_output(bin, &[command, "source.lbox", "destination.lbox"]);
+            assert!(!output.status.success());
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(stderr.contains("move renames entries inside a lockbox"));
+            assert!(stderr.contains("lockbox vault lockbox move SOURCE DESTINATION"));
+
+            let help = run_output(bin, &[command, "--help"]);
+            assert_success(&help);
+            assert!(String::from_utf8_lossy(&help.stdout)
+                .contains("lockbox vault lockbox move SOURCE DESTINATION"));
+        }
+    }
+}
+
+#[test]
 fn command_first_lockbox_is_rejected_for_lockbox_scoped_commands() {
     let bin = env!("CARGO_BIN_EXE_lockbox");
     for args in [
@@ -4218,10 +4236,42 @@ fn vault_lockbox_list_reports_owner_size_and_path() {
 
 #[test]
 fn vault_lockbox_move_updates_file_sidecar_vault_and_default_session() {
+    vault_lockbox_move_flow(None);
+}
+
+#[cfg(unix)]
+#[test]
+fn vault_lockbox_move_across_filesystems_preserves_content() {
+    use std::os::unix::fs::MetadataExt;
+
+    // The CLI cannot provision a filesystem. Allow CI to supply a second mount;
+    // otherwise use the checkout when it differs from the temporary filesystem.
+    let root = std::env::var_os("LOCKBOX_TEST_CROSS_DEVICE_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    let destination = tempfile::tempdir_in(root).unwrap();
+    let source_device = fs::metadata(std::env::temp_dir()).unwrap().dev();
+    if source_device == fs::metadata(destination.path()).unwrap().dev() {
+        assert!(std::env::var_os("LOCKBOX_TEST_CROSS_DEVICE_DIR").is_none(),
+            "LOCKBOX_TEST_CROSS_DEVICE_DIR must be on a different filesystem from the temporary directory");
+        eprintln!("skipping cross-filesystem test: set LOCKBOX_TEST_CROSS_DEVICE_DIR to a second filesystem");
+        return;
+    }
+    vault_lockbox_move_flow(Some(destination.path().to_path_buf()));
+}
+
+fn vault_lockbox_move_flow(destination_dir: Option<PathBuf>) {
     let bin = env!("CARGO_BIN_EXE_lockbox");
-    let dir = unique_dir_named("vault-lockbox-move");
+    let temporary_source = destination_dir
+        .as_ref()
+        .map(|_| tempfile::tempdir().unwrap());
+    let dir = temporary_source.as_ref().map_or_else(
+        || unique_dir_named("vault-lockbox-move"),
+        |directory| directory.path().to_path_buf(),
+    );
     let _ = fs::remove_dir_all(&dir);
-    let destination_dir = dir.join("archive");
+    fs::create_dir_all(&dir).unwrap();
+    let destination_dir = destination_dir.unwrap_or_else(|| dir.join("archive"));
     fs::create_dir_all(&destination_dir).unwrap();
     let vault_root = dir.join("vault");
     let agent_root = dir.join("agent");
@@ -4242,7 +4292,27 @@ fn vault_lockbox_move_updates_file_sidecar_vault_and_default_session() {
         &agent_root,
     );
 
-    fs::write(&destination, "occupied").unwrap();
+    let payload = dir.join("payload.bin");
+    let content = b"lockbox move regression\0\xff\n";
+    fs::write(&payload, content).unwrap();
+    run_without_content_key(
+        bin,
+        &[
+            source.to_str().unwrap(),
+            "add",
+            payload.to_str().unwrap(),
+            "--to",
+            "/payload.bin",
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    run_without_content_key(
+        bin,
+        &[destination.to_str().unwrap(), "create", "--password"],
+        &vault_root,
+        &agent_root,
+    );
     let refused = run_output_without_content_key(
         bin,
         &[
@@ -4260,7 +4330,24 @@ fn vault_lockbox_move_updates_file_sidecar_vault_and_default_session() {
     assert!(stderr.contains("destination already exists:"));
     assert!(stderr.contains("no files or vault records were changed"));
     assert!(source.exists());
+    let original = run_output_without_content_key(
+        bin,
+        &[source.to_str().unwrap(), "cat", "/payload.bin"],
+        &vault_root,
+        &agent_root,
+    );
+    assert_success(&original);
+    assert_eq!(original.stdout, content);
+    // There is no CLI command to delete a host lockbox file.
     fs::remove_file(&destination).unwrap();
+
+    // Host permissions are not exposed by the CLI.
+    #[cfg(unix)]
+    let source_mode = {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&source, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::metadata(&source).unwrap().permissions().mode()
+    };
 
     let moved = run_output_without_content_key(
         bin,
@@ -4279,6 +4366,14 @@ fn vault_lockbox_move_updates_file_sidecar_vault_and_default_session() {
     assert!(!dir.join(".source.lbox.lock").exists());
     assert!(destination.exists());
     assert!(destination_dir.join(".source.lbox.lock").exists());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(
+            fs::metadata(&destination).unwrap().permissions().mode(),
+            source_mode
+        );
+    }
 
     let known = run_output_without_content_key(
         bin,
@@ -4297,6 +4392,29 @@ fn vault_lockbox_move_updates_file_sidecar_vault_and_default_session() {
         .contains(destination.canonicalize().unwrap().to_str().unwrap()));
     let listing = run_output_without_content_key(bin, &["list"], &vault_root, &agent_root);
     assert_success(&listing);
+    let stored =
+        run_output_without_content_key(bin, &["cat", "/payload.bin"], &vault_root, &agent_root);
+    assert_success(&stored);
+    assert_eq!(stored.stdout, content);
+
+    let repeat = run_output_without_content_key(
+        bin,
+        &[
+            "vault",
+            "lockbox",
+            "move",
+            source.to_str().unwrap(),
+            destination.to_str().unwrap(),
+        ],
+        &vault_root,
+        &agent_root,
+    );
+    assert!(!repeat.status.success());
+    assert!(String::from_utf8_lossy(&repeat.stderr).contains("lockbox not found"));
+    let stored =
+        run_output_without_content_key(bin, &["cat", "/payload.bin"], &vault_root, &agent_root);
+    assert_success(&stored);
+    assert_eq!(stored.stdout, content);
 }
 
 #[test]

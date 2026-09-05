@@ -1705,23 +1705,39 @@ fn move_known_lockbox(source: &str, destination: &str) -> CliResult<()> {
     let vault = default_vault()?;
     local_vault().close_lockbox(source_path)?;
     let _lock = ScopedFileLock::acquire(source_path, FileLockScope::Lockbox)?;
-    fs::rename(source_path, &destination_path).map_err(|err| {
-        cli_error(format!(
-            "could not move {source} to {}: {err}; no vault records were changed",
-            destination_path.display()
-        ))
-    })?;
-
-    let old_lock = lock_path_for(source_path);
-    let new_lock = lock_path_for(&destination_path);
-    if let Err(err) = fs::rename(&old_lock, &new_lock) {
-        let _ = fs::rename(&destination_path, source_path);
-        return Err(cli_error(format!(
-            "could not move lock sidecar {} to {}: {err}; the lockbox move was rolled back",
-            old_lock.display(),
-            new_lock.display()
-        )));
-    }
+    // Keep the destination locked until its vault and session records are updated.
+    let _destination_lock = match fs::rename(source_path, &destination_path) {
+        Ok(()) => {
+            let old_lock = lock_path_for(source_path);
+            let new_lock = lock_path_for(&destination_path);
+            if let Err(err) = fs::rename(&old_lock, &new_lock) {
+                let rollback = match fs::rename(&destination_path, source_path) {
+                    Ok(()) => "the lockbox move was rolled back".to_string(),
+                    Err(err) => format!(
+                        "rollback failed: {err}; the lockbox remains at {} and no vault records were changed",
+                        destination_path.display()
+                    ),
+                };
+                return Err(cli_error(format!(
+                    "could not move lock sidecar {} to {}: {err}; {rollback}",
+                    old_lock.display(),
+                    new_lock.display()
+                )));
+            }
+            None
+        }
+        Err(err) if err.kind() == io::ErrorKind::CrossesDevices => Some(copy_lockbox_for_move(
+            source_path,
+            &destination_path,
+            parent,
+        )?),
+        Err(err) => {
+            return Err(cli_error(format!(
+                "could not move {source} to {}: {err}; no vault records were changed",
+                destination_path.display()
+            )));
+        }
+    };
 
     if let Err(err) = vault
         .forget_known_lockbox(source_path)
@@ -1741,6 +1757,56 @@ fn move_known_lockbox(source: &str, destination: &str) -> CliResult<()> {
         println!("Session default updated: {}", destination_path.display());
     }
     Ok(())
+}
+
+fn copy_lockbox_for_move(
+    source: &Path,
+    destination: &Path,
+    parent: &Path,
+) -> CliResult<ScopedFileLock> {
+    // A copied sidecar would not carry the source's OS lock to the new filesystem.
+    let destination_lock = ScopedFileLock::acquire(destination, FileLockScope::Lockbox)?;
+    let prepare = || -> io::Result<()> {
+        let mut input = fs::File::open(source)?;
+        let mut staged = tempfile::NamedTempFile::new_in(parent)?;
+        io::copy(&mut input, staged.as_file_mut())?;
+        staged
+            .as_file()
+            .set_permissions(input.metadata()?.permissions())?;
+        staged.as_file().sync_all()?;
+        staged
+            .persist_noclobber(destination)
+            .map_err(|err| err.error)?;
+        Ok(())
+    };
+    prepare().map_err(|err| {
+        cli_error(format!(
+            "could not copy {} to {}: {err}; source retained and no vault records were changed",
+            source.display(),
+            destination.display()
+        ))
+    })?;
+
+    // Make the destination durable before removing the only source copy.
+    let finish = || -> io::Result<()> {
+        #[cfg(unix)]
+        fs::File::open(parent)?.sync_all()?;
+        fs::remove_file(source)
+    };
+    if let Err(err) = finish() {
+        let cleanup = match fs::remove_file(destination) {
+            Ok(()) => "destination copy removed".to_string(),
+            Err(cleanup) => format!("destination copy retained: {cleanup}"),
+        };
+        return Err(cli_error(format!(
+            "could not finish moving {} to {}: {err}; source retained, {cleanup}; no vault records were changed",
+            source.display(), destination.display()
+        )));
+    }
+    if let Err(err) = fs::remove_file(lock_path_for(source)) {
+        eprintln!("Warning: lockbox moved, but could not remove the old lock sidecar: {err}");
+    }
+    Ok(destination_lock)
 }
 
 fn profile_generation_status(status: ProfileGenerationStatus) -> &'static str {
