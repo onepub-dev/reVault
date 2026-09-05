@@ -790,6 +790,34 @@ impl Lockbox {
         Ok(id)
     }
 
+    /// Checks whether a password opens one particular slot for this content key.
+    pub fn password_opens_slot(&self, id: u64, password: &SecretString) -> Result<bool> {
+        let Some(slot) = self.key_slots.iter().find(|slot| slot.id() == id) else {
+            return Ok(false);
+        };
+        let Ok(key) = slot.try_password(password) else {
+            return Ok(false);
+        };
+        let key = zeroize::Zeroizing::new(key);
+        self.key
+            .with_bytes(|current| current == key.as_slice())
+            .map_err(Into::into)
+    }
+
+    /// Checks whether a private contact key opens one particular slot.
+    pub fn contact_opens_slot(&self, id: u64, contact: &ContactKeyPair) -> Result<bool> {
+        let Some(slot) = self.key_slots.iter().find(|slot| slot.id() == id) else {
+            return Ok(false);
+        };
+        let Ok(key) = slot.try_contact(contact) else {
+            return Ok(false);
+        };
+        let key = zeroize::Zeroizing::new(key);
+        self.key
+            .with_bytes(|current| current == key.as_slice())
+            .map_err(Into::into)
+    }
+
     /// Add a contact public key to the lockbox and return its key id.
     ///
     /// Once a contact's public key has been added to a lockbox, the matching

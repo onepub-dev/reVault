@@ -141,9 +141,25 @@ pub(crate) fn open_existing_read_only(
         Access::PromptPassword => Err(cli_error(
             "password prompting is only used when creating a new lockbox; pass --key or open through the local vault",
         )),
-        Access::CacheOnly => local_vault()
-            .open_lockbox_read_only(path)
-            .map_err(|err| lockbox_open_error(path, err)),
+        Access::CacheOnly => local_vault().open_lockbox_read_only(path).map_err(|err| lockbox_open_error(path, err)),
+    }
+}
+
+pub(crate) fn open_for_reading(
+    path: &str,
+    access: &Access,
+) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
+    ensure_lockbox_path_accessible(path)?;
+    super::recovery::complete_pending_cleanup_if_available(path, access)?;
+    match access {
+        Access::CacheOnly => match local_vault().open_lockbox_read_only(path) {
+            Ok(lockbox) => Ok(lockbox),
+            Err(Error::VaultUnavailable(message)) if message.contains("no cached content key") => {
+                Ok(open_existing(path, access)?.into_read_only())
+            }
+            Err(err) => Err(lockbox_open_error(path, err)),
+        },
+        _ => open_existing_read_only(path, access),
     }
 }
 
@@ -278,6 +294,24 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
             Vault::new(NoopStore).open_lockbox_with_password(path, &lockbox_password)
         {
             let _ = local_vault().open_lockbox_with_password(path, &lockbox_password);
+            return Ok(lockbox);
+        }
+    }
+    for name in vault
+        .list_password_profiles()
+        .map_err(AutoOpenLockboxError::Unavailable)?
+    {
+        let credential = vault
+            .load_profile_password(&name)
+            .map_err(AutoOpenLockboxError::Unavailable)?;
+        let signing_key = vault
+            .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
+            .map_err(AutoOpenLockboxError::Unavailable)?;
+        if let Ok(lockbox) = local_vault().open_lockbox_with_signing_key(
+            path,
+            LockboxOpen::Password(&credential),
+            &signing_key,
+        ) {
             return Ok(lockbox);
         }
     }

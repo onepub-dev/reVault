@@ -178,6 +178,29 @@ impl<S: ContentKeyStore> Vault<S> {
         Lockbox::open(path, LockboxOpen::ContentKey(key))
     }
 
+    /// Opens with an explicit password and caches read access without a local
+    /// vault or owner signing key. The password is not persisted.
+    pub fn open_password_read_only(
+        &self,
+        path: impl AsRef<Path>,
+        password: &SecretString,
+        ttl_seconds: Option<u64>,
+    ) -> Result<()> {
+        let path = path.as_ref();
+        let opened = VaultOpen::path_with_password(path, password)?;
+        let key = opened.try_clone_key()?;
+        let lockbox = opened.open_path(path)?;
+        match ttl_seconds {
+            Some(ttl) => {
+                self.store
+                    .put_content_key_for_path_with_ttl(lockbox.lockbox_id(), key, path, ttl)
+            }
+            None => self
+                .store
+                .put_content_key_for_path(lockbox.lockbox_id(), key, path),
+        }
+    }
+
     /// Opens a lockbox with explicit open material and caches its content key.
     ///
     /// Password and contact-key-pair opens may fall back to a key-directory

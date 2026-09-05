@@ -70,9 +70,13 @@ impl<'a> LockboxRewrite<'a> {
         Ok(())
     }
 
-    fn rekey(self, retained_contacts: &[(String, ContactPublicKey)]) -> Result<Vec<(String, u64)>> {
+    fn rekey(
+        self,
+        retained_contacts: &[(String, ContactPublicKey)],
+        retained_passwords: &[(String, crate::SecretString)],
+    ) -> Result<Vec<(String, u64)>> {
         if let Some(path) = self.source.storage.path().map(ToOwned::to_owned) {
-            return self.rekey_file_backed(path, retained_contacts);
+            return self.rekey_file_backed(path, retained_contacts, retained_passwords);
         }
 
         let Self { source, content } = self;
@@ -84,7 +88,8 @@ impl<'a> LockboxRewrite<'a> {
             Self::options(source),
         );
         rekeyed.set_owner_signing_key(signing_key);
-        let slot_ids = Self::add_retained_contacts(&mut rekeyed, retained_contacts)?;
+        let slot_ids =
+            Self::add_retained_contacts(&mut rekeyed, retained_contacts, retained_passwords)?;
         Self::populate(source, &mut rekeyed, content, false)?;
         rekeyed.commit()?;
         *source = rekeyed;
@@ -127,6 +132,7 @@ impl<'a> LockboxRewrite<'a> {
         self,
         path: PathBuf,
         retained_contacts: &[(String, ContactPublicKey)],
+        retained_passwords: &[(String, crate::SecretString)],
     ) -> Result<Vec<(String, u64)>> {
         let Self { source, content } = self;
         let replacement = AtomicFileReplacement::for_compaction(&path);
@@ -143,7 +149,8 @@ impl<'a> LockboxRewrite<'a> {
                 options,
             )?;
             rekeyed.set_owner_signing_key(signing_key.try_clone()?);
-            let slot_ids = Self::add_retained_contacts(&mut rekeyed, retained_contacts)?;
+            let slot_ids =
+                Self::add_retained_contacts(&mut rekeyed, retained_contacts, retained_passwords)?;
             Self::populate(source, &mut rekeyed, content, false)?;
             rekeyed.commit()?;
             drop(rekeyed);
@@ -224,11 +231,16 @@ impl<'a> LockboxRewrite<'a> {
     fn add_retained_contacts(
         lockbox: &mut Lockbox,
         retained_contacts: &[(String, ContactPublicKey)],
+        retained_passwords: &[(String, crate::SecretString)],
     ) -> Result<Vec<(String, u64)>> {
         let mut slot_ids = Vec::with_capacity(retained_contacts.len());
         for (name, contact) in retained_contacts {
             let slot_id = lockbox.add_contact_named(Self::access_entry_name(name), contact)?;
             slot_ids.push((name.clone(), slot_id));
+        }
+        for (name, password) in retained_passwords {
+            let id = lockbox.add_password(password)?;
+            slot_ids.push((name.clone(), id));
         }
         Ok(slot_ids)
     }
@@ -331,11 +343,20 @@ impl Lockbox {
         &mut self,
         retained_contacts: &[(String, ContactPublicKey)],
     ) -> Result<Vec<(String, u64)>> {
-        if retained_contacts.is_empty() {
+        self.replace_content_key_with_access(retained_contacts, &[])
+    }
+
+    /// Atomically replaces the content key and reconstructs retained contact and password slots.
+    pub fn replace_content_key_with_access(
+        &mut self,
+        retained_contacts: &[(String, ContactPublicKey)],
+        retained_passwords: &[(String, crate::SecretString)],
+    ) -> Result<Vec<(String, u64)>> {
+        if retained_contacts.is_empty() && retained_passwords.is_empty() {
             return Err(Error::SecurityLimitExceeded(
                 "refusing to rekey without retained access".to_string(),
             ));
         }
-        LockboxRewrite::capture(self)?.rekey(retained_contacts)
+        LockboxRewrite::capture(self)?.rekey(retained_contacts, retained_passwords)
     }
 }

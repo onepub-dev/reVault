@@ -186,6 +186,8 @@ fn vault_v2_export_verify_import_round_trip() {
         .store_profile_email("default", "owner@example.test")
         .unwrap();
     source.seed_default_form_definitions().unwrap();
+    source.create_password_profile("production-server").unwrap();
+    let profile_password = source.load_profile_password("production-server").unwrap();
 
     export_vault_v2(&source, &artifact, &artifact_password, [1; 16]).unwrap();
     assert!(verify_vault_artifact(&artifact, &artifact_password).unwrap() > 2);
@@ -202,6 +204,10 @@ fn vault_v2_export_verify_import_round_trip() {
         Some("owner@example.test")
     );
     assert!(!imported.list_form_definitions().unwrap().is_empty());
+    assert_eq!(
+        profile_password,
+        imported.load_profile_password("production-server").unwrap()
+    );
 }
 
 #[test]

@@ -1526,11 +1526,11 @@ fn access_command(verbose: bool) -> Command {
         .arg_required_else_help(true)
         .subcommand(
             Command::new("grant")
-                .about("Allow a profile or contact to open a lockbox.")
+                .about("Allow a key-pair profile, password profile or contact to open a lockbox.")
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox secrets.lbox access grant alice\n  lockbox secrets.lbox access grant profile:alice\n  lockbox secrets.lbox access grant contact:alice\n  lockbox secrets.lbox access grant alice ./alice.pub",
-                    "Context:\n  Access grant allows a profile or contact to open the lockbox. A bare name can refer to one of your saved profiles or saved contacts. If both use the same name, use profile:name or contact:name. For a public key file, provide the contact name first so the lockbox can record who the access entry belongs to.",
+                    "Context:\n  Access grant allows a profile or contact to open the lockbox. Password profiles add password access slots using their vault-managed secrets. A bare name can refer to one of your saved profiles or saved contacts. If both use the same name, use profile:name or contact:name. For a public key file, provide the contact name first so the lockbox can record who the access entry belongs to.",
                 ))
                 .arg(
                     Arg::new("args")
@@ -1964,7 +1964,7 @@ fn vault_profile_command(verbose: bool) -> Command {
         .after_help(verbose_help(
             verbose,
             "Examples:\n  lockbox vault profile list\n  lockbox vault profile create laptop\n  lockbox vault profile publish laptop\n  lockbox vault profile fingerprint laptop\n  lockbox vault profile backup ./default.profile-backup",
-            "Context:\n  A profile has a public key, private open key, and owner signing key. Publish or export the public key so someone else can grant you access to a lockbox. Use profile backup and restore for emergency recovery of one profile.",
+            "Context:\n  A key-pair profile has public, private open and owner signing keys. A password profile stores a generated secret; create one with --password and retrieve it with profile password <name>. Publish or export the public key so someone else can grant you access to a lockbox. Use profile backup and restore for emergency recovery of one profile.",
         ))
         .subcommand_required(true)
         .arg_required_else_help(true)
@@ -1975,7 +1975,7 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault profile list\n  lockbox vault profile list --format json",
-                    "Context:\n  Profile list shows the private open profiles stored in your vault. These are the profiles reVault can use when opening lockboxes granted to you.",
+                    "Context:\n  Profile list shows key-pair and password profiles and their types, without revealing secrets. These are the profiles reVault can use when opening lockboxes granted to you.",
                 ))
                 .arg(output_format_arg()),
         )
@@ -1985,7 +1985,7 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault profile create\n  lockbox vault profile create laptop\n  lockbox vault profile export ./laptop.pub --name laptop",
-                    "Context:\n  Profile create generates a new profile in your vault. With no name, reVault creates the `default` profile. To publish the profile, create it first and then run `lockbox vault profile publish` or `lockbox vault profile export <path>`.",
+                    "Context:\n  Profile create generates a new profile in your vault. Use --password with an explicit name to store a generated 256-bit password. With no name, reVault creates the `default` profile. To publish the profile, create it first and then run `lockbox vault profile publish` or `lockbox vault profile export <path>`.",
                 ))
                 .arg(
                     Arg::new("overwrite")
@@ -1995,7 +1995,17 @@ fn vault_profile_command(verbose: bool) -> Command {
                         .help("Replace an existing profile."),
                 )
                 .arg(optional("name", "Profile name."))
+                .arg(Arg::new("password").long("password").action(ArgAction::SetTrue)
+                    .conflicts_with("overwrite")
+                    .help("Create a password profile with a generated secret stored in the Vault."))
         )
+        .subcommand(Command::new("password")
+            .about("Retrieve a password profile's secret.")
+            .arg(required("name", "Password profile name."))
+            .arg(Arg::new("output").long("output").value_name("FILE")
+                .help("Write the exact password bytes to a private file instead of stdout."))
+            .arg(Arg::new("overwrite").long("overwrite").requires("output")
+                .action(ArgAction::SetTrue).help("Replace the output file.")))
         .subcommand(
             Command::new("history")
                 .about("Show Profile key generations.")
@@ -2072,7 +2082,7 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault profile backup ./default.profile-backup\n  lockbox vault profile backup ./laptop.profile-backup --name laptop",
-                    "Context:\n  Profile backup writes the same text recovery block printed by vault init. It contains the profile name, fingerprint, profile private key, and owner signing private key.",
+                    "Context:\n  For a key-pair profile, backup writes the text recovery block printed by vault init. Password profiles use a JSON recovery file containing their plaintext password. It contains the profile name, fingerprint, profile private key, and owner signing private key.",
                 ))
                 .arg(
                     Arg::new("overwrite")
@@ -2095,7 +2105,7 @@ fn vault_profile_command(verbose: bool) -> Command {
                 .after_help(verbose_help(
                     verbose,
                     "Examples:\n  lockbox vault profile restore ./default.profile-backup\n  lockbox vault profile restore ./default.profile-backup --name laptop --overwrite",
-                    "Context:\n  Profile restore reads one profile backup text file, derives the public key from the private key, and restores the required owner signing key. If the profile already exists, use --overwrite; reVault backs up the current vault before replacing it.",
+                    "Context:\n  Profile restore reads a key-pair or password profile backup. Key-pair restores derive the public key and restore the owner signing key. Password restores preserve the stored secret but do not change existing lockbox slots. If the profile already exists, use --overwrite; reVault backs up the current vault before replacing it.",
                 ))
                 .arg(
                     Arg::new("overwrite")

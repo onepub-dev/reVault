@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.10 - 2026-09-06
+
+- Preserve password recipients during content-key replacement and support conversion to read-only handles. Fix atomic replacement for relative paths.
+
 ## 0.0.9 - 2026-09-02
 
 - Fix secure page relocation retaining the old physical page length in live

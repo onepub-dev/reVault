@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.14 - 2026-09-06
+
+- Add vault-managed password profiles, password retrieval and backup, headless password access, and vault structure v3 migration.
+
 ## 0.0.13 - 2026-09-02
 
 - Fix repeated bulk removals of packed files corrupting unrelated live pages.

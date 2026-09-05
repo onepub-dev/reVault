@@ -33,7 +33,9 @@ thread_local! {
 }
 
 /// Current on-disk structure version for records stored inside the local vault.
-pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 2;
+pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 3;
+
+mod password_profiles;
 
 /// Validates a profile or contact name used by the native vault.
 ///
@@ -204,6 +206,27 @@ impl ReadOnlyVaultDirectory {
                 continue;
             };
             names.push(name?);
+        }
+        names.sort();
+        names.dedup();
+        Ok(names)
+    }
+
+    /// Lists key-pair and password profile names for read-only discovery.
+    pub fn list_profile_names(&self) -> Result<Vec<String>> {
+        let mut names = self.list_private_key_names()?;
+        for (name, _) in self.lockbox.borrow().list_variables()? {
+            if let Some(encoded) = name
+                .as_str()
+                .strip_prefix("/LOCKBOX_VAULT_PASSWORD_PROFILE_")
+            {
+                let bytes = crate::decode_hex(encoded)
+                    .map_err(|err| Error::CorruptVaultRecord(err.to_string()))?;
+                let name = String::from_utf8(bytes)
+                    .map_err(|err| Error::CorruptVaultRecord(err.to_string()))?;
+                validate_vault_record_name(&name)?;
+                names.push(name);
+            }
         }
         names.sort();
         names.dedup();
@@ -540,6 +563,9 @@ impl VaultDirectory {
     ///
     /// Names must contain only ASCII letters, digits, `-`, or `_`.
     pub fn store_private_key(&self, name: &str, keypair: &ContactKeyPair) -> Result<()> {
+        if self.password_profile_exists(name)? {
+            return Err(Error::AlreadyExists(format!("password profile {name}")));
+        }
         let variable_name = private_key_variable_name(name)?;
         let private_record = export_private_key(keypair, KeyFormat::RawHex)?;
         let value = SecretString::from_secure_vec(private_record);
@@ -579,6 +605,11 @@ impl VaultDirectory {
         signing_key: Option<&OwnerSigningKeyPair>,
         overwrite: bool,
     ) -> Result<()> {
+        if self.password_profile_exists(name)? {
+            return Err(Error::AlreadyExists(format!(
+                "password profile {name}; remove it explicitly before changing profile type"
+            )));
+        }
         if self.private_key_exists(name)? {
             if !overwrite {
                 return Err(Error::AlreadyExists(format!("vault profile {name}")));
@@ -603,6 +634,12 @@ impl VaultDirectory {
         email: Option<&str>,
         overwrite: bool,
     ) -> Result<()> {
+        if self.password_profile_exists(&history.name)? {
+            return Err(Error::AlreadyExists(format!(
+                "password profile {}",
+                history.name
+            )));
+        }
         if generations.is_empty() {
             return Err(Error::InvalidInput(
                 "a migrated profile must contain at least one generation".to_string(),
@@ -650,6 +687,11 @@ impl VaultDirectory {
 
     /// Loads a contact private key previously stored under `name`.
     pub fn load_private_key(&self, name: &str) -> Result<ContactKeyPair> {
+        if self.password_profile_exists(name)? {
+            return Err(Error::InvalidOperation(format!(
+                "profile {name} uses a password; this operation requires a key-pair profile"
+            )));
+        }
         let variable_name = private_key_variable_name(name)?;
         let secret = self
             .lockbox

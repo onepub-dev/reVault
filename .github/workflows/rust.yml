@@ -54,8 +54,8 @@ jobs:
         run: >-
           cargo check
           -p revault_page_api@0.0.4
-          -p revault_lockbox_api@0.0.9
-          -p revault_vault_api@0.0.10
+          -p revault_lockbox_api@0.0.10
+          -p revault_vault_api@0.0.11
           --all-targets
           --locked
 
@@ -124,6 +124,7 @@ jobs:
           -p revault_vault_api
           -p revault_migration_format
           -p revault_migrate_vault_v1
+          -p revault_migrate_vault_v2
           -p revault_migrate_archive_v1
           -p revault_migration
           -p revault_publish_protocol
@@ -151,7 +152,7 @@ jobs:
             command: >-
               cargo test --locked
               -p revault_page_api@0.0.4
-              -p revault_lockbox_api@0.0.9
+              -p revault_lockbox_api@0.0.10
           - group: CLI flow / vault commands
             cache: cli-flow-vault
             command: >-
@@ -223,9 +224,10 @@ jobs:
             cache: migrations
             command: >-
               cargo test --locked
-              -p revault_vault_api@0.0.10
+              -p revault_vault_api@0.0.11
               -p revault_migration_format
               -p revault_migrate_vault_v1
+              -p revault_migrate_vault_v2
               -p revault_migrate_archive_v1
               -p revault_migration
           - group: services and tooling
