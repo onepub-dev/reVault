@@ -207,6 +207,11 @@ jobs:
             command: >-
               cargo test --locked -p revault_cli
               --test migration_cli
+          - group: CLI password profiles
+            cache: cli-support
+            command: >-
+              cargo test --locked -p revault_cli
+              --test password_profiles
           - group: CLI mirror
             cache: cli-support
             command: >-
