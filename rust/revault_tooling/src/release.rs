@@ -1452,7 +1452,7 @@ fn publish_workspace_packages(repository: &Path, publish: bool, packages: &[&str
         let mut command = Command::new("cargo");
         command
             .current_dir(&rust)
-            .args(["publish", "-p", package, "--allow-dirty"]);
+            .args(["publish", "-p", &release, "--allow-dirty"]);
         if !publish {
             command.arg("--dry-run");
         }
