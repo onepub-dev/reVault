@@ -543,7 +543,7 @@ checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.9"
+version = "0.0.10"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -861,9 +861,9 @@ checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zstd-complete"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "989d8ad3ab75a470a7cf02f8e5194f203cb8b32ac72920c6f8a599a8817b9699"
+checksum = "1fbd3540d270b086caa6f53b83aa9d7e12f5ba870029da73b6950fd530610feb"
 dependencies = [
  "twox-hash",
 ]
