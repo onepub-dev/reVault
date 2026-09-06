@@ -1,3 +1,4 @@
+mod browser;
 mod build;
 mod command;
 mod compression;
@@ -28,6 +29,9 @@ fn run() -> Result<(), String> {
     let args: Vec<String> = args.collect();
 
     match task.as_str() {
+        "build-browser" => no_args(&task, &args, browser::build),
+        "test-browser" => no_args(&task, &args, browser::test),
+        "generate-browser-protocol" => no_args(&task, &args, browser::generate_protocol),
         "check-required" => no_args(&task, &args, quality::check_required),
         "clippy-advisory" => no_args(&task, &args, quality::clippy_advisory),
         "generate-api-docs" => no_args(&task, &args, quality::generate_api_docs),
@@ -68,6 +72,9 @@ reVault workspace tasks
 Usage: cargo xtask <task> [options]
 
 Tasks:
+  build-browser                  Build Chrome/Firefox extensions and browser SDK
+  test-browser                   Build and test browser message boundaries
+  generate-browser-protocol      Regenerate checked-in Rust protobuf messages
   check-required                 Run formatting, hard Clippy, and required tests
   clippy-advisory                Run the advisory Clippy lint groups
   generate-api-docs              Generate revault_lockbox_api documentation

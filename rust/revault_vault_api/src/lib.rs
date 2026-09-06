@@ -126,3 +126,7 @@ pub fn session_agent_dir() -> std::path::PathBuf {
             .unwrap_or_else(|_| std::env::temp_dir().join("lockbox"))
     }
 }
+
+/// Experimental browser delegation; Linux native approval and restricted IPC.
+#[cfg(all(target_os = "linux", feature = "browser-integration"))]
+pub mod browser;

@@ -1,0 +1,5 @@
+node_modules/
+dist/
+generated/
+chromium/*.js
+firefox/*.js

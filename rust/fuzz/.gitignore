@@ -1,3 +1,6 @@
 /artifacts/
 /corpus/*/*
 !/corpus/mutation_sequences/packed-delete-sequence
+!/corpus/browser_native/capabilities-protobuf
+!/corpus/browser_native/capabilities-json
+!/corpus/browser_native/capabilities-frame

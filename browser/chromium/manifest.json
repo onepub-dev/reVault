@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "reVault browser authorisation (experimental)",
+  "version": "0.0.1",
+  "description": "Approve encrypted lockbox delegation through the local reVault Session Agent.",
+  "permissions": ["nativeMessaging", "tabs"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{ "matches": ["https://*/*"], "js": ["content.js"], "all_frames": false, "run_at": "document_start" }]
+}

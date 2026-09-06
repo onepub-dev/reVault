@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "revault_browser_protocol",
     "revault_page_api",
     "revault_lockbox_api",
     "revault_vault_api",

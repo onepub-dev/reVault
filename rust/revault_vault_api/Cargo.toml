@@ -56,3 +56,15 @@ windows-sys = { version = "0.61", features = [
     "Win32_System_Threading",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+[features]
+# Requires focused security review before deployment with real secrets.
+browser-integration = ["dep:revault_browser_protocol"]
+
+[dependencies.revault_browser_protocol]
+version = "0.0.1"
+path = "../revault_browser_protocol"
+optional = true
+
+[dev-dependencies]
+ed25519-dalek = "2.2"

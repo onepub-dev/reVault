@@ -1,0 +1,21 @@
+[package]
+name = "revault_browser_protocol"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.88"
+license-file = "../revault_lockbox_api/LICENSE"
+description = "Restricted browser delegation protocol for reVault"
+
+[dependencies]
+prost = "0.14"
+base64ct = { version = "1", features = ["alloc"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+url = "2"
+ed25519-dalek = "2.2"
+hpke = { version = "0.13", default-features = false, features = ["alloc", "x25519"] }
+rand_core = { version = "0.9", features = ["os_rng"] }
+revault_lockbox_api = { path = "../revault_lockbox_api", version = "0.0.9" }
+zeroize = "1"
+# hpke disables x25519-dalek defaults; explicitly retain wiping of transient secrets.
+x25519-dalek = { version = "2", default-features = false, features = ["zeroize", "static_secrets"] }

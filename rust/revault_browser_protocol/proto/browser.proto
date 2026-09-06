@@ -1,0 +1,46 @@
+syntax = "proto3";
+package revault.browser.v1;
+
+// Integers are Unix seconds. IDs and challenges are freshly random per request.
+// The server signs SIGNING_DOMAIN || canonical prost encoding of UnlockRequest.
+message UnlockRequest {
+  uint32 protocol_version = 1;
+  string request_id = 2;
+  string application_id = 3;
+  bytes server_boot_id = 4;
+  bytes challenge = 5;
+  uint64 issued_at = 6;
+  uint64 expires_at = 7;
+  string recipient_key_id = 8;
+  bytes recipient_public_key = 9;
+  string lockbox_id = 10;
+  string requested_scope = 11;
+  string origin = 12;
+}
+message SignedUnlockRequest {
+  UnlockRequest request = 1;
+  bytes signature = 2;
+}
+// Context supplied exclusively by the extension background using MessageSender.
+message BrowserRequest {
+  uint32 protocol_version = 1;
+  string origin = 2;
+  string extension_id = 3;
+  uint32 frame_id = 4;
+  oneof operation {
+    bool get_capabilities = 5;
+    SignedUnlockRequest request_unlock = 6;
+    string cancel_request = 7;
+  }
+}
+message UnlockEnvelope {
+  UnlockRequest binding = 1;
+  bytes encapsulated_key = 2;
+  bytes ciphertext = 3;
+  bytes tag = 4;
+}
+message BrowserResponse {
+  uint32 protocol_version = 1;
+  string state = 2;
+  UnlockEnvelope envelope = 3;
+}

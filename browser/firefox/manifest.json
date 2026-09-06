@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "reVault browser authorisation (experimental)",
+  "version": "0.0.1",
+  "description": "Approve encrypted lockbox delegation through the local reVault Session Agent.",
+  "permissions": ["nativeMessaging", "tabs"],
+  "browser_specific_settings": { "gecko": { "id": "browser@revault.onepub.dev", "strict_min_version": "128.0", "data_collection_permissions": { "required": ["none"] } } },
+  "background": { "scripts": ["background.js"] },
+  "content_scripts": [{ "matches": ["https://*/*"], "js": ["content.js"], "all_frames": false, "run_at": "document_start" }]
+}

@@ -8,6 +8,7 @@ const REQUIRED_PACKAGE_NAMES: &[&str] = &[
     "revault_lockbox_api",
     "revault_cli",
     "revault_vault_api",
+    "revault_browser_protocol",
     "revault_migration_format",
     "revault_migrate_vault_v1",
     "revault_migrate_archive_v1",

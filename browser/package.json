@@ -1,0 +1,20 @@
+{
+  "name": "@onepub-dev/revault-browser",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Experimental ciphertext-only reVault browser delegation SDK",
+  "exports": {
+    ".": {
+      "types": "./src/sdk.d.ts",
+      "import": "./dist/sdk.js"
+    }
+  },
+  "dependencies": {
+    "protobufjs": "8.8.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "protobufjs-cli": "2.7.0"
+  }
+}

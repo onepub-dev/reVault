@@ -49,6 +49,7 @@ path = "src/bin/lbx.rs"
 test = false
 
 [features]
+browser-integration = ["dep:revault_browser_protocol", "revault_vault_api/browser-integration"]
 default = ["issue303-protocol"]
 issue303-protocol = ["revault_lockbox_api/issue303-protocol"]
 
@@ -90,3 +91,20 @@ revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.3" }
 revault_lockbox_api_vault_v1 = { package = "revault_lockbox_api", version = "=0.0.2" }
 revault_vault_api_container_v1 = { package = "revault_vault_api", version = "=0.0.6" }
 revault_lockbox_api_container_v1 = { package = "revault_lockbox_api", version = "=0.0.6" }
+
+[[bin]]
+name = "revault-browser"
+path = "src/browser/main.rs"
+required-features = ["browser-integration"]
+
+[dependencies.revault_browser_protocol]
+version = "0.0.1"
+path = "../revault_browser_protocol"
+optional = true
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
+[dev-dependencies.ed25519-dalek]
+version = "2.2"

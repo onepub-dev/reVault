@@ -42,3 +42,12 @@ name = "mutation_sequences"
 path = "fuzz_targets/mutation_sequences.rs"
 test = false
 doc = false
+
+[dependencies.revault_browser_protocol]
+path = "../revault_browser_protocol"
+
+[[bin]]
+name = "browser_native"
+path = "fuzz_targets/browser_native.rs"
+test = false
+doc = false

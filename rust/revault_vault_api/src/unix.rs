@@ -43,6 +43,25 @@ pub(crate) fn serve_agent() -> io::Result<()> {
     listener.set_nonblocking(true)?;
 
     let cache = Arc::new(Mutex::new(BTreeMap::<String, CacheEntry>::new()));
+    #[cfg(all(target_os = "linux", feature = "browser-integration"))]
+    let _browser_service = crate::browser::start({
+        let cache = cache.clone();
+        Arc::new(move |pair| {
+            let key = lock_cache(&cache)
+                .map_err(|_| revault_browser_protocol::Error::Internal)?
+                .get(&pair.lockbox_id)
+                .filter(|entry| entry.expires_at > Instant::now())
+                .map(|entry| entry.key.try_clone())
+                .transpose()
+                .map_err(|_| revault_browser_protocol::Error::Internal)?;
+            if let Some(key) = key {
+                if let Ok(key) = crate::browser::validate_cached_key(pair, key) {
+                    return Ok(key);
+                }
+            }
+            crate::browser::profile_key(pair)
+        })
+    })?;
     let config = AgentConfig::load();
     log_agent_event(format!(
         "agent config prevent_sleep={} terminate_on_suspend={}",
@@ -93,6 +112,8 @@ fn start_sleep_cache_clearer(
 ) {
     let result = SleepWatcher::start_handler(move |event| match event {
         SleepEvent::SuspendRequested => {
+            #[cfg(all(target_os = "linux", feature = "browser-integration"))]
+            crate::browser::suspend();
             if let Ok(mut cache) = cache.lock() {
                 let count = cache.len();
                 cache.clear();
@@ -394,7 +415,7 @@ fn handle_client(
     Ok(stop)
 }
 
-fn client_matches_current_user(stream: &UnixStream) -> io::Result<bool> {
+pub(crate) fn client_matches_current_user(stream: &UnixStream) -> io::Result<bool> {
     let peer = peer_credentials(stream)?;
     Ok(peer.uid == current_effective_uid() && peer.gid == current_effective_gid())
 }
@@ -815,7 +836,7 @@ fn socket_dir_metadata(dir: &Path) -> io::Result<fs::Metadata> {
     Ok(metadata)
 }
 
-fn remove_stale_socket(socket: &Path) -> io::Result<()> {
+pub(crate) fn remove_stale_socket(socket: &Path) -> io::Result<()> {
     let metadata = match fs::symlink_metadata(socket) {
         Ok(metadata) => metadata,
         Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(()),
@@ -847,7 +868,7 @@ fn socket_path() -> PathBuf {
     socket_dir().join("agent.sock")
 }
 
-fn socket_dir() -> PathBuf {
+pub(crate) fn socket_dir() -> PathBuf {
     if let Ok(dir) = env::var("LOCKBOX_SESSION_AGENT_DIR") {
         return PathBuf::from(dir);
     }
