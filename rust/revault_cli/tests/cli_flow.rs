@@ -341,7 +341,8 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&vault_profile_verbose_help);
     let vault_profile_verbose_help = String::from_utf8_lossy(&vault_profile_verbose_help.stdout);
     assert!(vault_profile_verbose_help.contains("Context:"));
-    assert!(vault_profile_verbose_help.contains("has a public key, private open key"));
+    assert!(vault_profile_verbose_help.contains("A key-pair profile has public, private open"));
+    assert!(vault_profile_verbose_help.contains("A password profile stores a generated secret"));
     assert!(vault_profile_verbose_help.contains("Publish or export the public key"));
     assert!(vault_profile_verbose_help.contains("profile backup and restore"));
     assert!(!vault_profile_verbose_help.contains("on this machine"));
