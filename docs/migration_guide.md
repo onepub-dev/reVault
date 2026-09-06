@@ -146,7 +146,7 @@ For example, replacing `secrets.lbox` from archive format version 1 retains a
 backup similar to:
 
 ```text
-secrets.lbox.v1.pre-migration
+secrets.lbox.v1-v2.pre-migration
 ```
 
 Do not delete the backup until the replacement has been opened and checked.

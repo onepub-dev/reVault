@@ -298,7 +298,8 @@ fn migrate_vault_direct(matches: &ArgMatches) -> CliResult<()> {
                 "vault migration journal has an invalid replacement stage",
             ));
         }
-        let backup = versioned_backup_path(&source, source_version);
+        let backup =
+            versioned_backup_path(&source, source_version, CURRENT_VAULT_STRUCTURE_VERSION);
         if backup.exists() {
             return Err(cli_error(format!(
                 "migration backup already exists: {}",
@@ -458,7 +459,8 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
         save_journal(&mut journal, &journal_path, &vault_password)?;
     }
     if replace {
-        let backup = versioned_backup_path(&source, source_version);
+        let backup =
+            versioned_backup_path(&source, source_version, u32::from(LOCKBOX_FORMAT_VERSION));
         if backup.exists() {
             return Err(cli_error(format!(
                 "migration backup already exists: {}",
@@ -951,7 +953,11 @@ fn recover_interrupted_replacement<P: MigrationPassphrase + ?Sized>(
         let Some(output) = journal.temporary_paths.last() else {
             continue;
         };
-        let backup = versioned_backup_path(source, journal.source_format_version);
+        let backup = versioned_backup_path(
+            source,
+            journal.source_format_version,
+            journal.target_format_version,
+        );
         if source.exists() || !backup.exists() || !output.exists() {
             continue;
         }
@@ -1040,12 +1046,14 @@ fn temporary_archive_destination(source: &Path, id: [u8; 16]) -> PathBuf {
     source.with_file_name(format!(".archive-migrated-{}.lbox", hex_id(id)))
 }
 
-fn versioned_backup_path(source: &Path, version: u32) -> PathBuf {
+fn versioned_backup_path(source: &Path, source_version: u32, target_version: u32) -> PathBuf {
     let name = source
         .file_name()
         .map(|value| value.to_string_lossy().into_owned())
         .unwrap_or_else(|| "artifact".to_string());
-    source.with_file_name(format!("{name}.v{version}.pre-migration"))
+    source.with_file_name(format!(
+        "{name}.v{source_version}-v{target_version}.pre-migration"
+    ))
 }
 
 fn exporter_cache_root() -> CliResult<PathBuf> {
@@ -1164,7 +1172,7 @@ mod tests {
     fn interrupted_replace_is_finished_from_the_encrypted_journal() {
         let temp = tempfile::tempdir().unwrap();
         let source = temp.path().join("secrets.lbox");
-        let backup = versioned_backup_path(&source, 1);
+        let backup = versioned_backup_path(&source, 1, 2);
         let output = temp.path().join("migrated.lbox");
         fs::write(&backup, b"old").unwrap();
         fs::write(&output, b"new").unwrap();

@@ -101,7 +101,7 @@ fn vault_migration_commands_and_options_execute_end_to_end() {
     assert_success(&already_current);
     assert!(String::from_utf8_lossy(&already_current.stdout).contains("No migration needed"));
     assert_current_vault(&fixture.vault);
-    assert!(!fixture.root.join("vault.v2.pre-migration").exists());
+    assert!(!fixture.root.join("vault.v2-v3.pre-migration").exists());
 }
 
 #[test]
@@ -180,7 +180,7 @@ fn archive_migration_commands_and_options_execute_end_to_end() {
     assert!(!fixture
         .root
         .join(format!(
-            "replace.lbox.v{LOCKBOX_FORMAT_VERSION}.pre-migration"
+            "replace.lbox.v{LOCKBOX_FORMAT_VERSION}-v{LOCKBOX_FORMAT_VERSION}.pre-migration"
         ))
         .exists());
 
@@ -216,11 +216,11 @@ fn vault_v1_replace_uses_the_explicit_historical_exporter() {
         revault_vault_api::CURRENT_VAULT_STRUCTURE_VERSION
     )));
     assert_current_vault(&fixture.vault);
-    assert!(fixture.root.join("vault.v1.pre-migration").is_dir());
+    assert!(fixture.root.join("vault.v1-v3.pre-migration").is_dir());
     let repeated = fixture.run(&["doctor", "migrate", "vault", "--replace"]);
     assert_success(&repeated);
     assert!(String::from_utf8_lossy(&repeated.stdout).contains("No migration needed"));
-    assert!(!fixture.root.join("vault.v2.pre-migration").exists());
+    assert!(!fixture.root.join("vault.v2-v3.pre-migration").exists());
 }
 
 #[test]
@@ -282,7 +282,7 @@ fn vault_v2_replace_preserves_profile_keys_and_supports_password_profiles() {
     let repeated = fixture.run(&["vault", "profile", "password", "server"]);
     assert_success(&repeated);
     assert_eq!(secret.stdout, repeated.stdout);
-    assert!(fixture.root.join("vault.v2.pre-migration").is_dir());
+    assert!(fixture.root.join("vault.v2-v3.pre-migration").is_dir());
 }
 
 #[test]
@@ -305,7 +305,7 @@ fn vault_structure_v2_in_container_v1_migrates_end_to_end() {
     ]);
     assert_success(&output);
     assert_current_vault(&fixture.vault);
-    assert!(fixture.root.join("vault.v1.pre-migration").is_dir());
+    assert!(fixture.root.join("vault.v1-v3.pre-migration").is_dir());
     let password = SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
     let migrated = VaultDirectory::open_or_create(&fixture.vault, &password).unwrap();
     assert_eq!(
