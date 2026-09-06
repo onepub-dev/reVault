@@ -1,5 +1,13 @@
 # Binding changelog
 
+## Unreleased
+
+- Update native dependencies for vault structure v3. Existing key-pair profile
+  operations retain their meaning and cannot overwrite password profiles.
+- Password profile management is currently available through the CLI and Rust
+  vault API. Foreign-language profile methods continue to manage key pairs;
+  existing password-based lockbox operations remain available.
+
 ## 0.3.13 - 2026-08-30
 
 - Correct native FFI safety contracts for caller-owned pointers and returned

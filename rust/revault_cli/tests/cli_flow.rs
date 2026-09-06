@@ -341,7 +341,8 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&vault_profile_verbose_help);
     let vault_profile_verbose_help = String::from_utf8_lossy(&vault_profile_verbose_help.stdout);
     assert!(vault_profile_verbose_help.contains("Context:"));
-    assert!(vault_profile_verbose_help.contains("has a public key, private open key"));
+    assert!(vault_profile_verbose_help.contains("A key-pair profile has public, private open"));
+    assert!(vault_profile_verbose_help.contains("A password profile stores a generated secret"));
     assert!(vault_profile_verbose_help.contains("Publish or export the public key"));
     assert!(vault_profile_verbose_help.contains("profile backup and restore"));
     assert!(!vault_profile_verbose_help.contains("on this machine"));
@@ -4650,12 +4651,14 @@ fn open_requires_explicit_vault_init() {
     let lockbox = dir.join("existing.lbox");
     fs::write(&lockbox, b"not a lockbox").unwrap();
 
-    let open = run_output_without_content_key(
+    let open = run_output_without_lockbox_password(
         bin,
         &[lockbox.to_str().unwrap(), "open"],
         &vault_root,
         &agent_root,
-    );
+    )
+    .output()
+    .unwrap();
     assert!(!open.status.success());
     assert!(String::from_utf8_lossy(&open.stderr)
         .contains("local vault is not initialized; run `lockbox vault init` first"));

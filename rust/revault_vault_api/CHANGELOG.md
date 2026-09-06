@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.11 - 2026-09-06
+
+- Introduce vault structure v3 with encrypted password profiles and password-only read sessions. Older writers refuse the new structure.
+
 ## 0.0.10 - 2026-09-02
 
 - Align the vault API with `revault_lockbox_api` 0.0.9 so downstream crates

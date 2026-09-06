@@ -7,6 +7,9 @@ members = ["cargo:rust"]
 cargo-dist-version = "0.31.0"
 # CI backends to support
 ci = "github"
+# The checked-in CI includes a manual retry job for trusted crates.io publishing.
+# Keep that intentional extension when validating cargo-dist's generated workflow.
+allow-dirty = ["ci"]
 packages = ["revault_cli"]
 # A prefix git tags must include for dist to care about them
 tag-namespace = "revault_cli-v"

@@ -378,7 +378,7 @@ pub(crate) fn profile_candidates(current: &OsStr) -> Vec<CompletionCandidate> {
     candidates(
         current,
         read_only_vault()
-            .and_then(|vault| vault.list_private_key_names().ok())
+            .and_then(|vault| vault.list_profile_names().ok())
             .unwrap_or_default(),
     )
 }

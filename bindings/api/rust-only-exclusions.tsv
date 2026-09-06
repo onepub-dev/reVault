@@ -60,3 +60,17 @@ validate_vault_record_name	Rust CLI input-validation helper; foreign facades val
 with_key	Raw content-key callback is intentionally not exposed to foreign facades; local-vault and agent operations consume it inside native secure storage.
 with_mirror_project_mutation	Rust scoped callback used by trusted mirror orchestration; foreign file APIs remain guarded and cannot enter or bypass a managed subtree.
 from_parts	Low-level wrapped-key reconstruction helper; foreign APIs create wrapped keys through authenticated encryption and keep the handle opaque.
+contact_opens_slot	CLI revocation verification hook; foreign callers manage access slots through the existing contact and password operations.
+password_opens_slot	CLI revocation verification hook; foreign callers manage access slots through the existing contact and password operations.
+replace_content_key_with_access	CLI true-revocation transaction retaining mixed credentials; like replace_content_key_with_contacts, this requires a separately versioned cross-language transaction schema.
+into_read_only	Rust consuming typestate conversion; foreign handles already expose explicit read-only open operations.
+open_password_read_only	CLI headless session orchestration that caches a content key in the Session Agent; foreign callers use their existing password-based read-only open operation.
+create_password_profile	CLI-managed server credential profile creation; foreign profile APIs continue to manage key-pair profiles, with password profile management reserved for the CLI in this release.
+store_password_profile	CLI password profile backup and migration restoration; foreign profile APIs continue to manage key-pair profiles in this release.
+load_profile_password	CLI explicit server credential provisioning; foreign profile APIs continue to manage key-pair profiles in this release.
+password_profile_exists	CLI password profile type discovery; foreign profile APIs continue to manage key-pair profiles in this release.
+profile_exists	CLI mixed profile namespace discovery; foreign profile APIs continue to manage key-pair profiles in this release.
+list_profiles	CLI mixed profile namespace enumeration; foreign profile APIs continue to manage key-pair profiles in this release.
+list_password_profiles	CLI server credential enumeration; foreign profile APIs continue to manage key-pair profiles in this release.
+list_profile_names	CLI read-only mixed profile discovery for command completion; foreign profile APIs continue to enumerate key-pair profiles in this release.
+delete_profile	CLI mixed profile removal; foreign delete_private_key remains restricted to key-pair profiles in this release.

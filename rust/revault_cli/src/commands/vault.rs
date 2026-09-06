@@ -124,7 +124,26 @@ fn vault_profile_matches(matches: &ArgMatches) -> CliResult<()> {
         .ok_or_else(|| Error::InvalidInput("missing vault profile command".to_string()))?;
     match command {
         "list" | "ls" => list_profiles_with_format(output_format_from_matches(sub)?),
+        "create" if sub.get_flag("password") => {
+            let name = optional_value(sub, "name")
+                .ok_or_else(|| cli_error("password profiles require an explicit name"))?;
+            default_vault()?.create_password_profile(name)?;
+            println!("Created password profile: {name}");
+            Ok(())
+        }
         "create" => keygen_options(optional_value(sub, "name"), sub.get_flag("overwrite")),
+        "password" => {
+            let password = default_vault()?.load_profile_password(&required_value(sub, "name"))?;
+            password.with_bytes(|bytes| -> CliResult<()> {
+                if let Some(path) = optional_value(sub, "output") {
+                    super::variables::write_output_file(path, bytes, sub.get_flag("overwrite"))?;
+                } else {
+                    io::stdout().lock().write_all(bytes)?;
+                    println!();
+                }
+                Ok(())
+            })?
+        }
         "email" => profile_email_values(&string_values(sub, "args")),
         "fingerprint" => profile_fingerprint(&optional_string_arg(sub, "name")),
         "history" => profile_history_with_format(
@@ -608,7 +627,7 @@ fn keygen_options(name: Option<&str>, overwrite: bool) -> CliResult<()> {
     let defaulted_name = name.is_none();
     let name = name.unwrap_or(VaultDirectory::DEFAULT_KEY_NAME);
     let vault = default_vault()?;
-    if vault.private_key_exists(name)? && !overwrite {
+    if vault.profile_exists(name)? && !overwrite {
         return Err(Error::AlreadyExists(format!("vault profile {name}")).into());
     }
 
@@ -1199,6 +1218,27 @@ fn hex_digit(byte: u8) -> CliResult<u8> {
 
 fn profile_restore_options(options: ProfileRestoreArgs) -> CliResult<()> {
     let vault = default_vault()?;
+    let mut raw = fs::read_to_string(&options.input_path)?;
+    if raw.starts_with("{\"password_profile_version\":") {
+        use zeroize::Zeroize;
+        let parsed = serde_json::from_str::<PasswordProfileBackup>(&raw);
+        raw.zeroize();
+        let backup = parsed?;
+        if backup.password_profile_version != 1 {
+            return Err(cli_error("unsupported password profile backup version"));
+        }
+        let name = options.name.as_deref().unwrap_or(&backup.name);
+        let password =
+            revault_vault_api::SecretString::try_from_bytes(backup.password.as_bytes().to_vec())?;
+        if vault.profile_exists(name)? && options.overwrite {
+            backup_default_vault(profile_restore_backup_path(name)?, false)?;
+        }
+        vault.store_password_profile(name, &password, options.overwrite)?;
+        println!("Password profile restored: {name}");
+        return Ok(());
+    }
+    use zeroize::Zeroize;
+    raw.zeroize();
     let backup = read_profile_backup(&options.input_path)?;
     let name = options.name.unwrap_or(backup.name);
     let keypair = import_private_key(SecretVec::try_from_slice(
@@ -1232,9 +1272,25 @@ fn profile_restore_options(options: ProfileRestoreArgs) -> CliResult<()> {
 
 fn profile_backup_options(options: ProfileBackupArgs) -> CliResult<()> {
     let vault = default_vault()?;
+    if vault.password_profile_exists(&options.name)? {
+        let password = vault.load_profile_password(&options.name)?;
+        let backup = PasswordProfileBackup {
+            password_profile_version: 1,
+            name: options.name.clone(),
+            password: password.with_str(str::to_string)?,
+        };
+        let mut bytes = serde_json::to_vec(&backup)?;
+        let result =
+            super::variables::write_output_file(&options.output_path, &bytes, options.overwrite);
+        use zeroize::Zeroize;
+        bytes.zeroize();
+        result?;
+        println!("Profile backup completed successfully.");
+        return Ok(());
+    }
     let mut output = Vec::new();
     write_profile_backup(&mut output, &vault, &options.name)?;
-    write_output_file(&options.output_path, &output, options.overwrite)?;
+    super::variables::write_output_file(&options.output_path, &output, options.overwrite)?;
     println!("Profile backup completed successfully.");
     println!("profile={}", options.name);
     println!(
@@ -1244,23 +1300,24 @@ fn profile_backup_options(options: ProfileBackupArgs) -> CliResult<()> {
     Ok(())
 }
 
-fn write_output_file(path: &str, bytes: &[u8], overwrite: bool) -> CliResult<()> {
-    let path = PathBuf::from(path);
-    if path.exists() && !overwrite {
-        return Err(Error::AlreadyExists(format!(
-            "{}; pass --overwrite to replace it",
-            path.display()
-        ))
-        .into());
-    }
-    fs::write(path, bytes)?;
-    Ok(())
-}
-
 struct ParsedProfileBackup {
     name: String,
     private_key_pem: String,
     signing_private_hex: String,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct PasswordProfileBackup {
+    password_profile_version: u32,
+    name: String,
+    password: String,
+}
+
+impl Drop for PasswordProfileBackup {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        self.password.zeroize();
+    }
 }
 
 fn read_profile_backup(path: &str) -> CliResult<ParsedProfileBackup> {
@@ -1355,7 +1412,7 @@ fn remove_key_options(name: Option<&str>, force: bool) -> CliResult<()> {
         println!("Vault profile not removed: {name}");
         return Ok(());
     }
-    default_vault()?.delete_private_key(name)?;
+    default_vault()?.delete_profile(name)?;
     println!("Vault profile removed: {name}");
     Ok(())
 }
@@ -1382,13 +1439,18 @@ fn remove_contact_name(name: &str) -> CliResult<()> {
 fn list_profiles_with_format(format: OutputFormat) -> CliResult<()> {
     let vault = default_vault()?;
     let mut rows = Vec::new();
-    for name in vault.list_private_keys()? {
+    for name in vault.list_profiles()? {
         let email = vault
             .profile_email(&name)?
             .unwrap_or_else(|| "-".to_string());
-        rows.push(vec![name, email]);
+        let kind = if vault.password_profile_exists(&name)? {
+            "password"
+        } else {
+            "key-pair"
+        };
+        rows.push(vec![name, email, kind.to_string()]);
     }
-    print_records(&["name", "email"], rows, format)?;
+    print_records(&["name", "email", "type"], rows, format)?;
     Ok(())
 }
 

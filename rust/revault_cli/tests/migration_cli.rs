@@ -211,13 +211,78 @@ fn vault_v1_replace_uses_the_explicit_historical_exporter() {
         path(&exporter),
     ]);
     assert_success(&output);
-    assert!(String::from_utf8_lossy(&output.stdout).contains("format version 2"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains(&format!(
+        "format version {}",
+        revault_vault_api::CURRENT_VAULT_STRUCTURE_VERSION
+    )));
     assert_current_vault(&fixture.vault);
     assert!(fixture.root.join("vault.v1.pre-migration").is_dir());
     let repeated = fixture.run(&["doctor", "migrate", "vault", "--replace"]);
     assert_success(&repeated);
     assert!(String::from_utf8_lossy(&repeated.stdout).contains("No migration needed"));
     assert!(!fixture.root.join("vault.v2.pre-migration").exists());
+}
+
+#[test]
+fn vault_v2_replace_preserves_profile_keys_and_supports_password_profiles() {
+    let fixture = Fixture::new("migration-v2-v3");
+    // The current public CLI cannot create a historical v2 vault. Use the
+    // pinned v2 library only for this historical setup; migrate and verify
+    // the result using separate public CLI invocations.
+    let password =
+        revault_vault_api_structure_v2::SecretString::try_from_slice(VAULT_PASSWORD.as_bytes())
+            .unwrap();
+    let vault =
+        revault_vault_api_structure_v2::VaultDirectory::replace(&fixture.vault, &password).unwrap();
+    let key = revault_lockbox_api_structure_v2::ContactKeyPair::generate().unwrap();
+    let original = key.public_key().to_bytes();
+    vault.store_private_key("default", &key).unwrap();
+    drop(vault);
+    let status = Command::new("cargo")
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap())
+        .args(["build", "--offline", "-p", "revault_migrate_vault_v2"])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let exporter = Path::new(env!("CARGO_BIN_EXE_lockbox"))
+        .parent()
+        .unwrap()
+        .join(format!(
+            "revault-migrate-vault-v2{}",
+            std::env::consts::EXE_SUFFIX
+        ));
+    fixture.success(&[
+        "doctor",
+        "migrate",
+        "vault",
+        "--replace",
+        "--exporter",
+        path(&exporter),
+    ]);
+    fixture.success(&[
+        "vault",
+        "profile",
+        "export",
+        path(&fixture.root.join("profile.pub")),
+        "--format",
+        "raw",
+    ]);
+    let exported = std::fs::read(fixture.root.join("profile.pub")).unwrap();
+    assert_eq!(
+        revault_vault_api::import_public_key(&exported)
+            .unwrap()
+            .to_bytes(),
+        original
+    );
+    fixture.success(&["vault", "profile", "create", "server", "--password"]);
+    let secret = fixture.run(&["vault", "profile", "password", "server"]);
+    assert_success(&secret);
+    assert_eq!(secret.stdout.len(), 65);
+    fixture.success(&["doctor", "migrate", "vault", "--replace"]);
+    let repeated = fixture.run(&["vault", "profile", "password", "server"]);
+    assert_success(&repeated);
+    assert_eq!(secret.stdout, repeated.stdout);
+    assert!(fixture.root.join("vault.v2.pre-migration").is_dir());
 }
 
 #[test]

@@ -1,4 +1,6 @@
-use super::context::{cli_error, open_existing, open_or_create, require_arg, Access, CliResult};
+use super::context::{
+    cli_error, open_existing, open_for_reading, open_or_create, require_arg, Access, CliResult,
+};
 use super::filters::{excluded, included, normalize as normalize_rules};
 use super::output::{human_size, output_format_from_matches, print_records, OutputFormat};
 use super::{
@@ -365,7 +367,7 @@ fn source_metadata(source: &Path) -> CliResult<fs::Metadata> {
 
 pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let mut lb = open_existing(lockbox_path, access)?;
+    let mut lb = open_for_reading(lockbox_path, access)?;
     if args.get(1).map(String::as_str) == Some("--to") {
         let dest = require_arg(args, 2, "destination")?;
         let policy = extract_policy_from_args(&args[3..]);
@@ -402,7 +404,7 @@ pub(crate) fn extract(args: &[String], access: &Access) -> CliResult<()> {
 
 pub(crate) fn cat(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
-    let lb = open_existing(lockbox_path, access)?;
+    let lb = open_for_reading(lockbox_path, access)?;
     let stdout = io::stdout();
     let mut lock = stdout.lock();
     for path in args.get(1..).unwrap_or_default() {
@@ -427,7 +429,7 @@ fn list_with_format(args: &[String], access: &Access, format: OutputFormat) -> C
     } else {
         cli_lockbox_path(target)?
     };
-    let lb = open_existing(lockbox_path, access)?;
+    let lb = open_for_reading(lockbox_path, access)?;
     if recursive || glob {
         let mut options = ListOptions::new(&path);
         options.recursive = true;
@@ -477,7 +479,10 @@ fn contains_glob(value: &str) -> bool {
     value.contains('*') || value.contains('?')
 }
 
-pub(crate) fn direct_listing_rows(lb: &Lockbox, path: &LockboxPath) -> CliResult<Vec<Vec<String>>> {
+pub(crate) fn direct_listing_rows<State>(
+    lb: &Lockbox<State>,
+    path: &LockboxPath,
+) -> CliResult<Vec<Vec<String>>> {
     if let Some(entry) = lb.stat(path) {
         if entry.kind != revault_lockbox_api::LockboxEntryKind::Directory {
             return Ok(vec![vec![

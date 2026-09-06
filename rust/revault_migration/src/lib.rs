@@ -18,4 +18,6 @@ pub use revault_migration_format::{
     MigrationPassphrase, MigrationRecord, ProfileGenerationRecord, ProfileRecord, Result,
     SecretBytes, VaultRecord, JSON_FRAME_TYPE, MAX_FRAME_BYTES, RAW_FRAME_TYPE,
 };
-pub use vault::{export_vault_v2, import_vault_v2, upgrade_vault_artifact, verify_vault_artifact};
+pub use vault::{export_vault, import_vault, upgrade_vault_artifact, verify_vault_artifact};
+// Retain source compatibility for callers of the original schema-2 API names.
+pub use vault::{export_vault as export_vault_v2, import_vault as import_vault_v2};

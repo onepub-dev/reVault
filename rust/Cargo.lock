@@ -2207,20 +2207,21 @@ version = "0.2.2"
 dependencies = [
  "criterion",
  "flatbuffers",
- "revault_lockbox_api 0.0.9",
- "revault_vault_api 0.0.10",
+ "revault_lockbox_api 0.0.10",
+ "revault_vault_api 0.0.11",
  "zeroize",
 ]
 
 [[package]]
 name = "revault_cli"
-version = "0.0.13"
+version = "0.0.14"
 dependencies = [
  "clap",
  "clap_complete",
  "getrandom 0.4.3",
  "libc",
  "revault_key_server",
+ "revault_lockbox_api 0.0.10",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
  "revault_lockbox_api 0.0.6",
@@ -2228,12 +2229,15 @@ dependencies = [
  "revault_migration",
  "revault_publish_protocol",
  "revault_vault_api 0.0.10",
+ "revault_vault_api 0.0.11",
  "revault_vault_api 0.0.2",
  "revault_vault_api 0.0.6",
+ "serde",
  "serde_json",
  "sha2 0.11.0",
  "tempfile",
  "windows-sys 0.61.2",
+ "zeroize",
 ]
 
 [[package]]
@@ -2328,6 +2332,31 @@ dependencies = [
 [[package]]
 name = "revault_lockbox_api"
 version = "0.0.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9247f05784213a5ff3e957ce000cd9387d04c2b9380f27e1a88ebe149d9e2be1"
+dependencies = [
+ "argon2",
+ "chacha20poly1305",
+ "ed25519-dalek 3.0.0",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "libc",
+ "ml-dsa",
+ "ml-kem",
+ "revault_page_api 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json",
+ "sha2 0.11.0",
+ "unicode-normalization",
+ "windows-sys 0.61.2",
+ "x25519-dalek 3.0.0",
+ "zeroize",
+ "zstd-complete",
+]
+
+[[package]]
+name = "revault_lockbox_api"
+version = "0.0.10"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -2357,7 +2386,7 @@ version = "0.0.5"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.6",
- "revault_migration_format",
+ "revault_migration_format 0.0.4",
  "revault_vault_api 0.0.6",
  "serde_json",
  "sha2 0.11.0",
@@ -2372,7 +2401,7 @@ dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.6",
- "revault_migration_format",
+ "revault_migration_format 0.0.4",
  "revault_vault_api 0.0.2",
  "revault_vault_api 0.0.6",
  "serde_json",
@@ -2382,18 +2411,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "revault_migration"
-version = "0.0.7"
+name = "revault_migrate_vault_v2"
+version = "0.0.1"
 dependencies = [
  "getrandom 0.4.3",
+ "revault_lockbox_api 0.0.9",
+ "revault_migration_format 0.0.4",
+ "revault_vault_api 0.0.10",
+ "tempfile",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_migration"
+version = "0.0.8"
+dependencies = [
+ "getrandom 0.4.3",
+ "revault_lockbox_api 0.0.10",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
  "revault_lockbox_api 0.0.6",
  "revault_lockbox_api 0.0.9",
  "revault_migrate_archive_v1",
  "revault_migrate_vault_v1",
- "revault_migration_format",
+ "revault_migrate_vault_v2",
+ "revault_migration_format 0.0.5",
  "revault_vault_api 0.0.10",
+ "revault_vault_api 0.0.11",
  "revault_vault_api 0.0.2",
  "serde",
  "serde_json",
@@ -2405,6 +2449,22 @@ dependencies = [
 [[package]]
 name = "revault_migration_format"
 version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a547c2050e3f45cc6199bbe01fe9472e744d4e06345065c3e1ea487f9f184e54"
+dependencies = [
+ "argon2",
+ "chacha20poly1305",
+ "getrandom 0.4.3",
+ "revault_page_api 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_migration_format"
+version = "0.0.5"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -2526,6 +2586,8 @@ dependencies = [
 [[package]]
 name = "revault_vault_api"
 version = "0.0.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b8fd53a76d0406b8b3c2f3b8e96a07fe28a2491bc92166d6020ca388f6f1a9c"
 dependencies = [
  "base64ct",
  "chacha20poly1305",
@@ -2546,13 +2608,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "revault_vault_api"
+version = "0.0.11"
+dependencies = [
+ "base64ct",
+ "chacha20poly1305",
+ "dbus",
+ "getrandom 0.4.3",
+ "keyring",
+ "libc",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "revault_lockbox_api 0.0.10",
+ "secret-service",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "windows-sys 0.61.2",
+ "zbus",
+ "zeroize",
+]
+
+[[package]]
 name = "revault_wasm_bindings"
 version = "0.0.3"
 dependencies = [
  "js-sys",
- "revault_lockbox_api 0.0.9",
+ "revault_lockbox_api 0.0.10",
  "revault_page_api 0.0.4",
- "revault_vault_api 0.0.10",
+ "revault_vault_api 0.0.11",
  "wasm-bindgen",
 ]
 
