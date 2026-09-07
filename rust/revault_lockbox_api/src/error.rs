@@ -104,6 +104,12 @@ impl Error {
             Error::RecoveryBlocked(_) => {
                 "Restore write access to the lockbox storage, then retry the write or run `lbx <path> doctor recover`."
             }
+            Error::UnsupportedFormatVersion {
+                found,
+                supported,
+            } if found > supported => {
+                "Install a newer reVault release, then retry."
+            }
             Error::UnsupportedFormatVersion { artifact, .. } => match artifact {
                 ArtifactKind::Lockbox => {
                     "Run `lockbox doctor migrate lockbox <path> --output <path>` or use `--replace`."

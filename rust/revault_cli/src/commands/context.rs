@@ -622,20 +622,27 @@ pub(crate) fn open_default_vault_with_password(
             Ok(vault)
         }
         Err(Error::UnsupportedFormatVersion {
-            artifact: ArtifactKind::Lockbox,
+            artifact: ArtifactKind::Vault,
             found,
             supported,
-        }) => Err(cli_diagnostic(
-            ExitCode::UnsupportedFormat,
-            "Unsupported Vault container format",
-            vec![(
-                "Details".to_string(),
-                format!(
-                    "Found Lockbox container version {found}; this reVault build supports container version {supported}. The encrypted Vault structure is detected separately during migration."
-                ),
-            )],
-            "Run `lbx doctor migrate vault --output <directory>` or use `--replace`.",
-        )),
+        }) => {
+            let next_step = if found > supported {
+                "Install a newer reVault release, then retry."
+            } else {
+                "Run `lbx doctor migrate vault --output <directory>` or use `--replace`."
+            };
+            Err(cli_diagnostic(
+                ExitCode::UnsupportedFormat,
+                "Unsupported Vault format",
+                vec![(
+                    "Details".to_string(),
+                    format!(
+                        "Found version {found}; this reVault build supports version {supported}."
+                    ),
+                )],
+                next_step,
+            ))
+        }
         Err(err) => match err {
             Error::InvalidKey | Error::CorruptHeader => Err(cli_error(
                 "Vault open failed: check the Vault passphrase. If the passphrase is correct, the Vault file may be damaged",
