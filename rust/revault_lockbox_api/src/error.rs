@@ -107,6 +107,7 @@ impl Error {
             Error::UnsupportedFormatVersion {
                 found,
                 supported,
+                ..
             } if found > supported => {
                 "Install a newer reVault release, then retry."
             }
