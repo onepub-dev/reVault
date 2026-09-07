@@ -973,10 +973,17 @@ impl VaultDirectory {
         lockbox_id: LockboxId,
         path: impl AsRef<Path>,
     ) -> Result<()> {
-        let path = fs::canonicalize(path.as_ref())
-            .map_err(|err| Error::Io(err.to_string()))?
-            .to_string_lossy()
-            .to_string();
+        let path = path.as_ref();
+        let path = fs::canonicalize(path).unwrap_or_else(|_| {
+            if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                std::env::current_dir()
+                    .map(|directory| directory.join(path))
+                    .unwrap_or_else(|_| path.to_path_buf())
+            }
+        });
+        let path = path.to_string_lossy().to_string();
         let stale_paths = self
             .list_known_lockboxes()?
             .into_iter()
