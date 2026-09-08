@@ -1,0 +1,12 @@
+Release cli
+CLI: 0.0.16
+Bindings: 
+
+- Remove the superseded Dart implementation
+- Consolidate branch histories and use main as the default
+- Add CI release candidates with resumable CLI-first promotion
+- Route language binding file operations through Rust
+- Require Rust-owned binding operations unless explicitly approved
+- Support read-only lockboxes with archive handle locking
+- Fix lockbox moves across filesystems and clarify move guidance
+- Add password profiles and release CLI 0.0.14 (#306)
