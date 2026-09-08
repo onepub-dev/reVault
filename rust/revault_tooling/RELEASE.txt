@@ -85,3 +85,26 @@ These commands reattach to an existing run or read its failed logs; they do not
 prepare or publish another release. Prepare and publish watch automatically.
 CI packaging and upload building blocks live under `internal`, hidden from
 normal help. Old top-level publish commands have been removed.
+
+Version selection:
+
+    revault-tool release prepare cli --version 1.2.3
+    revault-tool release prepare bindings --version minor
+    revault-tool release prepare all --cli-version patch --bindings-version 0.4.0
+
+With no explicit version, interactive preparation asks for patch, minor, major,
+or an exact stable version. Noninteractive preparation requires explicit values.
+Versions must exceed the current source/tag versions.
+
+Live monitoring and cancellation:
+
+    revault-tool release logs
+    revault-tool release cancel
+    revault-tool release cancel --candidate 12345678
+
+Logs are fetched per completed failed/cancelled job, even while other jobs run.
+Unfinished job logs are available in GitHub's web UI. Empty/unavailable log
+responses are reported explicitly. Ctrl-C stops local monitoring without
+cancelling CI and prints the exact cancel and reconnect commands.
+Completed jobs use one line with their full name and total runtime. Active
+jobs show their current step; failed jobs show the failing steps.

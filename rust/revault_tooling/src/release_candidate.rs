@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 use std::{
     collections::BTreeMap,
     fs,
-    io::Write,
+    io::{IsTerminal, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::{
@@ -37,17 +37,20 @@ impl Scope {
 }
 #[derive(Args)]
 #[command(
-    long_about = "Prepare a internal candidate without publishing. Requires a clean checkout, Git, Cargo and an authenticated GitHub CLI. Updates versions, dependencies and release notes, commits the release, pushes an isolated candidate ref, and waits for CI. Prints and remembers the candidate ID. Use release publish to promote it. See rust/revault_tooling/RELEASE.txt."
+    long_about = "Prepare a release candidate without publishing. Requires a clean checkout, Git, Cargo and an authenticated GitHub CLI. Updates versions, dependencies and release notes, commits the release, pushes an isolated candidate ref, and waits for CI. Prints and remembers the candidate ID. Use release publish to promote it. See rust/revault_tooling/RELEASE.txt."
 )]
 pub struct Prepare {
     #[arg(value_enum, default_value = "all")]
     scope: Scope,
-    /// New CLI version. Defaults to a patch increment.
+    /// CLI version: an exact version, patch, minor or major. Prompts when omitted.
     #[arg(long)]
     cli_version: Option<String>,
-    /// New language-package version. Defaults to a patch increment of Dart's version.
+    /// Binding version: an exact version, patch, minor or major. Prompts when omitted.
     #[arg(long)]
     bindings_version: Option<String>,
+    /// Version for a single-target release (cli or bindings).
+    #[arg(long, conflicts_with_all = ["cli_version", "bindings_version"])]
+    version: Option<String>,
     #[arg(long, default_value = ".")]
     repository: PathBuf,
 }
@@ -248,52 +251,99 @@ impl GitHub {
         Err("Dispatch accepted but run ID was not found. Use release status to recover it; do not dispatch again blindly.".into())
     }
     fn watch(&self, id: u64) -> Result<()> {
-        println!("CI: https://github.com/{}/actions/runs/{id}", self.repo);
-        let args = [
-            "run",
-            "watch",
-            &id.to_string(),
-            "--repo",
-            &self.repo,
-            "--exit-status",
-            "--interval",
-            "30",
-        ];
-        let stop_heartbeat = Arc::new(AtomicBool::new(false));
-        let heartbeat_stop = Arc::clone(&stop_heartbeat);
-        let heartbeat = std::thread::spawn(move || {
-            let started = std::time::Instant::now();
-            let mut last_report = Duration::ZERO;
-            while !heartbeat_stop.load(Ordering::Relaxed) {
-                std::thread::sleep(Duration::from_secs(1));
-                let elapsed = started.elapsed();
-                if elapsed >= last_report + Duration::from_secs(60)
-                    && !heartbeat_stop.load(Ordering::Relaxed)
-                {
-                    eprintln!(
-                        "Still waiting for CI run {id} ({:.0} minutes elapsed)...",
-                        elapsed.as_secs_f64() / 60.0
-                    );
-                    last_report = elapsed;
+        let interrupted = Arc::new(AtomicBool::new(false));
+        let signal = Arc::clone(&interrupted);
+        ctrlc::set_handler(move || {
+            signal.store(true, Ordering::Relaxed);
+        })?;
+        let started = std::time::Instant::now();
+        loop {
+            let result = (|| -> Result<Value> {
+                let run = self.watch_api(&format!("actions/runs/{id}"), &interrupted)?;
+                let mut jobs = Vec::new();
+                for page in 1.. {
+                    let value = self.watch_api(
+                        &format!("actions/runs/{id}/jobs?per_page=100&page={page}"),
+                        &interrupted,
+                    )?;
+                    let rows = value["jobs"].as_array().ok_or("Missing jobs")?;
+                    jobs.extend(rows.iter().cloned());
+                    if rows.len() < 100 {
+                        break;
+                    }
                 }
+                if std::io::stdout().is_terminal() {
+                    print!("\x1b[2J\x1b[H");
+                }
+                let complete = jobs.iter().filter(|j| j["status"] == "completed").count();
+                println!(
+                    "CI {id}: {} / {} — {complete}/{} jobs complete — watching {}m {}s",
+                    run["status"],
+                    run["conclusion"],
+                    jobs.len(),
+                    started.elapsed().as_secs() / 60,
+                    started.elapsed().as_secs() % 60
+                );
+                println!("https://github.com/{}/actions/runs/{id}", self.repo);
+                println!("Ctrl-C stops watching only; remote CI continues.\nCancel: revault-tool release cancel --candidate {id}\nFailure logs: revault-tool release logs --candidate {id}\n");
+                for job in &jobs {
+                    println!("{}", job_progress(job));
+                }
+                std::io::stdout().flush()?;
+                Ok(run)
+            })();
+            if interrupted.load(Ordering::Relaxed) {
+                return Err(format!("Stopped watching. Remote CI has not been cancelled.\nCancel: revault-tool release cancel --candidate {id}\nResume: revault-tool release status --candidate {id} --watch").into());
             }
-        });
-        let status = Command::new("gh")
-            .current_dir(&self.root)
-            .args(args)
-            .status();
-        stop_heartbeat.store(true, Ordering::Relaxed);
-        let _ = heartbeat.join();
-        let status = status?;
-        if status.success() {
-            return Ok(());
+            let run = result.map_err(|error| format!("Cannot refresh CI: {error}. Remote CI has not been cancelled.\nCancel: revault-tool release cancel --candidate {id}"))?;
+            if run["status"] == "completed" {
+                if run["conclusion"] == "success" {
+                    return Ok(());
+                }
+                self.report_run_failure(id);
+                return Err(format!("CI run {id} finished with {}. Read errors: revault-tool release logs --candidate {id}", run["conclusion"]).into());
+            }
+            for _ in 0..100 {
+                if interrupted.load(Ordering::Relaxed) {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            if interrupted.load(Ordering::Relaxed) {
+                return Err(format!("Stopped watching. Remote CI has not been cancelled.\nCancel: revault-tool release cancel --candidate {id}\nResume: revault-tool release status --candidate {id} --watch").into());
+            }
         }
+    }
 
-        // `gh run watch` gives useful live output, but its final error is only
-        // "command failed". Fetch the structured job state so the caller can
-        // diagnose the failure without re-running the release command.
-        self.report_run_failure(id);
-        Err(format!("CI run {id} did not succeed (see the job details above)").into())
+    fn watch_api(&self, suffix: &str, interrupted: &AtomicBool) -> Result<Value> {
+        let stdout = tempfile::tempfile()?;
+        let stderr = tempfile::tempfile()?;
+        let mut child = Command::new("gh")
+            .current_dir(&self.root)
+            .args(["api", &format!("repos/{}/{}", self.repo, suffix)])
+            .stdout(stdout.try_clone()?)
+            .stderr(stderr.try_clone()?)
+            .spawn()?;
+        let started = std::time::Instant::now();
+        loop {
+            if interrupted.load(Ordering::Relaxed) || started.elapsed() > Duration::from_secs(30) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("CI status request interrupted or timed out".into());
+            }
+            if let Some(status) = child.try_wait()? {
+                use std::io::{Read, Seek, SeekFrom};
+                let mut file = if status.success() { stdout } else { stderr };
+                file.seek(SeekFrom::Start(0))?;
+                let mut text = String::new();
+                file.read_to_string(&mut text)?;
+                if !status.success() {
+                    return Err(text.into());
+                }
+                return Ok(serde_json::from_str(&text)?);
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
 
     fn report_run_failure(&self, id: u64) {
@@ -374,6 +424,95 @@ impl GitHub {
         Ok(Some(state))
     }
 }
+// GitHub's job timestamps are UTC RFC3339 values, with whole seconds.
+fn github_seconds(timestamp: &str) -> Option<u64> {
+    let (date, clock) = timestamp.strip_suffix('Z')?.split_once('T')?;
+    let date: Vec<u64> = date
+        .split('-')
+        .map(str::parse)
+        .collect::<std::result::Result<_, _>>()
+        .ok()?;
+    let clock: Vec<u64> = clock
+        .split(':')
+        .map(str::parse)
+        .collect::<std::result::Result<_, _>>()
+        .ok()?;
+    if date.len() != 3 || clock.len() != 3 {
+        return None;
+    }
+    let (year, month, day) = (date[0], date[1], date[2]);
+    if !(1970..=9999).contains(&year)
+        || !(1..=12).contains(&month)
+        || clock[0] > 23
+        || clock[1] > 59
+        || clock[2] > 59
+    {
+        return None;
+    }
+    let leap = |y| y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+    let months = [
+        31,
+        if leap(year) { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
+    if day == 0 || day > months[(month - 1) as usize] {
+        return None;
+    }
+    let days: u64 = (1970..year)
+        .map(|y| if leap(y) { 366 } else { 365 })
+        .sum::<u64>()
+        + months[..(month - 1) as usize].iter().sum::<u64>()
+        + day
+        - 1;
+    Some(days * 86400 + clock[0] * 3600 + clock[1] * 60 + clock[2])
+}
+
+fn job_progress(job: &Value) -> String {
+    let name = job["name"].as_str().unwrap_or("Unknown job");
+    let status = job["status"].as_str().unwrap_or("unknown");
+    let conclusion = job["conclusion"].as_str().unwrap_or(status);
+    let marker = match conclusion {
+        "success" => "✓",
+        "failure" | "timed_out" => "✗",
+        "skipped" | "cancelled" => "-",
+        _ => "*",
+    };
+    let duration = job["started_at"]
+        .as_str()
+        .zip(job["completed_at"].as_str())
+        .and_then(|(start, end)| github_seconds(end)?.checked_sub(github_seconds(start)?))
+        .map(|seconds| format!(" in {}m{:02}s", seconds / 60, seconds % 60))
+        .unwrap_or_default();
+    let label = if conclusion == "success" {
+        "complete"
+    } else {
+        conclusion
+    };
+    let mut line = format!("{marker} {name} — {label}{duration} (ID {})", job["id"]);
+    if let Some(steps) = job["steps"].as_array() {
+        for step in steps.iter().filter(|step| {
+            step["conclusion"] == "failure"
+                || (status != "completed" && step["status"] == "in_progress")
+        }) {
+            line.push_str(&format!(
+                "\n    {}: {}",
+                step["name"].as_str().unwrap_or("step"),
+                step["conclusion"].as_str().unwrap_or("running")
+            ));
+        }
+    }
+    line
+}
+
 fn string(v: &Value, key: &str) -> Result<String> {
     Ok(v[key]
         .as_str()
@@ -456,7 +595,24 @@ fn display(c: &Candidate) {
     println!("Candidate: {}\nScope: {}\nCommit: {}\nCLI: {}\nBindings: {}\nCI: https://github.com/{}/actions/runs/{}\nPublish:\n  revault-tool release publish --candidate {}", c.run_id,c.scope.name(),c.source_sha,c.cli_version,c.bindings_version,c.repository,c.run_id,c.run_id);
 }
 
-pub fn prepare(args: Prepare) -> Result<()> {
+pub fn prepare(mut args: Prepare) -> Result<()> {
+    if let Some(version) = args.version.take() {
+        match args.scope {
+            Scope::Cli => args.cli_version = Some(version),
+            Scope::Bindings => args.bindings_version = Some(version),
+            Scope::All => {
+                return Err(
+                    "For prepare all, use --cli-version and --bindings-version separately".into(),
+                )
+            }
+        }
+    }
+    if (args.scope == Scope::Cli && args.bindings_version.is_some())
+        || (args.scope == Scope::Bindings && args.cli_version.is_some())
+    {
+        return Err("The version option must match the selected release target".into());
+    }
+
     let gh = GitHub::new(&args.repository)?;
     let workflow = gh.api(&format!("actions/workflows/{WORKFLOW}"))?;
     if workflow["state"] != "active" {
@@ -469,6 +625,12 @@ pub fn prepare(args: Prepare) -> Result<()> {
         return Err("Commit or stash working tree changes before preparing a release".into());
     }
     run_command(&gh.root, "git", &["fetch", "origin", "--tags"])?;
+    if args.scope != Scope::Bindings && args.cli_version.is_none() {
+        args.cli_version = Some(prompt_version("CLI")?);
+    }
+    if args.scope != Scope::Cli && args.bindings_version.is_none() {
+        args.bindings_version = Some(prompt_version("bindings")?);
+    }
     let (cli, bindings) = prepare_versions(
         &gh.root,
         args.scope,
@@ -494,25 +656,89 @@ pub fn prepare(args: Prepare) -> Result<()> {
     Ok(())
 }
 
-pub fn logs(args: Selection) -> Result<()> {
-    let gh = GitHub::new(&args.repository)?;
-    let remembered = gh.remembered()?;
-    let id = args
+fn selected_run(gh: &GitHub, args: &Selection) -> Result<u64> {
+    Ok(args
         .candidate
-        .or(remembered.and_then(|s| s.promotion.or(Some(s.candidate))))
-        .ok_or("No remembered release. Supply --candidate <run-id>.")?;
+        .or(gh
+            .remembered()?
+            .and_then(|s| s.promotion.or(Some(s.candidate))))
+        .ok_or("No remembered release. Supply --candidate <run-id>.")?)
+}
+
+pub fn cancel(args: Selection) -> Result<()> {
+    let gh = GitHub::new(&args.repository)?;
+    let id = selected_run(&gh, &args)?;
+    let run = gh.api(&format!("actions/runs/{id}"))?;
+    if run["status"] == "completed" {
+        println!("CI run {id} has already completed ({})", run["conclusion"]);
+        return Ok(());
+    }
     run_command(
         &gh.root,
         "gh",
-        &[
-            "run",
-            "view",
-            &id.to_string(),
-            "--repo",
-            &gh.repo,
-            "--log-failed",
-        ],
-    )
+        &["run", "cancel", &id.to_string(), "--repo", &gh.repo],
+    )?;
+    println!("Cancellation requested for CI run {id}; runners may take a moment to stop.");
+    Ok(())
+}
+
+pub fn logs(args: Selection) -> Result<()> {
+    let gh = GitHub::new(&args.repository)?;
+    let id = selected_run(&gh, &args)?;
+    println!(
+        "Failure logs for CI run {id}: https://github.com/{}/actions/runs/{id}",
+        gh.repo
+    );
+    let mut found = false;
+    let mut unavailable = false;
+    for page in 1.. {
+        let value = gh.api(&format!("actions/runs/{id}/jobs?per_page=100&page={page}"))?;
+        let jobs = value["jobs"].as_array().ok_or("Missing jobs")?;
+        for job in jobs {
+            if !matches!(
+                job["conclusion"].as_str(),
+                Some("failure" | "timed_out" | "cancelled")
+            ) {
+                continue;
+            }
+            found = true;
+            let job_id = job["id"].as_u64().ok_or("Missing job ID")?;
+            println!(
+                "\n{} ({})\nhttps://github.com/{}/actions/runs/{id}/job/{job_id}",
+                job["name"], job["conclusion"], gh.repo
+            );
+            // The per-job endpoint is available as soon as that job finishes,
+            // unlike gh run view --log-failed, which waits for the entire run.
+            match output(
+                &gh.root,
+                "gh",
+                &[
+                    "api",
+                    &format!("repos/{}/actions/jobs/{job_id}/logs", gh.repo),
+                ],
+            ) {
+                Ok(log) if !log.trim().is_empty() => println!("{log}"),
+                result => {
+                    let reason = result
+                        .err()
+                        .map(|e| e.to_string())
+                        .unwrap_or_else(|| "GitHub returned an empty log".into());
+                    eprintln!("Logs unavailable for job {job_id}: {reason}. Retry release logs or open the job link.");
+                    unavailable = true;
+                }
+            }
+        }
+        if jobs.len() < 100 {
+            break;
+        }
+    }
+    if !found {
+        println!("No completed failed jobs yet. GitHub's API does not stream unfinished job logs.\nLive runner logs: https://github.com/{}/actions/runs/{id}", gh.repo);
+    }
+    if unavailable {
+        return Err("Some job logs were unavailable; available logs are printed above".into());
+    }
+    Ok(())
 }
 
 pub fn status(options: StatusSelection) -> Result<()> {
@@ -925,6 +1151,22 @@ fn prepare_versions(
         .map(|t| format!("{t}..HEAD"))
         .unwrap_or_else(|| "HEAD".into());
     let notes = output(root, "git", &["log", &range, "--format=- %s"])?;
+    if !bindings.is_empty() {
+        let changelog = root.join("bindings/dart/CHANGELOG.md");
+        let previous = match fs::read_to_string(&changelog) {
+            Ok(text) => text,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => String::new(),
+            Err(error) => return Err(error.into()),
+        };
+        let header = format!("## {bindings}");
+        if !previous
+            .lines()
+            .any(|line| line.trim_start_matches('#').trim() == bindings)
+        {
+            fs::write(&changelog, format!("{header}\n\n{notes}\n\n{previous}"))?;
+        }
+        run_command(root, "git", &["add", "bindings/dart/CHANGELOG.md"])?;
+    }
     fs::create_dir_all(root.join("release-notes"))?;
     fs::write(
         root.join("release-notes/candidate.txt"),
@@ -959,6 +1201,26 @@ fn prepare_versions(
     )?;
     Ok((cli, bindings))
 }
+fn prompt_version(target: &str) -> Result<String> {
+    if !std::io::stdin().is_terminal() {
+        return Err(format!("Choose the {target} version explicitly: --{}-version patch|minor|major|MAJOR.MINOR.PATCH", if target == "CLI" { "cli" } else { "bindings" }).into());
+    }
+    loop {
+        print!("{target} version: patch, minor, major, or an exact MAJOR.MINOR.PATCH [patch]: ");
+        std::io::stdout().flush()?;
+        let mut input = String::new();
+        if std::io::stdin().read_line(&mut input)? == 0 {
+            return Err("Version selection cancelled".into());
+        }
+        let input = input.trim();
+        let input = if input.is_empty() { "patch" } else { input };
+        if matches!(input, "patch" | "minor" | "major") || version(input).is_ok() {
+            return Ok(input.into());
+        }
+        eprintln!("Enter patch, minor, major, or a stable version such as 1.2.3.");
+    }
+}
+
 fn next_version(
     root: &Path,
     prefix: &str,
@@ -982,7 +1244,16 @@ fn next_version(
             }
         }
     }
-    let next = requested.unwrap_or(patch(&highest)?);
+    let (major, minor, _) = tuple(&highest)?;
+    let next = match requested.as_deref().unwrap_or("patch") {
+        "patch" => patch(&highest)?,
+        "minor" => format!(
+            "{major}.{}.0",
+            minor.checked_add(1).ok_or("Version overflow")?
+        ),
+        "major" => format!("{}.0.0", major.checked_add(1).ok_or("Version overflow")?),
+        exact => exact.to_owned(),
+    };
     if tuple(&next)? <= tuple(&highest)? {
         return Err(format!("Version {next} must exceed {highest}").into());
     }
@@ -1045,6 +1316,20 @@ mod tests {
             }],
         }
     }
+    #[test]
+    fn completed_jobs_collapse_with_elapsed_time_across_midnight() {
+        let job = json!({"id":7,"name":"CLI build","status":"completed","conclusion":"success",
+            "started_at":"2026-09-08T23:58:00Z","completed_at":"2026-09-09T00:03:43Z",
+            "steps":[{"name":"Build artifacts","status":"completed","conclusion":"success"}]});
+        assert_eq!(job_progress(&job), "✓ CLI build — complete in 5m43s (ID 7)");
+        assert_eq!(
+            github_seconds("2024-03-01T00:00:00Z").unwrap()
+                - github_seconds("2024-02-28T00:00:00Z").unwrap(),
+            172800
+        );
+        assert!(github_seconds("invalid").is_none());
+    }
+
     #[test]
     fn promotion_refuses_missing_replaced_or_foreign_artifacts() {
         let c = candidate();
@@ -1167,6 +1452,9 @@ version = "1.0.0"
         .unwrap();
 
         assert_eq!((cli.as_str(), bindings.as_str()), ("1.0.1", "2.0.6"));
+        assert!(fs::read_to_string(root.join("bindings/dart/CHANGELOG.md"))
+            .unwrap()
+            .starts_with("## 2.0.6\n"));
         let manifest = fs::read_to_string(root.join("rust/revault_cli/Cargo.toml"))
             .unwrap()
             .parse::<toml_edit::DocumentMut>()
@@ -1182,6 +1470,18 @@ version = "1.0.0"
             .unwrap()
             .is_empty());
         assert!(next_version(root, "revault-api-v", "2.0.0", Some("2.0.4".into())).is_err());
+        assert_eq!(
+            next_version(root, "revault-api-v", "2.0.0", Some("minor".into())).unwrap(),
+            "2.1.0"
+        );
+        assert_eq!(
+            next_version(root, "revault-api-v", "2.0.0", Some("major".into())).unwrap(),
+            "3.0.0"
+        );
+        assert_eq!(
+            next_version(root, "revault-api-v", "2.0.0", Some("4.5.6".into())).unwrap(),
+            "4.5.6"
+        );
     }
     #[test]
     fn stable_version_validation() {

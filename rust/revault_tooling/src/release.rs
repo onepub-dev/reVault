@@ -28,6 +28,8 @@ pub enum ReleaseCommand {
     Status(crate::release_candidate::StatusSelection),
     /// Retrieve failure logs from the existing candidate or publication run.
     Logs(crate::release_candidate::Selection),
+    /// Cancel the remembered or explicitly selected CI run.
+    Cancel(crate::release_candidate::Selection),
 }
 
 #[derive(Subcommand)]
@@ -187,6 +189,7 @@ pub fn run(command: ReleaseCommand) -> Result {
         ReleaseCommand::Publish(args) => crate::release_candidate::publish(args),
         ReleaseCommand::Status(args) => crate::release_candidate::status(args),
         ReleaseCommand::Logs(args) => crate::release_candidate::logs(args),
+        ReleaseCommand::Cancel(args) => crate::release_candidate::cancel(args),
     }
 }
 

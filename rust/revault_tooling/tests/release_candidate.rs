@@ -129,7 +129,7 @@ fn remembered_candidate_resumes_failed_publication_without_preparing() {
     succeeds(f.run(&["publish"]));
     let calls = f.calls();
     assert!(calls.contains("run rerun 99 --repo org/repo --failed"));
-    assert!(calls.contains("run watch 99"));
+    assert!(calls.contains("actions/runs/99/jobs?"));
     assert!(!calls.contains("POST"));
     assert!(!calls.contains("prepare"));
     let state: Value = serde_json::from_slice(
@@ -218,7 +218,7 @@ fn new_publication_dispatches_only_the_frozen_candidate() {
     assert_eq!(body["inputs"]["candidate"], "42");
     assert_eq!(body["inputs"]["mode"], "publish");
     assert_eq!(f.calls().matches("--method POST").count(), 1);
-    assert!(f.calls().contains("run watch 99"));
+    assert!(f.calls().contains("actions/runs/99/jobs?"));
 }
 
 #[test]
@@ -252,7 +252,7 @@ fn coordinator_preserves_trusted_publication_workflow_entry_points() {
             serde_json::from_slice(&fs::read(f.dir.path().join("dispatch.json")).unwrap()).unwrap();
         assert_eq!(body["inputs"]["promotion_run_id"], "42");
         assert_eq!(body["ref"], "release-candidates/test");
-        assert!(f.calls().contains("run watch 99"));
+        assert!(f.calls().contains("actions/runs/99/jobs?"));
     }
 }
 
@@ -261,7 +261,109 @@ fn status_watch_reattaches_without_dispatching() {
     let f = Fixture::new();
     succeeds(f.run(&["status", "--watch"]));
     let calls = f.calls();
-    assert!(calls.contains("run watch 42"));
+    assert!(calls.contains("actions/runs/42/jobs?"));
     assert!(!calls.contains("POST"));
     assert!(!calls.contains("rerun"));
+}
+
+#[test]
+fn failed_job_logs_are_available_while_run_continues() {
+    let f = Fixture::new();
+    write(
+        f.dir.path(),
+        "run.json",
+        json!({"status":"in_progress","conclusion":null}),
+    );
+    write(
+        f.dir.path(),
+        "jobs.json",
+        json!({"jobs":[
+            {"id":71,"name":"compile fuzz","status":"completed","conclusion":"failure"},
+            {"id":72,"name":"Windows tests","status":"in_progress","conclusion":null}
+        ]}),
+    );
+    let output = f.run(&["logs"]);
+    assert!(String::from_utf8_lossy(&output.stdout).contains("lock file needs to be updated"));
+    succeeds(output);
+    assert!(f.calls().contains("actions/jobs/71/logs"));
+    assert!(!f.calls().contains("actions/jobs/72/logs"));
+    assert!(!f.calls().contains("--log-failed"));
+}
+
+#[test]
+fn cancel_active_run_but_leave_completed_run_alone() {
+    let f = Fixture::new();
+    succeeds(f.run(&["cancel"]));
+    assert!(!f.calls().contains("run cancel"));
+    write(
+        f.dir.path(),
+        "run.json",
+        json!({"status":"in_progress","conclusion":null}),
+    );
+    succeeds(f.run(&["cancel"]));
+    assert!(f.calls().contains("run cancel 42 --repo org/repo"));
+}
+
+#[cfg(unix)]
+#[test]
+fn ctrl_c_stops_local_watch_and_explains_remote_cancellation() {
+    use std::process::Stdio;
+    let f = Fixture::new();
+    write(
+        f.dir.path(),
+        "run.json",
+        json!({"status":"in_progress","conclusion":null}),
+    );
+    let mut paths = vec![mock().parent().unwrap().to_path_buf()];
+    paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
+    let mut child = Command::new(env!("CARGO_BIN_EXE_revault-tool"))
+        .args(["release", "status", "--watch"])
+        .current_dir(f.dir.path())
+        .env("PATH", std::env::join_paths(paths).unwrap())
+        .env("RELEASE_FIXTURE", f.dir.path())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let start = std::time::Instant::now();
+    while !f.calls().contains("actions/runs/42/jobs?") {
+        if start.elapsed().as_secs() > 5 {
+            let _ = child.kill();
+            panic!("Watcher did not start");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert!(Command::new("kill")
+        .args(["-INT", &child.id().to_string()])
+        .status()
+        .unwrap()
+        .success());
+    while child.try_wait().unwrap().is_none() {
+        if start.elapsed().as_secs() > 8 {
+            let _ = child.kill();
+            panic!("Watcher did not exit on Ctrl-C");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let output = child.wait_with_output().unwrap();
+    assert!(!output.status.success());
+    let text = String::from_utf8_lossy(&output.stderr);
+    assert!(text.contains("Remote CI has not been cancelled"), "{text}");
+    assert!(text.contains("release cancel --candidate 42"), "{text}");
+    assert!(!f.calls().contains("run cancel"));
+}
+
+#[test]
+fn empty_job_logs_never_succeed_silently() {
+    let f = Fixture::new();
+    write(
+        f.dir.path(),
+        "jobs.json",
+        json!({"jobs":[{"id":71,"name":"compile fuzz","status":"completed","conclusion":"failure"}]}),
+    );
+    fs::write(f.dir.path().join("empty-logs"), "").unwrap();
+    let output = f.run(&["logs"]);
+    assert!(!output.status.success());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("GitHub returned an empty log"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("CI run 42"));
 }

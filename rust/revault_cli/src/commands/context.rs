@@ -286,57 +286,71 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
         .map_err(AutoOpenLockboxError::Unavailable)?;
     let lockbox_id =
         VaultOpen::read_lockbox_id(Path::new(path)).map_err(AutoOpenLockboxError::Unavailable)?;
-    if let Some(lockbox_password) = vault
+    // Load the candidate credentials while owning the vault, then release it
+    // before opening the lockbox. Backup recovery may need to open this vault.
+    let mut passwords = Vec::new();
+    if let Some(password) = vault
         .remembered_lockbox_password(lockbox_id)
         .map_err(AutoOpenLockboxError::Unavailable)?
     {
-        let signing_key = vault
-            .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
-            .map_err(AutoOpenLockboxError::Unavailable)?;
-        if let Ok(lockbox) = local_vault().open_lockbox_with_signing_key(
-            path,
-            LockboxOpen::Password(&lockbox_password),
-            &signing_key,
-        ) {
-            return Ok(lockbox);
-        }
+        passwords.push(password);
     }
     for name in vault
         .list_password_profiles()
         .map_err(AutoOpenLockboxError::Unavailable)?
     {
-        let credential = vault
-            .load_profile_password(&name)
-            .map_err(AutoOpenLockboxError::Unavailable)?;
-        let signing_key = vault
-            .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
-            .map_err(AutoOpenLockboxError::Unavailable)?;
-        if let Ok(lockbox) = local_vault().open_lockbox_with_signing_key(
-            path,
-            LockboxOpen::Password(&credential),
-            &signing_key,
-        ) {
-            return Ok(lockbox);
-        }
+        passwords.push(
+            vault
+                .load_profile_password(&name)
+                .map_err(AutoOpenLockboxError::Unavailable)?,
+        );
     }
-    let profiles = vault
+    let password_signing_key = if passwords.is_empty() {
+        None
+    } else {
+        Some(
+            vault
+                .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
+                .map_err(AutoOpenLockboxError::Unavailable)?,
+        )
+    };
+    let mut contacts = Vec::new();
+    for profile in vault
         .list_private_keys()
-        .map_err(AutoOpenLockboxError::Unavailable)?;
-    for profile in profiles {
+        .map_err(AutoOpenLockboxError::Unavailable)?
+    {
         let Ok(keypair) = vault.load_private_key(&profile) else {
             continue;
         };
         let Ok(signing_key) = vault.load_owner_signing_key(&profile) else {
             continue;
         };
-        let Ok(lockbox) = local_vault().open_lockbox_with_signing_key(
+        contacts.push((keypair, signing_key));
+    }
+    drop(vault);
+    if let Some(signing_key) = password_signing_key {
+        for password in passwords {
+            match local_vault().open_lockbox_with_signing_key(
+                path,
+                LockboxOpen::Password(&password),
+                &signing_key,
+            ) {
+                Ok(lockbox) => return Ok(lockbox),
+                Err(Error::InvalidKey) => continue,
+                Err(error) => return Err(AutoOpenLockboxError::Unavailable(error)),
+            }
+        }
+    }
+    for (keypair, signing_key) in contacts {
+        match local_vault().open_lockbox_with_signing_key(
             path,
             LockboxOpen::ContactKeyPair(keypair),
             &signing_key,
-        ) else {
-            continue;
-        };
-        return Ok(lockbox);
+        ) {
+            Ok(lockbox) => return Ok(lockbox),
+            Err(Error::InvalidKey) => continue,
+            Err(error) => return Err(AutoOpenLockboxError::Unavailable(error)),
+        }
     }
     Err(AutoOpenLockboxError::Unavailable(Error::VaultUnavailable(
         "no remembered pass phrase or vault profile could open it".to_string(),
