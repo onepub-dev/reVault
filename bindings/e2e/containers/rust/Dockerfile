@@ -11,4 +11,4 @@ RUN cargo build --locked --release --manifest-path bindings/e2e/rust/Cargo.toml 
       /opt/revault-rust-conformance
 ENV REVAULT_E2E_LANGUAGE=rust
 ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
-CMD ["revault-tool", "e2e", "container", "--language", "rust"]
+CMD ["revault-tool", "internal", "e2e", "container", "--language", "rust"]

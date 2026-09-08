@@ -78,7 +78,11 @@ impl Fixture {
         let mut paths = vec![mock().parent().unwrap().to_path_buf()];
         paths.extend(std::env::split_paths(&std::env::var_os("PATH").unwrap()));
         Command::new(env!("CARGO_BIN_EXE_revault-tool"))
-            .args(["release"])
+            .args([if args.first() == Some(&"candidate") {
+                "internal"
+            } else {
+                "release"
+            }])
             .args(args)
             .current_dir(self.dir.path())
             .env("PATH", std::env::join_paths(paths).unwrap())
@@ -250,4 +254,14 @@ fn coordinator_preserves_trusted_publication_workflow_entry_points() {
         assert_eq!(body["ref"], "release-candidates/test");
         assert!(f.calls().contains("run watch 99"));
     }
+}
+
+#[test]
+fn status_watch_reattaches_without_dispatching() {
+    let f = Fixture::new();
+    succeeds(f.run(&["status", "--watch"]));
+    let calls = f.calls();
+    assert!(calls.contains("run watch 42"));
+    assert!(!calls.contains("POST"));
+    assert!(!calls.contains("rerun"));
 }

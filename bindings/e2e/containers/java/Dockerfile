@@ -8,9 +8,9 @@ WORKDIR /workspace
 COPY . .
 COPY --from=native /tmp/native /tmp/native
 COPY --from=native /workspace/rust/target/release/revault-tool /usr/local/bin/revault-tool
-RUN revault-tool release stage-ecosystems --allow-partial --repository . \
+RUN revault-tool internal stage-ecosystems --allow-partial --repository . \
       --version 0.2.0 --output /tmp/ecosystem /tmp/native/*.tar.gz \
-    && revault-tool release assemble-packages --allow-partial --version 0.2.0 \
+    && revault-tool internal assemble-packages --allow-partial --version 0.2.0 \
       --layout /tmp/ecosystem --source . --output /tmp/packages
 RUN mvn -q dependency:get -Dartifact=com.google.flatbuffers:flatbuffers-java:25.2.10 \
     && mkdir -p /tmp/revault-api-classes /opt/revault-java \
@@ -30,4 +30,4 @@ ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
 ENV REVAULT_E2E_NATIVE_ROOT=/tmp/revault-java-extract/revault-native
 ENV REVAULT_E2E_NATIVE_FILE=librevault_api.so
 ENV REVAULT_E2E_NATIVE_KIND=dynamic
-CMD ["revault-tool", "e2e", "container", "--language", "java"]
+CMD ["revault-tool", "internal", "e2e", "container", "--language", "java"]

@@ -7,32 +7,130 @@ use std::process::Command;
 
 #[derive(Subcommand)]
 pub enum BindingsCommand {
-    /// Verify every ABI operation is present in every generated surface.
-    Check(Check),
-    /// Regenerate private FlatBuffers transport models with flatc 25.2.10.
-    GenerateFlatbuffers(GenerateFlatbuffers),
+    /// Show generation currency, API coverage, release and publication status.
+    Status(Check),
+    /// Update stale generated binding models; leave current files untouched.
+    Generate(GenerateFlatbuffers),
 }
 
 #[derive(Args)]
 pub struct Check {
     #[arg(long, default_value = ".")]
-    repository: PathBuf,
+    pub repository: PathBuf,
 }
 
 #[derive(Args)]
 pub struct GenerateFlatbuffers {
     #[arg(long, default_value = ".")]
-    repository: PathBuf,
+    pub repository: PathBuf,
 }
 
 pub fn run(command: BindingsCommand) -> Result {
     match command {
-        BindingsCommand::Check(args) => check(&args.repository),
-        BindingsCommand::GenerateFlatbuffers(args) => generate_flatbuffers(&args.repository),
+        BindingsCommand::Status(args) => status(&args.repository),
+        BindingsCommand::Generate(args) => generate(&args.repository),
     }
 }
 
-fn check(repository: &Path) -> Result {
+fn generated_changes(repository: &Path) -> Result<(tempfile::TempDir, Vec<PathBuf>)> {
+    let temporary = tempfile::tempdir()?;
+    let tracked = Command::new("git")
+        .current_dir(repository)
+        .args(["ls-files", "-z"])
+        .output()?;
+    if !tracked.status.success() {
+        return Err("Cannot list repository files".into());
+    }
+    for relative in tracked.stdout.split(|b| *b == 0).filter(|p| !p.is_empty()) {
+        let relative = Path::new(std::str::from_utf8(relative)?);
+        let source = repository.join(relative);
+        if !source.is_file() {
+            continue;
+        }
+        let destination = temporary.path().join(relative);
+        fs::create_dir_all(destination.parent().unwrap())?;
+        fs::copy(source, destination)?;
+    }
+    generate_flatbuffers(temporary.path())?;
+    let mut changed = Vec::new();
+    for relative in tracked.stdout.split(|b| *b == 0).filter(|p| !p.is_empty()) {
+        let relative = Path::new(std::str::from_utf8(relative)?);
+        if repository.join(relative).is_file() && !temporary.path().join(relative).exists() {
+            changed.push(relative.to_owned());
+        }
+    }
+    for entry in walkdir::WalkDir::new(temporary.path()) {
+        let entry = entry?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let relative = entry.path().strip_prefix(temporary.path())?;
+        if fs::read(repository.join(relative)).ok().as_deref()
+            != Some(fs::read(entry.path())?.as_slice())
+        {
+            changed.push(relative.to_owned());
+        }
+    }
+    Ok((temporary, changed))
+}
+
+pub fn verify_generated(repository: &Path) -> Result {
+    let (_, changed) = generated_changes(&repository.canonicalize()?)?;
+    if !changed.is_empty() {
+        return Err(format!(
+            "{} generated binding files are stale; run revault-tool bindings generate",
+            changed.len()
+        )
+        .into());
+    }
+    Ok(())
+}
+
+fn generate(repository: &Path) -> Result {
+    let repository = repository.canonicalize()?;
+    let (temporary, changed) = generated_changes(&repository)?;
+    if changed.is_empty() {
+        println!("Bindings are current.");
+        return Ok(());
+    }
+    for relative in &changed {
+        let destination = repository.join(relative);
+        fs::create_dir_all(destination.parent().unwrap())?;
+        let generated = temporary.path().join(relative);
+        if generated.exists() {
+            fs::copy(generated, destination)?;
+        } else {
+            fs::remove_file(destination)?;
+        }
+    }
+    println!("Updated {} generated binding files.", changed.len());
+    Ok(())
+}
+
+fn status(repository: &Path) -> Result {
+    let repository = repository.canonicalize()?;
+    match generated_changes(&repository) {
+        Ok((_, changes)) if changes.is_empty() => println!("Generated bindings: current"),
+        Ok((_, changes)) => println!(
+            "Generated bindings: {} stale files; run revault-tool bindings generate",
+            changes.len()
+        ),
+        Err(error) => println!("Generated bindings: unknown ({error})"),
+    }
+    match check(&repository) {
+        Ok(()) => println!("Binding API coverage: passed"),
+        Err(error) => println!("Binding API coverage: failed ({error})"),
+    }
+    crate::release_candidate::status(crate::release_candidate::StatusSelection {
+        selection: crate::release_candidate::Selection {
+            candidate: None,
+            repository,
+        },
+        watch: false,
+    })
+}
+
+pub fn check(repository: &Path) -> Result {
     let repository = repository.canonicalize()?;
     let header = fs::read_to_string(repository.join("rust/revault_bindings/revault_api.h"))?;
     let declarations = declarations(&header);
@@ -996,7 +1094,7 @@ fn generate_flatbuffers(repository: &Path) -> Result {
             return Err(format!("{generator} failed with {status}").into());
         }
     }
-    println!("regenerated private FlatBuffers transports with flatc 25.2.10");
+
     Ok(())
 }
 

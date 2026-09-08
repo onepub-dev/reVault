@@ -407,7 +407,7 @@ jobs:
           gh run download "$CANDIDATE" --name release-candidate --dir manifest
           test "$(jq -r .cli_version manifest/candidate.json)" = "$CLI_VERSION"
           test "$(jq -r .scope manifest/candidate.json)" != bindings
-          driver/revault-tool release candidate tags --candidate "$CANDIDATE" --scope "$(jq -r .scope manifest/candidate.json)" --cli-version "$(jq -r .cli_version manifest/candidate.json)" --bindings-version "$(jq -r .bindings_version manifest/candidate.json)"
+          driver/revault-tool internal candidate tags --candidate "$CANDIDATE" --scope "$(jq -r .scope manifest/candidate.json)" --cli-version "$(jq -r .cli_version manifest/candidate.json)" --bindings-version "$(jq -r .bindings_version manifest/candidate.json)"
       - name: Publish the tested CLI archives and installers
         env:
           RELEASE_TAG: revault_cli-v${{ inputs.version }}
@@ -430,4 +430,4 @@ jobs:
       - name: Publish the validated CLI crate dependency chain
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
-        run: driver/revault-tool publish-cli --repository . --publish
+        run: driver/revault-tool internal publish-crates cli --repository . --publish

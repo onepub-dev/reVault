@@ -85,7 +85,7 @@ jobs:
             --package revault_wasm_bindings \
             -- --check
           cargo clippy --locked -p revault_bindings -p revault_tooling -p revault_wasm_bindings --all-targets -- -D warnings
-          cargo run --locked -p revault_tooling -- bindings check --repository ..
+          cargo run --locked -p revault_tooling -- internal check-bindings --repository ..
       - name: Public API documentation
         working-directory: rust
         env:

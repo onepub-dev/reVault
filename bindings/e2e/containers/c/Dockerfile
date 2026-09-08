@@ -7,7 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /workspace
 COPY . .
-RUN revault-tool release install-native \
+RUN revault-tool internal install-native \
       --archive /tmp/native/revault-api-native-0.2.0-linux-x86_64-gnu.tar.gz \
       --prefix /usr/local \
     && ldconfig
@@ -20,4 +20,4 @@ ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
 ENV REVAULT_E2E_NATIVE_ROOT=/usr/local/lib
 ENV REVAULT_E2E_NATIVE_FILE=librevault_api.so
 ENV REVAULT_E2E_NATIVE_KIND=dynamic
-CMD ["revault-tool", "e2e", "container", "--language", "c"]
+CMD ["revault-tool", "internal", "e2e", "container", "--language", "c"]

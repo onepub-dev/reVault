@@ -211,6 +211,7 @@ pub(crate) fn container(args: Container) -> Result {
     if cfg!(target_os = "linux") && std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_none() {
         let mut command = Command::new("dbus-run-session");
         command.arg("--").arg(std::env::current_exe()?).args([
+            "internal",
             "e2e",
             "container",
             "--language",
@@ -292,6 +293,7 @@ pub(crate) fn container(args: Container) -> Result {
     fs::write(&results, combined)?;
     let evidence_output = Command::new(std::env::current_exe()?)
         .args([
+            "internal",
             "e2e",
             "evidence",
             "--language",
@@ -666,7 +668,7 @@ fn native_conformance(args: NativeConformance) -> Result {
             .env("XDG_RUNTIME_DIR", &runtime)
             .arg("--")
             .arg(std::env::current_exe()?)
-            .args(["e2e", "native-conformance", "--archive"])
+            .args(["internal", "e2e", "native-conformance", "--archive"])
             .arg(&args.archive)
             .args(["--repository"])
             .arg(&args.repository)
@@ -761,6 +763,7 @@ fn native_conformance(args: NativeConformance) -> Result {
     let native = work.join("native.tsv");
     let evidence_output = Command::new(std::env::current_exe()?)
         .args([
+            "internal",
             "e2e",
             "evidence",
             "--language",
@@ -1234,7 +1237,7 @@ fn generate_inventory(args: GenerateInventory) -> Result {
     if args.check {
         if fs::read_to_string(&args.output)? != generated {
             return Err(format!(
-                "{} is stale; run revault-tool e2e generate-inventory",
+                "{} is stale; run revault-tool internal e2e generate-inventory",
                 args.output.display()
             )
             .into());
@@ -1317,6 +1320,7 @@ fn matrix(args: Matrix) -> Result {
                         "--rm",
                         language,
                         "revault-tool",
+                        "internal",
                         "e2e",
                         "interop-consumer",
                         "--consumer",
@@ -1336,6 +1340,7 @@ fn matrix(args: Matrix) -> Result {
                     "--rm",
                     "kotlin",
                     "revault-tool",
+                    "internal",
                     "e2e",
                     "verify-interop",
                     "--results-dir",

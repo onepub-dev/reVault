@@ -21,11 +21,11 @@ COPY . .
 COPY --from=native /tmp/native /tmp/native
 COPY --from=native /workspace/rust/target/release/revault-tool /usr/local/bin/revault-tool
 COPY --from=wasm /tmp/revault-wasm bindings/wasm/generated
-RUN revault-tool release stage-ecosystems --allow-partial --repository . \
+RUN revault-tool internal stage-ecosystems --allow-partial --repository . \
       --version 0.2.0 --output /tmp/ecosystem /tmp/native/*.tar.gz \
-    && revault-tool release assemble-packages --allow-partial --version 0.2.0 \
+    && revault-tool internal assemble-packages --allow-partial --version 0.2.0 \
       --layout /tmp/ecosystem --source . --output /tmp/packages
-RUN revault-tool bindings check --repository . \
+RUN revault-tool internal check-bindings --repository . \
     && mkdir -p /opt/revault-wasm-consumer \
     && npm pack /tmp/packages/npm/revault-api --pack-destination /tmp \
     && npm pack /tmp/packages/npm/revault-api-native-linux-x86_64-gnu --pack-destination /tmp \
@@ -41,4 +41,4 @@ ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
 ENV REVAULT_E2E_NATIVE_ROOT=/opt/revault-wasm-consumer/node_modules/@onepub-dev/revault-api-wasm/generated
 ENV REVAULT_E2E_NATIVE_FILE=revault_wasm_bindings_bg.wasm
 ENV REVAULT_E2E_NATIVE_KIND=wasm
-CMD ["revault-tool", "e2e", "container", "--language", "wasm"]
+CMD ["revault-tool", "internal", "e2e", "container", "--language", "wasm"]

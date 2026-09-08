@@ -1,5 +1,11 @@
 use crate::command::{self, TaskResult};
 
+pub fn tool() -> TaskResult {
+    install_path("revault_tooling")?;
+    println!("Installed local `revault-tool`.");
+    Ok(())
+}
+
 pub fn cli() -> TaskResult {
     install_path("revault_cli")?;
     install_path("revault_migrate_vault_v1")?;

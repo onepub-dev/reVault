@@ -83,7 +83,7 @@ jobs:
           BINDINGS_VERSION: ${{ inputs.bindings_version }}
         run: |
           chmod +x driver/revault-tool
-          driver/revault-tool release candidate tags --candidate "$CANDIDATE" --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
+          driver/revault-tool internal candidate tags --candidate "$CANDIDATE" --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
 
   rust-checks:
     if: inputs.mode == 'prepare'
@@ -150,7 +150,7 @@ jobs:
           BINDINGS_VERSION: ${{ inputs.bindings_version }}
         run: |
           chmod +x driver/revault-tool
-          driver/revault-tool release candidate promote-cli --candidate "$CANDIDATE" --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
+          driver/revault-tool internal candidate promote-cli --candidate "$CANDIDATE" --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
 
   bindings-publish:
     if: always() && inputs.mode == 'publish' && inputs.scope != 'cli' && needs.guard.result == 'success' && (inputs.scope == 'bindings' || needs.cli-publish.result == 'success')
@@ -177,7 +177,7 @@ jobs:
           BINDINGS_VERSION: ${{ inputs.bindings_version }}
         run: |
           chmod +x driver/revault-tool
-          driver/revault-tool release candidate promote-bindings --candidate "$CANDIDATE" --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
+          driver/revault-tool internal candidate promote-bindings --candidate "$CANDIDATE" --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
 
   seal:
     if: always() && inputs.mode == 'prepare' && needs.guard.result == 'success' && needs.source-checks.result == 'success' && needs.rust-checks.result == 'success' && (inputs.scope == 'bindings' || needs.cli.result == 'success') && (inputs.scope == 'cli' || needs.bindings-prepare.result == 'success')
@@ -198,7 +198,7 @@ jobs:
           BINDINGS_VERSION: ${{ inputs.bindings_version }}
         run: |
           chmod +x driver/revault-tool
-          driver/revault-tool release candidate seal --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
+          driver/revault-tool internal candidate seal --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
           echo "Candidate: $GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
           echo "Publish: revault-tool release publish --candidate $GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v7

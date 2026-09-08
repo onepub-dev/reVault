@@ -33,7 +33,7 @@ pub struct PublishPackages {
     /// Release version without a leading `v`.
     #[arg(long)]
     version: String,
-    /// Root produced by `release assemble-packages`.
+    /// Root produced by `internal assemble-packages`.
     #[arg(long)]
     packages: PathBuf,
     /// Registry-native package set to process.

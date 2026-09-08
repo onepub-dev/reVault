@@ -25,7 +25,13 @@ pub enum ReleaseCommand {
     /// Promote a successful candidate without repeating CI validation.
     Publish(crate::release_candidate::Selection),
     /// Show the remembered candidate or discover candidates from CI.
-    Status(crate::release_candidate::Selection),
+    Status(crate::release_candidate::StatusSelection),
+    /// Retrieve failure logs from the existing candidate or publication run.
+    Logs(crate::release_candidate::Selection),
+}
+
+#[derive(Subcommand)]
+pub enum InternalCommand {
     /// Internal CI candidate sealing and verification.
     #[command(hide = true)]
     Candidate(crate::release_candidate::Ci),
@@ -177,16 +183,22 @@ struct ManifestTarget {
 
 pub fn run(command: ReleaseCommand) -> Result {
     match command {
-        ReleaseCommand::PackageNative(args) => package_native(args),
-        ReleaseCommand::StageEcosystems(args) => stage_ecosystems(args),
-        ReleaseCommand::AssemblePackages(args) => assemble_packages(args),
-        ReleaseCommand::PublishPackage(args) => crate::publication::publish(args),
         ReleaseCommand::Prepare(args) => crate::release_candidate::prepare(args),
         ReleaseCommand::Publish(args) => crate::release_candidate::publish(args),
         ReleaseCommand::Status(args) => crate::release_candidate::status(args),
-        ReleaseCommand::Candidate(args) => crate::release_candidate::ci(args),
-        ReleaseCommand::PromoteGit(args) => crate::publication::promote_git(args),
-        ReleaseCommand::VerifyArchive(args) => {
+        ReleaseCommand::Logs(args) => crate::release_candidate::logs(args),
+    }
+}
+
+pub fn run_internal(command: InternalCommand) -> Result {
+    match command {
+        InternalCommand::PackageNative(args) => package_native(args),
+        InternalCommand::StageEcosystems(args) => stage_ecosystems(args),
+        InternalCommand::AssemblePackages(args) => assemble_packages(args),
+        InternalCommand::PublishPackage(args) => crate::publication::publish(args),
+        InternalCommand::Candidate(args) => crate::release_candidate::ci(args),
+        InternalCommand::PromoteGit(args) => crate::publication::promote_git(args),
+        InternalCommand::VerifyArchive(args) => {
             let temporary = TempDir::new()?;
             let (_, metadata) = extract_verified(&args.archive, temporary.path())?;
             if args
@@ -216,8 +228,8 @@ pub fn run(command: ReleaseCommand) -> Result {
             println!("verified {} {}", metadata.target, metadata.version);
             Ok(())
         }
-        ReleaseCommand::InstallNative(args) => install_native(args),
-        ReleaseCommand::PackageXcframework(args) => package_xcframework(args),
+        InternalCommand::InstallNative(args) => install_native(args),
+        InternalCommand::PackageXcframework(args) => package_xcframework(args),
     }
 }
 

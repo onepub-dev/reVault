@@ -1,7 +1,7 @@
 Release candidates
 ==================
 
-Install the repository tool with `cargo install --path rust/revault_tooling`.
+Install the repository tool by running `cargo xtask install-tool` from rust/.
 Run it from the repository root with Git, Cargo and an authenticated GitHub CLI
 available. The GitHub account needs permission to push candidate branches,
 dispatch Actions workflows and read their artifacts. Existing publication
@@ -11,7 +11,7 @@ branch before GitHub will accept a dispatch.
 
 Prepare (the dry run):
 
-    revault-tool release prepare --scope all
+    revault-tool release prepare all
 
 Scopes are cli, bindings and all. Optional --cli-version and --bindings-version
 select explicit stable versions. Defaults increment the highest source/tag
@@ -66,6 +66,22 @@ successful candidate. Candidate branches and artifacts should be retained until
 publication is complete. A new prepare is required after CI artifact retention
 expires.
 
-The old low-level `release publish --ecosystem ...` operation is now
-`release publish-package --ecosystem ...`. It is an internal publication building
-block; normal releases should use prepare/publish so CI validation is enforced.
+Development commands:
+
+    revault-tool bindings generate
+    revault-tool bindings status
+    revault-tool test bindings
+    revault-tool test cli
+
+Generation compares temporary output first and writes only changed files.
+Binding tests require flatc 25.2.10 and the package conformance dependencies.
+Status reports generated-file currency, API coverage and registry versions.
+Registry presence does not prove that the candidate's artifacts were published.
+
+    revault-tool release status --watch
+    revault-tool release logs
+
+These commands reattach to an existing run or read its failed logs; they do not
+prepare or publish another release. Prepare and publish watch automatically.
+CI packaging and upload building blocks live under `internal`, hidden from
+normal help. Old top-level publish commands have been removed.

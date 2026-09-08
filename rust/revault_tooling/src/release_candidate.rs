@@ -37,10 +37,10 @@ impl Scope {
 }
 #[derive(Args)]
 #[command(
-    long_about = "Prepare a release candidate without publishing. Requires a clean checkout, Git, Cargo and an authenticated GitHub CLI. Updates versions, dependencies and release notes, commits the release, pushes an isolated candidate ref, and waits for CI. Prints and remembers the candidate ID. Use release publish to promote it. See rust/revault_tooling/RELEASE.txt."
+    long_about = "Prepare a internal candidate without publishing. Requires a clean checkout, Git, Cargo and an authenticated GitHub CLI. Updates versions, dependencies and release notes, commits the release, pushes an isolated candidate ref, and waits for CI. Prints and remembers the candidate ID. Use release publish to promote it. See rust/revault_tooling/RELEASE.txt."
 )]
 pub struct Prepare {
-    #[arg(long, value_enum, default_value = "all")]
+    #[arg(value_enum, default_value = "all")]
     scope: Scope,
     /// New CLI version. Defaults to a patch increment.
     #[arg(long)]
@@ -55,9 +55,17 @@ pub struct Prepare {
 pub struct Selection {
     /// Successful prepare run ID. Defaults to this checkout's remembered candidate.
     #[arg(long)]
-    candidate: Option<u64>,
+    pub candidate: Option<u64>,
     #[arg(long, default_value = ".")]
-    repository: PathBuf,
+    pub repository: PathBuf,
+}
+#[derive(Args)]
+pub struct StatusSelection {
+    #[command(flatten)]
+    pub selection: Selection,
+    /// Reattach to live progress without starting another workflow.
+    #[arg(long)]
+    pub watch: bool,
 }
 #[derive(Args)]
 pub struct Ci {
@@ -486,9 +494,45 @@ pub fn prepare(args: Prepare) -> Result<()> {
     Ok(())
 }
 
-pub fn status(args: Selection) -> Result<()> {
+pub fn logs(args: Selection) -> Result<()> {
     let gh = GitHub::new(&args.repository)?;
-    let id = args.candidate.or(gh.remembered()?.map(|s| s.candidate));
+    let remembered = gh.remembered()?;
+    let id = args
+        .candidate
+        .or(remembered.and_then(|s| s.promotion.or(Some(s.candidate))))
+        .ok_or("No remembered release. Supply --candidate <run-id>.")?;
+    run_command(
+        &gh.root,
+        "gh",
+        &[
+            "run",
+            "view",
+            &id.to_string(),
+            "--repo",
+            &gh.repo,
+            "--log-failed",
+        ],
+    )
+}
+
+pub fn status(options: StatusSelection) -> Result<()> {
+    let args = options.selection;
+    if let Err(error) = crate::release_status::report(&args.repository) {
+        println!("Registry status unavailable: {error}");
+    }
+    let gh = GitHub::new(&args.repository)?;
+    let remembered = gh.remembered()?;
+    let id = args.candidate.or(remembered.as_ref().map(|s| s.candidate));
+    if options.watch {
+        let active = remembered
+            .as_ref()
+            .filter(|s| Some(s.candidate) == id)
+            .and_then(|s| s.promotion)
+            .or(id)
+            .ok_or("No remembered release to watch")?;
+        gh.watch(active)?;
+    }
+
     if let Some(id) = id {
         let run = gh.api(&format!("actions/runs/{id}"))?;
         println!("Candidate {id}: {} / {}", run["status"], run["conclusion"]);
@@ -497,9 +541,25 @@ pub fn status(args: Selection) -> Result<()> {
         }
         if let Some(state) = gh.remembered()?.filter(|s| s.candidate == id) {
             if let Some(p) = state.promotion {
+                let publication = gh.api(&format!("actions/runs/{p}"))?;
+                for page in 1.. {
+                    let jobs =
+                        gh.api(&format!("actions/runs/{p}/jobs?per_page=100&page={page}"))?;
+                    let rows = jobs["jobs"].as_array().ok_or("Missing publication jobs")?;
+                    for job in rows {
+                        println!(
+                            "  {}: {} / {}",
+                            job["name"], job["status"], job["conclusion"]
+                        );
+                    }
+                    if rows.len() < 100 {
+                        break;
+                    }
+                }
+
                 println!(
-                    "Publication: https://github.com/{}/actions/runs/{p}",
-                    gh.repo
+                    "Candidate publication: {} / {}\nhttps://github.com/{}/actions/runs/{p}",
+                    publication["status"], publication["conclusion"], gh.repo
                 );
             }
         }

@@ -31,4 +31,4 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml
-          -p revault_tooling -- publish-cli --repository . --publish
+          -p revault_tooling -- internal publish-crates cli --repository . --publish
