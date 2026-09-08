@@ -7,6 +7,40 @@ The Dart 0.3 facade defines the reviewed terminology and lifecycle model. Apply
 that model to every language, translating names and ownership to the language's
 normal conventions rather than preserving older facade concepts.
 
+## Rust owns reVault storage and behavior
+
+Bindings must delegate all reVault operations to the Rust API, including archive
+and vault creation, opening, reading, mutation, persistence, locking, recovery,
+and replacement.
+
+Bindings may translate language-native types, marshal arguments, map errors,
+and manage native handle lifetimes. They must not reimplement reVault behavior
+or perform filesystem operations on archives or vault storage without explicit
+human approval as described below.
+
+A path-based binding API must invoke a path-based Rust API. It must never
+implement `open(path)` by reading the file and calling `openBytes`, or implement
+persistence by serializing an archive and writing it from the binding.
+
+Bytes-based APIs are permitted only when callers explicitly supply or request
+in-memory archive bytes. They must not serve as an internal substitute for
+file-backed operations.
+
+If the required Rust or FFI entry point is missing, add it in Rust and expose it
+through the binding. Do not work around the gap in the binding.
+
+Binding conformance tests must verify that file-backed operations participate
+in Rust's locking protocol and preserve its read-only, persistence, and
+replacement guarantees.
+
+**Exceptions require explicit human approval.** An agent must not bypass the
+Rust API or introduce binding-owned archive or vault filesystem operations
+without explicit approval from the user. Before requesting approval, explain
+the missing Rust capability, the proposed exception, and its effects on locking,
+consistency, and security. Convenience, performance assumptions, or a missing
+FFI entry point do not constitute approval. Existing bypasses do not constitute
+approval for new or expanded exceptions.
+
 ## Domain terminology
 
 - `Revault` is the native-runtime loader or package entry point. Loading it does
