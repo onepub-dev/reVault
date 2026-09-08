@@ -5,11 +5,12 @@ env:
   LOCKBOX_COMPRESSION_CORPUS_VERSION: v1
 
 on:
+  workflow_call:
   push:
     # Defining a branch filter prevents immutable release-tag pushes from
     # rerunning source validation that the release preflight already accepted.
-    branches:
-      - "**"
+    branches-ignore:
+      - "release-candidates/**"
     paths:
       - "rust/**"
       - ".github/workflows/rust.yml"
@@ -22,7 +23,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: rust-validation-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -53,9 +54,9 @@ jobs:
       - name: Check public APIs at MSRV
         run: >-
           cargo check
-          -p revault_page_api@0.0.4
-          -p revault_lockbox_api@0.0.10
-          -p revault_vault_api@0.0.11
+          -p "$(cargo pkgid --manifest-path revault_page_api/Cargo.toml)"
+          -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)"
+          -p "$(cargo pkgid --manifest-path revault_vault_api/Cargo.toml)"
           --all-targets
           --locked
 
@@ -151,8 +152,8 @@ jobs:
             cache: secure-apis
             command: >-
               cargo test --locked
-              -p revault_page_api@0.0.4
-              -p revault_lockbox_api@0.0.10
+              -p "$(cargo pkgid --manifest-path revault_page_api/Cargo.toml)"
+              -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)"
           - group: CLI flow / vault commands
             cache: cli-flow-vault
             command: >-
@@ -224,7 +225,7 @@ jobs:
             cache: migrations
             command: >-
               cargo test --locked
-              -p revault_vault_api@0.0.11
+              -p "$(cargo pkgid --manifest-path revault_vault_api/Cargo.toml)"
               -p revault_migration_format
               -p revault_migrate_vault_v1
               -p revault_migrate_vault_v2
@@ -236,6 +237,7 @@ jobs:
               cargo test --locked
               -p revault_publish_protocol
               -p revault_key_server
+              -p revault_tooling
               -p xtask
 
     defaults:

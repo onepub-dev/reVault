@@ -14,6 +14,7 @@
 # title/body based on your changelogs.
 
 name: Release
+run-name: ${{ inputs.promotion_run_id != '' && format('promote candidate {0}', inputs.promotion_run_id) || github.ref_name }}
 permissions:
   "contents": "write"
 
@@ -39,7 +40,28 @@ permissions:
 # If there's a prerelease-style suffix to the version, then the release(s)
 # will be marked as a prerelease.
 on:
+  workflow_call:
+    inputs:
+      candidate:
+        type: boolean
+        default: true
+      version:
+        type: string
+        required: true
+      promotion_run_id:
+        type: string
+        default: ''
   workflow_dispatch:
+    inputs:
+      candidate:
+        type: boolean
+        default: false
+      version:
+        type: string
+        default: ''
+      promotion_run_id:
+        type: string
+        default: ''
   pull_request:
   push:
     tags:
@@ -49,7 +71,7 @@ jobs:
   # Retry trusted crates.io publication without rebuilding release artifacts.
   # crates.io authorizes this caller workflow filename in its OIDC policy.
   retry-publish-crates:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && !inputs.candidate
     uses: ./.github/workflows/revault-cli-crates.yml
     with:
       plan: '{}'
@@ -61,13 +83,13 @@ jobs:
 
   # Run 'dist plan' (or host) to determine what tasks we need to do
   plan:
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name != 'workflow_dispatch' || (inputs.candidate && inputs.promotion_run_id == '')
     runs-on: "ubuntu-24.04"
     outputs:
       val: ${{ steps.plan.outputs.manifest }}
-      tag: ${{ !github.event.pull_request && github.ref_name || '' }}
-      tag-flag: ${{ !github.event.pull_request && format('--tag={0}', github.ref_name) || '' }}
-      publishing: ${{ !github.event.pull_request }}
+      tag: ${{ inputs.candidate && format('revault_cli-v{0}', inputs.version) || (!github.event.pull_request && github.ref_name || '') }}
+      tag-flag: ${{ inputs.candidate && format('--tag=revault_cli-v{0}', inputs.version) || (!github.event.pull_request && format('--tag={0}', github.ref_name) || '') }}
+      publishing: ${{ !inputs.candidate && !github.event.pull_request }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -75,6 +97,13 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
+      - name: Validate candidate version
+        if: inputs.candidate
+        env:
+          CLI_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          [[ "$CLI_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
       - name: Install dist
         # we specify bash to get pipefail; it guards against the `curl` command
         # failing. otherwise `sh` won't catch that `curl` returned non-0
@@ -92,7 +121,7 @@ jobs:
       # but also really annoying to build CI around when it needs secrets to work right.)
       - id: plan
         run: |
-          dist ${{ (!github.event.pull_request && format('host --steps=create --tag={0}', github.ref_name)) || 'plan' }} --output-format=json > plan-dist-manifest.json
+          dist ${{ inputs.candidate && format('plan --tag=revault_cli-v{0}', inputs.version) || ((!github.event.pull_request && format('host --steps=create --tag={0}', github.ref_name)) || 'plan') }} --output-format=json > plan-dist-manifest.json
           echo "dist ran successfully"
           cat plan-dist-manifest.json
           echo "manifest=$(jq -c "." plan-dist-manifest.json)" >> "$GITHUB_OUTPUT"
@@ -108,7 +137,7 @@ jobs:
     # Let the initial task tell us to not run (currently very blunt)
     needs:
       - plan
-    if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
+    if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (inputs.candidate || needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
     strategy:
       fail-fast: false
       # Target platforms/runners are computed by dist in create-release.
@@ -163,6 +192,9 @@ jobs:
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           echo "dist ran successfully"
+      - name: Test CLI on the native runner
+        if: inputs.candidate
+        run: cargo test --locked --manifest-path rust/Cargo.toml -p revault_cli
       - name: Attest
         uses: actions/attest-build-provenance@v3
         with:
@@ -333,3 +365,66 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
+
+  promote-candidate:
+    if: inputs.candidate && inputs.promotion_run_id != ''
+    runs-on: ubuntu-24.04
+    environment: release
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: actions/download-artifact@v7
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.promotion_run_id }}
+          pattern: artifacts-*
+          path: artifacts
+          merge-multiple: true
+      - name: Install Rust publication dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - uses: actions/download-artifact@v7
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.promotion_run_id }}
+          name: candidate-driver
+          path: driver
+      - run: chmod +x driver/revault-tool
+      - name: Recheck candidate artifacts before registry publication
+        env:
+          CANDIDATE: ${{ inputs.promotion_run_id }}
+          CLI_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          gh run download "$CANDIDATE" --name release-candidate --dir manifest
+          test "$(jq -r .cli_version manifest/candidate.json)" = "$CLI_VERSION"
+          test "$(jq -r .scope manifest/candidate.json)" != bindings
+          driver/revault-tool release candidate tags --candidate "$CANDIDATE" --scope "$(jq -r .scope manifest/candidate.json)" --cli-version "$(jq -r .cli_version manifest/candidate.json)" --bindings-version "$(jq -r .bindings_version manifest/candidate.json)"
+      - name: Publish the tested CLI archives and installers
+        env:
+          RELEASE_TAG: revault_cli-v${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          rm -f artifacts/*dist-manifest.json
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            # A retry must not replace a public asset. Compare its exact bytes.
+            mkdir published
+            gh release download "$RELEASE_TAG" --dir published
+            for asset in artifacts/*; do
+              test -f "published/$(basename "$asset")"
+              cmp "$asset" "published/$(basename "$asset")"
+            done
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --title "reVault CLI ${{ inputs.version }}" --notes-file release-notes/candidate.txt artifacts/*
+          fi
+      - id: crates
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish the validated CLI crate dependency chain
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
+        run: driver/revault-tool publish-cli --repository . --publish

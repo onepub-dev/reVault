@@ -20,6 +20,15 @@ pub(crate) const NATIVE_ABI_VERSION: u32 = 3;
 
 #[derive(Subcommand)]
 pub enum ReleaseCommand {
+    /// Prepare versions and run the complete CI release preflight.
+    Prepare(crate::release_candidate::Prepare),
+    /// Promote a successful candidate without repeating CI validation.
+    Publish(crate::release_candidate::Selection),
+    /// Show the remembered candidate or discover candidates from CI.
+    Status(crate::release_candidate::Selection),
+    /// Internal CI candidate sealing and verification.
+    #[command(hide = true)]
+    Candidate(crate::release_candidate::Ci),
     /// Create a deterministic native SDK archive and SHA-256 sidecar.
     PackageNative(PackageNative),
     /// Verify and expand all six native archives into ecosystem layouts.
@@ -27,7 +36,7 @@ pub enum ReleaseCommand {
     /// Assemble publishable language package trees from a staged layout.
     AssemblePackages(AssemblePackages),
     /// Build, validate, or publish one registry-native package set.
-    Publish(crate::publication::PublishPackages),
+    PublishPackage(crate::publication::PublishPackages),
     /// Promote a package tree to a Git-native distribution repository.
     PromoteGit(crate::publication::PromoteGitPackage),
     /// Verify one canonical native archive without installing it.
@@ -171,7 +180,11 @@ pub fn run(command: ReleaseCommand) -> Result {
         ReleaseCommand::PackageNative(args) => package_native(args),
         ReleaseCommand::StageEcosystems(args) => stage_ecosystems(args),
         ReleaseCommand::AssemblePackages(args) => assemble_packages(args),
-        ReleaseCommand::Publish(args) => crate::publication::publish(args),
+        ReleaseCommand::PublishPackage(args) => crate::publication::publish(args),
+        ReleaseCommand::Prepare(args) => crate::release_candidate::prepare(args),
+        ReleaseCommand::Publish(args) => crate::release_candidate::publish(args),
+        ReleaseCommand::Status(args) => crate::release_candidate::status(args),
+        ReleaseCommand::Candidate(args) => crate::release_candidate::ci(args),
         ReleaseCommand::PromoteGit(args) => crate::publication::promote_git(args),
         ReleaseCommand::VerifyArchive(args) => {
             let temporary = TempDir::new()?;
@@ -1415,7 +1428,7 @@ fn go_platform(target: &str) -> Result<(&'static str, &'static str, &'static str
     })
 }
 
-const CLI_PUBLISH_PACKAGES: &[&str] = &[
+pub(crate) const CLI_PUBLISH_PACKAGES: &[&str] = &[
     "revault_page_api",
     "revault_lockbox_api",
     "revault_migration_format",

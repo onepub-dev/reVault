@@ -2532,6 +2532,7 @@ dependencies = [
  "sha2 0.11.0",
  "tar",
  "tempfile",
+ "toml_edit",
  "ureq",
  "walkdir",
  "zip",
@@ -3251,6 +3252,7 @@ dependencies = [
  "indexmap",
  "toml_datetime",
  "toml_parser",
+ "toml_writer",
  "winnow",
 ]
 

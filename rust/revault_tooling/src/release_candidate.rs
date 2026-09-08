@@ -1,0 +1,1026 @@
+//! A release is a successful CI run plus its immutable artifacts, never a local test result.
+use crate::Result;
+use clap::{Args, ValueEnum};
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::{
+    collections::BTreeMap,
+    fs,
+    io::Write,
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
+const WORKFLOW: &str = "release-candidate.yml";
+const MANIFEST: &str = "release-candidate";
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, ValueEnum, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum Scope {
+    Cli,
+    Bindings,
+    All,
+}
+impl Scope {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Cli => "cli",
+            Self::Bindings => "bindings",
+            Self::All => "all",
+        }
+    }
+}
+#[derive(Args)]
+#[command(
+    long_about = "Prepare a release candidate without publishing. Requires a clean checkout, Git, Cargo and an authenticated GitHub CLI. Updates versions, dependencies and release notes, commits the release, pushes an isolated candidate ref, and waits for CI. Prints and remembers the candidate ID. Use release publish to promote it. See rust/revault_tooling/RELEASE.txt."
+)]
+pub struct Prepare {
+    #[arg(long, value_enum, default_value = "all")]
+    scope: Scope,
+    /// New CLI version. Defaults to a patch increment.
+    #[arg(long)]
+    cli_version: Option<String>,
+    /// New language-package version. Defaults to a patch increment of Dart's version.
+    #[arg(long)]
+    bindings_version: Option<String>,
+    #[arg(long, default_value = ".")]
+    repository: PathBuf,
+}
+#[derive(Args)]
+pub struct Selection {
+    /// Successful prepare run ID. Defaults to this checkout's remembered candidate.
+    #[arg(long)]
+    candidate: Option<u64>,
+    #[arg(long, default_value = ".")]
+    repository: PathBuf,
+}
+#[derive(Args)]
+pub struct Ci {
+    #[arg(value_parser = ["seal", "verify", "tags", "promote-cli", "promote-bindings"])]
+    action: String,
+    #[arg(long)]
+    candidate: Option<u64>,
+    #[arg(long, value_enum, default_value = "all")]
+    scope: Scope,
+    #[arg(long, default_value = "")]
+    cli_version: String,
+    #[arg(long, default_value = "")]
+    bindings_version: String,
+    #[arg(long, default_value = ".")]
+    repository: PathBuf,
+    #[arg(long, default_value = "candidate.json")]
+    output: PathBuf,
+}
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+struct Artifact {
+    id: u64,
+    name: String,
+    digest: String,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Candidate {
+    schema: u32,
+    repository: String,
+    run_id: u64,
+    source_sha: String,
+    source_ref: String,
+    scope: Scope,
+    cli_version: String,
+    bindings_version: String,
+    artifacts: Vec<Artifact>,
+}
+#[derive(Serialize, Deserialize)]
+struct Remembered {
+    repository: String,
+    candidate: u64,
+    promotion: Option<u64>,
+}
+struct GitHub {
+    root: PathBuf,
+    repo: String,
+}
+impl GitHub {
+    fn new(root: &Path) -> Result<Self> {
+        let root = root.canonicalize()?;
+        let repo = output(
+            &root,
+            "gh",
+            &[
+                "repo",
+                "view",
+                "--json",
+                "nameWithOwner",
+                "--jq",
+                ".nameWithOwner",
+            ],
+        )?;
+        Ok(Self { root, repo })
+    }
+    fn api(&self, suffix: &str) -> Result<Value> {
+        Ok(serde_json::from_str(&output(
+            &self.root,
+            "gh",
+            &["api", &format!("repos/{}/{}", self.repo, suffix)],
+        )?)?)
+    }
+    fn post(&self, suffix: &str, body: Value) -> Result<()> {
+        let mut child = Command::new("gh")
+            .current_dir(&self.root)
+            .args([
+                "api",
+                "--method",
+                "POST",
+                &format!("repos/{}/{}", self.repo, suffix),
+                "--input",
+                "-",
+            ])
+            .stdin(Stdio::piped())
+            .spawn()?;
+        child
+            .stdin
+            .take()
+            .ok_or("missing gh stdin")?
+            .write_all(serde_json::to_string(&body)?.as_bytes())?;
+        if !child.wait()?.success() {
+            return Err("GitHub request failed".into());
+        }
+        Ok(())
+    }
+    fn artifacts(&self, run: u64) -> Result<Vec<Artifact>> {
+        let mut found = Vec::new();
+        for page in 1.. {
+            let v = self.api(&format!(
+                "actions/runs/{run}/artifacts?per_page=100&page={page}"
+            ))?;
+            let rows = v["artifacts"].as_array().ok_or("missing artifacts")?;
+            for row in rows {
+                if row["name"] == MANIFEST {
+                    continue;
+                }
+                if row["expired"] != false {
+                    return Err("Candidate artifacts expired; prepare a new candidate".into());
+                }
+                let digest = string(row, "digest")?;
+                if !digest.starts_with("sha256:") || digest.len() != 71 {
+                    return Err("Artifact lacks a SHA-256 digest".into());
+                }
+                found.push(Artifact {
+                    id: row["id"].as_u64().ok_or("invalid artifact ID")?,
+                    name: string(row, "name")?,
+                    digest,
+                });
+            }
+            if rows.len() < 100 {
+                break;
+            }
+        }
+        found.sort_by_key(|a| a.id);
+        Ok(found)
+    }
+    fn load(&self, id: u64) -> Result<Candidate> {
+        let run = self.api(&format!("actions/runs/{id}"))?;
+        if run["conclusion"] != "success"
+            || run["event"] != "workflow_dispatch"
+            || run["path"] != format!(".github/workflows/{WORKFLOW}")
+        {
+            return Err("Candidate must be a successful release prepare workflow run".into());
+        }
+        let temp = tempfile::tempdir()?;
+        run_command(
+            &self.root,
+            "gh",
+            &[
+                "run",
+                "download",
+                &id.to_string(),
+                "--repo",
+                &self.repo,
+                "--name",
+                MANIFEST,
+                "--dir",
+                &temp.path().to_string_lossy(),
+            ],
+        )?;
+        let candidate: Candidate =
+            serde_json::from_slice(&fs::read(temp.path().join("candidate.json"))?)?;
+        validate(
+            &candidate,
+            &self.repo,
+            id,
+            &string(&run, "head_sha")?,
+            &self.artifacts(id)?,
+        )?;
+        Ok(candidate)
+    }
+    fn dispatch(&self, source_ref: &str, inputs: Value, title: &str) -> Result<u64> {
+        // A unique immutable branch plus mode-specific run title disambiguates concurrent dispatches.
+        self.post(
+            &format!("actions/workflows/{WORKFLOW}/dispatches"),
+            json!({"ref":source_ref,"inputs":inputs}),
+        )?;
+        for _ in 0..60 {
+            let runs = self.api(&format!(
+                "actions/workflows/{WORKFLOW}/runs?event=workflow_dispatch&per_page=100"
+            ))?;
+            if let Some(run) = runs["workflow_runs"]
+                .as_array()
+                .ok_or("missing runs")?
+                .iter()
+                .find(|r| r["head_branch"] == source_ref && r["display_title"] == title)
+            {
+                return run["id"].as_u64().ok_or_else(|| "invalid run ID".into());
+            }
+            std::thread::sleep(Duration::from_secs(2));
+        }
+        Err("Dispatch accepted but run ID was not found. Use release status to recover it; do not dispatch again blindly.".into())
+    }
+    fn watch(&self, id: u64) -> Result<()> {
+        println!("CI: https://github.com/{}/actions/runs/{id}", self.repo);
+        run_command(
+            &self.root,
+            "gh",
+            &[
+                "run",
+                "watch",
+                &id.to_string(),
+                "--repo",
+                &self.repo,
+                "--exit-status",
+                "--interval",
+                "30",
+            ],
+        )
+    }
+    fn state_path(&self) -> Result<PathBuf> {
+        Ok(PathBuf::from(output(
+            &self.root,
+            "git",
+            &[
+                "rev-parse",
+                "--path-format=absolute",
+                "--git-path",
+                "revault-release-candidate.json",
+            ],
+        )?))
+    }
+    fn remember(&self, id: u64, promotion: Option<u64>) -> Result<()> {
+        let path = self.state_path()?;
+        let mut temp = tempfile::NamedTempFile::new_in(path.parent().ok_or("invalid state path")?)?;
+        serde_json::to_writer_pretty(
+            &mut temp,
+            &Remembered {
+                repository: self.repo.clone(),
+                candidate: id,
+                promotion,
+            },
+        )?;
+        temp.persist(path)?;
+        Ok(())
+    }
+    fn remembered(&self) -> Result<Option<Remembered>> {
+        let path = self.state_path()?;
+        if !path.exists() {
+            return Ok(None);
+        }
+        let state: Remembered = serde_json::from_slice(&fs::read(path)?)?;
+        if state.repository != self.repo {
+            return Err(
+                "Remembered candidate belongs to another repository; supply --candidate".into(),
+            );
+        }
+        Ok(Some(state))
+    }
+}
+fn string(v: &Value, key: &str) -> Result<String> {
+    Ok(v[key]
+        .as_str()
+        .ok_or_else(|| format!("missing {key}"))?
+        .to_owned())
+}
+fn output(root: &Path, program: &str, args: &[&str]) -> Result<String> {
+    let result = Command::new(program)
+        .current_dir(root)
+        .args(args)
+        .output()?;
+    if !result.status.success() {
+        return Err(format!(
+            "{program} {} failed: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&result.stderr)
+        )
+        .into());
+    }
+    Ok(String::from_utf8(result.stdout)?.trim().to_owned())
+}
+fn run_command(root: &Path, program: &str, args: &[&str]) -> Result<()> {
+    if !Command::new(program)
+        .current_dir(root)
+        .args(args)
+        .status()?
+        .success()
+    {
+        return Err(format!("{program} {} failed", args.join(" ")).into());
+    }
+    Ok(())
+}
+fn validate(c: &Candidate, repo: &str, id: u64, sha: &str, artifacts: &[Artifact]) -> Result<()> {
+    if c.schema != 1
+        || c.repository != repo
+        || c.run_id != id
+        || c.source_sha != sha
+        || !valid_sha(sha)
+    {
+        return Err("Candidate identity does not match the CI run".into());
+    }
+    if c.artifacts.is_empty() || c.artifacts != artifacts {
+        return Err("Candidate artifacts are missing or changed; prepare a new candidate".into());
+    }
+    if !c.source_ref.starts_with("release-candidates/") {
+        return Err("Invalid candidate ref".into());
+    }
+    if c.scope != Scope::Bindings {
+        version(&c.cli_version)?;
+    }
+    if c.scope != Scope::Cli {
+        version(&c.bindings_version)?;
+    }
+    Ok(())
+}
+fn valid_sha(s: &str) -> bool {
+    s.len() == 40 && s.bytes().all(|c| c.is_ascii_hexdigit())
+}
+fn version(s: &str) -> Result<()> {
+    if s.split('.').count() != 3
+        || !s.split('.').all(|p| {
+            !p.is_empty()
+                && p.bytes().all(|c| c.is_ascii_digit())
+                && (p == "0" || !p.starts_with('0'))
+        })
+    {
+        return Err("Release versions must be stable MAJOR.MINOR.PATCH versions".into());
+    }
+    Ok(())
+}
+fn patch(s: &str) -> Result<String> {
+    version(s)?;
+    let (base, n) = s.rsplit_once('.').ok_or("invalid version")?;
+    Ok(format!(
+        "{base}.{}",
+        n.parse::<u64>()?.checked_add(1).ok_or("version overflow")?
+    ))
+}
+fn display(c: &Candidate) {
+    println!("Candidate: {}\nScope: {}\nCommit: {}\nCLI: {}\nBindings: {}\nCI: https://github.com/{}/actions/runs/{}\nPublish:\n  revault-tool release publish --candidate {}", c.run_id,c.scope.name(),c.source_sha,c.cli_version,c.bindings_version,c.repository,c.run_id,c.run_id);
+}
+
+pub fn prepare(args: Prepare) -> Result<()> {
+    let gh = GitHub::new(&args.repository)?;
+    let workflow = gh.api(&format!("actions/workflows/{WORKFLOW}"))?;
+    if workflow["state"] != "active" {
+        return Err(
+            "Release candidate workflow must be active on the default branch before preparation"
+                .into(),
+        );
+    }
+    if !output(&gh.root, "git", &["status", "--porcelain"])?.is_empty() {
+        return Err("Commit or stash working tree changes before preparing a release".into());
+    }
+    run_command(&gh.root, "git", &["fetch", "origin", "--tags"])?;
+    let (cli, bindings) = prepare_versions(
+        &gh.root,
+        args.scope,
+        args.cli_version,
+        args.bindings_version,
+    )?;
+    let sha = output(&gh.root, "git", &["rev-parse", "HEAD"])?;
+    let nonce = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let source_ref = format!("release-candidates/{}-{nonce}", &sha[..12]);
+    // Deliberately not a release tag: prepare never triggers publication.
+    run_command(
+        &gh.root,
+        "git",
+        &["push", "origin", &format!("{sha}:refs/heads/{source_ref}")],
+    )?;
+    let title = format!("prepare {} {source_ref}", args.scope.name());
+    let id=gh.dispatch(&source_ref,json!({"mode":"prepare","scope":args.scope.name(),"cli_version":cli,"bindings_version":bindings,"candidate":"","request":source_ref}),&title)?;
+    gh.remember(id, None)?;
+    println!("Remembered candidate {id}. Preparation publishes no packages or release tags.");
+    gh.watch(id)?;
+    let candidate = gh.load(id)?;
+    display(&candidate);
+    Ok(())
+}
+
+pub fn status(args: Selection) -> Result<()> {
+    let gh = GitHub::new(&args.repository)?;
+    let id = args.candidate.or(gh.remembered()?.map(|s| s.candidate));
+    if let Some(id) = id {
+        let run = gh.api(&format!("actions/runs/{id}"))?;
+        println!("Candidate {id}: {} / {}", run["status"], run["conclusion"]);
+        if run["conclusion"] == "success" {
+            display(&gh.load(id)?);
+        }
+        if let Some(state) = gh.remembered()?.filter(|s| s.candidate == id) {
+            if let Some(p) = state.promotion {
+                println!(
+                    "Publication: https://github.com/{}/actions/runs/{p}",
+                    gh.repo
+                );
+            }
+        }
+    } else {
+        let runs = gh.api(&format!(
+            "actions/workflows/{WORKFLOW}/runs?event=workflow_dispatch&per_page=100"
+        ))?;
+        for run in runs["workflow_runs"].as_array().ok_or("missing runs")? {
+            if run["display_title"]
+                .as_str()
+                .is_some_and(|s| s.starts_with("prepare "))
+            {
+                println!(
+                    "{}  {}  {}  {}",
+                    run["id"], run["conclusion"], run["head_sha"], run["html_url"]
+                );
+            }
+        }
+        println!(
+            "Select a candidate explicitly: revault-tool release publish --candidate <run-id>"
+        );
+    }
+    Ok(())
+}
+
+pub fn publish(args: Selection) -> Result<()> {
+    let gh = GitHub::new(&args.repository)?;
+    let remembered = gh.remembered()?;
+    let id = args
+        .candidate
+        .or(remembered.as_ref().map(|s| s.candidate))
+        .ok_or("No remembered candidate. Run release status and supply --candidate <run-id>.")?;
+    let c = gh.load(id)?;
+    if args.candidate.is_none()
+        && (!output(&gh.root, "git", &["status", "--porcelain"])?.is_empty()
+            || output(&gh.root, "git", &["rev-parse", "HEAD"])? != c.source_sha)
+    {
+        return Err("Checkout changed since preparation. Prepare again, or explicitly select the old candidate with --candidate.".into());
+    }
+    let remote = gh.api(&format!("git/ref/heads/{}", c.source_ref))?;
+    if remote["object"]["sha"] != c.source_sha {
+        return Err("Candidate branch moved; prepare a new candidate".into());
+    }
+    display(&c);
+    // Recover the same publication run on any machine, including after an interrupted dispatch.
+    let title = format!("publish {} {id}", c.scope.name());
+    let runs = gh.api(&format!(
+        "actions/workflows/{WORKFLOW}/runs?event=workflow_dispatch&per_page=100"
+    ))?;
+    let previous = runs["workflow_runs"]
+        .as_array()
+        .ok_or("missing runs")?
+        .iter()
+        .find(|r| r["display_title"] == title && r["head_sha"] == c.source_sha);
+    let run_id = if let Some(run) = previous {
+        let run_id = run["id"].as_u64().ok_or("invalid run ID")?;
+        if run["conclusion"] == "success" {
+            println!("Candidate {id} is already published.");
+            gh.remember(id, Some(run_id))?;
+            return Ok(());
+        }
+        if run["status"] == "completed" {
+            run_command(
+                &gh.root,
+                "gh",
+                &[
+                    "run",
+                    "rerun",
+                    &run_id.to_string(),
+                    "--repo",
+                    &gh.repo,
+                    "--failed",
+                ],
+            )?;
+        }
+        run_id
+    } else {
+        gh.dispatch(&c.source_ref,json!({"mode":"publish","scope":c.scope.name(),"cli_version":c.cli_version,"bindings_version":c.bindings_version,"candidate":id.to_string(),"request":id.to_string()}),&title)?
+    };
+    gh.remember(id, Some(run_id))?;
+    gh.watch(run_id)?;
+    println!("Published candidate {id}; retained CI artifacts were promoted without repeating the preflight.");
+    Ok(())
+}
+
+pub fn ci(args: Ci) -> Result<()> {
+    let gh = GitHub::new(&args.repository)?;
+    if args.action == "seal" {
+        let id = std::env::var("GITHUB_RUN_ID")?.parse()?;
+        let source_sha = std::env::var("GITHUB_SHA")?;
+        let c = Candidate {
+            schema: 1,
+            repository: gh.repo.clone(),
+            run_id: id,
+            source_sha: source_sha.clone(),
+            source_ref: std::env::var("GITHUB_REF_NAME")?,
+            scope: args.scope,
+            cli_version: args.cli_version,
+            bindings_version: args.bindings_version,
+            artifacts: gh.artifacts(id)?,
+        };
+        validate(&c, &gh.repo, id, &source_sha, &c.artifacts)?;
+        fs::write(args.output, serde_json::to_vec_pretty(&c)?)?;
+    } else {
+        let c = gh.load(args.candidate.ok_or("--candidate is required")?)?;
+        if c.source_sha != std::env::var("GITHUB_SHA")?
+            || c.scope != args.scope
+            || c.cli_version != args.cli_version
+            || c.bindings_version != args.bindings_version
+        {
+            return Err("Publication inputs differ from the validated candidate".into());
+        }
+        if matches!(args.action.as_str(), "promote-cli" | "promote-bindings") {
+            let cli = args.action == "promote-cli";
+            let workflow = if cli {
+                "revault_cli-v-release.yml"
+            } else {
+                "bindings-native-release.yml"
+            };
+            let title = format!("promote candidate {}", c.run_id);
+            let runs = gh.api(&format!(
+                "actions/workflows/{workflow}/runs?event=workflow_dispatch&per_page=100"
+            ))?;
+            let existing = runs["workflow_runs"]
+                .as_array()
+                .ok_or("missing runs")?
+                .iter()
+                .find(|r| r["display_title"] == title && r["head_sha"] == c.source_sha);
+            let id = if let Some(run) = existing {
+                let id = run["id"].as_u64().ok_or("missing run ID")?;
+                if run["conclusion"] == "success" {
+                    return Ok(());
+                }
+                if run["status"] == "completed" {
+                    run_command(
+                        &gh.root,
+                        "gh",
+                        &[
+                            "run",
+                            "rerun",
+                            &id.to_string(),
+                            "--repo",
+                            &gh.repo,
+                            "--failed",
+                        ],
+                    )?;
+                }
+                id
+            } else {
+                let inputs = if cli {
+                    json!({"candidate":true,"version":c.cli_version,"promotion_run_id":c.run_id.to_string()})
+                } else {
+                    json!({"version":c.bindings_version,"publish":true,"targets":"npm,python,maven,nuget,dart,ruby,lua,rust,git,homebrew","promotion_run_id":c.run_id.to_string(),"promotion_source_sha":c.source_sha})
+                };
+                gh.post(
+                    &format!("actions/workflows/{workflow}/dispatches"),
+                    json!({"ref":c.source_ref,"inputs":inputs}),
+                )?;
+                let mut id = None;
+                for _ in 0..60 {
+                    let runs = gh.api(&format!(
+                        "actions/workflows/{workflow}/runs?event=workflow_dispatch&per_page=100"
+                    ))?;
+                    if let Some(run) = runs["workflow_runs"]
+                        .as_array()
+                        .ok_or("missing runs")?
+                        .iter()
+                        .find(|r| r["display_title"] == title && r["head_sha"] == c.source_sha)
+                    {
+                        id = run["id"].as_u64();
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_secs(2));
+                }
+                id.ok_or("Publication dispatch accepted, but run not found; retry to recover")?
+            };
+            return gh.watch(id);
+        }
+        if args.action == "tags" {
+            for tag in [
+                if c.scope != Scope::Bindings {
+                    Some(format!("revault_cli-v{}", c.cli_version))
+                } else {
+                    None
+                },
+                if c.scope != Scope::Cli {
+                    Some(format!("revault-api-v{}", c.bindings_version))
+                } else {
+                    None
+                },
+            ]
+            .into_iter()
+            .flatten()
+            {
+                // API creation with GITHUB_TOKEN does not trigger the tag-push release workflows.
+                let existing = Command::new("gh")
+                    .current_dir(&gh.root)
+                    .args(["api", &format!("repos/{}/git/ref/tags/{tag}", gh.repo)])
+                    .output()?;
+                if existing.status.success() {
+                    let value: Value = serde_json::from_slice(&existing.stdout)?;
+                    if value["object"]["type"] != "commit" || value["object"]["sha"] != c.source_sha
+                    {
+                        return Err(format!("Tag {tag} already refers to another object").into());
+                    }
+                } else {
+                    gh.post(
+                        "git/refs",
+                        json!({"ref":format!("refs/tags/{tag}"),"sha":c.source_sha}),
+                    )?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+// Version preparation is kept separate from publication. Existing migration-format
+// dependencies without a local path must keep their pinned historical versions.
+fn prepare_versions(
+    root: &Path,
+    scope: Scope,
+    cli: Option<String>,
+    bindings: Option<String>,
+) -> Result<(String, String)> {
+    let metadata: Value = serde_json::from_str(&output(
+        root,
+        "cargo",
+        &[
+            "metadata",
+            "--no-deps",
+            "--format-version",
+            "1",
+            "--manifest-path",
+            "rust/Cargo.toml",
+        ],
+    )?)?;
+    let packages = metadata["packages"].as_array().ok_or("missing packages")?;
+    let cli_package = packages
+        .iter()
+        .find(|p| p["name"] == "revault_cli")
+        .ok_or("missing CLI package")?;
+    let cli = if scope != Scope::Bindings {
+        next_version(root, "revault_cli-v", &string(cli_package, "version")?, cli)?
+    } else {
+        String::new()
+    };
+    let dart = fs::read_to_string(root.join("bindings/dart/pubspec.yaml"))?;
+    let current = dart
+        .lines()
+        .find_map(|l| l.strip_prefix("version: "))
+        .ok_or("missing Dart version")?;
+    let bindings = if scope != Scope::Cli {
+        next_version(root, "revault-api-v", current, bindings)?
+    } else {
+        String::new()
+    };
+    if !cli.is_empty() {
+        version(&cli)?;
+    }
+    if !bindings.is_empty() {
+        version(&bindings)?;
+    }
+    let mut versions = BTreeMap::new();
+    for p in packages {
+        if p["publish"].as_array().is_some_and(|v| v.is_empty()) {
+            continue;
+        }
+        let name = string(p, "name")?;
+        if !crate::release::CLI_PUBLISH_PACKAGES.contains(&name.as_str())
+            && !["revault_bindings", "revault_wasm_bindings"].contains(&name.as_str())
+        {
+            continue;
+        }
+        if scope == Scope::Cli && !crate::release::CLI_PUBLISH_PACKAGES.contains(&name.as_str()) {
+            continue;
+        }
+        // CLI publishes its complete dependency chain; bindings publish their API dependencies.
+        if scope == Scope::Bindings
+            && ![
+                "revault_page_api",
+                "revault_lockbox_api",
+                "revault_vault_api",
+                "revault_bindings",
+                "revault_wasm_bindings",
+            ]
+            .contains(&name.as_str())
+        {
+            continue;
+        }
+        versions.insert(
+            name.clone(),
+            if name == "revault_cli" {
+                cli.clone()
+            } else {
+                patch(&string(p, "version")?)?
+            },
+        );
+    }
+    let tracked = output(root, "git", &["ls-files", "*Cargo.toml"])?;
+    for path in tracked.lines() {
+        let full = root.join(path);
+        let mut doc = fs::read_to_string(&full)?.parse::<toml_edit::DocumentMut>()?;
+        if let Some(name) = doc
+            .get("package")
+            .and_then(|p| p.get("name"))
+            .and_then(|n| n.as_str())
+        {
+            if let Some(v) = versions.get(name) {
+                doc["package"]["version"] = toml_edit::value(v);
+            }
+        }
+        update_dependencies(doc.as_table_mut(), &versions);
+        fs::write(full, doc.to_string())?;
+    }
+    if !bindings.is_empty() {
+        fs::write(
+            root.join("bindings/dart/pubspec.yaml"),
+            dart.replacen(
+                &format!("version: {current}"),
+                &format!("version: {bindings}"),
+                1,
+            ),
+        )?;
+    }
+    if !bindings.is_empty() {
+        let generated = root.join("bindings/dart/lib/src/version/version.g.dart");
+        if generated.exists() {
+            fs::write(generated,format!("/// GENERATED BY revault-tool release prepare. Do not modify.\n/// Package version.\nString packageVersion = '{bindings}';\n"))?;
+        }
+    }
+    // Regenerate both lockfiles, including the public Rust facade's path constraints.
+    output(
+        root,
+        "cargo",
+        &[
+            "metadata",
+            "--format-version",
+            "1",
+            "--manifest-path",
+            "rust/Cargo.toml",
+        ],
+    )?;
+    output(
+        root,
+        "cargo",
+        &[
+            "metadata",
+            "--format-version",
+            "1",
+            "--manifest-path",
+            "bindings/rust/Cargo.toml",
+        ],
+    )?;
+    let prefix = if scope == Scope::Bindings {
+        "revault-api-v*"
+    } else {
+        "revault_cli-v*"
+    };
+    let tags = output(
+        root,
+        "git",
+        &["tag", "--list", prefix, "--sort=-version:refname"],
+    )?;
+    let range = tags
+        .lines()
+        .next()
+        .map(|t| format!("{t}..HEAD"))
+        .unwrap_or_else(|| "HEAD".into());
+    let notes = output(root, "git", &["log", &range, "--format=- %s"])?;
+    fs::create_dir_all(root.join("release-notes"))?;
+    fs::write(
+        root.join("release-notes/candidate.txt"),
+        format!(
+            "Release {}\nCLI: {cli}\nBindings: {bindings}\n\n{notes}\n",
+            scope.name()
+        ),
+    )?;
+    run_command(root, "git", &["add", "--update"])?;
+    run_command(
+        root,
+        "git",
+        &[
+            "add",
+            "release-notes/candidate.txt",
+            "rust/Cargo.lock",
+            "bindings/rust/Cargo.lock",
+        ],
+    )?;
+    run_command(
+        root,
+        "git",
+        &[
+            "commit",
+            "-m",
+            &format!(
+                "Prepare {} release: CLI {cli}, bindings {bindings}",
+                scope.name()
+            ),
+        ],
+    )?;
+    Ok((cli, bindings))
+}
+fn next_version(
+    root: &Path,
+    prefix: &str,
+    current: &str,
+    requested: Option<String>,
+) -> Result<String> {
+    let tags = output(root, "git", &["tag", "--list", &format!("{prefix}*")])?;
+    let tuple = |s: &str| -> Result<(u64, u64, u64)> {
+        version(s)?;
+        let n = s
+            .split('.')
+            .map(str::parse::<u64>)
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok((n[0], n[1], n[2]))
+    };
+    let mut highest = current.to_owned();
+    for tag in tags.lines() {
+        if let Some(v) = tag.strip_prefix(prefix) {
+            if version(v).is_ok() && tuple(v)? > tuple(&highest)? {
+                highest = v.into();
+            }
+        }
+    }
+    let next = requested.unwrap_or(patch(&highest)?);
+    if tuple(&next)? <= tuple(&highest)? {
+        return Err(format!("Version {next} must exceed {highest}").into());
+    }
+    Ok(next)
+}
+fn update_dependencies(table: &mut toml_edit::Table, versions: &BTreeMap<String, String>) {
+    for (key, item) in table.iter_mut() {
+        if matches!(
+            key.get(),
+            "dependencies" | "dev-dependencies" | "build-dependencies"
+        ) {
+            if let Some(deps) = item.as_table_mut() {
+                for (name, dep) in deps.iter_mut() {
+                    if let Some(t) = dep.as_inline_table_mut() {
+                        if t.contains_key("path") {
+                            let package = t
+                                .get("package")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or(name.get());
+                            if let Some(v) = versions.get(package) {
+                                t.insert("version", v.as_str().into());
+                            }
+                        }
+                    } else if let Some(t) = dep.as_table_mut() {
+                        if t.contains_key("path") {
+                            let package = t
+                                .get("package")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or(name.get());
+                            if let Some(v) = versions.get(package) {
+                                t["version"] = toml_edit::value(v);
+                            }
+                        }
+                    }
+                }
+            }
+        } else if let Some(t) = item.as_table_mut() {
+            update_dependencies(t, versions);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn candidate() -> Candidate {
+        Candidate {
+            schema: 1,
+            repository: "org/repo".into(),
+            run_id: 42,
+            source_sha: "a".repeat(40),
+            source_ref: "release-candidates/a-1".into(),
+            scope: Scope::All,
+            cli_version: "1.2.3".into(),
+            bindings_version: "2.3.4".into(),
+            artifacts: vec![Artifact {
+                id: 1,
+                name: "native-linux".into(),
+                digest: format!("sha256:{}", "b".repeat(64)),
+            }],
+        }
+    }
+    #[test]
+    fn promotion_refuses_missing_replaced_or_foreign_artifacts() {
+        let c = candidate();
+        assert!(validate(&c, &c.repository, 42, &c.source_sha, &c.artifacts).is_ok());
+        assert!(validate(&c, "other/repo", 42, &c.source_sha, &c.artifacts).is_err());
+        assert!(validate(&c, &c.repository, 43, &c.source_sha, &c.artifacts).is_err());
+        assert!(validate(&c, &c.repository, 42, &"b".repeat(40), &c.artifacts).is_err());
+        assert!(validate(&c, &c.repository, 42, &c.source_sha, &[]).is_err());
+        let mut a = c.artifacts.clone();
+        a[0].digest.push('a');
+        assert!(validate(&c, &c.repository, 42, &c.source_sha, &a).is_err());
+    }
+    #[test]
+    fn dependency_bumps_preserve_historical_migrations() {
+        let mut doc = r#"[dependencies]
+current = { package = "api", path = "../api", version = "1.0.0" }
+legacy = { package = "api", version = "=0.1.0" }
+[target.'cfg(windows)'.dependencies.api]
+path = "../api"
+version = "1.0.0"
+"#
+        .parse::<toml_edit::DocumentMut>()
+        .unwrap();
+        update_dependencies(
+            doc.as_table_mut(),
+            &BTreeMap::from([("api".into(), "1.0.1".into())]),
+        );
+        assert_eq!(
+            doc["dependencies"]["current"]["version"].as_str(),
+            Some("1.0.1")
+        );
+        assert_eq!(
+            doc["dependencies"]["legacy"]["version"].as_str(),
+            Some("=0.1.0")
+        );
+        assert!(doc.to_string().contains("version = \"1.0.1\""));
+    }
+    #[test]
+    fn version_preparation_updates_path_dependencies_and_commits_reviewable_notes() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        for path in [
+            "rust/revault_cli/src",
+            "rust/revault_page_api/src",
+            "bindings/rust/src",
+            "bindings/dart",
+        ] {
+            fs::create_dir_all(root.join(path)).unwrap();
+        }
+        fs::write(
+            root.join("rust/Cargo.toml"),
+            "[workspace]\nmembers = [\"revault_cli\",\"revault_page_api\"]\nresolver = \"2\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("rust/revault_cli/Cargo.toml"),"[package]\nname = \"revault_cli\"\nversion = \"1.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault_page_api = { path = \"../revault_page_api\", version = \"1.0.0\" }\n").unwrap();
+        fs::write(
+            root.join("rust/revault_page_api/Cargo.toml"),
+            "[package]\nname = \"revault_page_api\"\nversion = \"1.0.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        fs::write(root.join("bindings/rust/Cargo.toml"),"[package]\nname = \"revault-api\"\nversion = \"1.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault_page_api = { path = \"../../rust/revault_page_api\", version = \"1.0.0\" }\n").unwrap();
+        for p in [
+            "rust/revault_page_api/src/lib.rs",
+            "bindings/rust/src/lib.rs",
+        ] {
+            fs::write(root.join(p), "").unwrap();
+        }
+        fs::write(root.join("rust/revault_cli/src/main.rs"), "fn main() {}\n").unwrap();
+        fs::write(
+            root.join("bindings/dart/pubspec.yaml"),
+            "name: revault_api\nversion: 2.0.0\n",
+        )
+        .unwrap();
+        for args in [
+            vec!["init"],
+            vec!["config", "user.email", "release@example.invalid"],
+            vec!["config", "user.name", "Release Test"],
+            vec!["add", "."],
+            vec!["commit", "-m", "Implement feature"],
+            vec!["tag", "revault-api-v2.0.5"],
+        ] {
+            output(root, "git", &args).unwrap();
+        }
+        let (cli, bindings) = prepare_versions(root, Scope::All, None, None).unwrap();
+        assert_eq!((cli.as_str(), bindings.as_str()), ("1.0.1", "2.0.6"));
+        let manifest = fs::read_to_string(root.join("rust/revault_cli/Cargo.toml"))
+            .unwrap()
+            .parse::<toml_edit::DocumentMut>()
+            .unwrap();
+        assert_eq!(
+            manifest["dependencies"]["revault_page_api"]["version"].as_str(),
+            Some("1.0.1")
+        );
+        assert!(fs::read_to_string(root.join("release-notes/candidate.txt"))
+            .unwrap()
+            .contains("Implement feature"));
+        assert!(output(root, "git", &["status", "--porcelain"])
+            .unwrap()
+            .is_empty());
+        assert!(next_version(root, "revault-api-v", "2.0.0", Some("2.0.4".into())).is_err());
+    }
+    #[test]
+    fn stable_version_validation() {
+        assert_eq!(patch("1.2.3").unwrap(), "1.2.4");
+        for s in ["1.2", "1.2.3-beta", "1.2.03", "../1.2.3", "1.2.3\n"] {
+            assert!(version(s).is_err(), "{s}");
+        }
+    }
+}

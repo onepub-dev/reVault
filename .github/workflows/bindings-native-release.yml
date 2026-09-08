@@ -1,6 +1,30 @@
 name: bindings native release
+run-name: ${{ inputs.promotion_run_id != '' && format('promote candidate {0}', inputs.promotion_run_id) || github.ref_name }}
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+      targets:
+        type: string
+        default: npm,python,maven,nuget,dart,ruby,lua,rust,git,homebrew
+      publish:
+        type: boolean
+        default: false
+      promotion_run_id:
+        type: string
+        default: ''
+      promotion_source_sha:
+        type: string
+        default: ''
+      diagnostic_run_id:
+        type: string
+        default: ''
+      diagnostic_target:
+        type: string
+        default: windows-aarch64-msvc
   workflow_dispatch:
     inputs:
       version:
@@ -114,6 +138,12 @@ jobs:
           set -euo pipefail
           expected_version="${EXPECTED_VERSION#revault-*-v}"
           expected_sha="$EXPECTED_SHA"
+          if [[ -n "$REQUESTED_RUN_ID" ]]; then
+            test "$GITHUB_SHA" = "$expected_sha" || {
+              echo "Publication source differs from the validated candidate" >&2
+              exit 1
+            }
+          fi
           if [[ "$GITHUB_REF_NAME" == revault-dart-v* ]]; then
             ref=$(gh api \
               "repos/$GITHUB_REPOSITORY/git/ref/tags/revault-api-v$expected_version")
@@ -1028,7 +1058,7 @@ jobs:
           test "$(cat artifacts/SOURCE_SHA)" = "${{ needs.preflight-artifacts.outputs.source-sha }}"
           sha256sum --check artifacts/SHA256SUMS
           chmod +x "$RELEASE_TOOL"
-          "$RELEASE_TOOL" release publish \
+          "$RELEASE_TOOL" release publish-package \
             --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
             --packages packages --ecosystem npm-native --prebuilt artifacts --publish
 
@@ -1066,14 +1096,14 @@ jobs:
           test "$(cat artifacts/SOURCE_SHA)" = "${{ needs.preflight-artifacts.outputs.source-sha }}"
           sha256sum --check artifacts/SHA256SUMS
           chmod +x "$RELEASE_TOOL"
-          "$RELEASE_TOOL" release publish \
+          "$RELEASE_TOOL" release publish-package \
             --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
             --packages packages --ecosystem npm --prebuilt artifacts --publish
       - name: Publish the frozen hosted WebAssembly package last
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          "$RELEASE_TOOL" release publish \
+          "$RELEASE_TOOL" release publish-package \
             --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
             --packages packages --ecosystem wasm --prebuilt artifacts --publish
 
@@ -1119,7 +1149,7 @@ jobs:
         shell: bash
         run: >-
           cargo run --locked --manifest-path rust/Cargo.toml -p revault_tooling --
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
+          release publish-package --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
           --packages packages --ecosystem python --target "${{ matrix.target }}" --output dist
       - uses: actions/upload-artifact@v7
         with:
@@ -1174,14 +1204,14 @@ jobs:
       - name: Publish Java
         run: >-
           "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
+          release publish-package --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
           --packages packages --ecosystem maven-java --publish
       - name: Make Java immediately available to the Kotlin build
         run: gradle -p packages/maven/java --no-daemon publishToMavenLocal
       - name: Publish Kotlin
         run: >-
           "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
+          release publish-package --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
           --packages packages --ecosystem maven-kotlin --publish
 
   publish-nuget:
@@ -1220,7 +1250,7 @@ jobs:
           test "$(cat artifacts/SOURCE_SHA)" = "${{ needs.preflight-artifacts.outputs.source-sha }}"
           sha256sum --check artifacts/SHA256SUMS
           chmod +x "$RELEASE_TOOL"
-          "$RELEASE_TOOL" release publish \
+          "$RELEASE_TOOL" release publish-package \
             --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
             --packages packages --ecosystem nuget --prebuilt artifacts --publish
 
@@ -1244,7 +1274,7 @@ jobs:
       - name: Publish pub.dev package
         run: >-
           "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
+          release publish-package --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
           --packages packages --ecosystem dart --publish
 
   publish-ruby:
@@ -1278,7 +1308,7 @@ jobs:
           test "$(cat artifacts/SOURCE_SHA)" = "${{ needs.preflight-artifacts.outputs.source-sha }}"
           sha256sum --check artifacts/SHA256SUMS
           chmod +x "$RELEASE_TOOL"
-          "$RELEASE_TOOL" release publish \
+          "$RELEASE_TOOL" release publish-package \
             --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
             --packages packages --ecosystem ruby --prebuilt artifacts --publish
 
@@ -1304,7 +1334,7 @@ jobs:
           version="${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
           chmod +x "$RELEASE_TOOL"
           "$RELEASE_TOOL" \
-            release publish --version "$version" \
+            release publish-package --version "$version" \
             --packages packages --ecosystem lua --output dist
           cp "packages/lua/linux-x86_64-gnu/revault_api-${version}-1.rockspec" dist/lua/
       - uses: actions/upload-artifact@v7
@@ -1336,7 +1366,7 @@ jobs:
         run: |
           set -euo pipefail
           chmod +x packages/release-tools/revault-tool
-          packages/release-tools/revault-tool release publish \
+          packages/release-tools/revault-tool release publish-package \
             --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}" \
             --packages packages --ecosystem lua --prebuilt artifacts --publish
 
@@ -1350,7 +1380,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      RELEASE_TOOL: ${{ github.event_name == 'workflow_dispatch' && 'rust/target/release/revault-tool' || 'packages/release-tools/revault-tool' }}
+      RELEASE_TOOL: packages/release-tools/revault-tool
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -1365,9 +1395,6 @@ jobs:
           workspaces: rust
           shared-key: bindings-tooling-linux-x86_64
           cache-workspace-crates: true
-      - name: Build the corrected publication driver for a retry
-        if: github.event_name == 'workflow_dispatch'
-        run: cargo build --locked --release --manifest-path rust/Cargo.toml -p revault_tooling
       - name: Install native dependencies for Cargo's package verification
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
       - run: chmod +x "$RELEASE_TOOL"
@@ -1378,7 +1405,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-
           "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
+          release publish-package --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
           --packages packages --ecosystem rust-foundation --publish
       - name: Publish binding implementation crates
         env:
@@ -1391,7 +1418,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ steps.crates.outputs.token }}
         run: >-
           "$RELEASE_TOOL"
-          release publish --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
+          release publish-package --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
           --packages packages --ecosystem rust --publish
 
   promote-language-repositories:
