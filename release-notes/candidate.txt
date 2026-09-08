@@ -1,7 +1,10 @@
 Release all
-CLI: 0.0.17
-Bindings: 0.3.15
+CLI: 0.0.18
+Bindings: 0.3.16
 
+- fail matrix validation promptly
+- fail release validation faster and show wait progress
+- Prepare all release: CLI 0.0.17, bindings 0.3.15
 - report release CI failures with job details
 - Prepare cli release: CLI 0.0.16, bindings
 - Remove the superseded Dart implementation
