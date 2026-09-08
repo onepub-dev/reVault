@@ -16,8 +16,8 @@ default = ["native"]
 native = []
 
 [dependencies]
-revault_lockbox_api = { version = "0.0.14", path = "../revault_lockbox_api", features = ["bindings"] }
-revault_vault_api = { version = "0.0.15", path = "../revault_vault_api" }
+revault_lockbox_api = { version = "0.0.15", path = "../revault_lockbox_api", features = ["bindings"] }
+revault_vault_api = { version = "0.0.16", path = "../revault_vault_api" }
 flatbuffers = "=25.12.19"
 zeroize = "1.9"
 
