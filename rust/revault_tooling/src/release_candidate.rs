@@ -237,20 +237,68 @@ impl GitHub {
     }
     fn watch(&self, id: u64) -> Result<()> {
         println!("CI: https://github.com/{}/actions/runs/{id}", self.repo);
-        run_command(
-            &self.root,
-            "gh",
-            &[
-                "run",
-                "watch",
-                &id.to_string(),
-                "--repo",
-                &self.repo,
-                "--exit-status",
-                "--interval",
-                "30",
-            ],
-        )
+        let args = [
+            "run",
+            "watch",
+            &id.to_string(),
+            "--repo",
+            &self.repo,
+            "--exit-status",
+            "--interval",
+            "30",
+        ];
+        let status = Command::new("gh")
+            .current_dir(&self.root)
+            .args(args)
+            .status()?;
+        if status.success() {
+            return Ok(());
+        }
+
+        // `gh run watch` gives useful live output, but its final error is only
+        // "command failed". Fetch the structured job state so the caller can
+        // diagnose the failure without re-running the release command.
+        self.report_run_failure(id);
+        Err(format!("CI run {id} did not succeed (see the job details above)").into())
+    }
+
+    fn report_run_failure(&self, id: u64) {
+        let result = (|| -> Result<()> {
+            let value = self.api(&format!("actions/runs/{id}/jobs?per_page=100"))?;
+            let jobs = value["jobs"].as_array().ok_or("missing jobs")?;
+            eprintln!("CI run {id} failed or was cancelled:");
+            for job in jobs.iter().filter(|job| {
+                matches!(
+                    job["conclusion"].as_str(),
+                    Some("failure" | "cancelled" | "timed_out")
+                )
+            }) {
+                let name = job["name"].as_str().unwrap_or("unknown job");
+                let job_id = job["id"].as_u64().unwrap_or_default();
+                eprintln!(
+                    "  - {name} ({})",
+                    job["conclusion"].as_str().unwrap_or("unknown")
+                );
+                if let Some(steps) = job["steps"].as_array() {
+                    for step in steps.iter().filter(|step| step["conclusion"] == "failure") {
+                        eprintln!(
+                            "      step failed: {}",
+                            step["name"].as_str().unwrap_or("unknown")
+                        );
+                    }
+                }
+                eprintln!(
+                    "      https://github.com/{}/actions/runs/{id}/job/{job_id}",
+                    self.repo
+                );
+            }
+            eprintln!("  Logs: gh run view {id} --repo {} --log-failed", self.repo);
+            Ok(())
+        })();
+        if let Err(error) = result {
+            eprintln!("Unable to retrieve CI failure details: {error}");
+            eprintln!("  Run: https://github.com/{}/actions/runs/{id}", self.repo);
+        }
     }
     fn state_path(&self) -> Result<PathBuf> {
         Ok(PathBuf::from(output(
