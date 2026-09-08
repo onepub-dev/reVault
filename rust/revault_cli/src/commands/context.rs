@@ -622,7 +622,7 @@ pub(crate) fn open_default_vault_with_password(
             Ok(vault)
         }
         Err(Error::UnsupportedFormatVersion {
-            artifact: ArtifactKind::Vault,
+            artifact,
             found,
             supported,
         }) => {
@@ -633,12 +633,18 @@ pub(crate) fn open_default_vault_with_password(
             };
             Err(cli_diagnostic(
                 ExitCode::UnsupportedFormat,
-                "Unsupported Vault format",
+                if artifact == ArtifactKind::Lockbox {
+                    "Unsupported Vault container format"
+                } else {
+                    "Unsupported Vault format"
+                },
                 vec![(
                     "Details".to_string(),
-                    format!(
-                        "Found version {found}; this reVault build supports version {supported}."
-                    ),
+                    if artifact == ArtifactKind::Lockbox {
+                        format!("Found Lockbox container version {found}; this reVault build supports container version {supported}.")
+                    } else {
+                        format!("Found version {found}; this reVault build supports version {supported}.")
+                    },
                 )],
                 next_step,
             ))

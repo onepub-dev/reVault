@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.9 - 2026-09-08
+
+- Update the migration dependency chain to the lockbox and vault API releases
+  containing the latest format guidance and remembered-path behavior.
+
 ## 0.0.8 - 2026-09-06
 
 - Migrate vault structure v2 to v3 and preserve password profiles in export/import.

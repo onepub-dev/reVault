@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.11 - 2026-09-08
+
+- Give newer lockbox formats direct upgrade guidance instead of suggesting
+  migration to an older reader.
+
 ## 0.0.10 - 2026-09-06
 
 - Preserve password recipients during content-key replacement and support conversion to read-only handles. Fix atomic replacement for relative paths.

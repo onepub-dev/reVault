@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.0.15 - 2026-09-08
+
+- Use versioned migration backup names that include both source and target
+  formats.
+- Tell users to upgrade reVault when a newer vault or lockbox format is found.
+- Allow remembered lockbox paths to be recorded before the target lockbox is
+  created.
+- Clarify the verbose profile help text for key-pair profiles.
+
 ## 0.0.14 - 2026-09-06
 
 - Add vault-managed password profiles, password retrieval and backup, headless password access, and vault structure v3 migration.

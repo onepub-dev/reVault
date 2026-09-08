@@ -2207,21 +2207,21 @@ version = "0.2.2"
 dependencies = [
  "criterion",
  "flatbuffers",
- "revault_lockbox_api 0.0.10",
- "revault_vault_api 0.0.11",
+ "revault_lockbox_api 0.0.11",
+ "revault_vault_api 0.0.12",
  "zeroize",
 ]
 
 [[package]]
 name = "revault_cli"
-version = "0.0.14"
+version = "0.0.15"
 dependencies = [
  "clap",
  "clap_complete",
  "getrandom 0.4.3",
  "libc",
  "revault_key_server",
- "revault_lockbox_api 0.0.10",
+ "revault_lockbox_api 0.0.11",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
  "revault_lockbox_api 0.0.6",
@@ -2229,7 +2229,7 @@ dependencies = [
  "revault_migration",
  "revault_publish_protocol",
  "revault_vault_api 0.0.10",
- "revault_vault_api 0.0.11",
+ "revault_vault_api 0.0.12",
  "revault_vault_api 0.0.2",
  "revault_vault_api 0.0.6",
  "serde",
@@ -2356,7 +2356,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.10"
+version = "0.0.11"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -2424,10 +2424,10 @@ dependencies = [
 
 [[package]]
 name = "revault_migration"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "getrandom 0.4.3",
- "revault_lockbox_api 0.0.10",
+ "revault_lockbox_api 0.0.11",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
  "revault_lockbox_api 0.0.6",
@@ -2437,7 +2437,7 @@ dependencies = [
  "revault_migrate_vault_v2",
  "revault_migration_format 0.0.5",
  "revault_vault_api 0.0.10",
- "revault_vault_api 0.0.11",
+ "revault_vault_api 0.0.12",
  "revault_vault_api 0.0.2",
  "serde",
  "serde_json",
@@ -2609,7 +2609,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.11"
+version = "0.0.12"
 dependencies = [
  "base64ct",
  "chacha20poly1305",
@@ -2619,7 +2619,7 @@ dependencies = [
  "libc",
  "objc2-core-foundation",
  "objc2-io-kit",
- "revault_lockbox_api 0.0.10",
+ "revault_lockbox_api 0.0.11",
  "secret-service",
  "serde",
  "serde_json",
@@ -2634,9 +2634,9 @@ name = "revault_wasm_bindings"
 version = "0.0.3"
 dependencies = [
  "js-sys",
- "revault_lockbox_api 0.0.10",
+ "revault_lockbox_api 0.0.11",
  "revault_page_api 0.0.4",
- "revault_vault_api 0.0.11",
+ "revault_vault_api 0.0.12",
  "wasm-bindgen",
 ]
 

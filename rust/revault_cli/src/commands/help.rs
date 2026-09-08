@@ -1964,7 +1964,7 @@ fn vault_profile_command(verbose: bool) -> Command {
         .after_help(verbose_help(
             verbose,
             "Examples:\n  lockbox vault profile list\n  lockbox vault profile create laptop\n  lockbox vault profile publish laptop\n  lockbox vault profile fingerprint laptop\n  lockbox vault profile backup ./default.profile-backup",
-            "Context:\n  A key-pair profile has public, private open and owner signing keys. A password profile stores a generated secret; create one with --password and retrieve it with profile password <name>. Publish or export the public key so someone else can grant you access to a lockbox. Use profile backup and restore for emergency recovery of one profile.",
+            "Context:\n  A key-pair profile has a public key, private open key and owner signing keys. A password profile stores a generated secret; create one with --password and retrieve it with profile password <name>. Publish or export the public key so someone else can grant you access to a lockbox. Use profile backup and restore for emergency recovery of one profile.",
         ))
         .subcommand_required(true)
         .arg_required_else_help(true)
