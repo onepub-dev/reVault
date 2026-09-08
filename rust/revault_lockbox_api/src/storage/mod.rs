@@ -96,6 +96,46 @@ impl StorageBackend {
         result
     }
 
+    pub(crate) fn is_read_only(&self) -> bool {
+        matches!(self, Self::File(store) if !store.writable)
+    }
+
+    #[cfg(feature = "bindings")]
+    pub(crate) fn publish(path: &Path, bytes: &[u8], overwrite: bool) -> Result<Self> {
+        if !overwrite
+            || !path
+                .try_exists()
+                .map_err(|err| Error::Io(err.to_string()))?
+        {
+            return Self::create_file(path, bytes);
+        }
+        let _original = Self::file_for_write(path)?;
+        let (replacement, mut file) =
+            atomic_file_replacement::AtomicFileReplacement::create_unique(
+                path,
+                ".lockbox-replace",
+            )?;
+        let result = (|| {
+            archive_lock::acquire(
+                &file,
+                replacement.temp_path(),
+                true,
+                std::time::Instant::now(),
+            )?;
+            file.write_all(bytes)
+                .map_err(|err| Error::Io(err.to_string()))?;
+            file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+            replacement.install()?;
+            Ok(Self::File(FileStore {
+                path: path.to_path_buf(),
+                file: Arc::new(Mutex::new(file)),
+                writable: true,
+            }))
+        })();
+        replacement.discard();
+        result
+    }
+
     pub(crate) fn relocate(&mut self, path: &Path) {
         if let Self::File(store) = self {
             store.path = path.to_path_buf();
@@ -406,6 +446,7 @@ impl StorageBackend {
 pub(crate) struct FileStore {
     path: PathBuf,
     file: Arc<Mutex<std::fs::File>>,
+    writable: bool,
 }
 
 impl FileStore {
@@ -415,6 +456,7 @@ impl FileStore {
         Ok(Self {
             path,
             file: Arc::new(Mutex::new(file)),
+            writable,
         })
     }
 
@@ -446,6 +488,7 @@ impl FileStore {
             Ok(Self {
                 path,
                 file: Arc::new(Mutex::new(file)),
+                writable: true,
             })
         })();
         replacement.discard();

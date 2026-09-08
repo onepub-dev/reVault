@@ -347,20 +347,29 @@ module Revault
     end
 
     # Creates an archive file and returns its process-local handle.
-    def self.create(path, **options)
-      raise Errno::EEXIST, path if File.exist?(path) && !options.delete(:overwrite)
-      box = create_in_memory(**options)
-      File.binwrite(path, box.to_bytes)
-      box.instance_variable_set(:@backing_path, path)
-      box
+    def self.create(path, overwrite: false, **options)
+      file_handle(path, overwrite ? 'replace' : 'create', **options)
     end
 
-    # Opens an archive file without consulting the Session Agent.
+    # Opens with a shared lock; supply signing_key for exclusive write access.
+    # Close readers before opening a writer. Example:
+    # box = Lockbox.open(path, password: password); begin; puts box.get_file('/hello'); ensure; box.close; end
     def self.open(path, **options)
-      box = open_bytes(File.binread(path), **options)
-      box.instance_variable_set(:@backing_path, path)
-      box
+      file_handle(path, 'open', **options)
     end
+
+    # Internal credential and option marshalling for native file operations.
+    def self.file_handle(path, mode, password: nil, content_key: nil, contact: nil, signing_key: nil, options: nil)
+      raise ArgumentError, 'supply exactly one credential' unless [password, content_key, contact].compact.length == 1
+      Revault.ensure_native
+      operations = BindingOperations.new
+      tuning = options || {}
+      cache = tuning[:cache_mode] || 'bytes'
+      cache = 'auto' if cache == 'automatic'
+      credential = password ? 'password' : contact ? 'contact' : 'content-key'
+      new(operations, operations.lockbox_file(path, mode, credential, (password || content_key || '').to_str, contact&.native_handle, signing_key&.native_handle, cache, tuning[:cache_bytes] || (64 << 20), tuning[:workload] || 'interactive', tuning[:worker] || 'auto', tuning[:jobs] || 0))
+    end
+    private_class_method :file_handle
 
     # Stages a file at the Lockbox path; replace controls an existing entry.
     def add_file(path, data, replace)
@@ -444,9 +453,7 @@ module Revault
 
     # Authenticates and publishes the staged changes.
     def commit()
-      result = @operations.lockbox_commit(@native_handle)
-      File.binwrite(@backing_path, to_bytes) if @backing_path
-      result
+      @operations.lockbox_commit(@native_handle)
     end
 
     # Stages a directory entry and optionally creates missing parents.

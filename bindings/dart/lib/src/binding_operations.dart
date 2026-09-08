@@ -223,6 +223,63 @@ final class BindingOperations {
     ),
   );
 
+  // BEGIN generated file operation route
+  ffi.Pointer<ffi.Void> lockboxFile(
+    String path,
+    String mode,
+    String credential,
+    Uint8List secret,
+    ffi.Pointer<ffi.Void> contact,
+    ffi.Pointer<ffi.Void> signer,
+    String cacheMode,
+    int cacheBytes,
+    String workload,
+    String worker,
+    int jobs,
+  ) => _withText(
+    path,
+    (pathPointer, pathLength) => _withText(
+      mode,
+      (modePointer, modeLength) => _withText(
+        credential,
+        (credentialPointer, credentialLength) => _withBytes(
+          secret,
+          (secretPointer, secretLength) => _withText(
+            cacheMode,
+            (cacheModePointer, cacheModeLength) => _withText(
+              workload,
+              (workloadPointer, workloadLength) => _withText(
+                worker,
+                (workerPointer, workerLength) => _requireHandle(
+                  native.lockbox_file(
+                    pathPointer,
+                    pathLength,
+                    modePointer,
+                    modeLength,
+                    credentialPointer,
+                    credentialLength,
+                    secretPointer,
+                    secretLength,
+                    contact,
+                    signer,
+                    cacheModePointer,
+                    cacheModeLength,
+                    cacheBytes,
+                    workloadPointer,
+                    workloadLength,
+                    workerPointer,
+                    workerLength,
+                    jobs,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  // END generated file operation route
   ffi.Pointer<ffi.Void> lockboxOpen(Uint8List archive, Uint8List key) =>
       _withBytes(
         archive,

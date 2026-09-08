@@ -35,6 +35,14 @@ def moves(source, destination)
 end
 
 def archive_lifecycle
+  Dir.mktmpdir('revault-file-') do |root|
+    path = File.join(root, 'archive.lbox')
+    box = Revault::Lockbox.create(path, content_key: 'K' * 32)
+    begin; box.add_file('/hello', 'native', false); box.commit; ensure; box.close; end
+    box = Revault::Lockbox.open(path, content_key: 'K' * 32)
+    begin; check(box.get_file('/hello') == 'native', 'native file persistence'); ensure; box.close; end
+  end
+  pass('lockbox_file', 3)
   key = 'K' * 32
   box = API.lockbox_create(key); pass('lockbox_create')
   box.add_file('/hello.txt', 'hello from ruby conformance', false); pass('lockbox_add_file', 2)

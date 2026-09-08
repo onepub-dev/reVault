@@ -22,6 +22,14 @@ static class Conformance
 
     static void ArchiveLifecycle()
     {
+        var filePath = Path.Combine(Root(), "native-file.lbox");
+        var fileKey = Repeat('K', 32);
+        using (var signer = Api.GenerateProfileSigningKeyPair()) {
+            using (var box = Api.CreateLockboxFile(filePath, fileKey, signer, overwrite: true)) { box.AddFile("/hello", Bytes("native")); box.Commit(); }
+            using (var box = Api.OpenLockboxFile(filePath, fileKey)) { Check(box.GetFile("/hello").SequenceEqual(Bytes("native")), "native file persistence"); }
+        }
+        File.Delete(filePath); Pass("lockbox_file", 3);
+
         var key = Repeat('K', 32); byte[] archive;
         using (var box = Api.CreateLockbox(key))
         {

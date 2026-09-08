@@ -19,6 +19,9 @@ final class RevaultAbiSymbols {
     "lockbox_create_contact",
     "lockbox_create_contact_with_signing_key",
     "lockbox_create_with_signing_key",
+// BEGIN generated file operation symbol
+    "lockbox_file",
+// END generated file operation symbol
     "lockbox_open",
     "lockbox_open_with_options",
     "lockbox_open_password",

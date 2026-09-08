@@ -34,6 +34,14 @@ const fields = () => [
 const sleep = milliseconds => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 
 function archiveLifecycle() {
+  const filePath = path.join(artifactRoot(), 'native-file.lbox');
+  const fileKey = Buffer.alloc(32, 75);
+  let fileBox = binding.Lockbox.create(filePath, {contentKey: fileKey, overwrite: true});
+  try { fileBox.addFile('/hello', Buffer.from('native'), false); fileBox.commit(); } finally { fileBox.close(); }
+  fileBox = binding.Lockbox.open(filePath, {contentKey: fileKey});
+  try { check(equal(fileBox.getFile('/hello'), 'native'), 'native file persistence'); } finally { fileBox.close(); }
+  fs.unlinkSync(filePath); pass('lockbox_file', 3);
+
   const key = Buffer.alloc(32, 'K');
   const box = api.lockboxCreate(key); pass('lockbox_create');
   box.addFile('/hello.txt', `hello from ${language} conformance`, false); pass('lockbox_add_file', 2);

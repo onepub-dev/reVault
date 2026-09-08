@@ -35,6 +35,10 @@ void * lockbox_create_password_with_signing_key(const uint8_t * password, size_t
 void * lockbox_create_contact(const void * contact);
 void * lockbox_create_contact_with_signing_key(const void * contact, const void * signing_key);
 void * lockbox_create_with_signing_key(const uint8_t * content_key, size_t key_len, const void * signing_key);
+// BEGIN generated file operation abi
+/** Native file operation; mode is open/create/replace. A signer selects exclusive write access. See file_api.rs for credential, tuning and ownership contracts. */
+void *lockbox_file(const char *path, size_t path_len, const char *mode, size_t mode_len, const char *credential, size_t credential_len, const uint8_t *secret, size_t secret_len, const void *contact, const void *signer, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs);
+// END generated file operation abi
 void * lockbox_open(const uint8_t * archive, size_t archive_len, const uint8_t * key, size_t key_len);
 void * lockbox_open_with_options(const uint8_t * archive, size_t archive_len, const uint8_t * key, size_t key_len, const char * cache_mode, size_t cache_len, uint64_t cache_bytes, const char * workload, size_t workload_len, const char * worker, size_t worker_len, size_t jobs);
 void * lockbox_open_password(const uint8_t * archive, size_t archive_len, const uint8_t * password, size_t password_len);
@@ -570,6 +574,13 @@ function Operations:lockbox_create_with_signing_key(content_key, signing_key)
   return value
 end
 
+-- BEGIN generated file operation route
+function Operations:lockbox_file(path, mode, credential, secret, contact, signer, cache_mode, cache_bytes, workload, worker, jobs)
+  local value = native.lockbox_file(path, #path, mode, #mode, credential, #credential, secret, #secret, contact, signer, cache_mode, #cache_mode, cache_bytes, workload, #workload, worker, #worker, jobs)
+  if value == nil then error(last_error(), 2) end
+  return value
+end
+-- END generated file operation route
 function Operations:lockbox_open(archive, key)
   local value = native.lockbox_open(archive, #archive, key, #key)
   if value == nil then error(last_error(), 2) end
@@ -2740,19 +2751,26 @@ function Lockbox.open_bytes(archive, options)
   end
   return runtime:lockbox_open(archive, options.content_key)
 end
---- Creates an archive file and returns its process-local handle.
-function Lockbox.create(path, options)
+local function file_handle(path, mode, options)
   options = options or {}
-  local existing = io.open(path, 'rb')
-  if existing then existing:close(); if not options.overwrite then error('Lockbox already exists: ' .. path) end end
-  local box = Lockbox.create_in_memory(options)
-  local file = assert(io.open(path, 'wb')); file:write(box:to_bytes()); file:close()
-  return box
+  local count = (options.password ~= nil and 1 or 0) + (options.content_key ~= nil and 1 or 0) + (options.contact ~= nil and 1 or 0)
+  if count ~= 1 then error('supply exactly one credential') end
+  local runtime = Revault.runtime()
+  local tuning = options.options or {}
+  local cache = tuning.cache_mode or 'bytes'
+  if cache == 'automatic' then cache = 'auto' end
+  local credential = options.password and 'password' or options.contact and 'contact' or 'content-key'
+  return Lockbox.new(runtime.operations, runtime.operations:lockbox_file(path, mode, credential, options.password or options.content_key or '', options.contact and options.contact.handle or nil, options.signing_key and options.signing_key.handle or nil, cache, tuning.cache_bytes or (64 * 1024 * 1024), tuning.workload or 'interactive', tuning.worker or 'auto', tuning.jobs or 0))
 end
---- Opens an archive file without consulting the Session Agent.
+--- Creates and exclusively locks a native archive; overwrite replaces atomically.
+--- Example: local box = Lockbox.create(path, {password=password}); box:commit(); box:close()
+function Lockbox.create(path, options)
+  return file_handle(path, options and options.overwrite and 'replace' or 'create', options)
+end
+--- Opens with a shared lock; supply signing_key for exclusive write access.
+--- Example: local box = Lockbox.open(path, {password=password}); print(box:get_file('/hello')); box:close()
 function Lockbox.open(path, options)
-  local file = assert(io.open(path, 'rb')); local archive = file:read('*a'); file:close()
-  return Lockbox.open_bytes(archive, options)
+  return file_handle(path, 'open', options)
 end
 
 Lockbox.close = Lockbox.free

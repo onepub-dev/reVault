@@ -74,3 +74,8 @@ list_profiles	CLI mixed profile namespace enumeration; foreign profile APIs cont
 list_password_profiles	CLI server credential enumeration; foreign profile APIs continue to manage key-pair profiles in this release.
 list_profile_names	CLI read-only mixed profile discovery for command completion; foreign profile APIs continue to enumerate key-pair profiles in this release.
 delete_profile	CLI mixed profile removal; foreign delete_private_key remains restricted to key-pair profiles in this release.
+read_archive	Rust archive guard implementation; foreign file handles retain it through lockbox_file.
+read_archive_bytes	Rust archive guard implementation; foreign callers use native file reads.
+lock_archive	Rust private staging guard; foreign replacement is performed by Rust.
+backup	Backup of an already-open VaultDirectory is not yet exposed; close it before using vault_backup_default.
+write_to_path	Migration/test-only Rust snapshot writer; foreign file persistence uses native commit and file creation.

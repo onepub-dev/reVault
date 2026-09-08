@@ -133,6 +133,13 @@ final class BindingOperations {
     }
   }
 
+// BEGIN generated file operation route
+  public MemorySegment lockboxFile(String path, String mode, String credential, byte[] secret, MemorySegment contact, MemorySegment signer, String cacheMode, long cacheBytes, String workload, String worker, long jobs) {
+    try (var arena = Arena.ofConfined()) {
+      return require((MemorySegment) call(api.lockbox_file, text(arena, path), (long) path.getBytes(StandardCharsets.UTF_8).length, text(arena, mode), (long) mode.getBytes(StandardCharsets.UTF_8).length, text(arena, credential), (long) credential.getBytes(StandardCharsets.UTF_8).length, bytes(arena, secret), (long) secret.length, contact, signer, text(arena, cacheMode), (long) cacheMode.getBytes(StandardCharsets.UTF_8).length, cacheBytes, text(arena, workload), (long) workload.getBytes(StandardCharsets.UTF_8).length, text(arena, worker), (long) worker.getBytes(StandardCharsets.UTF_8).length, jobs));
+    }
+  }
+// END generated file operation route
   public MemorySegment lockboxOpen(byte[] archive, byte[] key) {
     try (var arena = Arena.ofConfined()) {
       return require((MemorySegment) call(api.lockbox_open, bytes(arena, archive), (long) archive.length, bytes(arena, key), (long) key.length));

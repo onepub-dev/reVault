@@ -76,6 +76,16 @@ final class Revault
     /** Returns the last error details. */
     public function lastErrorDetails(): object { return $this->operations->bufferLastErrorDetails(); }
 
+    /** @internal Native file transport used by Lockbox factories. */
+    public function lockboxFileInternal(string $path, string $mode, ?string $password, ?string $contentKey, ?OwnedHandle $contact, ?OwnedHandle $signingKey, ?array $options): Lockbox
+    {
+        if (count(array_filter([$password, $contentKey, $contact], static fn($v) => $v !== null)) !== 1) throw new \InvalidArgumentException('Supply exactly one credential.');
+        $options ??= [];
+        $cache = $options['cacheMode'] ?? 'bytes';
+        if ($cache === 'automatic') $cache = 'auto';
+        return new Lockbox($this->operations, $this->operations->lockboxFile($path, $mode, $password !== null ? 'password' : ($contact !== null ? 'contact' : 'content-key'), $password ?? $contentKey ?? '', $contact?->nativeHandle(), $signingKey?->nativeHandle(), $cache, $options['cacheBytes'] ?? (64 << 20), $options['workload'] ?? 'interactive', $options['worker'] ?? 'auto', $options['jobs'] ?? 0));
+    }
+
     /** Returns the newest Lockbox archive format version supported by this engine. */
     public function lockboxFormatVersion(): int
     {
@@ -413,7 +423,6 @@ abstract class OwnedHandle
 class Lockbox extends OwnedHandle
 {
     /** Host path for handles returned by the path factory; null for bytes-only handles. */
-    private ?string $backingPath = null;
     /** Create an in-memory archive protected by exactly one credential. */
     public static function createInMemory(?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?OwnedHandle $signingKey = null, ?array $options = null): self
     {
@@ -444,19 +453,15 @@ class Lockbox extends OwnedHandle
     /** Create a host archive file and return its process-local handle. */
     public static function create(string $path, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?OwnedHandle $signingKey = null, ?array $options = null, bool $overwrite = false): self
     {
-        if (is_file($path) && !$overwrite) throw new \RuntimeException("Lockbox already exists: $path");
-        $box = self::createInMemory($password, $contentKey, $contact, $signingKey, $options);
-        file_put_contents($path, $box->toBytes());
-        $box->backingPath = $path;
-        return $box;
+        return Revault::runtime()->lockboxFileInternal($path, $overwrite ? 'replace' : 'create', $password, $contentKey, $contact, $signingKey, $options);
     }
 
-    /** Open a host archive file without consulting the Session Agent. */
-    public static function open(string $path, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?array $options = null): self
+    /** Open with a shared lock; supply signingKey for exclusive write access.
+     * Example: $box = Lockbox::open($path, password: $password); try { echo $box->getFile('/hello'); } finally { $box->close(); }
+     */
+    public static function open(string $path, ?string $password = null, ?string $contentKey = null, ?OwnedHandle $contact = null, ?array $options = null, ?OwnedHandle $signingKey = null): self
     {
-        $box = self::openBytes(file_get_contents($path), $password, $contentKey, $contact, $options);
-        $box->backingPath = $path;
-        return $box;
+        return Revault::runtime()->lockboxFileInternal($path, 'open', $password, $contentKey, $contact, $signingKey, $options);
     }
 
     /** Stages a file at the Lockbox path; replace controls an existing entry. */
@@ -558,9 +563,7 @@ class Lockbox extends OwnedHandle
     /** Authenticates and publishes the staged changes. */
     public function commit(): bool
     {
-        $committed = $this->operations->lockboxCommit($this->handle);
-        if ($this->backingPath !== null) file_put_contents($this->backingPath, $this->toBytes());
-        return $committed;
+        return $this->operations->lockboxCommit($this->handle);
     }
 
     /** Stages a directory entry and optionally creates missing parents. */

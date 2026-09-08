@@ -1506,7 +1506,7 @@ fn backup_vault_bytes(
         vault_size: vault_bytes.len() as u64,
         vault_sha256: crate::encode_hex(&digest),
     };
-    write_vault_backup_archive(output.as_ref(), overwrite, &manifest, &vault_bytes)?;
+    write_vault_backup_archive(output, overwrite, &manifest, vault_bytes)?;
     Ok(manifest)
 }
 

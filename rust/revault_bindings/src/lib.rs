@@ -19,6 +19,8 @@
 //! plaintext copies to a callback scope.
 
 use revault_lockbox_api::Result as LockboxResult;
+mod file_api;
+pub use file_api::lockbox_file;
 
 // flatc 25.2.10 predates Rust 2024's explicit unsafe-block requirement. Keep
 // that compatibility allowance confined to generated private transport code.
@@ -91,6 +93,12 @@ unsafe fn lockbox_ref<'a>(handle: *const c_void) -> Option<&'a LockboxHandle> {
 /// lockbox constructor. The pointee must outlive the returned borrow and no
 /// other access to it may overlap the borrow.
 unsafe fn lockbox_mut<'a>(handle: *mut c_void) -> Option<&'a mut LockboxHandle> {
+    let lockbox = unsafe { lockbox_settings_mut(handle) }?;
+    (!lockbox.is_file_read_only()).then_some(lockbox)
+}
+
+// Runtime tuning does not mutate archive content and is valid for shared readers.
+unsafe fn lockbox_settings_mut<'a>(handle: *mut c_void) -> Option<&'a mut LockboxHandle> {
     (!handle.is_null()).then(|| unsafe { &mut *handle.cast::<LockboxHandle>() })
 }
 
@@ -1219,7 +1227,11 @@ pub unsafe extern "C" fn lockbox_add_file(
     replace: bool,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let (Some(path), Some(data)) = (unsafe { input_str(path, path_len) }, unsafe {
@@ -1259,7 +1271,11 @@ pub unsafe extern "C" fn lockbox_add_file_with_permissions(
     replace: bool,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let (Some(path), Some(data)) = (unsafe { input_str(path, path_len) }, unsafe {
@@ -1336,7 +1352,11 @@ pub unsafe extern "C" fn lockbox_get_file(
 /// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_commit(handle: *mut c_void) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     match handle.commit() {
@@ -1367,7 +1387,11 @@ pub unsafe extern "C" fn lockbox_create_dir(
     create_parents: bool,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(path) = (unsafe { input_str(path, path_len) }) else {
@@ -1401,7 +1425,11 @@ pub unsafe extern "C" fn lockbox_delete(
     path_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(path) = (unsafe { input_str(path, path_len) }) else {
@@ -1436,7 +1464,11 @@ pub unsafe extern "C" fn lockbox_remove_dir(
     recursive: bool,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(path) = (unsafe { input_str(path, path_len) }) else {
@@ -1477,7 +1509,11 @@ pub unsafe extern "C" fn lockbox_create_parent_dirs(
     path_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(path) = (unsafe { input_str(path, path_len) }) else {
@@ -1896,7 +1932,7 @@ pub unsafe extern "C" fn lockbox_set_workload_profile(
     profile: *const c_char,
     profile_len: usize,
 ) -> bool {
-    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
+    let Some(handle) = (unsafe { lockbox_settings_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1934,7 +1970,7 @@ pub unsafe extern "C" fn lockbox_set_worker_policy(
     mode_len: usize,
     jobs: usize,
 ) -> bool {
-    let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
+    let Some(handle) = (unsafe { lockbox_settings_mut(handle) }) else {
         set_error("lockbox handle is null");
         return false;
     };
@@ -1997,7 +2033,11 @@ pub unsafe extern "C" fn lockbox_rename(
     to_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let (Some(from), Some(to)) = (unsafe { input_str(from, from_len) }, unsafe {
@@ -2229,7 +2269,11 @@ pub unsafe extern "C" fn lockbox_set_variable(
     value_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let (Some(name), Some(value)) = (unsafe { input_str(name, name_len) }, unsafe {
@@ -2268,7 +2312,11 @@ pub unsafe extern "C" fn lockbox_set_secret_variable(
     value_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let (Some(name), Some(value)) = (unsafe { input_str(name, name_len) }, unsafe {
@@ -2386,7 +2434,11 @@ pub unsafe extern "C" fn lockbox_delete_variable(
     name_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(name) = (unsafe { input_str(name, name_len) }) else {
@@ -2420,7 +2472,11 @@ pub unsafe extern "C" fn lockbox_move_variables(
     moves_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(bytes) = (unsafe { input(moves_transport, moves_len) }) else {
@@ -2561,7 +2617,11 @@ pub unsafe extern "C" fn lockbox_add_symlink(
     replace: bool,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let (Some(path), Some(target)) = (unsafe { input_str(path, path_len) }, unsafe {
@@ -2770,7 +2830,11 @@ pub unsafe extern "C" fn lockbox_set_permissions(
     permissions: u32,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(path) = (unsafe { input_str(path, path_len) }) else {
@@ -2913,7 +2977,11 @@ pub unsafe extern "C" fn lockbox_add_password(
     len: usize,
 ) -> u64 {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return u64::MAX;
     };
     let Some(password) = (unsafe { input(password, len) }) else {
@@ -2955,7 +3023,11 @@ pub unsafe extern "C" fn lockbox_add_contact(
     name_len: usize,
 ) -> u64 {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return u64::MAX;
     };
     let Some(contact) =
@@ -2998,7 +3070,11 @@ pub unsafe extern "C" fn lockbox_add_contact(
 /// mutable state and must release each owned handle exactly once.
 pub unsafe extern "C" fn lockbox_delete_key(handle: *mut c_void, id: u64) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     match handle.delete_key(id) {
@@ -3048,7 +3124,11 @@ pub unsafe extern "C" fn lockbox_set_owner_signing_key(
     key: *const c_void,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(key) = (!key.is_null()).then(|| unsafe { &*(key.cast::<OwnerSigningKeyPair>()) })
@@ -3126,7 +3206,11 @@ pub unsafe extern "C" fn lockbox_define_form(
     fields_len: usize,
 ) -> RevaultBuffer {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return RevaultBuffer {
             ptr: ptr::null_mut(),
             len: 0,
@@ -3323,7 +3407,11 @@ pub unsafe extern "C" fn lockbox_create_form_record(
     name_len: usize,
 ) -> RevaultBuffer {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return RevaultBuffer {
             ptr: ptr::null_mut(),
             len: 0,
@@ -3376,7 +3464,11 @@ pub unsafe extern "C" fn lockbox_set_form_field(
     value_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let (Some(path), Some(field), Some(value)) = (
@@ -3420,7 +3512,11 @@ pub unsafe extern "C" fn lockbox_set_secret_form_field(
     value_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let (Some(path), Some(field), Some(value)) = (
@@ -3540,7 +3636,11 @@ pub unsafe extern "C" fn lockbox_delete_form_record(
     path_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(path) = (unsafe { input_str(path, path_len) }) else {
@@ -3574,7 +3674,11 @@ pub unsafe extern "C" fn lockbox_move_form_records(
     moves_len: usize,
 ) -> bool {
     let Some(handle) = (unsafe { lockbox_mut(handle) }) else {
-        set_error("lockbox handle is null");
+        set_error(if handle.is_null() {
+            "lockbox handle is null"
+        } else {
+            "lockbox is read-only; close and reopen with a signing key"
+        });
         return false;
     };
     let Some(bytes) = (unsafe { input(moves_transport, moves_len) }) else {

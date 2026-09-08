@@ -26,6 +26,15 @@ func moves(_ source: String, _ destination: String) -> [PathMove] {
 }
 
 func archiveLifecycle() throws {
+    let filePath = try artifactRoot() + "/native-file.lbox"
+    let fileKey = Data(repeating: 75, count: 32)
+    let fileSigner = try api.generateProfileSigningKeyPair()
+    let fileWriter = try api.createLockboxFile(filePath, contentKey: fileKey, signer: fileSigner, overwrite: true)
+    _ = try fileWriter.addFile("/hello", data("native"), false); _ = try fileWriter.commit(); fileWriter.free()
+    let fileReader = try api.openLockboxFile(filePath, contentKey: fileKey)
+    try check(try fileReader.getFile("/hello") == data("native"), "native file persistence")
+    fileReader.free(); fileSigner.free(); try files.removeItem(atPath: filePath); pass("lockbox_file", 3)
+
     let key = Data(repeating: 75, count: 32)
     let box = try api.lockboxCreate(key); pass("lockbox_create")
     try box.addFile("/hello.txt", data("hello from swift conformance"), false); pass("lockbox_add_file", 2)

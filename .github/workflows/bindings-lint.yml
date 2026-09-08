@@ -166,6 +166,26 @@ jobs:
           rubocop --config bindings/ruby/.rubocop.yml --only Lint bindings/ruby/lib bindings/ruby/revault_api.gemspec bindings/e2e/ruby/conformance.rb
           luajit -e 'assert(loadfile("bindings/lua/revault_api.lua"))'
           luajit -e 'assert(loadfile("bindings/e2e/lua/conformance.lua"))'
+      - name: Native file facade regression tests
+        env:
+          REVAULT_LIBRARY: ${{ github.workspace }}/rust/target/debug/librevault_api.so
+          LOCKBOX_LOCK_TIMEOUT_MS: '60'
+          PYTHONPATH: ${{ github.workspace }}/bindings/python
+          LUA_PATH: '${{ github.workspace }}/bindings/lua/?.lua;;'
+        run: |
+          python -m pip install 'flatbuffers>=25.2.10,<26'
+          python bindings/e2e/python/file_lifecycle.py
+          node --test bindings/e2e/javascript/file_lifecycle.js
+          php -d ffi.enable=true bindings/e2e/php/file_lifecycle.php
+          luajit bindings/e2e/lua/file_lifecycle.lua
+          mkdir -p bindings/ruby/native/linux-x86_64-gnu bindings/dart/lib/src/native/linux-x86_64-gnu
+          cp "$REVAULT_LIBRARY" bindings/ruby/native/linux-x86_64-gnu/librevault_api.so
+          cc -shared -fPIC -I rust/revault_bindings bindings/ruby/native/revault_ruby_shim.c -L rust/target/debug -lrevault_api '-Wl,-rpath,$ORIGIN' -o bindings/ruby/native/linux-x86_64-gnu/librevault_ruby_shim.so
+          ruby bindings/e2e/ruby/file_lifecycle.rb
+          cp "$REVAULT_LIBRARY" bindings/dart/lib/src/native/linux-x86_64-gnu/librevault_api.so
+          (cd bindings/dart && dart test test/file_lifecycle_test.dart)
+          cargo test --locked --manifest-path rust/Cargo.toml -p revault_bindings
+          rm -rf bindings/ruby/native/linux-x86_64-gnu bindings/dart/lib/src/native/linux-x86_64-gnu
       - name: Swift compile
         working-directory: bindings/swift
         env:

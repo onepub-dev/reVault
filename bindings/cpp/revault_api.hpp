@@ -36,6 +36,17 @@ class WrappedContactKey;
 
 namespace detail {
 
+// BEGIN generated file operation route
+
+inline void* file_handle(const std::string& path, const std::string& mode,
+ const std::string& credential, const std::vector<std::uint8_t>& secret,
+ const void* contact, const void* signer, const std::string& cache_mode,
+ std::uint64_t cache_bytes, const std::string& workload, const std::string& worker, std::size_t jobs) {
+ auto* handle = lockbox_file(path.data(), path.size(), mode.data(), mode.size(), credential.data(), credential.size(), secret.data(), secret.size(), contact, signer, cache_mode.data(), cache_mode.size(), cache_bytes, workload.data(), workload.size(), worker.data(), worker.size(), jobs);
+ if (!handle) throw std::runtime_error(buffer_last_error());
+ return handle;
+}
+// END generated file operation route
 inline void require_compatible_abi() {
   if (api_abi_version() != 3)
     throw std::runtime_error("revault-api native ABI mismatch; expected 3");
@@ -437,6 +448,22 @@ class Lockbox {
     return adopt(lockbox_create_with_signing_key(
         key.data(), key.size(), signing_key.native_handle()));
   }
+// BEGIN generated file operation facade
+  /** Creates and exclusively locks a native file. overwrite requires explicit replacement.
+   * Example: { auto box = Lockbox::create_file(path, key, signer); box.add_file("/hello", payload); box.commit(); }
+   */
+  static Lockbox create_file(const std::string& path, const std::vector<std::uint8_t>& content_key, const ProfileSigningKeyPair& signer, bool overwrite = false) {
+    return adopt(detail::file_handle(path, overwrite ? "replace" : "create", "content-key", content_key, nullptr, signer.native_handle(), "bytes", 64ULL << 20, "interactive", "auto", 0));
+  }
+  /** Opens a native file with a shared lock; supply signer for exclusive write access.
+   * Close all readers before opening a writer. No Session Agent is used.
+   * Example: { auto box = Lockbox::open_file(path, key); auto payload = box.get_file("/hello"); }
+   */
+  static Lockbox open_file(const std::string& path, const std::vector<std::uint8_t>& content_key, const ProfileSigningKeyPair* signer = nullptr) {
+    return adopt(detail::file_handle(path, "open", "content-key", content_key, nullptr, signer ? signer->native_handle() : nullptr, "bytes", 64ULL << 20, "interactive", "auto", 0));
+  }
+
+// END generated file operation facade
   /** Opens an existing lockbox. */
   static Lockbox open(const std::vector<std::uint8_t>& archive,
                       const std::vector<std::uint8_t>& key) {

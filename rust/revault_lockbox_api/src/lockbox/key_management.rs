@@ -491,6 +491,62 @@ impl Lockbox {
         Self::open_with_signer(path, open, load_signing_key)
     }
 
+    /// Opens a native file for a foreign-language handle, retaining its archive lock.
+    ///
+    /// A signer selects exclusive write access; without one the returned runtime
+    /// handle is permanently read-only. Close it and reopen with a signer to write.
+    /// Tuning affects only this handle, never the on-disk format.
+    #[cfg(feature = "bindings")]
+    pub fn open_file_handle(
+        path: &Path,
+        open: LockboxOpen<'_>,
+        signer: Option<&OwnerSigningKeyPair>,
+        options: LockboxOptions,
+    ) -> Result<Self> {
+        let mut lockbox = match signer {
+            Some(signer) => Self::open_for_write(path, open, signer)?,
+            None => {
+                let mut lockbox = Self::open_file_opened(path, open)?;
+                lockbox.mark_read_only();
+                lockbox
+            }
+        };
+        lockbox.page_manager =
+            std::cell::RefCell::new(crate::page_cache::PageCache::new(options.cache_limit));
+        lockbox.workload_profile = options.workload_profile;
+        lockbox.worker_policy = options.worker_policy;
+        Ok(lockbox)
+    }
+
+    /// Creates a fully initialized native archive and retains its exclusive lock.
+    ///
+    /// With `overwrite`, locks the existing archive before atomic replacement.
+    /// Existing readers must close first. Failure before publication preserves
+    /// the existing archive. Without overwrite, publication refuses an existing path.
+    #[cfg(feature = "bindings")]
+    pub fn create_file_handle(
+        path: &Path,
+        protection: LockboxProtection<'_>,
+        signer: &OwnerSigningKeyPair,
+        options: LockboxOptions,
+        overwrite: bool,
+    ) -> Result<Self> {
+        let mut lockbox = Self::create_in_memory(protection, signer)?;
+        lockbox.commit()?;
+        lockbox.storage = StorageBackend::publish(path, &lockbox.bytes()?, overwrite)?;
+        lockbox.page_manager =
+            std::cell::RefCell::new(crate::page_cache::PageCache::new(options.cache_limit));
+        lockbox.workload_profile = options.workload_profile;
+        lockbox.worker_policy = options.worker_policy;
+        Ok(lockbox)
+    }
+
+    /// Whether this handle owns a shared, read-only native archive descriptor.
+    #[cfg(feature = "bindings")]
+    pub fn is_file_read_only(&self) -> bool {
+        self.storage.is_read_only()
+    }
+
     fn open_file_opened(path: &Path, open: LockboxOpen<'_>) -> Result<Self> {
         Self::open_locked_storage_mode(StorageBackend::file(path)?, open, false)
     }

@@ -20,7 +20,6 @@ inspect_pages	lockbox_page_inspection	direct
 recovery_report	lockbox_recovery_report	direct
 try_to_bytes	lockbox_to_bytes	direct fallible serialization
 to_bytes	lockbox_to_bytes	direct
-write_to_path	lockbox_to_bytes	language-native file write after serialization
 commit	lockbox_commit	direct
 open_file	lockbox_get_file,lockbox_read_range	whole-file and ranged equivalents
 add_file	lockbox_add_file	direct
@@ -72,15 +71,15 @@ salvage_bytes	lockbox_recovery_salvage	direct
 salvage_bytes_with_secret_key	lockbox_recovery_salvage	same secret-key boundary
 open_bytes	lockbox_open	direct
 open_bytes_for_write	lockbox_open	writable handle is the default ABI handle
-open_path	lockbox_open	language-native file read then open
-open_path_for_write	lockbox_open	language-native file read then writable open
+open_path	lockbox_file	Rust-owned file handle and archive lock
+open_path_for_write	lockbox_file	Rust-owned file handle and archive lock
 create_in_memory	lockbox_create	direct
-create_file	lockbox_create,lockbox_to_bytes	create then language-native file write
-create_file_assuming_locked	lockbox_create,lockbox_to_bytes	file-lock ownership stays language-native
-open	lockbox_open,vault_directory_open	domain-specific direct calls
-open_for_write	lockbox_open	writable handle is the default ABI handle
-open_for_write_with_signing_key	lockbox_open,lockbox_set_owner_signing_key	composed direct operations
-open_for_write_with_signing_key_assuming_locked	lockbox_open,lockbox_set_owner_signing_key	file-lock ownership stays language-native
+create_file	lockbox_file	Rust-owned file handle and archive lock
+create_file_assuming_locked	lockbox_file	Rust-owned file handle and archive lock
+open	lockbox_file,vault_directory_open	domain-specific native file operations
+open_for_write	lockbox_file	Rust-owned file handle and archive lock
+open_for_write_with_signing_key	lockbox_file	Rust-owned file handle and archive lock
+open_for_write_with_signing_key_assuming_locked	lockbox_file	Rust-owned file handle and archive lock
 create_with_password	lockbox_create_password,lockbox_create_password_with_signing_key	direct and caller-supplied owner variants
 create_with_contact	lockbox_create_contact,lockbox_create_contact_with_signing_key	direct and caller-supplied owner variants
 open_with_password	lockbox_open_password	direct
@@ -224,3 +223,7 @@ agent_sleep_support	vault_agent_sleep_support	direct
 supported	vault_agent_sleep_support	returned in sleep-support result
 default_vault_dir	vault_default_directory	direct
 default_vault_path	vault_default_path	direct
+open_file_handle	lockbox_file	Rust file-handle boundary
+create_file_handle	lockbox_file	Rust file-handle boundary
+is_file_read_only	lockbox_file	Rust file-handle boundary
+open_with_signer	lockbox_file	Rust file-handle boundary

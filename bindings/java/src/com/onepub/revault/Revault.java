@@ -227,6 +227,19 @@ public final class Revault {
   /** Returns the hex decode. */
   public byte[] hexDecode(String value) { return operations.vaultKeyHexDecode(value); }
 
+  /** Creates and exclusively locks a native file with a caller-owned content key and signer. Replacement requires overwrite and is atomic.
+   * <pre>try (var box = api.createLockboxFile(path, key, signer, false)) { box.addFile("/hello", payload, false); box.commit(); }</pre>
+   */
+  public Lockbox createLockboxFile(String path, byte[] contentKey, ProfileSigningKeyPair signer, boolean overwrite) {
+    return new Lockbox(operations.lockboxFile(path, overwrite ? "replace" : "create", "content-key", contentKey, MemorySegment.NULL, signer.handle, "bytes", 64L << 20, "interactive", "auto", 0));
+  }
+  /** Opens a native file with a shared lock, or exclusive write access when signer is non-null. Close readers before opening a writer. No Session Agent is used.
+   * <pre>try (var box = api.openLockboxFile(path, key, null)) { byte[] payload = box.getFile("/hello"); }</pre>
+   */
+  public Lockbox openLockboxFile(String path, byte[] contentKey, ProfileSigningKeyPair signer) {
+    return new Lockbox(operations.lockboxFile(path, "open", "content-key", contentKey, MemorySegment.NULL, signer == null ? MemorySegment.NULL : signer.handle, "bytes", 64L << 20, "interactive", "auto", 0));
+  }
+
   /** Creates lockbox. */
   public Lockbox createLockbox(byte[] key) { return new Lockbox(operations.lockboxCreate(key)); }
   /** Creates lockbox. */

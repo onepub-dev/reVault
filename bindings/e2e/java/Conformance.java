@@ -41,6 +41,14 @@ public final class Conformance {
   }
 
   private static void archiveLifecycle() throws Exception {
+    var filePath = artifactRoot().resolve("native-file.lbox");
+    var fileKey = repeated(75, 32);
+    try (var signer = API.generateProfileSigningKeyPair()) {
+      try (var box = API.createLockboxFile(filePath.toString(), fileKey, signer, true)) { box.addFile("/hello", "native".getBytes(java.nio.charset.StandardCharsets.UTF_8), false); box.commit(); }
+      try (var box = API.openLockboxFile(filePath.toString(), fileKey, null)) { check(Arrays.equals(box.getFile("/hello"), "native".getBytes(java.nio.charset.StandardCharsets.UTF_8)), "native file persistence"); }
+    }
+    Files.delete(filePath); pass("lockbox_file", 3);
+
     var key = repeated('K', 32);
     byte[] archive;
     try (var box = API.createLockbox(key)) {

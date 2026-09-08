@@ -1,5 +1,4 @@
 import 'dart:ffi' as ffi;
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:revault_api/src/agent_session.dart';
@@ -39,8 +38,7 @@ const _lockboxDescriptionVariable = '/.revault/description';
 /// ```
 final class Lockbox extends Owned implements ffi.Finalizable {
   /// @nodoc
-  Lockbox.internal(super.runtime, super.handle, {String? backingPath})
-    : _backingPath = backingPath {
+  Lockbox.internal(super.runtime, super.handle) {
     final finalizer = _nativeFinalizer ??= ffi.NativeFinalizer(
       runtime.operations.lockboxFreeAddress,
     );
@@ -48,8 +46,6 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   }
 
   static ffi.NativeFinalizer? _nativeFinalizer;
-
-  String? _backingPath;
 
   /// Creates an in-memory lockbox.
   ///
@@ -185,20 +181,15 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     bool overwrite = false,
   }) {
     _requireOneCredential(password, contentKey, contact);
-    final file = File(path);
-    if (file.existsSync() && !overwrite) {
-      throw FileSystemException('Lockbox already exists', path);
-    }
-    final lockbox = createInMemory(
+    return _file(
+      path,
+      overwrite ? 'replace' : 'create',
       password: password,
       contentKey: contentKey,
-      contact: contact,
+      contact: contact?.handle,
       signingKey: signingKey,
       options: options,
     );
-    lockbox._backingPath = path;
-    file.writeAsBytesSync(lockbox.bytes, flush: true);
-    return lockbox;
   }
 
   /// Opens the lockbox file at [path] without using the Session Agent.
@@ -209,7 +200,9 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   /// key. It never consults or starts the Session Agent.
   ///
   /// The decrypted content key remains only in this process and is wiped by
-  /// [close].
+  /// [close]. Reads hold a shared archive lock. Supply [signingKey] for
+  /// exclusive write access, after closing existing readers. A shared reader
+  /// cannot be upgraded by attaching a signing key later.
   ///
   /// Example:
   /// ```dart
@@ -228,47 +221,73 @@ final class Lockbox extends Owned implements ffi.Finalizable {
     SecretString? password,
     SecretBytes? contentKey,
     ContactKeyPair? contact,
+    ProfileSigningKeyPair? signingKey,
     LockboxOptions? options,
   }) {
     final explicit = [password, contentKey, contact].whereType<Object>().length;
     if (explicit > 1 || (explicit == 1 && vault != null)) {
-      throw ArgumentError(
-        'Supply exactly one explicit credential or a vault, not both.',
+      throw ArgumentError('Supply one explicit credential or a vault.');
+    }
+    if (explicit == 1) {
+      return _file(
+        path,
+        'open',
+        password: password,
+        contentKey: contentKey,
+        contact: contact?.handle,
+        signingKey: signingKey,
+        options: options,
       );
     }
-    final archive = Uint8List.fromList(File(path).readAsBytesSync());
-    late final Lockbox opened;
-    if (contentKey != null) {
-      opened = openBytes(archive, contentKey: contentKey, options: options);
-    } else if (password != null) {
-      if (options != null) {
-        throw UnsupportedError(
-          'LockboxOptions are currently supported only with a content key.',
-        );
-      }
-      opened = openBytes(archive, password: password);
-    } else if (contact != null) {
-      if (options != null) {
-        throw UnsupportedError(
-          'LockboxOptions are currently supported only with a content key.',
-        );
-      }
-      opened = openBytes(archive, contact: contact);
-    } else if (vault != null) {
-      opened = _openUsingVault(path, archive, vault);
-    } else {
-      Vault? defaultVault;
-      try {
-        defaultVault = Vault.open();
-        opened = _openUsingVault(path, archive, defaultVault);
-      } on VaultPassphraseUnavailableException {
-        throw LockboxCredentialUnavailableException(path);
-      } finally {
-        defaultVault?.close();
-      }
+    if (vault != null) return _openUsingVault(path, vault, signingKey, options);
+    Vault? defaultVault;
+    try {
+      defaultVault = Vault.open();
+      return _openUsingVault(path, defaultVault, signingKey, options);
+    } on VaultPassphraseUnavailableException {
+      throw LockboxCredentialUnavailableException(path);
+    } finally {
+      defaultVault?.close();
     }
-    opened._backingPath = path;
-    return opened;
+  }
+
+  static Lockbox _file(
+    String path,
+    String mode, {
+    Vault? vault,
+    SecretString? password,
+    SecretBytes? contentKey,
+    ffi.Pointer<ffi.Void>? contact,
+    ProfileSigningKeyPair? signingKey,
+    LockboxOptions? options,
+  }) {
+    final runtime = Revault.runtime;
+    final tuning = options ?? const LockboxOptions();
+    Lockbox call(Uint8List secret) => Lockbox.internal(
+      runtime,
+      runtime.operations.lockboxFile(
+        path,
+        mode,
+        vault != null
+            ? 'vault'
+            : password != null
+            ? 'password'
+            : contact != null
+            ? 'contact'
+            : 'content-key',
+        secret,
+        vault?.handle ?? contact ?? ffi.nullptr,
+        signingKey?.handle ?? ffi.nullptr,
+        tuning.cacheMode.nativeName,
+        tuning.cacheBytes,
+        tuning.workload.nativeName,
+        tuning.worker.nativeName,
+        tuning.jobs,
+      ),
+    );
+    if (password != null) return password.withBytes(call);
+    if (contentKey != null) return contentKey.withBytes(call);
+    return call(Uint8List(0));
   }
 
   /// Opens [path] using a content key already cached by [agentSession].
@@ -301,62 +320,16 @@ final class Lockbox extends Owned implements ffi.Finalizable {
 
   static Lockbox _openUsingVault(
     String path,
-    Uint8List archive,
-    Vault persistentVault,
-  ) {
-    final runtime = Revault.runtime;
-    final lockboxId = runtime.inspectLockboxFile(path).lockboxId;
-    try {
-      final remembered = persistentVault.rememberedPassword(lockboxId);
-      try {
-        final opened = runtime.openLockboxWithPasswordInternal(
-          archive,
-          remembered,
-        );
-        _attachDefaultSigningKey(opened, persistentVault);
-        return opened;
-      } finally {
-        remembered.close();
-      }
-    } on RevaultException {
-      // This vault may instead hold a matching private Profile key.
-    }
-    for (final profile in persistentVault.listPrivateKeyNames()) {
-      final key = persistentVault.loadPrivateKey(profile);
-      try {
-        final opened = runtime.openLockboxForContactInternal(archive, key);
-        try {
-          final signing = persistentVault.loadProfileSigningKey(profile);
-          try {
-            opened.setOwnerSigningKey(signing);
-          } finally {
-            signing.dispose();
-          }
-        } on RevaultException {
-          // Read-only use remains possible when this profile has no signing key.
-        }
-        return opened;
-      } on RevaultException {
-        // Try the next profile stored in the vault.
-      } finally {
-        key.dispose();
-      }
-    }
-    throw LockboxCredentialUnavailableException(path);
-  }
-
-  static void _attachDefaultSigningKey(Lockbox opened, Vault persistentVault) {
-    try {
-      final signing = persistentVault.loadProfileSigningKey('default');
-      try {
-        opened.setOwnerSigningKey(signing);
-      } finally {
-        signing.dispose();
-      }
-    } on RevaultException {
-      // Password-only and read-only lockboxes do not require a signing key.
-    }
-  }
+    Vault vault,
+    ProfileSigningKeyPair? signingKey,
+    LockboxOptions? options,
+  ) => _file(
+    path,
+    'open',
+    vault: vault,
+    signingKey: signingKey,
+    options: options,
+  );
 
   static void _requireOneCredential(
     SecretString? password,
@@ -582,8 +555,8 @@ final class Lockbox extends Owned implements ffi.Finalizable {
 
   /// Authenticates and publishes all staged changes as a new revision.
   ///
-  /// For a file-backed Lockbox, this also writes the serialized revision to its
-  /// host path. It does not close the Lockbox.
+  /// Rust publishes file-backed changes through the retained exclusive archive
+  /// handle. The lock remains held until [close].
   ///
   /// Example:
   /// ```dart
@@ -592,10 +565,6 @@ final class Lockbox extends Owned implements ffi.Finalizable {
   /// ```
   void commit() {
     runtime.operations.lockboxCommit(handle);
-    final path = _backingPath;
-    if (path != null) {
-      File(path).writeAsBytesSync(bytes, flush: true);
-    }
   }
 
   /// Creates a directory at [path], optionally creating missing parents.

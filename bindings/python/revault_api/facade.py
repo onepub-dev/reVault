@@ -149,7 +149,7 @@ def _call(owner, symbol, values):
     if result_kind == 'value': return result
     raw = _take(lib, result)
     if result_kind == 'utf8': return raw.decode()
-    if result_kind == 'binary': return raw
+    if result_kind in ('binary', 'bytes'): return raw
     return decode(result_kind[8:], raw)
 
 class _OwnedHandle:
@@ -229,21 +229,35 @@ class Lockbox(_OwnedHandle):
 
     @staticmethod
     def create(path, *, password=None, content_key=None, contact=None, signing_key=None, options=None, overwrite=False):
-        """Create an archive file and return its process-local handle."""
-        target = Path(path)
-        if target.exists() and not overwrite:
-            raise FileExistsError(path)
-        box = Lockbox.create_in_memory(password=password, content_key=content_key, contact=contact, signing_key=signing_key, options=options)
-        target.write_bytes(box.to_bytes())
-        box._backing_path = target
-        return box
+        """Create and exclusively lock a native archive; overwrite replaces atomically.
+
+        Example: with Lockbox.create(path, password=password, signing_key=signer) as box:
+            box.add_file('/hello', b'hello', False); box.commit()
+        """
+        return Lockbox._file(path, 'replace' if overwrite else 'create', password, content_key, contact, signing_key, options)
 
     @staticmethod
-    def open(path, *, password=None, content_key=None, contact=None, options=None):
-        """Open an archive file without consulting the Session Agent."""
-        box = Lockbox.open_bytes(Path(path).read_bytes(), password=password, content_key=content_key, contact=contact, options=options)
-        box._backing_path = Path(path)
-        return box
+    def open(path, *, password=None, content_key=None, contact=None, signing_key=None, options=None):
+        """Open with a shared lock, or exclusive write access when signing_key is supplied.
+
+        Close existing readers before opening a writer; a shared reader cannot be upgraded.
+        Example: with Lockbox.open(path, password=password) as box:
+            assert box.get_file('/hello') == b'hello'
+        """
+        return Lockbox._file(path, 'open', password, content_key, contact, signing_key, options)
+
+    @staticmethod
+    def _file(path, mode, password, content_key, contact, signing_key, options):
+        if sum(value is not None for value in (password, content_key, contact)) != 1:
+            raise ValueError('Supply exactly one of password, content_key, or contact.')
+        cache_mode = getattr(options, 'cache_mode', 'bytes')
+        if cache_mode == 'automatic': cache_mode = 'auto'
+        return _call(Revault.load(), 'lockbox_file', (str(path), mode,
+            'password' if password is not None else 'contact' if contact is not None else 'content-key',
+            password if password is not None else content_key if content_key is not None else b'',
+            contact._handle if contact is not None else None,
+            signing_key._handle if signing_key is not None else None,
+            cache_mode, getattr(options, 'cache_bytes', 64 << 20), getattr(options, 'workload', 'interactive'), getattr(options, 'worker', 'auto'), getattr(options, 'jobs', 0)))
 
 class ContactKeyPair(_OwnedHandle):
     """A profile's contact-encryption identity, including its private key.
@@ -719,13 +733,7 @@ Lockbox.runtime_options = _Lockbox_runtime_options
 
 def _Lockbox_commit(self):
     """Authenticates and publishes the staged changes."""
-    result = _call(self, 'lockbox_commit', ())
-    # In-memory handles have no file destination.  A handle returned by the
-    # path factory is explicitly backed by that file, so persist the committed
-    # archive after native authentication succeeds.
-    if getattr(self, '_backing_path', None) is not None:
-        self._backing_path.write_bytes(self.to_bytes())
-    return result
+    return _call(self, 'lockbox_commit', ())
 Lockbox.commit = _Lockbox_commit
 
 def _Lockbox_create_dir(self, path, create_parents):
@@ -1017,6 +1025,7 @@ def _ContactPublicKey_public_free(self):
     """Releases the native resources held by this object."""
     return _call(self, 'key_contact_public_free', ())
 ContactPublicKey.public_free = _ContactPublicKey_public_free
+ContactPublicKey.free = _ContactPublicKey_public_free
 
 def _ContactPublicKey_encrypt(self, content_key):
     """Encrypts a content key for the selected contact."""
@@ -1536,6 +1545,9 @@ _ROUTES = {
     'lockbox_create_contact': (('handle',), 'handle:Lockbox', False),
     'lockbox_create_contact_with_signing_key': (('handle', 'handle'), 'handle:Lockbox', False),
     'lockbox_create_with_signing_key': (('bytes', 'handle'), 'handle:Lockbox', False),
+# BEGIN generated file operation route
+    'lockbox_file': (('text', 'text', 'text', 'bytes', 'value', 'value', 'text', 'value', 'text', 'text', 'value'), 'handle:Lockbox', False),
+# END generated file operation route
     'lockbox_open': (('bytes', 'bytes'), 'handle:Lockbox', False),
     'lockbox_open_with_options': (('bytes', 'bytes', 'text', 'value', 'text', 'text', 'value'), 'handle:Lockbox', False),
     'lockbox_open_password': (('bytes', 'bytes'), 'handle:Lockbox', False),

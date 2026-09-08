@@ -24,6 +24,9 @@ final class RevaultNativeApi {
   public final MethodHandle lockbox_create_contact;
   public final MethodHandle lockbox_create_contact_with_signing_key;
   public final MethodHandle lockbox_create_with_signing_key;
+// BEGIN generated file operation field
+  public final MethodHandle lockbox_file;
+// END generated file operation field
   public final MethodHandle lockbox_open;
   public final MethodHandle lockbox_open_with_options;
   public final MethodHandle lockbox_open_password;
@@ -248,6 +251,9 @@ final class RevaultNativeApi {
     lockbox_create_contact = linker.downcallHandle(symbols.find("lockbox_create_contact").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS));
     lockbox_create_contact_with_signing_key = linker.downcallHandle(symbols.find("lockbox_create_contact_with_signing_key").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS));
     lockbox_create_with_signing_key = linker.downcallHandle(symbols.find("lockbox_create_with_signing_key").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS));
+// BEGIN generated file operation load
+    lockbox_file = linker.downcallHandle(symbols.find("lockbox_file").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));
+// END generated file operation load
     lockbox_open = linker.downcallHandle(symbols.find("lockbox_open").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));
     lockbox_open_with_options = linker.downcallHandle(symbols.find("lockbox_open_with_options").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.JAVA_LONG));
     lockbox_open_password = linker.downcallHandle(symbols.find("lockbox_open_password").orElseThrow(), FunctionDescriptor.of(ValueLayout.ADDRESS, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG, ValueLayout.ADDRESS, ValueLayout.JAVA_LONG));

@@ -33,6 +33,10 @@ def configure_native(library, buffer_type):
     library.lockbox_create_contact_with_signing_key.restype = ctypes.c_void_p
     library.lockbox_create_with_signing_key.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p]
     library.lockbox_create_with_signing_key.restype = ctypes.c_void_p
+# BEGIN generated file operation abi
+    library.lockbox_file.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t]
+    library.lockbox_file.restype = ctypes.c_void_p
+# END generated file operation abi
     library.lockbox_open.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t]
     library.lockbox_open.restype = ctypes.c_void_p
     library.lockbox_open_with_options.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint64, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t]

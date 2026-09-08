@@ -186,6 +186,15 @@ public sealed class Revault
     /// <summary>Returns the hex decode.</summary>
     public byte[] HexDecode(string value) => operations.VaultKeyHexDecode(value);
 
+    /// <summary>Creates and exclusively locks a native file using a caller-owned content key and signer. Existing files require overwrite; replacement is atomic.</summary>
+    /// <example>using (var box = api.CreateLockboxFile(path, key, signer)) { box.AddFile("/hello", payload); box.Commit(); }</example>
+    public Lockbox CreateLockboxFile(string path, byte[] contentKey, ProfileSigningKeyPair signer, bool overwrite = false) => new(this,
+        operations.LockboxFile(path, overwrite ? "replace" : "create", "content-key", contentKey, IntPtr.Zero, signer.Handle, "bytes", 64UL << 20, "interactive", "auto", 0));
+    /// <summary>Opens a native file with a shared lock, or exclusive write access with signer. Dispose all readers before opening a writer. No Session Agent is used.</summary>
+    /// <example>using (var box = api.OpenLockboxFile(path, key)) { var payload = box.GetFile("/hello"); }</example>
+    public Lockbox OpenLockboxFile(string path, byte[] contentKey, ProfileSigningKeyPair? signer = null) => new(this,
+        operations.LockboxFile(path, "open", "content-key", contentKey, IntPtr.Zero, signer?.Handle ?? IntPtr.Zero, "bytes", 64UL << 20, "interactive", "auto", 0));
+
     /// <summary>Creates lockbox.</summary>
     public Lockbox CreateLockbox(byte[] key) => new(this, operations.LockboxCreate(key));
     /// <summary>Creates lockbox.</summary>
