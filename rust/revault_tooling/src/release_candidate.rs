@@ -9,6 +9,10 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -247,10 +251,32 @@ impl GitHub {
             "--interval",
             "30",
         ];
+        let stop_heartbeat = Arc::new(AtomicBool::new(false));
+        let heartbeat_stop = Arc::clone(&stop_heartbeat);
+        let heartbeat = std::thread::spawn(move || {
+            let started = std::time::Instant::now();
+            let mut last_report = Duration::ZERO;
+            while !heartbeat_stop.load(Ordering::Relaxed) {
+                std::thread::sleep(Duration::from_secs(1));
+                let elapsed = started.elapsed();
+                if elapsed >= last_report + Duration::from_secs(60)
+                    && !heartbeat_stop.load(Ordering::Relaxed)
+                {
+                    eprintln!(
+                        "Still waiting for CI run {id} ({:.0} minutes elapsed)...",
+                        elapsed.as_secs_f64() / 60.0
+                    );
+                    last_report = elapsed;
+                }
+            }
+        });
         let status = Command::new("gh")
             .current_dir(&self.root)
             .args(args)
-            .status()?;
+            .status();
+        stop_heartbeat.store(true, Ordering::Relaxed);
+        let _ = heartbeat.join();
+        let status = status?;
         if status.success() {
             return Ok(());
         }

@@ -591,6 +591,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && !inputs.publish && inputs.diagnostic_run_id == ''
     needs: native
     runs-on: macos-15
+    timeout-minutes: 30
     permissions:
       contents: read
       id-token: write

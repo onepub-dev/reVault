@@ -134,6 +134,9 @@ jobs:
   # Build and packages all the platform-specific things
   build-local-artifacts:
     name: build-local-artifacts (${{ join(matrix.targets, ', ') }})
+    # Native dist builds can stall indefinitely on a hosted runner. A release
+    # candidate is invalid once this takes longer than the validation budget.
+    timeout-minutes: 45
     # Let the initial task tell us to not run (currently very blunt)
     needs:
       - plan
@@ -192,9 +195,9 @@ jobs:
           # Actually do builds and make zips and whatnot
           dist build ${{ needs.plan.outputs.tag-flag }} --print=linkage --output-format=json ${{ matrix.dist_args }} > dist-manifest.json
           echo "dist ran successfully"
-      - name: Test CLI on the native runner
-        if: inputs.candidate
-        run: cargo test --locked --manifest-path rust/Cargo.toml -p revault_cli
+      # The complete CLI suite is already exercised by rust-checks/CLI E2E.
+      # Repeating it for every packaging target made failed candidates spend
+      # an hour testing the same code after validation had already failed.
       - name: Attest
         uses: actions/attest-build-provenance@v3
         with:
