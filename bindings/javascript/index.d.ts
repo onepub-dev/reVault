@@ -173,7 +173,7 @@ export class Lockbox {
   /** Create a host archive file and return its owned handle. */
   static create(path: string, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; signingKey?: NativeHandle; options?: object; overwrite?: boolean }): Lockbox;
   /** Open a host archive file without consulting the Session Agent. */
-  static open(path: string, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; options?: object }): Lockbox;
+  static open(path: string, options?: { password?: BinaryInput; contentKey?: BinaryInput; contact?: NativeHandle; signingKey?: NativeHandle; options?: object }): Lockbox;
   /** Release the process-local content key; repeated calls are safe. */
   /** Release this owned handle and wipe any native secret state. */
   close(): void;

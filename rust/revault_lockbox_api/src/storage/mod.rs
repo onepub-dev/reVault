@@ -1,3 +1,4 @@
+pub(crate) mod archive_lock;
 pub(crate) mod atomic_file_replacement;
 pub(crate) mod cache_options;
 pub(crate) mod file_lock;
@@ -6,11 +7,10 @@ pub(crate) mod free_slot;
 pub(crate) mod page_cache;
 
 use crate::secret_vec::SecureVec;
-use crate::storage::file_lock::{FileLockScope, ScopedFileLock};
 use crate::{Error, Result};
 #[cfg(test)]
 use std::cell::Cell;
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
@@ -53,41 +53,93 @@ impl StorageBackend {
     }
 
     pub(crate) fn file(path: impl AsRef<Path>) -> Result<Self> {
-        Ok(Self::File(FileStore::open(path, None)?))
+        Ok(Self::File(FileStore::open(path, false)?))
     }
 
     pub(crate) fn file_for_write(path: impl AsRef<Path>) -> Result<Self> {
-        let path = path.as_ref();
-        let lock = ScopedFileLock::acquire(path, FileLockScope::Lockbox)?;
-        Ok(Self::File(FileStore::open(path, Some(Arc::new(lock)))?))
+        Ok(Self::File(FileStore::open(path, true)?))
     }
 
     pub(crate) fn file_for_recovery(path: impl AsRef<Path>) -> Result<Self> {
-        let path = path.as_ref();
-        let lock =
-            ScopedFileLock::acquire(path, FileLockScope::Recovery).map_err(|err| match err {
-                Error::Io(message) | Error::LockUnavailable(message) => {
-                    Error::RecoveryBlocked(message)
-                }
-                other => other,
-            })?;
-        FileStore::open(path, Some(Arc::new(lock)))
-            .map(Self::File)
-            .map_err(|err| match err {
-                Error::Io(message) => Error::RecoveryBlocked(message),
-                other => other,
-            })
+        Self::file_for_write(path).map_err(|err| match err {
+            Error::Io(message) | Error::LockUnavailable(message) => Error::RecoveryBlocked(message),
+            other => other,
+        })
     }
 
     pub(crate) fn create_file(path: impl AsRef<Path>, initial_bytes: &[u8]) -> Result<Self> {
-        Ok(Self::File(FileStore::create(path, initial_bytes, true)?))
+        Ok(Self::File(FileStore::create(path, initial_bytes)?))
     }
 
-    pub(crate) fn create_file_unlocked(
-        path: impl AsRef<Path>,
-        initial_bytes: &[u8],
-    ) -> Result<Self> {
-        Ok(Self::File(FileStore::create(path, initial_bytes, false)?))
+    #[cfg(any(test, feature = "migration"))]
+    pub(crate) fn write_file(path: &Path, bytes: &[u8]) -> Result<()> {
+        if !path.exists() {
+            Self::create_file(path, bytes)?;
+            return Ok(());
+        }
+        let _original = Self::file_for_write(path)?;
+        let (replacement, mut file) =
+            atomic_file_replacement::AtomicFileReplacement::create_unique(path, ".lockbox-write")?;
+        let result = (|| {
+            archive_lock::acquire(
+                &file,
+                replacement.temp_path(),
+                true,
+                std::time::Instant::now(),
+            )?;
+            file.write_all(bytes)
+                .map_err(|err| Error::Io(err.to_string()))?;
+            file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+            replacement.install()
+        })();
+        replacement.discard();
+        result
+    }
+
+    pub(crate) fn is_read_only(&self) -> bool {
+        matches!(self, Self::File(store) if !store.writable)
+    }
+
+    #[cfg(feature = "bindings")]
+    pub(crate) fn publish(path: &Path, bytes: &[u8], overwrite: bool) -> Result<Self> {
+        if !overwrite
+            || !path
+                .try_exists()
+                .map_err(|err| Error::Io(err.to_string()))?
+        {
+            return Self::create_file(path, bytes);
+        }
+        let _original = Self::file_for_write(path)?;
+        let (replacement, mut file) =
+            atomic_file_replacement::AtomicFileReplacement::create_unique(
+                path,
+                ".lockbox-replace",
+            )?;
+        let result = (|| {
+            archive_lock::acquire(
+                &file,
+                replacement.temp_path(),
+                true,
+                std::time::Instant::now(),
+            )?;
+            file.write_all(bytes)
+                .map_err(|err| Error::Io(err.to_string()))?;
+            file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+            replacement.install()?;
+            Ok(Self::File(FileStore {
+                path: path.to_path_buf(),
+                file: Arc::new(Mutex::new(file)),
+                writable: true,
+            }))
+        })();
+        replacement.discard();
+        result
+    }
+
+    pub(crate) fn relocate(&mut self, path: &Path) {
+        if let Self::File(store) = self {
+            store.path = path.to_path_buf();
+        }
     }
 
     pub(crate) fn path(&self) -> Option<&Path> {
@@ -394,61 +446,70 @@ impl StorageBackend {
 pub(crate) struct FileStore {
     path: PathBuf,
     file: Arc<Mutex<std::fs::File>>,
-    _write_lock: Option<Arc<ScopedFileLock>>,
+    writable: bool,
 }
 
 impl FileStore {
-    fn open(path: impl AsRef<Path>, write_lock: Option<Arc<ScopedFileLock>>) -> Result<Self> {
+    fn open(path: impl AsRef<Path>, writable: bool) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
-        let file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .open(&path)
-            .map_err(|err| Error::Io(format!("open {}: {err}", path.display())))?;
+        let file = archive_lock::open(&path, writable)?;
         Ok(Self {
             path,
             file: Arc::new(Mutex::new(file)),
-            _write_lock: write_lock,
+            writable,
         })
     }
 
-    fn create(path: impl AsRef<Path>, initial_bytes: &[u8], lock: bool) -> Result<Self> {
+    fn create(path: impl AsRef<Path>, initial_bytes: &[u8]) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|err| Error::Io(err.to_string()))?;
         }
-        let write_lock = if lock {
-            Some(ScopedFileLock::acquire(&path, FileLockScope::Lockbox)?)
-        } else {
-            None
-        };
-        let mut file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create_new(true)
-            .open(&path)
-            .map_err(|err| {
+        // Initialize and lock privately before publishing the inode. hard_link
+        // atomically publishes without replacing an existing destination.
+        let (replacement, mut file) =
+            atomic_file_replacement::AtomicFileReplacement::create_unique(
+                &path,
+                ".lockbox-create",
+            )?;
+        let result = (|| {
+            archive_lock::acquire(&file, &path, true, std::time::Instant::now())?;
+            file.write_all(initial_bytes)
+                .map_err(|err| Error::Io(err.to_string()))?;
+            file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+            fs::hard_link(replacement.temp_path(), &path).map_err(|err| {
                 if err.kind() == std::io::ErrorKind::AlreadyExists {
                     Error::AlreadyExists(path.display().to_string())
                 } else {
-                    Error::Io(format!("create {}: {err}", path.display()))
+                    Error::Io(format!("publish {}: {err}", path.display()))
                 }
             })?;
-        file.write_all(initial_bytes)
-            .map_err(|err| Error::Io(format!("write {}: {err}", path.display())))?;
-        file.sync_data()
-            .map_err(|err| Error::Io(format!("sync {}: {err}", path.display())))?;
-        Ok(Self {
-            path,
-            file: Arc::new(Mutex::new(file)),
-            _write_lock: write_lock.map(Arc::new),
-        })
+            replacement.sync_parent()?;
+            Ok(Self {
+                path,
+                file: Arc::new(Mutex::new(file)),
+                writable: true,
+            })
+        })();
+        replacement.discard();
+        result
     }
 
     fn lock_file(&self) -> Result<std::sync::MutexGuard<'_, std::fs::File>> {
         self.file
             .lock()
             .map_err(|_| Error::Io("storage file lock poisoned".to_string()))
+    }
+
+    fn ensure_current(&self, file: &std::fs::File) -> Result<()> {
+        if archive_lock::is_current(file, &self.path)? {
+            Ok(())
+        } else {
+            Err(Error::LockUnavailable(format!(
+                "archive was replaced; reopen {}",
+                self.path.display()
+            )))
+        }
     }
 
     fn path(&self) -> &Path {
@@ -458,7 +519,9 @@ impl FileStore {
 
 impl Storage for FileStore {
     fn len(&self) -> Result<u64> {
-        Ok(fs::metadata(&self.path)
+        Ok(self
+            .lock_file()?
+            .metadata()
             .map_err(|err| Error::Io(format!("metadata {}: {err}", self.path.display())))?
             .len())
     }
@@ -484,6 +547,7 @@ impl Storage for FileStore {
 
     fn append(&mut self, bytes: &[u8]) -> Result<u64> {
         let mut file = self.lock_file()?;
+        self.ensure_current(&file)?;
         let offset = file
             .seek(SeekFrom::End(0))
             .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
@@ -494,6 +558,7 @@ impl Storage for FileStore {
 
     fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
         let mut file = self.lock_file()?;
+        self.ensure_current(&file)?;
         file.seek(SeekFrom::Start(offset))
             .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
         file.write_all(bytes)
@@ -504,5 +569,69 @@ impl Storage for FileStore {
         self.lock_file()?
             .sync_data()
             .map_err(|err| Error::Io(format!("sync {}: {err}", self.path.display())))
+    }
+}
+
+#[cfg(all(test, unix))]
+mod archive_lock_tests {
+    use super::*;
+    use std::time::Instant;
+
+    fn path(label: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "revault-{label}-{}",
+            crate::LockboxId::new_random().unwrap()
+        ))
+    }
+
+    #[test]
+    fn cloned_storage_retains_lock_and_replaced_writer_is_rejected() {
+        let path = path("clone-lock");
+        let store = StorageBackend::create_file(&path, b"original").unwrap();
+        let mut clone = store.clone();
+        drop(store);
+        let other = std::fs::File::open(&path).unwrap();
+        let deadline = Instant::now() - file_lock::lock_timeout();
+        assert!(matches!(
+            archive_lock::acquire(&other, &path, false, deadline),
+            Err(Error::LockUnavailable(_))
+        ));
+        let replacement_path = path.with_extension("replacement");
+        let replacement = StorageBackend::create_file(&replacement_path, b"replacement").unwrap();
+        // Simulate publication by a rewrite owning the original shared handle.
+        fs::rename(&replacement_path, &path).unwrap();
+        assert!(matches!(
+            clone.write_at(0, b"bad"),
+            Err(Error::LockUnavailable(_))
+        ));
+        assert_eq!(fs::read(&path).unwrap(), b"replacement");
+        assert_eq!(
+            clone.len().unwrap(),
+            8,
+            "length follows the original handle"
+        );
+        drop(clone);
+        drop(replacement);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn nested_vault_guard_retains_lock_after_outer_guard_drops() {
+        use super::file_lock::{FileLockScope, ScopedFileLock};
+        let path = path("nested-vault-lock");
+        let outer = ScopedFileLock::acquire(&path, FileLockScope::Vault).unwrap();
+        let inner = ScopedFileLock::acquire(&path, FileLockScope::Vault).unwrap();
+        drop(outer);
+        let sidecar = file_lock::lock_path_for(&path);
+        let other = std::fs::File::open(&sidecar).unwrap();
+        let deadline = Instant::now() - file_lock::lock_timeout();
+        assert!(matches!(
+            archive_lock::acquire(&other, &sidecar, false, deadline),
+            Err(Error::LockUnavailable(_))
+        ));
+        drop(inner);
+        archive_lock::acquire(&other, &sidecar, false, Instant::now()).unwrap();
+        drop(other);
+        fs::remove_file(sidecar).unwrap();
     }
 }

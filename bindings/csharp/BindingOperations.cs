@@ -120,6 +120,25 @@ internal sealed class BindingOperations
         { return Require(RevaultNative.lockbox_create_with_signing_key((IntPtr)contentKeyPointer, (nuint)contentKey.Length, signingKey)); }
     }
 
+    // BEGIN generated file operation route
+    public unsafe IntPtr LockboxFile(string path, string mode, string credential, byte[] secret, IntPtr contact, IntPtr signer, string cacheMode, ulong cacheBytes, string workload, string worker, nuint jobs)
+    {
+        var pathBytes = Encoding.UTF8.GetBytes(path);
+        var modeBytes = Encoding.UTF8.GetBytes(mode);
+        var credentialBytes = Encoding.UTF8.GetBytes(credential);
+        var cacheModeBytes = Encoding.UTF8.GetBytes(cacheMode);
+        var workloadBytes = Encoding.UTF8.GetBytes(workload);
+        var workerBytes = Encoding.UTF8.GetBytes(worker);
+        fixed (byte* pathPointer = pathBytes)
+        fixed (byte* modePointer = modeBytes)
+        fixed (byte* credentialPointer = credentialBytes)
+        fixed (byte* cacheModePointer = cacheModeBytes)
+        fixed (byte* workloadPointer = workloadBytes)
+        fixed (byte* workerPointer = workerBytes)
+        fixed (byte* secretPointer = secret)
+        { return Require(RevaultNative.lockbox_file((IntPtr)pathPointer, (nuint)pathBytes.Length, (IntPtr)modePointer, (nuint)modeBytes.Length, (IntPtr)credentialPointer, (nuint)credentialBytes.Length, (IntPtr)secretPointer, (nuint)secret.Length, contact, signer, (IntPtr)cacheModePointer, (nuint)cacheModeBytes.Length, cacheBytes, (IntPtr)workloadPointer, (nuint)workloadBytes.Length, (IntPtr)workerPointer, (nuint)workerBytes.Length, jobs)); }
+    }
+    // END generated file operation route
     public unsafe IntPtr LockboxOpen(byte[] archive, byte[] key)
     {
         fixed (byte* archivePointer = archive)

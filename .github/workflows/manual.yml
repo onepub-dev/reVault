@@ -13,7 +13,7 @@ on:
       - 'rust/revault_cli/Cargo.toml'
       - 'rust/revault_key_server/Cargo.toml'
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - 'manual/**'
       - 'bindings/*/README.md'

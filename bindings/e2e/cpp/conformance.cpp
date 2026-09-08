@@ -106,6 +106,13 @@ static std::vector<std::uint8_t> read(const fs::path& path) {
 }
 
 static void archive_lifecycle() {
+  const auto file_path = (artifact_root() / "native-file.lbox").string();
+  const std::vector<std::uint8_t> file_key(32, 'K');
+  ProfileSigningKeyPair file_signer;
+  { auto file_box = Lockbox::create_file(file_path, file_key, file_signer, true); file_box.add_file("/hello", bytes("native")); file_box.commit(); }
+  { auto file_box = Lockbox::open_file(file_path, file_key); check(file_box.get_file("/hello") == bytes("native"), "native file persistence"); }
+  fs::remove(file_path); pass("lockbox_file", 3);
+
   const std::vector<std::uint8_t> key(32, 'K');
   Lockbox box(key);
   pass("lockbox_create");

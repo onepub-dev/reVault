@@ -58,6 +58,13 @@ func (native) LockboxCreateContactWithSigningKey(contact unsafe.Pointer, signing
 func (native) LockboxCreateWithSigningKey(content_key unsafe.Pointer, key_len C.size_t, signing_key unsafe.Pointer) unsafe.Pointer {
 	return C.lockbox_create_with_signing_key((*C.uint8_t)(content_key), key_len, signing_key)
 }
+
+// BEGIN generated file operation abi
+func (native) LockboxFile(path unsafe.Pointer, pathLen C.size_t, mode unsafe.Pointer, modeLen C.size_t, credential unsafe.Pointer, credentialLen C.size_t, secret unsafe.Pointer, secretLen C.size_t, contact unsafe.Pointer, signer unsafe.Pointer, cacheMode unsafe.Pointer, cacheLen C.size_t, cacheBytes C.uint64_t, workload unsafe.Pointer, workloadLen C.size_t, worker unsafe.Pointer, workerLen C.size_t, jobs C.size_t) unsafe.Pointer {
+	return C.lockbox_file((*C.char)(path), pathLen, (*C.char)(mode), modeLen, (*C.char)(credential), credentialLen, (*C.uint8_t)(secret), secretLen, contact, signer, (*C.char)(cacheMode), cacheLen, cacheBytes, (*C.char)(workload), workloadLen, (*C.char)(worker), workerLen, jobs)
+}
+
+// END generated file operation abi
 func (native) LockboxOpen(archive unsafe.Pointer, archive_len C.size_t, key unsafe.Pointer, key_len C.size_t) unsafe.Pointer {
 	return C.lockbox_open((*C.uint8_t)(archive), archive_len, (*C.uint8_t)(key), key_len)
 }

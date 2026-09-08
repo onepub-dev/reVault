@@ -4,7 +4,9 @@ use super::output::human_size;
 use super::output::{output_format_from_matches, print_records, OutputFormat};
 use clap::ArgMatches;
 use revault_lockbox_api::vault_integration::VaultOpen;
-use revault_lockbox_api::{Error, RecoveryReport, RecoveryScanner, SecretVec};
+use revault_lockbox_api::{
+    Error, FileLockScope, RecoveryReport, RecoveryScanner, ScopedFileLock, SecretVec,
+};
 use revault_lockbox_api::{
     Lockbox, LockboxOpen, TransactionRecoveryProgress, TransactionRecoveryStatus,
 };
@@ -50,14 +52,49 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
     if output_path.exists() && !options.overwrite {
         return Err(Error::AlreadyExists(output).into());
     }
-    let bytes = read_recovery_bytes(&options.lockbox_path, options.quiet)?;
+    let recovery_key = match access {
+        Access::ContentKey(key) => key.try_clone()?,
+        Access::CacheOnly => cached_key(&options.lockbox_path)?,
+        Access::PromptPassword => {
+            return Err(
+                Error::InvalidInput("recover requires --key or an open lockbox".into()).into(),
+            )
+        }
+    };
+    let source_guard = if in_place {
+        ScopedFileLock::acquire(input_path, FileLockScope::Recovery)?
+    } else {
+        ScopedFileLock::read_archive(input_path)?
+    };
+    let bytes = source_guard.read_archive_bytes()?;
     recovery_stage(options.quiet, "scanning readable encrypted records.");
-    let recovered = salvage_bytes(&options.lockbox_path, bytes, access)?;
+    let recovered = salvage_bytes(
+        &options.lockbox_path,
+        bytes,
+        &Access::ContentKey(recovery_key),
+    )?;
+    let parent = output_path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut staged = tempfile::NamedTempFile::new_in(parent)?;
+    use std::io::Write;
+    staged.write_all(&recovered.try_to_bytes()?)?;
+    staged.as_file().sync_all()?;
+    let replacement_guard = ScopedFileLock::lock_archive(staged.as_file().try_clone()?)?;
+    let destination_guard = if !in_place && output_path.exists() {
+        Some(ScopedFileLock::acquire(
+            output_path,
+            FileLockScope::Recovery,
+        )?)
+    } else {
+        None
+    };
     let damaged_original = if in_place {
         let backup = next_damaged_backup_path(input_path);
-        fs::rename(input_path, &backup).map_err(|err| {
+        fs::hard_link(input_path, &backup).map_err(|err| {
             Error::Io(format!(
-                "move damaged lockbox {} to {}: {err}",
+                "retain damaged lockbox {} at {}: {err}",
                 options.lockbox_path,
                 backup.display()
             ))
@@ -66,8 +103,18 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
     } else {
         None
     };
-    fs::write(&output, recovered.try_to_bytes()?)
-        .map_err(|err| Error::Io(format!("write recovered lockbox {output}: {err}")))?;
+    if options.overwrite {
+        staged.persist(output_path).map_err(|err| err.error)?;
+    } else {
+        staged
+            .persist_noclobber(output_path)
+            .map_err(|err| err.error)?;
+    }
+    #[cfg(unix)]
+    fs::File::open(parent)?.sync_all()?;
+    drop(destination_guard);
+    drop(source_guard);
+    drop(replacement_guard);
     let report = scan_report(&output, access, options.quiet)?;
     let rows = report_rows(&report, Some(&output), damaged_original.as_deref());
     print_records(&["field", "value"], rows, options.format)?;
@@ -261,8 +308,7 @@ fn read_recovery_bytes(lockbox_path: &str, quiet: bool) -> CliResult<Vec<u8>> {
         quiet,
         format!("reading {} from {lockbox_path}.", human_size(size)),
     );
-    fs::read(lockbox_path)
-        .map_err(|err| Error::Io(format!("read lockbox {lockbox_path}: {err}")).into())
+    Ok(ScopedFileLock::read_archive(Path::new(lockbox_path))?.read_archive_bytes()?)
 }
 
 fn recovery_stage(quiet: bool, message: impl AsRef<str>) {

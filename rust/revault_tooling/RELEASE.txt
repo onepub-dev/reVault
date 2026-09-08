@@ -1,0 +1,71 @@
+Release candidates
+==================
+
+Install the repository tool with `cargo install --path rust/revault_tooling`.
+Run it from the repository root with Git, Cargo and an authenticated GitHub CLI
+available. The GitHub account needs permission to push candidate branches,
+dispatch Actions workflows and read their artifacts. Existing publication
+workflows retain their registry credentials and release environment controls.
+The release-candidate workflow must be present on the repository's default
+branch before GitHub will accept a dispatch.
+
+Prepare (the dry run):
+
+    revault-tool release prepare --scope all
+
+Scopes are cli, bindings and all. Optional --cli-version and --bindings-version
+select explicit stable versions. Defaults increment the highest source/tag
+version by one patch. The publishable Rust dependency chain receives patch
+increments and local path requirements are updated; historical registry-only
+migration dependencies retain their pinned versions.
+
+Preparation requires a clean checkout. It updates release metadata and lockfiles,
+creates release-notes/candidate.txt from commits since the last release tag,
+commits these reviewable changes, and pushes a uniquely named candidate branch.
+It does not create release tags or publish packages. CI runs the full Rust suite,
+binding lint, applicable platform builds/tests and installed binding checks.
+Preparation waits for CI and prints the candidate run ID, source commit,
+versions, CI link and a copyable publish command. The ID is also saved in this
+worktree's Git metadata, outside the source tree.
+
+Publish the remembered candidate:
+
+    revault-tool release publish
+
+Or select the exact candidate explicitly, including from another machine:
+
+    revault-tool release publish --candidate 12345678
+
+Publication verifies the successful prepare run, commit, versions and every
+retained artifact ID/SHA-256 digest. A changed checkout requires preparing again
+or explicitly selecting the old candidate. Expired/deleted/changed artifacts
+require preparing again. A moved candidate branch is refused. No source tests
+or platform build matrix run during promotion. Registry-specific packaging and
+upload commands still run against the retained publication trees.
+
+For scope all, the existing CLI publication workflow must complete successfully
+before the existing binding publication workflow is dispatched. This preserves
+the trusted-publisher identities configured with registries. Tags are created
+by CI at the validated commit; conflicting tags are refused. The coordinator
+waits for each publication workflow, and the command waits for the coordinator.
+
+Rerun the same publish command after a failure or interruption. It locates the
+existing publication run and resumes failed jobs, or waits for a run still in
+progress. Completed publication is reported without republishing. Existing CLI
+release assets are compared byte-for-byte on retries instead of overwritten.
+Registry destinations retain their existing publication-driver retry behavior.
+
+Recover status:
+
+    revault-tool release status
+    revault-tool release status --candidate 12345678
+
+Without remembered state, status lists recent CI prepare runs for explicit
+selection. A failed prepare never becomes an implicit fallback to an older
+successful candidate. Candidate branches and artifacts should be retained until
+publication is complete. A new prepare is required after CI artifact retention
+expires.
+
+The old low-level `release publish --ecosystem ...` operation is now
+`release publish-package --ecosystem ...`. It is an internal publication building
+block; normal releases should use prepare/publish so CI validation is enforced.

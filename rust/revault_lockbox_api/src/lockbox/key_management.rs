@@ -164,6 +164,7 @@ impl OpenedContentKey {
         Ok(lockbox)
     }
 
+    #[cfg(feature = "vault-integration")]
     fn open_path_opened(self, path: &Path) -> Result<Lockbox> {
         let mut lockbox =
             Lockbox::open_path_with_secret_key_options(path, self.key, LockboxOptions::default())?;
@@ -257,15 +258,13 @@ impl Lockbox {
     }
 
     #[doc(hidden)]
+    #[deprecated(note = "use create_file; archive locking is always required")]
     pub fn create_file_assuming_locked(
         path: &Path,
         protection: LockboxProtection<'_>,
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Self> {
-        let mut lockbox = Self::create_file_uncommitted_assuming_locked(path, protection)?;
-        lockbox.set_owner_signing_key(signing_key.try_clone()?);
-        lockbox.commit()?;
-        Ok(lockbox)
+        Self::create_file(path, protection, signing_key)
     }
 
     fn create_file_uncommitted(path: &Path, protection: LockboxProtection<'_>) -> Result<Self> {
@@ -290,51 +289,6 @@ impl Lockbox {
             LockboxProtection::ContactPublicKey { name, contact } => {
                 let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
                 let mut lockbox = Self::create_path_with_secret_key_and_options(
-                    path,
-                    content_key,
-                    LockboxId::new_random()?,
-                    LockboxOptions::default(),
-                )?;
-                match name {
-                    Some(name) => {
-                        lockbox.add_contact_named(name, &contact)?;
-                    }
-                    None => {
-                        lockbox.add_contact(&contact)?;
-                    }
-                }
-                lockbox
-            }
-        })
-    }
-
-    fn create_file_uncommitted_assuming_locked(
-        path: &Path,
-        protection: LockboxProtection<'_>,
-    ) -> Result<Self> {
-        Ok(match protection {
-            LockboxProtection::ContentKey(key) => {
-                Self::create_path_with_secret_key_and_options_unlocked(
-                    path,
-                    key,
-                    LockboxId::new_random()?,
-                    LockboxOptions::default(),
-                )?
-            }
-            LockboxProtection::Password(password) => {
-                let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
-                let mut lockbox = Self::create_path_with_secret_key_and_options_unlocked(
-                    path,
-                    content_key,
-                    LockboxId::new_random()?,
-                    LockboxOptions::default(),
-                )?;
-                lockbox.add_password(password)?;
-                lockbox
-            }
-            LockboxProtection::ContactPublicKey { name, contact } => {
-                let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
-                let mut lockbox = Self::create_path_with_secret_key_and_options_unlocked(
                     path,
                     content_key,
                     LockboxId::new_random()?,
@@ -418,6 +372,10 @@ impl Lockbox {
 
     /// Open an existing lockbox file using the supplied open key material.
     ///
+    /// Holds a shared archive lock until the returned handle is dropped.
+    /// Writers wait for all readers to close. No writable file or sidecar is
+    /// needed. An open racing with replacement retries against the current file.
+    ///
     /// Password and contact opens use only key slots embedded in the
     /// lockbox file. This method does not read the local vault, cached content
     /// keys, or vault-stored key-directory backups. Use `revault_vault_api::Vault`
@@ -431,6 +389,9 @@ impl Lockbox {
     }
 
     /// Open a lockbox file for mutation and attach `signing_key` for commits.
+    ///
+    /// Holds an exclusive archive lock until dropped. Close existing readers
+    /// and writers before opening another writer, including in the same process.
     pub fn open_for_write(
         path: &Path,
         open: LockboxOpen<'_>,
@@ -497,7 +458,7 @@ impl Lockbox {
     /// This is for lockboxes that store their own owner signing key, such as
     /// the local vault. The callback receives a read-only borrow of the opened
     /// lockbox and must return the key that will sign future commits.
-    pub fn open_for_write_with_signing_key(
+    pub fn open_with_signer(
         path: &Path,
         open: LockboxOpen<'_>,
         load_signing_key: impl FnOnce(&Lockbox<ReadOnly>) -> Result<OwnerSigningKeyPair>,
@@ -510,36 +471,84 @@ impl Lockbox {
         Ok(lockbox)
     }
 
+    /// Compatibility alias for [`Lockbox::open_with_signer`].
+    #[deprecated(note = "use open_with_signer")]
+    pub fn open_for_write_with_signing_key(
+        path: &Path,
+        open: LockboxOpen<'_>,
+        load_signing_key: impl FnOnce(&Lockbox<ReadOnly>) -> Result<OwnerSigningKeyPair>,
+    ) -> Result<Self> {
+        Self::open_with_signer(path, open, load_signing_key)
+    }
+
     #[doc(hidden)]
+    #[deprecated(note = "use open_with_signer; archive locking is always required")]
     pub fn open_for_write_with_signing_key_assuming_locked(
         path: &Path,
         open: LockboxOpen<'_>,
         load_signing_key: impl FnOnce(&Lockbox<ReadOnly>) -> Result<OwnerSigningKeyPair>,
     ) -> Result<Self> {
-        let storage = StorageBackend::file(path)?;
-        let mut lockbox = Self::open_locked_storage_mode(storage, open, true)?;
-        lockbox.complete_pending_transaction_cleanup()?;
-        let read_view = lockbox.try_clone()?.into_state();
-        let signing_key = load_signing_key(&read_view)?;
-        lockbox.read_only = false;
-        lockbox.set_owner_signing_key(signing_key);
+        Self::open_with_signer(path, open, load_signing_key)
+    }
+
+    /// Opens a native file for a foreign-language handle, retaining its archive lock.
+    ///
+    /// A signer selects exclusive write access; without one the returned runtime
+    /// handle is permanently read-only. Close it and reopen with a signer to write.
+    /// Tuning affects only this handle, never the on-disk format.
+    #[cfg(feature = "bindings")]
+    pub fn open_file_handle(
+        path: &Path,
+        open: LockboxOpen<'_>,
+        signer: Option<&OwnerSigningKeyPair>,
+        options: LockboxOptions,
+    ) -> Result<Self> {
+        let mut lockbox = match signer {
+            Some(signer) => Self::open_for_write(path, open, signer)?,
+            None => {
+                let mut lockbox = Self::open_file_opened(path, open)?;
+                lockbox.mark_read_only();
+                lockbox
+            }
+        };
+        lockbox.page_manager =
+            std::cell::RefCell::new(crate::page_cache::PageCache::new(options.cache_limit));
+        lockbox.workload_profile = options.workload_profile;
+        lockbox.worker_policy = options.worker_policy;
         Ok(lockbox)
     }
 
+    /// Creates a fully initialized native archive and retains its exclusive lock.
+    ///
+    /// With `overwrite`, locks the existing archive before atomic replacement.
+    /// Existing readers must close first. Failure before publication preserves
+    /// the existing archive. Without overwrite, publication refuses an existing path.
+    #[cfg(feature = "bindings")]
+    pub fn create_file_handle(
+        path: &Path,
+        protection: LockboxProtection<'_>,
+        signer: &OwnerSigningKeyPair,
+        options: LockboxOptions,
+        overwrite: bool,
+    ) -> Result<Self> {
+        let mut lockbox = Self::create_in_memory(protection, signer)?;
+        lockbox.commit()?;
+        lockbox.storage = StorageBackend::publish(path, &lockbox.bytes()?, overwrite)?;
+        lockbox.page_manager =
+            std::cell::RefCell::new(crate::page_cache::PageCache::new(options.cache_limit));
+        lockbox.workload_profile = options.workload_profile;
+        lockbox.worker_policy = options.worker_policy;
+        Ok(lockbox)
+    }
+
+    /// Whether this handle owns a shared, read-only native archive descriptor.
+    #[cfg(feature = "bindings")]
+    pub fn is_file_read_only(&self) -> bool {
+        self.storage.is_read_only()
+    }
+
     fn open_file_opened(path: &Path, open: LockboxOpen<'_>) -> Result<Self> {
-        match open {
-            LockboxOpen::ContentKey(key) => {
-                Self::open_path_with_secret_key_options(path, key, LockboxOptions::default())
-            }
-            LockboxOpen::Password(password) => {
-                let opened = Self::open_path_with_password(path, password)?;
-                opened.open_path_opened(path)
-            }
-            LockboxOpen::ContactKeyPair(contact) => {
-                let opened = Self::open_path_with_contact(path, &contact)?;
-                opened.open_path_opened(path)
-            }
-        }
+        Self::open_locked_storage_mode(StorageBackend::file(path)?, open, false)
     }
 
     fn open_file_opened_for_write(path: &Path, open: LockboxOpen<'_>) -> Result<Self> {
@@ -631,6 +640,7 @@ impl Lockbox {
     }
 
     /// Open a lockbox file with a password and return its decrypted content key.
+    #[cfg(feature = "vault-integration")]
     pub(crate) fn open_path_with_password(
         path: &Path,
         password: &SecretString,
@@ -722,6 +732,7 @@ impl Lockbox {
     }
 
     /// Open a lockbox file with a contact private key.
+    #[cfg(feature = "vault-integration")]
     pub(crate) fn open_path_with_contact(
         path: &Path,
         contact: &ContactKeyPair,

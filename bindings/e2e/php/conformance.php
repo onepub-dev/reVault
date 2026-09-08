@@ -38,6 +38,14 @@ function moves(string $source, string $destination): array {
 function freeHandle(object $value, string $symbol): void { $value->free(); pass($symbol); }
 
 function archiveLifecycle(ApiRuntime $api): void {
+    $filePath = artifactRoot() . '/native-file.lbox';
+    $fileKey = str_repeat('K', 32);
+    $fileBox = \Revault\Lockbox::create($filePath, contentKey: $fileKey, overwrite: true);
+    try { $fileBox->addFile('/hello', 'native', false); $fileBox->commit(); } finally { $fileBox->close(); }
+    $fileBox = \Revault\Lockbox::open($filePath, contentKey: $fileKey);
+    try { check($fileBox->getFile('/hello') === 'native', 'native file persistence'); } finally { $fileBox->close(); }
+    unlink($filePath); pass('lockbox_file', 3);
+
     $key = str_repeat('K', 32);
     $box = $api->lockboxCreate($key); pass('lockbox_create');
     $box->addFile('/hello.txt', 'hello from php conformance', false); pass('lockbox_add_file', 2);

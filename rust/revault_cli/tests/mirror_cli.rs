@@ -1237,3 +1237,58 @@ fn mirror_file_commands_match_archive_file_command_shapes_and_destroy_removes_ro
     success(&listing);
     assert!(!String::from_utf8_lossy(&listing.stdout).contains("/docs"));
 }
+
+#[test]
+#[ignore = "large-tree performance stress test"]
+fn mirror_status_indexes_one_hundred_thousand_source_files() {
+    const DIRECTORY_COUNT: usize = 200;
+    const FILES_PER_DIRECTORY: usize = 500;
+
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let temp = TestTempDir::new("mirror-large-tree-index");
+    let source = temp.path().join("source");
+    let lockbox = temp.path().join("large-tree.lbox");
+    fs::create_dir(&source).unwrap();
+    for directory in 0..DIRECTORY_COUNT {
+        let child = source.join(format!("directory-{directory:03}"));
+        fs::create_dir(&child).unwrap();
+        for file in 0..FILES_PER_DIRECTORY {
+            fs::write(child.join(format!("file-{file:03}.txt")), []).unwrap();
+        }
+    }
+
+    success(&run(
+        bin,
+        temp.path(),
+        &[lockbox.to_str().unwrap(), "create"],
+    ));
+    success(&run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "mirror",
+            "large",
+            "create",
+            "--from",
+            source.to_str().unwrap(),
+            "--to",
+            "/large",
+        ],
+    ));
+    let status = run(
+        bin,
+        temp.path(),
+        &[
+            lockbox.to_str().unwrap(),
+            "mirror",
+            "large",
+            "status",
+            "--quiet",
+        ],
+    );
+    success(&status);
+    let status = String::from_utf8_lossy(&status.stdout);
+    assert!(status.contains("add:       100000 files"), "{status}");
+    assert!(status.contains("mkdir:     201 directories"), "{status}");
+}

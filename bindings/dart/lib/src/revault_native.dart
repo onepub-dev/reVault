@@ -10,6 +10,74 @@ final class RevaultBuffer extends ffi.Struct {
   external int len;
 }
 
+// BEGIN generated file operation types
+typedef _LockboxFileNative =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Uint64,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Pointer<ffi.Uint8>,
+      ffi.Size,
+      ffi.Size,
+    );
+typedef _LockboxFileDart =
+    ffi.Pointer<ffi.Void> Function(
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      ffi.Pointer<ffi.Uint8>,
+      int,
+      int,
+    );
+@ffi.Native<_LockboxFileNative>(
+  symbol: 'lockbox_file',
+  assetId: 'package:revault_api/src/revault_native.dart',
+)
+external ffi.Pointer<ffi.Void> _native_lockbox_file(
+  ffi.Pointer<ffi.Uint8> path,
+  int pathLen,
+  ffi.Pointer<ffi.Uint8> mode,
+  int modeLen,
+  ffi.Pointer<ffi.Uint8> credential,
+  int credentialLen,
+  ffi.Pointer<ffi.Uint8> secret,
+  int secretLen,
+  ffi.Pointer<ffi.Void> contact,
+  ffi.Pointer<ffi.Void> signer,
+  ffi.Pointer<ffi.Uint8> cacheMode,
+  int cacheLen,
+  int cacheBytes,
+  ffi.Pointer<ffi.Uint8> workload,
+  int workloadLen,
+  ffi.Pointer<ffi.Uint8> worker,
+  int workerLen,
+  int jobs,
+);
+// END generated file operation types
 typedef _ApiAbiVersionNative = ffi.Uint32 Function();
 typedef _ApiAbiVersionDart = int Function();
 typedef _BufferLastErrorNative = ffi.Pointer<ffi.Uint8> Function();
@@ -3708,6 +3776,10 @@ final class RevaultNative {
             _LockboxCreateWithSigningKeyNative,
             _LockboxCreateWithSigningKeyDart
           >('lockbox_create_with_signing_key'),
+      // BEGIN generated file operation load
+      _lockbox_file = library
+          .lookupFunction<_LockboxFileNative, _LockboxFileDart>('lockbox_file'),
+      // END generated file operation load
       _lockbox_open = library
           .lookupFunction<_LockboxOpenNative, _LockboxOpenDart>('lockbox_open'),
       _lockbox_open_with_options = library
@@ -4663,6 +4735,9 @@ final class RevaultNative {
           _native_lockbox_create_contact_with_signing_key,
       _lockbox_create_with_signing_key =
           _native_lockbox_create_with_signing_key,
+      // BEGIN generated file operation asset
+      _lockbox_file = _native_lockbox_file,
+      // END generated file operation asset
       _lockbox_open = _native_lockbox_open,
       _lockbox_open_with_options = _native_lockbox_open_with_options,
       _lockbox_open_password = _native_lockbox_open_password,
@@ -4993,6 +5068,48 @@ final class RevaultNative {
     int key_len,
     ffi.Pointer<ffi.Void> signing_key,
   ) => _lockbox_create_with_signing_key(content_key, key_len, signing_key);
+  // BEGIN generated file operation field
+  final _LockboxFileDart _lockbox_file;
+  ffi.Pointer<ffi.Void> lockbox_file(
+    ffi.Pointer<ffi.Uint8> path,
+    int pathLen,
+    ffi.Pointer<ffi.Uint8> mode,
+    int modeLen,
+    ffi.Pointer<ffi.Uint8> credential,
+    int credentialLen,
+    ffi.Pointer<ffi.Uint8> secret,
+    int secretLen,
+    ffi.Pointer<ffi.Void> contact,
+    ffi.Pointer<ffi.Void> signer,
+    ffi.Pointer<ffi.Uint8> cacheMode,
+    int cacheLen,
+    int cacheBytes,
+    ffi.Pointer<ffi.Uint8> workload,
+    int workloadLen,
+    ffi.Pointer<ffi.Uint8> worker,
+    int workerLen,
+    int jobs,
+  ) => _lockbox_file(
+    path,
+    pathLen,
+    mode,
+    modeLen,
+    credential,
+    credentialLen,
+    secret,
+    secretLen,
+    contact,
+    signer,
+    cacheMode,
+    cacheLen,
+    cacheBytes,
+    workload,
+    workloadLen,
+    worker,
+    workerLen,
+    jobs,
+  );
+  // END generated file operation field
   final _LockboxOpenDart _lockbox_open;
   ffi.Pointer<ffi.Void> lockbox_open(
     ffi.Pointer<ffi.Uint8> archive,

@@ -312,6 +312,18 @@ static void expect_optional_string(RevaultBuffer value, const char *expected) {
 }
 
 static void archive_lifecycle(void) {
+  char file_path[512]; artifact_path(file_path, sizeof(file_path), "native-file.lbox");
+  const uint8_t file_key[32] = {75};
+  void *file_box = lockbox_file(file_path, strlen(file_path), "replace", 7, "content-key", 11, file_key, 32, NULL, NULL, "disabled", 8, 0, "interactive", 11, "single", 6, 0);
+  CHECK(file_box != NULL, "native file creation");
+  CHECK(lockbox_add_file(file_box, "/hello", 6, (const uint8_t *)"native", 6, false), "file add");
+  CHECK(lockbox_commit(file_box), "file commit"); lockbox_free(file_box);
+  file_box = lockbox_file(file_path, strlen(file_path), "open", 4, "content-key", 11, file_key, 32, NULL, NULL, "disabled", 8, 0, "interactive", 11, "single", 6, 0);
+  CHECK(file_box != NULL, "native file reopen");
+  RevaultBuffer file_content = lockbox_get_file(file_box, "/hello", 6);
+  CHECK(file_content.ptr != NULL && file_content.len == 6 && memcmp(file_content.ptr, "native", 6) == 0, "file persisted bytes");
+  buffer_free(file_content); lockbox_free(file_box); remove(file_path); PASS(lockbox_file, 5);
+
   uint8_t key[32];
   memset(key, 0x4b, sizeof(key));
   const uint8_t hello[] = "hello from c conformance";

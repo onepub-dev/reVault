@@ -2,6 +2,7 @@ mod e2e;
 mod package_conformance;
 mod publication;
 mod release;
+mod release_candidate;
 mod repository;
 
 use clap::{Parser, Subcommand};

@@ -54,6 +54,9 @@ let lockbox_create_password_with_signing_key;
 let lockbox_create_contact;
 let lockbox_create_contact_with_signing_key;
 let lockbox_create_with_signing_key;
+// BEGIN generated file operation symbol
+let lockbox_file;
+// END generated file operation symbol
 let lockbox_open;
 let lockbox_open_with_options;
 let lockbox_open_password;
@@ -283,6 +286,9 @@ export function configureNativeLibrary(explicitPath = undefined) {
   lockbox_create_contact = library.func('void * lockbox_create_contact(void *)');
   lockbox_create_contact_with_signing_key = library.func('void * lockbox_create_contact_with_signing_key(void *, void *)');
   lockbox_create_with_signing_key = library.func('void * lockbox_create_with_signing_key(void *, size_t, void *)');
+// BEGIN generated file operation load
+  lockbox_file = library.func('void * lockbox_file(void *, size_t, void *, size_t, void *, size_t, void *, size_t, void *, void *, void *, size_t, uint64_t, void *, size_t, void *, size_t, size_t)');
+// END generated file operation load
   lockbox_open = library.func('void * lockbox_open(void *, size_t, void *, size_t)');
   lockbox_open_with_options = library.func('void * lockbox_open_with_options(void *, size_t, void *, size_t, const char *, size_t, uint64_t, const char *, size_t, const char *, size_t, size_t)');
   lockbox_open_password = library.func('void * lockbox_open_password(void *, size_t, void *, size_t)');
@@ -574,6 +580,11 @@ export class BindingOperations {
 
   lockboxCreateWithSigningKey(contentKey, signingKey) { return requireHandle(lockbox_create_with_signing_key(Buffer.from(contentKey), Buffer.byteLength(contentKey), signingKey)); }
 
+// BEGIN generated file operation route
+  lockboxFile(path, mode, credential, secret, contact, signer, cacheMode, cacheBytes, workload, worker, jobs) {
+    return requireHandle(lockbox_file(Buffer.from(path), Buffer.byteLength(path), Buffer.from(mode), Buffer.byteLength(mode), Buffer.from(credential), Buffer.byteLength(credential), Buffer.from(secret), Buffer.byteLength(secret), contact, signer, Buffer.from(cacheMode), Buffer.byteLength(cacheMode), cacheBytes, Buffer.from(workload), Buffer.byteLength(workload), Buffer.from(worker), Buffer.byteLength(worker), jobs));
+  }
+// END generated file operation route
   lockboxOpen(archive, key) { return requireHandle(lockbox_open(Buffer.from(archive), Buffer.byteLength(archive), Buffer.from(key), Buffer.byteLength(key))); }
 
   lockboxOpenWithOptions(archive, key, cacheMode, cacheBytes, workload, worker, jobs) { return requireHandle(lockbox_open_with_options(Buffer.from(archive), Buffer.byteLength(archive), Buffer.from(key), Buffer.byteLength(key), Buffer.from(cacheMode), Buffer.byteLength(cacheMode), cacheBytes, Buffer.from(workload), Buffer.byteLength(workload), Buffer.from(worker), Buffer.byteLength(worker), jobs)); }

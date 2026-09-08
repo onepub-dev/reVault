@@ -37,9 +37,9 @@ final class BindingOperations
         return true;
     }
 
-    private function requireHandle(CData $value): CData
+    private function requireHandle(?CData $value): CData
     {
-        if (FFI::isNull($value)) { throw new RevaultError($this->lastErrorMessage()); }
+        if ($value === null || FFI::isNull($value)) { throw new RevaultError($this->lastErrorMessage()); }
         return $value;
     }
 
@@ -147,6 +147,12 @@ final class BindingOperations
         return $this->withBytes($contentKey, fn(CData $contentKeyPointer, int $contentKeyLength) => $this->requireHandle($this->ffi->lockbox_create_with_signing_key($contentKeyPointer, $contentKeyLength, $signingKey)));
     }
 
+// BEGIN generated file operation route
+    public function lockboxFile(string $path, string $mode, string $credential, string $secret, ?CData $contact, ?CData $signer, string $cacheMode, int $cacheBytes, string $workload, string $worker, int $jobs): CData
+    {
+        return $this->withBytes($secret, fn(CData $pointer, int $length) => $this->requireHandle($this->ffi->lockbox_file($path, strlen($path), $mode, strlen($mode), $credential, strlen($credential), $pointer, $length, $contact, $signer, $cacheMode, strlen($cacheMode), $cacheBytes, $workload, strlen($workload), $worker, strlen($worker), $jobs)));
+    }
+// END generated file operation route
     public function lockboxOpen(string $archive, string $key): CData
     {
         return $this->withBytes($archive, fn(CData $archivePointer, int $archiveLength) => $this->withBytes($key, fn(CData $keyPointer, int $keyLength) => $this->requireHandle($this->ffi->lockbox_open($archivePointer, $archiveLength, $keyPointer, $keyLength))));

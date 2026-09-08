@@ -307,6 +307,32 @@ mod tests {
     }
 
     #[test]
+    fn newer_api_format_errors_direct_upgrade_instead_of_migration() {
+        let error = Error::UnsupportedFormatVersion {
+            artifact: ArtifactKind::Lockbox,
+            found: 3,
+            supported: 2,
+        };
+        let rendered = render_error(&error, false);
+        assert!(rendered.contains("Next step:\n  Install a newer reVault release, then retry."));
+        assert!(!rendered.contains("migrate"));
+    }
+
+    #[test]
+    fn newer_vault_format_errors_direct_upgrade_instead_of_migration() {
+        let error = Error::UnsupportedFormatVersion {
+            artifact: ArtifactKind::Vault,
+            found: 3,
+            supported: 2,
+        };
+        let rendered = render_error(&error, false);
+        assert!(rendered.contains("Error:\n  Unsupported vault format"));
+        assert!(rendered.contains("Details:\n  Found version 3"));
+        assert!(rendered.contains("Next step:\n  Install a newer reVault release, then retry."));
+        assert!(!rendered.contains("migrate"));
+    }
+
+    #[test]
     fn colour_is_only_added_when_requested() {
         let error = Error::InvalidInput("bad value".to_string());
         assert!(!render_error(&error, false).contains("\x1b["));

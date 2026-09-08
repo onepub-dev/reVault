@@ -40,6 +40,20 @@ func artifactRoot() string {
 }
 
 func archiveLifecycle() {
+	filePath := filepath.Join(artifactRoot(), "native-file.lbox")
+	fileKey := bytes.Repeat([]byte{'K'}, 32)
+	fileSigner := mustValue(revault.GenerateProfileSigningKeyPair())
+	fileBox := mustValue(revault.CreateFile(filePath, fileKey, fileSigner, true))
+	must(fileBox.AddFile("/hello", []byte("native"), false))
+	must(fileBox.Commit())
+	fileBox.Close()
+	fileBox = mustValue(revault.OpenFile(filePath, fileKey, nil))
+	check(bytes.Equal(mustValue(fileBox.GetFile("/hello")), []byte("native")), "native file persistence")
+	fileBox.Close()
+	fileSigner.Close()
+	must(os.Remove(filePath))
+	pass("lockbox_file", 3)
+
 	key := bytes.Repeat([]byte{'K'}, 32)
 	box := mustValue(revault.Create(key))
 	defer box.Close()

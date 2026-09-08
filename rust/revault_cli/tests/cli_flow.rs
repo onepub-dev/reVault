@@ -341,7 +341,7 @@ fn help_is_grouped_and_commands_have_specific_help() {
     assert_success(&vault_profile_verbose_help);
     let vault_profile_verbose_help = String::from_utf8_lossy(&vault_profile_verbose_help.stdout);
     assert!(vault_profile_verbose_help.contains("Context:"));
-    assert!(vault_profile_verbose_help.contains("A key-pair profile has public, private open"));
+    assert!(vault_profile_verbose_help.contains("has a public key, private open key"));
     assert!(vault_profile_verbose_help.contains("A password profile stores a generated secret"));
     assert!(vault_profile_verbose_help.contains("Publish or export the public key"));
     assert!(vault_profile_verbose_help.contains("profile backup and restore"));
@@ -4236,7 +4236,7 @@ fn vault_lockbox_list_reports_owner_size_and_path() {
 }
 
 #[test]
-fn vault_lockbox_move_updates_file_sidecar_vault_and_default_session() {
+fn vault_lockbox_move_updates_file_vault_and_default_session() {
     vault_lockbox_move_flow(None);
 }
 
@@ -4263,9 +4263,8 @@ fn vault_lockbox_move_across_filesystems_preserves_content() {
 
 fn vault_lockbox_move_flow(destination_dir: Option<PathBuf>) {
     let bin = env!("CARGO_BIN_EXE_lockbox");
-    let temporary_source = destination_dir
-        .as_ref()
-        .map(|_| tempfile::tempdir().unwrap());
+    // Keep Unix socket paths below sockaddr_un's limit in long worktree paths.
+    let temporary_source = Some(tempfile::tempdir().unwrap());
     let dir = temporary_source.as_ref().map_or_else(
         || unique_dir_named("vault-lockbox-move"),
         |directory| directory.path().to_path_buf(),
@@ -4366,7 +4365,7 @@ fn vault_lockbox_move_flow(destination_dir: Option<PathBuf>) {
     assert!(!source.exists());
     assert!(!dir.join(".source.lbox.lock").exists());
     assert!(destination.exists());
-    assert!(destination_dir.join(".source.lbox.lock").exists());
+    assert!(!destination_dir.join(".source.lbox.lock").exists());
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -7280,4 +7279,64 @@ fn unique_dir_named(label: &str) -> PathBuf {
 
 fn short_target_dir(label: &str) -> PathBuf {
     short_dir_path(label)
+}
+
+#[cfg(unix)]
+#[test]
+fn read_only_archive_supports_cli_listing_and_byte_exact_extraction() {
+    use std::os::unix::fs::PermissionsExt;
+    let bin = env!("CARGO_BIN_EXE_lockbox");
+    let dir = unique_dir_named("readonly-archive");
+    let archives = dir.join("archives");
+    fs::create_dir_all(&archives).unwrap();
+    let path = archives.join("readonly.lbox");
+    let source = dir.join("source.bin");
+    let output = dir.join("extracted.bin");
+    let vault = dir.join("vault");
+    let agent = dir.join("agent");
+    let payload = b"readonly archive regression\0\xff\n";
+    fs::write(&source, payload).unwrap();
+    assert_success(&run_output_in(
+        bin,
+        &[path.to_str().unwrap(), "create"],
+        &vault,
+        &agent,
+    ));
+    assert_success(&run_output_in(
+        bin,
+        &[
+            path.to_str().unwrap(),
+            "add",
+            source.to_str().unwrap(),
+            "--to",
+            "/payload.bin",
+        ],
+        &vault,
+        &agent,
+    ));
+    let before = fs::read(&path).unwrap();
+    // The public CLI cannot set host mount/permission conditions. Only this
+    // host setup uses filesystem APIs; archive creation and reads use the CLI.
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o444)).unwrap();
+    fs::set_permissions(&archives, fs::Permissions::from_mode(0o555)).unwrap();
+    let listing = run_output_in(bin, &[path.to_str().unwrap(), "list"], &vault, &agent);
+    let extraction = run_output_in(
+        bin,
+        &[
+            path.to_str().unwrap(),
+            "extract",
+            "/payload.bin",
+            "--to",
+            output.to_str().unwrap(),
+        ],
+        &vault,
+        &agent,
+    );
+    fs::set_permissions(&archives, fs::Permissions::from_mode(0o755)).unwrap();
+    assert_success(&listing);
+    assert!(String::from_utf8_lossy(&listing.stdout).contains("payload.bin"));
+    assert_success(&extraction);
+    assert_eq!(fs::read(output).unwrap(), payload);
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert_eq!(fs::read_dir(&archives).unwrap().count(), 1);
 }

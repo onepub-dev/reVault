@@ -469,7 +469,46 @@ func CreateSigned(contentKey []byte, signing *ProfileSigningKeyPair) (*Lockbox, 
 	return adoptLockbox(C.lockbox_create_with_signing_key(bytePointer(contentKey), C.size_t(len(contentKey)), signing.handle))
 }
 
+// CreateFile creates and exclusively locks a native file with caller-owned key and signer.
+// Existing files require overwrite; replacement is atomic. Close releases the lock.
+//
+// Example: box, err := revault.CreateFile(path, key, signer, false)
+// if err != nil { return err }; defer box.Close(); return box.Commit()
+func CreateFile(path string, contentKey []byte, signer *ProfileSigningKeyPair, overwrite bool) (*Lockbox, error) {
+	if signer == nil {
+		return nil, fmt.Errorf("a signing key is required")
+	}
+	mode := "create"
+	if overwrite {
+		mode = "replace"
+	}
+	return lockboxFile(path, mode, "content-key", contentKey, nil, signer.handle, LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"})
+}
+
+// OpenFile opens a native file with a shared lock, or exclusive write access with signer.
+// Close all readers before opening a writer. The caller retains ownership of key and signer.
+//
+// Example: box, err := revault.OpenFile(path, key, nil)
+// if err != nil { return err }; defer box.Close(); payload, err := box.GetFile("/hello")
+func OpenFile(path string, contentKey []byte, signer *ProfileSigningKeyPair) (*Lockbox, error) {
+	var signing unsafe.Pointer
+	if signer != nil {
+		signing = signer.handle
+	}
+	return lockboxFile(path, "open", "content-key", contentKey, nil, signing, LockboxOptions{CacheMode: "bytes", CacheBytes: 64 << 20, Workload: "interactive", Worker: "auto"})
+}
+
 // Open opens open.
+// BEGIN generated file operation route
+func lockboxFile(path, mode, credential string, secret []byte, contact, signer unsafe.Pointer, options LockboxOptions) (*Lockbox, error) {
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
+	return adoptLockbox(C.lockbox_file(charPointer(path), C.size_t(len(path)), charPointer(mode), C.size_t(len(mode)), charPointer(credential), C.size_t(len(credential)), bytePointer(secret), C.size_t(len(secret)), contact, signer, charPointer(options.CacheMode), C.size_t(len(options.CacheMode)), C.uint64_t(options.CacheBytes), charPointer(options.Workload), C.size_t(len(options.Workload)), charPointer(options.Worker), C.size_t(len(options.Worker)), C.size_t(options.Jobs)))
+}
+
+// Open opens serialized in-memory bytes.
+// END generated file operation route
 func Open(archive, key []byte) (*Lockbox, error) {
 	return adoptLockbox(C.lockbox_open(bytePointer(archive), C.size_t(len(archive)), bytePointer(key), C.size_t(len(key))))
 }

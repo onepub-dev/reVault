@@ -70,7 +70,15 @@ class Runtime:
 
 
 def archive_lifecycle(runtime: Runtime) -> None:
-    """Exercise the core lockbox archive lifecycle."""
+    """Exercise native file persistence and the core archive lifecycle."""
+    with tempfile.TemporaryDirectory(prefix='revault-file-') as root:
+        path = Path(root) / 'archive.lbox'
+        with binding.Lockbox.create(path, content_key=b'K' * 32) as box:
+            box.add_file('/hello', b'native', False)
+            box.commit()
+        with binding.Lockbox.open(path, content_key=b'K' * 32) as box:
+            check(box.get_file('/hello') == b'native', 'native file persistence')
+    passed('lockbox_file', 3)
     lib = runtime.lib
     key = data(b"K" * 32)
     hello = data(b"hello from python conformance")

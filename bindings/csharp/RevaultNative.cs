@@ -43,6 +43,10 @@ internal static partial class RevaultNative
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr lockbox_create_with_signing_key(IntPtr content_key, nuint key_len, IntPtr signing_key);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    // BEGIN generated file operation abi
+    public static extern IntPtr lockbox_file(IntPtr path, nuint pathLen, IntPtr mode, nuint modeLen, IntPtr credential, nuint credentialLen, IntPtr secret, nuint secretLen, IntPtr contact, IntPtr signer, IntPtr cacheMode, nuint cacheLen, ulong cacheBytes, IntPtr workload, nuint workloadLen, IntPtr worker, nuint workerLen, nuint jobs);
+    [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
+    // END generated file operation abi
     public static extern IntPtr lockbox_open(IntPtr archive, nuint archive_len, IntPtr key, nuint key_len);
     [DllImport("revault_api", CallingConvention = CallingConvention.Cdecl)]
     public static extern IntPtr lockbox_open_with_options(IntPtr archive, nuint archive_len, IntPtr key, nuint key_len, IntPtr cache_mode, nuint cache_len, ulong cache_bytes, IntPtr workload, nuint workload_len, IntPtr worker, nuint worker_len, nuint jobs);

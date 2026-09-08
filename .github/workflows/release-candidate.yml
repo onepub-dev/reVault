@@ -1,0 +1,208 @@
+name: Release candidate
+run-name: ${{ inputs.mode }} ${{ inputs.scope }} ${{ inputs.request }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [prepare, publish]
+        required: true
+      scope:
+        type: choice
+        options: [cli, bindings, all]
+        required: true
+      cli_version:
+        type: string
+        default: ''
+      bindings_version:
+        type: string
+        default: ''
+      candidate:
+        description: Successful prepare run ID (publication only)
+        type: string
+        default: ''
+      request:
+        description: Immutable candidate ref or prepare run ID
+        type: string
+        required: true
+
+# One publication owner per source ref, including retries from another machine.
+concurrency:
+  group: release-candidate-${{ inputs.mode == 'publish' && 'publication' || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - name: Build and retain the release driver
+        if: inputs.mode == 'prepare'
+        run: cargo build --locked --release --manifest-path rust/Cargo.toml -p revault_tooling
+      - uses: actions/upload-artifact@v7
+        if: inputs.mode == 'prepare'
+        with:
+          name: candidate-driver
+          path: rust/target/release/revault-tool
+      - uses: actions/download-artifact@v8
+        if: inputs.mode == 'publish'
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate }}
+          name: candidate-driver
+          path: driver
+      - name: Validate candidate provenance before executing its driver
+        if: inputs.mode == 'publish'
+        env:
+          CANDIDATE: ${{ inputs.candidate }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE" =~ ^[0-9]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE" > run.json
+          jq -e --arg sha "$GITHUB_SHA" '.conclusion == "success" and .event == "workflow_dispatch" and .head_sha == $sha and .path == ".github/workflows/release-candidate.yml"' run.json
+      - name: Verify all retained artifacts and create immutable release tags
+        if: inputs.mode == 'publish'
+        env:
+          CANDIDATE: ${{ inputs.candidate }}
+          SCOPE: ${{ inputs.scope }}
+          CLI_VERSION: ${{ inputs.cli_version }}
+          BINDINGS_VERSION: ${{ inputs.bindings_version }}
+        run: |
+          chmod +x driver/revault-tool
+          driver/revault-tool release candidate tags --candidate "$CANDIDATE" --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
+
+  rust-checks:
+    if: inputs.mode == 'prepare'
+    needs: guard
+    uses: ./.github/workflows/rust.yml
+
+  source-checks:
+    if: inputs.mode == 'prepare'
+    needs: guard
+    uses: ./.github/workflows/bindings-lint.yml
+
+  cli:
+    if: inputs.mode == 'prepare' && inputs.scope != 'bindings'
+    needs: guard
+    uses: ./.github/workflows/revault_cli-v-release.yml
+    with:
+      candidate: true
+      version: ${{ inputs.cli_version }}
+      promotion_run_id: ${{ inputs.mode == 'publish' && inputs.candidate || '' }}
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: read
+      attestations: write
+      id-token: write
+      packages: write
+
+  bindings-prepare:
+    if: inputs.mode == 'prepare' && inputs.scope != 'cli'
+    needs: guard
+    uses: ./.github/workflows/bindings-native-release.yml
+    with:
+      version: ${{ inputs.bindings_version }}
+      publish: false
+    secrets: inherit
+    permissions:
+      contents: write
+      actions: read
+      attestations: write
+      id-token: write
+
+  cli-publish:
+    if: inputs.mode == 'publish' && inputs.scope != 'bindings'
+    needs: guard
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate }}
+          name: candidate-driver
+          path: driver
+      - name: Publish CLI through its existing trusted workflow and wait
+        env:
+          CANDIDATE: ${{ inputs.candidate }}
+          SCOPE: ${{ inputs.scope }}
+          CLI_VERSION: ${{ inputs.cli_version }}
+          BINDINGS_VERSION: ${{ inputs.bindings_version }}
+        run: |
+          chmod +x driver/revault-tool
+          driver/revault-tool release candidate promote-cli --candidate "$CANDIDATE" --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
+
+  bindings-publish:
+    if: always() && inputs.mode == 'publish' && inputs.scope != 'cli' && needs.guard.result == 'success' && (inputs.scope == 'bindings' || needs.cli-publish.result == 'success')
+    needs: [guard, cli-publish]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate }}
+          name: candidate-driver
+          path: driver
+      - name: Publish bindings after CLI succeeds, using their trusted workflow
+        env:
+          CANDIDATE: ${{ inputs.candidate }}
+          SCOPE: ${{ inputs.scope }}
+          CLI_VERSION: ${{ inputs.cli_version }}
+          BINDINGS_VERSION: ${{ inputs.bindings_version }}
+        run: |
+          chmod +x driver/revault-tool
+          driver/revault-tool release candidate promote-bindings --candidate "$CANDIDATE" --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
+
+  seal:
+    if: always() && inputs.mode == 'prepare' && needs.guard.result == 'success' && needs.source-checks.result == 'success' && needs.rust-checks.result == 'success' && (inputs.scope == 'bindings' || needs.cli.result == 'success') && (inputs.scope == 'cli' || needs.bindings-prepare.result == 'success')
+    needs: [guard, source-checks, rust-checks, cli, bindings-prepare]
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: candidate-driver
+          path: driver
+      - name: Record the exact source and every retained artifact digest
+        env:
+          SCOPE: ${{ inputs.scope }}
+          CLI_VERSION: ${{ inputs.cli_version }}
+          BINDINGS_VERSION: ${{ inputs.bindings_version }}
+        run: |
+          chmod +x driver/revault-tool
+          driver/revault-tool release candidate seal --scope "$SCOPE" --cli-version "$CLI_VERSION" --bindings-version "$BINDINGS_VERSION"
+          echo "Candidate: $GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "Publish: revault-tool release publish --candidate $GITHUB_RUN_ID" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate
+          path: candidate.json
+          if-no-files-found: error

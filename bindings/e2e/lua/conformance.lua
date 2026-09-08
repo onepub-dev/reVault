@@ -60,6 +60,14 @@ local function moves(source, destination)
 end
 
 local function archive_lifecycle()
+  local file_path = artifact_root() .. '/native-file.lbox'
+  local file_key = string.rep('K', 32)
+  local file_box = revault.Lockbox.create(file_path, {content_key=file_key, overwrite=true})
+  file_box:add_file('/hello', 'native', false); file_box:commit(); file_box:close()
+  file_box = revault.Lockbox.open(file_path, {content_key=file_key})
+  assert(file_box:get_file('/hello') == 'native'); file_box:close()
+  os.remove(file_path); pass('lockbox_file', 3)
+
   local key = string.rep('K', 32)
   local box = api:lockbox_create(key); pass('lockbox_create')
   box:add_file('/hello.txt', 'hello from lua conformance', false); pass('lockbox_add_file', 2)

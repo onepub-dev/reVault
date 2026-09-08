@@ -127,6 +127,26 @@ final class BindingOperations {
         }
     }
 
+// BEGIN generated file operation route
+    func lockboxFile(_ path: String, _ mode: String, _ credential: String, _ secret: Data, _ contact: UnsafeMutableRawPointer?, _ signer: UnsafeMutableRawPointer?, _ cacheMode: String, _ cacheBytes: UInt64, _ workload: String, _ worker: String, _ jobs: Int) throws -> UnsafeMutableRawPointer {
+        return try path.withCString { pathPointer in
+        return try mode.withCString { modePointer in
+        return try credential.withCString { credentialPointer in
+        return try cacheMode.withCString { cacheModePointer in
+        return try workload.withCString { workloadPointer in
+        return try worker.withCString { workerPointer in
+        return try secret.withUnsafeBytes { secretBytes in
+            guard let handle = lockbox_file(pathPointer, path.utf8.count, modePointer, mode.utf8.count, credentialPointer, credential.utf8.count, secretBytes.bindMemory(to: UInt8.self).baseAddress, secret.count, contact, signer, cacheModePointer, cacheMode.utf8.count, cacheBytes, workloadPointer, workload.utf8.count, workerPointer, worker.utf8.count, jobs) else { throw RevaultError.native(lastError()) }
+            return handle
+        }
+        }
+        }
+        }
+        }
+        }
+        }
+    }
+// END generated file operation route
     func lockboxOpen(_ archive: Data, _ key: Data) throws -> UnsafeMutableRawPointer {
         return try archive.withUnsafeBytes { archiveBytes in
             return try key.withUnsafeBytes { keyBytes in
@@ -1484,6 +1504,19 @@ public final class Revault {
     }
 
     /// Creates an in memory Lockbox protected by a 32 byte content key.
+    /// Creates and exclusively locks a native file; overwrite atomically replaces it. The caller retains its key and signer.
+    /// Example: let box = try api.createLockboxFile(path, contentKey: key, signer: signer); defer { box.free() }; _ = try box.commit()
+    public func createLockboxFile(_ path: String, contentKey: Data, signer: ProfileSigningKeyPair, overwrite: Bool = false) throws -> Lockbox {
+        return Lockbox(operations, try operations.lockboxFile(path, overwrite ? "replace" : "create", "content-key", contentKey, nil, signer.handle!, "bytes", 64 << 20, "interactive", "auto", 0))
+    }
+    /// Opens a native file with a shared lock; supply signer for exclusive write access.
+    /// Close readers before opening a writer. The caller retains its key and signer.
+    /// Example: let box = try api.openLockboxFile(path, contentKey: key); defer { box.free() }; let payload = try box.getFile("/hello")
+    public func openLockboxFile(_ path: String, contentKey: Data, signer: ProfileSigningKeyPair? = nil) throws -> Lockbox {
+        return Lockbox(operations, try operations.lockboxFile(path, "open", "content-key", contentKey, nil, signer?.handle, "bytes", 64 << 20, "interactive", "auto", 0))
+    }
+
+    /// Creates an in-memory archive with a caller-owned content key.
     public func lockboxCreate(_ key: Data) throws -> Lockbox {
         return Lockbox(operations, try operations.lockboxCreate(key))
     }

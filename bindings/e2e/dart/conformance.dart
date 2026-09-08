@@ -62,6 +62,32 @@ List<FormField> fields() => [
 ];
 
 void archiveLifecycle() {
+  withSecretBytes(List.filled(32, 75), (fileKey) {
+    final filePath = '${artifactRoot()}/native-file.lbox';
+    var fileBox = Lockbox.create(
+      filePath,
+      contentKey: fileKey,
+      overwrite: true,
+    );
+    try {
+      fileBox.addFile('/hello', text('native'));
+      fileBox.commit();
+    } finally {
+      fileBox.close();
+    }
+    fileBox = Lockbox.open(filePath, contentKey: fileKey);
+    try {
+      check(
+        String.fromCharCodes(fileBox.getFile('/hello')) == 'native',
+        'native file persistence',
+      );
+    } finally {
+      fileBox.close();
+    }
+    File(filePath).deleteSync();
+    pass('lockbox_file', 3);
+  });
+
   final key = SecretBytes.copyOf(repeat('K'.codeUnitAt(0), 32));
   late Uint8List archive;
   final box = Lockbox.createInMemory(contentKey: key);

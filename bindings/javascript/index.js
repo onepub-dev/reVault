@@ -5,7 +5,6 @@
  * @module @onepub-dev/revault-api
  */
 import { BindingOperations, RevaultError, createMessage, encodeMessage } from './native.js';
-import fs from 'node:fs';
 
 /** Error raised when a native operation is rejected; details preserve ABI diagnostics. */
 export { RevaultError };
@@ -366,20 +365,24 @@ export class Lockbox extends OwnedHandle {
       : runtime.lockboxOpenWithOptions(archive, contentKey, options.cacheMode, options.cacheBytes ?? 0, options.workload, options.worker, options.jobs ?? 0);
   }
 
-  /** Create an archive file and return its process-local handle. */
-  static create(path, options = {}) {
-    if (fs.existsSync(path) && !options.overwrite) throw new Error(`Lockbox already exists: ${path}`);
-    const lockbox = Lockbox.createInMemory(options);
-    fs.writeFileSync(path, lockbox.toBytes());
-    lockbox._backingPath = path;
-    return lockbox;
-  }
+  /** Create and exclusively lock a native archive; overwrite atomically replaces it.
+   * @example const box = Lockbox.create(path, {password, signingKey}); try { box.addFile('/hello', content, false); box.commit(); } finally { box.close(); }
+   */
+  static create(path, options = {}) { return Lockbox._file(path, options.overwrite ? 'replace' : 'create', options); }
 
-  /** Open an archive file without consulting the Session Agent. */
-  static open(path, options = {}) {
-    const lockbox = Lockbox.openBytes(fs.readFileSync(path), options);
-    lockbox._backingPath = path;
-    return lockbox;
+  /** Open a native archive with a shared lock. Supply signingKey for exclusive write access.
+   * Close existing readers before opening a writer. Attaching a signer later cannot upgrade a reader.
+   * @example const box = Lockbox.open(path, {password}); try { console.log(box.getFile('/hello')); } finally { box.close(); }
+   */
+  static open(path, options = {}) { return Lockbox._file(path, 'open', options); }
+
+  /** @internal Marshals file credentials and runtime tuning to Rust. */
+  static _file(path, mode, {password, contentKey, contact, signingKey, options = {}}) {
+    if ([password, contentKey, contact].filter(value => value != null).length !== 1) throw new TypeError('Supply exactly one of password, contentKey, or contact.');
+    const runtime = Revault.runtime;
+    const credential = password != null ? 'password' : contact != null ? 'contact' : 'content-key';
+    const cacheMode = options.cacheMode === 'automatic' ? 'auto' : (options.cacheMode ?? 'bytes');
+    return new Lockbox(runtime.operations, runtime.operations.lockboxFile(path, mode, credential, password ?? contentKey ?? new Uint8Array(), contact?.nativeHandle ?? null, signingKey?.nativeHandle ?? null, cacheMode, options.cacheBytes ?? (64 << 20), options.workload ?? 'interactive', options.worker ?? 'auto', options.jobs ?? 0));
   }
 
   /** Stages a file at the Lockbox path; replace controls an existing entry. */
@@ -463,13 +466,7 @@ export class Lockbox extends OwnedHandle {
   }
 
   /** Authenticates and publishes the staged changes. */
-  commit() {
-    const result = this.operations.lockboxCommit(this.nativeHandle);
-    // The byte-oriented factory keeps a process-local handle backed by the
-    // requested host path. Persist only after native authentication succeeds.
-    if (this._backingPath != null) fs.writeFileSync(this._backingPath, this.toBytes());
-    return result;
-  }
+  commit() { return this.operations.lockboxCommit(this.nativeHandle); }
 
   /** Stages a directory entry and optionally creates missing parents. */
   createDir(path, createParents) {

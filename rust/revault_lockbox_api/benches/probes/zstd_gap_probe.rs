@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &root,
                 files.len(),
                 logical_bytes,
-                "zstd-complete-0.1.0",
+                "zstd-complete-0.2.0",
                 shape,
                 *level,
                 &groups,

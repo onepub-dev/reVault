@@ -5,7 +5,7 @@ use revault_lockbox_api::{
     OwnerSigningPublicKey, ReadOnly, Result, ScopedFileLock, SecretString, SecretVec, VariableName,
 };
 use sha2::{Digest, Sha256};
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::env;
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
@@ -27,10 +27,6 @@ const VAULT_CONTAINER_SIGNING_KEY_VARIABLE: &str = "LOCKBOX_VAULT_CONTAINER_SIGN
 const GENERATION_ACTIVE: u16 = 1;
 const GENERATION_RETIRED: u16 = 2;
 const GENERATION_COMPROMISED: u16 = 3;
-
-thread_local! {
-    static VAULT_LOCK_DEPTH: Cell<usize> = const { Cell::new(0) };
-}
 
 /// Current on-disk structure version for records stored inside the local vault.
 pub const CURRENT_VAULT_STRUCTURE_VERSION: u32 = 3;
@@ -150,6 +146,8 @@ pub struct VaultDirectory {
     root: PathBuf,
     path: PathBuf,
     lockbox: RefCell<Lockbox>,
+    // Keep vault coordination ahead of the archive lock for its whole lifetime.
+    _guard: VaultFileLock,
 }
 
 /// Read-only view of encrypted vault metadata.
@@ -313,16 +311,14 @@ impl VaultDirectory {
             return Err(Error::AlreadyExists(path.display().to_string()));
         }
         let signing_key = OwnerSigningKeyPair::generate()?;
-        let lockbox = Lockbox::create_file_assuming_locked(
-            &path,
-            LockboxProtection::Password(password),
-            &signing_key,
-        )?;
+        let lockbox =
+            Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
         set_private_file_permissions(&path)?;
         let vault = Self {
             root,
             path,
             lockbox: RefCell::new(lockbox),
+            _guard,
         };
         vault.store_vault_container_signing_key(&signing_key)?;
         vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
@@ -355,6 +351,7 @@ impl VaultDirectory {
             root,
             path,
             lockbox: RefCell::new(lockbox),
+            _guard,
         };
         vault.ensure_structure_version(false)?;
         vault.ensure_vault_container_signing_key()?;
@@ -396,6 +393,7 @@ impl VaultDirectory {
             root,
             path,
             lockbox: RefCell::new(lockbox),
+            _guard,
         };
         vault.ensure_structure_version(false)?;
         vault.ensure_vault_container_signing_key()?;
@@ -419,20 +417,23 @@ impl VaultDirectory {
         let vault_id = path.to_string_lossy().into_owned();
         let _ = crate::forget_vault_unlock_key(&vault_id);
         let _ = crate::forget_owner_signing_key(&vault_id, Self::DEFAULT_KEY_NAME);
+        let _archive_guard = if path.exists() {
+            Some(ScopedFileLock::acquire(&path, FileLockScope::Recovery)?)
+        } else {
+            None
+        };
         if path.exists() {
             fs::remove_file(&path).map_err(|err| Error::Io(err.to_string()))?;
         }
         let signing_key = OwnerSigningKeyPair::generate()?;
-        let lockbox = Lockbox::create_file_assuming_locked(
-            &path,
-            LockboxProtection::Password(password),
-            &signing_key,
-        )?;
+        let lockbox =
+            Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
         set_private_file_permissions(&path)?;
         let vault = Self {
             root,
             path,
             lockbox: RefCell::new(lockbox),
+            _guard,
         };
         vault.store_vault_container_signing_key(&signing_key)?;
         vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
@@ -455,16 +456,14 @@ impl VaultDirectory {
         if path.exists() {
             return Err(Error::AlreadyExists(path.display().to_string()));
         }
-        let lockbox = Lockbox::create_file_assuming_locked(
-            &path,
-            LockboxProtection::Password(password),
-            signing_key,
-        )?;
+        let lockbox =
+            Lockbox::create_file(&path, LockboxProtection::Password(password), signing_key)?;
         set_private_file_permissions(&path)?;
         let vault = Self {
             root,
             path,
             lockbox: RefCell::new(lockbox),
+            _guard,
         };
         vault.store_vault_container_signing_key(signing_key)?;
         vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, signing_key)?;
@@ -486,16 +485,14 @@ impl VaultDirectory {
             open_vault_lockbox_for_write(&path, password)?
         } else {
             let signing_key = OwnerSigningKeyPair::generate()?;
-            let lockbox = Lockbox::create_file_assuming_locked(
-                &path,
-                LockboxProtection::Password(password),
-                &signing_key,
-            )?;
+            let lockbox =
+                Lockbox::create_file(&path, LockboxProtection::Password(password), &signing_key)?;
             set_private_file_permissions(&path)?;
             let vault = Self {
                 root,
                 path,
                 lockbox: RefCell::new(lockbox),
+                _guard,
             };
             vault.store_vault_container_signing_key(&signing_key)?;
             vault.store_owner_signing_key_current_only(Self::DEFAULT_KEY_NAME, &signing_key)?;
@@ -506,10 +503,17 @@ impl VaultDirectory {
             root,
             path,
             lockbox: RefCell::new(lockbox),
+            _guard,
         };
         vault.ensure_structure_version(!existed)?;
         vault.ensure_vault_container_signing_key()?;
         Ok(vault)
+    }
+
+    /// Writes an encrypted backup while retaining this vault's exclusive lock.
+    pub fn backup(&self, output: impl AsRef<Path>, overwrite: bool) -> Result<VaultBackupManifest> {
+        let bytes = self.lockbox.borrow().try_to_bytes()?;
+        backup_vault_bytes(output.as_ref(), overwrite, &bytes)
     }
 
     /// Returns the directory containing this vault file.
@@ -973,10 +977,17 @@ impl VaultDirectory {
         lockbox_id: LockboxId,
         path: impl AsRef<Path>,
     ) -> Result<()> {
-        let path = fs::canonicalize(path.as_ref())
-            .map_err(|err| Error::Io(err.to_string()))?
-            .to_string_lossy()
-            .to_string();
+        let path = path.as_ref();
+        let path = fs::canonicalize(path).unwrap_or_else(|_| {
+            if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                std::env::current_dir()
+                    .map(|directory| directory.join(path))
+                    .unwrap_or_else(|_| path.to_path_buf())
+            }
+        });
+        let path = path.to_string_lossy().to_string();
         let stale_paths = self
             .list_known_lockboxes()?
             .into_iter()
@@ -1478,8 +1489,16 @@ pub fn backup_default_vault(
         ));
     }
     let _guard = VaultFileLock::acquire(&path)?;
-    let vault_bytes = fs::read(&path).map_err(|err| Error::Io(err.to_string()))?;
-    let digest: [u8; 32] = Sha256::digest(&vault_bytes).into();
+    let vault_bytes = ScopedFileLock::read_archive(&path)?.read_archive_bytes()?;
+    backup_vault_bytes(output.as_ref(), overwrite, &vault_bytes)
+}
+
+fn backup_vault_bytes(
+    output: &Path,
+    overwrite: bool,
+    vault_bytes: &[u8],
+) -> Result<VaultBackupManifest> {
+    let digest: [u8; 32] = Sha256::digest(vault_bytes).into();
     let manifest = VaultBackupManifest {
         format_version: 1,
         created_at_unix_ms: unix_ms(SystemTime::now()),
@@ -1487,7 +1506,7 @@ pub fn backup_default_vault(
         vault_size: vault_bytes.len() as u64,
         vault_sha256: crate::encode_hex(&digest),
     };
-    write_vault_backup_archive(output.as_ref(), overwrite, &manifest, &vault_bytes)?;
+    write_vault_backup_archive(output, overwrite, &manifest, vault_bytes)?;
     Ok(manifest)
 }
 
@@ -1509,14 +1528,38 @@ pub fn restore_default_vault(
             path.display()
         )));
     }
-    let tmp = root.join("local-vault.lbox.restore.tmp");
-    fs::write(&tmp, vault_bytes).map_err(|err| Error::Io(err.to_string()))?;
-    set_private_file_permissions(&tmp)?;
-    if path.exists() {
-        fs::remove_file(&path).map_err(|err| Error::Io(err.to_string()))?;
-    }
-    fs::rename(&tmp, &path).map_err(|err| Error::Io(err.to_string()))?;
-    set_private_file_permissions(&path)?;
+    let _archive_guard = if path.exists() {
+        Some(ScopedFileLock::acquire(&path, FileLockScope::Recovery)?)
+    } else {
+        None
+    };
+    let tmp = root.join(format!(".vault-restore-{}.tmp", LockboxId::new_random()?));
+    let result: Result<()> = (|| {
+        use std::io::Write;
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&tmp)
+            .map_err(|err| Error::Io(err.to_string()))?;
+        file.write_all(&vault_bytes)
+            .map_err(|err| Error::Io(err.to_string()))?;
+        set_private_file_permissions(&tmp)?;
+        file.sync_all().map_err(|err| Error::Io(err.to_string()))?;
+        let _replacement_guard = ScopedFileLock::lock_archive(file)?;
+        if overwrite {
+            fs::rename(&tmp, &path).map_err(|err| Error::Io(err.to_string()))?;
+        } else {
+            fs::hard_link(&tmp, &path).map_err(|err| Error::Io(err.to_string()))?;
+        }
+        #[cfg(unix)]
+        fs::File::open(&root)
+            .and_then(|dir| dir.sync_all())
+            .map_err(|err| Error::Io(err.to_string()))?;
+        Ok(())
+    })();
+    let _ = fs::remove_file(&tmp);
+    result?;
     Ok(manifest)
 }
 
@@ -1605,41 +1648,16 @@ fn read_vault_backup_archive(input: &Path) -> Result<(VaultBackupManifest, Vec<u
     Ok((manifest, vault_bytes))
 }
 
+#[derive(Debug)]
 struct VaultFileLock {
-    lock: Option<ScopedFileLock>,
-    active: bool,
+    _lock: ScopedFileLock,
 }
 
 impl VaultFileLock {
     fn acquire(path: &Path) -> Result<Self> {
-        let nested = VAULT_LOCK_DEPTH.with(|depth| {
-            let value = depth.get();
-            depth.set(value.saturating_add(1));
-            value > 0
-        });
-        if nested {
-            return Ok(Self {
-                lock: None,
-                active: true,
-            });
-        }
-        let lock = ScopedFileLock::acquire(path, FileLockScope::Vault).inspect_err(|_| {
-            VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
-        })?;
         Ok(Self {
-            lock: Some(lock),
-            active: true,
+            _lock: ScopedFileLock::acquire(path, FileLockScope::Vault)?,
         })
-    }
-}
-
-impl Drop for VaultFileLock {
-    fn drop(&mut self) {
-        if !self.active {
-            return;
-        }
-        self.lock.take();
-        VAULT_LOCK_DEPTH.with(|depth| depth.set(depth.get().saturating_sub(1)));
     }
 }
 
@@ -1695,26 +1713,22 @@ fn private_key_generation_variable_name(name: &str, index: u16) -> Result<Variab
 }
 
 fn open_vault_lockbox_for_write(path: &Path, password: &SecretString) -> Result<Lockbox> {
-    Lockbox::open_for_write_with_signing_key_assuming_locked(
-        path,
-        LockboxOpen::Password(password),
-        |lockbox| {
-            if lockbox
-                .stat(&vault_structure_version_record_path()?)
-                .is_none()
-            {
-                return Err(Error::Configuration(
+    Lockbox::open_with_signer(path, LockboxOpen::Password(password), |lockbox| {
+        if lockbox
+            .stat(&vault_structure_version_record_path()?)
+            .is_none()
+        {
+            return Err(Error::Configuration(
                     "local vault structure version is missing; recreate the vault with this reVault build"
                         .to_string(),
                 ));
-            }
-            match load_vault_container_signing_key_from_lockbox(lockbox) {
-                Ok(signing_key) => Ok(signing_key),
-                Err(Error::NotFound(_)) => find_established_default_profile_signing_key(lockbox),
-                Err(err) => Err(err),
-            }
-        },
-    )
+        }
+        match load_vault_container_signing_key_from_lockbox(lockbox) {
+            Ok(signing_key) => Ok(signing_key),
+            Err(Error::NotFound(_)) => find_established_default_profile_signing_key(lockbox),
+            Err(err) => Err(err),
+        }
+    })
 }
 
 fn find_established_default_profile_signing_key<State>(

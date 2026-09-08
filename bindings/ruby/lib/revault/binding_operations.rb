@@ -23,6 +23,9 @@ module Revault
     extern 'void * lockbox_create_contact(void *)'
     extern 'void * lockbox_create_contact_with_signing_key(void *, void *)'
     extern 'void * lockbox_create_with_signing_key(void *, size_t, void *)'
+# BEGIN generated file operation abi
+    extern 'void * lockbox_file(void *, size_t, void *, size_t, void *, size_t, void *, size_t, void *, void *, void *, size_t, uint64_t, void *, size_t, void *, size_t, size_t)'
+# END generated file operation abi
     extern 'void * lockbox_open(void *, size_t, void *, size_t)'
     extern 'void * lockbox_open_with_options(void *, size_t, void *, size_t, void *, size_t, uint64_t, void *, size_t, void *, size_t, size_t)'
     extern 'void * lockbox_open_password(void *, size_t, void *, size_t)'
@@ -322,6 +325,11 @@ module Revault
       require_handle(Native.lockbox_create_with_signing_key(Fiddle::Pointer[content_key], content_key.bytesize, signing_key))
     end
 
+# BEGIN generated file operation route
+    def lockbox_file(path, mode, credential, secret, contact, signer, cache_mode, cache_bytes, workload, worker, jobs)
+      require_handle(Native.lockbox_file(Fiddle::Pointer[path], path.bytesize, Fiddle::Pointer[mode], mode.bytesize, Fiddle::Pointer[credential], credential.bytesize, Fiddle::Pointer[secret], secret.bytesize, contact || 0, signer || 0, Fiddle::Pointer[cache_mode], cache_mode.bytesize, cache_bytes, Fiddle::Pointer[workload], workload.bytesize, Fiddle::Pointer[worker], worker.bytesize, jobs))
+    end
+# END generated file operation route
     def lockbox_open(archive, key)
       require_handle(Native.lockbox_open(Fiddle::Pointer[archive], archive.bytesize, Fiddle::Pointer[key], key.bytesize))
     end

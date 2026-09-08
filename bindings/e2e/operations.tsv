@@ -218,3 +218,4 @@ vault_cache_lockbox_password	vault.local	bool	const void *vault, const char *pat
 vault_close_lockbox	vault.local	bool	const void *vault, const char *path, size_t path_len
 vault_close_all	vault.local	bool	const void *vault
 vault_free	vault.local	void	void *vault
+lockbox_file	archive.lifecycle	void *	const char *path, size_t path_len, const char *mode, size_t mode_len, const char *credential, size_t credential_len, const uint8_t *secret, size_t secret_len, const void *contact, const void *signer, const char *cache_mode, size_t cache_len, uint64_t cache_bytes, const char *workload, size_t workload_len, const char *worker, size_t worker_len, size_t jobs

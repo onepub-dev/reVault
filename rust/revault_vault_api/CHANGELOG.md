@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.12 - 2026-09-08
+
+- Allow remembered lockbox paths to be recorded before the target lockbox is
+  created.
+
 ## 0.0.11 - 2026-09-06
 
 - Introduce vault structure v3 with encrypted password profiles and password-only read sessions. Older writers refuse the new structure.

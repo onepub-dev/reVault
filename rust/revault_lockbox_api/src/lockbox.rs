@@ -1051,7 +1051,7 @@ impl<State> Lockbox<State> {
         State: WritableLockboxState,
     {
         self.owner_signing_key = Some(keypair);
-        self.read_only = false;
+        self.read_only = self.storage.is_read_only();
     }
 
     /// Set cache behavior tuned for the caller's expected access pattern.
