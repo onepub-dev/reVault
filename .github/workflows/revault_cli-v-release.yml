@@ -142,7 +142,7 @@ jobs:
       - plan
     if: ${{ fromJson(needs.plan.outputs.val).ci.github.artifacts_matrix.include != null && (inputs.candidate || needs.plan.outputs.publishing == 'true' || fromJson(needs.plan.outputs.val).ci.github.pr_run_mode == 'upload') }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       # Target platforms/runners are computed by dist in create-release.
       # Each member of the matrix has the following arguments:
       #
