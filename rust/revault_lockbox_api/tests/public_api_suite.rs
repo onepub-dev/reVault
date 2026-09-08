@@ -57,6 +57,7 @@ fn public_api_files_listing_variables_symlink_and_rename_flow() {
     lb.rename(&p("/app"), &p("/srv/app")).unwrap();
     lb.commit().unwrap();
 
+    drop(lb);
     let reopened = Lockbox::open(
         &lockbox_path,
         LockboxOpen::ContentKey(SecretVec::try_from_slice(KEY).unwrap()),
@@ -237,6 +238,7 @@ fn public_api_password_and_contact_key_management_flow() {
         .iter()
         .any(|slot| slot.id == new_slot && slot.protection == LockboxKeySlotProtection::Password));
     assert!(slots.iter().all(|slot| slot.id != password_slot));
+    drop(reopened);
     assert!(Lockbox::open(&lockbox_path, LockboxOpen::Password(&new_password)).is_ok());
 
     let _ = std::fs::remove_dir_all(root);
@@ -404,6 +406,7 @@ fn public_api_path_inspector_and_file_helpers_flow() {
     assert!(inspector.storage_len().unwrap() > 0);
     assert!(!inspector.inspect_pages().unwrap().is_empty());
     let _ = inspector.cache_stats();
+    drop(lb);
     assert_eq!(
         RecoveryScanner::scan_path(&lockbox_path, KEY).intact_file_count,
         3
@@ -441,6 +444,7 @@ fn public_api_password_contact_open_file_flow() {
         .add_file(&p("/secret.txt"), b"password", false)
         .unwrap();
     by_password.commit().unwrap();
+    drop(by_password);
     assert_eq!(
         Lockbox::open(&password_path, LockboxOpen::Password(&password))
             .unwrap()
@@ -463,6 +467,7 @@ fn public_api_password_contact_open_file_flow() {
         .add_file(&p("/secret.txt"), b"contact", false)
         .unwrap();
     by_contact.commit().unwrap();
+    drop(by_contact);
     assert_eq!(
         Lockbox::open(&contact_path, LockboxOpen::ContactKeyPair(contact))
             .unwrap()
@@ -533,6 +538,7 @@ fn public_api_plain_open_returns_read_only_and_write_open_requires_signer() {
     .unwrap();
     add_file(&mut created, &p("/docs/a.txt"), b"alpha", false).unwrap();
     created.commit().unwrap();
+    drop(created);
 
     let opened_without_signer =
         Lockbox::open(&lockbox_path, LockboxOpen::Password(&password)).unwrap();
@@ -542,6 +548,7 @@ fn public_api_plain_open_returns_read_only_and_write_open_requires_signer() {
         b"alpha"
     );
 
+    drop(opened_without_signer);
     let mut opened_with_signer = Lockbox::open_for_write(
         &lockbox_path,
         LockboxOpen::Password(&password),
@@ -550,6 +557,7 @@ fn public_api_plain_open_returns_read_only_and_write_open_requires_signer() {
     .unwrap();
     add_file(&mut opened_with_signer, &p("/docs/b.txt"), b"bravo", false).unwrap();
     opened_with_signer.commit().unwrap();
+    drop(opened_with_signer);
 
     let reopened = Lockbox::open(&lockbox_path, LockboxOpen::Password(&password)).unwrap();
     assert_eq!(reopened.get_file(&p("/docs/b.txt")).unwrap(), b"bravo");

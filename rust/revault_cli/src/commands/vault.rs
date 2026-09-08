@@ -1231,7 +1231,7 @@ fn profile_restore_options(options: ProfileRestoreArgs) -> CliResult<()> {
         let password =
             revault_vault_api::SecretString::try_from_bytes(backup.password.as_bytes().to_vec())?;
         if vault.profile_exists(name)? && options.overwrite {
-            backup_default_vault(profile_restore_backup_path(name)?, false)?;
+            vault.backup(profile_restore_backup_path(name)?, false)?;
         }
         vault.store_password_profile(name, &password, options.overwrite)?;
         println!("Password profile restored: {name}");
@@ -1248,7 +1248,7 @@ fn profile_restore_options(options: ProfileRestoreArgs) -> CliResult<()> {
     let existed = vault.private_key_exists(&name)?;
     let backup_path = if existed && options.overwrite {
         let backup_path = profile_restore_backup_path(&name)?;
-        backup_default_vault(&backup_path, false)?;
+        vault.backup(&backup_path, false)?;
         Some(backup_path)
     } else {
         None
@@ -1768,24 +1768,14 @@ fn move_known_lockbox(source: &str, destination: &str) -> CliResult<()> {
     local_vault().close_lockbox(source_path)?;
     let _lock = ScopedFileLock::acquire(source_path, FileLockScope::Lockbox)?;
     // Keep the destination locked until its vault and session records are updated.
-    let _destination_lock = match fs::rename(source_path, &destination_path) {
+    let _destination_lock = match fs::hard_link(source_path, &destination_path) {
         Ok(()) => {
-            let old_lock = lock_path_for(source_path);
-            let new_lock = lock_path_for(&destination_path);
-            if let Err(err) = fs::rename(&old_lock, &new_lock) {
-                let rollback = match fs::rename(&destination_path, source_path) {
-                    Ok(()) => "the lockbox move was rolled back".to_string(),
-                    Err(err) => format!(
-                        "rollback failed: {err}; the lockbox remains at {} and no vault records were changed",
-                        destination_path.display()
-                    ),
-                };
-                return Err(cli_error(format!(
-                    "could not move lock sidecar {} to {}: {err}; {rollback}",
-                    old_lock.display(),
-                    new_lock.display()
-                )));
+            if let Err(err) = fs::remove_file(source_path) {
+                let _ = fs::remove_file(&destination_path);
+                return Err(err.into());
             }
+            #[cfg(unix)]
+            fs::File::open(parent)?.sync_all()?;
             None
         }
         Err(err) if err.kind() == io::ErrorKind::CrossesDevices => Some(copy_lockbox_for_move(
@@ -1826,9 +1816,7 @@ fn copy_lockbox_for_move(
     destination: &Path,
     parent: &Path,
 ) -> CliResult<ScopedFileLock> {
-    // A copied sidecar would not carry the source's OS lock to the new filesystem.
-    let destination_lock = ScopedFileLock::acquire(destination, FileLockScope::Lockbox)?;
-    let prepare = || -> io::Result<()> {
+    let prepare = || -> CliResult<ScopedFileLock> {
         let mut input = fs::File::open(source)?;
         let mut staged = tempfile::NamedTempFile::new_in(parent)?;
         io::copy(&mut input, staged.as_file_mut())?;
@@ -1836,12 +1824,13 @@ fn copy_lockbox_for_move(
             .as_file()
             .set_permissions(input.metadata()?.permissions())?;
         staged.as_file().sync_all()?;
+        let destination_lock = ScopedFileLock::lock_archive(staged.as_file().try_clone()?)?;
         staged
             .persist_noclobber(destination)
             .map_err(|err| err.error)?;
-        Ok(())
+        Ok(destination_lock)
     };
-    prepare().map_err(|err| {
+    let destination_lock = prepare().map_err(|err| {
         cli_error(format!(
             "could not copy {} to {}: {err}; source retained and no vault records were changed",
             source.display(),
@@ -1864,9 +1853,6 @@ fn copy_lockbox_for_move(
             "could not finish moving {} to {}: {err}; source retained, {cleanup}; no vault records were changed",
             source.display(), destination.display()
         )));
-    }
-    if let Err(err) = fs::remove_file(lock_path_for(source)) {
-        eprintln!("Warning: lockbox moved, but could not remove the old lock sidecar: {err}");
     }
     Ok(destination_lock)
 }

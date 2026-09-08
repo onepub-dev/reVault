@@ -158,6 +158,7 @@ fn create_path_writes_file_backed_lockbox() {
             .unwrap(),
         b"alpha"
     );
+    drop(lb);
     assert_eq!(
         Lockbox::open_path(&path, KEY).unwrap().to_bytes(),
         bytes_on_disk
@@ -992,6 +993,7 @@ fn path_backed_key_slot_removal_compacts_and_remains_file_backed() {
     let after = std::fs::metadata(&path).unwrap().len();
 
     assert!(after <= before + 4 * PAGE_BYTES as u64);
+    drop(lb);
     assert!(matches!(
         Lockbox::open(&path, LockboxOpen::Password(&temporary_password)),
         Err(Error::InvalidKey)
@@ -1028,6 +1030,7 @@ fn path_backed_content_key_replacement_true_revokes_removed_contact() {
 
     assert_eq!(new_slots.len(), 1);
     assert_eq!(new_slots[0].0, "bob");
+    drop(lb);
     assert!(matches!(
         Lockbox::open(&path, LockboxOpen::ContactKeyPair(alice)),
         Err(Error::InvalidKey)
@@ -3358,6 +3361,7 @@ fn path_backed_compact_logically_rewrites_live_state() {
     lb.delete(&p("/stale.txt")).unwrap();
     lb.set_variable(&variable("TOKEN"), "new").unwrap();
     lb.compact().unwrap();
+    drop(lb);
 
     let reopened = Lockbox::open_path(&path, KEY).unwrap();
     assert_eq!(reopened.get_file(&p("/large/blob.bin")).unwrap(), payload);

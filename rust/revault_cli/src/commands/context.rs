@@ -94,7 +94,7 @@ pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
     super::recovery::complete_pending_cleanup_if_available(path, access)?;
     let mut lockbox = match access {
         Access::ContentKey(key) => {
-            let _vault = default_vault()?;
+            drop(default_vault()?);
             match Vault::new(NoopStore)
                 .open_lockbox_with(path, LockboxOpen::ContentKey(key.try_clone()?))
             {
@@ -290,10 +290,14 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
         .remembered_lockbox_password(lockbox_id)
         .map_err(AutoOpenLockboxError::Unavailable)?
     {
-        if let Ok(lockbox) =
-            Vault::new(NoopStore).open_lockbox_with_password(path, &lockbox_password)
-        {
-            let _ = local_vault().open_lockbox_with_password(path, &lockbox_password);
+        let signing_key = vault
+            .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)
+            .map_err(AutoOpenLockboxError::Unavailable)?;
+        if let Ok(lockbox) = local_vault().open_lockbox_with_signing_key(
+            path,
+            LockboxOpen::Password(&lockbox_password),
+            &signing_key,
+        ) {
             return Ok(lockbox);
         }
     }
@@ -325,25 +329,13 @@ fn auto_open_lockbox(path: &str) -> Result<Lockbox, AutoOpenLockboxError> {
         let Ok(signing_key) = vault.load_owner_signing_key(&profile) else {
             continue;
         };
-        let Ok(lockbox) = Lockbox::open_for_write(
-            Path::new(path),
+        let Ok(lockbox) = local_vault().open_lockbox_with_signing_key(
+            path,
             LockboxOpen::ContactKeyPair(keypair),
             &signing_key,
         ) else {
             continue;
         };
-        let Ok(cache_keypair) = vault.load_private_key(&profile) else {
-            return Ok(lockbox);
-        };
-        if local_vault()
-            .open_lockbox_with(path, LockboxOpen::ContactKeyPair(cache_keypair))
-            .is_ok()
-        {
-            return match local_vault().open_lockbox(path) {
-                Ok(cached) => Ok(cached),
-                Err(_) => Ok(lockbox),
-            };
-        }
         return Ok(lockbox);
     }
     Err(AutoOpenLockboxError::Unavailable(Error::VaultUnavailable(
@@ -357,7 +349,7 @@ pub(crate) fn open_or_create(path: &str, access: &Access) -> CliResult<Lockbox> 
     } else {
         match access {
             Access::ContentKey(key) => {
-                let _vault = default_vault()?;
+                drop(default_vault()?);
                 let lockbox = Vault::new(NoopStore)
                     .create_lockbox(path, LockboxProtection::ContentKey(key.try_clone()?))?;
                 mirror_key_directory(&lockbox, path)?;

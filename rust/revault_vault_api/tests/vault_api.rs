@@ -122,9 +122,11 @@ fn vault_create_open_and_lock_with_content_key() {
         .add_file(&p("/docs/a.txt"), b"alpha", false)
         .unwrap();
     lockbox.commit().unwrap();
+    drop(lockbox);
 
     let opened = vault.open_lockbox(&path).unwrap();
     assert_eq!(opened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    drop(opened);
 
     vault.close_lockbox(&path).unwrap();
     assert!(matches!(
@@ -154,9 +156,11 @@ fn vault_password_create_and_open_cache_keys_outside_secure_read_access() {
         .add_file(&p("/docs/a.txt"), b"alpha", false)
         .unwrap();
     lockbox.commit().unwrap();
+    drop(lockbox);
 
     let cached = vault.open_lockbox(&path).unwrap();
     assert_eq!(cached.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    drop(cached);
 
     vault.close_lockbox(&path).unwrap();
     assert!(matches!(
@@ -166,6 +170,7 @@ fn vault_password_create_and_open_cache_keys_outside_secure_read_access() {
 
     let opened = vault.open_lockbox_with_password(&path, &password).unwrap();
     assert_eq!(opened.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
+    drop(opened);
 
     let recached = vault.open_lockbox(&path).unwrap();
     assert_eq!(recached.get_file(&p("/docs/a.txt")).unwrap(), b"alpha");
@@ -189,6 +194,7 @@ fn vault_open_populates_cache_for_password_lockbox() {
         .add_file(&p("/secret.txt"), b"bravo", false)
         .unwrap();
     lockbox.commit().unwrap();
+    drop(lockbox);
     vault.close_lockbox(&path).unwrap();
 
     assert!(matches!(
@@ -250,6 +256,7 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
     ] {
         assert!(form_aliases.contains(&alias.to_string()), "{alias}");
     }
+    drop(vault);
     let reopened_vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
     let reopened_aliases = reopened_vault
         .list_form_definitions()
@@ -258,6 +265,7 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
         .map(|definition| definition.alias)
         .collect::<Vec<_>>();
     assert!(reopened_aliases.contains(&"login".to_string()));
+    drop(reopened_vault);
     let vault_lockbox = Lockbox::open(
         &root.join("local-vault.lbox"),
         LockboxOpen::Password(&vault_password),
@@ -270,6 +278,8 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
         .map(|definition| definition.alias)
         .collect::<Vec<_>>();
     assert!(lockbox_aliases.contains(&"login".to_string()));
+    drop(vault_lockbox);
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
 
     let password = SecretString::try_from_bytes(b"pw".to_vec()).unwrap();
     let lockbox_path = root.join("backup-source.lbox");
@@ -368,6 +378,7 @@ fn vault_directory_rejects_older_structure_versions() {
         .add_file(&p("/vault/structure-version"), b"0\n", true)
         .unwrap();
     lockbox.commit().unwrap();
+    drop(lockbox);
 
     assert!(matches!(
         VaultDirectory::open_or_create(&root, &vault_password),
@@ -413,6 +424,7 @@ fn vault_directory_rejects_newer_structure_versions() {
         .add_file(&p("/vault/structure-version"), b"999\n", true)
         .unwrap();
     lockbox.commit().unwrap();
+    drop(lockbox);
 
     assert!(matches!(
         VaultDirectory::open_or_create(&root, &vault_password),
@@ -454,6 +466,7 @@ fn vault_open_uses_key_directory_backup_when_embedded_directory_is_corrupt() {
         )
         .unwrap();
 
+    drop(lockbox);
     corrupt_key_directories(&path);
 
     let _vault_dir_guard = EnvVarGuard::set("LOCKBOX_VAULT_DIR", &vault_root);
@@ -487,6 +500,7 @@ fn vault_convenience_password_store_and_close_all_flow() {
         .add_file(&p("/secret.txt"), b"charlie", false)
         .unwrap();
     lockbox.commit().unwrap();
+    drop(lockbox);
     vault.close_lockbox(&path).unwrap();
     assert!(matches!(
         vault.open_lockbox(&path),
@@ -495,6 +509,7 @@ fn vault_convenience_password_store_and_close_all_flow() {
 
     let opened = vault.open_lockbox_with_password(&path, &password).unwrap();
     assert_eq!(opened.get_file(&p("/secret.txt")).unwrap(), b"charlie");
+    drop(opened);
     assert_eq!(
         vault
             .open_lockbox(&path)
@@ -832,12 +847,13 @@ fn vault_reopen_fails_closed_when_container_and_historical_signers_are_missing()
 }
 
 #[test]
-fn vault_mutation_times_out_when_locked_by_thread() {
+fn vault_open_times_out_when_locked_by_thread() {
     let _env_guard = ENV_LOCK.lock().unwrap();
     let _timeout_guard = EnvVarGuard::set("LOCKBOX_LOCK_TIMEOUT_MS", "150");
     let root = unique_dir("vault-thread-lock");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
     let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    drop(vault);
     let vault_path = root.join("local-vault.lbox");
     let (locked_tx, locked_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
@@ -850,22 +866,24 @@ fn vault_mutation_times_out_when_locked_by_thread() {
     locked_rx.recv().unwrap();
 
     let contact = ContactKeyPair::generate().unwrap().public_key();
-    let err = vault.store_contact("blocked", &contact).unwrap_err();
+    let err = VaultDirectory::open_or_create(&root, &vault_password).unwrap_err();
     assert!(matches!(err, Error::LockUnavailable(_)));
 
     release_tx.send(()).unwrap();
     handle.join().unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
     vault.store_contact("allowed", &contact).unwrap();
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn vault_mutation_times_out_when_locked_by_process() {
+fn vault_open_times_out_when_locked_by_process() {
     let _env_guard = ENV_LOCK.lock().unwrap();
     let _timeout_guard = EnvVarGuard::set("LOCKBOX_LOCK_TIMEOUT_MS", "150");
     let root = unique_dir("vault-process-lock");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
     let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
+    drop(vault);
     let ready_path = root.join("process-lock-ready");
     let mut child = Command::new(std::env::current_exe().unwrap())
         .arg("--exact")
@@ -878,8 +896,7 @@ fn vault_mutation_times_out_when_locked_by_process() {
         .unwrap();
     wait_for_path(&ready_path);
 
-    let contact = ContactKeyPair::generate().unwrap().public_key();
-    let err = vault.store_contact("blocked", &contact).unwrap_err();
+    let err = VaultDirectory::open_or_create(&root, &vault_password).unwrap_err();
     assert!(matches!(err, Error::LockUnavailable(_)));
 
     let _ = child.kill();

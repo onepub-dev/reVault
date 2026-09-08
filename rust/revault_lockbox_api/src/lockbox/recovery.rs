@@ -36,7 +36,8 @@ pub struct RecoveryScanner;
 impl RecoveryScanner {
     /// Scan a lockbox file from disk and report recoverable entries.
     pub fn scan_path(path: &Path, key: impl AsRef<[u8]>) -> RecoveryReport {
-        match std::fs::read(path) {
+        use crate::storage::{Storage, StorageBackend};
+        match StorageBackend::file(path).and_then(|storage| storage.read_all()) {
             Ok(bytes) => Self::scan_bytes(bytes, key),
             Err(_) => RecoveryReport {
                 intact_files: Vec::new(),

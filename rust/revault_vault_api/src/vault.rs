@@ -131,7 +131,8 @@ impl<S: ContentKeyStore> Vault<S> {
             LockboxProtection::Password(password) => {
                 let lockbox =
                     Lockbox::create_file(path, LockboxProtection::Password(password), signing_key)?;
-                let opened = VaultOpen::path_with_password(path, password)?;
+                let backup = VaultOpen::export_key_directory_backup(&lockbox)?;
+                let opened = VaultOpen::key_directory_backup_with_password(&backup, password)?;
                 if let Err(err) = self.store.put_content_key_for_path(
                     opened.lockbox_id,
                     opened.try_clone_key()?,

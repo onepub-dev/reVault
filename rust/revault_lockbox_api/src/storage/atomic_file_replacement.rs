@@ -19,6 +19,7 @@ impl AtomicFileReplacement {
         for attempt in 0..1000u64 {
             let temp_path = parent.join(format!("{stem}-{process_id}-{attempt}.tmp"));
             match OpenOptions::new()
+                .read(true)
                 .write(true)
                 .create_new(true)
                 .open(&temp_path)
@@ -70,18 +71,6 @@ impl AtomicFileReplacement {
     pub(crate) fn install(&self) -> Result<()> {
         match fs::rename(&self.temp_path, &self.destination) {
             Ok(()) => {}
-            #[cfg(windows)]
-            Err(rename_err) if self.destination.exists() => {
-                fs::remove_file(&self.destination).map_err(|remove_err| {
-                    Error::Io(format!(
-                        "replace {}: remove existing failed after rename error {rename_err}: {remove_err}",
-                        self.destination.display()
-                    ))
-                })?;
-                fs::rename(&self.temp_path, &self.destination).map_err(|err| {
-                    Error::Io(format!("replace {}: {err}", self.destination.display()))
-                })?;
-            }
             Err(err) => {
                 return Err(Error::Io(format!(
                     "replace {}: {err}",
@@ -92,7 +81,7 @@ impl AtomicFileReplacement {
         self.sync_parent()
     }
 
-    fn sync_parent(&self) -> Result<()> {
+    pub(crate) fn sync_parent(&self) -> Result<()> {
         #[cfg(unix)]
         {
             let parent = self

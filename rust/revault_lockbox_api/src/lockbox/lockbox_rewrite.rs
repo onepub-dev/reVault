@@ -104,7 +104,6 @@ impl<'a> LockboxRewrite<'a> {
         let signing_key = source.require_owner_signing_key()?.try_clone()?;
         let result = (|| {
             let key = source.key.try_clone()?;
-            let reopen_key = key.try_clone()?;
             let mut compacted = Lockbox::create_path_with_secret_key_and_options(
                 replacement.temp_path(),
                 key,
@@ -114,12 +113,9 @@ impl<'a> LockboxRewrite<'a> {
             compacted.set_owner_signing_key(signing_key.try_clone()?);
             Self::populate(source, &mut compacted, content, true)?;
             compacted.commit()?;
-            drop(compacted);
             replacement.install()?;
-            let mut reopened =
-                Lockbox::open_path_with_secret_key_options(&path, reopen_key, options)?;
-            reopened.set_owner_signing_key(signing_key);
-            *source = reopened;
+            compacted.storage.relocate(&path);
+            *source = compacted;
             Ok(())
         })();
         if result.is_err() {
@@ -141,7 +137,6 @@ impl<'a> LockboxRewrite<'a> {
         let signing_key = source.require_owner_signing_key()?.try_clone()?;
         let result = (|| {
             let key = SecretVec::try_from_slice(&random_content_key()?)?;
-            let reopen_key = key.try_clone()?;
             let mut rekeyed = Lockbox::create_path_with_secret_key_and_options(
                 replacement.temp_path(),
                 key,
@@ -153,12 +148,9 @@ impl<'a> LockboxRewrite<'a> {
                 Self::add_retained_contacts(&mut rekeyed, retained_contacts, retained_passwords)?;
             Self::populate(source, &mut rekeyed, content, false)?;
             rekeyed.commit()?;
-            drop(rekeyed);
             replacement.install()?;
-            let mut reopened =
-                Lockbox::open_path_with_secret_key_options(&path, reopen_key, options)?;
-            reopened.set_owner_signing_key(signing_key);
-            *source = reopened;
+            rekeyed.storage.relocate(&path);
+            *source = rekeyed;
             Ok(slot_ids)
         })();
         if result.is_err() {
