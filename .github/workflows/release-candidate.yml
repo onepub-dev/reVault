@@ -89,6 +89,8 @@ jobs:
     if: inputs.mode == 'prepare'
     needs: guard
     uses: ./.github/workflows/rust.yml
+    with:
+      package-api-coverage: ${{ inputs.scope != 'cli' }}
 
   source-checks:
     if: inputs.mode == 'prepare'

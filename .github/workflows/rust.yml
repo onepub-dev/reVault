@@ -7,6 +7,11 @@ env:
 
 on:
   workflow_call:
+    inputs:
+      package-api-coverage:
+        description: Release package validation runs the public lockbox and vault integration suites on every desktop target
+        type: boolean
+        default: false
   push:
     # Defining a branch filter prevents immutable release-tag pushes from
     # rerunning source validation that the release preflight already accepted.
@@ -151,20 +156,19 @@ jobs:
         include:
           - group: secure APIs
             cache: secure-apis
-            command: >-
-              cargo test --locked
-              -p "$(cargo pkgid --manifest-path revault_page_api/Cargo.toml)"
-              -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)"
+            command: |
+              cargo test --locked -p "$(cargo pkgid --manifest-path revault_page_api/Cargo.toml)"
+              test_api revault_lockbox_api public_api_suite
           # CLI suites run once in cli-e2e, including command coverage enforcement.
           - group: migrations
             cache: migrations
-            command: >-
-              cargo test --locked
-              -p "$(cargo pkgid --manifest-path revault_vault_api/Cargo.toml)"
-              -p "$(cargo pkgid --manifest-path revault_migration_format/Cargo.toml)"
-              -p revault_migrate_vault_v1
-              -p revault_migrate_vault_v2
-              -p revault_migrate_archive_v1
+            command: |
+              test_api revault_vault_api vault_api
+              cargo test --locked \
+              -p "$(cargo pkgid --manifest-path revault_migration_format/Cargo.toml)" \
+              -p revault_migrate_vault_v1 \
+              -p revault_migrate_vault_v2 \
+              -p revault_migrate_archive_v1 \
               -p revault_migration
           - group: services and tooling
             cache: services-tooling
@@ -196,7 +200,27 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
 
       - name: Run required package tests
-        run: ${{ matrix.command }}
+        env:
+          PACKAGE_API_COVERAGE: ${{ inputs.package-api-coverage || false }}
+        run: |
+          # Discover targets so new integration suites remain covered automatically.
+          test_api() {
+            local package="$1" covered_suite="$2" package_id
+            package_id=$(cargo pkgid --manifest-path "$package/Cargo.toml")
+            if [[ "$PACKAGE_API_COVERAGE" != true ]]; then
+              cargo test --locked -p "$package_id"
+              return
+            fi
+            cargo test --locked -p "$package_id" --lib --bins --examples
+            cargo test --locked -p "$package_id" --doc
+            cargo metadata --locked --no-deps --format-version 1 > "$RUNNER_TEMP/api-targets.json"
+            while IFS= read -r suite; do
+              cargo test --locked -p "$package_id" --test "$suite"
+            done < <(jq -r --arg package "$package" --arg covered "$covered_suite" \
+              '.packages[] | select(.name == $package) | .targets[] | select(.kind | index("test")) | .name | select(. != $covered)' \
+              "$RUNNER_TEMP/api-targets.json")
+          }
+          ${{ matrix.command }}
 
   platform:
     name: platform ${{ matrix.os }}
@@ -237,6 +261,12 @@ jobs:
         run: |
           cargo test --locked -p revault_page_api
           cargo test --locked -p revault_vault_api --lib
+
+      # The installed Rust package gate runs the complete vault_api suite on
+      # both macOS architectures and both Windows architectures during release.
+      - name: Test standalone vault integration
+        if: ${{ !inputs.package-api-coverage }}
+        run: |
           cargo test --locked -p revault_vault_api --test vault_api standalone_vault_file_can_be_created_and_reopened -- --exact
           cargo test --locked -p revault_vault_api --test vault_api vault_mutation_times_out
 
