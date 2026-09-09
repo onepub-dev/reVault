@@ -544,7 +544,20 @@ impl WatchDisplay {
             .iter()
             .filter(|job| job["conclusion"] == "success")
             .count();
-        let counts = format!("{running} running · {} waiting · {passed} passed · {failed} failed · {} cancelled/skipped · {completed}/{} complete\n", jobs.len().saturating_sub(running + completed), completed.saturating_sub(passed + failed), jobs.len());
+        let cancelled = jobs
+            .iter()
+            .filter(|job| job["conclusion"] == "cancelled")
+            .count();
+        let skipped = jobs
+            .iter()
+            .filter(|job| job["conclusion"] == "skipped")
+            .count();
+        let other = completed.saturating_sub(passed + failed + cancelled + skipped);
+        let mut counts = format!("{running} running · {} waiting · {passed} passed · {failed} failed · {cancelled} cancelled · {skipped} skipped", jobs.len().saturating_sub(running + completed));
+        if other > 0 {
+            counts.push_str(&format!(" · {other} other completed"));
+        }
+        counts.push_str(&format!(" · {completed}/{} complete\n", jobs.len()));
         let mut page = String::new();
         if terminal || self.counts != counts {
             page.push_str(&counts);
@@ -591,7 +604,9 @@ impl WatchDisplay {
             let changed = self.previous.get(&id) != Some(&row);
             self.previous.insert(id, row.clone());
             let visible = if terminal {
-                job["status"] != "completed" || is_failed_job(job)
+                job["status"] != "completed"
+                    || is_failed_job(job)
+                    || job["conclusion"] == "cancelled"
             } else {
                 changed
             };
@@ -903,6 +918,7 @@ fn failure_excerpt(log: &str) -> String {
     for line in &lines {
         let lower = line.to_ascii_lowercase();
         let diagnostic = lower.contains("##[error]")
+            || (lower.starts_with("changed ") && lower.ends_with(".dart"))
             || lower.starts_with("revault-tool:")
             || lower.contains("error:")
             || lower.contains("error[e")
@@ -1670,6 +1686,21 @@ mod tests {
     }
 
     #[test]
+    fn dashboard_distinguishes_skipped_cancelled_and_neutral_jobs() {
+        let jobs = vec![
+            json!({"id":1,"name":"Publish","status":"completed","conclusion":"skipped"}),
+            json!({"id":2,"name":"Interrupted tests","status":"completed","conclusion":"cancelled"}),
+            json!({"id":3,"name":"Neutral check","status":"completed","conclusion":"neutral"}),
+        ];
+        let page = WatchDisplay::default().render(&jobs, &BTreeMap::new(), true);
+        assert!(page.contains("1 cancelled · 1 skipped · 1 other completed"));
+        assert!(page.contains("Interrupted tests — cancelled"));
+        assert!(!page.contains("Publish"));
+        let page = WatchDisplay::default().render(&jobs[..1], &BTreeMap::new(), true);
+        assert!(page.contains("0 cancelled · 1 skipped"));
+    }
+
+    #[test]
     fn dashboard_collapses_successes_and_retains_failure_details() {
         let jobs = vec![
             json!({"id":1,"name":"Passed job","status":"completed","conclusion":"success"}),
@@ -1693,6 +1724,14 @@ mod tests {
     fn failure_excerpt_falls_back_to_log_tail() {
         let log = "first\nsecond\nlast";
         assert_eq!(failure_excerpt(log), log);
+    }
+
+    #[test]
+    fn failure_excerpt_reports_dart_formatting_files() {
+        let log = "Changed 53 dependencies!\nChanged ../e2e/dart/conformance.dart\nFormatted 30 files (1 changed) in 0.38 seconds.\n##[error]Process completed with exit code 1.";
+        let excerpt = failure_excerpt(log);
+        assert!(excerpt.contains("Changed ../e2e/dart/conformance.dart"));
+        assert!(!excerpt.contains("dependencies"));
     }
 
     #[test]
