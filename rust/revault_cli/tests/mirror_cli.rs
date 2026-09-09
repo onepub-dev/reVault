@@ -13,7 +13,10 @@ fn run(bin: &str, cwd: &Path, args: &[&str]) -> Output {
         .env("LOCKBOX_KEY", "mirror-test-content-key")
         .env("LOCKBOX_VAULT_DIR", cwd.join("vault"))
         .env("LOCKBOX_VAULT_PASSWORD", "mirror-test-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", cwd.join("agent"))
+        .env(
+            "LOCKBOX_SESSION_AGENT_DIR",
+            common::agent_socket_dir(&cwd.join("agent")),
+        )
         .env("LOCKBOX_SESSION_AGENT_LOG", cwd.join("agent.log"))
         .env("LOCKBOX_ADD_PROGRESS", "off")
         .test_output()

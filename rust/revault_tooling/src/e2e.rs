@@ -263,11 +263,23 @@ pub(crate) fn container(args: Container) -> Result {
         for (key, value) in invocation.env {
             command.env(key, value);
         }
+        let phase = invocation.args.last();
+        let started = Instant::now();
+        eprintln!(
+            "Conformance start: language={} phase={phase:?}",
+            args.language
+        );
         let output = command_output_with_timeout(
             &mut command,
             CONSUMER_PHASE_TIMEOUT,
             &format!("{} {:?} phase", args.language, invocation.args.last()),
         )?;
+        eprintln!(
+            "Conformance end: language={} phase={phase:?} elapsed={:?} status={}",
+            args.language,
+            started.elapsed(),
+            output.status
+        );
         if !output.status.success() {
             return Err(format!(
                 "{} conformance {:?} failed with {}: {}",
@@ -635,12 +647,16 @@ fn rust_source_conformance(args: RustSourceConformance) -> Result {
         )?;
         println!("SUITE\trust\t{suite}\tpassed");
     }
-    run_status(
-        Command::new("cargo")
-            .current_dir(&workspace)
-            .args(["check", "--manifest-path"])
-            .arg(repository.join("bindings/rust/Cargo.toml")),
-    )?;
+    // Package conformance has already unpacked the crate and checked an external
+    // consumer against it. Only standalone source conformance needs this check.
+    if args.source_archive.is_none() {
+        run_status(
+            Command::new("cargo")
+                .current_dir(&workspace)
+                .args(["check", "--manifest-path"])
+                .arg(repository.join("bindings/rust/Cargo.toml")),
+        )?;
+    }
     let source = args
         .source_archive
         .unwrap_or_else(|| repository.join("bindings/rust/Cargo.lock"))

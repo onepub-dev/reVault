@@ -1,5 +1,5 @@
 mod common;
-use common::CommandTestExt;
+use common::{agent_socket_dir, CommandTestExt};
 
 use common::{short_dir_path, unique_dir_path, unique_thread_dir_path};
 use std::fs;
@@ -7257,32 +7257,6 @@ fn run_output_without_content_key_with_stdin(
         .write_all(stdin.as_bytes())
         .unwrap();
     child.wait_with_output().unwrap()
-}
-
-// Unix-domain socket paths have a small OS limit. Keep sockets outside long
-// checkout/test names while retaining each test's agent log beside its vault.
-fn agent_socket_dir(root: &Path) -> PathBuf {
-    #[cfg(unix)]
-    {
-        use std::sync::{LazyLock, Mutex};
-        static DIRECTORIES: LazyLock<
-            Mutex<std::collections::BTreeMap<PathBuf, tempfile::TempDir>>,
-        > = LazyLock::new(|| Mutex::new(std::collections::BTreeMap::new()));
-        fs::create_dir_all(root).unwrap();
-        let mut directories = DIRECTORIES.lock().unwrap();
-        directories
-            .entry(root.to_owned())
-            .or_insert_with(|| {
-                tempfile::Builder::new()
-                    .prefix("rv-agent-")
-                    .tempdir_in("/tmp")
-                    .unwrap()
-            })
-            .path()
-            .to_owned()
-    }
-    #[cfg(not(unix))]
-    root.to_owned()
 }
 
 fn agent_log_path(agent_root: &Path) -> PathBuf {

@@ -76,6 +76,8 @@ pub fn run(args: PackageConformance) -> Result {
             args.target
         );
     }
+    let started = Instant::now();
+    eprintln!("Package setup start: language={}", args.language);
     let prepared = prepare(
         &args.language,
         &runtime_target,
@@ -85,6 +87,11 @@ pub fn run(args: PackageConformance) -> Result {
         &work,
         &archive,
     )?;
+    eprintln!(
+        "Package setup end: language={} elapsed={:?}",
+        args.language,
+        started.elapsed()
+    );
     std::env::set_var("REVAULT_E2E_PROGRAM", &prepared.program);
     std::env::set_var(
         "REVAULT_E2E_ARGS_JSON",
@@ -185,16 +192,21 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
     run_status(
         Command::new("cargo")
             .args(["check", "--manifest-path"])
-            .arg(consumer.join("Cargo.toml")),
+            .arg(consumer.join("Cargo.toml"))
+            // Keep the consumer independent, but reuse Cargo's fingerprinted
+            // build cache restored by the workflow for the source workspace.
+            .arg("--target-dir")
+            .arg(repository.join("rust/target")),
     )?;
     Ok(archive)
 }
 
 fn configure_isolated_caches(work: &Path) -> Result {
+    // Gradle manages concurrent cache access itself. Preserve GRADLE_USER_HOME
+    // (or its default) so setup-gradle's restored cache and daemons are reused.
     for (name, directory) in [
         ("NPM_CONFIG_CACHE", "cache/npm"),
         ("PIP_CACHE_DIR", "cache/pip"),
-        ("GRADLE_USER_HOME", "cache/gradle"),
         ("PUB_CACHE", "cache/dart"),
         ("COMPOSER_HOME", "cache/composer"),
         ("GOPATH", "cache/go"),
@@ -826,7 +838,7 @@ fn prepare_gradle(
             .arg("-p")
             .arg(packages.join("maven/java"))
             .arg(format!("-PjavaToolchain={java_toolchain}"))
-            .args(["--no-daemon", "publishToMavenLocal"]),
+            .args(["--daemon", "publishToMavenLocal"]),
     )?;
     if kotlin {
         run_status(
@@ -834,7 +846,7 @@ fn prepare_gradle(
                 .arg("-p")
                 .arg(packages.join("maven/kotlin"))
                 .arg(format!("-PjavaToolchain={java_toolchain}"))
-                .args(["--no-daemon", "publishToMavenLocal"]),
+                .args(["--daemon", "publishToMavenLocal"]),
         )?;
     }
     let project = repository.join(if kotlin {
@@ -848,7 +860,7 @@ fn prepare_gradle(
             .arg(&project)
             .arg(format!("-PrevaultVersion={version}"))
             .arg(format!("-PjavaToolchain={java_toolchain}"))
-            .args(["--no-daemon", "installDist"]),
+            .args(["--daemon", "installDist"]),
     )?;
     let name = if kotlin {
         "revault-api-kotlin-conformance"

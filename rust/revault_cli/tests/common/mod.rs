@@ -127,3 +127,28 @@ pub fn short_dir_path(label: &str) -> PathBuf {
             *TEST_RUN_ID
         ))
 }
+// Unix-domain socket paths have a small OS limit. Keep sockets outside long
+// checkout/test names while retaining each test's agent log beside its vault.
+pub fn agent_socket_dir(root: &Path) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::sync::{LazyLock, Mutex};
+        static DIRECTORIES: LazyLock<
+            Mutex<std::collections::BTreeMap<PathBuf, tempfile::TempDir>>,
+        > = LazyLock::new(|| Mutex::new(std::collections::BTreeMap::new()));
+        std::fs::create_dir_all(root).unwrap();
+        let mut directories = DIRECTORIES.lock().unwrap();
+        directories
+            .entry(root.to_owned())
+            .or_insert_with(|| {
+                tempfile::Builder::new()
+                    .prefix("rv-agent-")
+                    .tempdir_in("/tmp")
+                    .unwrap()
+            })
+            .path()
+            .to_owned()
+    }
+    #[cfg(not(unix))]
+    root.to_owned()
+}
