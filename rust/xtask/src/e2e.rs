@@ -1,6 +1,8 @@
 use crate::command::{self, TaskResult};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
+use std::path::PathBuf;
+use std::thread;
 
 const COVERAGE_ENV: &str = "LOCKBOX_E2E_COVERAGE_FILE";
 
@@ -13,28 +15,34 @@ struct Coverage {
 pub fn cli() -> TaskResult {
     let workspace = command::workspace_root()?;
     let coverage_path = workspace.join("target/cli-e2e-coverage.tsv");
-    if let Some(parent) = coverage_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|error| format!("cannot create {}: {error}", parent.display()))?;
-    }
-    fs::write(&coverage_path, [])
-        .map_err(|error| format!("cannot reset {}: {error}", coverage_path.display()))?;
+    let coverage_dir = workspace.join("target/cli-e2e-coverage");
+    fs::create_dir_all(&coverage_dir)
+        .map_err(|error| format!("cannot create {}: {error}", coverage_dir.display()))?;
 
-    let mut tests = command::command("cargo");
-    // These tests launch many independent CLI processes that share the
-    // Session Agent transport and exercise archive locks. Running the whole
-    // integration set in parallel makes those resources contend and produces
-    // false failures; the regular CI matrix provides the parallel shards.
-    tests.args([
-        "test",
-        "-p",
-        "revault_cli",
-        "--tests",
-        "--",
-        "--test-threads=1",
-    ]);
-    tests.env(COVERAGE_ENV, &coverage_path);
-    command::run(&mut tests)?;
+    // Each shard runs its tests serially, isolating Session Agent and archive
+    // locks. The shards themselves run concurrently, matching the CI matrix.
+    let shards = cli_shards();
+    let mut workers = Vec::new();
+    for (name, args) in shards {
+        let coverage = coverage_dir.join(format!("{name}.tsv"));
+        fs::write(&coverage, [])
+            .map_err(|error| format!("cannot reset {}: {error}", coverage.display()))?;
+        workers.push(thread::spawn(move || run_cli_shard(name, args, coverage)));
+    }
+    let mut errors = Vec::new();
+    for worker in workers {
+        match worker
+            .join()
+            .map_err(|_| "CLI E2E shard panicked".to_owned())?
+        {
+            Ok(()) => {}
+            Err(error) => errors.push(error),
+        }
+    }
+    if !errors.is_empty() {
+        return Err(format!("CLI E2E shard failures:\n  {}", errors.join("\n  ")).into());
+    }
+    merge_coverage(&coverage_dir, &coverage_path)?;
 
     let mut session_agent = command::command("cargo");
     session_agent.args([
@@ -79,6 +87,190 @@ pub fn cli() -> TaskResult {
             .map_err(|error| format!("cannot read {}: {error}", coverage_path.display()))?,
     );
     enforce(expected, actual)
+}
+
+fn cli_shards() -> Vec<(&'static str, Vec<&'static str>)> {
+    vec![
+        (
+            "flow-vault",
+            vec!["test", "-p", "revault_cli", "--test", "cli_flow", "vault_"],
+        ),
+        (
+            "flow-open",
+            vec![
+                "test",
+                "-p",
+                "revault_cli",
+                "--test",
+                "cli_flow",
+                "open",
+                "--",
+                "--skip",
+                "vault_",
+            ],
+        ),
+        (
+            "flow-session",
+            vec![
+                "test",
+                "-p",
+                "revault_cli",
+                "--test",
+                "cli_flow",
+                "session",
+                "--",
+                "--skip",
+                "vault_",
+                "--skip",
+                "open",
+            ],
+        ),
+        (
+            "flow-form",
+            vec![
+                "test",
+                "-p",
+                "revault_cli",
+                "--test",
+                "cli_flow",
+                "form",
+                "--",
+                "--skip",
+                "vault_",
+                "--skip",
+                "open",
+                "--skip",
+                "session",
+            ],
+        ),
+        (
+            "flow-create",
+            vec![
+                "test",
+                "-p",
+                "revault_cli",
+                "--test",
+                "cli_flow",
+                "create",
+                "--",
+                "--skip",
+                "vault_",
+                "--skip",
+                "open",
+                "--skip",
+                "session",
+                "--skip",
+                "form",
+            ],
+        ),
+        (
+            "flow-remove-list",
+            vec![
+                "test",
+                "-p",
+                "revault_cli",
+                "--test",
+                "cli_flow",
+                "remove",
+                "--",
+                "--skip",
+                "vault_",
+                "--skip",
+                "open",
+                "--skip",
+                "session",
+                "--skip",
+                "form",
+                "--skip",
+                "create",
+            ],
+        ),
+        (
+            "flow-remaining",
+            vec![
+                "test",
+                "-p",
+                "revault_cli",
+                "--test",
+                "cli_flow",
+                "--",
+                "--skip",
+                "vault_",
+                "--skip",
+                "open",
+                "--skip",
+                "session",
+                "--skip",
+                "form",
+                "--skip",
+                "create",
+                "--skip",
+                "remove",
+                "--skip",
+                "list",
+            ],
+        ),
+        (
+            "support",
+            vec![
+                "test",
+                "-p",
+                "revault_cli",
+                "--bin",
+                "lockbox",
+                "--test",
+                "agent_flow",
+                "--test",
+                "completion",
+                "--test",
+                "contact_receive_alias",
+                "--test",
+                "help_open_key",
+                "--test",
+                "publish_integration",
+            ],
+        ),
+        (
+            "migration-mirror-password",
+            vec![
+                "test",
+                "-p",
+                "revault_cli",
+                "--test",
+                "migration_cli",
+                "--test",
+                "mirror_cli",
+                "--test",
+                "password_profiles",
+            ],
+        ),
+    ]
+}
+
+fn run_cli_shard(name: &str, args: Vec<&'static str>, coverage: PathBuf) -> TaskResult {
+    let mut tests = command::command("cargo");
+    tests.args(args).args(["--", "--test-threads=1"]);
+    tests.env(COVERAGE_ENV, coverage);
+    eprintln!("running CLI E2E shard {name}");
+    command::run(&mut tests)
+}
+
+fn merge_coverage(dir: &std::path::Path, output: &std::path::Path) -> TaskResult {
+    let mut merged = String::new();
+    for entry in
+        fs::read_dir(dir).map_err(|error| format!("cannot read {}: {error}", dir.display()))?
+    {
+        let path = entry
+            .map_err(|error| format!("cannot read coverage entry: {error}"))?
+            .path();
+        if path.extension().and_then(|value| value.to_str()) == Some("tsv") {
+            merged.push_str(
+                &fs::read_to_string(&path)
+                    .map_err(|error| format!("cannot read {}: {error}", path.display()))?,
+            );
+        }
+    }
+    fs::write(output, merged).map_err(|error| format!("cannot write {}: {error}", output.display()))
 }
 
 fn parse_inventory(output: &str) -> BTreeMap<String, BTreeSet<String>> {
