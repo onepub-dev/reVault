@@ -2,14 +2,14 @@
 
 reVault is a modern archive format. A reVault archive is called a **Lockbox**. Each Lockbox is compressed, encrypted and signed.
 
-The core engine is written in Rust and is designed to be fast, recoverable and economical with memory. You can use it through the [CLI](cli-tooling/) or from one of the supported [language bindings](apis/revault-api.md).
+The core engine is written in Rust and is designed to be fast, recoverable and economical with memory. You can use it through the [CLI](get-started/cli-tooling/) or from one of the supported [language bindings](develop-with-revault/apis/revault-api.md).
 
-If you just want to take reVault for a quick spin, jump straight to the [quick start guide](cli-tooling/quick-start-guide.md).
+If you just want to take reVault for a quick spin, jump straight to the [quick start guide](get-started/cli-tooling/quick-start-guide.md).
 
 The source repository is available on [GitHub](https://github.com/onepub-dev/reVault).
 
 {% hint style="warning" %}
-reVault is currently pre-release software. Keep independent copies of important data and tested Vault/Profile recovery material. See [Versions and compatibility](compatibility.md) for the manual's component scope.
+reVault is currently pre-release software. Keep independent copies of important data and tested Vault/Profile recovery material. See [Versions and compatibility](develop-with-revault/compatibility.md) for the manual's component scope.
 {% endhint %}
 
 ## What can a Lockbox store?
@@ -45,8 +45,7 @@ Your **Vault** is the encrypted local store that reVault uses for Profiles, priv
 
 You will normally have one Vault on each device. Back it up and keep the Vault passphrase safe: losing both the Vault and its backup may leave you unable to open Lockboxes whose credentials exist nowhere else.
 
-Read [The Vault](https://docs.revault.onepub.dev/cli-tooling/the-vault) before
-relying on it for important data.
+Read [The Vault](https://docs.revault.onepub.dev/cli-tooling/the-vault) before relying on it for important data.
 
 ### Profiles
 
@@ -58,17 +57,13 @@ The default Profile is enough for many people. Extra Profiles are useful when yo
 
 A **Contact** is another person's public key saved in your Vault. A Contact can be granted access to a Lockbox, but cannot be used to encrypt or sign a lockbox.
 
-Always [verify a Contact's fingerprint through a second, trusted
-channel](cli-tooling/sharing.md#establish-trust) before sharing sensitive data.
-The guide covers exchange through the key sharing service and direct exchange
-without the service.
+Always [verify a Contact's fingerprint through a second, trusted channel](protect-and-share/the-vault/sharing.md#establish-trust) before sharing sensitive data. The guide covers exchange through the key sharing service and direct exchange without the service.
 
 ### Lockboxes
 
 A **Lockbox** is the portable `.lbox` archive. You can create as many Lockboxes as you need and give each one to a different group of Contacts or Profiles.
 
-Closing a Lockbox releases the access held by the current process. It does not
-delete the archive or revoke access granted to Profiles and Contacts.
+Closing a Lockbox releases the access held by the current process. It does not delete the archive or revoke access granted to Profiles and Contacts.
 
 ### Variables
 
@@ -91,27 +86,19 @@ Supported field types include `text`, `secret`, `password`, `url`, `email`, `dat
 
 The **Session Agent** is an optional per-user process that temporarily caches a Lockbox content key. This avoids repeatedly deriving or loading the same key during a short working session. The Agent does not retain an open file handle and does not permanently store the content key.
 
-When the CLI closes a Lockbox, it also asks the Session Agent to forget its
-cached content key. This does not delete the Lockbox or remove credentials
-stored in the Vault.
+When the CLI closes a Lockbox, it also asks the Session Agent to forget its cached content key. This does not delete the Lockbox or remove credentials stored in the Vault.
 
-**Auto Open** is separate. Where the operating system provides a suitable
-credential store, reVault can store the Vault passphrase for unattended access
-during your logged-in desktop session. That is convenient, but it means a
-process running as you may be able to open every Lockbox for which the Vault
-contains a credential.
+**Auto Open** is separate. Where the operating system provides a suitable credential store, reVault can store the Vault passphrase for unattended access during your logged-in desktop session. That is convenient, but it means a process running as you may be able to open every Lockbox for which the Vault contains a credential.
 
 {% hint style="warning" %}
 Closing a Lockbox clears its temporary content key from the Session Agent. It is not an authentication boundary while Auto Open can still retrieve the Vault passphrase. Lock your desktop whenever you walk away from it.
 {% endhint %}
 
-See [Session Management](cli-tooling/session-management.md) for the available Auto Open scopes and [the Session Agent](cli-tooling/revault-session-agent.md) for its lifetime and sleep behaviour.
+See [Session Management](sessions-and-automation/session-management/) for the available Auto Open scopes and [the Session Agent](sessions-and-automation/session-management/revault-session-agent.md) for its lifetime and sleep behaviour.
 
 ## Getting started
 
-Building an application? reVault provides
-[16+ language and runtime bindings](apis/revault-api.md#packages-and-documentation)
-so application code can work with Lockboxes and Vaults directly.
+Building an application? reVault provides [16+ language and runtime bindings](develop-with-revault/apis/revault-api.md#packages-and-documentation) so application code can work with Lockboxes and Vaults directly.
 
 Install the CLI with Cargo:
 
@@ -139,7 +126,7 @@ lbx secrets.lbox add ./readme.md --to docs/readme.md
 lbx secrets.lbox list --recursive
 ```
 
-The [quick start guide](cli-tooling/quick-start-guide.md) continues from here with opening, closing, extracting, variables, forms and sharing.
+The [quick start guide](get-started/cli-tooling/quick-start-guide.md) continues from here with opening, closing, extracting, variables, forms and sharing.
 
 ## Keeping secrets secret
 
@@ -154,19 +141,19 @@ As a safe starting point:
 * disable Auto Open in environments where unattended same-user access is unacceptable
 * run `lbx secrets.lbox close` when you finish working with a Lockbox
 
-Read [Keeping secrets a secret](keeping-secrets-a-secret.md) for the complete checklist.
+Read [Keeping secrets a secret](protect-and-share/keeping-secrets-a-secret.md) for the complete checklist.
 
 ## Where next?
 
-* [Quick start guide](cli-tooling/quick-start-guide.md)
-* [CLI tooling](cli-tooling/)
-* [Language APIs](apis/revault-api.md)
-* [Sharing](cli-tooling/sharing.md)
-* [Mirror projects](mirror.md)
-* [CI/CD](ci-cd.md)
-* [Migrating between versions](cli-tooling/migrating-between-versions.md)
-* [Glossary](glossary.md)
-* [Troubleshooting](troubleshooting.md)
+* [Quick start guide](get-started/cli-tooling/quick-start-guide.md)
+* [CLI tooling](get-started/cli-tooling/)
+* [Language APIs](develop-with-revault/apis/revault-api.md)
+* [Sharing](protect-and-share/the-vault/sharing.md)
+* [Mirror projects](get-started/cli-tooling/mirror.md)
+* [CI/CD](sessions-and-automation/ci-cd.md)
+* [Migrating between versions](maintain-and-recover/migrating-between-versions.md)
+* [Glossary](develop-with-revault/glossary.md)
+* [Troubleshooting](maintain-and-recover/troubleshooting.md)
 
 ## License
 

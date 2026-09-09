@@ -36,3 +36,4 @@ create or observe the required condition; document that exception in the test.
 State-changing command families must cover realistic lifecycles, including
 initial creation, a no-change repeat, additions, replacements, removals, and
 applicable safety thresholds or refusal paths.
+
