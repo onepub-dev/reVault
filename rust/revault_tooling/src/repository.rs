@@ -124,6 +124,7 @@ fn status(repository: &Path) -> Result {
     crate::release_candidate::status(crate::release_candidate::StatusSelection {
         selection: crate::release_candidate::Selection {
             candidate: None,
+            full: false,
             repository,
         },
         watch: false,

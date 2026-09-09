@@ -59,6 +59,9 @@ pub struct Selection {
     /// Successful prepare run ID. Defaults to this checkout's remembered candidate.
     #[arg(long)]
     pub candidate: Option<u64>,
+    /// Print complete job logs instead of the condensed failure excerpts.
+    #[arg(long)]
+    pub full: bool,
     #[arg(long, default_value = ".")]
     pub repository: PathBuf,
 }
@@ -721,7 +724,14 @@ pub fn logs(args: Selection) -> Result<()> {
                     &format!("repos/{}/actions/jobs/{job_id}/logs", gh.repo),
                 ],
             ) {
-                Ok(log) if !log.trim().is_empty() => println!("{log}"),
+                Ok(log) if !log.trim().is_empty() => {
+                    if args.full {
+                        println!("{log}");
+                    } else {
+                        println!("{}", failure_excerpt(&log));
+                        println!("Use --full to print the complete job log.");
+                    }
+                }
                 result => {
                     let reason = result
                         .err()
@@ -743,6 +753,42 @@ pub fn logs(args: Selection) -> Result<()> {
         return Err("Some job logs were unavailable; available logs are printed above".into());
     }
     Ok(())
+}
+
+fn failure_excerpt(log: &str) -> String {
+    const MAX_LINES: usize = 160;
+    let lines: Vec<&str> = log.lines().collect();
+    let interesting: Vec<&str> = lines
+        .iter()
+        .filter(|line| {
+            let lower = line.to_ascii_lowercase();
+            lower.contains("##[error]")
+                || lower.contains("error:")
+                || lower.contains("failed")
+                || lower.contains("failure")
+                || lower.contains("panic")
+                || lower.contains("panicked")
+                || lower.contains("assertion")
+                || lower.contains("test result:")
+                || lower.contains("exit code")
+                || lower.contains("timed out")
+        })
+        .copied()
+        .take(MAX_LINES)
+        .collect();
+    if !interesting.is_empty() {
+        return interesting.join("\n");
+    }
+    lines
+        .iter()
+        .rev()
+        .take(MAX_LINES)
+        .copied()
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 pub fn status(options: StatusSelection) -> Result<()> {
@@ -1415,6 +1461,19 @@ mod tests {
             172800
         );
         assert!(github_seconds("invalid").is_none());
+    }
+
+    #[test]
+    fn failure_excerpt_hides_unrelated_job_output() {
+        let log =
+            "compile lots of crates\nnormal output\nerror: password profile test failed\nfinished";
+        assert_eq!(failure_excerpt(log), "error: password profile test failed");
+    }
+
+    #[test]
+    fn failure_excerpt_falls_back_to_log_tail() {
+        let log = "first\nsecond\nlast";
+        assert_eq!(failure_excerpt(log), log);
     }
 
     #[test]

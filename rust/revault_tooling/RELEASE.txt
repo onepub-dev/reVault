@@ -102,6 +102,10 @@ Live monitoring and cancellation:
     revault-tool release cancel
     revault-tool release cancel --candidate 12345678
 
+Failure logs are condensed to the relevant error and failure lines by default;
+use `revault-tool release logs --candidate 12345678 --full` to print the
+complete raw job logs.
+
 Logs are fetched per completed failed/cancelled job, even while other jobs run.
 Unfinished job logs are available in GitHub's web UI. Empty/unavailable log
 responses are reported explicitly. Ctrl-C stops local monitoring without
