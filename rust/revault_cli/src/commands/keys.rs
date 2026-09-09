@@ -438,10 +438,14 @@ pub(crate) fn access_matches(matches: &ArgMatches, access: &Access) -> CliResult
 pub(crate) fn grant_access(args: &[String], access: &Access) -> CliResult<()> {
     let lockbox_path = require_arg(args, 0, "lockbox")?;
     let contact_arg = require_arg(args, 1, "profile or contact")?;
-    let vault = default_vault()?;
     if args.len() == 2 {
-        if let Some(password) = resolve_profile_password(contact_arg, &vault)? {
+        let password = {
+            let vault = default_vault()?;
+            resolve_profile_password(contact_arg, &vault)?
+        };
+        if let Some(password) = password {
             let mut lb = open_existing(lockbox_path, access)?;
+            let vault = default_vault()?;
             let name = access_entry_name(contact_arg);
             for label in vault.list_access_slot_labels(lb.lockbox_id())? {
                 if !label.name.starts_with("contact:") && access_entry_name(&label.name) == name {
