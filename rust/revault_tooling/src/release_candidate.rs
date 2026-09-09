@@ -626,10 +626,14 @@ pub fn prepare(mut args: Prepare) -> Result<()> {
     }
     run_command(&gh.root, "git", &["fetch", "origin", "--tags"])?;
     if args.scope != Scope::Bindings && args.cli_version.is_none() {
-        args.cli_version = Some(prompt_version("CLI")?);
+        let current = current_version(&gh.root, Scope::Cli)?;
+        let released = latest_released_version(&gh.root, "revault_cli-v", &current)?;
+        args.cli_version = Some(prompt_version("CLI", &current, &released)?);
     }
     if args.scope != Scope::Cli && args.bindings_version.is_none() {
-        args.bindings_version = Some(prompt_version("bindings")?);
+        let current = current_version(&gh.root, Scope::Bindings)?;
+        let released = latest_released_version(&gh.root, "revault-api-v", &current)?;
+        args.bindings_version = Some(prompt_version("bindings", &current, &released)?);
     }
     let (cli, bindings) = prepare_versions(
         &gh.root,
@@ -1201,23 +1205,92 @@ fn prepare_versions(
     )?;
     Ok((cli, bindings))
 }
-fn prompt_version(target: &str) -> Result<String> {
-    if !std::io::stdin().is_terminal() {
-        return Err(format!("Choose the {target} version explicitly: --{}-version patch|minor|major|MAJOR.MINOR.PATCH", if target == "CLI" { "cli" } else { "bindings" }).into());
+fn current_version(root: &Path, scope: Scope) -> Result<String> {
+    match scope {
+        Scope::Cli => {
+            let metadata: Value = serde_json::from_str(&output(
+                root,
+                "cargo",
+                &[
+                    "metadata",
+                    "--no-deps",
+                    "--format-version",
+                    "1",
+                    "--manifest-path",
+                    "rust/Cargo.toml",
+                ],
+            )?)?;
+            metadata["packages"]
+                .as_array()
+                .and_then(|packages| {
+                    packages
+                        .iter()
+                        .find(|package| package["name"] == "revault_cli")
+                })
+                .map(|package| string(package, "version"))
+                .ok_or_else(|| "missing CLI package".to_owned())?
+        }
+        Scope::Bindings => {
+            let dart = fs::read_to_string(root.join("bindings/dart/pubspec.yaml"))?;
+            dart.lines()
+                .find_map(|line| line.strip_prefix("version: "))
+                .map(str::to_owned)
+                .ok_or_else(|| "missing Dart version".into())
+        }
+        Scope::All => Err("a release target is required".into()),
     }
+}
+
+fn prompt_version(target: &str, current: &str, released: &str) -> Result<String> {
+    if !std::io::stdin().is_terminal() {
+        return Err(format!(
+            "Choose the {target} version explicitly: --{}-version patch|minor|major|MAJOR.MINOR.PATCH",
+            if target == "CLI" { "cli" } else { "bindings" }
+        )
+        .into());
+    }
+    let next_patch = patch(released)?;
+    let (major, minor, _) = version_tuple(released)?;
+    let next_minor = format!(
+        "{major}.{}.0",
+        minor.checked_add(1).ok_or("Version overflow")?
+    );
+    let next_major = format!("{}.0.0", major.checked_add(1).ok_or("Version overflow")?);
+    println!("{target} versions:\n  Current: {current}\n  Latest released: {released}");
     loop {
-        print!("{target} version: patch, minor, major, or an exact MAJOR.MINOR.PATCH [patch]: ");
+        println!("  1) Patch  -> {next_patch}");
+        println!("  2) Minor  -> {next_minor}");
+        println!("  3) Major  -> {next_major}");
+        println!("  4) Retain current version -> {current}");
+        println!("  5) Enter an exact MAJOR.MINOR.PATCH version");
+        print!("Select {target} version [1]: ");
         std::io::stdout().flush()?;
         let mut input = String::new();
         if std::io::stdin().read_line(&mut input)? == 0 {
             return Err("Version selection cancelled".into());
         }
         let input = input.trim();
-        let input = if input.is_empty() { "patch" } else { input };
-        if matches!(input, "patch" | "minor" | "major") || version(input).is_ok() {
-            return Ok(input.into());
+        let input = if input.is_empty() { "1" } else { input };
+        match input {
+            "1" => return Ok("patch".into()),
+            "2" => return Ok("minor".into()),
+            "3" => return Ok("major".into()),
+            "4" => return Ok(current.to_owned()),
+            "5" => {
+                print!("Enter exact {target} version: ");
+                std::io::stdout().flush()?;
+                let mut exact = String::new();
+                if std::io::stdin().read_line(&mut exact)? == 0 {
+                    return Err("Version selection cancelled".into());
+                }
+                let exact = exact.trim();
+                if version(exact).is_ok() {
+                    return Ok(exact.to_owned());
+                }
+            }
+            _ => {}
         }
-        eprintln!("Enter patch, minor, major, or a stable version such as 1.2.3.");
+        eprintln!("Select 1, 2, 3, 4, or 5; exact versions must look like 1.2.3.");
     }
 }
 
@@ -1227,24 +1300,8 @@ fn next_version(
     current: &str,
     requested: Option<String>,
 ) -> Result<String> {
-    let tags = output(root, "git", &["tag", "--list", &format!("{prefix}*")])?;
-    let tuple = |s: &str| -> Result<(u64, u64, u64)> {
-        version(s)?;
-        let n = s
-            .split('.')
-            .map(str::parse::<u64>)
-            .collect::<std::result::Result<Vec<_>, _>>()?;
-        Ok((n[0], n[1], n[2]))
-    };
-    let mut highest = current.to_owned();
-    for tag in tags.lines() {
-        if let Some(v) = tag.strip_prefix(prefix) {
-            if version(v).is_ok() && tuple(v)? > tuple(&highest)? {
-                highest = v.into();
-            }
-        }
-    }
-    let (major, minor, _) = tuple(&highest)?;
+    let highest = latest_released_version(root, prefix, current)?;
+    let (major, minor, _) = version_tuple(&highest)?;
     let next = match requested.as_deref().unwrap_or("patch") {
         "patch" => patch(&highest)?,
         "minor" => format!(
@@ -1254,10 +1311,40 @@ fn next_version(
         "major" => format!("{}.0.0", major.checked_add(1).ok_or("Version overflow")?),
         exact => exact.to_owned(),
     };
-    if tuple(&next)? <= tuple(&highest)? {
+    if version_tuple(&next)? <= version_tuple(&highest)? {
         return Err(format!("Version {next} must exceed {highest}").into());
     }
     Ok(next)
+}
+
+fn latest_released_version(root: &Path, prefix: &str, current: &str) -> Result<String> {
+    version_tuple(current)?;
+    let tags = output(root, "git", &["tag", "--list", &format!("{prefix}*")])?;
+    let mut highest: Option<String> = None;
+    for tag in tags.lines() {
+        if let Some(released) = tag.strip_prefix(prefix) {
+            let Ok(released_tuple) = version_tuple(released) else {
+                continue;
+            };
+            let is_newer = highest
+                .as_deref()
+                .map(|known| released_tuple > version_tuple(known).expect("validated version"))
+                .unwrap_or(true);
+            if is_newer {
+                highest = Some(released.to_owned());
+            }
+        }
+    }
+    Ok(highest.unwrap_or_else(|| current.to_owned()))
+}
+
+fn version_tuple(s: &str) -> Result<(u64, u64, u64)> {
+    version(s)?;
+    let n = s
+        .split('.')
+        .map(str::parse::<u64>)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok((n[0], n[1], n[2]))
 }
 fn update_dependencies(table: &mut toml_edit::Table, versions: &BTreeMap<String, String>) {
     for (key, item) in table.iter_mut() {
@@ -1473,6 +1560,10 @@ version = "1.0.0"
         assert_eq!(
             next_version(root, "revault-api-v", "2.0.0", Some("minor".into())).unwrap(),
             "2.1.0"
+        );
+        assert_eq!(
+            next_version(root, "revault-api-v", "2.0.6", Some("patch".into())).unwrap(),
+            "2.0.6"
         );
         assert_eq!(
             next_version(root, "revault-api-v", "2.0.0", Some("major".into())).unwrap(),
