@@ -289,8 +289,7 @@ public final class Conformance {
         pass("vault_directory_root", 3); pass("vault_directory_structure_version");
         int currentVersion = API.currentVaultStructureVersion();
         check(currentVersion == vault.structureVersion(), "current vault version");
-        check(API.probeVaultStructureVersion(root.toString(), password) == currentVersion, "vault probe");
-        pass("vault_structure_version_current", 2); pass("vault_directory_probe_structure_version", 2);
+        pass("vault_structure_version_current", 2);
         vault.storePrivateKey("alice", profile); check(vault.privateKeyExists("alice"), "profile");
         try (var loaded = vault.loadPrivateKey("alice"); var generation = vault.loadPrivateKeyGeneration("alice", 1)) {
           check(loaded.publicBytes().length > 0 && generation.publicBytes().length > 0, "loaded profile");
@@ -351,6 +350,9 @@ public final class Conformance {
         pass("vault_directory_delete_private_key", 2); pass("vault_directory_restore_private_key", 2);
       }
       pass("vault_directory_free");
+      // The writable vault's scope must end before an independent path probe.
+      check(API.probeVaultStructureVersion(root.toString(), password) == API.currentVaultStructureVersion(), "vault probe");
+      pass("vault_directory_probe_structure_version", 2);
       try (var readonly = API.openReadOnlyVault(root.toString(), password)) {
         check(readonly.listProfileNames().size() > 0, "read-only profiles");
         readonly.listContactNames();

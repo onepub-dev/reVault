@@ -213,6 +213,23 @@ fn vault_open_populates_cache_for_password_lockbox() {
 }
 
 #[test]
+fn vault_mutation_and_close_survive_thread_handoff() {
+    let root = unique_dir("thread-handoff");
+    let password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
+    let vault = VaultDirectory::open_or_create(&root, &password).unwrap();
+    std::thread::spawn(move || {
+        let contact = ContactKeyPair::generate().unwrap();
+        vault.store_contact("alice", &contact.public_key()).unwrap();
+        assert!(vault.contact_exists("alice").unwrap());
+        // Drop on the receiving thread, as can happen with a Go caller.
+    })
+    .join()
+    .unwrap();
+    let reopened = VaultDirectory::open_or_create(&root, &password).unwrap();
+    assert!(reopened.contact_exists("alice").unwrap());
+}
+
+#[test]
 fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
     let root = unique_dir("directory");
     let vault_password = SecretString::try_from_bytes(b"vault-password".to_vec()).unwrap();
@@ -221,10 +238,12 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
         vault.structure_version().unwrap(),
         CURRENT_VAULT_STRUCTURE_VERSION
     );
+    drop(vault);
     assert_eq!(
         VaultDirectory::probe_structure_version(&root, &vault_password).unwrap(),
         CURRENT_VAULT_STRUCTURE_VERSION
     );
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
     let keypair = ContactKeyPair::generate().unwrap();
     vault.store_private_key("default", &keypair).unwrap();
     let encrypted = fs::read(root.join("local-vault.lbox")).unwrap();

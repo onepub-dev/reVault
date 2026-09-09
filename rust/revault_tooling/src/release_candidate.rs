@@ -260,6 +260,16 @@ impl GitHub {
             signal.store(true, Ordering::Relaxed);
         })?;
         let started = std::time::Instant::now();
+        let terminal = std::io::stdout().is_terminal();
+        let mut display = WatchDisplay::default();
+        let mut failures = BTreeMap::new();
+        let mut previous_workflow = String::new();
+        if !terminal {
+            println!(
+                "CI {id}: https://github.com/{}/actions/runs/{id}",
+                self.repo
+            );
+        }
         loop {
             let result = (|| -> Result<Value> {
                 let run = self.watch_api(&format!("actions/runs/{id}"), &interrupted)?;
@@ -275,23 +285,54 @@ impl GitHub {
                         break;
                     }
                 }
-                if std::io::stdout().is_terminal() {
-                    print!("\x1b[2J\x1b[H");
-                }
-                let complete = jobs.iter().filter(|j| j["status"] == "completed").count();
-                println!(
-                    "CI {id}: {} / {} — {complete}/{} jobs complete — watching {}m {}s",
-                    run["status"],
-                    run["conclusion"],
-                    jobs.len(),
-                    started.elapsed().as_secs() / 60,
-                    started.elapsed().as_secs() % 60
-                );
-                println!("https://github.com/{}/actions/runs/{id}", self.repo);
-                println!("Ctrl-C stops watching only; remote CI continues.\nCancel: revault-tool release cancel --candidate {id}\nFailure logs: revault-tool release logs --candidate {id}\n");
+                let mut fetched = 0;
                 for job in &jobs {
-                    println!("{}", job_progress(job));
+                    if is_failed_job(job) {
+                        let job_id = job["id"].as_u64().ok_or("Missing job ID")?;
+                        if let std::collections::btree_map::Entry::Vacant(entry) =
+                            failures.entry(job_id)
+                        {
+                            // Bound log requests per refresh so a burst of failures cannot stall the page.
+                            if fetched == 2 && run["status"] != "completed" {
+                                continue;
+                            }
+                            fetched += 1;
+                            let summary = match self
+                                .watch_text(&format!("actions/jobs/{job_id}/logs"), &interrupted)
+                            {
+                                Ok(log) if !log.trim().is_empty() => failure_excerpt(&log),
+                                _ => "Log not available yet; use release logs for details.".into(),
+                            };
+                            entry.insert(summary);
+                        }
+                    }
                 }
+                let page = display.render(&jobs, &failures, terminal);
+                if terminal {
+                    print!("\x1b[2J\x1b[H");
+                    println!(
+                        "CI {id} — watching {}m {:02}s",
+                        started.elapsed().as_secs() / 60,
+                        started.elapsed().as_secs() % 60
+                    );
+                    println!("https://github.com/{}/actions/runs/{id}", self.repo);
+                    println!("Ctrl-C stops watching; CI continues. Full errors: revault-tool release logs --candidate {id}\n");
+                }
+                print!("{page}");
+                let run_status = run["status"].as_str().unwrap_or("unknown");
+                let mut workflow = format!("Workflow: {run_status}");
+                if let Some(conclusion) = run["conclusion"].as_str() {
+                    workflow.push_str(&format!(" — {conclusion}"));
+                }
+                if run_status != "completed" && jobs.iter().all(|job| job["status"] == "completed")
+                {
+                    workflow
+                        .push_str("\nWaiting for GitHub to report the next stage or final result.");
+                }
+                if terminal || previous_workflow != workflow {
+                    println!("{workflow}");
+                }
+                previous_workflow = workflow;
                 std::io::stdout().flush()?;
                 Ok(run)
             })();
@@ -303,12 +344,19 @@ impl GitHub {
                 if run["conclusion"] == "success" {
                     return Ok(());
                 }
-                self.report_run_failure(id);
                 return Err(format!("CI run {id} finished with {}. Read errors: revault-tool release logs --candidate {id}", run["conclusion"]).into());
             }
-            for _ in 0..100 {
+            for tick in 0..100 {
                 if interrupted.load(Ordering::Relaxed) {
                     break;
+                }
+                if terminal && tick % 10 == 0 {
+                    print!(
+                        "\r\x1b[2KLast update {}s ago · next refresh in {}s · Ctrl-C stops watching",
+                        tick / 10,
+                        10 - tick / 10
+                    );
+                    std::io::stdout().flush()?;
                 }
                 std::thread::sleep(Duration::from_millis(100));
             }
@@ -319,6 +367,12 @@ impl GitHub {
     }
 
     fn watch_api(&self, suffix: &str, interrupted: &AtomicBool) -> Result<Value> {
+        Ok(serde_json::from_str(
+            &self.watch_text(suffix, interrupted)?,
+        )?)
+    }
+
+    fn watch_text(&self, suffix: &str, interrupted: &AtomicBool) -> Result<String> {
         let stdout = tempfile::tempfile()?;
         let stderr = tempfile::tempfile()?;
         let mut child = Command::new("gh")
@@ -328,7 +382,19 @@ impl GitHub {
             .stderr(stderr.try_clone()?)
             .spawn()?;
         let started = std::time::Instant::now();
+        let mut displayed_second = None;
         loop {
+            let second = started.elapsed().as_secs();
+            if std::io::stdout().is_terminal() && displayed_second != Some(second) {
+                let phase = if suffix.ends_with("/logs") {
+                    "Fetching failure summary"
+                } else {
+                    "Refreshing CI status"
+                };
+                print!("\r\x1b[2K{phase} · {second}s · Ctrl-C stops watching");
+                std::io::stdout().flush()?;
+                displayed_second = Some(second);
+            }
             if interrupted.load(Ordering::Relaxed) || started.elapsed() > Duration::from_secs(30) {
                 let _ = child.kill();
                 let _ = child.wait();
@@ -340,53 +406,19 @@ impl GitHub {
                 file.seek(SeekFrom::Start(0))?;
                 let mut text = String::new();
                 file.read_to_string(&mut text)?;
+                if std::io::stdout().is_terminal() {
+                    print!("\r\x1b[2K");
+                    std::io::stdout().flush()?;
+                }
                 if !status.success() {
                     return Err(text.into());
                 }
-                return Ok(serde_json::from_str(&text)?);
+                return Ok(text);
             }
             std::thread::sleep(Duration::from_millis(100));
         }
     }
 
-    fn report_run_failure(&self, id: u64) {
-        let result = (|| -> Result<()> {
-            let value = self.api(&format!("actions/runs/{id}/jobs?per_page=100"))?;
-            let jobs = value["jobs"].as_array().ok_or("missing jobs")?;
-            eprintln!("CI run {id} failed or was cancelled:");
-            for job in jobs.iter().filter(|job| {
-                matches!(
-                    job["conclusion"].as_str(),
-                    Some("failure" | "cancelled" | "timed_out")
-                )
-            }) {
-                let name = job["name"].as_str().unwrap_or("unknown job");
-                let job_id = job["id"].as_u64().unwrap_or_default();
-                eprintln!(
-                    "  - {name} ({})",
-                    job["conclusion"].as_str().unwrap_or("unknown")
-                );
-                if let Some(steps) = job["steps"].as_array() {
-                    for step in steps.iter().filter(|step| step["conclusion"] == "failure") {
-                        eprintln!(
-                            "      step failed: {}",
-                            step["name"].as_str().unwrap_or("unknown")
-                        );
-                    }
-                }
-                eprintln!(
-                    "      https://github.com/{}/actions/runs/{id}/job/{job_id}",
-                    self.repo
-                );
-            }
-            eprintln!("  Logs: gh run view {id} --repo {} --log-failed", self.repo);
-            Ok(())
-        })();
-        if let Err(error) = result {
-            eprintln!("Unable to retrieve CI failure details: {error}");
-            eprintln!("  Run: https://github.com/{}/actions/runs/{id}", self.repo);
-        }
-    }
     fn state_path(&self) -> Result<PathBuf> {
         Ok(PathBuf::from(output(
             &self.root,
@@ -479,7 +511,104 @@ fn github_seconds(timestamp: &str) -> Option<u64> {
     Some(days * 86400 + clock[0] * 3600 + clock[1] * 60 + clock[2])
 }
 
+fn is_failed_job(job: &Value) -> bool {
+    matches!(
+        job["conclusion"].as_str(),
+        Some("failure" | "timed_out" | "action_required" | "startup_failure")
+    )
+}
+
+#[derive(Default)]
+struct WatchDisplay {
+    previous: BTreeMap<u64, String>,
+    counts: String,
+}
+
+impl WatchDisplay {
+    fn render(
+        &mut self,
+        jobs: &[Value],
+        failures: &BTreeMap<u64, String>,
+        terminal: bool,
+    ) -> String {
+        let running = jobs
+            .iter()
+            .filter(|job| job["status"] == "in_progress")
+            .count();
+        let completed = jobs
+            .iter()
+            .filter(|job| job["status"] == "completed")
+            .count();
+        let failed = jobs.iter().filter(|job| is_failed_job(job)).count();
+        let passed = jobs
+            .iter()
+            .filter(|job| job["conclusion"] == "success")
+            .count();
+        let counts = format!("{running} running · {} waiting · {passed} passed · {failed} failed · {} cancelled/skipped · {completed}/{} complete\n", jobs.len().saturating_sub(running + completed), completed.saturating_sub(passed + failed), jobs.len());
+        let mut page = String::new();
+        if terminal || self.counts != counts {
+            page.push_str(&counts);
+        }
+        self.counts = counts;
+        let mut ordered: Vec<_> = jobs.iter().collect();
+        ordered.sort_by_key(|job| {
+            (
+                // Put running tasks nearest the heartbeat on a small terminal.
+                if terminal {
+                    job["status"] == "in_progress"
+                } else {
+                    job["status"] != "in_progress"
+                },
+                job["status"] == "completed",
+                job["name"].as_str().unwrap_or_default(),
+            )
+        });
+        for job in ordered {
+            let id = job["id"].as_u64().unwrap_or_default();
+            let mut row = if terminal {
+                job_progress_at(
+                    job,
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .ok()
+                        .map(|time| time.as_secs()),
+                )
+            } else {
+                job_progress(job)
+            };
+            if let Some(summary) = failures.get(&id) {
+                // Keep the dashboard compact; the complete excerpt is available via release logs.
+                for line in summary.lines().take(8) {
+                    row.push_str(&format!("\n    {line}"));
+                }
+                if summary.lines().count() > 8 {
+                    row.push_str("\n    … more details in release logs");
+                }
+                if let Some(url) = job["html_url"].as_str() {
+                    row.push_str(&format!("\n    {url}"));
+                }
+            }
+            let changed = self.previous.get(&id) != Some(&row);
+            self.previous.insert(id, row.clone());
+            let visible = if terminal {
+                job["status"] != "completed" || is_failed_job(job)
+            } else {
+                changed
+            };
+            if visible {
+                page.push_str(&row);
+                page.push('\n');
+            }
+        }
+        page
+    }
+}
+
 fn job_progress(job: &Value) -> String {
+    job_progress_at(job, None)
+}
+
+fn job_progress_at(job: &Value, now: Option<u64>) -> String {
     let name = job["name"].as_str().unwrap_or("Unknown job");
     let status = job["status"].as_str().unwrap_or("unknown");
     let conclusion = job["conclusion"].as_str().unwrap_or(status);
@@ -497,10 +626,14 @@ fn job_progress(job: &Value) -> String {
         .unwrap_or_default();
     let label = if conclusion == "success" {
         "complete"
+    } else if status == "in_progress" {
+        "running"
+    } else if matches!(status, "queued" | "waiting" | "pending") {
+        "waiting"
     } else {
         conclusion
     };
-    let mut line = format!("{marker} {name} — {label}{duration} (ID {})", job["id"]);
+    let mut line = format!("{marker} {name} — {label}{duration}");
     if let Some(steps) = job["steps"].as_array() {
         for step in steps.iter().filter(|step| {
             step["conclusion"] == "failure"
@@ -511,6 +644,14 @@ fn job_progress(job: &Value) -> String {
                 step["name"].as_str().unwrap_or("step"),
                 step["conclusion"].as_str().unwrap_or("running")
             ));
+            if step["status"] == "in_progress" {
+                if let Some(elapsed) = now
+                    .zip(step["started_at"].as_str().and_then(github_seconds))
+                    .and_then(|(now, start)| now.checked_sub(start))
+                {
+                    line.push_str(&format!(" for {}m{:02}s", elapsed / 60, elapsed % 60));
+                }
+            }
         }
     }
     line
@@ -756,39 +897,79 @@ pub fn logs(args: Selection) -> Result<()> {
 }
 
 fn failure_excerpt(log: &str) -> String {
-    const MAX_LINES: usize = 160;
-    let lines: Vec<&str> = log.lines().collect();
-    let interesting: Vec<&str> = lines
-        .iter()
-        .filter(|line| {
-            let lower = line.to_ascii_lowercase();
-            lower.contains("##[error]")
-                || lower.contains("error:")
-                || lower.contains("failed")
-                || lower.contains("failure")
-                || lower.contains("panic")
-                || lower.contains("panicked")
-                || lower.contains("assertion")
-                || lower.contains("test result:")
-                || lower.contains("exit code")
-                || lower.contains("timed out")
-        })
-        .copied()
-        .take(MAX_LINES)
-        .collect();
-    if !interesting.is_empty() {
-        return interesting.join("\n");
+    let lines: Vec<String> = log.lines().map(clean_log_line).collect();
+    let mut selected = Vec::new();
+    let mut context = false;
+    for line in &lines {
+        let lower = line.to_ascii_lowercase();
+        let diagnostic = lower.contains("##[error]")
+            || lower.starts_with("revault-tool:")
+            || lower.contains("error:")
+            || lower.contains("error[e")
+            || lower.contains("panic:")
+            || lower.contains("unhandled exception")
+            || lower.contains("assertionerror")
+            || lower.contains("revaultexception(")
+            || lower.contains("panicked at")
+            || lower.contains("assertion failed")
+            || lower.contains("conformance failure:")
+            || lower.contains("... failed")
+            || lower.contains("test result: failed");
+        // These occur in setup output, not diagnostics.
+        let noise = lower.contains("echo ")
+            || lower.contains("cache_on_failure")
+            || lower.contains("continue-on-failure");
+        let continuation = context
+            && (line.starts_with(char::is_whitespace)
+                || line.is_empty()
+                || matches!(
+                    line.trim(),
+                    "Details:" | "Next step:" | "stdout:" | "stderr:"
+                ));
+        if !noise && (diagnostic || continuation) {
+            selected.push(line.as_str());
+            context = true;
+        } else {
+            context = false;
+        }
     }
-    lines
+    if selected.is_empty() {
+        return lines[lines.len().saturating_sub(20)..].join("\n");
+    }
+    let mut excerpt = selected
         .iter()
-        .rev()
-        .take(MAX_LINES)
+        .take(160)
         .copied()
         .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<Vec<_>>()
-        .join("\n")
+        .join("\n");
+    if selected.len() > 160 {
+        excerpt.push_str("\n… excerpt truncated; use --full for the complete log");
+    }
+    excerpt.trim_end().to_owned()
+}
+
+fn clean_log_line(line: &str) -> String {
+    // Remove terminal colour sequences so captured compiler diagnostics match reliably.
+    let mut clean = String::new();
+    let mut chars = line.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\x1b' && chars.peek() == Some(&'[') {
+            chars.next();
+            for code in chars.by_ref() {
+                if ('@'..='~').contains(&code) {
+                    break;
+                }
+            }
+        } else if !ch.is_control() || ch == '\t' {
+            clean.push(ch);
+        }
+    }
+    if let Some((timestamp, rest)) = clean.split_once(' ') {
+        if timestamp.as_bytes().get(10) == Some(&b'T') && timestamp.ends_with('Z') {
+            return rest.trim_end().to_owned();
+        }
+    }
+    clean.trim_end().to_owned()
 }
 
 pub fn status(options: StatusSelection) -> Result<()> {
@@ -1171,6 +1352,7 @@ fn prepare_versions(
     for manifest in [
         "rust/Cargo.toml",
         "bindings/rust/Cargo.toml",
+        "bindings/e2e/rust/Cargo.toml",
         "rust/fuzz/Cargo.toml",
     ] {
         output(
@@ -1234,6 +1416,7 @@ fn prepare_versions(
             "release-notes/candidate.txt",
             "rust/Cargo.lock",
             "bindings/rust/Cargo.lock",
+            "bindings/e2e/rust/Cargo.lock",
             "rust/fuzz/Cargo.lock",
         ],
     )?;
@@ -1454,7 +1637,7 @@ mod tests {
         let job = json!({"id":7,"name":"CLI build","status":"completed","conclusion":"success",
             "started_at":"2026-09-08T23:58:00Z","completed_at":"2026-09-09T00:03:43Z",
             "steps":[{"name":"Build artifacts","status":"completed","conclusion":"success"}]});
-        assert_eq!(job_progress(&job), "✓ CLI build — complete in 5m43s (ID 7)");
+        assert_eq!(job_progress(&job), "✓ CLI build — complete in 5m43s");
         assert_eq!(
             github_seconds("2024-03-01T00:00:00Z").unwrap()
                 - github_seconds("2024-02-28T00:00:00Z").unwrap(),
@@ -1471,9 +1654,78 @@ mod tests {
     }
 
     #[test]
+    fn watcher_reports_phase_changes_once_in_redirected_output() {
+        let mut display = WatchDisplay::default();
+        let mut job = json!({"id":1,"name":"Linux CLI","status":"in_progress",
+            "steps":[{"name":"Build","status":"in_progress"}]});
+        let failures = BTreeMap::new();
+        let first = display.render(&[job.clone()], &failures, false);
+        assert!(first.contains("Linux CLI"));
+        assert!(first.contains("Build: running"));
+        assert!(display.render(&[job.clone()], &failures, false).is_empty());
+        job["steps"][0]["name"] = json!("CLI tests");
+        let changed = display.render(&[job], &failures, false);
+        assert!(changed.contains("CLI tests: running"));
+        assert!(!changed.contains("Build: running"));
+    }
+
+    #[test]
+    fn dashboard_collapses_successes_and_retains_failure_details() {
+        let jobs = vec![
+            json!({"id":1,"name":"Passed job","status":"completed","conclusion":"success"}),
+            json!({"id":2,"name":"Failed job","status":"completed","conclusion":"failure",
+                "steps":[{"name":"Compile","conclusion":"failure"}]}),
+            json!({"id":3,"name":"Still testing","status":"in_progress"}),
+        ];
+        let failures = BTreeMap::from([(2, "error: missing symbol".into())]);
+        let mut display = WatchDisplay::default();
+        for _ in 0..2 {
+            let page = display.render(&jobs, &failures, true);
+            assert!(page.contains("1 passed · 1 failed"));
+            assert!(!page.contains("Passed job"));
+            assert!(page.contains("Still testing"));
+            assert!(page.contains("Compile: failure"));
+            assert!(page.contains("error: missing symbol"));
+        }
+    }
+
+    #[test]
     fn failure_excerpt_falls_back_to_log_tail() {
         let log = "first\nsecond\nlast";
         assert_eq!(failure_excerpt(log), log);
+    }
+
+    #[test]
+    fn failure_excerpt_keeps_diagnostics_without_setup_noise() {
+        let log = "2026-09-09T01:00:00.000Z CACHE_ON_FAILURE: false\n\
+            dependency-graph-continue-on-failure: true\n\
+            test result: ok. 6 passed; 0 failed\n\
+            \"test\": \"echo \\\"Error: no test specified\\\" && exit 1\"\n\
+            2026-09-09T01:00:01.000Z \x1b[31merror[E0308]\x1b[0m: mismatched types\n\
+            2026-09-09T01:00:01.000Z   --> src/main.rs:3:5\n\
+            2026-09-09T01:00:01.000Z     expected String, found integer\n\
+            2026-09-09T01:00:02.000Z Error:\n\
+            2026-09-09T01:00:02.000Z   Vault is unavailable\n\
+            2026-09-09T01:00:02.000Z Details:\n\
+            2026-09-09T01:00:02.000Z   signing key is unavailable";
+        let excerpt = failure_excerpt(log);
+        assert!(excerpt.starts_with("error[E0308]: mismatched types"));
+        assert!(excerpt.contains("expected String, found integer"));
+        assert!(excerpt.contains("signing key is unavailable"));
+        assert!(!excerpt.contains("CACHE"));
+        assert!(!excerpt.contains("echo"));
+        assert!(!excerpt.contains("test result: ok"));
+        assert!(!excerpt.contains("2026-09-09"));
+    }
+
+    #[test]
+    fn running_phase_shows_elapsed_time() {
+        let job = json!({"name":"CLI", "status":"in_progress",
+            "steps":[{"name":"Tests","status":"in_progress","started_at":"2026-09-09T01:00:00Z"}]});
+        assert!(
+            job_progress_at(&job, github_seconds("2026-09-09T01:02:03Z"))
+                .contains("Tests: running for 2m03s")
+        );
     }
 
     #[test]
@@ -1521,6 +1773,7 @@ version = "1.0.0"
             "rust/revault_cli/src",
             "rust/revault_page_api/src",
             "bindings/rust/src",
+            "bindings/e2e/rust/src",
             "bindings/dart",
             "rust/fuzz/src",
         ] {
@@ -1538,9 +1791,11 @@ version = "1.0.0"
         )
         .unwrap();
         fs::write(root.join("bindings/rust/Cargo.toml"),"[package]\nname = \"revault-api\"\nversion = \"1.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault_page_api = { path = \"../../rust/revault_page_api\", version = \"1.0.0\" }\n").unwrap();
+        fs::write(root.join("bindings/e2e/rust/Cargo.toml"), "[package]\nname = \"conformance\"\nversion = \"0.0.0\"\nedition = \"2021\"\n[dependencies]\nrevault-api = { path = \"../../rust\" }\n").unwrap();
         for p in [
             "rust/revault_page_api/src/lib.rs",
             "bindings/rust/src/lib.rs",
+            "bindings/e2e/rust/src/lib.rs",
         ] {
             fs::write(root.join(p), "").unwrap();
         }

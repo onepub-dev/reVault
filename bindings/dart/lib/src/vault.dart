@@ -312,6 +312,8 @@ final class Vault extends Owned {
   ///
   /// This does not automatically replace a passphrase previously stored by
   /// [rememberPassphrase]; update or forget that credential separately.
+  /// The handle is closed for the path-based password change and reopened on
+  /// success. If changing or reopening fails, this object remains closed.
   ///
   /// Example:
   /// ```dart
@@ -322,13 +324,16 @@ final class Vault extends Owned {
     SecretString currentPassphrase,
     SecretString newPassphrase,
   ) => currentPassphrase.withBytes(
-    (currentBytes) => newPassphrase.withBytes(
-      (newBytes) => runtime.operations.vaultDirectoryChangePassword(
-        root,
+    (currentBytes) => newPassphrase.withBytes((newBytes) {
+      final path = root;
+      close();
+      runtime.operations.vaultDirectoryChangePassword(
+        path,
         currentBytes,
         newBytes,
-      ),
-    ),
+      );
+      handle = runtime.operations.vaultDirectoryOpen(path, newBytes);
+    }),
   );
 
   /// Lists serialized private-key records for backup and audit workflows.

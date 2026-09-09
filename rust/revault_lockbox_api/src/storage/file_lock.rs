@@ -40,10 +40,21 @@ impl FileLockScope {
 pub struct ScopedFileLock {
     lock_path: PathBuf,
     archive: Option<File>,
-    #[cfg(unix)]
-    file: Option<std::sync::Arc<File>>,
-    #[cfg(not(unix))]
-    owns_lock_file: bool,
+    file: Option<std::sync::Arc<VaultLockHandle>>,
+}
+
+#[cfg(unix)]
+type VaultLockHandle = File;
+
+#[cfg(not(unix))]
+#[derive(Debug)]
+struct VaultLockHandle(PathBuf);
+
+#[cfg(not(unix))]
+impl Drop for VaultLockHandle {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.0);
+    }
 }
 
 impl ScopedFileLock {
@@ -77,10 +88,7 @@ impl ScopedFileLock {
         Self {
             lock_path: PathBuf::new(),
             archive: Some(file),
-            #[cfg(unix)]
             file: None,
-            #[cfg(not(unix))]
-            owns_lock_file: false,
         }
     }
 
@@ -92,7 +100,6 @@ impl ScopedFileLock {
             )?));
         }
         let lock_path = lock_path_for(target);
-        #[cfg(unix)]
         if let Some(file) = VAULT_HANDLES.with(|handles| {
             handles
                 .borrow()
@@ -105,23 +112,11 @@ impl ScopedFileLock {
                 file: Some(file),
             });
         }
-        #[cfg(not(unix))]
-        if enter_thread_lock(&lock_path) {
-            return Ok(Self {
-                lock_path,
-                archive: None,
-                #[cfg(unix)]
-                file: None,
-                #[cfg(not(unix))]
-                owns_lock_file: false,
-            });
-        }
         let timeout = lock_timeout();
         let started = Instant::now();
         loop {
             match try_acquire(target, &lock_path, scope) {
                 Ok(lock) => {
-                    #[cfg(unix)]
                     if let Some(file) = &lock.file {
                         VAULT_HANDLES.with(|handles| {
                             handles
@@ -133,15 +128,11 @@ impl ScopedFileLock {
                 }
                 Err(AcquireFailure::Busy(owner)) => {
                     if started.elapsed() >= timeout {
-                        #[cfg(not(unix))]
-                        leave_thread_lock(&lock_path);
                         return Err(timeout_error(target, scope, timeout, owner.as_deref()));
                     }
                     thread::sleep(LOCK_POLL_INTERVAL);
                 }
                 Err(AcquireFailure::Io(err)) => {
-                    #[cfg(not(unix))]
-                    leave_thread_lock(&lock_path);
                     return Err(Error::Io(err));
                 }
             }
@@ -149,7 +140,6 @@ impl ScopedFileLock {
     }
 }
 
-#[cfg(unix)]
 impl Drop for ScopedFileLock {
     fn drop(&mut self) {
         if self
@@ -161,20 +151,8 @@ impl Drop for ScopedFileLock {
                 handles.borrow_mut().remove(&self.lock_path);
             });
         }
-        // Closing the last Arc<File> releases the kernel lock. Never explicitly
-        // unlock here: a nested guard may still own the same open description.
-    }
-}
-
-#[cfg(not(unix))]
-impl Drop for ScopedFileLock {
-    fn drop(&mut self) {
-        if self.archive.is_some() {
-            return;
-        }
-        if leave_thread_lock(&self.lock_path) && self.owns_lock_file {
-            let _ = fs::remove_file(&self.lock_path);
-        }
+        // The last owner releases the kernel lock (Unix) or coordination file
+        // (other platforms), even when the handle moved to another thread.
     }
 }
 
@@ -253,48 +231,14 @@ fn try_acquire(
     Ok(ScopedFileLock {
         lock_path: lock_path.to_path_buf(),
         archive: None,
-        owns_lock_file: true,
+        file: Some(std::sync::Arc::new(VaultLockHandle(
+            lock_path.to_path_buf(),
+        ))),
     })
 }
 
-#[cfg(unix)]
 thread_local! {
-    static VAULT_HANDLES: RefCell<BTreeMap<PathBuf, std::sync::Weak<File>>> = const { RefCell::new(BTreeMap::new()) };
-}
-
-#[cfg(not(unix))]
-thread_local! {
-    static THREAD_LOCKS: RefCell<BTreeMap<PathBuf, usize>> = const {
-        RefCell::new(BTreeMap::new())
-    };
-}
-
-#[cfg(not(unix))]
-fn enter_thread_lock(lock_path: &Path) -> bool {
-    THREAD_LOCKS.with(|locks| {
-        let mut locks = locks.borrow_mut();
-        let count = locks.entry(lock_path.to_path_buf()).or_insert(0);
-        let nested = *count > 0;
-        *count = count.saturating_add(1);
-        nested
-    })
-}
-
-#[cfg(not(unix))]
-fn leave_thread_lock(lock_path: &Path) -> bool {
-    THREAD_LOCKS.with(|locks| {
-        let mut locks = locks.borrow_mut();
-        let Some(count) = locks.get_mut(lock_path) else {
-            return true;
-        };
-        *count = count.saturating_sub(1);
-        if *count == 0 {
-            locks.remove(lock_path);
-            true
-        } else {
-            false
-        }
-    })
+    static VAULT_HANDLES: RefCell<BTreeMap<PathBuf, std::sync::Weak<VaultLockHandle>>> = const { RefCell::new(BTreeMap::new()) };
 }
 
 /// Returns the hidden sidecar path used to coordinate writes to `target`.

@@ -33,6 +33,14 @@ const fields = () => [
 const sleep = (milliseconds: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 
 function archiveLifecycle() {
+  const filePath = path.join(artifactRoot(), 'native-file.lbox');
+  const fileKey = Buffer.alloc(32, 75);
+  let fileBox = binding.Lockbox.create(filePath, {contentKey: fileKey, overwrite: true});
+  try { fileBox.addFile('/hello', Buffer.from('native'), false); fileBox.commit(); } finally { fileBox.close(); }
+  fileBox = binding.Lockbox.open(filePath, {contentKey: fileKey});
+  try { check(equal(fileBox.getFile('/hello'), 'native'), 'native file persistence'); } finally { fileBox.close(); }
+  fs.unlinkSync(filePath); pass('lockbox_file', 3);
+
   const key = Buffer.alloc(32, 'K');
   const box = api.lockboxCreate(key); pass('lockbox_create');
   box.addFile('/hello.txt', 'hello from typescript conformance', false); pass('lockbox_add_file', 2);
@@ -180,8 +188,7 @@ function vaultLifecycle() {
   check(vault.root() === root && vault.structureVersion() > 0, 'vault'); pass('vault_directory_root', 3); pass('vault_directory_structure_version');
   const currentVersion = api.vaultStructureVersionCurrent();
   check(currentVersion === vault.structureVersion(), 'current vault structure version');
-  check(api.vaultDirectoryProbeStructureVersion(root, password) === currentVersion, 'vault structure probe');
-  pass('vault_structure_version_current', 2); pass('vault_directory_probe_structure_version', 2);
+  pass('vault_structure_version_current', 2);
   vault.storePrivateKey('alice', profile); pass('vault_directory_store_private_key');
   vault.privateKeyExists('alice'); pass('vault_directory_private_key_exists');
   vault.loadPrivateKey('alice').free(); vault.loadPrivateKeyGeneration('alice', 1).free();
@@ -215,6 +222,9 @@ function vaultLifecycle() {
   vault.deletePrivateKey('alice'); vault.restorePrivateKey('alice', profile, owner, true);
   pass('vault_directory_delete_private_key', 2); pass('vault_directory_restore_private_key', 2);
   vault.free(); pass('vault_directory_free');
+  // Release the writable vault before an independent path-based probe.
+  check(api.vaultDirectoryProbeStructureVersion(root, password) === currentVersion, 'vault structure probe');
+  pass('vault_directory_probe_structure_version', 2);
   const readonly = api.vaultReadOnlyOpen(root, password); pass('vault_read_only_open');
   readonly.listProfileNames(); readonly.listContactNames(); readonly.listFormAliases(); readonly.listKnownLockboxes();
   pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names');

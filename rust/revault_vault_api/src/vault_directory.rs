@@ -147,6 +147,8 @@ pub struct VaultDirectory {
     path: PathBuf,
     lockbox: RefCell<Lockbox>,
     // Keep vault coordination ahead of the archive lock for its whole lifetime.
+    // Mutations reuse this guard; reacquiring would depend on the caller staying
+    // on the opening thread, which foreign runtimes such as Go do not guarantee.
     _guard: VaultFileLock,
 }
 
@@ -274,11 +276,8 @@ impl VaultDirectory {
     /// historical exporter before opening the source through `VaultDirectory`.
     pub fn probe_structure_version(root: impl AsRef<Path>, password: &SecretString) -> Result<u32> {
         let path = root.as_ref().join(VAULT_FILE_NAME);
-        // This probe is also used while a caller owns an open VaultDirectory.
-        // Read the atomically-replaced archive bytes directly so probing does
-        // not try to acquire a second archive lock for the same file.
-        let bytes = fs::read(&path).map_err(|err| Error::Io(err.to_string()))?;
-        let lockbox = Lockbox::open_bytes(bytes, LockboxOpen::Password(password))?;
+        // Independent path probes participate in the archive locking protocol.
+        let lockbox = Lockbox::open(&path, LockboxOpen::Password(password))?;
         let record = lockbox.get_file(&vault_structure_version_record_path()?)?;
         decode_structure_version(&record)
     }
@@ -1122,7 +1121,6 @@ impl VaultDirectory {
         name: &str,
         fields: Vec<FormFieldDefinition>,
     ) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.define_form(alias, name, fields)?;
         lockbox.commit()?;
@@ -1138,7 +1136,6 @@ impl VaultDirectory {
         description: &str,
         fields: Vec<FormFieldDefinition>,
     ) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.define_form_with_description(alias, name, description, fields)?;
         lockbox.commit()?;
@@ -1154,7 +1151,6 @@ impl VaultDirectory {
         name: &str,
         fields: Vec<FormFieldDefinition>,
     ) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.define_form_with_type_id(type_id, alias, name, fields)?;
         lockbox.commit()?;
@@ -1171,7 +1167,6 @@ impl VaultDirectory {
         description: &str,
         fields: Vec<FormFieldDefinition>,
     ) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.define_form_with_type_id_and_description(
             type_id,
@@ -1187,7 +1182,6 @@ impl VaultDirectory {
 
     /// Imports an exact reusable form definition into the vault.
     pub fn import_form_definition(&self, definition: FormDefinition) -> Result<FormDefinition> {
-        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let definition = lockbox.import_form_definition(definition)?;
         lockbox.commit()?;
@@ -1276,7 +1270,6 @@ impl VaultDirectory {
         bytes: &[u8],
         replace: bool,
     ) -> Result<()> {
-        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         let replace = replace && lockbox.stat(path).is_some();
         lockbox.create_parent_dirs_for(path)?;
@@ -1287,7 +1280,6 @@ impl VaultDirectory {
     }
 
     fn put_secret_variable_record(&self, name: &VariableName, value: &SecretString) -> Result<()> {
-        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         lockbox.set_secret_variable(name, value)?;
         lockbox.commit()?;
@@ -1300,7 +1292,6 @@ impl VaultDirectory {
     }
 
     fn delete_record_if_exists(&self, path: &LockboxPath) -> Result<()> {
-        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         if lockbox.stat(path).is_some() {
             lockbox.delete(path)?;
@@ -1311,7 +1302,6 @@ impl VaultDirectory {
     }
 
     fn delete_secret_variable_record_if_exists(&self, name: &VariableName) -> Result<()> {
-        let _guard = VaultFileLock::acquire(&self.path)?;
         let mut lockbox = self.lockbox.borrow_mut();
         if lockbox.variable_sensitivity(name)?.is_some() {
             lockbox.delete_variable(name)?;
