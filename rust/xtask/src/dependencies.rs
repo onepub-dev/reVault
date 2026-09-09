@@ -52,13 +52,11 @@ pub fn upgrade() -> TaskResult {
         &rust_workspace,
         ["clippy", "--workspace", "--all-targets", "--all-features"],
     )?;
-    // The CLI integration suite starts session-agent processes and exercises
-    // shared vault locking. Serializing test cases avoids false failures from
-    // concurrent agents competing for the same test resources.
     run_in(
         &rust_workspace,
-        ["test", "--workspace", "--", "--test-threads=1"],
+        ["test", "--workspace", "--exclude", "revault_cli"],
     )?;
+    run_cli_tests(&rust_workspace)?;
 
     for workspace in &workspaces {
         run_in(workspace, ["tree"])?;
@@ -83,6 +81,170 @@ fn upgrade_workspace(workspace: &Path) -> TaskResult {
 }
 
 fn run_in<const N: usize>(workspace: &Path, args: [&str; N]) -> TaskResult {
+    let mut cargo = command::command("cargo");
+    cargo.current_dir(workspace).args(args);
+    command::run(&mut cargo)
+}
+
+fn run_cli_tests(workspace: &Path) -> TaskResult {
+    // Keep cli_flow aligned with the CI matrix. Each shard retains Cargo's
+    // normal test-thread parallelism while reducing contention between the
+    // session-agent and vault-locking scenarios.
+    for args in [
+        vec!["test", "-p", "revault_cli", "--test", "cli_flow", "vault_"],
+        vec![
+            "test",
+            "-p",
+            "revault_cli",
+            "--test",
+            "cli_flow",
+            "open",
+            "--",
+            "--skip",
+            "vault_",
+        ],
+        vec![
+            "test",
+            "-p",
+            "revault_cli",
+            "--test",
+            "cli_flow",
+            "session",
+            "--",
+            "--skip",
+            "vault_",
+            "--skip",
+            "open",
+        ],
+        vec![
+            "test",
+            "-p",
+            "revault_cli",
+            "--test",
+            "cli_flow",
+            "form",
+            "--",
+            "--skip",
+            "vault_",
+            "--skip",
+            "open",
+            "--skip",
+            "session",
+        ],
+        vec![
+            "test",
+            "-p",
+            "revault_cli",
+            "--test",
+            "cli_flow",
+            "create",
+            "--",
+            "--skip",
+            "vault_",
+            "--skip",
+            "open",
+            "--skip",
+            "session",
+            "--skip",
+            "form",
+        ],
+        vec![
+            "test",
+            "-p",
+            "revault_cli",
+            "--test",
+            "cli_flow",
+            "remove",
+            "--",
+            "--skip",
+            "vault_",
+            "--skip",
+            "open",
+            "--skip",
+            "session",
+            "--skip",
+            "form",
+            "--skip",
+            "create",
+        ],
+        vec![
+            "test",
+            "-p",
+            "revault_cli",
+            "--test",
+            "cli_flow",
+            "list",
+            "--",
+            "--skip",
+            "vault_",
+            "--skip",
+            "open",
+            "--skip",
+            "session",
+            "--skip",
+            "form",
+            "--skip",
+            "create",
+            "--skip",
+            "remove",
+        ],
+        vec![
+            "test",
+            "-p",
+            "revault_cli",
+            "--test",
+            "cli_flow",
+            "--",
+            "--skip",
+            "vault_",
+            "--skip",
+            "open",
+            "--skip",
+            "session",
+            "--skip",
+            "form",
+            "--skip",
+            "create",
+            "--skip",
+            "remove",
+            "--skip",
+            "list",
+        ],
+    ] {
+        run_cli_command(workspace, &args)?;
+    }
+
+    for args in [
+        vec![
+            "test",
+            "-p",
+            "revault_cli",
+            "--test",
+            "agent_flow",
+            "--test",
+            "completion",
+        ],
+        vec!["test", "-p", "revault_cli", "--test", "migration_cli"],
+        vec!["test", "-p", "revault_cli", "--test", "password_profiles"],
+        vec!["test", "-p", "revault_cli", "--test", "mirror_cli"],
+        vec![
+            "test",
+            "-p",
+            "revault_cli",
+            "--test",
+            "contact_receive_alias",
+            "--test",
+            "help_open_key",
+            "--test",
+            "publish_integration",
+        ],
+    ] {
+        run_cli_command(workspace, &args)?;
+    }
+    Ok(())
+}
+
+fn run_cli_command(workspace: &Path, args: &[&str]) -> TaskResult {
     let mut cargo = command::command("cargo");
     cargo.current_dir(workspace).args(args);
     command::run(&mut cargo)
