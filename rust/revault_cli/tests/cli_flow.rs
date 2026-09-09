@@ -7043,12 +7043,12 @@ fn run(bin: &str, args: &[&str]) {
     assert_success(&output);
 }
 
-fn run_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &PathBuf) {
+fn run_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &Path) {
     let output = run_output_in(bin, args, vault_root, agent_root);
     assert_success(&output);
 }
 
-fn run_without_content_key(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &PathBuf) {
+fn run_without_content_key(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &Path) {
     let output = run_output_without_content_key(bin, args, vault_root, agent_root);
     assert_success(&output);
 }
@@ -7077,12 +7077,12 @@ fn run_output_with_env(bin: &str, args: &[&str], name: &str, value: &str) -> Out
         .unwrap()
 }
 
-fn run_output_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &PathBuf) -> Output {
+fn run_output_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &Path) -> Output {
     Command::new(bin)
         .args(args)
         .env("LOCKBOX_KEY", "test-key")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
+        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
         .output()
@@ -7103,14 +7103,14 @@ fn run_output_in_with_stdin(
     bin: &str,
     args: &[&str],
     vault_root: &PathBuf,
-    agent_root: &PathBuf,
+    agent_root: &Path,
     stdin: &str,
 ) -> Output {
     let mut child = Command::new(bin)
         .args(args)
         .env("LOCKBOX_KEY", "test-key")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
+        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
         .stdin(Stdio::piped())
@@ -7131,13 +7131,13 @@ fn run_output_without_content_key(
     bin: &str,
     args: &[&str],
     vault_root: &PathBuf,
-    agent_root: &PathBuf,
+    agent_root: &Path,
 ) -> Output {
     Command::new(bin)
         .args(args)
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
+        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
         .output()
@@ -7148,7 +7148,7 @@ fn run_output_without_content_key_with_env(
     bin: &str,
     args: &[&str],
     vault_root: &PathBuf,
-    agent_root: &PathBuf,
+    agent_root: &Path,
     name: &str,
     value: &str,
 ) -> Output {
@@ -7156,7 +7156,7 @@ fn run_output_without_content_key_with_env(
         .args(args)
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
+        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
         .env(name, value)
@@ -7168,13 +7168,13 @@ fn run_output_without_lockbox_password(
     bin: &str,
     args: &[&str],
     vault_root: &PathBuf,
-    agent_root: &PathBuf,
+    agent_root: &Path,
 ) -> Command {
     let mut command = Command::new(bin);
     command
         .args(args)
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
+        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root);
     command
@@ -7184,7 +7184,7 @@ fn run_output_without_lockbox_password_with_stdin(
     bin: &str,
     args: &[&str],
     vault_root: &PathBuf,
-    agent_root: &PathBuf,
+    agent_root: &Path,
     stdin: &str,
 ) -> Output {
     let mut child = run_output_without_lockbox_password(bin, args, vault_root, agent_root)
@@ -7206,14 +7206,14 @@ fn run_output_without_content_key_with_stdin(
     bin: &str,
     args: &[&str],
     vault_root: &PathBuf,
-    agent_root: &PathBuf,
+    agent_root: &Path,
     stdin: &str,
 ) -> Output {
     let mut child = Command::new(bin)
         .args(args)
         .env("LOCKBOX_PASSWORD", "test-lockbox-password")
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
-        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
+        .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
         .stdin(Stdio::piped())
