@@ -18,7 +18,7 @@ use revault_lockbox_api::{
 };
 use revault_vault_api::{
     auto_open_scope, encode_hex, export_private_key, list as list_open_lockboxes, local_vault,
-    AutoOpenScope, KeyFormat, NoopStore, SecretVec, Vault, VaultDirectory,
+    AutoOpenScope, ContentKeyStore, KeyFormat, NoopStore, SecretVec, Vault, VaultDirectory,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::env;
@@ -585,7 +585,9 @@ pub(crate) fn revoke_access(args: &[String], access: &Access) -> CliResult<()> {
     let old_labels = access_slot_labels_by_slot(lb.lockbox_id());
     let new_labels = lb.replace_content_key_with_access(&retained.contacts, &retained.passwords)?;
     mirror_key_directory(&lb, lockbox_path)?;
-    let _ = local_vault().close_lockbox(lockbox_path);
+    // The rekeyed archive is still exclusively open. Evict by its known ID
+    // rather than reopening the path and leaving the obsolete cached key behind.
+    let _ = local_vault().store().forget_content_key(lb.lockbox_id());
     let vault = default_vault()?;
     for slot_id in old_labels.keys() {
         vault.forget_access_slot_label(lb.lockbox_id(), *slot_id)?;

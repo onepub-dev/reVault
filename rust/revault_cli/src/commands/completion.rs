@@ -302,9 +302,8 @@ pub(crate) fn lockbox_path_candidates(current: &OsStr) -> Vec<CompletionCandidat
     let value = Path::new(current);
     let (prefix, file_prefix) = match value.file_name() {
         Some(name)
-            if !current
-                .as_encoded_bytes()
-                .ends_with(std::path::MAIN_SEPARATOR_STR.as_bytes()) =>
+            if !(current.as_encoded_bytes().ends_with(b"/")
+                || cfg!(windows) && current.as_encoded_bytes().ends_with(b"\\")) =>
         {
             (value.parent().unwrap_or_else(|| Path::new("")), name)
         }
@@ -340,7 +339,15 @@ pub(crate) fn lockbox_path_candidates(current: &OsStr) -> Vec<CompletionCandidat
             }
             None
         })
-        .map(|path| CompletionCandidate::new(path.into_os_string()))
+        .map(|path| {
+            // Windows accepts both separators. Preserve slash-style input for
+            // Bash instead of returning a mixture of slashes and backslashes.
+            #[cfg(windows)]
+            if current.to_string_lossy().contains('/') {
+                return CompletionCandidate::new(path.to_string_lossy().replace('\\', "/"));
+            }
+            CompletionCandidate::new(path.into_os_string())
+        })
         .collect::<Vec<_>>();
     values.sort();
     values

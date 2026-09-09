@@ -3,6 +3,7 @@ name: Rust
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   LOCKBOX_COMPRESSION_CORPUS_VERSION: v1
+  RUST_TEST_NOCAPTURE: "1"
 
 on:
   workflow_call:
@@ -145,7 +146,7 @@ jobs:
     name: Linux tests / ${{ matrix.group }}
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - group: secure APIs
@@ -273,7 +274,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os:
           - macos-latest
@@ -334,7 +335,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         include:
           - name: Linux x86_64
