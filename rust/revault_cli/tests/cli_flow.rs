@@ -5340,8 +5340,13 @@ fn session_and_close_report_empty_cache_and_already_closed_state() {
     );
     let closed = run_output_without_content_key(bin, &["close"], &vault_root, &agent_root);
     assert_success(&closed);
-    // Creation opens the lockbox; only a repeated close is already closed.
-    let closed = run_output_without_content_key(bin, &["close"], &vault_root, &agent_root);
+    // Closing clears the session default, so name the lockbox for a repeat.
+    let closed = run_output_without_content_key(
+        bin,
+        &[lockbox.to_str().unwrap(), "close"],
+        &vault_root,
+        &agent_root,
+    );
     assert_success(&closed);
     assert!(String::from_utf8_lossy(&closed.stdout).contains("already closed"));
 

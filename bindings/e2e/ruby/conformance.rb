@@ -180,8 +180,8 @@ def vault_lifecycle
   puts("ARTIFACT\truby\tvault-created\t#{root}")
   check(vault.root == root && vault.structure_version > 0, 'vault'); pass('vault_directory_root', 3); pass('vault_directory_structure_version')
   current = API.vault_structure_version_current
-  check(current == vault.structure_version && API.vault_directory_probe_structure_version(root, password) == current, 'vault probe')
-  pass('vault_structure_version_current', 2); pass('vault_directory_probe_structure_version', 2)
+  check(current == vault.structure_version, 'vault version')
+  pass('vault_structure_version_current', 2)
   vault.store_private_key('alice', profile); pass('vault_directory_store_private_key')
   vault.private_key_exists('alice'); pass('vault_directory_private_key_exists')
   vault.load_private_key('alice').free; vault.load_private_key_generation('alice', 1).free
@@ -215,6 +215,9 @@ def vault_lifecycle
   vault.delete_private_key('alice'); vault.restore_private_key('alice', profile, owner, true)
   pass('vault_directory_delete_private_key', 2); pass('vault_directory_restore_private_key', 2)
   vault.free; pass('vault_directory_free')
+  # Release the writable vault before an independent path-based probe.
+  check(API.vault_directory_probe_structure_version(root, password) == current, 'vault probe')
+  pass('vault_directory_probe_structure_version', 2)
   readonly = API.vault_read_only_open(root, password)
   readonly.list_profile_names; readonly.list_contact_names; readonly.list_form_aliases; readonly.list_known_lockboxes
   pass('vault_read_only_open'); pass('vault_read_only_list_profile_names', 2); pass('vault_read_only_list_contact_names')

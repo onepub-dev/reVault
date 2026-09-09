@@ -207,7 +207,10 @@ jobs:
           composer validate --working-dir bindings/php --strict --no-check-publish
           gem build bindings/ruby/revault_api.gemspec --output build/registry/revault_api.gem
           luarocks lint bindings/lua/revault_api-0.2.0-1.rockspec
-          cargo package --locked --manifest-path bindings/rust/Cargo.toml
+          cargo package --locked --manifest-path bindings/rust/Cargo.toml \
+            --config 'patch.crates-io.revault_lockbox_api.path="rust/revault_lockbox_api"' \
+            --config 'patch.crates-io.revault_page_api.path="rust/revault_page_api"' \
+            --config 'patch.crates-io.revault_vault_api.path="rust/revault_vault_api"'
       - name: Upload registry validation reports
         if: always()
         uses: actions/upload-artifact@v4

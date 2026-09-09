@@ -588,11 +588,7 @@ def vault_lifecycle(runtime: Runtime) -> None:
     passed("vault_directory_structure_version", 1)
     current_version = lib.vault_structure_version_current()
     check(current_version == lib.vault_directory_structure_version(vault), "current vault version")
-    check(lib.vault_directory_probe_structure_version(
-        root_data, len(root_bytes), password, len(password_bytes)
-    ) == current_version, "vault structure probe")
     passed("vault_structure_version_current", 2)
-    passed("vault_directory_probe_structure_version", 2)
 
     profile = lib.key_contact_generate()
     contact = lib.key_contact_generate()
@@ -728,6 +724,11 @@ def vault_lifecycle(runtime: Runtime) -> None:
     lib.key_signing_free(signing)
     lib.vault_directory_free(vault)
     passed("vault_directory_free", 1)
+    # Release the writable vault before an independent path-based probe.
+    check(lib.vault_directory_probe_structure_version(
+        root_data, len(root_bytes), password, len(password_bytes)
+    ) == current_version, "vault structure probe")
+    passed("vault_directory_probe_structure_version", 2)
     readonly = lib.vault_read_only_open(root_data, len(root_bytes), password, len(password_bytes))
     check(readonly, runtime.error())
     passed("vault_read_only_open", 1)

@@ -161,7 +161,7 @@ static class Conformance
         using (var vault = Api.ReplaceVault(root, password))
         {
             Pass("vault_directory_replace"); Console.WriteLine($"ARTIFACT\tcsharp\tvault-created\t{root}"); Check(vault.Root == root && vault.StructureVersion > 0, "vault"); Pass("vault_directory_root", 3); Pass("vault_directory_structure_version");
-            var currentVersion = Api.CurrentVaultStructureVersion; Check(currentVersion == vault.StructureVersion && Api.ProbeVaultStructureVersion(root, password) == currentVersion, "vault probe"); Pass("vault_structure_version_current", 2); Pass("vault_directory_probe_structure_version", 2);
+            var currentVersion = Api.CurrentVaultStructureVersion; Check(currentVersion == vault.StructureVersion, "vault version"); Pass("vault_structure_version_current", 2);
             vault.StorePrivateKey("alice", profile); Check(vault.PrivateKeyExists("alice"), "profile"); using (var loaded = vault.LoadPrivateKey("alice")) Check(loaded.PublicBytes().Length > 0, "load"); using (var loaded = vault.LoadPrivateKeyGeneration("alice", 1)) Check(loaded.PublicBytes().Length > 0, "generation");
             Pass("vault_directory_store_private_key"); Pass("vault_directory_private_key_exists"); Pass("vault_directory_load_private_key"); Pass("vault_directory_load_private_key_generation");
             vault.StoreProfileEmail("alice", "alice@example.test"); Check(vault.ProfileEmail("alice") != null, "email"); Pass("vault_directory_store_profile_email"); Pass("vault_directory_profile_email", 3);
@@ -182,6 +182,8 @@ static class Conformance
             vault.DeletePrivateKey("alice"); Check(!vault.PrivateKeyExists("alice"), "deleted"); vault.RestorePrivateKey("alice", profile, owner, true); Check(vault.PrivateKeyExists("alice"), "restored"); Pass("vault_directory_delete_private_key", 2); Pass("vault_directory_restore_private_key", 2);
         }
         Pass("vault_directory_free"); using (var readOnlyVault = Api.OpenReadOnlyVault(root, password)) { Check(readOnlyVault.ListProfileNames().Count > 0, "readonly profiles"); _ = readOnlyVault.ListContactNames(); Check(readOnlyVault.ListFormAliases().Count > 0, "readonly forms"); _ = readOnlyVault.ListKnownLockboxes(); Pass("vault_read_only_open"); Pass("vault_read_only_list_profile_names", 2); Pass("vault_read_only_list_contact_names"); Pass("vault_read_only_list_form_aliases", 2); Pass("vault_read_only_list_known_lockboxes"); } Pass("vault_read_only_free");
+        // Both writable and read-only handles are closed before the path probe.
+        Check(Api.ProbeVaultStructureVersion(root, password) == Api.CurrentVaultStructureVersion, "vault probe"); Pass("vault_directory_probe_structure_version", 2);
         Api.ChangeVaultPassword(root, password, changed); Pass("vault_directory_change_password"); using (var opened = Api.OpenVault(root, changed)) Check(opened.StructureVersion > 0, "reopen"); Pass("vault_directory_open"); Console.WriteLine($"ARTIFACT\tcsharp\tvault-opened\t{root}");
         using (var opened = Api.OpenOrCreateVault(root, changed)) Check(opened.StructureVersion > 0, "open create"); Pass("vault_directory_open_or_create");
     }

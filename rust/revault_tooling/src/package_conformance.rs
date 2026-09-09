@@ -119,8 +119,22 @@ fn prepare_rust_package(repository: &Path, packages: &Path, work: &Path) -> Resu
         )?;
     }
     let target = work.join("rust-package-target");
+    // Cargo normalizes away path dependencies when packaging. Supply candidate
+    // sources through Cargo configuration until these versions are published.
+    let mut package_command = Command::new("cargo");
+    for dependency in [
+        "revault_lockbox_api",
+        "revault_page_api",
+        "revault_vault_api",
+    ] {
+        let path = repository.join("rust").join(dependency).canonicalize()?;
+        package_command.arg("--config").arg(format!(
+            "patch.crates-io.{dependency}.path={}",
+            toml_edit::Value::from(path.to_string_lossy().into_owned())
+        ));
+    }
     run_status(
-        Command::new("cargo")
+        package_command
             .args(["package", "--allow-dirty", "--no-verify", "--target-dir"])
             .arg(&target)
             .current_dir(&package),

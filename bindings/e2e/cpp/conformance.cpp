@@ -456,10 +456,7 @@ static void vault_lifecycle() {
     pass("vault_directory_structure_version");
     const auto current_version = Vault::current_structure_version();
     check(current_version == vault.structure_version(), "current vault structure version");
-    check(Vault::probe_structure_version(root.string(), password) == current_version,
-          "probed vault structure version");
     pass("vault_structure_version_current", 2);
-    pass("vault_directory_probe_structure_version", 2);
     vault.store_private_key("alice", profile);
     check(vault.private_key_exists("alice"), "private key exists");
     auto loaded_profile = vault.load_private_key("alice");
@@ -551,6 +548,10 @@ static void vault_lifecycle() {
     pass("vault_directory_restore_private_key", 2);
   }
   pass("vault_directory_free");
+  // The writable vault's scope must end before an independent path probe.
+  check(Vault::probe_structure_version(root.string(), password) == Vault::current_structure_version(),
+        "probed vault structure version");
+  pass("vault_directory_probe_structure_version", 2);
   {
     ReadOnlyVault readonly(root.string(), password);
     check(readonly.list_profile_names().size() > 0, "read-only profiles");

@@ -562,12 +562,7 @@ void vaultLifecycle() {
   pass('vault_directory_structure_version');
   final currentVersion = api.currentVaultStructureVersion;
   check(currentVersion == vault.structureVersion, 'current vault version');
-  check(
-    api.probeVaultStructureVersion(root, password) == currentVersion,
-    'vault structure probe',
-  );
   pass('vault_structure_version_current', 2);
-  pass('vault_directory_probe_structure_version', 2);
   vault.storePrivateKey('alice', profile);
   check(vault.privateKeyExists('alice'), 'profile');
   vault.loadPrivateKey('alice').dispose();
@@ -673,6 +668,12 @@ void vaultLifecycle() {
   pass('vault_directory_restore_private_key', 2);
   vault.close();
   pass('vault_directory_free');
+  // Release the writable vault before an independent path-based probe.
+  check(
+    api.probeVaultStructureVersion(root, password) == currentVersion,
+    'vault structure probe',
+  );
+  pass('vault_directory_probe_structure_version', 2);
   final readonly = Vault.openReadOnly(root: root, passphrase: password);
   check(readonly.listProfileNames().isNotEmpty, 'read-only profiles');
   readonly.listContactNames();
@@ -771,12 +772,10 @@ void platformStore() {
 }
 
 Future<void> agentAndLocal() async {
-  Directory(
-    Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!,
-  ).createSync(recursive: true);
-  Directory(
-    Platform.environment['LOCKBOX_VAULT_DIR']!,
-  ).createSync(recursive: true);
+  Directory(Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!)
+      .createSync(recursive: true);
+  Directory(Platform.environment['LOCKBOX_VAULT_DIR']!)
+      .createSync(recursive: true);
   final directory = withSecretString(
     'agent vault password',
     (password) => Vault.replace(passphrase: password),
