@@ -52,7 +52,13 @@ pub fn upgrade() -> TaskResult {
         &rust_workspace,
         ["clippy", "--workspace", "--all-targets", "--all-features"],
     )?;
-    run_in(&rust_workspace, ["test", "--workspace"])?;
+    // The CLI integration suite starts session-agent processes and exercises
+    // shared vault locking. Serializing test cases avoids false failures from
+    // concurrent agents competing for the same test resources.
+    run_in(
+        &rust_workspace,
+        ["test", "--workspace", "--", "--test-threads=1"],
+    )?;
 
     for workspace in &workspaces {
         run_in(workspace, ["tree"])?;
