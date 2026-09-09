@@ -24,7 +24,7 @@ issue303-protocol = []
 native-zstd-encoder = ["dep:zstd"]
 
 [dependencies]
-argon2 = "0.5"
+argon2 = "0.6"
 chacha20poly1305 = "0.11"
 ed25519-dalek = "3"
 getrandom = "0.4"
@@ -39,7 +39,7 @@ unicode-normalization = "0.1"
 x25519-dalek = { version = "3", features = ["static_secrets"] }
 zeroize = "1.9"
 zstd-complete = "0.2"
-zstd = { version = "0.13.3", default-features = false, optional = true }
+zstd = { version = "0.14.0", default-features = false, optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.4", features = ["wasm_js"] }

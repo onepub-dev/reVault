@@ -1,6 +1,7 @@
 mod build;
 mod command;
 mod compression;
+mod dependencies;
 mod e2e;
 mod install;
 mod quality;
@@ -38,6 +39,7 @@ fn run() -> Result<(), String> {
         "run-network-tests" => no_args(&task, &args, quality::run_network_tests),
         "measure-key-server-performance" => quality::measure_key_server_performance(&args),
         "compare-archive-compression" => compression::run(&args),
+        "upgrade-deps" => no_args(&task, &args, dependencies::upgrade),
         "agent-sleep-unix" => sleep::unix::run(&args),
         "agent-sleep-windows-host" => sleep::windows_host::run(&args),
         "agent-sleep-windows-setup" => sleep::windows_setup::run(&args),
@@ -79,6 +81,7 @@ Tasks:
   run-network-tests              Run ignored network integration tests
   measure-key-server-performance Run and capture the heavy failover benchmark
   compare-archive-compression    Compare lockbox compression with other tools
+  upgrade-deps                   Upgrade all Rust dependencies, then run validation
   agent-sleep-unix               Exercise agent key clearing across Unix sleep
   agent-sleep-windows-host       Drive the headless Windows libvirt sleep test
   agent-sleep-windows-setup      Start the visible Windows setup domain

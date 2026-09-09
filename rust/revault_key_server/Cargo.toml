@@ -24,7 +24,7 @@ axum = { version = "0.8.9", default-features = false, features = [
     "tokio",
 ] }
 bytes = "1"
-clap = { version = "4.6.1", default-features = false, features = [
+clap = { version = "4.6.6", default-features = false, features = [
     "error-context",
     "help",
     "std",
