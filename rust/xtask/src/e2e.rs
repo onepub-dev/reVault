@@ -19,8 +19,7 @@ pub fn cli() -> TaskResult {
     fs::create_dir_all(&coverage_dir)
         .map_err(|error| format!("cannot create {}: {error}", coverage_dir.display()))?;
 
-    // Each shard runs its tests serially, isolating Session Agent and archive
-    // locks. The shards themselves run concurrently, matching the CI matrix.
+    // Bound per-shard load while running independent shards concurrently.
     let shards = cli_shards();
     let mut workers = Vec::new();
     for (name, args) in shards {
@@ -40,7 +39,10 @@ pub fn cli() -> TaskResult {
         }
     }
     if !errors.is_empty() {
-        return Err(format!("CLI E2E shard failures:\n  {}", errors.join("\n  ")).into());
+        return Err(format!(
+            "CLI E2E shard failures:\n  {}",
+            errors.join("\n  ")
+        ));
     }
     merge_coverage(&coverage_dir, &coverage_path)?;
 
@@ -164,7 +166,7 @@ fn cli_shards() -> Vec<(&'static str, Vec<&'static str>)> {
             ],
         ),
         (
-            "flow-remove-list",
+            "flow-remove",
             vec![
                 "test",
                 "-p",
@@ -206,8 +208,6 @@ fn cli_shards() -> Vec<(&'static str, Vec<&'static str>)> {
                 "create",
                 "--skip",
                 "remove",
-                "--skip",
-                "list",
             ],
         ),
         (
@@ -249,26 +249,29 @@ fn cli_shards() -> Vec<(&'static str, Vec<&'static str>)> {
 
 fn run_cli_shard(name: &str, args: Vec<&'static str>, coverage: PathBuf) -> TaskResult {
     let mut tests = command::command("cargo");
-    tests.args(args).args(["--", "--test-threads=1"]);
+    tests.args(shard_arguments(args));
     tests.env(COVERAGE_ENV, coverage);
     eprintln!("running CLI E2E shard {name}");
     command::run(&mut tests)
 }
 
+fn shard_arguments(mut args: Vec<&'static str>) -> Vec<&'static str> {
+    if !args.contains(&"--") {
+        args.push("--");
+    }
+    args.push("--test-threads=1");
+    args
+}
+
 fn merge_coverage(dir: &std::path::Path, output: &std::path::Path) -> TaskResult {
     let mut merged = String::new();
-    for entry in
-        fs::read_dir(dir).map_err(|error| format!("cannot read {}: {error}", dir.display()))?
-    {
-        let path = entry
-            .map_err(|error| format!("cannot read coverage entry: {error}"))?
-            .path();
-        if path.extension().and_then(|value| value.to_str()) == Some("tsv") {
-            merged.push_str(
-                &fs::read_to_string(&path)
-                    .map_err(|error| format!("cannot read {}: {error}", path.display()))?,
-            );
-        }
+    // Only consume this run's shards, never files left by an older shard layout.
+    for (name, _) in cli_shards() {
+        let path = dir.join(format!("{name}.tsv"));
+        merged.push_str(
+            &fs::read_to_string(&path)
+                .map_err(|error| format!("cannot read {}: {error}", path.display()))?,
+        );
     }
     fs::write(output, merged).map_err(|error| format!("cannot write {}: {error}", output.display()))
 }
@@ -353,6 +356,29 @@ fn enforce(expected: BTreeMap<String, BTreeSet<String>>, actual: Coverage) -> Ta
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shards_select_every_cli_flow_once() {
+        let source = include_str!("../../revault_cli/tests/cli_flow.rs");
+        for test in source.split("#[test]").skip(1) {
+            let name = test.split("fn ").nth(1).unwrap().split('(').next().unwrap();
+            let selected = cli_shards()
+                .into_iter()
+                .filter(|(_, args)| args.contains(&"cli_flow"))
+                .filter(|(_, args)| {
+                    let args = shard_arguments(args.clone());
+                    assert_eq!(args.iter().filter(|arg| **arg == "--").count(), 1);
+                    let index = args.iter().position(|arg| *arg == "cli_flow").unwrap();
+                    let filter = args[index + 1];
+                    (filter == "--" || name.contains(filter))
+                        && !args
+                            .windows(2)
+                            .any(|pair| pair[0] == "--skip" && name.contains(pair[1]))
+                })
+                .count();
+            assert_eq!(selected, 1, "shard selection for {name}");
+        }
+    }
 
     #[test]
     fn coverage_parser_merges_real_invocations() {

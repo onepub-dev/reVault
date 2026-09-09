@@ -711,7 +711,12 @@ static void vault_lifecycle(void) {
         "vault structure version");
   PASS(vault_directory_structure_version, 1);
   CHECK(vault_structure_version_current() == vault_directory_structure_version(vault), "current vault structure version");
-  CHECK(vault_directory_probe_structure_version(root, strlen(root), password, sizeof(password) - 1) == vault_structure_version_current(), "probe vault structure version");
+  const uint32_t current_vault_version = vault_structure_version_current();
+  // An independent path probe must not read through a live Windows vault lock.
+  vault_directory_free(vault);
+  CHECK(vault_directory_probe_structure_version(root, strlen(root), password, sizeof(password) - 1) == current_vault_version, "probe vault structure version");
+  vault = vault_directory_open(root, strlen(root), password, sizeof(password) - 1);
+  CHECK(vault != NULL, "reopen vault after structure probe");
   PASS(vault_structure_version_current, 1);
   PASS(vault_directory_probe_structure_version, 2);
 

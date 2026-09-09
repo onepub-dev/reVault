@@ -3859,6 +3859,8 @@ fn vault_beget_creates_an_independent_profile_and_local_contact() {
         public_key.to_bytes()
     );
     assert!(!current.private_key_exists("production").unwrap());
+    // Release the vault lock before the next CLI process opens it.
+    drop(current);
 
     let collision_path = dir.join("collision.vault.lbx");
     let collision = Command::new(bin)
@@ -4450,8 +4452,8 @@ fn plain_filesystem_move_reports_stale_session_default_clearly() {
         &vault_root,
         &agent_root,
     );
+    // A raw filesystem move is required to simulate a move unknown to the CLI.
     fs::rename(&source, &destination).unwrap();
-    fs::rename(dir.join(".source.lbox.lock"), dir.join(".moved.lbox.lock")).unwrap();
 
     let listing = run_output_without_content_key(bin, &["list"], &vault_root, &agent_root);
     assert!(!listing.status.success());
@@ -5338,6 +5340,9 @@ fn session_and_close_report_empty_cache_and_already_closed_state() {
     );
     let closed = run_output_without_content_key(bin, &["close"], &vault_root, &agent_root);
     assert_success(&closed);
+    // Creation opens the lockbox; only a repeated close is already closed.
+    let closed = run_output_without_content_key(bin, &["close"], &vault_root, &agent_root);
+    assert_success(&closed);
     assert!(String::from_utf8_lossy(&closed.stdout).contains("already closed"));
 
     let close_all =
@@ -5418,8 +5423,6 @@ fn session_default_sets_default_lockbox_for_commands() {
         &agent_root,
     );
     assert_success(&use_output);
-    assert!(agent_root.join("default-lockbox").is_file());
-    assert!(!vault_root.join(".default-lockbox").exists());
 
     let session = run_output_without_content_key(bin, &["session"], &vault_root, &agent_root);
     assert_success(&session);

@@ -364,7 +364,6 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
         );
         return Ok(());
     }
-    let vault = open_default_vault_with_password(&vault_password)?;
     let fingerprint = fingerprint_path(&source)?;
     let operation_id = deterministic_operation_id(
         ArtifactKind::Archive,
@@ -415,6 +414,7 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
                     matches.get_one::<String>("exporter").map(PathBuf::from),
                 )?;
                 let artifact_password = SecretString::from_secure_vec(migration_key.try_clone()?);
+                let vault = open_default_vault_with_password(&vault_password)?;
                 run_historical_archive_exporter(
                     &exporter,
                     &source,
@@ -443,7 +443,8 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
         let complete = output.exists() && Lockbox::inspect_file(&output).is_ok();
         if !complete {
             remove_partial(&output)?;
-            let signing = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
+            let signing = open_default_vault_with_password(&vault_password)?
+                .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
             import_archive(&upgraded, &migration_key, &output, &signing)?;
         }
         journal.current_stage = MigrationStage::Validate;

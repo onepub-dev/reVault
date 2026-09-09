@@ -435,6 +435,8 @@ fn archive_v1_contact_only_migration_uses_keys_from_the_current_vault() {
     let vault_password = SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
     let vault = VaultDirectory::open_or_create(&fixture.vault, &vault_password).unwrap();
     vault.store_private_key("legacy", &current_contact).unwrap();
+    // Release the fixture's vault lock before invoking the migration CLI.
+    drop(vault);
 
     let output = fixture.root.join("migrated-contact.lbox");
     let exporter = build_historical_archive_exporter();
