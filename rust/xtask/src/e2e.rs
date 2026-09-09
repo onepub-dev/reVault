@@ -21,7 +21,18 @@ pub fn cli() -> TaskResult {
         .map_err(|error| format!("cannot reset {}: {error}", coverage_path.display()))?;
 
     let mut tests = command::command("cargo");
-    tests.args(["test", "-p", "revault_cli", "--tests"]);
+    // These tests launch many independent CLI processes that share the
+    // Session Agent transport and exercise archive locks. Running the whole
+    // integration set in parallel makes those resources contend and produces
+    // false failures; the regular CI matrix provides the parallel shards.
+    tests.args([
+        "test",
+        "-p",
+        "revault_cli",
+        "--tests",
+        "--",
+        "--test-threads=1",
+    ]);
     tests.env(COVERAGE_ENV, &coverage_path);
     command::run(&mut tests)?;
 

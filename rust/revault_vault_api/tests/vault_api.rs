@@ -221,6 +221,10 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
         vault.structure_version().unwrap(),
         CURRENT_VAULT_STRUCTURE_VERSION
     );
+    assert_eq!(
+        VaultDirectory::probe_structure_version(&root, &vault_password).unwrap(),
+        CURRENT_VAULT_STRUCTURE_VERSION
+    );
     let keypair = ContactKeyPair::generate().unwrap();
     vault.store_private_key("default", &keypair).unwrap();
     let encrypted = fs::read(root.join("local-vault.lbox")).unwrap();

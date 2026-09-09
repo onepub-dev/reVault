@@ -274,7 +274,11 @@ impl VaultDirectory {
     /// historical exporter before opening the source through `VaultDirectory`.
     pub fn probe_structure_version(root: impl AsRef<Path>, password: &SecretString) -> Result<u32> {
         let path = root.as_ref().join(VAULT_FILE_NAME);
-        let lockbox = Lockbox::open(&path, LockboxOpen::Password(password))?;
+        // This probe is also used while a caller owns an open VaultDirectory.
+        // Read the atomically-replaced archive bytes directly so probing does
+        // not try to acquire a second archive lock for the same file.
+        let bytes = fs::read(&path).map_err(|err| Error::Io(err.to_string()))?;
+        let lockbox = Lockbox::open_bytes(bytes, LockboxOpen::Password(password))?;
         let record = lockbox.get_file(&vault_structure_version_record_path()?)?;
         decode_structure_version(&record)
     }
