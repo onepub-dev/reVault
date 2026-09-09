@@ -1,6 +1,6 @@
 [package]
 name = "revault_bindings"
-version = "0.2.10"
+version = "0.2.11"
 edition = "2021"
 rust-version = "1.88"
 license-file = "../revault_lockbox_api/LICENSE"
@@ -16,8 +16,8 @@ default = ["native"]
 native = []
 
 [dependencies]
-revault_lockbox_api = { version = "0.0.21", path = "../revault_lockbox_api", features = ["bindings"] }
-revault_vault_api = { version = "0.0.22", path = "../revault_vault_api" }
+revault_lockbox_api = { version = "0.0.22", path = "../revault_lockbox_api", features = ["bindings"] }
+revault_vault_api = { version = "0.0.23", path = "../revault_vault_api" }
 flatbuffers = "=25.12.19"
 zeroize = "1.9"
 

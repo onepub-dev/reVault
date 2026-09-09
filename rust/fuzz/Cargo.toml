@@ -11,7 +11,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-revault_lockbox_api = { path = "../revault_lockbox_api" , version = "0.0.21" }
+revault_lockbox_api = { path = "../revault_lockbox_api" , version = "0.0.22" }
 
 [[bin]]
 name = "header"

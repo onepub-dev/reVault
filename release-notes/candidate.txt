@@ -2,6 +2,8 @@ Release all
 CLI: 0.0.16
 Bindings: 0.3.15
 
+- Fix access revoke locking, Dart formatting, and CI status reporting
+- Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Fix release package validation and vault locking; improve CI progress display
 - Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Fix CI vault lock lifetimes and CLI E2E sharding
