@@ -104,6 +104,21 @@ fn run_options(options: RecoverOptions, access: &Access) -> CliResult<()> {
         None
     };
     if options.overwrite {
+        #[cfg(windows)]
+        {
+            // tempfile uses MoveFileExW alone. std::fs::rename also supports
+            // replacing an open destination via FileRenameInfoEx on Windows.
+            // Keep the archive guards held throughout publication.
+            let (_file, path) = staged.keep().map_err(|err| err.error)?;
+            let path = tempfile::TempPath::try_from_path(path)?;
+            fs::rename(&path, output_path).map_err(|err| {
+                Error::Io(format!(
+                    "publish recovered lockbox {}: {err}",
+                    output_path.display()
+                ))
+            })?;
+        }
+        #[cfg(not(windows))]
         staged.persist(output_path).map_err(|err| err.error)?;
     } else {
         staged

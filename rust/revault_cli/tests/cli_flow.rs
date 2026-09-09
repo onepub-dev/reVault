@@ -2760,6 +2760,7 @@ fn recover_reports_and_writes_recovered_lockbox() {
             "/docs/a.txt",
         ],
     );
+    // No CLI command intentionally corrupts a header; damage the fixture here.
     let mut bytes = fs::read(&damaged).unwrap();
     bytes[0] ^= 0xff;
     fs::write(&damaged, bytes).unwrap();
@@ -2835,6 +2836,10 @@ fn recover_reports_and_writes_recovered_lockbox() {
     assert_success(&in_place_output);
     assert!(in_place.exists());
     assert!(in_place_backup.exists());
+    assert_eq!(
+        fs::read(&in_place_backup).unwrap(),
+        fs::read(&damaged).unwrap()
+    );
     let in_place_output = String::from_utf8_lossy(&in_place_output.stdout);
     assert!(in_place_output.contains("output\t"));
     assert!(in_place_output.contains("damaged_original\t"));
@@ -2851,6 +2856,9 @@ fn recover_reports_and_writes_recovered_lockbox() {
     );
     assert_success(&listing);
     assert!(String::from_utf8_lossy(&listing.stdout).contains("/docs/a.txt"));
+    let content = run_output(bin, &[in_place.to_str().unwrap(), "cat", "/docs/a.txt"]);
+    assert_success(&content);
+    assert_eq!(content.stdout, fs::read(&source).unwrap());
 }
 
 #[test]

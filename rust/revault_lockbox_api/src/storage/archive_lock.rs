@@ -55,6 +55,8 @@ fn try_lock(file: &File, exclusive: bool) -> std::io::Result<bool> {
         };
     // SAFETY: the synchronous handle and initialized offset structure are valid.
     let mut overlapped = unsafe { std::mem::zeroed() };
+    // SAFETY: file owns a live handle and overlapped is initialized and valid
+    // for the duration of this synchronous call.
     if unsafe {
         LockFileEx(
             file.as_raw_handle(),
@@ -103,6 +105,7 @@ pub(super) fn is_current(file: &File, path: &Path) -> Result<bool> {
         fn identity(file: &File) -> Result<(u32, u32, u32)> {
             // SAFETY: the API initializes the output on success.
             let mut info = unsafe { std::mem::zeroed() };
+            // SAFETY: file owns a live handle and info points to writable storage.
             if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
                 return Err(Error::Io(std::io::Error::last_os_error().to_string()));
             }
