@@ -825,7 +825,8 @@ fn retained_access_after_revoke(
                 slot.id
             )));
         };
-        let contact = load_contact_from_arg(name)?;
+        // Reuse the retained-access vault instead of reopening its locked archive.
+        let contact = load_contact_from_vault(name, &vault)?;
         retained.push((name.clone(), contact.public_key));
     }
     if retained.is_empty() && passwords.is_empty() {
