@@ -2,6 +2,8 @@ Release all
 CLI: 0.0.16
 Bindings: 0.3.15
 
+- Avoid duplicate public API integration suites during release validation
+- Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Fix release platform failures and remove duplicate CLI test coverage
 - Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Fix release conformance failures and preserve CI diagnostics
