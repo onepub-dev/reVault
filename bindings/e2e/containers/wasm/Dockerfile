@@ -5,7 +5,7 @@ WORKDIR /workspace
 COPY rust rust
 COPY bindings/e2e/operations.tsv bindings/e2e/operations.tsv
 RUN rustup target add wasm32-unknown-unknown \
-    && cargo install wasm-bindgen-cli --version 0.2.121 --locked \
+    && cargo install wasm-bindgen-cli --version 0.2.128 --locked \
     && cd rust \
     && cargo build --locked -p revault_wasm_bindings --target wasm32-unknown-unknown --release \
     && wasm-bindgen target/wasm32-unknown-unknown/release/revault_wasm_bindings.wasm \

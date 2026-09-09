@@ -3615,6 +3615,18 @@ fn access_subcommands_manage_lockbox_access() {
     assert!(!access.contains("profile:sharee"));
     assert!(access.contains("contact:sharee"));
 
+    // Rekeying must evict the old cached content key and preserve stored bytes.
+    let stored = run_output_without_lockbox_password(
+        bin,
+        &[lockbox.to_str().unwrap(), "cat", "/source.txt"],
+        &vault_root,
+        &agent_root,
+    )
+    .output()
+    .unwrap();
+    assert_success(&stored);
+    assert_eq!(stored.stdout, fs::read(&source).unwrap());
+
     let grant = run_output_without_lockbox_password(
         bin,
         &[

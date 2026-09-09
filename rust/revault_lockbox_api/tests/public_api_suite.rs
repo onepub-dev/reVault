@@ -262,6 +262,8 @@ fn public_api_recovery_scanner_reports_and_salvages_intact_files() {
     add_file(&mut lb, &p("/photos/c.jpg"), b"image", false).unwrap();
     lb.commit().unwrap();
 
+    // Release the writable file lock before reading a copy to corrupt for recovery.
+    drop(lb);
     let mut damaged = std::fs::read(&lockbox_path).unwrap();
     damaged[0] ^= 0xff;
 

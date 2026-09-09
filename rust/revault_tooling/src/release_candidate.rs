@@ -915,6 +915,7 @@ fn failure_excerpt(log: &str) -> String {
     let lines: Vec<String> = log.lines().map(clean_log_line).collect();
     let mut selected = Vec::new();
     let mut context = false;
+    let mut detail_lines: usize = 0;
     for line in &lines {
         let lower = line.to_ascii_lowercase();
         let diagnostic = lower.contains("##[error]")
@@ -935,19 +936,25 @@ fn failure_excerpt(log: &str) -> String {
         let noise = lower.contains("echo ")
             || lower.contains("cache_on_failure")
             || lower.contains("continue-on-failure");
-        let continuation = context
-            && (line.starts_with(char::is_whitespace)
-                || line.is_empty()
-                || matches!(
-                    line.trim(),
-                    "Details:" | "Next step:" | "stdout:" | "stderr:"
-                ));
+        let continuation = detail_lines > 0
+            || context
+                && (line.starts_with(char::is_whitespace)
+                    || line.is_empty()
+                    || matches!(
+                        line.trim(),
+                        "Details:" | "Next step:" | "stdout:" | "stderr:"
+                    ));
         if !noise && (diagnostic || continuation) {
             selected.push(line.as_str());
             context = true;
         } else {
             context = false;
         }
+        detail_lines = if lower.trim() == "error:" {
+            12
+        } else {
+            detail_lines.saturating_sub(1)
+        };
     }
     if selected.is_empty() {
         return lines[lines.len().saturating_sub(20)..].join("\n");
@@ -982,10 +989,25 @@ fn clean_log_line(line: &str) -> String {
     }
     if let Some((timestamp, rest)) = clean.split_once(' ') {
         if timestamp.as_bytes().get(10) == Some(&b'T') && timestamp.ends_with('Z') {
-            return rest.trim_end().to_owned();
+            return strip_buildkit_prefix(rest).trim_end().to_owned();
         }
     }
-    clean.trim_end().to_owned()
+    strip_buildkit_prefix(&clean).trim_end().to_owned()
+}
+
+fn strip_buildkit_prefix(line: &str) -> &str {
+    let mut parts = line.splitn(3, ' ');
+    let task = parts.next().unwrap_or_default();
+    let elapsed = parts.next().unwrap_or_default();
+    let text = parts.next();
+    if task
+        .strip_prefix('#')
+        .is_some_and(|id| !id.is_empty() && id.bytes().all(|b| b.is_ascii_digit()))
+        && elapsed.parse::<f64>().is_ok()
+    {
+        return text.unwrap_or(line);
+    }
+    line
 }
 
 pub fn status(options: StatusSelection) -> Result<()> {
@@ -1724,6 +1746,16 @@ mod tests {
     fn failure_excerpt_falls_back_to_log_tail() {
         let log = "first\nsecond\nlast";
         assert_eq!(failure_excerpt(log), log);
+    }
+
+    #[test]
+    fn failure_excerpt_preserves_wasm_schema_mismatch() {
+        let log = "#63 611.8 error:\n#63 611.8 \n#63 611.8 it looks like the Rust project used a different bindgen format:\n#63 611.8   rust Wasm file schema version: 0.2.128\n#63 611.8      this binary schema version: 0.2.121";
+        let excerpt = failure_excerpt(log);
+        assert!(excerpt.contains("different bindgen format"));
+        assert!(excerpt.contains("schema version: 0.2.128"));
+        assert!(excerpt.contains("schema version: 0.2.121"));
+        assert!(!excerpt.contains("#63"));
     }
 
     #[test]

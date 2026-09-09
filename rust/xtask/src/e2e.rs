@@ -260,6 +260,7 @@ fn shard_arguments(mut args: Vec<&'static str>) -> Vec<&'static str> {
         args.push("--");
     }
     args.push("--test-threads=1");
+    args.push("--nocapture");
     args
 }
 

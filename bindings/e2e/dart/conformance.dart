@@ -899,8 +899,11 @@ Future<void> agentAndLocal() async {
   contentBox.commit();
   contentBox.close();
   pass('vault_create_lockbox_content_key', 3);
-  final contentOpen = Lockbox.open(contentPath, contentKey: key);
-  contentOpen.setOwnerSigningKey(owner);
+  final contentOpen = Lockbox.open(
+    contentPath,
+    contentKey: key,
+    signingKey: owner,
+  );
   check(_equal(contentOpen.getFile('/data.txt'), payload), 'content local');
   contentOpen.close();
   pass('vault_open_lockbox_content_key', 3);
