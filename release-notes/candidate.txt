@@ -2,6 +2,8 @@ Release all
 CLI: 0.0.16
 Bindings: 0.3.15
 
+- Bound migration test subprocess waits and capture input and output in files
+- Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Fix Windows in-place recovery publication while retaining archive locks
 - Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Separate release scale tests and add bounded CLI diagnostics
