@@ -1,3 +1,30 @@
+## 0.5.0
+
+- Prepare all release: CLI 0.1.0, bindings 0.4.0
+- Match CI test sharding during dependency upgrades
+- Serialize dependency upgrade validation tests
+- Fix CLI test Clippy warnings
+- Remove obsolete DVault design documents
+- Add automated dependency upgrades
+- Improve release monitoring and fix CLI auto-open test failures
+- Prepare cli release: CLI 0.0.19, bindings
+- Simplify release commands and report binding publication status
+- Refresh fuzz lockfile during release preparation
+- Prepare all release: CLI 0.0.18, bindings 0.3.16
+- fail matrix validation promptly
+- fail release validation faster and show wait progress
+- Prepare all release: CLI 0.0.17, bindings 0.3.15
+- report release CI failures with job details
+- Prepare cli release: CLI 0.0.16, bindings
+- Remove the superseded Dart implementation
+- Consolidate branch histories and use main as the default
+- Add CI release candidates with resumable CLI-first promotion
+- Route language binding file operations through Rust
+- Require Rust-owned binding operations unless explicitly approved
+- Support read-only lockboxes with archive handle locking
+- Fix lockbox moves across filesystems and clarify move guidance
+- Add password profiles and release CLI 0.0.14 (#306)
+
 ## 0.4.0
 
 - Match CI test sharding during dependency upgrades
