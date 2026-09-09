@@ -2,12 +2,15 @@ Release all
 CLI: 0.0.16
 Bindings: 0.3.15
 
+- Fix release platform failures and remove duplicate CLI test coverage
+- Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Fix release conformance failures and preserve CI diagnostics
 - Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Fix access revoke locking, Dart formatting, and CI status reporting
 - Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Fix release package validation and vault locking; improve CI progress display
 - Prepare all release: CLI 0.0.16, bindings 0.3.15
+- GitBook: Export content from Docs
 - Fix CI vault lock lifetimes and CLI E2E sharding
 - Prepare all release: CLI 0.0.16, bindings 0.3.15
 - Parallelize CLI E2E shards
