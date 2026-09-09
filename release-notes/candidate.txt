@@ -1,7 +1,9 @@
 Release all
-CLI: 0.2.0
-Bindings: 0.5.0
+CLI: 0.0.16
+Bindings: 0.3.15
 
+- Improve release version selection
+- Prepare all release: CLI 0.2.0, bindings 0.5.0
 - Prepare all release: CLI 0.1.0, bindings 0.4.0
 - Match CI test sharding during dependency upgrades
 - Serialize dependency upgrade validation tests
