@@ -169,14 +169,20 @@ jobs:
             }
             run_ids="$REQUESTED_RUN_ID"
           else
-            run_ids=$(gh run list \
-              --repo "$GITHUB_REPOSITORY" \
-              --workflow bindings-native-release.yml \
-              --event workflow_dispatch \
-              --status success \
-              --commit "$expected_sha" \
-              --limit 20 \
-              --json databaseId --jq '.[].databaseId')
+            # Candidates now run the bindings preflight as a reusable workflow
+            # inside release-candidate.yml; keep standalone preflights supported.
+            run_ids=""
+            for workflow in release-candidate.yml bindings-native-release.yml; do
+              ids=$(gh run list \
+                --repo "$GITHUB_REPOSITORY" \
+                --workflow "$workflow" \
+                --event workflow_dispatch \
+                --status success \
+                --commit "$expected_sha" \
+                --limit 20 \
+                --json databaseId --jq '.[].databaseId')
+              run_ids="$run_ids $ids"
+            done
           fi
           for run_id in $run_ids; do
             metadata=$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" \
@@ -1282,16 +1288,61 @@ jobs:
     environment: release
     permissions:
       contents: read
+      actions: read
       id-token: write
     steps:
+      # pub.dev accepts GitHub OIDC only for tag-push events. Dispatches must
+      # observe that publication, never attempt to upload with a dispatch token.
+      - name: Verify tag-triggered Dart publication
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="revault-dart-v$VERSION"
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" \
+            --workflow bindings-native-release.yml --event push --branch "$tag" \
+            --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [[ -z "$run_id" ]]; then
+            echo "Dart publication requires a tag-push workflow; pub.dev rejects workflow_dispatch." >&2
+            echo "Push $tag from the commit containing the Dart workflow fix, using your GitHub credentials, then retry this publication." >&2
+            echo "The tag workflow publishes the retained package matched to revault-api-v$VERSION, without rebuilding it." >&2
+            exit 1
+          fi
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
+      - name: Check whether Dart version is already published
+        if: github.event_name == 'push'
+        id: dart-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#revault-dart-v}"
+          status=$(curl --silent --show-error --output "$RUNNER_TEMP/dart-version.json" \
+            --write-out '%{http_code}' "https://pub.dev/api/packages/revault_api/versions/$version")
+          case "$status" in
+            200)
+              test "$(jq -r '.version' "$RUNNER_TEMP/dart-version.json")" = "$version"
+              echo "revault_api $version is already published on pub.dev"
+              echo "published=true" >> "$GITHUB_OUTPUT"
+              ;;
+            404) echo "published=false" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Could not check pub.dev version: HTTP $status" >&2; exit 1 ;;
+          esac
       - uses: actions/checkout@v7
+        if: github.event_name == 'push'
       - uses: actions/download-artifact@v8
+        if: github.event_name == 'push'
         with:
           name: revault-api-publication-trees
           path: packages
       - run: chmod +x "$RELEASE_TOOL"
+        if: github.event_name == 'push'
       - uses: dart-lang/setup-dart@v1
+        if: github.event_name == 'push'
       - name: Publish pub.dev package
+        if: github.event_name == 'push' && startsWith(github.ref_name, 'revault-dart-v') && steps.dart-version.outputs.published != 'true'
         run: >-
           "$RELEASE_TOOL"
           internal publish-package --version "${RELEASE_VERSION:-${GITHUB_REF_NAME#revault-*-v}}"
