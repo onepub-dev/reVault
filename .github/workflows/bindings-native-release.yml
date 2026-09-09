@@ -681,7 +681,25 @@ jobs:
         with:
           dotnet-version: '8.0.x'
       - uses: dart-lang/setup-dart@v1
-        if: contains(format(',{0},', matrix.languages), ',dart,')
+        if: contains(format(',{0},', matrix.languages), ',dart,') && matrix.target != 'windows-aarch64-msvc'
+      - name: Install Dart ARM64 without PowerShell extraction
+        if: contains(format(',{0},', matrix.languages), ',dart,') && matrix.target == 'windows-aarch64-msvc'
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://storage.googleapis.com/dart-archive/channels/stable/release
+          version=$(curl --fail --silent --show-error --retry 3 "$base/latest/VERSION" | jq -er '.version')
+          sdk_dir="$RUNNER_TEMP/revault-dart-arm64"
+          mkdir -p "$sdk_dir"
+          archive="$sdk_dir/dartsdk-windows-arm64-release.zip"
+          url="$base/$version/sdk/dartsdk-windows-arm64-release.zip"
+          curl --fail --location --retry 3 "$url" -o "$archive"
+          expected=$(curl --fail --silent --show-error --retry 3 "$url.sha256sum" | awk '{print $1}')
+          printf '%s  %s\n' "$expected" "$archive" | sha256sum --check
+          "$(cygpath -u "$WINDIR")/System32/tar.exe" -xf "$archive" -C "$sdk_dir"
+          cygpath -w "$sdk_dir/dart-sdk/bin" >> "$GITHUB_PATH"
+          printf 'DART_SDK=%s\n' "$(cygpath -w "$sdk_dir/dart-sdk")" >> "$GITHUB_ENV"
+          "$sdk_dir/dart-sdk/bin/dart.exe" --version
       - uses: actions/setup-go@v7
         if: contains(format(',{0},', matrix.languages), ',go,')
         with:

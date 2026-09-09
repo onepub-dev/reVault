@@ -988,7 +988,8 @@ fn remove_partial(path: &Path) -> CliResult<()> {
 fn fingerprint_path(path: &Path) -> CliResult<[u8; 32]> {
     let mut file = File::open(path)?;
     let mut digest = Sha256::new();
-    let mut buffer = [0u8; 1024 * 1024];
+    // Windows CLI stacks cannot accommodate a 1 MiB local array.
+    let mut buffer = vec![0u8; 1024 * 1024];
     loop {
         let read = file.read(&mut buffer)?;
         if read == 0 {
