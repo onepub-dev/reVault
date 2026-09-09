@@ -736,7 +736,8 @@ jobs:
       - uses: shivammathur/setup-php@v2
         if: contains(format(',{0},', matrix.languages), ',php,')
         with:
-          php-version: '8.3'
+          # Reuse the runner's preinstalled PHP on Intel macOS.
+          php-version: ${{ matrix.target == 'macos-x86_64' && '8.5' || '8.3' }}
           extensions: ffi
           tools: composer:v2
       - uses: leafo/gh-actions-lua@v13

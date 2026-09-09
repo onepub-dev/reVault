@@ -246,9 +246,12 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
     let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
     let keypair = ContactKeyPair::generate().unwrap();
     vault.store_private_key("default", &keypair).unwrap();
+    // Inspect persisted ciphertext only after releasing the writable file lock.
+    drop(vault);
     let encrypted = fs::read(root.join("local-vault.lbox")).unwrap();
     assert!(!String::from_utf8_lossy(&encrypted).contains("default.key"));
     assert!(!String::from_utf8_lossy(&encrypted).contains("private-key-password"));
+    let vault = VaultDirectory::open_or_create(&root, &vault_password).unwrap();
     let loaded = vault.load_private_key("default").unwrap();
     assert_eq!(
         loaded.private_key_record().unwrap(),
