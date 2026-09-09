@@ -2,7 +2,6 @@ name: Rust
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  LOCKBOX_COMPRESSION_CORPUS_VERSION: v1
   RUST_TEST_NOCAPTURE: "1"
 
 on:
@@ -363,6 +362,7 @@ jobs:
         run: ${{ matrix.command }}
 
   fuzz-harnesses:
+    if: github.workflow != 'Release candidate'
     name: compile fuzz harnesses
     runs-on: ubuntu-latest
 
@@ -432,44 +432,6 @@ jobs:
         if: matrix.target == 'wasm32-unknown-unknown'
         run: cargo check -p revault_page_api --target ${{ matrix.target }} --lib
 
-  compression-regression:
-    name: compression regression corpus
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    defaults:
-      run:
-        working-directory: rust
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Restore compression corpus
-        id: compression-corpus-cache
-        uses: actions/cache@v4
-        with:
-          path: rust/.ci-compression-corpus
-          key: lockbox-compression-corpus-${{ env.LOCKBOX_COMPRESSION_CORPUS_VERSION }}
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@1.88.0
-
-      - name: Cache Cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-          key: compression-regression
-
-      - name: Generate compression corpus
-        if: steps.compression-corpus-cache.outputs.cache-hit != 'true'
-        run: cargo bench -p revault_lockbox_api --bench compression_corpus -- .ci-compression-corpus
-
-      - name: Run compression regression corpus
-        env:
-          LOCKBOX_COMPRESSION_CORPUS_DIR: ${{ github.workspace }}/rust/.ci-compression-corpus
-        run: cargo test --release -p revault_lockbox_api compression_regression_tests -- --ignored --nocapture
-
   network-integration:
     name: network integration
     runs-on: ubuntu-latest
@@ -498,5 +460,5 @@ jobs:
       # CLI publish integration runs in cli-e2e and contributes command coverage.
       - name: Run ignored key-server network tests
         run: |
-          cargo test --locked --manifest-path revault_key_server/Cargo.toml --test e2e_failover -- --ignored --nocapture
-          cargo test --locked --manifest-path revault_key_server/Cargo.toml --test protocol_store -- --ignored --nocapture
+          cargo test --locked --manifest-path revault_key_server/Cargo.toml --test e2e_failover -- --ignored --nocapture --skip heavy_failover_recovery_under_load
+          cargo test --locked --manifest-path revault_key_server/Cargo.toml --test protocol_store -- --ignored --nocapture --skip store_replays_large_persistent_store

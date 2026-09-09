@@ -814,12 +814,22 @@ fn single_use_publish_is_removed_as_soon_as_it_is_received() {
 }
 
 #[test]
+fn store_replays_persistent_store() {
+    check_store_replay(32);
+}
+
+#[test]
+#[ignore = "large-store scale test; run through the Performance workflow"]
 fn store_replays_large_persistent_store() {
+    check_store_replay(20_000);
+}
+
+fn check_store_replay(count: usize) {
     let (_guard, config) = temp_config("large-replay");
-    let mut expected = Vec::with_capacity(20_000);
+    let mut expected = Vec::new();
     {
         let store = PublishStore::open(config.clone()).unwrap();
-        for index in 0..20_000_u32 {
+        for index in 0..count {
             let payload = contact_payload(&format!("large-{index}"));
             let create = create_publish(
                 &store,
@@ -829,15 +839,15 @@ fn store_replays_large_persistent_store() {
                 &format!("large-{index}@example.test"),
             );
             verify_publish(&store, &create);
-            if index % 997 == 0 {
+            if count <= 32 || index % 997 == 0 {
                 expected.push((create.publish_code, payload));
             }
         }
-        assert_eq!(store.stats().live, 20_000);
+        assert_eq!(store.stats().live, count);
     }
 
     let reopened = PublishStore::open(config).unwrap();
-    assert_eq!(reopened.stats().live, 20_000);
+    assert_eq!(reopened.stats().live, count);
     for (publish_code, payload) in expected {
         assert_eq!(reopened.receive(&publish_code).unwrap().payload, payload);
     }

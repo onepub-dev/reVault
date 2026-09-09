@@ -2,8 +2,8 @@ name: Fuzz
 
 on:
   push:
-    branches:
-      - "**"
+    branches-ignore:
+      - "release-candidates/**"
     paths:
       - "rust/fuzz/**"
       - "rust/revault_lockbox_api/**"

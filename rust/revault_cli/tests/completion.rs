@@ -1,4 +1,5 @@
 mod common;
+use common::CommandTestExt;
 
 use common::TestTempDir;
 use std::fs;
@@ -10,7 +11,7 @@ fn run(bin: &str, args: &[&str], vault_dir: &std::path::Path) -> std::process::O
         .env("LOCKBOX_VAULT_DIR", vault_dir)
         .env_remove("LOCKBOX_VAULT_PASSWORD")
         .env_remove("COMPLETE")
-        .output()
+        .test_output()
         .unwrap()
 }
 
@@ -83,7 +84,7 @@ fn locked_vault_completion_falls_back_without_prompt_or_diagnostics() {
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
         .args(["--", "lockbox", "vault", "profile", "create", ""])
-        .output()
+        .test_output()
         .unwrap();
     assert!(output.status.success(), "{output:?}");
     assert!(output.stderr.is_empty(), "{:?}", output.stderr);
@@ -108,7 +109,7 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
         .args(["--", "lockbox", ""])
-        .output()
+        .test_output()
         .unwrap();
     assert!(target.status.success(), "{target:?}");
     assert!(
@@ -131,7 +132,7 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
         .args(["--", "lockbox", "secrets.lbox", ""])
-        .output()
+        .test_output()
         .unwrap();
     assert!(after_lockbox.status.success(), "{after_lockbox:?}");
     let after_lockbox_stdout = String::from_utf8_lossy(&after_lockbox.stdout);
@@ -154,7 +155,7 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
         .args(["--", "lockbox", "secrets.lbox", "add", "sou"])
-        .output()
+        .test_output()
         .unwrap();
     assert!(source.status.success(), "{source:?}");
     assert!(
@@ -170,7 +171,7 @@ fn dynamic_completion_completes_target_lockboxes_and_add_sources() {
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
         .args(["--", "lockbox", "secrets.lbox", "mirror", ""])
-        .output()
+        .test_output()
         .unwrap();
     assert!(mirror_action.status.success(), "{mirror_action:?}");
     assert!(
@@ -196,7 +197,7 @@ fn dynamic_completion_navigates_open_lockbox_paths() {
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
         .args(["--", "lockbox", "nested/d"])
-        .output()
+        .test_output()
         .unwrap();
     assert!(directory.status.success(), "{directory:?}");
     assert!(
@@ -212,7 +213,7 @@ fn dynamic_completion_navigates_open_lockbox_paths() {
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
         .args(["--", "lockbox", "nested/deeper/sec"])
-        .output()
+        .test_output()
         .unwrap();
     assert!(lockbox.status.success(), "{lockbox:?}");
     assert!(
@@ -236,7 +237,7 @@ fn dynamic_completion_reads_vault_names_without_exposing_signing_material() {
         .env("LOCKBOX_VAULT_PASSWORD", password)
         .env("LOCKBOX_SESSION_AGENT_DIR", &agent_dir)
         .env("LOCKBOX_SESSION_AGENT_LOG", &agent_log)
-        .output()
+        .test_output()
         .unwrap();
     assert!(init.status.success(), "{init:?}");
 
@@ -246,7 +247,7 @@ fn dynamic_completion_reads_vault_names_without_exposing_signing_material() {
         .env("LOCKBOX_VAULT_PASSWORD", password)
         .env("LOCKBOX_SESSION_AGENT_DIR", &agent_dir)
         .env("LOCKBOX_SESSION_AGENT_LOG", &agent_log)
-        .output()
+        .test_output()
         .unwrap();
     assert!(create.status.success(), "{create:?}");
 
@@ -262,7 +263,7 @@ fn dynamic_completion_reads_vault_names_without_exposing_signing_material() {
         .env("_CLAP_COMPLETE_COMP_TYPE", "9")
         .env("_CLAP_COMPLETE_SPACE", "true")
         .args(["--", "lockbox", "vault", "profile", "history", "al"])
-        .output()
+        .test_output()
         .unwrap();
     assert!(output.status.success(), "{output:?}");
     assert!(String::from_utf8_lossy(&output.stdout).contains("alice"));

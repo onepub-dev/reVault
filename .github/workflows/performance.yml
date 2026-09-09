@@ -1,0 +1,71 @@
+name: Performance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  LOCKBOX_COMPRESSION_CORPUS_VERSION: v1
+
+jobs:
+  compression-regression:
+    name: compression regression corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: rust
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore compression corpus
+        id: compression-corpus-cache
+        uses: actions/cache@v4
+        with:
+          path: rust/.ci-compression-corpus
+          key: lockbox-compression-corpus-${{ env.LOCKBOX_COMPRESSION_CORPUS_VERSION }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: compression-regression
+
+      - name: Generate compression corpus
+        if: steps.compression-corpus-cache.outputs.cache-hit != 'true'
+        run: cargo bench -p revault_lockbox_api --bench compression_corpus -- .ci-compression-corpus
+
+      - name: Run compression regression corpus
+        env:
+          LOCKBOX_COMPRESSION_CORPUS_DIR: ${{ github.workspace }}/rust/.ci-compression-corpus
+        run: cargo test --release -p revault_lockbox_api compression_regression_tests -- --ignored --nocapture
+
+  cli-and-server-scale:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: performance-cli-server
+      - name: Install Linux dependencies
+        run: sudo apt-get update && sudo apt-get install -y libdbus-1-dev pkg-config
+      - name: Index 100000 mirror files
+        run: cargo test --locked --release -p revault_cli --test mirror_cli mirror_status_indexes_one_hundred_thousand_source_files -- --ignored --exact --nocapture
+      - name: Concurrent failover load
+        run: cargo test --locked --release -p revault_key_server --test e2e_failover heavy_failover_recovery_under_load -- --ignored --exact --nocapture
+      - name: Replay 20000 stored publications
+        run: cargo test --locked --release -p revault_key_server --test protocol_store store_replays_large_persistent_store -- --ignored --exact --nocapture

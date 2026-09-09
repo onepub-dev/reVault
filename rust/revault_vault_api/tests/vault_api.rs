@@ -344,9 +344,12 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
     );
 
     let relocated_path = root.join("relocated-backup-source.lbox");
+    let lockbox_id = lockbox.lockbox_id();
+    // Windows cannot copy a file while its writable archive handle locks it.
+    drop(lockbox);
     fs::copy(&lockbox_path, &relocated_path).unwrap();
     vault
-        .remember_known_lockbox(lockbox.lockbox_id(), &relocated_path)
+        .remember_known_lockbox(lockbox_id, &relocated_path)
         .unwrap();
     let known = vault.list_known_lockboxes().unwrap();
     assert_eq!(known.len(), 1);
@@ -357,7 +360,8 @@ fn vault_directory_stores_local_keys_contacts_and_key_directory_backups() {
     vault.forget_known_lockbox(&relocated_path).unwrap();
     assert!(vault.list_known_lockboxes().unwrap().is_empty());
 
-    let _ = fs::remove_dir_all(root);
+    drop(vault);
+    fs::remove_dir_all(root).unwrap();
 }
 
 #[test]

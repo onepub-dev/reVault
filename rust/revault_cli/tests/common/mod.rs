@@ -6,6 +6,60 @@ use std::sync::LazyLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+/// Capture output in files so descendants retaining pipe handles cannot hang
+/// the test after the CLI exits. Bound the CLI itself independently of CI.
+pub trait CommandTestExt {
+    fn test_output(&mut self) -> std::io::Result<std::process::Output>;
+}
+
+impl CommandTestExt for std::process::Command {
+    fn test_output(&mut self) -> std::io::Result<std::process::Output> {
+        use std::io::{Read, Seek};
+        use std::process::Stdio;
+        use std::time::{Duration, Instant};
+        let mut stdout = tempfile::tempfile()?;
+        let mut stderr = tempfile::tempfile()?;
+        self.stdout(Stdio::from(stdout.try_clone()?));
+        self.stderr(Stdio::from(stderr.try_clone()?));
+        self.stdin(Stdio::null());
+        let started = Instant::now();
+        let mut child = self.spawn()?;
+        let thread = std::thread::current();
+        let test = thread.name().unwrap_or("unnamed test");
+        eprintln!("CLI start: test={test} pid={}", child.id());
+        let status = loop {
+            if let Some(status) = child.try_wait()? {
+                break status;
+            }
+            if started.elapsed() >= Duration::from_secs(180) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    format!("CLI timed out after 180s: test={test} pid={}", child.id()),
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        };
+        eprintln!(
+            "CLI end: test={test} pid={} elapsed={:?} status={status}",
+            child.id(),
+            started.elapsed()
+        );
+        stdout.rewind()?;
+        stderr.rewind()?;
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        stdout.read_to_end(&mut out)?;
+        stderr.read_to_end(&mut err)?;
+        Ok(std::process::Output {
+            status,
+            stdout: out,
+            stderr: err,
+        })
+    }
+}
 static TEST_RUN_ID: LazyLock<u128> = LazyLock::new(|| {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

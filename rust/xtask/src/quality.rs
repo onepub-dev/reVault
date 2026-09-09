@@ -126,6 +126,8 @@ pub fn run_network_tests() -> TaskResult {
             "--",
             "--ignored",
             "--nocapture",
+            "--skip",
+            "heavy_failover_recovery_under_load",
         ][..],
         &[
             "test",
@@ -136,6 +138,8 @@ pub fn run_network_tests() -> TaskResult {
             "--",
             "--ignored",
             "--nocapture",
+            "--skip",
+            "store_replays_large_persistent_store",
         ][..],
         &[
             "test",

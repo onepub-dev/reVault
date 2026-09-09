@@ -1,4 +1,5 @@
 mod common;
+use common::CommandTestExt;
 
 use common::TestTempDir;
 use std::fs;
@@ -15,7 +16,7 @@ fn run(bin: &str, cwd: &Path, args: &[&str]) -> Output {
         .env("LOCKBOX_SESSION_AGENT_DIR", cwd.join("agent"))
         .env("LOCKBOX_SESSION_AGENT_LOG", cwd.join("agent.log"))
         .env("LOCKBOX_ADD_PROGRESS", "off")
-        .output()
+        .test_output()
         .unwrap()
 }
 

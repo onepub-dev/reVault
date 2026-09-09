@@ -18,6 +18,11 @@ members = [
 ]
 resolver = "2"
 
+# CLI integration tests repeatedly derive real password keys. Optimize external
+# dependencies without changing KDF parameters or disabling debug assertions.
+[profile.test.package."*"]
+opt-level = 3
+
 # The profile that 'dist' will build with
 [profile.dist]
 inherits = "release"

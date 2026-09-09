@@ -1,4 +1,5 @@
 mod common;
+use common::CommandTestExt;
 
 use common::{short_dir_path, unique_dir_path, unique_thread_dir_path};
 use std::fs;
@@ -552,7 +553,7 @@ fn command_first_lockbox_is_rejected_for_lockbox_scoped_commands() {
         vec!["variable", "get", "test.lbox", "API_KEY"],
         vec!["form", "show", "test.lbox", "/login"],
     ] {
-        let output = Command::new(bin).args(&args).output().unwrap();
+        let output = Command::new(bin).args(&args).test_output().unwrap();
         assert!(
             !output.status.success(),
             "legacy command ordering unexpectedly succeeded: {args:?}"
@@ -2362,7 +2363,7 @@ fn doctor_lockbox_reports_closed_metadata_and_open_guidance() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&doctor);
     let doctor = String::from_utf8_lossy(&doctor.stdout);
@@ -2385,7 +2386,7 @@ fn doctor_lockbox_reports_closed_metadata_and_open_guidance() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&verbose_doctor);
     let verbose_doctor = String::from_utf8_lossy(&verbose_doctor.stdout);
@@ -2473,7 +2474,7 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&doctor);
     let doctor = String::from_utf8_lossy(&doctor.stdout);
@@ -2485,7 +2486,7 @@ fn doctor_lockbox_adds_open_checks_when_opened() {
 
     let global_doctor =
         run_output_without_lockbox_password(bin, &["doctor"], &vault_root, &agent_root)
-            .output()
+            .test_output()
             .unwrap();
     assert_success(&global_doctor);
     let global_doctor = String::from_utf8_lossy(&global_doctor.stdout);
@@ -3070,7 +3071,7 @@ fn create_defaults_lbox_extension_and_reports_before_prompting() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     if is_session_agent_unavailable(&listing) {
         eprintln!("skipping create extension listing assertion: Session Agent unavailable");
@@ -3237,7 +3238,7 @@ fn add_can_default_destination_and_list_recursively() {
         )
         .env("LOCKBOX_VAULT_DIR", &progress_vault_root)
         .env("LOCKBOX_ADD_PROGRESS", "always")
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&progress);
     let progress_stderr = String::from_utf8_lossy(&progress.stderr);
@@ -3272,7 +3273,7 @@ fn add_can_default_destination_and_list_recursively() {
         )
         .env("LOCKBOX_VAULT_DIR", &progress_vault_root)
         .env("LOCKBOX_ADD_PROGRESS", "always")
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&quiet_progress);
     assert!(quiet_progress.stderr.is_empty());
@@ -3359,7 +3360,7 @@ fn add_recursive_dot_imports_the_current_directory_contents() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&add);
 
@@ -3607,7 +3608,7 @@ fn access_subcommands_manage_lockbox_access() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&access);
     let access = String::from_utf8_lossy(&access.stdout);
@@ -3622,7 +3623,7 @@ fn access_subcommands_manage_lockbox_access() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&stored);
     assert_eq!(stored.stdout, fs::read(&source).unwrap());
@@ -3638,7 +3639,7 @@ fn access_subcommands_manage_lockbox_access() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&grant);
     let access = run_output_without_lockbox_password(
@@ -3647,7 +3648,7 @@ fn access_subcommands_manage_lockbox_access() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&access);
     let access = String::from_utf8_lossy(&access.stdout);
@@ -3665,7 +3666,7 @@ fn access_subcommands_manage_lockbox_access() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&revoke);
 }
@@ -3842,7 +3843,7 @@ fn vault_beget_creates_an_independent_profile_and_local_contact() {
         .env("LOCKBOX_NEW_VAULT_PASSWORD", "production-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&output);
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -3888,7 +3889,7 @@ fn vault_beget_creates_an_independent_profile_and_local_contact() {
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_NEW_VAULT_PASSWORD", "another-production-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
-        .output()
+        .test_output()
         .unwrap();
     assert!(!collision.status.success());
     assert!(
@@ -3923,7 +3924,7 @@ fn vault_beget_supports_custom_output_contact_and_no_contact() {
         .env("LOCKBOX_VAULT_PASSWORD", "test-vault-password")
         .env("LOCKBOX_NEW_VAULT_PASSWORD", "custom-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&custom);
     assert!(custom_path.is_file());
@@ -3946,7 +3947,7 @@ fn vault_beget_supports_custom_output_contact_and_no_contact() {
         .env("LOCKBOX_VAULT_DIR", &no_contact_root)
         .env("LOCKBOX_NEW_VAULT_PASSWORD", "isolated-vault-password")
         .env("LOCKBOX_SESSION_AGENT_DIR", dir.join("isolated-agent"))
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&no_contact);
     assert!(no_contact_path.is_file());
@@ -3966,7 +3967,7 @@ fn vault_beget_supports_custom_output_contact_and_no_contact() {
         .env("LOCKBOX_VAULT_DIR", &no_contact_root)
         .env_remove("LOCKBOX_NEW_VAULT_PASSWORD")
         .env("LOCKBOX_SESSION_AGENT_DIR", dir.join("isolated-agent"))
-        .output()
+        .test_output()
         .unwrap();
     assert!(!missing_password.status.success());
     assert!(String::from_utf8_lossy(&missing_password.stderr)
@@ -3992,7 +3993,7 @@ fn vault_init_rejects_blank_pass_phrase() {
         .env("LOCKBOX_VAULT_DIR", &vault_root)
         .env_remove("LOCKBOX_KEY")
         .env_remove("LOCKBOX_PASSWORD")
-        .output()
+        .test_output()
         .unwrap();
 
     assert!(!output.status.success());
@@ -4653,7 +4654,7 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&init);
 
@@ -4666,7 +4667,7 @@ fn interactive_password_open_distinguishes_vault_and_lockbox_passwords() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&create);
 
@@ -4722,7 +4723,7 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&init);
 
@@ -4734,7 +4735,7 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&create);
 
@@ -4746,7 +4747,7 @@ fn profile_only_open_never_falls_back_to_a_password_prompt() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&replace);
 
@@ -4797,7 +4798,7 @@ fn open_requires_explicit_vault_init() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert!(!open.status.success());
     assert!(String::from_utf8_lossy(&open.stderr)
@@ -4858,7 +4859,7 @@ fn vault_init_verify_wrong_password_reports_vault_specific_error() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
@@ -4875,7 +4876,7 @@ fn vault_init_verify_wrong_password_reports_vault_specific_error() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert!(!fingerprint.status.success());
     let stderr = String::from_utf8_lossy(&fingerprint.stderr);
@@ -4962,7 +4963,7 @@ fn vault_passphrase_changes_password_and_creates_backup() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&changed);
     let changed = String::from_utf8_lossy(&changed.stdout);
@@ -4983,7 +4984,7 @@ fn vault_passphrase_changes_password_and_creates_backup() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert!(!old_password.status.success());
     assert!(String::from_utf8_lossy(&old_password.stderr)
@@ -4996,7 +4997,7 @@ fn vault_passphrase_changes_password_and_creates_backup() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&new_password_list);
     let new_password_list = String::from_utf8_lossy(&new_password_list.stdout);
@@ -5864,7 +5865,7 @@ fn auto_open_lockboxes_uses_remembered_password() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     if is_session_agent_unavailable(&close) {
         eprintln!("skipping Auto Open Lockbox assertions: Session Agent unavailable");
@@ -5878,7 +5879,7 @@ fn auto_open_lockboxes_uses_remembered_password() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&listing);
 }
@@ -5967,7 +5968,7 @@ fn auto_open_lockboxes_with_vault_profile_allows_first_add() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     if is_session_agent_unavailable(&add) {
         eprintln!("skipping Auto Open Profile assertions: Session Agent unavailable");
@@ -5982,7 +5983,7 @@ fn auto_open_lockboxes_with_vault_profile_allows_first_add() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&listing);
     assert!(String::from_utf8_lossy(&listing.stdout).contains("test.md"));
@@ -6020,7 +6021,7 @@ fn open_accepts_password_sources_and_session_duration() {
         &agent_root,
     )
     .env("LBX_TEST_PASSWORD", "test-lockbox-password")
-    .output()
+    .test_output()
     .unwrap();
     if is_session_agent_unavailable(&env_open) {
         eprintln!("skipping Session Agent assertions: Session Agent unavailable");
@@ -6047,7 +6048,7 @@ fn open_accepts_password_sources_and_session_duration() {
         &vault_root,
         &agent_root,
     )
-    .output()
+    .test_output()
     .unwrap();
     assert_success(&file_open);
     run_without_content_key(
@@ -6102,7 +6103,7 @@ fn open_accepts_password_sources_and_session_duration() {
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(&agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
-        .output()
+        .test_output()
         .unwrap();
     assert!(!listing.status.success());
     assert_eq!(listing.status.code(), Some(10));
@@ -7093,7 +7094,7 @@ fn run_output_with_env(bin: &str, args: &[&str], name: &str, value: &str) -> Out
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(&agent_root))
         .env("LOCKBOX_VAULT_DIR", &vault_root)
         .env(name, value)
-        .output()
+        .test_output()
         .unwrap()
 }
 
@@ -7105,7 +7106,7 @@ fn run_output_in(bin: &str, args: &[&str], vault_root: &PathBuf, agent_root: &Pa
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
-        .output()
+        .test_output()
         .unwrap()
 }
 
@@ -7160,7 +7161,7 @@ fn run_output_without_content_key(
         .env("LOCKBOX_SESSION_AGENT_DIR", agent_socket_dir(agent_root))
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
-        .output()
+        .test_output()
         .unwrap()
 }
 
@@ -7180,7 +7181,7 @@ fn run_output_without_content_key_with_env(
         .env("LOCKBOX_SESSION_AGENT_LOG", agent_log_path(agent_root))
         .env("LOCKBOX_VAULT_DIR", vault_root)
         .env(name, value)
-        .output()
+        .test_output()
         .unwrap()
 }
 
