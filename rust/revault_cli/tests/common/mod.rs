@@ -11,18 +11,26 @@ static TEST_DIR_COUNTER: AtomicUsize = AtomicUsize::new(0);
 /// the test after the CLI exits. Bound the CLI itself independently of CI.
 pub trait CommandTestExt {
     fn test_output(&mut self) -> std::io::Result<std::process::Output>;
+    fn test_output_with_input(&mut self, input: &[u8]) -> std::io::Result<std::process::Output>;
 }
 
 impl CommandTestExt for std::process::Command {
     fn test_output(&mut self) -> std::io::Result<std::process::Output> {
-        use std::io::{Read, Seek};
+        self.test_output_with_input(&[])
+    }
+
+    fn test_output_with_input(&mut self, input: &[u8]) -> std::io::Result<std::process::Output> {
+        use std::io::{Read, Seek, Write};
         use std::process::Stdio;
         use std::time::{Duration, Instant};
         let mut stdout = tempfile::tempfile()?;
         let mut stderr = tempfile::tempfile()?;
         self.stdout(Stdio::from(stdout.try_clone()?));
         self.stderr(Stdio::from(stderr.try_clone()?));
-        self.stdin(Stdio::null());
+        let mut stdin = tempfile::tempfile()?;
+        stdin.write_all(input)?;
+        stdin.rewind()?;
+        self.stdin(Stdio::from(stdin));
         let started = Instant::now();
         let mut child = self.spawn()?;
         let thread = std::thread::current();

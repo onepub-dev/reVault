@@ -1,6 +1,6 @@
 mod common;
 
-use common::TestTempDir;
+use common::{CommandTestExt, TestTempDir};
 use revault_lockbox_api::{
     ContactKeyPair, Lockbox, LockboxOpen, SecretString, SecretVec, LOCKBOX_FORMAT_VERSION,
 };
@@ -19,9 +19,8 @@ use revault_vault_api_container_v1::{
     SecretString as StructureV2SecretString, VaultDirectory as StructureV2VaultDirectory,
 };
 use revault_vault_api_v1::VaultDirectory as V1VaultDirectory;
-use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Command, Output};
 
 const VAULT_PASSWORD: &str = "migration vault password";
 const LOCKBOX_PASSWORD: &str = "migration lockbox password";
@@ -473,7 +472,7 @@ fn automatic_historical_exporter_install_hides_cargo_output() {
         .env("HOME", home)
         .env("FAKE_EXPORTER_SOURCE", exporter)
         .env("LOCKBOX_TEST_IGNORE_INSTALLED_EXPORTER", "1")
-        .output()
+        .test_output()
         .unwrap();
     assert_success(&output);
     let rendered = format!(
@@ -548,7 +547,7 @@ impl Fixture {
     }
 
     fn run(&self, args: &[&str]) -> Output {
-        self.command(args).output().unwrap()
+        self.command(args).test_output().unwrap()
     }
 
     fn run_with_stdin(
@@ -562,19 +561,7 @@ impl Fixture {
         if remove_vault_password_env {
             command.env_remove("LOCKBOX_VAULT_PASSWORD");
         }
-        let mut child = command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .as_mut()
-            .unwrap()
-            .write_all(stdin.as_bytes())
-            .unwrap();
-        child.wait_with_output().unwrap()
+        command.test_output_with_input(stdin.as_bytes()).unwrap()
     }
 
     fn command(&self, args: &[&str]) -> Command {
