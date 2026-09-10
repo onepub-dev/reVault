@@ -172,6 +172,7 @@ fn with_e2e_coverage_lock(path: &std::ffi::OsStr, action: impl FnOnce()) {
     let lock_path = Path::new(path).with_extension("lock");
     let Ok(lock_file) = OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .open(lock_path)
@@ -179,8 +180,12 @@ fn with_e2e_coverage_lock(path: &std::ffi::OsStr, action: impl FnOnce()) {
         action();
         return;
     };
+    // SAFETY: lock_file owns a valid descriptor and remains open for this call;
+    // LOCK_EX is a valid flock operation.
     if unsafe { libc::flock(lock_file.as_raw_fd(), libc::LOCK_EX) } == 0 {
         action();
+        // SAFETY: lock_file still owns the open descriptor locked above;
+        // LOCK_UN is a valid flock operation.
         let _ = unsafe { libc::flock(lock_file.as_raw_fd(), libc::LOCK_UN) };
     } else {
         action();
