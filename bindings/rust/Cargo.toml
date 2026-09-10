@@ -12,5 +12,5 @@ homepage = "https://docs.revault.onepub.dev/"
 readme = "README.md"
 
 [dependencies]
-revault_lockbox_api = { version = "0.0.32", path = "../../rust/revault_lockbox_api", features = ["bindings"] }
-revault_vault_api = { version = "0.0.33", path = "../../rust/revault_vault_api" }
+revault_lockbox_api = { version = "0.0.33", path = "../../rust/revault_lockbox_api", features = ["bindings"] }
+revault_vault_api = { version = "0.0.34", path = "../../rust/revault_vault_api" }

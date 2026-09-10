@@ -2,6 +2,8 @@ Release cli
 CLI: 0.0.17
 Bindings: 
 
+- Fix Clippy warnings in E2E coverage locking
+- Prepare cli release: CLI 0.0.17, bindings
 - Fix CLI E2E option coverage
 - Prepare cli release: CLI 0.0.17, bindings
 - Fix vault initialization diagnostic and review new Rust APIs

@@ -1,6 +1,6 @@
 [package]
 name = "revault_migrate_vault_v2"
-version = "0.0.22"
+version = "0.0.23"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
