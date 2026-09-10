@@ -1,4 +1,10 @@
 rust_api	rationale
+create_file_with_options	Rust/CLI format-v3 creation controls; independent encryption, signing and compression are not yet exposed by the foreign creation contract.
+create_in_memory_with_options	Rust format-v3 creation controls; independent encryption, signing and compression are not yet exposed by the foreign creation contract.
+export_migration_format_mode	Hidden migration-only persisted-format export; migration executables remain Rust-only by design.
+import_migration_format_mode	Hidden migration-only persisted-format restoration before the initial commit; migration executables remain Rust-only by design.
+format_options	Rust/CLI persisted-format inspection; foreign facades do not yet expose the format-v3 encryption, signing and compression configuration model.
+format_version	Rust/CLI native-format inspection used by migration export; foreign facades do not yet expose native-format version inspection.
 acquire	Rust-only scoped file-lock RAII; foreign facades use atomic native operations and never own internal lock files.
 add_file_from_path_verified	Host-filesystem streaming import with caller-supplied metadata verification used by CLI mirror updates; foreign facades use language-native reads followed by direct add operations.
 create_mirror_project	Host-directory project creation requires platform canonicalization and filesystem identity checks owned by the CLI; foreign file mutations still inherit core mirror ownership enforcement.

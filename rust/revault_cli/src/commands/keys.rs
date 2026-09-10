@@ -290,8 +290,13 @@ pub(crate) fn open_matches(matches: &ArgMatches) -> CliResult<()> {
 
 fn open_options(options: OpenOptions) -> CliResult<()> {
     ensure_lockbox_path_accessible(&options.lockbox_path)?;
-    if Lockbox::inspect_file(&options.lockbox_path)?
-        .format_options
+    // Probe for credential-free opening, but defer inspection failures until
+    // after credential selection so the vault-init diagnostic retains priority.
+    let inspection = Lockbox::inspect_file(&options.lockbox_path);
+    if inspection
+        .as_ref()
+        .ok()
+        .and_then(|inspection| inspection.format_options)
         .is_some_and(|format| format.encryption == revault_lockbox_api::EncryptionMode::None)
     {
         drop(Lockbox::open(
@@ -319,7 +324,7 @@ fn open_options(options: OpenOptions) -> CliResult<()> {
     // passphrase look like a successful vault setup and can produce a
     // misleading "no password access" error below.
     ensure_default_vault_initialized()?;
-    let inspection = Lockbox::inspect_file(&options.lockbox_path)?;
+    let inspection = inspection?;
     let has_password_slot = inspection
         .key_slots
         .iter()

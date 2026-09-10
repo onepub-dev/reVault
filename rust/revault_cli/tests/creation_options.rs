@@ -70,6 +70,9 @@ fn independent_creation_choices_persist_through_cli_lifecycle() {
                             create.extend(["--compression-level", "6"]);
                         }
                         success(run(dir, encrypted, &create));
+                        if !encrypted {
+                            success(run(dir, false, &[&archive, "open"]));
+                        }
                         // Creating again must refuse the existing archive.
                         assert!(!run(dir, encrypted, &create).status.success());
                         let status =
