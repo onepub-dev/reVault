@@ -13,6 +13,7 @@ fn run(dir: &Path, encrypted: bool, args: &[&str]) -> Output {
         .args(args)
         .env("LOCKBOX_VAULT_DIR", dir.join("vault"))
         .env("LOCKBOX_VAULT_PASSWORD", "test vault password")
+        .env("LOCKBOX_PLATFORM_SECRET_STORE", "disabled")
         .env(
             "LOCKBOX_SESSION_AGENT_DIR",
             common::agent_socket_dir(&dir.join("agent")),

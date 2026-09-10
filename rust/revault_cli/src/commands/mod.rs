@@ -150,15 +150,46 @@ fn record_e2e_invocation(command: &str, matches: &ArgMatches, succeeded: bool) {
         .collect::<Vec<_>>();
     options.sort_unstable();
     options.dedup();
-    if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
-        let _ = writeln!(
-            file,
-            "{}\t{}\t{}",
-            if succeeded { "ok" } else { "error" },
-            command_path,
-            options.join(",")
-        );
+    with_e2e_coverage_lock(&path, || {
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) {
+            let _ = writeln!(
+                file,
+                "{}\t{}\t{}",
+                if succeeded { "ok" } else { "error" },
+                command_path,
+                options.join(",")
+            );
+        }
+    });
+}
+
+#[cfg(unix)]
+fn with_e2e_coverage_lock(path: &std::ffi::OsStr, action: impl FnOnce()) {
+    use std::os::fd::AsRawFd;
+
+    // E2E tests may launch several CLI processes that append to one coverage
+    // file. Lock the record write so the TSV remains parseable.
+    let lock_path = Path::new(path).with_extension("lock");
+    let Ok(lock_file) = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(lock_path)
+    else {
+        action();
+        return;
+    };
+    if unsafe { libc::flock(lock_file.as_raw_fd(), libc::LOCK_EX) } == 0 {
+        action();
+        let _ = unsafe { libc::flock(lock_file.as_raw_fd(), libc::LOCK_UN) };
+    } else {
+        action();
     }
+}
+
+#[cfg(not(unix))]
+fn with_e2e_coverage_lock(_path: &std::ffi::OsStr, action: impl FnOnce()) {
+    action();
 }
 
 #[cfg(not(debug_assertions))]
