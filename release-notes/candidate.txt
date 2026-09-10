@@ -2,6 +2,8 @@ Release cli
 CLI: 0.0.17
 Bindings: 
 
+- Fix vault initialization diagnostic and review new Rust APIs
+- Prepare cli release: CLI 0.0.17, bindings
 - Add independent lockbox encryption signing and compression options
 - Fix tag-triggered Dart publication
 - Reduce mirror test delays and reuse package conformance build caches

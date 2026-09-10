@@ -2260,8 +2260,8 @@ version = "0.2.18"
 dependencies = [
  "criterion",
  "flatbuffers",
- "revault_lockbox_api 0.0.30",
- "revault_vault_api 0.0.31",
+ "revault_lockbox_api 0.0.31",
+ "revault_vault_api 0.0.32",
  "zeroize",
 ]
 
@@ -2276,14 +2276,14 @@ dependencies = [
  "revault_key_server",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
- "revault_lockbox_api 0.0.30",
+ "revault_lockbox_api 0.0.31",
  "revault_lockbox_api 0.0.6",
  "revault_lockbox_api 0.0.9",
  "revault_migration",
  "revault_publish_protocol",
  "revault_vault_api 0.0.10",
  "revault_vault_api 0.0.2",
- "revault_vault_api 0.0.31",
+ "revault_vault_api 0.0.32",
  "revault_vault_api 0.0.6",
  "serde",
  "serde_json",
@@ -2295,7 +2295,7 @@ dependencies = [
 
 [[package]]
 name = "revault_key_server"
-version = "0.0.26"
+version = "0.0.27"
 dependencies = [
  "axum",
  "bytes",
@@ -2409,7 +2409,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.30"
+version = "0.0.31"
 dependencies = [
  "argon2 0.6.0",
  "chacha20poly1305",
@@ -2422,7 +2422,7 @@ dependencies = [
  "ml-dsa",
  "ml-kem",
  "oxiarc-zstd",
- "revault_page_api 0.0.23",
+ "revault_page_api 0.0.24",
  "serde_json",
  "sha2 0.11.0",
  "unicode-normalization",
@@ -2435,7 +2435,7 @@ dependencies = [
 
 [[package]]
 name = "revault_migrate_archive_v1"
-version = "0.0.24"
+version = "0.0.25"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.6",
@@ -2449,7 +2449,7 @@ dependencies = [
 
 [[package]]
 name = "revault_migrate_vault_v1"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.2",
@@ -2465,7 +2465,7 @@ dependencies = [
 
 [[package]]
 name = "revault_migrate_vault_v2"
-version = "0.0.20"
+version = "0.0.21"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.9",
@@ -2477,21 +2477,21 @@ dependencies = [
 
 [[package]]
 name = "revault_migration"
-version = "0.0.28"
+version = "0.0.29"
 dependencies = [
  "getrandom 0.4.3",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
- "revault_lockbox_api 0.0.30",
+ "revault_lockbox_api 0.0.31",
  "revault_lockbox_api 0.0.6",
  "revault_lockbox_api 0.0.9",
  "revault_migrate_archive_v1",
  "revault_migrate_vault_v1",
  "revault_migrate_vault_v2",
- "revault_migration_format 0.0.24",
+ "revault_migration_format 0.0.25",
  "revault_vault_api 0.0.10",
  "revault_vault_api 0.0.2",
- "revault_vault_api 0.0.31",
+ "revault_vault_api 0.0.32",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2517,12 +2517,12 @@ dependencies = [
 
 [[package]]
 name = "revault_migration_format"
-version = "0.0.24"
+version = "0.0.25"
 dependencies = [
  "argon2 0.6.0",
  "chacha20poly1305",
  "getrandom 0.4.3",
- "revault_page_api 0.0.23",
+ "revault_page_api 0.0.24",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2556,7 +2556,7 @@ dependencies = [
 
 [[package]]
 name = "revault_page_api"
-version = "0.0.23"
+version = "0.0.24"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
@@ -2566,7 +2566,7 @@ dependencies = [
 
 [[package]]
 name = "revault_publish_protocol"
-version = "0.0.24"
+version = "0.0.25"
 dependencies = [
  "httparse",
  "sha2 0.11.0",
@@ -2664,7 +2664,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.31"
+version = "0.0.32"
 dependencies = [
  "base64ct",
  "chacha20poly1305",
@@ -2674,7 +2674,7 @@ dependencies = [
  "libc",
  "objc2-core-foundation",
  "objc2-io-kit",
- "revault_lockbox_api 0.0.30",
+ "revault_lockbox_api 0.0.31",
  "secret-service",
  "serde",
  "serde_json",
@@ -2689,9 +2689,9 @@ name = "revault_wasm_bindings"
 version = "0.0.19"
 dependencies = [
  "js-sys",
- "revault_lockbox_api 0.0.30",
- "revault_page_api 0.0.23",
- "revault_vault_api 0.0.31",
+ "revault_lockbox_api 0.0.31",
+ "revault_page_api 0.0.24",
+ "revault_vault_api 0.0.32",
  "wasm-bindgen",
 ]
 
