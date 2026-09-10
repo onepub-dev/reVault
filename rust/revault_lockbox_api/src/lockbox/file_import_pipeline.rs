@@ -49,6 +49,7 @@ pub(super) struct ParallelCompressionResult {
 #[derive(Clone, Copy)]
 pub(super) struct FileImportPipeline {
     zstd_level: i32,
+    compression: Option<crate::Compression>,
     jobs: usize,
 }
 
@@ -56,8 +57,14 @@ impl FileImportPipeline {
     pub(super) fn new(zstd_level: i32, jobs: usize) -> Self {
         Self {
             zstd_level,
+            compression: None,
             jobs: jobs.max(1),
         }
+    }
+
+    pub(super) fn with_compression(mut self, compression: Option<crate::Compression>) -> Self {
+        self.compression = compression;
+        self
     }
 
     pub(super) fn prepare(self, frames: &[CompressionFrameWrite<'_>]) -> PreparedCompressionFrame {
@@ -148,7 +155,10 @@ impl FileImportPipeline {
         prepare_start: Instant,
     ) -> PreparedCompressionFrame {
         let compression_frame_len = payload.len() as u64;
-        let (compression, stored) = encode_compression_frame_with_level(&payload, self.zstd_level);
+        let (compression, stored) = match self.compression {
+            Some(compression) => crate::compression::encode_with_compression(&payload, compression),
+            None => encode_compression_frame_with_level(&payload, self.zstd_level),
+        };
         payload.zeroize();
         let stored = Zeroizing::new(stored);
         let compression_frame_digest = strong_checksum(stored.as_slice());

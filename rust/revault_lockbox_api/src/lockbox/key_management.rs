@@ -59,6 +59,8 @@ pub enum LockboxProtection<'a> {
 /// content key and therefore do not need a key slot.
 #[allow(clippy::large_enum_variant)]
 pub enum LockboxOpen<'a> {
+    /// Open an unencrypted archive without a password or content key.
+    Unencrypted,
     /// Open directly with a caller-provided content key.
     ///
     /// This must be the same high-entropy secret used with
@@ -189,19 +191,75 @@ impl OpenedContentKey {
 }
 
 impl Lockbox {
+    /// Create an archive with independent encryption, signing, and compression choices.
+    ///
+    /// Choices are persisted and cannot be changed by opening with different runtime options.
+    /// Use `LockboxCreateOptions::new` to select credentials and signing explicitly.
+    pub fn create_in_memory_with_options(options: crate::LockboxCreateOptions<'_>) -> Result<Self> {
+        let encryption = match &options.encryption {
+            crate::Encryption::None => crate::EncryptionMode::None,
+            crate::Encryption::Encrypted(_) => crate::EncryptionMode::ChaCha20Poly1305,
+        };
+        let signing = match options.signing {
+            crate::Signing::None => crate::SigningMode::None,
+            crate::Signing::Owner(_) => crate::SigningMode::Owner,
+        };
+        let mut lockbox = match options.encryption {
+            crate::Encryption::None => Self::create_with_secret_key_and_options(
+                SecretVec::try_from_slice(&[0; 32])?,
+                LockboxId::new_random()?,
+                options.runtime,
+            ),
+            crate::Encryption::Encrypted(protection) => {
+                Self::create_in_memory_uncommitted(protection)?
+            }
+        };
+        lockbox.page_manager = std::cell::RefCell::new(crate::page_cache::PageCache::new(
+            options.runtime.cache_limit,
+        ));
+        lockbox.workload_profile = options.runtime.workload_profile;
+        lockbox.worker_policy = options.runtime.worker_policy;
+        lockbox.set_creation_format(crate::creation_options::FormatMode::new(
+            crate::LockboxFormatOptions {
+                encryption,
+                signing,
+                compression: options.compression,
+            },
+        ));
+        if let crate::Signing::Owner(key) = options.signing {
+            lockbox.set_owner_signing_key(key.try_clone()?);
+        }
+        lockbox.commit()?;
+        Ok(lockbox)
+    }
+
+    /// Create a new file with explicit persistent choices; refuse an existing path.
+    ///
+    /// The returned writable handle holds the archive's exclusive lock until dropped.
+    pub fn create_file_with_options(
+        path: &Path,
+        options: crate::LockboxCreateOptions<'_>,
+    ) -> Result<Self> {
+        let mut lockbox = Self::create_in_memory_with_options(options)?;
+        lockbox.storage = StorageBackend::create_file(path, &lockbox.storage.read_all()?)?;
+        Ok(lockbox)
+    }
+
     /// Create a new in-memory lockbox using the supplied key material.
     ///
     /// This is the bytes-oriented counterpart to `Lockbox::create_file`.
+    /// Defaults to encryption, owner signatures, and Zstd level 3. Use
+    /// [`Lockbox::create_in_memory_with_options`] to choose each independently.
     /// Call `commit` after mutations, then `try_to_bytes` to serialize the
     /// lockbox.
     pub fn create_in_memory(
         protection: LockboxProtection<'_>,
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Self> {
-        let mut lockbox = Self::create_in_memory_uncommitted(protection)?;
-        lockbox.set_owner_signing_key(signing_key.try_clone()?);
-        lockbox.commit()?;
-        Ok(lockbox)
+        Self::create_in_memory_with_options(crate::LockboxCreateOptions::new(
+            crate::Encryption::Encrypted(protection),
+            crate::Signing::Owner(signing_key),
+        ))
     }
 
     fn create_in_memory_uncommitted(protection: LockboxProtection<'_>) -> Result<Self> {
@@ -242,6 +300,8 @@ impl Lockbox {
     }
 
     /// Create a new lockbox file using the supplied key material.
+    /// Defaults to encryption, owner signatures, and Zstd level 3. Use
+    /// [`Lockbox::create_file_with_options`] to choose each independently.
     ///
     /// Returns `Error::Io` if the host file cannot be created or written,
     /// `Error::SecurityLimitExceeded` if key material cannot be generated or
@@ -251,10 +311,13 @@ impl Lockbox {
         protection: LockboxProtection<'_>,
         signing_key: &OwnerSigningKeyPair,
     ) -> Result<Self> {
-        let mut lockbox = Self::create_file_uncommitted(path, protection)?;
-        lockbox.set_owner_signing_key(signing_key.try_clone()?);
-        lockbox.commit()?;
-        Ok(lockbox)
+        Self::create_file_with_options(
+            path,
+            crate::LockboxCreateOptions::new(
+                crate::Encryption::Encrypted(protection),
+                crate::Signing::Owner(signing_key),
+            ),
+        )
     }
 
     #[doc(hidden)]
@@ -267,61 +330,21 @@ impl Lockbox {
         Self::create_file(path, protection, signing_key)
     }
 
-    fn create_file_uncommitted(path: &Path, protection: LockboxProtection<'_>) -> Result<Self> {
-        Ok(match protection {
-            LockboxProtection::ContentKey(key) => Self::create_path_with_secret_key_and_options(
-                path,
-                key,
-                LockboxId::new_random()?,
-                LockboxOptions::default(),
-            )?,
-            LockboxProtection::Password(password) => {
-                let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
-                let mut lockbox = Self::create_path_with_secret_key_and_options(
-                    path,
-                    content_key,
-                    LockboxId::new_random()?,
-                    LockboxOptions::default(),
-                )?;
-                lockbox.add_password(password)?;
-                lockbox
-            }
-            LockboxProtection::ContactPublicKey { name, contact } => {
-                let content_key = SecretVec::try_from_slice(&random_content_key()?)?;
-                let mut lockbox = Self::create_path_with_secret_key_and_options(
-                    path,
-                    content_key,
-                    LockboxId::new_random()?,
-                    LockboxOptions::default(),
-                )?;
-                match name {
-                    Some(name) => {
-                        lockbox.add_contact_named(name, &contact)?;
-                    }
-                    None => {
-                        lockbox.add_contact(&contact)?;
-                    }
-                }
-                lockbox
-            }
-        })
-    }
-
     /// Open an in-memory lockbox using the supplied open key material.
     pub fn open_bytes(bytes: Vec<u8>, open: LockboxOpen<'_>) -> Result<Lockbox<ReadOnly>> {
         Ok(Self::open_bytes_opened(bytes, open)?.into_state())
     }
 
     /// Open an in-memory lockbox for mutation and attach `signing_key` for commits.
-    pub fn open_bytes_for_write(
+    pub fn open_bytes_for_write<'a>(
         bytes: Vec<u8>,
         open: LockboxOpen<'_>,
-        signing_key: &OwnerSigningKeyPair,
+        signing_key: impl Into<crate::Signing<'a>>,
     ) -> Result<Self> {
         let mut lockbox = Self::open_bytes_opened_mode(bytes, open, true)?;
         lockbox.complete_pending_transaction_cleanup()?;
         lockbox.read_only = false;
-        lockbox.set_owner_signing_key(signing_key.try_clone()?);
+        lockbox.attach_signing_choice(signing_key.into())?;
         Ok(lockbox)
     }
 
@@ -335,6 +358,9 @@ impl Lockbox {
         allow_recovery: bool,
     ) -> Result<Self> {
         match open {
+            LockboxOpen::Unencrypted => {
+                Self::open_unencrypted_storage(StorageBackend::memory(bytes), allow_recovery)
+            }
             LockboxOpen::ContentKey(key) => Self::open_storage_with_secret_key_mode(
                 StorageBackend::memory(bytes),
                 key,
@@ -392,14 +418,14 @@ impl Lockbox {
     ///
     /// Holds an exclusive archive lock until dropped. Close existing readers
     /// and writers before opening another writer, including in the same process.
-    pub fn open_for_write(
+    pub fn open_for_write<'a>(
         path: &Path,
         open: LockboxOpen<'_>,
-        signing_key: &OwnerSigningKeyPair,
+        signing_key: impl Into<crate::Signing<'a>>,
     ) -> Result<Self> {
         let mut lockbox = Self::open_file_opened_for_write(path, open)?;
         lockbox.read_only = false;
-        lockbox.set_owner_signing_key(signing_key.try_clone()?);
+        lockbox.attach_signing_choice(signing_key.into())?;
         Ok(lockbox)
     }
 
@@ -511,8 +537,10 @@ impl Lockbox {
                 lockbox
             }
         };
-        lockbox.page_manager =
-            std::cell::RefCell::new(crate::page_cache::PageCache::new(options.cache_limit));
+        lockbox.page_manager = std::cell::RefCell::new(crate::page_cache::PageCache::with_format(
+            options.cache_limit,
+            lockbox.format_mode,
+        ));
         lockbox.workload_profile = options.workload_profile;
         lockbox.worker_policy = options.worker_policy;
         Ok(lockbox)
@@ -534,8 +562,10 @@ impl Lockbox {
         let mut lockbox = Self::create_in_memory(protection, signer)?;
         lockbox.commit()?;
         lockbox.storage = StorageBackend::publish(path, &lockbox.bytes()?, overwrite)?;
-        lockbox.page_manager =
-            std::cell::RefCell::new(crate::page_cache::PageCache::new(options.cache_limit));
+        lockbox.page_manager = std::cell::RefCell::new(crate::page_cache::PageCache::with_format(
+            options.cache_limit,
+            lockbox.format_mode,
+        ));
         lockbox.workload_profile = options.workload_profile;
         lockbox.worker_policy = options.worker_policy;
         Ok(lockbox)
@@ -564,6 +594,7 @@ impl Lockbox {
         allow_recovery: bool,
     ) -> Result<Self> {
         match open {
+            LockboxOpen::Unencrypted => Self::open_unencrypted_storage(storage, allow_recovery),
             LockboxOpen::ContentKey(key) => Self::open_storage_with_secret_key_mode(
                 storage,
                 key,
@@ -597,6 +628,36 @@ impl Lockbox {
                     lockbox.mark_read_only();
                 }
                 Ok(lockbox)
+            }
+        }
+    }
+
+    fn open_unencrypted_storage(storage: StorageBackend, allow_recovery: bool) -> Result<Self> {
+        let header = crate::file_format::current_header::read_header(
+            &storage.read_at(0, crate::constants::HEADER_LEN)?,
+        )?;
+        if !header.format_mode.plaintext() {
+            return Err(Error::InvalidInput(
+                "this lockbox requires decryption credentials".into(),
+            ));
+        }
+        Self::open_storage_with_secret_key_mode(
+            storage,
+            SecretVec::try_from_slice(&[0; 32])?,
+            LockboxOptions::default(),
+            allow_recovery,
+        )
+    }
+
+    fn attach_signing_choice(&mut self, signing: crate::Signing<'_>) -> Result<()> {
+        match signing {
+            crate::Signing::None if self.format_mode.signed() => Err(Error::InvalidInput(
+                "this lockbox requires its owner signing key".into(),
+            )),
+            crate::Signing::None => Ok(()),
+            crate::Signing::Owner(key) => {
+                self.set_owner_signing_key(key.try_clone()?);
+                Ok(())
             }
         }
     }
@@ -931,6 +992,32 @@ impl Lockbox {
         self.key_slots = decoded.slots;
         self.key_directory.generation = decoded.generation;
         self.mark_key_directory_dirty();
+        Ok(())
+    }
+
+    /// Restore the validated persistent mode in an uncommitted migration destination.
+    /// Zero upgrades legacy encrypted, signed archives to explicit Zstd level 1.
+    #[cfg(feature = "migration")]
+    #[doc(hidden)]
+    pub fn import_migration_format_mode(&mut self, bits: u16) -> Result<()> {
+        if self.sequence != 0 {
+            return Err(Error::InvalidOperation(
+                "format choices can only be restored before the initial commit".into(),
+            ));
+        }
+        let mode = crate::creation_options::FormatMode::parse(bits)?;
+        let mode = if bits == 0 {
+            crate::creation_options::FormatMode::new(mode.options())
+        } else {
+            mode
+        };
+        if mode.plaintext() {
+            if !self.key_slots.is_empty() {
+                return Err(Error::CorruptRecord);
+            }
+            self.key = SecretVec::try_from_slice(&[0; 32])?;
+        }
+        self.set_creation_format(mode);
         Ok(())
     }
 

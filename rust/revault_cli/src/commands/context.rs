@@ -89,8 +89,42 @@ pub(crate) enum Access {
     CacheOnly,
 }
 
+fn is_unencrypted(path: &str) -> CliResult<bool> {
+    Ok(Lockbox::inspect_file(path)?
+        .format_options
+        .is_some_and(|options| options.encryption == revault_lockbox_api::EncryptionMode::None))
+}
+
 pub(crate) fn open_existing(path: &str, access: &Access) -> CliResult<Lockbox> {
     ensure_lockbox_path_accessible(path)?;
+    if let Some(options) = Lockbox::inspect_file(path)?.format_options {
+        if options.encryption == revault_lockbox_api::EncryptionMode::None {
+            return if options.signing == revault_lockbox_api::SigningMode::None {
+                Ok(Lockbox::open_for_write(
+                    Path::new(path),
+                    LockboxOpen::Unencrypted,
+                    revault_lockbox_api::Signing::None,
+                )?)
+            } else {
+                let vault = default_vault()?;
+                let signer = vault.load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?;
+                Ok(Lockbox::open_for_write(
+                    Path::new(path),
+                    LockboxOpen::Unencrypted,
+                    &signer,
+                )?)
+            };
+        }
+        if options.signing == revault_lockbox_api::SigningMode::None {
+            if let Access::ContentKey(key) = access {
+                return Ok(Lockbox::open_for_write(
+                    Path::new(path),
+                    LockboxOpen::ContentKey(key.try_clone()?),
+                    revault_lockbox_api::Signing::None,
+                )?);
+            }
+        }
+    }
     super::recovery::complete_pending_cleanup_if_available(path, access)?;
     let mut lockbox = match access {
         Access::ContentKey(key) => {
@@ -132,6 +166,9 @@ pub(crate) fn open_existing_read_only(
     access: &Access,
 ) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
     ensure_lockbox_path_accessible(path)?;
+    if is_unencrypted(path)? {
+        return Ok(Lockbox::open(Path::new(path), LockboxOpen::Unencrypted)?);
+    }
     match access {
         Access::ContentKey(key) => Lockbox::open(
             Path::new(path),
@@ -150,6 +187,9 @@ pub(crate) fn open_for_reading(
     access: &Access,
 ) -> CliResult<Lockbox<revault_lockbox_api::ReadOnly>> {
     ensure_lockbox_path_accessible(path)?;
+    if is_unencrypted(path)? {
+        return Ok(Lockbox::open(Path::new(path), LockboxOpen::Unencrypted)?);
+    }
     super::recovery::complete_pending_cleanup_if_available(path, access)?;
     match access {
         Access::CacheOnly => match local_vault().open_lockbox_read_only(path) {
@@ -191,6 +231,9 @@ pub(crate) fn lockbox_open_error(path: &str, error: Error) -> Box<dyn std::error
 }
 
 fn attach_established_owner_signing_key(lockbox: &mut Lockbox) {
+    if lockbox.format_options().signing == revault_lockbox_api::SigningMode::None {
+        return;
+    }
     let Ok(vault) = default_vault() else {
         return;
     };

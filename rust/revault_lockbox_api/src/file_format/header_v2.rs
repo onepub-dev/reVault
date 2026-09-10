@@ -1,4 +1,7 @@
+//! Dual-slot v2/v3 headers. V3 uses the reserved mode word to persist creation choices.
+
 use crate::checked::{array_16, read_u16_le, read_u32_le, read_u64_le};
+use crate::creation_options::FormatMode;
 use crate::crypto::strong_checksum;
 use crate::lockbox_id::LockboxId;
 use crate::{Error, Result};
@@ -12,6 +15,7 @@ const CHECKSUM_START: usize = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Header {
+    pub(crate) format_mode: FormatMode,
     pub(crate) slot_index: usize,
     pub(crate) generation: u64,
     pub(crate) commit_root_offset: u64,
@@ -29,6 +33,7 @@ pub(crate) struct Header {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Publication {
+    pub(crate) format_mode: FormatMode,
     pub(crate) generation: u64,
     pub(crate) commit_root_offset: u64,
     pub(crate) sequence: u64,
@@ -47,6 +52,7 @@ pub(crate) struct Publication {
 pub(crate) fn initial_region(lockbox_id: LockboxId) -> Vec<u8> {
     let mut bytes = vec![0; REGION_LEN];
     let publication = Publication {
+        format_mode: FormatMode::default(),
         generation: 1,
         commit_root_offset: 0,
         sequence: 0,
@@ -88,6 +94,11 @@ pub(crate) fn metadata_auth_message(publication: Publication) -> [u8; 104] {
     let mut message = [0u8; 104];
     message[0..8].copy_from_slice(MAGIC);
     message[8..10].copy_from_slice(&FORMAT_VERSION.to_le_bytes());
+    if publication.format_mode.0 != 0 {
+        message[0..8].copy_from_slice(b"LBX3HDR\0");
+        message[8..10].copy_from_slice(&3u16.to_le_bytes());
+        message[10..12].copy_from_slice(&publication.format_mode.0.to_le_bytes());
+    }
     message[12..16].copy_from_slice(&(SLOT_LEN as u32).to_le_bytes());
     message[16..24].copy_from_slice(&publication.generation.to_le_bytes());
     message[24..32].copy_from_slice(&publication.commit_root_offset.to_le_bytes());
@@ -132,11 +143,16 @@ pub(crate) fn read_region(bytes: &[u8]) -> Result<Header> {
 }
 
 fn read_slot(slot: &[u8], slot_index: usize) -> Result<Header> {
-    if slot.len() != SLOT_LEN || slot.get(0..8) != Some(MAGIC.as_slice()) {
+    if slot.len() != SLOT_LEN {
         return Err(Error::CorruptHeader);
     }
-    if read_u16_le(&slot[8..10]).map_err(|_| Error::CorruptHeader)? != FORMAT_VERSION
-        || read_u16_le(&slot[10..12]).map_err(|_| Error::CorruptHeader)? != 0
+    let version = read_u16_le(&slot[8..10])?;
+    let format_mode = FormatMode::parse(read_u16_le(&slot[10..12])?)?;
+    let valid_version = (version == 2
+        && slot.get(..8) == Some(MAGIC.as_slice())
+        && format_mode.0 == 0)
+        || (version == 3 && slot.get(..8) == Some(b"LBX3HDR\0".as_slice()) && format_mode.0 != 0);
+    if !valid_version
         || read_u32_le(&slot[12..16]).map_err(|_| Error::CorruptHeader)? as usize != SLOT_LEN
     {
         return Err(Error::CorruptHeader);
@@ -150,6 +166,7 @@ fn read_slot(slot: &[u8], slot_index: usize) -> Result<Header> {
         return Err(Error::CorruptHeader);
     }
     Ok(Header {
+        format_mode,
         slot_index,
         generation,
         commit_root_offset: read_u64_le(&slot[24..32]).map_err(|_| Error::CorruptHeader)?,
@@ -177,6 +194,7 @@ mod tests {
 
     fn publication(generation: u64, sequence: u64) -> Publication {
         Publication {
+            format_mode: FormatMode::default(),
             generation,
             commit_root_offset: sequence * 100,
             sequence,

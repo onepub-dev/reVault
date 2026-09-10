@@ -38,7 +38,7 @@ serde_json = "1"
 unicode-normalization = "0.1"
 x25519-dalek = { version = "3", features = ["static_secrets"] }
 zeroize = "1.9"
-zstd-complete = "0.2"
+zstd-complete = { version = "0.2", features = ["c-port-validation"] }
 zstd = { version = "0.14.0", default-features = false, optional = true }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]

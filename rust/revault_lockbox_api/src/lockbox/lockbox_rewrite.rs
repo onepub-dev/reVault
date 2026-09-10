@@ -57,13 +57,18 @@ impl<'a> LockboxRewrite<'a> {
 
         let Self { source, content } = self;
         let key = source.key.try_clone()?;
-        let signing_key = source.require_owner_signing_key()?.try_clone()?;
+        let signing_key = source
+            .owner_signing_key
+            .as_ref()
+            .map(crate::OwnerSigningKeyPair::try_clone)
+            .transpose()?;
         let mut compacted = Lockbox::create_with_secret_key_and_options(
             key,
             source.lockbox_id,
             Self::options(source),
         );
-        compacted.set_owner_signing_key(signing_key);
+        compacted.owner_signing_key = signing_key;
+        compacted.set_creation_format(source.format_mode);
         Self::populate(source, &mut compacted, content, true)?;
         compacted.commit()?;
         *source = compacted;
@@ -81,13 +86,18 @@ impl<'a> LockboxRewrite<'a> {
 
         let Self { source, content } = self;
         let key = SecretVec::try_from_slice(&random_content_key()?)?;
-        let signing_key = source.require_owner_signing_key()?.try_clone()?;
+        let signing_key = source
+            .owner_signing_key
+            .as_ref()
+            .map(crate::OwnerSigningKeyPair::try_clone)
+            .transpose()?;
         let mut rekeyed = Lockbox::create_with_secret_key_and_options(
             key,
             source.lockbox_id,
             Self::options(source),
         );
-        rekeyed.set_owner_signing_key(signing_key);
+        rekeyed.owner_signing_key = signing_key;
+        rekeyed.set_creation_format(source.format_mode);
         let slot_ids =
             Self::add_retained_contacts(&mut rekeyed, retained_contacts, retained_passwords)?;
         Self::populate(source, &mut rekeyed, content, false)?;
@@ -101,7 +111,11 @@ impl<'a> LockboxRewrite<'a> {
         let replacement = AtomicFileReplacement::for_compaction(&path);
         replacement.discard();
         let options = Self::options(source);
-        let signing_key = source.require_owner_signing_key()?.try_clone()?;
+        let signing_key = source
+            .owner_signing_key
+            .as_ref()
+            .map(crate::OwnerSigningKeyPair::try_clone)
+            .transpose()?;
         let result = (|| {
             let key = source.key.try_clone()?;
             let mut compacted = Lockbox::create_path_with_secret_key_and_options(
@@ -110,7 +124,11 @@ impl<'a> LockboxRewrite<'a> {
                 source.lockbox_id,
                 options,
             )?;
-            compacted.set_owner_signing_key(signing_key.try_clone()?);
+            compacted.owner_signing_key = signing_key
+                .as_ref()
+                .map(crate::OwnerSigningKeyPair::try_clone)
+                .transpose()?;
+            compacted.set_creation_format(source.format_mode);
             Self::populate(source, &mut compacted, content, true)?;
             compacted.commit()?;
             replacement.install()?;
@@ -134,7 +152,11 @@ impl<'a> LockboxRewrite<'a> {
         let replacement = AtomicFileReplacement::for_compaction(&path);
         replacement.discard();
         let options = Self::options(source);
-        let signing_key = source.require_owner_signing_key()?.try_clone()?;
+        let signing_key = source
+            .owner_signing_key
+            .as_ref()
+            .map(crate::OwnerSigningKeyPair::try_clone)
+            .transpose()?;
         let result = (|| {
             let key = SecretVec::try_from_slice(&random_content_key()?)?;
             let mut rekeyed = Lockbox::create_path_with_secret_key_and_options(
@@ -143,7 +165,11 @@ impl<'a> LockboxRewrite<'a> {
                 source.lockbox_id,
                 options,
             )?;
-            rekeyed.set_owner_signing_key(signing_key.try_clone()?);
+            rekeyed.owner_signing_key = signing_key
+                .as_ref()
+                .map(crate::OwnerSigningKeyPair::try_clone)
+                .transpose()?;
+            rekeyed.set_creation_format(source.format_mode);
             let slot_ids =
                 Self::add_retained_contacts(&mut rekeyed, retained_contacts, retained_passwords)?;
             Self::populate(source, &mut rekeyed, content, false)?;
@@ -344,6 +370,11 @@ impl Lockbox {
         retained_contacts: &[(String, ContactPublicKey)],
         retained_passwords: &[(String, crate::SecretString)],
     ) -> Result<Vec<(String, u64)>> {
+        if self.format_mode.plaintext() {
+            return Err(Error::InvalidOperation(
+                "unencrypted lockboxes have no content key to rotate".into(),
+            ));
+        }
         if retained_contacts.is_empty() && retained_passwords.is_empty() {
             return Err(Error::SecurityLimitExceeded(
                 "refusing to rekey without retained access".to_string(),

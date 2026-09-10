@@ -28,6 +28,12 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    if ["encryption", "signing", "compression", "compression-level"]
+        .iter()
+        .any(|name| matches.contains_id(name))
+    {
+        return create_configured(matches, access);
+    }
     let mut args = Vec::new();
     if matches.get_flag("password") {
         args.push("--password".to_string());
@@ -44,6 +50,128 @@ pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult
         access,
         matches.get_one::<String>("description").map(String::as_str),
     )
+}
+
+fn create_configured(matches: &ArgMatches, access: &Access) -> CliResult<()> {
+    use revault_lockbox_api::{Compression, Encryption, LockboxCreateOptions, Signing, ZstdLevel};
+    let plaintext = matches
+        .get_one::<String>("encryption")
+        .is_some_and(|mode| mode == "none");
+    let signed = matches
+        .get_one::<String>("signing")
+        .is_none_or(|mode| mode == "owner");
+    let compression = if matches
+        .get_one::<String>("compression")
+        .is_some_and(|mode| mode == "none")
+    {
+        if matches.contains_id("compression-level") {
+            return Err(cli_error("--compression-level requires --compression zstd"));
+        }
+        Compression::None
+    } else {
+        Compression::Zstd {
+            level: ZstdLevel::new(*matches.get_one::<u8>("compression-level").unwrap_or(&3))?,
+        }
+    };
+    if plaintext
+        && (matches.get_flag("password")
+            || matches.contains_id("for")
+            || matches.contains_id("key"))
+    {
+        return Err(cli_error(
+            "--encryption none does not accept decryption credentials",
+        ));
+    }
+    let path = create_path(&command_lockbox().ok_or_else(|| cli_error("missing lockbox"))?)?;
+    ensure_new_lockbox_path(&path)?;
+    let needs_vault = signed
+        || matches.contains_id("for")
+        || (!plaintext
+            && !matches.get_flag("password")
+            && !matches!(access, Access::ContentKey(_)));
+    let vault = if needs_vault {
+        ensure_default_vault_initialized()?;
+        Some(default_vault()?)
+    } else {
+        None
+    };
+    let signing_key = if signed {
+        Some(
+            vault
+                .as_ref()
+                .unwrap()
+                .load_owner_signing_key(VaultDirectory::DEFAULT_KEY_NAME)?,
+        )
+    } else {
+        None
+    };
+    let signing = signing_key
+        .as_ref()
+        .map(Signing::Owner)
+        .unwrap_or(Signing::None);
+    let mut password = None;
+    let mut cache_key = None;
+    let encryption = if plaintext {
+        Encryption::None
+    } else {
+        let protection = if matches.get_flag("password") {
+            password = Some(read_new_password()?);
+            LockboxProtection::Password(password.as_ref().unwrap())
+        } else if let Some(contact_name) = matches.get_one::<String>("for") {
+            let vault = vault.as_ref().unwrap();
+            password = resolve_profile_password(contact_name, vault)?;
+            if let Some(password) = password.as_ref() {
+                LockboxProtection::Password(password)
+            } else {
+                let contact = load_contact_from_vault(contact_name, vault)?;
+                LockboxProtection::ContactPublicKey {
+                    name: contact.name.map(|name| access_entry_name(&name)),
+                    contact: contact.public_key,
+                }
+            }
+        } else if let Access::ContentKey(key) = access {
+            LockboxProtection::ContentKey(key.try_clone()?)
+        } else {
+            let contact =
+                load_contact_from_vault(VaultDirectory::DEFAULT_KEY_NAME, vault.as_ref().unwrap())?;
+            LockboxProtection::ContactPublicKey {
+                name: contact.name.map(|name| access_entry_name(&name)),
+                contact: contact.public_key,
+            }
+        };
+        Encryption::Encrypted(protection)
+    };
+    let mut lb = Lockbox::create_file_with_options(
+        &path,
+        LockboxCreateOptions {
+            compression,
+            ..LockboxCreateOptions::new(encryption, signing)
+        },
+    )?;
+    set_initial_description(
+        &mut lb,
+        matches.get_one::<String>("description").map(String::as_str),
+    )?;
+    if let Some(password) = password.as_ref() {
+        let backup = VaultOpen::export_key_directory_backup(&lb)?;
+        let opened = VaultOpen::key_directory_backup_with_password(&backup, password)?;
+        cache_key = Some(opened.try_clone_key()?);
+        if let Some(vault) = vault.as_ref() {
+            remember_lockbox_password_if_enabled_with_vault(&lb, password, vault)?;
+        }
+    }
+    if let Some(key) = cache_key {
+        local_vault()
+            .store()
+            .put_content_key_for_path(lb.lockbox_id(), key, &path)?;
+    }
+    if !plaintext {
+        if let Some(vault) = vault.as_ref() {
+            mirror_key_directory_with_vault(&lb, &path, vault)?;
+        }
+    }
+    println!("Lockbox created: {}", path.display());
+    Ok(())
 }
 
 fn create_with_description(
@@ -162,6 +290,17 @@ pub(crate) fn open_matches(matches: &ArgMatches) -> CliResult<()> {
 
 fn open_options(options: OpenOptions) -> CliResult<()> {
     ensure_lockbox_path_accessible(&options.lockbox_path)?;
+    if Lockbox::inspect_file(&options.lockbox_path)?
+        .format_options
+        .is_some_and(|format| format.encryption == revault_lockbox_api::EncryptionMode::None)
+    {
+        drop(Lockbox::open(
+            Path::new(&options.lockbox_path),
+            LockboxOpen::Unencrypted,
+        )?);
+        println!("Lockbox opened: {}", options.lockbox_path);
+        return Ok(());
+    }
     if !matches!(options.password_source, PasswordSource::Prompt)
         || (env::var_os("LOCKBOX_PASSWORD").is_some()
             && !revault_vault_api::default_vault_path()?.exists())

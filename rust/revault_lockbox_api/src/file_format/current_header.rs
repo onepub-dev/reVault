@@ -1,4 +1,4 @@
-//! Format-v2 header facade, staged separately until all v2 transaction paths are wired.
+//! Native header facade for legacy v2 archives and configurable v3 archives.
 
 use crate::checked::read_u16_le;
 use crate::crypto::strong_checksum;
@@ -8,7 +8,7 @@ use crate::storage::{Storage, StorageBackend};
 use crate::{ArtifactKind, Error, Result};
 
 /// Current native lockbox format written by the crash-recoverable protocol.
-pub const LOCKBOX_FORMAT_VERSION: u16 = 2;
+pub const LOCKBOX_FORMAT_VERSION: u16 = 3;
 pub(crate) const HEADER_LEN: usize = header_v2::REGION_LEN;
 const V1_HEADER_LEN: usize = 96;
 const V1_CHECKSUM_START: usize = 64;
@@ -16,6 +16,7 @@ const V1_MAGIC: &[u8; 8] = b"LBX1HDR\0";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct LockboxHeader {
+    pub(crate) format_mode: crate::creation_options::FormatMode,
     pub(crate) slot_index: usize,
     pub(crate) generation: u64,
     pub(crate) commit_root_offset: u64,
@@ -45,6 +46,7 @@ pub(crate) fn write_header(
         bytes,
         0,
         Publication {
+            format_mode: Default::default(),
             generation: 1,
             commit_root_offset,
             sequence,
@@ -73,6 +75,7 @@ pub(crate) fn read_header(bytes: &[u8]) -> Result<LockboxHeader> {
     }
     let header = header_v2::read_region(bytes)?;
     Ok(LockboxHeader {
+        format_mode: header.format_mode,
         slot_index: header.slot_index,
         generation: header.generation,
         commit_root_offset: header.commit_root_offset,
@@ -106,8 +109,8 @@ pub fn probe_lockbox_format_version(bytes: &[u8]) -> Result<u16> {
     if bytes.get(..8) == Some(V1_MAGIC.as_slice()) {
         return probe_v1(bytes);
     }
-    header_v2::read_region(bytes)?;
-    Ok(LOCKBOX_FORMAT_VERSION)
+    let header = header_v2::read_region(bytes)?;
+    Ok(if header.format_mode.0 == 0 { 2 } else { 3 })
 }
 
 fn probe_v1(bytes: &[u8]) -> Result<u16> {

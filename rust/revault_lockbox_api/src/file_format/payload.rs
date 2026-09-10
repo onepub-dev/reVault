@@ -64,10 +64,25 @@ fn decode_file_payload(payload: &[u8]) -> Result<(String, u32, Vec<u8>)> {
     ))
 }
 
+#[cfg(test)]
 pub(crate) fn encode_compression_frame_segment_payload(
     manifest: &CompressionFrameManifest,
     segment_offset: u64,
     segment: &[u8],
+) -> Result<Vec<u8>> {
+    encode_compression_frame_segment_payload_with_compression(
+        manifest,
+        segment_offset,
+        segment,
+        None,
+    )
+}
+
+pub(crate) fn encode_compression_frame_segment_payload_with_compression(
+    manifest: &CompressionFrameManifest,
+    segment_offset: u64,
+    segment: &[u8],
+    compression: Option<crate::Compression>,
 ) -> Result<Vec<u8>> {
     let manifest_bytes = if segment_offset == 0 {
         encode_compression_frame_manifest(manifest)?
@@ -77,7 +92,12 @@ pub(crate) fn encode_compression_frame_segment_payload(
     let (manifest_compression, stored_manifest) = if manifest_bytes.is_empty() {
         (crate::compression::COMPRESSION_NONE, Vec::new())
     } else {
-        encode_compression_frame(&manifest_bytes)
+        match compression {
+            Some(compression) => {
+                crate::compression::encode_with_compression(&manifest_bytes, compression)
+            }
+            None => encode_compression_frame(&manifest_bytes),
+        }
     };
     let mut out = Vec::with_capacity(72 + stored_manifest.len() + segment.len());
     out.extend_from_slice(COMPRESSION_FRAME_SEGMENT_MAGIC);

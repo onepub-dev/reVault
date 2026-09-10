@@ -1,11 +1,15 @@
 use crate::cache_options::{cache_limit_bytes, CacheLimit, CacheStats};
 use crate::checked::read_u32_le;
+use crate::creation_options::FormatMode;
 use crate::fast_hash::FastBuildHasher;
 use crate::lockbox_id::LockboxId;
 use crate::page::{
-    decode_page, decode_single_object_page_secure, encode_page, encode_single_object_page_secure,
-    page_size_for_stored_len, DecodedPage, PageObject, PageObjectKind, SecureSingleObjectPage,
-    DEFAULT_DATA_PAGE_BYTES, DEFAULT_METADATA_PAGE_BYTES, PAGE_HEADER_LEN, PAGE_MAGIC,
+    decode_page_with_format, decode_single_object_page_secure_with_format, encode_page_with_format,
+};
+use crate::page::{
+    encode_single_object_page_secure, page_size_for_stored_len, DecodedPage, PageObject,
+    PageObjectKind, SecureSingleObjectPage, DEFAULT_DATA_PAGE_BYTES, DEFAULT_METADATA_PAGE_BYTES,
+    PAGE_HEADER_LEN, PAGE_MAGIC,
 };
 use crate::secret_vec::SecureVec;
 use crate::storage::Storage;
@@ -14,6 +18,7 @@ use std::collections::{BTreeSet, HashMap, VecDeque};
 
 #[derive(Debug)]
 pub(crate) struct PageCache {
+    format_mode: FormatMode,
     limit: CacheLimit,
     limit_bytes: u64,
     used_bytes: u64,
@@ -29,6 +34,7 @@ pub(crate) struct PageCache {
 impl Clone for PageCache {
     fn clone(&self) -> Self {
         Self {
+            format_mode: self.format_mode,
             limit: self.limit,
             limit_bytes: self.limit_bytes,
             used_bytes: self.pages.values().map(|page| page.weight).sum(),
@@ -81,6 +87,7 @@ pub(crate) struct SecurePageAppend<'a> {
 impl PageCache {
     pub(crate) fn new(limit: CacheLimit) -> Self {
         Self {
+            format_mode: Default::default(),
             limit,
             limit_bytes: cache_limit_bytes(limit),
             used_bytes: 0,
@@ -92,6 +99,16 @@ impl PageCache {
             hits: 0,
             misses: 0,
         }
+    }
+
+    pub(crate) fn with_format(limit: CacheLimit, mode: FormatMode) -> Self {
+        let mut cache = Self::new(limit);
+        cache.format_mode = mode;
+        cache
+    }
+
+    pub(crate) fn set_format(&mut self, mode: FormatMode) {
+        self.format_mode = mode;
     }
 
     pub(crate) fn read_page(
@@ -113,8 +130,14 @@ impl PageCache {
         }
 
         self.misses = self.misses.saturating_add(1);
-        let (page, weight) =
-            Self::read_decoded_page_from_storage(storage, offset, lockbox_id, security, key)?;
+        let (page, weight) = Self::read_decoded_page_from_storage(
+            storage,
+            offset,
+            lockbox_id,
+            security,
+            key,
+            self.format_mode,
+        )?;
         self.insert_page_with_security(offset, page.clone(), weight, security, false);
         Ok(page)
     }
@@ -125,6 +148,7 @@ impl PageCache {
         lockbox_id: LockboxId,
         security: PageSecurity,
         key: PageReadKey<'_>,
+        mode: FormatMode,
     ) -> Result<(DecodedPage, u64)> {
         let header = storage.read_at(offset, PAGE_HEADER_LEN)?;
         if header.get(0..8) != Some(PAGE_MAGIC.as_slice()) {
@@ -143,11 +167,16 @@ impl PageCache {
         let page = match (security, key) {
             (PageSecurity::Normal, PageReadKey::Normal(key)) => {
                 let bytes = storage.read_at(offset, read_len)?;
-                decode_page(&bytes, lockbox_id, key)?
+                decode_page_with_format(&bytes, lockbox_id, key, mode)?
             }
             (PageSecurity::Secure, PageReadKey::Secure(content_key)) => {
                 let mut bytes = storage.read_at_secure(offset, read_len)?;
-                let decoded = decode_single_object_page_secure(&mut bytes, lockbox_id, content_key);
+                let decoded = decode_single_object_page_secure_with_format(
+                    &mut bytes,
+                    lockbox_id,
+                    content_key,
+                    mode,
+                );
                 bytes.zeroize()?;
                 decoded?
             }
@@ -182,16 +211,32 @@ impl PageCache {
         request: SecurePageAppend<'_>,
     ) -> Result<u64> {
         let page_offset = storage.len()?;
-        let encoded = encode_single_object_page_secure(SecureSingleObjectPage {
-            page_size: DEFAULT_METADATA_PAGE_BYTES,
-            lockbox_id: request.lockbox_id,
-            page_id: page_offset,
-            sequence: request.sequence,
-            content_key: request.content_key,
-            kind: request.kind,
-            id: request.object_id,
-            payload: request.payload,
-        })?;
+        let encoded = if self.format_mode.plaintext() {
+            encode_page_with_format(
+                DEFAULT_METADATA_PAGE_BYTES,
+                request.lockbox_id,
+                page_offset,
+                request.sequence,
+                request.content_key,
+                &[PageObject::new_secure(
+                    request.kind,
+                    request.object_id,
+                    request.payload.try_clone()?,
+                )],
+                self.format_mode,
+            )?
+        } else {
+            encode_single_object_page_secure(SecureSingleObjectPage {
+                page_size: DEFAULT_METADATA_PAGE_BYTES,
+                lockbox_id: request.lockbox_id,
+                page_id: page_offset,
+                sequence: request.sequence,
+                content_key: request.content_key,
+                kind: request.kind,
+                id: request.object_id,
+                payload: request.payload,
+            })?
+        };
         let appended = storage.append(&encoded)?;
         if appended != page_offset {
             return Err(Error::CorruptRecord);
@@ -257,13 +302,14 @@ impl PageCache {
                         "page size exceeds addressable memory".to_string(),
                     )
                 })?;
-                let encoded = encode_page(
+                let encoded = encode_page_with_format(
                     page_size,
                     lockbox_id,
                     entry.page.page_id,
                     entry.page.sequence,
                     key,
                     &entry.page.objects,
+                    self.format_mode,
                 )?;
                 (encoded, page_size)
             };

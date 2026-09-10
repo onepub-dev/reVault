@@ -20,12 +20,10 @@ use crate::constants::{
 };
 use crate::crypto::strong_checksum;
 use crate::file_chunk::{CompressionFrameSegment, FileChunk, PendingFileChunk};
-use crate::file_format::{
-    decode_compression_frame_segment_payload_view, encode_compression_frame_segment_payload,
-};
+use crate::file_format::decode_compression_frame_segment_payload_view;
 use crate::lockbox_path::LockboxPath;
 use crate::node_kind::NodeKind;
-use crate::page::{page_size_for_encoded_objects, PageObject, PageObjectKind, DEFAULT_PAGE_BYTES};
+use crate::page::{PageObject, PageObjectKind, DEFAULT_PAGE_BYTES};
 use crate::page_object_packer::PageObjectPacker;
 use crate::security::validate_permissions;
 use crate::storage::atomic_file_replacement::AtomicFileReplacement;
@@ -523,7 +521,8 @@ impl<State> Lockbox<State> {
     ) -> Result<(u64, Vec<FileChunk>)> {
         let jobs = jobs.max(1);
         let level = self.compression_frame_zstd_level();
-        let pipeline = FileImportPipeline::new(level, jobs);
+        let pipeline =
+            FileImportPipeline::new(level, jobs).with_compression(self.configured_compression());
         let queue_bound = jobs.saturating_mul(2).max(1);
         let (job_tx, job_rx) = std::sync::mpsc::sync_channel::<ParallelCompressionJob>(queue_bound);
         let (result_tx, result_rx) = std::sync::mpsc::channel::<ParallelCompressionResult>();
@@ -800,6 +799,12 @@ impl<State> Lockbox<State> {
         expected_total_len: u64,
         chunk: &FileChunk,
     ) -> Result<Vec<u8>> {
+        if self.format_mode.0 != 0
+            && self.format_mode.options().compression == crate::Compression::None
+            && chunk.compression != COMPRESSION_NONE
+        {
+            return Err(Error::CorruptRecord);
+        }
         if let Some(cached) = self.read_cached_compression_frame_slice(expected_total_len, chunk)? {
             return Ok(cached);
         }
@@ -1157,6 +1162,10 @@ impl<State> Lockbox<State> {
             WorkloadProfile::BulkImport => ZSTD_BULK_IMPORT_LEVEL,
             _ => ZSTD_DEFAULT_LEVEL,
         }
+    }
+
+    fn configured_compression(&self) -> Option<crate::Compression> {
+        (self.format_mode.0 != 0).then(|| self.format_mode.options().compression)
     }
 
     fn decoded_compression_frame_cache_limit(&self) -> usize {
@@ -1637,8 +1646,9 @@ impl<'a, State> FilePageWriter<'a, State> {
         frames: &[CompressionFrameWrite<'_>],
         chunks: &mut Vec<FileChunk>,
     ) -> Result<Vec<usize>> {
-        let prepared =
-            FileImportPipeline::new(self.lockbox.compression_frame_zstd_level(), 1).prepare(frames);
+        let prepared = FileImportPipeline::new(self.lockbox.compression_frame_zstd_level(), 1)
+            .with_compression(self.lockbox.configured_compression())
+            .prepare(frames);
         self.write_prepared_compression_frame(prepared, chunks)
     }
 
@@ -1651,6 +1661,7 @@ impl<'a, State> FilePageWriter<'a, State> {
             self.lockbox.compression_frame_zstd_level(),
             self.lockbox.worker_jobs(),
         )
+        .with_compression(self.lockbox.configured_compression())
         .prepare_batches(batches);
         let mut indices = Vec::with_capacity(prepared.len());
         for frame in prepared {
@@ -1723,7 +1734,12 @@ impl<'a, State> FilePageWriter<'a, State> {
     ) -> Result<()> {
         self.lockbox.sequence += 1;
         let object_id = self.lockbox.sequence;
-        let payload = encode_compression_frame_segment_payload(manifest, segment_offset, segment)?;
+        let payload = crate::payload::encode_compression_frame_segment_payload_with_compression(
+            manifest,
+            segment_offset,
+            segment,
+            self.lockbox.configured_compression(),
+        )?;
         let object = PageObject::new(PageObjectKind::FileData, object_id, payload);
         let context = PendingSegment {
             chunk_indices: chunk_indices.to_vec(),
@@ -1762,7 +1778,10 @@ impl<'a, State> FilePageWriter<'a, State> {
             .iter()
             .map(|pending| pending.object.clone())
             .collect::<Vec<_>>();
-        let page_size = page_size_for_encoded_objects(&objects)?;
+        let page_size = crate::page::page_size_for_encoded_objects_with_format(
+            &objects,
+            self.lockbox.format_mode,
+        )?;
         let page_offset = self.lockbox.allocate_page_offset(page_size as u64)?;
         if self.lockbox.should_discard_file_pages_after_flush() {
             self.lockbox

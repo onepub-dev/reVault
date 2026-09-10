@@ -57,6 +57,25 @@ pub(crate) fn page_size_for_objects(objects: &[PageObject]) -> usize {
 }
 
 pub(crate) fn page_size_for_encoded_objects(objects: &[PageObject]) -> Result<usize> {
+    page_size_for_encoded_objects_with_format(objects, Default::default())
+}
+
+pub(crate) fn page_size_for_encoded_objects_with_format(
+    objects: &[PageObject],
+    mode: crate::creation_options::FormatMode,
+) -> Result<usize> {
+    if mode.0 != 0 {
+        let mut body = encode_objects_body(objects, mode)?;
+        let len = PAGE_HEADER_LEN
+            + body.len()
+            + if mode.plaintext() || page_objects_are_clear_text(objects)? {
+                32
+            } else {
+                16
+            };
+        body.zeroize();
+        return page_size_for_stored_len(len, max_page_size_for_objects(objects));
+    }
     if objects.iter().any(|object| {
         matches!(
             object.kind,
@@ -325,6 +344,7 @@ pub(crate) struct SecureSingleObjectPage<'a> {
 // Raw page codecs used by PageCache. Production lockbox read/write paths should
 // not call these directly; recovery and low-level format tests are the
 // exceptions for raw page codecs in this module.
+#[cfg(test)]
 pub(crate) fn encode_page(
     page_size: usize,
     lockbox_id: LockboxId,
@@ -333,21 +353,74 @@ pub(crate) fn encode_page(
     key: &[u8],
     objects: &[PageObject],
 ) -> Result<Vec<u8>> {
-    if page_size < PAGE_HEADER_LEN {
-        return Err(Error::SecurityLimitExceeded(
-            "page is smaller than the header".to_string(),
-        ));
-    }
+    encode_page_with_format(
+        page_size,
+        lockbox_id,
+        page_id,
+        sequence,
+        key,
+        objects,
+        Default::default(),
+    )
+}
+
+fn encode_objects_body(
+    objects: &[PageObject],
+    mode: crate::creation_options::FormatMode,
+) -> Result<Vec<u8>> {
     let mut object_stream = encode_object_stream(objects)?;
     let compress_body = !objects.iter().any(|object| {
         matches!(
             object.kind,
             PageObjectKind::FileData | PageObjectKind::PackedFileData
-        )
+        ) || (mode.0 != 0
+            && matches!(
+                object.kind,
+                PageObjectKind::VariableLeaf
+                    | PageObjectKind::VariableInternal
+                    | PageObjectKind::FormLeaf
+                    | PageObjectKind::FormInternal
+            ))
     });
-    let mut body = encode_page_body_plaintext(&object_stream, compress_body);
+    let body = if mode.0 == 0
+        || !compress_body
+        || mode.options().compression == crate::Compression::None
+    {
+        encode_page_body_plaintext(
+            &object_stream,
+            compress_body
+                && (mode.0 == 0 || mode.options().compression != crate::Compression::None),
+        )
+    } else {
+        let (algorithm, stored) =
+            crate::compression::encode_with_compression(&object_stream, mode.options().compression);
+        let mut body = vec![PAGE_BODY_VERSION, COMPRESSION_NORMAL, 0, 0];
+        body.extend_from_slice(&(object_stream.len() as u64).to_le_bytes());
+        body.extend_from_slice(&0u32.to_le_bytes());
+        body.extend_from_slice(&(object_stream.len() as u64).to_le_bytes());
+        body.push(algorithm);
+        body.extend_from_slice(&(stored.len() as u64).to_le_bytes());
+        body.extend_from_slice(&stored);
+        body
+    };
     object_stream.zeroize();
-    let clear_text = page_objects_are_clear_text(objects)?;
+    Ok(body)
+}
+
+pub(crate) fn encode_page_with_format(
+    page_size: usize,
+    lockbox_id: LockboxId,
+    page_id: u64,
+    sequence: u64,
+    key: &[u8],
+    objects: &[PageObject],
+    mode: crate::creation_options::FormatMode,
+) -> Result<Vec<u8>> {
+    if page_size < PAGE_HEADER_LEN {
+        return Err(Error::CorruptRecord);
+    }
+    let mut body = encode_objects_body(objects, mode)?;
+    let clear_text = mode.plaintext() || page_objects_are_clear_text(objects)?;
     let flags = if clear_text { PAGE_FLAG_CLEAR_TEXT } else { 0 };
     let (nonce, mut stored_body) = if clear_text {
         let mut stored = Vec::with_capacity(32 + body.len());
@@ -390,6 +463,15 @@ pub(crate) fn encode_page(
 }
 
 pub(crate) fn decode_page(page: &[u8], lockbox_id: LockboxId, key: &[u8]) -> Result<DecodedPage> {
+    decode_page_with_format(page, lockbox_id, key, Default::default())
+}
+
+pub(crate) fn decode_page_with_format(
+    page: &[u8],
+    lockbox_id: LockboxId,
+    key: &[u8],
+    mode: crate::creation_options::FormatMode,
+) -> Result<DecodedPage> {
     if page.len() < PAGE_HEADER_LEN {
         return Err(Error::Truncated);
     }
@@ -437,11 +519,19 @@ pub(crate) fn decode_page(page: &[u8], lockbox_id: LockboxId, key: &[u8]) -> Res
         open_with_nonce(stored_body, key, nonce, &aad)?
     };
     let mut body = body;
+    if mode.0 != 0
+        && mode.options().compression == crate::Compression::None
+        && body.get(1) == Some(&COMPRESSION_NORMAL)
+        && body.get(24) != Some(&COMPRESSION_NONE)
+    {
+        body.zeroize();
+        return Err(Error::CorruptRecord);
+    }
     let mut object_stream = decode_page_body_plaintext(&body)?;
     body.zeroize();
     let objects = decode_object_stream(&object_stream)?;
     object_stream.zeroize();
-    let clear_text = page_objects_are_clear_text(&objects)?;
+    let clear_text = mode.plaintext() || page_objects_are_clear_text(&objects)?;
     if clear_text != (flags & PAGE_FLAG_CLEAR_TEXT != 0) {
         return Err(Error::CorruptRecord);
     }
@@ -457,7 +547,16 @@ pub(crate) fn decode_single_object_page_secure(
     lockbox_id: LockboxId,
     content_key: &[u8; 32],
 ) -> Result<DecodedPage> {
-    let (page_id, sequence) = decrypt_page_body_secure(page, lockbox_id, content_key)?;
+    decode_single_object_page_secure_with_format(page, lockbox_id, content_key, Default::default())
+}
+
+pub(crate) fn decode_single_object_page_secure_with_format(
+    page: &mut SecureVec,
+    lockbox_id: LockboxId,
+    content_key: &[u8; 32],
+    mode: crate::creation_options::FormatMode,
+) -> Result<DecodedPage> {
+    let (page_id, sequence) = decrypt_page_body_secure(page, lockbox_id, content_key, mode)?;
     decode_page_body_plaintext_in_place(page)?;
     let (kind, id, payload) = decode_single_object_stream_in_place(page)?;
     let object = PageObject::new_secure(kind, id, payload);
@@ -545,6 +644,7 @@ fn decrypt_page_body_secure(
     page: &mut SecureVec,
     lockbox_id: LockboxId,
     content_key: &[u8; 32],
+    mode: crate::creation_options::FormatMode,
 ) -> Result<(u64, u64)> {
     let header: (u64, u64, [u8; 12], u16, usize, usize) = {
         let parsed = secure_read_access(|access| {
@@ -590,8 +690,25 @@ fn decrypt_page_body_secure(
         parsed?
     };
     let (page_id, sequence, nonce, flags, header_len, stored_body_len) = header;
-    if flags & PAGE_FLAG_CLEAR_TEXT != 0 {
+    if (flags & PAGE_FLAG_CLEAR_TEXT != 0) != mode.plaintext() {
         return Err(Error::CorruptRecord);
+    }
+    if mode.plaintext() {
+        if nonce != [0; 12] || stored_body_len < 32 {
+            return Err(Error::CorruptRecord);
+        }
+        let valid = page.with_bytes(|bytes| {
+            let stored = &bytes[header_len..header_len + stored_body_len];
+            stored[..32] == strong_checksum(&stored[32..])
+        })?;
+        if !valid {
+            return Err(Error::CorruptRecord);
+        }
+        page.with_mut_bytes(|bytes| {
+            bytes.copy_within(header_len + 32..header_len + stored_body_len, 0)
+        })?;
+        page.truncate(stored_body_len - 32)?;
+        return Ok((page_id, sequence));
     }
     page.with_mut_bytes(|bytes| {
         bytes.copy_within(header_len..header_len + stored_body_len, 0);
@@ -605,6 +722,14 @@ fn decrypt_page_body_secure(
 fn decode_page_body_plaintext_in_place<B: PageBuffer>(body: &mut B) -> Result<()> {
     let (stored_offset, stored_len) = {
         let parsed = body.with_bytes(|body| {
+            if body.len() >= 16 && body[0] == PAGE_BODY_VERSION && body[1] == COMPRESSION_NONE {
+                let len = usize::try_from(read_u64_le(&body[4..12])?)
+                    .map_err(|_| Error::CorruptRecord)?;
+                if len != body.len() - 16 {
+                    return Err(Error::CorruptRecord);
+                }
+                return Ok((16, len));
+            }
             if body.len() < 33 {
                 return Err(Error::CorruptRecord);
             }
@@ -674,6 +799,9 @@ fn decode_single_object_stream_in_place<B: PageBuffer>(
 }
 
 pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8]) -> Scan {
+    let mode = crate::file_format::current_header::read_header(bytes)
+        .map(|header| header.format_mode)
+        .unwrap_or_default();
     let mut records = Vec::new();
     let mut corrupt_records = 0usize;
     let mut content_key = derive_page_content_key(key);
@@ -690,7 +818,7 @@ pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8])
                 i += DEFAULT_METADATA_PAGE_BYTES;
                 continue;
             }
-            match decode_page(page_bytes, lockbox_id, key) {
+            match decode_page_with_format(page_bytes, lockbox_id, key, mode) {
                 Ok(page) => {
                     let page_size = physical_page_size_from_page_slice(page_bytes)
                         .unwrap_or_else(|_| page_size_for_objects(&page.objects));
@@ -737,6 +865,9 @@ pub(crate) fn inspect_pages(
     lockbox_id: LockboxId,
     key: &[u8],
 ) -> Vec<PageInspection> {
+    let mode = crate::file_format::current_header::read_header(bytes)
+        .map(|header| header.format_mode)
+        .unwrap_or_default();
     let mut pages = Vec::new();
     let mut content_key = derive_page_content_key(key);
     let mut i = crate::constants::HEADER_LEN;
@@ -753,7 +884,7 @@ pub(crate) fn inspect_pages(
                     .unwrap_or(DEFAULT_METADATA_PAGE_BYTES);
                 continue;
             }
-            if let Ok(decoded) = decode_page(page_bytes, lockbox_id, key) {
+            if let Ok(decoded) = decode_page_with_format(page_bytes, lockbox_id, key, mode) {
                 let page_size = physical_page_size_from_page_slice(page_bytes)
                     .unwrap_or_else(|_| page_size_for_objects(&decoded.objects));
                 let Ok(encrypted_body_len) = read_u32_le(&page_bytes[44..48]) else {

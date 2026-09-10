@@ -24,9 +24,7 @@ use crate::key_directory::{
 use crate::key_slot::{KeySlot, LockboxKeySlot};
 use crate::lockbox_id::LockboxId;
 use crate::lockbox_path::LockboxPath;
-use crate::page::{
-    page_size_for_encoded_objects, page_size_for_objects, DecodedPage, PageObject, PageObjectKind,
-};
+use crate::page::{page_size_for_objects, DecodedPage, PageObject, PageObjectKind};
 use crate::page_cache::{PageCache, PageReadKey, PageSecurity, PageWritePolicy};
 use crate::record::{DecodedRecord, RecordHeader, RecordKind};
 use crate::secret_vec::SecretVec;
@@ -60,6 +58,7 @@ mod lockbox_rewrite;
 mod mirrors;
 mod mutation;
 mod recovery;
+mod signed_content;
 mod storage_lifecycle;
 mod symlinks;
 #[cfg(feature = "test-support")]
@@ -88,6 +87,8 @@ pub struct LockboxInspector<'a, State = Writable> {
 /// Public metadata read from a lockbox file without decrypting its contents.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LockboxFileInspection {
+    /// Persisted choices from the public header, if readable. Signatures are verified on open.
+    pub format_options: Option<crate::LockboxFormatOptions>,
     /// Stable id embedded in this lockbox.
     pub lockbox_id: LockboxId,
     /// Whether the primary public header was readable and authenticated.
@@ -162,15 +163,16 @@ pub trait WritableLockboxState {}
 
 impl WritableLockboxState for Writable {}
 
-/// Open encrypted lockbox container.
+/// Open lockbox container with persisted encryption, signing, and compression choices.
 ///
-/// A `Lockbox` owns the encrypted storage backend plus the decrypted metadata
+/// A `Lockbox` owns the storage backend plus the decoded metadata
 /// needed to make changes. Mutations are staged in memory until `commit()` is
 /// called. If termination interrupts cleanup after publication, normal opens
 /// return [`Error::RecoveryRequired`] until the explicit recovery API safely
 /// completes the authenticated redaction manifest.
 #[derive(Debug)]
 pub struct Lockbox<State = Writable> {
+    format_mode: crate::creation_options::FormatMode,
     storage: StorageBackend,
     key: SecretVec,
     staged: StagedLockboxState,
@@ -295,6 +297,31 @@ impl<State> std::ops::DerefMut for Lockbox<State> {
 }
 
 impl<State> Lockbox<State> {
+    /// Return the archive's persisted encryption, signing, and compression choices.
+    pub fn format_options(&self) -> crate::LockboxFormatOptions {
+        self.format_mode.options()
+    }
+
+    /// Native format version. Legacy archives and raw migration constructors may use version 2.
+    pub fn format_version(&self) -> u16 {
+        if self.format_mode.0 == 0 {
+            2
+        } else {
+            3
+        }
+    }
+
+    /// Export the native mode word for the authenticated migration artifact.
+    #[cfg(feature = "migration")]
+    #[doc(hidden)]
+    pub fn export_migration_format_mode(&self) -> u16 {
+        self.format_mode.0
+    }
+
+    pub(crate) fn set_creation_format(&mut self, mode: crate::creation_options::FormatMode) {
+        self.format_mode = mode;
+        self.page_manager.borrow_mut().set_format(mode);
+    }
     pub(crate) fn require_clean_transaction(&self) -> Result<()> {
         if let Some(status) = self.transaction_recovery_status() {
             return Err(Error::RecoveryRequired {
@@ -311,6 +338,11 @@ impl<State> Lockbox<State> {
     }
 
     pub(crate) fn require_clean_access_widening(&self) -> Result<()> {
+        if self.format_mode.plaintext() {
+            return Err(Error::InvalidOperation(
+                "unencrypted lockboxes do not have decryption access slots".into(),
+            ));
+        }
         self.require_clean_transaction()?;
         if self.sequence == 0 && self.commit_root_offset == 0 {
             return Ok(());
@@ -375,6 +407,7 @@ impl<State> Lockbox<State> {
 
     pub(crate) fn try_clone(&self) -> Result<Self> {
         Ok(Self {
+            format_mode: self.format_mode,
             storage: self.storage.clone(),
             key: self.key.try_clone()?,
             staged: self.staged.clone(),
@@ -396,6 +429,7 @@ impl<State> Lockbox<State> {
 
     pub(crate) fn into_state<T>(self) -> Lockbox<T> {
         let Lockbox {
+            format_mode,
             storage,
             key,
             staged,
@@ -410,6 +444,7 @@ impl<State> Lockbox<State> {
             state: _,
         } = self;
         Lockbox {
+            format_mode,
             storage,
             key,
             staged,
@@ -609,6 +644,7 @@ impl Lockbox<Writable> {
         let mut bytes = vec![0; HEADER_LEN];
         write_header(&mut bytes, 0, 0, 0, lockbox_id, 0);
         Self {
+            format_mode: Default::default(),
             storage: StorageBackend::memory(bytes),
             key,
             staged: StagedLockboxState {
@@ -722,7 +758,9 @@ impl Lockbox<Writable> {
         allow_recovery: bool,
     ) -> Result<Self> {
         let header = storage.read_at(0, HEADER_LEN)?;
-        let header_result = read_header(&header);
+        let parsed_header = read_header(&header)?;
+        let format_mode = parsed_header.format_mode;
+        let header_result = Ok::<_, Error>(parsed_header);
         let scanned_key_directory: Option<DecodedKeyDirectory> = None;
         let (
             header_root_offset,
@@ -756,8 +794,12 @@ impl Lockbox<Writable> {
             ),
             Err(error) => return Err(error),
         };
+        if sequence > 0 && format_mode.0 != 0 && header_auth_offset == 0 {
+            return Err(Error::CorruptHeader);
+        }
         if sequence > 0 {
             let publication = crate::file_format::header_v2::Publication {
+                format_mode,
                 generation: header_generation,
                 commit_root_offset: header_root_offset,
                 sequence,
@@ -778,6 +820,7 @@ impl Lockbox<Writable> {
             }
         }
         let mut lockbox = Self {
+            format_mode,
             storage,
             key,
             staged: StagedLockboxState {
@@ -832,7 +875,7 @@ impl Lockbox<Writable> {
             lockbox_id,
             read_only: false,
             owner_signing_key: None,
-            page_manager: RefCell::new(PageCache::new(options.cache_limit)),
+            page_manager: RefCell::new(PageCache::with_format(options.cache_limit, format_mode)),
             compression_frame_cache: RefCell::new(CompressionFrameCache::default()),
             import_stats: RefCell::new(ImportStats::default()),
             workload_profile: options.workload_profile,
@@ -898,6 +941,9 @@ impl Lockbox<Writable> {
             lockbox.key_directory.generation = directory.generation;
             lockbox.key_slots = directory.slots;
         }
+        if format_mode.plaintext() && !lockbox.key_slots.is_empty() {
+            return Err(Error::CorruptRecord);
+        }
 
         if toc_root_offset > 0 {
             let (toc_entries, root, leaves) = lockbox.decode_toc_btree(toc_root_offset)?;
@@ -943,8 +989,10 @@ impl Lockbox<Writable> {
                     });
                 }
             }
+            lockbox.verify_signed_content()?;
             Ok(lockbox)
         } else {
+            lockbox.verify_signed_content()?;
             Ok(lockbox)
         }
     }
@@ -971,6 +1019,7 @@ impl Lockbox {
                 .collect::<Vec<_>>();
             let best = matching_directories.first();
             return Ok(LockboxFileInspection {
+                format_options: Some(header.format_mode.options()),
                 lockbox_id: header.lockbox_id,
                 header_readable: true,
                 key_directory_generation: best.map(|directory| directory.generation).unwrap_or(0),
@@ -978,7 +1027,7 @@ impl Lockbox {
                 key_slots: best
                     .map(|directory| directory.slots.iter().map(KeySlot::info).collect())
                     .unwrap_or_default(),
-                owner_signed: header.commit_auth_offset != 0,
+                owner_signed: header.format_mode.signed() && header.commit_auth_offset != 0,
             });
         }
 
@@ -988,6 +1037,7 @@ impl Lockbox {
             return Err(Error::CorruptHeader);
         };
         Ok(LockboxFileInspection {
+            format_options: None,
             lockbox_id: best.lockbox_id,
             header_readable: false,
             key_directory_generation: best.generation,
@@ -1046,6 +1096,7 @@ impl<State> Lockbox<State> {
     /// The next commit records the public verification key and hybrid
     /// signatures. Opening that lockbox for later writes requires the same
     /// owner keypair.
+    /// This does not enable signing on an archive created with [`crate::Signing::None`].
     pub fn set_owner_signing_key(&mut self, keypair: OwnerSigningKeyPair)
     where
         State: WritableLockboxState,
@@ -1170,7 +1221,19 @@ impl<State> Lockbox<State> {
             return Err(Error::CorruptRecord);
         }
         let message = commit_auth_message(&auth)?;
-        verify_commit_signatures(&message, &auth.signatures)?;
+        if auth.flags != u64::from(self.format_mode.0) {
+            return Err(Error::CorruptRecord);
+        }
+        if auth.content_digest.is_some()
+            != (self.format_mode.plaintext() && self.format_mode.signed())
+        {
+            return Err(Error::CorruptRecord);
+        }
+        if self.format_mode.signed() {
+            verify_commit_signatures(&message, &auth.signatures)?;
+        } else if !auth.signatures.is_empty() {
+            return Err(Error::CorruptRecord);
+        }
         Ok((auth, digest))
     }
 
@@ -1191,7 +1254,9 @@ impl<State> Lockbox<State> {
                 }
             }
             if let Some(signatures) = &newer_signatures {
-                if !commit_signature_keys_match(&auth.signatures, signatures) {
+                if self.format_mode.signed()
+                    && !commit_signature_keys_match(&auth.signatures, signatures)
+                {
                     return Ok(None);
                 }
             }
@@ -1219,7 +1284,7 @@ impl<State> Lockbox<State> {
             return Err(Error::CorruptRecord);
         }
         let root = decode_commit_root(&payload)?;
-        if root.sequence != auth.sequence {
+        if root.sequence != auth.sequence || root.flags != u64::from(self.format_mode.0) {
             return Err(Error::CorruptRecord);
         }
         Ok(root)
@@ -1256,6 +1321,9 @@ impl<State> Lockbox<State> {
     }
 
     pub(crate) fn validate_owner_signing_key(&self) -> Result<()> {
+        if !self.format_mode.signed() {
+            return Ok(());
+        }
         if self.commit_auth_offset == 0 {
             return Ok(());
         }
@@ -1359,7 +1427,8 @@ impl<State> Lockbox<State> {
         objects: Vec<PageObject>,
         policy: PageWritePolicy,
     ) -> Result<()> {
-        let page_size = page_size_for_encoded_objects(&objects)?;
+        let page_size =
+            crate::page::page_size_for_encoded_objects_with_format(&objects, self.format_mode)?;
         self.page_manager
             .borrow_mut()
             .stage_decoded_page_with_policy(

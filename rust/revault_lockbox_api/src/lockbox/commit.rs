@@ -18,7 +18,7 @@ use crate::free_index::{
 };
 use crate::incremental_btree::{IncrementalBTree, LeafRewrite};
 use crate::key_directory::encode_key_directory;
-use crate::page::{page_size_for_encoded_objects, PageObject, PageObjectKind};
+use crate::page::{PageObject, PageObjectKind};
 use crate::storage::Storage;
 use crate::{Error, Result};
 
@@ -136,14 +136,23 @@ impl Lockbox<crate::Writable> {
             redaction_manifest_offset: self.redaction_manifest_offset,
             redaction_range_count: u64::from(self.redaction_range_count),
             redaction_total_bytes: self.redaction_total_bytes,
-            flags: 0,
+            flags: u64::from(self.format_mode.0),
         });
         let commit_root_digest = crate::crypto::strong_checksum(&commit_root_payload);
         self.commit_root_offset = self.append_commit_root_page(commit_root_payload)?;
         let lockbox_id = self.lockbox_id;
         let sequence = self.sequence;
         let commit_root_offset = self.commit_root_offset;
-        let signer = self.require_owner_signing_key()?;
+        let content_digest = if self.format_mode.plaintext() && self.format_mode.signed() {
+            Some(self.signed_content_digest()?)
+        } else {
+            None
+        };
+        let signer = if self.format_mode.signed() {
+            Some(self.require_owner_signing_key()?)
+        } else {
+            None
+        };
         let mut auth = CommitAuth {
             lockbox_id,
             sequence,
@@ -151,11 +160,16 @@ impl Lockbox<crate::Writable> {
             commit_root_digest,
             previous_auth_offset: previous_commit_auth_offset,
             previous_auth_digest: previous_commit_auth_digest,
-            flags: 0,
-            signatures: signer.empty_signatures(),
+            flags: u64::from(self.format_mode.0),
+            content_digest,
+            signatures: signer
+                .map(|signer| signer.empty_signatures())
+                .unwrap_or_default(),
         };
         let message = commit_auth_message(&auth)?;
-        auth.signatures = signer.sign(&message);
+        if let Some(signer) = signer {
+            auth.signatures = signer.sign(&message);
+        }
         let commit_auth_payload = encode_commit_auth(&auth)?;
         self.commit_auth_digest = commit_auth_digest(&commit_auth_payload);
         self.commit_auth_offset = self.append_commit_auth_page(commit_auth_payload)?;
@@ -189,6 +203,7 @@ impl Lockbox<crate::Writable> {
             "header publication was interrupted; reopen the lockbox before continuing".to_string(),
         );
         let mut publication = Publication {
+            format_mode: self.format_mode,
             generation,
             commit_root_offset: self.commit_root_offset,
             sequence: self.sequence,
@@ -239,7 +254,10 @@ impl Lockbox<crate::Writable> {
             )?;
             let object =
                 PageObject::new(PageObjectKind::KeyDirectory, self.sequence, key_directory);
-            let page_size = page_size_for_encoded_objects(std::slice::from_ref(&object))? as u64;
+            let page_size = crate::page::page_size_for_encoded_objects_with_format(
+                std::slice::from_ref(&object),
+                self.format_mode,
+            )? as u64;
             let page_offset = if copy_index == 0 {
                 self.allocate_page_offset(page_size)?
             } else {
@@ -482,9 +500,11 @@ impl Lockbox<crate::Writable> {
 
     fn append_toc_page(&mut self, kind: PageObjectKind, payload: Vec<u8>) -> Result<u64> {
         let object = PageObject::new(kind, self.sequence, payload);
-        let page_offset = self.allocate_page_offset(page_size_for_encoded_objects(
-            std::slice::from_ref(&object),
-        )? as u64)?;
+        let page_offset =
+            self.allocate_page_offset(crate::page::page_size_for_encoded_objects_with_format(
+                std::slice::from_ref(&object),
+                self.format_mode,
+            )? as u64)?;
         self.write_decoded_page_at(page_offset, self.sequence, vec![object])?;
         Ok(page_offset)
     }

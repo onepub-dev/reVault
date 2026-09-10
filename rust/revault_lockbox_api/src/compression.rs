@@ -118,6 +118,27 @@ pub(crate) fn encode_compression_frame_with_level(payload: &[u8], level: i32) ->
     }
 }
 
+pub(crate) fn encode_with_compression(
+    payload: &[u8],
+    compression: crate::Compression,
+) -> (u8, Vec<u8>) {
+    match compression {
+        crate::Compression::None => (COMPRESSION_NONE, payload.to_vec()),
+        crate::Compression::Zstd { level } => {
+            if looks_incompressible(payload) {
+                return (COMPRESSION_NONE, payload.to_vec());
+            }
+            let compressed =
+                zstd_complete::encoding::compress_slice_c_level(payload, i32::from(level.get()));
+            if compressed.len() < payload.len() {
+                (COMPRESSION_ZSTD, compressed)
+            } else {
+                (COMPRESSION_NONE, payload.to_vec())
+            }
+        }
+    }
+}
+
 pub(crate) fn decode_compression_frame(
     algorithm: u8,
     stored: &[u8],

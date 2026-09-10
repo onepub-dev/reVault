@@ -6,6 +6,7 @@ use crate::{Error, Result};
 const COMMIT_AUTH_VERSION: u8 = 1;
 const COMMIT_AUTH_MAGIC: &[u8; 8] = b"LBX1AUTH";
 const SIGNED_CONTEXT: &[u8] = b"lockbox-v1-commit-auth";
+const CONTENT_SIGNED_CONTEXT: &[u8] = b"lockbox-v3-content-commit-auth";
 const MAX_COMMIT_SIGNATURES: usize = 64;
 const MAX_COMMIT_AUTH_FIELD_BYTES: usize = 16 * 1024;
 
@@ -21,6 +22,7 @@ pub(crate) struct CommitAuth {
     pub(crate) previous_auth_offset: u64,
     pub(crate) previous_auth_digest: [u8; 32],
     pub(crate) flags: u64,
+    pub(crate) content_digest: Option<[u8; 32]>,
     pub(crate) signatures: Vec<CommitSignature>,
 }
 
@@ -37,7 +39,11 @@ pub(crate) fn commit_auth_digest(payload: &[u8]) -> [u8; 32] {
 
 pub(crate) fn commit_auth_message(auth: &CommitAuth) -> Result<Vec<u8>> {
     let mut out = Vec::new();
-    out.extend_from_slice(SIGNED_CONTEXT);
+    out.extend_from_slice(if auth.content_digest.is_some() {
+        CONTENT_SIGNED_CONTEXT
+    } else {
+        SIGNED_CONTEXT
+    });
     encode_signed_fields(auth, &mut out)?;
     Ok(out)
 }
@@ -45,7 +51,11 @@ pub(crate) fn commit_auth_message(auth: &CommitAuth) -> Result<Vec<u8>> {
 pub(crate) fn encode_commit_auth(auth: &CommitAuth) -> Result<Vec<u8>> {
     let mut out = Vec::new();
     out.extend_from_slice(COMMIT_AUTH_MAGIC);
-    out.push(COMMIT_AUTH_VERSION);
+    out.push(if auth.content_digest.is_some() {
+        2
+    } else {
+        COMMIT_AUTH_VERSION
+    });
     out.extend_from_slice(&[0; 7]);
     encode_signed_fields(auth, &mut out)?;
     put_u32(&mut out, auth.signatures.len())?;
@@ -60,7 +70,8 @@ pub(crate) fn encode_commit_auth(auth: &CommitAuth) -> Result<Vec<u8>> {
 pub(crate) fn decode_commit_auth(payload: &[u8]) -> Result<CommitAuth> {
     let mut reader = Reader::new(payload);
     reader.magic(COMMIT_AUTH_MAGIC)?;
-    if reader.u8()? != COMMIT_AUTH_VERSION {
+    let version = reader.u8()?;
+    if version != COMMIT_AUTH_VERSION && version != 2 {
         return Err(Error::CorruptRecord);
     }
     reader.zeroes(7)?;
@@ -71,6 +82,11 @@ pub(crate) fn decode_commit_auth(payload: &[u8]) -> Result<CommitAuth> {
     let previous_auth_offset = reader.u64()?;
     let previous_auth_digest = reader.array32()?;
     let flags = reader.u64()?;
+    let content_digest = if version == 2 {
+        Some(reader.array32()?)
+    } else {
+        None
+    };
     let key_count = reader.count(MAX_COMMIT_SIGNATURES)?;
     let mut key_headers = Vec::with_capacity(key_count);
     for _ in 0..key_count {
@@ -108,6 +124,7 @@ pub(crate) fn decode_commit_auth(payload: &[u8]) -> Result<CommitAuth> {
         previous_auth_offset,
         previous_auth_digest,
         flags,
+        content_digest,
         signatures,
     })
 }
@@ -125,6 +142,9 @@ fn encode_signed_fields(auth: &CommitAuth, out: &mut Vec<u8>) -> Result<()> {
     out.extend_from_slice(&auth.previous_auth_offset.to_le_bytes());
     out.extend_from_slice(&auth.previous_auth_digest);
     out.extend_from_slice(&auth.flags.to_le_bytes());
+    if let Some(digest) = auth.content_digest {
+        out.extend_from_slice(&digest);
+    }
     put_u32(out, auth.signatures.len())?;
     for signature in &auth.signatures {
         put_u16(out, signature.algorithm);
@@ -253,6 +273,7 @@ mod tests {
             previous_auth_offset: 512,
             previous_auth_digest: [3; 32],
             flags: 9,
+            content_digest: None,
             signatures: vec![
                 CommitSignature {
                     algorithm: SIGNATURE_ALGORITHM_ED25519,

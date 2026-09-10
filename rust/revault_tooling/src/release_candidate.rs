@@ -4,7 +4,7 @@ use clap::{Args, ValueEnum};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fs,
     io::{IsTerminal, Write},
     path::{Path, PathBuf},
@@ -64,6 +64,14 @@ pub struct Selection {
     pub full: bool,
     #[arg(long, default_value = ".")]
     pub repository: PathBuf,
+}
+#[derive(Args)]
+pub struct PublishSelection {
+    #[command(flatten)]
+    pub selection: Selection,
+    /// List prepare candidates and their latest publication status without publishing.
+    #[arg(long, conflicts_with_all = ["candidate", "full"])]
+    pub list: bool,
 }
 #[derive(Args)]
 pub struct StatusSelection {
@@ -300,7 +308,18 @@ impl GitHub {
                             let summary = match self
                                 .watch_text(&format!("actions/jobs/{job_id}/logs"), &interrupted)
                             {
-                                Ok(log) if !log.trim().is_empty() => failure_excerpt(&log),
+                                Ok(log) if !log.trim().is_empty() => self
+                                    .watch_failure_summary(
+                                        &log,
+                                        &interrupted,
+                                        &mut BTreeSet::from([id]),
+                                    )
+                                    .unwrap_or_else(|error| {
+                                        format!(
+                                            "{}\nNested logs unavailable: {error}",
+                                            failure_excerpt(&log)
+                                        )
+                                    }),
                                 _ => "Log not available yet; use release logs for details.".into(),
                             };
                             entry.insert(summary);
@@ -370,6 +389,41 @@ impl GitHub {
         Ok(serde_json::from_str(
             &self.watch_text(suffix, interrupted)?,
         )?)
+    }
+
+    fn watch_failure_summary(
+        &self,
+        log: &str,
+        interrupted: &AtomicBool,
+        visited: &mut BTreeSet<u64>,
+    ) -> Result<String> {
+        let mut summaries = Vec::new();
+        for id in nested_failure_runs(log) {
+            // Keep a dashboard refresh bounded; release logs follows the full chain.
+            if visited.len() >= 4 || !visited.insert(id) {
+                continue;
+            }
+            let value =
+                self.watch_api(&format!("actions/runs/{id}/jobs?per_page=100"), interrupted)?;
+            for job in value["jobs"]
+                .as_array()
+                .ok_or("Missing nested jobs")?
+                .iter()
+                .filter(|job| is_failed_job(job))
+                .take(2)
+            {
+                let job_id = job["id"].as_u64().ok_or("Missing nested job ID")?;
+                let child_log =
+                    self.watch_text(&format!("actions/jobs/{job_id}/logs"), interrupted)?;
+                let detail = self.watch_failure_summary(&child_log, interrupted, visited)?;
+                summaries.push(format!("Nested run {id}, {}:\n{detail}\nhttps://github.com/{}/actions/runs/{id}/job/{job_id}", job["name"].as_str().unwrap_or("unknown job"), self.repo));
+            }
+        }
+        if summaries.is_empty() {
+            Ok(failure_excerpt(log))
+        } else {
+            Ok(summaries.join("\n\n"))
+        }
     }
 
     fn watch_text(&self, suffix: &str, interrupted: &AtomicBool) -> Result<String> {
@@ -848,12 +902,27 @@ pub fn cancel(args: Selection) -> Result<()> {
 pub fn logs(args: Selection) -> Result<()> {
     let gh = GitHub::new(&args.repository)?;
     let id = selected_run(&gh, &args)?;
+    print_failure_logs(&gh, id, args.full, &mut BTreeSet::new())
+}
+
+fn print_failure_logs(gh: &GitHub, id: u64, full: bool, visited: &mut BTreeSet<u64>) -> Result<()> {
+    if visited.contains(&id) {
+        return Ok(());
+    }
+    if visited.len() >= 32 {
+        return Err(
+            "Stopped following nested failures after 32 runs; inspect the remaining run links"
+                .into(),
+        );
+    }
+    visited.insert(id);
     println!(
         "Failure logs for CI run {id}: https://github.com/{}/actions/runs/{id}",
         gh.repo
     );
     let mut found = false;
     let mut unavailable = false;
+    let mut nested = BTreeSet::new();
     for page in 1.. {
         let value = gh.api(&format!("actions/runs/{id}/jobs?per_page=100&page={page}"))?;
         let jobs = value["jobs"].as_array().ok_or("Missing jobs")?;
@@ -881,7 +950,8 @@ pub fn logs(args: Selection) -> Result<()> {
                 ],
             ) {
                 Ok(log) if !log.trim().is_empty() => {
-                    if args.full {
+                    nested.extend(nested_failure_runs(&log));
+                    if full {
                         println!("{log}");
                     } else {
                         println!("{}", failure_excerpt(&log));
@@ -905,10 +975,38 @@ pub fn logs(args: Selection) -> Result<()> {
     if !found {
         println!("No completed failed jobs yet. GitHub's API does not stream unfinished job logs.\nLive runner logs: https://github.com/{}/actions/runs/{id}", gh.repo);
     }
+    for child in nested {
+        if visited.contains(&child) {
+            continue;
+        }
+        println!("\nFollowing failed nested CI run {child} referenced by run {id}:");
+        if let Err(error) = print_failure_logs(gh, child, full, visited) {
+            eprintln!("Nested failure logs unavailable for run {child}: {error}");
+            unavailable = true;
+        }
+    }
     if unavailable {
         return Err("Some job logs were unavailable; available logs are printed above".into());
     }
     Ok(())
+}
+
+fn nested_failure_runs(log: &str) -> BTreeSet<u64> {
+    log.lines()
+        .filter_map(|line| {
+            let line = clean_log_line(line);
+            let (run, rest) = line
+                .strip_prefix("revault-tool: CI run ")?
+                .split_once(' ')?;
+            if !rest.starts_with("finished with ") {
+                return None;
+            }
+            let (_, selected) =
+                rest.split_once("Read errors: revault-tool release logs --candidate ")?;
+            let id = run.parse::<u64>().ok()?;
+            (id > 0 && selected.trim().parse::<u64>().ok()? == id).then_some(id)
+        })
+        .collect()
 }
 
 fn failure_excerpt(log: &str) -> String {
@@ -919,6 +1017,11 @@ fn failure_excerpt(log: &str) -> String {
     for line in &lines {
         let lower = line.to_ascii_lowercase();
         let diagnostic = lower.contains("##[error]")
+            || lower.starts_with("failure: build failed")
+            || lower.starts_with("* what went wrong:")
+            || lower.starts_with("insufficient permissions")
+            || lower.starts_with("the calling github action is not allowed")
+            || lower.starts_with("authentication failed!")
             || (lower.starts_with("changed ") && lower.ends_with(".dart"))
             || lower.starts_with("revault-tool:")
             || lower.contains("error:")
@@ -942,7 +1045,7 @@ fn failure_excerpt(log: &str) -> String {
                     || line.is_empty()
                     || matches!(
                         line.trim(),
-                        "Details:" | "Next step:" | "stdout:" | "stderr:"
+                        "Details:" | "Next step:" | "Caused by:" | "stdout:" | "stderr:"
                     ));
         if !noise && (diagnostic || continuation) {
             selected.push(line.as_str());
@@ -950,7 +1053,7 @@ fn failure_excerpt(log: &str) -> String {
         } else {
             context = false;
         }
-        detail_lines = if lower.trim() == "error:" {
+        detail_lines = if lower.trim() == "error:" || lower == "* what went wrong:" {
             12
         } else {
             detail_lines.saturating_sub(1)
@@ -1080,8 +1183,87 @@ pub fn status(options: StatusSelection) -> Result<()> {
     Ok(())
 }
 
-pub fn publish(args: Selection) -> Result<()> {
+fn list_candidates(gh: &GitHub) -> Result<()> {
+    let mut runs = Vec::new();
+    for page in 1.. {
+        let response = gh.api(&format!(
+            "actions/workflows/{WORKFLOW}/runs?event=workflow_dispatch&per_page=100&page={page}"
+        ))?;
+        let batch = response["workflow_runs"]
+            .as_array()
+            .ok_or("Missing workflow runs")?;
+        runs.extend(batch.iter().cloned());
+        if batch.len() < 100 {
+            break;
+        }
+    }
+    println!("{}", candidate_listing(&runs));
+    println!("\nPublish or retry using the PREPARE ID:\n  revault-tool release publish --candidate <PREPARE_ID>\nSuccessful preparation is required; publication also verifies candidate artifacts.");
+    Ok(())
+}
+
+fn candidate_listing(runs: &[Value]) -> String {
+    let mut publications = BTreeMap::new();
+    for run in runs {
+        let title = run["display_title"].as_str().unwrap_or_default();
+        let parts: Vec<_> = title.split_whitespace().collect();
+        if let ["publish", _, candidate] = parts.as_slice() {
+            if let Ok(id) = candidate.parse::<u64>() {
+                // GitHub returns runs newest first. Keep the most recent attempt.
+                publications.entry(id).or_insert(run);
+            }
+        }
+    }
+    let mut output = format!(
+        "{:<14} {:<9} {:<12} {:<14} {:<14} {}",
+        "PREPARE ID", "SCOPE", "PREPARE", "PUBLICATION", "PUBLISH RUN", "CREATED (UTC)"
+    );
+    let mut count = 0;
+    for run in runs {
+        let title = run["display_title"].as_str().unwrap_or_default();
+        let Some(rest) = title.strip_prefix("prepare ") else {
+            continue;
+        };
+        let Some(id) = run["id"].as_u64() else {
+            continue;
+        };
+        let scope = rest.split_whitespace().next().unwrap_or("?");
+        let publication = publications
+            .get(&id)
+            .filter(|p| p["head_sha"] == run["head_sha"]);
+        let status = |r: &Value| {
+            if r["status"] == "completed" {
+                r["conclusion"].as_str().unwrap_or("unknown").to_owned()
+            } else {
+                r["status"].as_str().unwrap_or("unknown").to_owned()
+            }
+        };
+        let published = publication
+            .map(|p| status(p))
+            .unwrap_or_else(|| "not started".into());
+        let publish_id = publication
+            .and_then(|p| p["id"].as_u64())
+            .map(|id| id.to_string())
+            .unwrap_or_else(|| "-".into());
+        output.push_str(&format!(
+            "\n{id:<14} {scope:<9} {:<12} {published:<14} {publish_id:<14} {}",
+            status(run),
+            run["created_at"].as_str().unwrap_or("?")
+        ));
+        count += 1;
+    }
+    if count == 0 {
+        output.push_str("\nNo prepare candidates found.");
+    }
+    output
+}
+
+pub fn publish(options: PublishSelection) -> Result<()> {
+    let args = options.selection;
     let gh = GitHub::new(&args.repository)?;
+    if options.list {
+        return list_candidates(&gh);
+    }
     let remembered = gh.remembered()?;
     let id = args
         .candidate
@@ -1653,6 +1835,53 @@ fn update_dependencies(table: &mut toml_edit::Table, versions: &BTreeMap<String,
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn publication_excerpt_keeps_gradle_and_pub_rejections() {
+        let gradle = "FAILURE: Build failed with an exception.\n\n* What went wrong:\nFailed to stop service 'maven-central-build-service'.\n> Deployment validation timed out after 900s. Last known state: PUBLISHING";
+        assert!(failure_excerpt(gradle).contains("Last known state: PUBLISHING"));
+        let dart = "Uploading...\nInsufficient permissions to the resource at the https://pub.dev package repository.\nThe calling GitHub Action is not allowed to publish, because: publishing is not allowed from 'workflow_dispath' events.\nAuthentication failed!";
+        assert!(failure_excerpt(dart).contains("workflow_dispath"));
+    }
+    #[test]
+    fn candidate_list_distinguishes_preparation_and_publication() {
+        let runs = vec![
+            json!({"id":30,"display_title":"publish all 10","head_sha":"a","status":"completed","conclusion":"failure"}),
+            json!({"id":20,"display_title":"publish all 10","head_sha":"a","status":"completed","conclusion":"success"}),
+            json!({"id":11,"display_title":"prepare cli ref","head_sha":"b","status":"in_progress","conclusion":null}),
+            json!({"id":10,"display_title":"prepare all ref","head_sha":"a","status":"completed","conclusion":"success"}),
+        ];
+        let listing = candidate_listing(&runs);
+        let rows: Vec<Vec<_>> = listing
+            .lines()
+            .skip(1)
+            .map(|l| l.split_whitespace().collect())
+            .collect();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(&rows[0][..3], &["11", "cli", "in_progress"]);
+        assert_eq!(&rows[1][..5], &["10", "all", "success", "failure", "30"]);
+        assert!(candidate_listing(&[]).contains("No prepare candidates found"));
+    }
+
+    #[test]
+    fn nested_failures_follow_run_diagnostics_once() {
+        let diagnostic = "2026-09-09T10:34:47.7121687Z revault-tool: CI run 34340721302 finished with \"failure\". Read errors: revault-tool release logs --candidate 34340721302";
+        assert_eq!(
+            nested_failure_runs(&format!("{diagnostic}\n{diagnostic}")),
+            BTreeSet::from([34340721302])
+        );
+        assert!(nested_failure_runs(
+            "echo revault-tool: CI run 12 finished with failure. Read errors: revault-tool release logs --candidate 12\nrevault-tool: CI run 12 finished with failure. Read errors: revault-tool release logs --candidate 13"
+        ).is_empty());
+    }
+
+    #[test]
+    fn publishing_failure_excerpt_keeps_registry_rejection() {
+        let log = "2026-09-09T10:34:47.7099187Z error: failed to publish to registry at https://crates.io\n2026-09-09T10:34:47.7099782Z \n2026-09-09T10:34:47.7099916Z Caused by:\n2026-09-09T10:34:47.7100885Z   the remote server responded with an error (status 403 Forbidden): The provided access token is not valid for crate `revault_migrate_vault_v2`";
+        let excerpt = failure_excerpt(log);
+        assert!(excerpt.contains("403 Forbidden"));
+        assert!(excerpt.contains("revault_migrate_vault_v2"));
+    }
+
     fn candidate() -> Candidate {
         Candidate {
             schema: 1,

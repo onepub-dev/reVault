@@ -2,7 +2,7 @@ use crate::commit_root::{decode_commit_root, CommitRoot};
 use crate::crypto::derive_page_content_key;
 use crate::lockbox_id::LockboxId;
 use crate::page::{
-    decode_page, decode_single_object_page_secure, page_decode_slice,
+    decode_page_with_format, decode_single_object_page_secure_with_format, page_decode_slice,
     physical_page_size_from_page_slice, scan_page_records, PageObjectKind, PAGE_MAGIC,
 };
 use crate::record::{DecodedRecord, RecordHeader, RecordKind};
@@ -12,6 +12,7 @@ use crate::{Error, Result};
 use zeroize::Zeroize;
 
 pub(crate) struct PageScanner<'a> {
+    pub(crate) format_mode: crate::creation_options::FormatMode,
     bytes: &'a [u8],
     lockbox_id: LockboxId,
     key: &'a [u8],
@@ -20,6 +21,9 @@ pub(crate) struct PageScanner<'a> {
 impl<'a> PageScanner<'a> {
     pub(crate) fn new(bytes: &'a [u8], lockbox_id: LockboxId, key: &'a [u8]) -> Self {
         Self {
+            format_mode: crate::file_format::current_header::read_header(bytes)
+                .map(|header| header.format_mode)
+                .unwrap_or_default(),
             bytes,
             lockbox_id,
             key,
@@ -37,7 +41,7 @@ impl<'a> PageScanner<'a> {
 
     pub(crate) fn commit_root_payload_at(&self, offset: u64) -> Result<Vec<u8>> {
         let page = self.page_at(offset).ok_or(Error::Truncated)?;
-        let decoded = decode_page(page, self.lockbox_id, self.key)?;
+        let decoded = decode_page_with_format(page, self.lockbox_id, self.key, self.format_mode)?;
         let Some(commit_root_object) = decoded
             .objects
             .iter()
@@ -50,7 +54,7 @@ impl<'a> PageScanner<'a> {
 
     pub(crate) fn commit_auth_payload_at(&self, offset: u64) -> Result<Vec<u8>> {
         let page = self.page_at(offset).ok_or(Error::Truncated)?;
-        let decoded = decode_page(page, self.lockbox_id, self.key)?;
+        let decoded = decode_page_with_format(page, self.lockbox_id, self.key, self.format_mode)?;
         let Some(auth_object) = decoded
             .objects
             .iter()
@@ -66,7 +70,7 @@ impl<'a> PageScanner<'a> {
             return Err(Error::CorruptRecord);
         }
         let page = self.page_at(offset).ok_or(Error::Truncated)?;
-        let decoded = decode_page(page, self.lockbox_id, self.key)?;
+        let decoded = decode_page_with_format(page, self.lockbox_id, self.key, self.format_mode)?;
         let Some(toc_object) = decoded.objects.iter().find(|object| {
             matches!(
                 object.kind,
@@ -89,8 +93,12 @@ impl<'a> PageScanner<'a> {
         let page = self.page_at(offset).ok_or(Error::Truncated)?;
         let mut secure_page = SecureVec::try_from_slice(page)?;
         let mut content_key = derive_page_content_key(self.key);
-        let decoded =
-            decode_single_object_page_secure(&mut secure_page, self.lockbox_id, &content_key)?;
+        let decoded = decode_single_object_page_secure_with_format(
+            &mut secure_page,
+            self.lockbox_id,
+            &content_key,
+            self.format_mode,
+        )?;
         content_key.zeroize();
         let Some(object) = decoded
             .objects
@@ -107,7 +115,7 @@ impl<'a> PageScanner<'a> {
 
     pub(crate) fn record_at(&self, offset: u64) -> Result<DecodedRecord> {
         let page = self.page_at(offset).ok_or(Error::Truncated)?;
-        let decoded = decode_page(page, self.lockbox_id, self.key)?;
+        let decoded = decode_page_with_format(page, self.lockbox_id, self.key, self.format_mode)?;
         let Some(object) = decoded.objects.first() else {
             return Err(Error::CorruptRecord);
         };
@@ -126,7 +134,7 @@ impl<'a> PageScanner<'a> {
 
     pub(crate) fn record_object_at(&self, offset: u64, object_id: u64) -> Result<DecodedRecord> {
         let page = self.page_at(offset).ok_or(Error::Truncated)?;
-        let decoded = decode_page(page, self.lockbox_id, self.key)?;
+        let decoded = decode_page_with_format(page, self.lockbox_id, self.key, self.format_mode)?;
         let Some(object) = decoded.objects.iter().find(|object| object.id == object_id) else {
             return Err(Error::CorruptRecord);
         };

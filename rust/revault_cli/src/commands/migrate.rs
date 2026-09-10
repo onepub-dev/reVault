@@ -404,7 +404,7 @@ fn migrate_archive_direct(matches: &ArgMatches, access: &Access) -> CliResult<()
             artifact.exists() && verify_archive_artifact(&artifact, &migration_key).is_ok();
         if !complete {
             remove_partial(&artifact)?;
-            if source_version == u32::from(LOCKBOX_FORMAT_VERSION) {
+            if (2..=u32::from(LOCKBOX_FORMAT_VERSION)).contains(&source_version) {
                 let lockbox = open_existing(&source.to_string_lossy(), access)?;
                 export_archive(&lockbox, &artifact, &migration_key, operation_id)?;
             } else {

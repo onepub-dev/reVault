@@ -260,6 +260,9 @@ pub enum ArchiveRecord {
         archive_id: [u8; 16],
         /// Represents the format version carried by this record case.
         format_version: u32,
+        /// Native encryption, signing, and compression mode; absent in schemas 1 and 2.
+        #[serde(default)]
+        format_mode: Option<u16>,
         /// Represents the content key carried by this record case.
         content_key: SecretBytes,
         /// Represents the key directory carried by this record case.
@@ -354,6 +357,7 @@ mod tests {
         let start = ArchiveRecord::Start {
             archive_id: [1; 16],
             format_version: 1,
+            format_mode: None,
             content_key: SecretBytes::new(vec![2; 32]),
             key_directory: SecretBytes::new(vec![3; 8]),
             description: Some("new".to_string()),

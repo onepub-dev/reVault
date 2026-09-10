@@ -154,6 +154,28 @@ fn run_lockbox(lockbox_path: &str, access: &Access, verbose: bool) -> CliResult<
     println!("Lockbox");
     println!("  path: {lockbox_path}");
     println!("  size: {}", human_size(metadata.len()));
+    if let Some(options) = inspection.format_options {
+        println!(
+            "  encryption: {}",
+            match options.encryption {
+                revault_lockbox_api::EncryptionMode::None => "none",
+                revault_lockbox_api::EncryptionMode::ChaCha20Poly1305 => "chacha20-poly1305",
+            }
+        );
+        println!(
+            "  signing: {}",
+            match options.signing {
+                revault_lockbox_api::SigningMode::None => "none",
+                revault_lockbox_api::SigningMode::Owner => "owner",
+            }
+        );
+        match options.compression {
+            revault_lockbox_api::Compression::None => println!("  compression: none"),
+            revault_lockbox_api::Compression::Zstd { level } => {
+                println!("  compression: zstd (level {})", level.get())
+            }
+        }
+    }
     if !inspection.header_readable {
         println!("  warning: primary header is damaged; backup metadata was used");
     }
@@ -317,6 +339,9 @@ fn yes_no(value: bool) -> &'static str {
 }
 
 fn default_vault_noninteractive() -> Result<Option<VaultDirectory>, Box<dyn std::error::Error>> {
+    if !default_vault_path()?.exists() {
+        return Ok(None);
+    }
     if let Some(password) = SecretString::try_from_env("LOCKBOX_VAULT_PASSWORD")? {
         return Ok(Some(VaultDirectory::open_or_create_default(&password)?));
     }

@@ -157,6 +157,9 @@ impl<S: ContentKeyStore> Vault<S> {
     /// This fails if the key store has no cached key for the lockbox id.
     pub fn open_lockbox(&self, path: impl AsRef<Path>) -> Result<Lockbox> {
         let path = path.as_ref();
+        if is_unencrypted(path)? {
+            return open_file(path, LockboxOpen::Unencrypted);
+        }
         let lockbox_id = VaultOpen::read_lockbox_id(path)?;
         let Some(key) = self.store.get_content_key(lockbox_id)? else {
             return Err(Error::VaultUnavailable(format!(
@@ -170,6 +173,9 @@ impl<S: ContentKeyStore> Vault<S> {
     /// or requesting an owner-signing key.
     pub fn open_lockbox_read_only(&self, path: impl AsRef<Path>) -> Result<Lockbox<ReadOnly>> {
         let path = path.as_ref();
+        if is_unencrypted(path)? {
+            return Lockbox::open(path, LockboxOpen::Unencrypted);
+        }
         let lockbox_id = VaultOpen::read_lockbox_id(path)?;
         let Some(key) = self.store.get_content_key(lockbox_id)? else {
             return Err(Error::VaultUnavailable(format!(
@@ -213,6 +219,9 @@ impl<S: ContentKeyStore> Vault<S> {
         path: impl AsRef<Path>,
         open: LockboxOpen<'_>,
     ) -> Result<Lockbox> {
+        if is_unsigned(path.as_ref())? {
+            return self.open_unsigned(path.as_ref(), open, None);
+        }
         let signing_key = default_owner_signing_key_required()?;
         self.open_lockbox_with_signing_key(path, open, &signing_key)
     }
@@ -227,6 +236,9 @@ impl<S: ContentKeyStore> Vault<S> {
     ) -> Result<Lockbox> {
         let path = path.as_ref();
         match open {
+            LockboxOpen::Unencrypted => {
+                Lockbox::open_for_write(path, LockboxOpen::Unencrypted, signing_key)
+            }
             LockboxOpen::ContentKey(key) => {
                 let store_key = key.try_clone()?;
                 let lockbox =
@@ -270,8 +282,52 @@ impl<S: ContentKeyStore> Vault<S> {
         open: LockboxOpen<'_>,
         ttl_seconds: u64,
     ) -> Result<Lockbox> {
+        if is_unsigned(path.as_ref())? {
+            return self.open_unsigned(path.as_ref(), open, Some(ttl_seconds));
+        }
         let signing_key = default_owner_signing_key_required()?;
         self.open_lockbox_with_for_duration_and_signing_key(path, open, ttl_seconds, &signing_key)
+    }
+
+    fn open_unsigned(
+        &self,
+        path: &Path,
+        open: LockboxOpen<'_>,
+        ttl_seconds: Option<u64>,
+    ) -> Result<Lockbox> {
+        let key = match open {
+            LockboxOpen::Unencrypted => {
+                return Lockbox::open_for_write(
+                    path,
+                    LockboxOpen::Unencrypted,
+                    revault_lockbox_api::Signing::None,
+                )
+            }
+            LockboxOpen::ContentKey(key) => key,
+            LockboxOpen::Password(password) => {
+                open_path_or_backup_with_password(path, password)?.try_clone_key()?
+            }
+            LockboxOpen::ContactKeyPair(contact) => {
+                open_path_or_backup_with_contact(path, &contact)?.try_clone_key()?
+            }
+        };
+        let lockbox = Lockbox::open_for_write(
+            path,
+            LockboxOpen::ContentKey(key.try_clone()?),
+            revault_lockbox_api::Signing::None,
+        )?;
+        match ttl_seconds {
+            Some(ttl) => self.store.put_content_key_for_path_with_ttl(
+                lockbox.lockbox_id(),
+                key,
+                path,
+                ttl,
+            )?,
+            None => self
+                .store
+                .put_content_key_for_path(lockbox.lockbox_id(), key, path)?,
+        }
+        Ok(lockbox)
     }
 
     /// Opens a lockbox for a requested duration using an owner signing key
@@ -285,6 +341,9 @@ impl<S: ContentKeyStore> Vault<S> {
     ) -> Result<Lockbox> {
         let path = path.as_ref();
         match open {
+            LockboxOpen::Unencrypted => {
+                Lockbox::open_for_write(path, LockboxOpen::Unencrypted, signing_key)
+            }
             LockboxOpen::ContentKey(key) => {
                 let store_key = key.try_clone()?;
                 let lockbox =
@@ -357,7 +416,22 @@ impl<S: ContentKeyStore> Vault<S> {
     }
 }
 
+fn is_unencrypted(path: &Path) -> Result<bool> {
+    Ok(Lockbox::inspect_file(path)?
+        .format_options
+        .is_some_and(|options| options.encryption == revault_lockbox_api::EncryptionMode::None))
+}
+
+fn is_unsigned(path: &Path) -> Result<bool> {
+    Ok(Lockbox::inspect_file(path)?
+        .format_options
+        .is_some_and(|options| options.signing == revault_lockbox_api::SigningMode::None))
+}
+
 fn open_file(path: &Path, open: LockboxOpen<'_>) -> Result<Lockbox> {
+    if is_unsigned(path)? {
+        return Lockbox::open_for_write(path, open, revault_lockbox_api::Signing::None);
+    }
     let signing_key = default_owner_signing_key_required()?;
     Lockbox::open_for_write(path, open, &signing_key)
 }

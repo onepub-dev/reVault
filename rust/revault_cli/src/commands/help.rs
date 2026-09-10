@@ -50,7 +50,11 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .help("Developer override: open with a raw content key supplied out of band."),
         )
         .subcommands([
-            archive_command("create", "Create a new encrypted lockbox.")
+            archive_command("create", "Create a new lockbox.")
+                .arg(Arg::new("encryption").long("encryption").value_parser(["none", "chacha20-poly1305"]).help("Page encryption (default: chacha20-poly1305)."))
+                .arg(Arg::new("signing").long("signing").value_parser(["none", "owner"]).help("Commit signing (default: owner)."))
+                .arg(Arg::new("compression").long("compression").value_parser(["none", "zstd"]).help("Content and metadata compression (default: zstd)."))
+                .arg(Arg::new("compression-level").long("compression-level").value_parser(clap::value_parser!(u8).range(1..=22)).help("Zstd compression level, 1–22 (default: 3)."))
                 .override_usage("lockbox <LOCKBOX> create [OPTIONS]")
                 .after_help(verbose_help(
                     verbose,
@@ -76,7 +80,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                     Arg::new("description")
                         .long("description")
                         .value_name("TEXT")
-                        .help("Store an encrypted description in the new lockbox."),
+                        .help("Store a description using the selected encryption mode."),
                 ),
             archive_command("open", "Open the lockbox for later commands.")
                 .after_help(verbose_help(

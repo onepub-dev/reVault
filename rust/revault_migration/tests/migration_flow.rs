@@ -47,6 +47,7 @@ fn archive_start() -> MigrationRecord {
     MigrationRecord::Archive(ArchiveRecord::Start {
         archive_id: [4; 16],
         format_version: 1,
+        format_mode: None,
         content_key: SecretBytes::new(vec![5; 32]),
         key_directory: SecretBytes::new(vec![6; 32]),
         description: None,
@@ -512,6 +513,94 @@ fn migrated_v2_archive_preserves_metadata_and_supports_recovery() {
 struct PatternReader {
     remaining: usize,
     position: usize,
+}
+
+#[test]
+fn archive_migration_preserves_independent_format_choices() {
+    use revault_lockbox_api::{
+        Compression, Encryption, LockboxCreateOptions, LockboxOpen, Signing, ZstdLevel,
+    };
+    let temp = tempfile::tempdir().unwrap();
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    for signed in [false, true] {
+        for compression in [
+            Compression::None,
+            Compression::Zstd {
+                level: ZstdLevel::new(9).unwrap(),
+            },
+        ] {
+            let mut source = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                compression,
+                ..LockboxCreateOptions::new(
+                    Encryption::None,
+                    if signed {
+                        Signing::Owner(&signer)
+                    } else {
+                        Signing::None
+                    },
+                )
+            })
+            .unwrap();
+            let path = LockboxPath::new("/notes.txt").unwrap();
+            source
+                .add_file(&path, b"migrated plaintext content", false)
+                .unwrap();
+            source.commit().unwrap();
+            let artifact = temp
+                .path()
+                .join(format!("{signed}-{compression:?}.migration"));
+            let destination = temp.path().join(format!("{signed}-{compression:?}.lbox"));
+            export_archive(&source, &artifact, b"artifact password".as_slice(), [7; 16]).unwrap();
+            import_archive(
+                &artifact,
+                b"artifact password".as_slice(),
+                &destination,
+                &signer,
+            )
+            .unwrap();
+            let imported = Lockbox::open(&destination, LockboxOpen::Unencrypted).unwrap();
+            assert_eq!(imported.format_version(), 3);
+            assert_eq!(imported.format_options(), source.format_options());
+            assert_eq!(
+                imported.get_file(&path).unwrap(),
+                b"migrated plaintext content"
+            );
+        }
+    }
+}
+
+#[test]
+fn legacy_v2_archive_upgrades_to_explicit_v3_choices() {
+    let temp = tempfile::tempdir().unwrap();
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let key = b"legacy v2 migration test key";
+    // The raw migration constructor preserves v2 so this exercises an actual
+    // old-format source without changing a header or internal archive state.
+    let mut source =
+        Lockbox::create_with_lockbox_id(key, revault_lockbox_api::LockboxId::new_random().unwrap());
+    source.set_owner_signing_key(signer.try_clone().unwrap());
+    let path = LockboxPath::new("/legacy.txt").unwrap();
+    source.add_file(&path, b"legacy data", false).unwrap();
+    source.commit().unwrap();
+    assert_eq!(source.format_version(), 2);
+    let artifact = temp.path().join("legacy.migration");
+    let destination = temp.path().join("upgraded.lbox");
+    export_archive(&source, &artifact, b"artifact password".as_slice(), [8; 16]).unwrap();
+    import_archive(
+        &artifact,
+        b"artifact password".as_slice(),
+        &destination,
+        &signer,
+    )
+    .unwrap();
+    let upgraded = Lockbox::open(
+        &destination,
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+    )
+    .unwrap();
+    assert_eq!(upgraded.format_version(), 3);
+    assert_eq!(upgraded.format_options(), source.format_options());
+    assert_eq!(upgraded.get_file(&path).unwrap(), b"legacy data");
 }
 
 impl Read for PatternReader {

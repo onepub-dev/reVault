@@ -23,7 +23,7 @@ pub enum ReleaseCommand {
     /// Prepare versions and run the complete CI release preflight.
     Prepare(crate::release_candidate::Prepare),
     /// Promote a successful candidate without repeating CI validation.
-    Publish(crate::release_candidate::Selection),
+    Publish(crate::release_candidate::PublishSelection),
     /// Show the remembered candidate or discover candidates from CI.
     Status(crate::release_candidate::StatusSelection),
     /// Retrieve failure logs from the existing candidate or publication run.
@@ -1484,7 +1484,14 @@ fn publish_workspace_packages(repository: &Path, publish: bool, packages: &[&str
         if !publish {
             command.arg("--dry-run");
         }
-        run_process(&mut command)?;
+        run_process(&mut command).map_err(|error| {
+            let operation = if publish {
+                "publish"
+            } else {
+                "publish dry run"
+            };
+            format!("crates.io {operation} failed for {release}: {error}")
+        })?;
         if publish {
             let mut visible = false;
             for _ in 0..30 {

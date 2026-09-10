@@ -203,6 +203,7 @@ impl<'a> RecoverySession<'a> {
             crate::LockboxOptions::default(),
         );
         recovered.set_owner_signing_key(signing_key.try_clone()?);
+        recovered.set_creation_format(self.scanner.format_mode);
         let mut latest_paths = BTreeMap::new();
         for record in &scan.records {
             if let Ok(entries) = decode_index_records(record) {
@@ -309,7 +310,14 @@ fn valid_commit_root_from_auth_chain(
             return None;
         }
         let message = commit_auth_message(&auth).ok()?;
-        verify_commit_signatures(&message, &auth.signatures).ok()?;
+        if auth.flags != u64::from(scanner.format_mode.0) {
+            return None;
+        }
+        if scanner.format_mode.signed() {
+            verify_commit_signatures(&message, &auth.signatures).ok()?;
+        } else if !auth.signatures.is_empty() {
+            return None;
+        }
         if let Some(root) = verified_commit_root_from_auth(scanner, &auth) {
             return Some(root);
         }
@@ -330,7 +338,8 @@ fn verified_commit_root_from_auth(
         return None;
     }
     let root = crate::commit_root::decode_commit_root(&root_payload).ok()?;
-    (root.sequence == auth.sequence).then_some(root)
+    (root.sequence == auth.sequence && root.flags == u64::from(scanner.format_mode.0))
+        .then_some(root)
 }
 
 #[derive(Default)]

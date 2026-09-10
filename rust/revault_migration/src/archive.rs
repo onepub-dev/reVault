@@ -26,8 +26,8 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
 ) -> Result<u64> {
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
-        source_native_version: u32::from(LOCKBOX_FORMAT_VERSION),
-        migration_schema_version: 2,
+        source_native_version: u32::from(lockbox.format_version()),
+        migration_schema_version: 3,
         target_native_version: Some(u32::from(LOCKBOX_FORMAT_VERSION)),
         operation_id,
     };
@@ -41,7 +41,8 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
         .map_err(core_error)?;
     writer.write_json(&MigrationRecord::Archive(ArchiveRecord::Start {
         archive_id: *lockbox.lockbox_id().as_bytes(),
-        format_version: u32::from(LOCKBOX_FORMAT_VERSION),
+        format_version: u32::from(lockbox.format_version()),
+        format_mode: Some(lockbox.export_migration_format_mode()),
         content_key: SecretBytes::new(secret_bytes(&content_key)?),
         key_directory: SecretBytes::new(key_directory),
         description: lockbox.description().map_err(core_error)?,
@@ -199,6 +200,11 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
         ));
     }
     let mut lockbox: Option<Lockbox> = None;
+    if reader.header().migration_schema_version > 3 {
+        return Err(MigrationError::InvalidHeader(
+            "unsupported archive migration schema".into(),
+        ));
+    }
     let mut count = 0u64;
     let mut saw_end = false;
     while let Some((frame_type, payload)) = reader.next_frame()? {
@@ -222,6 +228,8 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                 content_key,
                 key_directory,
                 description,
+                format_mode,
+                format_version,
                 ..
             } => {
                 if lockbox.is_some() || count != 0 {
@@ -231,9 +239,20 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                 }
                 let mut created =
                     Lockbox::create_with_lockbox_id(content_key, LockboxId::from_bytes(archive_id));
+                if !(1..=u32::from(LOCKBOX_FORMAT_VERSION)).contains(&format_version)
+                    || (format_version == 3 && format_mode.unwrap_or(0) == 0)
+                    || (format_version < 3 && format_mode.unwrap_or(0) != 0)
+                {
+                    return Err(MigrationError::CorruptFrame(
+                        "archive version and format choices are inconsistent or unsupported".into(),
+                    ));
+                }
                 created.set_owner_signing_key(signing_key.try_clone().map_err(core_error)?);
                 created
                     .import_migration_key_directory(key_directory.as_slice())
+                    .map_err(core_error)?;
+                created
+                    .import_migration_format_mode(format_mode.unwrap_or(0))
                     .map_err(core_error)?;
                 if let Some(description) = description {
                     created.set_description(&description).map_err(core_error)?;
@@ -573,7 +592,7 @@ pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
             "artifact is not an archive migration".to_string(),
         ));
     }
-    if reader.header().migration_schema_version > 2 {
+    if reader.header().migration_schema_version > 3 {
         return Err(MigrationError::InvalidHeader(format!(
             "archive migration schema {} is newer than this build supports",
             reader.header().migration_schema_version
@@ -582,7 +601,7 @@ pub fn upgrade_archive_artifact<P: MigrationPassphrase + ?Sized>(
     let header = MigrationHeader {
         artifact_kind: ArtifactKind::Archive,
         source_native_version: reader.header().source_native_version,
-        migration_schema_version: 2,
+        migration_schema_version: 3,
         target_native_version: Some(u32::from(LOCKBOX_FORMAT_VERSION)),
         operation_id: reader.header().operation_id,
     };
