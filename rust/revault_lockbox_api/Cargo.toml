@@ -1,6 +1,6 @@
 [package]
 name = "revault_lockbox_api"
-version = "0.0.33"
+version = "0.0.34"
 edition = "2021"
 rust-version = "1.88"
 license-file = "LICENSE"
@@ -30,7 +30,7 @@ ed25519-dalek = "3"
 getrandom = "0.4"
 hkdf = "0.13"
 hmac = "0.13"
-revault_page_api = { version = "0.0.26", path = "../revault_page_api" }
+revault_page_api = { version = "0.0.27", path = "../revault_page_api" }
 ml-dsa = { version = "0.1", features = ["getrandom"] }
 ml-kem = { version = "0.3.2", features = ["getrandom"] }
 sha2 = "0.11"
