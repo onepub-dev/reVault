@@ -2,6 +2,8 @@ Release cli
 CLI: 0.0.17
 Bindings: 
 
+- Fix TypeScript signing key cleanup
+- Prepare cli release: CLI 0.0.17, bindings
 - Format Dart E2E conformance runner
 - Prepare cli release: CLI 0.0.17, bindings
 - ignore gitbook created .agents
