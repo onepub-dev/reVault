@@ -286,16 +286,9 @@ pub(crate) fn msvc_path(path: &Path) -> String {
     }
 }
 
-fn build_ruby_shim(
-    repository: &Path,
-    row: &TargetRow,
-    library: &Path,
-    import_library: Option<&Path>,
-    output: &Path,
-) -> Result<PathBuf> {
+fn build_ruby_shim(repository: &Path, row: &TargetRow, output: &Path) -> Result<PathBuf> {
     let source = repository.join("bindings/ruby/native/revault_ruby_shim.c");
     let include = repository.join("rust/revault_bindings");
-    let library_dir = library.parent().ok_or("native library has no parent")?;
     let name = match row.os.as_str() {
         "linux" => "librevault_ruby_shim.so",
         "macos" => "librevault_ruby_shim.dylib",
@@ -304,15 +297,12 @@ fn build_ruby_shim(
     };
     let destination = output.join(name);
     let mut command = if row.os == "windows" {
-        let import_library =
-            import_library.ok_or("Windows Ruby shim requires an import library")?;
         let mut command = Command::new("cl.exe");
         command
             .arg("/nologo")
             .arg("/LD")
             .arg(format!("/I{}", msvc_path(&include)))
             .arg(msvc_path(&source))
-            .arg(msvc_path(import_library))
             .arg("/link")
             .arg(format!("/OUT:{}", msvc_path(&destination)));
         for symbol in ruby_shim_symbols(&source)? {
@@ -322,15 +312,13 @@ fn build_ruby_shim(
     } else {
         let mut command = Command::new("cc");
         if row.os == "macos" {
-            command.args(["-dynamiclib", "-Wl,-rpath,@loader_path"]);
+            command.arg("-dynamiclib");
         } else {
-            command.args(["-shared", "-fPIC", "-Wl,-z,defs", "-Wl,-rpath,$ORIGIN"]);
+            command.args(["-shared", "-fPIC", "-Wl,-z,defs"]);
         }
         command
             .arg(format!("-I{}", include.display()))
             .arg(&source)
-            .arg(format!("-L{}", library_dir.display()))
-            .arg("-lrevault_api")
             .arg("-o")
             .arg(&destination);
         command
@@ -430,13 +418,7 @@ fn package_native(args: PackageNative) -> Result {
         .unwrap_or(315_532_800);
     let prefix = format!("revault-api-native-{}-{}", args.version, args.target);
     let temporary = TempDir::new()?;
-    let ruby_shim = build_ruby_shim(
-        &repository,
-        row,
-        &library,
-        import_library.as_deref(),
-        temporary.path(),
-    )?;
+    let ruby_shim = build_ruby_shim(&repository, row, temporary.path())?;
     let ruby_shim_name = ruby_shim
         .file_name()
         .ok_or("Ruby shim has no file name")?

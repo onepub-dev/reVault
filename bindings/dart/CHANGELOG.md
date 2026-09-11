@@ -84,6 +84,12 @@
 
 ## Unreleased
 
+- Preserve explicit and inherited native library overrides across repeated
+  `Revault.load()` calls and resolve Dart native extensions through the same
+  selected library.
+- Add a relocated executable regression test covering native override loading,
+  persisted binary content, and translated platform credential errors.
+
 ## 0.3.12
 
 - Restore the optional `Revault.load(nativeLibraryPath: ...)` installer hook

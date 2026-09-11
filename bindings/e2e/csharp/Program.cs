@@ -10,6 +10,23 @@ static class Conformance
     static void Check(bool value, string message) { if (!value) throw new Exception(message); }
     static byte[] Bytes(string value) => Encoding.UTF8.GetBytes(value);
     static byte[] Repeat(char value, int count) => Enumerable.Repeat((byte)value, count).ToArray();
+    static void LoaderLifecycle()
+    {
+        var runtime = global::Revault.Revault.Load();
+        var root = Path.Combine(Path.GetTempPath(), "revault-loader-" + Guid.NewGuid());
+        Directory.CreateDirectory(root);
+        var archive = Path.Combine(root, "archive.lbox");
+        var key = Repeat('K', 32);
+        var payload = new byte[] { 0, 255, 128, 10, 64 };
+        try {
+            using var signer = runtime.GenerateProfileSigningKeyPair();
+            using (var box = runtime.CreateLockboxFile(archive, key, signer)) {
+                box.AddFile("/payload", payload); box.Commit(); box.Commit();
+            }
+            using var reopened = global::Revault.Revault.Load().OpenLockboxFile(archive, key);
+            Check(reopened.GetFile("/payload").SequenceEqual(payload), "loader persisted content");
+        } finally { Directory.Delete(root, recursive: true); }
+    }
     static string Root()
     {
         var path = Path.Combine(Environment.GetEnvironmentVariable("REVAULT_E2E_ARTIFACT_DIR") ?? "/tmp/revault-e2e-artifacts", "csharp");
@@ -242,7 +259,7 @@ static class Conformance
 
     static void Main(string[] args)
     {
-        if (Environment.GetEnvironmentVariable("REVAULT_E2E_LOADER_SMOKE") is string loaderMode) { var version = Api.LockboxFormatVersion; Check(version > 0, "loader native round trip"); Console.WriteLine($"LOADER\tcsharp\t{loaderMode}\t{version}"); return; }
+        if (Environment.GetEnvironmentVariable("REVAULT_E2E_LOADER_SMOKE") is string loaderMode) { var version = Api.LockboxFormatVersion; Check(version > 0, "loader native round trip"); LoaderLifecycle(); Console.WriteLine($"LOADER\tcsharp\t{loaderMode}\t{version}\tpersisted"); return; }
         if (args is ["--serve-agent"]) { Api.ServeAgent(); return; } if (args is ["--agent"]) { AgentAndLocal(); return; } if (args is ["--platform"]) { Platform(); return; } if (args is ["--default"]) { DefaultVault(); return; }
         if (args.Length >= 2 && args[0] == "--interop") { foreach (var producer in args[1..]) Interop(producer); return; } ArchiveLifecycle(); KeyLifecycle(); AdvancedArchive(); VaultLifecycle(); _ = Api.LastError; Pass("buffer_last_error");
     }

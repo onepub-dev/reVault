@@ -6,6 +6,7 @@ import 'package:revault_api/src/agent_session.dart';
 import 'package:revault_api/src/binding_operations.dart';
 import 'package:revault_api/src/contact_key_pair.dart';
 import 'package:revault_api/src/contact_public_key.dart';
+import 'package:revault_api/src/dart_native_extensions.dart';
 import 'package:revault_api/src/domain_models.dart';
 import 'package:revault_api/src/lockbox.dart';
 import 'package:revault_api/src/lockbox_options.dart';
@@ -69,7 +70,9 @@ final class Revault {
     final selectedPath =
         nativeLibraryPath ??
         (inheritedPath == null || inheritedPath.isEmpty ? null : inheritedPath);
-    final loaded = Revault._(selectedPath);
+    final loaded = Revault._(
+      selectedPath == null ? null : ffi.DynamicLibrary.open(selectedPath),
+    );
     _current = loaded;
     return loaded;
   }
@@ -81,17 +84,19 @@ final class Revault {
         'Call and await Revault.load() before using Vault, Lockbox, or AgentSession.',
       ));
 
-  Revault._(String? nativeLibraryPath)
-    : operations = BindingOperations(
-        nativeLibraryPath == null
-            ? RevaultNative()
-            : RevaultNative.open(ffi.DynamicLibrary.open(nativeLibraryPath)),
+  Revault._(ffi.DynamicLibrary? library)
+    : nativeExtensions = DartNativeExtensions(library),
+      operations = BindingOperations(
+        library == null ? RevaultNative() : RevaultNative.open(library),
       ) {
     _current = this;
   }
 
   /// @nodoc
   final BindingOperations operations;
+
+  /// @nodoc
+  final DartNativeExtensions nativeExtensions;
 
   /// Returns the lockbox format version written by this runtime.
   ///

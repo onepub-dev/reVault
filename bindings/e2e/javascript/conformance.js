@@ -12,7 +12,23 @@ const language = process.env.REVAULT_E2E_LANGUAGE ?? 'javascript';
 if (process.env.REVAULT_E2E_LOADER_SMOKE) {
   const version = api.lockboxFormatVersion();
   if (version <= 0) throw new Error('loader native round trip');
-  console.log(`LOADER\t${language}\t${process.env.REVAULT_E2E_LOADER_SMOKE}\t${version}`);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'revault-loader-'));
+  const archive = path.join(root, 'archive.lbox');
+  const key = Buffer.alloc(32, 75);
+  const payload = Buffer.from([0, 255, 128, 10, 64]);
+  const signer = api.generateProfileSigningKeyPair();
+  try {
+    const box = binding.Lockbox.create(archive, {contentKey: key, signingKey: signer});
+    try { box.addFile('/payload', payload, false); box.commit(); box.commit(); }
+    finally { box.close(); }
+    const reopened = binding.Lockbox.open(archive, {contentKey: key});
+    try {
+      if (!Buffer.from(reopened.getFile('/payload')).equals(payload)) {
+        throw new Error('loader persisted content differs');
+      }
+    } finally { reopened.close(); }
+  } finally { signer.close(); fs.rmSync(root, {recursive: true, force: true}); }
+  console.log(`LOADER\t${language}\t${process.env.REVAULT_E2E_LOADER_SMOKE}\t${version}\tpersisted`);
   process.exit(0);
 }
 const script = fileURLToPath(import.meta.url);

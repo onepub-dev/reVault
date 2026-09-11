@@ -7,7 +7,21 @@ API = Revault.load(ENV['REVAULT_E2E_LOAD_PATH'])
 if (loader_mode = ENV['REVAULT_E2E_LOADER_SMOKE'])
   version = API.lockbox_format_version
   raise 'loader native round trip' unless version.positive?
-  puts("LOADER\truby\t#{loader_mode}\t#{version}")
+  Dir.mktmpdir('revault-loader-') do |root|
+    archive = File.join(root, 'archive.lbox')
+    key = 'K' * 32
+    payload = [0, 255, 128, 10, 64].pack('C*')
+    signer = API.generate_profile_signing_key_pair
+    begin
+      box = Revault::Lockbox.create(archive, content_key: key, signing_key: signer)
+      begin; box.add_file('/payload', payload, false); box.commit; box.commit; ensure; box.close; end
+      reopened = Revault::Lockbox.open(archive, content_key: key)
+      begin
+        raise 'loader persisted content differs' unless reopened.get_file('/payload') == payload
+      ensure; reopened.close; end
+    ensure; signer.close; end
+  end
+  puts("LOADER\truby\t#{loader_mode}\t#{version}\tpersisted")
   exit(0)
 end
 def pass(symbol, assertions = 1) = puts("PASS\truby\t#{symbol}\t#{assertions}")

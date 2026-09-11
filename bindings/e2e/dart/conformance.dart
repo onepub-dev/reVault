@@ -772,12 +772,10 @@ void platformStore() {
 }
 
 Future<void> agentAndLocal() async {
-  Directory(
-    Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!,
-  ).createSync(recursive: true);
-  Directory(
-    Platform.environment['LOCKBOX_VAULT_DIR']!,
-  ).createSync(recursive: true);
+  Directory(Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!)
+      .createSync(recursive: true);
+  Directory(Platform.environment['LOCKBOX_VAULT_DIR']!)
+      .createSync(recursive: true);
   final directory = withSecretString(
     'agent vault password',
     (password) => Vault.replace(passphrase: password),
@@ -968,7 +966,43 @@ Future<void> main(List<String> args) async {
   if (Platform.environment['REVAULT_E2E_LOADER_SMOKE'] case final mode?) {
     final version = api.lockboxFormatVersion;
     check(version > 0, 'loader native round trip');
-    stdout.writeln('LOADER\tdart\t$mode\t$version');
+    final root = Directory.systemTemp.createTempSync('revault-loader-');
+    final key = SecretBytes.copyOf(repeat(75, 32));
+    try {
+      final path = '${root.path}/archive.lbox';
+      final payload = Uint8List.fromList([0, 255, 128, 10, 64]);
+      final signer = api.generateProfileSigningKeyPair();
+      final box = Lockbox.create(path, contentKey: key, signingKey: signer);
+      try {
+        box.addFile('/payload', payload);
+        box.commit();
+        box.commit();
+      } finally {
+        box.close();
+      }
+      final reopened = Lockbox.open(path, contentKey: key);
+      try {
+        check(
+          base64Encode(reopened.getFile('/payload')) == base64Encode(payload),
+          'loader persisted content',
+        );
+      } finally {
+        reopened.close();
+      }
+      try {
+        api.operations.vaultPlatformGetPasswordFor(
+          '${root.path}/absent',
+          'unix:path=${root.path}/absent-bus',
+        );
+        throw StateError('Expected missing credential lookup to fail');
+      } on RevaultException {
+        /* Native resolution succeeded. */
+      }
+    } finally {
+      key.close();
+      root.deleteSync(recursive: true);
+    }
+    stdout.writeln('LOADER\tdart\t$mode\t$version\tpersisted');
     return;
   }
   if (args case ['--serve-agent']) {

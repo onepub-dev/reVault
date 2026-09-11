@@ -25,16 +25,21 @@ func moves(_ source: String, _ destination: String) -> [PathMove] {
     [PathMove(source: source, destination: destination)]
 }
 
-func archiveLifecycle() throws {
+func loaderLifecycle() throws {
     let filePath = try artifactRoot() + "/native-file.lbox"
+    let binaryPayload = Data([0, 255, 128, 10, 64])
     let fileKey = Data(repeating: 75, count: 32)
     let fileSigner = try api.generateProfileSigningKeyPair()
     let fileWriter = try api.createLockboxFile(filePath, contentKey: fileKey, signer: fileSigner, overwrite: true)
-    _ = try fileWriter.addFile("/hello", data("native"), false); _ = try fileWriter.commit(); try fileWriter.free()
+    _ = try fileWriter.addFile("/hello", data("native"), false); _ = try fileWriter.addFile("/binary", binaryPayload, false); _ = try fileWriter.commit(); _ = try fileWriter.commit(); try fileWriter.free()
     let fileReader = try api.openLockboxFile(filePath, contentKey: fileKey)
     try check(try fileReader.getFile("/hello") == data("native"), "native file persistence")
-    try fileReader.free(); try fileSigner.dispose(); try files.removeItem(atPath: filePath); pass("lockbox_file", 3)
+    try check(try fileReader.getFile("/binary") == binaryPayload, "linked carrier binary round trip")
+    try fileReader.free(); try fileSigner.dispose(); try files.removeItem(atPath: filePath); pass("lockbox_file", 6)
+}
 
+func archiveLifecycle() throws {
+    try loaderLifecycle()
     let key = Data(repeating: 75, count: 32)
     let box = try api.lockboxCreate(key); pass("lockbox_create")
     try box.addFile("/hello.txt", data("hello from swift conformance"), false); pass("lockbox_add_file", 2)
@@ -246,7 +251,8 @@ func interop(_ producer: String) throws {
 }
 
 let arguments = CommandLine.arguments
-if arguments.count > 1 && arguments[1] == "--serve-agent" { try api.agentSession.serve() }
+if arguments.contains("--loader-lifecycle") { try loaderLifecycle() }
+else if arguments.count > 1 && arguments[1] == "--serve-agent" { try api.agentSession.serve() }
 else if arguments.count > 1 && arguments[1] == "--default" { try defaultVault() }
 else if arguments.count > 1 && arguments[1] == "--platform" { try platformStore() }
 else if arguments.count > 1 && arguments[1] == "--agent" { try agentAndLocal() }

@@ -102,9 +102,9 @@ function operation(className, method) {
     if (method === 'publicBytes') return 'key_signing_public';
     if (method === 'privateRecord') return 'key_signing_private';
     if (method === 'publicKey') return 'key_signing_public_from_bytes';
-    if (method === 'dispose') return 'key_signing_free';
+    if (['dispose', 'free', 'close'].includes(method)) return 'key_signing_free';
   }
-  if (className === 'ProfileSigningPublicKey' && method === 'dispose') {
+  if (className === 'ProfileSigningPublicKey' && ['dispose', 'free', 'close'].includes(method)) {
     return 'key_signing_public_free';
   }
   if (className === 'VaultDirectory') return `vault_directory_${name}`;
@@ -145,9 +145,9 @@ function wrap(value) {
  * to the installed host package. */
 export class Revault {
   /** Creates a facade whose binding calls are dispatched through the WASM runtime. */
-  constructor() { return wrap(new host.Revault()); }
+  constructor(nativeLibraryPath = undefined) { return wrap(new host.Revault(nativeLibraryPath)); }
   /** Loads the linked host runtime; WASM itself does not open a Vault. */
-  static async load() { return new Revault(); }
+  static async load(nativeLibraryPath = undefined) { return new Revault(nativeLibraryPath); }
 }
 
 /** Explicit controller for the optional host Session Agent. */

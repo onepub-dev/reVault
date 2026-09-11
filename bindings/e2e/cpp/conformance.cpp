@@ -105,14 +105,18 @@ static std::vector<std::uint8_t> read(const fs::path& path) {
   return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
 }
 
-static void archive_lifecycle() {
+static void loader_lifecycle() {
   const auto file_path = (artifact_root() / "native-file.lbox").string();
   const std::vector<std::uint8_t> file_key(32, 'K');
+  const std::vector<std::uint8_t> binary_payload{0, 255, 128, 10, 64};
   ProfileSigningKeyPair file_signer;
-  { auto file_box = Lockbox::create_file(file_path, file_key, file_signer, true); file_box.add_file("/hello", bytes("native")); file_box.commit(); }
-  { auto file_box = Lockbox::open_file(file_path, file_key); check(file_box.get_file("/hello") == bytes("native"), "native file persistence"); }
-  fs::remove(file_path); pass("lockbox_file", 3);
+  { auto file_box = Lockbox::create_file(file_path, file_key, file_signer, true); file_box.add_file("/hello", bytes("native")); file_box.add_file("/binary", binary_payload); file_box.commit(); file_box.commit(); }
+  { auto file_box = Lockbox::open_file(file_path, file_key); check(file_box.get_file("/hello") == bytes("native"), "native file persistence"); check(file_box.get_file("/binary") == binary_payload, "linked carrier binary round trip"); }
+  fs::remove(file_path); pass("lockbox_file", 6);
+}
 
+static void archive_lifecycle() {
+  loader_lifecycle();
   const std::vector<std::uint8_t> key(32, 'K');
   Lockbox box(key);
   pass("lockbox_create");
@@ -773,6 +777,7 @@ static void interop_open(const std::string& producer) {
 }
 
 int main(int argc, char** argv) {
+  if (argc == 2 && std::string(argv[1]) == "--loader-lifecycle") { loader_lifecycle(); return 0; }
   std::cout << std::unitbuf;
   executable_path = argv[0];
   try {

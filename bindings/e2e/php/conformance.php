@@ -13,7 +13,26 @@ $api = ApiRuntime::load(getenv('REVAULT_E2E_LOAD_PATH') ?: null);
 if (($loaderMode = getenv('REVAULT_E2E_LOADER_SMOKE')) !== false) {
     $version = $api->lockboxFormatVersion();
     if ($version <= 0) { throw new RuntimeException('loader native round trip'); }
-    echo "LOADER\tphp\t$loaderMode\t$version\n";
+    $root = sys_get_temp_dir() . '/revault-loader-' . bin2hex(random_bytes(8));
+    mkdir($root, 0700);
+    $archive = $root . '/archive.lbox';
+    $key = str_repeat('K', 32);
+    $payload = pack('C*', 0, 255, 128, 10, 64);
+    $signer = $api->generateProfileSigningKeyPair();
+    try {
+        $box = \Revault\Lockbox::create($archive, contentKey: $key, signingKey: $signer);
+        try { $box->addFile('/payload', $payload, false); $box->commit(); $box->commit(); }
+        finally { $box->close(); }
+        $box = \Revault\Lockbox::open($archive, contentKey: $key);
+        try {
+            if ($box->getFile('/payload') !== $payload) throw new RuntimeException('loader persisted content differs');
+        } finally { $box->close(); }
+    } finally {
+        $signer->close();
+        foreach (glob($root . '/*') as $file) unlink($file);
+        rmdir($root);
+    }
+    echo "LOADER\tphp\t$loaderMode\t$version\tpersisted\n";
     exit(0);
 }
 

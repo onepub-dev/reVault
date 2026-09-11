@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Restrict E2E coverage recording and its file locking to debug builds so
+  release CLI builds do not include test-only coverage support.
+
 ## 0.0.15 - 2026-09-08
 
 - Use versioned migration backup names that include both source and target

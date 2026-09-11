@@ -24,9 +24,9 @@ import type {
 /** Hosted runtime entry point whose calls are counted by the WASM dispatcher. */
 export class Revault extends HostedRuntime {
   /** Creates a hosted runtime facade; it does not open a Vault. */
-  constructor();
+  constructor(nativeLibraryPath?: string);
   /** Loads the installed host runtime without opening persistent state. */
-  static load(): Promise<Revault>;
+  static load(nativeLibraryPath?: string): Promise<Revault>;
 }
 /** Persistent encrypted Vault supplied by the host package. */
 export class Vault {

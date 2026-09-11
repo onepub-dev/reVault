@@ -25,6 +25,7 @@ use FFI\CData;
  */
 final class Revault
 {
+    private static ?BindingOperations $selectedOperations = null;
     private readonly BindingOperations $operations;
     private readonly Agent $agent;
     private readonly Platform $platform;
@@ -35,11 +36,16 @@ final class Revault
         if ($nativeLibraryPath === '') {
             throw new \InvalidArgumentException('nativeLibraryPath must not be empty');
         }
-        $inherited = getenv('REVAULT_LIBRARY');
-        $selected = $nativeLibraryPath
-            ?? (is_string($inherited) && $inherited !== '' ? $inherited : null)
-            ?? self::nativeLibrary();
-        $this->operations = BindingOperations::load($selected);
+        if ($nativeLibraryPath === null && self::$selectedOperations !== null) {
+            $this->operations = self::$selectedOperations;
+        } else {
+            $inherited = getenv('REVAULT_LIBRARY');
+            $selected = $nativeLibraryPath
+                ?? (is_string($inherited) && $inherited !== '' ? $inherited : null)
+                ?? self::nativeLibrary();
+            $this->operations = BindingOperations::load($selected);
+            self::$selectedOperations = $this->operations;
+        }
         $this->agent = new Agent($this->operations); $this->platform = new Platform($this->operations);
     }
 

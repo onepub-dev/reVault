@@ -39,21 +39,28 @@ func artifactRoot() string {
 	return root
 }
 
-func archiveLifecycle() {
+func loaderLifecycle() {
 	filePath := filepath.Join(artifactRoot(), "native-file.lbox")
+	binaryPayload := []byte{0, 255, 128, 10, 64}
 	fileKey := bytes.Repeat([]byte{'K'}, 32)
 	fileSigner := mustValue(revault.GenerateProfileSigningKeyPair())
 	fileBox := mustValue(revault.CreateFile(filePath, fileKey, fileSigner, true))
 	must(fileBox.AddFile("/hello", []byte("native"), false))
+	must(fileBox.AddFile("/binary", binaryPayload, false))
+	must(fileBox.Commit())
 	must(fileBox.Commit())
 	fileBox.Close()
 	fileBox = mustValue(revault.OpenFile(filePath, fileKey, nil))
 	check(bytes.Equal(mustValue(fileBox.GetFile("/hello")), []byte("native")), "native file persistence")
+	check(bytes.Equal(mustValue(fileBox.GetFile("/binary")), binaryPayload), "linked carrier binary round trip")
 	fileBox.Close()
 	fileSigner.Close()
 	must(os.Remove(filePath))
-	pass("lockbox_file", 3)
+	pass("lockbox_file", 6)
+}
 
+func archiveLifecycle() {
+	loaderLifecycle()
 	key := bytes.Repeat([]byte{'K'}, 32)
 	box := mustValue(revault.Create(key))
 	defer box.Close()
@@ -729,6 +736,7 @@ func interopOpen(producer string) {
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--loader-lifecycle" { loaderLifecycle(); return }
 	if len(os.Args) == 2 && os.Args[1] == "--serve-agent" {
 		must(revault.ServeAgent())
 		return

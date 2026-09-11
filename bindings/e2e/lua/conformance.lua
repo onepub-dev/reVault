@@ -4,7 +4,16 @@ local loader_mode = os.getenv('REVAULT_E2E_LOADER_SMOKE')
 if loader_mode then
   local version = api:lockbox_format_version()
   assert(version > 0, 'loader native round trip')
-  print('LOADER\tlua\t' .. loader_mode .. '\t' .. version); os.exit(0)
+  local archive = os.tmpname()
+  os.remove(archive)
+  local key, payload = string.rep('K', 32), string.char(0, 255, 128, 10, 64)
+  local signer = api:generate_profile_signing_key_pair()
+  local box = revault.Lockbox.create(archive, {content_key=key, signing_key=signer})
+  box:add_file('/payload', payload, false); box:commit(); box:commit(); box:close()
+  box = revault.Lockbox.open(archive, {content_key=key})
+  assert(box:get_file('/payload') == payload, 'loader persisted content differs')
+  box:close(); signer:free(); os.remove(archive)
+  print('LOADER\tlua\t' .. loader_mode .. '\t' .. version .. '\tpersisted'); os.exit(0)
 end
 local separator = package.config:sub(1, 1)
 local windows = separator == '\\'

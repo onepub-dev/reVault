@@ -163,7 +163,7 @@ fn record_e2e_invocation(command: &str, matches: &ArgMatches, succeeded: bool) {
     });
 }
 
-#[cfg(unix)]
+#[cfg(all(debug_assertions, unix))]
 fn with_e2e_coverage_lock(path: &std::ffi::OsStr, action: impl FnOnce()) {
     use std::os::fd::AsRawFd;
 
@@ -192,7 +192,7 @@ fn with_e2e_coverage_lock(path: &std::ffi::OsStr, action: impl FnOnce()) {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(all(debug_assertions, not(unix)))]
 fn with_e2e_coverage_lock(_path: &std::ffi::OsStr, action: impl FnOnce()) {
     action();
 }

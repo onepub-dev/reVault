@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Keep the native library selected by the runtime loader across facade
+  factories and explicit reloads, including relocated installations and
+  inherited library overrides.
+- Bind the Ruby shim to the selected native carrier instead of linking a
+  second copy, and exercise persisted binary content in every loader smoke
+  test, including WebAssembly.
 - Update native dependencies for vault structure v3. Existing key-pair profile
   operations retain their meaning and cannot overwrite password profiles.
 - Password profile management is currently available through the CLI and Rust

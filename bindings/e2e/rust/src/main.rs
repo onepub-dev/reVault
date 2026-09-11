@@ -63,12 +63,18 @@ fn create_artifacts() -> Result {
         b"replacement payload",
         false,
     )?;
+    let binary_payload = [0, 255, 128, 10, 64];
+    lockbox.add_file(&LockboxPath::new("/binary")?, &binary_payload, false)?;
+    lockbox.commit()?;
     lockbox.commit()?;
     drop(lockbox);
     println!("ARTIFACT\trust\tarchive-created\t{}", archive.display());
     let opened = Lockbox::open(&archive, LockboxOpen::ContentKey(content_key()?))?;
     if opened.get_file(&LockboxPath::new("/renamed.txt")?)? != b"replacement payload" {
         return Err("Rust archive content mismatch".into());
+    }
+    if opened.get_file(&LockboxPath::new("/binary")?)? != binary_payload {
+        return Err("Rust linked runtime binary round trip mismatch".into());
     }
     println!("ARTIFACT\trust\tarchive-opened\t{}", archive.display());
 

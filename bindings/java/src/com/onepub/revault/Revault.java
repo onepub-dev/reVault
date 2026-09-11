@@ -28,6 +28,7 @@ public final class Revault {
     T use(byte[] secret);
   }
 
+  private static BindingOperations selectedOperations;
   private final BindingOperations operations;
 
   /** Loads the process-wide native reVault runtime using platform discovery. */
@@ -58,8 +59,15 @@ public final class Revault {
    * @param nativeLibraryPath explicit path/name, or {@code null} for inherited/package discovery
    */
   public Revault(String nativeLibraryPath) {
-    this(new RevaultNativeApi(SymbolLookup.libraryLookup(
+    operations = selectOperations(nativeLibraryPath);
+  }
+
+  private static synchronized BindingOperations selectOperations(String nativeLibraryPath) {
+    if (nativeLibraryPath == null && selectedOperations != null) return selectedOperations;
+    var operations = new BindingOperations(new RevaultNativeApi(SymbolLookup.libraryLookup(
         NativeLibrary.resolve(nativeLibraryPath), Arena.global())));
+    selectedOperations = operations;
+    return operations;
   }
 
   Revault(RevaultNativeApi nativeApi) { operations = new BindingOperations(nativeApi); }

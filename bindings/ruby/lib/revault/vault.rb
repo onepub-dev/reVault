@@ -15,6 +15,7 @@ module Revault
     NativeLibrary.path(native_library_path)
     unless const_defined?(:BindingOperations, false)
       require_relative 'binding_operations'
+      NativeLibrary.bind_shim
       private_constant(:BindingOperations)
     end
   end

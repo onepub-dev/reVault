@@ -40,6 +40,24 @@ public final class Conformance {
     }
   }
 
+  private static void loaderLifecycle() throws Exception {
+    // Factories call load() again: this must retain an explicit override even
+    // when the inherited library path is deliberately invalid.
+    var runtime = Revault.load();
+    var root = Files.createTempDirectory("revault-loader-");
+    var archive = root.resolve("archive.lbox");
+    var key = repeated(75, 32);
+    var payload = new byte[] {0, (byte)255, (byte)128, 10, 64};
+    try (var signer = runtime.generateProfileSigningKeyPair()) {
+      try (var box = runtime.createLockboxFile(archive.toString(), key, signer, false)) {
+        box.addFile("/payload", payload, false); box.commit(); box.commit();
+      }
+      try (var box = Revault.load().openLockboxFile(archive.toString(), key, null)) {
+        check(Arrays.equals(box.getFile("/payload"), payload), "loader persisted content");
+      }
+    } finally { deleteTree(root); }
+  }
+
   private static void archiveLifecycle() throws Exception {
     var filePath = artifactRoot().resolve("native-file.lbox");
     var fileKey = repeated(75, 32);
@@ -513,7 +531,7 @@ public final class Conformance {
 
   public static void main(String[] args) throws Exception {
     var loaderMode = System.getenv("REVAULT_E2E_LOADER_SMOKE");
-    if (loaderMode != null) { int version = API.lockboxFormatVersion(); check(version > 0, "loader native round trip"); System.out.printf("LOADER\t%s\t%s\t%d%n", LANGUAGE, loaderMode, version); return; }
+    if (loaderMode != null) { int version = API.lockboxFormatVersion(); check(version > 0, "loader native round trip"); loaderLifecycle(); System.out.printf("LOADER\t%s\t%s\t%d\tpersisted%n", LANGUAGE, loaderMode, version); return; }
     if (args.length == 1 && args[0].equals("--serve-agent")) { API.serveAgent(); return; }
     if (args.length == 1 && args[0].equals("--agent")) { agentAndLockboxSession(); return; }
     if (args.length == 1 && args[0].equals("--platform")) { platformSecretStore(); return; }

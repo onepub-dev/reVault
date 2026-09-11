@@ -67,10 +67,17 @@ def _native_library_path() -> str:
     return str(bundled)
 
 
+# Factory-created facades must retain the carrier selected at startup.
+_selected_library: ctypes.CDLL | None = None
+
+
 def _load(native_library_path: str | os.PathLike[str] | None = None) -> ctypes.CDLL:
     """Load and validate the selected version-matched native library."""
     if native_library_path is not None and not os.fspath(native_library_path):
         raise ValueError("native_library_path must not be empty")
+    global _selected_library
+    if native_library_path is None and _selected_library is not None:
+        return _selected_library
     inherited = os.environ.get("REVAULT_LIBRARY")
     selected = (
         os.fspath(native_library_path)
@@ -94,6 +101,7 @@ def _load(native_library_path: str | os.PathLike[str] | None = None) -> ctypes.C
     from ._revault_native import configure_native
 
     configure_native(library, _Buffer)
+    _selected_library = library
     return library
 
 

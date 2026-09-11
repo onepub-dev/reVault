@@ -356,6 +356,7 @@ fn verify_loader_resolution(
             | "python"
             | "ruby"
             | "typescript"
+            | "wasm"
     ) {
         return Ok(());
     }
@@ -464,7 +465,8 @@ fn verify_loader_resolution(
             .get(3)
             .and_then(|value| value.parse::<u32>().ok())
             .unwrap_or_default();
-        if fields.len() != 4
+        if fields.len() != 5
+            || fields[4] != "persisted"
             || fields[0] != "LOADER"
             || fields[1] != language
             || fields[2] != mode

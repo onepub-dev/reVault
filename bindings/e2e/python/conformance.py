@@ -1002,7 +1002,17 @@ def main() -> None:
     if mode := os.environ.get("REVAULT_E2E_LOADER_SMOKE"):
         version = runtime.lib.lockbox_format_version()
         check(version > 0, "loader native round trip")
-        print(f"LOADER\tpython\t{mode}\t{version}")
+        with tempfile.TemporaryDirectory(prefix='revault-loader-') as root:
+            path = Path(root) / 'archive.lbox'
+            payload = bytes([0, 255, 128, 10, 64])
+            with runtime.facade.generate_profile_signing_key_pair() as signer:
+                with binding.Lockbox.create(path, content_key=b'K' * 32, signing_key=signer) as box:
+                    box.add_file('/payload', payload, False)
+                    box.commit()
+                    box.commit()
+                with binding.Lockbox.open(path, content_key=b'K' * 32) as box:
+                    check(box.get_file('/payload') == payload, 'loader persisted content')
+        print(f"LOADER\tpython\t{mode}\t{version}\tpersisted")
         return
     if len(sys.argv) >= 3 and sys.argv[1] == "--interop":
         for producer in sys.argv[2:]:
