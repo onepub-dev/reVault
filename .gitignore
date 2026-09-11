@@ -40,3 +40,4 @@ package-conformance-*/
 **/*.lbox
 **/*.lock
 .worktrees/
+.agents/
