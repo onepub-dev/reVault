@@ -26,7 +26,7 @@ if (process.env.REVAULT_E2E_LOADER_SMOKE) {
         throw new Error('loader persisted content differs');
       }
     } finally { reopened.close(); }
-  } finally { signer.close(); fs.rmSync(root, {recursive: true, force: true}); }
+  } finally { signer.dispose(); fs.rmSync(root, {recursive: true, force: true}); }
   console.log(`LOADER\t${language}\t${process.env.REVAULT_E2E_LOADER_SMOKE}\t${version}\tpersisted`);
   process.exit(0);
 }
