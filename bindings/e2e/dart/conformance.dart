@@ -772,10 +772,12 @@ void platformStore() {
 }
 
 Future<void> agentAndLocal() async {
-  Directory(Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!)
-      .createSync(recursive: true);
-  Directory(Platform.environment['LOCKBOX_VAULT_DIR']!)
-      .createSync(recursive: true);
+  Directory(
+    Platform.environment['LOCKBOX_SESSION_AGENT_DIR']!,
+  ).createSync(recursive: true);
+  Directory(
+    Platform.environment['LOCKBOX_VAULT_DIR']!,
+  ).createSync(recursive: true);
   final directory = withSecretString(
     'agent vault password',
     (password) => Vault.replace(passphrase: password),
