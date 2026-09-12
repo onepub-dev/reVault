@@ -39,6 +39,10 @@ pub struct OwnerSigningPublicKey {
 }
 
 impl OwnerSigningKeyPair {
+    /// Stable public fingerprint used to identify the established archive owner.
+    pub fn fingerprint(&self) -> Result<String> {
+        crate::lockbox::owner_signature_fingerprint(&self.empty_signatures())
+    }
     /// Generates a fresh Ed25519 and ML-DSA-65 hybrid signing keypair.
     pub fn generate() -> Result<Self> {
         let mut ed25519_seed = [0_u8; ED25519_SEED_LEN];

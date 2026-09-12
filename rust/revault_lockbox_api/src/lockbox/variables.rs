@@ -466,7 +466,9 @@ impl<State> Lockbox<State> {
         for (offset, _object_id) in redactions {
             // Retire the complete physical allocation without overwriting it
             // before publication; cleanup will erase the full original page.
-            let page_size = self.page_len_at(offset)?;
+            // Secure tree pages have a fixed physical allocation, including
+            // padding. Their encoded body length is not the allocation length.
+            let page_size = crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64;
             self.record_ref_counts.remove(&offset);
             self.redacted_free_slots.push(FreeSlot {
                 offset,
@@ -669,12 +671,11 @@ impl<State> Lockbox<State> {
         mut payload: SecureVec,
     ) -> Result<u64> {
         let sequence = self.staged.sequence;
-        let object = PageObject::new_secure(kind, sequence, payload.try_clone()?);
-        let page_size = crate::page::page_size_for_encoded_objects_with_format(
-            std::slice::from_ref(&object),
-            self.format_mode,
-        )? as u64;
+        // Keep reservation and secure encoder extents identical. Do not
+        // serialize a secret into ordinary heap memory merely to size it.
+        let page_size = crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64;
         let page_offset = self.allocate_page_offset(page_size)?;
+        self.begin_preparation()?;
         let mut content_key = self.key.with_bytes(derive_page_content_key)?;
         let result = self
             .page_manager

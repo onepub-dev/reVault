@@ -21,7 +21,7 @@ pub(crate) use crate::constants::{
 
 const PAGE_SIZE_GRANULARITY: usize = 1024;
 const MIN_PAGE_BYTES: usize = PAGE_SIZE_GRANULARITY;
-const PAGE_VERSION: u16 = 1;
+const PAGE_VERSION: u16 = 2;
 const PAGE_BODY_VERSION: u8 = 1;
 const COMPRESSION_NORMAL: u8 = 1;
 const PAGE_FLAG_CLEAR_TEXT: u16 = 0x0001;
@@ -158,7 +158,15 @@ pub(crate) fn physical_page_size_from_page_slice(page: &[u8]) -> Result<usize> {
     let stored_len = header_len
         .checked_add(stored_body_len)
         .ok_or(Error::CorruptRecord)?;
-    page_size_for_stored_len(stored_len, DEFAULT_DATA_PAGE_BYTES)
+    let physical_len = read_u64_le(&page[48..56])?;
+    if physical_len < stored_len as u64
+        || physical_len > DEFAULT_DATA_PAGE_BYTES as u64
+        || physical_len == 0
+        || physical_len % PAGE_SIZE_GRANULARITY as u64 != 0
+    {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(physical_len as usize)
 }
 
 impl PageObjectKind {
@@ -434,7 +442,14 @@ pub(crate) fn encode_page_with_format(
             .ok_or_else(|| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
         let encrypted_len = u32::try_from(encrypted_len)
             .map_err(|_| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
-        let aad = page_aad(lockbox_id, page_id, sequence, flags, encrypted_len);
+        let aad = page_aad(
+            lockbox_id,
+            page_id,
+            sequence,
+            flags,
+            encrypted_len,
+            page_size as u64,
+        );
         seal_with_random_nonce(&body, key, &aad)?
     };
     body.zeroize();
@@ -455,6 +470,7 @@ pub(crate) fn encode_page_with_format(
     page[24..32].copy_from_slice(&sequence.to_le_bytes());
     page[32..44].copy_from_slice(&nonce);
     page[44..48].copy_from_slice(&stored_body_len.to_le_bytes());
+    page[48..56].copy_from_slice(&(page_size as u64).to_le_bytes());
     let header_digest = strong_checksum(&page[0..PAGE_CHECKSUM_START]);
     page[PAGE_CHECKSUM_START..PAGE_HEADER_LEN].copy_from_slice(&header_digest);
     page[PAGE_HEADER_LEN..PAGE_HEADER_LEN + stored_body.len()].copy_from_slice(&stored_body);
@@ -489,7 +505,7 @@ pub(crate) fn decode_page_with_format(
     if header_len != PAGE_HEADER_LEN || header_len > page.len() {
         return Err(Error::CorruptRecord);
     }
-    if page[48..PAGE_CHECKSUM_START].iter().any(|byte| *byte != 0) {
+    if page[56..PAGE_CHECKSUM_START].iter().any(|byte| *byte != 0) {
         return Err(Error::CorruptRecord);
     }
     let expected_digest = strong_checksum(&page[0..PAGE_CHECKSUM_START]);
@@ -515,7 +531,14 @@ pub(crate) fn decode_page_with_format(
         }
         body.to_vec()
     } else {
-        let aad = page_aad(lockbox_id, page_id, sequence, flags, stored_body_len as u32);
+        let aad = page_aad(
+            lockbox_id,
+            page_id,
+            sequence,
+            flags,
+            stored_body_len as u32,
+            physical_page_size_from_page_slice(page)? as u64,
+        );
         open_with_nonce(stored_body, key, nonce, &aad)?
     };
     let mut body = body;
@@ -610,6 +633,7 @@ pub(crate) fn encode_single_object_page_secure(
         request.sequence,
         0,
         encrypted_len,
+        request.page_size as u64,
     );
     let nonce = seal_with_content_key_secure(&mut page_body, request.content_key, &aad)?;
     let stored_body_len = u32::try_from(page_body.len())
@@ -629,6 +653,7 @@ pub(crate) fn encode_single_object_page_secure(
     page[24..32].copy_from_slice(&request.sequence.to_le_bytes());
     page[32..44].copy_from_slice(&nonce);
     page[44..48].copy_from_slice(&stored_body_len.to_le_bytes());
+    page[48..56].copy_from_slice(&(request.page_size as u64).to_le_bytes());
     let header_digest = strong_checksum(&page[0..PAGE_CHECKSUM_START]);
     page[PAGE_CHECKSUM_START..PAGE_HEADER_LEN].copy_from_slice(&header_digest);
     secure_read_access(|access| {
@@ -646,7 +671,7 @@ fn decrypt_page_body_secure(
     content_key: &[u8; 32],
     mode: crate::creation_options::FormatMode,
 ) -> Result<(u64, u64)> {
-    let header: (u64, u64, [u8; 12], u16, usize, usize) = {
+    let header: (u64, u64, [u8; 12], u16, usize, usize, u64) = {
         let parsed = secure_read_access(|access| {
             page.with_bytes_in(access, |page| {
                 if page.len() < PAGE_HEADER_LEN {
@@ -666,7 +691,7 @@ fn decrypt_page_body_secure(
                 if header_len != PAGE_HEADER_LEN || header_len > page.len() {
                     return Err(Error::CorruptRecord);
                 }
-                if page[48..PAGE_CHECKSUM_START].iter().any(|byte| *byte != 0) {
+                if page[56..PAGE_CHECKSUM_START].iter().any(|byte| *byte != 0) {
                     return Err(Error::CorruptRecord);
                 }
                 let expected_digest = strong_checksum(&page[0..PAGE_CHECKSUM_START]);
@@ -684,12 +709,13 @@ fn decrypt_page_body_secure(
                     flags,
                     header_len,
                     stored_body_len,
+                    physical_page_size_from_page_slice(page)? as u64,
                 ))
             })
         })?;
         parsed?
     };
-    let (page_id, sequence, nonce, flags, header_len, stored_body_len) = header;
+    let (page_id, sequence, nonce, flags, header_len, stored_body_len, physical_len) = header;
     if (flags & PAGE_FLAG_CLEAR_TEXT != 0) != mode.plaintext() {
         return Err(Error::CorruptRecord);
     }
@@ -714,7 +740,14 @@ fn decrypt_page_body_secure(
         bytes.copy_within(header_len..header_len + stored_body_len, 0);
     })?;
     page.truncate(stored_body_len)?;
-    let aad = page_aad(lockbox_id, page_id, sequence, flags, stored_body_len as u32);
+    let aad = page_aad(
+        lockbox_id,
+        page_id,
+        sequence,
+        flags,
+        stored_body_len as u32,
+        physical_len,
+    );
     open_with_content_key_secure(page, content_key, &nonce, &aad)?;
     Ok((page_id, sequence))
 }
@@ -1152,6 +1185,7 @@ fn page_aad(
     sequence: u64,
     flags: u16,
     encrypted_len: u32,
+    physical_len: u64,
 ) -> Vec<u8> {
     let mut aad = Vec::with_capacity(8 + 2 + 16 + 8 + 8 + 2 + 4);
     aad.extend_from_slice(b"LBX1PAGE");
@@ -1161,6 +1195,7 @@ fn page_aad(
     aad.extend_from_slice(&sequence.to_le_bytes());
     aad.extend_from_slice(&flags.to_le_bytes());
     aad.extend_from_slice(&encrypted_len.to_le_bytes());
+    aad.extend_from_slice(&physical_len.to_le_bytes());
     aad
 }
 

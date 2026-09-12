@@ -44,6 +44,7 @@ use zeroize::{Zeroize, Zeroizing};
 
 type CommitAuthChainResult = (u64, [u8; 32], CommitAuth, crate::commit_root::CommitRoot);
 
+mod accounting;
 mod commit;
 mod extraction;
 mod file_handles;
@@ -57,10 +58,12 @@ mod listing;
 mod lockbox_rewrite;
 mod mirrors;
 mod mutation;
+mod preparation;
 mod recovery;
 mod signed_content;
 mod storage_lifecycle;
 mod symlinks;
+mod tail_reclamation;
 #[cfg(feature = "test-support")]
 pub(crate) mod test_support;
 mod variables;
@@ -187,6 +190,12 @@ pub struct Lockbox<State = Writable> {
     /// Physical length at the last sealed commit. Appended preparation pages
     /// can be discarded when a transaction is aborted before publication.
     transaction_start_len: u64,
+    /// Original extent described by the committed free index after tail trimming.
+    trim_origin_len: u64,
+    /// The durable header reserves the base free index and the append stream.
+    preparing: bool,
+    /// Set on reopen; active same-handle transactions may still be retried.
+    rollback_required: bool,
     state: PhantomData<State>,
 }
 
@@ -197,6 +206,7 @@ pub struct Lockbox<State = Writable> {
 #[doc(hidden)]
 #[derive(Debug, Clone)]
 pub struct StagedLockboxState {
+    control_reservations: std::collections::VecDeque<Option<u64>>,
     commit_chain: CommitChain,
     published_sequence: u64,
     header_slot: usize,
@@ -307,11 +317,7 @@ impl<State> Lockbox<State> {
 
     /// Native format version. Legacy archives and raw migration constructors may use version 2.
     pub fn format_version(&self) -> u16 {
-        if self.format_mode.0 == 0 {
-            2
-        } else {
-            3
-        }
+        crate::LOCKBOX_FORMAT_VERSION
     }
 
     /// Export the native mode word for the authenticated migration artifact.
@@ -326,6 +332,11 @@ impl<State> Lockbox<State> {
         self.page_manager.borrow_mut().set_format(mode);
     }
     pub(crate) fn require_clean_transaction(&self) -> Result<()> {
+        if let Some(reason) = &self.poisoned {
+            return Err(Error::InvalidOperation(format!(
+                "lockbox has an unresolved failed write: {reason}"
+            )));
+        }
         if let Some(status) = self.transaction_recovery_status() {
             return Err(Error::RecoveryRequired {
                 transaction_sequence: status.transaction_sequence,
@@ -345,15 +356,8 @@ impl<State> Lockbox<State> {
         if header.get(0..8) != Some(crate::page::PAGE_MAGIC.as_slice()) {
             return Err(Error::CorruptRecord);
         }
-        let header_len = crate::checked::read_u32_le(&header[12..16])? as usize;
-        let stored_body_len = crate::checked::read_u32_le(&header[44..48])? as usize;
-        let stored_len = header_len
-            .checked_add(stored_body_len)
-            .ok_or(Error::CorruptRecord)?;
-        Ok(
-            crate::page::page_size_for_stored_len(stored_len, crate::page::DEFAULT_DATA_PAGE_BYTES)?
-                as u64,
-        )
+        self.read_page(offset)?; // Authenticate the extent before using it for retirement.
+        Ok(crate::page::physical_page_size_from_page_slice(&header)? as u64)
     }
 
     pub(crate) fn require_clean_access_widening(&self) -> Result<()> {
@@ -387,6 +391,45 @@ impl<State> Lockbox<State> {
 
     /// Report durable redaction cleanup required by the published transaction.
     pub fn transaction_recovery_status(&self) -> Option<TransactionRecoveryStatus> {
+        if !self.preparing
+            && self.trim_origin_len != 0
+            && self.storage.len().unwrap_or(u64::MAX) > self.transaction_start_len
+        {
+            return Some(TransactionRecoveryStatus {
+                transaction_sequence: self.published_sequence,
+                cleanup_sequence: self.cleanup_sequence,
+                phase: TransactionRecoveryPhase::Truncate,
+                range_count: 1,
+                completed_ranges: 0,
+                page_count: 1,
+                completed_pages: 0,
+                total_bytes: self.trim_origin_len - self.transaction_start_len,
+                completed_bytes: 0,
+            });
+        }
+        if self.rollback_required {
+            let slots = self.free_space.slots_by_offset();
+            return Some(TransactionRecoveryStatus {
+                transaction_sequence: self.published_sequence,
+                cleanup_sequence: self.cleanup_sequence,
+                phase: TransactionRecoveryPhase::Rollback,
+                range_count: slots.len() as u32 + 1,
+                completed_ranges: self.cleanup_completed_ranges,
+                page_count: slots.len() as u32 + 1,
+                completed_pages: self.cleanup_completed_ranges,
+                total_bytes: slots
+                    .iter()
+                    .fold(0u64, |total, slot| total.saturating_add(slot.len))
+                    .saturating_add(
+                        self.storage
+                            .len()
+                            .ok()
+                            .and_then(|len| len.checked_sub(self.transaction_start_len))
+                            .unwrap_or(0),
+                    ),
+                completed_bytes: self.cleanup_completed_bytes,
+            });
+        }
         (self.cleanup_sequence < self.published_sequence && self.redaction_manifest_offset != 0)
             .then_some(TransactionRecoveryStatus {
                 transaction_sequence: self.published_sequence,
@@ -443,6 +486,9 @@ impl<State> Lockbox<State> {
             workload_profile: self.workload_profile,
             worker_policy: self.worker_policy,
             transaction_start_len: self.transaction_start_len,
+            trim_origin_len: self.trim_origin_len,
+            preparing: self.preparing,
+            rollback_required: self.rollback_required,
             state: PhantomData,
         })
     }
@@ -462,6 +508,9 @@ impl<State> Lockbox<State> {
             workload_profile,
             worker_policy,
             transaction_start_len,
+            trim_origin_len,
+            preparing,
+            rollback_required,
             state: _,
         } = self;
         Lockbox {
@@ -478,6 +527,9 @@ impl<State> Lockbox<State> {
             workload_profile,
             worker_policy,
             transaction_start_len,
+            trim_origin_len,
+            preparing,
+            rollback_required,
             state: PhantomData,
         }
     }
@@ -493,7 +545,11 @@ impl Lockbox<Writable> {
 
     pub(crate) fn complete_pending_transaction_cleanup(&mut self) -> Result<bool> {
         if self.transaction_recovery_status().is_none() {
-            return Ok(false);
+            return Ok(self.trim_free_tail()? != 0);
+        }
+        if self.rollback_required {
+            return self
+                .rollback_preparation_controlled(|_| crate::TransactionRecoveryControl::Continue);
         }
         self.cleanup_published_redactions(|_| {})?;
         self.publish_transaction_header(self.sequence)?;
@@ -515,6 +571,15 @@ impl Lockbox<Writable> {
         &mut self,
         mut progress: impl FnMut(TransactionRecoveryProgress) -> crate::TransactionRecoveryControl,
     ) -> Result<bool> {
+        if self
+            .transaction_recovery_status()
+            .is_some_and(|s| s.phase == TransactionRecoveryPhase::Truncate)
+        {
+            return self.finish_tail_truncation(progress);
+        }
+        if self.rollback_required {
+            return self.rollback_preparation_controlled(progress);
+        }
         let Some(status) = self.transaction_recovery_status() else {
             return Ok(true);
         };
@@ -523,9 +588,14 @@ impl Lockbox<Writable> {
         }
         let post_cleanup_slots =
             self.read_free_index_slots(self.post_cleanup_free_index_offset, 0)?;
+        self.validate_cleanup_free_slots(&post_cleanup_slots)?;
         let mut post_cleanup_space = FreeSpace::default();
         post_cleanup_space.replace_slots(post_cleanup_slots);
         let storage_len = self.storage.len()?;
+        // Losing one header slot during cleanup must not revive preparation
+        // against base metadata that this published commit is about to erase.
+        self.publish_transaction_header(self.cleanup_sequence)?;
+        self.publish_transaction_header(self.cleanup_sequence)?;
         let zeroes = [0u8; 64 * 1024];
         let mut offset = self.redaction_manifest_offset;
         let mut completed_ranges = 0u32;
@@ -670,6 +740,7 @@ impl Lockbox<Writable> {
             storage: StorageBackend::memory(bytes),
             key,
             staged: StagedLockboxState {
+                control_reservations: Default::default(),
                 commit_chain: CommitChain {
                     sequence: 0,
                     commit_root_offset: 0,
@@ -727,6 +798,9 @@ impl Lockbox<Writable> {
             workload_profile: options.workload_profile,
             worker_policy: options.worker_policy,
             transaction_start_len: HEADER_LEN as u64,
+            trim_origin_len: 0,
+            preparing: false,
+            rollback_required: false,
             state: PhantomData,
         }
     }
@@ -820,8 +894,11 @@ impl Lockbox<Writable> {
         if sequence > 0 && format_mode.0 != 0 && header_auth_offset == 0 {
             return Err(Error::CorruptHeader);
         }
-        if sequence > 0 {
+        if sequence > 0 || parsed_header.preparing {
             let publication = crate::file_format::header_v2::Publication {
+                sealed_len: parsed_header.sealed_len,
+                trim_origin_len: parsed_header.trim_origin_len,
+                preparing: parsed_header.preparing,
                 format_mode,
                 generation: header_generation,
                 commit_root_offset: header_root_offset,
@@ -842,12 +919,25 @@ impl Lockbox<Writable> {
                 return Err(Error::CorruptHeader);
             }
         }
-        let transaction_start_len = storage.len()?;
+        let transaction_start_len = parsed_header.sealed_len;
+        if transaction_start_len < HEADER_LEN as u64 || transaction_start_len > storage.len()? {
+            return Err(Error::CorruptHeader);
+        }
+        if (parsed_header.trim_origin_len != 0
+            && parsed_header.trim_origin_len <= transaction_start_len)
+            || (!parsed_header.preparing
+                && storage.len()? != transaction_start_len
+                && (parsed_header.trim_origin_len == 0
+                    || storage.len()? > parsed_header.trim_origin_len))
+        {
+            return Err(Error::CorruptHeader);
+        }
         let mut lockbox = Self {
             format_mode,
             storage,
             key,
             staged: StagedLockboxState {
+                control_reservations: Default::default(),
                 commit_chain: CommitChain {
                     sequence,
                     commit_root_offset: 0,
@@ -905,6 +995,9 @@ impl Lockbox<Writable> {
             workload_profile: options.workload_profile,
             worker_policy: options.worker_policy,
             transaction_start_len,
+            trim_origin_len: parsed_header.trim_origin_len,
+            preparing: parsed_header.preparing,
+            rollback_required: parsed_header.preparing,
             state: PhantomData,
         };
 
@@ -980,13 +1073,14 @@ impl Lockbox<Writable> {
             let total_cleanup_pages = lockbox
                 .redaction_range_count
                 .div_ceil(crate::file_format::redaction_manifest::RANGES_PER_PAGE as u32);
-            if lockbox.cleanup_sequence > lockbox.sequence
-                || lockbox.cleanup_completed_ranges > lockbox.redaction_range_count
-                || lockbox.cleanup_completed_pages > total_cleanup_pages
-                || lockbox.cleanup_completed_bytes > lockbox.redaction_total_bytes
-                || (lockbox.cleanup_completed_pages == 0
-                    && (lockbox.cleanup_completed_ranges != 0
-                        || lockbox.cleanup_completed_bytes != 0))
+            if !lockbox.preparing
+                && (lockbox.cleanup_sequence > lockbox.sequence
+                    || lockbox.cleanup_completed_ranges > lockbox.redaction_range_count
+                    || lockbox.cleanup_completed_pages > total_cleanup_pages
+                    || lockbox.cleanup_completed_bytes > lockbox.redaction_total_bytes
+                    || (lockbox.cleanup_completed_pages == 0
+                        && (lockbox.cleanup_completed_ranges != 0
+                            || lockbox.cleanup_completed_bytes != 0)))
             {
                 return Err(Error::CorruptHeader);
             }
@@ -997,9 +1091,24 @@ impl Lockbox<Writable> {
             }
             if lockbox.free_index_offset > 0 {
                 let slots = lockbox.read_free_index_slots(lockbox.free_index_offset, 0)?;
+                let slots = lockbox.clip_trimmed_free_slots(slots)?;
+                let mut end = HEADER_LEN as u64;
+                for slot in &slots {
+                    if slot.len == 0 || slot.offset < end {
+                        return Err(Error::CorruptRecord);
+                    }
+                    end = slot
+                        .offset
+                        .checked_add(slot.len)
+                        .filter(|end| *end <= lockbox.transaction_start_len)
+                        .ok_or(Error::CorruptRecord)?;
+                }
                 lockbox.free_space.replace_slots(slots);
             } else {
                 lockbox.rebuild_free_slots_from_toc();
+            }
+            if lockbox.cleanup_sequence >= lockbox.sequence {
+                lockbox.validate_base_reservations()?;
             }
             if !allow_recovery {
                 if let Some(status) = lockbox.transaction_recovery_status() {
@@ -1017,6 +1126,9 @@ impl Lockbox<Writable> {
             lockbox.verify_signed_content()?;
             Ok(lockbox)
         } else {
+            if !allow_recovery && lockbox.rollback_required {
+                lockbox.require_clean_transaction()?;
+            }
             lockbox.verify_signed_content()?;
             Ok(lockbox)
         }
@@ -1483,6 +1595,9 @@ impl<State> Lockbox<State> {
     }
 
     pub(crate) fn flush_dirty_pages(&mut self) -> Result<()> {
+        if self.has_dirty_pages() {
+            self.begin_preparation()?;
+        }
         self.key.with_bytes(|key| {
             self.page_manager.borrow_mut().flush_dirty_pages(
                 &mut self.storage,
@@ -1493,6 +1608,9 @@ impl<State> Lockbox<State> {
     }
 
     pub(crate) fn flush_discardable_pages(&mut self) -> Result<()> {
+        if self.has_dirty_pages() {
+            self.begin_preparation()?;
+        }
         self.key.with_bytes(|key| {
             self.page_manager.borrow_mut().flush_discardable_pages(
                 &mut self.storage,
@@ -1884,6 +2002,11 @@ impl<State> Lockbox<State> {
         let children = internal.with_payload(decode_free_index_internal)??;
         for child in children {
             slots.extend(self.read_free_index_slots(child.offset, depth + 1)?);
+            if slots.len() > crate::file_format::redaction_manifest::MAX_REDACTION_RANGES {
+                return Err(Error::SecurityLimitExceeded(
+                    "too many free-space reservations".into(),
+                ));
+            }
         }
         Ok(slots)
     }
@@ -1965,7 +2088,7 @@ fn record_kind_from_object_kind(kind: PageObjectKind) -> Result<RecordKind> {
     }
 }
 
-fn owner_signature_fingerprint(
+pub(crate) fn owner_signature_fingerprint(
     signatures: &[crate::commit_auth::CommitSignature],
 ) -> Result<String> {
     let mut bytes = Vec::new();

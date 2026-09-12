@@ -86,7 +86,7 @@ pub(crate) fn run() -> CliResult<()> {
     let secret_activity = if command == "doctor"
         && matches!(
             command_matches.subcommand_name(),
-            Some("recover" | "migrate")
+            Some("recover" | "migrate" | "compact")
         ) {
         Some(SecretActivityKind::Recovery)
     } else {

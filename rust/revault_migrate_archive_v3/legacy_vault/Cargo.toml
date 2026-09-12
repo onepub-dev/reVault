@@ -1,0 +1,59 @@
+[package]
+name = "revault_vault_v3_reader"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.88"
+license-file = "LICENSE"
+description = "Frozen vault v3 reader for isolated migration to current reVault containers"
+repository = "https://github.com/onepub-dev/reVault"
+documentation = "https://docs.rs/revault_vault_api"
+exclude = ["AGENT_SLEEP_VM_TESTING.md"]
+
+[lib]
+name = "revault_vault_api"
+path = "src/lib.rs"
+test = false
+doctest = false
+
+[dependencies]
+base64ct = { version = "1", features = ["alloc"] }
+chacha20poly1305 = "0.11"
+getrandom = "0.4"
+revault_lockbox_api = { package = "revault_archive_v3_reader", version = "=0.0.1", path = "../legacy", features = ["vault-integration"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.11"
+zeroize = "1.9"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
+dbus = "0.9.12"
+secret-service = { version = "=5.1.0", features = ["rt-async-io-crypto-rust"] }
+zbus = { version = "5", default-features = false, features = ["async-io", "blocking-api"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
+objc2-core-foundation = { version = "0.3.2", features = ["CFRunLoop"] }
+objc2-io-kit = { version = "0.3.2", default-features = false, features = [
+    "libc",
+    "pwr_mgt",
+] }
+
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_EventLog",
+    "Win32_System_IO",
+    "Win32_System_Memory",
+    "Win32_System_Power",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }

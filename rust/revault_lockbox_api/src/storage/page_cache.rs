@@ -7,9 +7,9 @@ use crate::page::{
     decode_page_with_format, decode_single_object_page_secure_with_format, encode_page_with_format,
 };
 use crate::page::{
-    encode_single_object_page_secure, page_size_for_stored_len, DecodedPage, PageObject,
-    PageObjectKind, SecureSingleObjectPage, DEFAULT_DATA_PAGE_BYTES, DEFAULT_METADATA_PAGE_BYTES,
-    PAGE_HEADER_LEN, PAGE_MAGIC,
+    encode_single_object_page_secure, DecodedPage, PageObject, PageObjectKind,
+    SecureSingleObjectPage, DEFAULT_DATA_PAGE_BYTES, DEFAULT_METADATA_PAGE_BYTES, PAGE_HEADER_LEN,
+    PAGE_MAGIC,
 };
 use crate::secret_vec::SecureVec;
 use crate::storage::Storage;
@@ -164,7 +164,15 @@ impl PageCache {
             PageSecurity::Normal => DEFAULT_DATA_PAGE_BYTES,
             PageSecurity::Secure => DEFAULT_METADATA_PAGE_BYTES,
         };
-        let weight = page_size_for_stored_len(read_len, max_page_size)? as u64;
+        if read_len > max_page_size {
+            return Err(Error::SecurityLimitExceeded(
+                "page body exceeds physical page limit".into(),
+            ));
+        }
+        let weight = crate::page::physical_page_size_from_page_slice(&header)? as u64;
+        if weight > max_page_size as u64 {
+            return Err(Error::CorruptRecord);
+        }
         let page = match (security, key) {
             (PageSecurity::Normal, PageReadKey::Normal(key)) => {
                 let bytes = storage.read_at(offset, read_len)?;

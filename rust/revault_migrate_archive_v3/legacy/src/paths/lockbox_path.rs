@@ -1,0 +1,317 @@
+use std::borrow::Borrow;
+use std::fmt;
+use std::ops::Deref;
+
+use unicode_normalization::UnicodeNormalization;
+
+use crate::constants::{MAX_COMPONENT_BYTES, MAX_PATH_BYTES, MAX_PATH_DEPTH};
+use crate::{Error, Result};
+
+/// Canonical path for an directory, file or symlink entry inside a lockbox.
+///
+/// `LockboxPath` is distinct from `std::path::Path`, which represents a host
+/// filesystem path. Lockbox paths always use `/` separators, are stored in
+/// canonical Unicode form, and are validated against the lockbox path rules.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct LockboxPath(String);
+
+impl LockboxPath {
+    /// Validate and canonicalize a lockbox path.
+    ///
+    /// The root path `/` and trailing slash directory paths are allowed for
+    /// APIs such as listing. File-specific APIs reject directory-only paths.
+    ///
+    /// Returns `Error::InvalidPath` if the path is relative, contains unsafe
+    /// components, exceeds path limits, or contains unsupported characters.
+    pub fn new(path: impl AsRef<str>) -> Result<Self> {
+        Self::from_api(path.as_ref(), true)
+    }
+
+    /// Return the canonical string form of this lockbox path.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Return the parent lockbox path, or `None` for the lockbox root.
+    pub fn parent(&self) -> Result<Option<Self>> {
+        let Some(index) = self.0.rfind('/') else {
+            return Err(Error::InvalidPath(self.0.clone()));
+        };
+        if index == 0 {
+            return Ok(None);
+        }
+        Ok(Some(Self::from_api(&self.0[..index], false)?))
+    }
+
+    /// Return true when this path is below `directory`.
+    pub fn is_descendant_of(&self, directory: &Self) -> bool {
+        self != directory && self.0.starts_with(&directory.descendant_prefix())
+    }
+
+    /// Return true when this path is an immediate child of `directory`.
+    pub fn is_direct_child_of(&self, directory: &Self) -> bool {
+        if !self.is_descendant_of(directory) {
+            return false;
+        }
+        let prefix = directory.descendant_prefix();
+        let remainder = &self.0[prefix.len()..];
+        !remainder.is_empty() && !remainder.contains('/')
+    }
+
+    pub(crate) fn descendant_prefix(&self) -> String {
+        format!("{}/", self.0.trim_end_matches('/'))
+    }
+
+    pub(crate) fn from_api(path: &str, allow_dir: bool) -> Result<Self> {
+        Ok(Self(canonicalize_api_path(path, allow_dir)?))
+    }
+
+    pub(crate) fn from_stored(path: &str, allow_dir: bool) -> Result<Self> {
+        Ok(Self(canonicalize_stored_path(path, allow_dir)?))
+    }
+
+    pub(crate) fn as_file_path(&self) -> Result<&str> {
+        validate_lockbox_path(&self.0, false)?;
+        Ok(&self.0)
+    }
+
+    pub(crate) fn file_path(&self) -> Result<Self> {
+        self.as_file_path()?;
+        Ok(self.clone())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn from_unchecked_for_test(path: impl Into<String>) -> Self {
+        Self(path.into())
+    }
+}
+
+impl Borrow<str> for LockboxPath {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<str> for LockboxPath {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for LockboxPath {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl Deref for LockboxPath {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl PartialEq<&str> for LockboxPath {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<LockboxPath> for &str {
+    fn eq(&self, other: &LockboxPath) -> bool {
+        *self == other.0
+    }
+}
+
+impl TryFrom<&str> for LockboxPath {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self> {
+        Self::new(value)
+    }
+}
+
+impl TryFrom<String> for LockboxPath {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        Self::new(value)
+    }
+}
+
+pub(crate) fn canonicalize_api_path(path: &str, allow_dir: bool) -> Result<String> {
+    if path.is_ascii() {
+        validate_lockbox_path(path, allow_dir)?;
+        return Ok(path.to_string());
+    }
+    let normalized = path.nfc().collect::<String>();
+    validate_lockbox_path(&normalized, allow_dir)?;
+    Ok(normalized)
+}
+
+pub(crate) fn canonicalize_stored_path(path: &str, allow_dir: bool) -> Result<String> {
+    if path.is_ascii() {
+        validate_lockbox_path(path, allow_dir)?;
+        return Ok(path.to_string());
+    }
+    let normalized = path.nfc().collect::<String>();
+    if normalized != path {
+        return Err(Error::InvalidPath(path.to_string()));
+    }
+    validate_lockbox_path(path, allow_dir)?;
+    Ok(normalized)
+}
+
+pub(crate) fn validate_stored_path(path: &str) -> Result<()> {
+    LockboxPath::from_stored(path, false).map(|_| ())
+}
+
+pub(crate) fn validate_symlink_paths(link_path: &str, target_path: &str) -> Result<()> {
+    LockboxPath::from_api(link_path, false)?;
+    LockboxPath::from_api(target_path, false)?;
+    Ok(())
+}
+
+fn validate_lockbox_path(path: &str, allow_dir: bool) -> Result<()> {
+    if path.is_ascii() {
+        return validate_ascii_lockbox_path(path, allow_dir);
+    }
+
+    let invalid = || Error::InvalidPath(path.to_string());
+    let path = if allow_dir && path.len() > 1 {
+        path.trim_end_matches('/')
+    } else {
+        path
+    };
+
+    if allow_dir && path == "/" {
+        return Ok(());
+    }
+
+    if path.is_empty()
+        || path.len() > MAX_PATH_BYTES
+        || !path.starts_with('/')
+        || path.starts_with("//")
+        || path.contains('\\')
+        || path.contains('\0')
+        || path.chars().any(is_forbidden_unicode)
+        || path.contains(':')
+    {
+        return Err(invalid());
+    }
+
+    if !allow_dir && (path.len() == 1 || path.ends_with('/')) {
+        return Err(invalid());
+    }
+
+    let mut depth = 0usize;
+    for component in path.split('/').skip(1) {
+        if component.is_empty()
+            || component == "."
+            || component == ".."
+            || component.len() > MAX_COMPONENT_BYTES
+        {
+            return Err(invalid());
+        }
+        depth += 1;
+        if depth > MAX_PATH_DEPTH {
+            return Err(invalid());
+        }
+    }
+    Ok(())
+}
+
+fn validate_ascii_lockbox_path(path: &str, allow_dir: bool) -> Result<()> {
+    let invalid = || Error::InvalidPath(path.to_string());
+    let path = if allow_dir && path.len() > 1 {
+        path.trim_end_matches('/')
+    } else {
+        path
+    };
+
+    if allow_dir && path == "/" {
+        return Ok(());
+    }
+
+    if path.is_empty()
+        || path.len() > MAX_PATH_BYTES
+        || !path.starts_with('/')
+        || path.starts_with("//")
+        || path
+            .as_bytes()
+            .iter()
+            .any(|byte| matches!(*byte, 0x00..=0x1f | 0x7f | b'\\' | b':'))
+    {
+        return Err(invalid());
+    }
+
+    if !allow_dir && (path.len() == 1 || path.ends_with('/')) {
+        return Err(invalid());
+    }
+
+    let mut depth = 0usize;
+    for component in path.split('/').skip(1) {
+        if component.is_empty()
+            || component == "."
+            || component == ".."
+            || component.len() > MAX_COMPONENT_BYTES
+        {
+            return Err(invalid());
+        }
+        depth += 1;
+        if depth > MAX_PATH_DEPTH {
+            return Err(invalid());
+        }
+    }
+    Ok(())
+}
+
+pub(super) fn is_forbidden_unicode(ch: char) -> bool {
+    matches!(
+        ch,
+        '\u{0000}'..='\u{001f}'
+            | '\u{007f}'..='\u{009f}'
+            | '\u{00ad}'
+            | '\u{034f}'
+            | '\u{061c}'
+            | '\u{180e}'
+            | '\u{200b}'..='\u{200f}'
+            | '\u{202a}'..='\u{202e}'
+            | '\u{2060}'..='\u{206f}'
+            | '\u{fe00}'..='\u{fe0f}'
+            | '\u{e0100}'..='\u{e01ef}'
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn symlink_validation_requires_lockbox_paths() {
+        assert!(validate_symlink_paths("/links/current", "/docs/current").is_ok());
+
+        for target in [
+            "../outside",
+            "/safe/../outside",
+            "/C:/Users/target",
+            "//server/share/target",
+            "/safe\\target",
+            "/safe/\0target",
+        ] {
+            assert!(
+                matches!(
+                    validate_symlink_paths("/links/current", target),
+                    Err(Error::InvalidPath(_))
+                ),
+                "target should be rejected: {target:?}"
+            );
+        }
+
+        assert!(matches!(
+            validate_symlink_paths("/links/../current", "/docs/current"),
+            Err(Error::InvalidPath(_))
+        ));
+    }
+}

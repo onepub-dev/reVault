@@ -132,6 +132,7 @@ jobs:
           -p revault_migrate_vault_v1
           -p revault_migrate_vault_v2
           -p revault_migrate_archive_v1
+          -p revault_migrate_archive_v3
           -p revault_migration
           -p revault_publish_protocol
           -p revault_key_server
@@ -168,6 +169,7 @@ jobs:
               -p revault_migrate_vault_v1 \
               -p revault_migrate_vault_v2 \
               -p revault_migrate_archive_v1 \
+              -p revault_migrate_archive_v3 \
               -p revault_migration
           - group: services and tooling
             cache: services-tooling

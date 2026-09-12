@@ -43,6 +43,7 @@ pub fn export_archive<State, P: MigrationPassphrase + ?Sized>(
         archive_id: *lockbox.lockbox_id().as_bytes(),
         format_version: u32::from(lockbox.format_version()),
         format_mode: Some(lockbox.export_migration_format_mode()),
+        owner_fingerprint: lockbox.owner_inspection().map_err(core_error)?.fingerprint,
         content_key: SecretBytes::new(secret_bytes(&content_key)?),
         key_directory: SecretBytes::new(key_directory),
         description: lockbox.description().map_err(core_error)?,
@@ -230,6 +231,7 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                 description,
                 format_mode,
                 format_version,
+                owner_fingerprint,
                 ..
             } => {
                 if lockbox.is_some() || count != 0 {
@@ -248,6 +250,13 @@ pub fn import_archive<P: MigrationPassphrase + ?Sized>(
                     ));
                 }
                 created.set_owner_signing_key(signing_key.try_clone().map_err(core_error)?);
+                if owner_fingerprint.as_deref().is_some_and(|expected| {
+                    signing_key.fingerprint().ok().as_deref() != Some(expected)
+                }) {
+                    return Err(MigrationError::InvalidHeader(
+                        "the established owner's signing key is required".into(),
+                    ));
+                }
                 created
                     .import_migration_key_directory(key_directory.as_slice())
                     .map_err(core_error)?;
@@ -764,4 +773,113 @@ fn core_error(err: impl std::fmt::Display) -> MigrationError {
 
 fn io_error(err: std::io::Error) -> MigrationError {
     MigrationError::Io(err.to_string())
+}
+
+/// Read the verified source owner recorded in an encrypted migration artifact.
+pub fn archive_owner_fingerprint<P: MigrationPassphrase + ?Sized>(
+    artifact: &Path,
+    passphrase: &P,
+) -> Result<Option<String>> {
+    let mut reader = ArtifactReader::new_with_passphrase(
+        BufReader::new(File::open(artifact).map_err(io_error)?),
+        passphrase,
+    )?;
+    match reader.next_json::<MigrationRecord>()? {
+        Some(MigrationRecord::Archive(ArchiveRecord::Start {
+            owner_fingerprint, ..
+        })) => Ok(owner_fingerprint),
+        _ => Err(MigrationError::CorruptFrame(
+            "missing archive identity".into(),
+        )),
+    }
+}
+
+/// Stream-verify every exported logical record and byte against a migration output.
+/// The temporary comparison artifact is encrypted and removed on success or error.
+pub fn verify_imported_archive<P: MigrationPassphrase + ?Sized>(
+    artifact: &Path,
+    passphrase: &P,
+    output: &Path,
+) -> Result<()> {
+    verify_archive_artifact(artifact, passphrase)?;
+    let mut source = ArtifactReader::new_with_passphrase(
+        BufReader::new(File::open(artifact).map_err(io_error)?),
+        passphrase,
+    )?;
+    let Some(MigrationRecord::Archive(ArchiveRecord::Start { content_key, .. })) =
+        source.next_json::<MigrationRecord>()?
+    else {
+        return Err(MigrationError::CorruptFrame(
+            "missing archive identity".into(),
+        ));
+    };
+    let opened = Lockbox::open(output, revault_lockbox_api::LockboxOpen::Unencrypted)
+        .or_else(|_| {
+            Lockbox::open(
+                output,
+                revault_lockbox_api::LockboxOpen::ContentKey(SecretVec::try_from_slice(
+                    content_key.as_slice(),
+                )?),
+            )
+        })
+        .map_err(core_error)?;
+    opened.inspector().verify_storage().map_err(core_error)?;
+    let mut id = [0u8; 16];
+    getrandom::fill(&mut id).map_err(|err| MigrationError::Io(err.to_string()))?;
+    let temporary = output.with_file_name(format!(
+        ".migration-verify-{:032x}",
+        u128::from_le_bytes(id)
+    ));
+    let result = (|| {
+        export_archive(&opened, &temporary, passphrase, id)?;
+        let mut expected = ArtifactReader::new_with_passphrase(
+            BufReader::new(File::open(artifact).map_err(io_error)?),
+            passphrase,
+        )?;
+        let mut actual = ArtifactReader::new_with_passphrase(
+            BufReader::new(File::open(&temporary).map_err(io_error)?),
+            passphrase,
+        )?;
+        loop {
+            match (expected.next_frame()?, actual.next_frame()?) {
+                (None, None) => return Ok(()),
+                (Some((a_type, a)), Some((b_type, b))) if a_type == b_type => {
+                    let a = Zeroizing::new(a);
+                    let b = Zeroizing::new(b);
+                    let matches = if a_type == RAW_FRAME_TYPE {
+                        *a == *b
+                    } else {
+                        let a_record: MigrationRecord = serde_json::from_slice(&a)
+                            .map_err(|err| MigrationError::Serialization(err.to_string()))?;
+                        let b_record: MigrationRecord = serde_json::from_slice(&b)
+                            .map_err(|err| MigrationError::Serialization(err.to_string()))?;
+                        match (&a_record, &b_record) {
+                            (MigrationRecord::Archive(ArchiveRecord::Start { archive_id:a_id, content_key:a_key, key_directory:a_dir, description:a_desc, format_mode:a_mode, owner_fingerprint:a_owner, .. }),
+                             MigrationRecord::Archive(ArchiveRecord::Start { archive_id:b_id, content_key:b_key, key_directory:b_dir, description:b_desc, format_mode:b_mode, owner_fingerprint:b_owner, .. })) => {
+                                a_id == b_id && a_key.as_slice() == b_key.as_slice() && a_desc == b_desc
+                                && (a_mode.unwrap_or(0) == 0 || a_mode == b_mode)
+                                && (a_owner.is_none() || a_owner == b_owner)
+                                && Lockbox::<revault_lockbox_api::ReadOnly>::migration_access_identity(a_dir.as_slice()).map_err(core_error)? == Lockbox::<revault_lockbox_api::ReadOnly>::migration_access_identity(b_dir.as_slice()).map_err(core_error)?
+                            },
+                            _ => Zeroizing::new(serde_json::to_vec(&a_record).map_err(|err| MigrationError::Serialization(err.to_string()))?) == Zeroizing::new(serde_json::to_vec(&b_record).map_err(|err| MigrationError::Serialization(err.to_string()))?),
+                        }
+                    };
+                    if !matches {
+                        return Err(MigrationError::CorruptFrame(
+                            "migration output differs from the authoritative source".into(),
+                        ));
+                    }
+                }
+                _ => {
+                    return Err(MigrationError::CorruptFrame(
+                        "migration output record count differs from source".into(),
+                    ))
+                }
+            }
+        }
+    })();
+    if temporary.exists() {
+        std::fs::remove_file(&temporary).map_err(io_error)?;
+    }
+    result
 }

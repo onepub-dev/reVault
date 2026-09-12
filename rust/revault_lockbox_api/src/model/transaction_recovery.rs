@@ -1,6 +1,10 @@
 /// Durable cleanup phase for an interrupted transaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransactionRecoveryPhase {
+    /// A verified free suffix must be removed from the physical file.
+    Truncate,
+    /// An unpublished transaction must erase its reservations and restore the base.
+    Rollback,
     /// The commit is published, but obsolete encrypted pages still need zeroing.
     Cleanup,
 }

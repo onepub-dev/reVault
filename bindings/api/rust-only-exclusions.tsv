@@ -1,4 +1,10 @@
 rust_api	rationale
+fingerprint	Rust migration helper for matching the established owner signing key; foreign callers inspect an archive owner's fingerprint through owner inspection.
+compact	Rust/CLI explicit storage maintenance; performs a verified atomic rewrite and resets commit history. Foreign writable opens inherit automatic recovery and tail reclamation.
+abort	Rust transaction rollback primitive used by CLI mirror orchestration; foreign writable opens recover abandoned preparation automatically.
+verify_storage	Rust/CLI deep physical-ownership inspection; no foreign diagnostics contract currently exposes allocator internals.
+migration_access_identity	Hidden migration-only access comparison; versioned migration executables remain Rust-only.
+find_owner_signing_key	Rust migration orchestration locates the established signing owner without creating or replacing a profile.
 create_file_with_options	Rust/CLI format-v3 creation controls; independent encryption, signing and compression are not yet exposed by the foreign creation contract.
 create_in_memory_with_options	Rust format-v3 creation controls; independent encryption, signing and compression are not yet exposed by the foreign creation contract.
 export_migration_format_mode	Hidden migration-only persisted-format export; migration executables remain Rust-only by design.

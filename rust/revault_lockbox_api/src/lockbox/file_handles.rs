@@ -226,11 +226,11 @@ impl<'a> LockboxFileMut<'a> {
     /// This does not call `Lockbox::commit`; callers retain the existing
     /// lockbox-level transaction boundary.
     pub fn flush(&mut self) -> Result<()> {
-        let rollback = crate::lockbox::commit::CommitRollback::capture(self.lockbox);
+        let rollback = crate::lockbox::commit::CommitRollback::capture(self.lockbox)?;
         match self.flush_inner() {
             Ok(()) => Ok(()),
             Err(err) => {
-                rollback.restore(self.lockbox);
+                rollback.restore(self.lockbox)?;
                 Err(err)
             }
         }

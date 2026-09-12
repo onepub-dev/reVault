@@ -263,6 +263,9 @@ pub enum ArchiveRecord {
         /// Native encryption, signing, and compression mode; absent in schemas 1 and 2.
         #[serde(default)]
         format_mode: Option<u16>,
+        /// Verified established owner identity; absent in historical artifacts.
+        #[serde(default)]
+        owner_fingerprint: Option<String>,
         /// Represents the content key carried by this record case.
         content_key: SecretBytes,
         /// Represents the key directory carried by this record case.
@@ -358,6 +361,7 @@ mod tests {
             archive_id: [1; 16],
             format_version: 1,
             format_mode: None,
+            owner_fingerprint: None,
             content_key: SecretBytes::new(vec![2; 32]),
             key_directory: SecretBytes::new(vec![3; 8]),
             description: Some("new".to_string()),

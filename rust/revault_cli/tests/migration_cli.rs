@@ -671,3 +671,129 @@ fn assert_failure_contains(output: &Output, expected: &str) {
 fn path(value: &Path) -> &str {
     value.to_str().unwrap()
 }
+
+#[test]
+fn vault_v3_container_upgrade_preserves_profiles_and_enables_compaction() {
+    let fixture = Fixture::new("migration-v3-container-v4");
+    // Exception: only the frozen reader can create a historical container.
+    // All migration, compaction, and persisted verification use the public CLI.
+    let password = vault_v3::SecretString::try_from_slice(VAULT_PASSWORD.as_bytes()).unwrap();
+    let vault = vault_v3::VaultDirectory::replace(&fixture.vault, &password).unwrap();
+    let key = archive_v3::ContactKeyPair::generate().unwrap();
+    let original_public = key.public_key().to_bytes();
+    vault.store_private_key("default", &key).unwrap();
+    let profile_password =
+        vault_v3::SecretString::try_from_slice(b"retained profile password").unwrap();
+    vault
+        .store_password_profile("password-profile", &profile_password, false)
+        .unwrap();
+    vault
+        .store_private_key(
+            "archive-owner",
+            &archive_v3::ContactKeyPair::generate().unwrap(),
+        )
+        .unwrap();
+    let archive = fixture.root.join("legacy-owned.lbox");
+    let signer = vault.load_owner_signing_key("archive-owner").unwrap();
+    let mut legacy = archive_v3::Lockbox::create_file(
+        &archive,
+        archive_v3::LockboxProtection::ContentKey(
+            archive_v3::SecretVec::try_from_slice(b"migration-test-content-key").unwrap(),
+        ),
+        &signer,
+    )
+    .unwrap();
+    legacy.add_contact(&key.public_key()).unwrap();
+    legacy.commit().unwrap();
+    legacy
+        .add_file(
+            &archive_v3::LockboxPath::new("/notes.txt").unwrap(),
+            b"migration content",
+            false,
+        )
+        .unwrap();
+    legacy.commit().unwrap();
+    drop(legacy);
+    let original_archive = std::fs::read(&archive).unwrap();
+    drop(vault);
+    let original = std::fs::read(fixture.vault.join("local-vault.lbox")).unwrap();
+    let status = Command::new(env!("CARGO"))
+        .current_dir(Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap())
+        .args(["build", "--offline", "-p", "revault_migrate_archive_v3"])
+        .status()
+        .unwrap();
+    assert!(status.success());
+    let exporter = Path::new(env!("CARGO_BIN_EXE_lockbox"))
+        .parent()
+        .unwrap()
+        .join(format!(
+            "revault-migrate-vault-v3{}",
+            std::env::consts::EXE_SUFFIX
+        ));
+    fixture.success(&[
+        "doctor",
+        "migrate",
+        "vault",
+        "--replace",
+        "--exporter",
+        path(&exporter),
+    ]);
+    let backup = fixture.vault.with_file_name("vault.v3-v3.pre-migration");
+    assert_eq!(
+        std::fs::read(backup.join("local-vault.lbox")).unwrap(),
+        original
+    );
+    fixture.success(&[
+        "vault",
+        "profile",
+        "export",
+        path(&fixture.root.join("profile.pub")),
+        "--format",
+        "raw",
+    ]);
+    assert_eq!(
+        revault_vault_api::import_public_key(
+            &std::fs::read(fixture.root.join("profile.pub")).unwrap()
+        )
+        .unwrap()
+        .to_bytes(),
+        original_public
+    );
+    let profiles = fixture.success(&["vault", "profile", "list"]);
+    assert!(String::from_utf8_lossy(&profiles.stdout).contains("password-profile"));
+    let credential = fixture.root.join("retained-password");
+    fixture.success(&[
+        "vault",
+        "profile",
+        "password",
+        "password-profile",
+        "--output",
+        path(&credential),
+    ]);
+    assert_eq!(
+        std::fs::read(credential).unwrap(),
+        b"retained profile password"
+    );
+    let archive_exporter = exporter.with_file_name(format!(
+        "revault-migrate-archive-v3{}",
+        std::env::consts::EXE_SUFFIX
+    ));
+    fixture.success(&[
+        "doctor",
+        "migrate",
+        "lockbox",
+        path(&archive),
+        "--replace",
+        "--exporter",
+        path(&archive_exporter),
+    ]);
+    assert_eq!(
+        std::fs::read(archive.with_file_name("legacy-owned.lbox.v3-v4.pre-migration")).unwrap(),
+        original_archive
+    );
+    fixture.success(&[path(&archive), "doctor", "compact"]);
+    let content = fixture.success(&[path(&archive), "cat", "/notes.txt"]);
+    assert_eq!(content.stdout, b"migration content");
+    fixture.success(&[path(&archive), "doctor", "--deep"]);
+    fixture.success(&["doctor", "migrate", "vault", "--replace"]);
+}

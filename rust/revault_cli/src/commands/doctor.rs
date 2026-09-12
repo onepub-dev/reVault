@@ -14,6 +14,20 @@ use std::path::Path;
 pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
     if let Some((command, command_matches)) = matches.subcommand() {
         match command {
+            "compact" => {
+                let path = command_lockbox().ok_or_else(|| {
+                    cli_error("doctor compact requires a lockbox path before `doctor`")
+                })?;
+                let mut opened = super::context::open_existing(&path, access)?;
+                let before = std::fs::metadata(&path)?.len();
+                opened.compact()?;
+                let after = std::fs::metadata(&path)?.len();
+                println!(
+                    "Compacted and verified: {before} -> {after} bytes ({} bytes reclaimed).",
+                    before.saturating_sub(after)
+                );
+                return Ok(());
+            }
             "recover" => {
                 if command_lockbox().is_none() {
                     return Err(cli_error(
@@ -31,7 +45,16 @@ pub(crate) fn run_matches(matches: &ArgMatches, access: &Access) -> CliResult<()
         }
     }
     match command_lockbox() {
-        Some(lockbox) => run_lockbox(&lockbox, access, matches.get_flag("verbose")),
+        Some(lockbox) => {
+            if matches.get_flag("deep") {
+                let opened = open_existing_read_only(&lockbox, access)?;
+                opened.inspector().verify_storage()?;
+                println!(
+                    "Deep storage check: all allocations accounted for; reusable space is zero."
+                );
+            }
+            run_lockbox(&lockbox, access, matches.get_flag("verbose"))
+        }
         None => run_global(),
     }
 }
@@ -296,7 +319,7 @@ fn print_encrypted_content(lockbox_path: &str, access: &Access, verbose: bool) {
                 err.downcast_ref::<Error>(),
                 Some(Error::RecoveryRequired { .. })
             ) {
-                println!("  state: cleanup required");
+                println!("  state: transaction recovery required");
                 println!("  preview: lbx {lockbox_path} doctor recover --dry-run");
                 println!("  recover: lbx {lockbox_path} doctor recover");
                 return;

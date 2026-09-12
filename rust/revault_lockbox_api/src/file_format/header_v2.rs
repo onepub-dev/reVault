@@ -1,4 +1,4 @@
-//! Dual-slot v2/v3 headers. V3 uses the reserved mode word to persist creation choices.
+//! Dual-slot v4 headers with authenticated preparation and tail-reclamation state.
 
 use crate::checked::{array_16, read_u16_le, read_u32_le, read_u64_le};
 use crate::creation_options::FormatMode;
@@ -6,15 +6,18 @@ use crate::crypto::strong_checksum;
 use crate::lockbox_id::LockboxId;
 use crate::{Error, Result};
 
-pub(crate) const MAGIC: &[u8; 8] = b"LBX2HDR\0";
-pub(crate) const FORMAT_VERSION: u16 = 2;
-pub(crate) const SLOT_LEN: usize = 160;
+pub(crate) const MAGIC: &[u8; 8] = b"LBX4HDR\0";
+pub(crate) const FORMAT_VERSION: u16 = 4;
+pub(crate) const SLOT_LEN: usize = 192;
 pub(crate) const SLOT_COUNT: usize = 2;
 pub(crate) const REGION_LEN: usize = SLOT_LEN * SLOT_COUNT;
-const CHECKSUM_START: usize = 128;
+const CHECKSUM_START: usize = 160;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Header {
+    pub(crate) sealed_len: u64,
+    pub(crate) trim_origin_len: u64,
+    pub(crate) preparing: bool,
     pub(crate) format_mode: FormatMode,
     pub(crate) slot_index: usize,
     pub(crate) generation: u64,
@@ -33,6 +36,9 @@ pub(crate) struct Header {
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Publication {
+    pub(crate) sealed_len: u64,
+    pub(crate) trim_origin_len: u64,
+    pub(crate) preparing: bool,
     pub(crate) format_mode: FormatMode,
     pub(crate) generation: u64,
     pub(crate) commit_root_offset: u64,
@@ -52,6 +58,9 @@ pub(crate) struct Publication {
 pub(crate) fn initial_region(lockbox_id: LockboxId) -> Vec<u8> {
     let mut bytes = vec![0; REGION_LEN];
     let publication = Publication {
+        sealed_len: REGION_LEN as u64,
+        preparing: false,
+        trim_origin_len: 0,
         format_mode: FormatMode::default(),
         generation: 1,
         commit_root_offset: 0,
@@ -83,22 +92,18 @@ pub(crate) fn write_slot(
     let start = slot_index * SLOT_LEN;
     let slot = &mut bytes[start..start + SLOT_LEN];
     slot.fill(0);
-    slot[..104].copy_from_slice(&metadata_auth_message(publication));
-    slot[104..128].copy_from_slice(&publication.metadata_auth_tag);
+    slot[..128].copy_from_slice(&metadata_auth_message(publication));
+    slot[128..152].copy_from_slice(&publication.metadata_auth_tag);
     let digest = strong_checksum(&slot[..CHECKSUM_START]);
     slot[CHECKSUM_START..SLOT_LEN].copy_from_slice(&digest);
     Ok(())
 }
 
-pub(crate) fn metadata_auth_message(publication: Publication) -> [u8; 104] {
-    let mut message = [0u8; 104];
+pub(crate) fn metadata_auth_message(publication: Publication) -> [u8; 128] {
+    let mut message = [0u8; 128];
     message[0..8].copy_from_slice(MAGIC);
     message[8..10].copy_from_slice(&FORMAT_VERSION.to_le_bytes());
-    if publication.format_mode.0 != 0 {
-        message[0..8].copy_from_slice(b"LBX3HDR\0");
-        message[8..10].copy_from_slice(&3u16.to_le_bytes());
-        message[10..12].copy_from_slice(&publication.format_mode.0.to_le_bytes());
-    }
+    message[10..12].copy_from_slice(&publication.format_mode.0.to_le_bytes());
     message[12..16].copy_from_slice(&(SLOT_LEN as u32).to_le_bytes());
     message[16..24].copy_from_slice(&publication.generation.to_le_bytes());
     message[24..32].copy_from_slice(&publication.commit_root_offset.to_le_bytes());
@@ -111,6 +116,9 @@ pub(crate) fn metadata_auth_message(publication: Publication) -> [u8; 104] {
     message[88..92].copy_from_slice(&publication.cleanup_completed_ranges.to_le_bytes());
     message[92..96].copy_from_slice(&publication.cleanup_completed_pages.to_le_bytes());
     message[96..104].copy_from_slice(&publication.cleanup_completed_bytes.to_le_bytes());
+    message[104..112].copy_from_slice(&publication.sealed_len.to_le_bytes());
+    message[112..120].copy_from_slice(&u64::from(publication.preparing).to_le_bytes());
+    message[120..128].copy_from_slice(&publication.trim_origin_len.to_le_bytes());
     message
 }
 
@@ -148,10 +156,10 @@ fn read_slot(slot: &[u8], slot_index: usize) -> Result<Header> {
     }
     let version = read_u16_le(&slot[8..10])?;
     let format_mode = FormatMode::parse(read_u16_le(&slot[10..12])?)?;
-    let valid_version = (version == 2
+    let valid_version = version == FORMAT_VERSION
         && slot.get(..8) == Some(MAGIC.as_slice())
-        && format_mode.0 == 0)
-        || (version == 3 && slot.get(..8) == Some(b"LBX3HDR\0".as_slice()) && format_mode.0 != 0);
+        && read_u64_le(&slot[112..120])? <= 1
+        && slot[152..160].iter().all(|byte| *byte == 0);
     if !valid_version
         || read_u32_le(&slot[12..16]).map_err(|_| Error::CorruptHeader)? as usize != SLOT_LEN
     {
@@ -166,6 +174,9 @@ fn read_slot(slot: &[u8], slot_index: usize) -> Result<Header> {
         return Err(Error::CorruptHeader);
     }
     Ok(Header {
+        sealed_len: read_u64_le(&slot[104..112])?,
+        trim_origin_len: read_u64_le(&slot[120..128])?,
+        preparing: read_u64_le(&slot[112..120])? == 1,
         format_mode,
         slot_index,
         generation,
@@ -182,7 +193,7 @@ fn read_slot(slot: &[u8], slot_index: usize) -> Result<Header> {
         cleanup_completed_ranges: read_u32_le(&slot[88..92]).map_err(|_| Error::CorruptHeader)?,
         cleanup_completed_pages: read_u32_le(&slot[92..96]).map_err(|_| Error::CorruptHeader)?,
         cleanup_completed_bytes: read_u64_le(&slot[96..104]).map_err(|_| Error::CorruptHeader)?,
-        metadata_auth_tag: slot[104..128]
+        metadata_auth_tag: slot[128..152]
             .try_into()
             .map_err(|_| Error::CorruptHeader)?,
     })
@@ -194,6 +205,9 @@ mod tests {
 
     fn publication(generation: u64, sequence: u64) -> Publication {
         Publication {
+            sealed_len: REGION_LEN as u64,
+            preparing: false,
+            trim_origin_len: 0,
             format_mode: FormatMode::default(),
             generation,
             commit_root_offset: sequence * 100,

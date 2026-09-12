@@ -1,0 +1,17 @@
+[package]
+name = "revault_migrate_archive_v3"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.88"
+license-file = "LICENSE"
+description = "Isolated authoritative-state exporter for lockbox formats v2 and v3"
+repository = "https://github.com/onepub-dev/reVault"
+
+[dependencies]
+revault_vault_api = { package = "revault_vault_v3_reader", version = "=0.0.1", path = "legacy_vault" }
+revault_lockbox_api = { package = "revault_archive_v3_reader", version = "=0.0.1", path = "legacy", features = ["migration", "vault-integration"] }
+revault_migration_format = { version = "0.0.30", path = "../revault_migration_format" }
+getrandom = "0.4"
+sha2 = "0.11"
+zeroize = "1.9"
+tempfile = "3"

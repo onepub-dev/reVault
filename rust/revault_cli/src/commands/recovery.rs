@@ -190,10 +190,18 @@ fn recover_pending_cleanup(
     quiet: bool,
 ) -> CliResult<()> {
     if !quiet {
-        eprintln!(
+        if status.phase == revault_lockbox_api::TransactionRecoveryPhase::Rollback {
+            eprintln!("Lockbox rollback is required. Unpublished changes will be erased; the previous committed state will be restored.");
+        } else if status.phase == revault_lockbox_api::TransactionRecoveryPhase::Truncate {
+            eprintln!(
+                "Lockbox tail reclamation is pending; the verified free suffix will be truncated."
+            );
+        } else {
+            eprintln!(
             "Lockbox cleanup is required. The changes are already committed; cleanup is safe to interrupt and resume ({} of {} complete).",
             human_size(status.completed_bytes), human_size(status.total_bytes),
         );
+        }
     }
     let mut last_percent = None;
     let recovered = Lockbox::recover_transaction(
@@ -221,10 +229,16 @@ pub(crate) fn complete_pending_cleanup_if_available(
     lockbox_path: &str,
     access: &Access,
 ) -> CliResult<()> {
-    let open = match access {
-        Access::ContentKey(key) => Some(LockboxOpen::ContentKey(key.try_clone()?)),
-        Access::CacheOnly => cached_key_if_available(lockbox_path)?.map(LockboxOpen::ContentKey),
-        Access::PromptPassword => None,
+    let open = if super::context::is_unencrypted(lockbox_path)? {
+        Some(LockboxOpen::Unencrypted)
+    } else {
+        match access {
+            Access::ContentKey(key) => Some(LockboxOpen::ContentKey(key.try_clone()?)),
+            Access::CacheOnly => {
+                cached_key_if_available(lockbox_path)?.map(LockboxOpen::ContentKey)
+            }
+            Access::PromptPassword => None,
+        }
     };
     let Some(open) = open else {
         return Ok(());
@@ -238,6 +252,9 @@ pub(crate) fn complete_pending_cleanup_if_available(
 }
 
 fn recovery_open<'a>(lockbox_path: &str, access: &'a Access) -> CliResult<LockboxOpen<'a>> {
+    if super::context::is_unencrypted(lockbox_path)? {
+        return Ok(LockboxOpen::Unencrypted);
+    }
     match access {
         Access::ContentKey(key) => Ok(LockboxOpen::ContentKey(key.try_clone()?)),
         Access::CacheOnly => Ok(LockboxOpen::ContentKey(cached_key(lockbox_path)?)),
@@ -257,7 +274,16 @@ fn print_pending_cleanup(
         vec![
             vec![
                 "operation".to_string(),
-                "complete_pending_cleanup".to_string(),
+                match status.phase {
+                    revault_lockbox_api::TransactionRecoveryPhase::Rollback => {
+                        "rollback_preparation"
+                    }
+                    revault_lockbox_api::TransactionRecoveryPhase::Truncate => "truncate_free_tail",
+                    revault_lockbox_api::TransactionRecoveryPhase::Cleanup => {
+                        "complete_pending_cleanup"
+                    }
+                }
+                .to_string(),
             ],
             vec![
                 "transaction_sequence".to_string(),

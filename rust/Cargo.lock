@@ -2255,6 +2255,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
+name = "revault_archive_v3_reader"
+version = "0.0.1"
+dependencies = [
+ "argon2 0.6.0",
+ "chacha20poly1305",
+ "criterion",
+ "ed25519-dalek 3.0.0",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "libc",
+ "ml-dsa",
+ "ml-kem",
+ "oxiarc-zstd",
+ "revault_page_api 0.0.29",
+ "serde_json",
+ "sha2 0.11.0",
+ "unicode-normalization",
+ "windows-sys 0.61.2",
+ "x25519-dalek 3.0.0",
+ "zeroize",
+ "zstd",
+ "zstd-complete 0.2.0",
+]
+
+[[package]]
 name = "revault_bindings"
 version = "0.2.18"
 dependencies = [
@@ -2273,6 +2299,7 @@ dependencies = [
  "clap_complete",
  "getrandom 0.4.3",
  "libc",
+ "revault_archive_v3_reader",
  "revault_key_server",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
@@ -2285,6 +2312,7 @@ dependencies = [
  "revault_vault_api 0.0.2",
  "revault_vault_api 0.0.37",
  "revault_vault_api 0.0.6",
+ "revault_vault_v3_reader",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -2448,6 +2476,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "revault_migrate_archive_v3"
+version = "0.0.1"
+dependencies = [
+ "getrandom 0.4.3",
+ "revault_archive_v3_reader",
+ "revault_migration_format 0.0.30",
+ "revault_vault_v3_reader",
+ "sha2 0.11.0",
+ "tempfile",
+ "zeroize",
+]
+
+[[package]]
 name = "revault_migrate_vault_v1"
 version = "0.0.29"
 dependencies = [
@@ -2480,12 +2521,14 @@ name = "revault_migration"
 version = "0.0.34"
 dependencies = [
  "getrandom 0.4.3",
+ "revault_archive_v3_reader",
  "revault_lockbox_api 0.0.2",
  "revault_lockbox_api 0.0.3",
  "revault_lockbox_api 0.0.36",
  "revault_lockbox_api 0.0.6",
  "revault_lockbox_api 0.0.9",
  "revault_migrate_archive_v1",
+ "revault_migrate_archive_v3",
  "revault_migrate_vault_v1",
  "revault_migrate_vault_v2",
  "revault_migration_format 0.0.30",
@@ -2675,6 +2718,28 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-io-kit",
  "revault_lockbox_api 0.0.36",
+ "secret-service",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "windows-sys 0.61.2",
+ "zbus",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_vault_v3_reader"
+version = "0.0.1"
+dependencies = [
+ "base64ct",
+ "chacha20poly1305",
+ "dbus",
+ "getrandom 0.4.3",
+ "keyring",
+ "libc",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "revault_archive_v3_reader",
  "secret-service",
  "serde",
  "serde_json",

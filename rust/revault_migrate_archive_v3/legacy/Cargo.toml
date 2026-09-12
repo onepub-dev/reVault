@@ -1,0 +1,61 @@
+[package]
+name = "revault_archive_v3_reader"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.88"
+license-file = "LICENSE"
+description = "Frozen lockbox v2/v3 reader for the isolated reVault migration exporter"
+repository = "https://github.com/onepub-dev/reVault"
+documentation = "https://docs.rs/revault_lockbox_api"
+
+[lib]
+name = "revault_lockbox_api"
+path = "src/lib.rs"
+test = false
+doctest = false
+
+[features]
+default = ["issue303-protocol"]
+vault-integration = []
+bindings = []
+migration = []
+test-support = []
+# Compatibility feature name: format-v2 is unconditional in the core.
+issue303-protocol = []
+native-zstd-encoder = ["dep:zstd"]
+
+[dependencies]
+argon2 = "0.6"
+chacha20poly1305 = "0.11"
+ed25519-dalek = "3"
+getrandom = "0.4"
+hkdf = "0.13"
+hmac = "0.13"
+revault_page_api = { version = "0.0.29", path = "../../revault_page_api" }
+ml-dsa = { version = "0.1", features = ["getrandom"] }
+ml-kem = { version = "0.3.2", features = ["getrandom"] }
+sha2 = "0.11"
+serde_json = "1"
+unicode-normalization = "0.1"
+x25519-dalek = { version = "3", features = ["static_secrets"] }
+zeroize = "1.9"
+zstd-complete = { version = "0.2", features = ["c-port-validation"] }
+zstd = { version = "0.14.0", default-features = false, optional = true }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.4", features = ["wasm_js"] }
+
+[dev-dependencies]
+criterion = "0.8.2"
+oxiarc-zstd = "0.4"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+    "Win32_System_IO",
+    "Win32_Storage_FileSystem",
+] }

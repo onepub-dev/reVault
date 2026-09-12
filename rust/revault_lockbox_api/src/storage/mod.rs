@@ -49,6 +49,14 @@ pub(crate) enum StorageBackend {
 }
 
 impl StorageBackend {
+    pub(crate) fn ensure_current(&self) -> Result<()> {
+        if let Self::File(store) = self {
+            let file = store.lock_file()?;
+            store.ensure_current(&file)?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn memory(bytes: Vec<u8>) -> Self {
         Self::Memory(MemoryStore::new(bytes))
     }
@@ -383,6 +391,10 @@ impl Storage for MemoryStore {
     }
 
     fn truncate(&mut self, len: u64) -> Result<()> {
+        #[cfg(test)]
+        if self.should_fail_operation() {
+            return Err(Error::Io("injected storage operation failure".into()));
+        }
         let len = usize::try_from(len)
             .map_err(|_| Error::SecurityLimitExceeded("storage is too large".to_string()))?;
         if len > self.bytes.len() {

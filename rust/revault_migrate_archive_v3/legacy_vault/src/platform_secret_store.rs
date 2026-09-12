@@ -1,0 +1,660 @@
+use revault_lockbox_api::{Error, Result, SecretString};
+#[cfg(test)]
+use std::collections::HashMap;
+use std::env;
+use std::fs;
+use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::sync::{Mutex, OnceLock};
+
+use crate::vault_directory::{default_vault_dir, default_vault_path};
+
+#[cfg(all(
+    not(test),
+    any(target_os = "linux", target_os = "macos", target_os = "windows")
+))]
+const SERVICE: &str = "dev.onepub.lockbox.vault";
+const DISABLED_MARKER: &str = ".platform-secret-store-disabled";
+const AUTO_OPEN_SCOPE_FILE: &str = ".auto-open-scope";
+const MODE_ENV: &str = "LOCKBOX_PLATFORM_SECRET_STORE";
+
+/// Scope controlled by the session auto-open setting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AutoOpenScope {
+    /// Do not use the platform credential store for Auto Open.
+    Off,
+    /// Automatically open only the local metadata vault.
+    Vault,
+    /// Automatically open the vault and remembered lockboxes.
+    Lockboxes,
+}
+
+impl AutoOpenScope {
+    /// Returns the stable lowercase name persisted in vault configuration.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Off => "off",
+            Self::Vault => "vault",
+            Self::Lockboxes => "lockboxes",
+        }
+    }
+}
+
+/// Current platform credential store state for the default Vault.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlatformSecretStoreStatus {
+    /// Whether the current target has a compiled platform credential store backend.
+    pub supported: bool,
+    /// Whether platform credential store use is disabled by environment or marker.
+    pub disabled: bool,
+    /// Auto-open scope configured for this vault.
+    pub scope: AutoOpenScope,
+    /// Human-readable backend label.
+    pub backend: &'static str,
+    /// Default local vault item key used in the platform store.
+    pub item: String,
+}
+
+/// Returns the platform credential store status for the default Vault.
+pub fn platform_secret_store_status() -> Result<PlatformSecretStoreStatus> {
+    let scope = auto_open_scope()?;
+    Ok(PlatformSecretStoreStatus {
+        supported: platform_supported(),
+        disabled: scope == AutoOpenScope::Off,
+        scope,
+        backend: platform_backend_name(),
+        item: vault_item_name()?,
+    })
+}
+
+/// Enables platform credential store lookup for the default Vault.
+pub fn enable_platform_secret_store() -> Result<()> {
+    set_auto_open_scope(AutoOpenScope::Vault)
+}
+
+/// Disables platform credential store lookup for the default Vault.
+///
+/// The stored vault open secret is removed before the disable marker is
+/// written.
+pub fn disable_platform_secret_store() -> Result<()> {
+    set_auto_open_scope(AutoOpenScope::Off)
+}
+
+/// Returns true when platform credential store lookup should not be attempted.
+pub fn platform_secret_store_disabled() -> Result<bool> {
+    if let Ok(value) = env::var(MODE_ENV) {
+        return parse_disabled_mode(&value);
+    }
+    Ok(auto_open_scope()? == AutoOpenScope::Off)
+}
+
+/// Returns the effective automatic-open scope for the default local vault.
+///
+/// `LOCKBOX_PLATFORM_SECRET_STORE` takes precedence over the persisted scope.
+/// In the absence of either setting, the scope defaults to [`AutoOpenScope::Vault`].
+pub fn auto_open_scope() -> Result<AutoOpenScope> {
+    if let Ok(value) = env::var(MODE_ENV) {
+        return Ok(if parse_disabled_mode(&value)? {
+            AutoOpenScope::Off
+        } else {
+            AutoOpenScope::Vault
+        });
+    }
+    if disabled_marker_path()?.exists() {
+        return Ok(AutoOpenScope::Off);
+    }
+    let path = auto_open_scope_path()?;
+    let value = match fs::read_to_string(&path) {
+        Ok(value) => value,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Ok(AutoOpenScope::Vault);
+        }
+        Err(err) => return Err(Error::Io(err.to_string())),
+    };
+    parse_auto_open_scope(value.trim())
+}
+
+/// Persists the automatic-open scope for the default local vault.
+///
+/// Selecting [`AutoOpenScope::Off`] also removes the stored Vault passphrase and
+/// cached vault keys. Enabling a scope removes the disabled marker.
+pub fn set_auto_open_scope(scope: AutoOpenScope) -> Result<()> {
+    match scope {
+        AutoOpenScope::Off => {
+            let _ = forget_platform_vault_password();
+            if let Ok(profile) = default_vault_path() {
+                let vault_id = profile.to_string_lossy().into_owned();
+                let _ = crate::forget_vault_unlock_key(&vault_id);
+                let _ = crate::forget_owner_signing_key(
+                    &vault_id,
+                    crate::VaultDirectory::DEFAULT_KEY_NAME,
+                );
+            }
+            write_disabled_marker()?;
+            write_auto_open_scope(scope)
+        }
+        AutoOpenScope::Vault | AutoOpenScope::Lockboxes => {
+            remove_disabled_marker()?;
+            write_auto_open_scope(scope)
+        }
+    }
+}
+
+/// Loads the default Vault passphrase from the platform credential store.
+pub fn get_platform_vault_password() -> Result<Option<SecretString>> {
+    if platform_secret_store_disabled()? || !platform_supported() {
+        return Ok(None);
+    }
+    platform_get_vault_password()
+}
+
+/// Loads the passphrase for the Vault directory at `path_to`.
+///
+/// On Linux, `session_bus_address` selects the D-Bus session used to reach the
+/// user's Secret Service provider without changing the process environment.
+/// Other platforms ignore it.
+///
+/// ```no_run
+/// use std::path::Path;
+/// use revault_vault_api::get_platform_vault_password_for;
+///
+/// let password = get_platform_vault_password_for(
+///     Path::new("/home/alice/.local/share/lockbox/vault"),
+///     Some("unix:path=/run/user/1000/bus"),
+/// )?;
+/// # Ok::<(), revault_lockbox_api::Error>(())
+/// ```
+pub fn get_platform_vault_password_for(
+    path_to: &Path,
+    session_bus_address: Option<&str>,
+) -> Result<Option<SecretString>> {
+    if platform_secret_store_disabled_for(path_to)? || !platform_supported() {
+        return Ok(None);
+    }
+    let item = vault_item_name_for(path_to)?;
+    #[cfg(all(target_os = "linux", not(test)))]
+    if let Some(address) = session_bus_address {
+        return linux_platform_get_vault_password(&item, address);
+    }
+    #[cfg(any(not(target_os = "linux"), test))]
+    let _ = session_bus_address;
+    platform_get_vault_password_for_item(&item)
+}
+
+fn platform_secret_store_disabled_for(path_to: &Path) -> Result<bool> {
+    if let Ok(value) = env::var(MODE_ENV) {
+        return parse_disabled_mode(&value);
+    }
+    if path_to.join(DISABLED_MARKER).exists() {
+        return Ok(true);
+    }
+    let scope_path = path_to.join(AUTO_OPEN_SCOPE_FILE);
+    match fs::read_to_string(scope_path) {
+        Ok(value) => Ok(parse_auto_open_scope(value.trim())? == AutoOpenScope::Off),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(err) => Err(Error::Io(err.to_string())),
+    }
+}
+
+/// Stores the default Vault passphrase in the platform credential store.
+pub fn put_platform_vault_password(password: &SecretString) -> Result<()> {
+    if platform_secret_store_disabled()? || !platform_supported() {
+        return Ok(());
+    }
+    platform_put_vault_password(password)
+}
+
+/// Removes the default Vault passphrase from the platform credential store.
+pub fn forget_platform_vault_password() -> Result<()> {
+    if !platform_supported() {
+        return Ok(());
+    }
+    platform_forget_vault_password()
+}
+
+fn parse_disabled_mode(value: &str) -> Result<bool> {
+    match value.to_ascii_lowercase().as_str() {
+        "auto" | "enabled" | "enable" | "1" | "true" | "yes" | "on" => Ok(false),
+        "disabled" | "disable" | "0" | "false" | "no" | "off" => Ok(true),
+        other => Err(Error::Configuration(format!(
+            "{MODE_ENV} must be auto or disabled, got {other}"
+        ))),
+    }
+}
+
+fn disabled_marker_path() -> Result<PathBuf> {
+    Ok(default_vault_dir()?.join(DISABLED_MARKER))
+}
+
+fn auto_open_scope_path() -> Result<PathBuf> {
+    Ok(default_vault_dir()?.join(AUTO_OPEN_SCOPE_FILE))
+}
+
+fn write_auto_open_scope(scope: AutoOpenScope) -> Result<()> {
+    let path = auto_open_scope_path()?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| Error::Configuration("auto-open scope path has no parent".to_string()))?;
+    create_private_dir(parent)?;
+    fs::write(path, format!("{}\n", scope.as_str())).map_err(|err| Error::Io(err.to_string()))
+}
+
+fn parse_auto_open_scope(value: &str) -> Result<AutoOpenScope> {
+    match value {
+        "off" => Ok(AutoOpenScope::Off),
+        "vault" => Ok(AutoOpenScope::Vault),
+        "lockboxes" => Ok(AutoOpenScope::Lockboxes),
+        other => Err(Error::Configuration(format!(
+            "auto-open scope must be off, vault, or lockboxes, got {other}"
+        ))),
+    }
+}
+
+fn write_disabled_marker() -> Result<()> {
+    let path = disabled_marker_path()?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| Error::Configuration("disabled marker path has no parent".to_string()))?;
+    create_private_dir(parent)?;
+    fs::write(path, b"disabled\n").map_err(|err| Error::Io(err.to_string()))
+}
+
+fn remove_disabled_marker() -> Result<()> {
+    let path = disabled_marker_path()?;
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(err) => Err(Error::Io(err.to_string())),
+    }
+}
+
+fn vault_item_name() -> Result<String> {
+    let path = absolute_vault_path()?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+fn vault_item_name_for(path_to: &Path) -> Result<String> {
+    let path = path_to.join("local-vault.lbox");
+    let absolute = if path.is_absolute() {
+        path
+    } else {
+        env::current_dir()
+            .map(|cwd| cwd.join(path))
+            .map_err(|err| Error::Io(err.to_string()))?
+    };
+    Ok(absolute.to_string_lossy().into_owned())
+}
+
+fn absolute_vault_path() -> Result<PathBuf> {
+    let path = default_vault_path()?;
+    if path.is_absolute() {
+        Ok(path)
+    } else {
+        env::current_dir()
+            .map(|cwd| cwd.join(path))
+            .map_err(|err| Error::Io(err.to_string()))
+    }
+}
+
+fn create_private_dir(path: &Path) -> Result<()> {
+    fs::create_dir_all(path).map_err(|err| Error::Io(err.to_string()))?;
+    set_private_dir_permissions(path)
+}
+
+#[cfg(unix)]
+fn set_private_dir_permissions(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+        .map_err(|err| Error::Io(err.to_string()))
+}
+
+#[cfg(not(unix))]
+fn set_private_dir_permissions(_path: &Path) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(any(test, target_os = "linux", target_os = "macos", target_os = "windows"))]
+fn platform_supported() -> bool {
+    true
+}
+
+#[cfg(all(
+    not(test),
+    not(any(target_os = "linux", target_os = "macos", target_os = "windows"))
+))]
+fn platform_supported() -> bool {
+    false
+}
+
+#[cfg(target_os = "linux")]
+fn platform_backend_name() -> &'static str {
+    "Secret Service/libsecret"
+}
+
+#[cfg(target_os = "macos")]
+fn platform_backend_name() -> &'static str {
+    "macOS Keychain"
+}
+
+#[cfg(target_os = "windows")]
+fn platform_backend_name() -> &'static str {
+    "Windows Credential Manager"
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+fn platform_backend_name() -> &'static str {
+    "unsupported"
+}
+
+#[cfg(all(
+    not(test),
+    any(target_os = "linux", target_os = "macos", target_os = "windows")
+))]
+fn platform_get_vault_password() -> Result<Option<SecretString>> {
+    platform_get_vault_password_for_item(&vault_item_name()?)
+}
+
+#[cfg(all(
+    not(test),
+    any(target_os = "linux", target_os = "macos", target_os = "windows")
+))]
+fn platform_get_vault_password_for_item(item: &str) -> Result<Option<SecretString>> {
+    let entry = keyring::Entry::new(SERVICE, item).map_err(platform_error)?;
+    match entry.get_secret() {
+        Ok(secret) => SecretString::try_from_utf8(secret)
+            .map(Some)
+            .map_err(|err| Error::InvalidKeyMaterial(err.to_string())),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(err) => Err(platform_error(err)),
+    }
+}
+
+#[cfg(all(
+    not(test),
+    not(any(target_os = "linux", target_os = "macos", target_os = "windows"))
+))]
+fn platform_get_vault_password_for_item(_item: &str) -> Result<Option<SecretString>> {
+    Ok(None)
+}
+
+#[cfg(test)]
+fn platform_get_vault_password_for_item(item: &str) -> Result<Option<SecretString>> {
+    let secret = test_platform_store()
+        .lock()
+        .expect("test platform store lock poisoned")
+        .get(item)
+        .cloned();
+    secret
+        .map(SecretString::try_from_utf8)
+        .transpose()
+        .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))
+}
+
+#[cfg(all(not(test), target_os = "linux"))]
+fn linux_platform_get_vault_password(
+    item: &str,
+    session_bus_address: &str,
+) -> Result<Option<SecretString>> {
+    use secret_service::{blocking::SecretService, EncryptionType};
+    use std::collections::HashMap;
+
+    let connection = zbus::blocking::connection::Builder::address(session_bus_address)
+        .and_then(|builder| builder.build())
+        .map_err(|err| platform_session_error(err.to_string()))?;
+    let service = SecretService::connect_with_existing(EncryptionType::Dh, connection)
+        .map_err(|err| platform_session_error(err.to_string()))?;
+    let found = service
+        .search_items(HashMap::from([("service", SERVICE), ("username", item)]))
+        .map_err(|err| platform_session_error(err.to_string()))?;
+    let mut items = found.unlocked;
+    items.extend(found.locked);
+    match items.len() {
+        0 => Ok(None),
+        1 => {
+            let selected = items.pop().expect("one Secret Service item");
+            selected
+                .ensure_unlocked()
+                .map_err(|err| platform_session_error(err.to_string()))?;
+            let secret = selected
+                .get_secret()
+                .map_err(|err| platform_session_error(err.to_string()))?;
+            SecretString::try_from_utf8(secret)
+                .map(Some)
+                .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))
+        }
+        _ => Err(Error::VaultUnavailable(format!(
+            "platform credential store has multiple credentials for {item}"
+        ))),
+    }
+}
+
+#[cfg(all(not(test), target_os = "linux"))]
+fn platform_session_error(message: String) -> Error {
+    Error::VaultUnavailable(format!(
+        "platform credential store is unavailable in this user session: {message}"
+    ))
+}
+
+#[cfg(all(
+    not(test),
+    not(any(target_os = "linux", target_os = "macos", target_os = "windows"))
+))]
+fn platform_get_vault_password() -> Result<Option<SecretString>> {
+    Ok(None)
+}
+
+#[cfg(test)]
+fn platform_get_vault_password() -> Result<Option<SecretString>> {
+    let item = vault_item_name()?;
+    let secret = test_platform_store()
+        .lock()
+        .expect("test platform store lock poisoned")
+        .get(&item)
+        .cloned();
+    secret
+        .map(SecretString::try_from_utf8)
+        .transpose()
+        .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))
+}
+
+#[cfg(all(
+    not(test),
+    any(target_os = "linux", target_os = "macos", target_os = "windows")
+))]
+fn platform_put_vault_password(password: &SecretString) -> Result<()> {
+    let entry = keyring_entry()?;
+    password
+        .with_bytes(|bytes| entry.set_secret(bytes))
+        .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))?
+        .map_err(platform_error)
+}
+
+#[cfg(all(
+    not(test),
+    not(any(target_os = "linux", target_os = "macos", target_os = "windows"))
+))]
+fn platform_put_vault_password(_password: &SecretString) -> Result<()> {
+    Ok(())
+}
+
+#[cfg(test)]
+fn platform_put_vault_password(password: &SecretString) -> Result<()> {
+    let item = vault_item_name()?;
+    let secret = password
+        .with_bytes(|bytes| bytes.to_vec())
+        .map_err(|err| Error::InvalidKeyMaterial(err.to_string()))?;
+    test_platform_store()
+        .lock()
+        .expect("test platform store lock poisoned")
+        .insert(item, secret);
+    Ok(())
+}
+
+#[cfg(all(
+    not(test),
+    any(target_os = "linux", target_os = "macos", target_os = "windows")
+))]
+fn platform_forget_vault_password() -> Result<()> {
+    let entry = keyring_entry()?;
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(err) => Err(platform_error(err)),
+    }
+}
+
+#[cfg(all(
+    not(test),
+    not(any(target_os = "linux", target_os = "macos", target_os = "windows"))
+))]
+fn platform_forget_vault_password() -> Result<()> {
+    Ok(())
+}
+
+#[cfg(test)]
+fn platform_forget_vault_password() -> Result<()> {
+    let item = vault_item_name()?;
+    test_platform_store()
+        .lock()
+        .expect("test platform store lock poisoned")
+        .remove(&item);
+    Ok(())
+}
+
+#[cfg(test)]
+fn test_platform_store() -> &'static Mutex<HashMap<String, Vec<u8>>> {
+    static STORE: OnceLock<Mutex<HashMap<String, Vec<u8>>>> = OnceLock::new();
+    STORE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+#[cfg(all(
+    not(test),
+    any(target_os = "linux", target_os = "macos", target_os = "windows")
+))]
+fn keyring_entry() -> Result<keyring::Entry> {
+    let item = vault_item_name()?;
+    keyring::Entry::new(SERVICE, &item).map_err(platform_error)
+}
+
+#[cfg(all(
+    not(test),
+    any(target_os = "linux", target_os = "macos", target_os = "windows")
+))]
+fn platform_error(err: keyring::Error) -> Error {
+    Error::VaultUnavailable(format!("platform credential store is unavailable: {err}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        auto_open_scope, get_platform_vault_password, parse_disabled_mode,
+        put_platform_vault_password, set_auto_open_scope, test_platform_store, AutoOpenScope,
+        MODE_ENV,
+    };
+    use revault_lockbox_api::{Result, SecretString};
+    use std::env;
+    use std::fs;
+    use std::path::PathBuf;
+    use std::sync::{Mutex, OnceLock};
+
+    #[test]
+    fn platform_secret_store_mode_parses_disabled_values() {
+        assert!(parse_disabled_mode("disabled").unwrap());
+        assert!(parse_disabled_mode("off").unwrap());
+        assert!(parse_disabled_mode("0").unwrap());
+        assert!(!parse_disabled_mode("auto").unwrap());
+        assert!(!parse_disabled_mode("enabled").unwrap());
+    }
+
+    #[test]
+    fn platform_secret_store_mode_rejects_unknown_values() {
+        assert!(parse_disabled_mode("maybe").is_err());
+    }
+
+    #[test]
+    fn auto_open_off_forgets_stored_vault_password() -> Result<()> {
+        let _lock = env_lock().lock().expect("env test lock poisoned");
+        let vault_dir = temp_vault_dir("auto-open-off-forgets-stored-vault-password");
+        let agent_dir = vault_dir.join("agent");
+        let _vault_dir_guard = EnvVarGuard::set("LOCKBOX_VAULT_DIR", &vault_dir);
+        let _agent_dir_guard = EnvVarGuard::set("LOCKBOX_SESSION_AGENT_DIR", &agent_dir);
+        let _mode_guard = EnvVarGuard::unset(MODE_ENV);
+        test_platform_store()
+            .lock()
+            .expect("test platform store lock poisoned")
+            .clear();
+
+        set_auto_open_scope(AutoOpenScope::Vault)?;
+        let password = SecretString::try_from_bytes(b"stored vault secret".to_vec())?;
+        put_platform_vault_password(&password)?;
+
+        let stored = get_platform_vault_password()?.expect("stored Vault passphrase");
+        assert_eq!(stored.with_str(str::to_owned)?, "stored vault secret");
+
+        set_auto_open_scope(AutoOpenScope::Off)?;
+        assert_eq!(auto_open_scope()?, AutoOpenScope::Off);
+
+        let vault_id = vault_dir.join("local-vault.lbox");
+        crate::put_vault_unlock_key(
+            &vault_id.to_string_lossy(),
+            SecretString::try_from_bytes(b"must not be cached".to_vec())?,
+            None,
+        )
+        .map_err(|err| revault_lockbox_api::Error::Io(err.to_string()))?;
+        assert!(
+            !crate::is_running(),
+            "disabled Auto Open must not start the Session Agent"
+        );
+
+        set_auto_open_scope(AutoOpenScope::Vault)?;
+        assert!(get_platform_vault_password()?.is_none());
+
+        fs::remove_dir_all(vault_dir).ok();
+        Ok(())
+    }
+
+    fn env_lock() -> &'static Mutex<()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+    }
+
+    fn temp_vault_dir(name: &str) -> PathBuf {
+        let path = env::temp_dir().join(format!("lockbox-vault-{name}-{}", std::process::id()));
+        fs::remove_dir_all(&path).ok();
+        fs::create_dir_all(&path).expect("create temp vault dir");
+        path
+    }
+
+    struct EnvVarGuard {
+        key: &'static str,
+        old_value: Option<std::ffi::OsString>,
+    }
+
+    impl EnvVarGuard {
+        fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
+            let guard = Self {
+                key,
+                old_value: env::var_os(key),
+            };
+            env::set_var(key, value);
+            guard
+        }
+
+        fn unset(key: &'static str) -> Self {
+            let guard = Self {
+                key,
+                old_value: env::var_os(key),
+            };
+            env::remove_var(key);
+            guard
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            match &self.old_value {
+                Some(value) => env::set_var(self.key, value),
+                None => env::remove_var(self.key),
+            }
+        }
+    }
+}

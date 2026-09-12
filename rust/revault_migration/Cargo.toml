@@ -19,6 +19,8 @@ revault_lockbox_api = { version = "0.0.36", path = "../revault_lockbox_api", fea
 revault_vault_api = { version = "0.0.37", path = "../revault_vault_api" }
 
 [dev-dependencies]
+revault_migrate_archive_v3 = { path = "../revault_migrate_archive_v3", version = "0.0.1" }
+archive_v3 = { package = "revault_archive_v3_reader", path = "../revault_migrate_archive_v3/legacy", version = "0.0.1", features = ["migration", "vault-integration"] }
 revault_migrate_vault_v2 = { path = "../revault_migrate_vault_v2" , version = "0.0.26" }
 revault_vault_api_v2 = { package = "revault_vault_api", version = "=0.0.10" }
 revault_lockbox_api_v2 = { package = "revault_lockbox_api", version = "=0.0.9" }

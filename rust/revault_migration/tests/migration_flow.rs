@@ -48,6 +48,7 @@ fn archive_start() -> MigrationRecord {
         archive_id: [4; 16],
         format_version: 1,
         format_mode: None,
+        owner_fingerprint: None,
         content_key: SecretBytes::new(vec![5; 32]),
         key_directory: SecretBytes::new(vec![6; 32]),
         description: None,
@@ -559,7 +560,7 @@ fn archive_migration_preserves_independent_format_choices() {
             )
             .unwrap();
             let imported = Lockbox::open(&destination, LockboxOpen::Unencrypted).unwrap();
-            assert_eq!(imported.format_version(), 3);
+            assert_eq!(imported.format_version(), 4);
             assert_eq!(imported.format_options(), source.format_options());
             assert_eq!(
                 imported.get_file(&path).unwrap(),
@@ -570,7 +571,7 @@ fn archive_migration_preserves_independent_format_choices() {
 }
 
 #[test]
-fn legacy_v2_archive_upgrades_to_explicit_v3_choices() {
+fn implicit_creation_choices_upgrade_to_explicit_v4_choices() {
     let temp = tempfile::tempdir().unwrap();
     let signer = OwnerSigningKeyPair::generate().unwrap();
     let key = b"legacy v2 migration test key";
@@ -582,7 +583,7 @@ fn legacy_v2_archive_upgrades_to_explicit_v3_choices() {
     let path = LockboxPath::new("/legacy.txt").unwrap();
     source.add_file(&path, b"legacy data", false).unwrap();
     source.commit().unwrap();
-    assert_eq!(source.format_version(), 2);
+    assert_eq!(source.format_version(), 4);
     let artifact = temp.path().join("legacy.migration");
     let destination = temp.path().join("upgraded.lbox");
     export_archive(&source, &artifact, b"artifact password".as_slice(), [8; 16]).unwrap();
@@ -598,7 +599,7 @@ fn legacy_v2_archive_upgrades_to_explicit_v3_choices() {
         LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
     )
     .unwrap();
-    assert_eq!(upgraded.format_version(), 3);
+    assert_eq!(upgraded.format_version(), 4);
     assert_eq!(upgraded.format_options(), source.format_options());
     assert_eq!(upgraded.get_file(&path).unwrap(), b"legacy data");
 }

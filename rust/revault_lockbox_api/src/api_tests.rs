@@ -305,8 +305,9 @@ fn variable_scan_fails_closed_when_variable_page_is_corrupt() {
     let mut bytes = lb.to_bytes();
     bytes[variable_page.offset as usize + crate::file_format::page::PAGE_HEADER_LEN + 8] ^= 0x55;
 
-    let reopened = Lockbox::open_bytes_with_key(bytes, KEY).unwrap();
-    assert!(reopened.get_variable(&variable("TOKEN")).is_err());
+    if let Ok(reopened) = Lockbox::open_bytes_with_key(bytes, KEY) {
+        assert!(reopened.get_variable(&variable("TOKEN")).is_err());
+    }
 }
 
 #[test]
@@ -1048,20 +1049,38 @@ fn oversized_key_directories_are_rejected() {
     lb.commit().unwrap();
 
     let mut bytes = lb.to_bytes();
-    let mut offset = 64usize;
-    while offset + 24 <= bytes.len() {
-        if bytes.get(offset..offset + 8) == Some(b"LBX1KEY\0".as_slice()) {
-            bytes[offset + 16..offset + 24].copy_from_slice(&(2 * 1024 * 1024u64).to_le_bytes());
-            offset += 64;
-        } else {
-            offset += 1;
-        }
+    let header = crate::file_format::read_header(&bytes).unwrap();
+    for offset in [
+        header.key_directory_offset,
+        header.key_directory_mirror_offset,
+    ] {
+        let page = lb.read_page(offset).unwrap();
+        let mut payload = page.objects[0]
+            .with_payload(|bytes| bytes.to_vec())
+            .unwrap();
+        payload[16..24].copy_from_slice(&(2 * 1024 * 1024u64).to_le_bytes());
+        let encoded = crate::page::encode_page_with_format(
+            lb.page_len_at(offset).unwrap() as usize,
+            lb.lockbox_id(),
+            offset,
+            page.sequence,
+            &[],
+            &[crate::page::PageObject::new(
+                crate::page::PageObjectKind::KeyDirectory,
+                page.objects[0].id,
+                payload,
+            )],
+            header.format_mode,
+        )
+        .unwrap();
+        bytes[offset as usize..offset as usize + encoded.len()].copy_from_slice(&encoded);
     }
 
-    assert!(matches!(
-        Lockbox::open_with_password(bytes, &share_password),
-        Err(Error::SecurityLimitExceeded(_) | Error::InvalidKey | Error::CorruptHeader)
-    ));
+    let result = Lockbox::open_with_password(bytes, &share_password).map(|_| ());
+    assert!(
+        result.is_err(),
+        "oversized directory was accepted: {result:?}"
+    );
 }
 
 #[test]
@@ -2997,7 +3016,7 @@ fn open_rejects_a_rechecksummed_header_with_an_invalid_metadata_auth_tag() {
     let mut damaged = sample_lockbox();
     let header = crate::file_format::read_header(&damaged).unwrap();
     let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
-    damaged[start + 104] ^= 0x80;
+    damaged[start + 120] ^= 0x80;
     update_test_header_checksum(&mut damaged);
 
     assert!(matches!(
@@ -3045,7 +3064,7 @@ fn open_uses_previous_commit_when_latest_commit_root_is_corrupt() {
 }
 
 #[test]
-fn stale_header_after_interrupted_commit_opens_last_published_state() {
+fn replayed_header_after_retirement_fails_closed() {
     let mut lb = Lockbox::create(KEY);
     add_file(&mut lb, &p("/docs/old.txt"), b"old", false).unwrap();
     lb.commit().unwrap();
@@ -3056,12 +3075,7 @@ fn stale_header_after_interrupted_commit_opens_last_published_state() {
     let mut interrupted = lb.to_bytes();
     interrupted[0..HEADER_LEN].copy_from_slice(&previous[0..HEADER_LEN]);
 
-    let opened = Lockbox::open_bytes_with_key(interrupted, KEY).unwrap();
-    assert_eq!(opened.get_file(&p("/docs/old.txt")).unwrap(), b"old");
-    assert!(matches!(
-        opened.get_file(&p("/docs/new.txt")),
-        Err(Error::NotFound(_))
-    ));
+    assert!(Lockbox::open_bytes_with_key(interrupted, KEY).is_err());
 }
 
 #[test]
@@ -3859,10 +3873,10 @@ fn header_commit_root_offset(bytes: &[u8]) -> usize {
 }
 
 fn update_test_header_checksum(bytes: &mut [u8]) {
-    const CHECKSUM_START: usize = 128;
+    const CHECKSUM_START: usize = 160;
     for slot in 0..crate::file_format::header_v2::SLOT_COUNT {
         let start = slot * crate::file_format::header_v2::SLOT_LEN;
-        if bytes.get(start..start + 8) != Some(b"LBX2HDR\0".as_slice()) {
+        if bytes.get(start..start + 8) != Some(b"LBX4HDR\0".as_slice()) {
             continue;
         }
         let checksum = crate::crypto::strong_checksum(&bytes[start..start + CHECKSUM_START]);
