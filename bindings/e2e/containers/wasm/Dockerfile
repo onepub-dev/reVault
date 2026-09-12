@@ -41,4 +41,5 @@ ENV XDG_RUNTIME_DIR=/tmp/revault-runtime
 ENV REVAULT_E2E_NATIVE_ROOT=/opt/revault-wasm-consumer/node_modules/@onepub-dev/revault-api-wasm/generated
 ENV REVAULT_E2E_NATIVE_FILE=revault_wasm_bindings_bg.wasm
 ENV REVAULT_E2E_NATIVE_KIND=wasm
+ENV REVAULT_E2E_LOADER_LIBRARY=/opt/revault-wasm-consumer/node_modules/@onepub-dev/revault-api-native-linux-x86_64-gnu/lib/librevault_api.so
 CMD ["revault-tool", "internal", "e2e", "container", "--language", "wasm"]

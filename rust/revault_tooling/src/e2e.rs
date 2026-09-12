@@ -364,7 +364,16 @@ fn verify_loader_resolution(
         .into_iter()
         .next()
         .ok_or("missing loader conformance invocation")?;
-    let full_path = native_root.join(native_file).canonicalize()?;
+    // Artifact evidence can describe WASM while loader overrides select the
+    // hosted facade's native shared library.
+    let full_path = std::env::var_os("REVAULT_E2E_LOADER_LIBRARY")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| native_root.join(native_file))
+        .canonicalize()?;
+    let native_root = full_path.parent().ok_or("loader library has no parent")?;
+    let native_file = full_path
+        .file_name()
+        .ok_or("loader library has no filename")?;
     let invalid_environment_path = native_root.join(format!(
         ".revault-e2e-missing-library-{}",
         std::process::id()

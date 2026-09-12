@@ -438,6 +438,17 @@ fn prepare_npm(
             .display()
             .to_string(),
     )];
+    // Hosted WASM has two carriers: its WASM evidence artifact and the native
+    // library accepted by Revault.load. Loader overrides must use the latter.
+    environment.push((
+        "REVAULT_E2E_LOADER_LIBRARY".into(),
+        consumer
+            .join("node_modules")
+            .join(format!("@onepub-dev/revault-api-native-{target}/lib"))
+            .join(dynamic_library(target))
+            .display()
+            .to_string(),
+    ));
     let (program, program_args) = if language == "typescript" {
         environment.push((
             "NODE_PATH".into(),
