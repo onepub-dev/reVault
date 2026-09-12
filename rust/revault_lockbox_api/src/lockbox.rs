@@ -146,7 +146,7 @@ pub struct ImportStats {
 
 impl Drop for CachedCompressionFrame {
     fn drop(&mut self) {
-        self.data.zeroize();
+        crate::page_buffer::zeroize_bytes(&mut self.data);
     }
 }
 

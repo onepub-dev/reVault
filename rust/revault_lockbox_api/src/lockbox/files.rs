@@ -24,13 +24,14 @@ use crate::file_format::decode_compression_frame_segment_payload_view;
 use crate::lockbox_path::LockboxPath;
 use crate::node_kind::NodeKind;
 use crate::page::{PageObject, PageObjectKind, DEFAULT_PAGE_BYTES};
+use crate::page_buffer::ZeroizingBytes;
 use crate::page_object_packer::PageObjectPacker;
 use crate::security::validate_permissions;
 use crate::storage::atomic_file_replacement::AtomicFileReplacement;
 use crate::toc_entry::TocEntry;
 use crate::{Error, Result, WorkloadProfile};
 use sha2::{Digest, Sha256};
-use zeroize::{Zeroize, Zeroizing};
+use zeroize::Zeroize;
 
 const SMALL_FILE_PACKING_LIMIT: usize = 1024 * 1024;
 const SMALL_FILE_COMPRESSION_FRAME_BYTES: usize = 4 * 1024;
@@ -782,6 +783,11 @@ impl<State> Lockbox<State> {
 
             let copy_start = cursor.max(chunk_start) - chunk_start;
             let copy_end = wanted_end.min(chunk_end) - chunk_start;
+            // An aligned frame read already owns exactly the requested bytes.
+            // Transfer it to the caller instead of making another full copy.
+            if out.is_empty() && chunk_start == offset && chunk_end == wanted_end {
+                return Ok(decoded_chunk);
+            }
             out.extend_from_slice(&decoded_chunk[copy_start as usize..copy_end as usize]);
             cursor = chunk_start + copy_end;
             if cursor >= wanted_end {
@@ -816,7 +822,7 @@ impl<State> Lockbox<State> {
         }
         let compressed_len =
             usize::try_from(chunk.compressed_len).map_err(|_| Error::CorruptRecord)?;
-        let mut stored = Zeroizing::new(vec![0u8; compressed_len]);
+        let mut stored = ZeroizingBytes::new(vec![0u8; compressed_len]);
         let mut cache_slices = None;
         for segment in &chunk.segments {
             self.with_page_object(segment.page_offset, segment.object_id, |object| {
@@ -879,6 +885,12 @@ impl<State> Lockbox<State> {
             if end > stored.len() {
                 return Err(Error::CorruptRecord);
             }
+            if start == 0
+                && end == stored.len()
+                && !self.should_cache_decoded_compression_frame(stored.len())
+            {
+                return Ok(std::mem::take(&mut *stored));
+            }
             let out = stored[start..end].to_vec();
             let decoded = std::mem::take(&mut *stored);
             self.cache_decoded_compression_frame_owned(
@@ -889,13 +901,23 @@ impl<State> Lockbox<State> {
             return Ok(out);
         }
 
-        let decoded = Zeroizing::new(decode_compression_frame(
+        let mut decoded = ZeroizingBytes::new(decode_compression_frame(
             chunk.compression,
             stored.as_slice(),
             chunk.compression_frame_len,
         )?);
+        if start == 0
+            && end == decoded.len()
+            && !self.should_cache_decoded_compression_frame(decoded.len())
+        {
+            return Ok(std::mem::take(&mut *decoded));
+        }
         let out = decoded[start..end].to_vec();
-        self.cache_decoded_compression_frame(chunk, cache_slices.unwrap_or_default(), &decoded);
+        self.cache_decoded_compression_frame_owned(
+            chunk,
+            cache_slices.unwrap_or_default(),
+            std::mem::take(&mut *decoded),
+        );
         Ok(out)
     }
 
@@ -1213,25 +1235,14 @@ impl<State> Lockbox<State> {
         Ok(Some(entry.data[start..end].to_vec()))
     }
 
-    fn cache_decoded_compression_frame(
-        &self,
-        chunk: &FileChunk,
-        slices: Vec<CompressionFrameSlice>,
-        decoded: &[u8],
-    ) {
-        if !self.should_cache_decoded_compression_frame(decoded.len()) {
-            return;
-        }
-        self.insert_decoded_compression_frame(chunk, slices, decoded.to_vec());
-    }
-
     fn cache_decoded_compression_frame_owned(
         &self,
         chunk: &FileChunk,
         slices: Vec<CompressionFrameSlice>,
-        decoded: Vec<u8>,
+        mut decoded: Vec<u8>,
     ) {
         if !self.should_cache_decoded_compression_frame(decoded.len()) {
+            crate::page_buffer::zeroize_bytes(&mut decoded);
             return;
         }
         self.insert_decoded_compression_frame(chunk, slices, decoded);

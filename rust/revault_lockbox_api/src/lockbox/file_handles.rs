@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::{self, Read, Seek, SeekFrom, Write};
 
-use zeroize::Zeroizing;
+use crate::page_buffer::ZeroizingBytes;
 
 use super::file_import_pipeline::CompressionFrameWrite;
 use super::files::{
@@ -69,7 +69,7 @@ pub struct LockboxFileReader<'a, State = Writable> {
     position: u64,
     len: u64,
     cache_page_index: Option<u64>,
-    cache_page: Zeroizing<Vec<u8>>,
+    cache_page: ZeroizingBytes,
 }
 
 /// Seekable read/write handle over a file inside a writable lockbox.
@@ -81,7 +81,7 @@ pub struct LockboxFileMut<'a> {
     permissions: u32,
     exists_on_open: bool,
     truncate_existing: bool,
-    dirty_pages: BTreeMap<u64, Zeroizing<Vec<u8>>>,
+    dirty_pages: BTreeMap<u64, ZeroizingBytes>,
     closed: bool,
 }
 
@@ -150,7 +150,7 @@ impl<'a, State> LockboxFileReader<'a, State> {
             position: 0,
             len,
             cache_page_index: None,
-            cache_page: Zeroizing::new(Vec::new()),
+            cache_page: ZeroizingBytes::new(Vec::new()),
         }
     }
 
@@ -174,7 +174,7 @@ impl<'a, State> LockboxFileReader<'a, State> {
             let page_start = page_index * FILE_COMPRESSION_FRAME_BYTES as u64;
             if self.cache_page_index != Some(page_index) {
                 let page_len = (FILE_COMPRESSION_FRAME_BYTES as u64).min(self.len - page_start);
-                self.cache_page = Zeroizing::new(
+                self.cache_page = ZeroizingBytes::new(
                     self.lockbox
                         .read_file_range(&self.path, page_start, page_len)?,
                 );
@@ -324,7 +324,7 @@ impl<'a> LockboxFileMut<'a> {
             if let Some((start, end)) = trim_zeroes(&page[..actual_len]) {
                 dirty_writes.push((
                     page_start + start as u64,
-                    Zeroizing::new(page[start..end].to_vec()),
+                    ZeroizingBytes::new(page[start..end].to_vec()),
                 ));
             }
         }
@@ -447,7 +447,8 @@ impl<'a> LockboxFileMut<'a> {
                     Vec::new()
                 };
                 page.resize(FILE_COMPRESSION_FRAME_BYTES, 0);
-                self.dirty_pages.insert(page_index, Zeroizing::new(page));
+                self.dirty_pages
+                    .insert(page_index, ZeroizingBytes::new(page));
             }
             let page = self
                 .dirty_pages

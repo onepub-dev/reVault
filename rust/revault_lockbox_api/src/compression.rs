@@ -1,6 +1,7 @@
 use crate::checked::{read_u16_le, read_u32_le, read_u64_le};
 use crate::constants::DEFAULT_MAX_PAGE_LOGICAL_BYTES;
 use crate::{Error, Result};
+use std::borrow::Cow;
 use zstd_complete::decoding::FrameDecoder;
 use zstd_complete::encoding::{compress_to_vec, CompressionLevel};
 
@@ -35,7 +36,12 @@ pub(crate) fn encode_page_body(payload: &[u8]) -> Vec<u8> {
     body
 }
 
+#[cfg(test)]
 pub(crate) fn decode_page_body(body: &[u8]) -> Result<Vec<u8>> {
+    decode_page_body_view(body).map(Cow::into_owned)
+}
+
+pub(crate) fn decode_page_body_view(body: &[u8]) -> Result<Cow<'_, [u8]>> {
     if body.len() < 17 {
         return Err(Error::CorruptRecord);
     }
@@ -57,9 +63,9 @@ pub(crate) fn decode_page_body(body: &[u8]) -> Result<Vec<u8>> {
             if stored.len() as u64 != real_len {
                 return Err(Error::CorruptRecord);
             }
-            stored.to_vec()
+            Cow::Borrowed(stored)
         }
-        COMPRESSION_ZSTD => zstd_decode(stored, real_len)?,
+        COMPRESSION_ZSTD => Cow::Owned(zstd_decode(stored, real_len)?),
         _ => return Err(Error::CorruptRecord),
     };
     if decoded.len() as u64 != real_len {
@@ -247,7 +253,27 @@ pub(crate) fn looks_incompressible(payload: &[u8]) -> bool {
     }
 
     let (counts, len) = entropy_sample_counts(payload);
-    shannon_entropy_bits_per_byte(&counts, len) >= HIGH_ENTROPY_BITS_PER_BYTE
+    if shannon_entropy_bits_per_byte(&counts, len) < HIGH_ENTROPY_BITS_PER_BYTE {
+        return false;
+    }
+
+    // A flat byte histogram does not imply incompressibility: repeated binary
+    // sequences can contain every byte equally often. Confirm with a bounded
+    // compression probe before skipping compression of the entire frame.
+    let chunk_len = INCOMPRESSIBLE_SAMPLE_BYTES / 4;
+    let mut sample =
+        crate::page_buffer::ZeroizingBytes::new(Vec::with_capacity(INCOMPRESSIBLE_SAMPLE_BYTES));
+    for offset in [
+        0,
+        payload.len() / 3,
+        payload.len() * 2 / 3,
+        payload.len() - chunk_len,
+    ] {
+        sample.extend_from_slice(&payload[offset..offset + chunk_len]);
+    }
+    let compressed =
+        crate::page_buffer::ZeroizingBytes::new(zstd_encode(&sample, ZSTD_DEFAULT_LEVEL));
+    compressed.len() * 100 >= sample.len() * 95
 }
 
 fn entropy_sample_counts(payload: &[u8]) -> ([usize; 256], usize) {
@@ -351,13 +377,31 @@ mod tests {
     }
 
     #[test]
-    fn high_entropy_payload_skips_zstd_probe() {
+    fn high_entropy_random_payload_stays_uncompressed() {
         let mut payload = vec![0u8; MIN_INCOMPRESSIBLE_CHECK_BYTES * 2];
         fill_randomish(&mut payload);
         let body = encode_page_body(&payload);
 
         assert_eq!(body[8], COMPRESSION_NONE);
         assert_eq!(decode_page_body(&body).unwrap(), payload);
+    }
+
+    #[test]
+    fn repeated_binary_sequences_are_not_mistaken_for_incompressible_data() {
+        let payload: Vec<u8> = (0..1024 * 1024)
+            .map(|offset| ((offset * 13 + offset / 251) % 251) as u8)
+            .collect();
+        let (counts, len) = entropy_sample_counts(&payload);
+        assert!(shannon_entropy_bits_per_byte(&counts, len) >= HIGH_ENTROPY_BITS_PER_BYTE);
+        assert!(!looks_incompressible(&payload));
+        let (algorithm, compressed) =
+            encode_with_compression(&payload, crate::Compression::default());
+        assert_eq!(algorithm, COMPRESSION_ZSTD);
+        assert!(compressed.len() < payload.len() / 10);
+        assert_eq!(
+            decode_compression_frame(algorithm, &compressed, payload.len() as u64).unwrap(),
+            payload
+        );
     }
 
     #[test]

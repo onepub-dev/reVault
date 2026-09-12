@@ -1,0 +1,82 @@
+Issue #310 large-file checkpoint, 2026-09-13
+Parent checkpoint: 9afa9d6
+Same Linux x86_64 / Ryzen 7 3700X workspace as issue310-notes.txt.
+
+Findings
+Unsigned archive open took roughly 0.15 ms; the original large-file total
+was dominated by reading and dropping buffers. A perf record with 100 samples
+per scenario attributed about 21% of CPU samples to decode_page_with_format,
+19% to SHA-256, 11% to Vec drop, and 7% to memory copies. Annotated decoder
+instructions showed most of that decoder time in zeroing loops. Profiling
+included benchmark setup, ZIP and lockbox, so these are not isolated read-only
+percentages and were used to locate hot functions rather than forecast gains.
+
+Vec<u8>::zeroize in zeroize 1.9 wipes initialized elements one at a time with
+individual barriers, clears the Vec, then wipes its full capacity again.
+The optimized byte-only helper uses the existing slice zeroization API on
+initialized bytes and spare capacity separately, retaining volatile writes
+and covering the entire allocation once. Tests check both initialized and
+truncated contents. No production unsafe code was introduced.
+
+Plain pages and uncompressed page-body envelopes are borrowed during decode.
+Encrypted/decompressed temporary buffers still wipe on drop, including error
+returns. Complete-frame reads transfer their owned Vec to the caller when
+frame caching is disabled, and aligned ranges reuse that allocation. Cached
+frames also take ownership rather than duplicating a decoded allocation.
+
+The entropy-only compression heuristic also falsely classified repeating
+binary data as incompressible. A bounded 16 KiB compression probe now confirms
+high-entropy samples before skipping full-frame compression. Tests cover
+the false positive plus random and archive-like inputs. This changes choices
+when writing new content, not the archive format or persisted existing data.
+
+Measurements
+See issue310-large-checkpoint.csv (80 cases), issue310-multiframe-pattern.csv
+(12 cases), and issue310-multiframe-random.csv (12 cases). All 104 combinations
+completed with byte comparisons; each reported value is the median of five
+fresh-handle samples. OS caches remain warm. Other system load and CPU clocks
+were not controlled. Phase medians need not sum to the total median; total
+also includes handle destruction.
+
+Four 1 MiB files, unsigned/unencrypted, Interactive (milliseconds):
+                                    9afa9d6   This checkpoint   ZIP
+Compression requested, streaming      19.745       1.769         0.942
+Compression requested, shuffled       22.313       2.875         0.936
+Compression disabled, streaming       18.244       6.750         1.072
+Compression disabled, shuffled        20.784      11.028         1.393
+
+The compression-requested fixture was previously stored as 4,201,792 bytes;
+it is now 35,136 bytes (ZIP 56,150). Thus its improvement combines decoder
+changes AND better compression decisions on newly written content. Existing
+archives are not recompressed by opening them. Read-path gains alone should
+be assessed using the compression-disabled rows.
+
+Four 8 MiB repeating files now stream in 12.298 ms with compression requested
+(ZIP 7.801 ms). The uncompressed and random-data workloads still trail ZIP.
+For small files, both compressed and stored unsigned Interactive cases now
+beat ZIP in this run, so the large-file work did not lose the earlier win.
+
+Benchmark semantics
+REVAULT_ZIP_READ_CASE=large selects large files; REVAULT_ZIP_READ_MODE=plain
+selects unsigned/unencrypted; REVAULT_ZIP_READ_SIZE=8388608 uses 8 MiB files.
+REVAULT_ZIP_READ_CORPUS=random selects deterministic high-entropy input.
+The range case reads three 8 KiB ranges per file, including a frame boundary
+for the 8 MiB fixture. Stored ZIP uses its direct seek API; deflated ZIP must
+decode the prefix. Neither partial ZIP path verifies a full-file CRC, while
+lockbox continues to verify backing pages and compression-frame digests.
+Full-file cases verify all bytes and ZIP reaches EOF for CRC checking.
+
+Validation
+287 active lockbox tests passed, six intentionally ignored. The full-capacity
+wiping regression was additionally rerun after initializing all test spare
+capacity explicitly. Format, corruption, encrypted/signed, locking, sparse
+files, ranges, rollback and recovery checks remain intact.
+
+Still open
+General ZIP parity has not been reached. Stored data and small random ranges
+remain particularly expensive: a small lockbox range still processes and
+authenticates whole backing pages/frames. Signed plaintext opens also require
+full-content signature verification. Next profiling should distinguish frame
+decode, digest verification, and range amplification; do not remove integrity
+checks or wiping to make the comparison pass. Compression probes add bounded
+work during writes and should be included in future import measurements.

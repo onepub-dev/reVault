@@ -1,16 +1,17 @@
 use crate::checked::{array_12, read_u16_le, read_u32_le, read_u64_le};
-use crate::compression::{decode_page_body, encode_page_body, COMPRESSION_NONE};
+use crate::compression::{decode_page_body_view, encode_page_body, COMPRESSION_NONE};
 use crate::crypto::{
     derive_page_content_key, open_with_content_key_secure, open_with_nonce,
     seal_with_content_key_secure, seal_with_random_nonce, strong_checksum,
 };
 use crate::lockbox_id::LockboxId;
-use crate::page_buffer::PageBuffer;
+use crate::page_buffer::{zeroize_bytes, PageBuffer, ZeroizingBytes};
 use crate::page_inspection::{PageInspection, PageObjectInspection};
 use crate::record::{DecodedRecord, RecordHeader, RecordKind};
 use crate::scan::Scan;
 use crate::secret_vec::{secure_read_access, SecureVec};
 use crate::{Error, Result};
+use std::borrow::Cow;
 use zeroize::Zeroize;
 
 pub(crate) const PAGE_MAGIC: &[u8; 8] = b"LBX1PAG\0";
@@ -240,7 +241,7 @@ impl PagePayload {
 impl Drop for PagePayload {
     fn drop(&mut self) {
         if let Self::Normal(payload) = self {
-            payload.zeroize();
+            zeroize_bytes(payload);
         }
     }
 }
@@ -505,6 +506,7 @@ pub(crate) fn decode_page_with_format(
         return Err(Error::Truncated);
     }
     let stored_body = &page[header_len..header_len + stored_body_len];
+    let decrypted;
     let body = if flags & PAGE_FLAG_CLEAR_TEXT != 0 {
         if nonce.iter().any(|byte| *byte != 0) || stored_body.len() < 32 {
             return Err(Error::CorruptRecord);
@@ -513,24 +515,23 @@ pub(crate) fn decode_page_with_format(
         if digest != strong_checksum(body) {
             return Err(Error::CorruptRecord);
         }
-        body.to_vec()
+        body
     } else {
         let aad = page_aad(lockbox_id, page_id, sequence, flags, stored_body_len as u32);
-        open_with_nonce(stored_body, key, nonce, &aad)?
+        decrypted = ZeroizingBytes::new(open_with_nonce(stored_body, key, nonce, &aad)?);
+        decrypted.as_slice()
     };
-    let mut body = body;
     if mode.0 != 0
         && mode.options().compression == crate::Compression::None
         && body.get(1) == Some(&COMPRESSION_NORMAL)
         && body.get(24) != Some(&COMPRESSION_NONE)
     {
-        body.zeroize();
         return Err(Error::CorruptRecord);
     }
-    let mut object_stream = decode_page_body_plaintext(&body)?;
-    body.zeroize();
-    let objects = decode_object_stream(&object_stream)?;
-    object_stream.zeroize();
+    let objects = match decode_page_body_plaintext(body)? {
+        Cow::Borrowed(bytes) => decode_object_stream(bytes)?,
+        Cow::Owned(bytes) => decode_object_stream(&ZeroizingBytes::new(bytes))?,
+    };
     let clear_text = mode.plaintext() || page_objects_are_clear_text(&objects)?;
     if clear_text != (flags & PAGE_FLAG_CLEAR_TEXT != 0) {
         return Err(Error::CorruptRecord);
@@ -1074,7 +1075,7 @@ fn encode_page_body_plaintext(object_stream: &[u8], compress: bool) -> Vec<u8> {
     body
 }
 
-fn decode_page_body_plaintext(body: &[u8]) -> Result<Vec<u8>> {
+fn decode_page_body_plaintext(body: &[u8]) -> Result<Cow<'_, [u8]>> {
     if body.len() < 16 {
         return Err(Error::CorruptRecord);
     }
@@ -1083,8 +1084,8 @@ fn decode_page_body_plaintext(body: &[u8]) -> Result<Vec<u8>> {
     }
     let expected_len = read_u64_le(&body[4..12])?;
     let decoded = match body[1] {
-        COMPRESSION_NONE => body[16..].to_vec(),
-        COMPRESSION_NORMAL => decode_page_body(&body[16..])?,
+        COMPRESSION_NONE => Cow::Borrowed(&body[16..]),
+        COMPRESSION_NORMAL => decode_page_body_view(&body[16..])?,
         _ => return Err(Error::CorruptRecord),
     };
     if decoded.len() as u64 != expected_len {
