@@ -630,6 +630,13 @@ impl Lockbox<Writable> {
         let key = SecretVec::try_from_slice(key.as_ref())
             .expect("secure allocation failed while creating lockbox");
         let mut lockbox = Self::create_with_secret_key_and_options(key, lockbox_id, options);
+        lockbox.set_creation_format(crate::creation_options::FormatMode::new(
+            crate::LockboxFormatOptions {
+                encryption: crate::EncryptionMode::ChaCha20Poly1305,
+                signing: crate::SigningMode::Owner,
+                compression: crate::Compression::default(),
+            },
+        ));
         lockbox.set_owner_signing_key(
             OwnerSigningKeyPair::generate().expect("system random source failed"),
         );

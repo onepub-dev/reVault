@@ -1,8 +1,25 @@
 use revault_lockbox_api::{
     Compression, Encryption, EncryptionMode, Lockbox, LockboxCreateOptions, LockboxOpen,
-    LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretString, Signing, SigningMode,
-    ZstdLevel,
+    LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretString, SecretVec, Signing,
+    SigningMode, ZstdLevel, LOCKBOX_FORMAT_VERSION,
 };
+
+#[test]
+fn default_raw_creation_reports_the_current_format_version() {
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let lockbox = Lockbox::create_in_memory_with_options(LockboxCreateOptions::new(
+        Encryption::Encrypted(LockboxProtection::ContentKey(
+            SecretVec::try_from_slice(&[7u8; 32]).unwrap(),
+        )),
+        Signing::Owner(&signer),
+    ))
+    .unwrap();
+    let bytes = lockbox.try_to_bytes().unwrap();
+    assert_eq!(
+        revault_lockbox_api::probe_lockbox_format_version(&bytes).unwrap(),
+        LOCKBOX_FORMAT_VERSION
+    );
+}
 
 #[test]
 fn independent_modes_survive_reopen_and_mutation() {

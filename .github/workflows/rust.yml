@@ -291,7 +291,7 @@ jobs:
           - name: Linux x86_64
             os: ubuntu-latest
             cache: linux-x86_64
-            command: cargo xtask test-cli-e2e
+            command: cargo run --locked -p revault_tooling -- dev test-cli-e2e
           # Exhaustive command/option coverage belongs to Linux. Keep Windows
           # lifecycles that exercise OS paths, locks, replacement and processes.
           # Non-ignored agent_flow tests already run in the platform job.
