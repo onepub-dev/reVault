@@ -1,3 +1,8 @@
+## 0.3.16
+
+- Hide xtask development tasks behind revault-tool
+- Consolidate development commands in revault-tool
+
 ## 0.3.15
 
 - Improve release version selection

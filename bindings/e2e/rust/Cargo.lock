@@ -1227,7 +1227,7 @@ dependencies = [
 
 [[package]]
 name = "revault_lockbox_api"
-version = "0.0.36"
+version = "0.0.37"
 dependencies = [
  "argon2",
  "chacha20poly1305",
@@ -1250,7 +1250,7 @@ dependencies = [
 
 [[package]]
 name = "revault_page_api"
-version = "0.0.29"
+version = "0.0.30"
 dependencies = [
  "getrandom 0.4.3",
  "libc",
@@ -1260,7 +1260,7 @@ dependencies = [
 
 [[package]]
 name = "revault_vault_api"
-version = "0.0.37"
+version = "0.0.38"
 dependencies = [
  "base64ct",
  "chacha20poly1305",
