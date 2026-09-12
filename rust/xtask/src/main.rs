@@ -33,7 +33,7 @@ fn run() -> Result<(), String> {
         "clippy-advisory" => no_args(&task, &args, quality::clippy_advisory),
         "generate-api-docs" => no_args(&task, &args, quality::generate_api_docs),
         "install-cli" => no_args(&task, &args, install::cli),
-        "install-tool" => no_args(&task, &args, install::tool),
+        "dev-tools" => install::dev_tools(&args),
         "test-cli-e2e" => no_args(&task, &args, e2e::cli),
         "build-cli" => build::cli(&args),
         "run-network-tests" => no_args(&task, &args, quality::run_network_tests),
@@ -75,7 +75,7 @@ Tasks:
   clippy-advisory                Run the advisory Clippy lint groups
   generate-api-docs              Generate revault_lockbox_api documentation
   install-cli                    Install local CLI and migration executables
-  install-tool                   Build and install the local revault-tool
+  dev-tools                      Build and install revault-tool, the developer command hub
   test-cli-e2e                   Run realistic CLI journeys and enforce command/option coverage
   build-cli                      Build portable CLI binaries in Docker (glibc 2.31)
   run-network-tests              Run ignored network integration tests

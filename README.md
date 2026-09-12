@@ -59,6 +59,7 @@ You can also install the CLI by cloning the github repo.
 git clone https://github.com/onepub-dev/reVault.git
 cd reVault/rust
 cargo xtask install-cli
+cargo xtask dev-tools
 ```
 
 # Initialise your vault
@@ -67,6 +68,11 @@ In order to create a lockbox you must first initialise your Vault.
 
 When you install the reVault CLI, Cargo installs both `lockbox` app and its alias `lbx` into `~/.cargo/bin`.
 Ensure that directory is on your `PATH`.
+
+`cargo xtask dev-tools` installs `revault-tool`, the repository developer
+command hub. Run `revault-tool --help` to see release preparation/publication,
+binding generation and checks, conformance tests, and the `dev` commands that
+wrap repository validation tasks.
 
 To initialise your vault run:
 
@@ -402,7 +408,7 @@ Generate Rust API docs:
 
 ```bash
 cd rust
-cargo xtask generate-api-docs
+revault-tool dev generate-api-docs
 ```
 
 ### Release checklist

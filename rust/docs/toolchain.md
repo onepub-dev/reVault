@@ -15,8 +15,8 @@ and published Rust bindings use the same Rust 1.88 baseline.
 Development flow:
 
 - Use the pinned Rust 1.88 toolchain when developing locally.
-- Run `cargo xtask check-required` before merging substantial Rust changes.
-- Run `cargo xtask run-network-tests` when changing publish, topology,
+- Run `revault-tool dev check-required` before merging substantial Rust changes.
+- Run `revault-tool dev run-network-tests` when changing publish, topology,
   replication, networking, or key-server behavior.
 - Treat an API MSRV increase as an intentional compatibility change. Update the
   affected manifests, this document, CI, and release notes together.

@@ -1,15 +1,17 @@
 # Workspace tasks
 
-`xtask` contains repository maintenance and validation commands that are not
-part of the shipped reVault applications or libraries.
+`xtask` contains the bootstrap implementation for repository maintenance and
+validation commands that are not part of the shipped reVault applications or
+libraries.
 
 Run tasks from the `rust/` workspace directory:
 
 ```text
 cargo xtask help
-cargo xtask check-required
 cargo xtask install-cli
-cargo xtask upgrade-deps
+cargo xtask dev-tools
+revault-tool dev check-required
+revault-tool dev upgrade-deps
 ```
 
 `upgrade-deps` uses `cargo upgrade` from `cargo-edit` with incompatible
@@ -26,5 +28,8 @@ Rust-1.88-compatible `cargo-edit` 0.13.7 release automatically.
 Cargo maps `cargo xtask` to `cargo run -p xtask --` through
 `.cargo/config.toml`.
 
-Release and language-binding tooling remains in `revault_tooling` while that
-work is being migrated separately.
+`dev-tools` installs `revault-tool`, which is the developer command hub for
+release preparation/publication, binding generation and checks, conformance
+tests, and the `dev` namespace for repository validation tasks. The xtask
+binary remains the bootstrap layer because it can build and install the hub
+before the hub itself exists on `PATH`.

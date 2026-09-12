@@ -1,8 +1,21 @@
 use crate::command::{self, TaskResult};
 
-pub fn tool() -> TaskResult {
+pub fn dev_tools(args: &[String]) -> TaskResult {
+    if args.len() == 1 && matches!(args[0].as_str(), "-h" | "--help") {
+        println!(
+            "Usage: cargo xtask dev-tools\n\n\
+             Builds and installs revault-tool, the repository developer command hub.\n\
+             revault-tool handles release preparation/publication, binding generation\n\
+             and checks, conformance tests, and repository development tasks under\n\
+             `revault-tool dev`."
+        );
+        return Ok(());
+    }
+    if !args.is_empty() {
+        return Err("dev-tools does not accept arguments".to_owned());
+    }
     install_path("revault_tooling")?;
-    println!("Installed local `revault-tool`.");
+    println!("Installed local `revault-tool`; run `revault-tool --help` to view its commands.");
     Ok(())
 }
 

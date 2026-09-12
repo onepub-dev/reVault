@@ -1,7 +1,7 @@
 Release candidates
 ==================
 
-Install the repository tool by running `cargo xtask install-tool` from rust/.
+Install the repository tool by running `cargo xtask dev-tools` from rust/.
 Run it from the repository root with Git, Cargo and an authenticated GitHub CLI
 available. The GitHub account needs permission to push candidate branches,
 dispatch Actions workflows and read their artifacts. Existing publication
@@ -72,6 +72,12 @@ Development commands:
     revault-tool bindings status
     revault-tool test bindings
     revault-tool test cli
+
+The remaining repository validation tasks are available under `revault-tool
+dev`; run `revault-tool dev --help` for the complete list. This includes
+required checks, API documentation, CLI installation, Docker CLI builds,
+network tests, dependency upgrades, compression comparisons, and agent sleep
+tests.
 
 Generation compares temporary output first and writes only changed files.
 Binding tests require flatc 25.2.10 and the package conformance dependencies.

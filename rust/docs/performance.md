@@ -4,7 +4,7 @@ The key-server performance baseline is captured with the ignored heavy failover
 test and the workspace task:
 
 ```bash
-cargo xtask measure-key-server-performance
+revault-tool dev measure-key-server-performance
 ```
 
 The task writes logs under `target/perf/` and preserves the benchmark output
@@ -26,6 +26,6 @@ Interpretation:
 
 When changing server, replication, topology, protocol, or storage behavior:
 
-- Run `cargo xtask run-network-tests` for correctness.
-- Run `cargo xtask measure-key-server-performance` for a captured performance log.
+- Run `revault-tool dev run-network-tests` for correctness.
+- Run `revault-tool dev measure-key-server-performance` for a captured performance log.
 - Compare the final `heavy_failover flows=...` line against recent local or CI artifacts.
