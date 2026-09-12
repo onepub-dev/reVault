@@ -15,8 +15,8 @@ lockbox or vault API.
 The normal command migrates directly to the latest format:
 
 ```console
-lockbox doctor migrate vault --output ~/.local/share/lockbox/vault-v2
-lockbox doctor migrate lockbox secrets.lbox --output secrets-v2.lbox
+lockbox doctor migrate vault --output ~/.local/share/lockbox/vault-current
+lockbox doctor migrate lockbox secrets.lbox --output secrets-current.lbox
 ```
 
 Archive migration requires a vault that is already in the current format. The
@@ -42,7 +42,7 @@ historical exporter from crates.io using an exact version. Vault v1 uses
 `revault_migrate_archive_v1`.
 That executable reads the old native format and writes an encrypted, streaming
 migration artifact. The current executable upgrades that migration schema one
-version at a time and imports it into the latest native format.
+version at a time and imports it into the latest native format (currently v3).
 
 The encrypted export/import boundary means a current release never needs to
 carry every historical native reader. It also allows vaults and archives to be
@@ -100,8 +100,12 @@ Every native format change must include all of the following:
 6. Test logical equivalence rather than native byte equality. Archive migration
    intentionally produces a new commit/signature history.
 
-Vault native format v2 is the first migration target and the reference test case
-for this policy.
+The current native format is v3 for both the vault structure and lockbox archive.
+The v1 migration tests cover the complete v1 export, migration-schema upgrade,
+and import path into that current format. The archive fixture exercises the full
+record set: descriptions, directories, files, symlinks, normal and secret
+variables, form definitions and revisions, form values, permissions, and access
+keys. The v2-to-v3 step is tested separately.
 
 For the user-facing procedure and command examples, see the
 [vault and archive migration guide](migration_guide.md).

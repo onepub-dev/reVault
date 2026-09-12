@@ -137,7 +137,8 @@ The current lockbox and vault APIs intentionally read only their current native 
 4. upgrades the migration schema one step at a time; and
 5. imports and validates a new current-format vault or archive.
 
-The first supported migration is from native format v1 to v2. The historical exporters are installed automatically as needed:
+The first supported migration is from native format v1 to the current format.
+Migration schema records are upgraded one step at a time, so the historical exporters are installed automatically as needed:
 
 * vault v1: `revault_migrate_vault_v1`;
 * archive v1: `revault_migrate_archive_v1`.
@@ -188,8 +189,8 @@ For a manually staged migration, keep the artefact files private and transfer th
 Run the matching direct command and provide a destination:
 
 ```console
-lockbox doctor migrate vault --output ./vault-v2
-lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-v2.lbox
+lockbox doctor migrate vault --output ./vault-current
+lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-current.lbox
 ```
 
 If you want the original replaced after validation, use `--replace` instead.
@@ -200,7 +201,7 @@ Check the Vault passphrase and whether the platform credential store is availabl
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox doctor migrate vault --output ./vault-v2
+  lockbox doctor migrate vault --output ./vault-current
 ```
 
 #### The migration cannot open the archive
@@ -211,7 +212,7 @@ If the Vault does not hold a credential that can open the Lockbox and the Lockbo
 
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
-  lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-v2.lbox
+  lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-current.lbox
 ```
 
 #### The exporter cannot be installed
@@ -223,7 +224,7 @@ The current CLI needs the historical exporter for an old native format. Check ne
 Choose a new output path. Migration never overwrites an existing destination:
 
 ```console
-lockbox doctor migrate lockbox secrets.lbox --output secrets-v2-new.lbox
+lockbox doctor migrate lockbox secrets.lbox --output secrets-current-new.lbox
 ```
 
 #### The source changed while migration was in progress

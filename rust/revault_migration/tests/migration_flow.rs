@@ -1,6 +1,6 @@
 use revault_lockbox_api::{
     ContactKeyPair, FormTypeId, ListOptions, Lockbox, LockboxOpen, LockboxPath, LockboxProtection,
-    OwnerSigningKeyPair, RecoveryScanner, SecretString, SecretVec,
+    OwnerSigningKeyPair, RecoveryScanner, SecretString, SecretVec, LOCKBOX_FORMAT_VERSION,
 };
 use revault_lockbox_api_export_v1::{
     ContactKeyPair as V1ArchiveContactKeyPair, FormFieldDefinition as V1FormFieldDefinition,
@@ -105,15 +105,15 @@ fn archive_verifier_rejects_semantically_invalid_record_sequences() {
 }
 
 #[test]
-fn checked_in_released_v1_archive_fixture_migrates_to_v2() {
+fn checked_in_released_v1_archive_fixture_migrates_to_current_format() {
     const FIXTURE_KEY: &[u8] = b"lockbox fixture content key";
     const FIXTURE_HEX: &str = include_str!(
         "../../revault_lockbox_api/tests/fixtures/golden/v1/content_key_basic.lbox.hex"
     );
     let temp = tempfile::tempdir().unwrap();
     let artifact = temp.path().join("released-v1.migration");
-    let upgraded = temp.path().join("released-v1-v2.migration");
-    let output = temp.path().join("released-v1-v2.lbox");
+    let upgraded = temp.path().join("released-v1-current.migration");
+    let output = temp.path().join("released-v1-current.lbox");
     let fixture = V1Lockbox::open_bytes(
         decode_hex(FIXTURE_HEX),
         V1LockboxOpen::ContentKey(V1SecretVec::try_from_slice(FIXTURE_KEY).unwrap()),
@@ -212,13 +212,13 @@ fn vault_v2_export_verify_import_round_trip() {
 }
 
 #[test]
-fn vault_v1_fixture_exports_upgrades_and_imports_as_v2() {
+fn vault_v1_fixture_exports_upgrades_and_imports_as_current_format() {
     let temp = tempfile::tempdir().unwrap();
     let source_root = temp.path().join("vault-v1");
     let source_path = source_root.join("local-vault.lbox");
     let exported = temp.path().join("vault-v1.migration");
-    let upgraded = temp.path().join("vault-v2.migration");
-    let imported_root = temp.path().join("vault-v2");
+    let upgraded = temp.path().join("vault-current.migration");
+    let imported_root = temp.path().join("vault-current");
     let password = secret("v1 vault password");
     let v1_password = V1VaultSecretString::try_from_slice(b"v1 vault password").unwrap();
     let fixture = V1VaultDirectory::replace(&source_root, &v1_password).unwrap();
@@ -279,6 +279,7 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
     let signing = V1OwnerSigningKeyPair::generate().unwrap();
     let mut source =
         V1Lockbox::create_in_memory(V1LockboxProtection::Password(&v1_password), &signing).unwrap();
+    source.set_description("v1 migration fixture").unwrap();
     let additional_contact = V1ArchiveContactKeyPair::generate().unwrap();
     source
         .add_contact(&additional_contact.public_key())
@@ -374,6 +375,11 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
     import_archive(&upgraded, b"artifact password", &output, &migrated_signing).unwrap();
 
     let imported = Lockbox::open(&output, LockboxOpen::Password(&password)).unwrap();
+    assert_eq!(imported.format_version(), LOCKBOX_FORMAT_VERSION);
+    assert_eq!(
+        imported.description().unwrap().as_deref(),
+        Some("v1 migration fixture")
+    );
     let additional_contact_record = additional_contact.private_key_record().unwrap();
     let additional_contact_record = additional_contact_record
         .with_bytes(|bytes| bytes.to_vec())
@@ -427,7 +433,27 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
         .unwrap();
     assert_eq!(form.definition_revision, 1);
     assert_eq!(form.values[0].captured_label, "Original label");
-    assert!(form.values.iter().any(|value| value.field_id == "password"));
+    let username_value = form
+        .values
+        .iter()
+        .find(|value| value.field_id == "username")
+        .expect("migrated normal form field");
+    assert!(!username_value.value.is_secret());
+    assert!(
+        matches!(&username_value.value, revault_lockbox_api::FormValue::Normal(value) if value == "alice")
+    );
+    let password_value = form
+        .values
+        .iter()
+        .find(|value| value.field_id == "password")
+        .expect("migrated secret form field");
+    assert!(password_value.value.is_secret());
+    match &password_value.value {
+        revault_lockbox_api::FormValue::Secret(value) => value
+            .with_str(|value| assert_eq!(value, "migration-secret"))
+            .unwrap(),
+        revault_lockbox_api::FormValue::Normal(_) => panic!("secret form field was downgraded"),
+    }
     let imported_empty_dir = LockboxPath::new(empty_dir.as_str()).unwrap();
     let imported_empty_file = LockboxPath::new(empty_file.as_str()).unwrap();
     let imported_symlink = LockboxPath::new(symlink.as_str()).unwrap();
@@ -570,19 +596,17 @@ fn archive_migration_preserves_independent_format_choices() {
 }
 
 #[test]
-fn legacy_v2_archive_upgrades_to_explicit_v3_choices() {
+fn current_archive_import_preserves_explicit_v3_choices() {
     let temp = tempfile::tempdir().unwrap();
     let signer = OwnerSigningKeyPair::generate().unwrap();
     let key = b"legacy v2 migration test key";
-    // The raw migration constructor preserves v2 so this exercises an actual
-    // old-format source without changing a header or internal archive state.
-    let mut source =
-        Lockbox::create_with_lockbox_id(key, revault_lockbox_api::LockboxId::new_random().unwrap());
+    // The raw key constructor now writes the current explicit format choices.
+    let mut source = Lockbox::create(key);
     source.set_owner_signing_key(signer.try_clone().unwrap());
     let path = LockboxPath::new("/legacy.txt").unwrap();
     source.add_file(&path, b"legacy data", false).unwrap();
     source.commit().unwrap();
-    assert_eq!(source.format_version(), 2);
+    assert_eq!(source.format_version(), LOCKBOX_FORMAT_VERSION);
     let artifact = temp.path().join("legacy.migration");
     let destination = temp.path().join("upgraded.lbox");
     export_archive(&source, &artifact, b"artifact password".as_slice(), [8; 16]).unwrap();

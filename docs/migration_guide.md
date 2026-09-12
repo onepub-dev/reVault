@@ -169,7 +169,8 @@ command automatically:
 4. upgrades the migration schema one step at a time; and
 5. imports and validates a new current-format vault or archive.
 
-The first supported migration is from native format v1 to v2. The historical
+The first supported migration is from native format v1 to the current format.
+Migration schema records are upgraded one step at a time, so the historical
 exporters are installed automatically as needed:
 
 - vault v1: `revault_migrate_vault_v1`;
@@ -245,8 +246,8 @@ arguments may be visible to other processes.
 Run the matching direct command and provide a destination:
 
 ```console
-lockbox doctor migrate vault --output ./vault-v2
-lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-v2.lbox
+lockbox doctor migrate vault --output ./vault-current
+lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-current.lbox
 ```
 
 If you want the original replaced after validation, use `--replace` instead.
@@ -259,7 +260,7 @@ invocation:
 
 ```console
 LOCKBOX_VAULT_PASSWORD="$VAULT_PASSWORD" \
-  lockbox doctor migrate vault --output ./vault-v2
+  lockbox doctor migrate vault --output ./vault-current
 ```
 
 ### The migration cannot open the archive
@@ -272,7 +273,7 @@ archive has password access, provide that password through `LOCKBOX_PASSWORD`:
 
 ```console
 LOCKBOX_PASSWORD="$ARCHIVE_PASSWORD" \
-  lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-v2.lbox
+  lockbox doctor migrate lockbox old-secrets.lbox --output ./old-secrets-current.lbox
 ```
 
 ### The exporter cannot be installed
@@ -287,7 +288,7 @@ and pass it with the advanced `--exporter <path>` option.
 Choose a new output path. Migration never overwrites an existing destination:
 
 ```console
-lockbox doctor migrate lockbox secrets.lbox --output secrets-v2-new.lbox
+lockbox doctor migrate lockbox secrets.lbox --output secrets-current-new.lbox
 ```
 
 ### The source changed while migration was in progress
