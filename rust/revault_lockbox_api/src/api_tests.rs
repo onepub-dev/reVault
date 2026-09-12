@@ -2998,7 +2998,10 @@ fn open_rejects_a_rechecksummed_header_with_an_invalid_metadata_auth_tag() {
     let header = crate::file_format::read_header(&damaged).unwrap();
     let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
     damaged[start + 104] ^= 0x80;
-    update_test_header_checksum(&mut damaged);
+    update_test_header_checksum(&mut damaged, header.slot_index);
+    let damaged_header = crate::file_format::read_header(&damaged).unwrap();
+    assert_eq!(damaged_header.slot_index, header.slot_index);
+    assert_ne!(damaged_header.metadata_auth_tag, header.metadata_auth_tag);
 
     assert!(matches!(
         Lockbox::open_bytes_with_key(damaged, KEY),
@@ -3012,7 +3015,10 @@ fn recovery_survives_header_toc_pointer_zeroed() {
     let header = crate::file_format::read_header(&damaged).unwrap();
     let start = header.slot_index * crate::file_format::header_v2::SLOT_LEN;
     damaged[start + 24..start + 32].fill(0);
-    update_test_header_checksum(&mut damaged);
+    update_test_header_checksum(&mut damaged, header.slot_index);
+    let damaged_header = crate::file_format::read_header(&damaged).unwrap();
+    assert_eq!(damaged_header.slot_index, header.slot_index);
+    assert_eq!(damaged_header.commit_root_offset, 0);
 
     assert!(Lockbox::open_bytes_with_key(damaged.clone(), KEY).is_err());
 
@@ -3858,17 +3864,13 @@ fn header_commit_root_offset(bytes: &[u8]) -> usize {
     .unwrap()
 }
 
-fn update_test_header_checksum(bytes: &mut [u8]) {
+fn update_test_header_checksum(bytes: &mut [u8], slot_index: usize) {
     const CHECKSUM_START: usize = 128;
-    for slot in 0..crate::file_format::header_v2::SLOT_COUNT {
-        let start = slot * crate::file_format::header_v2::SLOT_LEN;
-        if bytes.get(start..start + 8) != Some(b"LBX2HDR\0".as_slice()) {
-            continue;
-        }
-        let checksum = crate::crypto::strong_checksum(&bytes[start..start + CHECKSUM_START]);
-        bytes[start + CHECKSUM_START..start + crate::file_format::header_v2::SLOT_LEN]
-            .copy_from_slice(&checksum);
-    }
+    assert!(slot_index < crate::file_format::header_v2::SLOT_COUNT);
+    let start = slot_index * crate::file_format::header_v2::SLOT_LEN;
+    let checksum = crate::crypto::strong_checksum(&bytes[start..start + CHECKSUM_START]);
+    bytes[start + CHECKSUM_START..start + crate::file_format::header_v2::SLOT_LEN]
+        .copy_from_slice(&checksum);
 }
 
 fn temp_path(label: &str) -> std::path::PathBuf {
