@@ -2,5 +2,7 @@ Release all
 CLI: 0.0.18
 Bindings: 0.3.16
 
+- Fix release conformance format probe and xtask workflow
+- Prepare all release: CLI 0.0.18, bindings 0.3.16
 - Hide xtask development tasks behind revault-tool
 - Consolidate development commands in revault-tool
