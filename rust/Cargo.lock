@@ -2429,6 +2429,7 @@ dependencies = [
  "windows-sys 0.61.2",
  "x25519-dalek 3.0.0",
  "zeroize",
+ "zip",
  "zstd",
  "zstd-complete 0.2.0",
 ]

@@ -1,0 +1,70 @@
+Issue: https://github.com/onepub-dev/reVault/issues/310
+Checkpoint date: 2026-09-13 (Australia/Melbourne)
+Branch: issue-310-zip-read-performance
+Base commit: 122414e31f45
+Machine: Linux x86_64, AMD Ryzen 7 3700X, 16 logical CPUs
+
+Earlier work
+Independent encryption/signing/compression: 356baf1.
+ReadMostly/ExtractMany frame caching: 12bdd2d (already on main).
+Issue discussion on 2026-09-10 corrects the previous apparent ZIP win:
+repeat reads benefited from decoded-frame caching; fresh reads were slower.
+No dedicated prior performance branch was found in local worktrees or remote
+branch names. This worktree resumes from main, which includes those changes.
+
+Run from rust/:
+  cargo bench -p revault_lockbox_api --bench zip_read --offline
+  cargo test -p revault_lockbox_api --offline
+REVAULT_ZIP_READ_SAMPLES controls the sample count (default 5).
+
+Method
+The CSV files record medians of five samples, including archive open, byte
+verification and handle drop. Each sample uses a fresh file-backed handle.
+OS page caches are warm; these are NOT cold-disk benchmarks. Fixtures are
+created outside timed regions. The original executable was saved before the
+optimization; the original and final measurements ran without another test
+or compiler launched by this thread running concurrently. Other system load
+and CPU frequency were not controlled. Results are local measurements, not
+portable performance guarantees.
+
+Both formats receive identical generated contents. ZIP uses zip 8.6.0 with
+Rust deflate, or Stored. Lockbox requests default Zstd or no compression;
+its existing incompressibility heuristic can still select stored frames.
+The streaming case reads every entry; random means a deterministic shuffle
+of whole-file reads by path, without replacement. Every byte is compared with
+the expected input. These results do not measure arbitrary intra-file seeks.
+Signing-only open includes the existing full-content signature verification.
+
+Changes
+Cached decoded pages are shared immutably rather than deep-cloned on every
+object read. Cache snapshots share those pages as well; mutation uses a new
+page (copy-on-write in the test mutation helper). Existing payload destructors
+still wipe data when its final owner drops. A cache hit also avoids accessing
+the protected key solely to discover that decryption is unnecessary.
+Page-security checks, authentication, checksums and archive format are unchanged.
+
+Selected results (Interactive, no encryption or signing; milliseconds)
+                                            Original  Final   ZIP(final run)
+512 x 4 KiB, compression off, streaming      585.934   7.309   6.401
+512 x 4 KiB, compression off, shuffled       583.540   8.295   6.601
+512 x 4 KiB, compression on, streaming        83.768   4.926   7.115
+512 x 4 KiB, compression on, shuffled         84.645   6.018   7.114
+4 x 1 MiB, compression off, streaming        30.060  18.244   0.958
+4 x 1 MiB, compression on, streaming         29.352  19.745   0.902
+
+Validation
+285 active tests passed, six intentionally ignored, including byte round
+trips, signed/encrypted modes, corruption checks, rollback, recovery and
+cross-process archive locking. Cache regression assertions cover shared read
+identity, snapshot isolation during mutation and release after eviction.
+All 64 benchmark combinations completed and verified their returned bytes.
+
+Still open
+This is a progress checkpoint, not completion of #310. Compression-on small
+files meet the 10% target in the Interactive profile on this machine; stored
+small files, large files and some protected/profile combinations do not.
+Next: profile large-file open versus page/frame decoding, copies and wiping;
+record actual compressed sizes; add realistic and incompressible corpora,
+multi-frame files, intra-file seeks, and separately reported warm rereads.
+Preserve integrity checks and secure-memory guarantees while addressing the
+remaining cost. Do not claim general ZIP parity from this synthetic fixture.

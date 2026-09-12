@@ -15,6 +15,7 @@ use crate::secret_vec::SecureVec;
 use crate::storage::Storage;
 use crate::{Error, Result};
 use std::collections::{BTreeSet, HashMap, VecDeque};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub(crate) struct PageCache {
@@ -51,7 +52,9 @@ impl Clone for PageCache {
 
 #[derive(Debug, Clone)]
 struct CachedPage {
-    page: DecodedPage,
+    // Readers share an immutable page rather than copying every object's payload
+    // for each file slice. Payloads retain their existing zeroizing destructors.
+    page: Arc<DecodedPage>,
     weight: u64,
     generation: u64,
     security: PageSecurity,
@@ -111,6 +114,23 @@ impl PageCache {
         self.format_mode = mode;
     }
 
+    pub(crate) fn cached_page(
+        &mut self,
+        offset: u64,
+        security: PageSecurity,
+    ) -> Result<Option<Arc<DecodedPage>>> {
+        if let Some(entry) = self.pages.get_mut(&offset) {
+            if entry.security == security {
+                self.hits = self.hits.saturating_add(1);
+                entry.generation = entry.generation.saturating_add(1);
+                self.recent.push_back(offset);
+                return Ok(Some(Arc::clone(&entry.page)));
+            }
+            return Err(Error::CorruptRecord);
+        }
+        Ok(None)
+    }
+
     pub(crate) fn read_page(
         &mut self,
         storage: &impl Storage,
@@ -118,17 +138,10 @@ impl PageCache {
         lockbox_id: LockboxId,
         security: PageSecurity,
         key: PageReadKey<'_>,
-    ) -> Result<DecodedPage> {
-        if let Some(entry) = self.pages.get_mut(&offset) {
-            if entry.security == security {
-                self.hits = self.hits.saturating_add(1);
-                entry.generation = entry.generation.saturating_add(1);
-                self.recent.push_back(offset);
-                return Ok(entry.page.clone());
-            }
-            return Err(Error::CorruptRecord);
+    ) -> Result<Arc<DecodedPage>> {
+        if let Some(page) = self.cached_page(offset, security)? {
+            return Ok(page);
         }
-
         self.misses = self.misses.saturating_add(1);
         let (page, weight) = Self::read_decoded_page_from_storage(
             storage,
@@ -138,7 +151,8 @@ impl PageCache {
             key,
             self.format_mode,
         )?;
-        self.insert_page_with_security(offset, page.clone(), weight, security, false);
+        let page = Arc::new(page);
+        self.insert_page_with_security(offset, Arc::clone(&page), weight, security, false);
         Ok(page)
     }
 
@@ -401,7 +415,7 @@ impl PageCache {
         self.hits = self.hits.saturating_add(1);
         entry.generation = entry.generation.saturating_add(1);
         self.recent.push_back(offset);
-        Some(entry.page.clone())
+        Some((*entry.page).clone())
     }
 
     #[cfg(test)]
@@ -426,7 +440,7 @@ impl PageCache {
         entry.generation = entry.generation.saturating_add(1);
         self.recent.push_back(offset);
         let old_weight = entry.weight;
-        let result = f(&mut entry.page);
+        let result = f(Arc::make_mut(&mut entry.page));
         let new_weight = crate::page::page_size_for_objects(&entry.page.objects) as u64;
         entry.weight = new_weight;
         self.used_bytes = self
@@ -452,7 +466,7 @@ impl PageCache {
     fn insert_page_with_security(
         &mut self,
         offset: u64,
-        page: DecodedPage,
+        page: impl Into<Arc<DecodedPage>>,
         weight: u64,
         security: PageSecurity,
         force: bool,
@@ -465,7 +479,7 @@ impl PageCache {
         self.pages.insert(
             offset,
             CachedPage {
-                page,
+                page: page.into(),
                 weight,
                 generation: 0,
                 security,
@@ -622,6 +636,43 @@ mod tests {
             b"toc"
         );
         assert_eq!(cache.stats().hits, 1);
+        assert!(Arc::ptr_eq(&first, &second));
+
+        // A transaction snapshot and an outstanding reader must retain the old
+        // page when a writer changes the cached version.
+        let mut snapshot = cache.clone();
+        cache
+            .with_page_mut(0, |page| {
+                page.objects[0] = PageObject::new(PageObjectKind::TocLeaf, 7, b"new".to_vec());
+            })
+            .unwrap();
+        assert_eq!(
+            first.objects[0]
+                .with_payload(|bytes| bytes.to_vec())
+                .unwrap(),
+            b"toc"
+        );
+        assert_eq!(
+            snapshot.get_page(0).unwrap().objects[0]
+                .with_payload(|bytes| bytes.to_vec())
+                .unwrap(),
+            b"toc"
+        );
+        assert_eq!(
+            cache.get_page(0).unwrap().objects[0]
+                .with_payload(|bytes| bytes.to_vec())
+                .unwrap(),
+            b"new"
+        );
+
+        // Eviction releases the cache's reference; the payload remains usable
+        // only while an active reader owns it and is dropped with that reader.
+        let weak = Arc::downgrade(&first);
+        snapshot.clear();
+        drop(first);
+        assert!(weak.upgrade().is_some());
+        drop(second);
+        assert!(weak.upgrade().is_none());
     }
 
     #[test]

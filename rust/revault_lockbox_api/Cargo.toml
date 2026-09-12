@@ -47,6 +47,7 @@ getrandom = { version = "0.4", features = ["wasm_js"] }
 [dev-dependencies]
 criterion = "0.8.2"
 oxiarc-zstd = "0.4"
+zip = { version = "8", default-features = false, features = ["deflate"] }
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -66,6 +67,11 @@ test = false
 
 [[bench]]
 name = "pgp_compare"
+harness = false
+test = false
+
+[[bench]]
+name = "zip_read"
 harness = false
 test = false
 
