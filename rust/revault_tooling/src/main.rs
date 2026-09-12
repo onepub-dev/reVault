@@ -215,6 +215,7 @@ fn run_dev(command: DevCommand) -> Result {
         "-p",
         "xtask",
         "--",
+        "internal-dev",
         task,
     ]);
     cargo.args(args);

@@ -29,26 +29,36 @@ fn run() -> Result<(), String> {
     let args: Vec<String> = args.collect();
 
     match task.as_str() {
-        "check-required" => no_args(&task, &args, quality::check_required),
-        "clippy-advisory" => no_args(&task, &args, quality::clippy_advisory),
-        "generate-api-docs" => no_args(&task, &args, quality::generate_api_docs),
-        "install-cli" => no_args(&task, &args, install::cli),
         "dev-tools" => install::dev_tools(&args),
-        "test-cli-e2e" => no_args(&task, &args, e2e::cli),
-        "build-cli" => build::cli(&args),
-        "run-network-tests" => no_args(&task, &args, quality::run_network_tests),
-        "measure-key-server-performance" => quality::measure_key_server_performance(&args),
-        "compare-archive-compression" => compression::run(&args),
-        "upgrade-deps" => no_args(&task, &args, dependencies::upgrade),
-        "agent-sleep-unix" => sleep::unix::run(&args),
-        "agent-sleep-windows-host" => sleep::windows_host::run(&args),
-        "agent-sleep-windows-setup" => sleep::windows_setup::run(&args),
-        "agent-sleep-windows-vm" => sleep::windows_vm::run(&args),
+        "internal-dev" => internal_dev(&args),
         "help" | "-h" | "--help" => {
             print_help();
             Ok(())
         }
         _ => Err(format!("unknown task {task:?}; run `cargo xtask help`")),
+    }
+}
+
+fn internal_dev(args: &[String]) -> Result<(), String> {
+    let Some((task, rest)) = args.split_first() else {
+        return Err("internal-dev requires a development task".to_owned());
+    };
+    match task.as_str() {
+        "check-required" => no_args(task, rest, quality::check_required),
+        "clippy-advisory" => no_args(task, rest, quality::clippy_advisory),
+        "generate-api-docs" => no_args(task, rest, quality::generate_api_docs),
+        "install-cli" => no_args(task, rest, install::cli),
+        "test-cli-e2e" => no_args(task, rest, e2e::cli),
+        "build-cli" => build::cli(rest),
+        "run-network-tests" => no_args(task, rest, quality::run_network_tests),
+        "measure-key-server-performance" => quality::measure_key_server_performance(rest),
+        "compare-archive-compression" => compression::run(rest),
+        "upgrade-deps" => no_args(task, rest, dependencies::upgrade),
+        "agent-sleep-unix" => sleep::unix::run(rest),
+        "agent-sleep-windows-host" => sleep::windows_host::run(rest),
+        "agent-sleep-windows-setup" => sleep::windows_setup::run(rest),
+        "agent-sleep-windows-vm" => sleep::windows_vm::run(rest),
+        other => Err(format!("unknown development task {other:?}")),
     }
 }
 
@@ -71,20 +81,8 @@ reVault workspace tasks
 Usage: cargo xtask <task> [options]
 
 Tasks:
-  check-required                 Run formatting, hard Clippy, and required tests
-  clippy-advisory                Run the advisory Clippy lint groups
-  generate-api-docs              Generate revault_lockbox_api documentation
-  install-cli                    Install local CLI and migration executables
   dev-tools                      Build and install revault-tool, the developer command hub
-  test-cli-e2e                   Run realistic CLI journeys and enforce command/option coverage
-  build-cli                      Build portable CLI binaries in Docker (glibc 2.31)
-  run-network-tests              Run ignored network integration tests
-  measure-key-server-performance Run and capture the heavy failover benchmark
-  compare-archive-compression    Compare lockbox compression with other tools
-  upgrade-deps                   Upgrade all Rust dependencies, then run validation
-  agent-sleep-unix               Exercise agent key clearing across Unix sleep
-  agent-sleep-windows-host       Drive the headless Windows libvirt sleep test
-  agent-sleep-windows-setup      Start the visible Windows setup domain
-  agent-sleep-windows-vm         Run the sleep test inside a Windows VM"
+  Use `revault-tool dev --help` for repository validation, testing, build,
+  dependency, performance, compression, and agent-sleep tasks."
     );
 }
