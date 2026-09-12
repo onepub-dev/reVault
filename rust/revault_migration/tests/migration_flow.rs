@@ -135,6 +135,7 @@ fn checked_in_released_v1_archive_fixture_migrates_to_current_format() {
         LockboxOpen::ContentKey(SecretVec::try_from_slice(FIXTURE_KEY).unwrap()),
     )
     .unwrap();
+    assert_eq!(migrated.format_version(), LOCKBOX_FORMAT_VERSION);
     assert_eq!(
         migrated
             .get_file(&LockboxPath::new("/docs/readme.txt").unwrap())
@@ -172,7 +173,7 @@ fn hex_nibble(value: u8) -> u8 {
 }
 
 #[test]
-fn vault_v2_export_verify_import_round_trip() {
+fn current_vault_all_record_families_round_trip() {
     let temp = tempfile::tempdir().unwrap();
     let source_root = temp.path().join("source-vault");
     let output_root = temp.path().join("imported-vault");
@@ -189,6 +190,29 @@ fn vault_v2_export_verify_import_round_trip() {
     source.seed_default_form_definitions().unwrap();
     source.create_password_profile("production-server").unwrap();
     let profile_password = source.load_profile_password("production-server").unwrap();
+    let contact = ContactKeyPair::generate().unwrap();
+    let contact_signer = OwnerSigningKeyPair::generate().unwrap();
+    source
+        .store_contact("colleague", &contact.public_key())
+        .unwrap();
+    source
+        .store_contact_signing_key("colleague", &contact_signer.public_key())
+        .unwrap();
+    let id = revault_lockbox_api::LockboxId::new_random().unwrap();
+    source
+        .remember_known_lockbox(id, temp.path().join("known.lbox"))
+        .unwrap();
+    source
+        .remember_access_slot_label(id, 7, "colleague slot")
+        .unwrap();
+    source
+        .remember_lockbox_password(id, &secret("remembered password"))
+        .unwrap();
+    source
+        .store_key_directory_backup(id, b"opaque key directory backup")
+        .unwrap();
+    let known = source.list_known_lockboxes().unwrap();
+    let labels = source.list_access_slot_labels(id).unwrap();
 
     export_vault_v2(&source, &artifact, &artifact_password, [1; 16]).unwrap();
     assert!(verify_vault_artifact(&artifact, &artifact_password).unwrap() > 2);
@@ -196,6 +220,30 @@ fn vault_v2_export_verify_import_round_trip() {
 
     import_vault_v2(&artifact, &artifact_password, &output_root, &password).unwrap();
     let imported = VaultDirectory::open_or_create(&output_root, &password).unwrap();
+    assert_eq!(
+        imported.load_contact("colleague").unwrap().to_bytes(),
+        contact.public_key().to_bytes()
+    );
+    assert_eq!(
+        imported
+            .load_contact_signing_key("colleague")
+            .unwrap()
+            .to_bytes(),
+        contact_signer.public_key().to_bytes()
+    );
+    assert_eq!(imported.list_known_lockboxes().unwrap(), known);
+    assert_eq!(imported.list_access_slot_labels(id).unwrap(), labels);
+    imported
+        .remembered_lockbox_password(id)
+        .unwrap()
+        .unwrap()
+        .with_str(|value| assert_eq!(value, "remembered password"))
+        .unwrap();
+    assert_eq!(
+        imported.load_key_directory_backup(id).unwrap(),
+        b"opaque key directory backup"
+    );
+
     assert_eq!(
         imported.structure_version().unwrap(),
         CURRENT_VAULT_STRUCTURE_VERSION
@@ -269,7 +317,7 @@ fn vault_v1_fixture_exports_upgrades_and_imports_as_current_format() {
 }
 
 #[test]
-fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
+fn v1_archive_all_records_migrate_to_current_with_existing_access() {
     let temp = tempfile::tempdir().unwrap();
     let artifact = temp.path().join("archive.migration");
     let upgraded = temp.path().join("archive.latest.migration");
@@ -280,6 +328,46 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
     let mut source =
         V1Lockbox::create_in_memory(V1LockboxProtection::Password(&v1_password), &signing).unwrap();
     source.set_description("v1 migration fixture").unwrap();
+    source
+        .create_dir(&V1LockboxPath::new("/mirrors").unwrap(), true)
+        .unwrap();
+    // Pinned historical public API creates a real v1 mirror record.
+    for (name, policy) in [
+        (
+            "remove",
+            revault_lockbox_api_export_v1::MirrorMissingFilePolicy::Remove,
+        ),
+        (
+            "retain",
+            revault_lockbox_api_export_v1::MirrorMissingFilePolicy::Retain,
+        ),
+    ] {
+        source
+            .create_mirror_project(
+                revault_lockbox_api_export_v1::MirrorProject {
+                    name: name.into(),
+                    source: "/srv/project".into(),
+                    destination: V1LockboxPath::new(format!("/mirrors/{name}")).unwrap(),
+                    includes: vec!["**/*.txt".into()],
+                    excludes: vec!["private/**".into()],
+                    missing_file_policy: policy,
+                    host_identity: Some("fixture-host-identity".into()),
+                },
+                false,
+            )
+            .unwrap();
+        source
+            .with_mirror_project_mutation(name, |archive, project| {
+                archive.create_dir(&project.destination, true)?;
+                archive.add_file(
+                    &V1LockboxPath::new(format!("{}/kept.txt", project.destination))?,
+                    b"mirror bytes",
+                    false,
+                )
+            })
+            .unwrap();
+    }
+
     let additional_contact = V1ArchiveContactKeyPair::generate().unwrap();
     source
         .add_contact(&additional_contact.public_key())
@@ -311,6 +399,31 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
     source
         .set_secret_variable(&secret_variable, &v1_secret)
         .unwrap();
+    let typed_fields = [
+        ("url", V1FormFieldKind::Url, "https://example.test/path"),
+        ("email", V1FormFieldKind::Email, "owner@example.test"),
+        ("date", V1FormFieldKind::Date, "2026-09-13"),
+        ("month", V1FormFieldKind::Month, "2026-09"),
+        ("notes", V1FormFieldKind::Notes, "line one\nline two"),
+        ("number", V1FormFieldKind::Number, "123.5"),
+    ];
+    for (name, kind, value) in &typed_fields {
+        source
+            .define_form(
+                name,
+                name,
+                vec![V1FormFieldDefinition {
+                    id: "value".into(),
+                    label: name.to_string(),
+                    kind: *kind,
+                    required: true,
+                }],
+            )
+            .unwrap();
+        let path = V1LockboxPath::new(format!("/{name}.form")).unwrap();
+        source.create_form_record(&path, name, name).unwrap();
+        source.set_form_field_normal(&path, "value", value).unwrap();
+    }
     let form_type = V1FormTypeId::new("12345678-1234-1234-1234-123456789abc").unwrap();
     source
         .define_form_with_type_id(
@@ -380,6 +493,38 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
         imported.description().unwrap().as_deref(),
         Some("v1 migration fixture")
     );
+    assert_eq!(imported.list_mirror_projects().unwrap().len(), 2);
+    for (name, policy) in [
+        (
+            "remove",
+            revault_lockbox_api::MirrorMissingFilePolicy::Remove,
+        ),
+        (
+            "retain",
+            revault_lockbox_api::MirrorMissingFilePolicy::Retain,
+        ),
+    ] {
+        let project = imported.mirror_project(name).unwrap().unwrap();
+        assert_eq!(
+            project,
+            revault_lockbox_api::MirrorProject {
+                name: name.into(),
+                source: "/srv/project".into(),
+                destination: LockboxPath::new(format!("/mirrors/{name}")).unwrap(),
+                includes: vec!["**/*.txt".into()],
+                excludes: vec!["private/**".into()],
+                missing_file_policy: policy,
+                strict: false,
+                host_identity: Some("fixture-host-identity".into()),
+            }
+        );
+        assert_eq!(
+            imported
+                .get_file(&LockboxPath::new(format!("/mirrors/{name}/kept.txt")).unwrap())
+                .unwrap(),
+            b"mirror bytes"
+        );
+    }
     let additional_contact_record = additional_contact.private_key_record().unwrap();
     let additional_contact_record = additional_contact_record
         .with_bytes(|bytes| bytes.to_vec())
@@ -394,6 +539,10 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
         )
     )
     .is_ok());
+    assert_eq!(
+        imported.lockbox_id().as_bytes(),
+        source.lockbox_id().as_bytes()
+    );
     let imported_owner = imported.owner_inspection().unwrap().fingerprint.unwrap();
     assert_ne!(source_owner, imported_owner);
     let root = LockboxPath::new("/").unwrap();
@@ -415,17 +564,51 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
     );
     let mut reader = imported.open_file(&imported_path).unwrap();
     let mut bytes = [0u8; 4096];
-    let read = reader.read(&mut bytes).unwrap();
-    assert_eq!(read, bytes.len());
-    assert!(bytes
-        .iter()
-        .enumerate()
-        .all(|(index, byte)| *byte == (index % 251) as u8));
+    let mut position = 0;
+    loop {
+        let read = reader.read(&mut bytes).unwrap();
+        if read == 0 {
+            break;
+        }
+        assert!(bytes[..read]
+            .iter()
+            .enumerate()
+            .all(|(index, byte)| *byte == ((position + index) % 251) as u8));
+        position += read;
+    }
+    assert_eq!(position, 12 * 1024 * 1024 + 137);
+    for (name, kind, expected) in &typed_fields {
+        let record = imported
+            .get_form_record(&LockboxPath::new(format!("/{name}.form")).unwrap())
+            .unwrap()
+            .unwrap();
+        assert_eq!(record.values.len(), 1);
+        assert_eq!(format!("{:?}", record.values[0].kind), format!("{kind:?}"));
+        assert!(
+            matches!(&record.values[0].value, revault_lockbox_api::FormValue::Normal(value) if value == expected)
+        );
+    }
     let imported_form_type = FormTypeId::new(form_type.as_str()).unwrap();
     let revisions = imported
         .list_form_definition_revisions(&imported_form_type)
         .unwrap();
     assert_eq!(revisions.len(), 2);
+    let original_revisions = source.list_form_definition_revisions(&form_type).unwrap();
+    for (expected, actual) in original_revisions.iter().zip(&revisions) {
+        assert_eq!(actual.type_id.as_str(), expected.type_id.as_str());
+        assert_eq!(actual.alias, expected.alias);
+        assert_eq!(actual.revision, expected.revision);
+        assert_eq!(actual.name, expected.name);
+        assert_eq!(actual.description, expected.description);
+        assert_eq!(actual.fields.len(), expected.fields.len());
+        for (expected, actual) in expected.fields.iter().zip(&actual.fields) {
+            assert_eq!(actual.id, expected.id);
+            assert_eq!(actual.label, expected.label);
+            assert_eq!(actual.required, expected.required);
+            assert_eq!(format!("{:?}", actual.kind), format!("{:?}", expected.kind));
+        }
+    }
+
     let imported_form_path = LockboxPath::new(form_path.as_str()).unwrap();
     let form = imported
         .get_form_record(&imported_form_path)
@@ -485,10 +668,31 @@ fn archive_files_are_streamed_and_new_commit_opens_with_existing_access() {
         )
         .unwrap()
         .unwrap();
+    drop(reader);
+    drop(imported);
+    let mut writable = Lockbox::open_with_signer(&output, LockboxOpen::Password(&password), |_| {
+        migrated_signing.try_clone()
+    })
+    .unwrap();
+    let managed = LockboxPath::new("/mirrors/remove/kept.txt").unwrap();
+    assert!(writable.add_file(&managed, b"unauthorized", true).is_err());
+    writable
+        .with_mirror_project_mutation("remove", |archive, _| {
+            archive.add_file(&managed, b"updated after migration", true)
+        })
+        .unwrap();
+    writable.commit().unwrap();
+    drop(writable);
+    let reopened = Lockbox::open(&output, LockboxOpen::Password(&password)).unwrap();
+    assert_eq!(
+        reopened.get_file(&managed).unwrap(),
+        b"updated after migration"
+    );
+    assert_eq!(reopened.list_mirror_projects().unwrap().len(), 2);
 }
 
 #[test]
-fn migrated_v2_archive_preserves_metadata_and_supports_recovery() {
+fn current_archive_preserves_metadata_and_supports_recovery() {
     let temp = tempfile::tempdir().unwrap();
     let artifact = temp.path().join("archive.migration");
     let output = temp.path().join("migrated.lbox");
@@ -596,17 +800,33 @@ fn archive_migration_preserves_independent_format_choices() {
 }
 
 #[test]
-fn current_archive_import_preserves_explicit_v3_choices() {
+fn historical_v2_archive_migrates_to_current_format() {
     let temp = tempfile::tempdir().unwrap();
     let signer = OwnerSigningKeyPair::generate().unwrap();
     let key = b"legacy v2 migration test key";
-    // The raw key constructor now writes the current explicit format choices.
-    let mut source = Lockbox::create(key);
-    source.set_owner_signing_key(signer.try_clone().unwrap());
+    // Only a historical writer can create this fixture; never relabel a current header.
+    let old_signer = revault_lockbox_api_v2::OwnerSigningKeyPair::generate().unwrap();
+    let mut old = revault_lockbox_api_v2::Lockbox::create_in_memory(
+        revault_lockbox_api_v2::LockboxProtection::ContentKey(
+            revault_lockbox_api_v2::SecretVec::try_from_slice(key).unwrap(),
+        ),
+        &old_signer,
+    )
+    .unwrap();
+    old.add_file(
+        &revault_lockbox_api_v2::LockboxPath::new("/legacy.txt").unwrap(),
+        b"legacy data",
+        false,
+    )
+    .unwrap();
+    old.commit().unwrap();
+    let source = Lockbox::open_bytes(
+        old.try_to_bytes().unwrap(),
+        LockboxOpen::ContentKey(SecretVec::try_from_slice(key).unwrap()),
+    )
+    .unwrap();
+    assert_eq!(source.format_version(), 2);
     let path = LockboxPath::new("/legacy.txt").unwrap();
-    source.add_file(&path, b"legacy data", false).unwrap();
-    source.commit().unwrap();
-    assert_eq!(source.format_version(), LOCKBOX_FORMAT_VERSION);
     let artifact = temp.path().join("legacy.migration");
     let destination = temp.path().join("upgraded.lbox");
     export_archive(&source, &artifact, b"artifact password".as_slice(), [8; 16]).unwrap();

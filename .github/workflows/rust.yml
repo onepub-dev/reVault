@@ -159,6 +159,7 @@ jobs:
               cargo test --locked -p "$(cargo pkgid --manifest-path revault_page_api/Cargo.toml)"
               test_api revault_lockbox_api public_api_suite
           # CLI suites run once in cli-e2e, including command coverage enforcement.
+          # Includes retained_fixtures: immutable historical bytes -> current, with a version-completeness gate.
           - group: migrations
             cache: migrations
             command: |

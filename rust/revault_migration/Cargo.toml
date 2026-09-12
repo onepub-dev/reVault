@@ -7,6 +7,8 @@ license-file = "LICENSE"
 description = "Encrypted streaming migration artifacts for reVault vaults and archives"
 repository = "https://github.com/onepub-dev/reVault"
 readme = "README.md"
+# Permanent release regression artifacts are retained in Git, not shipped to library consumers.
+exclude = ["tests/retained/**", "tests/retained_fixtures.rs"]
 
 [dependencies]
 getrandom = "0.4"
@@ -29,3 +31,5 @@ revault_vault_api_v1 = { package = "revault_vault_api", version = "=0.0.2" }
 revault_lockbox_api_v1 = { package = "revault_lockbox_api", version = "=0.0.3" }
 revault_lockbox_api_export_v1 = { package = "revault_lockbox_api", version = "=0.0.6" }
 revault_lockbox_api_vault_v1 = { package = "revault_lockbox_api", version = "=0.0.2" }
+
+revault_vault_api_container_v1 = { package = "revault_vault_api", version = "=0.0.6" }

@@ -1,0 +1,483 @@
+[
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "access_label",
+      "value": {
+        "lockbox_id": {
+          "length": 16,
+          "sha256": "266088d8ccb8165ad7778c8e3054042fafef914fd4068555a8071dad631e9820"
+        },
+        "name": "fixture slot",
+        "slot_id": 42,
+        "updated_at_unix_ms": 1789252690328
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "contact",
+      "value": {
+        "name": "signed-contact",
+        "public_key": {
+          "length": 1232,
+          "sha256": "988d5e3599495fd62dbe373d214faea19af58570d647b189f90c1ff4a36cd3e2"
+        },
+        "signing_public_key": {
+          "length": 2000,
+          "sha256": "184ff0e0529c91f1f3a927491ab68bda3ae437a8d6ef7268c76680b7b71e8647"
+        }
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "contact",
+      "value": {
+        "name": "unsigned-contact",
+        "public_key": {
+          "length": 1232,
+          "sha256": "6b35902686634b3064f599ea13d7a007c00b70973cda964737021b3c2314202c"
+        },
+        "signing_public_key": null
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "form_definition",
+      "value": {
+        "alias": "bank-account",
+        "description": "",
+        "fields": [
+          {
+            "id": "bank",
+            "kind": "text",
+            "label": "Bank",
+            "required": false
+          },
+          {
+            "id": "account_name",
+            "kind": "text",
+            "label": "Account name",
+            "required": false
+          },
+          {
+            "id": "bsb",
+            "kind": "text",
+            "label": "BSB / routing",
+            "required": false
+          },
+          {
+            "id": "account_number",
+            "kind": "secret",
+            "label": "Account number",
+            "required": true
+          },
+          {
+            "id": "iban",
+            "kind": "secret",
+            "label": "IBAN",
+            "required": false
+          },
+          {
+            "id": "swift",
+            "kind": "text",
+            "label": "SWIFT / BIC",
+            "required": false
+          },
+          {
+            "id": "notes",
+            "kind": "notes",
+            "label": "Notes",
+            "required": false
+          }
+        ],
+        "name": "Bank Account",
+        "revision": 1,
+        "type_id": "00000000-0000-4000-8000-000000000003"
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "form_definition",
+      "value": {
+        "alias": "identity",
+        "description": "",
+        "fields": [
+          {
+            "id": "full_name",
+            "kind": "text",
+            "label": "Full name",
+            "required": true
+          },
+          {
+            "id": "date_of_birth",
+            "kind": "date",
+            "label": "Date of birth",
+            "required": false
+          },
+          {
+            "id": "email",
+            "kind": "email",
+            "label": "Email",
+            "required": false
+          },
+          {
+            "id": "phone",
+            "kind": "text",
+            "label": "Phone",
+            "required": false
+          },
+          {
+            "id": "document_number",
+            "kind": "secret",
+            "label": "Document number",
+            "required": false
+          },
+          {
+            "id": "expiry",
+            "kind": "date",
+            "label": "Expiry",
+            "required": false
+          },
+          {
+            "id": "address",
+            "kind": "notes",
+            "label": "Address",
+            "required": false
+          },
+          {
+            "id": "notes",
+            "kind": "notes",
+            "label": "Notes",
+            "required": false
+          }
+        ],
+        "name": "Identity Document",
+        "revision": 1,
+        "type_id": "00000000-0000-4000-8000-000000000004"
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "form_definition",
+      "value": {
+        "alias": "login",
+        "description": "",
+        "fields": [
+          {
+            "id": "username",
+            "kind": "text",
+            "label": "Username",
+            "required": false
+          },
+          {
+            "id": "password",
+            "kind": "secret",
+            "label": "Password",
+            "required": true
+          },
+          {
+            "id": "url",
+            "kind": "url",
+            "label": "Website",
+            "required": false
+          },
+          {
+            "id": "notes",
+            "kind": "notes",
+            "label": "Notes",
+            "required": false
+          }
+        ],
+        "name": "Login",
+        "revision": 1,
+        "type_id": "00000000-0000-4000-8000-000000000001"
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "form_definition",
+      "value": {
+        "alias": "payment-card",
+        "description": "",
+        "fields": [
+          {
+            "id": "cardholder",
+            "kind": "text",
+            "label": "Cardholder",
+            "required": true
+          },
+          {
+            "id": "number",
+            "kind": "secret",
+            "label": "Card number",
+            "required": true
+          },
+          {
+            "id": "expiry",
+            "kind": "month",
+            "label": "Expiry",
+            "required": false
+          },
+          {
+            "id": "cvv",
+            "kind": "secret",
+            "label": "CVV",
+            "required": false
+          },
+          {
+            "id": "pin",
+            "kind": "secret",
+            "label": "PIN",
+            "required": false
+          },
+          {
+            "id": "notes",
+            "kind": "notes",
+            "label": "Notes",
+            "required": false
+          }
+        ],
+        "name": "Payment Card",
+        "revision": 1,
+        "type_id": "00000000-0000-4000-8000-000000000002"
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "form_definition",
+      "value": {
+        "alias": "secure-note",
+        "description": "",
+        "fields": [
+          {
+            "id": "title",
+            "kind": "text",
+            "label": "Title",
+            "required": true
+          },
+          {
+            "id": "note",
+            "kind": "notes",
+            "label": "Note",
+            "required": true
+          }
+        ],
+        "name": "Secure Note",
+        "revision": 1,
+        "type_id": "00000000-0000-4000-8000-000000000007"
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "form_definition",
+      "value": {
+        "alias": "server",
+        "description": "",
+        "fields": [
+          {
+            "id": "host",
+            "kind": "text",
+            "label": "Host",
+            "required": true
+          },
+          {
+            "id": "port",
+            "kind": "number",
+            "label": "Port",
+            "required": false
+          },
+          {
+            "id": "username",
+            "kind": "text",
+            "label": "Username",
+            "required": false
+          },
+          {
+            "id": "password",
+            "kind": "secret",
+            "label": "Password",
+            "required": false
+          },
+          {
+            "id": "url",
+            "kind": "url",
+            "label": "URL",
+            "required": false
+          },
+          {
+            "id": "ssh_key",
+            "kind": "secret",
+            "label": "SSH key",
+            "required": false
+          },
+          {
+            "id": "notes",
+            "kind": "notes",
+            "label": "Notes",
+            "required": false
+          }
+        ],
+        "name": "Server",
+        "revision": 1,
+        "type_id": "00000000-0000-4000-8000-000000000005"
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "form_definition",
+      "value": {
+        "alias": "wifi",
+        "description": "",
+        "fields": [
+          {
+            "id": "ssid",
+            "kind": "text",
+            "label": "SSID",
+            "required": true
+          },
+          {
+            "id": "password",
+            "kind": "secret",
+            "label": "Password",
+            "required": false
+          },
+          {
+            "id": "security",
+            "kind": "text",
+            "label": "Security",
+            "required": false
+          },
+          {
+            "id": "notes",
+            "kind": "notes",
+            "label": "Notes",
+            "required": false
+          }
+        ],
+        "name": "Wi-Fi Network",
+        "revision": 1,
+        "type_id": "00000000-0000-4000-8000-000000000006"
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "key_directory",
+      "value": {
+        "bytes": {
+          "length": 35,
+          "sha256": "bd42e84f3e7c927100e14c289e5c03960b1bc51c6b15e36d5e887d4e5c20665a"
+        },
+        "lockbox_id": {
+          "length": 16,
+          "sha256": "266088d8ccb8165ad7778c8e3054042fafef914fd4068555a8071dad631e9820"
+        }
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "known_lockbox",
+      "value": {
+        "last_seen_unix_ms": 1789252690320,
+        "lockbox_id": {
+          "length": 16,
+          "sha256": "266088d8ccb8165ad7778c8e3054042fafef914fd4068555a8071dad631e9820"
+        },
+        "path": "/retained-fixture/known.lbox"
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "lockbox_password",
+      "value": {
+        "lockbox_id": {
+          "length": 16,
+          "sha256": "266088d8ccb8165ad7778c8e3054042fafef914fd4068555a8071dad631e9820"
+        },
+        "value": {
+          "length": 27,
+          "sha256": "fb2c07182a3886ca887c26077ac90c633747f9f0d981f2c9d4e3c90e6e46a4d4"
+        }
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "profile",
+      "value": {
+        "active_generation": 2,
+        "email": "owner@example.test",
+        "generations": [
+          {
+            "contact_fingerprint": {
+              "length": 16,
+              "sha256": "011e9cd6f4e39fdb8627108f5822e26a949c7a100860a2c0edbf0c14f87aca9e"
+            },
+            "created_at_unix_ms": 1789252690159,
+            "index": 1,
+            "owner_signing_key": {
+              "length": 80,
+              "sha256": "c7bb8e9d07d485d1c7ec6298409b18b3c07a43cc833232aa5554e90beafa55b6"
+            },
+            "private_open_key": {
+              "length": 112,
+              "sha256": "71905520ebad853c557d537129e376c119496aee14e398117b60a4a8d0dd16a0"
+            },
+            "retired_at_unix_ms": 1789252690175,
+            "status": "retired"
+          },
+          {
+            "contact_fingerprint": {
+              "length": 16,
+              "sha256": "85188accaa76e31e9107c2d74acd57d6af79e7030c6345d72c62fca66f0a6e99"
+            },
+            "created_at_unix_ms": 1789252690175,
+            "index": 2,
+            "owner_signing_key": {
+              "length": 80,
+              "sha256": "36d42f83882c862ca080438e512e08ff4a498536e289af1d9d11a97bf316a2f9"
+            },
+            "private_open_key": {
+              "length": 112,
+              "sha256": "d06e357014e4aad5006c1b756bbbbb46b274367297fa581a85d9a7d60e75e557"
+            },
+            "retired_at_unix_ms": null,
+            "status": "active"
+          }
+        ],
+        "name": "default"
+      }
+    }
+  },
+  {
+    "artifact": "vault",
+    "record": {
+      "type": "start",
+      "value": {}
+    }
+  }
+]

@@ -1,7 +1,7 @@
 # Crash-recoverable redaction transactions
 
 Lockbox format v3 uses a prepare/publish/clean/seal protocol. The current core
-API reads and writes only v2; v1 conversion is performed by the external
+API reads v2 and v3 and creates v3 archives; v1 conversion is performed by the external
 `revault_migrate_archive_v1` and `revault_migration` crates.
 
 During prepare, every content and metadata change is copy-on-write. The old

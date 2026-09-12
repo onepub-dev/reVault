@@ -106,6 +106,25 @@ lockbox secrets-migrated.lbox close
 
 Archive migration creates a new signed commit chain. The files, forms, and other logical records are migrated, but the old archive's public commit and signature history is not copied into the new archive. This is intentional: the new archive is freshly written and signed using the current format and current signing material.
 
+### Mirror projects after migration
+
+Migration preserves mirror project configuration and managed files, including
+source and destination paths, include/exclude rules, removal policy, and host
+directory identity. Older projects without a strict setting retain the default
+of `false`. Migration does not rebind a mirror to a different host directory.
+
+After opening the migrated Lockbox, inspect a project's configuration and planned
+changes before updating it:
+
+```console
+lockbox secrets-migrated.lbox mirror project info
+lockbox secrets-migrated.lbox mirror project status
+lockbox secrets-migrated.lbox mirror project update
+```
+
+Replace `project` with the stored project name. Ownership checks and empty-source
+safety checks still apply after migration.
+
 ### Replacing the source in place
 
 If you have backups of your archives then you can use the `--replace` switch perform the replacement automatically:

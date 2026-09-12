@@ -4,9 +4,9 @@ Vault and archive formats are versioned independently. A release may change one
 without changing the other, and users do not have to migrate both at the same
 time.
 
-The lockbox and vault APIs support only their current native formats. When an
-older format is encountered they stop before interpreting version-specific
-records and return an error containing the command needed to migrate it. Legacy
+The lockbox API creates v3 archives and retains a v2 reader. The vault API
+requires the current vault structure (v3). Unsupported older formats return an
+error containing the command needed to migrate them. Legacy
 native readers belong in a versioned migration exporter, not in the current
 lockbox or vault API.
 
@@ -103,12 +103,49 @@ Every native format change must include all of the following:
 The current native format is v3 for both the vault structure and lockbox archive.
 The v1 migration tests cover the complete v1 export, migration-schema upgrade,
 and import path into that current format. The archive fixture exercises the full
-record set: descriptions, directories, files, symlinks, normal and secret
-variables, form definitions and revisions, form values, permissions, and access
-keys. The v2-to-v3 step is tested separately.
+record families: descriptions, directories, files, symlinks, normal and secret
+variables, form definitions and revisions, all eight form field kinds,
+permissions, and access keys. Hidden mirror variables are decoded as projects:
+both removal policies, source/destination, selection rules, host identity, and
+managed file bytes are checked. Legacy projects default the newer `strict`
+setting to false. A subsequent signed update verifies persisted mirror ownership.
+
+A CLI test creates a strict mirror, copies files, migrates it, compares the
+project configuration, and performs unchanged and changed updates. Separate CLI
+reads verify additions, replacements, removals, and original archive content.
+The v2 archive test uses a pinned historical writer and asserts both source and
+destination versions. The vault round trip includes contacts and signing keys,
+known lockboxes, access labels, remembered passwords, key-directory backups,
+key profiles, password profiles, and form definitions.
 
 For the user-facing procedure and command examples, see the
 [vault and archive migration guide](migration_guide.md).
+
+## Permanent fixtures and release gate
+
+The repository retains immutable native fixtures in
+[`rust/revault_migration/tests/retained`](../rust/revault_migration/tests/retained/README.md).
+There are archive fixtures for v1, v2 and v3, and vault fixtures for structures
+v1, v2 and v3. Structure v2 has both its container-v1 and container-v2 fixtures.
+Each contains the record families available to its producing writer, with
+synthetic credentials, writer provenance, native-byte SHA-256 and expected
+logical records. The files are retained in Git and release tags; normal tests
+read them without rebuilding or replacing them.
+
+`retained_fixtures` runs in the release candidate's existing Rust migration test
+group. Every retained source is exported with its appropriate reader, upgraded,
+imported into current format, reopened, and compared against the saved records.
+It also tests subsequent mirror and vault mutations. The test fails if any
+historical combination is missing, a native version lacks a fixture, or the
+current vault/container combination has not been retained.
+
+Keep all previous fixtures when adding a version. Add a new generator with the
+exact historical/current writer and register its reader before retiring old
+native support. The explicit ignored generator refuses to overwrite existing
+fixtures; generation is never part of release validation. Review new fixtures
+and extend the inventory assertions for newly supported content types. The corpus
+and its dedicated test are excluded from the published library package to avoid
+shipping test archives to consumers; repository release tests always include them.
 
 ## crates.io release order
 

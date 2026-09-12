@@ -30,6 +30,22 @@ lbx doctor migrate lockbox old.lbox --output migrated.lbox
 
 Read [Migrating between versions](../maintain-and-recover/migrating-between-versions.md) before replacing either source. Keep the pre-migration copy until the new one has been opened and checked.
 
+## Migration checks for a release
+
+Release preparation tests permanently retained Lockbox and Vault files from
+historical writers. The repository keeps archive fixtures for formats v1–v3 and
+Vault fixtures for structures v1–v3, including both historical container formats
+used by Vault structure v2. Each fixture contains the content types supported by
+its writer, a content manifest, test credentials and a checksum.
+
+Every retained fixture is migrated directly to the current native format, reopened,
+and compared with its saved logical contents. Tests also update migrated mirrors
+and Vault credentials and reopen them to verify persistence. Release checks fail
+if a format version or the current Vault/container combination lacks a fixture.
+New versions add fixtures; old fixture bytes are never regenerated during tests.
+The artifacts live in Git and the release tags, rather than in the published
+runtime library package.
+
 ## Documentation for a release
 
 The repository tag belonging to a release is the permanent documentation snapshot for that source version. The hosted manual follows the active development branch and may describe functionality newer than an installed package.

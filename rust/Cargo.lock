@@ -2492,6 +2492,7 @@ dependencies = [
  "revault_vault_api 0.0.10",
  "revault_vault_api 0.0.2",
  "revault_vault_api 0.0.40",
+ "revault_vault_api 0.0.6",
  "serde",
  "serde_json",
  "sha2 0.11.0",

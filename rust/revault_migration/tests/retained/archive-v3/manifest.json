@@ -1,0 +1,30 @@
+{
+  "kind": "archive",
+  "native_version": 3,
+  "container_version": 3,
+  "writer": "revault_lockbox_api 0.0.39 (workspace)",
+  "sha256": "74d54e25ada3c80d5261a7d0940a40ef377ab34d8f8ecc0c84b9e773781e941b",
+  "password": "PUBLIC fixture password - never use outside tests",
+  "coverage": [
+    "description",
+    "directories",
+    "permissions",
+    "empty-files",
+    "unicode",
+    "multi-frame-binary",
+    "symlinks",
+    "normal-variables",
+    "secret-variables",
+    "empty-variables",
+    "form-definitions",
+    "form-revisions",
+    "all-eight-field-kinds",
+    "empty-form",
+    "mirror-remove",
+    "mirror-retain",
+    "mirror-rules-and-identity",
+    "password-and-contact-access",
+    "committed-replacement-and-deletion"
+  ],
+  "migrated_archive_mode": 24
+}

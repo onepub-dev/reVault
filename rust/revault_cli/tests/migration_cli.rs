@@ -27,6 +27,122 @@ const LOCKBOX_PASSWORD: &str = "migration lockbox password";
 const ARTIFACT_PASSWORD: &str = "migration artifact password";
 
 #[test]
+fn migrated_mirror_preserves_configuration_and_update_lifecycle() {
+    let fixture = Fixture::new("migration-mirror-lifecycle");
+    fixture.init_current_vault();
+    let archive = fixture.create_archive("source.lbox");
+    let host = fixture.root.join("host");
+    std::fs::create_dir(&host).unwrap();
+    for (name, bytes) in [
+        ("replace.txt", b"before".as_slice()),
+        ("remove.txt", b"remove"),
+        ("keep.txt", b"keep"),
+    ] {
+        std::fs::write(host.join(name), bytes).unwrap();
+    }
+    fixture.success(&[
+        path(&archive),
+        "mirror",
+        "project",
+        "create",
+        "--from",
+        path(&host),
+        "--to",
+        "/project",
+        "--strict",
+    ]);
+    fixture.success(&[path(&archive), "mirror", "project", "update", "--force"]);
+    let before = fixture.success(&[
+        path(&archive),
+        "mirror",
+        "project",
+        "info",
+        "--format",
+        "json",
+    ]);
+    let destination = fixture.root.join("migrated.lbox");
+    fixture.success(&[
+        "doctor",
+        "migrate",
+        "lockbox",
+        path(&archive),
+        "--output",
+        path(&destination),
+    ]);
+    let after = fixture.success(&[
+        path(&destination),
+        "mirror",
+        "project",
+        "info",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&before.stdout).unwrap(),
+        serde_json::from_slice::<serde_json::Value>(&after.stdout).unwrap()
+    );
+    fixture.success(&[path(&destination), "mirror", "project", "update"]);
+    assert_eq!(
+        fixture
+            .success(&[path(&destination), "cat", "/project/replace.txt"])
+            .stdout,
+        b"before"
+    );
+    std::fs::write(host.join("replace.txt"), b"replacement bytes").unwrap();
+    std::fs::write(host.join("added.txt"), b"added bytes").unwrap();
+    std::fs::remove_file(host.join("remove.txt")).unwrap();
+    fixture.success(&[path(&destination), "mirror", "project", "update", "--force"]);
+    for (name, bytes) in [
+        ("replace.txt", b"replacement bytes".as_slice()),
+        ("added.txt", b"added bytes"),
+        ("keep.txt", b"keep"),
+    ] {
+        assert_eq!(
+            fixture
+                .success(&[path(&destination), "cat", &format!("/project/{name}")])
+                .stdout,
+            bytes
+        );
+    }
+    assert!(!fixture
+        .run(&[path(&destination), "cat", "/project/remove.txt"])
+        .status
+        .success());
+    fixture.success(&[path(&destination), "mirror", "project", "update"]);
+    // An empty source must still trigger the public safety refusal after migration.
+    for name in ["replace.txt", "added.txt", "keep.txt"] {
+        std::fs::remove_file(host.join(name)).unwrap();
+    }
+    let refused = fixture.run(&[path(&destination), "mirror", "project", "update", "--force"]);
+    assert_failure_contains(&refused, "--allow-empty");
+    for (name, bytes) in [
+        ("replace.txt", b"replacement bytes".as_slice()),
+        ("added.txt", b"added bytes"),
+        ("keep.txt", b"keep"),
+    ] {
+        assert_eq!(
+            fixture
+                .success(&[path(&destination), "cat", &format!("/project/{name}")])
+                .stdout,
+            bytes
+        );
+    }
+    // Migration must not change the original archive.
+    assert_eq!(
+        fixture
+            .success(&[path(&archive), "cat", "/project/replace.txt"])
+            .stdout,
+        b"before"
+    );
+    assert_eq!(
+        fixture
+            .success(&[path(&archive), "cat", "/project/remove.txt"])
+            .stdout,
+        b"remove"
+    );
+}
+
+#[test]
 fn vault_migration_commands_and_options_execute_end_to_end() {
     let fixture = Fixture::new("migration-vault-e2e");
     fixture.init_current_vault();

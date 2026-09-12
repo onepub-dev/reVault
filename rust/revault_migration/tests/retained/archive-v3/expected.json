@@ -1,0 +1,580 @@
+[
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "directory",
+      "value": {
+        "path": "/empty",
+        "permissions": 448
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "directory",
+      "value": {
+        "path": "/empty/private",
+        "permissions": 448
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "directory",
+      "value": {
+        "path": "/mirrors",
+        "permissions": 448
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "directory",
+      "value": {
+        "path": "/mirrors/remove",
+        "permissions": 448
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "directory",
+      "value": {
+        "path": "/mirrors/retain",
+        "permissions": 448
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_end",
+      "value": {
+        "file_id": 1,
+        "sha256": {
+          "length": 32,
+          "sha256": "fe7b5076ac5161119382bbabfb3ae8e2025d9b1db2772307eba212370f3b85c0"
+        },
+        "size": 5243017
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_end",
+      "value": {
+        "file_id": 2,
+        "sha256": {
+          "length": 32,
+          "sha256": "5df6e0e2761359d30a8275058e299fcc0381534545f55cf43e41983f5d4c9456"
+        },
+        "size": 0
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_end",
+      "value": {
+        "file_id": 3,
+        "sha256": {
+          "length": 32,
+          "sha256": "55b1ac8e5f15344c39c9dbe1fd5978fc0ebae8c52e9d2e981a73a69b02b021fe"
+        },
+        "size": 22
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_end",
+      "value": {
+        "file_id": 4,
+        "sha256": {
+          "length": 32,
+          "sha256": "55b1ac8e5f15344c39c9dbe1fd5978fc0ebae8c52e9d2e981a73a69b02b021fe"
+        },
+        "size": 22
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_end",
+      "value": {
+        "file_id": 5,
+        "sha256": {
+          "length": 32,
+          "sha256": "a954bb40722d20ea60fb1d3581e1976589265f38642f4311ef23482591fbff3d"
+        },
+        "size": 3
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_end",
+      "value": {
+        "file_id": 6,
+        "sha256": {
+          "length": 32,
+          "sha256": "f5c402feeab72cd46571f35efa11e88ed784d39cf24a8c25c44c6483375590fd"
+        },
+        "size": 14
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_start",
+      "value": {
+        "file_id": 1,
+        "path": "/binary.bin",
+        "permissions": 384,
+        "size": 5243017
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_start",
+      "value": {
+        "file_id": 2,
+        "path": "/empty/zero.txt",
+        "permissions": 416,
+        "size": 0
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_start",
+      "value": {
+        "file_id": 3,
+        "path": "/mirrors/remove/file.txt",
+        "permissions": 384,
+        "size": 22
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_start",
+      "value": {
+        "file_id": 4,
+        "path": "/mirrors/retain/file.txt",
+        "permissions": 384,
+        "size": 22
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_start",
+      "value": {
+        "file_id": 5,
+        "path": "/replace.txt",
+        "permissions": 384,
+        "size": 3
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "file_start",
+      "value": {
+        "file_id": 6,
+        "path": "/unicode-λ.txt",
+        "permissions": 384,
+        "size": 14
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "form_definition",
+      "value": {
+        "alias": "complete",
+        "description": "",
+        "fields": [
+          {
+            "id": "text",
+            "kind": "text",
+            "label": "Original text",
+            "required": true
+          },
+          {
+            "id": "secret",
+            "kind": "secret",
+            "label": "Original secret",
+            "required": true
+          },
+          {
+            "id": "url",
+            "kind": "url",
+            "label": "Original url",
+            "required": true
+          },
+          {
+            "id": "email",
+            "kind": "email",
+            "label": "Original email",
+            "required": true
+          },
+          {
+            "id": "date",
+            "kind": "date",
+            "label": "Original date",
+            "required": true
+          },
+          {
+            "id": "month",
+            "kind": "month",
+            "label": "Original month",
+            "required": true
+          },
+          {
+            "id": "notes",
+            "kind": "notes",
+            "label": "Original notes",
+            "required": true
+          },
+          {
+            "id": "number",
+            "kind": "number",
+            "label": "Original number",
+            "required": true
+          }
+        ],
+        "name": "All field types",
+        "revision": 1,
+        "type_id": "12345678-1234-1234-1234-123456789abc"
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "form_definition",
+      "value": {
+        "alias": "complete",
+        "description": "Preserve revision history",
+        "fields": [
+          {
+            "id": "text",
+            "kind": "text",
+            "label": "Revised label",
+            "required": true
+          },
+          {
+            "id": "secret",
+            "kind": "secret",
+            "label": "Original secret",
+            "required": true
+          },
+          {
+            "id": "url",
+            "kind": "url",
+            "label": "Original url",
+            "required": true
+          },
+          {
+            "id": "email",
+            "kind": "email",
+            "label": "Original email",
+            "required": true
+          },
+          {
+            "id": "date",
+            "kind": "date",
+            "label": "Original date",
+            "required": true
+          },
+          {
+            "id": "month",
+            "kind": "month",
+            "label": "Original month",
+            "required": true
+          },
+          {
+            "id": "notes",
+            "kind": "notes",
+            "label": "Original notes",
+            "required": true
+          },
+          {
+            "id": "number",
+            "kind": "number",
+            "label": "Original number",
+            "required": true
+          }
+        ],
+        "name": "Revision two",
+        "revision": 2,
+        "type_id": "12345678-1234-1234-1234-123456789abc"
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "form_record",
+      "value": {
+        "definition_alias": "complete",
+        "definition_revision": 1,
+        "name": "Original form",
+        "path": "/original.form",
+        "type_id": "12345678-1234-1234-1234-123456789abc",
+        "values": [
+          {
+            "captured_label": "Original text",
+            "field_id": "text",
+            "kind": "text",
+            "secret": false,
+            "value": {
+              "length": 5,
+              "sha256": "2bd806c97f0e00af1a1fc3328fa763a9269723c8db8fac4f93af71db186d6e90"
+            }
+          },
+          {
+            "captured_label": "Original secret",
+            "field_id": "secret",
+            "kind": "secret",
+            "secret": true,
+            "value": {
+              "length": 16,
+              "sha256": "2ef421e10e1688c4df43290c46ae2ac0db71b202a48e20d33d223bf2b6ea4442"
+            }
+          },
+          {
+            "captured_label": "Original url",
+            "field_id": "url",
+            "kind": "url",
+            "secret": false,
+            "value": {
+              "length": 20,
+              "sha256": "f1e2c7da767e6e0fc3eac0819fdd3a622967f18748c6f0a875c3a5b0a165031e"
+            }
+          },
+          {
+            "captured_label": "Original email",
+            "field_id": "email",
+            "kind": "email",
+            "secret": false,
+            "value": {
+              "length": 18,
+              "sha256": "b2096dbc5111b6305225657ffdfab205aaff1dfb30d71805aea56922b2cbb24f"
+            }
+          },
+          {
+            "captured_label": "Original date",
+            "field_id": "date",
+            "kind": "date",
+            "secret": false,
+            "value": {
+              "length": 10,
+              "sha256": "92135a0bf009ebabf01414e498c31793ade22145e56b3a745976f8a04784c132"
+            }
+          },
+          {
+            "captured_label": "Original month",
+            "field_id": "month",
+            "kind": "month",
+            "secret": false,
+            "value": {
+              "length": 7,
+              "sha256": "3cd7a29c430069c9bc94f0db3659592d73ed664c7f38d2b0fd9038db674f6c01"
+            }
+          },
+          {
+            "captured_label": "Original notes",
+            "field_id": "notes",
+            "kind": "notes",
+            "secret": false,
+            "value": {
+              "length": 7,
+              "sha256": "21066d108d5319ecb5a1fc4454f42ef22fc5f1c7df49c31d90294950e0ea8b2c"
+            }
+          },
+          {
+            "captured_label": "Original number",
+            "field_id": "number",
+            "kind": "number",
+            "secret": false,
+            "value": {
+              "length": 5,
+              "sha256": "99de02da7f6c27f934fe3cf67d151bac7196348e3fbfbb610f385709bbc94166"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "form_record",
+      "value": {
+        "definition_alias": "complete",
+        "definition_revision": 2,
+        "name": "Empty latest form",
+        "path": "/latest.form",
+        "type_id": "12345678-1234-1234-1234-123456789abc",
+        "values": []
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "start",
+      "value": {
+        "archive_id": {
+          "length": 16,
+          "sha256": "ed9909dbe4679a23448bef0e2f3410d6b64ccb4ba863914a3a9d512fc6c86091"
+        },
+        "content_key": {
+          "length": 32,
+          "sha256": "55aade3d605cff4fbf225d4721cac5b8455586e6b0b97d8bf049a4fc41c5c8ad"
+        },
+        "description": "Permanent complete migration fixture: Unicode café",
+        "key_directory": {
+          "length": 1338,
+          "sha256": "e7e60fbbbfd7e873bbdbac9d6734331cac2cfdef35c167addb1c340ad0da7ecf"
+        }
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "symlink",
+      "value": {
+        "path": "/link",
+        "permissions": 448,
+        "target": "/binary.bin"
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "variable",
+      "value": {
+        "name": "/.revault/description",
+        "sensitivity": "normal",
+        "value": {
+          "length": 51,
+          "sha256": "4e4d34d233bae96bf0e76865638a8d405c3ec5020a5130918c08ea70b57b71b6"
+        }
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "variable",
+      "value": {
+        "name": "/.revault/mirrors/remove",
+        "sensitivity": "normal",
+        "value": {
+          "length": 224,
+          "sha256": "8b3d7e66ca7dd794ead45010ea2b1930f52ba4490a95a2101b185b70edc28b03"
+        }
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "variable",
+      "value": {
+        "name": "/.revault/mirrors/retain",
+        "sensitivity": "normal",
+        "value": {
+          "length": 224,
+          "sha256": "a9c4f81b423d0feaf78e498caa30463d4e124aa22345a3c3d8595bde4cd8a8a6"
+        }
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "variable",
+      "value": {
+        "name": "/env/EMPTY",
+        "sensitivity": "normal",
+        "value": []
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "variable",
+      "value": {
+        "name": "/env/NORMAL",
+        "sensitivity": "normal",
+        "value": {
+          "length": 8,
+          "sha256": "dc6bc9e56a4a1cf6196a69d467fa52dd051b083ac33ee7a4aa9397b384f6ae20"
+        }
+      }
+    }
+  },
+  {
+    "artifact": "archive",
+    "record": {
+      "type": "variable",
+      "value": {
+        "name": "/env/SECRET",
+        "sensitivity": "secret",
+        "value": {
+          "length": 16,
+          "sha256": "2ef421e10e1688c4df43290c46ae2ac0db71b202a48e20d33d223bf2b6ea4442"
+        }
+      }
+    }
+  },
+  {
+    "file_chunk_sha256": "2075115731977749771143a1f47df942c38c04876b56162e87bfbac3acf939f7",
+    "length": 30
+  },
+  {
+    "file_chunk_sha256": "46b40814fd68bde2b16a834bda0db4f48278dd266209cec68c68543969a83549",
+    "length": 19
+  },
+  {
+    "file_chunk_sha256": "761f7c062a349f720f293b7c122b9a0734036337ed1c56d5f34f953bd01af639",
+    "length": 4194320
+  },
+  {
+    "file_chunk_sha256": "7e4048b49f467db91fa29631db5e0a3cbd467944a43e5c8ef6106f06e8edcd63",
+    "length": 38
+  },
+  {
+    "file_chunk_sha256": "82c6db3f13688a91f685f62b940bc6fdff0df8adaf8eac6983d5ed1a4a8254a2",
+    "length": 1048729
+  },
+  {
+    "file_chunk_sha256": "efaf49b66c68227dd04d3cc7442194cb0c460128a35f8f05e3bd653d2d2329a7",
+    "length": 38
+  }
+]
