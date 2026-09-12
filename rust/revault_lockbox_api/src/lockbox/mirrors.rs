@@ -321,7 +321,10 @@ impl<State: WritableLockboxState> Lockbox<State> {
         &mut self,
         name: &str,
         operation: impl FnOnce(&mut Self, &MirrorProject) -> Result<T>,
-    ) -> Result<T> {
+    ) -> Result<T>
+    where
+        State: WritableLockboxState,
+    {
         let project = self
             .mirror_project(name)?
             .ok_or_else(|| Error::NotFound(name.to_string()))?;
@@ -333,7 +336,23 @@ impl<State: WritableLockboxState> Lockbox<State> {
         self.mirror_mutation_root = Some(project.destination.clone());
         let result = operation(self, &project);
         self.mirror_mutation_root = None;
-        result
+        match result {
+            Ok(value) => Ok(value),
+            Err(operation_error) => {
+                // Mirror operations may have streamed pages to backing storage
+                // before discovering a source or inventory error. Restore the
+                // last sealed state before returning that error.
+                if let Err(abort_error) = self.abort() {
+                    self.poisoned = Some(format!(
+                        "mirror mutation failed and rollback failed: {abort_error}"
+                    ));
+                    return Err(Error::InvalidOperation(format!(
+                        "mirror mutation failed: {operation_error}; rollback failed: {abort_error}"
+                    )));
+                }
+                Err(operation_error)
+            }
+        }
     }
 
     fn store_mirror_project(&mut self, project: &MirrorProject) -> Result<()> {

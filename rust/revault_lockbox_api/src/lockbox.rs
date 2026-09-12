@@ -184,6 +184,9 @@ pub struct Lockbox<State = Writable> {
     import_stats: RefCell<ImportStats>,
     workload_profile: WorkloadProfile,
     worker_policy: WorkerPolicy,
+    /// Physical length at the last sealed commit. Appended preparation pages
+    /// can be discarded when a transaction is aborted before publication.
+    transaction_start_len: u64,
     state: PhantomData<State>,
 }
 
@@ -337,6 +340,22 @@ impl<State> Lockbox<State> {
         Ok(())
     }
 
+    pub(crate) fn page_len_at(&self, offset: u64) -> Result<u64> {
+        let header = self.storage.read_at(offset, crate::page::PAGE_HEADER_LEN)?;
+        if header.get(0..8) != Some(crate::page::PAGE_MAGIC.as_slice()) {
+            return Err(Error::CorruptRecord);
+        }
+        let header_len = crate::checked::read_u32_le(&header[12..16])? as usize;
+        let stored_body_len = crate::checked::read_u32_le(&header[44..48])? as usize;
+        let stored_len = header_len
+            .checked_add(stored_body_len)
+            .ok_or(Error::CorruptRecord)?;
+        Ok(
+            crate::page::page_size_for_stored_len(stored_len, crate::page::DEFAULT_DATA_PAGE_BYTES)?
+                as u64,
+        )
+    }
+
     pub(crate) fn require_clean_access_widening(&self) -> Result<()> {
         if self.format_mode.plaintext() {
             return Err(Error::InvalidOperation(
@@ -423,6 +442,7 @@ impl<State> Lockbox<State> {
             import_stats: RefCell::new(ImportStats::default()),
             workload_profile: self.workload_profile,
             worker_policy: self.worker_policy,
+            transaction_start_len: self.transaction_start_len,
             state: PhantomData,
         })
     }
@@ -441,6 +461,7 @@ impl<State> Lockbox<State> {
             import_stats,
             workload_profile,
             worker_policy,
+            transaction_start_len,
             state: _,
         } = self;
         Lockbox {
@@ -456,6 +477,7 @@ impl<State> Lockbox<State> {
             import_stats,
             workload_profile,
             worker_policy,
+            transaction_start_len,
             state: PhantomData,
         }
     }
@@ -704,6 +726,7 @@ impl Lockbox<Writable> {
             import_stats: RefCell::new(ImportStats::default()),
             workload_profile: options.workload_profile,
             worker_policy: options.worker_policy,
+            transaction_start_len: HEADER_LEN as u64,
             state: PhantomData,
         }
     }
@@ -819,6 +842,7 @@ impl Lockbox<Writable> {
                 return Err(Error::CorruptHeader);
             }
         }
+        let transaction_start_len = storage.len()?;
         let mut lockbox = Self {
             format_mode,
             storage,
@@ -880,6 +904,7 @@ impl Lockbox<Writable> {
             import_stats: RefCell::new(ImportStats::default()),
             workload_profile: options.workload_profile,
             worker_policy: options.worker_policy,
+            transaction_start_len,
             state: PhantomData,
         };
 

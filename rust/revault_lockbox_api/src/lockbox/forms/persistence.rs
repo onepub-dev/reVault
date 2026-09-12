@@ -99,12 +99,10 @@ impl<State> Lockbox<State> {
     }
 
     fn write_form_redactions(&mut self, redactions: Vec<(u64, u64)>) -> Result<()> {
-        for (offset, object_id) in redactions {
-            self.sequence += 1;
-            let payload = encode_form_leaf_secure(&[])?;
-            let object = PageObject::new_secure(PageObjectKind::FormLeaf, object_id, payload);
-            let page_size = page_size_for_objects(std::slice::from_ref(&object)) as u64;
-            self.write_decoded_page_at(offset, self.sequence, vec![object])?;
+        for (offset, _object_id) in redactions {
+            // Preserve the original physical extent so cleanup erases the
+            // complete retired form page, including its unused tail.
+            let page_size = self.page_len_at(offset)?;
             self.record_ref_counts.remove(&offset);
             self.redacted_free_slots.push(FreeSlot {
                 offset,
@@ -462,14 +460,20 @@ impl<State> Lockbox<State> {
         kind: PageObjectKind,
         mut payload: SecureVec,
     ) -> Result<u64> {
-        self.flush_dirty_pages()?;
-        let mut content_key = self.key.with_bytes(derive_page_content_key)?;
         let sequence = self.staged.sequence;
-        let page_offset = self
+        let object = PageObject::new_secure(kind, sequence, payload.try_clone()?);
+        let page_size = crate::page::page_size_for_encoded_objects_with_format(
+            std::slice::from_ref(&object),
+            self.format_mode,
+        )? as u64;
+        let page_offset = self.allocate_page_offset(page_size)?;
+        let mut content_key = self.key.with_bytes(derive_page_content_key)?;
+        let result = self
             .page_manager
             .borrow_mut()
-            .append_secure_single_object_page(
+            .write_secure_single_object_page_at(
                 &mut self.storage,
+                page_offset,
                 SecurePageAppend {
                     lockbox_id: self.lockbox_id,
                     content_key: &content_key,
@@ -478,10 +482,10 @@ impl<State> Lockbox<State> {
                     object_id: sequence,
                     payload: &payload,
                 },
-            )?;
+            );
         content_key.zeroize();
         payload.zeroize()?;
-        Ok(page_offset)
+        result
     }
 }
 

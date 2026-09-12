@@ -15,7 +15,7 @@ use crate::form_btree::{
 };
 use crate::free_slot::FreeSlot;
 use crate::incremental_btree::{IncrementalBTree, LeafRewrite};
-use crate::page::{page_size_for_objects, PageObject, PageObjectKind};
+use crate::page::{PageObject, PageObjectKind};
 use crate::page_cache::SecurePageAppend;
 use crate::secret_vec::SecureVec;
 use crate::{crypto::derive_page_content_key, Error, LockboxPath, Result, SecretString};

@@ -1,5 +1,4 @@
 use super::{Lockbox, StagedLockboxState};
-use crate::checked::read_u32_le;
 use crate::commit_auth::{commit_auth_digest, commit_auth_message, encode_commit_auth, CommitAuth};
 use crate::commit_root::{encode_commit_root, CommitRoot};
 use crate::file_format::current_header::publish_header;
@@ -56,7 +55,10 @@ impl Lockbox<crate::Writable> {
         }
         let rollback = CommitRollback::capture(self);
         match self.commit_inner() {
-            Ok(()) => Ok(()),
+            Ok(()) => {
+                self.transaction_start_len = self.storage.len()?;
+                Ok(())
+            }
             Err(err) => {
                 if self.poisoned.is_some() {
                     return Err(err);
@@ -297,22 +299,6 @@ impl Lockbox<crate::Writable> {
             })?;
         }
         Ok(())
-    }
-
-    fn page_len_at(&self, offset: u64) -> Result<u64> {
-        let header = self.storage.read_at(offset, crate::page::PAGE_HEADER_LEN)?;
-        if header.get(0..8) != Some(crate::page::PAGE_MAGIC.as_slice()) {
-            return Err(Error::CorruptRecord);
-        }
-        let header_len = read_u32_le(&header[12..16])? as usize;
-        let stored_body_len = read_u32_le(&header[44..48])? as usize;
-        let stored_len = header_len
-            .checked_add(stored_body_len)
-            .ok_or(Error::CorruptRecord)?;
-        Ok(
-            crate::page::page_size_for_stored_len(stored_len, crate::page::DEFAULT_DATA_PAGE_BYTES)?
-                as u64,
-        )
     }
 
     fn commit_toc_btree(&mut self) -> Result<u64> {
@@ -619,6 +605,66 @@ impl Lockbox<crate::Writable> {
     }
 }
 
+impl<State> Lockbox<State>
+where
+    State: crate::WritableLockboxState,
+{
+    /// Discard the current uncommitted transaction and restore the last
+    /// published state. Appended preparation pages are truncated and reusable
+    /// free ranges are restored to zero before the handle is usable again.
+    pub fn abort(&mut self) -> Result<()> {
+        if self.read_only {
+            return Err(Error::InvalidOperation(
+                "read-only lockboxes cannot abort a transaction".to_string(),
+            ));
+        }
+        if self.poisoned.is_some() {
+            return Err(Error::InvalidOperation(
+                "lockbox has an unresolved publication failure; reopen it before aborting"
+                    .to_string(),
+            ));
+        }
+        if let Some(status) = self.transaction_recovery_status() {
+            return Err(Error::RecoveryRequired {
+                transaction_sequence: status.transaction_sequence,
+                range_count: status.range_count,
+                completed_ranges: status.completed_ranges,
+                page_count: status.page_count,
+                completed_pages: status.completed_pages,
+                total_bytes: status.total_bytes,
+                completed_bytes: status.completed_bytes,
+            });
+        }
+        self.storage.truncate(self.transaction_start_len)?;
+        let bytes = self.storage.read_all()?;
+        let restored = Lockbox::open_storage_with_secret_key(
+            crate::storage::StorageBackend::memory(bytes),
+            self.key.try_clone()?,
+            crate::LockboxOptions::default(),
+        )?;
+        self.staged = restored.staged;
+        self.format_mode = restored.format_mode;
+        self.page_manager.borrow_mut().clear();
+        let free_slots = self.free_space.slots_by_offset();
+        let zeroes = [0u8; 64 * 1024];
+        for slot in free_slots {
+            let mut offset = slot.offset;
+            let end = offset.saturating_add(slot.len);
+            while offset < end {
+                let len =
+                    usize::try_from((end - offset).min(zeroes.len() as u64)).map_err(|_| {
+                        Error::SecurityLimitExceeded("free range is too large".to_string())
+                    })?;
+                self.storage.write_at(offset, &zeroes[..len])?;
+                offset += len as u64;
+            }
+        }
+        self.storage.sync()?;
+        self.transaction_start_len = self.storage.len()?;
+        Ok(())
+    }
+}
+
 pub(crate) struct CommitRollback(StagedLockboxState);
 
 impl CommitRollback {
@@ -674,8 +720,10 @@ mod tests {
     use crate::toc_entry::TocEntry;
     use crate::{
         Error, FormFieldDefinition, FormFieldKind, LockboxOpen, LockboxProtection,
-        OwnerSigningKeyPair, SecretString, VariableName,
+        MirrorMissingFilePolicy, MirrorProject, OwnerSigningKeyPair, SecretString, VariableName,
+        WorkloadProfile,
     };
+    use std::io::Cursor;
     use std::path::PathBuf;
 
     fn p(path: impl AsRef<str>) -> LockboxPath {
@@ -1394,6 +1442,118 @@ mod tests {
             .get_form_field(&p("/forms/account"), "username")
             .unwrap()
             .is_some());
+    }
+
+    #[test]
+    fn abort_restores_previous_state_after_failed_bulk_mirror_mutation() {
+        let mut lb = Lockbox::create("secret");
+        add_file(&mut lb, &p("/docs/original.txt"), b"original", false).unwrap();
+        lb.create_mirror_project(
+            MirrorProject {
+                name: "docs".to_string(),
+                source: "/tmp/docs-source".to_string(),
+                destination: p("/docs"),
+                includes: Vec::new(),
+                excludes: Vec::new(),
+                missing_file_policy: MirrorMissingFilePolicy::Remove,
+                strict: false,
+                host_identity: None,
+            },
+            true,
+        )
+        .unwrap();
+        lb.commit().unwrap();
+        let sealed = lb.to_bytes();
+        let initial = Lockbox::open_bytes_with_key(sealed.clone(), "secret").unwrap();
+        assert!(initial.mirror_project("docs").unwrap().is_some());
+
+        lb.set_workload_profile(WorkloadProfile::BulkImport);
+        let result: crate::Result<()> = lb.with_mirror_project_mutation("docs", |lb, _| {
+            lb.add_file_from_reader(
+                &p("/docs/new.bin"),
+                Cursor::new(vec![0x5a; 10 * 1024 * 1024]),
+                false,
+            )?;
+            Err(Error::InvalidOperation(
+                "simulated source change".to_string(),
+            ))
+        });
+
+        assert!(matches!(result, Err(Error::InvalidOperation(_))));
+        assert_eq!(lb.to_bytes(), sealed);
+        assert!(matches!(
+            lb.get_file(&p("/docs/new.bin")),
+            Err(Error::NotFound(_))
+        ));
+        assert_eq!(lb.get_file(&p("/docs/original.txt")).unwrap(), b"original");
+        let reopened = Lockbox::open_bytes_with_key(lb.to_bytes(), "secret").unwrap();
+        assert!(reopened.mirror_project("docs").unwrap().is_some());
+        assert!(lb.mirror_project("docs").unwrap().is_some());
+    }
+
+    #[test]
+    fn variable_replacement_retires_the_complete_original_page() {
+        let mut lb = Lockbox::create("secret");
+        let name = VariableName::new("/large").unwrap();
+        lb.set_variable(&name, &"x".repeat(16 * 1024)).unwrap();
+        lb.commit().unwrap();
+        let old_offset = lb.variable_leaves[0].offset;
+        let old_len = lb.page_len_at(old_offset).unwrap();
+
+        lb.set_variable(&name, "replacement").unwrap();
+        lb.commit().unwrap();
+
+        let retired = lb.storage.read_at(old_offset, old_len as usize).unwrap();
+        assert!(retired.iter().all(|byte| *byte == 0));
+        assert!(lb
+            .free_space
+            .slots_by_offset()
+            .iter()
+            .any(|slot| slot.offset == old_offset && slot.len >= old_len));
+
+        lb.set_variable(&name, &"y".repeat(12 * 1024)).unwrap();
+        lb.commit().unwrap();
+        assert_eq!(lb.variable_leaves[0].offset, old_offset);
+    }
+
+    #[test]
+    fn form_replacement_retires_the_complete_original_page() {
+        let mut lb = Lockbox::create("secret");
+        lb.define_form(
+            "login",
+            "Login",
+            vec![FormFieldDefinition {
+                id: "username".to_string(),
+                label: "Username".to_string(),
+                kind: FormFieldKind::Text,
+                required: true,
+            }],
+        )
+        .unwrap();
+        lb.create_form_record(&p("/account"), "login", "Account")
+            .unwrap();
+        lb.set_form_field_normal(&p("/account"), "username", &"u".repeat(16 * 1024))
+            .unwrap();
+        lb.commit().unwrap();
+        let old_offset = lb.forms.tree.leaves[0].offset;
+        let old_len = lb.page_len_at(old_offset).unwrap();
+
+        lb.set_form_field_normal(&p("/account"), "username", "replacement")
+            .unwrap();
+        lb.commit().unwrap();
+
+        let retired = lb.storage.read_at(old_offset, old_len as usize).unwrap();
+        assert!(retired.iter().all(|byte| *byte == 0));
+        assert!(lb
+            .free_space
+            .slots_by_offset()
+            .iter()
+            .any(|slot| slot.offset == old_offset && slot.len >= old_len));
+
+        lb.set_form_field_normal(&p("/account"), "username", &"v".repeat(12 * 1024))
+            .unwrap();
+        lb.commit().unwrap();
+        assert_eq!(lb.forms.tree.leaves[0].offset, old_offset);
     }
 
     #[test]

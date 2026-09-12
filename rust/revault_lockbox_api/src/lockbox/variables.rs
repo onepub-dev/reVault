@@ -4,17 +4,18 @@ use std::sync::Arc;
 
 use super::Lockbox;
 use crate::free_slot::FreeSlot;
-use crate::page::{page_size_for_objects, PageObject, PageObjectKind};
+use crate::page::{PageObject, PageObjectKind};
 use crate::page_cache::SecurePageAppend;
+use crate::secret_vec::SecureVec;
 use crate::security::{validate_variable_value, validate_variable_value_ref};
 use crate::variable_btree::{
-    decode_variable_node_secure, encode_variable_internal, encode_variable_leaf,
-    encode_variable_leaf_secure, variable_child_groups, variable_entries_from_map,
-    variable_leaf_groups, VariableChild, VariableInternal, VariableLeaf, VariableNode,
-    VariableTreeNode, VariableValue,
+    decode_variable_node_secure, encode_variable_internal, encode_variable_leaf_secure,
+    variable_child_groups, variable_entries_from_map, variable_leaf_groups, VariableChild,
+    VariableInternal, VariableLeaf, VariableNode, VariableTreeNode, VariableValue,
 };
-use crate::{crypto::derive_page_content_key, secret_vec::SecureVec};
-use crate::{Error, Result, SecretString, VariableName, VariableSensitivity};
+use crate::{
+    crypto::derive_page_content_key, Error, Result, SecretString, VariableName, VariableSensitivity,
+};
 use zeroize::Zeroize;
 
 const LOCKBOX_DESCRIPTION_VARIABLE: &str = "/.revault/description";
@@ -462,15 +463,10 @@ impl<State> Lockbox<State> {
         }
         let mut redactions = Vec::new();
         self.collect_variable_tree_redactions(self.variable_root_offset, 0, &mut redactions)?;
-        for (offset, object_id) in redactions {
-            self.sequence += 1;
-            let object = PageObject::new(
-                PageObjectKind::VariableLeaf,
-                object_id,
-                encode_variable_leaf(&[])?,
-            );
-            let page_size = page_size_for_objects(std::slice::from_ref(&object)) as u64;
-            self.write_decoded_page_at(offset, self.sequence, vec![object])?;
+        for (offset, _object_id) in redactions {
+            // Retire the complete physical allocation without overwriting it
+            // before publication; cleanup will erase the full original page.
+            let page_size = self.page_len_at(offset)?;
             self.record_ref_counts.remove(&offset);
             self.redacted_free_slots.push(FreeSlot {
                 offset,
@@ -672,14 +668,20 @@ impl<State> Lockbox<State> {
         kind: PageObjectKind,
         mut payload: SecureVec,
     ) -> Result<u64> {
-        self.flush_dirty_pages()?;
-        let mut content_key = self.key.with_bytes(derive_page_content_key)?;
         let sequence = self.staged.sequence;
-        let page_offset = self
+        let object = PageObject::new_secure(kind, sequence, payload.try_clone()?);
+        let page_size = crate::page::page_size_for_encoded_objects_with_format(
+            std::slice::from_ref(&object),
+            self.format_mode,
+        )? as u64;
+        let page_offset = self.allocate_page_offset(page_size)?;
+        let mut content_key = self.key.with_bytes(derive_page_content_key)?;
+        let result = self
             .page_manager
             .borrow_mut()
-            .append_secure_single_object_page(
+            .write_secure_single_object_page_at(
                 &mut self.storage,
+                page_offset,
                 SecurePageAppend {
                     lockbox_id: self.lockbox_id,
                     content_key: &content_key,
@@ -691,6 +693,6 @@ impl<State> Lockbox<State> {
             );
         content_key.zeroize();
         payload.zeroize()?;
-        page_offset
+        result
     }
 }

@@ -15,6 +15,7 @@ use crate::secret_vec::SecureVec;
 use crate::storage::Storage;
 use crate::{Error, Result};
 use std::collections::{BTreeSet, HashMap, VecDeque};
+use zeroize::Zeroize;
 
 #[derive(Debug)]
 pub(crate) struct PageCache {
@@ -201,16 +202,27 @@ impl PageCache {
                 self.discard_after_flush.insert(offset);
             }
         }
-        self.insert_dirty_page(offset, page, page_size as u64);
+        self.dirty_offsets.insert(offset);
+        self.insert_page_with_security(offset, page, page_size as u64, PageSecurity::Normal, true);
         Ok(())
     }
 
+    #[cfg(test)]
     pub(crate) fn append_secure_single_object_page(
         &mut self,
         storage: &mut impl Storage,
         request: SecurePageAppend<'_>,
     ) -> Result<u64> {
         let page_offset = storage.len()?;
+        self.write_secure_single_object_page_at(storage, page_offset, request)
+    }
+
+    pub(crate) fn write_secure_single_object_page_at(
+        &mut self,
+        storage: &mut impl Storage,
+        page_offset: u64,
+        request: SecurePageAppend<'_>,
+    ) -> Result<u64> {
         let encoded = if self.format_mode.plaintext() {
             encode_page_with_format(
                 DEFAULT_METADATA_PAGE_BYTES,
@@ -237,8 +249,25 @@ impl PageCache {
                 payload: request.payload,
             })?
         };
-        let appended = storage.append(&encoded)?;
-        if appended != page_offset {
+        let mut storage_len = storage.len()?;
+        while page_offset > storage_len {
+            let gap = page_offset - storage_len;
+            let fill_len = usize::try_from(gap.min(DEFAULT_METADATA_PAGE_BYTES as u64))
+                .map_err(|_| Error::SecurityLimitExceeded("page gap is too large".to_string()))?;
+            let appended = storage.append(&vec![0; fill_len])?;
+            if appended != storage_len {
+                return Err(Error::CorruptRecord);
+            }
+            storage_len += fill_len as u64;
+        }
+        if page_offset == storage_len {
+            let appended = storage.append(&encoded)?;
+            if appended != page_offset {
+                return Err(Error::CorruptRecord);
+            }
+        } else if page_offset < storage_len {
+            storage.write_at(page_offset, &encoded)?;
+        } else {
             return Err(Error::CorruptRecord);
         }
 
@@ -302,15 +331,36 @@ impl PageCache {
                         "page size exceeds addressable memory".to_string(),
                     )
                 })?;
-                let encoded = encode_page_with_format(
-                    page_size,
-                    lockbox_id,
-                    entry.page.page_id,
-                    entry.page.sequence,
-                    key,
-                    &entry.page.objects,
-                    self.format_mode,
-                )?;
+                let encoded = match entry.security {
+                    PageSecurity::Normal => encode_page_with_format(
+                        page_size,
+                        lockbox_id,
+                        entry.page.page_id,
+                        entry.page.sequence,
+                        key,
+                        &entry.page.objects,
+                        self.format_mode,
+                    )?,
+                    PageSecurity::Secure => {
+                        let [object] = entry.page.objects.as_slice() else {
+                            return Err(crate::Error::CorruptRecord);
+                        };
+                        let payload = object.secure_payload().ok_or(crate::Error::CorruptRecord)?;
+                        let mut content_key = crate::crypto::derive_page_content_key(key);
+                        let encoded = encode_single_object_page_secure(SecureSingleObjectPage {
+                            page_size,
+                            lockbox_id,
+                            page_id: entry.page.page_id,
+                            sequence: entry.page.sequence,
+                            content_key: &content_key,
+                            kind: object.kind,
+                            id: object.id,
+                            payload,
+                        })?;
+                        content_key.zeroize();
+                        encoded
+                    }
+                };
                 (encoded, page_size)
             };
             while offset > storage_len {
@@ -442,11 +492,6 @@ impl PageCache {
         self.zeroed_pages.remove(&offset);
         self.discard_after_flush.remove(&offset);
         self.insert_page_with_security(offset, page, weight, PageSecurity::Normal, false);
-    }
-
-    fn insert_dirty_page(&mut self, offset: u64, page: DecodedPage, weight: u64) {
-        self.dirty_offsets.insert(offset);
-        self.insert_page_with_security(offset, page, weight, PageSecurity::Normal, true);
     }
 
     fn insert_page_with_security(
