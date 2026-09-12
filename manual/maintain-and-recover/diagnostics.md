@@ -29,3 +29,11 @@ For a command failure, record:
 Do not paste Vault passphrases, Profile backups, fingerprints that have not yet been verified, secret variables or complete Lockbox files into a public issue.
 
 See [Troubleshooting](troubleshooting.md) for symptom-based recovery steps.
+
+## Deep storage verification
+
+```bash
+lockbox secrets.lbox doctor --deep
+```
+
+This read-only inspection verifies authenticated physical allocation ownership and checks that reusable free ranges contain zeros. It does not reclaim space. If recovery is required, preview `lockbox secrets.lbox doctor recover --dry-run` before proceeding. Use `lockbox secrets.lbox doctor compact` to reclaim interior free space after recovery; compaction replaces the archive and discards old commit history.

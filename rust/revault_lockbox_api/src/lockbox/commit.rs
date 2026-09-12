@@ -33,6 +33,10 @@ impl Lockbox<crate::Writable> {
     /// [`Error::RecoveryRequired`]; the published logical state remains in
     /// force. A subsequent write-capable open completes cleanup automatically;
     /// read-only callers can use `Lockbox::recover_transaction` explicitly.
+    /// A pre-publication savepoint restore can retain earlier staged changes;
+    /// call [`Lockbox::abort`] to discard the whole uncommitted transaction.
+    /// Ambiguous publication errors require reopening before further writes.
+    /// Successful commits also attempt authenticated free-tail truncation.
     pub fn commit(&mut self) -> Result<()> {
         self.require_clean_transaction()?;
         if self.read_only {

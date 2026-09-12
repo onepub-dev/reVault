@@ -120,3 +120,16 @@ KDoc and the underlying Java Javadocs describe the installed package version.
 The [Kotlin conformance program](../e2e/kotlin/KotlinConformance.kt) supplies
 complete worked examples with cleanup and typed failures. The
 [example index](../API_EXAMPLES.md) tracks method coverage.
+
+## V4 storage compatibility
+
+The v4 development core requires a matching rebuilt native runtime (or WASM
+carrier) and migration of older Vault/Lockbox containers. Migrate the Vault
+first with `lockbox doctor migrate vault --replace`, then each archive with
+`lockbox doctor migrate lockbox <path> --replace`; retain the migration backups.
+These changes do not add facade methods. Writable file opens inherit native
+transaction recovery; explicit read-only opens can report recovery required.
+A commit error may occur after publication, so reopen and inspect persisted
+state before retrying. With library handles closed, use the CLI's
+`lockbox <path> doctor compact` for explicit compaction; it discards old commit
+history. See the repository's [v4 binding contract and release checks](https://github.com/onepub-dev/reVault/blob/master/bindings/README.md#v4-storage-and-transaction-maintenance).

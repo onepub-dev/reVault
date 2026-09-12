@@ -38,6 +38,7 @@
 * [Recover a damaged Lockbox](maintain-and-recover/recovery.md)
 * [Migrating between versions](maintain-and-recover/migrating-between-versions.md)
 * [Diagnostics](maintain-and-recover/diagnostics.md)
+* [Reclaim Lockbox space](maintain-and-recover/compaction.md)
 * [Troubleshooting](maintain-and-recover/troubleshooting.md)
 
 ## Operate a key-sharing service
@@ -50,5 +51,6 @@
 
 * [APIs](develop-with-revault/apis/README.md)
   * [reVault API](develop-with-revault/apis/revault-api.md)
+* [Transactions and recovery](develop-with-revault/transactions.md)
 * [Versions and compatibility](develop-with-revault/compatibility.md)
 * [Glossary](develop-with-revault/glossary.md)

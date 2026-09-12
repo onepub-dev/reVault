@@ -503,7 +503,19 @@ impl Lockbox {
     /// records. Old commit history and reusable space are discarded. File-backed
     /// archives use a verified, synced replacement in the same directory and
     /// require temporary disk space for that replacement. An interrupted write
-    /// leaves the original intact; publication is an atomic rename.
+    /// leaves the original intact before publication; publication is an atomic
+    /// rename. After publication, reopen after an error to inspect the new file.
+    /// Abrupt process termination may leave a temporary file. Symlink source
+    /// paths, stale file handles, read-only and poisoned handles are refused.
+    ///
+    /// ```no_run
+    /// # fn maintenance(archive: &mut revault_lockbox_api::Lockbox) -> revault_lockbox_api::Result<()> {
+    /// // The caller opened the archive for writing with its established signer.
+    /// archive.compact()?; // Also commits any staged changes; discards history.
+    /// archive.inspector().verify_storage()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn compact(&mut self) -> Result<()> {
         self.require_clean_transaction()?;
         self.validate_owner_signing_key()?;

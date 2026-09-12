@@ -35,3 +35,9 @@ Read [Migrating between versions](../maintain-and-recover/migrating-between-vers
 The repository tag belonging to a release is the permanent documentation snapshot for that source version. The hosted manual follows the active development branch and may describe functionality newer than an installed package.
 
 When reporting a problem, include the exact CLI or package version rather than saying only that the manual is current. Generated class/method documentation belongs to the package release and is the signature authority when it differs from the development manual.
+
+## v4 development transition
+
+The v4 container changes physical allocation accounting and durable transaction recovery. Vault structure version 3 remains unchanged, but its enclosing Lockbox container must migrate to v4. Older containers are read by isolated migration executables rather than the current core.
+
+The C ABI and FlatBuffers operation schema have not changed for transaction maintenance. Every distributed native carrier, including the WASM build, must nevertheless be rebuilt with the v4 core and shipped with its matching facade package. Existing binaries do not gain v4 support from a documentation or facade-only update. See [API maintenance](apis/revault-api.md#transaction-maintenance-and-v4).

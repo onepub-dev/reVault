@@ -224,6 +224,16 @@ impl<State> Lockbox<State> {
 impl<State> LockboxInspector<'_, State> {
     /// Verify complete physical ownership and zero-filled reusable ranges.
     /// This is read-only and never promotes orphan contents into the archive.
+    /// Commit or abort staged preparation first; pending recovery, invalid
+    /// extents, unaccounted storage and nonzero reusable ranges are errors.
+    ///
+    /// ```no_run
+    /// # fn inspect(archive: &revault_lockbox_api::Lockbox<revault_lockbox_api::ReadOnly>) -> revault_lockbox_api::Result<()> {
+    /// // Inspect a separately opened, explicitly read-only archive.
+    /// archive.inspector().verify_storage()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn verify_storage(&self) -> Result<()> {
         let lb = self.lockbox;
         lb.require_clean_transaction()?;

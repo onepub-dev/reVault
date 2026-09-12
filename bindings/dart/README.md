@@ -260,3 +260,16 @@ name rather than a path uses the operating system's normal search rules.
   changing generated APIs or publication packaging.
 - Report problems in the [reVault issue tracker](https://github.com/onepub-dev/reVault/issues).
 - Treat missing class or method documentation on [pub.dev](https://pub.dev/documentation/revault_api/latest/) as a binding defect; `dart doc` and the conformance inventory are release checks.
+
+## V4 storage compatibility
+
+The v4 development core requires a matching rebuilt native runtime (or WASM
+carrier) and migration of older Vault/Lockbox containers. Migrate the Vault
+first with `lockbox doctor migrate vault --replace`, then each archive with
+`lockbox doctor migrate lockbox <path> --replace`; retain the migration backups.
+These changes do not add facade methods. Writable file opens inherit native
+transaction recovery; explicit read-only opens can report recovery required.
+A commit error may occur after publication, so reopen and inspect persisted
+state before retrying. With library handles closed, use the CLI's
+`lockbox <path> doctor compact` for explicit compaction; it discards old commit
+history. See the repository's [v4 binding contract and release checks](https://github.com/onepub-dev/reVault/blob/master/bindings/README.md#v4-storage-and-transaction-maintenance).
