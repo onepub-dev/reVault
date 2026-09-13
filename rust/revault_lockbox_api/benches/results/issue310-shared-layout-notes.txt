@@ -1,0 +1,63 @@
+Shared layout prototype, 2026-09-13
+=================================
+Not a production lockbox format, cryptographic protocol approval, or ZIP gate.
+Source: benches/shared_layout.rs; unit wrapper tests/shared_layout_checks.rs.
+No plaintext-only FileChunk/TOC extension has been reactivated.
+
+One descriptor, table schema and read pipeline covers all eight combinations
+of requested compression, encryption and signing. Stored-byte blocks share
+the same table shape and extent arithmetic. Protection is an operation in
+that pipeline, not a separate index. Numeric Zstd encoding runs once; raw
+fallback is recorded separately from requested compression in the CSV.
+Compressed logical ranges still decode a complete compression frame: the
+stored-byte table is not a Zstd restart index.
+
+Prototype protection details (not production approval):
+- A fresh random per-frame salt and HKDF-SHA256 derive a frame key; context
+  includes archive/frame identity, lengths, block size and protection/codec.
+- ChaCha20Poly1305 protects blocks and the table, with separate index/block
+  nonce domains and block ordinals in associated data. Retrying a frame ID
+  receives a fresh salt rather than reusing its old key/nonce pair.
+- Persisted block hashes cover stored bytes (ciphertext in encrypted mode),
+  not plaintext guesses or plaintext equality markers for encrypted content.
+- Descriptor/table commitments bind metadata. Synthetic Ed25519 signing
+  stands in for commit authentication. Signed open also verifies all content
+  eagerly; it does not skip damaged unrequested blocks merely because the
+  signed table is valid. This is only one frame, not production variables,
+  forms, allocations, cleanup state or a full commit/signature chain.
+- Read output is copied once, verified, decrypted in place if needed, then
+  compacted to remove tags/trim the range. Partial output is zeroized on error;
+  unused tails are wiped before transferring the result allocation.
+
+Validation: four tests passed, covering all eight modes and sizes 0, 1, 128,
+16385 and 65537; full/empty/tail ranges; truncation; wrong keys and signers;
+altered frame/archive/salt; index-versus-block and block-ordinal AD domains;
+tag corruption; touched versus untouched corruption; eager signed corruption
+failure; descriptor allocation bounds; fresh salts across retry identities.
+Clippy passed for bench and test targets. Builds have no new dependencies.
+
+Measurement: release, taskset -c 2, no concurrent builds, synthetic repetitive
+binary, sizes 128 B, 1 MiB, 4 MiB; blocks 16/64/256 KiB; eight mode combinations;
+one discarded warmup then five samples. Whole and midpoint up-to-8 KiB range
+outputs byte-checked outside read timers. Signed open includes full-frame
+verification; encode includes compression/protection/table/signature work.
+Bytes column is frame packet only: excludes the trusted descriptor/signature,
+TOC, archive headers, page allocations/padding, recovery and migration metadata.
+In-memory immutable input, not disk I/O. Cases run in fixed order, so these
+are exploratory medians, not paired production-regression acceptance tests.
+
+4 MiB unsigned raw results (microseconds, approximate medians):
+block KiB    plain write / whole / range    encrypted write / whole / range
+16           3805 / 3902 / 20               6698 / 6763 / 33
+64           3801 / 3888 / 54               6463 / 7123 / 104
+256          3761 / 3890 / 219              6258 / 6347 / 370
+Small blocks bound random-read work much better. Encrypted per-block overhead
+and table size still need archive-level paired measurements before choosing
+a default. The first allocation-heavy implementation was optimized before
+recording these final CSVs; do not treat it as a production baseline.
+
+Still required: random/nonrepetitive and many-file corpora, actual storage
+read accounting, real page/TOC ownership, padding choice, existing signer and
+key management integration, relocation/recovery/rollback and external-source
+latching tests, migrations/bindings/CLI, and real archive ZIP/write/load gates.
+No production performance claim or format activation follows from this run.

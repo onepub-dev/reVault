@@ -1,6 +1,10 @@
 Shared block-layout review after user feedback, 2026-09-13
 ========================================================
 Status: design investigation, NOT an implemented or approved format.
+Follow-up: benches/shared_layout.rs now exercises one descriptor/table across
+all eight modes, with four passing correctness/tamper tests and exploratory
+in-memory 128 B / 1 MiB / 4 MiB measurements. See issue310-shared-layout-notes.txt.
+This is not native writer activation or completion of the gates below.
 User objected to a plaintext-only indexed data path. Do not activate that
 path or interpret performance targets as permission to weaken integrity.
 The previous uncommitted integration was saved as a patch and removed from

@@ -81,6 +81,15 @@ harness = false
 test = false
 
 [[bench]]
+name = "shared_layout"
+harness = false
+test = false
+
+[[test]]
+name = "shared_layout_checks"
+path = "tests/shared_layout_checks.rs"
+
+[[bench]]
 name = "pgp_compare"
 harness = false
 test = false
