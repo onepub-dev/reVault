@@ -11,6 +11,10 @@ use zeroize::Zeroize;
 const KEY: [u8; 32] = [71; 32];
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
+    if args.first().is_some_and(|arg| arg == "compare") {
+        compare(&args);
+        return;
+    }
     assert_eq!(args.len(), 5, "write|read ROOT SIZE pattern|random SAMPLES");
     let writing = match args[0].as_str() {
         "write" => true,
@@ -46,7 +50,10 @@ fn main() {
         ("signed", false, true),
         ("encrypted-signed", true, true),
     ];
-    let mut shuffle = 0x1234_5678_9abc_def0u64;
+    let mut shuffle = std::env::var("REVAULT_GATE_SEED")
+        .map(|value| value.parse::<u64>().unwrap())
+        .unwrap_or(0x1234_5678_9abc_def0u64);
+    let selected = std::env::var("REVAULT_GATE_CASE").ok();
     for sample in 0..samples {
         let mut order: Vec<_> = (0..if writing { 8 } else { 24 }).collect();
         for i in (1..order.len()).rev() {
@@ -60,6 +67,17 @@ fn main() {
             let mode_index = case % 4;
             let compressed = case % 8 >= 4;
             let (mode, encrypted, signed) = modes[mode_index];
+            let phase_name = if writing {
+                "write"
+            } else {
+                ["stream", "whole", "range"][access]
+            };
+            if selected
+                .as_ref()
+                .is_some_and(|case| case != &format!("{mode}/{compressed}/{phase_name}"))
+            {
+                continue;
+            }
             let file = root.join(format!("{mode}-{compressed}.lbox"));
             if writing && sample == 0 {
                 assert!(!file.exists(), "refuse existing fixture");
@@ -167,6 +185,56 @@ fn main() {
                 out.zeroize();
             }
             println!("{phase},{mode},{compressed},{size},{corpus},{sample},{open_us:.3},{read_us:.3},{total_us:.3},{disk_len}");
+        }
+    }
+}
+
+// Drive immediate paired child runs locally rather than inserting tool-call
+// delays between revisions. The parent inherits taskset affinity. All children
+// read the same immutable synthetic fixtures; first sample is warmup only.
+fn compare(args: &[String]) {
+    use std::process::Command;
+    assert_eq!(
+        args.len(),
+        8,
+        "compare MAIN_EXE BRANCH_EXE ROOT SIZE CORPUS PAIRS CASE"
+    );
+    let pairs: usize = args[6].parse().unwrap();
+    assert!(pairs > 0);
+    let mut printed_header = false;
+    for pair in 0..pairs {
+        let order = if pair % 2 == 0 {
+            [1, 2, 2, 1]
+        } else {
+            [2, 1, 1, 2]
+        };
+        for (position, variant) in order.into_iter().enumerate() {
+            let output = Command::new(&args[variant])
+                .args(["read", &args[3], &args[4], &args[5], "6"])
+                .env("REVAULT_GATE_CASE", &args[7])
+                .env("REVAULT_GATE_SEED", (pair as u64 + 113).to_string())
+                .output()
+                .unwrap();
+            assert!(output.status.success(), "child benchmark failed");
+            let output = String::from_utf8(output.stdout).unwrap();
+            let mut lines = output.lines();
+            let header = lines.next().unwrap();
+            assert!(header.starts_with("phase,mode,compressed,"));
+            if !printed_header {
+                println!("pair,position,reader,{header}");
+                printed_header = true;
+            }
+            let mut count = 0;
+            for line in lines {
+                let fields: Vec<_> = line.split(',').collect();
+                assert_eq!(fields.len(), 10);
+                count += 1;
+                if fields[5] != "0" {
+                    let reader = if variant == 1 { "main" } else { "branch" };
+                    println!("{pair},{position},{reader},{line}");
+                }
+            }
+            assert_eq!(count, 6, "case filter must select exactly one workload");
         }
     }
 }

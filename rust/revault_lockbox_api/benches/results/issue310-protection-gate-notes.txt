@@ -1,5 +1,9 @@
 Issue #310 protected-mode performance gate: NOT YET PASSED
 
+Follow-up: issue310-protection-local-paired-notes.txt resolves the three read/
+open outliers below using immediate fixed-core paired runs. The wider gate and
+compressed-write tradeoff remain incomplete; retain the original runs below.
+
 Main baseline: 0f9a137. Candidate: bfbbf36 (same production read/write code as
 f9fbb5b; subsequent staged block-index/migration code is not on the data path).
 Both native v4; excludes the abandoned v5 edits. Identical protection_gate.rs
