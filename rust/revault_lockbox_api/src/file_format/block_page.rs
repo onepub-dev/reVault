@@ -58,9 +58,44 @@ pub(crate) fn encode(
     }
     let (descriptor, packet) =
         encode_block_frame(identity.archive, frame_id, identity.mode, input, key)?;
+    encode_packet(identity, descriptor, packet, slices, key)
+}
+
+/// Wrap a prepared single-pass import result without invoking its data codec.
+pub(crate) fn encode_prepared(
+    identity: PageIdentity,
+    frame_id: u64,
+    compression: u8,
+    logical_len: u64,
+    stored: &[u8],
+    slices: Vec<CompressionFrameSlice>,
+    key: &[u8],
+) -> Result<(BlockFrameDescriptor, Vec<u8>)> {
+    if identity.page_id == 0 {
+        return Err(Error::CorruptRecord);
+    }
+    let (descriptor, packet) = super::encode_stored_block_frame(
+        identity.archive,
+        frame_id,
+        identity.mode,
+        compression,
+        logical_len,
+        stored,
+        key,
+    )?;
+    encode_packet(identity, descriptor, packet, slices, key)
+}
+
+fn encode_packet(
+    identity: PageIdentity,
+    descriptor: BlockFrameDescriptor,
+    packet: Vec<u8>,
+    slices: Vec<CompressionFrameSlice>,
+    key: &[u8],
+) -> Result<(BlockFrameDescriptor, Vec<u8>)> {
     let packet = ZeroizingBytes::new(packet);
     let manifest = CompressionFrameManifest {
-        compression_frame_id: frame_id,
+        compression_frame_id: descriptor.frame_id,
         compression: descriptor.compression,
         compression_frame_len: descriptor.logical_len,
         compressed_len: descriptor.stored_len,

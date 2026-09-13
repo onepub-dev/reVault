@@ -292,7 +292,6 @@ pub(crate) fn encode_block_frame(
     input: &[u8],
     key: &[u8],
 ) -> Result<(BlockFrameDescriptor, Vec<u8>)> {
-    use chacha20poly1305::aead::AeadInOut;
     if input.len() > MAX_FRAME_BYTES || mode.0 == 0 || (!mode.plaintext() && key.len() != 32) {
         return Err(Error::CorruptRecord);
     }
@@ -300,12 +299,38 @@ pub(crate) fn encode_block_frame(
     let (compression, stored) =
         crate::compression::encode_with_compression(input, mode.options().compression);
     let stored = ZeroizingBytes::new(stored);
-    let descriptor = BlockFrameDescriptor::fresh(
+    encode_stored_block_frame(
         archive,
         frame_id,
         mode,
         compression,
         input.len() as u64,
+        &stored,
+        key,
+    )
+}
+
+/// Protect bytes already encoded by the import pipeline. This boundary must
+/// never decode or recompress payloads; codec choice belongs to that pipeline.
+pub(crate) fn encode_stored_block_frame(
+    archive: crate::LockboxId,
+    frame_id: u64,
+    mode: crate::creation_options::FormatMode,
+    compression: u8,
+    logical_len: u64,
+    stored: &[u8],
+    key: &[u8],
+) -> Result<(BlockFrameDescriptor, Vec<u8>)> {
+    use chacha20poly1305::aead::AeadInOut;
+    if !mode.plaintext() && key.len() != 32 {
+        return Err(Error::CorruptRecord);
+    }
+    let descriptor = BlockFrameDescriptor::fresh(
+        archive,
+        frame_id,
+        mode,
+        compression,
+        logical_len,
         stored.len() as u64,
     )?;
     let cipher = if mode.plaintext() {
@@ -494,10 +519,18 @@ mod tests {
                         });
                         for len in [0usize, 1, 16383, 16384, 16385, 65539] {
                             let input: Vec<_> = (0..len).map(|n| (n % 251) as u8).collect();
-                            let (descriptor, packet) =
-                                encode_block_frame(archive, 31, mode, &input, &key).unwrap();
                             let (algorithm, encoded) =
                                 crate::compression::encode_with_compression(&input, compression);
+                            let (descriptor, packet) = encode_stored_block_frame(
+                                archive,
+                                31,
+                                mode,
+                                algorithm,
+                                input.len() as u64,
+                                &encoded,
+                                &key,
+                            )
+                            .unwrap();
                             assert_eq!(descriptor.compression, algorithm);
                             assert_eq!(descriptor.stored_len, encoded.len() as u64);
                             // Independently unpack with the allocating AEAD API,

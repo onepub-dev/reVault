@@ -1,0 +1,50 @@
+Prepared import frames into common block pages, 2026-09-13
+=========================================================
+The actual import pipeline produces PreparedCompressionFrame after its codec
+has already run. Passing its data through the original experimental encoder
+would require returning to plaintext and running the codec again. The common
+block encoder now has a separate encode_stored_block_frame entry point accepting
+the chosen codec, logical length and existing stored bytes. It validates lengths,
+mode and key, then hashes/protects blocks and seals the index without decoding
+or invoking a data encoder. Every invocation generates fresh descriptor salt.
+
+The convenience encoder for logical input still performs its single existing
+encode_with_compression call, then delegates to that stored-byte entry point.
+Block page wrapping is shared by both entry points. Eligible recovery metadata
+still has its own existing compression policy; that is separate content, not
+a second compression pass over the file payload.
+
+PreparedCompressionFrame::encode_native_page connects serial, batch-parallel
+and streaming-worker pipeline results to the page encoder. The original
+prepared codec bytes remain immutable and can be retried with fresh protection
+salt. Exact stored-length consistency is checked before emitting a page.
+
+Tests use the real pipeline for all 16 encryption/signing/compression/padding
+combinations, serial and three-worker batches, empty/repetitive/incompressible
+inputs, packed slices and streaming worker results. Page reads reproduce every
+logical byte, selected codec/stored size match the prepared output, and retries
+get new salt. The block-packet test independently unpacks the allocating AEAD
+representation and compares its stored bytes to the single codec result.
+Malformed prepared lengths, unknown codecs, oversized logical frames, invalid
+mode/page/frame identity and short keys are rejected.
+
+Validation before commit-time rustfmt:
+  cargo test -p revault_lockbox_api --features test-support,external-source --lib
+  321 passed, five intentionally ignored.
+  cargo clippy -p revault_lockbox_api --features test-support,external-source --lib --tests -- -D warnings
+  Passed. Final prepared-page assertions are also rerun separately.
+
+This is a writer prerequisite, NOT production writer activation. In particular,
+the normal FilePageWriter still emits legacy pages, and the new bridge remains
+cfg(test). PageCache currently stages decoded version-2 objects and re-encodes
+them during flush. Native packets need explicit staged-page ownership, virtual
+extent/dirty/eviction accounting, preparation-before-write and retry/rollback
+behavior before the actual writer can safely use them. Direct storage writes
+would bypass those guarantees and are not used by this checkpoint.
+
+The legacy pipeline still computes its whole-frame checksum, which the native
+bridge does not need. Removing that redundant checksum belongs with typed
+native writer preparation; it must not leave legacy frames with a fake checksum.
+No second data encoding pass or production format change is introduced here.
+Native scanner/recovery/mutation/compaction/migration integration, bindings and
+actual write/load/ZIP timing gates remain unfinished.
