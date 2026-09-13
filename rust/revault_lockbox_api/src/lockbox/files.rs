@@ -838,7 +838,9 @@ impl<State> Lockbox<State> {
         let capacity = usize::try_from(wanted_end - offset).map_err(|_| {
             Error::SecurityLimitExceeded("requested range exceeds addressable memory".to_string())
         })?;
-        let mut out = Vec::with_capacity(capacity);
+        // Exact chunk reads transfer their decoded allocation below. Do not
+        // allocate a second, unused output buffer before knowing it is needed.
+        let mut out = Vec::new();
         let mut chunks = entry.chunks.clone();
         chunks.sort_by_key(|chunk| chunk.file_offset);
         let mut cursor = offset;
@@ -853,6 +855,9 @@ impl<State> Lockbox<State> {
             }
             if chunk_start > cursor {
                 let zeroes = chunk_start.min(wanted_end) - cursor;
+                if out.capacity() == 0 {
+                    out.reserve(capacity);
+                }
                 out.resize(out.len() + zeroes as usize, 0);
                 cursor = chunk_start.min(wanted_end);
             }
@@ -869,6 +874,9 @@ impl<State> Lockbox<State> {
             if out.is_empty() && chunk_start == offset && chunk_end == wanted_end {
                 return Ok(std::mem::take(&mut *decoded_chunk));
             }
+            if out.capacity() == 0 {
+                out.reserve(capacity);
+            }
             out.extend_from_slice(&decoded_chunk);
             cursor = chunk_start + copy_end;
             if cursor >= wanted_end {
@@ -876,6 +884,9 @@ impl<State> Lockbox<State> {
             }
         }
         if cursor < wanted_end {
+            if out.capacity() == 0 {
+                out.reserve(capacity);
+            }
             out.resize(out.len() + (wanted_end - cursor) as usize, 0);
         }
         Ok(out)

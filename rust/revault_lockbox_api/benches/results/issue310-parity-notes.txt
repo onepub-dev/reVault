@@ -1,0 +1,93 @@
+Issue #310: parity investigation, 2026-09-13
+Parent checkpoint: 6198fec
+
+Retained changes
+1. Wipe initialized bytes using aligned, transparent 64-byte integer blocks
+   through zeroize's existing volatile-write and compiler-fence machinery.
+   Unaligned head/tail bytes and spare capacity are still wiped. The one
+   documented unsafe cast only partitions initialized memory into disjoint
+   regions whose element types have no padding and accept every bit pattern.
+   Boundary tests cover every offset 0..31 and length 0..128, checking that
+   neighbours are untouched. Existing full-capacity tests remain intact.
+2. For compressible payloads at least 64 KiB, also try zstd-complete's streaming
+   Fastest encoder after the requested numeric-level encoder. Select the
+   smaller valid Zstd stream, wiping the rejected alternative. This adds a
+   compression pass during writes; it is not a claim of faster imports.
+   Compression::None and the incompressibility early exit are unchanged.
+3. Delay allocating read_file_range's output buffer until it actually needs
+   one. Exact chunk reads transfer the decoded Vec without first allocating
+   another unused frame-sized Vec. Sparse and multi-chunk output still reserves
+   the checked requested capacity when needed.
+
+No format, checksum algorithm, authentication requirement or dependency was
+changed. The wider wipe and allocation changes apply to existing archives.
+The encoder selection only helps content written or rewritten by this build.
+It does not recompress existing lockboxes on open. zstd-complete's checkout
+was not modified, and there is no local-path dependency override.
+
+Profile
+A 100-sample large/plain comparison attributed 38.06% of sampled cycles to
+SHA-256, and approximately 22% to page/frame/temporary-buffer destructors.
+The profile includes ZIP and fixture setup, not just lockbox reads, so these
+percentages identify hotspots rather than predict isolated speedups. Kernel
+symbol resolution was restricted. No integrity checks were bypassed.
+
+DecoderWorkspace experiment: rejected
+A temporary per-lockbox DecoderWorkspace was lazily prepared for explicitly
+unencrypted file content, bounded to a 4 MiB window, with the old decoder as
+a compatibility fallback. It did not materially improve end-to-end reads and
+regressed a larger ReadMostly case. It was removed, along with its temporary
+fields and helpers. See issue310-rejected-workspace*.csv. Isolated codec
+timings are affected by allocation history and are not a substitute for the
+archive benchmark. No decoder scratch lifetime extension ships here.
+
+Smaller-frame experiment: rejected
+A temporary layout used 64 KiB raw frames, one raw segment per page, 64 KiB
+reader windows and a 64 KiB small-file staging threshold. It used the existing
+format. Four 8 MiB files' small raw range reads fell to about 1.6 ms, but ZIP
+was about 0.105 ms, full reads became slower, and the archive grew from about
+33.57 MB to 34.12 MB. See issue310-rejected-64k*.csv. All of these experimental
+writer and reader changes were removed. Smaller frames alone do not deliver
+streaming and random-access parity simultaneously.
+
+Final measurements
+issue310-parity-before.csv uses the saved 6198fec executable;
+issue310-parity-after.csv uses the final retained changes. Both use 15 samples
+and CPU affinity to core 2. The 80-case matrix plus the two 12-case 8 MiB
+matrices use five samples per case, also on core 2. Every sample opens a fresh
+file-backed handle and checks returned bytes; OS caches remain warm. Builds
+and tests did not overlap these runs. CPU affinity did not eliminate timing
+variation, and neither background load nor CPU frequency was controlled.
+Do not treat a single near-parity ratio as a conclusive result.
+
+Four 1 MiB repeating files, plain Interactive, milliseconds:
+                           Before      After      ZIP (after run)
+Compressed streaming        1.653      0.971          0.928
+Compressed shuffled files   2.725      1.282          0.945
+Compressed small ranges     2.529      0.880          1.899
+Raw streaming               9.579      9.171          1.119
+Raw shuffled files          9.567      9.042          1.058
+Raw small ranges            9.123      8.812          0.107
+
+The compressed 1 MiB fixture shrank from 35,136 to 11,584 archive bytes
+(ZIP 56,150). Four 8 MiB repeating files now use 26,944 bytes (ZIP 436,588).
+The final 8 MiB Interactive compressed case measured 9.133 ms streaming versus
+ZIP 10.895 ms, 10.509 ms shuffled versus ZIP 10.505 ms, and 7.683 ms ranges
+versus ZIP 14.067 ms. Other trials/profiles do not all match ZIP, and raw data
+still misses by a large margin. General parity is NOT achieved.
+
+Validation
+291 active lockbox tests passed; six intentionally ignored. Strict all-target
+clippy, format and diff checks passed. All 104 final matrix cases passed their
+byte comparisons. Encoder regression checks ensure the selected stream is no
+larger than either candidate and decodes to the exact original bytes. No
+cross-platform timing claim or write-throughput claim is made by these runs.
+
+Next boundary
+The remaining raw-data gap points to a versioned data/index design: smaller
+independently verifiable blocks, an index that can be read on demand, and a
+streaming path that avoids a per-small-block I/O/metadata penalty. Integrity
+verification cost also needs to be addressed without removing checks. Such
+work changes format compatibility and requires migration tooling under this
+repository's rules. Obtain approval for that expansion before implementing
+it. Keep issue #310 in progress; do not mark overall ZIP parity complete.
