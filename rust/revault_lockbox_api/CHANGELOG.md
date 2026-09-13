@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Recover signed native files when stale data trails an otherwise intact
+  publication. Recovery authenticates a private copy bounded to the published
+  length; header tags, owner signatures and content verification remain required.
+
 - Skip the unused legacy whole-frame checksum during native import preparation.
   Native block/index verification and the single codec pass remain unchanged;
   legacy writes still compute and require their original whole-frame checksum.

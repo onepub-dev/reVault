@@ -348,6 +348,19 @@ impl<'a> RecoverySession<'a> {
             let repaired = crate::file_format::current_header::recover_header_magic(&snapshot)?;
             snapshot[..repaired.len()].copy_from_slice(&repaired);
         }
+        // Recovery may encounter stale or interrupted writes past the published
+        // archive. Authenticate only that publication in a private copy: normal
+        // open still validates the header tag (including sealed_len), commit
+        // chain, owner signatures and content. Never repair the source or extend
+        // a truncated archive to satisfy an untrusted length.
+        let header = read_header(&snapshot).ok()?;
+        let sealed_len = usize::try_from(header.sealed_len).ok()?;
+        if sealed_len < crate::file_format::current_header::HEADER_LEN
+            || sealed_len > snapshot.len()
+        {
+            return None;
+        }
+        snapshot.truncate(sealed_len);
         Lockbox::open_storage_with_secret_key_mode(
             crate::storage::StorageBackend::memory(snapshot),
             key,

@@ -670,10 +670,35 @@ fn native_file_writer_packed_deletion_preserves_survivors_in_all_modes() {
                         .extend_from_slice(&original[start..start + old_segment.page_len as usize]);
                     let stale_report =
                         crate::RecoveryScanner::scan_bytes(stale.clone(), &*recovery_key);
+                    assert_eq!(stale_report.intact_file_count, 1,
+                        "stale recovery: encrypted={encrypted} signed={signed} compression={compression:?} padding={size_padding:?}: {stale_report:?}");
                     assert!(!stale_report
                         .intact_files
                         .iter()
                         .any(|entry| entry.path == paths[0]));
+                    if signed && cfg!(feature = "native-block-layout") {
+                        // No public API forges publication metadata. Repair the
+                        // unkeyed slot checksum only: bounding the recovery copy
+                        // must not trust an unauthenticated sealed length.
+                        for length in [383, stale.len() as u64, stale.len() as u64 + 1] {
+                            let mut forged = stale.clone();
+                            for slot in forged[..384].chunks_exact_mut(192) {
+                                slot[104..112].copy_from_slice(&length.to_le_bytes());
+                                let checksum = crate::crypto::strong_checksum(&slot[..160]);
+                                slot[160..192].copy_from_slice(&checksum);
+                            }
+                            let report =
+                                crate::RecoveryScanner::scan_bytes(forged.clone(), &*recovery_key);
+                            assert_eq!(report.intact_file_count, 0);
+                            let salvage = crate::RecoveryScanner::salvage_bytes(
+                                forged,
+                                &*recovery_key,
+                                &signer,
+                            )
+                            .unwrap();
+                            assert!(salvage.get_file(&paths[1]).is_err());
+                        }
+                    }
                     let stale_salvage =
                         crate::RecoveryScanner::salvage_bytes(stale, &*recovery_key, &signer)
                             .unwrap();

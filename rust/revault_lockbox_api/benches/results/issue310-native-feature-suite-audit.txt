@@ -1,0 +1,75 @@
+Issue #310: full native-feature unit audit and bounded signed recovery
+===================================================================
+
+Baseline: 3d31aa6, isolated issue-310-zip-read-performance worktree.
+Command (no rustfmt before tests):
+  cargo test -p revault_lockbox_api --features native-block-layout --lib --quiet
+Result: 311 passed, 17 failed, 5 ignored; 333 total, 66.56 seconds.
+This contradicts any inference that the focused native tests establish a green
+complete feature-enabled unit suite. The feature remains experimental/non-default.
+
+Observed failures (retain as the follow-up audit list):
+  api_tests::decoded_page_cache_records_hits_and_can_be_trimmed
+  api_tests::extract_many_caches_decoded_compression_frames
+  api_tests::bulk_import_flushes_file_pages_without_retaining_them_in_cache
+  api_tests::bulk_small_file_frames_keep_non_tail_pages_dense
+  api_tests::many_files_round_trip_and_recover_after_toc_loss
+  api_tests::large_file_recovery_reassembles_segments_after_toc_loss
+  api_tests::recovery_ignores_deleted_files_when_rebuilding_without_toc
+  api_tests::recovery_skips_truncated_tail_and_keeps_prior_intact_files
+  api_tests::recovery_survives_corrupt_header
+  api_tests::recovery_survives_header_toc_pointer_zeroed
+  api_tests::recovery_survives_corrupt_toc_record
+  lockbox::block_frame_tests::native_file_writer_commits_and_reopens_multiframe_files_in_all_modes
+  lockbox::file_handles::shared_reader_tests::raw_reader_retains_verified_page_after_cache_eviction
+  lockbox::commit::tests::packed_page_relocation_updates_the_survivor_page_length
+  lockbox::preparation::tests::secure_page_reuse_preserves_neighboring_file_bytes
+  lockbox::block_frame_tests::native_file_writer_packed_deletion_preserves_survivors_in_all_modes
+  lockbox::commit::tests::every_storage_failure_yields_previous_published_or_recoverable_state
+
+Some fixtures assume legacy pages, but do not simply disable these tests:
+the cache behavior, recovery contract and complete fault-injection coverage
+must be evaluated for the shared native layout before activation.
+
+Resolved here: packed native survivor missing from signed recovery after a
+stale page is appended. First failing combination: unencrypted, signed, raw,
+default padding. Normal open correctly rejects extra bytes outside a sealed
+publication. Recovery had reused that open without bounding its private copy,
+therefore it could not establish owner authorization for an intact survivor.
+
+Recovery now trims only its private authentication copy to header.sealed_len.
+It refuses lengths below the header or beyond available bytes, and performs
+normal header-tag, commit-chain, owner-signature and content authentication.
+The normal open contract and original source bytes are unchanged. No codec,
+write behavior, archive format or performance improvement is claimed here.
+
+Focused regression passes all 16 encryption/signing/compression/padding cases.
+It verifies survivor bytes after recovery/salvage and deleted-file absence.
+New negative cases forge the sealed length in both slots and repair only the
+unkeyed checksum, leaving metadata authentication invalid: below-header,
+extended-to-trailing-data and beyond-available lengths all refuse signed native
+salvage. This fixture mutation has no public CLI equivalent and is unit-only.
+
+Final validation before commit-time formatting:
+  cargo test -p revault_lockbox_api --lib --quiet
+    PASS: 328 passed, 5 ignored, 333 total, 75.79 seconds.
+  cargo clippy -p revault_lockbox_api --features native-block-layout --lib --tests -- -D warnings
+    PASS.
+  cargo test -p revault_lockbox_api --features native-block-layout --lib --quiet
+    FAIL: 312 passed, 16 failed, 5 ignored, 333 total, 68.03 seconds.
+    The packed-deletion recovery test now passes. The other 16 baseline failures
+    remain; no additional failure appeared in this run.
+
+Next priority: secure_page_reuse_preserves_neighboring_file_bytes fails at the
+real repeated-mutation commit (preparation.rs:283), not merely a legacy wire
+assertion. Diagnose that before resuming read-speed optimization. The storage
+fault test also needs actual native pre-publication coverage, not removal of
+its assertion that an ambiguous header write was exercised.
+
+Decoder investigation (no dependency change): the pinned released
+zstd-complete 0.2.0 DecodeBuffer hashes drained output whenever its hash feature
+is enabled, regardless of the frame content-checksum flag. FrameDecoder exposes
+that result through get_calculated_checksum; DecoderWorkspace delegates to the
+same decoder. Removing hashing is not an available per-frame reVault setting
+and would require deliberate upstream API design/validation. The user's dirty
+zstd checkout was not modified. This is not evidence of a retained speedup.
