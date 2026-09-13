@@ -1,0 +1,35 @@
+Protected reader expansion, 2026-09-13
+====================================
+Baseline 0f9a137; candidate bfbbf36 (production reader code as f9fbb5b).
+Same baseline-written immutable fixtures, native v4, warm filesystem cache.
+Sizes: 128 bytes and 64 MiB; deterministic repetitive-binary corpus.
+All eight encryption/signature/compression combinations, four read operations:
+open_file streaming, full read_file_range, midpoint 8 KiB range (bounded to
+payload length), and stream_content. Every returned byte is checked.
+Fresh handles per operation. Open and read timed separately; total includes
+handle teardown. No password KDF is included. Default workload profile.
+
+Immediate child ABBA/BAAB pairs pinned to CPU 2, three samples per child,
+first discarded. Fifteen pairs small, seven large. Per-pair median ratios
+are summarized with 5000 paired bootstrap resamples. These are descriptive
+intervals, not a multiple-comparison-adjusted statistical acceptance test.
+Raw CSVs retained at /tmp/protection-small-all.csv and
+/tmp/protection-large-all.csv; summaries committed beside this note.
+Harness: protection_gate compare MAIN BRANCH ROOT SIZE pattern PAIRS all
+with REVAULT_GATE_CHILD_SAMPLES=3, then summarize PAIRED_CSV.
+
+The broad gate is NOT declared passed. Median regressions exceeding 5%:
+- Small signed/raw whole-file open: +5.273%, interval +2.909..+6.557%.
+  Total +4.946%. Needs focused repeat to separate noise from repeatable cost.
+- Large encrypted-signed/compressed whole-file open: +5.374%,
+  interval +2.287..+11.366%.
+- Large plain/raw range read: +5.403%, interval -2.249..+17.791%.
+- Large plain/compressed range open: +11.225%, interval -4.420..+38.257%.
+Large compressed open_file stream read improved roughly 35-37% for plain
+and encrypted modes, but stream_content read was approximately unchanged.
+Do not generalize one streaming API's improvement to the other.
+
+These measurements concern existing baseline-encoded content. They do not
+include, justify, or accept the extra encoder pass's write cost. The user
+requested further experiments to retain size/read benefits without slowing
+writes; encoder_selection is a separate microbenchmark for that work.

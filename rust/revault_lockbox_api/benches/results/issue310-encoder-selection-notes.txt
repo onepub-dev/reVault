@@ -1,0 +1,50 @@
+Encoder-selection experiments, 2026-09-13
+========================================
+Purpose: find smaller/faster-to-read compressed output WITHOUT accepting the
+previous candidate's measured 7-14% archive-write slowdown. This is unresolved.
+No production compression-policy change is made by this experiment.
+
+encoder_selection SIZE LEVEL REPEATS, release build, taskset -c 2.
+1 MiB synthetic corpora, seven measured repetitions, discarded warmup,
+rotating strategy order; all outputs independently decoded and byte-compared.
+Compression time excludes verification and final retained-output wiping;
+dual/sample strategies include wiping discarded candidate buffers.
+The production entropy gate, packing, encryption, signature and I/O costs
+are intentionally absent. Random data normally bypasses full compression.
+These timings are exploratory, NOT an end-to-end write regression gate.
+Decoder timings immediately follow encoding and have strategy-dependent cache
+state; identical encoded bytes show different decode timings. Do not treat
+these decode timings as evidence that identical streams decode differently.
+
+Strategies: numeric requested level; streaming Fastest; both and retain
+smaller; three independent 16 KiB samples at start/middle/end selecting
+streaming only if its aggregate size is <75% of numeric; streaming Default
+and Better (the latter two added in the configs run).
+
+Main observations, numeric level 3:
+- Repetitive binary: numeric 6762 bytes, ~0.44-0.49 ms; Fastest 891 bytes,
+  ~2.3 ms; dual ~3.5 ms. Selecting Fastest without the numeric pass still
+  costs more than numeric alone. The small-sample heuristic picked numeric,
+  missing the size benefit and adding overhead (~0.88 ms).
+- Repeated text: 168 versus 164 bytes; streaming ~5.1 ms versus numeric
+  ~0.26-0.32 ms. Blindly trying both pays a large cost for four bytes.
+- Alternating random/pattern 4 KiB regions: 531641 versus 526561 bytes;
+  numeric ~1.6-1.8 ms versus streaming ~29 ms. Again not a good default trade.
+- Streaming Default/Better did not solve repetitive binary: 6776 bytes,
+  ~3.1 ms. Numeric levels 1 and 6 produced 6763 and 8277 bytes respectively,
+  not the Fastest stream's 891 bytes. Numeric levels are experiments, not
+  proposed silent substitutions for the user's requested compression level.
+
+Local zstd-complete checkout was also built in an isolated temporary Cargo
+project (no changes to reVault dependencies or the user's checkout):
+/home/bsutton/git/zstd-rs/ruzstd, HEAD 298793e plus existing uncommitted encoder
+changes. It produced the same sizes and similar pattern encode times:
+numeric ~0.43 ms; streaming ~2.38 ms; dual ~3.53 ms. Its existing edits were
+not modified. This is a point-in-time dirty-checkout observation, not a
+reproducibly pinned dependency recommendation.
+
+Conclusion: cheap encoder selection alone has NOT achieved both objectives.
+The experimental two-pass policy is not accepted for release. Further work
+must improve encoder behavior itself or find another measured approach;
+existing-archive reader improvements remain independent of this write work.
+The broad ZIP-parity/native-v4 integration task remains unfinished.
