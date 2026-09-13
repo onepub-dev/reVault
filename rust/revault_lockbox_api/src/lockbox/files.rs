@@ -40,6 +40,84 @@ pub(super) const FILE_COMPRESSION_FRAME_BYTES: usize = 2 * 1024 * 1024;
 const MAX_SEGMENT_BYTES: usize = DEFAULT_MAX_PAGE_BODY_BYTES - 64 * 1024;
 const DECODED_COMPRESSION_FRAME_CACHE_BYTES: usize = 64 * 1024 * 1024;
 
+// An immutable, fully verified slice of a raw frame. Keeping the page alive
+// shares its existing zeroizing payload rather than duplicating plaintext.
+pub(super) struct VerifiedFileRange {
+    page: Arc<crate::page::DecodedPage>,
+    object_index: usize,
+    range: std::ops::Range<usize>,
+}
+
+impl VerifiedFileRange {
+    pub(super) fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
+        self.page.objects[self.object_index].with_payload(|payload| f(&payload[self.range.clone()]))
+    }
+}
+
+fn validate_frame_segment(
+    decoded: &crate::file_format::payload::DecodedFileChunkView<'_>,
+    chunk: &FileChunk,
+    segment: &CompressionFrameSegment,
+    expected_total_len: u64,
+) -> Result<()> {
+    let manifest_slice_missing = decoded.manifest.as_ref().is_some_and(|manifest| {
+        manifest
+            .slice_for(
+                &chunk.stored_path,
+                chunk.file_offset,
+                chunk.compression_frame_offset,
+                chunk.len,
+            )
+            .filter(|slice| slice.total_len == 0 || slice.total_len == expected_total_len)
+            .is_none()
+    });
+    if decoded.compression_frame_id != chunk.compression_frame_id
+        || decoded.compression_frame_len != chunk.compression_frame_len
+        || decoded.compressed_len != chunk.compressed_len
+        || decoded.compression != chunk.compression
+        || decoded.compression_frame_digest != chunk.compression_frame_digest
+        || manifest_slice_missing
+        || decoded.segment_offset != segment.segment_offset
+        || decoded.data.len() as u64 != segment.segment_len
+    {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod range_integrity_tests {
+    use super::*;
+
+    #[test]
+    fn partial_frame_read_checks_bytes_outside_the_requested_range() {
+        let lb = Lockbox::create(b"range integrity test");
+        let mut stored = vec![42; 4096];
+        let chunk = FileChunk {
+            stored_path: LockboxPath::new("/test").unwrap(),
+            file_offset: 0,
+            len: stored.len() as u64,
+            compression_frame_offset: 0,
+            compression_frame_len: stored.len() as u64,
+            compressed_len: stored.len() as u64,
+            compression: COMPRESSION_NONE,
+            compression_frame_id: 1,
+            compression_frame_digest: strong_checksum(&stored),
+            segments: Vec::new(),
+        };
+        assert_eq!(
+            lb.read_checked_frame_slice(&chunk, &(0..8), &stored, Vec::new())
+                .unwrap(),
+            vec![42; 8]
+        );
+        stored[4095] ^= 1;
+        assert!(matches!(
+            lb.read_checked_frame_slice(&chunk, &(0..8), &stored, Vec::new()),
+            Err(Error::CorruptRecord)
+        ));
+    }
+}
+
 /// Ordering used by `Lockbox::stream_content`.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum ContentStreamOrder {
@@ -779,16 +857,19 @@ impl<State> Lockbox<State> {
                 cursor = chunk_start.min(wanted_end);
             }
 
-            let decoded_chunk = self.read_file_chunk_compression_frame(entry.len, &chunk)?;
-
             let copy_start = cursor.max(chunk_start) - chunk_start;
             let copy_end = wanted_end.min(chunk_end) - chunk_start;
+            let mut decoded_chunk = ZeroizingBytes::new(self.read_file_chunk_range(
+                entry.len,
+                &chunk,
+                copy_start..copy_end,
+            )?);
             // An aligned frame read already owns exactly the requested bytes.
             // Transfer it to the caller instead of making another full copy.
             if out.is_empty() && chunk_start == offset && chunk_end == wanted_end {
-                return Ok(decoded_chunk);
+                return Ok(std::mem::take(&mut *decoded_chunk));
             }
-            out.extend_from_slice(&decoded_chunk[copy_start as usize..copy_end as usize]);
+            out.extend_from_slice(&decoded_chunk);
             cursor = chunk_start + copy_end;
             if cursor >= wanted_end {
                 break;
@@ -805,13 +886,103 @@ impl<State> Lockbox<State> {
         expected_total_len: u64,
         chunk: &FileChunk,
     ) -> Result<Vec<u8>> {
+        self.read_file_chunk_range(expected_total_len, chunk, 0..chunk.len)
+    }
+
+    pub(super) fn verified_raw_file_range(
+        &self,
+        path: &LockboxPath,
+        offset: u64,
+        len: u64,
+    ) -> Result<Option<VerifiedFileRange>> {
+        let path = path.as_file_path()?;
+        if self.pending_small_files.contains_key(path) {
+            return Ok(None);
+        }
+        let entry = self.toc_entries.get(path).ok_or(Error::CorruptRecord)?;
+        let wanted_end = offset.checked_add(len).ok_or(Error::CorruptRecord)?;
+        let Some(chunk) = entry.chunks.iter().find(|chunk| {
+            chunk.file_offset <= offset
+                && chunk
+                    .file_offset
+                    .checked_add(chunk.len)
+                    .is_some_and(|end| end >= wanted_end)
+        }) else {
+            return Ok(None);
+        };
+        if chunk.compression != COMPRESSION_NONE || chunk.segments.len() != 1 {
+            return Ok(None);
+        }
+        let segment = &chunk.segments[0];
+        if segment.segment_offset != 0 || segment.segment_len != chunk.compressed_len {
+            return Ok(None);
+        }
+        validate_compression_frame_lengths(chunk.compression_frame_len, chunk.compressed_len)?;
+        if chunk.compressed_len != chunk.compression_frame_len
+            || chunk
+                .file_offset
+                .checked_add(chunk.len)
+                .is_none_or(|end| end > entry.len)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let page = self.read_shared_page(segment.page_offset)?;
+        let object_index = page
+            .objects
+            .iter()
+            .position(|object| object.id == segment.object_id)
+            .ok_or(Error::CorruptRecord)?;
+        let range = page.objects[object_index].with_payload(|payload| {
+            let decoded = decode_compression_frame_segment_payload_view(payload)?;
+            validate_frame_segment(&decoded, chunk, segment, entry.len)?;
+            if strong_checksum(decoded.data) != chunk.compression_frame_digest {
+                return Err(Error::CorruptRecord);
+            }
+            let chunk_end = chunk
+                .compression_frame_offset
+                .checked_add(chunk.len)
+                .ok_or(Error::CorruptRecord)?;
+            if chunk_end > decoded.data.len() as u64 {
+                return Err(Error::CorruptRecord);
+            }
+            // Segment data is the final slice of its object payload.
+            let data_start = payload.len() - decoded.data.len();
+            let start = data_start
+                + usize::try_from(chunk.compression_frame_offset + (offset - chunk.file_offset))
+                    .map_err(|_| Error::CorruptRecord)?;
+            let end = start
+                .checked_add(usize::try_from(len).map_err(|_| Error::CorruptRecord)?)
+                .ok_or(Error::CorruptRecord)?;
+            if end > payload.len() {
+                return Err(Error::CorruptRecord);
+            }
+            Ok(start..end)
+        })??;
+        Ok(Some(VerifiedFileRange {
+            page,
+            object_index,
+            range,
+        }))
+    }
+
+    fn read_file_chunk_range(
+        &self,
+        expected_total_len: u64,
+        chunk: &FileChunk,
+        range: std::ops::Range<u64>,
+    ) -> Result<Vec<u8>> {
+        if range.start > range.end || range.end > chunk.len {
+            return Err(Error::CorruptRecord);
+        }
         if self.format_mode.0 != 0
             && self.format_mode.options().compression == crate::Compression::None
             && chunk.compression != COMPRESSION_NONE
         {
             return Err(Error::CorruptRecord);
         }
-        if let Some(cached) = self.read_cached_compression_frame_slice(expected_total_len, chunk)? {
+        if let Some(cached) =
+            self.read_cached_compression_frame_slice(expected_total_len, chunk, &range)?
+        {
             return Ok(cached);
         }
         validate_compression_frame_lengths(chunk.compression_frame_len, chunk.compressed_len)?;
@@ -822,6 +993,27 @@ impl<State> Lockbox<State> {
         }
         let compressed_len =
             usize::try_from(chunk.compressed_len).map_err(|_| Error::CorruptRecord)?;
+        // Most frames occupy a single page object. Borrow its already checked
+        // payload instead of assembling and later wiping another frame-sized buffer.
+        if let [segment] = chunk.segments.as_slice() {
+            if segment.segment_offset == 0 && segment.segment_len == chunk.compressed_len {
+                return self.with_page_object(segment.page_offset, segment.object_id, |object| {
+                    object.with_payload(|payload| {
+                        let decoded = decode_compression_frame_segment_payload_view(payload)?;
+                        validate_frame_segment(&decoded, chunk, segment, expected_total_len)?;
+                        self.read_checked_frame_slice(
+                            chunk,
+                            &range,
+                            decoded.data,
+                            decoded
+                                .manifest
+                                .map(|manifest| manifest.slices)
+                                .unwrap_or_default(),
+                        )
+                    })?
+                });
+            }
+        }
         let mut stored = ZeroizingBytes::new(vec![0u8; compressed_len]);
         let mut cache_slices = None;
         for segment in &chunk.segments {
@@ -833,31 +1025,7 @@ impl<State> Lockbox<State> {
                             cache_slices = Some(manifest.slices.clone());
                         }
                     }
-                    let manifest_slice_missing =
-                        decoded.manifest.as_ref().is_some_and(|manifest| {
-                            manifest
-                                .slice_for(
-                                    &chunk.stored_path,
-                                    chunk.file_offset,
-                                    chunk.compression_frame_offset,
-                                    chunk.len,
-                                )
-                                .filter(|slice| {
-                                    slice.total_len == 0 || slice.total_len == expected_total_len
-                                })
-                                .is_none()
-                        });
-                    if decoded.compression_frame_id != chunk.compression_frame_id
-                        || decoded.compression_frame_len != chunk.compression_frame_len
-                        || decoded.compressed_len != chunk.compressed_len
-                        || decoded.compression != chunk.compression
-                        || decoded.compression_frame_digest != chunk.compression_frame_digest
-                        || manifest_slice_missing
-                        || decoded.segment_offset != segment.segment_offset
-                        || decoded.data.len() as u64 != segment.segment_len
-                    {
-                        return Err(Error::CorruptRecord);
-                    }
+                    validate_frame_segment(&decoded, chunk, segment, expected_total_len)?;
                     let start = usize::try_from(segment.segment_offset)
                         .map_err(|_| Error::CorruptRecord)?;
                     let end = start
@@ -871,7 +1039,17 @@ impl<State> Lockbox<State> {
                 })?
             })?;
         }
-        if strong_checksum(stored.as_slice()) != chunk.compression_frame_digest {
+        self.read_checked_frame_slice(chunk, &range, &stored, cache_slices.unwrap_or_default())
+    }
+
+    fn read_checked_frame_slice(
+        &self,
+        chunk: &FileChunk,
+        range: &std::ops::Range<u64>,
+        stored: &[u8],
+        cache_slices: Vec<CompressionFrameSlice>,
+    ) -> Result<Vec<u8>> {
+        if strong_checksum(stored) != chunk.compression_frame_digest {
             return Err(Error::CorruptRecord);
         }
         let start =
@@ -881,29 +1059,22 @@ impl<State> Lockbox<State> {
         if end > usize::try_from(chunk.compression_frame_len).map_err(|_| Error::CorruptRecord)? {
             return Err(Error::CorruptRecord);
         }
+        let end = start + usize::try_from(range.end).map_err(|_| Error::CorruptRecord)?;
+        let start = start + usize::try_from(range.start).map_err(|_| Error::CorruptRecord)?;
         if chunk.compression == COMPRESSION_NONE {
-            if end > stored.len() {
+            if stored.len() as u64 != chunk.compression_frame_len || end > stored.len() {
                 return Err(Error::CorruptRecord);
             }
-            if start == 0
-                && end == stored.len()
-                && !self.should_cache_decoded_compression_frame(stored.len())
-            {
-                return Ok(std::mem::take(&mut *stored));
-            }
             let out = stored[start..end].to_vec();
-            let decoded = std::mem::take(&mut *stored);
-            self.cache_decoded_compression_frame_owned(
-                chunk,
-                cache_slices.unwrap_or_default(),
-                decoded,
-            );
+            if self.should_cache_decoded_compression_frame(stored.len()) {
+                self.cache_decoded_compression_frame_owned(chunk, cache_slices, stored.to_vec());
+            }
             return Ok(out);
         }
 
         let mut decoded = ZeroizingBytes::new(decode_compression_frame(
             chunk.compression,
-            stored.as_slice(),
+            stored,
             chunk.compression_frame_len,
         )?);
         if start == 0
@@ -915,7 +1086,7 @@ impl<State> Lockbox<State> {
         let out = decoded[start..end].to_vec();
         self.cache_decoded_compression_frame_owned(
             chunk,
-            cache_slices.unwrap_or_default(),
+            cache_slices,
             std::mem::take(&mut *decoded),
         );
         Ok(out)
@@ -1203,6 +1374,7 @@ impl<State> Lockbox<State> {
         &self,
         expected_total_len: u64,
         chunk: &FileChunk,
+        range: &std::ops::Range<u64>,
     ) -> Result<Option<Vec<u8>>> {
         let cache = self.compression_frame_cache.borrow();
         let Some(entry) = cache.entries.get(&chunk.compression_frame_id) else {
@@ -1232,6 +1404,8 @@ impl<State> Lockbox<State> {
         if end > entry.data.len() {
             return Err(Error::CorruptRecord);
         }
+        let end = start + usize::try_from(range.end).map_err(|_| Error::CorruptRecord)?;
+        let start = start + usize::try_from(range.start).map_err(|_| Error::CorruptRecord)?;
         Ok(Some(entry.data[start..end].to_vec()))
     }
 

@@ -1354,6 +1354,14 @@ impl<State> Lockbox<State> {
         offset: u64,
         f: impl FnOnce(&crate::page::DecodedPage) -> Result<R>,
     ) -> Result<R> {
+        let page = self.read_shared_page(offset)?;
+        f(&page)
+    }
+
+    pub(crate) fn read_shared_page(
+        &self,
+        offset: u64,
+    ) -> Result<std::sync::Arc<crate::page::DecodedPage>> {
         // A decoded cache hit needs no key access. Release the RefCell borrow
         // before the callback, which may itself read another page.
         let cached = self
@@ -1361,7 +1369,7 @@ impl<State> Lockbox<State> {
             .borrow_mut()
             .cached_page(offset, PageSecurity::Normal)?;
         if let Some(page) = cached {
-            return f(&page);
+            return Ok(page);
         }
         let page = self.key.with_bytes(|key| {
             self.page_manager.borrow_mut().read_page(
@@ -1372,7 +1380,7 @@ impl<State> Lockbox<State> {
                 PageReadKey::Normal(key),
             )
         })??;
-        f(&page)
+        Ok(page)
     }
 
     pub(crate) fn with_secure_page<R>(

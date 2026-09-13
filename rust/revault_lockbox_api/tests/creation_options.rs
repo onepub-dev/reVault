@@ -5,6 +5,92 @@ use revault_lockbox_api::{
 };
 
 #[test]
+fn large_partial_reads_preserve_bytes_across_frames_and_protection_modes() {
+    use std::io::{Read, Seek, SeekFrom};
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let key = [83u8; 32];
+    let path = LockboxPath::new("/large.bin").unwrap();
+    let size: usize = 4 * 1024 * 1024 + 123;
+    let payload: Vec<u8> = (0..size)
+        .map(|i| ((i * 13 + i / 251) % 251) as u8)
+        .collect();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                let mut lb = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                    compression,
+                    ..LockboxCreateOptions::new(
+                        if encrypted {
+                            Encryption::Encrypted(LockboxProtection::ContentKey(
+                                SecretVec::try_from_slice(&key).unwrap(),
+                            ))
+                        } else {
+                            Encryption::None
+                        },
+                        if signed {
+                            Signing::Owner(&signer)
+                        } else {
+                            Signing::None
+                        },
+                    )
+                })
+                .unwrap();
+                lb.add_file(&path, &payload, false).unwrap();
+                lb.commit().unwrap();
+                let bytes = lb.try_to_bytes().unwrap();
+                drop(lb);
+                for profile in [
+                    revault_lockbox_api::WorkloadProfile::Interactive,
+                    revault_lockbox_api::WorkloadProfile::ReadMostly,
+                ] {
+                    let mut reopened = Lockbox::open_bytes(
+                        bytes.clone(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&key).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                    )
+                    .unwrap();
+                    reopened.set_workload_profile(profile);
+                    let mut reader = reopened.open_file(&path).unwrap();
+                    // Repeat to exercise cached slices as well as cold reads.
+                    for _ in 0..2 {
+                        for (offset, len) in [
+                            (0, 0),
+                            (0, 31),
+                            (999_999, 8192),
+                            (2 * 1024 * 1024 - 17, 8192),
+                            (size - 19, 8192),
+                            (size, 8192),
+                            (size + 7, 8192),
+                            (0, size),
+                        ] {
+                            let start = offset.min(size);
+                            let end = offset.saturating_add(len).min(size);
+                            assert_eq!(
+                                reopened
+                                    .read_file_range(&path, offset as u64, len as u64)
+                                    .unwrap(),
+                                payload[start..end]
+                            );
+                            reader.seek(SeekFrom::Start(offset as u64)).unwrap();
+                            let mut actual = Vec::new();
+                            reader
+                                .by_ref()
+                                .take(len as u64)
+                                .read_to_end(&mut actual)
+                                .unwrap();
+                            assert_eq!(actual, payload[start..end]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn default_raw_creation_reports_the_current_format_version() {
     let signer = OwnerSigningKeyPair::generate().unwrap();
     let lockbox = Lockbox::create_in_memory_with_options(LockboxCreateOptions::new(

@@ -39,30 +39,6 @@ impl Drop for ZeroizingBytes {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn byte_wiping_handles_empty_and_partial_allocations() {
-        for len in [0, 1, 7, 8, 31, 1024] {
-            let mut bytes = vec![0xa5; 2048];
-            bytes.resize(bytes.capacity(), 0xa5);
-            bytes.truncate(len);
-            let capacity = bytes.capacity();
-            zeroize_bytes(&mut bytes);
-            assert_eq!(bytes, vec![0; len]);
-            assert_eq!(bytes.capacity(), capacity);
-            // SAFETY: all capacity was initialized above; truncation does not
-            // deallocate it and zeroize_bytes writes every spare byte as well.
-            for byte in bytes.spare_capacity_mut() {
-                assert_eq!(unsafe { byte.assume_init() }, 0);
-            }
-        }
-        zeroize_bytes(&mut Vec::new());
-    }
-}
-
 pub(crate) trait PageBuffer: Sized {
     fn truncate(&mut self, len: usize) -> Result<()>;
     fn try_clone_range(&self, offset: usize, len: usize) -> Result<Self>;
@@ -107,5 +83,29 @@ impl PageBuffer for SecureVec {
 
     fn with_mut_bytes<R, F: FnOnce(&mut [u8]) -> R>(&mut self, f: F) -> Result<R> {
         SecureVec::with_mut_bytes(self, f).map_err(Into::into)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn byte_wiping_handles_empty_and_partial_allocations() {
+        for len in [0, 1, 7, 8, 31, 1024] {
+            let mut bytes = vec![0xa5; 2048];
+            bytes.resize(bytes.capacity(), 0xa5);
+            bytes.truncate(len);
+            let capacity = bytes.capacity();
+            zeroize_bytes(&mut bytes);
+            assert_eq!(bytes, vec![0; len]);
+            assert_eq!(bytes.capacity(), capacity);
+            for byte in bytes.spare_capacity_mut() {
+                // SAFETY: all capacity was initialized above; truncation does not
+                // deallocate it and zeroize_bytes writes every spare byte as well.
+                assert_eq!(unsafe { byte.assume_init() }, 0);
+            }
+        }
+        zeroize_bytes(&mut Vec::new());
     }
 }

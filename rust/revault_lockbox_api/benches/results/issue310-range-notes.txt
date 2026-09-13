@@ -1,0 +1,84 @@
+Issue #310: verified raw-page sharing and bounded range copies, 2026-09-13
+Parent checkpoint: e9e6c2a
+
+Changes
+The seekable file reader can retain an immutable Arc to a verified raw-frame
+page, rather than copying the frame into its own 2 MiB logical-page buffer.
+Eligibility requires a single segment containing the complete raw frame and
+a chunk covering the requested logical page. Other layouts, compressed
+frames, pending writes and sparse gaps retain the general reader path.
+The page's existing payload destructor wipes its allocation when the final
+owner drops it. There is no new production unsafe code or format change.
+
+The general frame reader borrows single-segment payloads instead of assembling
+another frame buffer. read_file_range copies only the requested chunk slice,
+including on decoded-frame cache hits. It still checks the original complete
+chunk's manifest and bounds and hashes the entire stored frame. Temporary
+range buffers are wiped after copying. Multi-segment reconstruction remains
+available. Explicit Compression::None is unchanged.
+
+DecoderWorkspace experiment
+Run cargo bench -p revault_lockbox_api --bench decoder_workspace --offline.
+The benchmark compares a fresh FrameDecoder, a reused FrameDecoder and a
+prepared 4 MiB DecoderWorkspace, using published zstd-complete 0.2.0. Each
+method allocates a fresh output buffer; decoder preparation is excluded for
+the reused variants. Order rotates, ten warmup rounds are excluded, and the
+median of 100 checked decodes is reported. Output equality is checked outside
+the timing interval. No decoded output is reused between iterations.
+
+In this run, the 1 MiB repeating input decoded in 147.062 us fresh, 136.672 us
+with a reused FrameDecoder, and 135.631 us with DecoderWorkspace. At 4 MiB the
+same comparison was 651.018 / 572.077 / 628.868 us. Reuse helps allocation
+overhead, but the workspace is not consistently better than ordinary decoder
+reuse. These are isolated codec results, not whole-lockbox speedups. Random
+inputs are deliberately Zstd-encoded for this experiment, unlike reVault's
+usual decision to store incompressible content raw.
+
+The author's local checkout was found at ~/git/zstd-rs/ruzstd. Its decoder
+matched published 0.2.0; local changes were encoder optimizations. No dependency
+override or changes to that checkout are retained. Production decoder reuse
+is not introduced: scratch reset clears lengths but does not securely wipe
+retained plaintext. A future experiment should measure per-handle decoder
+reuse, bound retained memory, and provide/test secure scratch cleanup before
+extending reuse to encrypted content. Existing fresh decoding is unchanged.
+
+Measurements
+issue310-range-before.csv uses the saved e9e6c2a executable with nine samples.
+issue310-range-after.csv uses this checkpoint with nine samples. Four 1 MiB
+files, unsigned and unencrypted, measured total milliseconds:
+                                      Before       After
+Stored, Interactive shuffled files     7.060       5.679
+Stored, Interactive small ranges       6.782       5.456
+Stored, ReadMostly shuffled files      8.126       5.697
+Stored, ReadMostly small ranges        7.872       5.455
+
+Compressed timings changed little. The stored streaming result was also
+essentially unchanged in this paired run (6.100 / 6.122 ms). This checkpoint's
+main benefit is seekable raw reads and less transient copying, not a new
+compression algorithm or a claim of faster Zstd decoding.
+
+issue310-range-matrix.csv contains 80 checked cases across small/large files,
+both compression choices, both cache profiles and all four encryption/signing
+combinations. issue310-range-8m-pattern.csv and issue310-range-8m-random.csv
+add 24 cases with four 8 MiB files. Five fresh-handle samples per matrix case;
+OS caches warm. Builds/tests were not run concurrently with benchmarks. CPU
+frequency and unrelated system activity were not controlled. See previous
+notes for ZIP partial-read CRC differences and phase timing definitions.
+
+Validation
+290 active lockbox tests passed; six intentionally ignored. Added tests cover
+Read/Seek and read_file_range across frame boundaries, EOF and repeated cache
+access for every protection/compression combination and two cache profiles.
+A reader retains valid shared bytes after page-cache eviction. Corruption
+outside the requested slice is still rejected. Strict all-target clippy and
+format checks passed. Lint findings in test-module placement and the existing
+wiping test's safety-comment placement were fixed; both moved tests were
+rerun successfully afterward.
+
+Integration scope
+These are backward-compatible implementation improvements. The earlier
+compression-decision fix only changes new writes; it does not recompress
+existing archives. General ZIP parity remains unresolved, especially small
+raw ranges: backing pages and full frame digests still require substantial
+work. Do not remove integrity checks to improve the benchmark ratio. Issue
+#310 must remain open after integrating this checkpoint.

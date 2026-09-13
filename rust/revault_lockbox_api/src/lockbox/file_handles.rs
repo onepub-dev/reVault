@@ -69,7 +69,21 @@ pub struct LockboxFileReader<'a, State = Writable> {
     position: u64,
     len: u64,
     cache_page_index: Option<u64>,
-    cache_page: ZeroizingBytes,
+    cache_page: ReaderPage,
+}
+
+enum ReaderPage {
+    Owned(ZeroizingBytes),
+    Shared(super::files::VerifiedFileRange),
+}
+
+impl ReaderPage {
+    fn with_bytes<R>(&self, f: impl FnOnce(&[u8]) -> R) -> Result<R> {
+        match self {
+            Self::Owned(bytes) => Ok(f(bytes)),
+            Self::Shared(range) => range.with_bytes(f),
+        }
+    }
 }
 
 /// Seekable read/write handle over a file inside a writable lockbox.
@@ -150,7 +164,7 @@ impl<'a, State> LockboxFileReader<'a, State> {
             position: 0,
             len,
             cache_page_index: None,
-            cache_page: ZeroizingBytes::new(Vec::new()),
+            cache_page: ReaderPage::Owned(ZeroizingBytes::new(Vec::new())),
         }
     }
 
@@ -174,22 +188,33 @@ impl<'a, State> LockboxFileReader<'a, State> {
             let page_start = page_index * FILE_COMPRESSION_FRAME_BYTES as u64;
             if self.cache_page_index != Some(page_index) {
                 let page_len = (FILE_COMPRESSION_FRAME_BYTES as u64).min(self.len - page_start);
-                self.cache_page = ZeroizingBytes::new(
-                    self.lockbox
-                        .read_file_range(&self.path, page_start, page_len)?,
-                );
+                self.cache_page = match self
+                    .lockbox
+                    .verified_raw_file_range(&self.path, page_start, page_len)?
+                {
+                    Some(range) => ReaderPage::Shared(range),
+                    None => ReaderPage::Owned(ZeroizingBytes::new(
+                        self.lockbox
+                            .read_file_range(&self.path, page_start, page_len)?,
+                    )),
+                };
                 self.cache_page_index = Some(page_index);
             }
             let page_offset = (self.position - page_start) as usize;
-            let available = self.cache_page.len().saturating_sub(page_offset);
-            if available == 0 {
+            let take = self.cache_page.with_bytes(|page| {
+                let available = page.len().saturating_sub(page_offset);
+                let take = (buf.len() - total)
+                    .min(available)
+                    .min((self.len - self.position) as usize);
+                if take > 0 {
+                    buf[total..total + take]
+                        .copy_from_slice(&page[page_offset..page_offset + take]);
+                }
+                take
+            })?;
+            if take == 0 {
                 break;
             }
-            let take = (buf.len() - total)
-                .min(available)
-                .min((self.len - self.position) as usize);
-            buf[total..total + take]
-                .copy_from_slice(&self.cache_page[page_offset..page_offset + take]);
             self.position += take as u64;
             total += take;
         }
@@ -493,5 +518,37 @@ impl<'a> Drop for LockboxFileMut<'a> {
                 self.lockbox.poisoned = Some(err.to_string());
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod shared_reader_tests {
+    use super::*;
+
+    #[test]
+    fn raw_reader_retains_verified_page_after_cache_eviction() {
+        let mut lb = Lockbox::create_in_memory_with_options(crate::LockboxCreateOptions {
+            compression: crate::Compression::None,
+            ..crate::LockboxCreateOptions::new(crate::Encryption::None, crate::Signing::None)
+        })
+        .unwrap();
+        let path = LockboxPath::new("/raw.bin").unwrap();
+        let payload: Vec<u8> = (0..3 * 1024 * 1024).map(|i| (i % 251) as u8).collect();
+        lb.add_file(&path, &payload, false).unwrap();
+        lb.commit().unwrap();
+        let reopened =
+            Lockbox::open_bytes(lb.try_to_bytes().unwrap(), crate::LockboxOpen::Unencrypted)
+                .unwrap();
+        let mut reader = reopened.open_file(&path).unwrap();
+        let mut actual = [0; 32];
+        reader.read_exact(&mut actual).unwrap();
+        assert!(matches!(reader.cache_page, ReaderPage::Shared(_)));
+        reopened.page_manager.borrow_mut().clear();
+        reader.seek(SeekFrom::Start(12345)).unwrap();
+        reader.read_exact(&mut actual).unwrap();
+        assert_eq!(actual, payload[12345..12377]);
+        reader.seek(SeekFrom::Start(2 * 1024 * 1024 - 16)).unwrap();
+        reader.read_exact(&mut actual).unwrap();
+        assert_eq!(actual, payload[2 * 1024 * 1024 - 16..2 * 1024 * 1024 + 16]);
     }
 }
