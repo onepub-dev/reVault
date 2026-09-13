@@ -923,6 +923,11 @@ impl<State> Lockbox<State> {
         }) else {
             return Ok(None);
         };
+        #[cfg(test)]
+        if chunk.block_frame.is_some() {
+            // This shortcut authenticates a whole-frame hash, not a block index.
+            return Ok(None);
+        }
         if chunk.compression != COMPRESSION_NONE || chunk.segments.len() != 1 {
             return Ok(None);
         }
@@ -993,6 +998,10 @@ impl<State> Lockbox<State> {
         {
             return Err(Error::CorruptRecord);
         }
+        #[cfg(test)]
+        if chunk.block_frame.is_some() {
+            return self.read_native_block_chunk(expected_total_len, chunk, range);
+        }
         if let Some(cached) =
             self.read_cached_compression_frame_slice(expected_total_len, chunk, &range)?
         {
@@ -1053,6 +1062,68 @@ impl<State> Lockbox<State> {
             })?;
         }
         self.read_checked_frame_slice(chunk, &range, &stored, cache_slices.unwrap_or_default())
+    }
+
+    #[cfg(test)]
+    fn read_native_block_chunk(
+        &self,
+        expected_total_len: u64,
+        chunk: &FileChunk,
+        range: std::ops::Range<u64>,
+    ) -> Result<Vec<u8>> {
+        use crate::file_format::indexed_frame::block_page::{PageIdentity, Reader};
+        let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
+        let descriptor = &reference.descriptor;
+        let [segment] = chunk.segments.as_slice() else {
+            return Err(Error::CorruptRecord);
+        };
+        if descriptor.archive != self.lockbox_id
+            || descriptor.mode != self.format_mode
+            || descriptor.frame_id != chunk.compression_frame_id
+            || descriptor.compression != chunk.compression
+            || descriptor.logical_len != chunk.compression_frame_len
+            || descriptor.stored_len != chunk.compressed_len
+            || descriptor.index_commitment != chunk.compression_frame_digest
+            || segment.segment_offset != 0
+            || segment.segment_len != chunk.compressed_len
+            || chunk
+                .file_offset
+                .checked_add(chunk.len)
+                .is_none_or(|end| end > expected_total_len)
+            || chunk
+                .compression_frame_offset
+                .checked_add(chunk.len)
+                .is_none_or(|end| end > descriptor.logical_len)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let identity = PageIdentity {
+            archive: self.lockbox_id,
+            mode: self.format_mode,
+            page_id: segment.object_id,
+            sequence: reference.sequence,
+        };
+        let page_len = usize::try_from(segment.page_len).map_err(|_| Error::CorruptRecord)?;
+        let start = chunk
+            .compression_frame_offset
+            .checked_add(range.start)
+            .ok_or(Error::CorruptRecord)?;
+        let end = chunk
+            .compression_frame_offset
+            .checked_add(range.end)
+            .ok_or(Error::CorruptRecord)?;
+        self.key.with_bytes(|key| {
+            let reader = Reader::open(
+                &self.storage,
+                segment.page_offset,
+                identity,
+                descriptor,
+                page_len,
+                key,
+            )?;
+            reader.validate_slice(chunk, expected_total_len)?;
+            reader.read(start..end)
+        })?
     }
 
     fn read_checked_frame_slice(

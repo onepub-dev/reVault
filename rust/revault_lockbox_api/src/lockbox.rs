@@ -45,6 +45,8 @@ use zeroize::{Zeroize, Zeroizing};
 type CommitAuthChainResult = (u64, [u8; 32], CommitAuth, crate::commit_root::CommitRoot);
 
 mod accounting;
+#[cfg(test)]
+mod block_frame_tests;
 mod commit;
 mod extraction;
 mod file_handles;

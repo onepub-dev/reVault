@@ -251,6 +251,25 @@ pub(crate) struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
+    pub(crate) fn validate_slice(
+        &self,
+        chunk: &crate::file_chunk::FileChunk,
+        expected_total_len: u64,
+    ) -> Result<()> {
+        if self
+            .manifest
+            .slice_for(
+                &chunk.stored_path,
+                chunk.file_offset,
+                chunk.compression_frame_offset,
+                chunk.len,
+            )
+            .is_none_or(|slice| slice.total_len != 0 && slice.total_len != expected_total_len)
+        {
+            return Err(Error::CorruptRecord);
+        }
+        Ok(())
+    }
     pub(crate) fn open(
         storage: &'a StorageBackend,
         offset: u64,

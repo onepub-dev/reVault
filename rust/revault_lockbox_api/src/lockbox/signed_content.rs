@@ -10,8 +10,17 @@ use std::io::{self, Write};
 impl<State> Lockbox<State> {
     pub(super) fn signed_content_digest(&self) -> Result<[u8; 32]> {
         let mut digest = Sha256::new();
-        digest.update(b"revault-plaintext-content-v3\0");
-        let toc = crate::toc_codec::TocEncoder::new(self.toc_entries.values()).encode();
+        let encoder = crate::toc_codec::TocEncoder::new(self.toc_entries.values());
+        if encoder.version() == 1 {
+            // Preserve the exact canonical digest of existing whole-frame TOCs.
+            digest.update(b"revault-plaintext-content-v3\0");
+        } else {
+            // A block-index commitment is not a whole-frame content checksum.
+            // Bind that interpretation, as well as the TOC bytes, into signing.
+            digest.update(b"revault-plaintext-content-v4\0");
+            digest.update([encoder.version()]);
+        }
+        let toc = encoder.encode();
         field(&mut digest, &toc);
         for entry in self.toc_entries.values().filter(|entry| !entry.deleted) {
             match entry.node_kind {
