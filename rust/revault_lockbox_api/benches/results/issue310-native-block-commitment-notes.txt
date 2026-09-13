@@ -1,0 +1,58 @@
+Native common block-commitment groundwork, 2026-09-13
+===================================================
+The existing native TOC stores SHA-256 of an entire compression frame. A block
+index alone cannot accelerate a first partial read while that whole-frame
+comparison remains mandatory. The next representation needs a trusted TOC
+commitment to the stored block table, not a digest discovered in untrusted data.
+
+BlockFrameDescriptor in file_format/indexed_frame.rs defines that common
+128-byte descriptor. It is still staged under cfg(test), NOT emitted by the
+native writer. The older raw-index probe in that module remains historical;
+the new descriptor supports all encryption/signing/codec/padding choices.
+
+Canonical encoding, offsets in bytes:
+0..8 magic LBXBF001; 8..10 persisted FormatMode; 10 stored codec;
+11..16 reserved zero; 16..32 archive ID; 32..40 frame ID;
+40..48 logical length; 48..56 stored codec length;
+56..60 block length (16 KiB); 60..64 reserved zero;
+64..96 fresh per-attempt salt; 96..128 stored-index SHA-256 commitment.
+Decode requires the expected archive identity and full persisted format mode.
+Unknown codecs/flags, reserved bytes, wrong block size, bad extents and trailing
+bytes fail. Frames stay bounded at 4 MiB. Raw fallback remains valid when the
+creation policy requests compression. Implicit legacy mode zero is rejected.
+
+The index plaintext is the 96-byte descriptor context followed by one 32-byte
+commitment per stored block. Encrypted mode encrypts that table with
+ChaCha20-Poly1305, derives its frame key with HKDF-SHA256 from the content key,
+fresh salt and complete context, and includes the context as associated data.
+Index nonce domain is 1; future data-block nonces must use domain 0 plus the
+block ordinal. A writer must create a fresh descriptor for each encoding attempt
+or replacement, including retries, before encrypting any data blocks.
+The stored-index commitment covers ciphertext in encrypted mode. Open verifies
+the exact bounded length and stored commitment before decryption/parsing, then
+checks the decoded context before returning block commitments.
+
+There is NO new per-frame signing algorithm. Trusted descriptor authentication
+must come from the native TOC/commit path, including existing hybrid owner
+signatures. Native signed-content eager verification must remain in place.
+This is deliberately different from the bench's isolated Ed25519 probe.
+
+Range planning reads complete touched verification blocks plus their tags for
+raw content, and all stored blocks for compressed content. It does not invent
+Zstd restart points. Empty ranges plan zero data bytes, but the eventual reader
+must still enforce the source validation contract from the storage checkpoint.
+These lengths exclude page wrapping and optional size-hiding allocation padding.
+
+Tests cover every persisted encryption/signing/compression/padding combination,
+raw fallback, compressed range planning, empty and boundary-sized frames,
+4 MiB limits, malformed descriptors, truncated indexes, wrong keys, archive/
+frame/salt substitution, encrypted-index mutation even after recomputing its
+untrusted checksum, and fresh retry salts. No performance claim is made here.
+
+Still required before enabling: shared data-block codec and physical page
+integration; trusted descriptor persistence/version discrimination in the TOC;
+all reads, mutations, allocator ownership, recovery, relocation/compaction and
+migration paths; production ZIP parity and paired write/load regression gates.
+Do not remove whole-frame validation from the existing representation or enable
+a plaintext-only reader to bypass these unfinished requirements. Native format
+version remains 4; this checkpoint writes no new user archive representation.
