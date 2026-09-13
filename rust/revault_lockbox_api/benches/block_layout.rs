@@ -6,6 +6,8 @@
 //! detect corruption, not malicious rewriting of content and its checksum.
 //! REVAULT_BLOCK_WORKERS=1..8 selects the lazy verification pool (default 1).
 //! REVAULT_BLOCK_MMAP=1 enables Unix-only immutable-fixture mapping (default off).
+//! REVAULT_BLOCK_READV=1 enables Unix vectored reads (default off, no mmap).
+//! REVAULT_BLOCK_LARGE_SIZE changes the four-large-file case (default 8 MiB).
 use rayon::prelude::*;
 use revault_lockbox_api::{
     Compression, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen, LockboxPath, Signing,
@@ -25,6 +27,17 @@ const ENTRY: usize = 64;
 const BLOCK: usize = 16 * 1024;
 const RECORD: usize = BLOCK + 32;
 const MAGIC: &[u8; 8] = b"RVEXP001";
+
+#[derive(Clone, Copy)]
+struct Timings {
+    open: f64,
+    first_file: f64,
+    total: f64,
+    first_byte: f64,
+    read_calls: f64,
+    output_wipe: f64,
+    drop: f64,
+}
 
 // Benchmark fixtures are exclusively owned by this process and never modified
 // while readers exist. This is NOT a general-purpose safe mapping API.
@@ -100,6 +113,63 @@ fn number(bytes: &[u8]) -> u64 {
 fn checksum(bytes: &[u8]) -> [u8; 32] {
     Sha256::digest(bytes).into()
 }
+
+#[cfg_attr(not(unix), allow(dead_code))]
+fn initialize_output(source: &[u8], destination: &mut [std::mem::MaybeUninit<u8>]) {
+    assert_eq!(source.len(), destination.len());
+    // SAFETY: equal-length disjoint slices. Initialize destination without
+    // reading it; the caller exposes it only after the full operation succeeds.
+    unsafe {
+        std::ptr::copy_nonoverlapping(
+            source.as_ptr(),
+            destination.as_mut_ptr().cast::<u8>(),
+            source.len(),
+        );
+    }
+}
+
+#[cfg(unix)]
+fn finish_vectored_read(
+    vectors: &mut [libc::iovec],
+    mut physical: libc::off_t,
+    mut read_once: impl FnMut(&[libc::iovec], libc::off_t) -> io::Result<usize>,
+) -> io::Result<()> {
+    let mut at = 0;
+    while at < vectors.len() {
+        if vectors[at].iov_len == 0 {
+            at += 1;
+            continue;
+        }
+        let read = match read_once(&vectors[at..], physical) {
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
+            result => result?,
+        };
+        if read == 0 {
+            return Err(io::Error::from(io::ErrorKind::UnexpectedEof));
+        }
+        physical = physical
+            .checked_add(libc::off_t::try_from(read).map_err(|_| invalid())?)
+            .ok_or_else(invalid)?;
+        let mut remaining = read;
+        while at < vectors.len() && remaining >= vectors[at].iov_len {
+            remaining -= vectors[at].iov_len;
+            at += 1;
+        }
+        if remaining != 0 {
+            if at == vectors.len() {
+                return Err(invalid());
+            }
+            vectors[at].iov_base = vectors[at]
+                .iov_base
+                .cast::<u8>()
+                .wrapping_add(remaining)
+                .cast();
+            vectors[at].iov_len -= remaining;
+        }
+    }
+    Ok(())
+}
+
 fn block_hash(id: u64, ordinal: u64, data: &[u8]) -> [u8; 32] {
     let mut hash = Sha256::new();
     hash.update(id.to_le_bytes());
@@ -140,6 +210,8 @@ struct Prototype {
     directory: Option<(u64, Vec<u8>)>,
     scratch: Vec<u8>,
     workers: usize,
+    #[cfg(unix)]
+    vectored_reads: bool,
     pool: Option<rayon::ThreadPool>,
     #[cfg(unix)]
     mapping: Option<FixtureMapping>,
@@ -181,11 +253,21 @@ impl Prototype {
         Ok(())
     }
     fn open(path: &Path) -> io::Result<Self> {
+        if std::env::var("REVAULT_BLOCK_MMAP").is_ok_and(|v| v == "1")
+            && std::env::var("REVAULT_BLOCK_READV").is_ok_and(|v| v == "1")
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "select mapping or vectored reads, not both",
+            ));
+        }
         #[cfg(not(unix))]
-        if std::env::var("REVAULT_BLOCK_MMAP").is_ok_and(|v| v == "1") {
+        if std::env::var("REVAULT_BLOCK_MMAP").is_ok_and(|v| v == "1")
+            || std::env::var("REVAULT_BLOCK_READV").is_ok_and(|v| v == "1")
+        {
             return Err(io::Error::new(
                 io::ErrorKind::Unsupported,
-                "fixture mapping requires Unix",
+                "selected I/O experiment requires Unix",
             ));
         }
         let mut file = File::open(path)?;
@@ -220,6 +302,8 @@ impl Prototype {
             disk_len,
             directory: None,
             scratch: Vec::new(),
+            #[cfg(unix)]
+            vectored_reads: std::env::var("REVAULT_BLOCK_READV").is_ok_and(|v| v == "1"),
             pool: None,
             #[cfg(unix)]
             mapping,
@@ -229,6 +313,64 @@ impl Prototype {
         })
     }
     fn read(&mut self, id: usize, start: usize, len: usize) -> io::Result<Vec<u8>> {
+        #[cfg(unix)]
+        if self.vectored_reads {
+            if let Some(output) = self.read_vectored(id, start, len)? {
+                return Ok(output);
+            }
+        }
+        #[cfg(unix)]
+        if self.mapping.is_some() {
+            let (size, offset) = self.descriptor(id, start, len)?;
+            self.prepare_pool(len)?;
+            let mapped = self.mapping.as_ref().unwrap().bytes();
+            let offset = usize::try_from(offset).map_err(|_| invalid())?;
+            let mut output = Vec::<u8>::with_capacity(len);
+            let copy = |(index, destination): (usize, &mut [std::mem::MaybeUninit<u8>])| -> io::Result<()> {
+                let mut logical = start + index * BLOCK * 8;
+                let mut done = 0;
+                while done < destination.len() {
+                    let ordinal = logical / BLOCK;
+                    let within = logical % BLOCK;
+                    let n = BLOCK.min(size - ordinal * BLOCK);
+                    let begin = offset + ordinal * RECORD;
+                    let record = mapped.get(begin..begin + 32 + n).ok_or_else(invalid)?;
+                    if block_hash(id as u64, ordinal as u64, &record[32..]) != record[..32] {
+                        return Err(invalid());
+                    }
+                    let take = (n - within).min(destination.len() - done);
+                    initialize_output(&record[32 + within..32 + within + take], &mut destination[done..done + take]);
+                    logical += take;
+                    done += take;
+                }
+                Ok(())
+            };
+            let destination = &mut output.spare_capacity_mut()[..len];
+            let result = if let Some(pool) = self.pool.as_ref().filter(|_| len >= 256 * 1024) {
+                pool.install(|| {
+                    destination
+                        .par_chunks_mut(BLOCK * 8)
+                        .enumerate()
+                        .try_for_each(copy)
+                })
+            } else {
+                destination
+                    .chunks_mut(BLOCK * 8)
+                    .enumerate()
+                    .try_for_each(copy)
+            };
+            if let Err(error) = result {
+                wipe(&mut output);
+                return Err(error);
+            }
+            // SAFETY: every disjoint destination chunk completed successfully,
+            // initializing its full length. No bytes are exposed on failure;
+            // wipe covers full spare capacity even while Vec length is zero.
+            unsafe {
+                output.set_len(len);
+            }
+            return Ok(output);
+        }
         let mut output = Vec::new();
         if let Err(error) = self.visit(id, start, len, |data| {
             // Bounds have been validated before the visitor is called.
@@ -242,13 +384,101 @@ impl Prototype {
         }
         Ok(output)
     }
-    fn visit(
+    #[cfg(unix)]
+    fn read_vectored(
         &mut self,
         id: usize,
         start: usize,
         len: usize,
-        mut consume: impl FnMut(&[u8]),
-    ) -> io::Result<()> {
+    ) -> io::Result<Option<Vec<u8>>> {
+        use std::os::fd::AsRawFd;
+        let (size, offset) = self.descriptor(id, start, len)?;
+        let end = start + len;
+        if start % BLOCK != 0 || (end % BLOCK != 0 && end != size) {
+            return Ok(None);
+        }
+        self.prepare_pool(len)?;
+        let fd = self.file.as_raw_fd();
+        let group_blocks = 8;
+        let group_bytes = group_blocks * BLOCK;
+        let mut output = Vec::<u8>::with_capacity(len);
+        let fill =
+            |(index, destination): (usize, &mut [std::mem::MaybeUninit<u8>])| -> io::Result<()> {
+                let ordinal = (start + index * group_bytes) / BLOCK;
+                let mut digests = [[0u8; 32]; 8];
+                let mut vectors = Vec::with_capacity(group_blocks * 2);
+                let mut done = 0;
+                for (block, digest) in digests
+                    .iter_mut()
+                    .enumerate()
+                    .take(destination.len().div_ceil(BLOCK))
+                {
+                    let n = BLOCK.min(size - (ordinal + block) * BLOCK);
+                    if n > destination.len() - done {
+                        return Err(invalid());
+                    }
+                    vectors.push(libc::iovec {
+                        iov_base: digest.as_mut_ptr().cast(),
+                        iov_len: 32,
+                    });
+                    vectors.push(libc::iovec {
+                        iov_base: destination[done..done + n].as_mut_ptr().cast(),
+                        iov_len: n,
+                    });
+                    done += n;
+                }
+                let physical = libc::off_t::try_from(offset + ordinal as u64 * RECORD as u64)
+                    .map_err(|_| invalid())?;
+                finish_vectored_read(&mut vectors, physical, |vectors, physical| {
+                    // SAFETY: live fd, <=16 stable disjoint writable iovecs.
+                    // Output and checksum allocations cannot alias other workers.
+                    let read = unsafe {
+                        libc::preadv(fd, vectors.as_ptr(), vectors.len() as i32, physical)
+                    };
+                    if read < 0 {
+                        Err(io::Error::last_os_error())
+                    } else {
+                        Ok(read as usize)
+                    }
+                })?;
+                // SAFETY: the completed vectored read initialized every destination
+                // byte. No output is returned until its block checksums also pass.
+                let initialized = unsafe {
+                    std::slice::from_raw_parts(destination.as_ptr().cast::<u8>(), destination.len())
+                };
+                for (block, bytes) in initialized.chunks(BLOCK).enumerate() {
+                    if block_hash(id as u64, (ordinal + block) as u64, bytes) != digests[block] {
+                        return Err(invalid());
+                    }
+                }
+                Ok(())
+            };
+        let destination = &mut output.spare_capacity_mut()[..len];
+        let result = if let Some(pool) = self.pool.as_ref().filter(|_| len >= 256 * 1024) {
+            pool.install(|| {
+                destination
+                    .par_chunks_mut(group_bytes)
+                    .enumerate()
+                    .try_for_each(fill)
+            })
+        } else {
+            destination
+                .chunks_mut(group_bytes)
+                .enumerate()
+                .try_for_each(fill)
+        };
+        if let Err(error) = result {
+            wipe(&mut output);
+            return Err(error);
+        }
+        // SAFETY: every chunk was fully initialized and verified; failures wipe
+        // the allocation while its public length remains zero.
+        unsafe {
+            output.set_len(len);
+        }
+        Ok(Some(output))
+    }
+    fn descriptor(&mut self, id: usize, start: usize, len: usize) -> io::Result<(usize, u64)> {
         if id as u64 >= self.count {
             return Err(invalid());
         }
@@ -292,11 +522,9 @@ impl Prototype {
         {
             return Err(invalid());
         }
-        if len == 0 {
-            return Ok(());
-        }
-        let first = start / BLOCK;
-        let last = (end - 1) / BLOCK;
+        Ok((size, offset))
+    }
+    fn prepare_pool(&mut self, len: usize) -> io::Result<()> {
         if len >= 256 * 1024 && self.workers > 1 && self.pool.is_none() {
             self.pool = Some(
                 rayon::ThreadPoolBuilder::new()
@@ -304,6 +532,35 @@ impl Prototype {
                     .build()
                     .map_err(io::Error::other)?,
             );
+        }
+        Ok(())
+    }
+    fn visit(
+        &mut self,
+        id: usize,
+        start: usize,
+        len: usize,
+        mut consume: impl FnMut(&[u8]),
+    ) -> io::Result<()> {
+        let (size, offset) = self.descriptor(id, start, len)?;
+        if len == 0 {
+            return Ok(());
+        }
+        let end = start + len;
+        let first = start / BLOCK;
+        let last = (end - 1) / BLOCK;
+        self.prepare_pool(len)?;
+        #[cfg(unix)]
+        if self.vectored_reads && start % BLOCK == 0 && (end % BLOCK == 0 || end == size) {
+            let mut cursor = start;
+            while cursor < end {
+                let take = (4 * 1024 * 1024).min(end - cursor);
+                let mut output = self.read_vectored(id, cursor, take)?.ok_or_else(invalid)?;
+                consume(&output);
+                wipe(&mut output);
+                cursor += take;
+            }
+            return Ok(());
         }
         #[cfg(unix)]
         if let Some(mapping) = self.mapping.as_ref() {
@@ -379,8 +636,12 @@ fn main() {
     let root =
         std::env::temp_dir().join(format!("revault-block-experiment-{}", std::process::id()));
     fs::create_dir(&root).unwrap();
-    println!("files,size,access,format,open_us,first_byte_us,first_file_us,total_us,archive_bytes");
-    for (count, size) in [(1, 128), (512, 4096), (4, 8 * 1024 * 1024)] {
+    println!("files,size,access,format,open_us,first_byte_us,first_file_us,total_us,archive_bytes,read_calls_us,output_wipe_us,drop_us");
+    let large_size = std::env::var("REVAULT_BLOCK_LARGE_SIZE")
+        .map(|v| v.parse::<usize>().unwrap())
+        .unwrap_or(8 * 1024 * 1024);
+    assert!(large_size > 0 && large_size <= 256 * 1024 * 1024);
+    for (count, size) in [(1, 128), (512, 4096), (4, large_size)] {
         let payloads: Vec<Vec<u8>> = (0..count)
             .map(|id| {
                 (0..size)
@@ -427,11 +688,20 @@ fn main() {
             .unwrap();
         }
         for access in ["stream", "whole", "range"] {
-            let mut measurements = vec![Vec::new(); 4];
-            // Rotate order every sample to reduce systematic ordering bias.
-            for sample in 0..samples {
-                for turn in 0..4 {
-                    let variant = (sample + turn) % 4;
+            let variants = 4;
+            let mut measurements = vec![Vec::new(); variants];
+            // Shuffle predecessors too: cyclic rotation leaves each contender
+            // behind the same allocation/cache workload in almost every sample.
+            let mut shuffle = 0x1234_5678_9abc_def0u64;
+            for _ in 0..samples {
+                let mut order: Vec<_> = (0..variants).collect();
+                for index in (1..variants).rev() {
+                    shuffle ^= shuffle << 13;
+                    shuffle ^= shuffle >> 7;
+                    shuffle ^= shuffle << 17;
+                    order.swap(index, shuffle as usize % (index + 1));
+                }
+                for variant in order {
                     let file_path = match variant {
                         0 => &zip_path,
                         1 => &current_path,
@@ -447,6 +717,8 @@ fn main() {
                     let open = started.elapsed().as_secs_f64() * 1e6;
                     let mut first = 0.0;
                     let mut first_byte = 0.0;
+                    let mut read_calls = 0.0;
+                    let mut output_wipe = 0.0;
                     for (position, id) in (0..count).rev().enumerate() {
                         let start = if access == "range" { size / 2 } else { 0 };
                         let len = if access == "range" {
@@ -455,6 +727,7 @@ fn main() {
                             size
                         };
                         let expected = &payloads[id][start..start + len];
+                        let call_started = Instant::now();
                         if access == "stream" {
                             let mut checked = 0;
                             let mut consume = |data: &[u8]| {
@@ -486,6 +759,7 @@ fn main() {
                                     .visit(id, 0, size, &mut consume)
                                     .unwrap();
                             }
+                            read_calls += call_started.elapsed().as_secs_f64() * 1e6;
                             assert_eq!(checked, size);
                             if position == 0 {
                                 first = started.elapsed().as_secs_f64() * 1e6;
@@ -513,6 +787,7 @@ fn main() {
                         } else {
                             prototype.as_mut().unwrap().read(id, start, len).unwrap()
                         };
+                        read_calls += call_started.elapsed().as_secs_f64() * 1e6;
                         if first_byte == 0.0 {
                             first_byte = started.elapsed().as_secs_f64() * 1e6;
                         }
@@ -521,21 +796,27 @@ fn main() {
                             first = started.elapsed().as_secs_f64() * 1e6;
                         }
                         // Apply the same output-buffer wiping to every contender.
+                        let wipe_started = Instant::now();
                         wipe(&mut bytes);
+                        output_wipe += wipe_started.elapsed().as_secs_f64() * 1e6;
                     }
+                    let drop_started = Instant::now();
                     drop(current);
                     drop(prototype);
                     drop(zip);
-                    measurements[variant].push((
+                    measurements[variant].push(Timings {
                         open,
-                        first,
-                        started.elapsed().as_secs_f64() * 1e6,
+                        first_file: first,
+                        total: started.elapsed().as_secs_f64() * 1e6,
                         first_byte,
-                    ));
+                        read_calls,
+                        output_wipe,
+                        drop: drop_started.elapsed().as_secs_f64() * 1e6,
+                    });
                 }
             }
             for (variant, values) in measurements.iter().enumerate() {
-                let median = |field: fn(&(f64, f64, f64, f64)) -> f64| {
+                let median = |field: fn(&Timings) -> f64| {
                     let mut v: Vec<_> = values.iter().map(field).collect();
                     v.sort_by(f64::total_cmp);
                     v[v.len() / 2]
@@ -548,12 +829,15 @@ fn main() {
                     _ => root.join("compact.exp"),
                 };
                 println!(
-                    "{count},{size},{access},{name},{:.3},{:.3},{:.3},{:.3},{}",
-                    median(|v| v.0),
-                    median(|v| v.3),
-                    median(|v| v.1),
-                    median(|v| v.2),
-                    fs::metadata(path).unwrap().len()
+                    "{count},{size},{access},{name},{:.3},{:.3},{:.3},{:.3},{},{:.3},{:.3},{:.3}",
+                    median(|v| v.open),
+                    median(|v| v.first_byte),
+                    median(|v| v.first_file),
+                    median(|v| v.total),
+                    fs::metadata(path).unwrap().len(),
+                    median(|v| v.read_calls),
+                    median(|v| v.output_wipe),
+                    median(|v| v.drop)
                 );
             }
         }
@@ -566,6 +850,82 @@ fn main() {
 mod tests {
     #[allow(unused_imports)]
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn vectored_short_reads_interrupts_and_eof() {
+        for available in [18, 10] {
+            let source: Vec<u8> = (0..available).collect();
+            let mut first = [0xa5u8; 4];
+            let mut second = [0xa5u8; 11];
+            let mut vectors = [
+                libc::iovec {
+                    iov_base: first.as_mut_ptr().cast(),
+                    iov_len: first.len(),
+                },
+                libc::iovec {
+                    iov_base: second.as_mut_ptr().cast(),
+                    iov_len: second.len(),
+                },
+            ];
+            let mut calls = 0;
+            let result = finish_vectored_read(&mut vectors, 3, |vectors, physical| {
+                calls += 1;
+                if calls == 1 {
+                    return Err(io::Error::from(io::ErrorKind::Interrupted));
+                }
+                let mut done = 0;
+                let limit = 3.min(source.len() - physical as usize);
+                for vector in vectors {
+                    let n = vector.iov_len.min(limit - done);
+                    // SAFETY: test-owned disjoint buffers; the helper only
+                    // advances/shrinks their original valid ranges.
+                    unsafe {
+                        std::ptr::copy_nonoverlapping(
+                            source[physical as usize + done..].as_ptr(),
+                            vector.iov_base.cast::<u8>(),
+                            n,
+                        );
+                    }
+                    done += n;
+                    if done == limit {
+                        break;
+                    }
+                }
+                Ok(done)
+            });
+            if available == 18 {
+                result.unwrap();
+                assert_eq!([first.as_slice(), second.as_slice()].concat(), source[3..]);
+            } else {
+                assert_eq!(result.unwrap_err().kind(), io::ErrorKind::UnexpectedEof);
+                assert_eq!(first, source[3..7]);
+                assert_eq!(&second[..3], &source[7..]);
+                assert!(second[3..].iter().all(|byte| *byte == 0xa5));
+            }
+            assert!(calls > 3);
+        }
+    }
+    #[test]
+    fn output_store_alignment_and_neighbors() {
+        {
+            for offset in 0..32 {
+                for len in [0, 1, BLOCK - 1, BLOCK, BLOCK + 17] {
+                    let source: Vec<_> = (0..len).map(|n| (n % 251) as u8).collect();
+                    let mut buffer = vec![std::mem::MaybeUninit::new(0xa5u8); len + 64];
+                    initialize_output(&source, &mut buffer[offset..offset + len]);
+                    // SAFETY: every element was initialized before the call;
+                    // initialize_output may overwrite but never deinitialize it.
+                    let actual: Vec<_> = buffer
+                        .iter()
+                        .map(|byte| unsafe { byte.assume_init() })
+                        .collect();
+                    assert_eq!(&actual[offset..offset + len], source);
+                    assert!(actual[..offset].iter().all(|byte| *byte == 0xa5));
+                    assert!(actual[offset + len..].iter().all(|byte| *byte == 0xa5));
+                }
+            }
+        }
+    }
     #[test]
     fn lazy_directory_group_boundaries() {
         let path = std::env::temp_dir().join(format!(
@@ -583,6 +943,49 @@ mod tests {
             assert!(reader.scratch.iter().all(|byte| *byte == 0));
         }
         drop(reader);
+        fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn output_initialization_at_block_and_worker_boundaries() {
+        let path =
+            std::env::temp_dir().join(format!("revault-block-output-{}.exp", std::process::id()));
+        let payload: Vec<_> = (0..BLOCK * 35 + 17).map(|n| (n % 251) as u8).collect();
+        Prototype::write(&path, std::slice::from_ref(&payload), true).unwrap();
+        for workers in [1, 4, 8] {
+            let mut reader = Prototype::open(&path).unwrap();
+            reader.workers = workers;
+            for start in [
+                0,
+                1,
+                BLOCK,
+                BLOCK * 8,
+                BLOCK - 1,
+                BLOCK + 1,
+                BLOCK * 8 - 1,
+                payload.len() - 1,
+                payload.len(),
+            ] {
+                for wanted in [
+                    0,
+                    1,
+                    BLOCK,
+                    BLOCK * 8,
+                    BLOCK * 16,
+                    BLOCK * 32,
+                    BLOCK - 1,
+                    BLOCK + 1,
+                    BLOCK * 8 - 1,
+                    BLOCK * 8 + 1,
+                    BLOCK * 17 + 3,
+                ] {
+                    let len = wanted.min(payload.len() - start);
+                    assert_eq!(
+                        reader.read(0, start, len).unwrap(),
+                        payload[start..start + len]
+                    );
+                }
+            }
+        }
         fs::remove_file(path).unwrap();
     }
     #[test]
