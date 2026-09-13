@@ -55,10 +55,34 @@ impl Clone for PageCache {
 struct CachedPage {
     // Readers share an immutable page rather than copying every object's payload
     // for each file slice. Payloads retain their existing zeroizing destructors.
-    page: Arc<DecodedPage>,
+    page: CachedPagePayload,
     weight: u64,
     generation: u64,
     security: PageSecurity,
+}
+
+#[derive(Debug, Clone)]
+enum CachedPagePayload {
+    Decoded(Arc<DecodedPage>),
+    #[cfg(test)]
+    Native(Arc<crate::file_format::indexed_frame::block_page::EncodedBlockPage>),
+}
+
+impl CachedPagePayload {
+    fn decoded(&self) -> Result<&Arc<DecodedPage>> {
+        match self {
+            Self::Decoded(page) => Ok(page),
+            #[cfg(test)]
+            Self::Native(_) => Err(Error::CorruptRecord),
+        }
+    }
+    #[cfg(test)]
+    fn decoded_mut(&mut self) -> Option<&mut Arc<DecodedPage>> {
+        match self {
+            Self::Decoded(page) => Some(page),
+            Self::Native(_) => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -125,7 +149,7 @@ impl PageCache {
                 self.hits = self.hits.saturating_add(1);
                 entry.generation = entry.generation.saturating_add(1);
                 self.recent.push_back(offset);
-                return Ok(Some(Arc::clone(&entry.page)));
+                return Ok(Some(Arc::clone(entry.page.decoded()?)));
             }
             return Err(Error::CorruptRecord);
         }
@@ -227,6 +251,71 @@ impl PageCache {
         self.dirty_offsets.insert(offset);
         self.insert_page_with_security(offset, page, page_size as u64, PageSecurity::Normal, true);
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn stage_native_page(
+        &mut self,
+        offset: u64,
+        archive: LockboxId,
+        page: Arc<crate::file_format::indexed_frame::block_page::EncodedBlockPage>,
+        policy: PageWritePolicy,
+    ) -> Result<()> {
+        let weight = page.bytes().len() as u64;
+        let end = offset.checked_add(weight).ok_or(Error::CorruptRecord)?;
+        if page.descriptor().archive != archive
+            || page.descriptor().mode != self.format_mode
+            || self.pages.iter().any(|(&other, entry)| {
+                other != offset
+                    && other < end
+                    && other
+                        .checked_add(entry.weight)
+                        .is_none_or(|other_end| other_end > offset)
+            })
+        {
+            return Err(Error::CorruptRecord);
+        }
+        self.zeroed_pages.remove(&offset);
+        self.evict_cached(offset);
+        self.used_bytes = self.used_bytes.saturating_add(weight);
+        self.pages.insert(
+            offset,
+            CachedPage {
+                page: CachedPagePayload::Native(page),
+                weight,
+                generation: 0,
+                security: PageSecurity::Normal,
+            },
+        );
+        self.dirty_offsets.insert(offset);
+        match policy {
+            PageWritePolicy::RetainAfterFlush => {
+                self.discard_after_flush.remove(&offset);
+            }
+            PageWritePolicy::DiscardAfterFlush => {
+                self.discard_after_flush.insert(offset);
+            }
+        }
+        self.recent.push_back(offset);
+        self.trim_to_limit();
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn cached_native_page(
+        &mut self,
+        offset: u64,
+    ) -> Result<Option<Arc<crate::file_format::indexed_frame::block_page::EncodedBlockPage>>> {
+        let Some(entry) = self.pages.get_mut(&offset) else {
+            return Ok(None);
+        };
+        let CachedPagePayload::Native(page) = &entry.page else {
+            return Err(Error::CorruptRecord);
+        };
+        self.hits = self.hits.saturating_add(1);
+        entry.generation = entry.generation.saturating_add(1);
+        self.recent.push_back(offset);
+        Ok(Some(Arc::clone(page)))
     }
 
     #[cfg(test)]
@@ -355,35 +444,50 @@ impl PageCache {
                         "page size exceeds addressable memory".to_string(),
                     )
                 })?;
-                let encoded = match entry.security {
-                    PageSecurity::Normal => encode_page_with_format(
-                        page_size,
-                        lockbox_id,
-                        entry.page.page_id,
-                        entry.page.sequence,
-                        key,
-                        &entry.page.objects,
-                        self.format_mode,
-                    )?,
-                    PageSecurity::Secure => {
-                        let [object] = entry.page.objects.as_slice() else {
-                            return Err(crate::Error::CorruptRecord);
-                        };
-                        let payload = object.secure_payload().ok_or(crate::Error::CorruptRecord)?;
-                        let mut content_key = crate::crypto::derive_page_content_key(key);
-                        let encoded = encode_single_object_page_secure(SecureSingleObjectPage {
-                            format_mode: self.format_mode,
-                            page_size,
-                            lockbox_id,
-                            page_id: entry.page.page_id,
-                            sequence: entry.page.sequence,
-                            content_key: &content_key,
-                            kind: object.kind,
-                            id: object.id,
-                            payload,
-                        })?;
-                        content_key.zeroize();
-                        encoded
+                let encoded: std::borrow::Cow<'_, [u8]> = match &entry.page {
+                    #[cfg(test)]
+                    CachedPagePayload::Native(page) => {
+                        if page.descriptor().archive != lockbox_id
+                            || page.descriptor().mode != self.format_mode
+                        {
+                            return Err(Error::CorruptRecord);
+                        }
+                        std::borrow::Cow::Borrowed(page.bytes())
+                    }
+                    CachedPagePayload::Decoded(page) => {
+                        std::borrow::Cow::Owned(match entry.security {
+                            PageSecurity::Normal => encode_page_with_format(
+                                page_size,
+                                lockbox_id,
+                                page.page_id,
+                                page.sequence,
+                                key,
+                                &page.objects,
+                                self.format_mode,
+                            )?,
+                            PageSecurity::Secure => {
+                                let [object] = page.objects.as_slice() else {
+                                    return Err(crate::Error::CorruptRecord);
+                                };
+                                let payload =
+                                    object.secure_payload().ok_or(crate::Error::CorruptRecord)?;
+                                let mut content_key = crate::crypto::derive_page_content_key(key);
+                                let encoded =
+                                    encode_single_object_page_secure(SecureSingleObjectPage {
+                                        format_mode: self.format_mode,
+                                        page_size,
+                                        lockbox_id,
+                                        page_id: page.page_id,
+                                        sequence: page.sequence,
+                                        content_key: &content_key,
+                                        kind: object.kind,
+                                        id: object.id,
+                                        payload,
+                                    })?;
+                                content_key.zeroize();
+                                encoded
+                            }
+                        })
                     }
                 };
                 (encoded, page_size)
@@ -410,7 +514,13 @@ impl PageCache {
                 storage_len = storage_len.saturating_add(encoded.len() as u64);
             } else {
                 storage.write_at(offset, &encoded)?;
+                storage_len = storage_len.max(
+                    offset
+                        .checked_add(encoded.len() as u64)
+                        .ok_or(Error::CorruptRecord)?,
+                );
             }
+            drop(encoded);
             self.dirty_offsets.remove(&offset);
             if self.limit_bytes == 0 || self.discard_after_flush.remove(&offset) {
                 self.evict(offset);
@@ -476,7 +586,7 @@ impl PageCache {
         self.hits = self.hits.saturating_add(1);
         entry.generation = entry.generation.saturating_add(1);
         self.recent.push_back(offset);
-        Some((*entry.page).clone())
+        Some((**entry.page.decoded().ok()?).clone())
     }
 
     #[cfg(test)]
@@ -501,8 +611,9 @@ impl PageCache {
         entry.generation = entry.generation.saturating_add(1);
         self.recent.push_back(offset);
         let old_weight = entry.weight;
-        let result = f(Arc::make_mut(&mut entry.page));
-        let new_weight = crate::page::page_size_for_objects(&entry.page.objects) as u64;
+        let result = f(Arc::make_mut(entry.page.decoded_mut()?));
+        let new_weight =
+            crate::page::page_size_for_objects(&entry.page.decoded().ok()?.objects) as u64;
         entry.weight = new_weight;
         self.used_bytes = self
             .used_bytes
@@ -535,7 +646,7 @@ impl PageCache {
         self.pages.insert(
             offset,
             CachedPage {
-                page: page.into(),
+                page: CachedPagePayload::Decoded(page.into()),
                 weight,
                 generation: 0,
                 security,
@@ -625,6 +736,259 @@ mod tests {
     use crate::page::{encode_page, DecodedPage, PageObject, PageObjectKind};
     use crate::secret_vec::SecureVec;
     use crate::storage::StorageBackend;
+
+    fn native_page(
+        mode: FormatMode,
+    ) -> Arc<crate::file_format::indexed_frame::block_page::EncodedBlockPage> {
+        use crate::file_format::indexed_frame::block_page::{EncodedBlockPage, PageIdentity};
+        let input = vec![37; 32768];
+        let (codec, stored) =
+            crate::compression::encode_with_compression(&input, mode.options().compression);
+        Arc::new(
+            EncodedBlockPage::prepare(
+                PageIdentity {
+                    archive: LockboxId::from_bytes([71; 16]),
+                    page_id: 41,
+                    sequence: 43,
+                    mode,
+                },
+                31,
+                codec,
+                input.len() as u64,
+                &stored,
+                vec![crate::compression_frame_manifest::CompressionFrameSlice {
+                    path: crate::LockboxPath::new("/file").unwrap(),
+                    permissions: 0o640,
+                    total_len: input.len() as u64,
+                    file_offset: 0,
+                    compression_frame_offset: 0,
+                    len: input.len() as u64,
+                }],
+                &[53; 32],
+            )
+            .unwrap(),
+        )
+    }
+
+    #[test]
+    fn native_cache_staging_snapshots_flush_retries_and_eviction_preserve_all_modes() {
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let archive = LockboxId::from_bytes([71; 16]);
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for signing in [SigningMode::None, SigningMode::Owner] {
+                for compression in [Compression::None, Compression::default()] {
+                    for size_padding in [SizePadding::Default, SizePadding::None] {
+                        let mode = FormatMode::new(LockboxFormatOptions {
+                            encryption,
+                            signing,
+                            compression,
+                            size_padding,
+                        });
+                        let native = native_page(mode);
+                        let next = 192 + native.bytes().len() as u64;
+                        for limit in [0, 4 * 1024 * 1024] {
+                            for policy in [
+                                PageWritePolicy::RetainAfterFlush,
+                                PageWritePolicy::DiscardAfterFlush,
+                            ] {
+                                let mut cache =
+                                    PageCache::with_format(CacheLimit::Bytes(limit), mode);
+                                let mut storage = StorageBackend::memory(vec![11; 64]);
+                                cache
+                                    .stage_native_page(192, archive, native.clone(), policy)
+                                    .unwrap();
+                                assert!(Arc::ptr_eq(
+                                    &cache.cached_native_page(192).unwrap().unwrap(),
+                                    &native
+                                ));
+                                assert!(cache.cached_page(192, PageSecurity::Normal).is_err());
+                                assert!(cache.cached_page(192, PageSecurity::Secure).is_err());
+                                assert_eq!(cache.virtual_len(64), next);
+                                assert_eq!(cache.stats().used_bytes, native.bytes().len() as u64);
+                                let legacy = page(97);
+                                let legacy_len =
+                                    crate::page::page_size_for_encoded_objects_with_format(
+                                        &legacy.objects,
+                                        mode,
+                                    )
+                                    .unwrap();
+                                cache
+                                    .stage_decoded_page_with_policy(
+                                        next,
+                                        legacy_len,
+                                        legacy,
+                                        PageWritePolicy::RetainAfterFlush,
+                                    )
+                                    .unwrap();
+                                assert!(cache.cached_native_page(next).is_err());
+                                assert_eq!(cache.virtual_len(64), next + legacy_len as u64);
+                                let mut snapshot = cache.clone();
+                                assert!(Arc::ptr_eq(
+                                    &snapshot.cached_native_page(192).unwrap().unwrap(),
+                                    &native
+                                ));
+                                cache.clear();
+                                assert_eq!(cache.stats().used_bytes, 0);
+                                assert!(!cache.has_dirty_pages());
+                                // The first physical operation fills a gap. Failure
+                                // must retain both staged pages and the shared bytes.
+                                storage.fail_memory_operation_after_successes(0);
+                                assert!(snapshot
+                                    .flush_dirty_pages(&mut storage, archive, &[53; 32])
+                                    .is_err());
+                                assert!(snapshot.has_dirty_pages());
+                                assert_eq!(storage.read_all().unwrap(), vec![11; 64]);
+                                snapshot
+                                    .flush_dirty_pages(&mut storage, archive, &[53; 32])
+                                    .unwrap();
+                                assert!(!snapshot.has_dirty_pages());
+                                assert_eq!(storage.read_at(0, 64).unwrap(), vec![11; 64]);
+                                assert_eq!(storage.read_at(64, 128).unwrap(), vec![0; 128]);
+                                assert_eq!(
+                                    storage.read_at(192, native.bytes().len()).unwrap(),
+                                    native.bytes()
+                                );
+                                assert!(snapshot
+                                    .read_page(
+                                        &storage,
+                                        next,
+                                        archive,
+                                        PageSecurity::Normal,
+                                        PageReadKey::Normal(&[53; 32])
+                                    )
+                                    .is_ok());
+                                assert_eq!(
+                                    snapshot.cached_native_page(192).unwrap().is_some(),
+                                    limit != 0 && policy == PageWritePolicy::RetainAfterFlush
+                                );
+                                snapshot.trim_to(0);
+                                assert_eq!(snapshot.stats().used_bytes, 0);
+                                assert_eq!(snapshot.stats().entries, 0);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn native_cache_rejects_wrong_context_overlap_and_overflow_before_mutation() {
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let mode = FormatMode::new(LockboxFormatOptions {
+            encryption: EncryptionMode::None,
+            signing: SigningMode::None,
+            compression: Compression::None,
+            size_padding: SizePadding::None,
+        });
+        let native = native_page(mode);
+        let archive = native.descriptor().archive;
+        let mut cache = PageCache::with_format(CacheLimit::Bytes(4 * 1024 * 1024), mode);
+        let policy = PageWritePolicy::RetainAfterFlush;
+        assert!(cache
+            .stage_native_page(u64::MAX, archive, native.clone(), policy)
+            .is_err());
+        assert!(cache
+            .stage_native_page(192, LockboxId::from_bytes([7; 16]), native.clone(), policy)
+            .is_err());
+        cache.set_format(FormatMode(mode.0 ^ 0x100));
+        assert!(cache
+            .stage_native_page(192, archive, native.clone(), policy)
+            .is_err());
+        assert_eq!(cache.stats().entries, 0);
+        assert!(!cache.has_dirty_pages());
+        cache.set_format(mode);
+        cache
+            .stage_native_page(192, archive, native.clone(), policy)
+            .unwrap();
+        assert!(cache
+            .stage_native_page(193, archive, native.clone(), policy)
+            .is_err());
+        assert_eq!(cache.stats().entries, 1);
+        assert!(Arc::ptr_eq(
+            &cache.cached_native_page(192).unwrap().unwrap(),
+            &native
+        ));
+        let mut storage = StorageBackend::memory(Vec::new());
+        assert!(cache
+            .flush_dirty_pages(&mut storage, LockboxId::from_bytes([7; 16]), &[53; 32])
+            .is_err());
+        assert_eq!(storage.len().unwrap(), 0);
+        assert!(cache.has_dirty_pages());
+        cache.set_format(FormatMode(mode.0 ^ 0x100));
+        assert!(cache
+            .flush_dirty_pages(&mut storage, archive, &[53; 32])
+            .is_err());
+        assert_eq!(storage.len().unwrap(), 0);
+    }
+
+    #[test]
+    fn native_cache_retry_after_partial_file_append_does_not_insert_a_false_gap() {
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            let mode = FormatMode::new(LockboxFormatOptions {
+                encryption,
+                signing: SigningMode::None,
+                compression: Compression::None,
+                size_padding: SizePadding::None,
+            });
+            let native = native_page(mode);
+            let archive = native.descriptor().archive;
+            let next = native.bytes().len() as u64;
+            let path = std::env::temp_dir().join(format!(
+                "revault-native-partial-{}-{}.lbox",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            // Private fault fixture: a failed append can leave only a prefix.
+            // No public CLI command creates this state intentionally.
+            let mut storage = StorageBackend::create_file(&path, &native.bytes()[..128]).unwrap();
+            let mut cache = PageCache::with_format(CacheLimit::Bytes(0), mode);
+            cache
+                .stage_native_page(
+                    0,
+                    archive,
+                    native.clone(),
+                    PageWritePolicy::DiscardAfterFlush,
+                )
+                .unwrap();
+            let legacy = page(97);
+            let legacy_len =
+                crate::page::page_size_for_encoded_objects_with_format(&legacy.objects, mode)
+                    .unwrap();
+            cache
+                .stage_decoded_page_with_policy(
+                    next,
+                    legacy_len,
+                    legacy,
+                    PageWritePolicy::DiscardAfterFlush,
+                )
+                .unwrap();
+            cache
+                .flush_discardable_pages(&mut storage, archive, &[53; 32])
+                .unwrap();
+            assert_eq!(storage.len().unwrap(), next + legacy_len as u64);
+            assert_eq!(
+                storage.read_at(0, native.bytes().len()).unwrap(),
+                native.bytes()
+            );
+            assert!(cache
+                .read_page(
+                    &storage,
+                    next,
+                    archive,
+                    PageSecurity::Normal,
+                    PageReadKey::Normal(&[53; 32])
+                )
+                .is_ok());
+            assert!(!cache.has_dirty_pages());
+            drop(storage);
+            std::fs::remove_file(path).unwrap();
+        }
+    }
 
     #[test]
     fn evicts_by_weight() {

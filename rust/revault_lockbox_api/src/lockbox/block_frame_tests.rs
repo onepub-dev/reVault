@@ -307,3 +307,127 @@ fn native_file_handle_cached_bytes_reject_file_truncation() {
         }
     }
 }
+
+#[test]
+fn staged_native_pages_use_preparation_and_abort_append_and_reused_extents() {
+    use super::file_import_pipeline::{CompressionFrameWrite, FileImportPipeline};
+    use crate::page_cache::PageWritePolicy;
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let keep = LockboxPath::new("/keep").unwrap();
+    let removed = LockboxPath::new("/removed").unwrap();
+    let mut state = 0xabcdef0123456789u64;
+    let random = (0..512 * 1024)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            state as u8
+        })
+        .collect::<Vec<_>>();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                if signed {
+                                    Signing::Owner(&signer)
+                                } else {
+                                    Signing::None
+                                },
+                            )
+                        })
+                        .unwrap();
+                    archive.add_file(&keep, b"committed", false).unwrap();
+                    archive.add_file(&removed, &random, false).unwrap();
+                    archive.commit().unwrap();
+                    archive.delete(&removed).unwrap();
+                    archive.commit().unwrap();
+                    for reuse in [false, true] {
+                        let base_len = archive.storage.len().unwrap();
+                        let prepared = FileImportPipeline::new(3, 1)
+                            .with_compression(Some(compression))
+                            .prepare(&[CompressionFrameWrite {
+                                path: &removed,
+                                permissions: 0o640,
+                                total_len: 32768,
+                                file_offset: 0,
+                                data: &[37; 32768],
+                            }]);
+                        archive.sequence += 2;
+                        let identity = PageIdentity {
+                            archive: archive.lockbox_id,
+                            mode: archive.format_mode,
+                            page_id: archive.sequence,
+                            sequence: archive.sequence,
+                        };
+                        let native = Arc::new(
+                            archive
+                                .key
+                                .with_bytes(|key| {
+                                    prepared.encode_native_page(identity, identity.page_id - 1, key)
+                                })
+                                .unwrap()
+                                .unwrap(),
+                        );
+                        let offset = if reuse {
+                            archive
+                                .allocate_page_offset(native.bytes().len() as u64)
+                                .unwrap()
+                        } else {
+                            archive.next_append_page_offset().unwrap()
+                        };
+                        assert_eq!(offset < base_len, reuse);
+                        // Native writer dispatch is still gated. Stage the real
+                        // prepared page privately, but use the actual archive flush
+                        // and public abort paths to test reservation ordering.
+                        archive
+                            .page_manager
+                            .borrow_mut()
+                            .stage_native_page(
+                                offset,
+                                archive.lockbox_id,
+                                native.clone(),
+                                PageWritePolicy::DiscardAfterFlush,
+                            )
+                            .unwrap();
+                        archive.flush_discardable_pages().unwrap();
+                        assert!(archive.preparing);
+                        assert_eq!(
+                            archive
+                                .storage
+                                .read_at(offset, native.bytes().len())
+                                .unwrap(),
+                            native.bytes()
+                        );
+                        archive.abort().unwrap();
+                        assert_eq!(archive.storage.len().unwrap(), base_len);
+                        assert_eq!(archive.get_file(&keep).unwrap(), b"committed");
+                        assert!(!archive.preparing);
+                        assert!(!archive.has_dirty_pages());
+                        if reuse {
+                            assert_eq!(
+                                archive
+                                    .storage
+                                    .read_at(offset, native.bytes().len())
+                                    .unwrap(),
+                                vec![0; native.bytes().len()]
+                            );
+                        }
+                        archive.inspector().verify_storage().unwrap();
+                    }
+                }
+            }
+        }
+    }
+}

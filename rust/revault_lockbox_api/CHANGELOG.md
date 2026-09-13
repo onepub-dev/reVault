@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Keep page-flush length accounting current when retrying a partially appended
+  file page, so the following page is not preceded by an unintended gap.
+
 - Extend storage source-current checks to external-source cancellation,
   revision/length changes and latched transport failures.
 

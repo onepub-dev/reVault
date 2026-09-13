@@ -30,6 +30,53 @@ pub(crate) struct PageIdentity {
     pub(crate) mode: FormatMode,
 }
 
+/// Immutable encoder output. Cache snapshots share ownership; the last owner
+/// wipes its allocation. Only the encoder can construct this type.
+pub(crate) struct EncodedBlockPage {
+    descriptor: BlockFrameDescriptor,
+    bytes: ZeroizingBytes,
+}
+
+impl std::fmt::Debug for EncodedBlockPage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EncodedBlockPage")
+            .field("len", &self.bytes.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl EncodedBlockPage {
+    pub(crate) fn prepare(
+        identity: PageIdentity,
+        frame_id: u64,
+        compression: u8,
+        logical_len: u64,
+        stored: &[u8],
+        slices: Vec<CompressionFrameSlice>,
+        key: &[u8],
+    ) -> Result<Self> {
+        let (descriptor, bytes) = encode_prepared(
+            identity,
+            frame_id,
+            compression,
+            logical_len,
+            stored,
+            slices,
+            key,
+        )?;
+        Ok(Self {
+            descriptor,
+            bytes: ZeroizingBytes::new(bytes),
+        })
+    }
+    pub(crate) fn descriptor(&self) -> &BlockFrameDescriptor {
+        &self.descriptor
+    }
+    pub(crate) fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
 fn metadata_aad(identity: PageIdentity, header: &[u8]) -> Vec<u8> {
     let mut aad = b"revault-native-block-page-v1\0".to_vec();
     aad.extend_from_slice(identity.archive.as_bytes());

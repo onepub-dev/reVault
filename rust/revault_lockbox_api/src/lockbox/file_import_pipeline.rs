@@ -35,14 +35,11 @@ impl PreparedCompressionFrame {
         identity: crate::file_format::indexed_frame::block_page::PageIdentity,
         frame_id: u64,
         key: &[u8],
-    ) -> crate::Result<(
-        crate::file_format::indexed_frame::BlockFrameDescriptor,
-        Vec<u8>,
-    )> {
+    ) -> crate::Result<crate::file_format::indexed_frame::block_page::EncodedBlockPage> {
         if self.compressed_len != self.stored.len() as u64 {
             return Err(crate::Error::CorruptRecord);
         }
-        crate::file_format::indexed_frame::block_page::encode_prepared(
+        crate::file_format::indexed_frame::block_page::EncodedBlockPage::prepare(
             identity,
             frame_id,
             self.compression,
@@ -340,27 +337,22 @@ mod tests {
                                     crate::compression::encode_with_compression(input, compression);
                                 assert_eq!(frame.compression, codec);
                                 assert_eq!(&*frame.stored, &encoded);
-                                let (descriptor, page) =
-                                    frame.encode_native_page(identity, 31, &key).unwrap();
+                                let page = frame.encode_native_page(identity, 31, &key).unwrap();
+                                let descriptor = page.descriptor();
                                 assert_eq!(descriptor.compression, codec);
                                 assert_eq!(descriptor.logical_len, input.len() as u64);
                                 assert_eq!(descriptor.stored_len, encoded.len() as u64);
-                                let page_len = page.len();
-                                let storage = crate::storage::StorageBackend::memory(page);
-                                let reader = Reader::open(
-                                    &storage,
-                                    0,
-                                    identity,
-                                    &descriptor,
-                                    page_len,
-                                    &key,
-                                )
-                                .unwrap();
+                                let page_len = page.bytes().len();
+                                let storage =
+                                    crate::storage::StorageBackend::memory(page.bytes().to_vec());
+                                let reader =
+                                    Reader::open(&storage, 0, identity, descriptor, page_len, &key)
+                                        .unwrap();
                                 assert_eq!(reader.read(0..input.len() as u64).unwrap(), *input);
-                                let (retry, _) =
-                                    frame.encode_native_page(identity, 31, &key).unwrap();
+                                let retry = frame.encode_native_page(identity, 31, &key).unwrap();
                                 assert_ne!(
-                                    retry.salt, descriptor.salt,
+                                    retry.descriptor().salt,
+                                    descriptor.salt,
                                     "retry must derive a fresh block key"
                                 );
                                 assert_eq!(
@@ -378,12 +370,13 @@ mod tests {
                                 data: inputs[1].clone(),
                             });
                             assert_eq!(result.index, 7);
-                            let (descriptor, page) =
-                                result.frame.encode_native_page(identity, 31, &key).unwrap();
-                            let page_len = page.len();
-                            let storage = crate::storage::StorageBackend::memory(page);
+                            let page = result.frame.encode_native_page(identity, 31, &key).unwrap();
+                            let descriptor = page.descriptor();
+                            let page_len = page.bytes().len();
+                            let storage =
+                                crate::storage::StorageBackend::memory(page.bytes().to_vec());
                             assert_eq!(
-                                Reader::open(&storage, 0, identity, &descriptor, page_len, &key)
+                                Reader::open(&storage, 0, identity, descriptor, page_len, &key)
                                     .unwrap()
                                     .read(0..inputs[1].len() as u64)
                                     .unwrap(),
