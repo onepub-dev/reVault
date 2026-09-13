@@ -34,6 +34,22 @@ impl<'a> PageScanner<'a> {
         scan_page_records(self.bytes, self.lockbox_id, self.key)
     }
 
+    #[cfg(test)]
+    pub(crate) fn read_native_chunk(
+        &self,
+        total_len: u64,
+        chunk: &crate::file_chunk::FileChunk,
+    ) -> Result<Vec<u8>> {
+        crate::file_format::indexed_frame::block_page::read_recovery_chunk(
+            self.bytes,
+            self.lockbox_id,
+            self.format_mode,
+            total_len,
+            chunk,
+            self.key,
+        )
+    }
+
     pub(crate) fn commit_root_at(&self, offset: u64) -> Result<CommitRoot> {
         let payload = self.commit_root_payload_at(offset)?;
         decode_commit_root(&payload)

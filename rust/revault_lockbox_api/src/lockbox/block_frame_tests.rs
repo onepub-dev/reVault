@@ -212,6 +212,85 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                     reader.read_exact(&mut crossing).unwrap();
                     assert_eq!(crossing, input[65530..65553]);
                     opened.inspector().verify_storage().unwrap();
+                    let report = opened.inspector().recovery_report();
+                    assert_eq!(report.corrupt_records, 0);
+                    assert_eq!(report.partial_files, 0);
+                    assert_eq!(report.intact_file_count, 2);
+                    let recovery_key = zeroize::Zeroizing::new(
+                        archive.key.with_bytes(|key| key.to_vec()).unwrap(),
+                    );
+                    let damaged_report =
+                        crate::RecoveryScanner::scan_bytes(damaged.clone(), &*recovery_key);
+                    assert!(damaged_report.corrupt_records > 0);
+                    assert_eq!(damaged_report.partial_files, 1);
+                    assert_eq!(damaged_report.intact_file_count, 1);
+                    let salvaged = crate::RecoveryScanner::salvage_bytes(
+                        persisted_bytes.clone(),
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .unwrap();
+                    assert_eq!(salvaged.get_file(&path).unwrap(), input);
+                    assert_eq!(salvaged.get_file(&keep).unwrap(), b"legacy bytes");
+                    assert_eq!(salvaged.format_options(), archive.format_options());
+                    let salvage_reopened = Lockbox::open_bytes(
+                        salvaged.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                    )
+                    .unwrap();
+                    assert_eq!(salvage_reopened.get_file(&path).unwrap(), input);
+                    let damaged_salvaged = crate::RecoveryScanner::salvage_bytes(
+                        damaged.clone(),
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .unwrap();
+                    assert!(damaged_salvaged.get_file(&path).is_err());
+                    assert_eq!(damaged_salvaged.get_file(&keep).unwrap(), b"legacy bytes");
+                    if signed && compression == Compression::None {
+                        // Repair the outer checksum/AEAD after damaging the owner
+                        // signature: page integrity alone must not authorize salvage.
+                        let auth_offset = archive.commit_auth_offset;
+                        let auth_page = archive.read_page(auth_offset).unwrap();
+                        let mut auth = archive
+                            .read_and_verify_commit_auth_at(auth_offset)
+                            .unwrap()
+                            .0;
+                        auth.signatures[0].signature[0] ^= 1;
+                        let objects = vec![crate::page::PageObject::new(
+                            crate::page::PageObjectKind::CommitAuth,
+                            auth_page.objects[0].id,
+                            crate::commit_auth::encode_commit_auth(&auth).unwrap(),
+                        )];
+                        let physical_len = crate::page::physical_page_size_from_page_slice(
+                            &persisted_bytes[auth_offset as usize..],
+                        )
+                        .unwrap();
+                        let replacement = crate::page::encode_page_with_format(
+                            physical_len,
+                            archive.lockbox_id,
+                            auth_page.page_id,
+                            auth_page.sequence,
+                            &recovery_key,
+                            &objects,
+                            archive.format_mode,
+                        )
+                        .unwrap();
+                        let mut forged = persisted_bytes.clone();
+                        forged[auth_offset as usize..auth_offset as usize + physical_len]
+                            .copy_from_slice(&replacement);
+                        let report =
+                            crate::RecoveryScanner::scan_bytes(forged.clone(), &*recovery_key);
+                        assert!(report.intact_file_count <= 1);
+                        let salvaged =
+                            crate::RecoveryScanner::salvage_bytes(forged, &*recovery_key, &signer)
+                                .unwrap();
+                        assert!(salvaged.get_file(&path).is_err());
+                    }
                     let mut writable = Lockbox::open_bytes_for_write(
                         archive.to_bytes(),
                         if encrypted {
@@ -433,6 +512,40 @@ fn native_file_writer_packed_deletion_preserves_survivors_in_all_modes() {
                         Lockbox::open_bytes_for_write(archive.to_bytes(), open(), signing).unwrap();
                     for (path, data) in paths.iter().zip(&contents) {
                         assert_eq!(reopened.get_file(path).unwrap(), *data);
+                    }
+                    let recovery_key = zeroize::Zeroizing::new(
+                        reopened.key.with_bytes(|key| key.to_vec()).unwrap(),
+                    );
+                    let report = reopened.inspector().recovery_report();
+                    assert_eq!(report.intact_file_count, 2);
+                    assert_eq!(report.partial_files, 0);
+                    let salvaged = crate::RecoveryScanner::salvage_bytes(
+                        reopened.to_bytes(),
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .unwrap();
+                    for (path, data) in paths.iter().zip(&contents) {
+                        assert_eq!(salvaged.get_file(path).unwrap(), *data);
+                    }
+                    let mut damaged = reopened.to_bytes();
+                    let offset = old_segment.page_offset as usize;
+                    let used = crate::page::PAGE_HEADER_LEN
+                        + u32::from_le_bytes(damaged[offset + 44..offset + 48].try_into().unwrap())
+                            as usize;
+                    damaged[offset + used - 1] ^= 1;
+                    let report =
+                        crate::RecoveryScanner::scan_bytes(damaged.clone(), &*recovery_key);
+                    assert_eq!(report.intact_file_count, 0);
+                    assert_eq!(
+                        report.partial_files, 2,
+                        "recovery verifies the entire shared frame"
+                    );
+                    let salvaged =
+                        crate::RecoveryScanner::salvage_bytes(damaged, &*recovery_key, &signer)
+                            .unwrap();
+                    for path in &paths {
+                        assert!(salvaged.get_file(path).is_err());
                     }
                     reopened.delete(&paths[0]).unwrap();
                     reopened.commit().unwrap();

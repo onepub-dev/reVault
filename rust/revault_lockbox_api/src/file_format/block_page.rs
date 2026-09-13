@@ -408,6 +408,100 @@ pub(crate) struct Reader<'a> {
     page_offset: u64,
 }
 
+pub(crate) fn validate_chunk_reference(
+    archive: LockboxId,
+    mode: FormatMode,
+    total_len: u64,
+    chunk: &crate::file_chunk::FileChunk,
+) -> Result<PageIdentity> {
+    let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
+    let descriptor = &reference.descriptor;
+    let [segment] = chunk.segments.as_slice() else {
+        return Err(Error::CorruptRecord);
+    };
+    if descriptor.archive != archive
+        || descriptor.mode != mode
+        || descriptor.frame_id != chunk.compression_frame_id
+        || descriptor.compression != chunk.compression
+        || descriptor.logical_len != chunk.compression_frame_len
+        || descriptor.stored_len != chunk.compressed_len
+        || descriptor.index_commitment != chunk.compression_frame_digest
+        || segment.segment_offset != 0
+        || segment.segment_len != chunk.compressed_len
+        || chunk
+            .file_offset
+            .checked_add(chunk.len)
+            .is_none_or(|end| end > total_len)
+        || chunk
+            .compression_frame_offset
+            .checked_add(chunk.len)
+            .is_none_or(|end| end > descriptor.logical_len)
+    {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(PageIdentity {
+        archive,
+        mode,
+        page_id: segment.object_id,
+        sequence: reference.sequence,
+    })
+}
+
+/// Recovery validates the entire frame, even when only one packed slice is
+/// requested. Its TOC/commit authorization remains the caller's responsibility.
+pub(crate) fn read_recovery_chunk(
+    bytes: &[u8],
+    archive: LockboxId,
+    mode: FormatMode,
+    total_len: u64,
+    chunk: &crate::file_chunk::FileChunk,
+    key: &[u8],
+) -> Result<Vec<u8>> {
+    let identity = validate_chunk_reference(archive, mode, total_len, chunk)?;
+    let segment = &chunk.segments[0];
+    let offset = usize::try_from(segment.page_offset).map_err(|_| Error::CorruptRecord)?;
+    let header = bytes
+        .get(
+            offset
+                ..offset
+                    .checked_add(PAGE_HEADER_LEN)
+                    .ok_or(Error::CorruptRecord)?,
+        )
+        .ok_or(Error::Truncated)?;
+    let physical_len = validate_header(header, identity)?;
+    if physical_len as u64 != segment.page_len {
+        return Err(Error::CorruptRecord);
+    }
+    let page = bytes
+        .get(
+            offset
+                ..offset
+                    .checked_add(physical_len)
+                    .ok_or(Error::CorruptRecord)?,
+        )
+        .ok_or(Error::Truncated)?;
+    let storage = StorageBackend::memory(page.to_vec());
+    let descriptor = &chunk
+        .block_frame
+        .as_ref()
+        .ok_or(Error::CorruptRecord)?
+        .descriptor;
+    let reader = Reader::open(&storage, 0, identity, descriptor, physical_len, key)?;
+    reader.validate_slice(chunk, total_len)?;
+    let mut decoded = ZeroizingBytes::new(reader.read(0..descriptor.logical_len)?);
+    let start =
+        usize::try_from(chunk.compression_frame_offset).map_err(|_| Error::CorruptRecord)?;
+    let len = usize::try_from(chunk.len).map_err(|_| Error::CorruptRecord)?;
+    let end = start.checked_add(len).ok_or(Error::CorruptRecord)?;
+    if end > decoded.len() {
+        return Err(Error::CorruptRecord);
+    }
+    decoded.copy_within(start..end, 0);
+    zeroize::Zeroize::zeroize(&mut decoded[len..]);
+    decoded.truncate(len);
+    Ok(std::mem::take(&mut *decoded))
+}
+
 impl<'a> Reader<'a> {
     pub(crate) fn validate_slice(
         &self,

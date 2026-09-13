@@ -1089,37 +1089,13 @@ impl<State> Lockbox<State> {
         expected_total_len: u64,
         chunk: &FileChunk,
     ) -> Result<crate::file_format::indexed_frame::block_page::Reader<'_>> {
-        use crate::file_format::indexed_frame::block_page::{PageIdentity, Reader};
+        use crate::file_format::indexed_frame::block_page::{validate_chunk_reference, Reader};
+        let identity =
+            validate_chunk_reference(self.lockbox_id, self.format_mode, expected_total_len, chunk)?;
         let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
         let descriptor = &reference.descriptor;
         let [segment] = chunk.segments.as_slice() else {
             return Err(Error::CorruptRecord);
-        };
-        if descriptor.archive != self.lockbox_id
-            || descriptor.mode != self.format_mode
-            || descriptor.frame_id != chunk.compression_frame_id
-            || descriptor.compression != chunk.compression
-            || descriptor.logical_len != chunk.compression_frame_len
-            || descriptor.stored_len != chunk.compressed_len
-            || descriptor.index_commitment != chunk.compression_frame_digest
-            || segment.segment_offset != 0
-            || segment.segment_len != chunk.compressed_len
-            || chunk
-                .file_offset
-                .checked_add(chunk.len)
-                .is_none_or(|end| end > expected_total_len)
-            || chunk
-                .compression_frame_offset
-                .checked_add(chunk.len)
-                .is_none_or(|end| end > descriptor.logical_len)
-        {
-            return Err(Error::CorruptRecord);
-        }
-        let identity = PageIdentity {
-            archive: self.lockbox_id,
-            mode: self.format_mode,
-            page_id: segment.object_id,
-            sequence: reference.sequence,
         };
         let page_len = usize::try_from(segment.page_len).map_err(|_| Error::CorruptRecord)?;
         self.key.with_bytes(|key| {

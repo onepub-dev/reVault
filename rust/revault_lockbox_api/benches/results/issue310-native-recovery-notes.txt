@@ -1,0 +1,36 @@
+Committed-TOC native recovery, 2026-09-13
+======================================
+The experimental recovery report and salvage paths now read native chunks when
+the committed TOC survives. Normal reads and recovery share descriptor, archive,
+mode, sequence, physical extent and logical slice validation. Native references
+are kept separate from legacy scanned segments.
+
+Recovery verifies the entire frame, including data outside the requested packed
+file slice. Bounded page copying follows header validation. Temporary decoded
+frames, assembled recovery content and successful report-only content are wiped.
+Salvage retains the archive's creation policy and writes a new committed archive.
+
+Signed native entries require an authenticated normal-open snapshot and an exact
+canonical match against that snapshot's entry. This retains existing commit
+signature and signed-content checks; page checksums alone never authorize them.
+If the signed snapshot cannot be opened, native salvage fails closed. This is
+deliberately conservative and is not damaged-TOC signed recovery.
+
+Tests exercise the real staged writer and public report/salvage/reopen APIs in
+all 16 encryption/signing/compression/padding combinations. They compare exact
+multi-frame and packed-file bytes, preserve a legacy companion file, reject
+damaged frames, and reject a damaged owner signature even after the enclosing
+page checksum or AEAD is repaired. Packed-frame damage invalidates both slices.
+Private writer setup remains necessary while native production output is gated.
+
+Validation before commit-time formatting:
+- Full feature-enabled library suite: 329 passed, five intentionally ignored.
+- Normal-build creation options and padding integration tests: seven passed.
+- Strict feature-enabled library/tests Clippy passed.
+- Native writer/recovery tests rerun after excluding legacy segment attachment.
+
+Remaining work is not hidden by this checkpoint: manifest-only reconstruction
+after TOC damage/loss, final signed recovery policy, production native activation,
+migration, bindings, public CLI coverage and measured ZIP/write/load-time gates
+remain unfinished. Native layout code is still cfg(test), not the default writer.
+These are correctness tests, not new performance or ZIP-parity measurements.
