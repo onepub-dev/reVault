@@ -1,0 +1,49 @@
+Native FilePageWriter dispatch and committed lifecycle, 2026-09-13
+================================================================
+FilePageWriter now has a test-selected native path. It uses the same serial,
+packed-bundle and prepared-frame dispatch as the existing writer, assigns
+checked frame/page identities, seals the pipeline's already-compressed bytes,
+allocates the encoded physical extent, stages it in PageCache, and flushes via
+the normal preparation protocol. It adds FileChunk references only after the
+page write succeeds. Packed slices share one BlockFrameReference/descriptor.
+Native pages currently use discard-after-flush so subsequent reads see physical
+bytes and import memory remains bounded; they do not bypass staged ownership.
+
+The multiframe integration test runs all 16 policy combinations. Native output
+is committed with a mixed legacy/native TOC and reopened through public APIs.
+It verifies exact bytes and reads/seeks across the frame boundary, intact legacy
+content, storage inventory, rename and permission changes, direct native deletion,
+and compaction. Native deletion is tested BEFORE compaction can rewrite content
+using the still-legacy default writer. Deleted state is separately reopened.
+
+A packed-file test runs all 16 modes, commits/reopens two files sharing a native
+frame, deletes one, and commits/reopens again. The survivor's bytes are checked
+and the entire original shared physical page must be zeroed. This verifies that
+the existing shared-frame rewrite/retirement path can consume native input.
+
+Fault injection covers every physical writer operation across the four protection
+modes using default creation codec/padding. Every injected failure returns no
+partial frame reference; public writable reopening recovers the committed base,
+preserves its bytes and passes storage inventory validation. Page-cache and
+preparation tests in the previous checkpoint separately cover both padding modes
+and appended/reusable extents across all 16 policies.
+
+These tests privately select writer dispatch and insert the resulting TOC entry,
+but do not fabricate encoded pages or frame references. Encoding, allocation,
+staging, flush, commit, public reopening and mutations use real implementations.
+They are library integration tests, NOT public CLI E2E or production activation.
+
+Validation before commit-time rustfmt:
+  cargo test -p revault_lockbox_api --features test-support,external-source --lib
+  328 passed, five intentionally ignored.
+  cargo clippy -p revault_lockbox_api --features test-support,external-source --lib --tests -- -D warnings
+  Passed.
+
+Activation boundary: FilePageWriter::new remains legacy; FilePageWriter::native
+and its dispatch flag exist only in test builds. Compaction and survivor rewrites
+currently select the legacy default output, although their native input is tested.
+Enabling common output for those paths is part of production activation, not a
+claim made by this checkpoint. RecoveryScanner/salvage, damaged-TOC recovery,
+migrations, bindings, full public-CLI lifecycles and production ZIP/write/load
+timing gates remain unfinished. The pipeline's redundant whole-frame checksum
+also remains until native preparation can distinguish its commitment type.

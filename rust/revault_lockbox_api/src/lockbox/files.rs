@@ -1887,6 +1887,8 @@ struct PendingSegment {
 pub(super) struct FilePageWriter<'a, State> {
     lockbox: &'a mut Lockbox<State>,
     packer: PageObjectPacker<PendingSegment>,
+    #[cfg(test)]
+    native_blocks: bool,
 }
 
 struct SharedCompressionFrameSurvivor {
@@ -1908,6 +1910,16 @@ impl<'a, State> FilePageWriter<'a, State> {
         Self {
             lockbox,
             packer: PageObjectPacker::new(DEFAULT_PAGE_BYTES),
+            #[cfg(test)]
+            native_blocks: false,
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn native(lockbox: &'a mut Lockbox<State>) -> Self {
+        Self {
+            native_blocks: true,
+            ..Self::new(lockbox)
         }
     }
 
@@ -1920,7 +1932,7 @@ impl<'a, State> FilePageWriter<'a, State> {
             .map(|_| ())
     }
 
-    fn write_compression_frame_bundle(
+    pub(super) fn write_compression_frame_bundle(
         &mut self,
         frames: &[CompressionFrameWrite<'_>],
         chunks: &mut Vec<FileChunk>,
@@ -1954,6 +1966,10 @@ impl<'a, State> FilePageWriter<'a, State> {
         prepared: PreparedCompressionFrame,
         chunks: &mut Vec<FileChunk>,
     ) -> Result<Vec<usize>> {
+        #[cfg(test)]
+        if self.native_blocks {
+            return self.write_prepared_native_frame(prepared, chunks);
+        }
         self.lockbox.add_frame_prepare_nanos(prepared.prepare_nanos);
         self.lockbox.sequence += 1;
         let compression_frame_id = self.lockbox.sequence;
@@ -2003,6 +2019,79 @@ impl<'a, State> FilePageWriter<'a, State> {
             offset = end;
         }
         Ok(chunk_indices)
+    }
+
+    #[cfg(test)]
+    fn write_prepared_native_frame(
+        &mut self,
+        prepared: PreparedCompressionFrame,
+        chunks: &mut Vec<FileChunk>,
+    ) -> Result<Vec<usize>> {
+        use crate::file_chunk::BlockFrameReference;
+        use crate::file_format::indexed_frame::block_page::PageIdentity;
+        use crate::page_cache::PageWritePolicy;
+        self.flush(chunks)?;
+        self.lockbox.add_frame_prepare_nanos(prepared.prepare_nanos);
+        let started = Instant::now();
+        let frame_id = self
+            .lockbox
+            .sequence
+            .checked_add(1)
+            .ok_or(Error::CorruptRecord)?;
+        let page_id = frame_id.checked_add(1).ok_or(Error::CorruptRecord)?;
+        let identity = PageIdentity {
+            archive: self.lockbox.lockbox_id,
+            mode: self.lockbox.format_mode,
+            page_id,
+            sequence: page_id,
+        };
+        let page = std::sync::Arc::new(
+            self.lockbox
+                .key
+                .with_bytes(|key| prepared.encode_native_page(identity, frame_id, key))??,
+        );
+        self.lockbox.sequence = page_id;
+        let page_len = page.bytes().len() as u64;
+        let offset = self.lockbox.allocate_page_offset(page_len)?;
+        self.lockbox.page_manager.borrow_mut().stage_native_page(
+            offset,
+            self.lockbox.lockbox_id,
+            page.clone(),
+            PageWritePolicy::DiscardAfterFlush,
+        )?;
+        // The normal preparation protocol owns both reused and appended extents.
+        // Publish no chunk reference until those bytes have actually been written.
+        self.lockbox.flush_discardable_pages()?;
+        let reference = std::sync::Arc::new(BlockFrameReference {
+            descriptor: page.descriptor().clone(),
+            sequence: identity.sequence,
+        });
+        let mut indices = Vec::with_capacity(prepared.slices.len());
+        for slice in prepared.slices {
+            indices.push(chunks.len());
+            chunks.push(FileChunk {
+                block_frame: Some(reference.clone()),
+                stored_path: slice.path,
+                file_offset: slice.file_offset,
+                len: slice.len,
+                compression_frame_offset: slice.compression_frame_offset,
+                compression_frame_len: reference.descriptor.logical_len,
+                compressed_len: reference.descriptor.stored_len,
+                compression: reference.descriptor.compression,
+                compression_frame_id: frame_id,
+                compression_frame_digest: reference.descriptor.index_commitment,
+                segments: vec![CompressionFrameSegment {
+                    page_offset: offset,
+                    page_len,
+                    object_id: page_id,
+                    segment_offset: 0,
+                    segment_len: reference.descriptor.stored_len,
+                }],
+            });
+        }
+        self.lockbox
+            .add_page_write_nanos(started.elapsed().as_nanos());
+        Ok(indices)
     }
 
     fn add_segment(

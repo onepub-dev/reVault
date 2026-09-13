@@ -16,6 +16,347 @@ pub(crate) fn replace_storage(archive: &mut Lockbox, storage: StorageBackend) {
     archive.storage = storage;
 }
 
+#[test]
+fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
+    use super::file_import_pipeline::CompressionFrameWrite;
+    use super::files::FilePageWriter;
+    use crate::LockboxOpen;
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let path = LockboxPath::new("/written").unwrap();
+    let keep = LockboxPath::new("/legacy").unwrap();
+    let input = (0..131078).map(|i| (i % 251) as u8).collect::<Vec<_>>();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let signing = if signed {
+                        Signing::Owner(&signer)
+                    } else {
+                        Signing::None
+                    };
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                signing,
+                            )
+                        })
+                        .unwrap();
+                    archive.add_file(&keep, b"legacy bytes", false).unwrap();
+                    archive.commit().unwrap();
+                    let mut chunks = Vec::new();
+                    {
+                        // Only dispatch selection and TOC insertion are private:
+                        // actual pipeline, writer, allocator, cache and flush run.
+                        let mut writer = FilePageWriter::native(&mut archive);
+                        for (i, data) in input.chunks(65539).enumerate() {
+                            writer
+                                .write_compression_frame(
+                                    CompressionFrameWrite {
+                                        path: &path,
+                                        permissions: 0o640,
+                                        total_len: input.len() as u64,
+                                        file_offset: (i * 65539) as u64,
+                                        data,
+                                    },
+                                    &mut chunks,
+                                )
+                                .unwrap();
+                        }
+                        writer.finish(&mut chunks).unwrap();
+                    }
+                    assert_eq!(chunks.len(), 2);
+                    assert!(chunks.iter().all(|chunk| chunk.block_frame.is_some()));
+                    let first = &chunks[0].segments[0];
+                    archive.toc_entries.insert(
+                        path.clone(),
+                        TocEntry {
+                            path: path.clone(),
+                            len: input.len() as u64,
+                            record_offset: first.page_offset,
+                            record_len: first.page_len,
+                            record_object_id: first.object_id,
+                            deleted: false,
+                            node_kind: crate::node_kind::NodeKind::File,
+                            permissions: 0o640,
+                            chunks,
+                        },
+                    );
+                    archive.mark_toc_dirty(&path);
+                    assert_eq!(archive.get_file(&path).unwrap(), input);
+                    assert_eq!(
+                        archive.read_file_range(&path, 65530, 23).unwrap(),
+                        input[65530..65553]
+                    );
+                    archive.commit().unwrap();
+                    let opened = Lockbox::open_bytes(
+                        archive.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                    )
+                    .unwrap();
+                    assert_eq!(opened.get_file(&path).unwrap(), input);
+                    assert_eq!(opened.get_file(&keep).unwrap(), b"legacy bytes");
+                    let mut reader = opened.open_file(&path).unwrap();
+                    reader.seek(SeekFrom::Start(65530)).unwrap();
+                    let mut crossing = [0; 23];
+                    reader.read_exact(&mut crossing).unwrap();
+                    assert_eq!(crossing, input[65530..65553]);
+                    opened.inspector().verify_storage().unwrap();
+                    let mut writable = Lockbox::open_bytes_for_write(
+                        archive.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                        signing,
+                    )
+                    .unwrap();
+                    let renamed = LockboxPath::new("/renamed").unwrap();
+                    writable.rename(&path, &renamed).unwrap();
+                    writable.set_permissions(&renamed, 0o600).unwrap();
+                    writable.commit().unwrap();
+                    assert_eq!(writable.get_file(&renamed).unwrap(), input);
+                    assert!(writable.get_file(&path).is_err());
+                    // Delete native pages before compaction can rewrite them in
+                    // the legacy format selected by the still-gated default writer.
+                    let mut deletion = Lockbox::open_bytes_for_write(
+                        writable.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                        signing,
+                    )
+                    .unwrap();
+                    deletion.delete(&renamed).unwrap();
+                    deletion.commit().unwrap();
+                    let deleted = Lockbox::open_bytes(
+                        deletion.to_bytes(),
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        },
+                    )
+                    .unwrap();
+                    assert!(deleted.get_file(&renamed).is_err());
+                    assert_eq!(deleted.get_file(&keep).unwrap(), b"legacy bytes");
+                    deleted.inspector().verify_storage().unwrap();
+                    writable.compact().unwrap();
+                    assert_eq!(writable.get_file(&renamed).unwrap(), input);
+                    assert_eq!(writable.get_file(&keep).unwrap(), b"legacy bytes");
+                    writable.delete(&renamed).unwrap();
+                    writable.commit().unwrap();
+                    assert!(writable.get_file(&renamed).is_err());
+                    writable.inspector().verify_storage().unwrap();
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn native_file_writer_failures_publish_no_partial_chunk_and_reopen_the_base() {
+    use super::file_import_pipeline::CompressionFrameWrite;
+    use super::files::FilePageWriter;
+    use crate::LockboxOpen;
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let keep = LockboxPath::new("/keep").unwrap();
+    let path = LockboxPath::new("/unpublished").unwrap();
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            let signing = if signed {
+                Signing::Owner(&signer)
+            } else {
+                Signing::None
+            };
+            let open = || {
+                if encrypted {
+                    LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                } else {
+                    LockboxOpen::Unencrypted
+                }
+            };
+            let mut base = Lockbox::create_in_memory_with_options(LockboxCreateOptions::new(
+                if encrypted {
+                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                    ))
+                } else {
+                    Encryption::None
+                },
+                signing,
+            ))
+            .unwrap();
+            base.add_file(&keep, b"committed bytes", false).unwrap();
+            base.commit().unwrap();
+            let bytes = base.to_bytes();
+            let frame = CompressionFrameWrite {
+                path: &path,
+                permissions: 0o640,
+                total_len: 65539,
+                file_offset: 0,
+                data: &[37; 65539],
+            };
+            let mut successful =
+                Lockbox::open_bytes_for_write(bytes.clone(), open(), signing).unwrap();
+            successful.storage.reset_memory_operation_count();
+            let mut chunks = Vec::new();
+            FilePageWriter::native(&mut successful)
+                .write_compression_frame(frame, &mut chunks)
+                .unwrap();
+            let operations = successful.storage.memory_operation_count();
+            assert!(!chunks.is_empty());
+            assert!(operations > 0);
+            for failure in 0..operations {
+                let mut attempt =
+                    Lockbox::open_bytes_for_write(bytes.clone(), open(), signing).unwrap();
+                attempt
+                    .storage
+                    .fail_memory_operation_after_successes(failure);
+                let mut chunks = Vec::new();
+                assert!(FilePageWriter::native(&mut attempt)
+                    .write_compression_frame(frame, &mut chunks)
+                    .is_err());
+                assert!(
+                    chunks.is_empty(),
+                    "partial frame published at operation {failure}"
+                );
+                let recovered =
+                    Lockbox::open_bytes_for_write(attempt.to_bytes(), open(), signing).unwrap();
+                assert_eq!(recovered.get_file(&keep).unwrap(), b"committed bytes");
+                assert!(recovered.get_file(&path).is_err());
+                recovered.inspector().verify_storage().unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn native_file_writer_packed_deletion_preserves_survivors_in_all_modes() {
+    use super::file_import_pipeline::CompressionFrameWrite;
+    use super::files::FilePageWriter;
+    use crate::LockboxOpen;
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let paths = [
+        LockboxPath::new("/first").unwrap(),
+        LockboxPath::new("/second").unwrap(),
+    ];
+    let contents = [vec![29; 257], vec![43; 16387]];
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let signing = if signed {
+                        Signing::Owner(&signer)
+                    } else {
+                        Signing::None
+                    };
+                    let open = || {
+                        if encrypted {
+                            LockboxOpen::ContentKey(SecretVec::try_from_slice(&[67; 32]).unwrap())
+                        } else {
+                            LockboxOpen::Unencrypted
+                        }
+                    };
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                signing,
+                            )
+                        })
+                        .unwrap();
+                    archive.commit().unwrap();
+                    let writes = paths
+                        .iter()
+                        .zip(&contents)
+                        .map(|(path, data)| CompressionFrameWrite {
+                            path,
+                            permissions: 0o640,
+                            total_len: data.len() as u64,
+                            file_offset: 0,
+                            data,
+                        })
+                        .collect::<Vec<_>>();
+                    let mut chunks = Vec::new();
+                    FilePageWriter::native(&mut archive)
+                        .write_compression_frame_bundle(&writes, &mut chunks)
+                        .unwrap();
+                    assert_eq!(chunks.len(), 2);
+                    assert!(Arc::ptr_eq(
+                        chunks[0].block_frame.as_ref().unwrap(),
+                        chunks[1].block_frame.as_ref().unwrap()
+                    ));
+                    let old_segment = chunks[0].segments[0].clone();
+                    for chunk in chunks {
+                        let path = chunk.stored_path.clone();
+                        let segment = &chunk.segments[0];
+                        archive.toc_entries.insert(
+                            path.clone(),
+                            TocEntry {
+                                path: path.clone(),
+                                len: chunk.len,
+                                record_offset: segment.page_offset,
+                                record_len: segment.page_len,
+                                record_object_id: segment.object_id,
+                                deleted: false,
+                                node_kind: crate::node_kind::NodeKind::File,
+                                permissions: 0o640,
+                                chunks: vec![chunk],
+                            },
+                        );
+                        archive.mark_toc_dirty(&path);
+                    }
+                    archive.commit().unwrap();
+                    let mut reopened =
+                        Lockbox::open_bytes_for_write(archive.to_bytes(), open(), signing).unwrap();
+                    for (path, data) in paths.iter().zip(&contents) {
+                        assert_eq!(reopened.get_file(path).unwrap(), *data);
+                    }
+                    reopened.delete(&paths[0]).unwrap();
+                    reopened.commit().unwrap();
+                    let persisted = Lockbox::open_bytes(reopened.to_bytes(), open()).unwrap();
+                    assert!(persisted.get_file(&paths[0]).is_err());
+                    assert_eq!(persisted.get_file(&paths[1]).unwrap(), contents[1]);
+                    persisted.inspector().verify_storage().unwrap();
+                    // Privacy retirement must erase the original shared page,
+                    // including the deleted file's independently protected blocks.
+                    assert_eq!(
+                        reopened
+                            .storage
+                            .read_at(old_segment.page_offset, old_segment.page_len as usize)
+                            .unwrap(),
+                        vec![0; old_segment.page_len as usize]
+                    );
+                }
+            }
+        }
+    }
+}
+
 pub(crate) fn install(archive: &mut Lockbox, input: &[u8]) -> Vec<LockboxPath> {
     let identity = PageIdentity {
         archive: archive.lockbox_id,
