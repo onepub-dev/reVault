@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Avoid copying full file frames merely to size their page allocations. Raw
+  page sizes are calculated from framing and payload lengths; compression,
+  encryption and stored bytes are unchanged by this optimization.
+
 - Add creation-time `SizePadding::None` and CLI `--no-size-padding` for compact
   small lockboxes. The choice is persisted in native v4 and applies to every
   encryption/signing mode; default size-hiding padding is unchanged. Opting out

@@ -1,0 +1,69 @@
+Page allocation sizing without payload copies, 2026-09-13
+========================================================
+Baseline: committed 808abf1. Candidate: that checkpoint with arithmetic sizing
+of explicit uncompressed page bodies. This is NOT a new compression strategy:
+file frames retain the requested single encoder and existing raw fallback.
+File pages do not apply a second page-body compression layer. Counting their
+framing and payload lengths avoids serializing/copying/wiping the whole frame
+merely to choose an allocation. Compressed metadata sizing still uses its
+encoder. Legacy format-mode zero remains unchanged.
+
+Candidate shares the unchanged page-body compression eligibility predicate
+with the encoder. Checked arithmetic and existing physical page limits apply
+to both padded and unpadded sizes, including the checksum/AEAD overhead.
+No on-disk bytes, hash/signature/AEAD checks or read algorithm are changed.
+
+Executables (retained under /tmp/revault-page-sizing-VODSfk):
+before SHA256 03c260e4b353874688bd6c5d2dd8da0fb6212b12647ebecf8600e36644d387a7
+after  SHA256 e627ee489ca7f408a991f64ca222670109d23e2df6a04f1470959d23bc7a24ec
+
+Method: existing protection_gate compare-write harness, release, CPU 2,
+immediate ABBA/BAAB child processes with shuffled mode order. Eight modes
+combine encryption, signing and requested compression. Nine pairs per corpus,
+three samples per child, first discarded. Create/add/commit/drop including
+file sync is timed; a separate reopen reads and checks all content outside
+the timer. Synthetic content key, signing-key generation outside timer;
+password KDF costs are not measured. Default padding and worker policy.
+No builds or tests overlap measurements. OS caches stay warm; background
+load/frequency and filesystem latency are not controlled.
+
+8 MiB repetitive binary: raw writes have paired median reductions of 30.8%
+to 35.1% across the four protection modes. Compressed median changes range
+from -1.4% to +1.1%; the plain compressed upper confidence bound of +12.0%
+prompted a longer focused repeat, not a claim of equivalence from this run.
+That repeat used 25 pairs and six child samples (first discarded): median
+change -1.037%, 95% bootstrap interval [-8.509%, +3.964%]. The repeat's upper
+bound falls below the 5% guardrail; it does not prove every possible workload.
+
+8 MiB deterministic random: paired median write reductions of 27.3% to 40.4%
+across all eight modes; every 95% bootstrap interval excludes zero. Requested
+compression falls back to raw file content for this corpus. Signing metadata
+may still be compressed; requested compression is not the stored file codec.
+
+All 576 measured rows in EACH broad corpus have exactly matching archive
+lengths for a given mode across both executables. The harness byte-checks
+every generated archive, including warmups. Raw rows and pair-bootstrap
+summaries are retained beside this note. These measurements establish neither
+ZIP read parity nor smaller compressed output. Those requirements remain open.
+
+Reproduce with existing, empty fixture parent ROOT:
+REVAULT_GATE_CHILD_SAMPLES=3 taskset -c 2 AFTER compare-write BEFORE AFTER ROOT
+8388608 pattern|random 9 all
+For the repeat use CHILD_SAMPLES=6, pattern, 25, plain/true/write.
+AFTER summarize RAW_CSV
+Pair bootstrap uses 5000 resamples of whole-pair ratios, not individual rows.
+
+Validation on candidate sources before commit-time formatting:
+- 299 lockbox library tests passed, five intentionally ignored.
+- Five creation-options and two size-padding integration tests passed.
+- Both public CLI creation-options lifecycle tests passed.
+- Migration padding-preservation test passed across all eight modes.
+- Strict library/tests Clippy and git diff --check passed.
+The two new sizing unit tests compare arithmetic allocation lengths against
+serialized bodies over protection/padding/codec modes and page boundaries,
+check secure/shared payloads, and reject oversized physical pages.
+
+Remaining broader work includes production shared block-layout integration,
+ZIP streaming/random parity, smaller compressed output without a write cost,
+foreign creation-option exposure, and final broad workload gates. This write
+optimization does not replace or satisfy those requirements.

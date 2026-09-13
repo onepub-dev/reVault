@@ -63,15 +63,30 @@ pub(crate) fn page_size_for_encoded_objects_with_format(
     mode: crate::creation_options::FormatMode,
 ) -> Result<usize> {
     if mode.0 != 0 {
-        let mut body = encode_objects_body(objects, mode)?;
-        let len = PAGE_HEADER_LEN
-            + body.len()
-            + if mode.plaintext() || page_objects_are_clear_text(objects)? {
-                32
-            } else {
-                16
-            };
-        body.zeroize();
+        // Explicit raw bodies have a fixed header and object framing. Sizing
+        // must not copy (and later wipe) whole file frames or read secret
+        // payload bytes merely to count them. Compressed metadata still needs
+        // its encoder to determine the stored length.
+        let body_len = if !objects_allow_body_compression(objects, mode)
+            || mode.options().compression == crate::Compression::None
+        {
+            16usize
+                .checked_add(encoded_object_stream_len(objects)?)
+                .ok_or_else(|| Error::SecurityLimitExceeded("page body is too large".into()))?
+        } else {
+            let mut body = encode_objects_body(objects, mode)?;
+            let len = body.len();
+            body.zeroize();
+            len
+        };
+        let protection_len = if mode.plaintext() || page_objects_are_clear_text(objects)? {
+            32
+        } else {
+            16
+        };
+        let len = body_len
+            .checked_add(PAGE_HEADER_LEN + protection_len)
+            .ok_or_else(|| Error::SecurityLimitExceeded("page body is too large".into()))?;
         return if mode.unpadded() {
             checked_unpadded_len(len, max_page_size_for_objects(objects))
         } else {
@@ -416,12 +431,11 @@ pub(crate) fn encode_page(
     )
 }
 
-fn encode_objects_body(
+fn objects_allow_body_compression(
     objects: &[PageObject],
     mode: crate::creation_options::FormatMode,
-) -> Result<Vec<u8>> {
-    let mut object_stream = encode_object_stream(objects)?;
-    let compress_body = !objects.iter().any(|object| {
+) -> bool {
+    !objects.iter().any(|object| {
         matches!(
             object.kind,
             PageObjectKind::FileData | PageObjectKind::PackedFileData
@@ -433,7 +447,15 @@ fn encode_objects_body(
                     | PageObjectKind::FormLeaf
                     | PageObjectKind::FormInternal
             ))
-    });
+    })
+}
+
+fn encode_objects_body(
+    objects: &[PageObject],
+    mode: crate::creation_options::FormatMode,
+) -> Result<Vec<u8>> {
+    let mut object_stream = encode_object_stream(objects)?;
+    let compress_body = objects_allow_body_compression(objects, mode);
     let body = if mode.0 == 0
         || !compress_body
         || mode.options().compression == crate::Compression::None
@@ -1265,6 +1287,127 @@ fn page_aad(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn arithmetic_page_sizes_match_serialized_bodies_in_every_explicit_mode() {
+        use crate::creation_options::FormatMode;
+        use crate::{
+            Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding, ZstdLevel,
+        };
+        for kind in [
+            PageObjectKind::FileData,
+            PageObjectKind::PackedFileData,
+            PageObjectKind::VariableLeaf,
+            PageObjectKind::FormInternal,
+            PageObjectKind::TocLeaf,
+            PageObjectKind::KeyDirectory,
+        ] {
+            for len in [0, 1, 855, 856, 857, 871, 872, 873, 4097] {
+                let objects = [PageObject::new(kind, 19, vec![37; len])];
+                for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+                    for signing in [SigningMode::None, SigningMode::Owner] {
+                        for size_padding in [SizePadding::Default, SizePadding::None] {
+                            for compression in [
+                                Compression::None,
+                                Compression::default(),
+                                Compression::Zstd {
+                                    level: ZstdLevel::new(22).unwrap(),
+                                },
+                            ] {
+                                let mode = FormatMode::new(LockboxFormatOptions {
+                                    encryption,
+                                    signing,
+                                    size_padding,
+                                    compression,
+                                });
+                                let body = encode_objects_body(&objects, mode).unwrap();
+                                // Bind the codec decision as well as its length: file frames
+                                // and private tree bodies must not acquire page compression.
+                                let eligible = matches!(
+                                    kind,
+                                    PageObjectKind::TocLeaf | PageObjectKind::KeyDirectory
+                                ) && compression != Compression::None;
+                                assert_eq!(
+                                    body[1],
+                                    if eligible {
+                                        COMPRESSION_NORMAL
+                                    } else {
+                                        COMPRESSION_NONE
+                                    }
+                                );
+                                let stored = PAGE_HEADER_LEN
+                                    + body.len()
+                                    + if mode.plaintext() || kind == PageObjectKind::KeyDirectory {
+                                        32
+                                    } else {
+                                        16
+                                    };
+                                let expected = if mode.unpadded() {
+                                    stored
+                                } else {
+                                    page_size_for_stored_len(
+                                        stored,
+                                        max_page_size_for_objects(&objects),
+                                    )
+                                    .unwrap()
+                                };
+                                assert_eq!(
+                                    page_size_for_encoded_objects_with_format(&objects, mode)
+                                        .unwrap(),
+                                    expected,
+                                    "{kind:?}, {len}, {mode:?}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn arithmetic_sizing_handles_shared_secure_payloads_and_physical_limits() {
+        use crate::creation_options::FormatMode;
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for size_padding in [SizePadding::Default, SizePadding::None] {
+                let mode = FormatMode::new(LockboxFormatOptions {
+                    encryption,
+                    signing: SigningMode::None,
+                    size_padding,
+                    compression: Compression::default(),
+                });
+                let objects = [
+                    PageObject::new(PageObjectKind::FileData, 1, vec![3; 4 * 1024 * 1024]),
+                    PageObject::new_secure(
+                        PageObjectKind::PackedFileData,
+                        2,
+                        SecureVec::try_from_slice(&[5; 17]).unwrap(),
+                    ),
+                ];
+                let body = encode_objects_body(&objects, mode).unwrap();
+                let stored = PAGE_HEADER_LEN + body.len() + if mode.plaintext() { 32 } else { 16 };
+                let expected = if mode.unpadded() {
+                    stored
+                } else {
+                    page_size_for_stored_len(stored, DEFAULT_DATA_PAGE_BYTES).unwrap()
+                };
+                assert_eq!(
+                    page_size_for_encoded_objects_with_format(&objects, mode).unwrap(),
+                    expected
+                );
+                let oversized = [PageObject::new(
+                    PageObjectKind::FileData,
+                    1,
+                    vec![0; DEFAULT_DATA_PAGE_BYTES],
+                )];
+                assert!(matches!(
+                    page_size_for_encoded_objects_with_format(&oversized, mode),
+                    Err(Error::SecurityLimitExceeded(_))
+                ));
+            }
+        }
+    }
 
     #[test]
     fn page_round_trips_objects_and_has_fixed_size() {
