@@ -48,3 +48,25 @@ The experimental two-pass policy is not accepted for release. Further work
 must improve encoder behavior itself or find another measured approach;
 existing-archive reader improvements remain independent of this write work.
 The broad ZIP-parity/native-v4 integration task remains unfinished.
+
+Numeric tuning follow-up
+------------------------
+Added untuned buffered numeric control, minimum-match 7, Lazy2/search-log 5,
+long-distance matching minimum 64, and DoubleFast/hash-log 20/minimum-match 7.
+Same seven corpora/repeats, now 1 MiB and 4 MiB. All 1078 measured outputs
+and the unreported warmups round-tripped successfully. Clippy passed.
+
+At 4 MiB repetitive binary, numeric baseline: 26234 bytes / 1.23 ms;
+Lazy2: 10694 bytes / 1.92 ms; streaming Fastest: 1203 bytes / 9.47 ms.
+Thus deeper search improved size, but has not achieved the write-speed goal.
+Mixed data baseline: 2125873 bytes / 5.39 ms; Lazy2: 2115365 / 11.69 ms;
+streaming Fastest: 2102446 / 126.29 ms. These costs reinforce the need to
+avoid indiscriminate fallback encoding. No tuning is promoted to production.
+
+The long-distance setting yielded identical sizes to baseline. Inspection of
+the local source explains why this is not evidence against LDM generally:
+strategy_frame.rs dispatches default level 3 to DoubleFast; actual LDM
+sequence generation is wired in opt_frame.rs, not the DoubleFast path.
+The public tuning accepts LDM parameters without changing that strategy.
+Further LDM experiments must use the optimal path or integrate it explicitly;
+do not claim this run measured functioning LDM on the default path.

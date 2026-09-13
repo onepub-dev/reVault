@@ -4,7 +4,10 @@ use std::time::Instant;
 use zeroize::Zeroize;
 use zstd_complete::{
     decoding::FrameDecoder,
-    encoding::{compress_slice_c_level, compress_to_vec, CompressionLevel},
+    encoding::{
+        compress_slice_c_level, compress_to_vec, encode_all, CompressionLevel, CompressionStrategy,
+        CompressionTuning, EncoderOptions, LongDistanceMatching,
+    },
 };
 
 fn fast(input: &[u8]) -> Vec<u8> {
@@ -52,6 +55,32 @@ fn encode(input: &[u8], level: i32, strategy: usize) -> (Vec<u8>, bool) {
         }
         4 => (compress_to_vec(input, CompressionLevel::Default), true),
         5 => (compress_to_vec(input, CompressionLevel::Better), true),
+        6..=10 => {
+            let tuning = match strategy {
+                6 => CompressionTuning::new(),
+                7 => CompressionTuning::new().with_min_match(7),
+                8 => CompressionTuning::new()
+                    .with_strategy(CompressionStrategy::Lazy2)
+                    .with_search_log(5)
+                    .with_min_match(5),
+                9 => CompressionTuning::new()
+                    .with_long_distance_matching(LongDistanceMatching::new().with_min_match(64)),
+                10 => CompressionTuning::new()
+                    .with_strategy(CompressionStrategy::DoubleFast)
+                    .with_hash_log(20)
+                    .with_min_match(7),
+                _ => unreachable!(),
+            };
+            (
+                encode_all(
+                    input,
+                    EncoderOptions::new(CompressionLevel::try_from(level).unwrap())
+                        .with_tuning(tuning),
+                )
+                .unwrap(),
+                false,
+            )
+        }
         _ => unreachable!(),
     }
 }
@@ -116,9 +145,9 @@ fn main() {
     ] {
         let input = payload(kind, size);
         for repeat in 0..=repeats {
-            for step in 0..6 {
+            for step in 0..11 {
                 // Rotate execution order; repeat zero is a discarded warmup.
-                let strategy = (step + repeat) % 6;
+                let strategy = (step + repeat) % 11;
                 let start = Instant::now();
                 let (mut encoded, selected_fast) = encode(&input, level, strategy);
                 let encode_us = start.elapsed().as_secs_f64() * 1e6;
@@ -137,6 +166,11 @@ fn main() {
                         "sampled",
                         "stream-default",
                         "stream-better",
+                        "numeric-buffered",
+                        "numeric-min7",
+                        "numeric-lazy2",
+                        "numeric-ldm",
+                        "numeric-hash20",
                     ][strategy];
                     println!("{kind},{size},{level},{repeat},{name},{selected_fast},{},{encode_us:.3},{decode_us:.3}", encoded.len());
                 }

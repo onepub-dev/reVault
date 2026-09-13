@@ -33,3 +33,14 @@ These measurements concern existing baseline-encoded content. They do not
 include, justify, or accept the extra encoder pass's write cost. The user
 requested further experiments to retain size/read benefits without slowing
 writes; encoder_selection is a separate microbenchmark for that work.
+
+Focused small signed/raw whole-file repeat
+-----------------------------------------
+25 immediate pairs, six child samples (first discarded), CPU 2, same fixture.
+Raw: /tmp/protection-small-signed-whole-repeat.csv.
+Open median pair change +4.376%, interval +4.019..+4.997%.
+Read +3.500%, interval -1.047..+5.376% (main median 1.920 us).
+Total +3.996%, interval +3.642..+4.665%.
+The >5% open result did not repeat, but a roughly 4% cost did persist.
+This is close to the guardrail, not evidence of zero overhead. Other large
+outliers and final integrated layout still need their own gates.
