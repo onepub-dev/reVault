@@ -422,8 +422,6 @@ fn validate_header(header: &[u8], identity: PageIdentity) -> Result<usize> {
 pub(crate) struct Reader<'a> {
     frame: BlockFrameReader<'a>,
     manifest: CompressionFrameManifest,
-    physical_len: usize,
-    page_offset: u64,
 }
 
 pub(crate) fn validate_chunk_reference(
@@ -552,37 +550,38 @@ impl<'a> Reader<'a> {
         if metadata.descriptor != *expected || metadata.physical_len != expected_page_len {
             return Err(Error::CorruptRecord);
         }
-        let frame = BlockFrameReader::open(
+        let mut frame = BlockFrameReader::open(
             &metadata.descriptor,
             storage,
             metadata.packet_offset,
             metadata.packet_len,
             &*frame_key(key),
         )?;
+        frame.require_extent(
+            offset
+                .checked_add(metadata.physical_len as u64)
+                .ok_or(Error::CorruptRecord)?,
+        );
         Ok(Self {
             frame,
             manifest: metadata.manifest,
-            physical_len: metadata.physical_len,
-            page_offset: offset,
         })
     }
 
     pub(crate) fn read(&self, range: std::ops::Range<u64>) -> Result<Vec<u8>> {
-        self.ensure_current()?;
         self.frame.read(range)
     }
 
+    pub(crate) fn read_aligned_raw_into(
+        &self,
+        range: std::ops::Range<u64>,
+        out: &mut [u8],
+    ) -> Result<bool> {
+        self.frame.read_aligned_raw_into(range, out)
+    }
+
     pub(crate) fn ensure_current(&self) -> Result<()> {
-        self.frame.storage.ensure_current()?;
-        let len = self.frame.storage.len()?;
-        if self
-            .page_offset
-            .checked_add(self.physical_len as u64)
-            .is_none_or(|end| end > len)
-        {
-            return Err(Error::Truncated);
-        }
-        Ok(())
+        self.frame.ensure_current()
     }
 }
 

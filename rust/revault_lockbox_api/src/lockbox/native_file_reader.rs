@@ -51,13 +51,20 @@ impl<'a> NativeFileReader<'a> {
     }
 
     pub(super) fn read(&mut self, position: u64, out: &mut [u8]) -> Result<usize> {
-        // A cache hit must not bypass replacement/truncation or a latched
-        // external-source failure, even though no source bytes are fetched.
-        self.reader.ensure_current()?;
         let relative = position - self.file_start;
         let len = self.file_end - self.file_start;
         if relative < self.window_start || relative - self.window_start >= self.window.len() as u64
         {
+            let count = out.len().min((len - relative) as usize);
+            let frame_position = self.frame_start + relative;
+            if count >= crate::file_format::indexed_frame::BLOCK_BYTES
+                && self.reader.read_aligned_raw_into(
+                    frame_position..frame_position + count as u64,
+                    &mut out[..count],
+                )?
+            {
+                return Ok(count);
+            }
             let (start, end) = if self.compressed {
                 (0, len)
             } else {
@@ -75,6 +82,10 @@ impl<'a> NativeFileReader<'a> {
                     .read(self.frame_start + start..self.frame_start + end)?,
             );
             self.window_start = start;
+        } else {
+            // Misses validate in the frame reader. Hits still check identity,
+            // full padded extent and latched external failures before copying.
+            self.reader.ensure_current()?;
         }
         let offset = (relative - self.window_start) as usize;
         let count = out.len().min(self.window.len() - offset);

@@ -369,6 +369,7 @@ pub(crate) struct BlockFrameReader<'a> {
     descriptor: BlockFrameDescriptor,
     storage: &'a crate::storage::StorageBackend,
     offset: u64,
+    required_end: u64,
     hashes: Vec<[u8; 32]>,
     cipher: Option<chacha20poly1305::ChaCha20Poly1305>,
 }
@@ -389,10 +390,10 @@ impl<'a> BlockFrameReader<'a> {
         }
         storage.ensure_current()?;
         let storage_len = storage.len()?;
-        if offset
+        let required_end = offset
             .checked_add(physical_len as u64)
-            .is_none_or(|end| end > storage_len)
-        {
+            .ok_or(Error::CorruptRecord)?;
+        if required_end > storage_len {
             return Err(Error::Truncated);
         }
         let mut stored = ZeroizingBytes::new(vec![0; descriptor.index_len()?]);
@@ -408,24 +409,69 @@ impl<'a> BlockFrameReader<'a> {
             descriptor: descriptor.clone(),
             storage,
             offset,
+            required_end,
             hashes,
             cipher,
         })
+    }
+
+    // The containing page can extend this boundary to cover allocation padding;
+    // one source validation then protects both packet and physical page extent.
+    pub(super) fn require_extent(&mut self, end: u64) {
+        self.required_end = self.required_end.max(end);
+    }
+
+    pub(super) fn ensure_current(&self) -> Result<()> {
+        self.storage.ensure_current()?;
+        if self.required_end > self.storage.len()? {
+            return Err(Error::Truncated);
+        }
+        Ok(())
+    }
+
+    /// Complete plaintext blocks can be verified in the caller's initialized
+    /// buffer. No unauthenticated bytes may escape an error return.
+    pub(crate) fn read_aligned_raw_into(&self, range: Range<u64>, out: &mut [u8]) -> Result<bool> {
+        if self.cipher.is_some()
+            || self.descriptor.compression != crate::compression::COMPRESSION_NONE
+            || range.is_empty()
+            || range.start % BLOCK_BYTES as u64 != 0
+            || (range.end % BLOCK_BYTES as u64 != 0 && range.end != self.descriptor.logical_len)
+        {
+            return Ok(false);
+        }
+        let result = (|| {
+            let extent = self.descriptor.stored_range(range.clone())?;
+            if extent.len() != out.len() {
+                return Err(Error::CorruptRecord);
+            }
+            self.ensure_current()?;
+            self.storage.read_at_into(
+                self.offset
+                    .checked_add(extent.start as u64)
+                    .ok_or(Error::CorruptRecord)?,
+                out,
+            )?;
+            let first = range.start as usize / BLOCK_BYTES;
+            for (index, block) in out.chunks(BLOCK_BYTES).enumerate() {
+                if strong_checksum(block) != self.hashes[first + index] {
+                    return Err(Error::CorruptRecord);
+                }
+            }
+            self.storage.ensure_current()?;
+            Ok(true)
+        })();
+        if result.is_err() {
+            zeroize::Zeroize::zeroize(out);
+        }
+        result
     }
 
     pub(crate) fn read(&self, range: Range<u64>) -> Result<Vec<u8>> {
         use chacha20poly1305::aead::AeadInOut;
         let descriptor = &self.descriptor;
         let extent = descriptor.stored_range(range.clone())?;
-        self.storage.ensure_current()?;
-        let storage_len = self.storage.len()?;
-        if self
-            .offset
-            .checked_add(descriptor.physical_len()? as u64)
-            .is_none_or(|end| end > storage_len)
-        {
-            return Err(Error::Truncated);
-        }
+        self.ensure_current()?;
         if range.is_empty() {
             return Ok(Vec::new());
         }
@@ -577,6 +623,22 @@ mod tests {
                             )
                             .unwrap();
                             assert_eq!(reader.read(0..len as u64).unwrap(), input);
+                            let mut direct = vec![88; len];
+                            let eligible = reader
+                                .read_aligned_raw_into(0..len as u64, &mut direct)
+                                .unwrap();
+                            assert_eq!(
+                                eligible,
+                                mode.plaintext()
+                                    && descriptor.compression
+                                        == crate::compression::COMPRESSION_NONE
+                                    && len > 0
+                            );
+                            if eligible {
+                                assert_eq!(direct, input);
+                            } else {
+                                assert_eq!(direct, vec![88; len]);
+                            }
                             assert!(reader.read(0..len as u64 + 1).is_err());
                             assert_eq!(reader.read(len as u64..len as u64).unwrap(), b"");
                             for start in [0, len / 2, len.saturating_sub(13)] {
@@ -644,6 +706,20 @@ mod tests {
                 [31]
             );
             assert!(reader.read(0..input.len() as u64).is_err());
+            if mode.plaintext() {
+                let mut direct = vec![88; input.len()];
+                assert!(reader
+                    .read_aligned_raw_into(0..input.len() as u64, &mut direct)
+                    .is_err());
+                assert_eq!(
+                    direct,
+                    vec![0; input.len()],
+                    "failed verification wipes all caller bytes"
+                );
+                let mut untouched = [88; 13];
+                assert!(!reader.read_aligned_raw_into(1..14, &mut untouched).unwrap());
+                assert_eq!(untouched, [88; 13]);
+            }
             let mut index_damage = packet.clone();
             index_damage[0] ^= 1;
             assert!(BlockFrameReader::open(
@@ -753,6 +829,17 @@ mod tests {
                     damaged.truncate(317 + packet.len() as u64 - 1).unwrap();
                     assert!(reader.read(0..1).is_err());
                     assert!(reader.read(0..0).is_err());
+                    if !encrypted && !compressed {
+                        let mut direct = vec![88; input.len()];
+                        assert!(reader
+                            .read_aligned_raw_into(0..input.len() as u64, &mut direct)
+                            .is_err());
+                        assert_eq!(
+                            direct,
+                            vec![0; input.len()],
+                            "truncation cannot leak a successful direct read"
+                        );
+                    }
                 }
             }
         }

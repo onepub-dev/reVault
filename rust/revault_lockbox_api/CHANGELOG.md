@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Reduce duplicate source validation and intermediate buffer copying in the
+  experimental native reader. Full padded extents, per-block integrity checks,
+  and external failure latching remain enforced; failed direct reads wipe the
+  caller's buffer. This does not change compression or archive bytes.
+
 - Add the non-default `native-block-layout` experiment for public-API/CLI and
   performance testing of one indexed layout across all protection modes. Normal
   builds retain the existing writer pending migration and performance gates;

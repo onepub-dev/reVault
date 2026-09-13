@@ -868,6 +868,15 @@ mod tests {
                             );
                         }
                         *source.state.lock().unwrap() = failure;
+                        if !encrypted && !compressed {
+                            let mut direct = vec![88; 32768];
+                            assert!(reader.read_aligned_raw_into(0..32768, &mut direct).is_err());
+                            assert_eq!(
+                                direct,
+                                vec![0; 32768],
+                                "direct I/O failures wipe the entire destination"
+                            );
+                        }
                         assert!(reader.read(7..19).is_err());
                         let latched = session.storage.failure().unwrap().unwrap();
                         match failure {

@@ -1,0 +1,69 @@
+Native read overhead experiments, 2026-09-13
+===========================================
+Consolidated source validation:
+- BlockFrameReader owns the required storage end; its containing page extends
+  that bound through the physical allocation, including padding.
+- Cache misses validate identity, source failure state and full extent once in
+  the frame reader instead of repeating equivalent checks at three layers.
+- Cache hits still validate before copying. Post-I/O source checks remain.
+
+Direct-buffer reads:
+- Aligned, complete plaintext raw blocks can be read and verified directly in
+  the caller's initialized buffer. The final short frame block is supported.
+- Every block retains its committed SHA-256 verification. Any I/O, integrity or
+  source-validation failure wipes the entire destination before returning error.
+- Partial blocks, compressed frames and encrypted frames retain their bounded
+  verified-buffer path. This is one native format/index across protection modes,
+  not a separate plaintext archive representation.
+- No encoding, encryption, allocation-format or stored-byte changes.
+
+Validation before commit-time formatting:
+- 23 native-focused tests passed after direct-buffer additions.
+- Full library suite: 330 passed, five intentionally ignored.
+- Experimental public creation/padding/native-layout/public-API/locking: 22 passed.
+- Strict experimental-feature library/tests Clippy passed.
+Tests cover full and short blocks across all sixteen policies, unchanged fallback
+buffers, corrupted-block wiping, real-file truncation, external cancellation,
+revision/length changes, short reads, missing ranges and failure latching. Existing
+native cache tests retain physical-padding loss and cached-source validation.
+
+Measurements (warm OS cache, exact byte checks, rustc 1.88.0, pinned CPU 2):
+  REVAULT_ZIP_READ_CASE=large REVAULT_ZIP_READ_MODE=plain
+  REVAULT_ZIP_READ_SIZE=8388608 REVAULT_ZIP_READ_SAMPLES=5
+  taskset -c 2 EXE
+Each process tests four 8 MiB patterned files, raw and default-Zstd. Each row is
+a five-sample median. Two ABBA runs isolate validation and then direct buffering;
+raw rows, including ZIP times and open times, are committed in:
+  issue310-native-validation-abba.csv
+  issue310-native-direct-abba.csv
+
+Mean of the two process medians per variant (descriptive, not confidence bounds):
+Validation: raw random-order whole-file reads 35.88 -> 30.20 ms Interactive,
+36.29 -> 30.28 ms ReadMostly (15.8-16.6% reduction). Raw ranges 0.999 -> 0.921 ms
+and 1.011 -> 0.915 ms (7.9-9.5%). stream_content remains around 22 ms.
+Direct buffering: raw random-order whole-file reads 30.117 -> 28.453 ms
+Interactive, 30.135 -> 28.562 ms ReadMostly (5.2-5.5% further reduction).
+Compressed and streaming changes are small/noisy; no improvement claimed.
+Archive sizes match between variants. ZIP parity is still NOT achieved.
+
+Executables retained at /tmp/revault-native-read-1QFq6h:
+before SHA256 a990a286f37801815ad1850b358109a9cb7e23d1590773a434acb78839b05d21
+after  SHA256 4f9c1ec0505b4387b2f3bfc71e7463fd7689846bf0abaa47f13b42e36c977de0
+direct SHA256 071b66fb79606cc28d2e3038972a93cb9d1477ddc212ba6efe0fff2d55b586d2
+The before executable is the initial public-native experiment, prior to its
+non-32-byte-key/header-recovery fixes. Those do not affect this plaintext fixture.
+The after/direct pair is built from this checkpoint's respective source stages.
+
+A separate 20-sample perf run (not used for timing comparisons) recorded 23,540
+samples with no lost samples. Kernel names were restricted, but user symbols
+resolved. Across the mixed ZIP/lockbox benchmark including fixture setup, hardware
+SHA-256 compression accounted for 23.20% of self samples, predominantly native
+block verification. CRC32 was 8.36%, byte comparison 7.27%, memmove 4.43%, Zstd
+xxhash64 4.15%, sequence decoding 3.62%, ring-buffer expansion 3.16%. These identify
+further investigation targets, not permission to omit integrity checks. Profile:
+  /tmp/revault-native-read-1QFq6h/perf.data
+
+Remaining gates include all ZIP corpora/sizes and small-many workloads, paired
+write/encryption and main-branch load comparisons, feature-wide fault coverage,
+bindings/migration/release checks and default activation. These modest read gains
+do not substitute for those requirements or approve a >5% load regression.
