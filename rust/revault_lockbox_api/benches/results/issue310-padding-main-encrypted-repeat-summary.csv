@@ -1,0 +1,4 @@
+case,metric,main_us,branch_us,paired_change_pct,low95_pct,high95_pct,pairs
+encrypted/false/range,open,297.975,290.875,-3.852,-8.152,-2.442,25
+encrypted/false/range,read,16544.811,15379.532,-8.800,-10.411,-6.507,25
+encrypted/false/range,total,20460.457,18079.557,-14.340,-15.938,-12.168,25

@@ -245,9 +245,10 @@ impl PageCache {
         page_offset: u64,
         request: SecurePageAppend<'_>,
     ) -> Result<u64> {
+        let page_size = crate::page::secure_page_size(request.payload.len(), self.format_mode)?;
         let encoded = if self.format_mode.plaintext() {
             encode_page_with_format(
-                DEFAULT_METADATA_PAGE_BYTES,
+                page_size,
                 request.lockbox_id,
                 page_offset,
                 request.sequence,
@@ -261,7 +262,8 @@ impl PageCache {
             )?
         } else {
             encode_single_object_page_secure(SecureSingleObjectPage {
-                page_size: DEFAULT_METADATA_PAGE_BYTES,
+                format_mode: self.format_mode,
+                page_size,
                 lockbox_id: request.lockbox_id,
                 page_id: page_offset,
                 sequence: request.sequence,
@@ -305,7 +307,7 @@ impl PageCache {
         self.insert_page_with_security(
             page_offset,
             page,
-            DEFAULT_METADATA_PAGE_BYTES as u64,
+            page_size as u64,
             PageSecurity::Secure,
             false,
         );
@@ -370,6 +372,7 @@ impl PageCache {
                         let payload = object.secure_payload().ok_or(crate::Error::CorruptRecord)?;
                         let mut content_key = crate::crypto::derive_page_content_key(key);
                         let encoded = encode_single_object_page_secure(SecureSingleObjectPage {
+                            format_mode: self.format_mode,
                             page_size,
                             lockbox_id,
                             page_id: entry.page.page_id,

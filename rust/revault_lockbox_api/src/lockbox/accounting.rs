@@ -301,6 +301,13 @@ impl Lockbox<crate::Writable> {
                 + manifests
         };
         let initial = self.free_space.clone();
+        if self.format_mode.unpadded() {
+            // Variable-size control pages cannot reserve a fixed padded slot.
+            // Append this batch so neither free-index snapshot advertises its
+            // own storage. All retired extents remain available for data reuse.
+            self.control_reservations = std::iter::repeat_n(None, needed(&initial)).collect();
+            return Ok(());
+        }
         let mut count = needed(&initial);
         // Taking an exact-size free slot may reduce the number of index nodes.
         // Solve that dependency before making any reservation visible in RAM.
@@ -339,15 +346,21 @@ impl Lockbox<crate::Writable> {
             Some(offset) => offset,
             None => self.next_append_page_offset()?,
         };
+        let objects = vec![crate::page::PageObject::new(kind, self.sequence, payload)];
+        let page_size = if self.format_mode.unpadded() {
+            crate::page::page_size_for_encoded_objects_with_format(&objects, self.format_mode)?
+        } else {
+            crate::constants::DEFAULT_METADATA_PAGE_BYTES
+        };
         self.page_manager
             .borrow_mut()
             .stage_decoded_page_with_policy(
                 offset,
-                crate::constants::DEFAULT_METADATA_PAGE_BYTES,
+                page_size,
                 crate::page::DecodedPage {
                     page_id: offset,
                     sequence: self.sequence,
-                    objects: vec![crate::page::PageObject::new(kind, self.sequence, payload)],
+                    objects,
                 },
                 crate::page_cache::PageWritePolicy::RetainAfterFlush,
             )?;

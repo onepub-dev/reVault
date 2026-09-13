@@ -1,0 +1,9 @@
+phase,mode,compressed,size,corpus,sample,open_us,read_us,total_us,archive_bytes
+write,encrypted-signed,false,128,pattern,0,0.000,0.000,27538.818,284032
+write,plain,true,128,pattern,0,0.000,0.000,23183.078,269696
+write,encrypted,false,128,pattern,0,0.000,0.000,22945.183,269696
+write,plain,false,128,pattern,0,0.000,0.000,26109.991,269696
+write,signed,false,128,pattern,0,0.000,0.000,28731.170,284032
+write,signed,true,128,pattern,0,0.000,0.000,32130.482,279936
+write,encrypted-signed,true,128,pattern,0,0.000,0.000,28237.991,279936
+write,encrypted,true,128,pattern,0,0.000,0.000,107431.620,269696

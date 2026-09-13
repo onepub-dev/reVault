@@ -55,6 +55,7 @@ pub(crate) fn command(verbose: bool) -> Command {
                 .arg(Arg::new("signing").long("signing").value_parser(["none", "owner"]).help("Commit signing (default: owner)."))
                 .arg(Arg::new("compression").long("compression").value_parser(["none", "zstd"]).help("Content and metadata compression (default: zstd)."))
                 .arg(Arg::new("compression-level").long("compression-level").value_parser(clap::value_parser!(u8).range(1..=22)).help("Zstd compression level, 1–22 (default: 3)."))
+                .arg(Arg::new("no-size-padding").long("no-size-padding").action(clap::ArgAction::SetTrue).help("Omit optional size-hiding padding (creation only; reveals more about small content sizes)."))
                 .override_usage("lockbox <LOCKBOX> create [OPTIONS]")
                 .after_help(verbose_help(
                     verbose,

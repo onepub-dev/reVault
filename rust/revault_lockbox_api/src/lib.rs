@@ -85,7 +85,7 @@ pub(crate) use toc::{
 pub use cache_options::{CacheLimit, CacheStats, LockboxOptions, WorkerPolicy, WorkloadProfile};
 pub use creation_options::{
     Compression, Encryption, EncryptionMode, LockboxCreateOptions, LockboxFormatOptions, Signing,
-    SigningMode, ZstdLevel,
+    SigningMode, SizePadding, ZstdLevel,
 };
 pub use entry::{LockboxEntry, LockboxEntryKind};
 pub use error::{ArtifactKind, Error, Result};

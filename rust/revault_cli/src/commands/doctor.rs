@@ -179,6 +179,13 @@ fn run_lockbox(lockbox_path: &str, access: &Access, verbose: bool) -> CliResult<
     println!("  size: {}", human_size(metadata.len()));
     if let Some(options) = inspection.format_options {
         println!(
+            "  size padding: {}",
+            match options.size_padding {
+                revault_lockbox_api::SizePadding::Default => "default",
+                revault_lockbox_api::SizePadding::None => "none",
+            }
+        );
+        println!(
             "  encryption: {}",
             match options.encryption {
                 revault_lockbox_api::EncryptionMode::None => "none",

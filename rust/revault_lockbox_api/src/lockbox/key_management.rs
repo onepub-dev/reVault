@@ -224,6 +224,7 @@ impl Lockbox {
                 encryption,
                 signing,
                 compression: options.compression,
+                size_padding: options.size_padding,
             },
         ));
         if let crate::Signing::Owner(key) = options.signing {

@@ -2,6 +2,9 @@
 //! write ROOT SIZE CORPUS SAMPLES creates fixtures and times create/add/commit.
 //! read ROOT SIZE CORPUS SAMPLES reuses those exact bytes with fresh handles.
 //! Synthetic key, warm OS cache, no password KDF; every returned byte is checked.
+//! REVAULT_GATE_NO_SIZE_PADDING=1 selects compact creation (use a separate ROOT).
+//! compare-padding EXE EXE ROOT SIZE CORPUS PAIRS CASE reads ROOT/default and
+//! ROOT/none with the SAME binary, labeling the variants padded/unpadded.
 use revault_lockbox_api::{
     Compression, ContentStreamOptions, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen,
     LockboxPath, LockboxProtection, OwnerSigningKeyPair, SecretVec, Signing,
@@ -13,7 +16,7 @@ fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
     if args
         .first()
-        .is_some_and(|arg| arg == "compare" || arg == "compare-write")
+        .is_some_and(|arg| arg == "compare" || arg == "compare-write" || arg == "compare-padding")
     {
         compare(&args);
         return;
@@ -27,6 +30,11 @@ fn main() {
         "write" => true,
         "read" => false,
         _ => panic!("phase"),
+    };
+    let size_padding = if std::env::var("REVAULT_GATE_NO_SIZE_PADDING").is_ok_and(|v| v == "1") {
+        revault_lockbox_api::SizePadding::None
+    } else {
+        revault_lockbox_api::SizePadding::Default
     };
     let root = PathBuf::from(&args[1]);
     let size: usize = args[2].parse().unwrap();
@@ -100,6 +108,7 @@ fn main() {
                 let mut lb = Lockbox::create_file_with_options(
                     &file,
                     LockboxCreateOptions {
+                        size_padding,
                         compression: if compressed {
                             Compression::default()
                         } else {
@@ -243,6 +252,13 @@ fn compare(args: &[String]) {
     );
     let samples_arg = samples.to_string();
     let writing = args[0] == "compare-write";
+    let padding = args[0] == "compare-padding";
+    if padding {
+        assert_eq!(
+            args[1], args[2],
+            "padding comparison must use the same binary"
+        );
+    }
     let mut printed_header = false;
     for pair in 0..pairs {
         let order = if pair % 2 == 0 {
@@ -257,6 +273,12 @@ fn compare(args: &[String]) {
                 let root = PathBuf::from(&args[3]).join(format!("pair-{pair}-position-{position}"));
                 fs::create_dir(&root).unwrap();
                 root.to_str().unwrap().to_owned()
+            } else if padding {
+                PathBuf::from(&args[3])
+                    .join(if variant == 1 { "default" } else { "none" })
+                    .to_str()
+                    .unwrap()
+                    .to_owned()
             } else {
                 args[3].clone()
             };
@@ -287,7 +309,17 @@ fn compare(args: &[String]) {
                 assert_eq!(fields.len(), 10);
                 count += 1;
                 if fields[5] != "0" {
-                    let reader = if variant == 1 { "main" } else { "branch" };
+                    let reader = if padding {
+                        if variant == 1 {
+                            "padded"
+                        } else {
+                            "unpadded"
+                        }
+                    } else if variant == 1 {
+                        "main"
+                    } else {
+                        "branch"
+                    };
                     println!("{pair},{position},{reader},{line}");
                 }
             }
@@ -324,8 +356,8 @@ fn summarize(args: &[String]) {
         assert_eq!(fields.len(), 13);
         let pair = fields[0].parse::<usize>().unwrap();
         let variant = match fields[2] {
-            "main" => 0,
-            "branch" => 1,
+            "main" | "padded" => 0,
+            "branch" | "unpadded" => 1,
             _ => panic!("reader"),
         };
         let case = format!("{}/{}/{}", fields[4], fields[5], fields[3]);
@@ -337,7 +369,15 @@ fn summarize(args: &[String]) {
         }
         cases.entry(case).or_default().entry(pair).or_default()[variant].push(timing);
     }
-    println!("case,metric,main_us,branch_us,paired_change_pct,low95_pct,high95_pct,pairs");
+    if csv
+        .lines()
+        .skip(1)
+        .any(|line| line.split(',').nth(2) == Some("padded"))
+    {
+        println!("case,metric,padded_us,unpadded_us,paired_change_pct,low95_pct,high95_pct,pairs");
+    } else {
+        println!("case,metric,main_us,branch_us,paired_change_pct,low95_pct,high95_pct,pairs");
+    }
     for (case, pairs) in cases {
         for (column, metric) in ["open", "read", "total"].iter().enumerate() {
             if case.ends_with("/write") && column != 2 {

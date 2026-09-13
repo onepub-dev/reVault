@@ -26,6 +26,7 @@ const PAGE_VERSION: u16 = 2;
 const PAGE_BODY_VERSION: u8 = 1;
 const COMPRESSION_NORMAL: u8 = 1;
 const PAGE_FLAG_CLEAR_TEXT: u16 = 0x0001;
+const PAGE_FLAG_UNPADDED: u16 = 0x0002;
 const PAGE_UNCOMPRESSED_BODY_OVERHEAD: usize = 16 + 17 + 32;
 const PAGE_CHECKSUM_START: usize = 64;
 
@@ -57,10 +58,6 @@ pub(crate) fn page_size_for_objects(objects: &[PageObject]) -> usize {
     page_size_for_object_stream_len(object_stream_len, max_page_size).unwrap_or(max_page_size)
 }
 
-pub(crate) fn page_size_for_encoded_objects(objects: &[PageObject]) -> Result<usize> {
-    page_size_for_encoded_objects_with_format(objects, Default::default())
-}
-
 pub(crate) fn page_size_for_encoded_objects_with_format(
     objects: &[PageObject],
     mode: crate::creation_options::FormatMode,
@@ -75,7 +72,11 @@ pub(crate) fn page_size_for_encoded_objects_with_format(
                 16
             };
         body.zeroize();
-        return page_size_for_stored_len(len, max_page_size_for_objects(objects));
+        return if mode.unpadded() {
+            checked_unpadded_len(len, max_page_size_for_objects(objects))
+        } else {
+            page_size_for_stored_len(len, max_page_size_for_objects(objects))
+        };
     }
     if objects.iter().any(|object| {
         matches!(
@@ -160,14 +161,55 @@ pub(crate) fn physical_page_size_from_page_slice(page: &[u8]) -> Result<usize> {
         .checked_add(stored_body_len)
         .ok_or(Error::CorruptRecord)?;
     let physical_len = read_u64_le(&page[48..56])?;
+    let flags = read_u16_le(&page[10..12])?;
+    let unpadded = flags & PAGE_FLAG_UNPADDED != 0;
     if physical_len < stored_len as u64
         || physical_len > DEFAULT_DATA_PAGE_BYTES as u64
         || physical_len == 0
-        || physical_len % PAGE_SIZE_GRANULARITY as u64 != 0
+        || flags & !(PAGE_FLAG_CLEAR_TEXT | PAGE_FLAG_UNPADDED) != 0
+        || if unpadded {
+            physical_len != stored_len as u64
+        } else {
+            physical_len % PAGE_SIZE_GRANULARITY as u64 != 0
+        }
     {
         return Err(Error::CorruptRecord);
     }
     Ok(physical_len as usize)
+}
+
+fn checked_unpadded_len(len: usize, maximum: usize) -> Result<usize> {
+    if len > maximum {
+        return Err(Error::SecurityLimitExceeded(
+            "page body exceeds maximum page size".into(),
+        ));
+    }
+    Ok(len)
+}
+
+/// Calculate a private tree page extent without exposing its secret payload.
+pub(crate) fn secure_page_size(
+    payload_len: usize,
+    mode: crate::creation_options::FormatMode,
+) -> Result<usize> {
+    if !mode.unpadded() {
+        return Ok(DEFAULT_METADATA_PAGE_BYTES);
+    }
+    // Object count + single object header + uncompressed body header + protection.
+    let overhead = PAGE_HEADER_LEN + 4 + 20 + if mode.plaintext() { 16 + 32 } else { 33 + 16 };
+    let len = payload_len
+        .checked_add(overhead)
+        .ok_or(Error::CorruptRecord)?;
+    checked_unpadded_len(len, DEFAULT_METADATA_PAGE_BYTES)
+}
+
+fn validate_padding_flag(flags: u16, mode: crate::creation_options::FormatMode) -> Result<()> {
+    if flags & !(PAGE_FLAG_CLEAR_TEXT | PAGE_FLAG_UNPADDED) != 0
+        || (flags & PAGE_FLAG_UNPADDED != 0) != mode.unpadded()
+    {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(())
 }
 
 impl PageObjectKind {
@@ -340,6 +382,7 @@ pub(crate) struct DecodedPage {
 }
 
 pub(crate) struct SecureSingleObjectPage<'a> {
+    pub(crate) format_mode: crate::creation_options::FormatMode,
     pub(crate) page_size: usize,
     pub(crate) lockbox_id: LockboxId,
     pub(crate) page_id: u64,
@@ -430,7 +473,12 @@ pub(crate) fn encode_page_with_format(
     }
     let mut body = encode_objects_body(objects, mode)?;
     let clear_text = mode.plaintext() || page_objects_are_clear_text(objects)?;
-    let flags = if clear_text { PAGE_FLAG_CLEAR_TEXT } else { 0 };
+    let flags = if clear_text { PAGE_FLAG_CLEAR_TEXT } else { 0 }
+        | if mode.unpadded() {
+            PAGE_FLAG_UNPADDED
+        } else {
+            0
+        };
     let (nonce, mut stored_body) = if clear_text {
         let mut stored = Vec::with_capacity(32 + body.len());
         stored.extend_from_slice(&strong_checksum(&body));
@@ -460,6 +508,9 @@ pub(crate) fn encode_page_with_format(
         return Err(Error::SecurityLimitExceeded(
             "page body exceeds physical page size".to_string(),
         ));
+    }
+    if mode.unpadded() && PAGE_HEADER_LEN + stored_body.len() != page_size {
+        return Err(Error::CorruptRecord);
     }
 
     let mut page = vec![0; page_size];
@@ -499,9 +550,10 @@ pub(crate) fn decode_page_with_format(
         return Err(Error::CorruptRecord);
     }
     let flags = read_u16_le(&page[10..12])?;
-    if flags & !PAGE_FLAG_CLEAR_TEXT != 0 {
+    if flags & !(PAGE_FLAG_CLEAR_TEXT | PAGE_FLAG_UNPADDED) != 0 {
         return Err(Error::CorruptRecord);
     }
+    physical_page_size_from_page_slice(page)?;
     let header_len = read_u32_le(&page[12..16])? as usize;
     if header_len != PAGE_HEADER_LEN || header_len > page.len() {
         return Err(Error::CorruptRecord);
@@ -555,6 +607,12 @@ pub(crate) fn decode_page_with_format(
         Cow::Borrowed(bytes) => decode_object_stream(bytes)?,
         Cow::Owned(bytes) => decode_object_stream(&ZeroizingBytes::new(bytes))?,
     };
+    // Key-directory bootstrap/recovery can run before a trustworthy archive
+    // header is available. Its public, self-describing page extent is checked
+    // above; every private/content page must match the persisted archive policy.
+    if !page_objects_are_clear_text(&objects)? {
+        validate_padding_flag(flags, mode)?;
+    }
     let clear_text = mode.plaintext() || page_objects_are_clear_text(&objects)?;
     if clear_text != (flags & PAGE_FLAG_CLEAR_TEXT != 0) {
         return Err(Error::CorruptRecord);
@@ -564,14 +622,6 @@ pub(crate) fn decode_page_with_format(
         sequence,
         objects,
     })
-}
-
-pub(crate) fn decode_single_object_page_secure(
-    page: &mut SecureVec,
-    lockbox_id: LockboxId,
-    content_key: &[u8; 32],
-) -> Result<DecodedPage> {
-    decode_single_object_page_secure_with_format(page, lockbox_id, content_key, Default::default())
 }
 
 pub(crate) fn decode_single_object_page_secure_with_format(
@@ -628,11 +678,16 @@ pub(crate) fn encode_single_object_page_secure(
         .ok_or_else(|| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
     let encrypted_len = u32::try_from(encrypted_len)
         .map_err(|_| Error::SecurityLimitExceeded("page body is too large".to_string()))?;
+    let flags = if request.format_mode.unpadded() {
+        PAGE_FLAG_UNPADDED
+    } else {
+        0
+    };
     let aad = page_aad(
         request.lockbox_id,
         request.page_id,
         request.sequence,
-        0,
+        flags,
         encrypted_len,
         request.page_size as u64,
     );
@@ -644,11 +699,14 @@ pub(crate) fn encode_single_object_page_secure(
             "page body exceeds physical page size".to_string(),
         ));
     }
+    if request.format_mode.unpadded() && PAGE_HEADER_LEN + page_body.len() != request.page_size {
+        return Err(Error::CorruptRecord);
+    }
 
     let mut page = vec![0; request.page_size];
     page[0..8].copy_from_slice(PAGE_MAGIC);
     page[8..10].copy_from_slice(&PAGE_VERSION.to_le_bytes());
-    page[10..12].copy_from_slice(&0u16.to_le_bytes());
+    page[10..12].copy_from_slice(&flags.to_le_bytes());
     page[12..16].copy_from_slice(&(PAGE_HEADER_LEN as u32).to_le_bytes());
     page[16..24].copy_from_slice(&request.page_id.to_le_bytes());
     page[24..32].copy_from_slice(&request.sequence.to_le_bytes());
@@ -685,9 +743,7 @@ fn decrypt_page_body_secure(
                     return Err(Error::CorruptRecord);
                 }
                 let flags = read_u16_le(&page[10..12])?;
-                if flags & !PAGE_FLAG_CLEAR_TEXT != 0 {
-                    return Err(Error::CorruptRecord);
-                }
+                validate_padding_flag(flags, mode)?;
                 let header_len = read_u32_le(&page[12..16])? as usize;
                 if header_len != PAGE_HEADER_LEN || header_len > page.len() {
                     return Err(Error::CorruptRecord);
@@ -846,10 +902,11 @@ pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8])
                 corrupt_records += 1;
                 break;
             };
-            if decode_secure_variable_page_inspection(page_bytes, lockbox_id, &content_key)
+            if decode_secure_variable_page_inspection(page_bytes, lockbox_id, &content_key, mode)
                 .is_some()
             {
-                i += DEFAULT_METADATA_PAGE_BYTES;
+                i += physical_page_size_from_page_slice(page_bytes)
+                    .unwrap_or(DEFAULT_METADATA_PAGE_BYTES);
                 continue;
             }
             match decode_page_with_format(page_bytes, lockbox_id, key, mode) {
@@ -911,7 +968,7 @@ pub(crate) fn inspect_pages(
                 break;
             };
             if let Some(inspection) =
-                inspect_secure_variable_page(page_bytes, i as u64, lockbox_id, &content_key)
+                inspect_secure_variable_page(page_bytes, i as u64, lockbox_id, &content_key, mode)
             {
                 pages.push(inspection);
                 i += physical_page_size_from_page_slice(page_bytes)
@@ -964,16 +1021,18 @@ fn inspect_secure_variable_page(
     offset: u64,
     lockbox_id: LockboxId,
     content_key: &[u8; 32],
+    mode: crate::creation_options::FormatMode,
 ) -> Option<PageInspection> {
     let (page_id, sequence, stored_body_len) = public_page_header_metadata(page_bytes)?;
-    let object = decode_secure_variable_page_inspection(page_bytes, lockbox_id, content_key)?;
+    let object = decode_secure_variable_page_inspection(page_bytes, lockbox_id, content_key, mode)?;
+    let page_size = physical_page_size_from_page_slice(page_bytes).ok()?;
     Some(PageInspection {
         offset,
         page_id,
         sequence,
-        page_size: DEFAULT_METADATA_PAGE_BYTES as u32,
+        page_size: page_size as u32,
         encrypted_body_len: stored_body_len as u32,
-        unused_bytes: DEFAULT_METADATA_PAGE_BYTES
+        unused_bytes: page_size
             .saturating_sub(PAGE_HEADER_LEN)
             .saturating_sub(stored_body_len) as u32,
         object_count: 1,
@@ -985,9 +1044,12 @@ fn decode_secure_variable_page_inspection(
     page_bytes: &[u8],
     lockbox_id: LockboxId,
     content_key: &[u8; 32],
+    mode: crate::creation_options::FormatMode,
 ) -> Option<PageObjectInspection> {
     let mut page = SecureVec::try_from_slice(page_bytes).ok()?;
-    let decoded = decode_single_object_page_secure(&mut page, lockbox_id, content_key).ok()?;
+    let decoded =
+        decode_single_object_page_secure_with_format(&mut page, lockbox_id, content_key, mode)
+            .ok()?;
     let object = decoded.objects.first()?;
     if !matches!(
         object.kind,

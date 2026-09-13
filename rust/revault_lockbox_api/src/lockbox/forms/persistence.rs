@@ -102,7 +102,7 @@ impl<State> Lockbox<State> {
         for (offset, _object_id) in redactions {
             // Preserve the original physical extent so cleanup erases the
             // complete retired form page, including its unused tail.
-            let page_size = crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64;
+            let page_size = self.secure_page_len_at(offset)?;
             self.record_ref_counts.remove(&offset);
             self.redacted_free_slots.push(FreeSlot {
                 offset,
@@ -461,9 +461,8 @@ impl<State> Lockbox<State> {
         mut payload: SecureVec,
     ) -> Result<u64> {
         let sequence = self.staged.sequence;
-        // Secure pages always occupy this full extent, independent of payload
-        // length; sizing must not materialize secret fields on the plain heap.
-        let page_size = crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64;
+        // Size from the length only; never materialize secret fields on the plain heap.
+        let page_size = crate::page::secure_page_size(payload.len(), self.format_mode)? as u64;
         let page_offset = self.allocate_page_offset(page_size)?;
         self.begin_preparation()?;
         let mut content_key = self.key.with_bytes(derive_page_content_key)?;

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add creation-time `SizePadding::None` and CLI `--no-size-padding` for compact
+  small lockboxes. The choice is persisted in native v4 and applies to every
+  encryption/signing mode; default size-hiding padding is unchanged. Opting out
+  reveals more about stored content lengths and does not remove headers,
+  signatures, encryption tags, recovery metadata or reusable free space.
+- Refresh the in-memory free index after interrupted-commit cleanup so the
+  recovered write handle can immediately account for and reuse reclaimed space.
+
 - Reduce large-file read copying and secure-buffer wiping overhead, and share
   verified raw-page data with seekable readers. These reader improvements also
   apply to existing archives; checksum, encryption and signature checks remain

@@ -28,9 +28,10 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 pub(crate) fn create_matches(matches: &ArgMatches, access: &Access) -> CliResult<()> {
-    if ["encryption", "signing", "compression", "compression-level"]
-        .iter()
-        .any(|name| matches.contains_id(name))
+    if matches.get_flag("no-size-padding")
+        || ["encryption", "signing", "compression", "compression-level"]
+            .iter()
+            .any(|name| matches.contains_id(name))
     {
         return create_configured(matches, access);
     }
@@ -145,6 +146,11 @@ fn create_configured(matches: &ArgMatches, access: &Access) -> CliResult<()> {
         &path,
         LockboxCreateOptions {
             compression,
+            size_padding: if matches.get_flag("no-size-padding") {
+                revault_lockbox_api::SizePadding::None
+            } else {
+                revault_lockbox_api::SizePadding::Default
+            },
             ..LockboxCreateOptions::new(encryption, signing)
         },
     )?;

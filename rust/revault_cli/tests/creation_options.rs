@@ -43,123 +43,150 @@ fn independent_creation_choices_persist_through_cli_lifecycle() {
         for encrypted in [false, true] {
             for signed in [false, true] {
                 for compressed in [false, true] {
-                    scope.spawn(move || {
-                        let temp = TestTempDir::new("creation-options");
-                        let dir = temp.path();
-                        if signed {
-                            success(run(dir, false, &["vault", "init"]));
-                        }
-                        let archive = format!("{encrypted}-{signed}-{compressed}.lbox");
-                        let encryption = if encrypted {
-                            "chacha20-poly1305"
-                        } else {
-                            "none"
-                        };
-                        let signing = if signed { "owner" } else { "none" };
-                        let compression = if compressed { "zstd" } else { "none" };
-                        let mut create = vec![
-                            archive.as_str(),
-                            "create",
-                            "--encryption",
-                            encryption,
-                            "--signing",
-                            signing,
-                            "--compression",
-                            compression,
-                        ];
-                        if compressed {
-                            create.extend(["--compression-level", "6"]);
-                        }
-                        success(run(dir, encrypted, &create));
-                        if !encrypted {
-                            success(run(dir, false, &[&archive, "open"]));
-                        }
-                        // Creating again must refuse the existing archive.
-                        assert!(!run(dir, encrypted, &create).status.success());
-                        let status =
-                            String::from_utf8(success(run(dir, encrypted, &[&archive, "doctor"])))
-                                .unwrap();
-                        assert!(status.contains(&format!("encryption: {encryption}")));
-                        assert!(status.contains(&format!("signing: {signing}")));
-                        assert!(status.contains(&format!("compression: {compression}")));
-                        if compressed {
-                            assert!(status.contains("level 6"));
-                        }
-                        let original = b"compressible example line\n".repeat(12_000);
-                        fs::write(dir.join("source.txt"), &original).unwrap();
-                        success(run(
-                            dir,
-                            encrypted,
-                            &[&archive, "add", "source.txt", "--to", "/notes.txt"],
-                        ));
-                        assert_eq!(
-                            success(run(dir, encrypted, &[&archive, "cat", "/notes.txt"])),
-                            original
-                        );
-                        // Repeating the add without replacement must preserve the bytes.
-                        assert!(!run(
-                            dir,
-                            encrypted,
-                            &[&archive, "add", "source.txt", "--to", "/notes.txt"]
-                        )
-                        .status
-                        .success());
-                        assert_eq!(
-                            success(run(dir, encrypted, &[&archive, "cat", "/notes.txt"])),
-                            original
-                        );
-                        fs::write(dir.join("source.txt"), b"replacement bytes").unwrap();
-                        success(run(
-                            dir,
-                            encrypted,
-                            &[
-                                &archive,
-                                "add",
-                                "--overwrite",
-                                "source.txt",
-                                "--to",
-                                "/notes.txt",
-                            ],
-                        ));
-                        assert_eq!(
-                            success(run(dir, encrypted, &[&archive, "cat", "/notes.txt"])),
-                            b"replacement bytes"
-                        );
-                        success(run(
-                            dir,
-                            encrypted,
-                            &[&archive, "add", "source.txt", "--to", "/second.txt"],
-                        ));
-                        assert_eq!(
-                            success(run(dir, encrypted, &[&archive, "cat", "/second.txt"])),
-                            b"replacement bytes"
-                        );
-                        success(run(dir, encrypted, &[&archive, "remove", "/notes.txt"]));
-                        assert_eq!(
-                            success(run(dir, encrypted, &[&archive, "cat", "/notes.txt"])),
-                            b"replacement bytes"
-                        );
-                        success(run(
-                            dir,
-                            encrypted,
-                            &[&archive, "remove", "--force", "/notes.txt"],
-                        ));
-                        assert!(!run(dir, encrypted, &[&archive, "cat", "/notes.txt"])
+                    for no_size_padding in [false, true] {
+                        scope.spawn(move || {
+                            let temp = TestTempDir::new("creation-options");
+                            let dir = temp.path();
+                            if signed {
+                                success(run(dir, false, &["vault", "init"]));
+                            }
+                            let archive = format!("{encrypted}-{signed}-{compressed}.lbox");
+                            let encryption = if encrypted {
+                                "chacha20-poly1305"
+                            } else {
+                                "none"
+                            };
+                            let signing = if signed { "owner" } else { "none" };
+                            let compression = if compressed { "zstd" } else { "none" };
+                            let mut create = vec![
+                                archive.as_str(),
+                                "create",
+                                "--encryption",
+                                encryption,
+                                "--signing",
+                                signing,
+                                "--compression",
+                                compression,
+                            ];
+                            if compressed {
+                                create.extend(["--compression-level", "6"]);
+                            }
+                            if no_size_padding {
+                                create.push("--no-size-padding");
+                            }
+                            success(run(dir, encrypted, &create));
+                            if !encrypted {
+                                success(run(dir, false, &[&archive, "open"]));
+                            }
+                            // Creating again must refuse the existing archive.
+                            assert!(!run(dir, encrypted, &create).status.success());
+                            let status = String::from_utf8(success(run(
+                                dir,
+                                encrypted,
+                                &[&archive, "doctor"],
+                            )))
+                            .unwrap();
+                            assert!(status.contains(&format!("encryption: {encryption}")));
+                            assert!(status.contains(&format!("signing: {signing}")));
+                            assert!(status.contains(&format!("compression: {compression}")));
+                            assert!(status.contains(if no_size_padding {
+                                "size padding: none"
+                            } else {
+                                "size padding: default"
+                            }));
+                            if compressed {
+                                assert!(status.contains("level 6"));
+                            }
+                            let original = b"compressible example line\n".repeat(12_000);
+                            fs::write(dir.join("source.txt"), &original).unwrap();
+                            success(run(
+                                dir,
+                                encrypted,
+                                &[&archive, "add", "source.txt", "--to", "/notes.txt"],
+                            ));
+                            assert_eq!(
+                                success(run(dir, encrypted, &[&archive, "cat", "/notes.txt"])),
+                                original
+                            );
+                            // Repeating the add without replacement must preserve the bytes.
+                            assert!(!run(
+                                dir,
+                                encrypted,
+                                &[&archive, "add", "source.txt", "--to", "/notes.txt"]
+                            )
                             .status
                             .success());
-                        let listed =
-                            String::from_utf8(success(run(dir, encrypted, &[&archive, "list"])))
-                                .unwrap();
-                        assert!(!listed.contains("notes.txt"));
-                        assert!(listed.contains("second.txt"));
-                        assert_eq!(
-                            success(run(dir, encrypted, &[&archive, "cat", "/second.txt"])),
-                            b"replacement bytes"
-                        );
-                        if !signed {
-                            assert!(!dir.join("vault").exists());
-                        }
-                    });
+                            assert_eq!(
+                                success(run(dir, encrypted, &[&archive, "cat", "/notes.txt"])),
+                                original
+                            );
+                            fs::write(dir.join("source.txt"), b"replacement bytes").unwrap();
+                            success(run(
+                                dir,
+                                encrypted,
+                                &[
+                                    &archive,
+                                    "add",
+                                    "--overwrite",
+                                    "source.txt",
+                                    "--to",
+                                    "/notes.txt",
+                                ],
+                            ));
+                            assert_eq!(
+                                success(run(dir, encrypted, &[&archive, "cat", "/notes.txt"])),
+                                b"replacement bytes"
+                            );
+                            success(run(
+                                dir,
+                                encrypted,
+                                &[&archive, "add", "source.txt", "--to", "/second.txt"],
+                            ));
+                            assert_eq!(
+                                success(run(dir, encrypted, &[&archive, "cat", "/second.txt"])),
+                                b"replacement bytes"
+                            );
+                            let status = String::from_utf8(success(run(
+                                dir,
+                                encrypted,
+                                &[&archive, "doctor"],
+                            )))
+                            .unwrap();
+                            assert!(status.contains(if no_size_padding {
+                                "size padding: none"
+                            } else {
+                                "size padding: default"
+                            }));
+                            success(run(dir, encrypted, &[&archive, "remove", "/notes.txt"]));
+                            assert_eq!(
+                                success(run(dir, encrypted, &[&archive, "cat", "/notes.txt"])),
+                                b"replacement bytes"
+                            );
+                            success(run(
+                                dir,
+                                encrypted,
+                                &[&archive, "remove", "--force", "/notes.txt"],
+                            ));
+                            assert!(!run(dir, encrypted, &[&archive, "cat", "/notes.txt"])
+                                .status
+                                .success());
+                            let listed = String::from_utf8(success(run(
+                                dir,
+                                encrypted,
+                                &[&archive, "list"],
+                            )))
+                            .unwrap();
+                            assert!(!listed.contains("notes.txt"));
+                            assert!(listed.contains("second.txt"));
+                            assert_eq!(
+                                success(run(dir, encrypted, &[&archive, "cat", "/second.txt"])),
+                                b"replacement bytes"
+                            );
+                            if !signed {
+                                assert!(!dir.join("vault").exists());
+                            }
+                        });
+                    }
                 }
             }
         }

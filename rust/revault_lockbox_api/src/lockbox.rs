@@ -24,7 +24,7 @@ use crate::key_directory::{
 use crate::key_slot::{KeySlot, LockboxKeySlot};
 use crate::lockbox_id::LockboxId;
 use crate::lockbox_path::LockboxPath;
-use crate::page::{page_size_for_objects, DecodedPage, PageObject, PageObjectKind};
+use crate::page::{DecodedPage, PageObject, PageObjectKind};
 use crate::page_cache::{PageCache, PageReadKey, PageSecurity, PageWritePolicy};
 use crate::record::{DecodedRecord, RecordHeader, RecordKind};
 use crate::secret_vec::SecretVec;
@@ -61,6 +61,8 @@ mod mutation;
 mod preparation;
 mod recovery;
 mod signed_content;
+#[cfg(test)]
+mod size_padding_tests;
 mod storage_lifecycle;
 mod symlinks;
 mod tail_reclamation;
@@ -360,6 +362,16 @@ impl<State> Lockbox<State> {
         Ok(crate::page::physical_page_size_from_page_slice(&header)? as u64)
     }
 
+    pub(crate) fn secure_page_len_at(&self, offset: u64) -> Result<u64> {
+        if !self.format_mode.unpadded() {
+            return Ok(crate::constants::DEFAULT_METADATA_PAGE_BYTES as u64);
+        }
+        // Authenticate through the secure decoder before retiring the physical extent.
+        self.with_secure_page(offset, |_| Ok(()))?;
+        let header = self.storage.read_at(offset, crate::page::PAGE_HEADER_LEN)?;
+        Ok(crate::page::physical_page_size_from_page_slice(&header)? as u64)
+    }
+
     pub(crate) fn require_clean_access_widening(&self) -> Result<()> {
         if self.format_mode.plaintext() {
             return Err(Error::InvalidOperation(
@@ -544,15 +556,28 @@ impl Lockbox<Writable> {
     }
 
     pub(crate) fn complete_pending_transaction_cleanup(&mut self) -> Result<bool> {
-        if self.transaction_recovery_status().is_none() {
+        let Some(status) = self.transaction_recovery_status() else {
             return Ok(self.trim_free_tail()? != 0);
-        }
+        };
         if self.rollback_required {
             return self
                 .rollback_preparation_controlled(|_| crate::TransactionRecoveryControl::Continue);
         }
+        // A write-capable open returns this same handle. Once cleanup is
+        // durably published it must adopt the post-cleanup free index, just as
+        // a subsequent fresh open would; otherwise erased ranges remain
+        // unaccounted in RAM and unavailable for reuse until another reopen.
+        let reclaimed = if status.phase == TransactionRecoveryPhase::Cleanup {
+            Some(self.read_free_index_slots(self.post_cleanup_free_index_offset, 0)?)
+        } else {
+            None
+        };
         self.cleanup_published_redactions(|_| {})?;
         self.publish_transaction_header(self.sequence)?;
+        if let Some(slots) = reclaimed {
+            self.free_space.replace_slots(slots);
+            self.free_index_offset = self.post_cleanup_free_index_offset;
+        }
         Ok(true)
     }
 
@@ -727,6 +752,7 @@ impl Lockbox<Writable> {
                 encryption: crate::EncryptionMode::ChaCha20Poly1305,
                 signing: crate::SigningMode::Owner,
                 compression: crate::Compression::default(),
+                size_padding: crate::SizePadding::default(),
             },
         ));
         lockbox.set_owner_signing_key(
@@ -1346,7 +1372,9 @@ impl<State> Lockbox<State> {
             header: RecordHeader {
                 kind,
                 sequence: decoded.sequence,
-                total_len: page_size_for_objects(&decoded.objects) as u64,
+                // Read the persisted allocation, never recompress a decoded
+                // payload to guess its physical size.
+                total_len: self.page_len_at(offset)?,
             },
             offset,
             object_id: object.id,
@@ -1845,7 +1873,10 @@ impl<State> Lockbox<State> {
         }
 
         self.sequence += 1;
-        let new_len = page_size_for_objects(&kept_objects) as u64;
+        let new_len = crate::page::page_size_for_encoded_objects_with_format(
+            &kept_objects,
+            self.format_mode,
+        )? as u64;
         let new_offset = self.allocate_page_offset(new_len)?;
         self.write_decoded_page_at(new_offset, self.sequence, kept_objects)?;
         self.repoint_live_entries(old_offset, new_offset, new_len, &kept_object_ids);
