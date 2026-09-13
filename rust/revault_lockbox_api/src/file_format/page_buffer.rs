@@ -8,8 +8,28 @@ use zeroize::Zeroize;
 // volatile-write guarantees with one barrier per slice. Cover spare capacity
 // too, since truncation may have left sensitive bytes there. Retain the length.
 pub(crate) fn zeroize_bytes(bytes: &mut Vec<u8>) {
-    bytes.as_mut_slice().zeroize();
+    zeroize_byte_slice(bytes.as_mut_slice());
     bytes.spare_capacity_mut().zeroize();
+}
+
+#[repr(transparent)]
+#[derive(Clone, Copy, Default)]
+struct WipeBlock([u64; 8]);
+
+// The transparent integer array has no padding and its default is all zeroes.
+impl zeroize::DefaultIsZeroes for WipeBlock {}
+
+fn zeroize_byte_slice(bytes: &mut [u8]) {
+    // Wide stores avoid a byte-at-a-time volatile loop. Continue to
+    // use zeroize for the writes and compiler fences on every region.
+    // SAFETY: every bit pattern is valid for WipeBlock, with no padding. align_to_mut
+    // partitions this initialized byte slice into disjoint, correctly aligned
+    // regions in the same allocation. All three regions are overwritten, never
+    // interpreted as sensitive numeric values or accessed through another alias.
+    let (head, words, tail) = unsafe { bytes.align_to_mut::<WipeBlock>() };
+    head.zeroize();
+    words.zeroize();
+    tail.zeroize();
 }
 
 pub(crate) struct ZeroizingBytes(Vec<u8>);
@@ -89,6 +109,19 @@ impl PageBuffer for SecureVec {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wide_wiping_covers_unaligned_slices_without_touching_neighbours() {
+        for offset in 0..32 {
+            for len in 0..129 {
+                let mut bytes = [0xa5; 192];
+                zeroize_byte_slice(&mut bytes[offset..offset + len]);
+                assert!(bytes[..offset].iter().all(|byte| *byte == 0xa5));
+                assert!(bytes[offset..offset + len].iter().all(|byte| *byte == 0));
+                assert!(bytes[offset + len..].iter().all(|byte| *byte == 0xa5));
+            }
+        }
+    }
 
     #[test]
     fn byte_wiping_handles_empty_and_partial_allocations() {
