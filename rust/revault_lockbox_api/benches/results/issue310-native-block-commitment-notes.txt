@@ -7,8 +7,9 @@ commitment to the stored block table, not a digest discovered in untrusted data.
 
 BlockFrameDescriptor in file_format/indexed_frame.rs defines that common
 128-byte descriptor. It is still staged under cfg(test), NOT emitted by the
-native writer. The older raw-index probe in that module remains historical;
-the new descriptor supports all encryption/signing/codec/padding choices.
+native writer. The older raw-only index probe has now been removed from that
+module; the common descriptor supports all encryption/signing/codec/padding
+choices. Earlier probe implementations remain available in Git history.
 
 Canonical encoding, offsets in bytes:
 0..8 magic LBXBF001; 8..10 persisted FormatMode; 10 stored codec;

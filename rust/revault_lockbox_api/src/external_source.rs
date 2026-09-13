@@ -637,11 +637,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn shared_block_reader_preserves_external_failure_latching_in_every_mode() {
-        use crate::storage::shared_layout_tests::{codec, StorageSource};
+    fn native_block_reader_preserves_external_failure_latching_in_every_mode() {
+        use crate::file_format::indexed_frame::{encode_block_frame, BlockFrameReader};
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
         struct Probe {
             bytes: Vec<u8>,
             state: Mutex<u8>,
+            reads: Mutex<Vec<(u64, usize)>>,
         }
         impl ReadAtSource for Probe {
             fn len(&self) -> u64 {
@@ -655,6 +657,7 @@ mod tests {
                 }
             }
             fn read_at(&self, offset: u64, out: &mut [u8]) -> Result<usize, SourceError> {
+                self.reads.lock().unwrap().push((offset, out.len()));
                 let state = *self.state.lock().unwrap();
                 if state == 4 {
                     return Err(SourceError::MissingRange {
@@ -666,38 +669,62 @@ mod tests {
                 Ok(out.len() - usize::from(state == 3 && !out.is_empty()))
             }
         }
-        let signer = ed25519_dalek::SigningKey::from_bytes(&[19; 32]);
         let key = [29; 32];
         for encrypted in [false, true] {
             for signed in [false, true] {
                 for compressed in [false, true] {
-                    let (descriptor, packet) = codec::encode(
+                    let mode = crate::creation_options::FormatMode::new(LockboxFormatOptions {
+                        encryption: if encrypted {
+                            EncryptionMode::ChaCha20Poly1305
+                        } else {
+                            EncryptionMode::None
+                        },
+                        signing: if signed {
+                            SigningMode::Owner
+                        } else {
+                            SigningMode::None
+                        },
+                        compression: if compressed {
+                            Compression::default()
+                        } else {
+                            Compression::None
+                        },
+                        size_padding: SizePadding::Default,
+                    });
+                    let (descriptor, packet) = encode_block_frame(
+                        crate::LockboxId::from_bytes([71; 16]),
+                        31,
+                        mode,
                         &[43; 32768],
-                        16384,
-                        compressed,
-                        encrypted.then_some(&key),
-                        signed.then_some(&signer),
+                        &key,
                     )
                     .unwrap();
                     for failure in 1..=5 {
                         let source = Arc::new(Probe {
                             bytes: packet.clone(),
                             state: Mutex::new(0),
+                            reads: Mutex::new(Vec::new()),
                         });
                         let session =
                             ExternalReader::new(source.clone(), ExternalReaderOptions::default())
                                 .unwrap();
                         let backend = StorageBackend::External(session.storage.clone());
-                        let extent = StorageSource::new(&backend, 0, packet.len());
-                        let verifier = signer.verifying_key();
-                        let reader = codec::Reader::open(
-                            &descriptor,
-                            &extent,
-                            encrypted.then_some(&key),
-                            signed.then_some(&verifier),
-                        )
-                        .unwrap();
+                        let reader =
+                            BlockFrameReader::open(&descriptor, &backend, 0, packet.len(), &key)
+                                .unwrap();
+                        assert_eq!(
+                            source.reads.lock().unwrap().len(),
+                            1,
+                            "open must read only the committed index"
+                        );
                         assert_eq!(reader.read(7..19).unwrap(), [43; 12]);
+                        assert_eq!(source.reads.lock().unwrap().len(), 2);
+                        if !compressed {
+                            assert_eq!(
+                                source.reads.lock().unwrap()[1].1,
+                                16384 + if encrypted { 16 } else { 0 }
+                            );
+                        }
                         *source.state.lock().unwrap() = failure;
                         assert!(reader.read(7..19).is_err());
                         let latched = session.storage.failure().unwrap().unwrap();
@@ -709,9 +736,11 @@ mod tests {
                             _ => unreachable!(),
                         }
                         *source.state.lock().unwrap() = 0;
+                        let reads_before_retry = source.reads.lock().unwrap().len();
                         // Even empty reads after a cached index must reject the latch.
                         assert!(reader.read(0..0).is_err());
                         assert!(reader.read(7..19).is_err());
+                        assert_eq!(source.reads.lock().unwrap().len(), reads_before_retry);
                         if failure == 4 {
                             // Only the checked external operation may reset a retryable
                             // MissingRange between attempts; the block reader cannot.

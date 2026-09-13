@@ -39,7 +39,7 @@ Verified on Linux:
 
 Reproduce from rust/ with package revault_lockbox_api@0.0.41:
 cargo test -p PACKAGE --features external-source --lib storage::shared_layout_tests
-cargo test -p PACKAGE --features external-source --lib shared_block_reader
+cargo test -p PACKAGE --features external-source --lib native_block_reader
 cargo test -p PACKAGE --features external-source --test external_source --test shared_layout_checks
 cargo clippy -p PACKAGE --features external-source --lib --tests --bench shared_layout -- -D warnings
 
@@ -49,3 +49,7 @@ block reader. Native descriptor persistence, full hybrid commit authentication,
 allocation/recovery/compaction, migrations and paired ZIP/write/load gates are
 still required. The experiment's local Ed25519 frame signature is not a
 substitute for the native hybrid signed-commit contract.
+
+Follow-up: the external failure-latching test now directly exercises the native
+BlockFrameReader, replacing its previous bench-codec adapter. The observed-read
+assertions also verify index-only open and one-block raw-range I/O.

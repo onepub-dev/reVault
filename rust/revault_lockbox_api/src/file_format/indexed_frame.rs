@@ -1,4 +1,4 @@
-//! Bounded, committed block index for a future native raw-frame encoding.
+//! Staged common native block descriptors, protected indexes and frame packets.
 //!
 //! The caller must obtain `commitment` from authenticated committed metadata,
 //! not from the same untrusted frame. Index verification precedes block I/O.
@@ -9,21 +9,19 @@ use crate::crypto::strong_checksum;
 use crate::page_buffer::ZeroizingBytes;
 use crate::storage::Storage;
 use crate::{Error, Result};
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use std::ops::Range;
 
 const BLOCK_BYTES: usize = 16 * 1024;
 const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
-const HEADER_BYTES: usize = 32;
 const DIGEST_BYTES: usize = 32;
-const MAGIC: &[u8; 8] = b"LBXBLK01";
 
 /// Common persisted descriptor for the staged native block representation.
 /// The TOC must authenticate these bytes before they can authorize block reads.
 /// Signing remains the native commit's responsibility, never a separate,
 /// weaker per-frame signature. One encoding covers every protection mode.
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct BlockFrameDescriptor {
+pub(crate) struct BlockFrameDescriptor {
     archive: crate::LockboxId,
     frame_id: u64,
     mode: crate::creation_options::FormatMode,
@@ -269,142 +267,509 @@ fn index_nonce() -> [u8; 12] {
     nonce
 }
 
-/// The index is small (at most 8,224 bytes) and independent of requested range.
-/// Including frame identity and logical size prevents swapping a block or index
-/// between different frames even if they contain identical data.
-struct AuthenticatedBlockIndex {
-    frame_id: u64,
-    logical_len: usize,
-    hashes: Vec<[u8; DIGEST_BYTES]>,
+fn data_nonce(ordinal: usize) -> [u8; 12] {
+    let mut nonce = [0; 12];
+    nonce[4..].copy_from_slice(&(ordinal as u64).to_le_bytes());
+    nonce
 }
 
-impl AuthenticatedBlockIndex {
-    fn build(frame_id: u64, bytes: &[u8]) -> Result<Self> {
-        Self::index_len(bytes.len())?;
-        Ok(Self {
-            frame_id,
-            logical_len: bytes.len(),
-            hashes: bytes
-                .chunks(BLOCK_BYTES)
-                .enumerate()
-                .map(|(ordinal, block)| block_digest(frame_id, ordinal, block))
-                .collect(),
-        })
-    }
+fn block_aad(context: &[u8], ordinal: usize) -> Vec<u8> {
+    let mut aad = context.to_vec();
+    aad.extend_from_slice(&(ordinal as u64).to_le_bytes());
+    aad
+}
 
-    fn index_len(logical_len: usize) -> Result<usize> {
-        if logical_len > MAX_FRAME_BYTES {
-            return Err(Error::CorruptRecord);
+/// Create one common native frame packet. The caller will persist the returned
+/// descriptor in trusted TOC metadata, separately from these untrusted bytes.
+/// Fresh construction on every call prevents nonce reuse across writer retries.
+pub(crate) fn encode_block_frame(
+    archive: crate::LockboxId,
+    frame_id: u64,
+    mode: crate::creation_options::FormatMode,
+    input: &[u8],
+    key: &[u8],
+) -> Result<(BlockFrameDescriptor, Vec<u8>)> {
+    use chacha20poly1305::aead::AeadInOut;
+    if input.len() > MAX_FRAME_BYTES || mode.0 == 0 || (!mode.plaintext() && key.len() != 32) {
+        return Err(Error::CorruptRecord);
+    }
+    crate::creation_options::FormatMode::parse(mode.0)?;
+    let (compression, stored) =
+        crate::compression::encode_with_compression(input, mode.options().compression);
+    let stored = ZeroizingBytes::new(stored);
+    let descriptor = BlockFrameDescriptor::fresh(
+        archive,
+        frame_id,
+        mode,
+        compression,
+        input.len() as u64,
+        stored.len() as u64,
+    )?;
+    let cipher = if mode.plaintext() {
+        None
+    } else {
+        Some(descriptor.index_cipher(key)?)
+    };
+    let context = descriptor.encode()?;
+    let index_len = descriptor.index_len()?;
+    let mut packet = ZeroizingBytes::new(vec![0; descriptor.physical_len()?]);
+    let mut hashes = Vec::with_capacity(descriptor.block_count()?);
+    for (ordinal, block) in stored.chunks(BLOCK_BYTES).enumerate() {
+        let start = index_len + ordinal * (BLOCK_BYTES + descriptor.tag_len());
+        let end = start + block.len() + descriptor.tag_len();
+        packet[start..start + block.len()].copy_from_slice(block);
+        if let Some(cipher) = &cipher {
+            let tag = cipher
+                .encrypt_inout_detached(
+                    &chacha20poly1305::Nonce::from(data_nonce(ordinal)),
+                    &block_aad(&context[..BlockFrameDescriptor::CONTEXT_LEN], ordinal),
+                    (&mut packet[start..start + block.len()]).into(),
+                )
+                .map_err(|_| Error::CorruptRecord)?;
+            packet[start + block.len()..end].copy_from_slice(&tag);
         }
-        Ok(HEADER_BYTES + logical_len.div_ceil(BLOCK_BYTES) * DIGEST_BYTES)
+        hashes.push(strong_checksum(&packet[start..end]));
     }
+    let (descriptor, index) = descriptor.seal_index(&hashes, key)?;
+    let index = ZeroizingBytes::new(index);
+    packet[..index_len].copy_from_slice(&index);
+    Ok((descriptor, std::mem::take(&mut *packet)))
+}
 
-    fn encode(&self) -> Vec<u8> {
-        let mut out = Vec::with_capacity(HEADER_BYTES + self.hashes.len() * DIGEST_BYTES);
-        out.extend_from_slice(MAGIC);
-        out.extend_from_slice(&self.frame_id.to_le_bytes());
-        out.extend_from_slice(&(self.logical_len as u64).to_le_bytes());
-        out.extend_from_slice(&(BLOCK_BYTES as u32).to_le_bytes());
-        out.extend_from_slice(&0u32.to_le_bytes());
-        for hash in &self.hashes {
-            out.extend_from_slice(hash);
-        }
-        out
-    }
+pub(crate) struct BlockFrameReader<'a> {
+    descriptor: &'a BlockFrameDescriptor,
+    storage: &'a crate::storage::StorageBackend,
+    offset: u64,
+    hashes: Vec<[u8; 32]>,
+    cipher: Option<chacha20poly1305::ChaCha20Poly1305>,
+}
 
-    /// Read exactly the bounded index, never an allocation length obtained from
-    /// an unverified on-disk header. All lengths/identity come from the caller's
-    /// committed frame descriptor and must match the verified header.
-    fn load(
-        storage: &impl Storage,
+impl<'a> BlockFrameReader<'a> {
+    /// A validated descriptor is not necessarily trusted. The native TOC must
+    /// establish its commitment before calling this function. No signature is
+    /// verified here; signed archive opening must retain full commit validation.
+    pub(crate) fn open(
+        descriptor: &'a BlockFrameDescriptor,
+        storage: &'a crate::storage::StorageBackend,
         offset: u64,
-        frame_id: u64,
-        logical_len: usize,
-        commitment: &[u8; 32],
+        physical_len: usize,
+        key: &[u8],
     ) -> Result<Self> {
-        let len = Self::index_len(logical_len)?;
-        offset.checked_add(len as u64).ok_or(Error::CorruptRecord)?;
-        let bytes = storage.read_at(offset, len)?;
-        if bytes.len() != len || strong_checksum(&bytes) != *commitment {
+        if descriptor.physical_len()? != physical_len {
             return Err(Error::CorruptRecord);
         }
-        let mut header = [0; HEADER_BYTES];
-        header[..8].copy_from_slice(MAGIC);
-        header[8..16].copy_from_slice(&frame_id.to_le_bytes());
-        header[16..24].copy_from_slice(&(logical_len as u64).to_le_bytes());
-        header[24..28].copy_from_slice(&(BLOCK_BYTES as u32).to_le_bytes());
-        if bytes[..HEADER_BYTES] != header {
-            return Err(Error::CorruptRecord);
+        storage.ensure_current()?;
+        let storage_len = storage.len()?;
+        if offset
+            .checked_add(physical_len as u64)
+            .is_none_or(|end| end > storage_len)
+        {
+            return Err(Error::Truncated);
         }
-        let hashes = bytes[HEADER_BYTES..]
-            .chunks_exact(DIGEST_BYTES)
-            .map(|bytes| bytes.try_into().expect("exact digest width"))
-            .collect();
+        let mut stored = ZeroizingBytes::new(vec![0; descriptor.index_len()?]);
+        storage.read_at_into(offset, &mut stored)?;
+        let hashes = descriptor.open_index(&stored, key)?;
+        let cipher = if descriptor.mode.plaintext() {
+            None
+        } else {
+            Some(descriptor.index_cipher(key)?)
+        };
+        storage.ensure_current()?;
         Ok(Self {
-            frame_id,
-            logical_len,
+            descriptor,
+            storage,
+            offset,
             hashes,
+            cipher,
         })
     }
 
-    /// The data immediately follows its index. Read complete touched blocks,
-    /// authenticate them, and expose only the requested slice. One contiguous
-    /// read fills the output allocation directly; full-frame reads need neither
-    /// a scratch buffer nor a second frame-sized copy. The allocation is wiped
-    /// on any storage or integrity failure, including its unused capacity.
-    fn read_range(
-        &self,
-        storage: &impl Storage,
-        index_offset: u64,
-        range: Range<usize>,
-    ) -> Result<ZeroizingBytes> {
-        if range.start > range.end || range.end > self.logical_len {
-            return Err(Error::CorruptRecord);
+    pub(crate) fn read(&self, range: Range<u64>) -> Result<Vec<u8>> {
+        use chacha20poly1305::aead::AeadInOut;
+        let descriptor = self.descriptor;
+        let extent = descriptor.stored_range(range.clone())?;
+        self.storage.ensure_current()?;
+        let storage_len = self.storage.len()?;
+        if self
+            .offset
+            .checked_add(descriptor.physical_len()? as u64)
+            .is_none_or(|end| end > storage_len)
+        {
+            return Err(Error::Truncated);
         }
-        let data_offset = index_offset
-            .checked_add(Self::index_len(self.logical_len)? as u64)
-            .ok_or(Error::CorruptRecord)?;
-        data_offset
-            .checked_add(self.logical_len as u64)
-            .ok_or(Error::CorruptRecord)?;
         if range.is_empty() {
-            return Ok(ZeroizingBytes::new(Vec::new()));
+            return Ok(Vec::new());
         }
-        let first = range.start / BLOCK_BYTES;
-        let aligned_start = first * BLOCK_BYTES;
-        let aligned_end = range.end.div_ceil(BLOCK_BYTES) * BLOCK_BYTES;
-        let read_len = aligned_end.min(self.logical_len) - aligned_start;
-        let mut output = ZeroizingBytes::new(vec![0; read_len]);
-        storage.read_at_into(data_offset + aligned_start as u64, &mut output)?;
-        for (relative, block) in output.chunks(BLOCK_BYTES).enumerate() {
-            let ordinal = first + relative;
-            if block_digest(self.frame_id, ordinal, block) != self.hashes[ordinal] {
+        let mut bytes = ZeroizingBytes::new(vec![0; extent.len()]);
+        self.storage.read_at_into(
+            self.offset
+                .checked_add(extent.start as u64)
+                .ok_or(Error::CorruptRecord)?,
+            &mut bytes,
+        )?;
+        let raw = descriptor.compression == crate::compression::COMPRESSION_NONE;
+        let first = if raw {
+            range.start as usize / BLOCK_BYTES
+        } else {
+            0
+        };
+        let last = if raw {
+            (range.end as usize).div_ceil(BLOCK_BYTES)
+        } else {
+            descriptor.block_count()?
+        };
+        let context = descriptor.encode()?;
+        let stride = BLOCK_BYTES + descriptor.tag_len();
+        let mut plain_len = 0;
+        for ordinal in first..last {
+            let len = (descriptor.stored_len as usize - ordinal * BLOCK_BYTES).min(BLOCK_BYTES);
+            let start = (ordinal - first) * stride;
+            let block = &mut bytes[start..start + len + descriptor.tag_len()];
+            if strong_checksum(block) != self.hashes[ordinal] {
                 return Err(Error::CorruptRecord);
             }
+            if let Some(cipher) = &self.cipher {
+                let (message, tag) = block.split_at_mut(len);
+                let tag =
+                    chacha20poly1305::Tag::try_from(&*tag).map_err(|_| Error::CorruptRecord)?;
+                cipher
+                    .decrypt_inout_detached(
+                        &chacha20poly1305::Nonce::from(data_nonce(ordinal)),
+                        &block_aad(&context[..BlockFrameDescriptor::CONTEXT_LEN], ordinal),
+                        message.into(),
+                        &tag,
+                    )
+                    .map_err(|_| Error::CorruptRecord)?;
+            }
+            bytes.copy_within(start..start + len, plain_len);
+            plain_len += len;
         }
-        if range.start != aligned_start {
-            output.copy_within(range.start - aligned_start..range.end - aligned_start, 0);
-        }
-        output.truncate(range.len());
-        Ok(output)
+        // Wipe removed tag bytes before shortening the initialized vector.
+        zeroize::Zeroize::zeroize(&mut bytes[plain_len..]);
+        bytes.truncate(plain_len);
+        let (mut logical, wanted) = if raw {
+            let start = range.start as usize - first * BLOCK_BYTES;
+            (bytes, start..start + (range.end - range.start) as usize)
+        } else {
+            (
+                ZeroizingBytes::new(crate::compression::decode_compression_frame(
+                    descriptor.compression,
+                    &bytes,
+                    descriptor.logical_len,
+                )?),
+                range.start as usize..range.end as usize,
+            )
+        };
+        self.storage.ensure_current()?;
+        logical.copy_within(wanted.clone(), 0);
+        zeroize::Zeroize::zeroize(&mut logical[wanted.len()..]);
+        logical.truncate(wanted.len());
+        Ok(std::mem::take(&mut *logical))
     }
-}
-
-fn block_digest(frame_id: u64, ordinal: usize, data: &[u8]) -> [u8; 32] {
-    let mut digest = Sha256::new();
-    digest.update(b"reVault indexed raw block v1\0");
-    digest.update(frame_id.to_le_bytes());
-    digest.update((ordinal as u64).to_le_bytes());
-    digest.update((data.len() as u64).to_le_bytes());
-    digest.update(data);
-    digest.finalize().into()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::storage::StorageBackend;
-    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn native_block_packets_roundtrip_all_policies_and_single_pass_codec_output() {
+        use crate::creation_options::FormatMode;
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let archive = crate::LockboxId::from_bytes([71; 16]);
+        let key = [53; 32];
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for signing in [SigningMode::None, SigningMode::Owner] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    for compression in [Compression::None, Compression::default()] {
+                        let mode = FormatMode::new(LockboxFormatOptions {
+                            encryption,
+                            signing,
+                            size_padding,
+                            compression,
+                        });
+                        for len in [0usize, 1, 16383, 16384, 16385, 65539] {
+                            let input: Vec<_> = (0..len).map(|n| (n % 251) as u8).collect();
+                            let (descriptor, packet) =
+                                encode_block_frame(archive, 31, mode, &input, &key).unwrap();
+                            let (algorithm, encoded) =
+                                crate::compression::encode_with_compression(&input, compression);
+                            assert_eq!(descriptor.compression, algorithm);
+                            assert_eq!(descriptor.stored_len, encoded.len() as u64);
+                            // Independently unpack with the allocating AEAD API,
+                            // not the reader's in-place path, and bind codec bytes.
+                            use chacha20poly1305::aead::{Aead, Payload};
+                            let context = descriptor.encode().unwrap();
+                            let mut actual_stored = ZeroizingBytes::new(Vec::new());
+                            for (ordinal, block) in packet[descriptor.index_len().unwrap()..]
+                                .chunks(BLOCK_BYTES + descriptor.tag_len())
+                                .enumerate()
+                            {
+                                let plain = ZeroizingBytes::new(if mode.plaintext() {
+                                    block.to_vec()
+                                } else {
+                                    descriptor
+                                        .index_cipher(&key)
+                                        .unwrap()
+                                        .decrypt(
+                                            &chacha20poly1305::Nonce::from(data_nonce(ordinal)),
+                                            Payload {
+                                                msg: block,
+                                                aad: &block_aad(
+                                                    &context[..BlockFrameDescriptor::CONTEXT_LEN],
+                                                    ordinal,
+                                                ),
+                                            },
+                                        )
+                                        .unwrap()
+                                });
+                                actual_stored.extend_from_slice(&plain);
+                            }
+                            assert_eq!(&*actual_stored, &encoded);
+                            let mut archive_bytes = vec![79; 317];
+                            archive_bytes.extend_from_slice(&packet);
+                            archive_bytes.extend_from_slice(&[83; 211]);
+                            let storage = StorageBackend::memory(archive_bytes);
+                            let reader = BlockFrameReader::open(
+                                &descriptor,
+                                &storage,
+                                317,
+                                packet.len(),
+                                &key,
+                            )
+                            .unwrap();
+                            assert_eq!(reader.read(0..len as u64).unwrap(), input);
+                            assert!(reader.read(0..len as u64 + 1).is_err());
+                            assert_eq!(reader.read(len as u64..len as u64).unwrap(), b"");
+                            for start in [0, len / 2, len.saturating_sub(13)] {
+                                let end = (start + 29).min(len);
+                                assert_eq!(
+                                    reader.read(start as u64..end as u64).unwrap(),
+                                    input[start..end]
+                                );
+                            }
+                            assert!(BlockFrameReader::open(
+                                &descriptor,
+                                &storage,
+                                u64::MAX,
+                                packet.len(),
+                                &key
+                            )
+                            .is_err());
+                            assert!(BlockFrameReader::open(
+                                &descriptor,
+                                &storage,
+                                317,
+                                packet.len() + 1,
+                                &key
+                            )
+                            .is_err());
+                            assert_eq!(storage.read_at(0, 317).unwrap(), vec![79; 317]);
+                            assert_eq!(
+                                storage.read_at(317 + packet.len() as u64, 211).unwrap(),
+                                vec![83; 211]
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn native_blocks_reject_damage_and_ordinal_substitution_after_index_authentication() {
+        use crate::creation_options::FormatMode;
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let archive = crate::LockboxId::from_bytes([71; 16]);
+        let key = [53; 32];
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            let mode = FormatMode::new(LockboxFormatOptions {
+                encryption,
+                signing: SigningMode::None,
+                size_padding: SizePadding::Default,
+                compression: Compression::None,
+            });
+            let input = vec![31; BLOCK_BYTES * 2 + 13];
+            let (descriptor, packet) = encode_block_frame(archive, 31, mode, &input, &key).unwrap();
+            let index_len = descriptor.index_len().unwrap();
+            let mut damaged = packet.clone();
+            damaged[index_len + 100] ^= 1;
+            let storage = StorageBackend::memory(damaged);
+            let reader =
+                BlockFrameReader::open(&descriptor, &storage, 0, packet.len(), &key).unwrap();
+            // A range verifies the complete touched block, not only returned bytes.
+            assert!(reader.read(0..1).is_err());
+            assert_eq!(
+                reader
+                    .read(BLOCK_BYTES as u64..BLOCK_BYTES as u64 + 1)
+                    .unwrap(),
+                [31]
+            );
+            assert!(reader.read(0..input.len() as u64).is_err());
+            let mut index_damage = packet.clone();
+            index_damage[0] ^= 1;
+            assert!(BlockFrameReader::open(
+                &descriptor,
+                &StorageBackend::memory(index_damage),
+                0,
+                packet.len(),
+                &key
+            )
+            .is_err());
+            assert!(BlockFrameReader::open(
+                &descriptor,
+                &StorageBackend::memory(packet[..packet.len() - 1].to_vec()),
+                0,
+                packet.len(),
+                &key
+            )
+            .is_err());
+            if !mode.plaintext() {
+                assert!(BlockFrameReader::open(
+                    &descriptor,
+                    &StorageBackend::memory(packet.clone()),
+                    0,
+                    packet.len(),
+                    &[54; 32]
+                )
+                .is_err());
+                let stride = BLOCK_BYTES + descriptor.tag_len();
+                let mut swapped = packet.clone();
+                swapped[index_len..index_len + stride]
+                    .copy_from_slice(&packet[index_len + stride..index_len + 2 * stride]);
+                let mut hashes = descriptor.open_index(&packet[..index_len], &key).unwrap();
+                hashes[0] = strong_checksum(&swapped[index_len..index_len + stride]);
+                // Deliberately regenerate even the authenticated index: the data
+                // block's own ordinal/domain binding must still reject the swap.
+                let (recommitted, index) = descriptor.clone().seal_index(&hashes, &key).unwrap();
+                swapped[..index_len].copy_from_slice(&index);
+                let storage = StorageBackend::memory(swapped);
+                let reader =
+                    BlockFrameReader::open(&recommitted, &storage, 0, packet.len(), &key).unwrap();
+                assert!(reader.read(0..1).is_err());
+            }
+            assert_ne!(data_nonce(0), index_nonce());
+            assert_ne!(data_nonce(0), data_nonce(1));
+        }
+    }
+
+    #[test]
+    fn native_block_file_extents_reject_later_damage_and_truncation_in_all_modes() {
+        use crate::creation_options::FormatMode;
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let root = std::env::temp_dir().join(format!(
+            "revault-native-block-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let archive = crate::LockboxId::from_bytes([71; 16]);
+        let key = [53; 32];
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compressed in [false, true] {
+                    let mode = FormatMode::new(LockboxFormatOptions {
+                        encryption: if encrypted {
+                            EncryptionMode::ChaCha20Poly1305
+                        } else {
+                            EncryptionMode::None
+                        },
+                        signing: if signed {
+                            SigningMode::Owner
+                        } else {
+                            SigningMode::None
+                        },
+                        compression: if compressed {
+                            Compression::default()
+                        } else {
+                            Compression::None
+                        },
+                        size_padding: SizePadding::None,
+                    });
+                    let input: Vec<_> = (0..65539).map(|n| (n % 251) as u8).collect();
+                    let (descriptor, packet) =
+                        encode_block_frame(archive, 31, mode, &input, &key).unwrap();
+                    let mut bytes = vec![71; 317];
+                    bytes.extend_from_slice(&packet);
+                    bytes.extend_from_slice(&[79; 211]);
+                    let path = root.join(format!("{encrypted}-{signed}-{compressed}"));
+                    let storage = StorageBackend::create_file(&path, &bytes).unwrap();
+                    let reader =
+                        BlockFrameReader::open(&descriptor, &storage, 317, packet.len(), &key)
+                            .unwrap();
+                    assert_eq!(reader.read(17000..17013).unwrap(), input[17000..17013]);
+                    assert_eq!(reader.read(0..input.len() as u64).unwrap(), input);
+                    // Deliberate damage through a shared storage clone; no public
+                    // CLI operation can create this unit-level fault condition.
+                    let mut damaged = storage.clone();
+                    damaged
+                        .write_at(
+                            317 + packet.len() as u64 - 1,
+                            &[packet[packet.len() - 1] ^ 1],
+                        )
+                        .unwrap();
+                    assert!(reader.read(0..input.len() as u64).is_err());
+                    damaged.truncate(317 + packet.len() as u64 - 1).unwrap();
+                    assert!(reader.read(0..1).is_err());
+                    assert!(reader.read(0..0).is_err());
+                }
+            }
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_block_maximum_frames_preserve_incompressible_fallback() {
+        use crate::creation_options::FormatMode;
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let mut state = 31917u32;
+        let input: Vec<_> = (0..MAX_FRAME_BYTES)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 17;
+                state ^= state << 5;
+                state as u8
+            })
+            .collect();
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            let mode = FormatMode::new(LockboxFormatOptions {
+                encryption,
+                signing: SigningMode::None,
+                size_padding: SizePadding::Default,
+                compression: Compression::default(),
+            });
+            let (descriptor, packet) = encode_block_frame(
+                crate::LockboxId::from_bytes([71; 16]),
+                31,
+                mode,
+                &input,
+                &[53; 32],
+            )
+            .unwrap();
+            assert_eq!(descriptor.compression, crate::compression::COMPRESSION_NONE);
+            let storage = StorageBackend::memory(packet.clone());
+            let reader =
+                BlockFrameReader::open(&descriptor, &storage, 0, packet.len(), &[53; 32]).unwrap();
+            assert_eq!(reader.read(0..input.len() as u64).unwrap(), input);
+            let tail = input.len() - 13;
+            assert_eq!(
+                reader.read(tail as u64..input.len() as u64).unwrap(),
+                input[tail..]
+            );
+            assert!(encode_block_frame(
+                descriptor.archive,
+                32,
+                mode,
+                &vec![0; MAX_FRAME_BYTES + 1],
+                &[53; 32]
+            )
+            .is_err());
+        }
+    }
 
     #[test]
     fn native_block_descriptor_roundtrips_all_modes_and_bounds_physical_reads() {
@@ -624,211 +989,5 @@ mod tests {
         let mut invalid = descriptor;
         invalid.compression = 255;
         assert!(invalid.encode().is_err());
-    }
-
-    #[derive(Clone, Debug)]
-    struct ObservedStorage {
-        inner: StorageBackend,
-        reads: Arc<Mutex<Vec<(u64, usize)>>>,
-    }
-
-    impl Storage for ObservedStorage {
-        fn len(&self) -> Result<u64> {
-            self.inner.len()
-        }
-        fn read_at(&self, offset: u64, len: usize) -> Result<Vec<u8>> {
-            let mut bytes = vec![0; len];
-            self.read_at_into(offset, &mut bytes)?;
-            Ok(bytes)
-        }
-        fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
-            self.reads.lock().unwrap().push((offset, out.len()));
-            self.inner.read_at_into(offset, out)
-        }
-        fn append(&mut self, bytes: &[u8]) -> Result<u64> {
-            self.inner.append(bytes)
-        }
-        fn write_at(&mut self, offset: u64, bytes: &[u8]) -> Result<()> {
-            self.inner.write_at(offset, bytes)
-        }
-        fn truncate(&mut self, len: u64) -> Result<()> {
-            self.inner.truncate(len)
-        }
-        fn sync(&self) -> Result<()> {
-            self.inner.sync()
-        }
-    }
-
-    fn fixture(bytes: &[u8]) -> (ObservedStorage, [u8; 32], usize) {
-        let index = AuthenticatedBlockIndex::build(17, bytes).unwrap().encode();
-        let commitment = strong_checksum(&index);
-        let data_offset = index.len();
-        let mut stored = index;
-        stored.extend_from_slice(bytes);
-        (
-            ObservedStorage {
-                inner: StorageBackend::memory(stored),
-                reads: Arc::default(),
-            },
-            commitment,
-            data_offset,
-        )
-    }
-
-    #[test]
-    fn ranges_read_only_the_committed_index_and_touched_complete_blocks() {
-        let bytes: Vec<u8> = (0..MAX_FRAME_BYTES).map(|n| (n % 251) as u8).collect();
-        let (storage, commitment, data_offset) = fixture(&bytes);
-        let index =
-            AuthenticatedBlockIndex::load(&storage, 0, 17, bytes.len(), &commitment).unwrap();
-        let range = BLOCK_BYTES + 123..BLOCK_BYTES + 456;
-        assert_eq!(
-            &*index.read_range(&storage, 0, range.clone()).unwrap(),
-            &bytes[range]
-        );
-        assert_eq!(
-            *storage.reads.lock().unwrap(),
-            [(0, 8224), ((data_offset + BLOCK_BYTES) as u64, BLOCK_BYTES)]
-        );
-        storage.reads.lock().unwrap().clear();
-        assert_eq!(
-            &*index.read_range(&storage, 0, 0..bytes.len()).unwrap(),
-            &bytes
-        );
-        assert_eq!(
-            *storage.reads.lock().unwrap(),
-            [(data_offset as u64, bytes.len())]
-        );
-    }
-
-    #[test]
-    fn noncanonical_header_fields_are_rejected_even_with_matching_commitment() {
-        let payload = vec![7; BLOCK_BYTES];
-        for at in [0, 8, 16, 24, 28] {
-            let mut encoded = AuthenticatedBlockIndex::build(17, &payload)
-                .unwrap()
-                .encode();
-            encoded[at] ^= 1;
-            let commitment = strong_checksum(&encoded);
-            let storage = StorageBackend::memory(encoded);
-            assert!(
-                AuthenticatedBlockIndex::load(&storage, 0, 17, payload.len(), &commitment).is_err()
-            );
-        }
-    }
-
-    #[test]
-    fn file_backed_nonzero_offset_roundtrip_and_truncation() {
-        let path = std::env::temp_dir().join(format!(
-            "revault-indexed-frame-{}",
-            crate::LockboxId::new_random().unwrap()
-        ));
-        let payload: Vec<u8> = (0..BLOCK_BYTES * 3 + 1).map(|n| (n % 251) as u8).collect();
-        let encoded = AuthenticatedBlockIndex::build(17, &payload)
-            .unwrap()
-            .encode();
-        let commitment = strong_checksum(&encoded);
-        let mut storage = StorageBackend::create_file(&path, &[0; 731]).unwrap();
-        let index_offset = storage.append(&encoded).unwrap();
-        storage.append(&payload).unwrap();
-        storage.sync().unwrap();
-        drop(storage);
-        let storage = StorageBackend::file(&path).unwrap();
-        let index =
-            AuthenticatedBlockIndex::load(&storage, index_offset, 17, payload.len(), &commitment)
-                .unwrap();
-        for range in [
-            0..payload.len(),
-            19..BLOCK_BYTES + 99,
-            payload.len() - 1..payload.len(),
-        ] {
-            assert_eq!(
-                &*index
-                    .read_range(&storage, index_offset, range.clone())
-                    .unwrap(),
-                &payload[range]
-            );
-        }
-        drop(storage);
-        let mut storage = StorageBackend::file_for_write(&path).unwrap();
-        storage
-            .truncate(index_offset + encoded.len() as u64 + payload.len() as u64 - 1)
-            .unwrap();
-        assert!(index
-            .read_range(&storage, index_offset, 0..payload.len())
-            .is_err());
-        drop(storage);
-        std::fs::remove_file(path).unwrap();
-    }
-
-    #[test]
-    fn empty_tail_cross_block_and_full_ranges_roundtrip() {
-        for len in [
-            0,
-            1,
-            BLOCK_BYTES - 1,
-            BLOCK_BYTES,
-            BLOCK_BYTES + 1,
-            MAX_FRAME_BYTES,
-        ] {
-            let bytes: Vec<u8> = (0..len).map(|n| (n % 251) as u8).collect();
-            let (storage, commitment, _) = fixture(&bytes);
-            let index = AuthenticatedBlockIndex::load(&storage, 0, 17, len, &commitment).unwrap();
-            for range in [0..len, len / 2..len, len..len] {
-                assert_eq!(
-                    &*index.read_range(&storage, 0, range.clone()).unwrap(),
-                    &bytes[range]
-                );
-            }
-            assert!(index.read_range(&storage, 0, 0..len + 1).is_err());
-            assert!(index.read_range(&storage, u64::MAX, 0..len).is_err());
-        }
-        assert!(AuthenticatedBlockIndex::build(17, &vec![0; MAX_FRAME_BYTES + 1]).is_err());
-    }
-
-    #[test]
-    fn untrusted_index_is_rejected_before_data_io_or_large_allocation() {
-        let (mut storage, commitment, _) = fixture(&vec![7; BLOCK_BYTES * 2]);
-        assert!(
-            AuthenticatedBlockIndex::load(&storage, 0, 18, BLOCK_BYTES * 2, &commitment).is_err()
-        );
-        storage.reads.lock().unwrap().clear();
-        assert!(AuthenticatedBlockIndex::load(&storage, 0, 17, usize::MAX, &commitment).is_err());
-        assert!(storage.reads.lock().unwrap().is_empty());
-        storage
-            .write_at(HEADER_BYTES as u64, &[0; DIGEST_BYTES])
-            .unwrap();
-        assert!(
-            AuthenticatedBlockIndex::load(&storage, 0, 17, BLOCK_BYTES * 2, &commitment).is_err()
-        );
-        assert_eq!(
-            *storage.reads.lock().unwrap(),
-            [(0, HEADER_BYTES + 2 * DIGEST_BYTES)]
-        );
-    }
-
-    #[test]
-    fn corrupt_bytes_outside_slice_in_touched_block_fail_but_untouched_blocks_are_lazy() {
-        let bytes = vec![7; BLOCK_BYTES * 3 + 1];
-        let (mut storage, commitment, data_offset) = fixture(&bytes);
-        let index =
-            AuthenticatedBlockIndex::load(&storage, 0, 17, bytes.len(), &commitment).unwrap();
-        storage
-            .write_at((data_offset + BLOCK_BYTES - 1) as u64, &[8])
-            .unwrap();
-        assert!(index.read_range(&storage, 0, 0..1).is_err());
-        assert_eq!(
-            &*index
-                .read_range(&storage, 0, BLOCK_BYTES..BLOCK_BYTES + 1)
-                .unwrap(),
-            &[7]
-        );
-        assert!(index.read_range(&storage, 0, 0..bytes.len()).is_err());
-        storage
-            .truncate((data_offset + BLOCK_BYTES * 3) as u64)
-            .unwrap();
-        assert!(index
-            .read_range(&storage, 0, bytes.len() - 1..bytes.len())
-            .is_err());
     }
 }

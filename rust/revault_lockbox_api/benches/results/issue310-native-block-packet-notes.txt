@@ -1,0 +1,55 @@
+Native common block packet encoder/reader, 2026-09-13
+===================================================
+The staged native module now encodes and reads data blocks using the descriptor
+and encrypted-index representation from the preceding checkpoint. The older
+raw-only native probe and its superseded tests were removed; this module now
+has one packet representation for all persisted policy combinations.
+
+encode_block_frame validates bounds before compression, calls the existing
+requested single-pass encoder once, constructs a fresh salt per invocation,
+encrypts blocks in place when required and commits each stored block in the
+index. Data nonce domain 0 plus ordinal differs from index nonce domain 1.
+Context and ordinal are AEAD associated data. The table holds ciphertext hashes
+in encrypted mode. Tests independently unpack using the allocating AEAD API and
+compare the EXACT stored compression stream against the existing encoder.
+
+BlockFrameReader borrows StorageBackend and a trusted descriptor, validates the
+bounded physical extent and reads/authenticates only the index on open. Raw
+ranges use a single coalesced read of complete touched blocks; each is checked
+and optionally decrypted in place before returning the requested slice.
+Compressed ranges read and decode the entire stored frame; no extra compression
+pass or imaginary Zstd restart point was introduced. Removed tags and unused
+plaintext are wiped before truncating/returning buffers; partial-error buffers
+use the existing wiping guard. Source identity/failure checks surround reads;
+even an empty range validates source state and physical extent.
+
+Open at this layer does NOT verify an archive commit signature. The native
+archive opener must authenticate the descriptor via the TOC and preserve its
+existing eager signed-content checks before publishing a signed archive handle.
+This is not a shortcut that treats syntactically decoded metadata as trusted.
+
+Validation:
+- All 16 encryption/signing/compression/padding policies, empty/tiny/boundary
+  sizes and cross-block ranges, byte-for-byte codec compatibility.
+- Maximum 4 MiB incompressible frames with requested compression, encrypted and
+  plaintext, retain the raw fallback and roundtrip whole and tail reads.
+- Actual file-backed nonzero extents in all eight protection/codec modes;
+  cached readers reject later same-inode damage and truncation, including empty
+  reads. Neighboring fixture bytes are preserved.
+- Tampered indexes, wrong keys, extent overflow/mismatch and truncated packets
+  fail. Damage outside the returned slice but inside a touched block fails.
+- Swapped encrypted blocks fail ordinal authentication even after deliberately
+  rebuilding an authenticated index with test keys. Such test-only index reuse
+  is not a writer pattern: real encoding starts with a fresh frame salt.
+- External-source regression tests now exercise this native reader, not only
+  the bench prototype. Observed reads prove index-only open and one 16 KiB block
+  plus tag for a small raw range. Terminal latches prevent further physical I/O;
+  only the checked owner can reset a retryable MissingRange.
+- Existing 15 external-source integration tests and strict Clippy pass.
+
+No end-to-end speed claim follows from these correctness tests. The module is
+still cfg(test); it is not emitted by the archive writer. Next: native physical
+page wrapping, TOC version/discriminator and trusted descriptor persistence,
+all read/mutation/recovery/compaction/migration paths, then production ZIP parity
+and paired write/load gates. Existing archives still use existing whole-frame
+checks, and the default privacy-padding policy has not changed.
