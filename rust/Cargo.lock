@@ -2281,6 +2281,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "revault_archive_v4_reader"
+version = "0.0.1"
+dependencies = [
+ "argon2 0.6.0",
+ "chacha20poly1305",
+ "criterion",
+ "ed25519-dalek 3.0.0",
+ "getrandom 0.4.3",
+ "hkdf 0.13.0",
+ "hmac 0.13.0",
+ "libc",
+ "ml-dsa",
+ "ml-kem",
+ "oxiarc-zstd",
+ "revault_page_api 0.0.34",
+ "serde_json",
+ "sha2 0.11.0",
+ "unicode-normalization",
+ "windows-sys 0.61.2",
+ "x25519-dalek 3.0.0",
+ "zeroize",
+ "zstd",
+ "zstd-complete 0.2.0",
+]
+
+[[package]]
 name = "revault_bindings"
 version = "0.2.23"
 dependencies = [
@@ -2485,6 +2511,20 @@ dependencies = [
  "revault_archive_v3_reader",
  "revault_migration_format 0.0.35",
  "revault_vault_v3_reader",
+ "sha2 0.11.0",
+ "tempfile",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_migrate_archive_v4"
+version = "0.0.1"
+dependencies = [
+ "getrandom 0.4.3",
+ "revault_archive_v4_reader",
+ "revault_migration_format 0.0.35",
+ "revault_vault_v4_reader",
+ "serde_json",
  "sha2 0.11.0",
  "tempfile",
  "zeroize",
@@ -2744,6 +2784,28 @@ dependencies = [
  "objc2-core-foundation",
  "objc2-io-kit",
  "revault_archive_v3_reader",
+ "secret-service",
+ "serde",
+ "serde_json",
+ "sha2 0.11.0",
+ "windows-sys 0.61.2",
+ "zbus",
+ "zeroize",
+]
+
+[[package]]
+name = "revault_vault_v4_reader"
+version = "0.0.1"
+dependencies = [
+ "base64ct",
+ "chacha20poly1305",
+ "dbus",
+ "getrandom 0.4.3",
+ "keyring",
+ "libc",
+ "objc2-core-foundation",
+ "objc2-io-kit",
+ "revault_archive_v4_reader",
  "secret-service",
  "serde",
  "serde_json",
