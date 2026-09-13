@@ -64,6 +64,8 @@ impl Default for OpenFileOptions {
 
 /// Seekable read handle over a file inside a lockbox.
 pub struct LockboxFileReader<'a, State = Writable> {
+    #[cfg(test)]
+    native: Option<super::native_file_reader::NativeFileReader<'a>>,
     lockbox: &'a Lockbox<State>,
     path: LockboxPath,
     position: u64,
@@ -159,6 +161,8 @@ impl Lockbox<Writable> {
 impl<'a, State> LockboxFileReader<'a, State> {
     pub(super) fn new(lockbox: &'a Lockbox<State>, path: LockboxPath, len: u64) -> Self {
         Self {
+            #[cfg(test)]
+            native: None,
             lockbox,
             path,
             position: 0,
@@ -181,6 +185,29 @@ impl<'a, State> LockboxFileReader<'a, State> {
     fn read_internal(&mut self, buf: &mut [u8]) -> Result<usize> {
         if buf.is_empty() || self.position >= self.len {
             return Ok(0);
+        }
+        #[cfg(test)]
+        {
+            if self
+                .native
+                .as_ref()
+                .is_none_or(|reader| !reader.contains(self.position))
+            {
+                self.native = super::native_file_reader::NativeFileReader::open(
+                    self.lockbox,
+                    &self.path,
+                    self.position,
+                )?;
+                if self.native.is_some() {
+                    self.cache_page_index = None;
+                    self.cache_page = ReaderPage::Owned(ZeroizingBytes::new(Vec::new()));
+                }
+            }
+            if let Some(reader) = &mut self.native {
+                let count = reader.read(self.position, buf)?;
+                self.position += count as u64;
+                return Ok(count);
+            }
         }
         let mut total = 0usize;
         while total < buf.len() && self.position < self.len {

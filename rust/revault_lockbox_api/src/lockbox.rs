@@ -46,7 +46,7 @@ type CommitAuthChainResult = (u64, [u8; 32], CommitAuth, crate::commit_root::Com
 
 mod accounting;
 #[cfg(test)]
-mod block_frame_tests;
+pub(crate) mod block_frame_tests;
 mod commit;
 mod extraction;
 mod file_handles;
@@ -60,6 +60,8 @@ mod listing;
 mod lockbox_rewrite;
 mod mirrors;
 mod mutation;
+#[cfg(test)]
+mod native_file_reader;
 mod preparation;
 mod recovery;
 mod signed_content;

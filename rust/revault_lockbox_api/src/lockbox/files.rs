@@ -1071,6 +1071,24 @@ impl<State> Lockbox<State> {
         chunk: &FileChunk,
         range: std::ops::Range<u64>,
     ) -> Result<Vec<u8>> {
+        let reader = self.open_native_block_chunk(expected_total_len, chunk)?;
+        let start = chunk
+            .compression_frame_offset
+            .checked_add(range.start)
+            .ok_or(Error::CorruptRecord)?;
+        let end = chunk
+            .compression_frame_offset
+            .checked_add(range.end)
+            .ok_or(Error::CorruptRecord)?;
+        reader.read(start..end)
+    }
+
+    #[cfg(test)]
+    pub(super) fn open_native_block_chunk(
+        &self,
+        expected_total_len: u64,
+        chunk: &FileChunk,
+    ) -> Result<crate::file_format::indexed_frame::block_page::Reader<'_>> {
         use crate::file_format::indexed_frame::block_page::{PageIdentity, Reader};
         let reference = chunk.block_frame.as_ref().ok_or(Error::CorruptRecord)?;
         let descriptor = &reference.descriptor;
@@ -1104,14 +1122,6 @@ impl<State> Lockbox<State> {
             sequence: reference.sequence,
         };
         let page_len = usize::try_from(segment.page_len).map_err(|_| Error::CorruptRecord)?;
-        let start = chunk
-            .compression_frame_offset
-            .checked_add(range.start)
-            .ok_or(Error::CorruptRecord)?;
-        let end = chunk
-            .compression_frame_offset
-            .checked_add(range.end)
-            .ok_or(Error::CorruptRecord)?;
         self.key.with_bytes(|key| {
             let reader = Reader::open(
                 &self.storage,
@@ -1122,7 +1132,7 @@ impl<State> Lockbox<State> {
                 key,
             )?;
             reader.validate_slice(chunk, expected_total_len)?;
-            reader.read(start..end)
+            Ok(reader)
         })?
     }
 

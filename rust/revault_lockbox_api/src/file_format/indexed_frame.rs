@@ -15,7 +15,7 @@ use std::ops::Range;
 #[path = "block_page.rs"]
 pub(crate) mod block_page;
 
-const BLOCK_BYTES: usize = 16 * 1024;
+pub(crate) const BLOCK_BYTES: usize = 16 * 1024;
 const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
 const DIGEST_BYTES: usize = 32;
 

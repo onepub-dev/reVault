@@ -298,6 +298,11 @@ impl<'a> Reader<'a> {
     }
 
     pub(crate) fn read(&self, range: std::ops::Range<u64>) -> Result<Vec<u8>> {
+        self.ensure_current()?;
+        self.frame.read(range)
+    }
+
+    pub(crate) fn ensure_current(&self) -> Result<()> {
         self.frame.storage.ensure_current()?;
         let len = self.frame.storage.len()?;
         if self
@@ -307,7 +312,7 @@ impl<'a> Reader<'a> {
         {
             return Err(Error::Truncated);
         }
-        self.frame.read(range)
+        Ok(())
     }
 }
 

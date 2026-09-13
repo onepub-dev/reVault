@@ -11,7 +11,12 @@ use crate::{
 use std::io::{Read, Seek, SeekFrom};
 use std::sync::Arc;
 
-fn install(archive: &mut Lockbox, input: &[u8]) -> Vec<LockboxPath> {
+#[cfg(feature = "external-source")]
+pub(crate) fn replace_storage(archive: &mut Lockbox, storage: StorageBackend) {
+    archive.storage = storage;
+}
+
+pub(crate) fn install(archive: &mut Lockbox, input: &[u8]) -> Vec<LockboxPath> {
     let identity = PageIdentity {
         archive: archive.lockbox_id,
         mode: archive.format_mode,
@@ -237,6 +242,66 @@ fn native_block_public_read_paths_and_signed_digest_validate_all_modes() {
                     }
                     assert!(archive.get_file(&paths[1]).is_err());
                     assert!(archive.signed_content_digest().is_err());
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn native_file_handle_cached_bytes_reject_file_truncation() {
+    let signer = OwnerSigningKeyPair::generate().unwrap();
+    let input = vec![37; 65539];
+    for encrypted in [false, true] {
+        for signed in [false, true] {
+            for compression in [Compression::None, Compression::default()] {
+                for size_padding in [SizePadding::Default, SizePadding::None] {
+                    let mut archive =
+                        Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                            compression,
+                            size_padding,
+                            ..LockboxCreateOptions::new(
+                                if encrypted {
+                                    Encryption::Encrypted(LockboxProtection::ContentKey(
+                                        SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                    ))
+                                } else {
+                                    Encryption::None
+                                },
+                                if signed {
+                                    Signing::Owner(&signer)
+                                } else {
+                                    Signing::None
+                                },
+                            )
+                        })
+                        .unwrap();
+                    archive.commit().unwrap();
+                    let paths = install(&mut archive, &input);
+                    let path = std::env::temp_dir().join(format!(
+                        "revault-native-handle-{}-{}.lbox",
+                        std::process::id(),
+                        archive.lockbox_id
+                    ));
+                    archive.storage =
+                        StorageBackend::create_file(&path, &archive.to_bytes()).unwrap();
+                    let mut reader = archive.open_file(&paths[1]).unwrap();
+                    let mut bytes = [0; 13];
+                    reader.read_exact(&mut bytes).unwrap();
+                    assert_eq!(bytes, [37; 13]);
+                    // Adversarial out-of-band truncation has no public CLI setup.
+                    let length = std::fs::metadata(&path).unwrap().len();
+                    std::fs::OpenOptions::new()
+                        .write(true)
+                        .open(&path)
+                        .unwrap()
+                        .set_len(length - 1)
+                        .unwrap();
+                    reader.rewind().unwrap();
+                    assert!(reader.read_exact(&mut bytes).is_err());
+                    drop(reader);
+                    drop(archive);
+                    std::fs::remove_file(path).unwrap();
                 }
             }
         }

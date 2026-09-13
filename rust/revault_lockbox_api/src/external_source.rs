@@ -637,6 +637,148 @@ mod tests {
     use super::*;
 
     #[test]
+    fn native_file_handle_retains_index_and_bounds_raw_reads_without_bypassing_failure_latch() {
+        use crate::{
+            Compression, Encryption, LockboxCreateOptions, LockboxProtection, OwnerSigningKeyPair,
+            Signing, SizePadding,
+        };
+        use std::io::{Read, Seek, SeekFrom};
+        struct Probe {
+            bytes: Vec<u8>,
+            cancelled: Mutex<bool>,
+            reads: Mutex<Vec<(u64, usize)>>,
+        }
+        impl ReadAtSource for Probe {
+            fn len(&self) -> u64 {
+                self.bytes.len() as u64
+            }
+            fn validate(&self) -> Result<(), SourceError> {
+                if *self.cancelled.lock().unwrap() {
+                    Err(SourceError::Cancelled)
+                } else {
+                    Ok(())
+                }
+            }
+            fn read_at(&self, offset: u64, out: &mut [u8]) -> Result<usize, SourceError> {
+                self.reads.lock().unwrap().push((offset, out.len()));
+                out.copy_from_slice(&self.bytes[offset as usize..offset as usize + out.len()]);
+                Ok(out.len())
+            }
+        }
+        let signer = OwnerSigningKeyPair::generate().unwrap();
+        let input = (0..2 * 1024 * 1024 + 13)
+            .map(|n| (n % 251) as u8)
+            .collect::<Vec<_>>();
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compression in [Compression::None, Compression::default()] {
+                    for size_padding in [SizePadding::Default, SizePadding::None] {
+                        let mut archive =
+                            Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                                compression,
+                                size_padding,
+                                ..LockboxCreateOptions::new(
+                                    if encrypted {
+                                        Encryption::Encrypted(LockboxProtection::ContentKey(
+                                            SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                        ))
+                                    } else {
+                                        Encryption::None
+                                    },
+                                    if signed {
+                                        Signing::Owner(&signer)
+                                    } else {
+                                        Signing::None
+                                    },
+                                )
+                            })
+                            .unwrap();
+                        archive.commit().unwrap();
+                        // Unit-level injection: there is not yet a public writer for
+                        // native block pages. Test the real public Read/Seek handle.
+                        let paths =
+                            crate::lockbox::block_frame_tests::install(&mut archive, &input);
+                        let expected = &input[input.len() / 2..];
+                        let source = Arc::new(Probe {
+                            bytes: archive.to_bytes(),
+                            cancelled: Mutex::new(false),
+                            reads: Mutex::new(Vec::new()),
+                        });
+                        let session =
+                            ExternalReader::new(source.clone(), ExternalReaderOptions::default())
+                                .unwrap();
+                        crate::lockbox::block_frame_tests::replace_storage(
+                            &mut archive,
+                            StorageBackend::External(session.storage.clone()),
+                        );
+                        let mut reader = archive.open_file(&paths[1]).unwrap();
+                        reader.seek(SeekFrom::Start(7)).unwrap();
+                        let mut small = [0; 13];
+                        reader.read_exact(&mut small).unwrap();
+                        assert_eq!(small, expected[7..20]);
+                        let initial = source.reads.lock().unwrap().clone();
+                        assert_eq!(initial.len(), 4, "header, metadata, index, data");
+                        if compression == Compression::None {
+                            assert_eq!(initial[3].1, 16384 + if encrypted { 16 } else { 0 });
+                        }
+                        // A repeated read within the window needs no metadata,
+                        // index, or data fetch, in either codec mode.
+                        reader.seek(SeekFrom::Start(7)).unwrap();
+                        reader.read_exact(&mut small).unwrap();
+                        assert_eq!(small, expected[7..20]);
+                        assert_eq!(*source.reads.lock().unwrap(), initial);
+                        reader.seek(SeekFrom::Start(32770)).unwrap();
+                        reader.read_exact(&mut small).unwrap();
+                        assert_eq!(small, expected[32770..32783]);
+                        assert_eq!(
+                            source.reads.lock().unwrap().len(),
+                            initial.len() + usize::from(compression == Compression::None)
+                        );
+                        // Sequential consumption reuses the index and preserves bytes
+                        // across windows and the unaligned packed-file boundary.
+                        reader.rewind().unwrap();
+                        let mut actual = Vec::new();
+                        let mut buffer = [0; 65536];
+                        loop {
+                            let count = reader.read(&mut buffer).unwrap();
+                            if count == 0 {
+                                break;
+                            }
+                            actual.extend_from_slice(&buffer[..count]);
+                        }
+                        assert_eq!(actual, expected);
+                        assert!(
+                            source.reads.lock().unwrap()[4..]
+                                .iter()
+                                .all(|(offset, _)| *offset >= initial[3].0),
+                            "sequential reads must not reload metadata or the index"
+                        );
+                        if compression != Compression::None {
+                            assert_eq!(
+                                source.reads.lock().unwrap().len(),
+                                4,
+                                "decode once per retained chunk"
+                            );
+                        }
+                        reader.seek(SeekFrom::End(-13)).unwrap();
+                        reader.read_exact(&mut small).unwrap();
+                        let count = source.reads.lock().unwrap().len();
+                        *source.cancelled.lock().unwrap() = true;
+                        reader.seek(SeekFrom::End(-13)).unwrap();
+                        assert!(reader.read_exact(&mut small).is_err());
+                        *source.cancelled.lock().unwrap() = false;
+                        assert!(
+                            reader.read_exact(&mut small).is_err(),
+                            "cache cannot clear terminal failure"
+                        );
+                        assert_eq!(source.reads.lock().unwrap().len(), count);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
     fn native_block_reader_preserves_external_failure_latching_in_every_mode() {
         use crate::file_format::indexed_frame::{encode_block_frame, BlockFrameReader};
         use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
