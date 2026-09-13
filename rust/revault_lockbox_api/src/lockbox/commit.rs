@@ -1312,7 +1312,9 @@ mod tests {
     fn reopened_transaction_state(bytes: Vec<u8>) -> ReopenedTransactionState {
         match Lockbox::open_bytes_with_key(bytes, "secret") {
             Ok(opened) => {
+                assert_eq!(opened.get_file(&p("/docs/keep.txt")).unwrap(), b"keep");
                 if opened.get_file(&p("/docs/new.txt")).is_ok() {
+                    assert_eq!(opened.get_file(&p("/docs/new.txt")).unwrap(), b"new");
                     assert!(matches!(
                         opened.get_file(&p("/docs/remove.txt")),
                         Err(Error::NotFound(_))
@@ -1351,20 +1353,61 @@ mod tests {
         recovering.to_bytes()
     }
 
-    fn redaction_transaction() -> Lockbox {
+    fn redaction_transaction_base(mode: crate::creation_options::FormatMode) -> Lockbox {
         let mut lb = Lockbox::create("secret");
+        // Unit-only mode selection keeps one known raw recovery key across all
+        // modes. Public creation/persistence is covered by native_layout.rs.
+        lb.set_creation_format(mode);
         add_file(&mut lb, &p("/docs/remove.txt"), b"remove me", false).unwrap();
         add_file(&mut lb, &p("/docs/keep.txt"), b"keep", false).unwrap();
         lb.commit().unwrap();
-        lb.delete(&p("/docs/remove.txt")).unwrap();
-        add_file(&mut lb, &p("/docs/new.txt"), b"new", false).unwrap();
         lb
+    }
+
+    fn stage_redaction_transaction(lb: &mut Lockbox) -> Result<()> {
+        lb.delete(&p("/docs/remove.txt"))?;
+        add_file(lb, &p("/docs/new.txt"), b"new", false)
+    }
+
+    fn retry_redaction_transaction(lb: &mut Lockbox, staged: bool) {
+        if !staged {
+            lb.abort().unwrap();
+            stage_redaction_transaction(lb).unwrap();
+        }
+        lb.commit().unwrap();
+        assert_eq!(
+            reopened_transaction_state(lb.to_bytes()),
+            ReopenedTransactionState::PublishedCommit
+        );
     }
 
     #[test]
     fn every_storage_failure_yields_previous_published_or_recoverable_state() {
-        let mut successful = redaction_transaction();
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for signing in [SigningMode::None, SigningMode::Owner] {
+                for compression in [Compression::None, Compression::default()] {
+                    for size_padding in [SizePadding::Default, SizePadding::None] {
+                        let mode = crate::creation_options::FormatMode::new(LockboxFormatOptions {
+                            encryption,
+                            signing,
+                            compression,
+                            size_padding,
+                        });
+                        assert_every_storage_failure(mode);
+                    }
+                }
+            }
+        }
+    }
+
+    fn assert_every_storage_failure(mode: crate::creation_options::FormatMode) {
+        let mut successful = redaction_transaction_base(mode);
         successful.storage.reset_memory_operation_count();
+        // Native packed-page deletion can publish preparation and write the
+        // survivor before commit. Inject across the entire mutation lifecycle,
+        // not only commit. There is no public API for storage fault injection.
+        stage_redaction_transaction(&mut successful).unwrap();
         successful.commit().unwrap();
         let operation_count = successful.storage.memory_operation_count();
         assert!(
@@ -1378,28 +1421,28 @@ mod tests {
         let mut saw_published = false;
 
         for failure_after in 0..operation_count {
-            let mut lb = redaction_transaction();
+            let mut lb = redaction_transaction_base(mode);
             lb.storage
                 .fail_memory_operation_after_successes(failure_after);
+            let mutation = stage_redaction_transaction(&mut lb);
+            let staged = mutation.is_ok();
             assert!(
-                lb.commit().is_err(),
+                mutation.and_then(|_| lb.commit()).is_err(),
                 "operation {failure_after} did not fail"
             );
             let bytes = lb.to_bytes();
 
             match reopened_transaction_state(bytes.clone()) {
                 ReopenedTransactionState::PreviousCommit => {
-                    assert_eq!(lb.get_file(&p("/docs/new.txt")).unwrap(), b"new");
+                    if staged {
+                        assert_eq!(lb.get_file(&p("/docs/new.txt")).unwrap(), b"new");
+                    }
                     if lb.poisoned.is_some() {
                         saw_previous_poisoned = true;
                         assert!(lb.commit().is_err(), "poisoned handle allowed a retry");
                     } else {
                         saw_previous_retryable = true;
-                        lb.commit().unwrap();
-                        assert_eq!(
-                            reopened_transaction_state(lb.to_bytes()),
-                            ReopenedTransactionState::PublishedCommit
-                        );
+                        retry_redaction_transaction(&mut lb, staged);
                     }
                 }
                 ReopenedTransactionState::RecoveryRequired => {
@@ -1416,11 +1459,7 @@ mod tests {
                     );
                     if header.preparing && lb.poisoned.is_none() {
                         saw_previous_retryable = true;
-                        lb.commit().unwrap();
-                        assert_eq!(
-                            reopened_transaction_state(lb.to_bytes()),
-                            ReopenedTransactionState::PublishedCommit
-                        );
+                        retry_redaction_transaction(&mut lb, staged);
                     }
                     assert_eq!(recover_memory_transaction(recovered.clone()), recovered);
                 }
@@ -1440,6 +1479,10 @@ mod tests {
         assert!(
             saw_published,
             "no ambiguous final publication was exercised"
+        );
+        eprintln!(
+            "fault sweep mode={} boundaries={operation_count}: all publication states covered",
+            mode.0
         );
     }
 

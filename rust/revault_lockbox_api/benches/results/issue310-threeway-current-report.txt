@@ -1,0 +1,138 @@
+Issue #310: ZIP / existing-format / experimental-layout read comparison
+======================================================================
+Source: 6ed6cf08dbe5da217c34bb0677b3c969d5ef35ed
+The only pre-existing uncommitted change was the cfg(test) fault-sweep expansion
+in lockbox/commit.rs. It is excluded from both normal benchmark library builds.
+Existing: current performance branch WITHOUT native-block-layout.
+Experimental: same branch WITH native-block-layout.
+Neither column is an old main-branch or historical dual-encoder executable.
+
+Compiler: rustc 1.88.0 (6b00bc388 2025-06-23), optimized bench profile.
+Machine: Linux x86_64, Ryzen 7 3700X; CPU affinity 2.
+Existing executable SHA256:
+37954a2c155027224232f9c93a7ff4b58f2beca088f1e3fef4b259d926e5c3a4
+Experimental executable SHA256:
+0f857f477218895606a996a4736be82d4c195d229cad66efa904f0582fdc9d71
+
+Method
+------
+Five scenarios; each runs existing/experimental/experimental/existing (ABBA).
+Each process uses nine samples per access/profile/compression case, reporting
+its median. Both readers reopen a fresh file-backed handle for every sample.
+OS filesystem caches remain warm; this is not cold-disk or warm-handle testing.
+Total time includes open, reading, exact byte comparisons and handle disposal.
+Fixture creation/encoding is outside the timer. Every returned byte is checked.
+No thread-owned build or test ran concurrently with benchmark timing.
+Background CPU frequency/load is not controlled; no confidence intervals.
+
+Unsigned/unencrypted lockboxes, DEFAULT privacy size padding.
+Raw: ZIP Stored versus Compression::None.
+Compression requested: ZIP's default Rust deflate versus default single-pass
+Zstd in both lockbox variants. On random data the lockbox can fall back to raw;
+ZIP remains deflated. Do not interpret that row as equal codec work.
+No second full-frame compression pass or local Zstd dependency override.
+
+Scenarios: 512 x 4 KiB pattern, 4 x 1 MiB pattern, 4 x 8 MiB pattern,
+4 x 64 MiB pattern, and 4 x 8 MiB deterministic high-entropy input.
+stream: sequential full content; random: shuffled whole-file opens/reads.
+range: three 8 KiB ranges per file (middle/frame boundary, tail, beginning).
+ZIP Stored seeks directly; deflated ZIP decodes a prefix. Partial ZIP reads do
+not check full-file CRC, whereas lockbox verifies backing blocks/pages.
+Both full-read paths reach EOF and verify content.
+Interactive and ReadMostly profiles are both included.
+
+All 20 processes exited successfully: 224 result rows, nine samples each for
+ZIP and the selected lockbox. 4,032 timed operations with byte assertions.
+Raw CSV stores each process median. Summary uses median of run medians:
+two runs per lockbox, four paired ZIP runs. For two values this is their mean.
+Ratio columns use each process's paired ZIP ratio, so they need not equal the
+displayed duration divided by the pooled ZIP duration. Min/max columns expose
+run-to-run spread, not individual-sample distributions.
+
+Results: Interactive total milliseconds (lower is better)
+---------------------------------------------------------
+scenario      compressed access       ZIP    Existing Experimental
+small-pattern false      stream       6.503       3.784       18.690
+small-pattern false      random       6.644       3.711       18.925
+small-pattern true       stream       6.972       3.255       20.548
+small-pattern true       random       7.128       3.505       20.681
+1m-pattern    false      stream       0.963       8.605        2.819
+1m-pattern    false      random       0.966       8.659        3.817
+1m-pattern    false      range        0.104       8.352        0.534
+1m-pattern    true       stream       0.881       1.688        5.243
+1m-pattern    true       random       0.908       1.788        5.606
+1m-pattern    true       range        1.294       1.628        5.096
+8m-pattern    false      stream       8.525      48.796       22.042
+8m-pattern    false      random       8.431      48.631       28.581
+8m-pattern    false      range        0.105      46.485        0.964
+8m-pattern    true       stream       7.364      11.567       12.083
+8m-pattern    true       random       7.428      12.310       15.561
+8m-pattern    true       range        9.585      10.308       10.625
+64m-pattern   false      stream      76.074     398.383      178.067
+64m-pattern   false      random      87.811     389.538      248.414
+64m-pattern   false      range        0.119      65.164        1.050
+64m-pattern   true       stream      59.034      99.507      320.907
+64m-pattern   true       random      59.253     105.302      351.026
+64m-pattern   true       range       77.514      15.841       43.526
+8m-random     false      stream       8.639      49.480       22.767
+8m-random     false      random       9.044      49.463       29.565
+8m-random     false      range        0.114      47.931        0.953
+8m-random     true       stream      18.346      45.290       22.931
+8m-random     true       random      18.083      43.438       30.014
+8m-random     true       range       24.970      41.793        1.003
+
+Interpretation
+--------------
+1. Existing-format small-file reads beat ZIP in both raw and compressed cases.
+   The experiment regresses these cases by roughly 5-6x against existing.
+2. Native large raw streaming/shuffled reads improve materially over existing,
+   but still miss ZIP. Native raw partial reads improve by roughly 16-62x over
+   existing in these fixtures; ZIP direct seeks remain faster.
+3. Compressed 8 MiB Interactive streaming is similar/slightly slower in the
+   experiment (12.083 vs 11.567 ms); shuffled reads regress (15.561 vs 12.310).
+   ReadMostly can favor the experiment here; consult the separate profile rows.
+4. Compressed 1 MiB and 64 MiB full reads regress markedly with the experiment.
+   At 64 MiB streaming: 320.907 vs 99.507 ms existing and 59.034 ms ZIP.
+   The cause has NOT been diagnosed by this benchmark. Do not generalize the
+   earlier 8 MiB result to all compressed sizes.
+5. Default small-file open time also regresses in this experiment:
+   raw streaming-run open 0.562 -> 0.679 ms; compressed 0.689 -> 0.935 ms.
+   This is not a formal paired load gate, but contradicts treating load-time
+   acceptability as established. No approval to accept that regression.
+6. Experimental small archives are larger: raw 2,995,584 vs 2,477,440 bytes,
+   compressed 836,992 vs 531,840. ZIP sizes are 2,151,446 and 237,078 bytes.
+   Default padding and all metadata are included; this does not compare
+   opt-out padding or isolated compressed payload size.
+7. This is a trade-off, not broad parity and not an acceptable default switch.
+   Preserve existing-format wins while investigating experimental regressions.
+   Encryption/signing, cold storage, realistic corpora and write throughput
+   are not established by these measurements.
+
+Variation
+---------
+64 MiB raw ZIP streaming varies 66.339-86.201 ms across process medians.
+64 MiB compressed Interactive ranges vary: existing 12.529-19.152 ms,
+experimental 39.015-48.037 ms, ZIP 73.970-132.085 ms.
+Those range estimates are noisy; do not use a precise ratio as a guarantee.
+Most other Interactive lockbox run medians are within 15% of each other.
+The summary retains min/max for every case. These broad regressions/wins do
+not depend on rounding a near-parity result, but small differences need focused
+paired repeats before accepting an optimization or a <=5% load/write gate.
+
+Reproduction
+------------
+From rust/, build both before running any timing:
+cargo bench -p revault_lockbox_api --bench zip_read --no-run
+cargo bench -p revault_lockbox_api --features native-block-layout --bench zip_read --no-run
+
+Run existing then experimental twice then existing for each scenario:
+env REVAULT_ZIP_READ_CASE=small|large REVAULT_ZIP_READ_MODE=plain
+REVAULT_ZIP_READ_SIZE=4096|1048576|8388608|67108864
+REVAULT_ZIP_READ_CORPUS=pattern|random REVAULT_ZIP_READ_SAMPLES=9
+taskset -c 2 target/release/deps/zip_read-<reported executable hash>
+
+Files
+-----
+issue310-threeway-current-raw.csv: all 224 source result rows with run labels.
+issue310-threeway-current-summary.csv: all 56 case/profile summaries,
+including open times, sizes and run-median ranges.
