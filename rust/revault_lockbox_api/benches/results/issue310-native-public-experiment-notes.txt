@@ -1,0 +1,61 @@
+Public-path native-layout experiment, 2026-09-13
+===============================================
+The non-default native-block-layout Cargo feature enables the common writer,
+TOC decoder/encoder, cached page ownership, native readers, scanner and recovery
+in normal library builds. It selects native frames independently of encryption
+and signing, including public streaming imports, survivor rewrites and compaction.
+Historical mode-zero writes retain their historical writer. Without the feature,
+the existing production output policy is unchanged. No format-version increment.
+
+Public integration tests assert that real writes and compaction emit native
+version-3 pages, then reopen, compare bytes, seek across a block boundary and
+inspect recovery in all sixteen policy combinations. Existing creation, padding,
+locking and public API lifecycle tests also exercise the feature-enabled build.
+
+Integration found and fixed a key-boundary mismatch: public content keys may have
+non-32-byte lengths. The native page adapter uses the existing domain-separated
+page-key derivation for those lengths, retaining existing 32-byte native frame
+keys exactly. The lower-level frame primitive still requires a 32-byte key.
+Encrypted CLI writes and file-locking integration tests reproduce this boundary.
+
+Recovery can infer a header candidate after restoring slot magics in a private
+copy, preserving all original checksums and authentication tags. It never repairs
+source storage or treats magic/checksum validity as owner authorization. Signed
+snapshots still pass normal publication/commit/content authentication. Extra
+header damage, truncation and a repaired-outer-page invalid owner signature remain
+rejected. This supports the existing dual-header-damage public recovery test;
+missing signed TOC data still fails closed when no snapshot can be verified.
+
+Validation before commit-time formatting:
+- Feature-enabled creation/padding/native-layout/public-API/locking tests: 22.
+- Feature-enabled CLI creation lifecycle: two passed across all sixteen modes.
+- Feature-enabled CLI migration tests: eleven passed (historical exporters built).
+- Default feature-enabled-for-test-support library suite: 330 passed, five ignored.
+- Strict Clippy checked both default and native-block-layout library/tests builds.
+
+Initial ZIP measurement (NOT a parity or regression gate):
+  cargo bench -p revault_lockbox_api --features native-block-layout --bench zip_read --no-run
+  REVAULT_ZIP_READ_CASE=large REVAULT_ZIP_READ_MODE=plain
+  REVAULT_ZIP_READ_SIZE=8388608 REVAULT_ZIP_READ_SAMPLES=5
+  taskset -c 2 target/release/deps/zip_read-004b1112dff6bfcf
+rustc 1.88.0 (6b00bc388 2025-06-23), warm OS caches, fresh handles per sample,
+four 8 MiB patterned files, Rust ZIP stored/deflate versus raw/default Zstd,
+five-sample medians and exact byte checks for both readers.
+Executable SHA256:
+a990a286f37801815ad1850b358109a9cb7e23d1590773a434acb78839b05d21
+Built from this checkpoint's initial feature activation, before key-length and
+header-recovery fixes; those fixes do not affect this 32-byte-key plaintext run.
+Raw rows are in issue310-native-public-zip-initial.csv.
+
+ZIP parity is NOT achieved. Native raw streaming takes 2.53-2.66x ZIP and raw
+whole-file random order 4.05-4.25x. Compressed streaming is 1.63-1.64x and compressed
+random order 2.10-2.13x. Range results are 8.99-9.43x raw (about 1 ms total) and
+1.13x compressed. These observations prioritize reducing per-call native index
+and buffer work, not weakening validation. This run is not a paired main-branch
+load or write comparison and provides no approval to accept a >5% regression.
+
+Remaining: optimize and measure all ZIP workloads, run paired write/encryption
+and load gates, wire creation options through bindings, finalize migration and
+release compatibility checks, review the complete feature-enabled unit/fault
+matrix, then decide default activation. Experimental output must not be treated
+as released format compatibility before that work is complete.

@@ -64,7 +64,7 @@ struct CachedPage {
 #[derive(Debug, Clone)]
 enum CachedPagePayload {
     Decoded(Arc<DecodedPage>),
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     Native(Arc<crate::file_format::indexed_frame::block_page::EncodedBlockPage>),
 }
 
@@ -72,7 +72,7 @@ impl CachedPagePayload {
     fn decoded(&self) -> Result<&Arc<DecodedPage>> {
         match self {
             Self::Decoded(page) => Ok(page),
-            #[cfg(test)]
+            #[cfg(any(test, feature = "native-block-layout"))]
             Self::Native(_) => Err(Error::CorruptRecord),
         }
     }
@@ -253,7 +253,7 @@ impl PageCache {
         Ok(())
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     pub(crate) fn stage_native_page(
         &mut self,
         offset: u64,
@@ -445,7 +445,7 @@ impl PageCache {
                     )
                 })?;
                 let encoded: std::borrow::Cow<'_, [u8]> = match &entry.page {
-                    #[cfg(test)]
+                    #[cfg(any(test, feature = "native-block-layout"))]
                     CachedPagePayload::Native(page) => {
                         if page.descriptor().archive != lockbox_id
                             || page.descriptor().mode != self.format_mode

@@ -13,7 +13,7 @@ pub(crate) struct CompressionFrameSegment {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct FileChunk {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     pub(crate) block_frame: Option<Arc<BlockFrameReference>>,
     pub(crate) stored_path: LockboxPath,
     pub(crate) file_offset: u64,
@@ -29,7 +29,7 @@ pub(crate) struct FileChunk {
 
 /// Staged TOC reference for the common block representation. Shared between
 /// slices of one frame; never duplicate its descriptor for each packed file.
-#[cfg(test)]
+#[cfg(any(test, feature = "native-block-layout"))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct BlockFrameReference {
     pub(crate) descriptor: crate::file_format::indexed_frame::BlockFrameDescriptor,

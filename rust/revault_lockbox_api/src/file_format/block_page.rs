@@ -1,6 +1,8 @@
 //! Staged native block page. Metadata is protected separately from data blocks
 //! so a partial read need not decrypt/checksum the complete physical page.
-use super::{encode_block_frame, BlockFrameDescriptor, BlockFrameReader};
+#[cfg(test)]
+use super::encode_block_frame;
+use super::{BlockFrameDescriptor, BlockFrameReader};
 use crate::checked::{read_u16_le, read_u32_le, read_u64_le};
 use crate::compression_frame_manifest::{
     decode_compression_frame_manifest, encode_compression_frame_manifest, CompressionFrameManifest,
@@ -93,6 +95,17 @@ fn metadata_digest(aad: &[u8], body: &[u8]) -> [u8; 32] {
     hash.finalize().into()
 }
 
+// The public content-key API historically accepts arbitrary byte lengths.
+// Preserve native 32-byte frame keys exactly; adapt other lengths through the
+// existing domain-separated page-key derivation before the frame HKDF.
+fn frame_key(key: &[u8]) -> zeroize::Zeroizing<[u8; 32]> {
+    zeroize::Zeroizing::new(
+        key.try_into()
+            .unwrap_or_else(|_| crate::crypto::derive_page_content_key(key)),
+    )
+}
+
+#[cfg(test)]
 pub(crate) fn encode(
     identity: PageIdentity,
     frame_id: u64,
@@ -103,8 +116,13 @@ pub(crate) fn encode(
     if identity.page_id == 0 {
         return Err(Error::CorruptRecord);
     }
-    let (descriptor, packet) =
-        encode_block_frame(identity.archive, frame_id, identity.mode, input, key)?;
+    let (descriptor, packet) = encode_block_frame(
+        identity.archive,
+        frame_id,
+        identity.mode,
+        input,
+        &*frame_key(key),
+    )?;
     encode_packet(identity, descriptor, packet, slices, key)
 }
 
@@ -128,7 +146,7 @@ pub(crate) fn encode_prepared(
         compression,
         logical_len,
         stored,
-        key,
+        &*frame_key(key),
     )?;
     encode_packet(identity, descriptor, packet, slices, key)
 }
@@ -276,7 +294,7 @@ pub(crate) fn scan(
         &storage,
         metadata.packet_offset,
         metadata.packet_len,
-        key,
+        &*frame_key(key),
     )?;
     let _verified = ZeroizingBytes::new(frame.read(0..metadata.descriptor.logical_len)?);
     Ok(ScannedBlockPage {
@@ -539,7 +557,7 @@ impl<'a> Reader<'a> {
             storage,
             metadata.packet_offset,
             metadata.packet_len,
-            key,
+            &*frame_key(key),
         )?;
         Ok(Self {
             frame,

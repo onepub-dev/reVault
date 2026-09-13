@@ -923,7 +923,7 @@ impl<State> Lockbox<State> {
         }) else {
             return Ok(None);
         };
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         if chunk.block_frame.is_some() {
             // This shortcut authenticates a whole-frame hash, not a block index.
             return Ok(None);
@@ -998,7 +998,7 @@ impl<State> Lockbox<State> {
         {
             return Err(Error::CorruptRecord);
         }
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         if chunk.block_frame.is_some() {
             return self.read_native_block_chunk(expected_total_len, chunk, range);
         }
@@ -1064,7 +1064,7 @@ impl<State> Lockbox<State> {
         self.read_checked_frame_slice(chunk, &range, &stored, cache_slices.unwrap_or_default())
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     fn read_native_block_chunk(
         &self,
         expected_total_len: u64,
@@ -1083,7 +1083,7 @@ impl<State> Lockbox<State> {
         reader.read(start..end)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     pub(super) fn open_native_block_chunk(
         &self,
         expected_total_len: u64,
@@ -1863,7 +1863,7 @@ struct PendingSegment {
 pub(super) struct FilePageWriter<'a, State> {
     lockbox: &'a mut Lockbox<State>,
     packer: PageObjectPacker<PendingSegment>,
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     native_blocks: bool,
 }
 
@@ -1883,11 +1883,13 @@ impl Drop for SharedCompressionFrameSurvivor {
 
 impl<'a, State> FilePageWriter<'a, State> {
     pub(super) fn new(lockbox: &'a mut Lockbox<State>) -> Self {
+        #[cfg(any(test, feature = "native-block-layout"))]
+        let native_blocks = cfg!(feature = "native-block-layout") && lockbox.format_mode.0 != 0;
         Self {
             lockbox,
             packer: PageObjectPacker::new(DEFAULT_PAGE_BYTES),
-            #[cfg(test)]
-            native_blocks: false,
+            #[cfg(any(test, feature = "native-block-layout"))]
+            native_blocks,
         }
     }
 
@@ -1942,7 +1944,7 @@ impl<'a, State> FilePageWriter<'a, State> {
         prepared: PreparedCompressionFrame,
         chunks: &mut Vec<FileChunk>,
     ) -> Result<Vec<usize>> {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         if self.native_blocks {
             return self.write_prepared_native_frame(prepared, chunks);
         }
@@ -1961,7 +1963,7 @@ impl<'a, State> FilePageWriter<'a, State> {
         for slice in &manifest.slices {
             let chunk_index = chunks.len();
             chunks.push(FileChunk {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "native-block-layout"))]
                 block_frame: None,
                 stored_path: slice.path.clone(),
                 file_offset: slice.file_offset,
@@ -1997,7 +1999,7 @@ impl<'a, State> FilePageWriter<'a, State> {
         Ok(chunk_indices)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     fn write_prepared_native_frame(
         &mut self,
         prepared: PreparedCompressionFrame,

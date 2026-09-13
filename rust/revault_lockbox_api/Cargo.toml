@@ -23,6 +23,9 @@ bindings = []
 migration = []
 test-support = []
 external-source = []
+# Experimental common native layout for public-path correctness and performance
+# gates. Not a release/default format policy until migration and gates pass.
+native-block-layout = []
 # Compatibility feature name: format-v2 is unconditional in the core.
 issue303-protocol = []
 native-zstd-encoder = ["dep:zstd"]

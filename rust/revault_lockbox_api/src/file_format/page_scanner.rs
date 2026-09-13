@@ -21,7 +21,7 @@ pub(crate) struct PageScanner<'a> {
 impl<'a> PageScanner<'a> {
     pub(crate) fn new(bytes: &'a [u8], lockbox_id: LockboxId, key: &'a [u8]) -> Self {
         Self {
-            format_mode: crate::file_format::current_header::read_header(bytes)
+            format_mode: crate::file_format::current_header::read_header_for_scan(bytes)
                 .map(|header| header.format_mode)
                 .unwrap_or_default(),
             bytes,
@@ -34,7 +34,7 @@ impl<'a> PageScanner<'a> {
         scan_page_records(self.bytes, self.lockbox_id, self.key)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     pub(crate) fn read_native_chunk(
         &self,
         total_len: u64,

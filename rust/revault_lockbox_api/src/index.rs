@@ -29,7 +29,7 @@ pub(crate) fn decode_index_records(record: &DecodedRecord) -> Result<Vec<TocEntr
                         node_kind: NodeKind::File,
                         permissions: slice.permissions,
                         chunks: vec![FileChunk {
-                            #[cfg(test)]
+                            #[cfg(any(test, feature = "native-block-layout"))]
                             block_frame: None,
                             stored_path: path,
                             file_offset: slice.file_offset,

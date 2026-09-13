@@ -285,6 +285,7 @@ fn block_aad(context: &[u8], ordinal: usize) -> Vec<u8> {
 /// Create one common native frame packet. The caller will persist the returned
 /// descriptor in trusted TOC metadata, separately from these untrusted bytes.
 /// Fresh construction on every call prevents nonce reuse across writer retries.
+#[cfg(test)]
 pub(crate) fn encode_block_frame(
     archive: crate::LockboxId,
     frame_id: u64,

@@ -64,7 +64,7 @@ impl Default for OpenFileOptions {
 
 /// Seekable read handle over a file inside a lockbox.
 pub struct LockboxFileReader<'a, State = Writable> {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     native: Option<super::native_file_reader::NativeFileReader<'a>>,
     lockbox: &'a Lockbox<State>,
     path: LockboxPath,
@@ -161,7 +161,7 @@ impl Lockbox<Writable> {
 impl<'a, State> LockboxFileReader<'a, State> {
     pub(super) fn new(lockbox: &'a Lockbox<State>, path: LockboxPath, len: u64) -> Self {
         Self {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "native-block-layout"))]
             native: None,
             lockbox,
             path,
@@ -186,7 +186,7 @@ impl<'a, State> LockboxFileReader<'a, State> {
         if buf.is_empty() || self.position >= self.len {
             return Ok(0);
         }
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         {
             if self
                 .native

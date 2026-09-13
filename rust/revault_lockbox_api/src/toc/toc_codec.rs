@@ -249,7 +249,7 @@ impl<'a> TocDecoder<'a> {
         }
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     pub(crate) fn with_block_frames(mut self) -> Self {
         self.block_format = true;
         self
@@ -350,7 +350,7 @@ impl<'a> TocDecoder<'a> {
                     .get(descriptor_index)
                     .ok_or(Error::CorruptRecord)?;
                 chunks.push(FileChunk {
-                    #[cfg(test)]
+                    #[cfg(any(test, feature = "native-block-layout"))]
                     block_frame: descriptor.block_frame.clone(),
                     stored_path,
                     file_offset,
@@ -462,7 +462,7 @@ fn encoded_path_len(path: &str, previous_path: &str, index: usize) -> usize {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FrameDescriptor {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     block_frame: Option<std::sync::Arc<crate::file_chunk::BlockFrameReference>>,
     compression_frame_id: u64,
     compression: u8,
@@ -475,7 +475,7 @@ struct FrameDescriptor {
 impl FrameDescriptor {
     fn from_chunk(chunk: &FileChunk) -> Self {
         Self {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "native-block-layout"))]
             block_frame: chunk.block_frame.clone(),
             compression_frame_id: chunk.compression_frame_id,
             compression: chunk.compression,
@@ -497,11 +497,11 @@ impl FrameDescriptor {
     }
 
     fn same_block_layout(&self, chunk: &FileChunk) -> bool {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         {
             self.block_frame == chunk.block_frame
         }
-        #[cfg(not(test))]
+        #[cfg(not(any(test, feature = "native-block-layout")))]
         {
             let _ = chunk;
             true
@@ -509,14 +509,14 @@ impl FrameDescriptor {
     }
 
     fn block_extra_len(&self) -> usize {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         {
             self.block_frame.as_ref().map_or(0, |block| {
                 crate::file_format::indexed_frame::BlockFrameDescriptor::ENCODED_LEN
                     + varint_len(block.sequence)
             })
         }
-        #[cfg(not(test))]
+        #[cfg(not(any(test, feature = "native-block-layout")))]
         {
             0
         }
@@ -524,7 +524,7 @@ impl FrameDescriptor {
 }
 
 fn block_markers_len(descriptors: &[FrameDescriptor]) -> usize {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     if descriptors
         .iter()
         .any(|descriptor| descriptor.block_frame.is_some())
@@ -568,7 +568,7 @@ fn encode_frame_descriptor(descriptor: &FrameDescriptor, out: &mut Vec<u8>, bloc
         put_varint(segment.segment_len, out);
     }
     if block_format {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         {
             if let Some(block) = &descriptor.block_frame {
                 out.push(1);
@@ -583,7 +583,7 @@ fn encode_frame_descriptor(descriptor: &FrameDescriptor, out: &mut Vec<u8>, bloc
                 out.push(0);
             }
         }
-        #[cfg(not(test))]
+        #[cfg(not(any(test, feature = "native-block-layout")))]
         unreachable!("block TOC writing is staged until archive integration is complete");
     }
 }
@@ -593,7 +593,7 @@ fn decode_frame_descriptor(
     offset: &mut usize,
     block_format: bool,
 ) -> Result<FrameDescriptor> {
-    #[cfg(not(test))]
+    #[cfg(not(any(test, feature = "native-block-layout")))]
     if block_format {
         return Err(Error::CorruptRecord);
     }
@@ -635,14 +635,14 @@ fn decode_frame_descriptor(
             segment_len,
         });
     }
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     let block_frame = if block_format {
         decode_block_reference(payload, offset)?
     } else {
         None
     };
     let descriptor = FrameDescriptor {
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         block_frame,
         compression_frame_id,
         compression,
@@ -651,12 +651,12 @@ fn decode_frame_descriptor(
         compression_frame_digest,
         segments,
     };
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     validate_block_reference(&descriptor)?;
     Ok(descriptor)
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "native-block-layout"))]
 fn decode_block_reference(
     payload: &[u8],
     offset: &mut usize,
@@ -693,7 +693,7 @@ fn decode_block_reference(
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "native-block-layout"))]
 fn validate_block_reference(frame: &FrameDescriptor) -> Result<()> {
     if let Some(block) = &frame.block_frame {
         let descriptor = &block.descriptor;

@@ -359,10 +359,22 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                         let report =
                             crate::RecoveryScanner::scan_bytes(forged.clone(), &*recovery_key);
                         assert!(report.intact_file_count <= 1);
+                        let salvaged = crate::RecoveryScanner::salvage_bytes(
+                            forged.clone(),
+                            &*recovery_key,
+                            &signer,
+                        )
+                        .unwrap();
+                        assert!(salvaged.get_file(&path).is_err());
+                        forged[0] ^= 0xff;
+                        forged[192] ^= 0xff;
                         let salvaged =
                             crate::RecoveryScanner::salvage_bytes(forged, &*recovery_key, &signer)
                                 .unwrap();
-                        assert!(salvaged.get_file(&path).is_err());
+                        assert!(
+                            salvaged.get_file(&path).is_err(),
+                            "header magic repair cannot authorize a bad signature"
+                        );
                     }
                     let mut writable = Lockbox::open_bytes_for_write(
                         archive.to_bytes(),

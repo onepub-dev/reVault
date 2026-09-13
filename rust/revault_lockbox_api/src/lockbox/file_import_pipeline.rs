@@ -26,7 +26,7 @@ pub(super) struct PreparedCompressionFrame {
     pub(super) prepare_nanos: u128,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "native-block-layout"))]
 impl PreparedCompressionFrame {
     /// Seal the pipeline's already-compressed bytes for the common page layout.
     /// No data decompression or second compression pass is permitted here.
@@ -233,7 +233,7 @@ mod tests {
                 data: &[37; 32768],
             }]);
         assert!(frame.encode_native_page(identity, 31, &[53; 32]).is_ok());
-        assert!(frame.encode_native_page(identity, 31, &[53; 31]).is_err());
+        assert!(frame.encode_native_page(identity, 31, &[53; 31]).is_ok());
         assert!(frame.encode_native_page(identity, 0, &[53; 32]).is_err());
         assert!(frame
             .encode_native_page(

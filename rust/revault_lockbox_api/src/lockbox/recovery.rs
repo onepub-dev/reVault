@@ -118,7 +118,7 @@ impl<'a> RecoverySession<'a> {
     fn report(&self) -> RecoveryReport {
         let mut toc_entries = BTreeMap::new();
         let mut toc_recovered = false;
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         let mut native_toc_available = false;
         let mut metadata = RecoveredMetadata::default();
 
@@ -131,7 +131,7 @@ impl<'a> RecoverySession<'a> {
             {
                 toc_entries = decoded;
                 toc_recovered = public_header_root;
-                #[cfg(test)]
+                #[cfg(any(test, feature = "native-block-layout"))]
                 {
                     native_toc_available = true;
                 }
@@ -153,13 +153,13 @@ impl<'a> RecoverySession<'a> {
                 }
             }
         }
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         if !native_toc_available {
             attach_native_manifest_entries(&mut toc_entries, &scan.native_pages);
         }
         attach_scanned_file_segments(&mut toc_entries, &scanned_segments);
 
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         let native_signed_snapshot = self.native_signed_snapshot(&toc_entries);
 
         let mut intact_files = Vec::new();
@@ -167,11 +167,11 @@ impl<'a> RecoverySession<'a> {
         let mut partial_files = 0;
         for entry in toc_entries.values().filter(|entry| !entry.deleted) {
             let native_authorized = {
-                #[cfg(test)]
+                #[cfg(any(test, feature = "native-block-layout"))]
                 {
                     self.native_entry_authorized(entry, native_signed_snapshot.as_ref())
                 }
-                #[cfg(not(test))]
+                #[cfg(not(any(test, feature = "native-block-layout")))]
                 {
                     true
                 }
@@ -238,7 +238,7 @@ impl<'a> RecoverySession<'a> {
                 }
             }
         }
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         if let Some(entries) =
             header_commit_root_for_recovery(&self.scanner, self.bytes).and_then(|(root, _)| {
                 decode_toc_btree_from_offset(&self.scanner, root.toc_root_offset, 0).ok()
@@ -253,7 +253,7 @@ impl<'a> RecoverySession<'a> {
             attach_native_manifest_entries(&mut latest_paths, &scan.native_pages);
         }
         attach_scanned_file_segments(&mut latest_paths, &scanned_segments);
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         let native_signed_snapshot = self.native_signed_snapshot(&latest_paths);
 
         for entry in latest_paths
@@ -267,7 +267,7 @@ impl<'a> RecoverySession<'a> {
             .values()
             .filter(|entry| !entry.deleted && entry.node_kind != NodeKind::Directory)
         {
-            #[cfg(test)]
+            #[cfg(any(test, feature = "native-block-layout"))]
             if entry.node_kind == NodeKind::File
                 && entry.chunks.iter().any(|chunk| chunk.block_frame.is_some())
             {
@@ -333,7 +333,7 @@ impl<'a> RecoverySession<'a> {
         Ok(recovered)
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     fn native_signed_snapshot(&self, entries: &BTreeMap<LockboxPath, TocEntry>) -> Option<Lockbox> {
         if !self.scanner.format_mode.signed()
             || !entries
@@ -343,8 +343,13 @@ impl<'a> RecoverySession<'a> {
             return None;
         }
         let key = crate::SecretVec::try_from_slice(self.key).ok()?;
+        let mut snapshot = self.bytes.to_vec();
+        if read_header(&snapshot).is_err() {
+            let repaired = crate::file_format::current_header::recover_header_magic(&snapshot)?;
+            snapshot[..repaired.len()].copy_from_slice(&repaired);
+        }
         Lockbox::open_storage_with_secret_key_mode(
-            crate::storage::StorageBackend::memory(self.bytes.to_vec()),
+            crate::storage::StorageBackend::memory(snapshot),
             key,
             crate::LockboxOptions::default(),
             false,
@@ -352,7 +357,7 @@ impl<'a> RecoverySession<'a> {
         .ok()
     }
 
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-block-layout"))]
     fn native_entry_authorized(&self, entry: &TocEntry, snapshot: Option<&Lockbox>) -> bool {
         !self.scanner.format_mode.signed()
             || !entry.chunks.iter().any(|chunk| chunk.block_frame.is_some())
@@ -623,7 +628,7 @@ fn read_page_file_bytes(
         if chunk.file_offset != out.len() as u64 {
             return Err(Error::CorruptRecord);
         }
-        #[cfg(test)]
+        #[cfg(any(test, feature = "native-block-layout"))]
         if chunk.block_frame.is_some() {
             let decoded = crate::page_buffer::ZeroizingBytes::new(
                 scanner.read_native_chunk(expected_len, &chunk)?,
@@ -766,7 +771,7 @@ fn attach_scanned_file_segments(
         for chunk in &mut entry.chunks {
             // Native references bind one physical page through their descriptor.
             // Legacy scan candidates must never extend that typed reference.
-            #[cfg(test)]
+            #[cfg(any(test, feature = "native-block-layout"))]
             if chunk.block_frame.is_some() {
                 continue;
             }
@@ -798,7 +803,7 @@ fn attach_scanned_file_segments(
 /// Manifest-only reconstruction is a recovery candidate, not evidence of a
 /// committed file or owner authorization. Conflicting versions are omitted
 /// instead of splicing unrelated generations into an apparently intact file.
-#[cfg(test)]
+#[cfg(any(test, feature = "native-block-layout"))]
 fn attach_native_manifest_entries(
     entries: &mut BTreeMap<LockboxPath, TocEntry>,
     pages: &[crate::file_format::indexed_frame::block_page::ScannedBlockPage],

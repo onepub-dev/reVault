@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Add the non-default `native-block-layout` experiment for public-API/CLI and
+  performance testing of one indexed layout across all protection modes. Normal
+  builds retain the existing writer pending migration and performance gates;
+  ZIP parity is not yet achieved. Experimental readers preserve the public
+  content-key length contract and authenticate repaired-header recovery copies.
+
 - Keep page-flush length accounting current when retrying a partially appended
   file page, so the following page is not preceded by an unintended gap.
 

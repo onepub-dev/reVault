@@ -60,7 +60,7 @@ mod listing;
 mod lockbox_rewrite;
 mod mirrors;
 mod mutation;
-#[cfg(test)]
+#[cfg(any(test, feature = "native-block-layout"))]
 mod native_file_reader;
 mod preparation;
 mod recovery;
