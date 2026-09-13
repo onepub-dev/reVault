@@ -71,6 +71,11 @@ harness = false
 test = false
 
 [[bench]]
+name = "protection_gate"
+harness = false
+test = false
+
+[[bench]]
 name = "pgp_compare"
 harness = false
 test = false

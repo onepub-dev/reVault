@@ -1,0 +1,60 @@
+Issue #310 protected-mode performance gate: NOT YET PASSED
+
+Main baseline: 0f9a137. Candidate: bfbbf36 (same production read/write code as
+f9fbb5b; subsequent staged block-index/migration code is not on the data path).
+Both native v4; excludes the abandoned v5 edits. Identical protection_gate.rs
+harness built optimized in separate pinned persistent worktrees. Linux host,
+CPUs 0-7, warm OS page cache, fresh handles, synthetic content key (no password
+KDF), generated owner key outside timing. Every byte compared; caller output
+wiping and handle teardown included. No concurrent builds/tests during timing.
+Streaming uses the public seekable file reader; whole/range use read_file_range.
+The stream_content callback API and different runtime cache profiles remain to
+be checked; this is not exhaustive API/workload coverage.
+
+One 8 MiB file, all combinations of plaintext/encrypted, unsigned/signed,
+Compression::None/default Zstd. Two corpora: repetitive pattern and deterministic
+high entropy. Write timing includes create/add/commit/drop, with separate
+persisted byte verification outside the timer. Three write samples; eleven read
+samples, twenty-one for the random-data repeat. Mode/access order shuffled.
+Read both revisions on exactly the same main-written fixtures, then on exactly
+the same candidate-written pattern fixtures. This separates reader performance
+from changes in newly encoded data. Input archives are never rewritten by reads.
+
+Initial pattern run, same main-written bytes:
+  - Compressed stream read time improved ~32-37% across protection modes.
+  - Encrypted raw reads improved ~5-18% depending on operation.
+  - Raw plaintext stream/range appeared ~9-10% slower; that difference did not
+    reproduce on candidate-written raw fixtures or later random-data runs.
+  - Compressed writes increased ~7-14%, while archive sizes decreased ~12%
+    (312704 to 273792 unsigned; 322944 to 284032 signed). This includes fixed
+    metadata, so it is not the compression ratio of just the file data.
+
+High-entropy run, same main-written bytes:
+  - Encrypted reads improved ~5-16%; whole reads generally improved.
+  - One signed/plaintext range-case open median was ~15% slower, but was flat
+    in the 21-sample reversed-order repeat. Other open differences changed
+    direction, indicating run-order/host variability is material.
+  - High-entropy writes varied -15% to +10% with unchanged archive sizes.
+
+Interleaved follow-up: eleven main/branch process pairs, alternating which goes
+first, each doing one shuffled sample of all cases on identical random fixtures.
+  - Most protected/whole reads still improved.
+  - Raw unsigned encrypted streaming was ~16% slower in this layout, unlike
+    the earlier runs. Plain raw stream was ~8% slower. Must investigate rather
+    than selecting only favorable runs.
+  - Signed opens within ~0-4%; isolated short unsigned opens varied by >5%.
+  - Per-process sample uses the same deterministic case order (sample zero),
+    so allocator/cache predecessor effects remain a possible contributor.
+
+Evidence filenames: issue310-protection-*.csv. main/branch identifies the reader
+or writer named in the suffix; reads-main/reads-branch identifies fixture writer.
+random-* uses high-entropy data; other original runs use the repeating pattern.
+interleaved-* records the paired process measurements. Sample IDs in those CSVs
+restart at zero for each process. Earlier 21-sample repeat output remains under
+/tmp/protection-repeat-{main,branch}-reads-main.csv, not primary evidence.
+
+Next: isolate the encrypted stream/open outliers with balanced process/case
+ordering and profiling; address or explicitly agree the compressed-write cost;
+repeat larger files, small archives and public streaming APIs before accepting
+the <=5% repeatable load/open regression guardrail. Do not claim ZIP parity or
+universal protected-mode speedups from these measurements.

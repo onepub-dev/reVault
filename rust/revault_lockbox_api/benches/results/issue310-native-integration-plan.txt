@@ -1,5 +1,14 @@
 Issue #310 native integration checkpoint (base f9fbb5b)
 
+SUPERSEDING DECISION (2026-09-13): released CLI 0.0.17 writes native v3;
+crates.io latest lockbox API 0.0.36 reports v3; npm API latest is 0.3.15.
+None of 227 discovered home-directory lockboxes had v4/v5 headers. Those
+versions were found only in temporary tests/benchmarks. Keep the new work in
+unreleased native v4 and migration artifact schema 3. The v5 bump and frozen
+v4-to-v5 exporter were backed out. The historical plan below is retained for
+context, but its proposed new version/frozen-v4 migration is superseded.
+The protected-mode regression gate now precedes further format integration.
+
 The existing native format is v4, including dual publication slots, preparation,
 rollback, cleanup and tail reclamation. Do not replace it with the benchmark's
 standalone RVEXP001 container. Header region is 384 bytes (two 192-byte slots),

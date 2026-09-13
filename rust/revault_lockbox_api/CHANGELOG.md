@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Reduce large-file read copying and secure-buffer wiping overhead, and share
+  verified raw-page data with seekable readers. These reader improvements also
+  apply to existing archives; checksum, encryption and signature checks remain
+  in place.
+- Allow concurrent Unix positional reads on a shared archive handle while
+  retaining exclusive access for writes and truncation.
+- Improve compression selection for repetitive binary data. Large compressible
+  frames can use a smaller Zstd stream, benefiting newly written or recompressed
+  content only. Trying the additional encoder can increase write time; protected
+  read/open and compression-write regression checks are still in progress.
+
 ## 0.0.11 - 2026-09-08
 
 - Give newer lockbox formats direct upgrade guidance instead of suggesting
