@@ -220,6 +220,75 @@ struct Metadata {
     physical_len: usize,
 }
 
+/// A self-consistent scanned page, not proof that its contents were committed
+/// or authorized by the archive owner. Recovery must retain commit validation.
+#[derive(Debug)]
+pub(crate) struct ScannedBlockPage {
+    pub(crate) offset: u64,
+    pub(crate) page_id: u64,
+    pub(crate) sequence: u64,
+    pub(crate) physical_len: usize,
+    pub(crate) descriptor: BlockFrameDescriptor,
+    pub(crate) manifest: CompressionFrameManifest,
+}
+
+pub(crate) fn is_native_header(bytes: &[u8]) -> bool {
+    bytes.get(..8) == Some(PAGE_MAGIC.as_slice())
+        && bytes.get(8..10) == Some(VERSION.to_le_bytes().as_slice())
+}
+
+pub(crate) fn scan(
+    bytes: &[u8],
+    offset: usize,
+    archive: LockboxId,
+    mode: FormatMode,
+    key: &[u8],
+) -> Result<ScannedBlockPage> {
+    let header = bytes
+        .get(
+            offset
+                ..offset
+                    .checked_add(PAGE_HEADER_LEN)
+                    .ok_or(Error::CorruptRecord)?,
+        )
+        .ok_or(Error::Truncated)?;
+    let identity = PageIdentity {
+        archive,
+        mode,
+        page_id: read_u64_le(&header[16..24])?,
+        sequence: read_u64_le(&header[24..32])?,
+    };
+    let physical_len = validate_header(header, identity)?;
+    let page = bytes
+        .get(
+            offset
+                ..offset
+                    .checked_add(physical_len)
+                    .ok_or(Error::CorruptRecord)?,
+        )
+        .ok_or(Error::Truncated)?;
+    // Copy only this bounded page, never the entire archive. All returned
+    // decoded bytes are wiped immediately after eager full-frame validation.
+    let storage = StorageBackend::memory(page.to_vec());
+    let metadata = read_metadata(&storage, 0, identity, key)?;
+    let frame = BlockFrameReader::open(
+        &metadata.descriptor,
+        &storage,
+        metadata.packet_offset,
+        metadata.packet_len,
+        key,
+    )?;
+    let _verified = ZeroizingBytes::new(frame.read(0..metadata.descriptor.logical_len)?);
+    Ok(ScannedBlockPage {
+        offset: offset as u64,
+        page_id: identity.page_id,
+        sequence: identity.sequence,
+        physical_len,
+        descriptor: metadata.descriptor,
+        manifest: metadata.manifest,
+    })
+}
+
 /// Recovery may inspect this metadata before a TOC exists, but must validate
 /// all content/commit requirements before reporting a recoverable frame.
 fn read_metadata(
@@ -231,24 +300,7 @@ fn read_metadata(
     storage.ensure_current()?;
     let mut header = [0; PAGE_HEADER_LEN];
     storage.read_at_into(offset, &mut header)?;
-    let physical_len = physical_page_size_from_page_slice(&header)?;
-    let flags = read_u16_le(&header[10..12])?;
-    let expected_flags = if identity.mode.plaintext() { CLEAR } else { 0 }
-        | if identity.mode.unpadded() {
-            UNPADDED
-        } else {
-            0
-        };
-    if read_u16_le(&header[8..10])? != VERSION
-        || flags != expected_flags
-        || read_u32_le(&header[12..16])? as usize != PAGE_HEADER_LEN
-        || read_u64_le(&header[16..24])? != identity.page_id
-        || identity.page_id == 0
-        || read_u64_le(&header[24..32])? != identity.sequence
-        || header[64..] != strong_checksum(&header[..64])
-    {
-        return Err(Error::CorruptRecord);
-    }
+    let physical_len = validate_header(&header, identity)?;
     let storage_len = storage.len()?;
     if offset
         .checked_add(physical_len as u64)
@@ -323,6 +375,30 @@ fn read_metadata(
         packet_len: body_len - metadata_len,
         physical_len,
     })
+}
+
+fn validate_header(header: &[u8], identity: PageIdentity) -> Result<usize> {
+    let physical_len = physical_page_size_from_page_slice(header)?;
+    FormatMode::parse(identity.mode.0)?;
+    let expected_flags = if identity.mode.plaintext() { CLEAR } else { 0 }
+        | if identity.mode.unpadded() {
+            UNPADDED
+        } else {
+            0
+        };
+    if identity.mode.0 == 0
+        || header.len() != PAGE_HEADER_LEN
+        || read_u16_le(&header[8..10])? != VERSION
+        || read_u16_le(&header[10..12])? != expected_flags
+        || read_u32_le(&header[12..16])? as usize != PAGE_HEADER_LEN
+        || identity.page_id == 0
+        || read_u64_le(&header[16..24])? != identity.page_id
+        || read_u64_le(&header[24..32])? != identity.sequence
+        || header[64..] != strong_checksum(&header[..64])
+    {
+        return Err(Error::CorruptRecord);
+    }
+    Ok(physical_len)
 }
 
 pub(crate) struct Reader<'a> {
@@ -404,6 +480,79 @@ mod tests {
     use crate::{
         Compression, EncryptionMode, LockboxFormatOptions, LockboxPath, SigningMode, SizePadding,
     };
+
+    #[test]
+    fn native_scanning_skips_embedded_legacy_records_and_keeps_following_pages() {
+        use crate::page::{PageObject, PageObjectKind};
+        use crate::{Encryption, Lockbox, LockboxCreateOptions, Signing};
+        for size_padding in [SizePadding::Default, SizePadding::None] {
+            let archive = Lockbox::create_in_memory_with_options(LockboxCreateOptions {
+                compression: Compression::None,
+                size_padding,
+                ..LockboxCreateOptions::new(Encryption::None, Signing::None)
+            })
+            .unwrap();
+            let mut bytes = archive.to_bytes();
+            let header = crate::file_format::read_header(&bytes).unwrap();
+            let object = PageObject::new(PageObjectKind::FileData, 777, vec![1, 2, 3]);
+            let objects = vec![object];
+            let page_len = crate::page::page_size_for_encoded_objects_with_format(
+                &objects,
+                header.format_mode,
+            )
+            .unwrap();
+            let embedded = crate::page::encode_page_with_format(
+                page_len,
+                header.lockbox_id,
+                778,
+                779,
+                &[0; 32],
+                &objects,
+                header.format_mode,
+            )
+            .unwrap();
+            let identity = PageIdentity {
+                archive: header.lockbox_id,
+                mode: header.format_mode,
+                page_id: 900,
+                sequence: 901,
+            };
+            let (_, native) = encode(
+                identity,
+                899,
+                &embedded,
+                vec![CompressionFrameSlice {
+                    path: LockboxPath::new("/contains-page-magic").unwrap(),
+                    permissions: 0o640,
+                    total_len: embedded.len() as u64,
+                    file_offset: 0,
+                    compression_frame_offset: 0,
+                    len: embedded.len() as u64,
+                }],
+                &[0; 32],
+            )
+            .unwrap();
+            let offset = bytes.len();
+            bytes.extend_from_slice(&native);
+            let following = bytes.len();
+            bytes.extend_from_slice(&embedded);
+            let scan = crate::page::scan_page_records(&bytes, header.lockbox_id, &[0; 32]);
+            assert_eq!(scan.corrupt_records, 0);
+            assert_eq!(scan.native_pages.len(), 1);
+            assert_eq!(scan.native_pages[0].offset, offset as u64);
+            let records = scan
+                .records
+                .iter()
+                .filter(|record| record.object_id == 777)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                records.len(),
+                1,
+                "native content must not produce phantom legacy records"
+            );
+            assert_eq!(records[0].offset, following as u64);
+        }
+    }
 
     fn identity(encrypted: bool, signed: bool, compressed: bool, unpadded: bool) -> PageIdentity {
         PageIdentity {

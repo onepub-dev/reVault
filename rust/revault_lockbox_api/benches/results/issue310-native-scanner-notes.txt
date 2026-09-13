@@ -1,0 +1,44 @@
+Typed, eagerly validated native page scanning, 2026-09-13
+========================================================
+The staged physical scanner recognizes native version-3 block pages explicitly.
+It emits ScannedBlockPage candidates separately from legacy DecodedRecord values,
+preserving descriptor/index commitment, recovery manifest, page/sequence identity,
+offset and physical allocation. Candidates are ordered by sequence like legacy
+records. A block-index commitment is never presented as a whole-frame checksum.
+
+Scanning checks mode, header integrity and bounds before a bounded page copy,
+then validates protected metadata, descriptor/manifest agreement, index integrity,
+every stored data block and decoded logical length. It checks the complete
+physical allocation, including padding, and wipes the decoded frame immediately.
+Shared header validation is also used by normal native page-reader opening.
+Successful scans advance over the whole physical page, not just its used bytes.
+Failures contribute to corrupt-record accounting and permit later resynchronizing.
+
+Real native-writer archives across all 16 policies produce two matching typed
+candidates with no spurious legacy records. Tests check every candidate field,
+manifest mappings, missing final allocation byte, wrong archive/mode and damage
+to the last stored data byte. A damaged frame is not returned merely because
+its metadata and index remain intact. Another test embeds a valid legacy page
+inside plaintext native file content and appends an identical real page after
+it. Only the following real page becomes a legacy record, in both padding modes.
+
+Validation before commit-time rustfmt:
+  cargo test -p revault_lockbox_api --features test-support,external-source --lib
+  329 passed, five intentionally ignored.
+  After consolidating header validation, all five block-page tests and all 23
+  native-filtered tests passed, along with strict library/tests Clippy.
+
+Trust/activation boundary:
+- A ScannedBlockPage establishes page self-consistency, not committed ownership.
+  In particular, plaintext checksums do not replace the native hybrid commit
+  signatures or canonical signed-content digest. The caller must retain those
+  checks before treating signed content as authentic.
+- RecoveryContext report/salvage does not yet consume native candidates or read
+  native TOC chunks. That integration must distinguish committed TOC references
+  from manifest-only reconstruction and define fail-closed signed behavior when
+  committed metadata is unavailable. This checkpoint does not claim damaged-TOC
+  recovery or salvage is complete.
+- Recognition, typed candidates and native writer/reader remain cfg(test).
+  Normal production scanning still handles the existing legacy representation.
+- Production activation, migration/bindings/public CLI coverage and measured
+  ZIP, write/encryption and load-time gates remain required.

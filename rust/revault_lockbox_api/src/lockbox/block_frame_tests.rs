@@ -106,6 +106,104 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                         },
                     )
                     .unwrap();
+                    let persisted_bytes = archive.to_bytes();
+                    let scan = archive
+                        .key
+                        .with_bytes(|key| {
+                            crate::page_scanner::PageScanner::new(
+                                &persisted_bytes,
+                                archive.lockbox_id,
+                                key,
+                            )
+                            .scan_records()
+                        })
+                        .unwrap();
+                    assert_eq!(scan.corrupt_records, 0);
+                    assert_eq!(scan.native_pages.len(), 2);
+                    for (page, chunk) in scan
+                        .native_pages
+                        .iter()
+                        .zip(&archive.toc_entries[&path].chunks)
+                    {
+                        let segment = &chunk.segments[0];
+                        assert_eq!(page.offset, segment.page_offset);
+                        assert_eq!(page.physical_len as u64, segment.page_len);
+                        assert_eq!(page.page_id, segment.object_id);
+                        assert_eq!(page.sequence, chunk.block_frame.as_ref().unwrap().sequence);
+                        assert_eq!(
+                            page.descriptor,
+                            chunk.block_frame.as_ref().unwrap().descriptor
+                        );
+                        assert!(page
+                            .manifest
+                            .slice_for(
+                                &path,
+                                chunk.file_offset,
+                                chunk.compression_frame_offset,
+                                chunk.len
+                            )
+                            .is_some());
+                        assert!(
+                            !scan
+                                .records
+                                .iter()
+                                .any(|record| record.object_id == page.page_id),
+                            "native blocks must not masquerade as legacy whole-frame records"
+                        );
+                    }
+                    let mut damaged = persisted_bytes.clone();
+                    let last = &scan.native_pages[1];
+                    let offset = last.offset as usize;
+                    archive
+                        .key
+                        .with_bytes(|key| {
+                            use crate::file_format::indexed_frame::block_page;
+                            assert!(block_page::scan(
+                                &persisted_bytes[..offset + last.physical_len - 1],
+                                offset,
+                                archive.lockbox_id,
+                                archive.format_mode,
+                                key
+                            )
+                            .is_err());
+                            assert!(block_page::scan(
+                                &persisted_bytes,
+                                offset,
+                                LockboxId::from_bytes([19; 16]),
+                                archive.format_mode,
+                                key
+                            )
+                            .is_err());
+                            assert!(block_page::scan(
+                                &persisted_bytes,
+                                offset,
+                                archive.lockbox_id,
+                                crate::creation_options::FormatMode(archive.format_mode.0 ^ 0x100),
+                                key
+                            )
+                            .is_err());
+                        })
+                        .unwrap();
+                    let used = crate::page::PAGE_HEADER_LEN
+                        + u32::from_le_bytes(damaged[offset + 44..offset + 48].try_into().unwrap())
+                            as usize;
+                    damaged[offset + used - 1] ^= 1;
+                    let damaged_scan = archive
+                        .key
+                        .with_bytes(|key| {
+                            crate::page_scanner::PageScanner::new(&damaged, archive.lockbox_id, key)
+                                .scan_records()
+                        })
+                        .unwrap();
+                    assert_eq!(damaged_scan.native_pages.len(), 1);
+                    assert_eq!(
+                        damaged_scan.native_pages[0].descriptor,
+                        scan.native_pages[0].descriptor
+                    );
+                    assert!(
+                        damaged_scan.corrupt_records > 0,
+                        "scanning must check all blocks, not only metadata/index"
+                    );
                     assert_eq!(opened.get_file(&path).unwrap(), input);
                     assert_eq!(opened.get_file(&keep).unwrap(), b"legacy bytes");
                     let mut reader = opened.open_file(&path).unwrap();

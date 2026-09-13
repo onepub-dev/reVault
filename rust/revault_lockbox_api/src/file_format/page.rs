@@ -911,6 +911,8 @@ fn decode_single_object_stream_in_place<B: PageBuffer>(
 }
 
 pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8]) -> Scan {
+    #[cfg(test)]
+    let mut native_pages = Vec::new();
     let mode = crate::file_format::current_header::read_header(bytes)
         .map(|header| header.format_mode)
         .unwrap_or_default();
@@ -920,6 +922,22 @@ pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8])
     let mut i = crate::constants::HEADER_LEN;
     while i + PAGE_HEADER_LEN <= bytes.len() {
         if &bytes[i..i + 8] == PAGE_MAGIC {
+            #[cfg(test)]
+            if crate::file_format::indexed_frame::block_page::is_native_header(&bytes[i..]) {
+                match crate::file_format::indexed_frame::block_page::scan(
+                    bytes, i, lockbox_id, mode, key,
+                ) {
+                    Ok(page) => {
+                        i += page.physical_len;
+                        native_pages.push(page);
+                    }
+                    Err(_) => {
+                        corrupt_records += 1;
+                        i += 1;
+                    }
+                }
+                continue;
+            }
             let Some(page_bytes) = page_decode_slice(bytes, i) else {
                 corrupt_records += 1;
                 break;
@@ -967,7 +985,11 @@ pub(crate) fn scan_page_records(bytes: &[u8], lockbox_id: LockboxId, key: &[u8])
     }
     content_key.zeroize();
     records.sort_by_key(|record| record.header.sequence);
+    #[cfg(test)]
+    native_pages.sort_by_key(|page| page.sequence);
     Scan {
+        #[cfg(test)]
+        native_pages,
         records,
         corrupt_records,
     }
