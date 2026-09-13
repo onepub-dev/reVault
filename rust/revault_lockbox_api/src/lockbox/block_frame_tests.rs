@@ -1,6 +1,6 @@
-//! Private layout-integration tests: the public writer is not activated for
-//! block pages yet. Inject encoded pages and decoded TOC leaves, then exercise
-//! public read APIs. These are not persisted-lifecycle or CLI E2E tests.
+//! Layout-integration tests: native writer selection and some fixture setup
+//! remain private until production activation. Exercise persisted lifecycles
+//! and public read/recovery APIs after setup. These are not CLI E2E tests.
 use super::*;
 use crate::compression_frame_manifest::CompressionFrameSlice;
 use crate::file_chunk::{BlockFrameReference, CompressionFrameSegment, FileChunk};
@@ -219,6 +219,79 @@ fn native_file_writer_commits_and_reopens_multiframe_files_in_all_modes() {
                     let recovery_key = zeroize::Zeroizing::new(
                         archive.key.with_bytes(|key| key.to_vec()).unwrap(),
                     );
+                    // No public operation intentionally destroys TOC pages.
+                    // Erase all scanned TOC allocations, retaining the frame
+                    // manifests, then use only public recovery APIs.
+                    let mut missing_toc = persisted_bytes.clone();
+                    let mut erased = 0;
+                    for record in &scan.records {
+                        if record.header.kind == crate::record::RecordKind::TocNode {
+                            let start = record.offset as usize;
+                            let end = start + record.header.total_len as usize;
+                            missing_toc[start..end].fill(0);
+                            erased += 1;
+                        }
+                    }
+                    assert!(erased > 0);
+                    let manifest_report =
+                        crate::RecoveryScanner::scan_bytes(missing_toc.clone(), &*recovery_key);
+                    assert!(!manifest_report.toc_recovered);
+                    assert!(manifest_report
+                        .intact_files
+                        .iter()
+                        .any(|entry| entry.path == path));
+                    // A valid duplicate page is not a second authenticated
+                    // generation: ambiguous overlapping candidates are omitted.
+                    let first_native = &scan.native_pages[0];
+                    let start = first_native.offset as usize;
+                    let end = start + first_native.physical_len;
+                    let mut duplicate = missing_toc.clone();
+                    duplicate.extend_from_slice(&missing_toc[start..end]);
+                    let duplicate_report =
+                        crate::RecoveryScanner::scan_bytes(duplicate.clone(), &*recovery_key);
+                    assert!(!duplicate_report
+                        .intact_files
+                        .iter()
+                        .any(|entry| entry.path == path));
+                    let duplicate_salvage =
+                        crate::RecoveryScanner::salvage_bytes(duplicate, &*recovery_key, &signer)
+                            .unwrap();
+                    assert!(duplicate_salvage.get_file(&path).is_err());
+                    let mut gap = missing_toc.clone();
+                    gap[start..end].fill(0);
+                    let gap_report =
+                        crate::RecoveryScanner::scan_bytes(gap.clone(), &*recovery_key);
+                    assert!(gap_report.partial_files > 0);
+                    let gap_salvage =
+                        crate::RecoveryScanner::salvage_bytes(gap, &*recovery_key, &signer)
+                            .unwrap();
+                    assert!(gap_salvage.get_file(&path).is_err());
+                    let manifest_salvage = crate::RecoveryScanner::salvage_bytes(
+                        missing_toc.clone(),
+                        &*recovery_key,
+                        &signer,
+                    )
+                    .unwrap();
+                    if signed {
+                        assert!(manifest_report.partial_files > 0);
+                        assert!(manifest_salvage.get_file(&path).is_err());
+                    } else {
+                        assert_eq!(manifest_report.partial_files, 0);
+                        assert_eq!(manifest_salvage.get_file(&path).unwrap(), input);
+                        assert_eq!(manifest_salvage.format_options(), archive.format_options());
+                        let reopened = Lockbox::open_bytes(
+                            manifest_salvage.to_bytes(),
+                            if encrypted {
+                                LockboxOpen::ContentKey(
+                                    SecretVec::try_from_slice(&[67; 32]).unwrap(),
+                                )
+                            } else {
+                                LockboxOpen::Unencrypted
+                            },
+                        )
+                        .unwrap();
+                        assert_eq!(reopened.get_file(&path).unwrap(), input);
+                    }
                     let damaged_report =
                         crate::RecoveryScanner::scan_bytes(damaged.clone(), &*recovery_key);
                     assert!(damaged_report.corrupt_records > 0);
@@ -528,6 +601,29 @@ fn native_file_writer_packed_deletion_preserves_survivors_in_all_modes() {
                     for (path, data) in paths.iter().zip(&contents) {
                         assert_eq!(salvaged.get_file(path).unwrap(), *data);
                     }
+                    let mut missing_toc = reopened.to_bytes();
+                    let scan = crate::page_scanner::PageScanner::new(
+                        &missing_toc,
+                        reopened.lockbox_id,
+                        &recovery_key,
+                    )
+                    .scan_records();
+                    for record in &scan.records {
+                        if record.header.kind == crate::record::RecordKind::TocNode {
+                            let start = record.offset as usize;
+                            missing_toc[start..start + record.header.total_len as usize].fill(0);
+                        }
+                    }
+                    let manifest_salvage =
+                        crate::RecoveryScanner::salvage_bytes(missing_toc, &*recovery_key, &signer)
+                            .unwrap();
+                    for (path, data) in paths.iter().zip(&contents) {
+                        if signed {
+                            assert!(manifest_salvage.get_file(path).is_err());
+                        } else {
+                            assert_eq!(manifest_salvage.get_file(path).unwrap(), *data);
+                        }
+                    }
                     let mut damaged = reopened.to_bytes();
                     let offset = old_segment.page_offset as usize;
                     let used = crate::page::PAGE_HEADER_LEN
@@ -553,6 +649,24 @@ fn native_file_writer_packed_deletion_preserves_survivors_in_all_modes() {
                     assert!(persisted.get_file(&paths[0]).is_err());
                     assert_eq!(persisted.get_file(&paths[1]).unwrap(), contents[1]);
                     persisted.inspector().verify_storage().unwrap();
+                    // A surviving authoritative TOC must prevent resurrection
+                    // from a stale native manifest, even if its page is valid.
+                    let mut stale = reopened.to_bytes();
+                    let original = archive.to_bytes();
+                    let start = old_segment.page_offset as usize;
+                    stale
+                        .extend_from_slice(&original[start..start + old_segment.page_len as usize]);
+                    let stale_report =
+                        crate::RecoveryScanner::scan_bytes(stale.clone(), &*recovery_key);
+                    assert!(!stale_report
+                        .intact_files
+                        .iter()
+                        .any(|entry| entry.path == paths[0]));
+                    let stale_salvage =
+                        crate::RecoveryScanner::salvage_bytes(stale, &*recovery_key, &signer)
+                            .unwrap();
+                    assert!(stale_salvage.get_file(&paths[0]).is_err());
+                    assert_eq!(stale_salvage.get_file(&paths[1]).unwrap(), contents[1]);
                     // Privacy retirement must erase the original shared page,
                     // including the deleted file's independently protected blocks.
                     assert_eq!(

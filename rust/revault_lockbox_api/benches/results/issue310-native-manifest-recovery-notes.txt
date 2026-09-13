@@ -1,0 +1,39 @@
+Native manifest-only reconstruction, 2026-09-13
+==============================================
+When no committed TOC can be decoded, recovery now assembles typed native file
+candidates from eagerly verified page manifests. Descriptor and sequence stay
+attached to each native chunk; normal recovery reads revalidate complete frames.
+Candidates retain stored paths, permissions, file lengths and packed slice maps.
+Known length or permission disagreements, duplicate starting offsets and overlaps
+exclude the candidate. Gaps remain partial and cannot be salvaged as whole files.
+Legacy candidates with the same path are not combined with native candidates.
+
+A surviving committed TOC is authoritative: native manifests are not used to
+resurrect paths missing from it, including an empty TOC. Tests append a valid
+stale native page after deletion and verify the deleted path stays absent from
+both the public report and salvage output.
+
+Trust boundary: manifests prove frame self-consistency, not latest committed
+file state. In a TOC-loss recovery, disjoint surviving slices cannot independently
+prove a common historical file generation. No stronger authenticity is claimed.
+Signed candidates still require the authenticated snapshot introduced in the
+previous checkpoint. With no verifiable snapshot, report marks them partial and
+salvage omits them; this does not bypass the hybrid owner commit checks.
+
+Tests intentionally erase every scanned TOC allocation (not possible through a
+public CLI operation) and then exercise public recovery APIs across all sixteen
+format combinations. Unsigned multiframe and packed files recover exact bytes;
+multiframe salvage also reopens through the public API and preserves creation
+policy. Signed missing-TOC candidates fail closed. Duplicate native allocations,
+missing frames, and stale deleted-file manifests have explicit refusal checks.
+
+Validation before commit-time rustfmt:
+- Full feature-enabled library suite: 329 passed, five intentionally ignored.
+- After adding packed reconstruction and stale-page checks, all three native
+  writer/recovery tests passed (each exercises the sixteen format combinations).
+- Strict feature-enabled library/tests Clippy passed.
+
+This is still experimental cfg(test) layout integration. It is not production
+activation, an owner-authenticated damaged-TOC reconstruction guarantee, or a
+performance result. Remaining activation/migration/bindings/public-CLI work and
+the ZIP, write/encryption and open/load gates are still required.

@@ -118,6 +118,8 @@ impl<'a> RecoverySession<'a> {
     fn report(&self) -> RecoveryReport {
         let mut toc_entries = BTreeMap::new();
         let mut toc_recovered = false;
+        #[cfg(test)]
+        let mut native_toc_available = false;
         let mut metadata = RecoveredMetadata::default();
 
         if let Some((commit_root, public_header_root)) =
@@ -129,6 +131,10 @@ impl<'a> RecoverySession<'a> {
             {
                 toc_entries = decoded;
                 toc_recovered = public_header_root;
+                #[cfg(test)]
+                {
+                    native_toc_available = true;
+                }
             }
         }
 
@@ -146,6 +152,10 @@ impl<'a> RecoverySession<'a> {
                     Err(_) => corrupt_records += 1,
                 }
             }
+        }
+        #[cfg(test)]
+        if !native_toc_available {
+            attach_native_manifest_entries(&mut toc_entries, &scan.native_pages);
         }
         attach_scanned_file_segments(&mut toc_entries, &scanned_segments);
 
@@ -229,14 +239,18 @@ impl<'a> RecoverySession<'a> {
             }
         }
         #[cfg(test)]
-        if let Some((root, _)) = header_commit_root_for_recovery(&self.scanner, self.bytes) {
-            if let Ok(entries) =
-                decode_toc_btree_from_offset(&self.scanner, root.toc_root_offset, 0)
-            {
-                latest_paths.extend(entries.into_iter().filter(|(_, entry)| {
+        if let Some(entries) =
+            header_commit_root_for_recovery(&self.scanner, self.bytes).and_then(|(root, _)| {
+                decode_toc_btree_from_offset(&self.scanner, root.toc_root_offset, 0).ok()
+            })
+        {
+            latest_paths.extend(
+                entries.into_iter().filter(|(_, entry)| {
                     entry.chunks.iter().any(|chunk| chunk.block_frame.is_some())
-                }));
-            }
+                }),
+            );
+        } else {
+            attach_native_manifest_entries(&mut latest_paths, &scan.native_pages);
         }
         attach_scanned_file_segments(&mut latest_paths, &scanned_segments);
         #[cfg(test)]
@@ -779,6 +793,79 @@ fn attach_scanned_file_segments(
             chunk.segments.sort_by_key(|segment| segment.segment_offset);
         }
     }
+}
+
+/// Manifest-only reconstruction is a recovery candidate, not evidence of a
+/// committed file or owner authorization. Conflicting versions are omitted
+/// instead of splicing unrelated generations into an apparently intact file.
+#[cfg(test)]
+fn attach_native_manifest_entries(
+    entries: &mut BTreeMap<LockboxPath, TocEntry>,
+    pages: &[crate::file_format::indexed_frame::block_page::ScannedBlockPage],
+) {
+    use crate::file_chunk::{BlockFrameReference, CompressionFrameSegment, FileChunk};
+    let mut candidates: BTreeMap<LockboxPath, TocEntry> = BTreeMap::new();
+    let mut conflicts = std::collections::BTreeSet::new();
+    for page in pages {
+        let reference = std::sync::Arc::new(BlockFrameReference {
+            descriptor: page.descriptor.clone(),
+            sequence: page.sequence,
+        });
+        for slice in &page.manifest.slices {
+            if entries.contains_key(&slice.path) || conflicts.contains(&slice.path) {
+                continue;
+            }
+            let chunk = FileChunk {
+                block_frame: Some(reference.clone()),
+                stored_path: slice.path.clone(),
+                file_offset: slice.file_offset,
+                len: slice.len,
+                compression_frame_offset: slice.compression_frame_offset,
+                compression_frame_len: page.descriptor.logical_len,
+                compressed_len: page.descriptor.stored_len,
+                compression: page.descriptor.compression,
+                compression_frame_id: page.descriptor.frame_id,
+                compression_frame_digest: page.descriptor.index_commitment,
+                segments: vec![CompressionFrameSegment {
+                    page_offset: page.offset,
+                    page_len: page.physical_len as u64,
+                    object_id: page.page_id,
+                    segment_offset: 0,
+                    segment_len: page.descriptor.stored_len,
+                }],
+            };
+            let entry = candidates
+                .entry(slice.path.clone())
+                .or_insert_with(|| TocEntry {
+                    path: slice.path.clone(),
+                    len: slice.total_len,
+                    record_offset: page.offset,
+                    record_len: page.physical_len as u64,
+                    record_object_id: page.page_id,
+                    deleted: false,
+                    node_kind: NodeKind::File,
+                    permissions: slice.permissions,
+                    chunks: Vec::new(),
+                });
+            if entry.len != slice.total_len
+                || entry.permissions != slice.permissions
+                || entry.chunks.iter().any(|old| {
+                    old.file_offset == chunk.file_offset
+                        || (old.file_offset < chunk.file_offset.saturating_add(chunk.len)
+                            && chunk.file_offset < old.file_offset.saturating_add(old.len))
+                })
+            {
+                conflicts.insert(slice.path.clone());
+                continue;
+            }
+            entry.chunks.push(chunk);
+        }
+    }
+    entries.extend(
+        candidates
+            .into_iter()
+            .filter(|(path, _)| !conflicts.contains(path)),
+    );
 }
 
 fn apply_scanned_entry(toc_entries: &mut BTreeMap<LockboxPath, TocEntry>, mut entry: TocEntry) {
