@@ -45,6 +45,7 @@ zstd = { version = "0.14.0", default-features = false, optional = true }
 getrandom = { version = "0.4", features = ["wasm_js"] }
 
 [dev-dependencies]
+rayon = "1.12"
 criterion = "0.8.2"
 oxiarc-zstd = "0.4"
 zip = { version = "8", default-features = false, features = ["deflate"] }
@@ -79,6 +80,14 @@ test = false
 name = "decoder_workspace"
 harness = false
 test = false
+
+[[bench]]
+name = "block_layout"
+harness = false
+
+[[test]]
+name = "block_layout_checks"
+path = "tests/block_layout_checks.rs"
 
 [[bench]]
 name = "compression_corpus"
