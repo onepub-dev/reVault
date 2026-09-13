@@ -16,11 +16,25 @@ pub(super) struct CompressionFrameWrite<'a> {
     pub(super) data: &'a [u8],
 }
 
+pub(super) enum PreparedFrameIntegrity {
+    LegacyChecksum([u8; 32]),
+    NativeBlocksPending,
+}
+
+impl PreparedFrameIntegrity {
+    pub(super) fn legacy_checksum(&self) -> crate::Result<[u8; 32]> {
+        match self {
+            Self::LegacyChecksum(digest) => Ok(*digest),
+            Self::NativeBlocksPending => Err(crate::Error::CorruptRecord),
+        }
+    }
+}
+
 pub(super) struct PreparedCompressionFrame {
     pub(super) compression: u8,
     pub(super) compression_frame_len: u64,
     pub(super) compressed_len: u64,
-    pub(super) compression_frame_digest: [u8; 32],
+    pub(super) integrity: PreparedFrameIntegrity,
     pub(super) slices: Vec<CompressionFrameSlice>,
     pub(super) stored: Zeroizing<Vec<u8>>,
     pub(super) prepare_nanos: u128,
@@ -76,6 +90,7 @@ pub(super) struct FileImportPipeline {
     zstd_level: i32,
     compression: Option<crate::Compression>,
     jobs: usize,
+    native_blocks: bool,
 }
 
 impl FileImportPipeline {
@@ -84,11 +99,17 @@ impl FileImportPipeline {
             zstd_level,
             compression: None,
             jobs: jobs.max(1),
+            native_blocks: false,
         }
     }
 
     pub(super) fn with_compression(mut self, compression: Option<crate::Compression>) -> Self {
         self.compression = compression;
+        self
+    }
+
+    pub(super) fn with_native_blocks(mut self, native_blocks: bool) -> Self {
+        self.native_blocks = native_blocks;
         self
     }
 
@@ -186,12 +207,16 @@ impl FileImportPipeline {
         };
         payload.zeroize();
         let stored = Zeroizing::new(stored);
-        let compression_frame_digest = strong_checksum(stored.as_slice());
+        let integrity = if self.native_blocks {
+            PreparedFrameIntegrity::NativeBlocksPending
+        } else {
+            PreparedFrameIntegrity::LegacyChecksum(strong_checksum(stored.as_slice()))
+        };
         PreparedCompressionFrame {
             compression,
             compression_frame_len,
             compressed_len: stored.len() as u64,
-            compression_frame_digest,
+            integrity,
             slices,
             stored,
             prepare_nanos: prepare_start.elapsed().as_nanos(),
@@ -301,7 +326,8 @@ mod tests {
                         };
                         for jobs in [1, 3] {
                             let pipeline = FileImportPipeline::new(3, jobs)
-                                .with_compression(Some(compression));
+                                .with_compression(Some(compression))
+                                .with_native_blocks(true);
                             let batches = inputs
                                 .iter()
                                 .map(|input| {
@@ -320,6 +346,23 @@ mod tests {
                                 })
                                 .collect::<Vec<_>>();
                             let prepared = pipeline.prepare_batches(&batches);
+                            let legacy =
+                                pipeline.with_native_blocks(false).prepare_batches(&batches);
+                            for (native, legacy) in prepared.iter().zip(&legacy) {
+                                assert!(matches!(
+                                    &native.integrity,
+                                    PreparedFrameIntegrity::NativeBlocksPending
+                                ));
+                                assert!(native.integrity.legacy_checksum().is_err());
+                                assert_eq!(
+                                    legacy.integrity.legacy_checksum().unwrap(),
+                                    strong_checksum(&legacy.stored)
+                                );
+                                assert_eq!(
+                                    &*native.stored, &*legacy.stored,
+                                    "layout selection must not change codec bytes"
+                                );
+                            }
                             assert_eq!(
                                 prepared[2].compression,
                                 crate::compression::COMPRESSION_NONE,
@@ -370,6 +413,10 @@ mod tests {
                                 data: inputs[1].clone(),
                             });
                             assert_eq!(result.index, 7);
+                            assert!(matches!(
+                                &result.frame.integrity,
+                                PreparedFrameIntegrity::NativeBlocksPending
+                            ));
                             let page = result.frame.encode_native_page(identity, 31, &key).unwrap();
                             let descriptor = page.descriptor();
                             let page_len = page.bytes().len();

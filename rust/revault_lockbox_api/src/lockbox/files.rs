@@ -90,6 +90,34 @@ mod range_integrity_tests {
     use super::*;
 
     #[test]
+    fn legacy_writer_rejects_native_preparation_before_mutating_storage() {
+        let mut archive = Lockbox::create(b"prepared layout mismatch test");
+        let path = LockboxPath::new("/native").unwrap();
+        let prepared = FileImportPipeline::new(3, 1)
+            .with_native_blocks(true)
+            .prepare(&[CompressionFrameWrite {
+                path: &path,
+                permissions: 0o600,
+                total_len: 11,
+                file_offset: 0,
+                data: b"test bytes!",
+            }]);
+        let before = archive.to_bytes();
+        let sequence = archive.sequence;
+        let mut chunks = Vec::new();
+        {
+            let mut writer = FilePageWriter::new(&mut archive);
+            writer.native_blocks = false;
+            assert!(writer
+                .write_prepared_compression_frame(prepared, &mut chunks)
+                .is_err());
+        }
+        assert!(chunks.is_empty());
+        assert_eq!(archive.sequence, sequence);
+        assert_eq!(archive.to_bytes(), before);
+    }
+
+    #[test]
     fn partial_frame_read_checks_bytes_outside_the_requested_range() {
         let lb = Lockbox::create(b"range integrity test");
         let mut stored = vec![42; 4096];
@@ -602,8 +630,9 @@ impl<State> Lockbox<State> {
     ) -> Result<(u64, Vec<FileChunk>)> {
         let jobs = jobs.max(1);
         let level = self.compression_frame_zstd_level();
-        let pipeline =
-            FileImportPipeline::new(level, jobs).with_compression(self.configured_compression());
+        let pipeline = FileImportPipeline::new(level, jobs)
+            .with_compression(self.configured_compression())
+            .with_native_blocks(cfg!(feature = "native-block-layout") && self.format_mode.0 != 0);
         let queue_bound = jobs.saturating_mul(2).max(1);
         let (job_tx, job_rx) = std::sync::mpsc::sync_channel::<ParallelCompressionJob>(queue_bound);
         let (result_tx, result_rx) = std::sync::mpsc::channel::<ParallelCompressionResult>();
@@ -1915,9 +1944,7 @@ impl<'a, State> FilePageWriter<'a, State> {
         frames: &[CompressionFrameWrite<'_>],
         chunks: &mut Vec<FileChunk>,
     ) -> Result<Vec<usize>> {
-        let prepared = FileImportPipeline::new(self.lockbox.compression_frame_zstd_level(), 1)
-            .with_compression(self.lockbox.configured_compression())
-            .prepare(frames);
+        let prepared = self.import_pipeline(1).prepare(frames);
         self.write_prepared_compression_frame(prepared, chunks)
     }
 
@@ -1926,17 +1953,22 @@ impl<'a, State> FilePageWriter<'a, State> {
         batches: &[Vec<CompressionFrameWrite<'_>>],
         chunks: &mut Vec<FileChunk>,
     ) -> Result<Vec<Vec<usize>>> {
-        let prepared = FileImportPipeline::new(
-            self.lockbox.compression_frame_zstd_level(),
-            self.lockbox.worker_jobs(),
-        )
-        .with_compression(self.lockbox.configured_compression())
-        .prepare_batches(batches);
+        let prepared = self
+            .import_pipeline(self.lockbox.worker_jobs())
+            .prepare_batches(batches);
         let mut indices = Vec::with_capacity(prepared.len());
         for frame in prepared {
             indices.push(self.write_prepared_compression_frame(frame, chunks)?);
         }
         Ok(indices)
+    }
+
+    fn import_pipeline(&self, jobs: usize) -> FileImportPipeline {
+        let pipeline = FileImportPipeline::new(self.lockbox.compression_frame_zstd_level(), jobs)
+            .with_compression(self.lockbox.configured_compression());
+        #[cfg(any(test, feature = "native-block-layout"))]
+        let pipeline = pipeline.with_native_blocks(self.native_blocks);
+        pipeline
     }
 
     fn write_prepared_compression_frame(
@@ -1948,6 +1980,7 @@ impl<'a, State> FilePageWriter<'a, State> {
         if self.native_blocks {
             return self.write_prepared_native_frame(prepared, chunks);
         }
+        let compression_frame_digest = prepared.integrity.legacy_checksum()?;
         self.lockbox.add_frame_prepare_nanos(prepared.prepare_nanos);
         self.lockbox.sequence += 1;
         let compression_frame_id = self.lockbox.sequence;
@@ -1957,7 +1990,7 @@ impl<'a, State> FilePageWriter<'a, State> {
             compression: prepared.compression,
             compression_frame_len: prepared.compression_frame_len,
             compressed_len: prepared.compressed_len,
-            compression_frame_digest: prepared.compression_frame_digest,
+            compression_frame_digest,
             slices: prepared.slices,
         };
         for slice in &manifest.slices {

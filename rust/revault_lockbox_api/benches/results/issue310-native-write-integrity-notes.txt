@@ -1,0 +1,53 @@
+Typed native integrity preparation, 2026-09-13
+=============================================
+Prepared frames now distinguish LegacyChecksum from NativeBlocksPending.
+The native writer did not consume the pipeline's legacy whole-frame checksum;
+it builds the committed block index instead. Native preparation no longer
+performs that redundant full stored-data hash. Serial/batched and streaming
+worker-job paths all select the same layout policy as their writer.
+
+Legacy preparation is unchanged. Legacy writing rejects NativeBlocksPending
+before changing storage, sequence numbers, statistics or chunk references. There
+is no all-zero or other fake checksum. The native encoder still compresses once,
+uses the prepared codec bytes unchanged, and creates all block/index protection.
+No codec policy, native format or encryption change is introduced here.
+
+Validation before commit-time formatting:
+- 24 native-focused tests passed, including a new wrong-layout refusal test.
+- Full library: 331 passed, five intentionally ignored.
+- Feature-enabled public creation/padding/native-layout/public-API/locking: 22 passed.
+- Strict feature-enabled library/tests Clippy passed.
+The all-policy preparation tests compare serial and three-worker batch output
+against legacy codec bytes, check real legacy checksums, require the native
+pending state and exercise the same pending state in streaming worker jobs.
+
+File-backed write experiment:
+  REVAULT_GATE_CHILD_SAMPLES=3 taskset -c 2 AFTER compare-write BEFORE AFTER ROOT
+  8388608 CORPUS PAIRS all
+Pattern used five groups and random used nine groups, alternating ABBA/BAAB.
+Each child drops one warmup and records two samples per case. All eight
+encryption/signing/compression combinations write public archives and reopen
+them for independent exact-byte verification outside the timed section.
+All archive sizes match before/after per case.
+
+BEFORE is af7a72f with native-block-layout enabled, not main's default writer.
+The CSV comparator's historical main/branch labels mean before/after in this run.
+AFTER is this checkpoint's typed-integrity change with the same feature and
+benchmark source. rustc 1.88.0. Executables:
+  /tmp/revault-native-write-FUFXSb/before
+  SHA256 a99ff8c532057b212528f37ddb8647ce72c9643c8996792f7639b6bb032308d0
+  /tmp/revault-native-write-FUFXSb/after
+  SHA256 6558e6519493d6d8e74ad73e208325db8e28a0daf932088e73fbf8d51bce3e6a
+Raw CSV and bootstrap summaries are committed beside this note. Comparator
+progress messages were excluded from CSV rows; no timing samples were omitted.
+
+Results do NOT establish a broad write no-regression gate:
+- Pattern/raw/plain: paired estimate -10.418%, 95% interval [-21.906, -5.308].
+- Random/compression-enabled/encrypted: -8.603%, interval [-16.923, -3.646].
+- Random/raw/encrypted: +4.584%, interval [1.611, 64.179]; this concerning result
+  must be rechecked, not dismissed merely because work was removed from code.
+- Other intervals are wide and often cross zero; see both complete summaries.
+Do not claim write parity or accept a >5% regression from these measurements.
+Further isolated CPU/encoding measurement and more stable file-backed runs are
+needed before native default activation, as are comparisons to the actual
+default writer, load-time gates, all ZIP workloads, bindings and release checks.

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Skip the unused legacy whole-frame checksum during native import preparation.
+  Native block/index verification and the single codec pass remain unchanged;
+  legacy writes still compute and require their original whole-frame checksum.
+
 - Reduce duplicate source validation and intermediate buffer copying in the
   experimental native reader. Full padded extents, per-block integrity checks,
   and external failure latching remain enforced; failed direct reads wipe the
