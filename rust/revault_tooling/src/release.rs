@@ -1436,9 +1436,6 @@ pub(crate) const CLI_PUBLISH_PACKAGES: &[&str] = &[
     "revault_archive_v3_reader",
     "revault_vault_v3_reader",
     "revault_migrate_archive_v3",
-    "revault_archive_v4_reader",
-    "revault_vault_v4_reader",
-    "revault_migrate_archive_v4",
     "revault_migration",
     "revault_publish_protocol",
     "revault_key_server",
@@ -1511,12 +1508,6 @@ fn crate_is_published(rust: &Path, release: &str) -> Result<bool> {
 }
 
 fn find_package_manifest(rust: &Path, package: &str) -> Result<PathBuf> {
-    if package == "revault_vault_v4_reader" {
-        return Ok(rust.join("revault_migrate_archive_v4/legacy_vault/Cargo.toml"));
-    }
-    if package == "revault_archive_v4_reader" {
-        return Ok(rust.join("revault_migrate_archive_v4/legacy/Cargo.toml"));
-    }
     if package == "revault_vault_v3_reader" {
         return Ok(rust.join("revault_migrate_archive_v3/legacy_vault/Cargo.toml"));
     }
@@ -1674,27 +1665,6 @@ mod tests {
         assert_eq!(
             replace_semver_triplets(source, "9.8.7"),
             "install package@9.8.7\nrequire ^9.8.7\nLua 9.8.7-1\nUTF-8: Profile → Lockbox\n"
-        );
-    }
-
-    #[test]
-    fn v4_migration_readers_publish_before_the_exporter() {
-        let index = |package| {
-            CLI_PUBLISH_PACKAGES
-                .iter()
-                .position(|name| *name == package)
-                .unwrap()
-        };
-        assert!(index("revault_archive_v4_reader") < index("revault_vault_v4_reader"));
-        assert!(index("revault_vault_v4_reader") < index("revault_migrate_archive_v4"));
-        let rust = Path::new("/repository/rust");
-        assert_eq!(
-            find_package_manifest(rust, "revault_archive_v4_reader").unwrap(),
-            rust.join("revault_migrate_archive_v4/legacy/Cargo.toml")
-        );
-        assert_eq!(
-            find_package_manifest(rust, "revault_vault_v4_reader").unwrap(),
-            rust.join("revault_migrate_archive_v4/legacy_vault/Cargo.toml")
         );
     }
 
