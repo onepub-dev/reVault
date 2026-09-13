@@ -1,0 +1,77 @@
+Shared block-layout review after user feedback, 2026-09-13
+========================================================
+Status: design investigation, NOT an implemented or approved format.
+User objected to a plaintext-only indexed data path. Do not activate that
+path or interpret performance targets as permission to weaken integrity.
+The previous uncommitted integration was saved as a patch and removed from
+active source. Ordinary writers/readers remain unchanged by that integration.
+
+One structure, protection as a property
+-------------------------------------
+Use one TOC frame descriptor, one bounded block-table representation, one
+extent-validation routine, and one recovery manifest grammar in all modes.
+Encryption must not select a different index/schema. The common read pipeline
+is: resolve committed frame -> validate bounded table -> fetch required stored
+blocks -> verify/decrypt -> decode if compressed -> return requested bytes.
+Only the protection operation differs: checksum for unsigned plaintext;
+authenticated encryption for ciphertext. Signing remains a commit/snapshot
+policy, not a second block table or a separate payload format.
+
+Candidate table entries describe offsets and lengths in STORED frame bytes.
+For raw frames those map directly to requested file ranges. For compressed
+frames a logical range can still require the whole compressed frame; a block
+table does not make arbitrary Zstd decoder restart points. Keep current frame
+compression boundaries initially rather than silently sacrificing compression
+ratio by independently compressing every 16 KiB verification block.
+The same indexed frame model must represent both cases without pretending
+they have identical random-read cost.
+
+Integrity requirements and pitfalls
+----------------------------------
+- Obtain the table commitment from committed metadata, never from the table
+  being checked. Bound allocations and all offsets before storage callbacks.
+- Bind block identity, order, exact stored length, frame identity, archive
+  identity and codec/protection parameters through the commitment and, for
+  encryption, AEAD associated data. Never disclose plaintext before tag checks.
+- Do not publish plaintext block hashes for encrypted data: they can reveal
+  equality or allow guesses of small known content. Ciphertext commitments
+  plus AEAD are a candidate; evaluate redundant verification cost explicitly.
+- Do not derive nonces solely from a sequence that rollback can reuse.
+  A fresh per-frame random salt and domain-separated frame key derivation is
+  a candidate, not an implementation decision. Audit rewrite, retry, aborted
+  publication, relocation and key rotation before selecting the nonce scheme.
+- Metadata that itself reveals small logical sizes must remain encrypted in
+  encrypted mode. Creation-time padding policy still defaults to privacy.
+- Keep physical ownership at the existing page allocator/recovery layer;
+  ensure relocated extents update all references and preserve snapshots.
+- Keep revision/cancellation/error latching authoritative on cache hits.
+
+Existing signing behavior must not be silently changed
+----------------------------------------------------
+src/lockbox/signed_content.rs computes a deterministic digest over encoded TOC,
+all file bytes, variables, forms, allocation and cleanup state. For signed
+plaintext archives verify_signed_content verifies it before returning an open
+handle. Replacing this with only a signed block-table root changes when damage
+in untouched blocks is detected. Preserve eager full-content verification
+initially; any lazy-signature policy requires explicit product/security review.
+Encrypted pages already use authenticated encryption. A shared layout must
+retain that guarantee when independently reading/decrypting smaller blocks.
+
+Experiments required before production activation
+------------------------------------------------
+1. Same logical fixtures across raw/Zstd, unsigned/signed, plain/encrypted.
+   Byte-equivalent full/range/stream results through one descriptor model.
+2. Corruption/truncation/swapped blocks, tables and extents; wrong keys;
+   rollback/nonce reuse; key rotation; recovery and snapshot revision changes.
+3. Measure block sizes and common-table overhead on 128-byte, many-small-file,
+   8 MiB and 64 MiB workloads. Include write/encrypt time, open, first-byte,
+   sequential and random reads. Do not measure concurrent build activity.
+4. Public CLI create/update/delete/reopen/extract lifecycles and migration
+   v2/v3 -> final unreleased v4, with persisted-byte verification.
+5. Production ZIP parity and repeatable <=5% open/load regression gate.
+   Microbenchmark parity alone is insufficient. No default extra compression
+   pass is accepted by the user; encoding improvements remain an open track.
+
+This review supersedes the plaintext-only integration plan, not the overall
+goal. Shared layout, optional creation-time padding, migration/bindings/CLI,
+compression-write tradeoff and production ZIP parity remain unfinished.

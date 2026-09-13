@@ -9,6 +9,32 @@ v4-to-v5 exporter were backed out. The historical plan below is retained for
 context, but its proposed new version/frozen-v4 migration is superseded.
 The protected-mode regression gate now precedes further format integration.
 
+SUPERSEDING USER FEEDBACK: the plaintext-only integration below was withdrawn
+after the user objected to separate data-reading layouts. Its tested source
+diff is preserved in issue310-withdrawn-plaintext-indexed-reader.patch. None
+of its FileChunk/TOC/direct-reader changes remain active. The original bounded
+index unit-test prototype remains test-only. Reassess a shared frame/block
+layout across protection modes before activating any new writer or reader.
+See issue310-shared-block-layout-review.txt. No new layout is approved yet.
+
+WITHDRAWN READER INTEGRATION (after a5a4cb4, historical record):
+IndexedRawFrame now participates in FileChunk and the real TOC descriptor
+codec. Compression-descriptor flag 0x100 carries a page-relative index offset
+and index digest; ordinary descriptors remain byte-identical. Descriptor
+deduplication includes both fields. Old readers reject the extended flag.
+The bounded index remains out of eager TOC loading. Decode validates that the
+complete index/data extent fits one owning segment page, outside its header
+and integrity trailer, before any direct data I/O.
+Unsigned plaintext read_file_chunk_range now dispatches indexed descriptors
+to the verified block reader before the old decoded-frame cache; seek-reader
+raw-page sharing declines indexed frames so it uses this range path instead.
+Encrypted and signed modes reject indexed descriptors for now. Their existing
+non-indexed paths are unchanged; signed indexed support needs a separate gate.
+No writer emits indexed descriptors yet. Recovery constructs ordinary chunks
+and still needs the indexed payload manifest/physical-offset reconstruction.
+Thus this is reader/TOC wiring, NOT completed native layout or ZIP parity.
+The format version remains unreleased v4; no frozen-v4 exporter is needed.
+
 The existing native format is v4, including dual publication slots, preparation,
 rollback, cleanup and tail reclamation. Do not replace it with the benchmark's
 standalone RVEXP001 container. Header region is 384 bytes (two 192-byte slots),

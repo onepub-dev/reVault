@@ -44,3 +44,15 @@ Total +3.996%, interval +3.642..+4.665%.
 The >5% open result did not repeat, but a roughly 4% cost did persist.
 This is close to the guardrail, not evidence of zero overhead. Other large
 outliers and final integrated layout still need their own gates.
+
+Focused large repeats (before indexed TOC/reader integration)
+-----------------------------------------------------------
+Fifteen immediate pairs each, six child samples (first discarded), CPU 2,
+same baseline-written 64 MiB fixture. Summary CSVs committed alongside notes.
+Plain/raw range: read +0.790% [-2.746,+2.215]; open -6.959%; total -11.306%.
+Plain/Zstd range: open -3.290% [-6.528,-0.519]; read -14.324%; total -15.186%.
+Encrypted-signed/Zstd whole: open +2.114% [+1.487,+3.059]; read -14.224%;
+total -14.117%. The earlier >5% large outliers did not repeat locally.
+These clear the specific earlier outliers, not all future format/padding
+changes or every workload. Repeat open/load checks after indexed integration;
+the FileChunk metadata representation has grown even for ordinary frames.
