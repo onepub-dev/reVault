@@ -12,6 +12,9 @@ use crate::{Error, Result};
 use sha2::Sha256;
 use std::ops::Range;
 
+#[path = "block_page.rs"]
+mod block_page;
+
 const BLOCK_BYTES: usize = 16 * 1024;
 const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
 const DIGEST_BYTES: usize = 32;
@@ -337,7 +340,7 @@ pub(crate) fn encode_block_frame(
 }
 
 pub(crate) struct BlockFrameReader<'a> {
-    descriptor: &'a BlockFrameDescriptor,
+    descriptor: BlockFrameDescriptor,
     storage: &'a crate::storage::StorageBackend,
     offset: u64,
     hashes: Vec<[u8; 32]>,
@@ -349,7 +352,7 @@ impl<'a> BlockFrameReader<'a> {
     /// establish its commitment before calling this function. No signature is
     /// verified here; signed archive opening must retain full commit validation.
     pub(crate) fn open(
-        descriptor: &'a BlockFrameDescriptor,
+        descriptor: &BlockFrameDescriptor,
         storage: &'a crate::storage::StorageBackend,
         offset: u64,
         physical_len: usize,
@@ -376,7 +379,7 @@ impl<'a> BlockFrameReader<'a> {
         };
         storage.ensure_current()?;
         Ok(Self {
-            descriptor,
+            descriptor: descriptor.clone(),
             storage,
             offset,
             hashes,
@@ -386,7 +389,7 @@ impl<'a> BlockFrameReader<'a> {
 
     pub(crate) fn read(&self, range: Range<u64>) -> Result<Vec<u8>> {
         use chacha20poly1305::aead::AeadInOut;
-        let descriptor = self.descriptor;
+        let descriptor = &self.descriptor;
         let extent = descriptor.stored_range(range.clone())?;
         self.storage.ensure_current()?;
         let storage_len = self.storage.len()?;
