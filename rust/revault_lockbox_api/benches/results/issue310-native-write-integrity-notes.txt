@@ -51,3 +51,9 @@ Do not claim write parity or accept a >5% regression from these measurements.
 Further isolated CPU/encoding measurement and more stable file-backed runs are
 needed before native default activation, as are comparisons to the actual
 default writer, load-time gates, all ZIP workloads, bindings and release checks.
+
+Follow-up: issue310-native-write-integrity-focused-notes.txt records separate
+25-group runs for raw/encrypted and compression-enabled/plain high-entropy data.
+Their upper 95% bounds were +0.558% and +2.314%, respectively, below the +5%
+threshold. The earlier concerning increases were not reproduced in those focused
+cases; this does not establish a speedup or satisfy the remaining broader gates.
