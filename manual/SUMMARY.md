@@ -51,6 +51,7 @@
 
 * [APIs](develop-with-revault/apis/README.md)
   * [reVault API](develop-with-revault/apis/revault-api.md)
+* [External byte sources](develop-with-revault/external-sources.md)
 * [Transactions and recovery](develop-with-revault/transactions.md)
 * [Versions and compatibility](develop-with-revault/compatibility.md)
 * [Glossary](develop-with-revault/glossary.md)

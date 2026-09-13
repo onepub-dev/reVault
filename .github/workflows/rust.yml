@@ -159,6 +159,8 @@ jobs:
             command: |
               cargo test --locked -p "$(cargo pkgid --manifest-path revault_page_api/Cargo.toml)"
               test_api revault_lockbox_api public_api_suite
+              cargo test --locked -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)" --features external-source --lib --test external_source
+              cargo test --locked -p "$(cargo pkgid --manifest-path revault_lockbox_api/Cargo.toml)" --features external-source --doc
           # CLI suites run once in cli-e2e, including command coverage enforcement.
           # Includes retained_fixtures: immutable historical bytes -> current, with a version-completeness gate.
           - group: migrations
@@ -425,7 +427,9 @@ jobs:
           key: portable-core-${{ matrix.target }}
 
       - name: Check core
-        run: cargo check -p revault_lockbox_api --target ${{ matrix.target }}
+        run: |
+          cargo check -p revault_lockbox_api --target ${{ matrix.target }}
+          cargo check -p revault_lockbox_api --features external-source --target ${{ matrix.target }}
 
       - name: Check secure tests
         if: matrix.target != 'wasm32-unknown-unknown'
