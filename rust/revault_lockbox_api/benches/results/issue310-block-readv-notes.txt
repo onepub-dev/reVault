@@ -1,0 +1,108 @@
+Issue #310: close experimental raw-read gaps, 2026-09-13
+Parent checkpoint: 2d4d53b (pushed to the issue branch with user approval).
+
+Scope: BENCHMARK ONLY. No production lockbox format, API, binding, migration,
+compression, signing or encryption code changed. RVEXP001 files are disposable
+fixtures, not usable lockboxes. Main remains unchanged by this work.
+
+Retained implementation
+- Factor descriptor/bounds validation out of the streaming visitor.
+- Mapped whole-file reads verify and initialize disjoint final output slices
+  on workers, avoiding a serial post-verification copy and redundant zero-fill.
+  Vec length remains zero until all output bytes are initialized and verified;
+  failures wipe full spare capacity before returning an error. Unsafe copies
+  have documented bounds, disjointness and initialization invariants.
+- Unix-only opt-in REVAULT_BLOCK_READV=1 uses preadv into alternating checksum
+  and final-output iovecs. Each task covers eight 16 KiB blocks. It then checks
+  SHA-256, including file ID and block ordinal, against the stored checksums.
+  No temporary plaintext copy is needed and no mmap is created. This is buffered
+  vectored I/O using the OS page cache, NOT O_DIRECT.
+- Handle short reads, EINTR, EOF and checked file-offset progression. No bytes
+  are returned on failure. Unaligned/partial-block ranges use the existing
+  complete-block-verifying fallback rather than bypassing integrity checks.
+- Stream through bounded 4 MiB verified output buffers, wiping each after the
+  visitor returns. The checksum pool is created lazily and bounded by the
+  explicitly selected worker count. No process-global pool or decoded cache.
+- Mapping and vectored modes are mutually exclusive. Both default off and
+  are Unix-only; the original ordinary-I/O benchmark path remains portable.
+- Keep padded creation as the comparison default. Padding is still recorded
+  in the private fixture header. No production --no-size-padding flag exists.
+
+Benchmark methodology correction
+Earlier cyclic rotation left each contender behind the same predecessor for
+most samples, retaining allocator/cache-history bias. Replace rotation with
+deterministically shuffled permutations each sample. Close earlier results
+are provisional; prefer the newer shuffled matrices. Background load and CPU
+frequency are still uncontrolled; do not claim cross-machine parity.
+
+Columns now include open, first-byte, first-file, total, read-call, output-wipe,
+and drop timings (microseconds). Medians are independent and need not sum.
+For whole/range reads, read_calls_us excludes the harness's output comparison
+and wipe; total_us still includes both plus teardown, as before. Stream calls
+include visitor comparisons and bounded reader buffers. All returned bytes are
+checked. First-byte means first delivered buffer/slice, not a single-byte read.
+Fresh file-backed archive handles every sample, warm OS cache, no retained maps
+or decoded data between samples. Fixture creation and builds are not timed and
+do not overlap measurements. No timing threshold is asserted in unit tests.
+
+Exploration
+Fused mapped output reduced copies, but phase measurements showed about 2 ms
+of mapped-handle teardown for the 32 MiB fixture. Vectored reads reduced that
+to tens of microseconds. This removed the remaining whole-file wall-time gap
+without hiding teardown outside the benchmark. Mapping remains opt-in solely
+as a comparison; its file-immutability requirement is NOT production-safe.
+Non-temporal x86 output stores lost to ordinary stores in the shuffled paired
+comparison and were removed completely. See rejected-nontemporal.csv; its
+extra -nt rows are historical experiments, not currently available modes.
+Worker-adaptive larger I/O groups regressed the four-worker streaming case
+and were removed. Retain the eight-block/128 KiB task size.
+
+Measured results, padded RAW/UNSIGNED/UNENCRYPTED fixture, milliseconds
+Four 8 MiB files; 61 shuffled samples, eight workers, CPU affinity 0-7:
+                            Current     Prototype       ZIP
+Streaming                    58.930       9.063         10.106
+Whole files                  66.891       9.469         10.131
+8 KiB midpoint ranges        36.853       0.082          0.118
+Open (stream sample)          0.247       0.028          0.086
+First stream buffer           6.468       0.964          0.106
+This repeat confirms the earlier 61-sample readv-first matrix's wins. ZIP
+still returns its first streaming buffer sooner; the guardrail comparison
+against CURRENT REVAULT improves, not against every ZIP latency dimension.
+
+Four 64 MiB files; 15 shuffled samples, eight workers, CPU affinity 0-7:
+                            Current     Prototype       ZIP
+Streaming                   452.444      76.959         99.376
+Whole files                 645.537     126.833        260.370
+8 KiB midpoint ranges        26.645       0.103          0.158
+Open (stream sample)          0.389       0.068          0.214
+First stream buffer           6.580       1.180          0.244
+
+CPU budget caveat
+The wins above use eight verification workers versus serial ZIP. A four-worker
+run on CPUs 2,4,6,8 still missed: padded streaming 11.183 versus ZIP 9.231 ms;
+whole-file 12.184 versus 10.602 ms. Range reads still won. Adaptive larger task
+sizes did not fix that gap. Do not describe this as general or single-core
+parity, and do not silently select eight workers as a production default.
+
+Validation
+Five targeted tests cover padding persistence, lazy descriptor groups, empty
+files, EOF/overflow/refusals, header/descriptor/data corruption, later-block
+corruption in serial/parallel reads, wiped scratch after failures, output
+initialization/alignment/neighbors, and block/worker-boundary ranges. A fake
+vectored syscall deterministically injects EINTR, tiny reads crossing iovec
+boundaries and early EOF. This is private codec testing, not CLI E2E.
+Tests passed in ordinary, mapped and vectored modes; strict targeted clippy,
+formatting and diff checks passed. No production code changed; production-wide or
+cross-platform suites are not claimed as rerun by this checkpoint.
+
+Remaining work / acceptance boundary
+This demonstrates throughput feasibility, not completed issue #310. The
+prototype uses numeric IDs rather than the production path tree; no mutation,
+transaction recovery, compression or protected-mode implementation exists.
+Production integration must bind the versioned block index to committed
+metadata, preserve snapshot/generation consistency, implement required format
+migrations and bindings, and validate encrypted/signed modes. Its unkeyed
+self-checksums alone are not a design for authenticated archives. The <=5%
+production open-time guardrail remains unproven until that work is integrated.
+Four-worker throughput and ZIP first-buffer latency remain explicit gaps.
+Keep all work on the issue branch; do not merge the experiment or close #310.
