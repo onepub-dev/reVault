@@ -29,6 +29,11 @@ retains portable Lockbox and key operations, but browser execution does not
 provide the complete API because browsers cannot provide Vault directories, a
 platform credential store, or a Session Agent process.
 
+The optional `revault_lockbox_api` `external-source` feature is a Rust embedding
+API, including custom WASM wrappers. It does not add C ABI operations or change
+the generated language facades. See [external byte sources](../manual/develop-with-revault/external-sources.md)
+for supported modes, transport requirements and retry limits.
+
 ## Language targets
 
 The native ABI and private FlatBuffers schema are the common contract for the

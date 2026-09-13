@@ -91,3 +91,8 @@ read_archive_bytes	Rust archive guard implementation; foreign callers use native
 lock_archive	Rust private staging guard; foreign replacement is performed by Rust.
 backup	Backup of an already-open VaultDirectory is not yet exposed; close it before using vault_backup_default.
 write_to_path	Migration/test-only Rust snapshot writer; foreign file persistence uses native commit and file creation.
+with_content_key	Optional external-source Rust embedding API; checked closures, source callbacks and sparse cache lifetimes have no C ABI contract. Custom WASM wrappers can enable the Rust feature.
+try_read	Optional external-source Rust embedding API; checked closures, source callbacks and sparse cache lifetimes have no C ABI contract. Custom WASM wrappers can enable the Rust feature.
+cancel	Optional external-source Rust embedding API; checked closures, source callbacks and sparse cache lifetimes have no C ABI contract. Custom WASM wrappers can enable the Rust feature.
+supply	Optional external-source Rust embedding API; checked closures, source callbacks and sparse cache lifetimes have no C ABI contract. Custom WASM wrappers can enable the Rust feature.
+cached_bytes	Optional external-source Rust embedding API; checked closures, source callbacks and sparse cache lifetimes have no C ABI contract. Custom WASM wrappers can enable the Rust feature.

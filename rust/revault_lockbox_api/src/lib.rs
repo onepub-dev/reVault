@@ -43,6 +43,8 @@ mod compression;
 mod constants;
 mod creation_options;
 mod error;
+#[cfg(feature = "external-source")]
+pub mod external_source;
 mod fast_hash;
 mod file_format;
 mod index;

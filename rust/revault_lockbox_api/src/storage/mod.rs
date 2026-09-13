@@ -46,6 +46,8 @@ pub(crate) trait Storage: Clone + std::fmt::Debug {
 pub(crate) enum StorageBackend {
     Memory(MemoryStore),
     File(FileStore),
+    #[cfg(feature = "external-source")]
+    External(crate::external_source::ExternalStorage),
 }
 
 impl StorageBackend {
@@ -106,6 +108,10 @@ impl StorageBackend {
     }
 
     pub(crate) fn is_read_only(&self) -> bool {
+        #[cfg(feature = "external-source")]
+        if matches!(self, Self::External(_)) {
+            return true;
+        }
         matches!(self, Self::File(store) if !store.writable)
     }
 
@@ -154,16 +160,31 @@ impl StorageBackend {
     pub(crate) fn path(&self) -> Option<&Path> {
         match self {
             Self::Memory(_) => None,
+            #[cfg(feature = "external-source")]
+            Self::External(_) => None,
             Self::File(store) => Some(store.path()),
         }
     }
 }
 
 impl Storage for StorageBackend {
+    fn read_at_secure(&self, offset: u64, len: usize) -> Result<SecureVec> {
+        #[cfg(feature = "external-source")]
+        if let Self::External(store) = self {
+            return store.read_at_secure(offset, len);
+        }
+        let mut out = SecureVec::new();
+        out.resize_zeroed(len)?;
+        out.with_mut_bytes(|bytes| self.read_at_into(offset, bytes))??;
+        Ok(out)
+    }
+
     fn len(&self) -> Result<u64> {
         match self {
             Self::Memory(store) => store.len(),
             Self::File(store) => store.len(),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.len(),
         }
     }
 
@@ -171,6 +192,8 @@ impl Storage for StorageBackend {
         match self {
             Self::Memory(store) => store.read_at(offset, len),
             Self::File(store) => store.read_at(offset, len),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.read_at(offset, len),
         }
     }
 
@@ -178,6 +201,8 @@ impl Storage for StorageBackend {
         match self {
             Self::Memory(store) => store.read_at_into(offset, out),
             Self::File(store) => store.read_at_into(offset, out),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.read_at_into(offset, out),
         }
     }
 
@@ -185,6 +210,8 @@ impl Storage for StorageBackend {
         match self {
             Self::Memory(store) => store.append(bytes),
             Self::File(store) => store.append(bytes),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.append(bytes),
         }
     }
 
@@ -192,6 +219,8 @@ impl Storage for StorageBackend {
         match self {
             Self::Memory(store) => store.write_at(offset, bytes),
             Self::File(store) => store.write_at(offset, bytes),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.write_at(offset, bytes),
         }
     }
 
@@ -199,6 +228,8 @@ impl Storage for StorageBackend {
         match self {
             StorageBackend::Memory(store) => store.truncate(len),
             StorageBackend::File(store) => store.truncate(len),
+            #[cfg(feature = "external-source")]
+            StorageBackend::External(store) => store.truncate(len),
         }
     }
 
@@ -206,6 +237,8 @@ impl Storage for StorageBackend {
         match self {
             Self::Memory(store) => store.sync(),
             Self::File(store) => store.sync(),
+            #[cfg(feature = "external-source")]
+            Self::External(store) => store.sync(),
         }
     }
 }
@@ -424,42 +457,42 @@ impl StorageBackend {
     pub(crate) fn fail_memory_operation_after_successes(&mut self, successes: usize) {
         match self {
             Self::Memory(store) => store.fail_operation_after_successes(successes),
-            Self::File(_) => panic!("failure injection is only available for memory storage"),
+            _ => panic!("failure injection is only available for memory storage"),
         }
     }
 
     pub(crate) fn memory_operation_count(&self) -> usize {
         match self {
             Self::Memory(store) => store.operation_count(),
-            Self::File(_) => panic!("operation counting is only available for memory storage"),
+            _ => panic!("operation counting is only available for memory storage"),
         }
     }
 
     pub(crate) fn reset_memory_operation_count(&self) {
         match self {
             Self::Memory(store) => store.reset_operation_count(),
-            Self::File(_) => panic!("operation counting is only available for memory storage"),
+            _ => panic!("operation counting is only available for memory storage"),
         }
     }
 
     pub(crate) fn fail_memory_append_after_successes(&mut self, successes: usize) {
         match self {
             Self::Memory(store) => store.fail_append_after_successes(successes),
-            Self::File(_) => panic!("failure injection is only available for memory storage"),
+            _ => panic!("failure injection is only available for memory storage"),
         }
     }
 
     pub(crate) fn fail_memory_next_write_at(&mut self, offset: u64) {
         match self {
             Self::Memory(store) => store.fail_next_write_at(offset),
-            Self::File(_) => panic!("failure injection is only available for memory storage"),
+            _ => panic!("failure injection is only available for memory storage"),
         }
     }
 
     pub(crate) fn fail_memory_sync_after_successes(&mut self, successes: usize) {
         match self {
             Self::Memory(store) => store.fail_sync_after_successes(successes),
-            Self::File(_) => panic!("failure injection is only available for memory storage"),
+            _ => panic!("failure injection is only available for memory storage"),
         }
     }
 }
@@ -469,7 +502,7 @@ impl StorageBackend {
     pub(crate) fn inject_test_write_failure_at(&mut self, offset: u64) {
         match self {
             Self::Memory(store) => store.fail_next_write_at(offset),
-            Self::File(_) => panic!("test write failure is only available for memory storage"),
+            _ => panic!("test write failure is only available for memory storage"),
         }
     }
 }
