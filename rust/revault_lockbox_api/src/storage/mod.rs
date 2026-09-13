@@ -11,9 +11,11 @@ use crate::{Error, Result};
 #[cfg(test)]
 use std::cell::Cell;
 use std::fs;
-use std::io::{Read, Seek, SeekFrom, Write};
+#[cfg(not(unix))]
+use std::io::Read;
+use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 pub(crate) trait Storage: Clone + std::fmt::Debug {
     fn len(&self) -> Result<u64>;
@@ -143,7 +145,7 @@ impl StorageBackend {
             replacement.install()?;
             Ok(Self::File(FileStore {
                 path: path.to_path_buf(),
-                file: Arc::new(Mutex::new(file)),
+                file: Arc::new(RwLock::new(file)),
                 writable: true,
             }))
         })();
@@ -510,7 +512,10 @@ impl StorageBackend {
 #[derive(Debug, Clone)]
 pub(crate) struct FileStore {
     path: PathBuf,
-    file: Arc<Mutex<std::fs::File>>,
+    // A single descriptor retains the archive lock across clones. Positional
+    // readers may share it, but mutations must still exclude all reads: a
+    // read_exact_at call can involve multiple kernel reads on a short read.
+    file: Arc<RwLock<std::fs::File>>,
     writable: bool,
 }
 
@@ -520,7 +525,7 @@ impl FileStore {
         let file = archive_lock::open(&path, writable)?;
         Ok(Self {
             path,
-            file: Arc::new(Mutex::new(file)),
+            file: Arc::new(RwLock::new(file)),
             writable,
         })
     }
@@ -552,7 +557,7 @@ impl FileStore {
             replacement.sync_parent()?;
             Ok(Self {
                 path,
-                file: Arc::new(Mutex::new(file)),
+                file: Arc::new(RwLock::new(file)),
                 writable: true,
             })
         })();
@@ -560,9 +565,9 @@ impl FileStore {
         result
     }
 
-    fn lock_file(&self) -> Result<std::sync::MutexGuard<'_, std::fs::File>> {
+    fn lock_file(&self) -> Result<std::sync::RwLockWriteGuard<'_, std::fs::File>> {
         self.file
-            .lock()
+            .write()
             .map_err(|_| Error::Io("storage file lock poisoned".to_string()))
     }
 
@@ -598,10 +603,25 @@ impl Storage for FileStore {
     }
 
     fn read_at_into(&self, offset: u64, out: &mut [u8]) -> Result<()> {
-        let mut file = self.lock_file()?;
-        file.seek(SeekFrom::Start(offset))
-            .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
-        file.read_exact(out).map_err(|err| {
+        #[cfg(unix)]
+        let result = {
+            use std::os::unix::fs::FileExt;
+            let file = self
+                .file
+                .read()
+                .map_err(|_| Error::Io("storage file lock poisoned".to_string()))?;
+            file.read_exact_at(out, offset)
+        };
+        // Retain serialized cursor I/O where we do not have a cursor-independent
+        // exact read. In particular, Windows seek_read changes the file cursor.
+        #[cfg(not(unix))]
+        let result = {
+            let mut file = self.lock_file()?;
+            file.seek(SeekFrom::Start(offset))
+                .map_err(|err| Error::Io(format!("seek {}: {err}", self.path.display())))?;
+            file.read_exact(out)
+        };
+        result.map_err(|err| {
             if err.kind() == std::io::ErrorKind::UnexpectedEof {
                 Error::Truncated
             } else {
@@ -654,6 +674,67 @@ mod archive_lock_tests {
             "revault-{label}-{}",
             crate::LockboxId::new_random().unwrap()
         ))
+    }
+
+    #[test]
+    fn positional_reads_share_the_handle_without_moving_its_cursor() {
+        let path = path("positional-reads");
+        let bytes: Vec<u8> = (0..131_072).map(|i| (i % 251) as u8).collect();
+        let store = FileStore::create(&path, &bytes).unwrap();
+        store
+            .lock_file()
+            .unwrap()
+            .seek(SeekFrom::Start(37))
+            .unwrap();
+        let read_guard = store.file.read().unwrap();
+        let clone = store.clone();
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            sender.send(clone.read_at(12_345, 65_537)).unwrap();
+        });
+        // A held read guard must not serialize another positional reader. Drop
+        // it before joining even on timeout so a regression cannot hang tests.
+        let result = receiver.recv_timeout(std::time::Duration::from_secs(5));
+        drop(read_guard);
+        worker.join().unwrap();
+        assert_eq!(result.unwrap().unwrap(), bytes[12_345..77_882]);
+        assert_eq!(store.lock_file().unwrap().stream_position().unwrap(), 37);
+        assert!(matches!(
+            store.read_at(bytes.len() as u64 - 1, 2),
+            Err(Error::Truncated)
+        ));
+        assert!(store.read_at(bytes.len() as u64, 0).unwrap().is_empty());
+        drop(store);
+        fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn cloned_positional_readers_observe_complete_writes_and_serialized_appends() {
+        let path = path("positional-mutations");
+        let size = 131_072;
+        let store = FileStore::create(&path, &vec![0; size]).unwrap();
+        std::thread::scope(|scope| {
+            for id in 1..=4u8 {
+                let mut clone = store.clone();
+                scope.spawn(move || {
+                    for _ in 0..32 {
+                        clone.write_at(0, &vec![id; size]).unwrap();
+                        let bytes = clone.read_at(0, size).unwrap();
+                        assert!(bytes.iter().all(|byte| *byte == bytes[0]));
+                        let offset = clone.append(&[id; 64]).unwrap();
+                        assert!(offset >= size as u64);
+                        assert_eq!(clone.read_at(offset, 64).unwrap(), [id; 64]);
+                    }
+                });
+            }
+        });
+        assert_eq!(store.len().unwrap(), (size + 4 * 32 * 64) as u64);
+        let mut clone = store.clone();
+        clone.truncate(1).unwrap();
+        assert!(matches!(store.read_at(0, 2), Err(Error::Truncated)));
+        drop(clone);
+        drop(store);
+        fs::remove_file(path).unwrap();
     }
 
     #[test]

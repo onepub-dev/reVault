@@ -1,6 +1,6 @@
 use super::key_directory_candidates::KeyDirectoryCandidates;
 use super::Lockbox;
-#[cfg(feature = "vault-integration")]
+#[cfg(any(feature = "vault-integration", feature = "migration"))]
 use crate::key_directory::encode_key_directory;
 #[cfg(feature = "vault-integration")]
 use crate::key_directory::read_key_directory_backup;
@@ -970,7 +970,7 @@ impl Lockbox {
     /// Export a backup copy of the key directory.
     ///
     /// Returns storage/encoding errors if the key directory cannot be encoded.
-    #[cfg(any(feature = "vault-integration", feature = "migration"))]
+    #[cfg(feature = "vault-integration")]
     pub(crate) fn export_key_directory_backup(&self) -> Result<Vec<u8>> {
         encode_key_directory(
             &self.key_slots,

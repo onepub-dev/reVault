@@ -1,0 +1,52 @@
+Issue #310: rebased production storage and first verified streaming block
+
+Base: 9e84bcd, rebased onto main 0f9a137 (native format v4 recovery protocol).
+Production FileStore now shares an RwLock<File> across clones. Unix exact
+positional reads hold shared guards; writes/truncates still hold exclusive
+guards. One descriptor retains the existing archive lock, with no new open or
+dup syscall. Non-Unix retains serialized seek/read. External sources unchanged.
+The production format and creation options are unchanged by this checkpoint.
+
+Prototype readv streaming now delivers one verified 16 KiB block before worker
+pool initialization, then uses 4 MiB batches. This is still a private numeric
+fixture codec, NOT a production archive implementation or security design.
+
+Measurements: optimized block_layout, 31 shuffled samples, fresh handles,
+warm OS cache, REVAULT_BLOCK_READV=1, default 8 MiB large files. Eight workers
+pinned to CPUs 0-7; four workers pinned to CPUs 0-3. No concurrent builds/tests.
+Output byte verification and wiping included as before. Measurements are local
+and sequential, not a controlled A/B isolation of the FileStore change.
+
+Files:
+  issue310-rebased-positional-readv.csv: before first-block delivery, 8 workers
+  issue310-first-block-readv.csv: first-block delivery, 8 workers
+  issue310-first-block-four-workers.csv: first-block delivery, 4 workers
+
+Four 8 MiB files, padded prototype:
+                                      Before       After       ZIP (after)
+  8-worker stream total (ms)            8.006       8.448           9.160
+  8-worker first stream buffer (us)   791.634      48.741          90.532
+  8-worker stream open (us)            26.471      25.230          69.811
+  8-worker whole total (ms)             8.402       8.122           7.810
+  8-worker range total (us)            81.511      81.942         108.742
+
+  4-worker stream total (ms)                       8.482           8.905
+  4-worker first stream buffer (us)               43.830          83.531
+  4-worker whole total (ms)                       10.630           8.764
+  4-worker range total (us)                       86.202         127.292
+
+First-buffer latency now beats ZIP in these runs. The earlier prototype's
+8-worker streaming throughput decreased about 5.5%, but still beats ZIP here;
+open and first-delivery latency did not regress. Whole-file reads remain ~4%
+behind ZIP with 8 workers, ~21% with 4. No general parity claim is justified.
+Production is still much slower on these large-file cases (stream ~44 ms).
+Do not attribute differences versus old pre-rebase timings solely to this
+change: main's v4 protocol and host/cache/allocator variability also changed.
+
+Remaining: integrate block/index reads and writers into v4's publication,
+recovery, reclamation and integrity model (with a new format and migration if
+needed); persist creation-time padding option and expose it through CLI and
+bindings; preserve default privacy behavior; verify protected/compressed modes,
+external sources and full public CLI lifecycles; repeat larger-file/many-small
+archive measurements and the production <=5% open/load regression gate.
+The existing native format is v4, not the v3 assumed by the original experiment.

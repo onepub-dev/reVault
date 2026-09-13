@@ -549,12 +549,18 @@ impl Prototype {
         let end = start + len;
         let first = start / BLOCK;
         let last = (end - 1) / BLOCK;
-        self.prepare_pool(len)?;
         #[cfg(unix)]
         if self.vectored_reads && start % BLOCK == 0 && (end % BLOCK == 0 || end == size) {
             let mut cursor = start;
             while cursor < end {
-                let take = (4 * 1024 * 1024).min(end - cursor);
+                // Deliver one verified block before paying pool startup or
+                // filling the throughput-sized buffers used for the remainder.
+                let batch = if cursor == start {
+                    BLOCK
+                } else {
+                    4 * 1024 * 1024
+                };
+                let take = batch.min(end - cursor);
                 let mut output = self.read_vectored(id, cursor, take)?.ok_or_else(invalid)?;
                 consume(&output);
                 wipe(&mut output);
@@ -562,6 +568,7 @@ impl Prototype {
             }
             return Ok(());
         }
+        self.prepare_pool(len)?;
         #[cfg(unix)]
         if let Some(mapping) = self.mapping.as_ref() {
             let mut ordinal = first;
@@ -850,6 +857,49 @@ fn main() {
 mod tests {
     #[allow(unused_imports)]
     use super::*;
+    #[cfg(unix)]
+    #[test]
+    fn streaming_delivers_first_verified_block_before_bulk_buffers() {
+        let path =
+            std::env::temp_dir().join(format!("revault-first-block-tests-{}", std::process::id()));
+        let payload: Vec<u8> = (0..BLOCK * 270 + 13).map(|n| (n % 251) as u8).collect();
+        Prototype::write(&path, std::slice::from_ref(&payload), true).unwrap();
+        for workers in [1, 4, 8] {
+            let mut reader = Prototype::open(&path).unwrap();
+            reader.mapping = None;
+            reader.vectored_reads = true;
+            reader.workers = workers;
+            let mut sizes = Vec::new();
+            let mut done = 0;
+            reader
+                .visit(0, 0, payload.len(), |bytes| {
+                    assert_eq!(bytes, &payload[done..done + bytes.len()]);
+                    done += bytes.len();
+                    sizes.push(bytes.len());
+                })
+                .unwrap();
+            assert_eq!(done, payload.len());
+            assert_eq!(sizes, [BLOCK, 4 * 1024 * 1024, 13 * BLOCK + 13]);
+        }
+        // Private codec fault injection, not CLI E2E: the second block must
+        // never be delivered if its digest fails, even after a valid prefix.
+        let mut bytes = fs::read(&path).unwrap();
+        let offset = number(&bytes[HEADER + 16..HEADER + 24]) as usize;
+        bytes[offset + RECORD + 32] ^= 1;
+        fs::write(&path, bytes).unwrap();
+        let mut reader = Prototype::open(&path).unwrap();
+        reader.mapping = None;
+        reader.vectored_reads = true;
+        let mut delivered = Vec::new();
+        assert!(reader
+            .visit(0, 0, payload.len(), |bytes| delivered
+                .extend_from_slice(bytes))
+            .is_err());
+        assert_eq!(delivered, payload[..BLOCK]);
+        drop(reader);
+        fs::remove_file(path).unwrap();
+    }
+
     #[cfg(unix)]
     #[test]
     fn vectored_short_reads_interrupts_and_eof() {
