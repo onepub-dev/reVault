@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Extend storage source-current checks to external-source cancellation,
+  revision/length changes and latched transport failures.
+
 - Avoid copying full file frames merely to size their page allocations. Raw
   page sizes are calculated from framing and payload lengths; compression,
   encryption and stored bytes are unchanged by this optimization.

@@ -17,7 +17,7 @@ const MAX_FRAME: usize = 4 * 1024 * 1024;
 const TAG: usize = 16;
 
 #[derive(Clone)]
-struct Descriptor {
+pub(crate) struct Descriptor {
     archive: [u8; 16],
     frame: u64,
     logical: usize,
@@ -124,7 +124,7 @@ fn unprotect(
     }
 }
 
-fn encode(
+pub(crate) fn encode(
     input: &[u8],
     block: usize,
     compressed: bool,
@@ -201,9 +201,12 @@ fn encode(
     Ok((descriptor, std::mem::take(&mut *out)))
 }
 
-trait ByteSource {
+pub(crate) trait ByteSource {
     fn len(&self) -> Result<usize>;
     fn read(&self, range: Range<usize>) -> Result<Vec<u8>>;
+    fn validate(&self) -> Result<()> {
+        self.len().map(|_| ())
+    }
 }
 
 impl ByteSource for [u8] {
@@ -267,7 +270,7 @@ impl ByteSource for FileSource {
     }
 }
 
-struct Reader<'a, S: ByteSource + ?Sized> {
+pub(crate) struct Reader<'a, S: ByteSource + ?Sized> {
     descriptor: &'a Descriptor,
     source: &'a S,
     hashes: Vec<[u8; 32]>,
@@ -275,7 +278,7 @@ struct Reader<'a, S: ByteSource + ?Sized> {
 }
 
 impl<'a, S: ByteSource + ?Sized> Reader<'a, S> {
-    fn open(
+    pub(crate) fn open(
         descriptor: &'a Descriptor,
         source: &'a S,
         key: Option<&[u8; 32]>,
@@ -337,7 +340,9 @@ impl<'a, S: ByteSource + ?Sized> Reader<'a, S> {
         Ok(reader)
     }
 
-    fn read(&self, range: Range<usize>) -> Result<Vec<u8>> {
+    pub(crate) fn read(&self, range: Range<usize>) -> Result<Vec<u8>> {
+        // Cached index state and empty ranges cannot bypass source revocation.
+        self.source.validate()?;
         let d = self.descriptor;
         if range.start > range.end || range.end > d.logical {
             return Err("range");

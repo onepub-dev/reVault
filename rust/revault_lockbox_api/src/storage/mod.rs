@@ -5,6 +5,8 @@ pub(crate) mod file_lock;
 pub(crate) mod free_index;
 pub(crate) mod free_slot;
 pub(crate) mod page_cache;
+#[cfg(test)]
+pub(crate) mod shared_layout_tests;
 
 use crate::secret_vec::SecureVec;
 use crate::{Error, Result};
@@ -54,6 +56,10 @@ pub(crate) enum StorageBackend {
 
 impl StorageBackend {
     pub(crate) fn ensure_current(&self) -> Result<()> {
+        #[cfg(feature = "external-source")]
+        if let Self::External(store) = self {
+            return store.ensure_current();
+        }
         if let Self::File(store) = self {
             let file = store.lock_file()?;
             store.ensure_current(&file)?;

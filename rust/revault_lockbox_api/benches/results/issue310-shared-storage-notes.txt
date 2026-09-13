@@ -1,0 +1,51 @@
+Common block reader with native storage, 2026-09-13
+=================================================
+The staged common-reader probe now borrows StorageBackend itself, covering
+real MemoryStore and locked FileStore, instead of relying only on a separate
+fixture-file adapter. The same descriptor, block table and codec execute in
+all eight encryption/signing/compression combinations. No plaintext-only
+descriptor or encryption-rejecting fast path was introduced.
+
+This remains a test-level integration, not a production page/TOC writer.
+The adapter lives in storage/shared_layout_tests.rs and borrows the backend;
+it does not clone archive bytes, acquire an independent file handle, implement
+new filesystem semantics, or replace the native storage layer. It validates
+the bounded extent and source identity around reads, uses read_at_into with
+a wiping temporary for partial failures, and inherits the external byte budget
+and sticky failure state. Unit tests intentionally create synthetic packets
+and damage files directly; these are not claimed as public CLI E2E tests.
+
+The backend's source-current check now handles ExternalStorage as well as
+files: validate the source, reject length/revision changes and propagate its
+failure latch. The prototype Reader validates its source before returning even
+an empty range; a cached index cannot conceal cancellation or truncation.
+MissingRange can be cleared only by the checked external-operation owner
+between retries, not by the block reader itself.
+
+Verified on Linux:
+- All modes roundtrip whole, small and empty ranges from native memory/file
+  storage at a nonzero bounded extent, preserving neighboring bytes.
+- Unsigned open reads only the index; signed open eagerly checks all content.
+- Uncompressed small ranges read one full 16 KiB verification block (plus the
+  AEAD tag in encrypted mode). Compressed ranges still decode the whole frame.
+- Oversized/reversed/overflowing ranges are rejected.
+- Cached readers reject later truncation, same-inode data damage and replaced
+  files. A borrowed file backend retains the original OS archive lock.
+- All modes reject cancellation, revision changes, changed length and short
+  reads after index caching. Terminal failures remain latched after the source
+  resumes returning bytes. MissingRange retry works only after owner reset.
+- Existing external-source integration tests (15) and standalone common-layout
+  tests (6) pass. Strict feature-enabled library/tests/bench Clippy passes.
+
+Reproduce from rust/ with package revault_lockbox_api@0.0.41:
+cargo test -p PACKAGE --features external-source --lib storage::shared_layout_tests
+cargo test -p PACKAGE --features external-source --lib shared_block_reader
+cargo test -p PACKAGE --features external-source --test external_source --test shared_layout_checks
+cargo clippy -p PACKAGE --features external-source --lib --tests --bench shared_layout -- -D warnings
+
+No fresh speed claim is made by these correctness tests. The extra source
+validation has not passed the load-time gate and is not an enabled native
+block reader. Native descriptor persistence, full hybrid commit authentication,
+allocation/recovery/compaction, migrations and paired ZIP/write/load gates are
+still required. The experiment's local Ed25519 frame signature is not a
+substitute for the native hybrid signed-commit contract.

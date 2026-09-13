@@ -346,6 +346,17 @@ impl fmt::Debug for ExternalStorage {
     }
 }
 impl ExternalStorage {
+    pub(crate) fn ensure_current(&self) -> crate::Result<()> {
+        if let Some(error) = self.failure().map_err(source_io)? {
+            return Err(source_io(error));
+        }
+        self.source.validate().map_err(|error| self.latch(error))?;
+        if self.source.len() != self.length {
+            return Err(self.latch(SourceError::VersionChanged));
+        }
+        Ok(())
+    }
+
     fn failure(&self) -> Result<Option<SourceError>, SourceError> {
         Ok(self.failure.lock().map_err(|_| poisoned())?.clone())
     }
@@ -624,6 +635,95 @@ impl ReadAtSource for SparseSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_block_reader_preserves_external_failure_latching_in_every_mode() {
+        use crate::storage::shared_layout_tests::{codec, StorageSource};
+        struct Probe {
+            bytes: Vec<u8>,
+            state: Mutex<u8>,
+        }
+        impl ReadAtSource for Probe {
+            fn len(&self) -> u64 {
+                self.bytes.len() as u64 + u64::from(*self.state.lock().unwrap() == 5)
+            }
+            fn validate(&self) -> Result<(), SourceError> {
+                match *self.state.lock().unwrap() {
+                    1 => Err(SourceError::Cancelled),
+                    2 => Err(SourceError::VersionChanged),
+                    _ => Ok(()),
+                }
+            }
+            fn read_at(&self, offset: u64, out: &mut [u8]) -> Result<usize, SourceError> {
+                let state = *self.state.lock().unwrap();
+                if state == 4 {
+                    return Err(SourceError::MissingRange {
+                        offset,
+                        length: out.len(),
+                    });
+                }
+                out.copy_from_slice(&self.bytes[offset as usize..offset as usize + out.len()]);
+                Ok(out.len() - usize::from(state == 3 && !out.is_empty()))
+            }
+        }
+        let signer = ed25519_dalek::SigningKey::from_bytes(&[19; 32]);
+        let key = [29; 32];
+        for encrypted in [false, true] {
+            for signed in [false, true] {
+                for compressed in [false, true] {
+                    let (descriptor, packet) = codec::encode(
+                        &[43; 32768],
+                        16384,
+                        compressed,
+                        encrypted.then_some(&key),
+                        signed.then_some(&signer),
+                    )
+                    .unwrap();
+                    for failure in 1..=5 {
+                        let source = Arc::new(Probe {
+                            bytes: packet.clone(),
+                            state: Mutex::new(0),
+                        });
+                        let session =
+                            ExternalReader::new(source.clone(), ExternalReaderOptions::default())
+                                .unwrap();
+                        let backend = StorageBackend::External(session.storage.clone());
+                        let extent = StorageSource::new(&backend, 0, packet.len());
+                        let verifier = signer.verifying_key();
+                        let reader = codec::Reader::open(
+                            &descriptor,
+                            &extent,
+                            encrypted.then_some(&key),
+                            signed.then_some(&verifier),
+                        )
+                        .unwrap();
+                        assert_eq!(reader.read(7..19).unwrap(), [43; 12]);
+                        *source.state.lock().unwrap() = failure;
+                        assert!(reader.read(7..19).is_err());
+                        let latched = session.storage.failure().unwrap().unwrap();
+                        match failure {
+                            1 => assert_eq!(latched, SourceError::Cancelled),
+                            2 | 5 => assert_eq!(latched, SourceError::VersionChanged),
+                            3 => assert!(matches!(latched, SourceError::Unavailable(_))),
+                            4 => assert!(matches!(latched, SourceError::MissingRange { .. })),
+                            _ => unreachable!(),
+                        }
+                        *source.state.lock().unwrap() = 0;
+                        // Even empty reads after a cached index must reject the latch.
+                        assert!(reader.read(0..0).is_err());
+                        assert!(reader.read(7..19).is_err());
+                        if failure == 4 {
+                            // Only the checked external operation may reset a retryable
+                            // MissingRange between attempts; the block reader cannot.
+                            session.storage.clear_failure().unwrap();
+                            assert_eq!(reader.read(7..19).unwrap(), [43; 12]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     #[test]
     fn backend_refuses_every_mutation_and_checks_limits_before_secure_allocation() {
         let source = Arc::new(SparseSource::new(4096, "v1".into(), 512, 512).unwrap());
