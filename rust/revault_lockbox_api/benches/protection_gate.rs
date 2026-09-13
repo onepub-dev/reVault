@@ -11,7 +11,10 @@ use zeroize::Zeroize;
 const KEY: [u8; 32] = [71; 32];
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
-    if args.first().is_some_and(|arg| arg == "compare") {
+    if args
+        .first()
+        .is_some_and(|arg| arg == "compare" || arg == "compare-write")
+    {
         compare(&args);
         return;
     }
@@ -239,6 +242,7 @@ fn compare(args: &[String]) {
         "one warmup and at least one measured sample required"
     );
     let samples_arg = samples.to_string();
+    let writing = args[0] == "compare-write";
     let mut printed_header = false;
     for pair in 0..pairs {
         let order = if pair % 2 == 0 {
@@ -247,8 +251,23 @@ fn compare(args: &[String]) {
             [2, 1, 1, 2]
         };
         for (position, variant) in order.into_iter().enumerate() {
+            // Writes get unique child directories and refuse existing files.
+            // Read comparisons continue to share identical immutable fixtures.
+            let child_root = if writing {
+                let root = PathBuf::from(&args[3]).join(format!("pair-{pair}-position-{position}"));
+                fs::create_dir(&root).unwrap();
+                root.to_str().unwrap().to_owned()
+            } else {
+                args[3].clone()
+            };
             let output = Command::new(&args[variant])
-                .args(["read", &args[3], &args[4], &args[5], &samples_arg])
+                .args([
+                    if writing { "write" } else { "read" },
+                    &child_root,
+                    &args[4],
+                    &args[5],
+                    &samples_arg,
+                ])
                 .env("REVAULT_GATE_CASE", &args[7])
                 .env("REVAULT_GATE_SEED", (pair as u64 + 113).to_string())
                 .output()
@@ -274,7 +293,16 @@ fn compare(args: &[String]) {
             }
             assert_eq!(
                 count,
-                samples * if args[7] == "all" { 32 } else { 1 },
+                samples
+                    * if args[7] == "all" {
+                        if writing {
+                            8
+                        } else {
+                            32
+                        }
+                    } else {
+                        1
+                    },
                 "unexpected selected workload count"
             );
         }
@@ -302,12 +330,19 @@ fn summarize(args: &[String]) {
         };
         let case = format!("{}/{}/{}", fields[4], fields[5], fields[3]);
         let timing = [fields[9], fields[10], fields[11]].map(|v| v.parse::<f64>().unwrap());
-        assert!(timing.iter().all(|v| v.is_finite() && *v > 0.0));
+        assert!(timing.iter().all(|v| v.is_finite() && *v >= 0.0));
+        assert!(timing[2] > 0.0);
+        if fields[3] != "write" {
+            assert!(timing[0] > 0.0 && timing[1] > 0.0);
+        }
         cases.entry(case).or_default().entry(pair).or_default()[variant].push(timing);
     }
     println!("case,metric,main_us,branch_us,paired_change_pct,low95_pct,high95_pct,pairs");
     for (case, pairs) in cases {
         for (column, metric) in ["open", "read", "total"].iter().enumerate() {
+            if case.ends_with("/write") && column != 2 {
+                continue;
+            }
             let mut ratios = Vec::new();
             let mut pooled = [Vec::new(), Vec::new()];
             for pair in pairs.values() {

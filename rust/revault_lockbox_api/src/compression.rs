@@ -134,22 +134,11 @@ pub(crate) fn encode_with_compression(
             if looks_incompressible(payload) {
                 return (COMPRESSION_NONE, payload.to_vec());
             }
-            let mut compressed =
+            // Keep the requested numeric encoder single-pass. Trying a second
+            // complete encoder for a smaller result measurably slowed writes;
+            // reader optimizations do not depend on that experiment.
+            let compressed =
                 zstd_complete::encoding::compress_slice_c_level(payload, i32::from(level.get()));
-            // The streaming match finder can produce substantially smaller
-            // streams for repeating binary data. Keep the requested numeric
-            // encoder's result unless this additional fast pass beats it.
-            // This trades extra write work for smaller, often faster-to-read
-            // frames, without changing the Zstd format or Compression::None.
-            if payload.len() >= MIN_INCOMPRESSIBLE_CHECK_BYTES {
-                let mut alternative = crate::page_buffer::ZeroizingBytes::new(zstd_encode(
-                    payload,
-                    ZSTD_DEFAULT_LEVEL,
-                ));
-                if alternative.len() < compressed.len() {
-                    std::mem::swap(&mut compressed, &mut *alternative);
-                }
-            }
             if compressed.len() < payload.len() {
                 (COMPRESSION_ZSTD, compressed)
             } else {
@@ -414,7 +403,10 @@ mod tests {
         assert!(compressed.len() < payload.len() / 10);
         let numeric = zstd_complete::encoding::compress_slice_c_level(&payload, 3);
         let streaming = zstd_encode(&payload, ZSTD_DEFAULT_LEVEL);
-        assert_eq!(compressed.len(), numeric.len().min(streaming.len()));
+        // This is deliberately a case where the alternative is smaller.
+        // Do not restore a second full pass just to win a size-only assertion.
+        assert!(streaming.len() < numeric.len());
+        assert_eq!(compressed, numeric);
         assert_eq!(
             decode_compression_frame(algorithm, &compressed, payload.len() as u64).unwrap(),
             payload

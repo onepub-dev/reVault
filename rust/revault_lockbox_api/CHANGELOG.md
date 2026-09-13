@@ -8,10 +8,10 @@
   in place.
 - Allow concurrent Unix positional reads on a shared archive handle while
   retaining exclusive access for writes and truncation.
-- Improve compression selection for repetitive binary data. Large compressible
-  frames can use a smaller Zstd stream, benefiting newly written or recompressed
-  content only. Trying the additional encoder can increase write time; protected
-  read/open and compression-write regression checks are still in progress.
+- Preserve compression of repetitive binary data that previously looked
+  incompressible to the entropy heuristic. Keep the requested Zstd encoder
+  single-pass: the experimental second encoder was withdrawn because it slowed
+  writes. Existing-archive reader improvements do not require recompression.
 
 ## 0.0.11 - 2026-09-08
 

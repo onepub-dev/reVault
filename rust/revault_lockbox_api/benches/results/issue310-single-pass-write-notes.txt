@@ -1,0 +1,50 @@
+Single-full-pass writer restoration, 2026-09-13
+=============================================
+The user's write-speed constraint did not accept the experimental 7-14% cost.
+Remove the second full-frame encoder from encode_with_compression; retain the
+existing bounded 16 KiB compressibility probe and requested numeric Zstd level.
+This restores the requested encoder output, not the smaller dual-pass output.
+The test corpus intentionally has a smaller alternative stream and now asserts
+exact numeric output, preventing a size-only test from reintroducing two passes.
+The changelog no longer advertises the withdrawn smaller-stream trade-off.
+Existing-archive copying/wiping/positional-read improvements are unchanged.
+
+Validation: all 11 compression tests pass; library and protection_gate clippy
+pass. The broader goal remains open: obtain smaller output without write cost,
+and integrate/validate the shared layout rather than the withdrawn plain-only
+descriptor. This restoration is not a claim of completing those requirements.
+
+Real file-backed archive measurements, not encoder-only timings:
+Pinned main 0f9a137 vs candidate c497bb1 plus single-pass restoration.
+Same existing write harness in each executable; new parent compare-write mode
+drives immediate ABBA/BAAB child processes, pinned to CPU 2. Unique directories
+per child prevent archive collisions; later samples replace only their own
+closed synthetic fixtures. Create/add/commit/drop timed; separate reopened
+read verifies all payload bytes outside the timer. Synthetic content key, no
+password KDF. Owner key generation outside timer. Default worker policy.
+
+8 MiB repetitive-binary corpus, all eight modes, nine pairs, three child
+samples (first discarded). Archive sizes matched main in EVERY measured mode:
+plain/encrypted compressed 312704 bytes; signed/encrypted-signed compressed
+322944 bytes; plain/encrypted raw 8659328; signed/encrypted-signed raw 8673664.
+Raw paired CSV and summary retained alongside this note.
+Initial time estimates were noisy; two compressed cases had >5% median changes
+with wide intervals. Do not claim all-mode statistical equivalence from it.
+
+Focused repeats: 25 pairs, six child samples (first discarded), same CPU/corpus.
+- Plain compressed: paired median -0.195%; 95% bootstrap [-8.339,+3.304]%.
+- Encrypted-signed compressed: +0.002%; interval [-5.470,+5.436]%.
+Neither initial slowdown repeated. The latter interval still slightly crosses
+the 5% guardrail; median parity is not a tight bound on all workload regressions.
+Summaries committed; raw focused files:
+/tmp/protection-single-pass-plain-repeat.csv
+/tmp/protection-single-pass-protected-repeat.csv
+Fixtures remain in /tmp/revault-single-pass-write-ywXvjB,
+/tmp/revault-single-pass-plain-oFMMCN and
+/tmp/revault-single-pass-protected-Mnytxd.
+
+Command: protection_gate compare-write MAIN_EXE BRANCH_EXE ROOT 8388608 pattern
+PAIRS all|plain/true/write|encrypted-signed/true/write, then summarize CSV.
+REVAULT_GATE_CHILD_SAMPLES=3 for broad run; default 6 for focused runs.
+Bootstrap resamples whole pair ratios (5000 resamples), not individual rows.
+More corpora and final integrated-format write/read/open gates remain required.

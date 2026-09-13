@@ -2,7 +2,12 @@ Encoder-selection experiments, 2026-09-13
 ========================================
 Purpose: find smaller/faster-to-read compressed output WITHOUT accepting the
 previous candidate's measured 7-14% archive-write slowdown. This is unresolved.
-No production compression-policy change is made by this experiment.
+The experiments initially left policy unchanged. FOLLOW-UP: the unsuccessful
+second FULL encoding pass is now removed from the branch's default writer.
+The existing bounded 16 KiB compressibility probe is retained; it prevents
+misclassifying repetitive binary as incompressible. This restores the requested
+numeric encoder's output rather than accepting the write/size trade-off.
+Smaller output at no write-speed cost remains an unfinished requirement.
 
 encoder_selection SIZE LEVEL REPEATS, release build, taskset -c 2.
 1 MiB synthetic corpora, seven measured repetitions, discarded warmup,
