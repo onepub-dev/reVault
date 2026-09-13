@@ -101,9 +101,10 @@ impl TocTreeNode {
 
 pub(crate) fn encode_toc_leaf(entries: &[TocEntry]) -> Result<Vec<u8>> {
     let mut out = Vec::new();
-    out.push(TOC_NODE_VERSION);
+    let encoder = TocEncoder::new(entries);
+    out.push(encoder.version());
     out.push(TOC_LEAF);
-    out.extend_from_slice(&TocEncoder::new(entries).encode());
+    out.extend_from_slice(&encoder.encode());
     if out.len() > DEFAULT_METADATA_MAX_PAGE_BODY_BYTES {
         return Err(Error::SecurityLimitExceeded(
             "TOC leaf exceeds maximum page size".to_string(),
@@ -174,7 +175,18 @@ fn internal_base_len() -> usize {
 }
 
 pub(crate) fn decode_toc_node(payload: &[u8]) -> Result<TocNode> {
-    if payload.len() < 2 || payload[0] != TOC_NODE_VERSION {
+    if payload.len() < 2 {
+        return Err(Error::CorruptRecord);
+    }
+    #[cfg(test)]
+    if payload[0] == 2 && payload[1] == TOC_LEAF {
+        let entries = TocDecoder::new(&payload[2..])
+            .with_block_frames()
+            .decode()?;
+        validate_leaf_entries(&entries)?;
+        return Ok(TocNode::Leaf(entries));
+    }
+    if payload[0] != TOC_NODE_VERSION {
         return Err(Error::CorruptRecord);
     }
     match payload[1] {

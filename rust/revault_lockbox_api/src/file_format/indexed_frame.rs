@@ -13,7 +13,7 @@ use sha2::Sha256;
 use std::ops::Range;
 
 #[path = "block_page.rs"]
-mod block_page;
+pub(crate) mod block_page;
 
 const BLOCK_BYTES: usize = 16 * 1024;
 const MAX_FRAME_BYTES: usize = 4 * 1024 * 1024;
@@ -25,18 +25,18 @@ const DIGEST_BYTES: usize = 32;
 /// weaker per-frame signature. One encoding covers every protection mode.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct BlockFrameDescriptor {
-    archive: crate::LockboxId,
-    frame_id: u64,
-    mode: crate::creation_options::FormatMode,
-    compression: u8,
-    logical_len: u64,
-    stored_len: u64,
-    salt: [u8; 32],
-    index_commitment: [u8; 32],
+    pub(crate) archive: crate::LockboxId,
+    pub(crate) frame_id: u64,
+    pub(crate) mode: crate::creation_options::FormatMode,
+    pub(crate) compression: u8,
+    pub(crate) logical_len: u64,
+    pub(crate) stored_len: u64,
+    pub(crate) salt: [u8; 32],
+    pub(crate) index_commitment: [u8; 32],
 }
 
 impl BlockFrameDescriptor {
-    const ENCODED_LEN: usize = 128;
+    pub(crate) const ENCODED_LEN: usize = 128;
     const CONTEXT_LEN: usize = 96;
     const MAGIC: &'static [u8; 8] = b"LBXBF001";
 
@@ -87,7 +87,7 @@ impl BlockFrameDescriptor {
         Ok(())
     }
 
-    fn encode(&self) -> Result<[u8; Self::ENCODED_LEN]> {
+    pub(crate) fn encode(&self) -> Result<[u8; Self::ENCODED_LEN]> {
         self.validate()?;
         let mut out = [0; Self::ENCODED_LEN];
         out[..8].copy_from_slice(Self::MAGIC);
@@ -103,7 +103,7 @@ impl BlockFrameDescriptor {
         Ok(out)
     }
 
-    fn decode(
+    pub(crate) fn decode(
         bytes: &[u8],
         archive: crate::LockboxId,
         mode: crate::creation_options::FormatMode,
@@ -153,7 +153,7 @@ impl BlockFrameDescriptor {
         Ok(Self::CONTEXT_LEN + self.block_count()? * DIGEST_BYTES + self.tag_len())
     }
 
-    fn physical_len(&self) -> Result<usize> {
+    pub(crate) fn physical_len(&self) -> Result<usize> {
         Ok(self.index_len()? + self.stored_len as usize + self.block_count()? * self.tag_len())
     }
 

@@ -210,6 +210,8 @@ fn adversarial_segment_compressed_len_gt_frame() -> Vec<u8> {
 
 fn shared_frame_chunk() -> FileChunk {
     FileChunk {
+        #[cfg(test)]
+        block_frame: None,
         stored_path: LockboxPath::new("/tree/file.bin").unwrap(),
         file_offset: 0,
         len: 128,

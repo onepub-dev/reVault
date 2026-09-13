@@ -94,6 +94,8 @@ mod range_integrity_tests {
         let lb = Lockbox::create(b"range integrity test");
         let mut stored = vec![42; 4096];
         let chunk = FileChunk {
+            #[cfg(test)]
+            block_frame: None,
             stored_path: LockboxPath::new("/test").unwrap(),
             file_offset: 0,
             len: stored.len() as u64,
@@ -1886,6 +1888,8 @@ impl<'a, State> FilePageWriter<'a, State> {
         for slice in &manifest.slices {
             let chunk_index = chunks.len();
             chunks.push(FileChunk {
+                #[cfg(test)]
+                block_frame: None,
                 stored_path: slice.path.clone(),
                 file_offset: slice.file_offset,
                 len: slice.len,

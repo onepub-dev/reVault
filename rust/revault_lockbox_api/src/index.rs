@@ -29,6 +29,8 @@ pub(crate) fn decode_index_records(record: &DecodedRecord) -> Result<Vec<TocEntr
                         node_kind: NodeKind::File,
                         permissions: slice.permissions,
                         chunks: vec![FileChunk {
+                            #[cfg(test)]
+                            block_frame: None,
                             stored_path: path,
                             file_offset: slice.file_offset,
                             len: slice.len,

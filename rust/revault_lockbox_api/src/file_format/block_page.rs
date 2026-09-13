@@ -23,11 +23,11 @@ const UNPADDED: u16 = 2;
 const MAX_METADATA: usize = 1024 * 1024 + BlockFrameDescriptor::ENCODED_LEN;
 
 #[derive(Clone, Copy)]
-struct PageIdentity {
-    archive: LockboxId,
-    page_id: u64,
-    sequence: u64,
-    mode: FormatMode,
+pub(crate) struct PageIdentity {
+    pub(crate) archive: LockboxId,
+    pub(crate) page_id: u64,
+    pub(crate) sequence: u64,
+    pub(crate) mode: FormatMode,
 }
 
 fn metadata_aad(identity: PageIdentity, header: &[u8]) -> Vec<u8> {
@@ -46,7 +46,7 @@ fn metadata_digest(aad: &[u8], body: &[u8]) -> [u8; 32] {
     hash.finalize().into()
 }
 
-fn encode(
+pub(crate) fn encode(
     identity: PageIdentity,
     frame_id: u64,
     input: &[u8],
@@ -243,7 +243,7 @@ fn read_metadata(
     })
 }
 
-struct Reader<'a> {
+pub(crate) struct Reader<'a> {
     frame: BlockFrameReader<'a>,
     manifest: CompressionFrameManifest,
     physical_len: usize,
@@ -251,7 +251,7 @@ struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    fn open(
+    pub(crate) fn open(
         storage: &'a StorageBackend,
         offset: u64,
         identity: PageIdentity,
@@ -278,7 +278,7 @@ impl<'a> Reader<'a> {
         })
     }
 
-    fn read(&self, range: std::ops::Range<u64>) -> Result<Vec<u8>> {
+    pub(crate) fn read(&self, range: std::ops::Range<u64>) -> Result<Vec<u8>> {
         self.frame.storage.ensure_current()?;
         let len = self.frame.storage.len()?;
         if self

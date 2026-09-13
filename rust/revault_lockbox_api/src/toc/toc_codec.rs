@@ -32,6 +32,13 @@ pub(crate) struct TocEncoder<'a> {
 }
 
 impl<'a> TocEncoder<'a> {
+    pub(crate) fn version(&self) -> u8 {
+        if block_markers_len(&self.descriptors) != 0 {
+            2
+        } else {
+            1
+        }
+    }
     pub(crate) fn new(entries: impl IntoIterator<Item = &'a TocEntry>) -> Self {
         let entries = entries.into_iter().collect::<Vec<_>>();
         let descriptors = frame_descriptors(&entries);
@@ -45,8 +52,9 @@ impl<'a> TocEncoder<'a> {
         let mut out = Vec::new();
         put_varint(self.entries.len() as u64, &mut out);
         put_varint(self.descriptors.len() as u64, &mut out);
+        let block_format = self.version() == 2;
         for descriptor in &self.descriptors {
-            encode_frame_descriptor(descriptor, &mut out);
+            encode_frame_descriptor(descriptor, &mut out, block_format);
         }
         let mut previous_path = "";
         for (index, entry) in self.entries.iter().enumerate() {
@@ -97,6 +105,7 @@ impl<'a> TocEncoder<'a> {
 
     pub(crate) fn encoded_len(&self) -> usize {
         encoded_toc_count_len(self.entries.len())
+            + block_markers_len(&self.descriptors)
             + encoded_toc_count_len(self.descriptors.len())
             + self
                 .descriptors
@@ -163,6 +172,7 @@ impl TocEntriesLenEstimator {
 
     pub(crate) fn encoded_len(&self) -> usize {
         encoded_toc_count_len(self.count)
+            + block_markers_len(&self.descriptors)
             + encoded_toc_count_len(self.descriptors.len())
             + self.descriptor_len
             + self.entries_len
@@ -228,11 +238,21 @@ pub(crate) fn decode_toc_entries(payload: &[u8]) -> Result<Vec<TocEntry>> {
 
 pub(crate) struct TocDecoder<'a> {
     payload: &'a [u8],
+    block_format: bool,
 }
 
 impl<'a> TocDecoder<'a> {
     pub(crate) fn new(payload: &'a [u8]) -> Self {
-        Self { payload }
+        Self {
+            payload,
+            block_format: false,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn with_block_frames(mut self) -> Self {
+        self.block_format = true;
+        self
     }
 
     pub(crate) fn decode(self) -> Result<Vec<TocEntry>> {
@@ -250,7 +270,11 @@ impl<'a> TocDecoder<'a> {
         }
         let mut descriptors = Vec::with_capacity(descriptor_count);
         for _ in 0..descriptor_count {
-            descriptors.push(decode_frame_descriptor(payload, &mut offset)?);
+            descriptors.push(decode_frame_descriptor(
+                payload,
+                &mut offset,
+                self.block_format,
+            )?);
         }
 
         let mut entries = Vec::with_capacity(count);
@@ -326,6 +350,8 @@ impl<'a> TocDecoder<'a> {
                     .get(descriptor_index)
                     .ok_or(Error::CorruptRecord)?;
                 chunks.push(FileChunk {
+                    #[cfg(test)]
+                    block_frame: descriptor.block_frame.clone(),
                     stored_path,
                     file_offset,
                     len: chunk_len,
@@ -436,6 +462,8 @@ fn encoded_path_len(path: &str, previous_path: &str, index: usize) -> usize {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct FrameDescriptor {
+    #[cfg(test)]
+    block_frame: Option<std::sync::Arc<crate::file_chunk::BlockFrameReference>>,
     compression_frame_id: u64,
     compression: u8,
     compression_frame_len: u64,
@@ -447,6 +475,8 @@ struct FrameDescriptor {
 impl FrameDescriptor {
     fn from_chunk(chunk: &FileChunk) -> Self {
         Self {
+            #[cfg(test)]
+            block_frame: chunk.block_frame.clone(),
             compression_frame_id: chunk.compression_frame_id,
             compression: chunk.compression,
             compression_frame_len: chunk.compression_frame_len,
@@ -457,13 +487,52 @@ impl FrameDescriptor {
     }
 
     fn matches_chunk(&self, chunk: &FileChunk) -> bool {
-        self.compression_frame_id == chunk.compression_frame_id
+        self.same_block_layout(chunk)
+            && self.compression_frame_id == chunk.compression_frame_id
             && self.compression == chunk.compression
             && self.compression_frame_len == chunk.compression_frame_len
             && self.compressed_len == chunk.compressed_len
             && self.compression_frame_digest == chunk.compression_frame_digest
             && self.segments == chunk.segments
     }
+
+    fn same_block_layout(&self, chunk: &FileChunk) -> bool {
+        #[cfg(test)]
+        {
+            self.block_frame == chunk.block_frame
+        }
+        #[cfg(not(test))]
+        {
+            let _ = chunk;
+            true
+        }
+    }
+
+    fn block_extra_len(&self) -> usize {
+        #[cfg(test)]
+        {
+            self.block_frame.as_ref().map_or(0, |block| {
+                crate::file_format::indexed_frame::BlockFrameDescriptor::ENCODED_LEN
+                    + varint_len(block.sequence)
+            })
+        }
+        #[cfg(not(test))]
+        {
+            0
+        }
+    }
+}
+
+fn block_markers_len(descriptors: &[FrameDescriptor]) -> usize {
+    #[cfg(test)]
+    if descriptors
+        .iter()
+        .any(|descriptor| descriptor.block_frame.is_some())
+    {
+        return descriptors.len();
+    }
+    let _ = descriptors;
+    0
 }
 
 fn frame_descriptors(entries: &[&TocEntry]) -> Vec<FrameDescriptor> {
@@ -484,7 +553,7 @@ fn frame_descriptor_index(descriptors: &[FrameDescriptor], chunk: &FileChunk) ->
         .position(|descriptor| descriptor.matches_chunk(chunk))
 }
 
-fn encode_frame_descriptor(descriptor: &FrameDescriptor, out: &mut Vec<u8>) {
+fn encode_frame_descriptor(descriptor: &FrameDescriptor, out: &mut Vec<u8>, block_format: bool) {
     put_varint(descriptor.compression_frame_id, out);
     put_varint(descriptor.compression as u64, out);
     put_varint(descriptor.compression_frame_len, out);
@@ -498,9 +567,36 @@ fn encode_frame_descriptor(descriptor: &FrameDescriptor, out: &mut Vec<u8>) {
         put_varint(segment.segment_offset, out);
         put_varint(segment.segment_len, out);
     }
+    if block_format {
+        #[cfg(test)]
+        {
+            if let Some(block) = &descriptor.block_frame {
+                out.push(1);
+                out.extend_from_slice(
+                    &block
+                        .descriptor
+                        .encode()
+                        .expect("validated native block descriptor"),
+                );
+                put_varint(block.sequence, out);
+            } else {
+                out.push(0);
+            }
+        }
+        #[cfg(not(test))]
+        unreachable!("block TOC writing is staged until archive integration is complete");
+    }
 }
 
-fn decode_frame_descriptor(payload: &[u8], offset: &mut usize) -> Result<FrameDescriptor> {
+fn decode_frame_descriptor(
+    payload: &[u8],
+    offset: &mut usize,
+    block_format: bool,
+) -> Result<FrameDescriptor> {
+    #[cfg(not(test))]
+    if block_format {
+        return Err(Error::CorruptRecord);
+    }
     let compression_frame_id = take_varint(payload, offset)?;
     let compression =
         u8::try_from(take_varint(payload, offset)?).map_err(|_| Error::CorruptRecord)?;
@@ -539,18 +635,96 @@ fn decode_frame_descriptor(payload: &[u8], offset: &mut usize) -> Result<FrameDe
             segment_len,
         });
     }
-    Ok(FrameDescriptor {
+    #[cfg(test)]
+    let block_frame = if block_format {
+        decode_block_reference(payload, offset)?
+    } else {
+        None
+    };
+    let descriptor = FrameDescriptor {
+        #[cfg(test)]
+        block_frame,
         compression_frame_id,
         compression,
         compression_frame_len,
         compressed_len,
         compression_frame_digest,
         segments,
-    })
+    };
+    #[cfg(test)]
+    validate_block_reference(&descriptor)?;
+    Ok(descriptor)
+}
+
+#[cfg(test)]
+fn decode_block_reference(
+    payload: &[u8],
+    offset: &mut usize,
+) -> Result<Option<std::sync::Arc<crate::file_chunk::BlockFrameReference>>> {
+    use crate::file_format::indexed_frame::BlockFrameDescriptor;
+    let marker = *payload.get(*offset).ok_or(Error::CorruptRecord)?;
+    *offset += 1;
+    match marker {
+        0 => Ok(None),
+        1 => {
+            let bytes = payload
+                .get(*offset..)
+                .and_then(|tail| tail.get(..BlockFrameDescriptor::ENCODED_LEN))
+                .ok_or(Error::CorruptRecord)?;
+            let archive = crate::LockboxId::from_bytes(
+                bytes[16..32].try_into().map_err(|_| Error::CorruptRecord)?,
+            );
+            let mode = crate::creation_options::FormatMode::parse(crate::checked::read_u16_le(
+                &bytes[8..10],
+            )?)?;
+            // This establishes canonical syntax only. The archive reader must
+            // bind identity/mode to its trusted header and verify the TOC commit.
+            let descriptor = BlockFrameDescriptor::decode(bytes, archive, mode)?;
+            *offset += BlockFrameDescriptor::ENCODED_LEN;
+            let sequence = take_varint(payload, offset)?;
+            Ok(Some(std::sync::Arc::new(
+                crate::file_chunk::BlockFrameReference {
+                    descriptor,
+                    sequence,
+                },
+            )))
+        }
+        _ => Err(Error::CorruptRecord),
+    }
+}
+
+#[cfg(test)]
+fn validate_block_reference(frame: &FrameDescriptor) -> Result<()> {
+    if let Some(block) = &frame.block_frame {
+        let descriptor = &block.descriptor;
+        if descriptor.frame_id != frame.compression_frame_id
+            || descriptor.compression != frame.compression
+            || descriptor.logical_len != frame.compression_frame_len
+            || descriptor.stored_len != frame.compressed_len
+            || descriptor.index_commitment != frame.compression_frame_digest
+        {
+            return Err(Error::CorruptRecord);
+        }
+        let [segment] = frame.segments.as_slice() else {
+            return Err(Error::CorruptRecord);
+        };
+        if segment.segment_offset != 0
+            || segment.segment_len != frame.compressed_len
+            || segment.object_id == 0
+            || segment.page_len < (crate::page::PAGE_HEADER_LEN + descriptor.physical_len()?) as u64
+            || segment.page_len > crate::page::DEFAULT_DATA_PAGE_BYTES as u64
+            || segment.page_offset.checked_add(segment.page_len).is_none()
+            || (!descriptor.mode.unpadded() && segment.page_len % 1024 != 0)
+        {
+            return Err(Error::CorruptRecord);
+        }
+    }
+    Ok(())
 }
 
 fn encoded_descriptor_len(descriptor: &FrameDescriptor) -> usize {
     varint_len(descriptor.compression_frame_id)
+        + descriptor.block_extra_len()
         + varint_len(descriptor.compression as u64)
         + varint_len(descriptor.compression_frame_len)
         + varint_len(descriptor.compressed_len)
@@ -653,6 +827,235 @@ pub(crate) fn varint_len(mut value: u64) -> usize {
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
+
+    fn native_fixture(mode: crate::creation_options::FormatMode) -> (Vec<TocEntry>, Vec<u8>) {
+        use crate::compression_frame_manifest::CompressionFrameSlice;
+        use crate::file_format::indexed_frame::block_page::{self, PageIdentity};
+        let identity = PageIdentity {
+            archive: crate::LockboxId::from_bytes([71; 16]),
+            page_id: 41,
+            sequence: 43,
+            mode,
+        };
+        let slices = (0..2)
+            .map(|index| CompressionFrameSlice {
+                path: LockboxPath::new(format!("/tree/file-{index}.bin")).unwrap(),
+                permissions: 0o640,
+                total_len: 128,
+                file_offset: 0,
+                compression_frame_offset: index * 128,
+                len: 128,
+            })
+            .collect::<Vec<_>>();
+        let input: Vec<_> = (0..256).map(|n| (n % 13) as u8).collect();
+        let (descriptor, page) =
+            block_page::encode(identity, 31, &input, slices.clone(), &[53; 32]).unwrap();
+        let reference = std::sync::Arc::new(crate::file_chunk::BlockFrameReference {
+            descriptor,
+            sequence: identity.sequence,
+        });
+        let entries = slices
+            .into_iter()
+            .map(|slice| {
+                let descriptor = &reference.descriptor;
+                TocEntry {
+                    path: slice.path.clone(),
+                    len: slice.len,
+                    record_offset: 4096,
+                    record_len: page.len() as u64,
+                    record_object_id: identity.page_id,
+                    deleted: false,
+                    node_kind: NodeKind::File,
+                    permissions: slice.permissions,
+                    chunks: vec![FileChunk {
+                        block_frame: Some(reference.clone()),
+                        stored_path: slice.path,
+                        file_offset: 0,
+                        len: slice.len,
+                        compression_frame_offset: slice.compression_frame_offset,
+                        compression_frame_len: descriptor.logical_len,
+                        compressed_len: descriptor.stored_len,
+                        compression: descriptor.compression,
+                        compression_frame_id: descriptor.frame_id,
+                        compression_frame_digest: descriptor.index_commitment,
+                        segments: vec![CompressionFrameSegment {
+                            page_offset: 4096,
+                            page_len: page.len() as u64,
+                            object_id: identity.page_id,
+                            segment_offset: 0,
+                            segment_len: descriptor.stored_len,
+                        }],
+                    }],
+                }
+            })
+            .collect();
+        (entries, page)
+    }
+
+    #[test]
+    fn native_toc_leaves_share_block_commitments_and_read_real_pages_in_all_modes() {
+        use crate::creation_options::FormatMode;
+        use crate::file_format::indexed_frame::block_page::{PageIdentity, Reader};
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        for encryption in [EncryptionMode::None, EncryptionMode::ChaCha20Poly1305] {
+            for signing in [SigningMode::None, SigningMode::Owner] {
+                for compression in [Compression::None, Compression::default()] {
+                    for size_padding in [SizePadding::Default, SizePadding::None] {
+                        let mode = FormatMode::new(LockboxFormatOptions {
+                            encryption,
+                            signing,
+                            compression,
+                            size_padding,
+                        });
+                        let (mut entries, page) = native_fixture(mode);
+                        let mut legacy = entries[0].clone();
+                        legacy.path = LockboxPath::new("/legacy.bin").unwrap();
+                        legacy.chunks = vec![shared_frame_chunk(0)];
+                        let legacy_bytes =
+                            crate::toc_btree::encode_toc_leaf(&[legacy.clone()]).unwrap();
+                        assert_eq!(legacy_bytes[0], 1);
+                        let wire = entries[0].chunks[0]
+                            .block_frame
+                            .as_ref()
+                            .unwrap()
+                            .descriptor
+                            .encode()
+                            .unwrap();
+                        entries.insert(0, legacy);
+                        let encoder = TocEncoder::new(&entries);
+                        assert_eq!(encoder.version(), 2);
+                        let leaf = crate::toc_btree::encode_toc_leaf(&entries).unwrap();
+                        assert_eq!(leaf[0], 2);
+                        assert_eq!(leaf.len(), 2 + encoder.encoded_len());
+                        assert_eq!(
+                            leaf.windows(wire.len())
+                                .filter(|window| *window == wire)
+                                .count(),
+                            1
+                        );
+                        let mut estimator = TocEntriesLenEstimator::new();
+                        for (index, entry) in entries.iter().enumerate() {
+                            estimator.push(entry);
+                            assert_eq!(
+                                estimator.encoded_len(),
+                                TocEncoder::new(&entries[..=index]).encode().len()
+                            );
+                        }
+                        estimator.clear();
+                        assert_eq!(
+                            estimator.encoded_len(),
+                            TocEncoder::new(std::iter::empty()).encode().len()
+                        );
+                        let crate::toc_btree::TocNode::Leaf(decoded) =
+                            crate::toc_btree::decode_toc_node(&leaf).unwrap()
+                        else {
+                            panic!("leaf");
+                        };
+                        assert!(decoded[0].chunks[0].block_frame.is_none());
+                        assert!(std::sync::Arc::ptr_eq(
+                            decoded[1].chunks[0].block_frame.as_ref().unwrap(),
+                            decoded[2].chunks[0].block_frame.as_ref().unwrap()
+                        ));
+                        assert!(TocDecoder::new(&leaf[2..]).decode().is_err());
+                        let mut bytes = vec![0; 4096];
+                        bytes.extend_from_slice(&page);
+                        let storage = crate::storage::StorageBackend::memory(bytes);
+                        for entry in &decoded[1..] {
+                            let chunk = &entry.chunks[0];
+                            let reference = chunk.block_frame.as_ref().unwrap();
+                            let segment = &chunk.segments[0];
+                            let identity = PageIdentity {
+                                archive: crate::LockboxId::from_bytes([71; 16]),
+                                mode,
+                                page_id: segment.object_id,
+                                sequence: reference.sequence,
+                            };
+                            let reader = Reader::open(
+                                &storage,
+                                segment.page_offset,
+                                identity,
+                                &reference.descriptor,
+                                segment.page_len as usize,
+                                &[53; 32],
+                            )
+                            .unwrap();
+                            let start = chunk.compression_frame_offset;
+                            let expected: Vec<_> =
+                                (start..start + chunk.len).map(|n| (n % 13) as u8).collect();
+                            assert_eq!(reader.read(start..start + chunk.len).unwrap(), expected);
+                            let mut wrong = identity;
+                            wrong.sequence += 1;
+                            assert!(Reader::open(
+                                &storage,
+                                segment.page_offset,
+                                wrong,
+                                &reference.descriptor,
+                                segment.page_len as usize,
+                                &[53; 32]
+                            )
+                            .is_err());
+                        }
+                        assert_eq!(
+                            crate::toc_btree::encode_toc_leaf(&decoded[..1]).unwrap(),
+                            legacy_bytes
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn native_toc_rejects_ambiguous_layouts_and_inconsistent_block_references() {
+        use crate::{Compression, EncryptionMode, LockboxFormatOptions, SigningMode, SizePadding};
+        let mode = crate::creation_options::FormatMode::new(LockboxFormatOptions {
+            encryption: EncryptionMode::None,
+            signing: SigningMode::None,
+            compression: Compression::None,
+            size_padding: SizePadding::Default,
+        });
+        let (entries, _) = native_fixture(mode);
+        let mut same_fields_legacy = entries[0].clone();
+        same_fields_legacy.chunks[0].block_frame = None;
+        let distinct = TocEncoder::new([&entries[0], &same_fields_legacy]);
+        assert_eq!(
+            distinct.descriptors.len(),
+            2,
+            "layout semantics are part of descriptor identity"
+        );
+        let leaf = crate::toc_btree::encode_toc_leaf(&entries).unwrap();
+        let start = leaf
+            .windows(8)
+            .position(|window| window == b"LBXBF001")
+            .unwrap();
+        for offset in [start - 1, start + 11, start + 32, start + 96] {
+            let mut bad = leaf.clone();
+            bad[offset] ^= 2;
+            assert!(crate::toc_btree::decode_toc_node(&bad).is_err());
+        }
+        for version in [0, 3, 255] {
+            let mut bad = leaf.clone();
+            bad[0] = version;
+            assert!(crate::toc_btree::decode_toc_node(&bad).is_err());
+        }
+        for length in start..start + 128 {
+            assert!(crate::toc_btree::decode_toc_node(&leaf[..length]).is_err());
+        }
+        for scenario in 0..5 {
+            let mut bad = entries.clone();
+            let chunk = &mut bad[0].chunks[0];
+            match scenario {
+                0 => chunk.compression_frame_id += 1,
+                1 => chunk.compression_frame_digest[0] ^= 1,
+                2 => chunk.segments[0].page_offset = u64::MAX,
+                3 => chunk.segments[0].page_len = 1,
+                4 => chunk.segments.push(chunk.segments[0].clone()),
+                _ => unreachable!(),
+            }
+            let bytes = crate::toc_btree::encode_toc_leaf(&bad).unwrap();
+            assert!(crate::toc_btree::decode_toc_node(&bytes).is_err());
+        }
+    }
 
     #[test]
     fn decoded_toc_rejects_tampered_host_paths() {
@@ -883,6 +1286,8 @@ mod tests {
 
     fn shared_frame_chunk(index: u64) -> FileChunk {
         FileChunk {
+            #[cfg(test)]
+            block_frame: None,
             stored_path: LockboxPath::new(format!("/tree/file-{index}.bin")).unwrap(),
             file_offset: 0,
             len: 128,
