@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Invalidate retired cached pages during authenticated cleanup, preventing
+  stale control-page entries from blocking later native file allocations.
+  Overlap checks and pending-write protection remain enforced.
+
 - Recover signed native files when stale data trails an otherwise intact
   publication. Recovery authenticates a private copy bounded to the published
   length; header tags, owner signatures and content verification remain required.

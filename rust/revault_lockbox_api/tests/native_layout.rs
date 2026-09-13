@@ -2,7 +2,7 @@
 
 use revault_lockbox_api::{
     Compression, Encryption, Lockbox, LockboxCreateOptions, LockboxOpen, LockboxPath,
-    LockboxProtection, OwnerSigningKeyPair, SecretVec, Signing, SizePadding,
+    LockboxProtection, OwnerSigningKeyPair, SecretVec, Signing, SizePadding, VariableName,
 };
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
@@ -67,6 +67,35 @@ fn public_streaming_writer_and_rewrites_keep_the_common_native_layout_in_all_mod
                     assert_eq!(archive.get_file(&path).unwrap(), input);
                     archive.commit().unwrap();
                     archive.rename(&path, &renamed).unwrap();
+                    archive.delete(&small).unwrap();
+                    archive.commit().unwrap();
+                    // Reuse retired control/file ranges while this write handle
+                    // keeps its cache. Reopening only the verifier catches stale
+                    // cache state that a fresh writer per iteration would hide.
+                    let variable = VariableName::new("/changing").unwrap();
+                    let mut state = 0x1234_5678u64;
+                    for iteration in 0..8 {
+                        let value = "v".repeat(if iteration % 2 == 0 { 16_384 } else { 1 });
+                        let content = (0..if iteration % 2 == 0 { 128 * 1024 } else { 1 })
+                            .map(|_| {
+                                state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+                                (state >> 32) as u8
+                            })
+                            .collect::<Vec<_>>();
+                        archive.set_variable(&variable, &value).unwrap();
+                        archive.add_file(&small, &content, iteration != 0).unwrap();
+                        archive.commit().unwrap();
+                        let verified =
+                            Lockbox::open_bytes(archive.try_to_bytes().unwrap(), open()).unwrap();
+                        verified.inspector().verify_storage().unwrap();
+                        assert_eq!(verified.get_file(&small).unwrap(), content);
+                        assert_eq!(verified.get_file(&renamed).unwrap(), input);
+                        assert_eq!(
+                            verified.get_variable(&variable).unwrap().as_deref(),
+                            Some(value.as_str())
+                        );
+                        assert_eq!(verified.format_options().size_padding, size_padding);
+                    }
                     archive.delete(&small).unwrap();
                     archive.commit().unwrap();
                     archive.compact().unwrap();

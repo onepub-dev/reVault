@@ -671,6 +671,39 @@ impl PageCache {
         self.discard_after_flush.remove(&offset);
     }
 
+    /// Retire cached contents before an authenticated cleanup range is erased.
+    /// A range can coalesce several old allocations or intersect part of a
+    /// cached allocation. Pending writes must never be silently discarded.
+    pub(crate) fn invalidate_clean_range(&mut self, offset: u64, len: u64) -> Result<()> {
+        let end = offset.checked_add(len).ok_or(Error::CorruptRecord)?;
+        if len == 0 {
+            return Ok(());
+        }
+        let overlaps = |start: u64, size: u64| {
+            start < end && start.checked_add(size).is_none_or(|limit| limit > offset)
+        };
+        let mut retired = Vec::new();
+        for (&start, entry) in &self.pages {
+            if overlaps(start, entry.weight) {
+                if self.dirty_offsets.contains(&start) {
+                    return Err(Error::CorruptRecord);
+                }
+                retired.push(start);
+            }
+        }
+        if self
+            .zeroed_pages
+            .iter()
+            .any(|(&start, &size)| overlaps(start, size))
+        {
+            return Err(Error::CorruptRecord);
+        }
+        for start in retired {
+            self.evict(start);
+        }
+        Ok(())
+    }
+
     fn evict_cached(&mut self, offset: u64) {
         if let Some(old) = self.pages.remove(&offset) {
             self.used_bytes = self.used_bytes.saturating_sub(old.weight);
@@ -838,6 +871,8 @@ mod tests {
                                     .is_err());
                                 assert!(snapshot.has_dirty_pages());
                                 assert_eq!(storage.read_all().unwrap(), vec![11; 64]);
+                                assert!(snapshot.invalidate_clean_range(193, 1).is_err());
+                                assert!(snapshot.cached_native_page(192).unwrap().is_some());
                                 snapshot
                                     .flush_dirty_pages(&mut storage, archive, &[53; 32])
                                     .unwrap();
@@ -861,6 +896,10 @@ mod tests {
                                     snapshot.cached_native_page(192).unwrap().is_some(),
                                     limit != 0 && policy == PageWritePolicy::RetainAfterFlush
                                 );
+                                let adjacent_cached = snapshot.get_page(next).is_some();
+                                snapshot.invalidate_clean_range(193, 1).unwrap();
+                                assert!(snapshot.cached_native_page(192).unwrap().is_none());
+                                assert_eq!(snapshot.get_page(next).is_some(), adjacent_cached);
                                 snapshot.trim_to(0);
                                 assert_eq!(snapshot.stats().used_bytes, 0);
                                 assert_eq!(snapshot.stats().entries, 0);
@@ -999,6 +1038,39 @@ mod tests {
         assert!(cache.get_page(1).is_none());
         assert!(cache.get_page(2).is_some());
         assert!(cache.get_page(3).is_some());
+    }
+
+    #[test]
+    fn cleanup_invalidates_intersections_but_preserves_neighbors_and_pending_writes() {
+        let mut cache = PageCache::new(CacheLimit::Bytes(10_000));
+        for offset in [100, 200, 300, 400] {
+            cache.insert_page(offset, page(offset), 100);
+        }
+        cache.invalidate_clean_range(200, 0).unwrap();
+        assert_eq!(cache.stats().used_bytes, 400);
+        assert!(cache.invalidate_clean_range(u64::MAX, 1).is_err());
+        assert_eq!(cache.stats().used_bytes, 400);
+        // Partial overlap at each end; adjacent extents are untouched.
+        cache.invalidate_clean_range(250, 100).unwrap();
+        assert!(cache.get_page(100).is_some());
+        assert!(cache.get_page(200).is_none());
+        assert!(cache.get_page(300).is_none());
+        assert!(cache.get_page(400).is_some());
+        assert_eq!(cache.stats().used_bytes, 200);
+        cache
+            .stage_decoded_page_with_policy(200, 100, page(200), PageWritePolicy::RetainAfterFlush)
+            .unwrap();
+        assert!(cache.invalidate_clean_range(100, 300).is_err());
+        // Refusal is atomic, even if iteration saw a clean entry first.
+        assert!(cache.get_page(100).is_some());
+        assert!(cache.get_page(200).is_some());
+        assert!(cache.dirty_offsets.contains(&200));
+        assert_eq!(cache.stats().used_bytes, 300);
+        cache.evict(200);
+        cache.zeroed_pages.insert(200, 100);
+        assert!(cache.invalidate_clean_range(100, 300).is_err());
+        assert!(cache.get_page(100).is_some());
+        assert_eq!(cache.zeroed_pages.get(&200), Some(&100));
     }
 
     #[test]

@@ -646,6 +646,11 @@ impl Lockbox<Writable> {
                     .checked_add(range.len)
                     .filter(|end| *end <= storage_len && range.offset >= HEADER_LEN as u64)
                     .ok_or(Error::CorruptRecord)?;
+                // Invalidate before any erase, including resumed/skipped ranges:
+                // reads and future allocations must not see retired page images.
+                self.page_manager
+                    .borrow_mut()
+                    .invalidate_clean_range(range.offset, range.len)?;
                 if !skip_page {
                     let mut cursor = range.offset;
                     while cursor < end {

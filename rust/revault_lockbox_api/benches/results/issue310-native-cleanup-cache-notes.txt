@@ -1,0 +1,53 @@
+Issue #310: invalidate retired cache ranges during cleanup
+========================================================
+
+Baseline e3251d8; isolated performance worktree, native-block-layout feature.
+The complete feature suite had 16 failures. The repeated-mutation test
+secure_page_reuse_preserves_neighboring_file_bytes failed at commit, not at an
+internal wire assertion. Temporary diagnostics located the error in
+flush_pending_small_files -> write_prepared_native_frame -> stage_native_page.
+All diagnostics were removed before final validation.
+
+Observed allocation: native page [1077632, 1209728), 132096 bytes.
+Conflicting cache entry: [1208704, 1339776), 131072 bytes, clean.
+Authenticated retirement had erased obsolete control storage but retained its
+decoded cache entry. Later reuse overlapped that stale entry. Native staging
+correctly refused the overlap; disabling this check would hide the lifecycle
+bug rather than resolve cache ownership.
+
+Cleanup now invalidates all cached entries intersecting each validated erased
+range before writing zeroes, including ranges skipped when resuming cleanup.
+It uses checked range arithmetic and rejects intersecting dirty entries or
+pending zero writes before evicting anything. Adjacent live cache entries stay.
+Normal/native staging overlap rules, publication authentication and allocation
+ownership checks are unchanged. No archive-format or codec change.
+
+The unchanged 100-iteration native-feature regression now passes (24.58s).
+New cache unit coverage checks partial/coalesced intersections, adjacent ranges,
+zero length, overflow, byte accounting and atomic refusal of pending writes.
+Public native-layout integration coverage now keeps the same writable archive
+through eight alternating small/128KiB file replacements and variable updates
+in all 16 encryption/signing/compression/padding combinations. Every iteration
+reopens persisted bytes separately, verifies file/variable bytes and padding,
+and verifies physical storage. Final deletion, compaction and recovery remain.
+
+This is correctness evidence, not a new performance claim. Full native suite,
+read/write/load performance gates and the other issue #310 requirements remain
+open until separately verified.
+
+Validation before commit-time formatting:
+  cargo test -p revault_lockbox_api --lib --quiet
+    PASS: 329 passed, 5 ignored; 334 total, 75.61 seconds.
+  cargo test -p revault_lockbox_api --features native-block-layout --test native_layout -- --nocapture
+    PASS: expanded public lifecycle, all 16 combinations, 7.31 seconds.
+  cargo clippy -p revault_lockbox_api --features native-block-layout --lib --tests -- -D warnings
+    PASS.
+  cargo test -p revault_lockbox_api --features native-block-layout --lib --quiet
+    FAIL: 314 passed, 15 failed, 5 ignored; 334 total, 79.43 seconds.
+    The repeated-mutation failure is resolved and the new cache regression
+    passes. The other 15 previously recorded failures remain; no new failure.
+    Native cache invalidation/refusal assertions also ran across all modes.
+
+Next correctness work remains the signed recovery contract, actual native
+fault-injection coverage and legacy-assuming fixtures. Native cross-handle
+caching and the full ZIP/read/write/load gates are still unfinished.

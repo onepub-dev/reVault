@@ -66,6 +66,11 @@ assertion. Diagnose that before resuming read-speed optimization. The storage
 fault test also needs actual native pre-publication coverage, not removal of
 its assertion that an ambiguous header write was exercised.
 
+Follow-up: the repeated-mutation commit failure was traced to a retired clean
+control-page cache entry and fixed by invalidating authenticated cleanup ranges.
+See issue310-native-cleanup-cache-notes.txt for the exact reproduction and
+validation. Keep the initial failure list above as historical evidence.
+
 Decoder investigation (no dependency change): the pinned released
 zstd-complete 0.2.0 DecodeBuffer hashes drained output whenever its hash feature
 is enabled, regardless of the frame content-checksum flag. FrameDecoder exposes
