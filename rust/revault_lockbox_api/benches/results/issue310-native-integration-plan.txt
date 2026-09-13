@@ -1,0 +1,57 @@
+Issue #310 native integration checkpoint (base f9fbb5b)
+
+The existing native format is v4, including dual publication slots, preparation,
+rollback, cleanup and tail reclamation. Do not replace it with the benchmark's
+standalone RVEXP001 container. Header region is 384 bytes (two 192-byte slots),
+not an 8 MiB archive minimum. Current page granularity/minimum is 1 KiB; default
+data-page capacity is 8 MiB. Other fixed metadata allocations also affect small
+archive size. No-size-padding must address the actual allocation policy without
+removing required recovery metadata or default privacy padding.
+
+Staged module: src/file_format/indexed_frame.rs (test-only until wired).
+  - Fixed 32-byte header and SHA-256 per 16 KiB data block.
+  - Frame capped at 4 MiB; index capped at 8,224 bytes before any disk reads.
+  - Committed descriptor supplies expected identity, logical size and index hash.
+  - Verify the entire bounded index before data reads. Each block hash includes
+    a domain separator, frame identity, ordinal and exact block length.
+  - Data is contiguous after the index, unlike the prototype's interleaved
+    records. Whole-frame reads fill the output allocation in one Storage read;
+    no scratch/frame-sized copy. Range reads cover only complete touched blocks.
+  - Full-capacity ZeroizingBytes handles failed reads, failed hashes and trimmed
+    partial output. No memory mapping or unsafe uninitialized output is needed
+    for the initial native path.
+  - Tests cover bounded I/O, exact full-read call count, empty/tail/cross-block
+    ranges, noncanonical headers even with recomputed commitment, descriptor
+    mismatch, corrupted index, touched/untouched corruption, file-backed nonzero
+    offsets, reopening and truncation.
+
+Required wiring, not completed:
+  1. Freeze the current v4 reader for external logical migration before changing
+     native bytes. Add and test the v4-to-new-format archive/vault migrators and
+     release-tool routing. Existing frozen v3 migrator only targets v4.
+  2. New native format discriminator and persisted creation padding option;
+     reject unsupported formats explicitly. Update APIs, CLI, language bindings
+     and migrations; preserve default padding and protection policies.
+  3. File frame descriptors must commit index digest and physical extent. Store
+     them in the existing committed TOC tree, keeping block hashes out of eager
+     TOC loading. Do not trust an on-disk index's self-reported checksum.
+  4. Writer must record the exact indexed-data extent within its published page,
+     bind recovery manifests to the same descriptor, and keep page ownership
+     visible to existing reclamation, redaction and compaction bookkeeping.
+  5. Direct indexed plaintext reads may bypass whole-page payload validation
+     ONLY with the committed descriptor and checked extents. Existing raw/Zstd
+     and encrypted page checks must remain intact. Never apply this optimization
+     to ciphertext using plaintext block hashes. Signed content still requires
+     the archive's existing signature/metadata verification contract.
+  6. Read snapshots/cache identity must include the committed descriptor, not
+     merely an offset reused by later commits. External source revision/failure
+     latching must remain authoritative even after cache hits.
+  7. Integrate range, whole and stream readers. Then measure whether contiguous
+     direct-output reads plus bounded parallel hash verification close the
+     four-worker whole-file gap without affecting real open/load times.
+  8. Full public-CLI mutation/reopen/content verification lifecycles, crash and
+     rollback tests, compressed/protected modes, migration equivalence, external
+     source tests, and repeated ZIP comparisons remain required.
+
+No production archive writer or native version was changed in this checkpoint.
+The staged module is not evidence that native integration or ZIP parity is done.

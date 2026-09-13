@@ -2,6 +2,10 @@ pub(crate) mod commit_auth;
 pub(crate) mod commit_root;
 pub(crate) mod current_header;
 pub(crate) mod header_v2;
+// Staged native-layout implementation. Keep it out of archive writers until
+// the new format discriminator, migration and publication paths are wired.
+#[cfg(test)]
+mod indexed_frame;
 pub(crate) mod key_directory;
 pub(crate) mod page;
 pub(crate) mod page_buffer;
